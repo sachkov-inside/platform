@@ -7,6 +7,7 @@ export interface MaterialPreview {
   readonly cover?: ContentCover | null | undefined;
   readonly format: string;
   readonly formatSlug?: string | undefined;
+  readonly publishedAt?: string | undefined;
   readonly primaryVideoDurationSeconds?: number | undefined;
   readonly preview?: {
     readonly duration?: string;

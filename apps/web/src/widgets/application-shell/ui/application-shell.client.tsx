@@ -29,6 +29,7 @@ export interface ApplicationShellProps {
   readonly currentPath: string;
   readonly navigationItems: readonly ApplicationNavigationItem[];
   readonly mobileNavigationItems: readonly ApplicationNavigationItem[];
+  readonly onMobileNavigate?: (href: Route) => void;
   /** Desktop identity presentation supplied by the app adapter. */
   readonly accountSlot?: ReactNode;
 }
@@ -48,6 +49,7 @@ export function ApplicationShell({
   navigationItems,
   accountSlot,
   mobileNavigationItems,
+  onMobileNavigate,
 }: ApplicationShellProps) {
   return (
     <div
@@ -101,6 +103,7 @@ export function ApplicationShell({
       <MobileBottomNavigation
         currentPath={currentPath}
         items={mobileNavigationItems}
+        onNavigate={onMobileNavigate}
       />
       <main
         id="content"
@@ -139,16 +142,32 @@ function NavigationLink({
 function MobileBottomNavigation({
   currentPath,
   items,
+  onNavigate,
 }: {
   readonly currentPath: string;
   readonly items: readonly ApplicationNavigationItem[];
+  readonly onNavigate?: ((href: Route) => void) | undefined;
 }) {
+  const activeIndex = items.findIndex((item) => isCurrentPath(currentPath, item.href));
+  const totalParts = items.length + 1.5;
   return (
     <nav
       aria-label="Мобильная навигация"
-      className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-40 w-max max-w-[calc(100%-2rem)] -translate-x-1/2 rounded-[1.6rem] border border-black/8 bg-white/88 p-1.5 text-foreground shadow-floating-nav backdrop-blur-xl lg:hidden"
+      className="mobile-navigation fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-40 w-[17rem] max-w-[calc(100%-2rem)] -translate-x-1/2 rounded-[1.6rem] border border-black/8 bg-white/88 p-1.5 text-foreground shadow-floating-nav backdrop-blur-xl lg:hidden"
     >
-      <div className="flex items-center justify-center gap-1">
+      <div
+        className="mobile-navigation-items relative grid"
+        style={{ gridTemplateColumns: items.map((_, index) => index === activeIndex ? "2.5fr" : "1fr").join(" ") }}
+      >
+        <span
+          aria-hidden="true"
+          className="mobile-navigation-indicator pointer-events-none absolute inset-y-0 left-0 rounded-[1.15rem] bg-primary"
+          style={{
+            width: `${String(2.5 / totalParts * 100)}%`,
+            transform: `translateX(${String(Math.max(0, activeIndex) * 40)}%)`,
+            opacity: activeIndex < 0 ? 0 : 1,
+          }}
+        />
         {items.map((item) => {
           const Icon = iconByName[item.icon];
           const current = isCurrentPath(currentPath, item.href);
@@ -156,23 +175,29 @@ function MobileBottomNavigation({
           return (
             <Link
               aria-current={current ? "page" : undefined}
+              aria-label={item.label}
               className={cn(
-                "flex min-h-12 min-w-0 items-center justify-center gap-2 rounded-[1.15rem] px-3 text-xs font-semibold leading-none text-muted-foreground no-underline",
-                "transition-[background,color,padding] duration-[var(--motion-duration-fast)] ease-[var(--motion-ease-out)] active:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none",
-                current && "bg-primary px-5 text-white",
+                "mobile-navigation-link relative flex min-h-12 min-w-0 items-center justify-center rounded-[1.15rem] px-2 text-xs font-semibold leading-none text-muted-foreground no-underline",
+                "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+                current && "text-white",
               )}
               href={item.href}
               key={item.href}
+              prefetch={true}
+              scroll={onNavigate === undefined}
+              onNavigate={(event) => {
+                if (onNavigate === undefined) return;
+                event.preventDefault();
+                onNavigate(item.href);
+              }}
             >
               <Icon
                 aria-hidden="true"
-                className={cn("size-5", current && "text-accent-bright")}
+                className={cn("size-5 shrink-0", current && "text-accent-bright")}
               />
-              {current ? (
-                <span className="min-w-0 break-words">{item.label}</span>
-              ) : (
-                <span className="sr-only">{item.label}</span>
-              )}
+              <span aria-hidden="true" className="mobile-navigation-label grid min-w-0">
+                <span className="min-w-0 overflow-hidden"><span className="block truncate pl-2">{item.label}</span></span>
+              </span>
             </Link>
           );
         })}
@@ -182,6 +207,7 @@ function MobileBottomNavigation({
 }
 
 function isCurrentPath(pathname: string, href: Route): boolean {
+  href = href.split("?")[0] as Route;
   if (href === "/") return pathname === href;
   if (
     href === "/library" &&

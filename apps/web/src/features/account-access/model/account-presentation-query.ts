@@ -19,6 +19,11 @@ export function createAccountPresentationQueryOptions(
 ) {
   return queryOptions({
     queryKey: accountPresentationQueryKey(),
-    queryFn: ({ signal }) => loadPresentation({ signal }),
+    queryFn: async ({ signal }) => {
+      const result = await loadPresentation({ signal });
+      if (result.kind === "unavailable") throw new Error(result.reference);
+      return result;
+    },
+    retry: false,
   });
 }

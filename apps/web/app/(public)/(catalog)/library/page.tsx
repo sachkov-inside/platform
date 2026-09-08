@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 
-import { LibraryPageQuery } from "@/_pages/library";
+import { Suspense } from "react";
+
+import { LibraryLoading, LibraryPageQuery } from "@/_pages/library";
 
 export const metadata: Metadata = {
   title: "База знаний",
 };
 
 export default function LibraryRoute() {
-  return <LibraryPageQuery />;
+  return <Suspense fallback={<LibraryLoading />}><LibraryPageQuery /></Suspense>;
 }

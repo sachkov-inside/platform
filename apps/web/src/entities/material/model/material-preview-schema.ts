@@ -11,6 +11,7 @@ export const materialPreviewSchema: z.ZodType<MaterialPreview> = z
     cover: contentCoverSchema.nullable().optional(),
     format: z.string(),
     formatSlug: z.string().optional(),
+    publishedAt: z.iso.datetime({ offset: true }).optional(),
     primaryVideoDurationSeconds: z.number().int().positive().optional(),
     seriesMemberships: z.array(
       z
@@ -70,6 +71,7 @@ export function toMaterialPreview(
 ): MaterialPreview {
   return {
     materialId: projection.materialId,
+    publishedAt: projection.publishedAt,
     access: projection.access,
     availability: projection.availability,
     cover: projection.cover,

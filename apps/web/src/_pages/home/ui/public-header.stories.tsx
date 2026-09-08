@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, within } from "storybook/test";
+import { useState } from "react";
 
 import type { HomeView } from "../model/home-view";
 import { HomePage } from "./home-page";
@@ -166,6 +167,37 @@ export const MobileAccount: Story = {
   name: "Mobile · профиль выбран",
   args: { currentPath: "/account" },
   globals: { viewport: { isRotated: false, value: "mobile390" } },
+};
+
+function SwitchingNavigation() {
+  const [path, setPath] = useState("/");
+  return <div onClick={(event) => {
+    const link = event.target instanceof Element ? event.target.closest("a") : null;
+    if (link === null) return;
+    event.preventDefault();
+    setPath(new URL(link.href).pathname);
+  }}>
+    <ApplicationShell {...meta.args} currentPath={path}>
+      <h1 className="text-4xl font-bold">{path === "/" ? "Главная" : path === "/library" ? "База знаний" : "Профиль"}</h1>
+      <p className="mt-4 text-muted-foreground">Переключайте разделы нижней панели.</p>
+    </ApplicationShell>
+  </div>;
+}
+
+export const MobileSwitching: Story = {
+  name: "Mobile · плавное переключение",
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+  render: () => <SwitchingNavigation />,
+  play: async ({ canvasElement }) => {
+    const navigation = within(canvasElement).getByRole("navigation", { name: "Мобильная навигация" });
+    const width = navigation.getBoundingClientRect().width;
+    for (const name of ["База знаний", "Профиль", "Главная"]) {
+      const link = within(navigation).getByRole("link", { name });
+      await userEvent.click(link);
+      await expect(link).toHaveAttribute("aria-current", "page");
+      await expect(navigation.getBoundingClientRect().width).toBe(width);
+    }
+  },
 };
 export const Unavailable: Story = {
   name: "Статус сессии недоступен",

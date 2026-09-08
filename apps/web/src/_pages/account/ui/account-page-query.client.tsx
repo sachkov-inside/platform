@@ -22,13 +22,10 @@ export function AccountPageQuery() {
   if (query.isPending) {
     return <AccountLoading />;
   }
-  if (query.isError) {
+  if (query.isError && query.data === undefined) {
     return <AccountUnavailable reference="account-query" />;
   }
   if (query.data.kind === "unauthorized") return <AccountSignInRequired />;
-  if (query.data.kind === "unavailable") {
-    return <AccountUnavailable reference={query.data.reference} />;
-  }
   return (
     <AccountPageClient
       initialProfile={
