@@ -19,6 +19,7 @@ const guide = material({
   title: "Как устроен Inside Platform",
 });
 const note = material({
+  publishedAt: "2026-09-07T09:00:00.000Z",
   format: "Заметка",
   slug: "zametka-pro-granitsy-modulya",
   title: "Границы хорошего модуля",
@@ -142,6 +143,19 @@ export const IllustratedCatalog: Story = {
     await expect(topic).toBeVisible();
     const playlist = canvas.getByRole("link", { name: "Открыть серию Создание Platform Inside" });
     await expect(playlist.querySelectorAll("[data-content-cover-id]")).toHaveLength(2);
+  },
+};
+
+export const NotesPreview: Story = {
+  args: { result: { kind: "ready", value: { ...home, notes: [note, { ...note, slug: "last-note", title: "Маленький релиз проще проверить" }] } } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const feed = canvas.getByRole("list", { name: "Лента заметок" });
+    await expect(within(feed).getByRole("link", { name: note.title })).toBeVisible();
+    await expect(within(feed).queryByRole("link", { name: "Маленький релиз проще проверить" })).not.toBeInTheDocument();
+    await expect(within(feed).getByRole("link", { name: "Все заметки" })).toHaveAttribute("href", "/library?format=note");
+    await expect(feed.querySelector("time")).toHaveAttribute("datetime", "2026-09-07T09:00:00.000Z");
+    await expect(feed.querySelector("[inert]")).toHaveAttribute("aria-hidden", "true");
   },
 };
 
