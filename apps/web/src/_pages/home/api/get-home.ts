@@ -28,7 +28,7 @@ const homeCollectionSchema = z
 
 const homeSchema = z
   .object({
-    pinnedMaterial: publishedMaterialProjectionSchema.nullable(),
+    pinnedSeries: homeCollectionSchema.nullable(),
     guides: z.array(publishedMaterialProjectionSchema),
     notes: z.array(publishedMaterialProjectionSchema),
     membership: z.discriminatedUnion("kind", [
@@ -77,7 +77,7 @@ export async function getHome(
     kind: "ready",
     value: {
       membership: parsed.data.membership,
-      pinnedMaterial: parsed.data.pinnedMaterial === null ? null : toMaterialPreview(parsed.data.pinnedMaterial),
+      pinnedSeries: parsed.data.pinnedSeries === null ? null : mapCollection(parsed.data.pinnedSeries),
       guides: parsed.data.guides.map(toMaterialPreview),
       notes: parsed.data.notes.map(toMaterialPreview),
       playlists: parsed.data.playlists.map(mapCollection),

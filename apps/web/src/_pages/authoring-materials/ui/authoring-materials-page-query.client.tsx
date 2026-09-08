@@ -1,7 +1,5 @@
 "use client";
 
-import { useHomePin } from "../model/use-home-pin.client";
-import { Button } from "@/shared/ui/button";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import {
@@ -38,7 +36,6 @@ function AuthoringMaterialsQueryView({
     () => parseBrowserAuthoringMaterialsQuery(locationSearch),
     [locationSearch],
   );
-  const homePin = useHomePin();
   const debouncedSearch = useLiveSearchValue(query.search);
   const requestQuery = useMemo(
     () =>
@@ -62,7 +59,7 @@ function AuthoringMaterialsQueryView({
     replaceAuthoringMaterialsUrl(next);
   }, []);
 
-  if (materials.isPending || homePin.isPending) return <AuthoringMaterialsLoading />;
+  if (materials.isPending) return <AuthoringMaterialsLoading />;
   const state = materials.data ?? {
     kind: "unexpected_error" as const,
     reference: "authoring-materials-query",
@@ -70,8 +67,6 @@ function AuthoringMaterialsQueryView({
 
   return (
     <AuthoringMaterialsView
-      homePin={homePin.controls}
-      homePinNotice={<div className="py-4 text-sm"><p role={homePin.hasError ? "alert" : "status"}>{homePin.message}</p>{homePin.hasError && <Button variant="outline" className="mt-2" onClick={homePin.retry}>Обновить закреп</Button>}</div>}
       isRefreshing={materials.isFetching}
       onQueryChange={changeQuery}
       onRetry={() => {

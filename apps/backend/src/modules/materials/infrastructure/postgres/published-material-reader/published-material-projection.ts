@@ -167,14 +167,6 @@ export async function selectPublishedMaterialProjectionBySlug(
   return rows[0] === undefined ? undefined : toProjection(rows[0]);
 }
 
-export async function selectHomePinnedMaterialProjection(prisma: MaterialsPrisma): Promise<PublishedMaterialProjectionDto | null> {
-  const rows = publishedMaterialProjectionRowSchema.array().parse(await prisma.$queryRaw(projectionQuery({
-    where: Prisma.sql`where publication.material_id = (select material_id from materials.home_material_pin where id = 1)`,
-    limit: Prisma.sql`limit 1`,
-  })));
-  return rows[0] === undefined ? null : toProjection(rows[0]);
-}
-
 export async function selectPublishedMaterialProjectionPage(
   prisma: MaterialsPrisma,
   values: PublishedMaterialProjectionSearchValues,

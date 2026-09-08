@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { authoringMaterialsRootHref } from "@/shared/routing/authoring";
 import {
   SeriesOrderManager,
+  HomeSeriesPin,
   type SeriesOrderPresentation,
 } from "@/features/series-order";
 
@@ -19,6 +20,7 @@ export function SeriesOrderPageClient({
   const router = useRouter();
   return (
     <SeriesOrderManager
+      homePin={<HomeSeriesPin seriesId={presentation.seriesId} />}
       createMaterialSearchQueryOptions={seriesOrderMaterialSearchQueryOptions}
       onBack={() => {
         router.push(authoringMaterialsRootHref);

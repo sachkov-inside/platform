@@ -10,7 +10,7 @@ export async function loadHomePin(signal: AbortSignal): Promise<HomePinResult> {
 
 export async function setHomePin(input: SetHomePinInput): Promise<HomePinResult> {
   const body = new FormData();
-  body.set("materialId", input.materialId ?? "");
+  body.set("seriesId", input.seriesId ?? "");
   body.set("expectedVersion", String(input.expectedVersion));
   const response = await requestSameOriginMutation("/api/authoring/home-pin", "PUT", body);
   if (!response.ok) return { kind: response.status === 401 ? "unauthorized" : "unavailable" };

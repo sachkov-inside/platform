@@ -14,7 +14,7 @@ export function assembleLoadHomePin(dependencies: MaterialAuthoringDependencies)
     const authorization = await authorizeManager(dependencies.authorPolicy, parsed.value.actor);
     if (!authorization.ok) return authorization;
     try {
-      const pin = await dependencies.prisma.homeMaterialPin.findUniqueOrThrow({ where: { id: 1 }, select: { materialId: true, version: true } });
+      const pin = await dependencies.prisma.homeSeriesPin.findUniqueOrThrow({ where: { id: 1 }, select: { seriesId: true, version: true } });
       return { ok: true, value: pin };
     } catch (error) {
       return { ok: false, error: mapPostgresReadError(error) };

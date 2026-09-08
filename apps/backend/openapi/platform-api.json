@@ -8753,7 +8753,7 @@
                 "schema": {
                   "additionalProperties": false,
                   "properties": {
-                    "materialId": {
+                    "seriesId": {
                       "format": "uuid",
                       "nullable": true,
                       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
@@ -8767,7 +8767,7 @@
                     }
                   },
                   "required": [
-                    "materialId",
+                    "seriesId",
                     "version"
                   ],
                   "type": "object"
@@ -9142,7 +9142,7 @@
             "logto": []
           }
         ],
-        "summary": "Read the author's Home Material selection",
+        "summary": "Read the author's Home Series selection",
         "tags": [
           "Material authoring"
         ]
@@ -9162,7 +9162,7 @@
                     "minimum": 0,
                     "type": "integer"
                   },
-                  "materialId": {
+                  "seriesId": {
                     "format": "uuid",
                     "nullable": true,
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
@@ -9170,7 +9170,7 @@
                   }
                 },
                 "required": [
-                  "materialId",
+                  "seriesId",
                   "expectedVersion"
                 ],
                 "type": "object"
@@ -9186,7 +9186,7 @@
                 "schema": {
                   "additionalProperties": false,
                   "properties": {
-                    "materialId": {
+                    "seriesId": {
                       "format": "uuid",
                       "nullable": true,
                       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
@@ -9200,7 +9200,7 @@
                     }
                   },
                   "required": [
-                    "materialId",
+                    "seriesId",
                     "version"
                   ],
                   "type": "object"
@@ -9935,7 +9935,7 @@
             "logto": []
           }
         ],
-        "summary": "Replace or remove the author's Home Material selection",
+        "summary": "Replace or remove the author's Home Series selection",
         "tags": [
           "Material authoring"
         ]
@@ -48662,28 +48662,11 @@
                       },
                       "type": "array"
                     },
-                    "pinnedMaterial": {
+                    "pinnedSeries": {
                       "additionalProperties": false,
                       "nullable": true,
                       "properties": {
-                        "access": {
-                          "enum": [
-                            "free",
-                            "membership",
-                            "workshop"
-                          ],
-                          "type": "string"
-                        },
-                        "availability": {
-                          "enum": [
-                            "available",
-                            "locked",
-                            "unavailable"
-                          ],
-                          "type": "string"
-                        },
-                        "contentVersion": {
-                          "exclusiveMinimum": true,
+                        "count": {
                           "maximum": 9007199254740991,
                           "minimum": 0,
                           "type": "integer"
@@ -48729,67 +48712,203 @@
                           ],
                           "type": "object"
                         },
-                        "format": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "id": {
-                              "enum": [
-                                "video",
-                                "guide",
-                                "note"
-                              ],
-                              "type": "string"
-                            },
-                            "name": {
-                              "type": "string"
-                            },
-                            "slug": {
-                              "enum": [
-                                "video",
-                                "guide",
-                                "note"
-                              ],
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "id",
-                            "name",
-                            "slug"
-                          ],
-                          "type": "object"
-                        },
-                        "materialId": {
-                          "type": "string"
-                        },
-                        "primaryVideoDurationSeconds": {
-                          "exclusiveMinimum": true,
-                          "maximum": 9007199254740991,
-                          "minimum": 0,
-                          "type": "integer"
-                        },
-                        "primaryVideoId": {
+                        "id": {
                           "format": "uuid",
-                          "nullable": true,
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                           "type": "string"
                         },
-                        "publishedAt": {
-                          "format": "date-time",
-                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                        "name": {
                           "type": "string"
                         },
-                        "seriesMemberships": {
+                        "previewItems": {
                           "items": {
                             "additionalProperties": false,
                             "properties": {
-                              "ordinal": {
+                              "access": {
+                                "enum": [
+                                  "free",
+                                  "membership",
+                                  "workshop"
+                                ],
+                                "type": "string"
+                              },
+                              "availability": {
+                                "enum": [
+                                  "available",
+                                  "locked",
+                                  "unavailable"
+                                ],
+                                "type": "string"
+                              },
+                              "contentVersion": {
                                 "exclusiveMinimum": true,
                                 "maximum": 9007199254740991,
                                 "minimum": 0,
                                 "type": "integer"
                               },
-                              "series": {
+                              "cover": {
+                                "additionalProperties": false,
+                                "nullable": true,
+                                "properties": {
+                                  "coverId": {
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                    "type": "string"
+                                  },
+                                  "renditions": {
+                                    "items": {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "height": {
+                                          "exclusiveMinimum": true,
+                                          "maximum": 9007199254740991,
+                                          "minimum": 0,
+                                          "type": "integer"
+                                        },
+                                        "width": {
+                                          "exclusiveMinimum": true,
+                                          "maximum": 9007199254740991,
+                                          "minimum": 0,
+                                          "type": "integer"
+                                        }
+                                      },
+                                      "required": [
+                                        "height",
+                                        "width"
+                                      ],
+                                      "type": "object"
+                                    },
+                                    "type": "array"
+                                  }
+                                },
+                                "required": [
+                                  "coverId",
+                                  "renditions"
+                                ],
+                                "type": "object"
+                              },
+                              "format": {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "id": {
+                                    "enum": [
+                                      "video",
+                                      "guide",
+                                      "note"
+                                    ],
+                                    "type": "string"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "slug": {
+                                    "enum": [
+                                      "video",
+                                      "guide",
+                                      "note"
+                                    ],
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "name",
+                                  "slug"
+                                ],
+                                "type": "object"
+                              },
+                              "materialId": {
+                                "type": "string"
+                              },
+                              "primaryVideoDurationSeconds": {
+                                "exclusiveMinimum": true,
+                                "maximum": 9007199254740991,
+                                "minimum": 0,
+                                "type": "integer"
+                              },
+                              "primaryVideoId": {
+                                "format": "uuid",
+                                "nullable": true,
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                "type": "string"
+                              },
+                              "publishedAt": {
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                                "type": "string"
+                              },
+                              "seriesMemberships": {
+                                "items": {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "ordinal": {
+                                      "exclusiveMinimum": true,
+                                      "maximum": 9007199254740991,
+                                      "minimum": 0,
+                                      "type": "integer"
+                                    },
+                                    "series": {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "id": {
+                                          "type": "string"
+                                        },
+                                        "name": {
+                                          "type": "string"
+                                        },
+                                        "slug": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "id",
+                                        "name",
+                                        "slug"
+                                      ],
+                                      "type": "object"
+                                    },
+                                    "stepGroup": {
+                                      "nullable": true,
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "ordinal",
+                                    "series"
+                                  ],
+                                  "type": "object"
+                                },
+                                "type": "array"
+                              },
+                              "slug": {
+                                "type": "string"
+                              },
+                              "summary": {
+                                "type": "string"
+                              },
+                              "tags": {
+                                "items": {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "name": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "name"
+                                  ],
+                                  "type": "object"
+                                },
+                                "type": "array"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "topic": {
                                 "additionalProperties": false,
                                 "properties": {
                                   "id": {
@@ -48808,84 +48927,46 @@
                                   "slug"
                                 ],
                                 "type": "object"
-                              },
-                              "stepGroup": {
-                                "nullable": true,
-                                "type": "string"
                               }
                             },
                             "required": [
-                              "ordinal",
-                              "series"
+                              "materialId",
+                              "contentVersion",
+                              "slug",
+                              "title",
+                              "summary",
+                              "access",
+                              "publishedAt",
+                              "primaryVideoId",
+                              "cover",
+                              "topic",
+                              "format",
+                              "tags",
+                              "seriesMemberships",
+                              "availability"
                             ],
                             "type": "object"
                           },
                           "type": "array"
                         },
                         "slug": {
+                          "maxLength": 120,
+                          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
                           "type": "string"
                         },
                         "summary": {
+                          "nullable": true,
                           "type": "string"
-                        },
-                        "tags": {
-                          "items": {
-                            "additionalProperties": false,
-                            "properties": {
-                              "id": {
-                                "type": "string"
-                              },
-                              "name": {
-                                "type": "string"
-                              }
-                            },
-                            "required": [
-                              "id",
-                              "name"
-                            ],
-                            "type": "object"
-                          },
-                          "type": "array"
-                        },
-                        "title": {
-                          "type": "string"
-                        },
-                        "topic": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "id": {
-                              "type": "string"
-                            },
-                            "name": {
-                              "type": "string"
-                            },
-                            "slug": {
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "id",
-                            "name",
-                            "slug"
-                          ],
-                          "type": "object"
                         }
                       },
                       "required": [
-                        "materialId",
-                        "contentVersion",
+                        "count",
+                        "id",
+                        "name",
                         "slug",
-                        "title",
                         "summary",
-                        "access",
-                        "publishedAt",
-                        "primaryVideoId",
                         "cover",
-                        "topic",
-                        "format",
-                        "tags",
-                        "seriesMemberships",
-                        "availability"
+                        "previewItems"
                       ],
                       "type": "object"
                     },
@@ -49740,7 +49821,7 @@
                     }
                   },
                   "required": [
-                    "pinnedMaterial",
+                    "pinnedSeries",
                     "topics",
                     "playlists",
                     "videos",

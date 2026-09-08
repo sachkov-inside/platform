@@ -9,7 +9,7 @@ import { MATERIAL_AUTHORING } from "../../facets/material-authoring/material-aut
 import type { MaterialAuthoring } from "../../facets/material-authoring/material-authoring.js";
 import { homePinSchema } from "../load-home-pin/home-pin-http.js";
 
-const bodySchema = z.object({ materialId: z.uuid().nullable(), expectedVersion: z.number().int().positive() }).strict();
+const bodySchema = z.object({ seriesId: z.uuid().nullable(), expectedVersion: z.number().int().positive() }).strict();
 
 @MaterialAuthoringEndpoint()
 @Controller("authoring/home-pin")
@@ -17,7 +17,7 @@ export class SetHomePinController {
   constructor(@Inject(MATERIAL_AUTHORING) private readonly authoring: MaterialAuthoring) {}
 
   @Put()
-  @ApiOperation({ operationId: "setAuthoringHomePin", summary: "Replace or remove the author's Home Material selection" })
+  @ApiOperation({ operationId: "setAuthoringHomePin", summary: "Replace or remove the author's Home Series selection" })
   @ApiBody({ schema: toOpenApiSchema(bodySchema) })
   @ApiOkResponse({ schema: toOpenApiSchema(homePinSchema) })
   @ApiMaterialAuthoringErrors(400, 401, 403, 404, 409, 422, 500, 503)

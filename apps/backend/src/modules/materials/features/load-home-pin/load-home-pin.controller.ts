@@ -14,7 +14,7 @@ export class LoadHomePinController {
   constructor(@Inject(MATERIAL_AUTHORING) private readonly authoring: MaterialAuthoring) {}
 
   @Get()
-  @ApiOperation({ operationId: "loadAuthoringHomePin", summary: "Read the author's Home Material selection" })
+  @ApiOperation({ operationId: "loadAuthoringHomePin", summary: "Read the author's Home Series selection" })
   @ApiOkResponse({ schema: toOpenApiSchema(homePinSchema) })
   @ApiMaterialAuthoringErrors(401, 403, 500, 503)
   async load(@CurrentAccount() account: AuthenticatedAccount) {

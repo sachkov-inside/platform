@@ -29,7 +29,7 @@ const materialTables = [
   "authoring_idempotency",
   "content_cover_renditions",
   "content_covers",
-  "home_material_pin",
+  "home_series_pin",
   "material_related_pins",
   "material_search_documents",
   "material_tags",
@@ -174,6 +174,7 @@ describe("Platform migrations", () => {
           "0036_video_upload_rejections",
           "0037_platform_admin",
           "0038_home_material_pin",
+      "0039_home_series_pin",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -739,6 +740,7 @@ describe("Platform migrations", () => {
           "0036_video_upload_rejections",
           "0037_platform_admin",
           "0038_home_material_pin",
+      "0039_home_series_pin",
         ],
       });
 

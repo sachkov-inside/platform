@@ -58,7 +58,7 @@ const guides = [
 ] as const satisfies readonly MaterialPreview[];
 
 export const illustratedHome: HomeView = {
-  pinnedMaterial: null,
+  pinnedSeries: null,
   membership: { kind: "active" },
   guides,
   videos,

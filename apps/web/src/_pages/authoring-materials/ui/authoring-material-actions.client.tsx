@@ -1,8 +1,5 @@
 "use client";
 
-import { Pin, PinOff } from "lucide-react";
-import { Button } from "@/shared/ui/button";
-import type { HomePinControls } from "../model/home-pin";
 import type { Route } from "next";
 import Link from "next/link";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -19,11 +16,9 @@ import type { AuthoringMaterialListItem } from "../model/authoring-materials-pre
 import { authoringMaterialsQueryKey } from "../model/authoring-materials-query-options";
 
 export function AuthoringMaterialActions({
-  homePin,
   editorHref,
   material,
 }: {
-  readonly homePin?: HomePinControls | undefined;
   readonly editorHref: Route;
   readonly material: AuthoringMaterialListItem;
 }) {
@@ -94,13 +89,6 @@ export function AuthoringMaterialActions({
           submissionId={material.submissionId}
           title={material.title}
         />
-      ) : null}
-      {homePin !== undefined && (publicationStatus === "published" || homePin.pin?.materialId === material.materialId) ? (
-        <Button className="col-span-2 min-h-11 whitespace-normal sm:col-span-1" variant="outline" disabled={homePin.pin === null || homePin.pending || publicationPending || deletionPending}
-          onClick={() => { homePin.onChange(homePin.pin?.materialId === material.materialId ? null : material.materialId); }}>
-          {homePin.pin?.materialId === material.materialId ? <PinOff aria-hidden="true" /> : <Pin aria-hidden="true" />}
-          {homePin.pin?.materialId === material.materialId ? "Снять закреп с главной" : "Закрепить на главной"}
-        </Button>
       ) : null}
       <PublicationNotice editorHref={editorHref} result={publicationResult} />
     </>

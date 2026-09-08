@@ -8,7 +8,7 @@ import type { HomeView } from "../model/home-view";
 
 const home: HomeView = {
   ...illustratedHome,
-  pinnedMaterial: illustratedHome.guides[0] ?? null,
+  pinnedSeries: illustratedHome.playlists[0] ?? null,
   membership: { kind: "inactive", acquisitionUrl: "https://t.me/tribute" },
   playlists: illustratedHome.playlists.map((series, index) => index === 0 ? {
     ...series, name: "Создаём реальный продукт с ИИ", summary: "От идеи и архитектуры до кода и деплоя. На примере самой платформы Inside.",
@@ -28,7 +28,7 @@ export const Ready: Story = {
   args: { result: { kind: "ready", value: home } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("link", { name: "Открыть материал" })).toHaveAttribute("href", `/materials/${String(home.pinnedMaterial?.slug)}?from=%2F`);
+    await expect(canvas.getByRole("link", { name: "Открыть серию" })).toHaveAttribute("href", `/series/${String(home.pinnedSeries?.slug)}?from=%2F`);
     await expect(canvas.getByRole("link", { name: /^Полный доступ$/u })).toHaveAttribute("href", "https://t.me/tribute");
     await expect(canvas.queryByRole("heading", { name: "Все материалы в одном каталоге" })).not.toBeInTheDocument();
     const sections = Array.from(canvasElement.querySelectorAll('section[aria-labelledby], section[aria-label="Подписка Inside"]'), (section) => section.getAttribute("aria-labelledby") ?? section.getAttribute("aria-label"));
@@ -38,20 +38,20 @@ export const Ready: Story = {
 export const Mobile: Story = { ...Ready, globals: { viewport: { value: "mobile390", isRotated: false } } };
 export const ActiveMember: Story = { args: { result: { kind: "ready", value: { ...home, membership: { kind: "active" } } } }, play: noAcquisition };
 export const UnknownMembership: Story = { args: { result: { kind: "ready", value: { ...home, membership: { kind: "unknown" } } } }, play: noAcquisition };
-export const Empty: Story = { args: { result: { kind: "ready", value: { ...home, pinnedMaterial: null, playlists: [], videos: [], guides: [], notes: [], topics: [] } } }, play: async ({ canvasElement }) => {
+export const Empty: Story = { args: { result: { kind: "ready", value: { ...home, pinnedSeries: null, playlists: [], videos: [], guides: [], notes: [], topics: [] } } }, play: async ({ canvasElement }) => {
   const canvas = within(canvasElement);
-  await expect(canvas.queryByRole("link", { name: "Открыть материал" })).not.toBeInTheDocument();
+  await expect(canvas.queryByRole("link", { name: "Открыть серию" })).not.toBeInTheDocument();
   await expect(canvas.getByText("Серий пока нет.")).toBeVisible();
 } };
 export const Unavailable: Story = { args: { result: { kind: "unavailable" } }, play: noAcquisition };
 export const Loading: Story = { args: { result: { kind: "unavailable" } }, render: () => <HomeLoading /> };
-export const LongMaterial: Story = { args: { result: { kind: "ready", value: { ...home, pinnedMaterial: home.pinnedMaterial === null ? null : { ...home.pinnedMaterial, title: "Проектируем и развиваем приложение: от первой идеи до надёжного релиза с искусственным интеллектом", summary: "" } } } } };
+export const LongSeries: Story = { args: { result: { kind: "ready", value: { ...home, pinnedSeries: home.pinnedSeries === null ? null : { ...home.pinnedSeries, name: "Проектируем и развиваем приложение: от первой идеи до надёжного релиза с искусственным интеллектом", summary: "" } } } } };
 
 async function noAcquisition({ canvasElement }: { canvasElement: HTMLElement }) {
   const canvas = within(canvasElement);
   await expect(canvas.queryByRole("region", { name: "Подписка Inside" })).not.toBeInTheDocument();
   await expect(canvas.queryByRole("link", { name: "Получить полный доступ" })).not.toBeInTheDocument();
-  if (canvas.queryByRole("heading", { name: "Главная" })) await expect(canvas.getByRole("link", { name: "Открыть материал" })).toBeVisible();
+  if (canvas.queryByRole("heading", { name: "Главная" })) await expect(canvas.getByRole("link", { name: "Открыть серию" })).toBeVisible();
 }
 
-export const NoPin: Story = { args: { result: { kind: "ready", value: { ...home, pinnedMaterial: null } } }, play: async ({ canvasElement }) => { await expect(canvasElement.querySelector("#featured-title")).toBeNull(); } };
+export const NoPin: Story = { args: { result: { kind: "ready", value: { ...home, pinnedSeries: null } } }, play: async ({ canvasElement }) => { await expect(canvasElement.querySelector("#featured-title")).toBeNull(); } };

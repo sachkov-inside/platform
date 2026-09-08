@@ -1,4 +1,5 @@
 "use client";
+import type { ReactNode } from "react";
 
 import {
   ArrowDown,
@@ -36,6 +37,7 @@ import type {
 
 export function SeriesOrderManager({
   embedded = false,
+  homePin,
   createMaterialSearchQueryOptions,
   onBack,
   onRefresh,
@@ -43,6 +45,7 @@ export function SeriesOrderManager({
   presentation,
 }: {
   readonly embedded?: boolean;
+  readonly homePin?: ReactNode;
   readonly createMaterialSearchQueryOptions: CreateSeriesOrderMaterialSearchQueryOptions;
   readonly onBack: () => void;
   readonly onRefresh: () => void;
@@ -191,6 +194,7 @@ export function SeriesOrderManager({
             </div>
           </div>
         </header>
+        {homePin}
 
         <OrderFeedback
           dirty={dirty}

@@ -13,8 +13,8 @@ export function useHomePin() {
     else void queryClient.invalidateQueries({ queryKey: homePinQueryKey });
   } });
   const pin = query.data?.kind === "ready" ? query.data.pin : null;
-  const controls: HomePinControls = { pin, pending: mutation.isPending, onChange: (materialId) => {
-    if (pin !== null) mutation.mutate({ materialId, expectedVersion: pin.version });
+  const controls: HomePinControls = { pin, pending: mutation.isPending, onChange: (seriesId) => {
+    if (pin !== null) mutation.mutate({ seriesId, expectedVersion: pin.version });
   } };
   const result = query.data?.kind === "ready" ? mutation.data ?? query.data : query.data;
   const error = query.isError || mutation.isError;
@@ -28,10 +28,10 @@ export function useHomePin() {
 }
 
 function homePinMessage(result: HomePinResult | undefined, saved: boolean): string {
-  if (result?.kind === "ready") return saved ? result.pin.materialId === null ? "Закреп снят с главной." : "Материал закреплён на главной." : "Выберите опубликованный материал: он появится первым на главной с изображением автора.";
-  if (result?.kind === "conflict") return "Закреп изменился в другой вкладке. Состояние обновлено; выберите материал ещё раз.";
+  if (result?.kind === "ready") return saved ? result.pin.seriesId === null ? "Закреп снят с главной." : "Серия закреплена на главной." : "Закрепите эту серию: она появится первой на главной с изображением автора.";
+  if (result?.kind === "conflict") return "Закреп изменился в другой вкладке. Состояние обновлено; закрепите серию ещё раз.";
   if (result?.kind === "unauthorized") return "Сессия завершилась. Войдите снова.";
   if (result?.kind === "forbidden") return "Нет права управлять закрепом.";
-  if (result?.kind === "invalid_input") return "Материал не найден или снят с публикации. Обновите список и выберите опубликованный материал.";
+  if (result?.kind === "invalid_input") return "Серия недоступна или в ней нет опубликованных материалов. Обновите состав и повторите действие.";
   return "Закреп временно недоступен. Обновите состояние и повторите действие.";
 }

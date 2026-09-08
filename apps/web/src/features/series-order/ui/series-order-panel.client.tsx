@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/shared/ui/button";
 import { seriesOrderQueryOptions } from "../api/read-series-order.browser";
 import { seriesOrderMaterialSearchQueryOptions } from "../model/series-order-material-search-query";
+import { HomeSeriesPin } from "./home-series-pin.client";
 import { SeriesOrderManager } from "./series-order-manager.client";
 export function SeriesOrderPanel({
   seriesId,
@@ -35,6 +36,7 @@ export function SeriesOrderPanel({
   const order = query.data.order;
   return (
     <SeriesOrderManager
+      homePin={<HomeSeriesPin seriesId={seriesId} />}
       embedded
       createMaterialSearchQueryOptions={seriesOrderMaterialSearchQueryOptions}
       onBack={onClose}

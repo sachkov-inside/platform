@@ -1,10 +1,10 @@
-import type { ReadHomePinnedProjectionOperation } from "../../features/read-home-pinned-projection/read-home-pinned-projection.js";
+import type { ReadHomePinnedSeriesIdOperation } from "../../features/read-home-pinned-series-id/read-home-pinned-series-id.js";
 import type { ListPublishedMaterialProjectionsOperation } from "../../features/list-published-material-projections/list-published-material-projections.contract.js";
 import type { DiscoverPublishedMaterialProjectionsOperation } from "../../features/discover-published-material-projections/discover-published-material-projections.contract.js";
 import type { ReadPublishedMaterialOperation } from "../../features/read-published-material/read-published-material.contract.js";
 
 export interface PublishedMaterialReader {
-  readonly readHomePinnedProjection: ReadHomePinnedProjectionOperation;
+  readonly readHomePinnedSeriesId: ReadHomePinnedSeriesIdOperation;
   readonly discoverProjections: DiscoverPublishedMaterialProjectionsOperation;
   readonly listProjections: ListPublishedMaterialProjectionsOperation;
   readonly read: ReadPublishedMaterialOperation;

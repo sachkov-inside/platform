@@ -238,12 +238,12 @@ export class MaterialAuthoringService {
     });
   }
   /**
-   * Read the author's Home Material selection
+   * Read the author's Home Series selection
    * @returns any
    * @throws ApiError
    */
   public loadAuthoringHomePin(): CancelablePromise<{
-    materialId: string | null;
+    seriesId: string | null;
     version: number;
   }> {
     return this.httpRequest.request({
@@ -252,7 +252,7 @@ export class MaterialAuthoringService {
     });
   }
   /**
-   * Replace or remove the author's Home Material selection
+   * Replace or remove the author's Home Series selection
    * @returns any
    * @throws ApiError
    */
@@ -261,10 +261,10 @@ export class MaterialAuthoringService {
   }: {
     requestBody: {
       expectedVersion: number;
-      materialId: string | null;
+      seriesId: string | null;
     },
   }): CancelablePromise<{
-    materialId: string | null;
+    seriesId: string | null;
     version: number;
   }> {
     return this.httpRequest.request({

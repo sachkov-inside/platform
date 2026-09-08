@@ -337,12 +337,12 @@ model Series {
   @@schema("materials")
 }
 
-model HomeMaterialPin {
-  id         Int     @id
-  materialId String? @map("material_id") @db.Uuid
-  version    Int     @default(1)
+model HomeSeriesPin {
+  id       Int     @id
+  seriesId String? @map("series_id") @db.Uuid
+  version  Int     @default(1)
 
-  @@map("home_material_pin")
+  @@map("home_series_pin")
   @@schema("materials")
 }
 

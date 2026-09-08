@@ -17,7 +17,7 @@ export interface HomeCollection {
 }
 
 export interface HomeView {
-  readonly pinnedMaterial: MaterialPreview | null;
+  readonly pinnedSeries: HomeCollection | null;
   readonly membership:
     | { readonly kind: "active" }
     | { readonly kind: "inactive"; readonly acquisitionUrl: string }

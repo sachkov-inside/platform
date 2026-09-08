@@ -1,19 +1,19 @@
 import { ArrowRight, BookOpen, Code2, GitBranch, Layers, MessageCircle, Terminal, Users } from "lucide-react";
 import Link from "next/link";
 
-import type { MaterialPreview } from "@/entities/material";
-import { materialReaderHref } from "@/shared/routing/material-reader";
+import type { HomeCollection } from "../model/home-view";
+import { collectionDiscoveryHref } from "@/shared/routing/material-reader";
 
-/** Reuses the #380 presenter composition with the author-selected published Material. */
-export function FeaturedMaterial({ material }: { readonly material: MaterialPreview }) {
+/** Reuses the #380 presenter composition with the author-selected Series. */
+export function FeaturedSeries({ series }: { readonly series: HomeCollection }) {
   return <section className="home-featured" aria-labelledby="featured-title">
     <div className="home-featured-copy">
-      <p className="home-featured-label">Закреплено автором · {material.format}</p>
-      <h2 id="featured-title">{material.title}</h2>
-      {material.summary && <p className="home-featured-description">{material.summary}</p>}
+      <p className="home-featured-label">Закреплено автором · Серия</p>
+      <h2 id="featured-title">{series.name}</h2>
+      {series.summary && <p className="home-featured-description">{series.summary}</p>}
       <div className="home-featured-bottom">
-        <span>{material.access === "free" ? "Открытый материал" : material.access === "membership" ? "По подписке" : "Для участников Мастерской"}</span>
-        <Link href={materialReaderHref(material.slug, "/")}>Открыть материал <ArrowRight aria-hidden="true" /></Link>
+        <span>{series.count} материалов</span>
+        <Link href={collectionDiscoveryHref("series", series.slug, "/")}>Открыть серию <ArrowRight aria-hidden="true" /></Link>
       </div>
     </div>
     <div className="home-presenter" aria-hidden="true">

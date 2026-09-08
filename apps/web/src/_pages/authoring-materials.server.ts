@@ -3,6 +3,4 @@ export {
   AuthoringMaterialsLoading,
   AuthoringMaterialsPage,
   handleAuthoringMaterialsRequest,
-  handleHomePinReadRequest,
-  handleHomePinWriteRequest,
 } from "./authoring-materials/index.server";

@@ -16,28 +16,26 @@ test("author Home pin persists for guests and members, replaces and removes thro
   await session(member, "FULLSTACK_LOGTO_MEMBER_SESSION");
   const memberPage = await member.newPage();
   try {
+    await page.goto("/authoring/materials");
+    await expect(page.getByRole("button", { name: "Закрепить на главной", exact: true })).toHaveCount(0);
     const { promise: pinReady, resolve: releasePin } = Promise.withResolvers<undefined>();
-    await page.route("**/api/authoring/home-pin", async (route) => {
-      await pinReady;
-      await route.continue();
-    }, { times: 1 });
-    const loadedMaterials = page.waitForResponse((response) => response.url().includes("/api/authoring/materials?") && response.status() === 200);
-    await page.goto("/authoring/materials?search=Как%20устроен%20Inside%20Platform");
-    await loadedMaterials;
-    // The ready list never paints with a missing pin state and shifts again on hydration.
-    await expect(page.getByRole("main", { name: "Загрузка списка материалов" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Как устроен Inside Platform", exact: true })).toHaveCount(0);
+    await page.route("**/api/authoring/home-pin", async (route) => { await pinReady; await route.continue(); }, { times: 1 });
+    await page.goto("/authoring/playlists/72000000-0000-4000-8000-000000000298");
+    const pin = page.getByRole("region", { name: "Закреп серии на главной" });
+    await expect(pin.getByRole("button")).toBeDisabled();
+    const loadingBox = await pin.boundingBox();
     releasePin(undefined);
-    const row = page.getByRole("listitem").filter({ has: page.getByRole("heading", { name: "Как устроен Inside Platform", exact: true }) });
-    await row.getByRole("button", { name: "Закрепить на главной", exact: true }).click();
-    await expect(page.getByRole("status").filter({ hasText: "Материал закреплён на главной." })).toBeVisible();
+    await expect(pin.getByRole("button")).toBeEnabled();
+    expect((await pin.boundingBox())?.height).toBe(loadingBox?.height);
+    await pin.getByRole("button", { name: "Закрепить на главной", exact: true }).click();
+    await expect(pin.getByRole("status")).toHaveText("Серия закреплена на главной.");
     await page.reload();
-    await expect(row.getByRole("button", { name: "Снять закреп с главной" })).toBeVisible();
+    await expect(pin.getByRole("button", { name: "Снять закреп с главной" })).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath("authoring-pin.png"), fullPage: true });
     for (const viewer of [guestPage, memberPage]) {
       await viewer.goto("/");
-      await expect(viewer.locator("#featured-title:visible")).toHaveText("Как устроен Inside Platform");
-      await expect(viewer.getByRole("link", { name: "Открыть материал", exact: true })).toHaveAttribute("href", "/materials/kak-ustroen-inside-platform?from=%2F");
+      await expect(viewer.locator("#featured-title:visible")).toHaveText("Demo · Релиз своего проекта");
+      await expect(viewer.getByRole("link", { name: "Открыть серию", exact: true })).toHaveAttribute("href", "/series/demo-series-release?from=%2F");
       await expect(viewer.locator(".home-presenter img:visible")).toBeVisible();
     }
     const scan = await new AxeBuilder({ page: guestPage }).analyze();
@@ -47,21 +45,20 @@ test("author Home pin persists for guests and members, replaces and removes thro
     expect(await guestPage.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(guestPage.viewportSize()?.width ?? 1440);
     await guestPage.screenshot({ path: testInfo.outputPath("home-pin-text-200.png") });
     const forbidden = await memberPage.evaluate(async (): Promise<unknown> => {
-      const body = new FormData(); body.set("materialId", ""); body.set("expectedVersion", "1");
+      const body = new FormData(); body.set("seriesId", ""); body.set("expectedVersion", "1");
       const result: unknown = await (await fetch("/api/authoring/home-pin", { method: "PUT", body })).json();
       return result;
     });
     expect(forbidden).toEqual({ kind: "forbidden" });
 
-    await page.goto("/authoring/materials?search=Developer%20Pipeline%20без%20потери%20контекста");
-    const second = page.getByRole("listitem").filter({ has: page.getByRole("heading", { name: "Developer Pipeline без потери контекста", exact: true }) });
-    await second.getByRole("button", { name: "Закрепить на главной", exact: true }).click();
-    await expect(second.getByRole("button", { name: "Снять закреп с главной" })).toBeVisible();
+    await page.goto("/authoring/playlists/72000000-0000-4000-8000-000000000299");
+    await pin.getByRole("button", { name: "Закрепить на главной", exact: true }).click();
+    await expect(pin.getByRole("button", { name: "Снять закреп с главной" })).toBeVisible();
     await guestPage.goto("/");
-    await expect(guestPage.locator("#featured-title:visible")).toHaveText("Developer Pipeline без потери контекста");
-    await guestPage.getByRole("link", { name: "Открыть материал", exact: true }).click();
-    await expect(guestPage.getByRole("link", { name: "Получить доступ", exact: true })).toBeVisible();
-    await second.getByRole("button", { name: "Снять закреп с главной" }).click();
+    await expect(guestPage.locator("#featured-title:visible")).toHaveText("Учебный пример · Подготовка проекта");
+    await guestPage.getByRole("link", { name: "Открыть серию", exact: true }).click();
+    await expect(guestPage).toHaveURL(/\/series\/demo-series-release-shared/u);
+    await pin.getByRole("button", { name: "Снять закреп с главной" }).click();
     await expect(page.getByRole("status").filter({ hasText: "Закреп снят с главной." })).toBeVisible();
     await guestPage.goto("/");
     await expect(guestPage.locator("#featured-title")).toHaveCount(0);
@@ -72,7 +69,7 @@ test("author Home pin persists for guests and members, replaces and removes thro
       if (typeof current !== "object" || current === null || !("kind" in current) || current.kind !== "ready" || !("pin" in current)) return;
       const pin = current.pin;
       if (typeof pin !== "object" || pin === null || !("version" in pin) || typeof pin.version !== "number") return;
-      const body = new FormData(); body.set("materialId", ""); body.set("expectedVersion", String(pin.version));
+      const body = new FormData(); body.set("seriesId", ""); body.set("expectedVersion", String(pin.version));
       await fetch("/api/authoring/home-pin", { method: "PUT", body });
     });
     await guest.close(); await member.close();

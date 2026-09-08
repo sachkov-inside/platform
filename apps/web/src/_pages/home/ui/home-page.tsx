@@ -12,7 +12,7 @@ import { collectionDiscoveryHref } from "@/shared/routing/material-reader";
 import { Button } from "@/shared/ui/button";
 import { PublicSectionHeading } from "@/shared/ui/public-section-heading";
 import type { HomeContinuation, HomeResult, HomeView } from "../model/home-view";
-import { FeaturedMaterial, HomeAccessInvitation, HomeMembershipBenefits } from "./guest-home";
+import { FeaturedSeries, HomeAccessInvitation, HomeMembershipBenefits } from "./guest-home";
 import "./home-page.css";
 
 export function HomePage({ result, personal, continuation }: { readonly result: HomeResult; readonly personal?: ReactNode; readonly continuation?: HomeContinuation }) {
@@ -31,7 +31,7 @@ function HomeReady({ home, personal, continuation }: { readonly home: HomeView; 
   return (
     <div className="home-page @container/home min-w-0" data-home-membership={home.membership.kind}>
       <h1 className="sr-only">Главная</h1>
-      {home.pinnedMaterial && <FeaturedMaterial material={home.pinnedMaterial} />}
+      {home.pinnedSeries && <FeaturedSeries series={home.pinnedSeries} />}
       {personal}
       <PlaylistSection playlists={playlists} continuation={series} />
       <TopicSection topics={home.topics} />
