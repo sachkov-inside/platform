@@ -21,6 +21,8 @@ The default stack contains:
   has no HTTP listener;
 - `video-deletions-worker`, which owns explicit Platform-uploaded Kinescope Video deletion,
   reference rechecks and bounded retry and has no HTTP listener;
+- RabbitMQ with local TLS, bounded quorum queues and `notifications-worker` for durable transport;
+  see [Notifications transport](notification-transport.md) for recovery and the production boundary;
 - Next.js web on <http://127.0.0.1:3000>.
 
 The optional Logto email-code proof is a separate, disposable Compose project with isolated ports
@@ -304,7 +306,7 @@ pnpm --filter @inside/backend prisma:generate
 ```
 
 The Prisma schema maps the product-owned `billing`, `materials`, `assets`, `accounts`, `member_profiles`,
-`membership_entitlements`, `reading_activity` and `telegram_membership` schemas. Checked-in,
+`membership_entitlements`, `reading_activity`, `notifications` and `telegram_membership` schemas. Checked-in,
 append-only SQL migrations remain the database authority. Their explicit positions and checksums
 must form an exact registry prefix, rejecting drift, gaps, reordering, and newer unknown migrations;
 generated client files are not committed or edited. A pre-Prisma local volume must be recreated

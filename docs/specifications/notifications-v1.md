@@ -83,7 +83,9 @@ Community entitlement и его permit остаются в telegram-membership �
 отрицательные wire examples, digest integrity и обязательные scenario references. Это fitness
 формы двух источников/двух каналов, не runtime replay или очередь на mock.
 
-- #435: RabbitMQ/relay/lifecycle/ACL/backpressure; real broker crash tests.
+- #435: [RabbitMQ transport runtime](../runbooks/notification-transport.md), source outbox staging,
+  durable pending inbox/checkpoint, lifecycle/ACL/backpressure; real broker crash tests. Business
+  facts, audience jobs and channel effects are integrated by the following tickets.
 - #436: core/facets/email, PostgreSQL uniqueness/rollback/concurrency и positive/negative module guards.
 - #410: Billing events/reminders через общий модуль; #408/#406 остаются зависимостями.
 - #437: first publication и settings UI, desktop/mobile/accessibility и no-backfill proof.

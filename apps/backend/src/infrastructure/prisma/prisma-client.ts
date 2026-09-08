@@ -8,6 +8,7 @@ export type MaterialsPrisma = Pick<
   | "authoringIdempotency"
   | "contentCover"
   | "contentCoverRendition"
+  | "materialNotificationOutbox"
   | "material"
   | "materialRelatedPin"
   | "materialSearchDocument"
@@ -87,7 +88,12 @@ export type ReadingActivityPrisma = Pick<PlatformPrisma,
 export type ReadingActivityPrismaClient = ReadingActivityPrisma & TransactionClient<ReadingActivityPrisma>;
 
 export type BillingPrisma = Pick<PlatformPrisma,
-  "$executeRaw" | "billingOffer" | "billingPaymentOption" | "billingPromotion" |
+  "$executeRaw" | "billingNotificationOutbox" | "billingOffer" | "billingPaymentOption" | "billingPromotion" |
   "billingPricingCommand" | "billingPriceQuote" | "billingPromoReservation"
 >;
 export type BillingPrismaClient = BillingPrisma & TransactionClient<BillingPrisma>;
+
+export type NotificationsPrisma = Pick<PlatformPrisma,
+  "$executeRaw" | "notificationOutbox" | "notificationInbox" | "notificationQuarantine"
+>;
+export type NotificationsPrismaClient = NotificationsPrisma & TransactionClient<NotificationsPrisma>;
