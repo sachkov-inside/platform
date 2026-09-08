@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 
 import { Check, Copy, RotateCcw } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
@@ -107,6 +108,7 @@ export function AccountPageClient({
         </form>
       </header>
 
+      <p className="mb-6"><Link className="underline underline-offset-4" href="/account/email">Email для чеков и уведомлений</Link></p>
       <AccountMembershipPanel
         onRefresh={onTelegramMembershipRefresh}
         presentation={initialTelegramMembership}

@@ -8,7 +8,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  schemas  = ["accounts", "assets", "communications", "materials", "member_profiles", "reading_activity", "membership_entitlements", "telegram_membership", "videos", "workshop"]
+  schemas  = ["billing", "accounts", "assets", "communications", "materials", "member_profiles", "reading_activity", "membership_entitlements", "telegram_membership", "videos", "workshop"]
 }
 
 model Account {
@@ -813,4 +813,135 @@ model TelegramAccountLinkHistory {
   @@id([accountId, revision])
   @@map("account_link_history")
   @@schema("telegram_membership")
+}
+
+model BillingOffer {
+  id String @id @db.Uuid
+  revision Int
+  name String
+  benefits String[]
+  archived Boolean @default(false)
+  options BillingPaymentOption[]
+  @@map("offers")
+  @@schema("billing")
+}
+model BillingPaymentOption {
+  id String @id @db.Uuid
+  revision Int
+  offerId String @map("offer_id") @db.Uuid
+  offer BillingOffer @relation(fields: [offerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  months Int
+  priceKopecks BigInt @map("price_kopecks")
+  archived Boolean @default(false)
+  @@map("payment_options")
+  @@schema("billing")
+}
+model BillingPromotion {
+  id String @id @db.Uuid
+  revision Int
+  name String
+  percent Int
+  code String? @unique
+  startsAt DateTime @map("starts_at") @db.Timestamptz
+  endsAt DateTime @map("ends_at") @db.Timestamptz
+  offerIds String[] @map("offer_ids") @db.Uuid
+  paymentOptionIds String[] @map("payment_option_ids") @db.Uuid
+  usageLimit Int? @map("usage_limit")
+  archived Boolean @default(false)
+  reservations BillingPromoReservation[]
+  @@map("promotions")
+  @@schema("billing")
+}
+model BillingPricingCommand {
+  actor String @db.Uuid
+  operationId String @map("operation_id") @db.Uuid
+  fingerprint String
+  outcome Json
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  @@id([actor, operationId])
+  @@map("pricing_commands")
+  @@schema("billing")
+}
+model BillingPriceQuote {
+  id String @id @db.Uuid
+  accountId String @map("account_id") @db.Uuid
+  operationId String @map("operation_id") @db.Uuid
+  fingerprint String
+  snapshot Json
+  promoCode String? @map("promo_code")
+  createdAt DateTime @map("created_at") @db.Timestamptz
+  expiresAt DateTime @map("expires_at") @db.Timestamptz
+  reservation BillingPromoReservation?
+  @@unique([accountId, operationId])
+  @@map("price_quotes")
+  @@schema("billing")
+}
+model BillingPromoReservation {
+  purchaseRef String @id @map("purchase_ref") @db.Uuid
+  accountId String @map("account_id") @db.Uuid
+  quoteRef String @unique @map("quote_ref") @db.Uuid
+  quote BillingPriceQuote @relation(fields: [quoteRef], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  promotionId String? @map("promotion_id") @db.Uuid
+  promotion BillingPromotion? @relation(fields: [promotionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  state String
+  snapshot Json
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  @@index([promotionId, state], map: "billing_promotion_usage")
+  @@map("promo_reservations")
+  @@schema("billing")
+}
+
+model BillingContact {
+ accountId String @id @map("account_id") @db.Uuid
+ revision Int @default(0)
+ emailCiphertext String? @map("email_ciphertext")
+ verifiedAt DateTime? @map("verified_at") @db.Timestamptz
+ challengeRef String? @map("challenge_ref") @db.Uuid
+ @@map("billing_contacts")
+ @@schema("accounts")
+}
+model BillingContactChallenge {
+ id String @id @db.Uuid
+ accountId String @map("account_id") @db.Uuid
+ operationId String @map("operation_id") @db.Uuid
+ fingerprint String
+ recipientFingerprint String @map("recipient_fingerprint")
+ emailCiphertext String @map("email_ciphertext")
+ codeDigest String @map("code_digest")
+ baseRevision Int @map("base_revision")
+ attempts Int @default(0)
+ createdAt DateTime @map("created_at") @db.Timestamptz
+ expiresAt DateTime @map("expires_at") @db.Timestamptz
+ confirmedAt DateTime? @map("confirmed_at") @db.Timestamptz
+ delivery String
+ @@unique([accountId, operationId])
+ @@index([accountId, createdAt], map: "billing_contact_challenges_account_time")
+ @@index([recipientFingerprint, createdAt], map: "billing_contact_challenges_recipient_time")
+ @@map("billing_contact_challenges")
+ @@schema("accounts")
+}
+model BillingContactCommand {
+ accountId String @map("account_id") @db.Uuid
+ operationId String @map("operation_id") @db.Uuid
+ fingerprint String
+ result Json
+ @@id([accountId, operationId])
+ @@map("billing_contact_commands")
+ @@schema("accounts")
+}
+model BillingConsentEvidence {
+ id String @id @db.Uuid
+ accountId String @map("account_id") @db.Uuid
+ operationId String @map("operation_id") @db.Uuid
+ contextRef String @map("context_ref") @db.Uuid
+ kind String
+ documentId String @map("document_id")
+ documentVersion String @map("document_version")
+ documentDigest String @map("document_digest")
+ documentText String @map("document_text")
+ documentUrl String @map("document_url")
+ acceptedAt DateTime @map("accepted_at") @db.Timestamptz
+ @@unique([accountId, operationId, kind])
+ @@map("billing_consent_evidence")
+ @@schema("accounts")
 }

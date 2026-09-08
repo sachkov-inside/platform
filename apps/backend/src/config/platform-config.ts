@@ -198,6 +198,15 @@ const platformConfigSchema = z
         port: apiPortSchema,
       })
       .readonly(),
+    billingContact: z.object({
+      encryptionKey: z.string().refine(value => Buffer.from(value, "base64").length === 32, "BILLING_CONTACT_ENCRYPTION_KEY must be 32 base64-encoded bytes"),
+      smtpHost: z.string().min(1),
+      smtpPort: z.coerce.number().int().min(1).max(65535),
+      smtpUser: z.string().optional(),
+      smtpPassword: z.string().optional(),
+      from: z.email(),
+      localInsecure: z.boolean(),
+    }).refine(value => Boolean(value.smtpUser) === Boolean(value.smtpPassword), "SMTP user and password must be configured together").optional(),
     identity: identitySchema,
     contentAccess: contentAccessSchema,
     objectStorage: objectStorageSchema,
@@ -320,6 +329,17 @@ export function parsePlatformConfig(
   const mode = parsePlatformMode(environment.NODE_ENV);
   const config = platformConfigSchema.safeParse({
     mode,
+    billingContact: [environment.BILLING_CONTACT_ENCRYPTION_KEY, environment.BILLING_CONTACT_SMTP_HOST,
+      environment.BILLING_CONTACT_SMTP_PORT, environment.BILLING_CONTACT_SMTP_USER, environment.BILLING_CONTACT_SMTP_PASSWORD,
+      environment.BILLING_CONTACT_FROM].every(value => value === undefined) ? undefined : {
+      encryptionKey: environment.BILLING_CONTACT_ENCRYPTION_KEY,
+      smtpHost: environment.BILLING_CONTACT_SMTP_HOST,
+      smtpPort: environment.BILLING_CONTACT_SMTP_PORT ?? "587",
+      smtpUser: environment.BILLING_CONTACT_SMTP_USER,
+      smtpPassword: environment.BILLING_CONTACT_SMTP_PASSWORD,
+      from: environment.BILLING_CONTACT_FROM,
+      localInsecure: mode !== "production" && ["127.0.0.1", "localhost", "::1"].includes(environment.BILLING_CONTACT_SMTP_HOST ?? ""),
+    },
     communicationsTrackingOrigin: environment.TELEGRAM_TRACKING_ORIGIN,
     communications: [environment.TELEGRAM_COMMUNICATIONS_ENDPOINT, environment.TELEGRAM_COMMUNICATIONS_SECRET,
       environment.TELEGRAM_AUTHOR_AUTHORIZATION_SECRET, environment.TELEGRAM_COMMUNICATIONS_BOT_IDENTITY].every(value => value === undefined)

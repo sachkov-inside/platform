@@ -46,6 +46,10 @@ const accountTables = [
   "account_audit_events",
   "account_permissions",
   "accounts",
+  "billing_consent_evidence",
+  "billing_contact_challenges",
+  "billing_contact_commands",
+  "billing_contacts",
 ] as const;
 
 const membershipEntitlementTables = [
@@ -179,6 +183,8 @@ describe("Platform migrations", () => {
           "0037_platform_admin",
           "0038_account_access",
           "0039_telegram_link_revisions",
+          "0040_billing_pricing",
+          "0041_billing_contact",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -745,6 +751,8 @@ describe("Platform migrations", () => {
           "0037_platform_admin",
           "0038_account_access",
           "0039_telegram_link_revisions",
+          "0040_billing_pricing",
+          "0041_billing_contact",
         ],
       });
 

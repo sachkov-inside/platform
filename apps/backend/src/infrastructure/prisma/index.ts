@@ -1,5 +1,7 @@
 export { createPrismaClient } from "./create-prisma-client.js";
 export {
+  type BillingPrisma,
+  type BillingPrismaClient,
   type CommunicationsPrisma,
   type ReadingActivityPrisma,
   type ReadingActivityPrismaClient,
