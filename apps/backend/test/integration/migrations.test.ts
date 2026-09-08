@@ -33,6 +33,7 @@ const materialTables = [
   "material_search_documents",
   "material_tags",
   "materials",
+  "notification_outbox",
   "published_material_series_memberships",
   "published_material_tags",
   "published_materials",
@@ -185,6 +186,9 @@ describe("Platform migrations", () => {
           "0039_telegram_link_revisions",
           "0040_billing_pricing",
           "0041_billing_contact",
+          "0042_billing_notification_transport",
+          "0043_materials_notification_transport",
+          "0044_notifications_notification_transport",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -753,6 +757,9 @@ describe("Platform migrations", () => {
           "0039_telegram_link_revisions",
           "0040_billing_pricing",
           "0041_billing_contact",
+          "0042_billing_notification_transport",
+          "0043_materials_notification_transport",
+          "0044_notifications_notification_transport",
         ],
       });
 

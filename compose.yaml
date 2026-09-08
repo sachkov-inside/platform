@@ -24,6 +24,11 @@ services:
       - ./config/compose/local/notifications-worker.env
     volumes:
       - notification-local-ca:/local-ca:ro
+    healthcheck:
+      test: ["CMD", "node", "-e", "const fs=require('node:fs'); const m=JSON.parse(fs.readFileSync('/tmp/inside-platform-worker-ready.json','utf8')); if(m.process!=='notifications-worker'||m.status!=='ready')process.exit(1)"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
     depends_on:
       postgres:
         condition: service_healthy

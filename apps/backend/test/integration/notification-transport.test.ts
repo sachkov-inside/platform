@@ -14,6 +14,8 @@ import fixtures from '../../../../docs/contracts/notifications-v1/fixtures.json'
 import { createMigratedTestDatabase, type TestDatabase } from './setup/test-database.js';
 import { localNotificationTopology, NOTIFICATION_BROKER_IMAGE } from '../../src/infrastructure/notification-transport/topology.js';
 import { connectNotificationBroker, consumeNotificationLane, publishNotification } from '../../src/infrastructure/notification-transport/rabbitmq.js';
+import { runWorker, WORKER_READINESS_PATH } from '../../src/infrastructure/worker-runtime.js';
+import { OperationalReadiness } from '../../src/infrastructure/operational-readiness.js';
 import { assembleNotificationWorker } from "../../src/infrastructure/notification-transport/worker.js";
 import { assembleNotificationOutbox, stageNotification } from '../../src/infrastructure/notification-transport/outbox.js';
 import { encodeNotification, lanes } from '../../src/infrastructure/notification-transport/wire.js';
@@ -116,7 +118,16 @@ describe('Notifications real PostgreSQL / RabbitMQ transport', () => {
       let errors = ''; child.stderr?.on('data', chunk => { errors += String(chunk); });
       try {
         const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 15_000);
-        try { await once(child, 'message', { signal: controller.signal }); } catch { throw new Error(`Crash child failed: ${errors}`); } finally { clearTimeout(timeout); }
+        try {
+          await once(child, 'message', { signal: controller.signal });
+          if (phase === 'before-confirm') {
+            // Broker persistence is observed while the application is still denied its confirm.
+            await eventually(async () => {
+              const rows = z.array(z.object({ name: z.string(), messages: z.number() })).parse(JSON.parse(await admin(['list_queues', '-p', 'inside-test', 'name', 'messages', '--formatter', 'json'])));
+              expect(rows.find(row => row.name === lanes.billing.queue)?.messages).toBe(1);
+            });
+          }
+        } catch { throw new Error(`Crash child failed: ${errors}`); } finally { clearTimeout(timeout); }
       } finally { child.kill('SIGKILL'); await once(child, 'exit'); }
       if (phase.includes('confirm')) {
         expect(await database.prisma.billingNotificationOutbox.findUniqueOrThrow({ where: { scope_messageId: { scope: 'billing', messageId: envelope.messageId } } })).toMatchObject({ publishedAt: null });
@@ -221,10 +232,24 @@ describe('Notifications real PostgreSQL / RabbitMQ transport', () => {
     const result = { ...fixtures.find(f => f.valid && f.definition === 'sentResult')?.value, channel: 'email', messageId: randomUUID() };
     await stageBillingNotification(database.prisma, billing);
     await stageMaterialsNotification(database.prisma, material);
-    await stageNotification(database.prisma.notificationOutbox, 'emailSubscription', email);
+    await stageNotification(database.prisma.notificationOutbox, 'emailMaterial', email);
     await stageNotification(database.prisma.notificationOutbox, 'emailResult', result);
-    await worker.start();
+    const running = runWorker({
+      application: { close: () => Promise.resolve() }, databaseUrl: database.url,
+      process: 'notifications-worker',
+      readiness: new OperationalReadiness(database.prisma, { release: 'development', sourceSha: '0'.repeat(40) }),
+      jobs: {
+        start: () => worker.start(),
+        async stop(options) {
+          await expect(readFile(WORKER_READINESS_PATH)).rejects.toThrow();
+          await worker.stop(options);
+        },
+      },
+      failed: worker.failed, registerJobs: () => Promise.resolve(),
+    });
+    void running.catch(() => undefined);
     try {
+      await eventually(async () => { expect(JSON.parse(await readFile(WORKER_READINESS_PATH, 'utf8'))).toMatchObject({ process: 'notifications-worker', status: 'ready' }); });
       await eventually(async () => {
         for (const messageId of [billing.messageId, material.messageId, email.operationId, result.messageId]) {
           expect(await database.prisma.notificationInbox.count({ where: { messageId, completedAt: null } })).toBe(1);
@@ -232,7 +257,7 @@ describe('Notifications real PostgreSQL / RabbitMQ transport', () => {
       });
       expect(observed.some(event => event.status === 'transport_observation' || event.status === 'operator_attention')).toBe(true);
       await admin(['stop_app']);
-      await expect(worker.failed).rejects.toThrow('notification_broker_disconnected');
+      await expect(running).rejects.toThrow(/notification_broker_disconnected|notification_consumer_stopped/u);
     } finally { await worker.stop(); await admin(['start_app']); }
   }, 45_000);
 

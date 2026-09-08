@@ -58,8 +58,8 @@ or provider success; #436/#437/#410 own those business checks before effects.
 Each lane has an independent relay loop and consumer channel. Subscription saturation cannot
 consume the material/result channel's prefetch or delay its publisher confirms. The worker acquires
 the existing PostgreSQL generation lease and validates the exact migration registry before reporting
-ready. On shutdown it cancels consumers, drains active receipt writes and closes broker/Prisma
-resources. Broker disconnect or receipt-storage failure removes readiness and stops the worker;
+ready. On shutdown it removes readiness before cleanup, cancels consumers, drains active receipt writes
+within the shared ten-second budget and closes broker/Prisma resources. Broker disconnect or receipt-storage failure removes readiness and stops the worker;
 restart it after the dependency is restored. No nack/requeue hot loop acknowledges missing receipts.
 
 ## Observation and recovery

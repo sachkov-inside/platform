@@ -134,9 +134,10 @@ export async function runWorker(input: {
     readinessReport = await input.readiness.check(input.process);
     await markWorkerReady(readinessReport);
     await Promise.race([shutdown.received, ...(input.failed ? [input.failed] : [])]);
-    await markWorkerDraining(input.process, readinessReport);
   } finally {
     shutdown.dispose();
+    if (readinessReport) await markWorkerDraining(input.process, readinessReport);
+    else await removeWorkerReadiness();
     try {
       if (jobsStarted) {
         await input.jobs.stop({

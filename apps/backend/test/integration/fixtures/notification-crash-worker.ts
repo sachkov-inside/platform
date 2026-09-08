@@ -9,7 +9,20 @@ const connection = await connectNotificationBroker(config);
 const boundary = async () => { process.send?.('boundary'); await new Promise(() => undefined); };
 if (config.phase.includes('confirm')) {
   await assembleNotificationOutbox(prisma.billingNotificationOutbox, ['billing']).relay('billing', async envelope => {
-    if (config.phase === 'before-confirm') await boundary();
+    if (config.phase === 'before-confirm') {
+      // Intercept only confirm observation at the SDK boundary; publish still uses real AMQPS.
+      const createChannel = connection.createConfirmChannel.bind(connection);
+      connection.createConfirmChannel = async () => {
+        const channel = await createChannel();
+        const publish = channel.publish.bind(channel);
+        channel.publish = (exchange, key, content, options, _confirm) => {
+          const writable = publish(exchange, key, content, options, () => undefined);
+          void boundary();
+          return writable;
+        };
+        return channel;
+      };
+    }
     await publishNotification(connection, envelope);
     await boundary();
   });

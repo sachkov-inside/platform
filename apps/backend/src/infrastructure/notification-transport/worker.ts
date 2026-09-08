@@ -63,12 +63,26 @@ export function assembleNotificationWorker(input: {
         throw new Error('notification_worker_start_failed');
       }
     },
-    async stop() {
+    async stop(options: { timeout: number } = { timeout: 10_000 }) {
       stopping = true;
       abort.abort();
-      await Promise.allSettled(consumers.map(consumer => consumer.stop()));
-      await Promise.allSettled(tasks);
-      await Promise.allSettled([...connections.values()].map(connection => connection.close()));
+      let timer: NodeJS.Timeout | undefined;
+      try {
+        await Promise.race([
+          (async () => {
+            await Promise.allSettled(consumers.map(consumer => consumer.stop()));
+            await Promise.allSettled(tasks);
+            await Promise.allSettled([...connections.values()].map(connection => connection.close()));
+          })(),
+          new Promise<never>((_resolve, reject) => {
+            timer = setTimeout(() => {
+              // Closing the connection returns unacknowledged deliveries to RabbitMQ.
+              for (const connection of connections.values()) void connection.close().catch(() => undefined);
+              reject(new Error('notification_drain_timeout'));
+            }, options.timeout);
+          }),
+        ]);
+      } finally { clearTimeout(timer); }
     },
   };
 }
