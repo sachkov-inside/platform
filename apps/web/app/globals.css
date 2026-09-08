@@ -265,17 +265,6 @@ body:has([data-public-shell]) {
   transform: scale(0.94);
 }
 
-.mobile-navigation-label {
-  grid-template-columns: 0fr;
-  opacity: 0;
-  transition: grid-template-columns var(--motion-duration-shell) var(--motion-ease-out), opacity var(--motion-duration-fast);
-}
-
-.mobile-navigation-link[aria-current="page"] .mobile-navigation-label {
-  grid-template-columns: 1fr;
-  opacity: 1;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .mobile-navigation * {
     animation: none !important;
@@ -360,4 +349,13 @@ body:has([data-public-shell]) {
     animation-duration: 0s !important;
     transition-duration: 0s !important;
   }
+}
+
+/* Shared public frame: inner content stops at 76rem with standard desktop gutters. */
+.public-page-container { max-width: 80rem; padding-inline: clamp(1rem,3vw,2rem); }
+@media (min-width: 1024px) { .public-header { overflow-y: hidden; scrollbar-gutter: stable both-edges; } }
+
+/* Public pages scroll in the document until the desktop shell owns scrolling. */
+@media (48rem <= width < 64rem) {
+  html:has([data-public-shell]), body:has([data-public-shell]) { block-size: auto; overflow: visible; }
 }

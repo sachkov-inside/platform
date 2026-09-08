@@ -17,6 +17,10 @@ export interface HomeCollection {
 }
 
 export interface HomeView {
+  readonly membership:
+    | { readonly kind: "active" }
+    | { readonly kind: "inactive"; readonly acquisitionUrl: string }
+    | { readonly kind: "unknown" };
   readonly guides: readonly MaterialPreview[];
   readonly notes: readonly MaterialPreview[];
   readonly playlists: readonly HomeCollection[];

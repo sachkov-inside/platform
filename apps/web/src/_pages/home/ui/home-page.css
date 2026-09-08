@@ -1,0 +1,139 @@
+/* Home owns its responsive composition; color and font families use the Platform foundation. */
+.home-page { --home-grid-gap: 1.25rem; }
+.home-page p { font-size: var(--type-body); line-height: 1.5; font-weight: 400; }
+.home-featured { position: relative; isolation: isolate; border-radius: 2rem; background: var(--cover-ink); color: white; }
+.home-featured-copy { position: relative; z-index: 2; }
+.home-featured-label { display: inline-flex; border-radius: 999px; background: rgb(255 255 255 / .12); }
+.home-featured-description { margin-top: .9rem; color: rgb(255 255 255 / .75); }
+.home-featured-bottom { display: flex; align-items: center; gap: 1.25rem; }
+.home-featured-bottom > span { color: rgb(255 255 255 / .8); }
+.home-featured-bottom > a { display: inline-flex; align-items: center; border-radius: 999px; background: white; color: var(--cover-ink); text-decoration: none; }
+.home-presenter { position: absolute; z-index: 1; bottom: 0; pointer-events: none; }
+.home-presenter-crop { position: absolute; inset: 0; overflow: hidden; mask-image: linear-gradient(to bottom,black 0%,black 70%,rgb(0 0 0 / .7) 82%,rgb(0 0 0 / .2) 92%,transparent 100%); }
+.home-presenter img { display: block; width: 100%; height: auto; }
+.home-access-link { display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; gap: .5rem; border-radius: 999px; padding: .75rem 1.25rem; background: var(--primary); color: var(--primary-foreground); text-decoration: none; text-align: center; }
+.home-access-link svg { width: 1rem; flex-shrink: 0; }
+.home-access-strip { display: flex; align-items: center; gap: 1rem; margin-block: 2rem; padding: 1.25rem 1.5rem; border-radius: 1.25rem; background: var(--secondary); }
+.home-access-strip > svg { width: 1.5rem; flex-shrink: 0; color: var(--action); }
+.home-access-strip > div { flex: 1; min-width: 0; }
+.home-access-strip p { margin-top: .35rem; color: var(--body-muted); }
+.home-membership-benefits { margin-top: 3rem; }
+.home-benefits { display: grid; margin-top: 2rem; }
+.home-benefits svg { width: 1.35rem; color: var(--action); margin-bottom: 1rem; }
+.home-benefits p { margin-top: .5rem; color: var(--body-muted); }
+.home-invitation { display: flex; align-items: center; justify-content: space-between; gap: 2rem; padding: 2rem; margin-top: 3rem; border-radius: 1.75rem; background: var(--secondary); }
+.home-invitation p { max-width: 54ch; margin-top: .75rem; color: var(--body-muted); }
+.home-page .home-eyebrow { margin-bottom: .75rem; color: var(--action); font-size: .875rem; font-weight: 500; }
+.home-page {
+  --type-page: 1.5rem;
+  --type-section: 1.125rem;
+  --type-hero: 1.125rem;
+  --type-card: 1rem;
+  --type-series: 1.125rem;
+  --type-body: 1rem;
+  --type-ui: .875rem;
+  --type-meta: .75rem;
+  --type-summary: .875rem;
+  --space-section: 2.5rem;
+  font-size: var(--type-body);
+  line-height: 1.5;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+@media (min-width: 701px) {
+  .home-page {
+    --type-page: 1.75rem;
+    --type-section: 1.5rem;
+    --type-hero: clamp(1.75rem,1.1rem + 1.4vw,2rem);
+    --type-card: 1.125rem;
+    --type-series: 1.375rem;
+    --type-meta: .875rem;
+    --type-summary: 1rem;
+    --space-section: 3rem;
+  }
+}
+.home-page h1:not(.sr-only) { font-size: var(--type-page); line-height: 1.25; font-weight: 600; letter-spacing: -.025em; }
+.home-page h2:not(.sr-only) { font-size: var(--type-section); line-height: 1.25; font-weight: 600; letter-spacing: -.02em; }
+.home-page h3 { font-size: var(--type-card); line-height: 1.4; font-weight: 600; letter-spacing: -.015em; }
+.home-page p { max-width: 65ch; }
+.home-page button, .home-page .home-access-link { font-size: var(--type-ui); line-height: 1.4286; font-weight: 600; }
+.home-page .home-access-link { min-height: 2.75rem; }
+.home-page input, .home-page textarea { font-size: var(--type-body); line-height: 1.5; }
+.home-page .home-access-strip strong { font-size: var(--type-card); line-height: 1.4; font-weight: 600; }
+.home-page .home-access-strip p { font-size: var(--type-summary); line-height: 1.5; }
+.home-page section > div:has(> h2[id^=home-]) { flex-wrap: wrap; gap: .5rem .75rem; margin-top: var(--space-section); }
+.home-page section[aria-labelledby=home-series] > div:has(> h2) { margin-top: 0; }
+.home-page h2[id^=home-] { max-width: 100%; overflow-wrap: normal; }
+
+/* Cards keep their production markup. Their visual roles follow the same scale. */
+.home-page [data-playlist-card] > strong { font-size: var(--type-series); line-height: 1.3; font-weight: 600; letter-spacing: -.02em; }
+.home-page [data-playlist-card] > span:nth-of-type(2) { font-size: var(--type-summary); line-height: 1.5; font-weight: 400; }
+.home-page [data-material-slug] :is(h2,h3) { font-size: var(--type-card); line-height: 1.4; font-weight: 600; display: block; -webkit-line-clamp: unset; overflow: visible; }
+.home-page [data-material-slug]:not([data-material-variant=feed]) > span { font-size: var(--type-meta); line-height: 1.4; font-weight: 500; letter-spacing: .015em; }
+.home-page [data-material-variant=feed] > p:first-of-type { font-size: var(--type-ui); }
+.home-page [data-material-variant=default] [data-access-cover] > span:last-child > span { max-width: calc(100% - 1rem); justify-content: center; gap: 4px; padding: .4rem .5rem; font-size: .75rem; line-height: 1.3; text-align: center; }
+.home-page [data-material-variant=default] [data-access-cover] > span:last-child > span svg { width: 14px; flex-shrink: 0; }
+.home-page [aria-labelledby=home-guides] > ul { grid-template-columns: repeat(auto-fit,minmax(min(100%,max(12rem,calc((100% - 3 * var(--home-grid-gap)) / 4))),1fr)); gap: 2rem var(--home-grid-gap); }
+.home-page [aria-labelledby=home-videos] > ul { grid-template-columns: repeat(auto-fit,minmax(min(100%,max(15rem,calc((100% - 2 * var(--home-grid-gap)) / 3))),1fr)); gap: 2rem var(--home-grid-gap); }
+.home-page [aria-label="Лента заметок"] { max-width: 65ch; }
+.home-page .home-benefits { grid-template-columns: repeat(auto-fit,minmax(min(100%,15rem),1fr)); gap: 1.5rem; }
+
+/* The banner can grow with user text preferences; artwork has a separate bounded footprint. */
+.home-page .home-featured { container: featured / inline-size; height: auto; min-height: 16rem; margin-top: 1.5rem; margin-bottom: 2rem; }
+.home-page .home-featured-copy { height: auto; min-height: inherit; display: flex; flex-direction: column; align-items: flex-start; width: calc(100% - min(20rem,40cqw,320px)); padding: 1.5rem clamp(2rem,4cqw,3rem); }
+.home-page .home-featured-label { font-size: .75rem; line-height: 1.3333; font-weight: 500; padding: .3rem .7rem; margin-bottom: .75rem; }
+.home-page .home-featured h2 { max-width: 100%; font-size: var(--type-hero); line-height: 1.2; font-weight: 600; }
+.home-page .home-featured-description { max-width: 55ch; font-size: var(--type-body); line-height: 1.5; }
+.home-page .home-featured-bottom { flex-wrap: wrap; position: static; align-self: stretch; margin-top: auto; padding-top: 1.25rem; }
+.home-page .home-featured-bottom > span { font-size: var(--type-meta); line-height: 1.4; }
+.home-page .home-featured-bottom > a { font-size: var(--type-ui); line-height: 1.4286; font-weight: 600; min-height: 2.75rem; padding: .65rem 18px; gap: 8px; max-width: 100%; overflow-wrap: normal; }
+.home-page .home-featured-bottom > a svg { width: 16px; flex-shrink: 0; }
+.home-page .home-presenter { right: clamp(1rem,6cqw,5rem); width: min(18rem,38cqw,288px); height: min(18rem,38cqw,288px); }
+@media (max-width: 700px) {
+  .home-page { --home-grid-gap: .875rem; }
+  .home-page h2:not(.sr-only) { line-height: 1.3333; }
+  .home-page .home-featured { min-height: 11rem; margin-top: 2rem; }
+  .home-page .home-featured-copy { width: 100%; padding: 1rem; }
+  .home-page .home-featured-label { padding: .2rem .55rem; margin-bottom: .5rem; }
+  .home-page .home-featured h2 { max-width: min(100%,max(66%,11rem)); }
+  .home-page .home-featured-bottom { padding-top: .5rem; justify-content: flex-end; }
+  .home-page .home-featured-bottom > a { padding-inline: 14px; gap: 5px; }
+  .home-page .home-presenter { right: -.1rem; width: min(12.5rem,200px); height: min(12.5rem,200px); }
+  .home-page .home-benefits { grid-template-columns: repeat(auto-fit,minmax(min(10rem,100%),1fr)); }
+  .home-page :is([aria-labelledby=home-videos],[aria-labelledby=home-guides]) > ul { grid-template-columns: repeat(auto-fit,minmax(min(8rem,100%),1fr)); }
+}
+@media (max-width: 360px) { .home-page .home-presenter { right: -.75rem; width: min(11.5rem,184px); height: min(11.5rem,184px); } }
+
+/* When enlarged text leaves too little room, prioritize the series over decorative artwork. */
+@container featured (max-width: 14em) {
+  .home-page .home-presenter { display: none; }
+}
+
+@media (min-width: 701px) {
+  @container featured (max-width: 26em) {
+    .home-page .home-presenter { display: none; }
+    .home-page .home-featured-copy { width: 100%; }
+  }
+}
+
+
+@media (max-width: 700px) {
+  .home-featured { border-radius: 1.6rem; }
+  .home-featured-description, .home-featured-bottom > span { display: none; }
+  .home-presenter { transform: translateY(-.75rem); }
+  .home-page .home-featured-copy { padding-bottom: .5rem; }
+  .home-presenter-crop { mask-image: linear-gradient(to bottom,black 0%,black 72%,rgb(0 0 0 / .7) 82%,rgb(0 0 0 / .15) 93%,transparent 100%); }
+  .home-access-strip { display: grid; grid-template-columns: auto minmax(0,1fr); padding: 1.25rem; }
+  .home-access-strip > a { grid-column: 2; justify-self: start; }
+  .home-invitation { flex-direction: column; align-items: flex-start; padding: 1.5rem; }
+}
+@media (max-width: 360px) { .home-presenter { bottom: 1rem; } }
+
+.home-shoulder-sparks { position: absolute; z-index: 2; left: 78%; top: 52%; }
+.home-spark { position: absolute; opacity: 0; color: var(--cover-coral); animation: home-shoulder-drift 3s ease-out infinite both; }
+.home-spark svg { width: 16px; height: 16px; }
+.home-spark-code { --spark-x: 19px; --spark-y: -72px; }
+.home-spark-git { --spark-x: -6px; --spark-y: -58px; animation-delay: 1s; }
+.home-spark-terminal { --spark-x: 27px; --spark-y: -45px; animation-delay: 2s; }
+@keyframes home-shoulder-drift { 0% { opacity: 0; transform: translate(0,0) scale(.6); } 12% { opacity: .5; } 35% { opacity: .25; } 50%,100% { opacity: 0; transform: translate(var(--spark-x),var(--spark-y)) scale(1) rotate(12deg); } }
+@media (prefers-reduced-motion: reduce) { .home-shoulder-sparks { display: none; } .home-spark { animation: none; } }
