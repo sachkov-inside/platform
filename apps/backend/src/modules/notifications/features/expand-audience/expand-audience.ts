@@ -70,6 +70,7 @@ export async function expandAudience(deps: NotificationDependencies, lane: 'bill
       // A later source revision cannot replace a potentially started command. Keep its original correlation.
       if (notification.sourceRevision < event.sourceRevision) {
         await transaction.notification.update({ where: { id: notification.id }, data: { eventPayload: row.payload, sourceRevision: event.sourceRevision } });
+        await transaction.notificationDelivery.updateMany({ where: { notificationId: notification.id, state: 'suppressed' }, data: { nextCommandAt: now() } });
       }
       for (const channel of channels) {
         const delivery = await transaction.notificationDelivery.upsert({ where: { notificationId_channel: { notificationId: notification.id, channel } },

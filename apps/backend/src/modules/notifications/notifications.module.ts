@@ -14,7 +14,7 @@ import { NotificationDispatchController } from './features/authorize-dispatch/no
   controllers: [NotificationPreferencesController, NotificationOperationsController, NotificationDispatchController],
   providers: [{ provide: Notifications, inject: [PrismaClientProvider, ACCOUNTS, NotificationAccounts, TelegramAccountLinks, CONTENT_ACCESS, PLATFORM_CONFIG],
     useFactory: (prisma: PrismaClientProvider, accounts: Accounts, contacts: NotificationAccounts, telegram: TelegramAccountLinks, access: ContentAccess, config: PlatformConfig) => new Notifications({
-      prisma, now: () => new Date(), origin: config.notificationDelivery?.origin ?? 'https://sachkov.dev',
+      prisma, now: () => new Date(), origin: config.notificationDelivery?.origin ?? '',
       sources: {
         // Producer facts and their facets arrive with Billing #410 / first-publication #437.
         // Transport acceptance is durable while an unconnected source remains unavailable.

@@ -227,6 +227,26 @@ describe('Notifications persistence and delivery (real PostgreSQL; synthetic sou
     expect(sends).toBe(0);
     expect(await database.prisma.notificationEmailAttempt.findFirst({ where: { deliveryId: c.deliveryRef } })).toMatchObject({ state: 'not_sent' });
   });
+  test('expired source tombstones cannot starve a still-current command refresh', async () => {
+    const s = await scenario(); await s.publish(); const command = await s.admit();
+    s.advance(600_001);
+    await dispatchEmail(s.deps, () => Promise.resolve({ state: 'sent' }), 'subscription');
+    await project(s.app, command.deliveryRef);
+    for (let index = 0; index < 30; index += 1) {
+      const notificationId = randomUUID(); const deliveryId = randomUUID();
+      const expired = { ...s.event, occurrenceRef: randomUUID(), notAfter: s.event.occurredAt };
+      const copy = { ...command, notificationRef: notificationId, deliveryRef: deliveryId, operationId: randomUUID() };
+      const envelope = encodeNotification('emailSubscription', copy);
+      await database.prisma.notification.create({ data: { id: notificationId, kind: expired.eventType, occurrenceRef: expired.occurrenceRef, accountId: s.actor,
+        eventPayload: JSON.stringify(expired), sourceRevision: 1, createdAt: s.deps.now() } });
+      await database.prisma.notificationDelivery.create({ data: { id: deliveryId, notificationId, channel: 'email', commandRevision: 1, state: 'suppressed', reason: 'expired',
+        nextCommandAt: new Date(s.deps.now().getTime() - 1_000), updatedAt: s.deps.now() } });
+      await database.prisma.notificationCommand.create({ data: { operationId: copy.operationId, deliveryId, revision: 1, payload: envelope.payload, digest: envelope.digest.slice('sha256:'.length), createdAt: s.deps.now() } });
+    }
+    for (let sweep = 0; sweep < 5; sweep += 1) await refreshDeliveries(s.deps);
+    expect(await s.commands()).toHaveLength(2);
+    expect(await database.prisma.notificationDelivery.count({ where: { notification: { accountId: s.actor }, state: 'suppressed', nextCommandAt: null } })).toBe(30);
+  });
   test('service HTTP preserves correlated JSON errors and fails closed for wrong credentials/version', async () => {
     const s = await scenario(); await s.publish(); const { value, row } = await s.command();
     const credential = 'synthetic-dedicated-telegram-secret-436';

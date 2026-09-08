@@ -32,7 +32,7 @@ export async function acceptDeliveryResult(prisma: NotificationsPrismaClient, ch
     await transaction.notificationResult.create({ data: { channel, messageId: result.messageId, deliveryId: result.deliveryRef, revision: result.resultRevision, digest: envelope.digest, payload: envelope.payload, recordedAt: new Date(result.recordedAt) } });
     if (stale) return 'stale' as const;
     await transaction.notificationDelivery.update({ where: { id: result.deliveryRef }, data: {
-      state: result.state, reason: result.reason ?? null, resultRevision: result.resultRevision, resultDigest: envelope.digest,
+      state: result.state, nextCommandAt: result.state === 'suppressed' ? new Date(result.recordedAt) : null, reason: result.reason ?? null, resultRevision: result.resultRevision, resultDigest: envelope.digest,
       attemptRef: result.attemptRef ?? null, updatedAt: new Date(result.recordedAt),
     } });
     return 'accepted' as const;

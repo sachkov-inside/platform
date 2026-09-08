@@ -23,8 +23,10 @@ CREATE TABLE notifications.deliveries (
  channel text NOT NULL CHECK(channel IN ('email', 'telegram')), command_revision integer NOT NULL DEFAULT 0,
  state text NOT NULL DEFAULT 'no_channel', reason text, result_revision integer NOT NULL DEFAULT 0,
  result_digest text, attempt_ref uuid, recovery_skipped boolean NOT NULL DEFAULT false,
- updated_at timestamptz NOT NULL, UNIQUE(notification_id, channel)
+ next_command_at timestamptz, updated_at timestamptz NOT NULL, UNIQUE(notification_id, channel)
 );
+CREATE INDEX ON notifications.deliveries(state, next_command_at);
+CREATE INDEX ON notifications.notifications(account_id, id);
 CREATE TABLE notifications.commands (
  operation_id uuid PRIMARY KEY, delivery_id uuid NOT NULL REFERENCES notifications.deliveries(id),
  revision integer NOT NULL, payload text NOT NULL CHECK(octet_length(payload) <= 16384), digest text NOT NULL,
@@ -54,6 +56,7 @@ CREATE TABLE notifications.email_effects (
  result_payload text, retries integer NOT NULL DEFAULT 0, next_attempt_at timestamptz NOT NULL,
  updated_at timestamptz NOT NULL
 );
+CREATE INDEX ON notifications.email_effects(category, state, next_attempt_at);
 CREATE TABLE notifications.email_attempts (
  id uuid PRIMARY KEY, delivery_id uuid NOT NULL REFERENCES notifications.email_effects(delivery_id),
  operation_id uuid NOT NULL, permit_ref uuid NOT NULL, started_at timestamptz NOT NULL,

@@ -1064,6 +1064,7 @@ deliveries NotificationDelivery[]
 }
 
 model NotificationDelivery {
+nextCommandAt DateTime? @map("next_command_at") @db.Timestamptz
 id String @id @db.Uuid
 notificationId String @map("notification_id") @db.Uuid
 notification Notification @relation(fields: [notificationId], references: [id])

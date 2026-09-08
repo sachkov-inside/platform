@@ -8,15 +8,19 @@ import { validSource, type NotificationDependencies } from './expand-audience.js
 
 /** Replace only a command with a correlated not-started result, never merely an expired lease. */
 export async function refreshDeliveries(deps: NotificationDependencies) {
-  const candidates = await deps.prisma.notificationDelivery.findMany({ where: { state: 'suppressed', recoverySkipped: false, reason: { in: ['expired', 'superseded'] } }, orderBy: { updatedAt: 'asc' }, take: 25 });
+  const candidates = await deps.prisma.notificationDelivery.findMany({ where: { state: 'suppressed', recoverySkipped: false, nextCommandAt: { lte: deps.now() }, reason: { in: ['expired', 'superseded'] } }, orderBy: [{ nextCommandAt: 'asc' }, { id: 'asc' }], take: 25 });
   for (const candidate of candidates) await deps.prisma.$transaction(async transaction => {
     await lockNotification(transaction, `delivery:${candidate.id}`);
     const delivery = await transaction.notificationDelivery.findUniqueOrThrow({ where: { id: candidate.id }, include: { notification: true } });
     if (delivery.state !== 'suppressed' || delivery.recoverySkipped || delivery.commandRevision !== candidate.commandRevision) return;
+    await transaction.notificationDelivery.update({ where: { id: delivery.id }, data: { nextCommandAt: new Date(deps.now().getTime() + 30_000) } });
     const stored = await transaction.notificationCommand.findUniqueOrThrow({ where: { deliveryId_revision: { deliveryId: delivery.id, revision: delivery.commandRevision } } });
     const old = deliverySchema.parse(JSON.parse(stored.payload));
     const event = eventSchema.parse(JSON.parse(delivery.notification.eventPayload));
-    if (Date.parse(event.notAfter) <= deps.now().getTime()) return;
+    if (Date.parse(event.notAfter) <= deps.now().getTime()) {
+      await transaction.notificationDelivery.update({ where: { id: delivery.id }, data: { nextCommandAt: null } });
+      return;
+    }
     const source = await deps.sources.resolve(event);
     if (!validSource(event, source)) return;
     const channel = channelSchema.parse(delivery.channel);
