@@ -70,7 +70,7 @@ export function SeriesJourney({ result, currentHref, learning = { kind: "guest" 
   }
 
   return <>
-    {items.length > 0 ? <section aria-label="Прохождение серии" className="mt-6 grid min-h-44 gap-6 rounded-2xl bg-muted/55 p-5 sm:p-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] md:items-center md:gap-10" data-series-learning={learning.kind}>
+    {items.length > 0 ? <section aria-label="Прохождение серии" className="mt-6 grid min-h-80 gap-6 md:min-h-64 lg:min-h-52 rounded-2xl bg-muted/55 p-5 sm:p-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] md:items-center md:gap-10" data-series-learning={learning.kind}>
       <div className="min-w-0">
         {learning.kind === "guest" ? <>
           <h2 className="text-lg font-semibold">Изучайте в своём темпе</h2>
@@ -82,10 +82,10 @@ export function SeriesJourney({ result, currentHref, learning = { kind: "guest" 
       <div className="min-w-0">
         {target !== undefined && targetHref !== undefined && !complete ? <>
           <h2 className="text-sm font-medium text-muted-foreground">{next === undefined ? "Первый материал" : "Продолжить изучение"}</h2>
-          <p className="mt-2 break-words text-lg font-semibold leading-7">{target.title}</p>
+          <p className="mt-2 line-clamp-2 break-words text-lg font-semibold leading-7">{target.title}</p>
           <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
-            <Button asChild className="min-h-11" size="lg"><Link href={targetHref}><Play aria-hidden="true" className="size-4" />{next === undefined ? "Начать серию" : continuation?.label === "Продолжить здесь" ? "Продолжить" : continuation?.label}</Link></Button>
-            <Button className="min-h-11 whitespace-normal" onClick={() => { navigate(targetPage, target.slug); }} variant="ghost"><ArrowDown aria-hidden="true" />Показать в маршруте</Button>
+            <Button asChild className="h-auto min-h-11 max-w-full whitespace-normal [overflow-wrap:anywhere]" size="lg"><Link href={targetHref}><Play aria-hidden="true" className="size-4" />{next === undefined ? "Начать серию" : continuation?.label === "Продолжить здесь" ? "Продолжить" : continuation?.label}</Link></Button>
+            <Button className="h-auto min-h-11 max-w-full whitespace-normal [overflow-wrap:anywhere]" onClick={() => { navigate(targetPage, target.slug); }} variant="ghost"><ArrowDown aria-hidden="true" />Показать в маршруте</Button>
           </div>
         </> : complete ? <p className="max-w-md leading-7 text-muted-foreground">Можно вернуться к любому материалу в маршруте и повторить нужное.</p> : learning.kind === "loading" ? <p className="text-muted-foreground">Ищем место продолжения…</p> : learning.kind === "unavailable" ? <p className="text-sm leading-6 text-muted-foreground">Материалы можно открыть в маршруте ниже.</p> : <p className="text-sm leading-6 text-muted-foreground">Выберите материал в маршруте. Условия доступа указаны на карточках.</p>}
       </div>
@@ -100,7 +100,7 @@ export function SeriesJourney({ result, currentHref, learning = { kind: "guest" 
         {page.items.map((material, index) => {
           const ordinal = material.seriesMemberships.find(({ slug }) => slug === result.reference.slug)?.ordinal ?? page.offset + index + 1;
           const step = steps.get(material.slug);
-          return <li aria-current={next?.slug === material.slug ? "step" : undefined} className="relative grid scroll-mt-6 grid-cols-[2rem_minmax(0,1fr)] items-center gap-3 rounded-2xl focus-visible:outline-2 focus-visible:outline-ring" data-route-material={material.slug} data-series-ordinal={ordinal} key={material.slug} tabIndex={-1}>
+          return <li aria-current={next?.slug === material.slug ? "step" : undefined} className="@container/series-entry relative grid scroll-mt-6 grid-cols-[2rem_minmax(0,1fr)] items-center gap-3 rounded-2xl focus-visible:outline-2 focus-visible:outline-ring" data-route-material={material.slug} data-series-ordinal={ordinal} key={material.slug} tabIndex={-1}>
             {page.items.length > 1 ? <span aria-hidden="true" className="pointer-events-none absolute left-[15px] w-0 border-l-2 border-dashed border-border" data-series-rail style={{ top: index === 0 ? "50%" : "-1rem", bottom: index === page.items.length - 1 ? "50%" : "-1rem" }} /> : null}
             <div className="relative z-10 flex min-h-11 items-center"><SeriesMaterialMarker {...(material.materialId === undefined ? {} : { materialId: material.materialId })} ordinal={ordinal} /></div>
             <MaterialCard headingLevel="h3" material={material} {...(next?.slug === material.slug && continuation !== null ? { resumeLabel: continuation.label } : {})} returnHref={seriesReaderReturnHref(currentHref, page.number, material.slug)} rowAnnotation={step === undefined ? undefined : <span className="mt-2 flex flex-wrap items-baseline gap-x-1 text-xs leading-5" data-series-step><span className="font-semibold">Шаг {step.ordinal} из {step.total}</span><span aria-hidden="true">·</span><span className="break-words text-muted-foreground">{step.label}</span></span>} variant="row" showAccessDetails />

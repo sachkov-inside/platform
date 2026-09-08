@@ -100,7 +100,7 @@ test("reading progress appears on Home and Topic for video and other formats", a
   await signIn(context, "MEMBER");
   for (const material of [
     { slug: "video-pro-developer-pipeline", label: "Просмотрено", title: "Видео про Developer Pipeline" },
-    { slug: "granitsy-khoroshego-modulya", label: "Прочитано", title: "Границы хорошего модуля" },
+    { slug: "demo-chto-proverit-pered-peredachey-sekretov", label: "Прочитано", title: "Demo · Что проверить перед передачей секретов" },
   ]) {
     const button = await openReader(page, material.slug, material.label);
     if (await button.getAttribute("aria-pressed") !== "true") await button.click();

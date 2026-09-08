@@ -1,0 +1,47 @@
+[
+  {
+    "name": "desktop",
+    "width": 1440,
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "mobile",
+    "width": 390,
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "guest-mobile",
+    "width": 390,
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "pagination-320",
+    "width": 320,
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "error-320",
+    "width": 320,
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "text-zoom-200",
+    "width": 320,
+    "overflow": false
+  },
+  {
+    "name": "text-zoom-200-in-progress",
+    "width": 320,
+    "overflow": false
+  },
+  {
+    "name": "text-zoom-200-guest",
+    "width": 320,
+    "overflow": false
+  }
+]

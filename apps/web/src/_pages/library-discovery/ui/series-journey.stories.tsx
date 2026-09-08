@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
 import { MaterialReadingContext, type MaterialPreview } from "@/entities/material";
@@ -68,3 +69,39 @@ export const ProgressUnavailable: Story = { args: { learning: { kind: "unavailab
 export const Loading: Story = { args: { learning: { kind: "loading" } } };
 export const AccessUnavailable: Story = { args: { result: { ...result, items: materials.map((material) => ({ ...material, availability: "unavailable" })) }, learning: { kind: "ready", read: 8, total: 24, continuation: null } } };
 export const ShortSeries: Story = { args: { result: { ...result, items: materials.slice(0, 2) }, learning: { kind: "ready", read: 0, total: 2, continuation: null } }, play: async ({ canvasElement }) => { await expect(within(canvasElement).queryByRole("navigation", { name: "Страницы маршрута" })).not.toBeInTheDocument(); } };
+
+function ProgressResolution() {
+  const [ready, setReady] = useState(false);
+  return <>
+    <button onClick={() => { setReady(true); }} type="button">Получить прогресс (проверка)</button>
+    <LibraryDiscoveryView result={result} learning={ready ? { kind: "ready", read: 8, total: 24, continuation: resume } : { kind: "loading" }} />
+  </>;
+}
+export const LoadingPreservesRoutePosition: Story = {
+  render: () => <ProgressResolution />,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const top = canvas.getByRole("heading", { name: "Маршрут" }).getBoundingClientRect().top;
+    await userEvent.click(canvas.getByRole("button", { name: "Получить прогресс (проверка)" }));
+    await expect(canvas.getByRole("progressbar")).toHaveAttribute("value", "8");
+    await expect(Math.abs(canvas.getByRole("heading", { name: "Маршрут" }).getBoundingClientRect().top - top)).toBeLessThan(1);
+  },
+};
+export const DesktopLoadingPreservesRoutePosition: Story = { ...LoadingPreservesRoutePosition, globals: { viewport: { value: "desktop1440", isRotated: false } } };
+export const EnlargedText: Story = {
+  args: { learning: { kind: "unavailable" } },
+  globals: { viewport: { value: "mobile320", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const root = canvasElement.ownerDocument.documentElement;
+    const fontSize = root.style.fontSize;
+    try {
+      root.style.fontSize = "200%";
+      await new Promise<void>((resolve) => { requestAnimationFrame(() => { resolve(); }); });
+      await expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth);
+    } finally { root.style.fontSize = fontSize; }
+  },
+};
+
+export const EnlargedTextInProgress: Story = { ...EnlargedText, args: {} };
+export const EnlargedTextGuest: Story = { ...EnlargedText, args: Guest.args };
