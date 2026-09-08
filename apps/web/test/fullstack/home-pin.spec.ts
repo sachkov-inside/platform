@@ -19,13 +19,16 @@ test("author Home pin persists for guests and members, replaces and removes thro
     await page.goto("/authoring/materials");
     await expect(page.getByRole("button", { name: "Закрепить на главной", exact: true })).toHaveCount(0);
     const { promise: pinReady, resolve: releasePin } = Promise.withResolvers<undefined>();
-    await page.route("**/api/authoring/home-pin", async (route) => { await pinReady; await route.continue(); }, { times: 1 });
+    await page.route("**/api/authoring/home-pin", async (route) => { await pinReady; await route.fulfill({ status: 503, contentType: "application/json", body: "{}" }); }, { times: 1 });
     await page.goto("/authoring/playlists/72000000-0000-4000-8000-000000000298");
     const pin = page.getByRole("region", { name: "Закреп серии на главной" });
     await expect(pin.getByRole("button")).toBeDisabled();
     const loadingBox = await pin.boundingBox();
     releasePin(undefined);
-    await expect(pin.getByRole("button")).toBeEnabled();
+    await expect(pin.getByRole("button", { name: "Обновить закреп" })).toBeEnabled();
+    expect((await pin.boundingBox())?.height).toBe(loadingBox?.height);
+    await pin.getByRole("button", { name: "Обновить закреп" }).click();
+    await expect(pin.getByRole("button", { name: "Закрепить на главной", exact: true })).toBeEnabled();
     expect((await pin.boundingBox())?.height).toBe(loadingBox?.height);
     await pin.getByRole("button", { name: "Закрепить на главной", exact: true }).click();
     await expect(pin.getByRole("status")).toHaveText("Серия закреплена на главной.");

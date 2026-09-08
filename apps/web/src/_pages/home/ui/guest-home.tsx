@@ -1,5 +1,6 @@
 import { ArrowRight, BookOpen, Code2, GitBranch, Layers, MessageCircle, Terminal, Users } from "lucide-react";
 import Link from "next/link";
+import { formatMaterialCount } from "@/features/library-discovery";
 
 import type { HomeCollection } from "../model/home-view";
 import { collectionDiscoveryHref } from "@/shared/routing/material-reader";
@@ -12,7 +13,7 @@ export function FeaturedSeries({ series }: { readonly series: HomeCollection }) 
       <h2 id="featured-title">{series.name}</h2>
       {series.summary && <p className="home-featured-description">{series.summary}</p>}
       <div className="home-featured-bottom">
-        <span>{series.count} материалов</span>
+        <span>{formatMaterialCount(series.count)}</span>
         <Link href={collectionDiscoveryHref("series", series.slug, "/")}>Открыть серию <ArrowRight aria-hidden="true" /></Link>
       </div>
     </div>

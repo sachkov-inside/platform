@@ -17,10 +17,9 @@ export function HomeSeriesPinView({ seriesId, controls, message, hasError = fals
 }) {
   const selected = controls.pin?.seriesId === seriesId;
   return <section aria-label="Закреп серии на главной" className="my-5 grid gap-3 border-b border-border pb-5">
-    <Button type="button" variant="outline" className="min-h-11 w-full sm:w-fit" disabled={controls.pin === null || controls.pending} onClick={() => { controls.onChange(selected ? null : seriesId); }}>
-      {selected ? "Снять закреп с главной" : "Закрепить на главной"}
+    <Button type="button" variant="outline" className="min-h-11 w-full sm:w-fit" disabled={!hasError && (controls.pin === null || controls.pending)} onClick={() => { if (hasError) onRetry?.(); else controls.onChange(selected ? null : seriesId); }}>
+      {hasError ? "Обновить закреп" : selected ? "Снять закреп с главной" : "Закрепить на главной"}
     </Button>
     <p role={hasError ? "alert" : "status"} className="min-h-20 text-sm sm:min-h-12 text-muted-foreground">{message}</p>
-    {hasError && <Button type="button" variant="outline" className="w-fit" onClick={onRetry}>Обновить закреп</Button>}
   </section>;
 }
