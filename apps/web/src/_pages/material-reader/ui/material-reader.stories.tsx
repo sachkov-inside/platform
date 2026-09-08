@@ -402,7 +402,13 @@ export const Desktop: Story = {
     await expect(canvas.getByRole("navigation", { name: "В этом материале" })).toBeInTheDocument();
     await expect(canvas.getAllByRole("link", { name: "Назад в Базу знаний" })).toHaveLength(1);
     await expect(canvas.getByRole("region", { name: "Таблица в материале" })).toBeInTheDocument();
-    await expect(canvas.getByRole("img", { name: "Маршрут от project rules через skill к evidence" })).toBeInTheDocument();
+    const image = canvas.getByRole("img", { name: "Маршрут от project rules через skill к evidence" }) as HTMLImageElement;
+    image.scrollIntoView();
+    await waitFor(() => {
+      expect(image.complete && image.naturalWidth > 0).toBe(true);
+      expect(image).toBeInTheDocument();
+    });
+    canvasElement.ownerDocument.scrollingElement?.scrollTo(0, 0);
     for (const kind of ["table", "image", "file"] as const) {
       const block = canvasElement.querySelector<HTMLElement>(
         `[data-reader-block="${kind}"]`,

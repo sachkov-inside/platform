@@ -6,6 +6,10 @@ import { mergeConfig } from "vite";
 const config: StorybookConfig = {
   staticDirs: [
     "../public",
+    {
+      from: "./fixtures/reader-images",
+      to: "/api/materials/02000000-0000-4000-8000-000000000010/assets/image-agent-path/images",
+    },
     { from: "../../../docs/evidence/issue-271/covers", to: "/api/content-covers" },
   ],
   stories: [
