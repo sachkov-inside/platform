@@ -19,13 +19,18 @@ export async function acceptDeliveryResult(prisma: NotificationsPrismaClient, ch
     const byMessage = await transaction.notificationResult.findUnique({ where: { channel_messageId: { channel, messageId: result.messageId } } });
     const byRevision = await transaction.notificationResult.findUnique({ where: { deliveryId_revision: { deliveryId: result.deliveryRef, revision: result.resultRevision } } });
     if (byMessage || byRevision) return (byMessage ?? byRevision)?.digest === envelope.digest ? 'duplicate' as const : 'operation_conflict' as const;
-    // Validate even old results before storing them. Retain late evidence for operator inspection.
+    const stale = result.resultRevision < current.resultRevision || command.revision < current.commandRevision;
+    if (!stale) {
+      if (current.state === 'sent' && result.state !== 'sent') return 'transition_conflict' as const;
+      // A later permitted attempt may arrive before the prior attempt's not_sent proof.
+      // Leave its durable inbox pending; do not tombstone it as a projected duplicate.
+      if (current.state === 'unknown' && result.attemptRef && result.attemptRef !== current.attemptRef) return 'deferred' as const;
+      if (current.state === 'unknown' && (result.attemptRef !== current.attemptRef || !['sent', 'failed', 'retrying', 'unknown'].includes(result.state))) return 'attempt_conflict' as const;
+      if (current.state === 'unknown' && result.state === 'retrying' && !['rate_limited', 'provider_unavailable'].includes(result.reason ?? '')) return 'transition_conflict' as const;
+      if (current.state === 'retrying' && result.state === 'accepted') return 'transition_conflict' as const;
+    }
     await transaction.notificationResult.create({ data: { channel, messageId: result.messageId, deliveryId: result.deliveryRef, revision: result.resultRevision, digest: envelope.digest, payload: envelope.payload, recordedAt: new Date(result.recordedAt) } });
-    if (result.resultRevision < current.resultRevision || command.revision < current.commandRevision) return 'stale' as const;
-    if (current.state === 'sent' && result.state !== 'sent') return 'transition_conflict' as const;
-    if (current.state === 'unknown' && (result.attemptRef !== current.attemptRef || !['sent', 'failed', 'retrying', 'unknown'].includes(result.state))) return 'attempt_conflict' as const;
-    if (current.state === 'unknown' && result.state === 'retrying' && !['rate_limited', 'provider_unavailable'].includes(result.reason ?? '')) return 'transition_conflict' as const;
-    if (current.state === 'retrying' && result.state === 'accepted') return 'transition_conflict' as const;
+    if (stale) return 'stale' as const;
     await transaction.notificationDelivery.update({ where: { id: result.deliveryRef }, data: {
       state: result.state, reason: result.reason ?? null, resultRevision: result.resultRevision, resultDigest: envelope.digest,
       attemptRef: result.attemptRef ?? null, updatedAt: new Date(result.recordedAt),

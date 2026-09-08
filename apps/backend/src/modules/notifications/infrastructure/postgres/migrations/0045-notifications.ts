@@ -1,5 +1,8 @@
 export const name = "0045_notifications";
 export const statement = `
+ALTER TABLE notifications.inbox ADD COLUMN next_attempt_at timestamptz NOT NULL DEFAULT now();
+CREATE INDEX ON notifications.inbox(lane, completed_at, next_attempt_at);
+
 CREATE TABLE notifications.preferences (
  account_id uuid PRIMARY KEY, revision integer NOT NULL CHECK(revision > 0),
  email boolean NOT NULL, telegram boolean NOT NULL, changed_at timestamptz NOT NULL

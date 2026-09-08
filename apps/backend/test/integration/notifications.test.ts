@@ -52,7 +52,7 @@ describe('Notifications persistence and delivery (real PostgreSQL; synthetic sou
     const accounts = assembleAccounts({ prisma: database.prisma, emailFingerprintKey: 'notification-test-key-long-enough' });
     const app = new Notifications(deps, accounts);
     const advance = (ms: number) => { instant = new Date(instant.getTime() + ms); };
-    const publish = async () => { advance(10_000); await app.acceptEvent(encodeNotification(category === 'material' ? 'materials' : 'billing', event)); await expandAudience(deps, category === 'material' ? 'materials' : 'billing'); };
+    const publish = async () => { advance(10_000); await app.acceptEvent(encodeNotification(category === 'material' ? 'materials' : 'billing', event)); await database.prisma.notificationInbox.update({ where: { scope_messageId: { scope: category === 'material' ? 'materials' : 'billing', messageId: event.messageId } }, data: { nextAttemptAt: now() } }); await expandAudience(deps, category === 'material' ? 'materials' : 'billing'); };
     const commands = async () => database.prisma.notificationCommand.findMany({ where: { delivery: { notification: { occurrenceRef: event.occurrenceRef, accountId: actor } } }, orderBy: { revision: 'asc' } });
     const command = async () => { const row = (await commands()).at(-1); if (!row) throw new Error('Missing command'); return { row, value: deliverySchema.parse(JSON.parse(row.payload)) }; };
     const admit = async () => { const { value } = await command(); await app.acceptEvent(encodeNotification(category === 'material' ? 'emailMaterial' : 'emailSubscription', value)); return value; };
@@ -204,7 +204,13 @@ describe('Notifications persistence and delivery (real PostgreSQL; synthetic sou
     let sends = 0;
     await dispatchEmail(s.deps, () => { sends += 1; return Promise.resolve({ state: 'sent' }); }, 'subscription');
     expect(sends).toBe(1);
-    expect((await project(s.app, c.deliveryRef)).state).toBe('sent');
+    const effect = await database.prisma.notificationEmailEffect.findUniqueOrThrow({ where: { deliveryId: c.deliveryRef } });
+    const sent = resultSchema.parse(JSON.parse(effect.resultPayload ?? 'null'));
+    expect(await s.app.acceptDeliveryResult('email', sent)).toBe('deferred');
+    const retrying = rows.map(row => resultSchema.parse(JSON.parse(row.payload))).find(result => result.deliveryRef === c.deliveryRef && result.state === 'retrying');
+    expect(await s.app.acceptDeliveryResult('email', retrying)).toBe('accepted');
+    expect(await s.app.acceptDeliveryResult('email', sent)).toBe('accepted');
+    expect((await s.app.readDeliveries(s.actor)).find(row => row.id === c.deliveryRef)?.state).toBe('sent');
   });
   test('pause after started commit cannot send with an expired permit', async () => {
     const s = await scenario(); await s.publish(); const c = await s.admit();
@@ -281,7 +287,7 @@ describe('Notifications persistence and delivery (real PostgreSQL; synthetic sou
   });
   test('unavailable and invalid source facts never authorize an event, template links stay on Platform', async () => {
     const s = await scenario(); s.source({ status: 'unavailable' }); await s.publish(); expect(await s.commands()).toHaveLength(0);
-    s.source({ ...s.fact, event: { ...s.event, occurrenceRef: randomUUID() } });
+    s.source({ ...s.fact, event: { ...s.event, occurrenceRef: randomUUID() } }); s.advance(30_000);
     await expandAudience(s.deps, 'billing'); expect(await s.commands()).toHaveLength(0);
     expect(() => renderNotification({ ...s.fact, readerPath: 'https://evil.example/path' }, s.deps.origin)).toThrow('notification_link_invalid');
   });

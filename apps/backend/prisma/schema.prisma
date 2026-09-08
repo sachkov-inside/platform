@@ -998,6 +998,7 @@ model NotificationOutbox {
 }
 
 model NotificationInbox {
+  nextAttemptAt DateTime @default(now()) @map("next_attempt_at") @db.Timestamptz
   scope String
   messageId String @map("message_id") @db.Uuid
   lane String

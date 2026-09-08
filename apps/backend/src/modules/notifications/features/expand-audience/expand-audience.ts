@@ -26,7 +26,7 @@ export async function expandAudience(deps: NotificationDependencies, lane: 'bill
   const { prisma, now } = deps;
   return prisma.$transaction(async transaction => {
     await lockNotification(transaction, `audience:${lane}`);
-    const row = await transaction.notificationInbox.findFirst({ where: { lane, completedAt: null }, orderBy: [{ receivedAt: 'asc' }, { messageId: 'asc' }] });
+    const row = await transaction.notificationInbox.findFirst({ where: { lane, completedAt: null, nextAttemptAt: { lte: now() } }, orderBy: [{ nextAttemptAt: 'asc' }, { receivedAt: 'asc' }, { messageId: 'asc' }] });
     if (!row) return false;
     const key = { scope_messageId: { scope: row.scope, messageId: row.messageId } };
     const { value: event } = parseWire(lane, JSON.parse(row.payload), eventSchema);
@@ -38,7 +38,10 @@ export async function expandAudience(deps: NotificationDependencies, lane: 'bill
       return true;
     }
     const source = await deps.sources.resolve(event);
-    if (source.status === 'unavailable') return false;
+    if (source.status === 'unavailable') {
+      await transaction.notificationInbox.update({ where: key, data: { nextAttemptAt: new Date(now().getTime() + 30_000) } });
+      return false;
+    }
     if (!validSource(event, source)) {
       await transaction.notificationInbox.update({ where: key, data: { completedAt: now(), checkpoint: { reason: 'source_conflict' } } });
       return true;

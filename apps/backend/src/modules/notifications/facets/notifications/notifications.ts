@@ -42,9 +42,13 @@ export class Notifications {
     // Each lane makes bounded progress independently; a saturated subscription lane cannot starve materials/results.
     for (const channel of ['email', 'telegram'] as const) {
       const lane = channel === 'email' ? 'emailResult' : 'telegramResult';
-      const rows = await this.deps.prisma.notificationInbox.findMany({ where: { lane, completedAt: null }, orderBy: { receivedAt: 'asc' }, take: 25 });
+      const rows = await this.deps.prisma.notificationInbox.findMany({ where: { lane, completedAt: null, nextAttemptAt: { lte: this.deps.now() } }, orderBy: [{ nextAttemptAt: 'asc' }, { receivedAt: 'asc' }], take: 25 });
       for (const row of rows) {
         const outcome = await this.acceptDeliveryResult(channel, JSON.parse(row.payload));
+        if (outcome === 'deferred') {
+          await this.deps.prisma.notificationInbox.update({ where: { scope_messageId: { scope: row.scope, messageId: row.messageId } }, data: { nextAttemptAt: new Date(this.deps.now().getTime() + 5_000) } });
+          continue;
+        }
         if (!['accepted', 'duplicate', 'stale'].includes(outcome)) await this.transport.quarantine(lane, Buffer.from(row.payload), outcome);
         await this.deps.prisma.notificationInbox.update({ where: { scope_messageId: { scope: row.scope, messageId: row.messageId } }, data: { completedAt: this.deps.now() } });
       }
