@@ -104,4 +104,4 @@ export const EnlargedText: Story = {
 };
 
 export const EnlargedTextInProgress: Story = { ...EnlargedText, args: {} };
-export const EnlargedTextGuest: Story = { ...EnlargedText, args: Guest.args };
+export const EnlargedTextGuest: Story = { ...EnlargedText, args: Guest.args ?? {} };
