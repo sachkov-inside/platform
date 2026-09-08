@@ -29,9 +29,7 @@ export function MaterialMetadataPanel({
   presentation,
 }: MaterialMetadataPanelProps) {
   const disabled =
-    presentation.save.kind === "submitting" ||
-    presentation.blocking.kind !== "none" ||
-    presentation.draft.readOnly;
+    presentation.blocking.kind === "not_found" || presentation.draft.readOnly;
 
   return (
     <section
@@ -45,7 +43,9 @@ export function MaterialMetadataPanel({
         <Field label="Название" targetId="material-title">
           <input
             aria-describedby={
-              hasIssue(presentation, "/title") ? "material-guidance-heading" : undefined
+              hasIssue(presentation, "/title")
+                ? "material-guidance-heading"
+                : undefined
             }
             aria-invalid={hasIssue(presentation, "/title") || undefined}
             autoComplete="off"
@@ -63,7 +63,9 @@ export function MaterialMetadataPanel({
         <Field label="Краткое описание" targetId="material-summary">
           <textarea
             aria-describedby={
-              hasIssue(presentation, "/summary") ? "material-guidance-heading" : undefined
+              hasIssue(presentation, "/summary")
+                ? "material-guidance-heading"
+                : undefined
             }
             aria-invalid={hasIssue(presentation, "/summary") || undefined}
             autoComplete="off"
@@ -96,8 +98,30 @@ export function MaterialMetadataPanel({
           value={presentation.draft.formatId}
           onChange={actions.onFieldChange}
         />
-        <TagSelector actions={actions} disabled={disabled} presentation={presentation} />
-        <SeriesSelector actions={actions} disabled={disabled} presentation={presentation} />
+        {presentation.availableTags.length > 0 ? (
+          <details className="sm:col-span-2 @min-[68rem]/material-authoring:col-span-1">
+            <summary className="cursor-pointer text-sm text-muted-foreground">
+              Теги
+            </summary>
+            <TagSelector
+              actions={actions}
+              disabled={disabled}
+              presentation={presentation}
+            />
+          </details>
+        ) : null}
+        {presentation.availableSeries.length > 0 ? (
+          <details className="sm:col-span-2 @min-[68rem]/material-authoring:col-span-1">
+            <summary className="cursor-pointer text-sm text-muted-foreground">
+              Серии · {presentation.draft.seriesIds.length}
+            </summary>
+            <SeriesSelector
+              actions={actions}
+              disabled={disabled}
+              presentation={presentation}
+            />
+          </details>
+        ) : null}
         <Field label="Доступ" targetId="material-access">
           <Select
             disabled={disabled}
@@ -107,14 +131,20 @@ export function MaterialMetadataPanel({
             }}
             value={presentation.draft.access}
           >
-            <SelectTrigger className={authoringSelectTriggerClassName} id="material-access">
+            <SelectTrigger
+              className={authoringSelectTriggerClassName}
+              id="material-access"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem className={authoringSelectItemClassName} value="free">
                 Бесплатный
               </SelectItem>
-              <SelectItem className={authoringSelectItemClassName} value="membership">
+              <SelectItem
+                className={authoringSelectItemClassName}
+                value="membership"
+              >
                 Для участников
               </SelectItem>
             </SelectContent>
@@ -125,13 +155,10 @@ export function MaterialMetadataPanel({
       {presentation.draft.canDelete &&
       presentation.draft.materialId !== null &&
       presentation.draft.contentVersion !== null ? (
-        <section aria-labelledby="material-delete-heading" className="mt-7 border-t border-border pt-6">
-          <h2 className="text-sm font-semibold" id="material-delete-heading">
-            Удаление черновика
-          </h2>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            Доступно только пока Материал ни разу не публиковался.
-          </p>
+        <details className="mt-7 border-t border-border pt-4">
+          <summary className="cursor-pointer text-xs text-muted-foreground">
+            Удалить черновик
+          </summary>
           <div className="mt-4">
             <MaterialDeleteDialog
               contentVersion={presentation.draft.contentVersion}
@@ -144,7 +171,7 @@ export function MaterialMetadataPanel({
               title={presentation.draft.title || null}
             />
           </div>
-        </section>
+        </details>
       ) : null}
     </section>
   );
@@ -178,11 +205,17 @@ function TaxonomySelect({
         }}
         value={value}
       >
-        <SelectTrigger className={authoringSelectTriggerClassName} id={targetId}>
+        <SelectTrigger
+          className={authoringSelectTriggerClassName}
+          id={targetId}
+        >
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem className={authoringSelectItemClassName} value="unassigned">
+          <SelectItem
+            className={authoringSelectItemClassName}
+            value="unassigned"
+          >
             {emptyLabel}
           </SelectItem>
           {options.map((option) => (
@@ -192,7 +225,8 @@ function TaxonomySelect({
               key={option.value}
               value={option.value}
             >
-              {materialTaxonomyLabel(option.label)}{option.archived === true ? " · архив" : ""}
+              {materialTaxonomyLabel(option.label)}
+              {option.archived === true ? " · архив" : ""}
             </SelectItem>
           ))}
         </SelectContent>
@@ -270,19 +304,27 @@ function SeriesSelector({
                 className="sr-only"
                 disabled={disabled || (series.archived === true && !checked)}
                 onChange={(event) => {
-                  actions.onSeriesToggle(series.value, event.currentTarget.checked);
+                  actions.onSeriesToggle(
+                    series.value,
+                    event.currentTarget.checked,
+                  );
                 }}
                 type="checkbox"
               />
               <span
                 className={cn(
                   "grid size-8 shrink-0 place-items-center rounded-lg",
-                  checked ? "bg-accent text-accent-foreground" : "bg-secondary text-muted-foreground",
+                  checked
+                    ? "bg-accent text-accent-foreground"
+                    : "bg-secondary text-muted-foreground",
                 )}
               >
                 <BookOpen aria-hidden="true" className="size-4" />
               </span>
-              <span className="truncate">{series.label}{series.archived === true ? " · архив" : ""}</span>
+              <span className="truncate">
+                {series.label}
+                {series.archived === true ? " · архив" : ""}
+              </span>
               <span
                 className={cn(
                   "ml-auto grid size-6 shrink-0 place-items-center rounded-full border",
@@ -383,12 +425,15 @@ function hasIssue(
 ): boolean {
   return (
     presentation.validation.kind === "invalid" &&
-    presentation.validation.issues.some((issue) => issue.path.endsWith(pathSuffix))
+    presentation.validation.issues.some((issue) =>
+      issue.path.endsWith(pathSuffix),
+    )
   );
 }
 
 const fieldClassName =
   "min-h-12 w-full rounded-xl border border-input bg-card px-3 text-base text-foreground outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-60 motion-reduce:transition-none sm:min-h-11 sm:text-sm";
 
-const authoringSelectTriggerClassName = "min-h-12 text-base sm:min-h-11 sm:text-sm";
+const authoringSelectTriggerClassName =
+  "min-h-12 text-base sm:min-h-11 sm:text-sm";
 const authoringSelectItemClassName = "min-h-11 sm:min-h-10";

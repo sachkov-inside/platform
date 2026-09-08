@@ -371,3 +371,33 @@ docker compose up --detach --build --wait
 
 This does not affect disposable Testcontainers databases. Never use `--volumes` as routine
 shutdown.
+
+## Local editor acceptance
+
+`pnpm editor:local` runs the real editor and API against isolated PostgreSQL at port 54396 and
+MinIO at 9036. It refuses production configuration by constructing its own local environment.
+Start dedicated containers, separate from the singleton Compose stack:
+
+```bash
+docker run -d --name platform-396-postgres -e POSTGRES_USER=inside -e POSTGRES_PASSWORD=inside -e POSTGRES_DB=inside -p 127.0.0.1:54396:5432 postgres:18.4-alpine3.23
+docker run -d --name platform-396-storage -e MINIO_ROOT_USER=inside-local-access-key -e MINIO_ROOT_PASSWORD=inside-local-secret-key -p 127.0.0.1:9036:9000 minio/minio:RELEASE.2025-09-07T16-13-09Z server /data
+pnpm editor:local
+```
+
+Open `http://127.0.0.1:4396/authoring/materials`. The loopback gateway supplies a synthetic local
+owner session using the same identity fixture as the full-stack tests; it refreshes short-lived
+credentials server-side. The local Account receives explicit `platform:admin`. No production
+identity, permission, credential or provider configuration is read or changed. This proves editor,
+BFF, API, persistence and storage behaviour, not real Logto sign-in or Kinescope upload/playback.
+The Kinescope test adapter completes uploads without sending the selected video to Kinescope.
+
+Run `pnpm --filter @inside/web exec playwright test --config playwright.editor.config.ts` while
+this runtime is running. Stop its launcher before root `pnpm check` because the Next development
+server uses one build directory per worktree. Ctrl+C stops the launcher processes; the two dedicated
+containers retain local data. Stop only those containers when the review is finished:
+
+```bash
+docker stop platform-396-postgres platform-396-storage
+```
+
+Do not remove their data or use the shared Compose shutdown command for this isolated runtime.

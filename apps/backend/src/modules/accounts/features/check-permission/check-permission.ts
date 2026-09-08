@@ -1,3 +1,4 @@
+import { isPlatformPermission } from "../../domain/platform-permission.js";
 import type { AccountsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { parseAccountId } from "../../domain/account-identifiers.js";
 import type {
@@ -14,7 +15,7 @@ export async function checkPermission(
   },
 ): Promise<PermissionDecision> {
   const accountId = parseAccountId(query.accountId);
-  if (accountId === undefined || !(["materials:manage", "communications:manage"] as const).includes(query.permission)) {
+  if (accountId === undefined || !isPlatformPermission(query.permission)) {
     return { ok: false, error: { code: "invalid_input" } };
   }
   try {
@@ -25,9 +26,10 @@ export async function checkPermission(
     if (account === null) {
       return { ok: false, error: { code: "account_not_found" } };
     }
-    const grant = await prisma.accountPermission.findUnique({
+    const grant = await prisma.accountPermission.findFirst({
       where: {
-        accountId_permission: { accountId, permission: query.permission },
+        accountId,
+        permission: { in: [query.permission, "platform:admin"] },
       },
       select: { accountId: true },
     });

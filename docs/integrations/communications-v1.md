@@ -7,9 +7,16 @@ Telegram owns the physical schema and mutable communications state. Its pinned r
 in [the vendored snapshot](../../apps/backend/src/modules/communications/contracts/inside-communications-v1/snapshot.json).
 Platform stores only the outgoing tracking-event ledger in `communications.tracking_hits`; it has no second mutable definition store or broadcast scheduler.
 
+## Editor ownership
+
+Owner decision [Platform #396](https://github.com/sachkov-inside/platform/issues/396), 2026-09-08:
+funnel and broadcast management belong to the Telegram bot. Platform removes their web navigation
+and page entry points. Analytics is deferred to a separate product step. The transport and delegated
+MCP contracts below remain integration capabilities; they do not imply a Platform management UI.
+
 ## Identity and permission
 
-An author needs a confirmed Telegram link and the current Account permission `communications:manage`.
+An author needs a confirmed Telegram link and the current Account permission `communications:manage` (also covered by an explicit `platform:admin` grant).
 The owner confirmed the link prerequisite during #307 implementation on 2026-09-06. A recipient does
 not need a Platform Account. `materials:manage`, Membership, a Telegram username, and knowledge of a
 template ID confer no communications authority.

@@ -4,11 +4,7 @@ import type { JSONContent } from "@tiptap/core";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
-import {
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 
 import {
   MaterialAuthoringWorkspace,
@@ -17,8 +13,13 @@ import {
   type MaterialDraftField,
 } from "@/widgets/material-authoring/editor";
 import { deleteMaterialDraft } from "@/features/material-lifecycle";
+import {
+  flushPendingEdits,
+  useAutosave,
+} from "@/shared/lib/autosave/use-autosave";
 import { withAuthoringReturnHref } from "@/shared/routing/authoring";
 
+import { withMaterialNodeIds } from "@/widgets/material-authoring/model";
 import { createMaterialDraft } from "../api/create-material-draft.browser";
 import { saveMaterial } from "../api/save-material.browser";
 import type { CreateMaterialDraftInput } from "../model/create-material-draft";
@@ -42,64 +43,130 @@ export function MaterialAuthoringPageClient({
       if (result.kind === "deleted") router.replace(returnHref);
     },
   });
-  const creating = initialPresentation.draft.status === "new";
-  const materialResult = creating ? createMutation.data : saveMutation.data;
-  const pending = creating ? createMutation.isPending : saveMutation.isPending;
   const [draft, setDraft] = useState(initialPresentation.draft);
-  const [dirty, setDirty] = useState(false);
+  const draftRef = useRef(draft);
+  useLayoutEffect(() => {
+    draftRef.current = draft;
+  }, [draft]);
   const [noticeRevision, setNoticeRevision] = useState(0);
+  const [materialResult, setMaterialResult] = useState<
+    | Awaited<ReturnType<typeof createMaterialDraft>>
+    | Awaited<ReturnType<typeof saveMaterial>>
+    | null
+  >(null);
   const retryCreateInput = useRef<CreateMaterialDraftInput | null>(null);
   const retrySaveInput = useRef<SaveMaterialInput | null>(null);
+  const [publicationTarget, setPublicationTarget] = useState<
+    SaveMaterialInput["publicationState"] | null
+  >(null);
+  const effectiveDraft = draft;
   const deletionResult = deletionMutation.data ?? null;
   const deletionPending = deletionMutation.isPending;
-
-  const failedMutation =
-    materialResult?.kind === "conflict" ||
-    materialResult?.kind === "infrastructure_error" ||
-    materialResult?.kind === "invalid_input" ||
-    materialResult?.kind === "not_found" ||
-    materialResult?.kind === "unexpected_error";
-
-  const created = materialResult?.kind === "created" ? materialResult.draft : null;
-  const saved = materialResult?.kind === "saved" ? materialResult : null;
-  const persistedDraft =
-    saved !== null
-        ? {
-            ...draft,
-            canDelete:
-              draft.canDelete && saved.publicationState === "draft",
-            contentVersion: saved.contentVersion,
-            deleteVideoId: null,
-            latestVideoDeletion:
-              draft.deleteVideoId === null || draft.latestVideoDeletion === null
-                ? draft.latestVideoDeletion
-                : { ...draft.latestVideoDeletion, state: "deletion_requested" as const },
-            status: saved.publicationState,
+  const {
+    contentVersion: _version,
+    materialId: _id,
+    assetPreviewBlocks: _blocks,
+    cover: _cover,
+    ...editable
+  } = draft;
+  const autosave = useAutosave({
+    value: { ...editable, publicationTarget },
+    enabled:
+      !draft.readOnly &&
+      draft.title.trim().length > 0 &&
+      initialPresentation.authorization.kind !== "unauthorized",
+    save: async (snapshot) => {
+      const current = draftRef.current;
+      if (current.materialId === null) {
+        const input = retryCreateInput.current ?? {
+          ...snapshot,
+          document: withMaterialNodeIds(snapshot.document),
+          submissionId: crypto.randomUUID(),
+        };
+        retryCreateInput.current = input;
+        const result = await createMutation.mutateAsync(input);
+        setMaterialResult(result);
+        if (result.kind !== "created") {
+          if (result.kind === "invalid_input") {
+            retryCreateInput.current = null;
+            return "invalid";
           }
-        : draft;
-  const persistedDraftIsNewer =
-    (created !== null &&
-      (draft.materialId !== created.materialId ||
-        draft.contentVersion !== created.contentVersion)) ||
-    (saved !== null && draft.contentVersion !== saved.contentVersion);
-  const effectiveDraft =
-    pending || failedMutation || !persistedDraftIsNewer ? draft : persistedDraft;
-
-  useEffect(() => {
-    if (created !== null) {
-      window.location.replace(
-        withAuthoringReturnHref(
-          `/authoring/materials/${created.materialId}`,
-          returnHref,
-        ),
-      );
-    }
-  }, [created, returnHref]);
-
+          return "failed";
+        }
+        retryCreateInput.current = null;
+        const next = {
+          ...draftRef.current,
+          ...result.draft,
+          status: "draft" as const,
+        };
+        draftRef.current = next;
+        setDraft(next);
+        // Keep the editor and in-flight uploads mounted when the draft gets its URL.
+        window.history.replaceState(
+          null,
+          "",
+          withAuthoringReturnHref(
+            `/authoring/materials/${result.draft.materialId}`,
+            returnHref,
+          ),
+        );
+        return "saved";
+      }
+      if (current.contentVersion === null) return "failed";
+      const input: SaveMaterialInput = retrySaveInput.current ?? {
+        ...snapshot,
+        document: withMaterialNodeIds(snapshot.document),
+        expectedContentVersion: current.contentVersion,
+        materialId: current.materialId,
+        publicationState:
+          snapshot.publicationTarget ??
+          (current.status === "new" ? "draft" : current.status),
+        submissionId: crypto.randomUUID(),
+      };
+      retrySaveInput.current = input;
+      const result = await saveMutation.mutateAsync(input);
+      setMaterialResult(result);
+      if (result.kind !== "saved") {
+        if (result.kind === "invalid_input") {
+          retrySaveInput.current = null;
+          setPublicationTarget(null);
+          return "invalid";
+        }
+        return "failed";
+      }
+      retrySaveInput.current = null;
+      setPublicationTarget(null);
+      const next = {
+        ...draftRef.current,
+        contentVersion: result.contentVersion,
+        status: result.publicationState,
+        canDelete:
+          draftRef.current.canDelete && result.publicationState === "draft",
+        latestVideoDeletion:
+          input.deleteVideoId &&
+          draftRef.current.latestVideoDeletion?.videoId === input.deleteVideoId
+            ? {
+                ...draftRef.current.latestVideoDeletion,
+                state: "deletion_requested" as const,
+              }
+            : draftRef.current.latestVideoDeletion,
+        deleteVideoId:
+          draftRef.current.deleteVideoId === snapshot.deleteVideoId
+            ? null
+            : draftRef.current.deleteVideoId,
+      };
+      draftRef.current = next;
+      setDraft(next);
+      return "saved";
+    },
+  });
+  const pending = autosave.pending;
+  const saved = materialResult?.kind === "saved" ? materialResult : null;
   const presentation: MaterialAuthoringPresentation = {
     ...initialPresentation,
     authorization:
-      materialResult?.kind === "unauthorized" || materialResult?.kind === "forbidden"
+      materialResult?.kind === "unauthorized" ||
+      materialResult?.kind === "forbidden"
         ? { kind: "unauthorized" }
         : initialPresentation.authorization,
     blocking:
@@ -115,9 +182,11 @@ export function MaterialAuthoringPageClient({
               kind: "conflict",
               staleContentVersion: materialResult.staleContentVersion,
             }
-      : materialResult?.kind === "not_found"
+          : materialResult?.kind === "not_found"
             ? { kind: "not_found" }
-            : { kind: "none" },
+            : autosave.error
+              ? { kind: "infrastructure_error", correlationId: initialPresentation.submissionId }
+              : { kind: "none" },
     deletion: { pending: deletionPending, result: deletionResult },
     draft: effectiveDraft,
     mode: "editor",
@@ -125,34 +194,39 @@ export function MaterialAuthoringPageClient({
     preview: null,
     save: pending
       ? { kind: "submitting" }
-      : failedMutation || (dirty && !persistedDraftIsNewer)
-          ? { kind: "dirty" }
-          : created !== null || saved !== null
-            ? { kind: "saved", savedAtLabel: "сейчас" }
-            : { kind: "clean" },
+      : autosave.dirty || autosave.error
+        ? { kind: "dirty" }
+        : materialResult?.kind === "saved" || materialResult?.kind === "created"
+          ? { kind: "saved", savedAtLabel: "сейчас" }
+          : { kind: "clean" },
     submissionId: saved?.nextSubmissionId ?? initialPresentation.submissionId,
     validation: pending
       ? { kind: "checking" }
       : materialResult?.kind === "invalid_input"
-          ? { issues: materialResult.issues, kind: "invalid", scope: "input" }
-          : { kind: "idle" },
+        ? { issues: materialResult.issues, kind: "invalid", scope: "input" }
+        : { kind: "idle" },
   };
 
   const markDirty = (nextDraft: MaterialAuthoringPresentation["draft"]) => {
     setDraft(nextDraft);
-    setDirty(true);
+    draftRef.current = nextDraft;
   };
 
   const actions = {
     onBack: () => {
-      router.push(returnHref);
+      void flushPendingEdits().then((ok) => {
+        if (ok) router.push(returnHref);
+      });
     },
     onConflictAction: (action) => {
       const materialId = effectiveDraft.materialId;
       if (materialId === null) return;
       if (action === "open_current") {
         window.open(
-          withAuthoringReturnHref(`/authoring/materials/${materialId}`, returnHref),
+          withAuthoringReturnHref(
+            `/authoring/materials/${materialId}`,
+            returnHref,
+          ),
           "_blank",
           "noopener,noreferrer",
         );
@@ -169,10 +243,14 @@ export function MaterialAuthoringPageClient({
         );
         return;
       }
-      void navigator.clipboard.writeText(JSON.stringify(effectiveDraft, null, 2));
+      void navigator.clipboard.writeText(
+        JSON.stringify(effectiveDraft, null, 2),
+      );
     },
     onDocumentChange: (document: JSONContent) => {
-      if (JSON.stringify(document) === JSON.stringify(effectiveDraft.document)) {
+      if (
+        JSON.stringify(document) === JSON.stringify(effectiveDraft.document)
+      ) {
         return;
       }
       markDirty({ ...effectiveDraft, document });
@@ -183,9 +261,14 @@ export function MaterialAuthoringPageClient({
           ...effectiveDraft,
           access: value === "membership" ? "membership" : "free",
           deleteVideoId: null,
-          primaryVideo: value === effectiveDraft.access ? effectiveDraft.primaryVideo : null,
+          primaryVideo:
+            value === effectiveDraft.access
+              ? effectiveDraft.primaryVideo
+              : null,
           primaryVideoId:
-            value === effectiveDraft.access ? effectiveDraft.primaryVideoId : null,
+            value === effectiveDraft.access
+              ? effectiveDraft.primaryVideoId
+              : null,
         });
         return;
       }
@@ -195,22 +278,25 @@ export function MaterialAuthoringPageClient({
       deletionMutation.mutate(input);
     },
     onOpenPreview: () => {
-      if (effectiveDraft.materialId !== null) {
-        router.push(
-          withAuthoringReturnHref(
-            `/authoring/materials/${effectiveDraft.materialId}/preview`,
-            returnHref,
-          ),
-        );
-      }
+      void flushPendingEdits().then((ok) => {
+        const id = draftRef.current.materialId;
+        if (ok && id !== null)
+          router.push(
+            withAuthoringReturnHref(
+              `/authoring/materials/${id}/preview`,
+              returnHref,
+            ),
+          );
+      });
     },
     onPrimaryVideoChange: (primaryVideo, deleteVideoId) => {
       const deletionCandidate =
-        deleteVideoId !== null && effectiveDraft.primaryVideo?.videoId === deleteVideoId
-          ? effectiveDraft.primaryVideo
-          : effectiveDraft.latestVideoDeletion;
+        deleteVideoId !== null &&
+        draftRef.current.primaryVideo?.videoId === deleteVideoId
+          ? draftRef.current.primaryVideo
+          : draftRef.current.latestVideoDeletion;
       markDirty({
-        ...effectiveDraft,
+        ...draftRef.current,
         deleteVideoId,
         latestVideoDeletion: deletionCandidate,
         primaryVideo,
@@ -218,17 +304,8 @@ export function MaterialAuthoringPageClient({
       });
     },
     onRetry: () => {
-      if (creating && retryCreateInput.current !== null) {
-        setDirty(false);
-        setNoticeRevision((current) => current + 1);
-        createMutation.mutate(retryCreateInput.current);
-        return;
-      }
-      if (!creating && retrySaveInput.current !== null) {
-        setDirty(false);
-        setNoticeRevision((current) => current + 1);
-        saveMutation.mutate(retrySaveInput.current);
-      }
+      setNoticeRevision((n) => n + 1);
+      void autosave.retry();
     },
     onReturnToEditor: () => {
       router.push(
@@ -241,48 +318,8 @@ export function MaterialAuthoringPageClient({
       );
     },
     onSave: (publicationState) => {
-      setDirty(false);
-      setNoticeRevision((current) => current + 1);
-      if (creating) {
-        const input: CreateMaterialDraftInput = {
-          access: effectiveDraft.access,
-          document: effectiveDraft.document,
-          formatId: effectiveDraft.formatId,
-          seriesIds: effectiveDraft.seriesIds,
-          submissionId: presentation.submissionId,
-          summary: effectiveDraft.summary,
-          tagIds: effectiveDraft.tagIds,
-          title: effectiveDraft.title,
-          topicId: effectiveDraft.topicId,
-        };
-        retryCreateInput.current = input;
-        createMutation.mutate(input);
-        return;
-      }
-      if (
-        effectiveDraft.materialId === null ||
-        effectiveDraft.contentVersion === null
-      ) {
-        return;
-      }
-      const input: SaveMaterialInput = {
-        access: effectiveDraft.access,
-        deleteVideoId: effectiveDraft.deleteVideoId,
-        document: effectiveDraft.document,
-        expectedContentVersion: effectiveDraft.contentVersion,
-        formatId: effectiveDraft.formatId,
-        materialId: effectiveDraft.materialId,
-        publicationState,
-        primaryVideoId: effectiveDraft.primaryVideoId,
-        seriesIds: effectiveDraft.seriesIds,
-        submissionId: presentation.submissionId,
-        summary: effectiveDraft.summary,
-        tagIds: effectiveDraft.tagIds,
-        title: effectiveDraft.title,
-        topicId: effectiveDraft.topicId,
-      };
-      retrySaveInput.current = input;
-      saveMutation.mutate(input);
+      setPublicationTarget(publicationState);
+      setNoticeRevision((n) => n + 1);
     },
     onTagToggle: (tagId: string, checked: boolean) => {
       markDirty({
@@ -297,10 +334,14 @@ export function MaterialAuthoringPageClient({
         ...effectiveDraft,
         seriesIds: checked
           ? [...effectiveDraft.seriesIds, seriesId]
-          : effectiveDraft.seriesIds.filter((candidate) => candidate !== seriesId),
+          : effectiveDraft.seriesIds.filter(
+              (candidate) => candidate !== seriesId,
+            ),
       });
     },
   } satisfies MaterialAuthoringActions;
 
-  return <MaterialAuthoringWorkspace actions={actions} presentation={presentation} />;
+  return (
+    <MaterialAuthoringWorkspace actions={actions} presentation={presentation} />
+  );
 }

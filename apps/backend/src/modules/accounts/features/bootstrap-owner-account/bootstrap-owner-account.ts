@@ -1,6 +1,10 @@
+import { isPlatformPermission } from "../../domain/platform-permission.js";
 import type { PlatformPermission } from "../../facets/accounts/accounts.interface.js";
 import type { AccountsPrismaClient } from "../../../../infrastructure/prisma/index.js";
-import { newAccountId, parseAccountId } from "../../domain/account-identifiers.js";
+import {
+  newAccountId,
+  parseAccountId,
+} from "../../domain/account-identifiers.js";
 import { acquireAccountLocks } from "../../infrastructure/postgres/advisory-locks.js";
 import { appendAccountAuditEvent } from "../../infrastructure/postgres/account-audit.js";
 import { validLogtoIdentity } from "../../shared/account-input.js";
@@ -16,7 +20,7 @@ export async function bootstrapOwnerAccount(
   identity: { readonly issuer: string; readonly subject: string },
   permission: PlatformPermission = "materials:manage",
 ): Promise<OwnerBootstrapResult> {
-  if (!validLogtoIdentity(identity) || !["materials:manage", "communications:manage"].includes(permission)) {
+  if (!validLogtoIdentity(identity) || !isPlatformPermission(permission)) {
     throw new TypeError("owner Logto identity is invalid");
   }
 
@@ -33,7 +37,8 @@ export async function bootstrapOwnerAccount(
       },
       select: { id: true },
     });
-    const accountId = existing === null ? newAccountId() : parseAccountId(existing.id);
+    const accountId =
+      existing === null ? newAccountId() : parseAccountId(existing.id);
     if (accountId === undefined) {
       throw new Error("persisted owner Account id is invalid");
     }
@@ -64,7 +69,12 @@ export async function bootstrapOwnerAccount(
       await transaction.accountPermission.create({
         data: { accountId, permission },
       });
-      await appendAccountAuditEvent(transaction, "permission_granted", accountId, permission);
+      await appendAccountAuditEvent(
+        transaction,
+        "permission_granted",
+        accountId,
+        permission,
+      );
     }
     if (existing === null || permissionGranted) {
       await appendAccountAuditEvent(

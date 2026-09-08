@@ -1,7 +1,9 @@
 import "server-only";
 
-import { materialFormatSchema, type MaterialFormat } from "@/shared/api/material-format";
-
+import {
+  materialFormatSchema,
+  type MaterialFormat,
+} from "@/shared/api/material-format";
 
 import type { JSONContent } from "@tiptap/core";
 import { z } from "zod";
@@ -24,7 +26,7 @@ const formSchema = z.object({
   formatId: materialFormatSchema.or(z.literal("unassigned")),
   submissionId: z.uuid(),
   seriesIds: z.string().max(100_000),
-  summary: z.string().trim().min(1).max(500),
+  summary: z.string().trim().max(500),
   tagIds: z.array(z.uuid()).max(100),
   title: z.string().trim().min(1).max(160),
   topicId: z.union([z.uuid(), z.literal("unassigned")]),
@@ -101,11 +103,12 @@ export async function executeCreateMaterialDraft(
   return { draft, kind: "created" };
 }
 
-function parseForm(
-  formData: FormData,
-):
+function parseForm(formData: FormData):
   | { readonly ok: true; readonly value: ParsedDraftForm }
-  | { readonly ok: false; readonly issues: readonly MaterialValidationIssue[] } {
+  | {
+      readonly ok: false;
+      readonly issues: readonly MaterialValidationIssue[];
+    } {
   const parsed = formSchema.safeParse({
     access: formData.get("access"),
     document: formData.get("document"),
@@ -133,18 +136,22 @@ function parseForm(
     value: {
       access: parsed.data.access,
       document: documentFields.document,
-      formatId: parsed.data.formatId === "unassigned" ? null : parsed.data.formatId,
+      formatId:
+        parsed.data.formatId === "unassigned" ? null : parsed.data.formatId,
       idempotencyKey: `web-create-${parsed.data.submissionId}`,
       seriesIds: documentFields.seriesIds,
       summary: parsed.data.summary,
       tagIds: parsed.data.tagIds,
       title: parsed.data.title,
-      topicId: parsed.data.topicId === "unassigned" ? null : parsed.data.topicId,
+      topicId:
+        parsed.data.topicId === "unassigned" ? null : parsed.data.topicId,
     },
   };
 }
 
-function mapMutationProblem(result: Extract<BackendTransportResult, { readonly ok: false }>): CreateMaterialDraftResult {
+function mapMutationProblem(
+  result: Extract<BackendTransportResult, { readonly ok: false }>,
+): CreateMaterialDraftResult {
   const parsed = problemSchema.safeParse(result.problem);
   if (result.response.status === 401) return { kind: "unauthorized" };
   if (result.response.status === 403) return { kind: "forbidden" };
@@ -160,17 +167,21 @@ function mapMutationProblem(result: Extract<BackendTransportResult, { readonly o
   }
   return {
     kind: "unexpected_error",
-    reference: parsed.success ? parsed.data.correlationId ?? parsed.data.code : "backend-response",
+    reference: parsed.success
+      ? (parsed.data.correlationId ?? parsed.data.code)
+      : "backend-response",
   };
 }
 
-function mapBackendIssue(issue: { readonly code: string; readonly path: string }): MaterialValidationIssue {
-  const message =
-    issue.path.endsWith("/topicId")
-      ? "Назначьте тему перед публикацией."
-      : issue.path.endsWith("/formatId")
-        ? "Назначьте формат перед публикацией."
-        : `Проверьте поле ${issue.path}.`;
+function mapBackendIssue(issue: {
+  readonly code: string;
+  readonly path: string;
+}): MaterialValidationIssue {
+  const message = issue.path.endsWith("/topicId")
+    ? "Назначьте тему перед публикацией."
+    : issue.path.endsWith("/formatId")
+      ? "Назначьте формат перед публикацией."
+      : `Проверьте поле ${issue.path}.`;
   return { message, path: issue.path };
 }
 
@@ -189,8 +200,12 @@ function formIssueMessage(field: string): string {
   }
 }
 
-function unexpected(error: unknown): Extract<CreateMaterialDraftResult, { readonly kind: "unexpected_error" }> {
+function unexpected(
+  error: unknown,
+): Extract<CreateMaterialDraftResult, { readonly kind: "unexpected_error" }> {
   const reference =
-    error instanceof BackendConnectionError ? error.code : "unexpected-authoring-error";
+    error instanceof BackendConnectionError
+      ? error.code
+      : "unexpected-authoring-error";
   return { kind: "unexpected_error", reference };
 }

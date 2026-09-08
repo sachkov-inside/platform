@@ -69,7 +69,10 @@ export function MaterialAuthoringWorkspace({
         canSave={canSave}
         presentation={presentation}
       />
-      <MaterialAuthoringBlockingState actions={actions} presentation={presentation} />
+      <MaterialAuthoringBlockingState
+        actions={actions}
+        presentation={presentation}
+      />
       <MaterialAuthoringNotice presentation={presentation} />
 
       <form
@@ -93,7 +96,9 @@ export function MaterialAuthoringWorkspace({
         onSubmit={(event) => {
           event.preventDefault();
           const submitter =
-            event.nativeEvent instanceof SubmitEvent ? event.nativeEvent.submitter : null;
+            event.nativeEvent instanceof SubmitEvent
+              ? event.nativeEvent.submitter
+              : null;
           const requestedPublicationState =
             submitter instanceof HTMLButtonElement &&
             submitter.name === "publicationState"
@@ -119,8 +124,7 @@ export function MaterialAuthoringWorkspace({
             <div className="mt-4">
               <ContentCoverEditor
                 disabled={
-                  presentation.save.kind === "submitting" ||
-                  presentation.blocking.kind !== "none" ||
+                  presentation.blocking.kind === "not_found" ||
                   presentation.draft.readOnly
                 }
                 initialCover={presentation.draft.cover ?? null}
@@ -132,28 +136,23 @@ export function MaterialAuthoringWorkspace({
           <MaterialVideoAuthoring
             access={presentation.draft.access}
             disabled={
-              presentation.save.kind === "submitting" ||
-              presentation.blocking.kind !== "none" ||
+              presentation.blocking.kind === "not_found" ||
               presentation.draft.readOnly
             }
             materialId={presentation.draft.materialId}
             onChange={actions.onPrimaryVideoChange}
             deleteVideoId={presentation.draft.deleteVideoId}
             latestVideoDeletion={presentation.draft.latestVideoDeletion}
-            key={[
-              presentation.draft.access,
-              presentation.draft.primaryVideo?.videoId ?? "none",
-              presentation.draft.latestVideoDeletion?.state ?? "none",
-              presentation.draft.deleteVideoId ?? "none",
-            ].join(":")}
+            key={`${presentation.draft.materialId ?? "new"}:${presentation.draft.access}`}
             primaryVideo={presentation.draft.primaryVideo}
           />
           <MaterialDocumentEditor
             disabled={
-              presentation.save.kind === "submitting" ||
-              presentation.blocking.kind !== "none" ||
+              presentation.blocking.kind === "not_found" ||
               presentation.draft.readOnly
             }
+            contentVersion={presentation.draft.contentVersion}
+            assetPreviewBlocks={presentation.draft.assetPreviewBlocks}
             document={presentation.draft.document}
             materialId={presentation.draft.materialId}
             onChange={actions.onDocumentChange}
