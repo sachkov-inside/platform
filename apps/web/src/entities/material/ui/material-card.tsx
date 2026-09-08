@@ -19,6 +19,8 @@ import { SavedMaterialReadingStatus } from "./saved-material-reading-status.clie
 export interface MaterialCardProps {
   /** Match the heading level to the surrounding page outline. */
   readonly headingLevel?: "h2" | "h3";
+  /** Hide secondary row copy below the mobile breakpoint. */
+  readonly compactOnMobile?: boolean;
   readonly material: MaterialPreview;
   readonly returnHref?: Route;
   /** Series-owned context rendered below the row title. */
@@ -32,6 +34,7 @@ export interface MaterialCardProps {
 
 /** Safe published Material summary rendered in the accepted public visual language. */
 export function MaterialCard({
+  compactOnMobile = false,
   headingLevel = "h2",
   material,
   returnHref,
@@ -47,6 +50,7 @@ export function MaterialCard({
   if (variant === "row") {
     return (
       <MaterialRow
+        compactOnMobile={compactOnMobile}
         headingLevel={headingLevel}
         showAccessDetails={showAccessDetails}
         material={material}
@@ -175,6 +179,7 @@ export function MaterialCard({
 }
 
 function MaterialRow({
+  compactOnMobile,
   headingLevel,
   material,
   readerHref,
@@ -184,6 +189,7 @@ function MaterialRow({
   readingStatus,
   showAccessDetails,
 }: {
+  readonly compactOnMobile: boolean;
   readonly showAccessDetails: boolean;
   readonly headingLevel: "h2" | "h3";
   readonly material: MaterialPreview;
@@ -217,9 +223,9 @@ function MaterialRow({
       <span className={cn("min-w-0", showAccessDetails && "[overflow-wrap:anywhere]")}>
         <span className={cn("flex min-w-0 items-center gap-1 text-xs font-semibold text-muted-foreground", showAccessDetails && "flex-wrap")}>
           <span>{materialTaxonomyLabel(material.format)}</span>
-          <span aria-hidden="true">·</span>
+          <span aria-hidden="true" className={compactOnMobile ? "hidden sm:inline" : undefined}>·</span>
           <Link
-            className="relative z-10 truncate no-underline hover:text-foreground"
+            className={cn("relative z-10 truncate no-underline hover:text-foreground", compactOnMobile && "hidden sm:inline")}
             href={collectionDiscoveryHref("topic", material.topicSlug, returnHref)}
             prefetch={false}
           >
@@ -236,11 +242,11 @@ function MaterialRow({
           </Link>
         </Heading>
         {isVideo && material.summary.length > 0 ? (
-          <span className="mt-2 line-clamp-3 break-words text-sm leading-5 text-body-muted">
+          <span className={cn("mt-2 break-words text-sm leading-5 text-body-muted", compactOnMobile ? "hidden sm:line-clamp-3" : "line-clamp-3")}>
             {material.summary}
           </span>
         ) : null}
-        {readingStatus || resumeLabel !== undefined ? <span className="mt-2 flex min-h-6 items-center">
+        {readingStatus || resumeLabel !== undefined ? <span className={cn("mt-2 min-h-6 items-center", compactOnMobile && resumeLabel !== undefined ? "hidden sm:flex" : "flex")}>
           {resumeLabel === undefined ? readingStatus : <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-action"><Play aria-hidden="true" className="size-3.5 shrink-0 fill-current" />{resumeLabel}</span>}
         </span> : null}
         {showAccessDetails ? <span className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs leading-5 text-muted-foreground" data-series-access>

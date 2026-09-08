@@ -113,3 +113,45 @@ export const EnlargedText: Story = {
 
 export const EnlargedTextInProgress: Story = { ...EnlargedText, args: {} };
 export const EnlargedTextGuest: Story = { ...EnlargedText, args: Guest.args ?? {} };
+
+const videoSummary = "Разбираем путь от коммита до работающего сервиса: сборку, публикацию и откат.";
+const compactRouteResult = {
+  ...result,
+  items: materials.slice(0, 3).map((material, index) => ({
+    ...material,
+    title: index === 0 ? "Как устроен релиз моего проекта" : material.title,
+    summary: videoSummary,
+  })),
+};
+const compactRouteArgs = {
+  result: compactRouteResult,
+  learning: { kind: "ready", read: 1, total: 3, continuation: { materialSlug: "series-material-2", label: "Продолжить здесь" } },
+} satisfies Story["args"];
+
+export const CompactMobileRoute: Story = {
+  args: compactRouteArgs,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const route = within(canvasElement).getByRole("list", { name: "Материалы серии" });
+    const rows = within(route);
+    await expect(rows.getByText(videoSummary)).not.toBeVisible();
+    await expect(rows.getByText("Продолжить здесь")).not.toBeVisible();
+    for (const topic of rows.getAllByText("Platform")) await expect(topic).not.toBeVisible();
+    await expect(rows.getByRole("link", { name: "Как устроен релиз моего проекта" })).toHaveAttribute("href", expect.stringContaining("series-material-1"));
+    await expect(rows.getByText("Просмотрено")).toBeVisible();
+    await expect(rows.getAllByText("Бесплатно")).toHaveLength(3);
+    await expect(route.querySelector('[data-series-ordinal="2"]')).toHaveAttribute("aria-current", "step");
+    for (const card of route.querySelectorAll("article")) await expect(card.getBoundingClientRect().height).toBeLessThan(160);
+  },
+};
+
+export const DesktopRouteDetails: Story = {
+  args: compactRouteArgs,
+  globals: { viewport: { value: "desktop1440", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const route = within(within(canvasElement).getByRole("list", { name: "Материалы серии" }));
+    await expect(route.getByText(videoSummary)).toBeVisible();
+    await expect(route.getByText("Продолжить здесь")).toBeVisible();
+    for (const topic of route.getAllByRole("link", { name: "Platform" })) await expect(topic).toBeVisible();
+  },
+};
