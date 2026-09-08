@@ -24,7 +24,7 @@ export type GuestVariant = "A" | "B" | "C";
 export type AvatarPose = "portrait" | "object";
 const avatarPoses = {
   portrait: { label: "1 · Спокойный портрет", src: new URL("./guest-home-assets/kirill-portrait.png", import.meta.url).href },
-  object: { label: "2 · Парящий объект", src: new URL("./guest-home-assets/kirill-object.png", import.meta.url).href },
+  object: { label: "2 · Миниатюрное приложение", src: new URL("./guest-home-assets/kirill-mini-app.png", import.meta.url).href },
 };
 const variants = { A: "Сначала материалы", B: "Серия с аватаром", C: "От автора" };
 const benefits = [

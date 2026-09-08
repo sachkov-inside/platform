@@ -93,3 +93,11 @@ gesture assets stay archived for provenance. Development glyphs emit one at a ti
 intervals (three staggered three-second loops) on both remaining poses, with reduced motion retained.
 The proposed desktop lowering/shoulder edit was cancelled before implementation when the owner
 rejected the gesture. Object concepts are being discussed before another image generation.
+
+Miniature application candidate: B2 now uses `kirill-mini-app.png`, a built-in image_gen edit of
+the cube pose. The floating window uses a large orange panel and two neutral content cards.
+[Prompts and alpha cleanup](mini-app-prompt.md) preserve the exact generation record. The calm
+portrait remains the default and the original cubes remain archived. On mobile only, this pose
+is lifted 12 px and the CTA bottom padding reduced by 8 px so the full window stays above it.
+Reviewed at 320/390 px and desktop; no horizontal overflow at 320 px. Nine guest stories and
+the Storybook build passed. This remains a local visual candidate with fixture content.

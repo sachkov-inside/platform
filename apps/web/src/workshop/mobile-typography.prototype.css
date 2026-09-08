@@ -42,6 +42,8 @@
   .gh-mobile-type .gh-featured-bottom { position: static; align-self: stretch; margin-top: auto; padding-top: .5rem; justify-content: flex-end; }
   .gh-mobile-type .gh-featured-bottom > a { font-size: var(--mobile-type-ui); line-height: 1.4286; font-weight: var(--mobile-weight-heading); min-height: 2.75rem; padding: .65rem 14px; gap: 5px; max-width: 100%; overflow-wrap: normal; }
   .gh-mobile-type .gh-featured-bottom > a svg { width: 16px; flex-shrink: 0; }
+  .gh-mobile-type .gh-featured[data-avatar-pose=object] .gh-presenter { transform: translateY(-.75rem); }
+  .gh-mobile-type .gh-featured[data-avatar-pose=object] .gh-featured-copy { padding-bottom: .5rem; }
   .gh-mobile-type .gh-benefits { grid-template-columns: repeat(auto-fit,minmax(min(10rem,100%),1fr)); }
   .gh-mobile-type .gh-guides { grid-template-columns: repeat(auto-fit,minmax(min(8rem,100%),1fr)); }
   .gh-mobile-type .gh-heading { margin-top: 2rem; margin-bottom: 1rem; }
