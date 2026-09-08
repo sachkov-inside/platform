@@ -1,3 +1,4 @@
+import { enrollLegacyCohortFixture } from "./setup/legacy-cohort.js";
 import { createServer, type Server } from "node:http";
 
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
@@ -488,6 +489,7 @@ describe("Accounts API", () => {
 
     const checkedAt = new Date();
     const validUntil = new Date(checkedAt.getTime() + 60 * 60 * 1_000);
+    await enrollLegacyCohortFixture(database.prisma, viewerAccountId);
     await database.prisma.membershipBinding.create({
       data: {
         accountId: viewerAccountId,

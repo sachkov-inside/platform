@@ -1,3 +1,4 @@
+import { assembleLegacyCohortFixture } from "./setup/legacy-cohort.js";
 import { createHash } from "node:crypto";
 
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
@@ -5,7 +6,7 @@ import { z } from "zod";
 
 import { Prisma } from "../../src/infrastructure/prisma/index.js";
 import { accountId } from "../../src/modules/accounts/index.js";
-import { assembleMembershipEntitlements } from "../../src/modules/membership-entitlements/index.js";
+
 import type { MembershipEntitlements } from "../../src/modules/membership-entitlements/index.js";
 import { assembleWorkshopEntitlements } from "../../src/modules/workshop/index.js";
 import {
@@ -525,7 +526,7 @@ function fixture(database: TestDatabase): {
 } {
   const provider = new ControlledTelegramLinkProvider();
   const clock = new MutableClock(new Date("2030-01-01T00:00:00.000Z"));
-  const entitlements = assembleMembershipEntitlements({
+  const entitlements = assembleLegacyCohortFixture({
     prisma: database.prisma,
     workshopEntitlements: assembleWorkshopEntitlements({
       prisma: database.prisma,
