@@ -33,12 +33,12 @@ test("tablet Home can scroll to the last section and keeps navigation usable", a
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(768);
 });
 
-test("tablet guest offers reflow when the reader doubles text size", async ({ page }) => {
-  await page.setViewportSize({ width: 768, height: 900 });
+for (const width of [320, 768]) test(`guest offers and notes reflow at ${String(width)}px with doubled text`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 900 });
   await page.goto("/");
   await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
   const link = page.getByRole("link", { name: "Получить полный доступ", exact: true });
   await link.scrollIntoViewIfNeeded();
   await expect(link).toBeInViewport();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(768);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
 });

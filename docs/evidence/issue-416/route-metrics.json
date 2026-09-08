@@ -156,7 +156,7 @@
   {
     "name": "ready-320-dpr1-zoom",
     "viewport": 320,
-    "scroll": 348,
+    "scroll": 320,
     "root": "32px",
     "contentWidth": 256,
     "left": 32,
@@ -173,9 +173,7 @@
     "presenterWidth": 0,
     "sourceWidth": 900,
     "reducedMotion": true,
-    "errors": [
-      "horizontal overflow"
-    ]
+    "errors": []
   },
   {
     "name": "ready-1440-dpr1-zoom",
