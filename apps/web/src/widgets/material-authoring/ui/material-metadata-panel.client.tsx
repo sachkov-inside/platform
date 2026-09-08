@@ -33,12 +33,12 @@ export function MaterialMetadataPanel({
   return (
     <section
       aria-labelledby="material-parameters-heading"
-      className="min-w-0 border-b border-border pb-7 @min-[68rem]/material-authoring:border-b-0 @min-[68rem]/material-authoring:border-r @min-[68rem]/material-authoring:pb-0 @min-[68rem]/material-authoring:pr-7"
+      className="min-w-0 border-b border-border pb-7"
     >
       <h2 className="text-sm font-semibold" id="material-parameters-heading">
         Параметры материала
       </h2>
-      <div className="mt-5 grid gap-x-4 gap-y-5 sm:grid-cols-2 @min-[68rem]/material-authoring:grid-cols-1">
+      <div className="mt-5 grid gap-x-4 gap-y-5 sm:grid-cols-2">
         <Field label="Название" targetId="material-title">
           <input
             aria-describedby={
@@ -267,10 +267,10 @@ function SeriesSelector({
       .includes(search.trim().toLocaleLowerCase("ru")),
   );
   return (
-    <fieldset className="min-w-0 sm:col-span-2 @min-[68rem]/material-authoring:col-span-1">
+    <fieldset className="min-w-0">
       <legend className="mb-2 text-sm font-medium">
-        Серии{" "}
-        <span className="text-muted-foreground">
+        Серии
+        <span className="ml-1 text-muted-foreground">
           {presentation.draft.seriesIds.length || ""}
         </span>
       </legend>
@@ -347,7 +347,7 @@ function TagSelector({
   presentation,
 }: MaterialMetadataPanelProps & { readonly disabled: boolean }) {
   return (
-    <div className="min-w-0 sm:col-span-2 @min-[68rem]/material-authoring:col-span-1">
+    <div className="min-w-0">
       <p className="mb-2 text-sm font-medium" id="material-tags-label">
         Теги
       </p>

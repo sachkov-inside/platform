@@ -435,7 +435,10 @@ test("paragraph controls insert at the hovered block without changing content on
     .getByRole("button", { name: "На весь экран", exact: true })
     .click();
   expect(await typography()).toEqual(smallTypography);
-  await body.locator("p").last().click({ position: { x: 2, y: 12 } });
+  await body
+    .locator("p")
+    .last()
+    .click({ position: { x: 2, y: 12 } });
   await page.keyboard.press("Tab");
   await expect(page.getByLabel("Найти блок")).toBeFocused();
   await page.keyboard.press("Escape");
@@ -561,4 +564,133 @@ test("block insertion follows its paragraph across a pending upload; cancelling 
       .locator("h2")
       .evaluate((element) => element.previousElementSibling?.textContent),
   ).toBe("Последний абзац");
+});
+
+test("metadata stays above the article; adjacent blocks have space and Shift+Enter exits nested blocks", async ({
+  page,
+}) => {
+  await createDraft(page, "переходы между блоками");
+  const metadata = page.getByRole("region", {
+    name: "Параметры материала",
+    exact: true,
+  });
+  const article = page.getByRole("region", {
+    name: "Содержимое материала",
+    exact: true,
+  });
+  const metadataBox = await metadata.boundingBox();
+  const articleBox = await article.boundingBox();
+  if (!articleBox || !metadataBox)
+    throw new Error("Authoring sections must be visible");
+  expect(articleBox.y).toBeGreaterThanOrEqual(
+    metadataBox.y + metadataBox.height,
+  );
+  const body = page.locator(".ProseMirror");
+  await body.fill("Перед блоками");
+  const plus = page.getByRole("button", { name: "Добавить блок", exact: true });
+  await plus.click();
+  await page.getByRole("button", { name: "Код", exact: true }).click();
+  await page.keyboard.type("const answer = 42;");
+  await plus.click();
+  await page.getByRole("button", { name: "Таблица", exact: true }).click();
+  const codeBox = await body.locator("pre").boundingBox();
+  const tableBox = await body.locator("table").boundingBox();
+  if (!tableBox || !codeBox) throw new Error("Both blocks must be visible");
+  expect(tableBox.y - codeBox.y - codeBox.height).toBeGreaterThanOrEqual(20);
+  await body.locator("th").first().click();
+  await page.keyboard.type(`Ячейка ${"long_identifier_".repeat(15)}`);
+  await page.keyboard.press("Shift+Enter");
+  await page.keyboard.type("После таблицы");
+  await expect(
+    body.locator(":scope > p").filter({ hasText: "После таблицы" }),
+  ).toHaveCount(1);
+  await expect(body.locator("table")).not.toContainText("После таблицы");
+  await body.locator("pre code").click();
+  await page.keyboard.press("Shift+Enter");
+  await page.keyboard.type("После кода");
+  await expect(body.locator("pre + p")).toHaveText("После кода");
+  await page.keyboard.press("Shift+Enter");
+  await page.keyboard.press("Shift+Enter");
+  await page.keyboard.type("Через пустой абзац");
+  await saved(page);
+  await page.reload();
+  await expect(body.locator("pre + p + p")).toHaveText("");
+  await expect(body.locator("pre + p + p + p")).toHaveText(
+    "Через пустой абзац",
+  );
+  await page.getByRole("button", { name: "Предпросмотр", exact: true }).click();
+  const cell = page.locator("table th").first();
+  expect(
+    await cell.evaluate((element) => element.scrollWidth - element.clientWidth),
+  ).toBeLessThanOrEqual(1);
+});
+
+test("responsive image preview loads real pixels, reports a failed delivery and retries without losing caption", async ({
+  page,
+  context,
+}) => {
+  const fixture = await context.newPage();
+  await fixture.setViewportSize({ width: 1400, height: 900 });
+  await fixture.setContent(
+    '<main style="background:#124c80;color:white;height:900px;font:48px sans-serif">Изображение для проверки предпросмотра</main>',
+  );
+  const buffer = await fixture.screenshot();
+  await fixture.close();
+  await createDraft(page, "предпросмотр изображения");
+  await page
+    .getByLabel("Выбрать изображения", { exact: true })
+    .setInputFiles({ name: "large-image.png", mimeType: "image/png", buffer });
+  await expect(page.locator(".ProseMirror img")).toBeVisible();
+  await page
+    .getByLabel("Подпись изображения", { exact: true })
+    .fill("Подпись под изображением");
+  await page.getByText("Описание", { exact: true }).click();
+  await page
+    .getByLabel("Описание изображения", { exact: true })
+    .fill("Синий фон с белым текстом");
+  await page.setViewportSize({ width: 320, height: 800 });
+  const description = page.getByLabel("Описание изображения", { exact: true });
+  await description.scrollIntoViewIfNeeded();
+  const panel = await description.boundingBox();
+  if (!panel) throw new Error("Image description must be visible");
+  expect(panel.x).toBeGreaterThanOrEqual(0);
+  expect(panel.x + panel.width).toBeLessThanOrEqual(320);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+
+  await saved(page);
+  await page.getByRole("button", { name: "Предпросмотр", exact: true }).click();
+  const picture = page.locator("figure img");
+  await expect
+    .poll(() =>
+      picture.evaluate((element) => (element as HTMLImageElement).naturalWidth),
+    )
+    .toBeGreaterThan(1);
+  const shape = await picture.evaluate((element) => {
+    const img = element as HTMLImageElement;
+    const box = img.getBoundingClientRect();
+    return {
+      displayed: box.width / box.height,
+    };
+  });
+  expect(shape.displayed).toBeCloseTo(1400 / 900, 1);
+  await page.route("**/api/materials/*/assets/*/images/*", (route) =>
+    route.abort(),
+  );
+  await page.reload();
+  await expect(
+    page.getByText("Не удалось загрузить изображение.", { exact: true }),
+  ).toBeVisible();
+  await expect(page.locator("figcaption")).toHaveText(
+    "Подпись под изображением",
+  );
+  await page.unroute("**/api/materials/*/assets/*/images/*");
+  await page
+    .getByRole("button", { name: "Загрузить снова", exact: true })
+    .click();
+  await expect
+    .poll(() =>
+      picture.evaluate((element) => (element as HTMLImageElement).naturalWidth),
+    )
+    .toBeGreaterThan(1);
+  await expect(picture).toHaveAttribute("alt", "Синий фон с белым текстом");
 });

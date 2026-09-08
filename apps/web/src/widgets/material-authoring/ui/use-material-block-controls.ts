@@ -1,6 +1,6 @@
 "use client";
 
-import type { Transaction } from "@tiptap/pm/state";
+import { TextSelection, type Transaction } from "@tiptap/pm/state";
 import type { Editor } from "@tiptap/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -43,7 +43,8 @@ export function useMaterialBlockControls(
           position.current = transaction.mapping.map(position.current);
         place(position.current);
       } else place($from.depth > 0 ? $from.before(1) : $from.pos);
-      if (empty) setSelection(null);
+      if (empty || !(editor.state.selection instanceof TextSelection))
+        setSelection(null);
       else {
         const point = editor.view.coordsAtPos(from);
         const bounds = surface.current.getBoundingClientRect();

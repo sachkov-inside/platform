@@ -1,3 +1,4 @@
+import { MaterialImageDelivery } from "./material-image-delivery.client";
 import { materialAssetFileHref } from "../api/material-asset-file-href";
 import { FileText } from "lucide-react";
 
@@ -41,15 +42,11 @@ export function MaterialAssetImage({
     `/api/materials/${encodeURIComponent(materialId)}/assets/${encodeURIComponent(assetId)}/images/${String(variantWidth)}?${query.toString()}`;
   return (
     <figure style={{ width: `${String(displayWidthPercent)}%` }} className="mx-auto overflow-hidden rounded-xl bg-card">
-      {/* The stable same-origin route re-authorizes protected images; Next Image must not proxy it. */}
-      {/* eslint-disable-next-line next/no-img-element -- the protected route requires the viewer's session and cannot pass through the Next optimizer */}
-      <img
+      <MaterialImageDelivery
+        key={url(available.width)}
         alt={alt}
-        className="h-auto w-full bg-muted object-contain"
-        decoding="async"
         height={height}
-        loading="lazy"
-        sizes="(max-width: 48rem) calc(100vw - 2.5rem), 70ch"
+        preview={preview}
         src={url(available.width)}
         srcSet={responsiveVariants
           .map((variant) => `${url(variant.width)} ${String(variant.width)}w`)
@@ -57,7 +54,7 @@ export function MaterialAssetImage({
         width={width}
       />
       {caption === undefined ? null : (
-        <figcaption className="border-t border-border px-4 py-3 text-sm text-muted-foreground">
+        <figcaption className="px-2 py-2 text-center text-sm text-muted-foreground">
           {caption}
         </figcaption>
       )}

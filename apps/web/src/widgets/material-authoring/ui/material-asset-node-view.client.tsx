@@ -108,9 +108,26 @@ export function MaterialAssetNodeView({
               </p>
             )}
           </div>
-          <div className="flex items-center justify-center gap-2 py-2 text-xs text-muted-foreground">
+          <div
+            className="mx-auto"
+            style={{ width: `${String(displayWidthPercent)}%` }}
+          >
+            <input
+              aria-label="Подпись изображения"
+              className="w-full border-0 bg-transparent px-1 py-2 text-center text-sm text-muted-foreground outline-none placeholder:text-muted-foreground/60 focus-visible:ring-2 focus-visible:ring-ring"
+              disabled={!editor.isEditable}
+              onChange={(event) => {
+                updateAttributes({
+                  caption: event.currentTarget.value || null,
+                });
+              }}
+              placeholder="Подпись…"
+              value={String(node.attrs.caption ?? "")}
+            />
+          </div>
+          <div className="relative flex flex-wrap items-center justify-center gap-x-4 gap-y-2 py-1 text-xs text-muted-foreground">
             <label className="flex items-center gap-2">
-              Размер{" "}
+              Размер
               <input
                 aria-label="Размер изображения"
                 type="range"
@@ -124,31 +141,31 @@ export function MaterialAssetNodeView({
                     displayWidthPercent: Number(event.currentTarget.value),
                   });
                 }}
-                className="w-24 accent-primary"
+                className="w-20 accent-primary"
               />
+              <output className="w-8 tabular-nums">
+                {displayWidthPercent}%
+              </output>
             </label>
-            <output>{displayWidthPercent}%</output>
+            <details>
+              <summary className="cursor-pointer rounded px-1 py-1 hover:bg-muted">
+                Описание
+              </summary>
+              <label className="absolute left-1/2 top-full z-20 grid w-64 max-w-full -translate-x-1/2 gap-2 rounded-xl border border-border bg-card p-3 shadow-lg">
+                Описание для чтения с экрана
+                <textarea
+                  aria-label="Описание изображения"
+                  className="min-h-20 w-full resize-y rounded-lg border border-input bg-transparent p-2 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  disabled={!editor.isEditable}
+                  onChange={(event) => {
+                    updateAttributes({ alt: event.currentTarget.value });
+                  }}
+                  placeholder="Что изображено?"
+                  value={alt}
+                />
+              </label>
+            </details>
           </div>
-          <input
-            aria-label="Описание изображения"
-            className="w-full border-0 bg-transparent px-4 py-2 text-sm text-muted-foreground outline-none"
-            disabled={!editor.isEditable}
-            onChange={(event) => {
-              updateAttributes({ alt: event.currentTarget.value });
-            }}
-            placeholder="Описание изображения"
-            value={alt}
-          />
-          <input
-            aria-label="Подпись изображения"
-            className="w-full border-0 border-t border-border bg-transparent px-4 py-2 text-sm outline-none"
-            disabled={!editor.isEditable}
-            onChange={(event) => {
-              updateAttributes({ caption: event.currentTarget.value || null });
-            }}
-            placeholder="Подпись — необязательно"
-            value={String(node.attrs.caption ?? "")}
-          />
         </>
       ) : (
         <div className="flex items-center gap-3 p-4">

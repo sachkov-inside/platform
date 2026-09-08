@@ -76,7 +76,7 @@ export function MaterialAuthoringWorkspace({
       <MaterialAuthoringNotice presentation={presentation} />
 
       <form
-        className="mx-auto grid w-full max-w-[52rem] min-w-0 gap-0 px-4 pb-14 pt-7 sm:px-6 @min-[68rem]/material-authoring:max-w-[80rem] @min-[68rem]/material-authoring:grid-cols-[minmax(18rem,0.72fr)_minmax(32rem,1.55fr)] @min-[68rem]/material-authoring:px-8 @min-[68rem]/material-authoring:pt-9"
+        className="mx-auto grid w-full max-w-[60rem] min-w-0 gap-0 px-4 pb-14 pt-7 sm:px-8"
         id="material-authoring-form"
         onKeyDown={(event) => {
           if (
@@ -113,10 +113,7 @@ export function MaterialAuthoringWorkspace({
         }}
       >
         <MaterialMetadataPanel actions={actions} presentation={presentation} />
-        <section
-          aria-labelledby="document-heading"
-          className="min-w-0 py-8 @min-[68rem]/material-authoring:px-8 @min-[68rem]/material-authoring:py-0"
-        >
+        <section aria-labelledby="document-heading" className="min-w-0 py-8">
           <h2 className="text-sm font-semibold" id="document-heading">
             Содержимое материала
           </h2>

@@ -48,7 +48,7 @@ processing, playback and real Logto authentication are not proven by this runtim
   editor focus so a delayed focus callback cannot restore an earlier text selection.
 - Final local views: [desktop](../evidence/issue-396/editor-desktop.png),
   [fullscreen](../evidence/issue-396/editor-fullscreen.png),
-  [390 px](../evidence/issue-396/editor-mobile.png).
+  [mobile](../evidence/issue-396/editor-mobile.png).
 - Owner visual acceptance remains pending. This is not production-provider evidence.
 
 ## Review closure
@@ -73,3 +73,49 @@ The paragraph-editor refinement was reviewed separately from `fd3565b2`:
 
 Both static review axes reported no unresolved findings after these fixes. Runtime regression
 results supplement, rather than replace, the owner's local visual check.
+
+## Owner refinement: block spacing, layout and image delivery (2026-09-08)
+
+This local iteration starts at `f18cf590` and follows the owner's next screenshots:
+
+- Metadata uses two columns above the article on desktop and one column on narrow screens. The
+  article retains the same text column in embedded and fullscreen modes.
+- Adjacent top-level blocks have a visible gap. Shift+Enter inserts a plain paragraph after the
+  whole current block, including a table or nested list. Empty paragraphs keep height in the
+  editor, Preview and Reader. A rapid click can update the visible caret before the model receives
+  selectionchange; the shortcut maps the DOM caret through ProseMirror's public `posAtDOM` API.
+- The caption sits directly under its image. Size controls stay compact; a bounded settings panel
+  contains the alternative description. Image selection does not show text-formatting controls.
+- Empty table cells have height and visible column boundaries. Long identifiers wrap inside cells.
+- Protected image failures show an explanation and a retry button while preserving the figure's
+  dimensions and caption. The image ref also detects a failure that happened before hydration;
+  relying only on onError missed that case in the browser regression. Preview starts loading
+  images eagerly; Reader keeps lazy loading.
+
+The owner's published material `f1ae8d7d-8577-4836-aac2-b92e2f8a5023` was inspected read-only.
+Its image loaded in both Chromium and Firefox. The exact cause of the owner's earlier blank image
+was **not reproduced or identified**. Successful current delivery and better failure handling do
+not establish that the original cause is resolved. The next owner check is to reopen this local
+material's Preview. No production data, deployment or external publication was changed.
+
+Runtime proof: all 12 local editor regressions passed. The two new scenarios cover vertical section
+geometry, code/table separation, rapid-click Shift+Enter, empty paragraph persistence, a real
+1400×900 PNG through upload and responsive Preview delivery, pre-hydration network failure and
+retry, caption/alt preservation, 320 px description-panel bounds and long table-cell text.
+The last two geometric additions passed separately after review fixes. Firefox delivery/failure/
+retry was also checked against the running local stack. The 24 authoring/upload Storybook scenarios
+passed after retrying one stale Vite dependency-cache load. This iteration changes no backend or
+BFF contract; the earlier integration/full-stack results above are historical, not newly rerun.
+
+Both review axes checked the diff from `f18cf590`. Standards found the narrow-screen settings panel
+and missing textarea focus indicator; Spec also found long table-cell text overflow. All were fixed
+and the relevant browser geometry assertions passed. Both axes reported no remaining findings.
+
+Current local screenshots: [metadata above article](../evidence/issue-396/editor-desktop.png),
+[fullscreen](../evidence/issue-396/editor-fullscreen.png),
+[320 px settings](../evidence/issue-396/editor-mobile.png),
+[loaded Preview](../evidence/issue-396/editor-preview.png). Owner visual acceptance remains pending.
+
+Root `pnpm check` passed on this refinement: 153 tooling, 424 backend, 491 web (one skipped),
+43 browser routes (five skipped), production and Storybook builds. Log: `/tmp/396-refinement-check.log`.
+The local runtime was restarted after the check.
