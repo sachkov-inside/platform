@@ -12,6 +12,13 @@ manifest фиксирует последующее одобрение владе
 bundle и проверяет provider assumptions; до неё новые интеграционные consumers не Ready. Наличие
 этого документа не меняет действующий Telegram evidence v1 и Tribute checkout текущего приложения.
 
+## Обновление уведомлений 2026-09-08
+
+[Notifications v1](notifications-v1.md) заменяет billing-only notification transport и sender ownership
+из #403. Immutable billing-v1 bundle сохранён как история и действующий target community; его
+notification.send/status и notice.send заменены новыми notification versions. Новая модель
+обслуживает также материалы; коммерческие правила и community право не меняются.
+
 ## Возможности и модули
 
 Сохраняются Nest modular monolith, capability interfaces и PostgreSQL/Prisma из действующих
@@ -26,12 +33,14 @@ bundle и проверяет provider assumptions; до неё новые инт
 | `membership-entitlements` | Независимые paid/manual/legacy grants; applyPaidPeriod, grant/revoke/preview/batch, resolveForAccess; legacy classification | #404 |
 | `content-access` | Финальный доступ к материалам/файлам/video token из публичного entitlement facet, без provider I/O | #404 |
 | `telegram-membership` | Community desired state, entitlement revision, outbox и delivery observation; project/dispatch/reconcile/authorizeDispatch | #415 |
-| `billing` | Transactional notice intent, verified recipient snapshot, email sender и Telegram adapter, authorizeNoticeDispatch | #410 |
+| `billing` | Notice-ready event, due reminder и актуальность billing source | #410 |
+| `notifications` | Общие Notification/Delivery, verified recipient snapshot, email/Telegram adapters и authorizeDispatch по [Notifications v1](notifications-v1.md) | #434/#436/#410 |
 
 Каждая строка описывает реальный потребительский seam; это не требование создать отдельный класс
 или DI token для каждой операции. State-owning Prisma delegates остаются внутри capability.
 Общий `communications` API сохраняет маркетинговую семантику; billing не запускает campaign для
-служебного сообщения. Новые worker entrypoints вводятся с первым durable job, используя принятую
+служебного сообщения. Для Notifications межсервисный transport — RabbitMQ по [новому контракту](notifications-v1.md).
+Новые worker entrypoints вводятся с первым durable job, используя принятую
 инфраструктуру pg-boss; бизнес-idempotency сохраняется в собственных таблицах независимо от queue.
 
 ### Доступ и согласованность без общей транзакции модулей

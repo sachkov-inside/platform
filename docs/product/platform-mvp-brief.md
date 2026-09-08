@@ -297,7 +297,9 @@ surface integration order принадлежит
 и ошибки доступности бесплатных Materials/Series; история различает отправленную версию, ожидание,
 ошибку и неизвестный результат. Повтор и пропуск — явные действия. Финальное визуальное принятие
 этой функциональной поверхности ведёт [#316](https://github.com/sachkov-inside/platform/issues/316).
-Внутренний notification center и email-рассылки остаются будущими возможностями.
+Общая система [Notifications](../specifications/notifications-v1.md) поставляет служебные уведомления
+подписки и новые материалы через Telegram/email с настройками каналов. Внутренний notification
+center и массовые email-кампании остаются будущими возможностями.
 
 ## Публикация и agent-first contract
 
@@ -386,7 +388,8 @@ migration pipeline в Platform нет.
   messages и broad member directory;
 - редакционные команды и материалы участников;
 - сложный learning progress, задания, achievements и gamification;
-- внутренние и email-уведомления;
+- внутренний notification center и email-кампании; служебные сообщения и анонсы материалов
+  входят в [Notifications v1](../specifications/notifications-v1.md);
 - AI-поиск и отдельный autonomous content generation workflow вне user-delegated MCP Save.
 
 Текущий фокус — самостоятельные Materials, связанные смешанные Series и подписка на опубликованный

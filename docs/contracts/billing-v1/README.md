@@ -5,6 +5,13 @@
 владельцев состояния, REST/MCP inventory и delivery gates. Этот bundle задаёт только новые
 межсервисные сообщения; старые identity/evidence/communications версии не расширяются.
 
+## Область после Notifications #434
+
+[Общий Notifications bundle](../notifications-v1/README.md) заменяет notification.send/status и
+notice.send authorization этого immutable corpus. Community contract/dispatch остаются target v1.
+Файлы под manifest сохранены byte-for-byte; исторические notification fixtures остаются проверяемой
+историей, а не указанием параллельно включить старый sender.
+
 ## Артефакты и принятие
 
 - [schema.json](schema.json) — JSON Schema draft-07, closed objects и три explicit contractVersion.
