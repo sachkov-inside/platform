@@ -11,3 +11,10 @@ export type {
   MembershipPrincipalBinding,
   MembershipEvidenceSource,
 } from "./facets/membership-entitlements/membership-entitlements.interface.js";
+export { assembleAccessGrants, type AccessGrants } from "./facets/access-grants/assemble-access-grants.js";
+export type { AccessCapability, GrantTerms, GrantResult } from "./domain/access-grant.js";
+export type { ApplyPaidPeriodCommand } from "./features/apply-paid-period/apply-paid-period.js";
+export type { PreviewGrantBatchCommand, PreviewGrantBatchResult } from "./features/preview-grant-batch/preview-grant-batch.js";
+export type { ApplyGrantBatchCommand, ApplyGrantBatchResult } from "./features/apply-grant-batch/apply-grant-batch.js";
+export type { ChangeAccessGrantCommand } from "./features/change-access-grant/change-access-grant.js";
+export type { ClassifyLegacyAccountCommand } from "./features/classify-legacy-account/classify-legacy-account.js";

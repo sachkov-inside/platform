@@ -288,7 +288,7 @@ describe("MemberProfiles", () => {
     ).resolves.toEqual({ error: { code: "not_found" }, ok: false });
     membership.set(viewerAccountId, {
       kind: "active",
-      validUntil: "2030-01-01T01:00:00.000Z",
+      validUntil: null,
     });
     await expect(
       profiles.deliverAvatar({

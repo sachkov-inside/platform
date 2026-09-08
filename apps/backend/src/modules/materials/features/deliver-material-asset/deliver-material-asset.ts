@@ -164,9 +164,9 @@ function dependencyUnavailable(): DeliverMaterialAssetResult {
 
 function signedGetTtlSeconds(
   configuredTtlSeconds: number,
-  validUntil: string | undefined,
+  validUntil: string | null | undefined,
 ): number | null {
-  if (validUntil === undefined) return configuredTtlSeconds;
+  if (validUntil === undefined || validUntil === null) return configuredTtlSeconds;
   const remainingWholeSeconds = Math.floor(
     (Date.parse(validUntil) - Date.now()) / 1_000,
   );

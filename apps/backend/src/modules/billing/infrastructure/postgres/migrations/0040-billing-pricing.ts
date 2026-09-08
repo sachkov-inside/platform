@@ -1,4 +1,4 @@
-export const name = "0038_billing_pricing";
+export const name = "0040_billing_pricing";
 export const statement = `
 CREATE SCHEMA billing;
 CREATE TABLE billing.offers (

@@ -138,8 +138,10 @@ Accounts.checkPermission({ accountId, permission: "materials:manage" })
 одного availability batch; его нельзя переносить в JWT, Logto cookie, React state, следующую request или
 `validUntil`-lease. Revocation действует на следующую protected operation.
 
-`MembershipEntitlement` — отдельное time-bounded заключение Platform о доступе Account к closed
-content. Оно не является ролью или permission. `Member Profile`, nickname/avatar, `ReadingState`,
+`MembershipEntitlement` — отдельное заключение Platform о доступе Account к closed
+content из независимых paid/manual/legacy оснований. Его срок конечный либо явно бессрочный
+(`validUntil: null`). Объединение возможностей и ограниченный evidence bridge определяет
+[локальный контракт прав](subscription-billing-v1.md#реализованный-access-foundation-404). Оно не является ролью или permission. `Member Profile`, nickname/avatar, `ReadingState`,
 practice/progress и Telegram presentation data не участвуют в authorization.
 
 ## Resource и Action
@@ -202,7 +204,7 @@ type AccessDecision = Readonly<{
   | Readonly<{
       effect: "allow";
       reason: "active_membership" | "active_workshop";
-      validUntil: Instant;
+      validUntil: Instant | null;
       checkedContentVersion: ContentVersion;
     }>
   | Readonly<{ effect: "deny"; reason: DenyReason }>
@@ -213,6 +215,9 @@ type AccessDecision = Readonly<{
 заново на следующей operation. `active_membership` и `active_workshop` содержат `validUntil`, не
 позже соответствующего current entitlement. Derived delivery credential обязан быть привязан к
 exact Account/resource/action и жить не дольше `min(decision.validUntil, adapterDeliveryCap)`;
+при доказанном бессрочном праве null оставляет конечный `adapterDeliveryCap`. Это относится
+к файлам, video token и private ProfileAvatar; null не превращается в бесконечный credential.
+
 permission-based credential получает только короткий adapter-owned cap и не превращает permission
 decision в reusable lease.
 

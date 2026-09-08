@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 import { z } from "zod";
 
@@ -330,6 +330,8 @@ async function applyObservedEvidence(
       evidenceFingerprint,
       now,
     );
+    const cohort = await transaction.legacyClassification.findUnique({ where: { accountId: command.accountId }, select: { bridgeEnabled: true } });
+    if (cohort?.bridgeEnabled === true) await transaction.accessChange.create({ data: { accountId: command.accountId, operationId: randomUUID(), kind: "legacy_evidence", reason: evidence.decision, recordedAt: now } });
     return appliedResult(evidence);
   }
 
@@ -349,6 +351,8 @@ async function applyObservedEvidence(
       evidenceFingerprint,
       now,
     );
+    const cohort = await transaction.legacyClassification.findUnique({ where: { accountId: command.accountId }, select: { bridgeEnabled: true } });
+    if (cohort?.bridgeEnabled === true) await transaction.accessChange.create({ data: { accountId: command.accountId, operationId: randomUUID(), kind: "legacy_evidence", reason: evidence.decision, recordedAt: now } });
     return appliedResult(evidence);
   }
 

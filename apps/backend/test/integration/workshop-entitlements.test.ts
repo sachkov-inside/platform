@@ -1,7 +1,8 @@
+import { assembleLegacyCohortFixture } from "./setup/legacy-cohort.js";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import { accountId } from "../../src/modules/accounts/index.js";
-import { assembleMembershipEntitlements } from "../../src/modules/membership-entitlements/index.js";
+
 import { assembleWorkshopEntitlements } from "../../src/modules/workshop/index.js";
 import {
   createMigratedTestDatabase,
@@ -34,7 +35,7 @@ describe("WorkshopEntitlements Membership projection", () => {
       prisma: database.prisma,
       clock: () => now,
     });
-    const membershipEntitlements = assembleMembershipEntitlements({
+    const membershipEntitlements = assembleLegacyCohortFixture({
       prisma: database.prisma,
       workshopEntitlements,
       clock: () => now,
@@ -153,7 +154,7 @@ describe("WorkshopEntitlements Membership projection", () => {
         logtoSubject: "workshop-atomic-learner",
       },
     });
-    const unavailableMembership = assembleMembershipEntitlements({
+    const unavailableMembership = assembleLegacyCohortFixture({
       prisma: database.prisma,
       workshopEntitlements: {
         applyAcceptedMembershipEvidence: () =>
@@ -183,7 +184,7 @@ describe("WorkshopEntitlements Membership projection", () => {
       prisma: database.prisma,
       clock: () => now,
     });
-    const availableMembership = assembleMembershipEntitlements({
+    const availableMembership = assembleLegacyCohortFixture({
       prisma: database.prisma,
       workshopEntitlements,
       clock: () => now,
