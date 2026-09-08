@@ -4,7 +4,7 @@ Question: how can the current Platform Home explain Inside to a guest while keep
 materials directly explorable?
 
 - A: short introduction followed by material cards.
-- B: pinned series with Kirill's edited 2D avatar, followed by the current Home sections and a compact access invitation between videos and guides.
+- B: pinned series with Kirill's edited 2D avatar, followed by the current Home sections and a compact access invitation before new videos.
 - C: author introduction, an example series and the role of discussion/community.
 
 All copy, series contents, access labels and article bodies are samples for composition review.
@@ -54,7 +54,7 @@ body 16/24, UI 14/20 and metadata 12/16. Headings use 600, body 400. See the
 [research and source links](../../../../../docs/research/issue-380-mobile-typography.md).
 Dedicated stories show the scale, text at 200% and user text-spacing overrides. The workshop's
 candidate dock shows only icons across all mobile shell widths; the link names remain available
-to screen readers. HomePage has one optional `afterVideos` presentation slot for the invitation.
+to screen readers. HomePage has one optional `beforeVideos` presentation slot for the invitation.
 Its default rendering and all live adapters remain unchanged. B uses HomePage directly, retaining
 series → topics → new videos → fresh guides → notes → catalog. New fixture videos/notes also
 participate in catalog filtering and reader navigation; video samples show membership access.
@@ -101,3 +101,10 @@ portrait remains the default and the original cubes remain archived. On mobile o
 is lifted 12 px and the CTA bottom padding reduced by 8 px so the full window stays above it.
 Reviewed at 320/390 px and desktop; no horizontal overflow at 320 px. Nine guest stories and
 the Storybook build passed. This remains a local visual candidate with fixture content.
+
+Latest composition adjustment: the subscription strip sits after topics and immediately before
+new videos. The guest prototype disables the redundant catalog invitation through
+`showCatalogInvitation={false}`; existing production calls keep their default catalog invitation.
+The ordered-section story checks the invitation's location and absence of the catalog section.
+Focused Home/guest stories: 12 passed; types and lint passed. Mobile preview checked at 390 px.
+Domain migration is recorded separately in Workspace #146; this refinement makes no domain changes.

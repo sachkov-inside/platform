@@ -142,8 +142,8 @@ export function VariantB({ subscribe, avatarPose }: { readonly subscribe: () => 
     </section>
   );
   return <>
-    <HomePage result={{ kind: "ready", value: guestHome }} personal={featured} afterVideos={
-      <section className="gh-access-strip gh-home-access"><BookOpen aria-hidden="true" /><div><strong>Гайды, серии и общение с автором</strong><p>Подписка открывает все материалы, обсуждение со мной и сообщество.</p></div><CTA onClick={subscribe} label="Полный доступ" /></section>
+    <HomePage result={{ kind: "ready", value: guestHome }} personal={featured} showCatalogInvitation={false} beforeVideos={
+      <section className="gh-access-strip gh-home-access" aria-label="Подписка Inside"><BookOpen aria-hidden="true" /><div><strong>Гайды, серии и общение с автором</strong><p>Подписка открывает все материалы, обсуждение со мной и сообщество.</p></div><CTA onClick={subscribe} label="Полный доступ" /></section>
     } />
     <section><Heading>Что даёт подписка</Heading><Benefits /></section><Invitation subscribe={subscribe} />
   </>;

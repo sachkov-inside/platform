@@ -19,8 +19,8 @@ export const SeriesFirst: Story = {
   args: { initialVariant: "B" },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const sectionNames = Array.from(canvasElement.querySelectorAll("section[aria-labelledby]"), (section) => section.getAttribute("aria-labelledby"));
-    await expect(sectionNames).toEqual(["featured-title", "home-series", "home-videos", "home-guides", "home-notes", "home-catalog"]);
+    const sectionNames = Array.from(canvasElement.querySelectorAll('section[aria-labelledby], section[aria-label="Подписка Inside"]'), (section) => section.getAttribute("aria-labelledby") ?? section.getAttribute("aria-label"));
+    await expect(sectionNames).toEqual(["featured-title", "home-series", "Подписка Inside", "home-videos", "home-guides", "home-notes"]);
     await userEvent.click(canvas.getByRole("link", { name: "Все видео" }));
     await expect(canvas.getByRole("heading", { name: "База знаний" })).toBeVisible();
     await expect(canvas.getByRole("link", { name: "От задачи до работающего кода с ИИ" })).toBeVisible();

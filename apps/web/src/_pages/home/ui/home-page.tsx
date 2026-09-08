@@ -13,14 +13,14 @@ import { Button } from "@/shared/ui/button";
 import { PublicSectionHeading } from "@/shared/ui/public-section-heading";
 import type { HomeContinuation, HomeResult, HomeView } from "../model/home-view";
 
-export function HomePage({ result, personal, continuation, afterVideos }: { readonly result: HomeResult; readonly personal?: ReactNode; readonly continuation?: HomeContinuation; readonly afterVideos?: ReactNode }) {
+export function HomePage({ result, personal, continuation, beforeVideos, showCatalogInvitation = true }: { readonly result: HomeResult; readonly personal?: ReactNode; readonly continuation?: HomeContinuation; readonly beforeVideos?: ReactNode; readonly showCatalogInvitation?: boolean }) {
   if (result.kind === "unavailable") {
     return <>{personal}<HomeUnavailable /></>;
   }
-  return <HomeReady home={result.value} personal={personal} continuation={continuation} afterVideos={afterVideos} />;
+  return <HomeReady home={result.value} personal={personal} continuation={continuation} beforeVideos={beforeVideos} showCatalogInvitation={showCatalogInvitation} />;
 }
 
-function HomeReady({ home, personal, continuation, afterVideos }: { readonly home: HomeView; readonly personal: ReactNode; readonly continuation: HomeContinuation | undefined; readonly afterVideos: ReactNode }) {
+function HomeReady({ home, personal, continuation, beforeVideos, showCatalogInvitation }: { readonly home: HomeView; readonly personal: ReactNode; readonly continuation: HomeContinuation | undefined; readonly beforeVideos: ReactNode; readonly showCatalogInvitation: boolean }) {
   const series = continuation?.series;
   const video = continuation?.video;
   const playlists = series === undefined ? home.playlists : [series.collection, ...home.playlists.filter((item) => item.slug !== series.collection.slug)];
@@ -31,6 +31,7 @@ function HomeReady({ home, personal, continuation, afterVideos }: { readonly hom
       {personal}
       <PlaylistSection playlists={playlists} continuation={series} />
       <TopicSection topics={home.topics} />
+      {beforeVideos}
       <MaterialSection
         formatSlug="video"
         id="home-videos"
@@ -39,7 +40,6 @@ function HomeReady({ home, personal, continuation, afterVideos }: { readonly hom
         title="Новые видео"
         variant="video"
       />
-      {afterVideos}
       <MaterialSection
         formatSlug="guide"
         id="home-guides"
@@ -47,7 +47,7 @@ function HomeReady({ home, personal, continuation, afterVideos }: { readonly hom
         title="Свежие гайды"
       />
       <NoteFeed items={home.notes} />
-      <CatalogInvitation />
+      {showCatalogInvitation && <CatalogInvitation />}
     </div>
   );
 }
