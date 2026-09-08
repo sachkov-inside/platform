@@ -35,6 +35,8 @@ Fragment не отправляется HTTP-серверу: эти URL откр�
   приложение v6, SHA `82fdc092e8d82dd66ac450a5a6fa1f62a6f34eba`.
 - Caddy импортирует `/srv/inside/runtime/caddy/*.caddy`; приложение принадлежит `active.caddy`.
 - Web слушает `127.0.0.1:13000`; в server-owned `web.env` пока старый `WEB_BASE_URL`.
+- Read-only проверка существующего Logto `Inside Web`: callback `https://inside.sachkov.dev/callback`,
+  post logout `https://inside.sachkov.dev/`. Нового домена в списках пока нет.
 - Публичный DNS, прочитанный с VPS через `1.1.1.1`: A для apex и www — `178.209.127.53`,
   AAAA apex отсутствует. Это адрес лендинга Timeweb App Platform.
 - Timeweb UI: приложение `Inside Landing`, ID `239791`; apex A record `90746329`, TTL 600 секунд.
@@ -51,7 +53,7 @@ Fragment не отправляется HTTP-серверу: эти URL откр�
    Сохранить точные значения для возврата. Снизить TTL заранее, если панель позволяет; дождаться
    прежнего TTL. Не менять MX/TXT, `auth`, `telegram`, `inside` и другие поддомены.
 3. В существующем Logto application добавить `https://sachkov.dev/callback` в redirect URIs
-   и `https://sachkov.dev` в post sign-out redirect URIs. Старые значения временно оставить для
+   и `https://sachkov.dev/` в post sign-out redirect URIs. Старые значения временно оставить для
    возврата. Не создавать новый client, не менять user identities и не запускать тестовый bootstrap.
    Проверить фактические настройки Kinescope на ограничения домена embedding; при наличии allowlist
    добавить `sachkov.dev` до переключения и сохранить прежний домен.

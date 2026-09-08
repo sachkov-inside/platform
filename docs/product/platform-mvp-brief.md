@@ -1,6 +1,6 @@
 # Sachkov Inside — brief первой версии платформы
 
-Статус: подтверждённые owner decisions по 2026-09-06. Документ фиксирует продуктовую границу
+Статус: подтверждённые owner decisions по 2026-09-08. Документ фиксирует продуктовую границу
 текущей платформы Inside. Он является входом в отдельные bootstrap, technical
 discovery и delivery, но не выбирает stack, архитектуру или repository layout.
 
