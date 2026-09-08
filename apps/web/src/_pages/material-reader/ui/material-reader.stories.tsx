@@ -348,8 +348,7 @@ export const Mobile: Story = {
     await expect(canvas.getByRole("img", { name: "Маршрут от project rules через skill к evidence" })).toBeInTheDocument();
     const heading = canvas.getByRole("heading", { name: "Публичные skills для agent-first setup", level: 1 });
     const readerBody = canvasElement.querySelector<HTMLElement>("[data-reader-body]");
-    const readerMetadata = canvasElement.querySelector<HTMLElement>("[data-reader-metadata]");
-    if (readerBody === null || readerMetadata === null) throw new Error("Reader structure is missing");
+    if (readerBody === null) throw new Error("Reader structure is missing");
     await expect(getComputedStyle(heading).fontSize).toBe("24px");
     await expect(getComputedStyle(heading).overflowWrap).toBe("break-word");
     await expect(getComputedStyle(readerBody).color).toBe(getComputedStyle(heading).color);
@@ -358,9 +357,8 @@ export const Mobile: Story = {
         canvas.getByRole("heading", { name: "Сначала найдите устойчивый seam", level: 2 }),
       ).fontSize,
     ).toBe("20px");
-    await expect(
-      Boolean(readerBody.compareDocumentPosition(readerMetadata) & Node.DOCUMENT_POSITION_FOLLOWING),
-    ).toBe(true);
+    await expect(canvas.queryByRole("list", { name: "Теги материала" })).not.toBeInTheDocument();
+    await expect(canvas.queryByRole("list", { name: "Серии материала" })).not.toBeInTheDocument();
     await expect(canvas.getByRole("link", { name: /Чек-лист проверки repository-owned skill/u })).toBeInTheDocument();
     await expect(canvas.getAllByRole("article")).toHaveLength(1);
     const document = canvasElement.ownerDocument;
@@ -475,12 +473,12 @@ export const PlaylistReturn: Story = {
       name: "Навигация по серии «Создание Platform Inside»",
     });
     const readerBody = canvasElement.querySelector<HTMLElement>("[data-reader-body]");
-    const readerMetadata = canvasElement.querySelector<HTMLElement>("[data-reader-metadata]");
-    if (readerBody === null || readerMetadata === null) throw new Error("Reader sequence is missing");
+    const readerFooter = canvasElement.querySelector<HTMLElement>("[data-reader-footer]");
+    if (readerBody === null || readerFooter === null) throw new Error("Reader sequence is missing");
     await expect(
       Boolean(readerBody.compareDocumentPosition(seriesNavigation) & Node.DOCUMENT_POSITION_FOLLOWING),
     ).toBe(true);
-    await expect(readerMetadata.contains(seriesNavigation)).toBe(true);
+    await expect(readerFooter.contains(seriesNavigation)).toBe(true);
     await expect(within(canvasElement).getByRole("link", { name: "Назад к серии" })).toHaveAttribute("href", "/series/platform-inside");
     await expect(within(canvasElement).queryByText(/· №/u)).not.toBeInTheDocument();
     await expect(
@@ -517,15 +515,8 @@ export const AccessRequired: Story = {
     );
     await expect(membershipLink).toHaveAttribute("target", "_blank");
     await expect(membershipLink).toHaveAttribute("rel", "noopener noreferrer");
-    const accessSection = canvas.getByRole("heading", {
-      name: "Продолжение для участников",
-    }).closest("section");
-    const metadata = canvasElement.querySelector<HTMLElement>("[data-reader-metadata]");
-    if (accessSection === null || metadata === null) throw new Error("Access Reader structure is missing");
-    await expect(
-      Boolean(accessSection.compareDocumentPosition(metadata) & Node.DOCUMENT_POSITION_FOLLOWING),
-    ).toBe(true);
-    await expect(canvas.getByRole("list", { name: "Серии материала" })).toBeVisible();
+    await expect(canvas.queryByRole("list", { name: "Теги материала" })).not.toBeInTheDocument();
+    await expect(canvas.queryByRole("list", { name: "Серии материала" })).not.toBeInTheDocument();
     await expect(
       canvasElement.querySelector(
         '[data-content-cover-id="02000000-0000-4000-8000-000000000011"]',
