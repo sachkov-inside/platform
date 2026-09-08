@@ -2,11 +2,16 @@ import { z } from 'zod';
 import type { Accounts } from '../../../accounts/index.js';
 import type { NotificationsPrismaClient } from '../../../../infrastructure/prisma/index.js';
 import { lockNotification } from '../../infrastructure/locks.js';
-import { fingerprint } from '../../domain/notification-wire.js';
+import { channelSchema, fingerprint } from '../../domain/notification-wire.js';
 export const recoverySchema = z.strictObject({ operationId: z.uuid(), deliveryRef: z.uuid(), action: z.literal('skip') });
-export async function readDeliveries(prisma: NotificationsPrismaClient, accountId: string, after?: string) {
-  return prisma.notificationDelivery.findMany({ where: { notification: { accountId }, ...(after ? { id: { gt: z.uuid().parse(after) } } : {}) }, orderBy: { id: 'asc' }, take: 50,
+export const deliveryViewSchema = z.object({ id: z.uuid(), notificationId: z.uuid(), channel: channelSchema,
+  state: z.enum(['no_channel', 'accepted', 'retrying', 'suppressed', 'unknown', 'sent', 'failed']), reason: z.string().nullable(),
+  commandRevision: z.number().int(), resultRevision: z.number().int(), recoverySkipped: z.boolean(), updatedAt: z.iso.datetime() });
+export type DeliveryView = z.infer<typeof deliveryViewSchema>;
+export async function readDeliveries(prisma: NotificationsPrismaClient, accountId: string, after?: string): Promise<DeliveryView[]> {
+  const rows = await prisma.notificationDelivery.findMany({ where: { notification: { accountId }, ...(after ? { id: { gt: z.uuid().parse(after) } } : {}) }, orderBy: { id: 'asc' }, take: 50,
     select: { id: true, notificationId: true, channel: true, state: true, reason: true, commandRevision: true, resultRevision: true, recoverySkipped: true, updatedAt: true } });
+  return rows.map(row => deliveryViewSchema.parse({ ...row, updatedAt: row.updatedAt.toISOString() }));
 }
 export async function resolveUnknown(prisma: NotificationsPrismaClient, accounts: Accounts, actorId: string, input: unknown, now: () => Date) {
   const permission = await accounts.checkPermission({ accountId: actorId, permission: 'platform:admin' });

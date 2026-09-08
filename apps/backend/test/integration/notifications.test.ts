@@ -1,3 +1,9 @@
+import { Module } from '@nestjs/common';
+import { NestFactory } from '@nestjs/core';
+import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
+import { PLATFORM_CONFIG, parsePlatformConfig } from '../../src/config/platform-config.js';
+import { NotificationDispatchController } from '../../src/modules/notifications/features/authorize-dispatch/notification-dispatch.controller.js';
+import { ProblemDetailsFilter } from '../../src/infrastructure/http/problem-details.filter.js';
 import { fork } from 'node:child_process';
 import { once } from 'node:events';
 import { randomUUID } from 'node:crypto';
@@ -188,6 +194,57 @@ describe('Notifications persistence and delivery (real PostgreSQL; synthetic sou
     expect(prior).toBeDefined();
     expect(await s.app.acceptDeliveryResult('email', prior)).toBe('stale');
   });
+  test('late retrying projection cannot suppress a retry proven not_sent by the email ledger', async () => {
+    const s = await scenario(); await s.publish(); const c = await s.admit();
+    await dispatchEmail(s.deps, () => Promise.resolve({ state: 'not_sent', retryAfterMs: 1_000 }), 'subscription');
+    const rows = await database.prisma.notificationOutbox.findMany({ where: { scope: 'email' } });
+    const unknown = rows.map(row => resultSchema.parse(JSON.parse(row.payload))).find(result => result.deliveryRef === c.deliveryRef && result.state === 'unknown');
+    expect(unknown).toBeDefined(); await s.app.acceptDeliveryResult('email', unknown);
+    s.advance(1_000);
+    let sends = 0;
+    await dispatchEmail(s.deps, () => { sends += 1; return Promise.resolve({ state: 'sent' }); }, 'subscription');
+    expect(sends).toBe(1);
+    expect((await project(s.app, c.deliveryRef)).state).toBe('sent');
+  });
+  test('pause after started commit cannot send with an expired permit', async () => {
+    const s = await scenario(); await s.publish(); const c = await s.admit();
+    const pausingPrisma: NotificationDependencies['prisma'] = { ...s.deps.prisma,
+      $transaction: async operation => {
+        const result = await s.deps.prisma.$transaction(operation);
+        const effect = await s.deps.prisma.notificationEmailEffect.findUnique({ where: { deliveryId: c.deliveryRef } });
+        if (effect?.state === 'unknown') s.advance(6_000);
+        return result;
+      },
+    };
+    let sends = 0;
+    await dispatchEmail({ ...s.deps, prisma: pausingPrisma }, () => { sends += 1; return Promise.resolve({ state: 'sent' }); }, 'subscription');
+    expect(sends).toBe(0);
+    expect(await database.prisma.notificationEmailAttempt.findFirst({ where: { deliveryId: c.deliveryRef } })).toMatchObject({ state: 'not_sent' });
+  });
+  test('service HTTP preserves correlated JSON errors and fails closed for wrong credentials/version', async () => {
+    const s = await scenario(); await s.publish(); const { value, row } = await s.command();
+    const credential = 'synthetic-dedicated-telegram-secret-436';
+    const config = parsePlatformConfig({ NODE_ENV: 'test', NOTIFICATIONS_PLATFORM_ORIGIN: s.deps.origin, NOTIFICATIONS_TELEGRAM_SECRET: credential });
+    @Module({ controllers: [NotificationDispatchController], providers: [{ provide: Notifications, useValue: s.app }, { provide: PLATFORM_CONFIG, useValue: config }] })
+    // oxlint-disable-next-line typescript/no-extraneous-class -- Nest requires a concrete module class for the HTTP fixture.
+    class DispatchTestModule {}
+    const http = await NestFactory.create<NestFastifyApplication>(DispatchTestModule, new FastifyAdapter(), { logger: false });
+    http.useGlobalFilters(new ProblemDetailsFilter());
+    await http.init(); await http.getHttpAdapter().getInstance().ready();
+    const payload = request(value, row.digest);
+    try {
+      const unauthorized = await http.inject({ method: 'POST', url: '/internal/notifications/dispatch/authorize', payload });
+      expect(unauthorized.statusCode).toBe(401); expect(unauthorized.json<unknown>()).toEqual({ code: 'unauthorized' });
+      const unknown = await http.inject({ method: 'POST', url: '/internal/notifications/dispatch/authorize', headers: { authorization: `Bearer ${credential}` }, payload: { ...payload, contractVersion: 'inside.notification-dispatch.v2' } });
+      expect(unknown.statusCode).toBe(422); expect(unknown.json<unknown>()).toMatchObject({ ...payload, status: 'error', code: 'unsupported_contract' });
+      const denied = await http.inject({ method: 'POST', url: '/internal/notifications/dispatch/authorize', headers: { authorization: `Bearer ${credential}` }, payload });
+      expect(denied.statusCode).toBe(200); expect(denied.json<unknown>()).toMatchObject({ status: 'denied', reason: 'not_found' });
+      const conflict = await http.inject({ method: 'POST', url: '/internal/notifications/dispatch/authorize', headers: { authorization: `Bearer ${credential}` }, payload: { ...payload, attemptRef: randomUUID() } });
+      expect(conflict.statusCode).toBe(409); expect(conflict.headers['content-type']).toContain('application/json');
+      expect(conflict.json<unknown>()).toMatchObject({ operationId: payload.operationId, status: 'error', code: 'operation_conflict' });
+      expect(conflict.headers['cache-control']).toBe('private, no-store');
+    } finally { await http.close(); }
+  });
   test('SIGKILL after durable started cannot open another SMTP attempt after restart', async () => {
     const s = await scenario(); await s.publish(); const command = await s.admit();
     const child = fork(new URL('./fixtures/notification-email-crash.ts', import.meta.url), [], {
@@ -195,7 +252,7 @@ describe('Notifications persistence and delivery (real PostgreSQL; synthetic sou
       env: { ...process.env, NOTIFICATION_CRASH_FIXTURE: JSON.stringify({ databaseUrl: database.url, actor: s.actor, now: s.deps.now().toISOString(), event: s.event, fact: s.fact }) },
     });
     try {
-      const [message] = await once(child, 'message'); expect(message).toBe('started');
+      const message: unknown = await once(child, 'message'); expect(message).toEqual(expect.arrayContaining(['started']));
       child.kill('SIGKILL'); await once(child, 'exit');
       let sends = 0;
       await dispatchEmail(s.deps, () => { sends += 1; return Promise.resolve({ state: 'sent' }); }, 'subscription');

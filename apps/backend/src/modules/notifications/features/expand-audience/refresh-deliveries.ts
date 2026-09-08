@@ -1,11 +1,10 @@
+import { stageDeliveryCommand } from '../../infrastructure/stage-delivery-command.js';
 import { randomUUID } from 'node:crypto';
-import { stageNotification } from '../../../../infrastructure/notification-transport/outbox.js';
-import { encodeNotification } from '../../../../infrastructure/notification-transport/wire.js';
 import { deliverySchema, eventSchema, fingerprint, COMMAND_LIFETIME_MS, channelSchema } from '../../domain/notification-wire.js';
 import { renderNotification } from '../../domain/templates.js';
 import { lockNotification } from '../../infrastructure/locks.js';
 import { optedIn } from '../change-preferences/change-preferences.js';
-import { commandLane, validSource, type NotificationDependencies } from './expand-audience.js';
+import { validSource, type NotificationDependencies } from './expand-audience.js';
 
 /** Replace only a command with a correlated not-started result, never merely an expired lease. */
 export async function refreshDeliveries(deps: NotificationDependencies) {
@@ -29,9 +28,6 @@ export async function refreshDeliveries(deps: NotificationDependencies) {
       content: source.content, templateRef: template.templateRef, templateRevision: template.templateRevision, text: template.text,
       ...(channel === 'email' ? { subject: template.subject } : {}), issuedAt: deps.now().toISOString(),
       notAfter: new Date(Math.min(Date.parse(event.notAfter), deps.now().getTime() + COMMAND_LIFETIME_MS)).toISOString() };
-    const envelope = encodeNotification(commandLane(channel, source.content.category), command);
-    await transaction.notificationCommand.create({ data: { operationId: command.operationId, deliveryId: delivery.id, revision: command.commandRevision, payload: envelope.payload, digest: envelope.digest.slice(7), createdAt: deps.now() } });
-    await transaction.notificationDelivery.update({ where: { id: delivery.id }, data: { commandRevision: command.commandRevision, state: 'accepted', reason: null, attemptRef: null, updatedAt: deps.now() } });
-    await stageNotification(transaction.notificationOutbox, envelope.lane, command);
+    await stageDeliveryCommand(transaction, command, deps.now());
   });
 }

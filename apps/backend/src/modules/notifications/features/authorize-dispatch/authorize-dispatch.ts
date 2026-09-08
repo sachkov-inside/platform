@@ -18,7 +18,7 @@ export async function authorizeDispatch(deps: NotificationDependencies, channel:
       const stored = await transaction.notificationCommand.findUnique({ where: { operationId: request.deliveryOperationId }, include: { delivery: { include: { notification: true } } } });
       if (!stored || stored.deliveryId !== request.deliveryRef || stored.delivery.channel !== channel) return { ...request, status: 'denied', reason: 'not_found' };
       if (stored.digest !== request.payloadDigest || stored.revision !== request.commandRevision) return { ...request, status: 'denied', reason: 'payload_conflict' };
-      if (stored.delivery.commandRevision !== stored.revision || stored.delivery.recoverySkipped || ['unknown', 'sent', 'failed'].includes(stored.delivery.state)) return { ...request, status: 'denied', reason: 'superseded' };
+      if (stored.delivery.commandRevision !== stored.revision || stored.delivery.recoverySkipped || ['sent', 'failed'].includes(stored.delivery.state)) return { ...request, status: 'denied', reason: 'superseded' };
       const command = deliverySchema.parse(JSON.parse(stored.payload));
       if (new Date(command.notAfter) <= deps.now()) return { ...request, status: 'denied', reason: 'expired' };
       const notification = stored.delivery.notification;

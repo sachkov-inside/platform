@@ -1,8 +1,7 @@
+import { stageDeliveryCommand } from '../../infrastructure/stage-delivery-command.js';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { NotificationsPrismaClient } from '../../../../infrastructure/prisma/index.js';
-import { stageNotification } from '../../../../infrastructure/notification-transport/outbox.js';
-import { encodeNotification, type NotificationLane } from '../../../../infrastructure/notification-transport/wire.js';
 import { eventSchema, deliverySchema, parseWire, COMMAND_LIFETIME_MS, MATERIAL_LIFETIME_MS, fingerprint, type NotificationEvent, type Channel } from '../../domain/notification-wire.js';
 import { renderNotification } from '../../domain/templates.js';
 import type { NotificationRecipients, NotificationSources, NotificationSource } from '../../ports/notification-sources.js';
@@ -19,9 +18,6 @@ export function validSource(event: NotificationEvent, source: NotificationSource
   return fingerprint(fact) === fingerprint(event) &&
     (event.eventType === 'material.published' ? source.content.category === 'material' && source.accountId === null :
       source.content.category === 'subscription' && source.content.kind === event.kind && source.accountId === event.accountRef);
-}
-export function commandLane(channel: Channel, category: 'material' | 'subscription'): NotificationLane {
-  return channel === 'email' ? category === 'material' ? 'emailMaterial' : 'emailSubscription' : category === 'material' ? 'telegramMaterial' : 'telegramSubscription';
 }
 const checkpointSchema = z.object({ after: z.uuid().nullable().default(null), recipients: z.number().int().nonnegative().default(0), reason: z.string().optional() });
 // Capacity is bounded independently of audience membership; checkpoints use stable Account IDs.
@@ -88,10 +84,7 @@ export async function expandAudience(deps: NotificationDependencies, lane: 'bill
           ...(channel === 'email' ? { subject: template.subject } : {}), binding,
           issuedAt: now().toISOString(), notAfter: new Date(Math.min(deadline.getTime(), now().getTime() + COMMAND_LIFETIME_MS)).toISOString(),
         });
-        const envelope = encodeNotification(commandLane(channel, source.content.category), command);
-        await transaction.notificationCommand.create({ data: { operationId: command.operationId, deliveryId: delivery.id, revision: 1, payload: envelope.payload, digest: envelope.digest.slice(7), createdAt: now() } });
-        await transaction.notificationDelivery.update({ where: { id: delivery.id }, data: { state: 'accepted', commandRevision: 1, updatedAt: now() } });
-        await stageNotification(transaction.notificationOutbox, envelope.lane, command);
+        await stageDeliveryCommand(transaction, command, now());
       }
       count += 1;
     }

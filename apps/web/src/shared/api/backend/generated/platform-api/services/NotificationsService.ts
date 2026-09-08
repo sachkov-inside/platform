@@ -4,7 +4,7 @@
 /* eslint-disable */
 import type { CancelablePromise } from '../core/CancelablePromise';
 import type { BaseHttpRequest } from '../core/BaseHttpRequest';
-export class DefaultService {
+export class NotificationsService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
    * Read own delivery summaries without recipients or provider payloads
@@ -23,7 +23,7 @@ export class DefaultService {
     reason: string | null;
     recoverySkipped: boolean;
     resultRevision: number;
-    state: string;
+    state: 'no_channel' | 'accepted' | 'retrying' | 'suppressed' | 'unknown' | 'sent' | 'failed';
     updatedAt: string;
   }>> {
     return this.httpRequest.request({
@@ -156,7 +156,7 @@ export class DefaultService {
     reason: string | null;
     recoverySkipped: boolean;
     resultRevision: number;
-    state: string;
+    state: 'no_channel' | 'accepted' | 'retrying' | 'suppressed' | 'unknown' | 'sent' | 'failed';
     updatedAt: string;
   }>> {
     return this.httpRequest.request({

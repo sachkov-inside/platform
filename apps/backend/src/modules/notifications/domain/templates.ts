@@ -1,5 +1,4 @@
 import type { NotificationSource } from '../ports/notification-sources.js';
-import { fingerprint } from './notification-wire.js';
 const subjects = {
   material_published: 'Новый материал в Inside', renewal_reminder: 'Скоро продление подписки Inside',
   payment_succeeded: 'Оплата Inside подтверждена', payment_failed: 'Оплата Inside не прошла',
@@ -17,7 +16,4 @@ export function renderNotification(source: Extract<NotificationSource, { status:
   if (!title || title.length > 1_500) throw new Error('notification_title_invalid');
   return { templateRef: `inside.${source.content.kind}`, templateRevision: 1, subject,
     text: `${subject}\n\n${title}${amount}${date}\n\n${url.href}` };
-}
-export function sameTemplate(left: ReturnType<typeof renderNotification>, right: { templateRef: string; templateRevision: number; text: string; subject?: string }) {
-  return fingerprint({ ...left, subject: right.subject === undefined ? null : left.subject }) === fingerprint({ ...right, subject: right.subject ?? null });
 }
