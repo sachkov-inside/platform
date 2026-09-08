@@ -682,7 +682,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
       items.map((item) => item.getAttribute("data-series-ordinal")),
     ),
   ).resolves.toEqual(["1", "2"]);
-  await expect(page.getByText("Как устроен Inside Platform")).toBeVisible();
+  await expect(page.getByRole("list", { name: "Материалы серии" }).getByText("Как устроен Inside Platform")).toBeVisible();
   await expect(page.getByText("Developer Pipeline без потери контекста")).toBeVisible();
   const representativeSeriesItem = page
     .locator("[data-series-order] [data-series-ordinal]")
