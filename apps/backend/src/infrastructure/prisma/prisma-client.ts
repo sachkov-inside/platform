@@ -85,3 +85,9 @@ export type ReadingActivityPrisma = Pick<PlatformPrisma,
   "$executeRaw" | "$queryRaw" | "readingMaterialState" | "readingEvent" | "readingCommand" | "readingMaterialVisit"
 >;
 export type ReadingActivityPrismaClient = ReadingActivityPrisma & TransactionClient<ReadingActivityPrisma>;
+
+export type BillingPrisma = Pick<PlatformPrisma,
+  "$executeRaw" | "billingOffer" | "billingPaymentOption" | "billingPromotion" |
+  "billingPricingCommand" | "billingPriceQuote" | "billingPromoReservation"
+>;
+export type BillingPrismaClient = BillingPrisma & TransactionClient<BillingPrisma>;

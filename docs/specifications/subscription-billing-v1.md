@@ -1,7 +1,8 @@
 # Platform billing v1: локальный контракт реализации
 
 Статус: **принятая спецификация #403** ([PR #417](https://github.com/sachkov-inside/platform/pull/417)).
-Access foundation реализуется #404; остальные billing slices остаются отдельными поставками. Основание — одобренный
+Access foundation поставлен в #404, pricing — в #405; остальные billing slices остаются
+отдельными поставками. Основание — одобренный
 [Workspace PR #151](https://github.com/sachkov-inside/workspace/pull/151), merged commit
 `e161320d74176f8154b20f5c469846fbdc1773e6`. Дословные источники сохранены в
 [локальном snapshot](../contracts/billing-v1/README.md). Они содержат прежнюю надпись «предложение»;
@@ -91,6 +92,66 @@ Upgrade: рациональный расчёт стоимости старшег
 сумма и скидка, regular renewal price, состав доступа, версии оферты и явного recurring consent,
 момент и Account. Изменение публичной цены не меняет старую subscription; после смены варианта
 принимаются его новые условия. Бесплатные права выдаются вручную.
+
+## Реализованный pricing boundary (#405)
+
+`billing` владеет каталогом и неизменяемыми ценовыми снимками в schema `billing`.
+`POST billing/admin` принимает закрытые команды `offers.save|archive`,
+`paymentOptions.save|archive`, `promotions.save|archive`; действующее `platform:admin`
+проверяется через Accounts перед каждой командой, включая replay. Выделение `billing:manage`
+и остальные admin/MCP операции остаются #409. Создание не принимает `expectedRevision`,
+изменение требует текущую revision. Успешный результат и actor/operationId/fingerprint
+сохраняются атомарно; повтор возвращает исходный результат, другая нагрузка конфликтует.
+Архивирование обратимо через Save с актуальной revision; снимки не изменяются.
+
+`GET billing/offers` публично возвращает активные варианты с лучшей доступной публичной
+скидкой. Закрытые промокоды не раскрываются. Пагинация — opaque UUID cursor и limit 1..100.
+`POST accounts/current/billing/quote` сохраняет ценовой quote на 15 минут для Account из
+trusted adapter. Он содержит offer/option revisions, названия, состав, календарные месяцы,
+RUB/Europe/Moscow, первую и обычную следующую сумму, выбранную скидку. Это ценовой этап:
+подтверждённый contact, legal versions, recurring consent, календарный anchor/next date и
+предупреждение о действующих правах присоединяет purchase orchestration #407; quote сам по
+себе не разрешает оплату и не является согласием. Повтор operationId возвращает тот же quote,
+даже после истечения; для нового согласия нужен новый operationId.
+
+Акция задаёт целый процент 1..100, интервал `[startsAt, endsAt)`, optional case-sensitive
+промокод, области offerIds/paymentOptionIds и optional usageLimit. Пустая область означает
+все объекты; две непустые области пересекаются. Код обрезается по краям. Среди подходящих
+акций выбирается максимальный процент; равенство разрешается стабильным ID. Итоговая первая
+сумма округляется до копейки один раз, половина вверх. Нулевая сумма (включая 100% или
+округление малой цены) возвращает `unsupported_amount` и не заменяется другой скидкой.
+
+Внутренние `BillingPricing.reserve` и `settle` — операции pricing, без публичного HTTP и без
+provider I/O. #407 вызывает reserve **только для первой оплаты новой подписки**, после своей
+проверки единственного subscription lifecycle и явного согласия. Продление, возобновление
+ещё действующего срока и upgrade не вызывают reserve и не получают новую скидку; новая
+подписка после завершения может получить её снова. Quote не гарантирует наличие последнего
+места акции. При reserve сериализуются изменения каталога и подсчёт всех reserved/sent/unknown/
+confirmed применений. Изменившиеся условия, недоступная акция или исчерпанный лимит дают
+`quote_changed`: #407 должен показать новый quote и запросить согласие. Истёкший quote даёт
+`quote_expired`. Клиент не передаёт сумму или банковские границы.
+
+Reserve требует подтверждённые min/max суммы от terminal capability #402, проверяя первую и
+обычную следующую сумму. Отсутствие capability или выход за границы даёт `unsupported_amount`.
+Успешный reserve фиксирует условия даже при последующей архивации/редактировании каталога.
+Повтор purchaseRef с той же парой Account/quoteRef возвращает исходный снимок; другая пара
+конфликтует. Один quote не резервируется для двух покупок. Одна открытая pricing reservation
+на Account ограничивает две вкладки, но не заменяет constraint действующей подписки в #407.
+
+Перед отправкой #407 сохраняет свой durable attempt и переводит reservation `reserved → sent`;
+этот переход или его replay **не является самостоятельным разрешением повторить provider I/O**.
+`sent → unknown` сохраняет лимит без таймера освобождения. Только проверенный definitive failure
+или доказанная отмена до отправки дают `failed`; verified confirmation даёт `confirmed` один раз.
+Поздний повтор не меняет терминальный результат. Эти use cases должны вызываться из общего
+bank outcome path #407/#408, включая recovery после падения между записями; HTTP webhook,
+проверка подписи, payment receipt/outbox и сам subscription lifecycle сюда не входят.
+Снимок из reserve используется для сохранённых условий подписки; публичный каталог не является
+источником цены её последующего продления.
+
+Fitness: `test/integration/billing-pricing.test.ts` проверяет ограничения, rollback, изменения
+полномочий, два PostgreSQL клиента, лимит, replay и неизменяемость. Domain/HTTP mapping проверяет
+`test/billing-pricing.test.ts`; общие backend guardrails проверяют capability imports и
+запрещают отрицательные fixtures. Реального банка и полноценного checkout эта проверка не доказывает.
 
 ## State transitions и банковский boundary
 

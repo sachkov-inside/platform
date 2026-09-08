@@ -179,6 +179,7 @@ describe("Platform migrations", () => {
           "0037_platform_admin",
           "0038_account_access",
           "0039_telegram_link_revisions",
+          "0040_billing_pricing",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -745,6 +746,7 @@ describe("Platform migrations", () => {
           "0037_platform_admin",
           "0038_account_access",
           "0039_telegram_link_revisions",
+          "0040_billing_pricing",
         ],
       });
 

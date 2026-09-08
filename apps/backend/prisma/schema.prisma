@@ -8,7 +8,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  schemas  = ["accounts", "assets", "communications", "materials", "member_profiles", "reading_activity", "membership_entitlements", "telegram_membership", "videos", "workshop"]
+  schemas  = ["billing", "accounts", "assets", "communications", "materials", "member_profiles", "reading_activity", "membership_entitlements", "telegram_membership", "videos", "workshop"]
 }
 
 model Account {
@@ -813,4 +813,80 @@ model TelegramAccountLinkHistory {
   @@id([accountId, revision])
   @@map("account_link_history")
   @@schema("telegram_membership")
+}
+
+model BillingOffer {
+  id String @id @db.Uuid
+  revision Int
+  name String
+  benefits String[]
+  archived Boolean @default(false)
+  options BillingPaymentOption[]
+  @@map("offers")
+  @@schema("billing")
+}
+model BillingPaymentOption {
+  id String @id @db.Uuid
+  revision Int
+  offerId String @map("offer_id") @db.Uuid
+  offer BillingOffer @relation(fields: [offerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  months Int
+  priceKopecks BigInt @map("price_kopecks")
+  archived Boolean @default(false)
+  @@map("payment_options")
+  @@schema("billing")
+}
+model BillingPromotion {
+  id String @id @db.Uuid
+  revision Int
+  name String
+  percent Int
+  code String? @unique
+  startsAt DateTime @map("starts_at") @db.Timestamptz
+  endsAt DateTime @map("ends_at") @db.Timestamptz
+  offerIds String[] @map("offer_ids") @db.Uuid
+  paymentOptionIds String[] @map("payment_option_ids") @db.Uuid
+  usageLimit Int? @map("usage_limit")
+  archived Boolean @default(false)
+  reservations BillingPromoReservation[]
+  @@map("promotions")
+  @@schema("billing")
+}
+model BillingPricingCommand {
+  actor String @db.Uuid
+  operationId String @map("operation_id") @db.Uuid
+  fingerprint String
+  outcome Json
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  @@id([actor, operationId])
+  @@map("pricing_commands")
+  @@schema("billing")
+}
+model BillingPriceQuote {
+  id String @id @db.Uuid
+  accountId String @map("account_id") @db.Uuid
+  operationId String @map("operation_id") @db.Uuid
+  fingerprint String
+  snapshot Json
+  promoCode String? @map("promo_code")
+  createdAt DateTime @map("created_at") @db.Timestamptz
+  expiresAt DateTime @map("expires_at") @db.Timestamptz
+  reservation BillingPromoReservation?
+  @@unique([accountId, operationId])
+  @@map("price_quotes")
+  @@schema("billing")
+}
+model BillingPromoReservation {
+  purchaseRef String @id @map("purchase_ref") @db.Uuid
+  accountId String @map("account_id") @db.Uuid
+  quoteRef String @unique @map("quote_ref") @db.Uuid
+  quote BillingPriceQuote @relation(fields: [quoteRef], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  promotionId String? @map("promotion_id") @db.Uuid
+  promotion BillingPromotion? @relation(fields: [promotionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  state String
+  snapshot Json
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  @@index([promotionId, state], map: "billing_promotion_usage")
+  @@map("promo_reservations")
+  @@schema("billing")
 }
