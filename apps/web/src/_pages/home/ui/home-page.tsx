@@ -8,7 +8,7 @@ import {
   PlaylistCard,
   formatMaterialCount,
 } from "@/features/library-discovery";
-import { collectionDiscoveryHref } from "@/shared/routing/material-reader";
+import { libraryRouteHref } from "@/shared/routing/library-route";
 import { Button } from "@/shared/ui/button";
 import { PublicSectionHeading } from "@/shared/ui/public-section-heading";
 import type { HomeContinuation, HomeResult, HomeView } from "../model/home-view";
@@ -69,7 +69,7 @@ function TopicSection({ topics }: { readonly topics: HomeView["topics"] }) {
             <li key={topic.slug}>
               <Link
                 className="inline-flex min-h-11 items-center rounded-full bg-muted px-4 text-sm font-semibold text-muted-foreground no-underline hover:text-action focus-visible:outline-ring"
-                href={collectionDiscoveryHref("topic", topic.slug, "/")}
+                href={libraryRouteHref({ topicSlug: topic.slug, q: "", formatSlug: null, sort: "newest" })}
               >
                 {topic.name}
               </Link>
