@@ -41,11 +41,13 @@ test("server-renders the mobile-first Home showcase from ContentLibrary", async 
     (headings) => headings.map((heading) => heading.textContent?.trim()),
   );
   expect(sectionOrder).toEqual([
+    await page.locator("#featured-title:visible").textContent(),
     "Серии",
     "Новые видео",
     "Свежие гайды",
     "Заметки",
-    "Все материалы в одном каталоге",
+    "Что даёт подписка",
+    "Изучай. Применяй. Обсуждай.",
   ]);
   const videoCards = page
     .getByRole("heading", { name: "Новые видео", level: 2 })

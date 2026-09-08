@@ -553,6 +553,15 @@ if [[ "$home_response" != *"Sachkov Inside"* ]]; then
   echo "Caddy did not serve the Platform home" >&2
   exit 1
 fi
+# The promoted Home artwork must survive standalone packaging and the real edge route.
+curl --cacert "$runtime_config_dir/caddy-root.crt" --fail --noproxy '*' \
+  --resolve "sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" --silent \
+  --output "$runtime_config_dir/home-avatar.webp" \
+  "https://sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}/images/kirill-mini-app.webp"
+if ! cmp -s apps/web/public/images/kirill-mini-app.webp "$runtime_config_dir/home-avatar.webp"; then
+  echo "Production Home avatar differs from the approved bundled asset" >&2
+  exit 1
+fi
 library_response="$(curl --cacert "$runtime_config_dir/caddy-root.crt" --fail --noproxy '*' --resolve "sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" --silent "https://sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}/library")"
 if [[ "$library_response" != *"База знаний"* ]]; then
   echo "Caddy did not serve the Knowledge Base" >&2

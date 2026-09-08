@@ -58,6 +58,7 @@ const guides = [
 ] as const satisfies readonly MaterialPreview[];
 
 export const illustratedHome: HomeView = {
+  membership: { kind: "active" },
   guides,
   videos,
   topics: topics.map((topic, index) => ({
