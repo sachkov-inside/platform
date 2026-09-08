@@ -322,8 +322,9 @@ The Series list connects every overall ordinal with one dashed rail, first marke
 All formats use the existing ordinal marker, replaced by the saved reading check for studied materials. Pagination and continuation follow [personal-home.md](personal-home.md). The explicit step label appears inside the
 existing Material row below its title. On wider screens, video rows render the existing published
 summary as plain text, limited to three visible lines. On mobile, route rows hide the summary, Topic
-and continuation caption; the current Material keeps its visual highlight. Format, reading status,
-access details and step labels remain visible. The presentation neither invents descriptions nor
+and continuation caption; the current Material keeps its visual highlight. Reading and access
+status captions are hidden on mobile: the ordinal check and blurred locked cover communicate those
+states. Video duration appears in a small badge below its cover. Format and step labels remain visible. The presentation neither invents descriptions nor
 reads body content for previews.
 
 Existing `reorderSeries` / REST `PUT /authoring/series/:seriesId/order` /

@@ -121,6 +121,7 @@ const compactRouteResult = {
     ...material,
     title: index === 0 ? "Как устроен релиз моего проекта" : material.title,
     summary: videoSummary,
+    ...(index === 2 ? { access: "membership" as const, availability: "locked" as const } : {}),
   })),
 };
 const compactRouteArgs = {
@@ -138,10 +139,14 @@ export const CompactMobileRoute: Story = {
     await expect(rows.getByText("Продолжить здесь")).not.toBeVisible();
     for (const topic of rows.getAllByText("Platform")) await expect(topic).not.toBeVisible();
     await expect(rows.getByRole("link", { name: "Как устроен релиз моего проекта" })).toHaveAttribute("href", expect.stringContaining("series-material-1"));
-    await expect(rows.getByText("Просмотрено")).toBeVisible();
-    await expect(rows.getAllByText("Бесплатно")).toHaveLength(3);
+    await expect(rows.getByText("Просмотрено")).not.toBeVisible();
+    for (const access of rows.getAllByText(/^(Бесплатно|По подписке)$/)) await expect(access).not.toBeVisible();
+    await expect(rows.getByRole("img", { name: "Материал 1, изучен" })).toBeVisible();
+    await expect(route.querySelector('[data-access-cover="locked"]')).toBeVisible();
+    await expect(route.querySelector("[data-series-duration]")).toBeVisible();
+    await expect(route.querySelector("[data-series-duration]")).toHaveTextContent("21:00");
     await expect(route.querySelector('[data-series-ordinal="2"]')).toHaveAttribute("aria-current", "step");
-    for (const card of route.querySelectorAll("article")) await expect(card.getBoundingClientRect().height).toBeLessThan(160);
+    for (const card of route.querySelectorAll("article")) await expect(card.getBoundingClientRect().height).toBeLessThan(130);
   },
 };
 
