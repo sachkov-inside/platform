@@ -14,7 +14,7 @@ import { ApplicationShell } from "@/widgets/application-shell";
 import { guestHome, materials, series } from "./guest-home.fixture";
 import { ProductionGuestScene } from "./guest-home-production-scenes";
 import "./guest-home.prototype.css";
-import "./mobile-typography.prototype.css";
+import "./responsive-home.prototype.css";
 
 /** Throwaway #380: three guest Home compositions using the current Platform shell and cards.
  * Storybook-only sample content and in-memory navigation; no access or payment changes.
@@ -35,10 +35,10 @@ const benefits = [
 ];
 
 
-export function GuestHomePrototype({ initialVariant = "B", initialAvatarPose = "object" }: { readonly initialVariant?: GuestVariant; readonly initialAvatarPose?: AvatarPose }) {
+export function GuestHomePrototype({ initialVariant = "B", initialAvatarPose = "object", showVariants = true }: { readonly initialVariant?: GuestVariant; readonly initialAvatarPose?: AvatarPose; readonly showVariants?: boolean }) {
   const [avatarPose, setAvatarPose] = useState<AvatarPose>(initialAvatarPose);
   const [variant, setVariant] = useState<GuestVariant>(() => {
-    const param = new URLSearchParams(window.location.search).get("variant");
+    const param = showVariants ? new URLSearchParams(window.location.search).get("variant") : null;
     return param === "A" || param === "B" || param === "C" ? param : initialVariant;
   });
   const [href, setHref] = useState("/");
@@ -55,6 +55,7 @@ export function GuestHomePrototype({ initialVariant = "B", initialAvatarPose = "
   };
   const cycle = (offset: number) => { choose((["A", "B", "C"] as const)[(["A", "B", "C"].indexOf(variant) + offset + 3) % 3] ?? "A"); };
   useEffect(() => {
+    if (!showVariants) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.target instanceof HTMLElement && event.target.closest("input, textarea, select, button, a, [contenteditable], [role=dialog]")) return;
       if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
@@ -87,14 +88,14 @@ export function GuestHomePrototype({ initialVariant = "B", initialAvatarPose = "
   }
   return (
     <div ref={root} onClickCapture={intercept} data-guest-variant={variant} data-guest-screen={isHome ? "home" : route.pathname.split("/")[1]}>
-      <nav className="gh-switcher" aria-label="Варианты прототипа">
+      {showVariants && <nav className="gh-switcher" aria-label="Варианты прототипа">
         <button aria-label="Предыдущий вариант" onClick={() =>{  cycle(-1); }}><ChevronLeft aria-hidden="true" /></button>
         <span aria-live="polite"><small>ПРОТОТИП</small>{variant} · {variants[variant]}</span>
         <button aria-label="Следующий вариант" onClick={() =>{  cycle(1); }}><ChevronRight aria-hidden="true" /></button>
         {variant === "B" && <label className="gh-pose-picker">Аватар<select aria-label="Поза аватара" value={avatarPose} onChange={(event) => { setAvatarPose(event.target.value as AvatarPose); }}>{Object.entries(avatarPoses).map(([value, pose]) => <option key={value} value={value}>{pose.label}</option>)}</select></label>}
-      </nav>
+      </nav>}
       <ApplicationShell currentPath={route.pathname} navigationItems={[{ href: "/", icon: "home", label: "Главная" }, { href: "/library", icon: "library", label: "База знаний" }]} mobileNavigationItems={[{ href: "/", icon: "home", label: "Главная" }, { href: "/library", icon: "library", label: "База знаний" }, { href: "/account", icon: "profile", label: "Профиль" }]} accountSlot={<CTA onClick={subscribe} />}>
-        <div className="guest-home gh-mobile-type">
+        <div className="guest-home gh-type">
           {isHome ? <>
             {variant === "A" && <VariantA subscribe={subscribe} />}
             {variant === "B" && <VariantB subscribe={subscribe} avatarPose={avatarPose} />}

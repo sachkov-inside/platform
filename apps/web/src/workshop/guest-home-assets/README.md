@@ -6,6 +6,14 @@ On 8 September 2026 the owner selected the avatar presenting a miniature applica
 (`kirill-mini-app.png`). Variant B with this pose is now the default, including mobile and
 text-preference stories. The calm portrait remains an alternative. This confirms the avatar
 choice for the prototype; production integration and domain migration remain separate work.
+The final review story is **Главная · Итог** (`pages-guest-home-prototype-380--final-home`),
+without the comparison toolbar. Content and header share a centered container: at standard root
+size its useful width stops at 1216 px; Full HD/QHD/4K add empty side margins. Body stays 16/24;
+section headings are 18/24 mobile and 24/30 desktop, with weight 600. The selected miniature-app
+artwork and production Home section order remain intact.
+[Responsive research and evidence](../../../../../docs/research/issue-380-responsive-home.md)
+records the tokens, viewport matrix, text preferences and limitations.
+
 The refinement notes below preserve the exploration history.
 
 Question: how can the current Platform Home explain Inside to a guest while keeping series and
@@ -19,7 +27,7 @@ All copy, series contents, access labels and article bodies are samples for comp
 They do not establish publication status, commercial terms or a personal support commitment.
 Series, topic, catalog, reader, locked access and sign-in screens import the current production
 components from main (base `55237eb1`; Home and shell verified unchanged through `09290bf7`). Fixture adapters supply their presentation data; no checkout
-or real sign-in is performed. No variant is accepted yet.
+or real sign-in is performed. The miniature-app avatar is selected; production integration is still separate.
 
 Run from the Platform root: `pnpm storybook`. Look under **Pages / Guest Home / Prototype 380**.
 Named stories open each composition; the switcher shares `?variant=A`, `B`, or `C` in the preview

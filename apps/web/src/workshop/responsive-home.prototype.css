@@ -1,0 +1,132 @@
+/* #380 candidate: fixed reading sizes, bounded centered layout, existing Manrope/color foundation.
+   These roles stay in Storybook until the accepted Home is implemented in production. */
+[data-guest-variant] {
+  --gh-page-width: 80rem;
+  --gh-gutter: clamp(1rem,3vw,2rem);
+  --gh-grid-gap: 1.25rem;
+}
+[data-guest-variant] [data-public-header] > div,
+[data-guest-screen=home] #content > div { max-width: var(--gh-page-width); padding-inline: var(--gh-gutter); }
+[data-guest-screen=home] #content > div { padding-top: 1.5rem; }
+/* Reserve the scrollbar gutter symmetrically so header and main have the same center. */
+@media (min-width: 1024px) {
+  [data-guest-variant] #content { scrollbar-gutter: stable both-edges; }
+  [data-guest-variant] [data-public-header] { overflow-y: hidden; scrollbar-gutter: stable both-edges; }
+  [data-guest-variant] [data-public-header] > div { min-height: 5rem; }
+  [data-guest-screen=home] #content > div { padding-top: 2rem; }
+}
+
+.gh-type, .type-specimen {
+  --type-page: 1.5rem;
+  --type-section: 1.125rem;
+  --type-hero: 1.125rem;
+  --type-card: 1rem;
+  --type-series: 1.125rem;
+  --type-body: 1rem;
+  --type-ui: .875rem;
+  --type-meta: .75rem;
+  --type-summary: .875rem;
+  --space-section: 2.5rem;
+  font-size: var(--type-body);
+  line-height: 1.5;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+@media (min-width: 701px) {
+  .gh-type, .type-specimen {
+    --type-page: 1.75rem;
+    --type-section: 1.5rem;
+    --type-hero: 1.75rem;
+    --type-card: 1.125rem;
+    --type-series: 1.375rem;
+    --type-meta: .875rem;
+    --type-summary: 1rem;
+    --space-section: 3rem;
+  }
+}
+@media (min-width: 1024px) { .gh-type, .type-specimen { --type-hero: 2rem; } }
+.gh-type h1:not(.sr-only) { font-size: var(--type-page); line-height: 1.25; font-weight: 600; letter-spacing: -.025em; }
+.gh-type h2:not(.sr-only) { font-size: var(--type-section); line-height: 1.25; font-weight: 600; letter-spacing: -.02em; }
+.gh-type h3 { font-size: var(--type-card); line-height: 1.4; font-weight: 600; letter-spacing: -.015em; }
+.gh-type p, .gh-type .gh-lead, .gh-type .gh-author-note p { font-size: var(--type-body); line-height: 1.5; font-weight: 400; }
+.gh-type p { max-width: 65ch; }
+.gh-type button, .gh-type .gh-cta, .gh-type .gh-text-link { font-size: var(--type-ui); line-height: 1.4286; font-weight: 600; }
+.gh-type .gh-cta { min-height: 2.75rem; }
+.gh-type input, .gh-type textarea { font-size: var(--type-body); line-height: 1.5; }
+.gh-type .gh-access-strip strong { font-size: var(--type-card); line-height: 1.4; font-weight: 600; }
+.gh-type .gh-access-strip p { font-size: var(--type-summary); line-height: 1.5; }
+.gh-type .gh-benefits p, .gh-type .gh-heading > span { font-size: var(--type-ui); line-height: 1.5; }
+.gh-type p.gh-eyebrow, .gh-type .gh-footer, .gh-type .gh-author-note > span { font-size: var(--type-meta); line-height: 1.4; font-weight: 500; letter-spacing: .015em; }
+.gh-type .gh-heading { margin-top: var(--space-section); margin-bottom: 1.25rem; }
+.gh-type section > div:has(> h2[id^=home-]) { flex-wrap: wrap; gap: .5rem .75rem; margin-top: var(--space-section); }
+.gh-type section[aria-labelledby=home-series] > div:has(> h2) { margin-top: 0; }
+.gh-type h2[id^=home-] { max-width: 100%; overflow-wrap: normal; }
+
+/* Cards keep their production markup. Their visual roles follow the same scale. */
+.gh-type [data-playlist-card] > strong { font-size: var(--type-series); line-height: 1.3; font-weight: 600; letter-spacing: -.02em; }
+.gh-type [data-playlist-card] > span:nth-of-type(2) { font-size: var(--type-summary); line-height: 1.5; font-weight: 400; }
+.gh-type [data-material-slug] :is(h2,h3) { font-size: var(--type-card); line-height: 1.4; font-weight: 600; display: block; -webkit-line-clamp: unset; overflow: visible; }
+.gh-type [data-material-slug]:not([data-material-variant=feed]) > span { font-size: var(--type-meta); line-height: 1.4; font-weight: 500; letter-spacing: .015em; }
+.gh-type [data-material-variant=feed] > p:first-of-type { font-size: var(--type-ui); }
+.gh-type [data-material-variant=default] [data-access-cover] > span:last-child > span { max-width: calc(100% - 1rem); justify-content: center; gap: 4px; padding: .4rem .5rem; font-size: .75rem; line-height: 1.3; text-align: center; }
+.gh-type [data-material-variant=default] [data-access-cover] > span:last-child > span svg { width: 14px; flex-shrink: 0; }
+.gh-type [aria-labelledby=home-guides] > ul { grid-template-columns: repeat(auto-fit,minmax(min(100%,max(12rem,calc((100% - 3 * var(--gh-grid-gap)) / 4))),1fr)); gap: 2rem var(--gh-grid-gap); }
+.gh-type [aria-labelledby=home-videos] > ul { grid-template-columns: repeat(auto-fit,minmax(min(100%,max(15rem,calc((100% - 2 * var(--gh-grid-gap)) / 3))),1fr)); gap: 2rem var(--gh-grid-gap); }
+.gh-type [aria-label="Лента заметок"] { max-width: 65ch; }
+.gh-type .gh-benefits { grid-template-columns: repeat(auto-fit,minmax(min(100%,15rem),1fr)); gap: 1.5rem; }
+
+/* The banner can grow with user text preferences; artwork has a separate bounded footprint. */
+.gh-type .gh-featured { container: featured / inline-size; height: auto; min-height: 19rem; margin-top: 1.5rem; margin-bottom: 2rem; }
+.gh-type .gh-featured-copy { height: auto; min-height: inherit; display: flex; flex-direction: column; align-items: flex-start; padding: 1.75rem 2rem; }
+.gh-type .gh-featured-label { font-size: .75rem; line-height: 1.3333; font-weight: 500; padding: .3rem .7rem; margin-bottom: .75rem; }
+.gh-type .gh-featured h2 { max-width: min(24ch,calc(100% - 19rem)); font-size: var(--type-hero); line-height: 1.2; font-weight: 600; }
+.gh-type .gh-featured-description { max-width: min(54ch,calc(100% - 19rem)); font-size: var(--type-body); line-height: 1.5; }
+.gh-type .gh-featured-bottom { position: static; align-self: stretch; margin-top: auto; padding-top: 1.25rem; }
+.gh-type .gh-featured-bottom > span { font-size: var(--type-meta); line-height: 1.4; }
+.gh-type .gh-featured-bottom > a { font-size: var(--type-ui); line-height: 1.4286; font-weight: 600; min-height: 2.75rem; padding: .65rem 18px; gap: 8px; max-width: 100%; overflow-wrap: normal; }
+.gh-type .gh-featured-bottom > a svg { width: 16px; flex-shrink: 0; }
+.gh-type .gh-presenter { width: min(21rem,336px); height: min(21rem,336px); }
+@media (max-width: 700px) {
+  .gh-type { --gh-grid-gap: .875rem; }
+  .gh-type h2:not(.sr-only) { line-height: 1.3333; }
+  .gh-type .gh-heading { margin-bottom: 1rem; }
+  .gh-type .gh-featured { min-height: 11rem; margin-top: 2rem; }
+  .gh-type .gh-featured-copy { padding: 1rem; }
+  .gh-type .gh-featured-label { padding: .2rem .55rem; margin-bottom: .5rem; }
+  .gh-type .gh-featured h2 { max-width: min(100%,max(66%,11rem)); }
+  .gh-type .gh-featured-bottom { padding-top: .5rem; justify-content: flex-end; }
+  .gh-type .gh-featured-bottom > a { padding-inline: 14px; gap: 5px; }
+  .gh-type .gh-presenter { width: min(12.5rem,200px); height: min(12.5rem,200px); }
+  .gh-type .gh-featured[data-avatar-pose=object] .gh-presenter { transform: translateY(-.75rem); }
+  .gh-type .gh-featured[data-avatar-pose=object] .gh-featured-copy { padding-bottom: .5rem; }
+  .gh-type .gh-benefits { grid-template-columns: repeat(auto-fit,minmax(min(10rem,100%),1fr)); }
+  .gh-type .gh-guides, .gh-type :is([aria-labelledby=home-videos],[aria-labelledby=home-guides]) > ul { grid-template-columns: repeat(auto-fit,minmax(min(8rem,100%),1fr)); }
+}
+@media (max-width: 360px) { .gh-type .gh-presenter { width: min(11.5rem,184px); height: min(11.5rem,184px); } }
+
+/* When enlarged text leaves too little room, prioritize the series over decorative artwork. */
+@container featured (max-width: 14em) {
+  .gh-type .gh-presenter { display: none; }
+}
+
+/* Icon-only navigation preserves accessible names and 48 CSS px targets. */
+@media (max-width: 1023px) {
+  [data-guest-variant] nav[aria-label="Мобильная навигация"] { max-width: calc(100% - 16px); padding: 6px; }
+  [data-guest-variant] nav[aria-label="Мобильная навигация"] > div { gap: 6px; }
+  [data-guest-variant] nav[aria-label="Мобильная навигация"] a { width: 48px; height: 48px; min-height: 48px; flex: 0 0 48px; padding: 0; gap: 0; }
+  [data-guest-variant] nav[aria-label="Мобильная навигация"] svg { width: 24px; height: 24px; flex-shrink: 0; }
+  [data-guest-variant] nav[aria-label="Мобильная навигация"] span { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+}
+
+.type-specimen { max-width: 42rem; margin: auto; padding: 1.5rem; color: var(--foreground); background: var(--background); }
+.type-specimen section { border-top: 1px solid var(--border); margin-top: 1.5rem; padding-top: 1rem; }
+.type-specimen small { display: block; margin-bottom: .5rem; font: 500 .75rem/1.5 var(--font-body); color: var(--muted-foreground); }
+.type-specimen [data-type=page] { font: 600 var(--type-page)/1.25 var(--font-body); }
+.type-specimen [data-type=section] { font: 600 var(--type-section)/1.3333 var(--font-body); }
+.type-specimen [data-type=card] { font: 600 var(--type-card)/1.4 var(--font-body); }
+.type-specimen [data-type=body] { font: 400 var(--type-body)/1.5 var(--font-body); }
+.type-specimen [data-type=ui] { font: 500 var(--type-ui)/1.4286 var(--font-body); }
+.type-specimen [data-type=meta] { font: 500 var(--type-meta)/1.4 var(--font-body); }
+/* Simulation is isolated to dedicated stories and never changes the production root. */
+.gh-user-text-spacing .gh-type :is(h1,h2,h3,p,a,button,span,strong) { line-height: 1.5 !important; letter-spacing: .12em !important; word-spacing: .16em !important; }
+.gh-user-text-spacing .gh-type p { margin-bottom: 2em !important; }
