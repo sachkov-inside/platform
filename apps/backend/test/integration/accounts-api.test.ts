@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { createServer, type Server } from "node:http";
 
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
@@ -62,6 +63,25 @@ describe("Accounts API", () => {
     await new Promise<void>((resolve, reject) =>
       jwksServer.close((error) => (error === undefined ? resolve() : reject(error))),
     );
+  });
+
+  test("billing contact endpoints require the current Account and reject injected owners", async () => {
+    const server = app.getHttpAdapter().getInstance();
+    const url = "/accounts/current/billing/contact/start";
+    expect((await server.inject({ method: "POST", url, payload: {} })).statusCode).toBe(401);
+    const token = await signToken({ subject: "billing-api-account", email: "billing-api@example.test" });
+    await inject("POST", "/accounts", token);
+    const headers = { authorization: `Bearer ${token}` };
+    const injected = await server.inject({ method: "POST", url, headers, payload: { operationId: randomUUID(), expectedRevision: 0, email: "synthetic@example.test", accountId: randomUUID() } });
+    expect(injected.statusCode).toBe(400);
+    expect(injected.json()).toMatchObject({ code: "invalid_input" });
+    const read = await server.inject({ method: "GET", url: "/accounts/current/billing/contact", headers });
+    expect(read.statusCode).toBe(200);
+    expect(read.headers["cache-control"]).toBe("private, no-store");
+    expect(read.json()).toEqual({ ok: true, contact: null, documents: [] });
+    const disabled = await server.inject({ method: "POST", url, headers, payload: { operationId: randomUUID(), expectedRevision: 0, email: "synthetic@example.test" } });
+    expect(disabled.statusCode).toBe(503);
+    expect(disabled.json()).toMatchObject({ code: "provider_unavailable" });
   });
 
   test("establishes and resolves one Account without a Platform session header", async () => {

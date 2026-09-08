@@ -57,6 +57,9 @@ private Account, member-only Member Profile и reading experience. `sachkov.dev`
   без отдельной формы регистрации и ссылок «Ещё не зарегистрированы?» / «Создать аккаунт»;
   Telegram-вход доступен при серверном включении функции;
 - управляет private Account и отдельным Member Profile;
+- подтверждает отдельный email для чеков и уведомлений на `/account/email`, когда настроен
+  канал подтверждения; это не добавляет способ входа и не объединяет Account. Контракт контакта,
+  согласий и границы checkout определены в [billing specification](../specifications/subscription-billing-v1.md#подтверждённый-контакт-и-согласия--406);
 - видит Member Profiles других действующих участников;
 - после каждого входа, пока Telegram не связан, один раз за authenticated browser session видит
   центрированное onboarding-окно; может закрыть его и продолжить с бесплатным контентом;

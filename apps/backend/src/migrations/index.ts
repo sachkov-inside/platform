@@ -1,3 +1,4 @@
+import { name as billingContactName, statement as billingContactStatement } from "../modules/accounts/infrastructure/postgres/migrations/0038-billing-contact.js";
 import {
   name as platformAdminName,
   statement as platformAdminStatement,
@@ -283,6 +284,7 @@ export const platformMigrations = [
     statement: videoUploadRejectionsStatement,
   },
   { name: platformAdminName, statement: platformAdminStatement },
+  { name: billingContactName, statement: billingContactStatement },
 ] as const;
 
 export function migrateToLatest(

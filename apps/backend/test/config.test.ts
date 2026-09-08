@@ -357,3 +357,22 @@ describe("MCP process configuration", () => {
     ).toThrow("MCP_SERVER_URL must not contain credentials, query, or fragment");
   });
 });
+
+describe("billing contact configuration", () => {
+  const config = {
+    NODE_ENV: "test",
+    BILLING_CONTACT_ENCRYPTION_KEY: Buffer.alloc(32, 42).toString("base64"),
+    BILLING_CONTACT_SMTP_HOST: "127.0.0.1",
+    BILLING_CONTACT_FROM: "inside@example.test",
+  };
+  it("is disabled unless explicitly configured and accepts only a complete configuration", () => {
+    expect(parsePlatformConfig({ NODE_ENV: "test" }).billingContact).toBeUndefined();
+    expect(() => parsePlatformConfig({ NODE_ENV: "test", BILLING_CONTACT_SMTP_HOST: "127.0.0.1" })).toThrow();
+    expect(() => parsePlatformConfig({ ...config, BILLING_CONTACT_ENCRYPTION_KEY: "short" })).toThrow();
+    expect(() => parsePlatformConfig({ ...config, BILLING_CONTACT_SMTP_USER: "user" })).toThrow();
+  });
+  it("allows plaintext only for a local synthetic SMTP capture", () => {
+    expect(parsePlatformConfig(config).billingContact).toMatchObject({ localInsecure: true, smtpPort: 587 });
+    expect(parsePlatformConfig({ ...config, BILLING_CONTACT_SMTP_HOST: "smtp.example.test" }).billingContact).toMatchObject({ localInsecure: false });
+  });
+});

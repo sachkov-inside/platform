@@ -22,3 +22,8 @@ import type { ReadingActivityPrismaClient } from "../../../../src/infrastructure
 declare const readingPrisma: ReadingActivityPrismaClient;
 await readingPrisma.material.count();
 await materialsPrisma.readingMaterialState.count();
+
+// Billing contact persistence is owned by Accounts, never Materials.
+declare const foreignBillingPrisma: import("../../../../src/infrastructure/prisma/index.js").MaterialsPrisma;
+foreignBillingPrisma.billingContact.findMany();
+foreignBillingPrisma.billingConsentEvidence.findMany();

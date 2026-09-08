@@ -46,6 +46,10 @@ const accountTables = [
   "account_audit_events",
   "account_permissions",
   "accounts",
+  "billing_consent_evidence",
+  "billing_contact_challenges",
+  "billing_contact_commands",
+  "billing_contacts",
 ] as const;
 
 const membershipEntitlementTables = [
@@ -172,6 +176,7 @@ describe("Platform migrations", () => {
           "0035_domain_material_formats",
           "0036_video_upload_rejections",
           "0037_platform_admin",
+        "0038_billing_contact",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -736,6 +741,7 @@ describe("Platform migrations", () => {
           "0035_domain_material_formats",
           "0036_video_upload_rejections",
           "0037_platform_admin",
+        "0038_billing_contact",
         ],
       });
 

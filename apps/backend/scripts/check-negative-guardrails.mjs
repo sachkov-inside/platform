@@ -43,6 +43,8 @@ expectFailure(
     "accounts.accounts",
     "material",
     "readingMaterialState",
+    "billingContact",
+    "billingConsentEvidence",
     "Cannot find name 'describe'",
   ],
 );
