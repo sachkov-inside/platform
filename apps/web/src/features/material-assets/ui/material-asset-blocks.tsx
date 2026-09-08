@@ -1,3 +1,4 @@
+import { materialAssetFileHref } from "../api/material-asset-file-href";
 import { FileText } from "lucide-react";
 
 export function MaterialAssetImage({
@@ -18,13 +19,19 @@ export function MaterialAssetImage({
   readonly height?: number | undefined;
   readonly materialId: string;
   readonly preview?: boolean;
-  readonly variants?: readonly { readonly height: number; readonly width: number }[] | undefined;
+  readonly variants?:
+    | readonly { readonly height: number; readonly width: number }[]
+    | undefined;
   readonly width?: number | undefined;
 }) {
   const responsiveVariants = variants ?? [];
   const available = responsiveVariants.at(-1);
   if (available === undefined || width === undefined || height === undefined) {
-    return <p className="rounded-xl bg-muted px-4 py-3 text-sm text-muted-foreground">Изображение временно недоступно.</p>;
+    return (
+      <p className="rounded-xl bg-muted px-4 py-3 text-sm text-muted-foreground">
+        Изображение временно недоступно.
+      </p>
+    );
   }
   const query = new URLSearchParams({ contentVersion: String(contentVersion) });
   if (preview) query.set("preview", "true");
@@ -42,11 +49,15 @@ export function MaterialAssetImage({
         loading="lazy"
         sizes="(max-width: 48rem) calc(100vw - 2.5rem), 70ch"
         src={url(available.width)}
-        srcSet={responsiveVariants.map((variant) => `${url(variant.width)} ${String(variant.width)}w`).join(", ")}
+        srcSet={responsiveVariants
+          .map((variant) => `${url(variant.width)} ${String(variant.width)}w`)
+          .join(", ")}
         width={width}
       />
       {caption === undefined ? null : (
-        <figcaption className="border-t border-border px-4 py-3 text-sm text-muted-foreground">{caption}</figcaption>
+        <figcaption className="border-t border-border px-4 py-3 text-sm text-muted-foreground">
+          {caption}
+        </figcaption>
       )}
     </figure>
   );
@@ -71,18 +82,29 @@ export function MaterialAssetFile({
   readonly preview?: boolean;
   readonly size?: number | undefined;
 }) {
-  const query = new URLSearchParams({ contentVersion: String(contentVersion) });
-  if (preview) query.set("preview", "true");
   return (
     <a
       className="flex min-h-16 items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 no-underline transition-colors hover:bg-muted focus-visible:outline-ring motion-reduce:transition-none"
-      href={`/api/materials/${encodeURIComponent(materialId)}/assets/${encodeURIComponent(assetId)}?${query.toString()}`}
+      href={materialAssetFileHref({
+        materialId,
+        assetId,
+        contentVersion,
+        preview,
+      })}
     >
-      <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-secondary text-accent"><FileText aria-hidden="true" className="size-5" /></span>
+      <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-secondary text-accent">
+        <FileText aria-hidden="true" className="size-5" />
+      </span>
       <span className="min-w-0">
         <span className="block font-semibold text-foreground">{label}</span>
         <span className="block truncate text-xs text-muted-foreground">
-          {[filename, contentType, size === undefined ? undefined : formatBytes(size)].filter(Boolean).join(" · ")}
+          {[
+            filename,
+            contentType,
+            size === undefined ? undefined : formatBytes(size),
+          ]
+            .filter(Boolean)
+            .join(" · ")}
         </span>
       </span>
     </a>

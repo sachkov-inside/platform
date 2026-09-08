@@ -1,4 +1,5 @@
 "use client";
+import { materialSaveStateLabel } from "../model/material-save-state-label";
 
 import { ArrowLeft, CircleAlert, CloudOff, Eye, RotateCcw } from "lucide-react";
 
@@ -8,7 +9,6 @@ import { Button } from "@/shared/ui/button";
 import type {
   MaterialAuthoringActions,
   MaterialAuthoringPresentation,
-  MaterialSaveState,
 } from "../model/presentation";
 
 interface MaterialAuthoringChromeProps {
@@ -44,7 +44,7 @@ export function MaterialAuthoringHeader({
             </h1>
             <p className="mt-1 text-xs text-muted-foreground" role="status">
               <span>{materialStateLabel(presentation.draft.status)}</span> ·{" "}
-              {compactSaveStateLabel(presentation.save)}
+              {materialSaveStateLabel(presentation.save)}
             </p>
           </div>
         </div>
@@ -199,7 +199,9 @@ export function MaterialAuthoringNotice({
   if (presentation.validation.kind !== "invalid") return null;
   return (
     <p className="px-6 py-3 text-sm text-destructive" role="alert">
-      Изменения ещё не сохранены. Проверьте отмеченные поля.
+      {presentation.validation.scope === "publication"
+        ? "Не удалось опубликовать. Проверьте отмеченные поля."
+        : "Изменения ещё не сохранены. Проверьте отмеченные поля."}
     </p>
   );
 }
@@ -225,19 +227,6 @@ function BlockingMessage({
       </div>
     </div>
   );
-}
-
-function compactSaveStateLabel(state: MaterialSaveState): string {
-  switch (state.kind) {
-    case "clean":
-      return "Без изменений";
-    case "dirty":
-      return "Не сохранено";
-    case "submitting":
-      return "Сохранение…";
-    case "saved":
-      return `Сохранено ${state.savedAtLabel}`;
-  }
 }
 
 function materialStateLabel(

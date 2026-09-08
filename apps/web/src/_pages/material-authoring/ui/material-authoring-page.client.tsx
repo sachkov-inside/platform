@@ -54,6 +54,10 @@ export function MaterialAuthoringPageClient({
     | Awaited<ReturnType<typeof saveMaterial>>
     | null
   >(null);
+  const [publicationValidation, setPublicationValidation] = useState<Extract<
+    Awaited<ReturnType<typeof saveMaterial>>,
+    { kind: "invalid_input" }
+  > | null>(null);
   const retryCreateInput = useRef<CreateMaterialDraftInput | null>(null);
   const retrySaveInput = useRef<SaveMaterialInput | null>(null);
   const [publicationTarget, setPublicationTarget] = useState<
@@ -97,6 +101,7 @@ export function MaterialAuthoringPageClient({
         const next = {
           ...draftRef.current,
           ...result.draft,
+          canDelete: true,
           status: "draft" as const,
         };
         draftRef.current = next;
@@ -128,6 +133,8 @@ export function MaterialAuthoringPageClient({
       setMaterialResult(result);
       if (result.kind !== "saved") {
         if (result.kind === "invalid_input") {
+          if (input.publicationState !== current.status)
+            setPublicationValidation(result);
           retrySaveInput.current = null;
           setPublicationTarget(null);
           return "invalid";
@@ -184,8 +191,13 @@ export function MaterialAuthoringPageClient({
             }
           : materialResult?.kind === "not_found"
             ? { kind: "not_found" }
-            : autosave.error
-              ? { kind: "infrastructure_error", correlationId: initialPresentation.submissionId }
+            : autosave.error &&
+                materialResult?.kind !== "invalid_input" &&
+                publicationValidation === null
+              ? {
+                  kind: "infrastructure_error",
+                  correlationId: initialPresentation.submissionId,
+                }
               : { kind: "none" },
     deletion: { pending: deletionPending, result: deletionResult },
     draft: effectiveDraft,
@@ -200,11 +212,17 @@ export function MaterialAuthoringPageClient({
           ? { kind: "saved", savedAtLabel: "сейчас" }
           : { kind: "clean" },
     submissionId: saved?.nextSubmissionId ?? initialPresentation.submissionId,
-    validation: pending
-      ? { kind: "checking" }
-      : materialResult?.kind === "invalid_input"
-        ? { issues: materialResult.issues, kind: "invalid", scope: "input" }
-        : { kind: "idle" },
+    validation: publicationValidation
+      ? {
+          issues: publicationValidation.issues,
+          kind: "invalid",
+          scope: "publication",
+        }
+      : pending
+        ? { kind: "checking" }
+        : materialResult?.kind === "invalid_input"
+          ? { issues: materialResult.issues, kind: "invalid", scope: "input" }
+          : { kind: "idle" },
   };
 
   const markDirty = (nextDraft: MaterialAuthoringPresentation["draft"]) => {
@@ -318,6 +336,7 @@ export function MaterialAuthoringPageClient({
       );
     },
     onSave: (publicationState) => {
+      setPublicationValidation(null);
       setPublicationTarget(publicationState);
       setNoticeRevision((n) => n + 1);
     },

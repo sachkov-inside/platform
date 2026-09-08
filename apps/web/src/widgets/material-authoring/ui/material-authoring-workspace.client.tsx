@@ -129,6 +129,7 @@ export function MaterialAuthoringWorkspace({
                 }
                 initialCover={presentation.draft.cover ?? null}
                 ownerId={presentation.draft.materialId}
+                ownerLabel={presentation.draft.title}
                 ownerKind="material"
               />
             </div>
@@ -147,6 +148,7 @@ export function MaterialAuthoringWorkspace({
             primaryVideo={presentation.draft.primaryVideo}
           />
           <MaterialDocumentEditor
+            saveState={presentation.save}
             disabled={
               presentation.blocking.kind === "not_found" ||
               presentation.draft.readOnly

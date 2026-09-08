@@ -54,9 +54,19 @@ export function MaterialVideoAuthoring({
   ) => void;
   readonly primaryVideo: MaterialAuthoringVideo | null;
 }) {
+  const operation = useRef(0);
   const uploadAttempt = useRef<BrowserVideoUploadAttempt | null>(null);
   const uploadTransfer = useRef<Promise<ResumableVideoUpload | null> | null>(
     null,
+  );
+  useEffect(
+    () => () => {
+      operation.current += 1;
+      void uploadTransfer.current
+        ?.then((transfer) => transfer?.abort(false))
+        .catch(() => undefined);
+    },
+    [],
   );
   const [providerVideoId, setProviderVideoId] = useState("");
   const [video, setVideo] = useState<MaterialAuthoringVideo | null>(
@@ -115,9 +125,11 @@ export function MaterialVideoAuthoring({
 
   const reconcile = useCallback(
     async (videoId: string) => {
+      const revision = operation.current;
       const targetIsDeletion = deletionVideo?.videoId === videoId;
       if (!targetIsDeletion) setPhase("processing");
       const result = await reconcileVideo({ videoId });
+      if (revision !== operation.current) return;
       if (targetIsDeletion) {
         if (result.kind === "ready" && isDeletionState(result.value.state)) {
           setDeletionVideo(result.value);
@@ -171,6 +183,7 @@ export function MaterialVideoAuthoring({
   }
 
   const upload = async (file: File) => {
+    const revision = ++operation.current;
     setPhase("uploading");
     setProgress(0);
     const browserAttempt = await getOrCreateBrowserVideoUploadAttempt(
@@ -186,6 +199,7 @@ export function MaterialVideoAuthoring({
       submissionId: browserAttempt.submissionId,
       title: file.name.replace(/\.[^.]+$/u, ""),
     });
+    if (revision !== operation.current) return;
     if (initialized.kind !== "ready") {
       if (initialized.kind === "upload_not_authorized") {
         clearBrowserVideoUploadAttempt(browserAttempt);
@@ -209,12 +223,15 @@ export function MaterialVideoAuthoring({
     const transfer = startResumableVideoUpload({
       file,
       onError: () => {
+        if (revision !== operation.current) return;
         setPhase("error");
       },
       onProgress: (sent, total) => {
+        if (revision !== operation.current) return;
         setProgress(Math.round((sent / total) * 100));
       },
       onSuccess: () => {
+        if (revision !== operation.current) return;
         void reconcile(initialized.value.video.videoId);
       },
       uploadUrl: initialized.value.uploadEndpoint,
@@ -224,10 +241,10 @@ export function MaterialVideoAuthoring({
   };
 
   const attach = async () => {
+    const revision = ++operation.current;
     setPhase("processing");
-    applyVideoResult(
-      await attachVideo({ access, materialId, providerVideoId }),
-    );
+    const result = await attachVideo({ access, materialId, providerVideoId });
+    if (revision === operation.current) applyVideoResult(result);
   };
 
   const activeVideo = video ?? primaryVideo;
@@ -243,6 +260,7 @@ export function MaterialVideoAuthoring({
       }}
       onDeleteOwned={async () => {
         if (activeVideo === null) return;
+        operation.current += 1;
         const transfer = await uploadTransfer.current;
         uploadTransfer.current = null;
         await transfer?.abort(true).catch(() => undefined);
@@ -258,8 +276,9 @@ export function MaterialVideoAuthoring({
         onChange(retainedVideo, activeVideo.videoId);
       }}
       onFileSelected={(file) => {
+        const revision = operation.current + 1;
         void upload(file).catch(() => {
-          setPhase("error");
+          if (revision === operation.current) setPhase("error");
         });
       }}
       onProviderVideoIdChange={setProviderVideoId}
@@ -267,6 +286,15 @@ export function MaterialVideoAuthoring({
         if (activeVideo !== null) void reconcile(activeVideo.videoId);
       }}
       onRemove={() => {
+        operation.current += 1;
+        const transfer = uploadTransfer.current;
+        uploadTransfer.current = null;
+        void transfer
+          ?.then((upload) => upload?.abort(false))
+          .catch(() => undefined);
+        if (uploadAttempt.current)
+          clearBrowserVideoUploadAttempt(uploadAttempt.current);
+        uploadAttempt.current = null;
         setVideo(null);
         setPhase("idle");
         onChange(null, null);

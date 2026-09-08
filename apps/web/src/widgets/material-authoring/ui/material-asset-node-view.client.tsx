@@ -5,7 +5,10 @@ import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
 import { createContext, useContext } from "react";
 import { FileText, GripVertical, X } from "lucide-react";
 import type { RenderedBlock } from "@/entities/material";
-import { MaterialAssetImage } from "@/features/material-assets";
+import {
+  MaterialAssetImage,
+  materialAssetFileHref,
+} from "@/features/material-assets";
 
 export const EditorAssetContext = createContext<{
   materialId: string | null;
@@ -55,7 +58,7 @@ export function MaterialAssetNodeView({
       className="group relative my-6 rounded-xl border border-border bg-card"
       contentEditable={false}
     >
-      <div className="absolute right-2 top-2 z-10 flex gap-1 rounded-lg bg-card/95 p-1 opacity-0 focus-within:opacity-100 group-hover:opacity-100">
+      <div className="absolute right-2 top-2 z-10 flex gap-1 rounded-lg bg-card/95 p-1 sm:opacity-0 focus-within:opacity-100 group-hover:opacity-100">
         <span
           aria-label="Перетащить блок"
           className="cursor-grab p-1"
@@ -85,6 +88,7 @@ export function MaterialAssetNodeView({
             <MaterialAssetImage
               {...image}
               alt={alt}
+              caption={undefined}
               contentVersion={contentVersion}
               materialId={materialId}
               preview
@@ -133,7 +137,12 @@ export function MaterialAssetNodeView({
           {materialId && contentVersion ? (
             <a
               className="text-sm underline"
-              href={`/api/materials/${materialId}/assets/${assetId}?preview=true&contentVersion=${String(contentVersion)}`}
+              href={materialAssetFileHref({
+                materialId,
+                assetId,
+                contentVersion,
+                preview: true,
+              })}
               target="_blank"
               rel="noreferrer"
             >

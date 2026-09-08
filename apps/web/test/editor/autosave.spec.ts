@@ -102,6 +102,9 @@ test("images, files and ready video persist automatically; fullscreen preserves 
   await page
     .getByLabel("Подпись изображения")
     .fill("Подпись в полноэкранном режиме");
+  await expect(page.locator("dialog:modal [role=status]")).toContainText(
+    "Сохранено",
+  );
   await page.keyboard.press("Escape");
   await expect(page.locator("dialog:modal")).toHaveCount(0);
   await page.getByLabel("Видео для загрузки").setInputFiles({
@@ -256,7 +259,16 @@ test("tables, callouts and links survive autosave and reopening", async ({
     .getByRole("button", { name: "Добавить блок", exact: true })
     .click();
   await page.getByRole("button", { name: "Таблица", exact: true }).click();
+  await body.locator(":scope > p").first().click();
+  const editorOffset = () =>
+    body.evaluate(
+      (element) =>
+        element.getBoundingClientRect().top -
+        (element.closest("dialog")?.getBoundingClientRect().top ?? 0),
+    );
+  const beforeTableFocus = await editorOffset();
   await body.locator("th").first().click();
+  expect(await editorOffset()).toBe(beforeTableFocus);
   await page.keyboard.type("Столбец");
   await saved(page);
   await page.reload();
@@ -283,4 +295,67 @@ test("tables, callouts and links survive autosave and reopening", async ({
     "href",
     "https://example.com/guide",
   );
+});
+
+test("publication validation remains visible after background draft save", async ({
+  page,
+}) => {
+  await createDraft(page, "публикация");
+  await page
+    .locator("[contenteditable=true]")
+    .fill("Последняя правка перед публикацией");
+  await page.getByRole("button", { name: "Опубликовать", exact: true }).click();
+  await expect(
+    page.getByText("Не удалось опубликовать. Проверьте отмеченные поля."),
+  ).toBeVisible();
+  await saved(page);
+  await expect(
+    page.getByText("Не удалось опубликовать. Проверьте отмеченные поля."),
+  ).toBeVisible();
+  await expect(page.getByText(/Проверьте соединение/u)).toHaveCount(0);
+  await expect(page.locator("header")).toContainText("Черновик");
+  await page.reload();
+  await expect(page.locator("[contenteditable=true]")).toContainText(
+    "Последняя правка перед публикацией",
+  );
+});
+
+test("a late video response cannot restore a video removed during processing", async ({
+  page,
+}) => {
+  await createDraft(page, "отмена видео");
+  let release: (() => void) | undefined;
+  const gate = new Promise<void>((done) => {
+    release = done;
+  });
+  await page.route(
+    "**/api/authoring/material-video-reconciliations",
+    async (route) => {
+      const response = await route.fetch();
+      await gate;
+      await route.fulfill({ response });
+    },
+  );
+  const requested = page.waitForRequest(
+    "**/api/authoring/material-video-reconciliations",
+  );
+  await page.getByLabel("Видео для загрузки").setInputFiles({
+    name: "removed.mp4",
+    mimeType: "video/mp4",
+    buffer: Buffer.from("Local test video"),
+  });
+  await requested;
+  await page.getByRole("button", { name: "Убрать", exact: true }).click();
+  const completed = page.waitForResponse(
+    "**/api/authoring/material-video-reconciliations",
+  );
+  release?.();
+  await completed;
+  await expect(page.getByText("Основное видео не выбрано")).toBeVisible();
+  await page
+    .getByLabel("Краткое описание", { exact: true })
+    .fill("Правка после отмены видео");
+  await saved(page);
+  await page.reload();
+  await expect(page.getByText("Основное видео не выбрано")).toBeVisible();
 });

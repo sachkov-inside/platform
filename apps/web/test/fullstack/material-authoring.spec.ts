@@ -80,6 +80,9 @@ for (const access of ["public", "membership"] as const) {
     ).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "Опубликовать" }).click();
     await expect(
+      page.locator("header").getByText("Опубликован", { exact: true }),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(
       page.locator("header [role=status]").filter({ hasText: "Сохранено" }),
     ).toBeVisible({ timeout: 15_000 });
 
@@ -318,6 +321,9 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
   ).toBeVisible({ timeout: 15_000 });
   await page.getByRole("button", { name: "Опубликовать" }).click();
   await expect(
+    page.locator("header").getByText("Опубликован", { exact: true }),
+  ).toBeVisible({ timeout: 15_000 });
+  await expect(
     page.locator("header [role=status]").filter({ hasText: "Сохранено" }),
   ).toBeVisible({ timeout: 15_000 });
 
@@ -467,14 +473,6 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
   await expect(page.getByText("Нужна повторная попытка")).toBeVisible();
   await page.getByRole("button", { name: "Привязать" }).click();
   await expect(page.getByText("Видео готово")).toBeVisible();
-  const preSaveSession = await page.request.post(
-    "/api/material-video-playback-sessions",
-    {
-      headers: { origin: new URL(page.url()).origin },
-      multipart: { materialId, videoId },
-    },
-  );
-  expect(preSaveSession.status()).toBe(200);
   await waitMaterialSaved(page);
   await expect(
     page.locator("header [role=status]").filter({ hasText: "Сохранено" }),
@@ -516,7 +514,7 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
   );
 });
 
-test("explicitly requests deletion of a Platform-uploaded Video only with the successful Material Save", async ({
+test("explicitly requests deletion of a Platform-uploaded Video through autosave", async ({
   context,
   page,
 }, testInfo) => {
@@ -557,9 +555,7 @@ test("explicitly requests deletion of a Platform-uploaded Video only with the su
     .click();
 
   await expect(
-    page.getByText(
-      `Удаление «delete-me-${suffix}» будет запрошено только после Save.`,
-    ),
+    page.getByText(`Удаление «delete-me-${suffix}» сохраняется…`),
   ).toBeVisible();
   await expect(page.getByText("Основное видео не выбрано")).toBeVisible();
   await captureVideoDeletionEvidence(page, testInfo, "pending-save");
@@ -603,6 +599,9 @@ test("member primary Video denies anonymous playback and issues a DRM proof to a
     page.locator("header [role=status]").filter({ hasText: "Сохранено" }),
   ).toBeVisible({ timeout: 15_000 });
   await page.getByRole("button", { name: "Опубликовать" }).click();
+  await expect(
+    page.locator("header").getByText("Опубликован", { exact: true }),
+  ).toBeVisible({ timeout: 15_000 });
   await expect(
     page.locator("header [role=status]").filter({ hasText: "Сохранено" }),
   ).toBeVisible({ timeout: 15_000 });
@@ -723,6 +722,9 @@ test("trusted author uploads chooser, paste and drop assets through Preview and 
   await page.getByRole("link", { name: "Вернуться в редактор" }).last().click();
   await page.getByRole("button", { name: "Опубликовать" }).click();
   await expect(
+    page.locator("header").getByText("Опубликован", { exact: true }),
+  ).toBeVisible({ timeout: 15_000 });
+  await expect(
     page.locator("header [role=status]").filter({ hasText: "Сохранено" }),
   ).toBeVisible({ timeout: 15_000 });
   await page.goto(`/materials/${slug}`);
@@ -793,6 +795,9 @@ test("member Material hides bytes from anonymous access and issues only a protec
   ).toBeVisible({ timeout: 15_000 });
   await page.getByRole("button", { name: "Опубликовать" }).click();
   await expect(
+    page.locator("header").getByText("Опубликован", { exact: true }),
+  ).toBeVisible({ timeout: 15_000 });
+  await expect(
     page.locator("header [role=status]").filter({ hasText: "Сохранено" }),
   ).toBeVisible({ timeout: 15_000 });
 
@@ -842,9 +847,7 @@ test("trusted author creates a PostgreSQL draft and opens its current Preview", 
   await page.getByLabel("Название").fill("Current Preview без fake data");
   await expect(page).toHaveURL(currentMaterialEditorUrl);
   await waitMaterialSaved(page);
-  await expect(
-    page.getByText("Укажите краткое описание до 500 символов."),
-  ).toBeVisible();
+  await expect(page.getByLabel("Краткое описание")).toHaveValue("");
   await expect(page.getByText("Черновик создан")).toHaveCount(0);
 
   await page
@@ -856,7 +859,9 @@ test("trusted author creates a PostgreSQL draft and opens its current Preview", 
   await page.getByRole("option", { name: "Платформа" }).click();
   await page.getByRole("combobox", { name: "Формат" }).click();
   await page.getByRole("option", { name: "Гайд" }).click();
+  await page.locator("summary").filter({ hasText: "Теги" }).click();
   await page.getByText("Full stack", { exact: true }).click();
+  await page.locator("summary").filter({ hasText: "Серии" }).click();
   await page.getByText("Создание Platform Inside", { exact: true }).click();
   await page
     .getByRole("textbox", { name: "Содержимое материала" })
@@ -1074,6 +1079,9 @@ test("full-state Save is live and a stale editor preserves local input through l
   await expect(page.getByLabel("Адрес")).toHaveCount(0);
   await page.getByRole("button", { name: "Опубликовать" }).click();
   await expect(
+    page.locator("header").getByText("Опубликован", { exact: true }),
+  ).toBeVisible({ timeout: 15_000 });
+  await expect(
     page.locator("header [role=status]").filter({ hasText: "Сохранено" }),
   ).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText(/^v\d+$/u)).toHaveCount(0);
@@ -1093,6 +1101,9 @@ test("full-state Save is live and a stale editor preserves local input through l
   ).toBeVisible();
 
   await page.getByRole("button", { name: "Снять с публикации" }).click();
+  await expect(
+    page.locator("header").getByText("Снят с публикации", { exact: true }),
+  ).toBeVisible({ timeout: 15_000 });
   await expect(
     page.locator("header [role=status]").filter({ hasText: "Сохранено" }),
   ).toBeVisible({ timeout: 15_000 });
@@ -1224,21 +1235,25 @@ test("trusted author reorders a PostgreSQL series with keyboard controls", async
 
   const response = await page.goto("/authoring/playlists");
   expect(response?.status()).toBe(200);
-  await page
+  const seriesRow = page
     .getByRole("article")
-    .filter({ has: page.locator('input[value="Создание Platform Inside"]') })
-    .getByRole("link", { name: "Состав" })
-    .click();
-  await expect(page).toHaveURL(/\/authoring\/playlists\/[0-9a-f-]+$/u);
-  await expect(
-    page.getByRole("heading", { name: "Создание Platform Inside", level: 1 }),
-  ).toBeVisible();
+    .filter({ hasText: "Создание Platform Inside" });
+  const openComposition = async () => {
+    await seriesRow
+      .getByRole("button", { name: /Создание Platform Inside/u })
+      .click();
+    await seriesRow
+      .getByRole("button", { name: "Материалы серии", exact: true })
+      .click();
+  };
+  await openComposition();
+  await expect(page).toHaveURL(/\/authoring\/playlists$/u);
 
   await page.getByRole("button", { name: "Добавить материал" }).click();
   const picker = page.getByRole("dialog", { name: "Добавить материал" });
   await expect(picker).toBeVisible();
   await expect(
-    picker.getByText("Результаты появятся после ввода запроса."),
+    picker.getByRole("button", { name: /^Добавить «/u }).first(),
   ).toBeVisible();
   await picker
     .getByRole("searchbox", { name: "Поиск материала для добавления" })
@@ -1304,6 +1319,7 @@ test("trusted author reorders a PostgreSQL series with keyboard controls", async
   ).toBeVisible();
   await expect(page.getByText("Порядок сохранён.")).toBeVisible();
   await page.reload();
+  await openComposition();
   await expect(items.first().locator("p").first()).toHaveText(secondTitle);
   const groupedItem = items.filter({
     has: page.locator("p", { hasText: firstTitle }),

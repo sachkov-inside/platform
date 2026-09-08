@@ -1,4 +1,6 @@
 "use client";
+import { materialSaveStateLabel } from "../model/material-save-state-label";
+import { withMaterialNodeIds } from "../model/material-document-identifiers";
 
 import { EditorContent, useEditor } from "@tiptap/react";
 import {
@@ -50,7 +52,9 @@ export function MaterialDocumentEditor({
   onChange,
   contentVersion = null,
   assetPreviewBlocks = [],
+  saveState,
 }: {
+  readonly saveState?: MaterialAuthoringPresentation["save"];
   readonly contentVersion?: number | null;
   readonly assetPreviewBlocks?: MaterialAuthoringPresentation["draft"]["assetPreviewBlocks"];
   readonly disabled: boolean;
@@ -90,8 +94,17 @@ export function MaterialDocumentEditor({
     else window.showModal();
     setExpanded(!expanded);
   };
+  const [initialDocument] = useState(() =>
+    withMaterialNodeIds({
+      ...document,
+      content:
+        document.content?.at(-1)?.type === "paragraph"
+          ? document.content
+          : [...(document.content ?? []), { type: "paragraph" }],
+    }),
+  );
   const editor = useEditor({
-    content: document,
+    content: initialDocument,
     editable: !disabled,
     extensions: materialDocumentExtensions,
     immediatelyRender: false,
@@ -232,6 +245,11 @@ export function MaterialDocumentEditor({
     >
       <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-card px-3 py-2">
         <span className="px-2 text-sm font-medium">Статья</span>
+        {expanded && saveState ? (
+          <span role="status" className="mr-auto text-xs text-muted-foreground">
+            {materialSaveStateLabel(saveState)}
+          </span>
+        ) : null}
         <Button
           aria-label={expanded ? "Свернуть редактор" : "На весь экран"}
           onClick={expand}
@@ -422,37 +440,39 @@ export function MaterialDocumentEditor({
         </div>
       ) : null}
       {editor.isActive("table") ? (
-        <div className="flex flex-wrap gap-2 border-b border-border p-2">
-          <Button
-            onClick={() => {
-              editor.chain().focus().addRowAfter().run();
-            }}
-            type="button"
-            size="sm"
-            variant="ghost"
-          >
-            Добавить строку
-          </Button>
-          <Button
-            onClick={() => {
-              editor.chain().focus().addColumnAfter().run();
-            }}
-            type="button"
-            size="sm"
-            variant="ghost"
-          >
-            Добавить столбец
-          </Button>
-          <Button
-            onClick={() => {
-              editor.chain().focus().deleteTable().run();
-            }}
-            type="button"
-            size="sm"
-            variant="ghost"
-          >
-            Убрать таблицу
-          </Button>
+        <div className="relative z-20">
+          <div className="absolute right-2 top-1 flex flex-wrap gap-2 rounded-xl border border-border bg-card p-2 shadow-lg">
+            <Button
+              onClick={() => {
+                editor.chain().focus().addRowAfter().run();
+              }}
+              type="button"
+              size="sm"
+              variant="ghost"
+            >
+              Добавить строку
+            </Button>
+            <Button
+              onClick={() => {
+                editor.chain().focus().addColumnAfter().run();
+              }}
+              type="button"
+              size="sm"
+              variant="ghost"
+            >
+              Добавить столбец
+            </Button>
+            <Button
+              onClick={() => {
+                editor.chain().focus().deleteTable().run();
+              }}
+              type="button"
+              size="sm"
+              variant="ghost"
+            >
+              Убрать таблицу
+            </Button>
+          </div>
         </div>
       ) : null}
       <MaterialAssetUploadQueue controller={assetUploads} />
