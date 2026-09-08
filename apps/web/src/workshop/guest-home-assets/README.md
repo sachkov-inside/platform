@@ -108,3 +108,8 @@ new videos. The guest prototype disables the redundant catalog invitation throug
 The ordered-section story checks the invitation's location and absence of the catalog section.
 Focused Home/guest stories: 12 passed; types and lint passed. Mobile preview checked at 390 px.
 Domain migration is recorded separately in Workspace #146; this refinement makes no domain changes.
+
+Verification for the invitation move: all root check stages passed across the initial run and
+targeted retry. The first route-test server hit macOS EMFILE; rerunning with
+`WATCHPACK_POLLING=1000 PLAYWRIGHT_PORT=3118` passed all 43 route tests, followed by application
+builds, standalone-config checks and the Storybook build. Standards and Spec reviews had no findings.
