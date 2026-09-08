@@ -94,7 +94,7 @@ test("server-renders the mobile-first Home showcase from ContentLibrary", async 
   await page.getByRole("link", { name: "Назад в Базу знаний", exact: true }).click();
   await expect(page).toHaveURL(/\/library\?topic=platform$/u);
   await expect(topicFilters.getByRole("radio", { name: /^Platform/u })).toBeChecked();
-  await topicFilters.getByRole("radio", { name: "Все темы", exact: true }).click();
+  await topicFilters.getByText("Все темы", { exact: true }).click();
   await expect(page).toHaveURL(/\/library$/u);
 });
 
