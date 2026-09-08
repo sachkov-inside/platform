@@ -45,6 +45,8 @@ expectFailure(
     "readingMaterialState",
     "accessGrant",
     "legacyClassification",
+    "billingContact",
+    "billingConsentEvidence",
     "Cannot find name 'describe'",
   ],
 );

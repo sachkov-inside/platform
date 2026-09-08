@@ -899,3 +899,58 @@ model BillingPromoReservation {
   @@map("promo_reservations")
   @@schema("billing")
 }
+
+model BillingContact {
+ accountId String @id @map("account_id") @db.Uuid
+ revision Int @default(0)
+ emailCiphertext String? @map("email_ciphertext")
+ verifiedAt DateTime? @map("verified_at") @db.Timestamptz
+ challengeRef String? @map("challenge_ref") @db.Uuid
+ @@map("billing_contacts")
+ @@schema("accounts")
+}
+model BillingContactChallenge {
+ id String @id @db.Uuid
+ accountId String @map("account_id") @db.Uuid
+ operationId String @map("operation_id") @db.Uuid
+ fingerprint String
+ recipientFingerprint String @map("recipient_fingerprint")
+ emailCiphertext String @map("email_ciphertext")
+ codeDigest String @map("code_digest")
+ baseRevision Int @map("base_revision")
+ attempts Int @default(0)
+ createdAt DateTime @map("created_at") @db.Timestamptz
+ expiresAt DateTime @map("expires_at") @db.Timestamptz
+ confirmedAt DateTime? @map("confirmed_at") @db.Timestamptz
+ delivery String
+ @@unique([accountId, operationId])
+ @@index([accountId, createdAt], map: "billing_contact_challenges_account_time")
+ @@index([recipientFingerprint, createdAt], map: "billing_contact_challenges_recipient_time")
+ @@map("billing_contact_challenges")
+ @@schema("accounts")
+}
+model BillingContactCommand {
+ accountId String @map("account_id") @db.Uuid
+ operationId String @map("operation_id") @db.Uuid
+ fingerprint String
+ result Json
+ @@id([accountId, operationId])
+ @@map("billing_contact_commands")
+ @@schema("accounts")
+}
+model BillingConsentEvidence {
+ id String @id @db.Uuid
+ accountId String @map("account_id") @db.Uuid
+ operationId String @map("operation_id") @db.Uuid
+ contextRef String @map("context_ref") @db.Uuid
+ kind String
+ documentId String @map("document_id")
+ documentVersion String @map("document_version")
+ documentDigest String @map("document_digest")
+ documentText String @map("document_text")
+ documentUrl String @map("document_url")
+ acceptedAt DateTime @map("accepted_at") @db.Timestamptz
+ @@unique([accountId, operationId, kind])
+ @@map("billing_consent_evidence")
+ @@schema("accounts")
+}

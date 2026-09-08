@@ -1,6 +1,7 @@
 import { name as billingPricingName, statement as billingPricingStatement } from "../modules/billing/infrastructure/postgres/migrations/0040-billing-pricing.js";
 import { name as telegramLinkRevisionsName, statement as telegramLinkRevisionsStatement } from "../modules/telegram-membership/infrastructure/postgres/migrations/0039-telegram-link-revisions.js";
 import { name as accountAccessName, statement as accountAccessStatement } from "../modules/membership-entitlements/infrastructure/postgres/migrations/0038-account-access.js";
+import { name as billingContactName, statement as billingContactStatement } from "../modules/accounts/infrastructure/postgres/migrations/0041-billing-contact.js";
 import { name as homeSeriesPinName, statement as homeSeriesPinStatement } from "../modules/materials/infrastructure/postgres/migrations/0039-home-series-pin.js";
 import { name as homeMaterialPinName, statement as homeMaterialPinStatement } from "../modules/materials/infrastructure/postgres/migrations/0038-home-material-pin.js";
 import {
@@ -291,6 +292,7 @@ export const platformMigrations = [
   { name: accountAccessName, statement: accountAccessStatement },
   { name: telegramLinkRevisionsName, statement: telegramLinkRevisionsStatement },
   { name: billingPricingName, statement: billingPricingStatement },
+  { name: billingContactName, statement: billingContactStatement },
   { name: homeMaterialPinName, statement: homeMaterialPinStatement },
   { name: homeSeriesPinName, statement: homeSeriesPinStatement },
 ] as const;

@@ -16,7 +16,7 @@ beforeAll(async () => {
   database = await createTestDatabase();
   // Upgrade the existing main ledger as an exact prefix; never reorder applied migrations.
   const pinStart = platformMigrations.findIndex((migration) => migration.name === "0038_home_material_pin");
-  expect(platformMigrations[pinStart - 1]?.name).toBe("0040_billing_pricing");
+  expect(platformMigrations[pinStart - 1]?.name).toBe("0041_billing_contact");
   await runMigrationsToLatest(database.url, platformMigrations.slice(0, pinStart));
   expect(await migrateToLatest(database.url)).toEqual({ appliedMigrations: ["0038_home_material_pin", "0039_home_series_pin"] });
   await database.prisma.topic.create({ data: { id: topicId, name: "Home", slug: "home" } });
