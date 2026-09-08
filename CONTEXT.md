@@ -287,3 +287,15 @@ _Avoid_: Saved card, current chat membership, completed payment
 The separately established set of prior Inside participants whose existing access must be accounted
 for during the move to the new subscription. A new Inside-driven join does not add a participant.
 _Avoid_: Current chat roster, all new members
+
+## Notifications
+
+**Notification**:
+Сообщение для одного Account по определённому событию продукта. Оно имеет назначение и может
+доставляться по нескольким каналам независимо.
+_Avoid_: Событие продукта, рассылка, попытка отправки
+
+**Notification Delivery**:
+Доставка одного Notification по выбранному каналу подтверждённому получателю. Результат одного
+канала не определяет результат другого и не означает прочтения.
+_Avoid_: Notification, broker acknowledgement, прочтение
