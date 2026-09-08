@@ -208,9 +208,35 @@ describe("Personal Home on PostgreSQL", () => {
     const result = await home.getSeries(accountId, collection.slug);
     if (!result.ok) throw new Error(result.error.code);
     expect(result.value.collection.previewItems[0]?.materialId).toBe(second.materialId);
-    expect(result.value.continuation?.materialSlug).toBe(result.value.collection.previewItems[0]?.slug);
+    expect(result.value.continuation?.materialSlug).toBe(result.value.collection.previewItems[1]?.slug);
     await materials.authoring.transitionPublication({ actor, materialId: second.materialId, expectedContentVersion: second.contentVersion, idempotencyKey: randomUUID(), publicationState: "unpublished" });
     expect(await home.getSeries(accountId, collection.slug)).toMatchObject({ ok: true, value: { total: 1, read: 0 } });
+  });
+  test("series resumes the latest visit, advances after completion, skips locked items and wraps to unfinished entries", async () => {
+    const accountId = randomUUID(); const collection = await series();
+    const first = await material("free", false, [collection.id]);
+    const second = await material("free", true, [collection.id]);
+    const locked = await material("membership", false, [collection.id]);
+    const last = await material("free", false, [collection.id]);
+    const order = await materials.authoring.loadSeriesOrder({ actor, seriesId: collection.id });
+    if (!order.ok) throw new Error(order.error.code);
+    await materials.authoring.reorderSeries({ actor, seriesId: collection.id, expectedOrderVersion: order.value.orderVersion, orderedMaterialIds: [first.materialId, second.materialId, locked.materialId, last.materialId] });
+    await open(accountId, first);
+    await open(accountId, second);
+    if (second.videoId === null) throw new Error("Missing video");
+    await videos.saveProgress({ accountId, videoId: second.videoId, positionSeconds: 123, durationSeconds: 600 });
+    await database.prisma.readingMaterialVisit.update({ where: { accountId_materialId: { accountId, materialId: first.materialId } }, data: { firstOpenedAt: new Date(0), lastOpenedAt: new Date(0) } });
+    const slug = async (item: { materialId: string }) => {
+      const result = await materials.authoring.loadMaterial({ actor, materialId: item.materialId });
+      if (!result.ok) throw new Error(result.error.code);
+      return result.value.metadata.slug;
+    };
+    expect(await home.getSeries(accountId, collection.slug)).toMatchObject({ ok: true, value: { read: 0, total: 4, continuation: { materialSlug: await slug(second), resume: { kind: "position", positionSeconds: 123 } } } });
+    await reading.setReadingState({ accountId, materialId: second.materialId, commandId: randomUUID(), expectedVersion: 0, isRead: true });
+    expect(await home.getSeries(accountId, collection.slug)).toMatchObject({ ok: true, value: { read: 1, total: 4, continuation: { materialSlug: await slug(last) } } });
+    await open(accountId, last);
+    await reading.setReadingState({ accountId, materialId: last.materialId, commandId: randomUUID(), expectedVersion: 0, isRead: true });
+    expect(await home.getSeries(accountId, collection.slug)).toMatchObject({ ok: true, value: { read: 2, total: 4, continuation: { materialSlug: await slug(first) } } });
   });
   test("series history survives expiry and resumes after rejoining; Videos failure still allows series continuation", async () => {
     const accountId = randomUUID(); const collection = await series();

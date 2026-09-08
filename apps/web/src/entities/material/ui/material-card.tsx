@@ -26,6 +26,7 @@ export interface MaterialCardProps {
   readonly readingStatus?: React.ReactNode;
   /** Existing video card with a short continuation caption supplied by its page. */
   readonly resumeLabel?: string;
+  readonly showAccessDetails?: boolean;
   readonly variant?: "compact" | "default" | "feed" | "row";
 }
 
@@ -37,6 +38,7 @@ export function MaterialCard({
   rowAnnotation,
   readingStatus = material.materialId === undefined ? undefined : <SavedMaterialReadingStatus materialId={material.materialId} format={material.format} />,
   resumeLabel,
+  showAccessDetails = false,
   variant = "default",
 }: MaterialCardProps) {
   const Heading = headingLevel;
@@ -46,6 +48,7 @@ export function MaterialCard({
     return (
       <MaterialRow
         headingLevel={headingLevel}
+        showAccessDetails={showAccessDetails}
         material={material}
         readerHref={readerHref}
         resumeLabel={resumeLabel}
@@ -179,7 +182,9 @@ function MaterialRow({
   rowAnnotation,
   resumeLabel,
   readingStatus,
+  showAccessDetails,
 }: {
+  readonly showAccessDetails: boolean;
   readonly headingLevel: "h2" | "h3";
   readonly material: MaterialPreview;
   readonly readerHref: Route;
@@ -192,11 +197,12 @@ function MaterialRow({
   const isVideo = materialPreviewHasVideo(material);
   return (
     <article
-      className={cn("group/row relative grid min-w-0 grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-2 sm:grid-cols-[5.5rem_minmax(0,1fr)_auto] sm:gap-3 rounded-2xl border border-black/8 bg-muted/55 p-3 shadow-card transition-[box-shadow,transform,background-color] duration-200 hover:-translate-y-0.5 hover:bg-white hover:shadow-card-hover motion-reduce:transform-none motion-reduce:transition-none", resumeLabel !== undefined && "ring-2 ring-accent/70")}
+      className={cn("group/row relative grid min-w-0 grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-2 sm:grid-cols-[5.5rem_minmax(0,1fr)_auto] sm:gap-3 rounded-2xl border border-black/8 bg-muted/55 p-3 shadow-card transition-[box-shadow,transform,background-color] duration-200 hover:-translate-y-0.5 hover:bg-white hover:shadow-card-hover motion-reduce:transform-none motion-reduce:transition-none", resumeLabel !== undefined && "ring-2 ring-accent/70", showAccessDetails && "@max-[13rem]/series-entry:grid-cols-1")}
       data-material-id={material.slug}
       data-material-slug={material.slug}
       data-material-variant="row"
     >
+      <span className={showAccessDetails ? "@max-[13rem]/series-entry:hidden" : undefined}>
       <AccessCover compact material={material}>
         <ContentCoverImage
           alt=""
@@ -207,8 +213,9 @@ function MaterialRow({
           sizes="(min-width: 640px) 5.5rem, 3.5rem"
         />
       </AccessCover>
-      <span className="min-w-0">
-        <span className="flex min-w-0 items-center gap-1 text-xs font-semibold text-muted-foreground">
+      </span>
+      <span className={cn("min-w-0", showAccessDetails && "[overflow-wrap:anywhere]")}>
+        <span className={cn("flex min-w-0 items-center gap-1 text-xs font-semibold text-muted-foreground", showAccessDetails && "flex-wrap")}>
           <span>{materialTaxonomyLabel(material.format)}</span>
           <span aria-hidden="true">·</span>
           <Link
@@ -236,9 +243,13 @@ function MaterialRow({
         {readingStatus || resumeLabel !== undefined ? <span className="mt-2 flex min-h-6 items-center">
           {resumeLabel === undefined ? readingStatus : <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-action"><Play aria-hidden="true" className="size-3.5 shrink-0 fill-current" />{resumeLabel}</span>}
         </span> : null}
+        {showAccessDetails ? <span className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs leading-5 text-muted-foreground" data-series-access>
+          {material.availability === "locked" ? <span className="inline-flex items-center gap-1.5 font-medium"><LockKeyhole aria-hidden="true" className="size-3.5" />По подписке</span> : material.availability === "unavailable" ? <span>Не удалось проверить доступ</span> : material.access === "free" ? <span>Бесплатно</span> : null}
+          {materialDuration(material) === undefined ? null : <span className="inline-flex items-center gap-1.5 tabular-nums"><Clock3 aria-hidden="true" className="size-3.5" />{materialDuration(material)}</span>}
+        </span> : null}
         {rowAnnotation}
       </span>
-      <ChevronRight aria-hidden="true" className="size-4 text-muted-foreground" />
+      <ChevronRight aria-hidden="true" className={cn("size-4 text-muted-foreground", showAccessDetails && "@max-[13rem]/series-entry:hidden")} />
     </article>
   );
 }

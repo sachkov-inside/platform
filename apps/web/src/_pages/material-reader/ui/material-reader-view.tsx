@@ -79,7 +79,7 @@ export function MaterialReaderView({
             />
           </article>
           {readingAction}
-          <MaterialReaderMetadataFooter material={material} seriesContext={seriesContext} returnTarget={returnTarget} />
+          <MaterialReaderFooter seriesContext={seriesContext} />
         </div>
       </ReaderReturnNavigation>
     </div>
@@ -163,62 +163,16 @@ export function MaterialReaderHeader({
   );
 }
 
-export function MaterialReaderMetadataFooter({
-  material,
-  seriesContext = null,
-  returnTarget = libraryMaterialReaderReturnTarget,
+export function MaterialReaderFooter({
+  seriesContext,
 }: {
-  readonly material: MaterialReaderMetadata;
-  readonly seriesContext?: SeriesReaderContext | null;
-  readonly returnTarget?: MaterialReaderReturnTarget;
+  readonly seriesContext: SeriesReaderContext | null;
 }) {
-  const otherSeries = material.seriesMemberships.filter(({ series }) =>
-    seriesContext === null || returnTarget.seriesSlug !== series.slug,
-  );
-
-  if (seriesContext === null && material.tags.length === 0 && otherSeries.length === 0) return null;
+  if (seriesContext === null) return null;
 
   return (
-    <footer
-      aria-label="Дополнительная информация о материале"
-      className="mt-12 grid gap-5 border-t border-border pt-6"
-      data-reader-metadata
-    >
+    <footer className="mt-12 border-t border-border pt-6" data-reader-footer>
       <SeriesReaderNavigation context={seriesContext} />
-      {material.tags.length > 0 ? (
-        <ul
-          aria-label="Теги материала"
-          className="flex flex-wrap gap-2"
-          role="list"
-        >
-          {material.tags.map((tag) => (
-            <li key={tag.name}>
-              <span className="inline-flex min-h-8 items-center rounded-full bg-muted px-3 py-1.5 text-xs font-semibold text-muted-foreground">
-                #{tag.name}
-              </span>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      {otherSeries.length > 0 ? (
-        <ul
-          aria-label="Серии материала"
-          className="flex flex-wrap gap-x-4 gap-y-2"
-          role="list"
-        >
-          {otherSeries.map(({ series }) => (
-            <li key={series.slug}>
-              <Link
-                className="inline-flex min-h-8 items-center break-words rounded-full bg-muted px-3 text-sm font-semibold text-muted-foreground no-underline hover:text-foreground focus-visible:outline-ring"
-                href={`/series/${series.slug}`}
-                prefetch={false}
-              >
-                {series.name}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      ) : null}
     </footer>
   );
 }

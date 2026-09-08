@@ -8,7 +8,7 @@ import { LibraryDiscoveryView } from "@/_pages/library-discovery";
 import { MaterialReaderView, type MaterialReaderMetadata, type ReaderBlock } from "@/_pages/material-reader";
 import { resolveSeriesReaderContext } from "@/_pages/material-reader/model/series-reader-context";
 import { MaterialCard, MaterialReadingContext, type MaterialPreview } from "@/entities/material";
-import { ReadingAction, SeriesProgress, type ReadingActionView } from "@/features/reading-progress";
+import { ReadingAction, type ReadingActionView } from "@/features/reading-progress";
 import { Button } from "@/shared/ui/button";
 import { parseMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 import { ApplicationShell, type ApplicationNavigationItem } from "@/widgets/application-shell";
@@ -110,7 +110,7 @@ function ProgressWalkthrough({ initialRead = ["text"], initialSurface = "home", 
         <ApplicationShell currentPath={surface === "home" ? "/" : "/library"} navigationItems={navigation} mobileNavigationItems={navigation}>
           {surface === "home" ? <HomePage result={{ kind: "ready", value: { ...illustratedHome, videos: illustratedHome.videos.map((item) => item.slug === materials[1].slug ? preview(materials[1]) : item), guides: illustratedHome.guides.map((item) => item.slug === materials[2].slug ? preview(materials[2]) : item), playlists: illustratedHome.playlists.map((item) => item.slug === collection.slug ? collection : item) } }} continuation={continuation} /> : null}
           {surface === "reader" ? <MaterialReaderView body={body} material={metadata} primaryVideo={null} readingAction={action(selected)} returnTarget={returnTarget} seriesContext={seriesContext} /> : null}
-          {surface === "series" ? <LibraryDiscoveryView continuation={hasHistory && next !== undefined ? { materialSlug: next.slug, label: next.id === "video" && !videoEnded ? "Продолжить с 4:03" : "Продолжить здесь" } : undefined} result={{ kind: "ready", discoveryKind: "series", hasNext: false, reference: { name: collection.name, slug: collection.slug, summary: collection.summary ?? "" }, items: materials.map(preview), relatedSeries: [], topics: [] }} seriesProgress={<SeriesProgress view={{ kind: "ready", total: materials.length, read: read.length }} />} /> : null}
+          {surface === "series" ? <LibraryDiscoveryView learning={{ kind: "ready", total: materials.length, read: read.length, continuation: hasHistory && next !== undefined ? { materialSlug: next.slug, label: next.id === "video" && !videoEnded ? "Продолжить с 4:03" : "Продолжить здесь" } : null }} result={{ kind: "ready", discoveryKind: "series", hasNext: false, reference: { name: collection.name, slug: collection.slug, summary: collection.summary ?? "" }, items: materials.map(preview), relatedSeries: [], topics: [] }} /> : null}
           {surface === "cards" ? <div className="mx-auto max-w-5xl">
             <h1 className="text-2xl font-semibold">Карточки материалов</h1>
             <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
