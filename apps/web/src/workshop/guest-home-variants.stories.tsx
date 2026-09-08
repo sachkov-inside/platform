@@ -8,7 +8,7 @@ const meta = {
   title: "Pages/Guest Home/Prototype 380",
   parameters: {
     layout: "fullscreen",
-    docs: { description: { component: "Три варианта гостевой главной #380 на текущих shell, токенах и карточках Platform. A — сначала материалы; B — закреплённая серия с аватаром Кирилла и настоящая главная из main: серии, темы, видео, гайды и заметки; C — авторская практика. Стрелки переключают вариант. Карточки открывают страницы серии, материала и каталога из main на демонстрационных данных; CTA ведёт на текущий экран входа. Основная поза B — спокойный портрет; второй вариант — миниатюрное приложение над ладонью. Объясняющий жест убран из сравнения. Мобильная кнопка справа, нижняя навигация — только иконки. Кандидат мобильной типографики: основной текст 16 px, разделы 18 px, страницы 24 px, заголовки 600. Баннер растёт при увеличении текста. Значки разработки вылетают по очереди от плеча примерно раз в секунду; учитывается reduced motion. Содержимое и открытость материалов демонстрационные. Production и платежи не подключены. Решение владельца ожидается." } },
+    docs: { description: { component: "Три варианта гостевой главной #380 на текущих shell, токенах и карточках Platform. A — сначала материалы; B — закреплённая серия с аватаром Кирилла и настоящая главная из main: серии, темы, видео, гайды и заметки; C — авторская практика. Стрелки переключают вариант. Карточки открывают страницы серии, материала и каталога из main на демонстрационных данных; CTA ведёт на текущий экран входа. Владелец выбрал вариант с миниатюрным приложением над ладонью; спокойный портрет сохранён как альтернатива. Объясняющий жест убран из сравнения. Мобильная кнопка справа, нижняя навигация — только иконки. Кандидат мобильной типографики: основной текст 16 px, разделы 18 px, страницы 24 px, заголовки 600. Баннер растёт при увеличении текста. Значки разработки вылетают по очереди от плеча примерно раз в секунду; учитывается reduced motion. Содержимое и открытость материалов демонстрационные. Production и платежи не подключены. Выбор аватара подтверждён; внедрение главной — отдельная работа." } },
   },
 } satisfies Meta<typeof GuestHomePrototype>;
 export default meta;
@@ -67,14 +67,14 @@ export const MobileTypeScale: Story = {
 };
 export const MobileTextZoom: Story = {
   name: "Mobile · Текст 200%",
-  args: { initialVariant: "B", initialAvatarPose: "portrait" },
+  args: { initialVariant: "B", initialAvatarPose: "object" },
   decorators: [(Story) => <TextPreferences zoom><Story /></TextPreferences>],
   globals: { viewport: { value: "mobile390", isRotated: false } },
   play: checkReadableBanner,
 };
 export const MobileTextSpacing: Story = {
   name: "Mobile · Пользовательские интервалы",
-  args: { initialVariant: "B", initialAvatarPose: "portrait" },
+  args: { initialVariant: "B", initialAvatarPose: "object" },
   decorators: [(Story) => <TextPreferences><Story /></TextPreferences>],
   globals: { viewport: { value: "mobile390", isRotated: false } },
   play: checkReadableBanner,

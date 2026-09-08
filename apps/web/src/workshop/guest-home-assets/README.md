@@ -1,5 +1,13 @@
 # Guest Home prototype #380
 
+## Current owner decision
+
+On 8 September 2026 the owner selected the avatar presenting a miniature application
+(`kirill-mini-app.png`). Variant B with this pose is now the default, including mobile and
+text-preference stories. The calm portrait remains an alternative. This confirms the avatar
+choice for the prototype; production integration and domain migration remain separate work.
+The refinement notes below preserve the exploration history.
+
 Question: how can the current Platform Home explain Inside to a guest while keeping series and
 materials directly explorable?
 

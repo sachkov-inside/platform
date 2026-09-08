@@ -35,7 +35,7 @@ const benefits = [
 ];
 
 
-export function GuestHomePrototype({ initialVariant = "A", initialAvatarPose = "portrait" }: { readonly initialVariant?: GuestVariant; readonly initialAvatarPose?: AvatarPose }) {
+export function GuestHomePrototype({ initialVariant = "B", initialAvatarPose = "object" }: { readonly initialVariant?: GuestVariant; readonly initialAvatarPose?: AvatarPose }) {
   const [avatarPose, setAvatarPose] = useState<AvatarPose>(initialAvatarPose);
   const [variant, setVariant] = useState<GuestVariant>(() => {
     const param = new URLSearchParams(window.location.search).get("variant");
