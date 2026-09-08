@@ -7,7 +7,7 @@ import { AccountSignInRequired } from "@/_pages/account/ui/account-page";
 import { resolveSeriesReaderContext } from "@/_pages/material-reader/model/series-reader-context";
 import { parseMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 import type { MaterialPreview } from "@/entities/material";
-import { materials, series } from "./guest-home.fixture";
+import { allMaterials as materials, series } from "./guest-home.fixture";
 
 // Only fixture adapters live here. Each page below is the component used by current main.
 export function ProductionGuestScene({ href }: { readonly href: string }) {
@@ -30,7 +30,7 @@ export function ProductionGuestScene({ href }: { readonly href: string }) {
   const seriesContext = containingSeries ? resolveSeriesReaderContext({ currentMaterialSlug: material.slug, returnTarget, series: { kind: "ready", reference: containingSeries, items: containingSeries.previewItems } }) : null;
   const metadata = readerMetadata(material);
   return material.access === "free"
-    ? <MaterialReaderView material={metadata} body={openGuideBody} primaryVideo={null} returnTarget={returnTarget} seriesContext={seriesContext} />
+    ? <MaterialReaderView material={metadata} body={material.formatSlug === "note" ? [{ kind: "paragraph", content: [{ kind: "text", text: material.summary, marks: [] }] }] : openGuideBody} primaryVideo={null} returnTarget={returnTarget} seriesContext={seriesContext} />
     : <MaterialReaderAccess material={metadata} returnTarget={returnTarget} seriesContext={seriesContext} cta={{ label: "Получить доступ", url: "/account" }} />;
 }
 
@@ -38,7 +38,7 @@ function readerMetadata(material: MaterialPreview): MaterialReaderMetadata {
   return {
     materialId: `38000000-0000-4000-8000-${String(materials.findIndex((item) => item.slug === material.slug) + 1).padStart(12, "0")}`,
     contentVersion: 1, cover: material.cover ?? null, access: material.access,
-    format: { name: material.format, slug: "guide" }, publishedAt: "2026-09-07T10:00:00Z",
+    format: { name: material.format, slug: material.formatSlug ?? "guide" }, publishedAt: "2026-09-07T10:00:00Z",
     seriesMemberships: series.flatMap((item) => {
       const ordinal = item.previewItems.findIndex((entry) => entry.slug === material.slug) + 1;
       return ordinal ? [{ ordinal, series: { name: item.name, slug: item.slug } }] : [];
@@ -52,7 +52,7 @@ function CatalogScene({ search }: { readonly search: string }) {
   const items = materials.filter((material) => (!query.topicSlug || query.topicSlug === material.topicSlug) && (query.formatSlugs.length === 0 || query.formatSlugs.includes(material.formatSlug)) && material.title.toLocaleLowerCase("ru").includes(query.q.toLocaleLowerCase("ru")));
   const sorted = query.sort === "title" ? [...items].sort((a, b) => a.title.localeCompare(b.title, "ru")) : items;
   return <LibraryPage query={query} onQueryChange={setQuery} result={{ kind: "ready", items: sorted, totalCount: sorted.length, nextCursor: null, facets: {
-    formats: [{ id: "guide", name: "Гайд", slug: "guide", count: materials.length, summary: null }],
+    formats: [{ slug: "guide", name: "Гайд" }, { slug: "video", name: "Видео" }, { slug: "note", name: "Заметка" }].map((format) => ({ ...format, id: format.slug, count: materials.filter((item) => item.formatSlug === format.slug).length, summary: null })),
     series: series.map((item) => ({ ...item, id: item.slug, count: item.previewItems.length })),
     topics: Array.from(new Set(materials.map((item) => item.topicSlug))).map((slug) => { const members = materials.filter((item) => item.topicSlug === slug); return { id: slug, slug, name: members[0]?.topic ?? slug, count: members.length, summary: null }; }),
   } }} />;

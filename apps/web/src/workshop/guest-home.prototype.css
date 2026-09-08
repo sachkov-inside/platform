@@ -124,14 +124,14 @@
 }
 .gh-featured[data-avatar-pose=object] .gh-floating-note { display: none; }
 
-/* A short shoulder-origin burst; each glyph finishes within 4.6 s, without playback controls. */
+/* Repeating shoulder-origin drift with a quiet interval; reduced motion disables decoration. */
 .gh-shoulder-sparks { position: absolute; z-index: 2; left: 78%; top: 52%; }
-.gh-spark { position: absolute; opacity: 0; color: var(--cover-coral); animation: gh-shoulder-drift 3.4s ease-out both; }
+.gh-spark { position: absolute; opacity: 0; color: var(--cover-coral); animation: gh-shoulder-drift 6s ease-out infinite both; }
 .gh-spark svg { width: 16px; height: 16px; }
 .gh-spark-code { --spark-x: 19px; --spark-y: -72px; }
 .gh-spark-git { --spark-x: -6px; --spark-y: -58px; animation-delay: .6s; }
 .gh-spark-terminal { --spark-x: 27px; --spark-y: -45px; animation-delay: 1.2s; }
-@keyframes gh-shoulder-drift { 0% { opacity: 0; transform: translate(0,0) scale(.6); } 22% { opacity: .5; } 70% { opacity: .25; } 100% { opacity: 0; transform: translate(var(--spark-x),var(--spark-y)) scale(1) rotate(12deg); } }
+@keyframes gh-shoulder-drift { 0% { opacity: 0; transform: translate(0,0) scale(.6); } 12% { opacity: .5; } 35% { opacity: .25; } 55%,100% { opacity: 0; transform: translate(var(--spark-x),var(--spark-y)) scale(1) rotate(12deg); } }
 @media (prefers-reduced-motion: reduce) { .gh-shoulder-sparks { display: none; } .gh-spark { animation: none; } }
 .gh-switcher:has(.gh-pose-picker) { display: grid; grid-template-columns: 44px minmax(0,1fr) 44px; }
 .gh-switcher:has(.gh-pose-picker) > button { width: 44px; height: 44px; }
@@ -145,3 +145,6 @@
 @media (max-width: 360px) {
   .gh-presenter { width: min(11.5rem,184px); height: min(11.5rem,184px); }
 }
+
+.gh-featured { margin-bottom: 2rem; }
+.gh-home-access { margin-block: 2rem; }

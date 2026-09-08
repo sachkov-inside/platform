@@ -4,13 +4,13 @@ Question: how can the current Platform Home explain Inside to a guest while keep
 materials directly explorable?
 
 - A: short introduction followed by material cards.
-- B: pinned series with Kirill's existing 2D avatar, topic filters and a compact access invitation.
+- B: pinned series with Kirill's edited 2D avatar, followed by the current Home sections and a compact access invitation between videos and guides.
 - C: author introduction, an example series and the role of discussion/community.
 
 All copy, series contents, access labels and article bodies are samples for composition review.
 They do not establish publication status, commercial terms or a personal support commitment.
 Series, topic, catalog, reader, locked access and sign-in screens import the current production
-components from main (base `55237eb1`). Fixture adapters supply their presentation data; no checkout
+components from main (base `55237eb1`; Home and shell verified unchanged through `09290bf7`). Fixture adapters supply their presentation data; no checkout
 or real sign-in is performed. No variant is accepted yet.
 
 Run from the Platform root: `pnpm storybook`. Look under **Pages / Guest Home / Prototype 380**.
@@ -39,18 +39,25 @@ these assets. The owner authorized local image processing; ImageMagick removed t
 background and softened cutout edges. All three final files have a genuine alpha channel.
 The earlier raised-hand attempt is retained as `kirill-raised-hand.png` for provenance.
 
-The main B story now defaults to the explanatory gesture. B1/B2/B3 and the pose selector retain
+The main B story now defaults to the compact outward explanatory gesture (`kirill-gesture-compact.png`).
+The previous gesture and intermediate outward edit are preserved.
+[Exact refinement prompts](compact-outward-prompts.md) record the built-in image edits and alpha cleanup. B1/B2/B3 and the pose selector retain
 portrait/gesture/object for comparison. The mobile banner has a 176 px minimum height and grows
 with enlarged text. Its CTA is on the right over the avatar. The torso fade is slightly stronger.
 The desktop practice badge remains at bottom right for portrait/gesture; the object version omits it.
-Code, Git branch and terminal icons drift from the gesture avatar's shoulder and disappear within
-4.6 seconds. Reduced motion hides them. There are no playback controls.
+Code, Git branch and terminal icons repeatedly drift from the gesture avatar's shoulder.
+Each six-second cycle includes a quiet interval. Reduced motion hides them. There are no playback controls.
+The owner explicitly requested recurring motion after reviewing the one-shot version.
 
 The candidate mobile type scale uses Manrope: page 24/30, section/banner 18/24, card 16/22,
 body 16/24, UI 14/20 and metadata 12/16. Headings use 600, body 400. See the
 [research and source links](../../../../../docs/research/issue-380-mobile-typography.md).
 Dedicated stories show the scale, text at 200% and user text-spacing overrides. The workshop's
-candidate dock spacing keeps navigation readable when text grows without changing production files.
+candidate dock shows only icons across all mobile shell widths; the link names remain available
+to screen readers. HomePage has one optional `afterVideos` presentation slot for the invitation.
+Its default rendering and all live adapters remain unchanged. B uses HomePage directly, retaining
+series → topics → new videos → fresh guides → notes → catalog. New fixture videos/notes also
+participate in catalog filtering and reader navigation; video samples show membership access.
 
 ## Verification
 

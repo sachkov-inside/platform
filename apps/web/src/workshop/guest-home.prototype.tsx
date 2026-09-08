@@ -6,11 +6,12 @@ import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "re
 import Link from "next/link";
 
 
+import { HomePage } from "@/_pages/home";
 import { MaterialCard } from "@/entities/material";
 import { PlaylistCard } from "@/features/library-discovery";
 import { Button } from "@/shared/ui/button";
 import { ApplicationShell } from "@/widgets/application-shell";
-import { materials, series } from "./guest-home.fixture";
+import { guestHome, materials, series } from "./guest-home.fixture";
 import { ProductionGuestScene } from "./guest-home-production-scenes";
 import "./guest-home.prototype.css";
 import "./mobile-typography.prototype.css";
@@ -23,7 +24,7 @@ export type GuestVariant = "A" | "B" | "C";
 export type AvatarPose = "portrait" | "gesture" | "object";
 const avatarPoses = {
   portrait: { label: "1 · Спокойный портрет", src: new URL("./guest-home-assets/kirill-portrait.png", import.meta.url).href },
-  gesture: { label: "2 · Объясняющий жест", src: new URL("./guest-home-assets/kirill-gesture.png", import.meta.url).href },
+  gesture: { label: "2 · Объясняющий жест", src: new URL("./guest-home-assets/kirill-gesture-compact.png", import.meta.url).href },
   object: { label: "3 · Парящий объект", src: new URL("./guest-home-assets/kirill-object.png", import.meta.url).href },
 };
 const variants = { A: "Сначала материалы", B: "Серия с аватаром", C: "От автора" };
@@ -123,10 +124,7 @@ export function VariantA({ subscribe }: { readonly subscribe: () => void }) {
   return <><header className="gh-intro"><p className="gh-eyebrow">Sachkov Inside · для тех, кто уже пишет код</p><Title>Разбирайся глубже.<br />Применяй в своей разработке.</Title><p className="gh-lead">Цельные практические гайды, инженерная база и разработка с ИИ. С объяснением решений и обсуждением со мной и сообществом.</p><Actions subscribe={subscribe} /></header><section><Heading aside="Начни с интересной задачи">Попробуй Inside</Heading><Guides /></section><section><Heading>Разбираем по шагам</Heading><SeriesCards /></section><section><Heading>Больше, чем доступ к текстам</Heading><Benefits /></section><Invitation subscribe={subscribe} /></>;
 }
 export function VariantB({ subscribe, avatarPose }: { readonly subscribe: () => void; readonly avatarPose: AvatarPose }) {
-  const [topic, setTopic] = useState("Все");
-  const filtered = topic === "Все" ? materials : materials.filter((material) => material.topic === topic);
-  return <>
-    <h1 className="sr-only">Главная Inside</h1>
+  const featured = (
     <section className="gh-featured" aria-labelledby="featured-title" data-avatar-pose={avatarPose}>
       <div className="gh-featured-copy"><p className="gh-featured-label">С чего начать · Серия</p><h2 id="featured-title">Создаём реальный <br />продукт с ИИ</h2><p className="gh-featured-description">От идеи и архитектуры до кода и деплоя.<br />На примере самой платформы Inside.</p><div className="gh-featured-bottom"><span>Гайды · Код · Решения</span><Link href="/series/inside-with-ai?from=%2F">Изучить серию <ArrowRight aria-hidden="true" /></Link></div></div>
       <div className="gh-presenter" aria-hidden="true">
@@ -143,13 +141,15 @@ export function VariantB({ subscribe, avatarPose }: { readonly subscribe: () => 
         <span className="gh-floating-note"><Check /> Проверяем на практике</span>
       </div>
     </section>
-    <div className="gh-topic-filters" aria-label="Темы материалов">{["Все", "Разработка с ИИ", "Архитектура", "Инфраструктура"].map((name) => <button key={name} aria-pressed={topic === name} onClick={() => { setTopic(name); }}>{name}</button>)}</div>
-    <section className="gh-access-strip"><BookOpen aria-hidden="true" /><div><strong>Гайды, серии и общение с автором</strong><p>Изучай открытые материалы. Подписка откроет Inside целиком.</p></div><CTA onClick={subscribe} label="Полный доступ" /></section>
-    <section><Heading aside="Выбери интересную задачу">{topic === "Все" ? "Гайды и разборы" : topic}</Heading><div className="gh-guides">{filtered.map((material) => <div key={material.slug}><MaterialCard material={material} headingLevel="h3" returnHref="/" /></div>)}</div></section>
-    <section><Heading>Серии для погружения</Heading><SeriesCards /></section>
+  );
+  return <>
+    <HomePage result={{ kind: "ready", value: guestHome }} personal={featured} afterVideos={
+      <section className="gh-access-strip gh-home-access"><BookOpen aria-hidden="true" /><div><strong>Гайды, серии и общение с автором</strong><p>Подписка открывает все материалы, обсуждение со мной и сообщество.</p></div><CTA onClick={subscribe} label="Полный доступ" /></section>
+    } />
     <section><Heading>Что даёт подписка</Heading><Benefits /></section><Invitation subscribe={subscribe} />
   </>;
 }
+
 export function VariantC({ subscribe }: { readonly subscribe: () => void }) {
   return <><header className="gh-author-intro"><div><p className="gh-eyebrow">Кирилл Сачков · Sachkov Inside</p><Title>Показываю, как я<br />делаю продукты.</Title><p className="gh-lead">Как выбираю архитектуру, работаю с ИИ и довожу код до production. Объясняю решения в практических гайдах — чтобы ты мог применить их в своей работе.</p><Actions subscribe={subscribe} /></div><aside className="gh-author-note"><Code2 aria-hidden="true" /><p>«Мне важно показать весь ход мысли: что за задача, почему такое решение и как проверить, что оно работает».</p><span>Кирилл Сачков<br /><small>Автор Inside</small></span></aside></header><section className="gh-editorial"><div><Heading>Внутри реального продукта</Heading><p className="gh-lead">Отдельные решения складываются в целую историю разработки.</p><PlaylistCard playlist={series[1]} returnHref="/" /></div><aside className="gh-discussion"><MessageCircle aria-hidden="true" /><h2>После чтения<br />разговор продолжается</h2><p>Задавай вопросы по материалу, приноси свои решения и обсуждай их со мной и другими разработчиками.</p><div className="gh-discussion-example"><span>Пример темы для обсуждения</span><p>«Где бы вы провели границу этого модуля в своём проекте?»</p></div><span className="gh-eyebrow">Сообщество входит в подписку</span></aside></section><section><Heading>Посмотри, как я объясняю</Heading><Guides /></section><h2 className="sr-only">Что входит в подписку</h2><Benefits /><Invitation subscribe={subscribe} /></>;
 }

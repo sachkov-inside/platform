@@ -13,14 +13,14 @@ import { Button } from "@/shared/ui/button";
 import { PublicSectionHeading } from "@/shared/ui/public-section-heading";
 import type { HomeContinuation, HomeResult, HomeView } from "../model/home-view";
 
-export function HomePage({ result, personal, continuation }: { readonly result: HomeResult; readonly personal?: ReactNode; readonly continuation?: HomeContinuation }) {
+export function HomePage({ result, personal, continuation, afterVideos }: { readonly result: HomeResult; readonly personal?: ReactNode; readonly continuation?: HomeContinuation; readonly afterVideos?: ReactNode }) {
   if (result.kind === "unavailable") {
     return <>{personal}<HomeUnavailable /></>;
   }
-  return <HomeReady home={result.value} personal={personal} continuation={continuation} />;
+  return <HomeReady home={result.value} personal={personal} continuation={continuation} afterVideos={afterVideos} />;
 }
 
-function HomeReady({ home, personal, continuation }: { readonly home: HomeView; readonly personal: ReactNode; readonly continuation: HomeContinuation | undefined }) {
+function HomeReady({ home, personal, continuation, afterVideos }: { readonly home: HomeView; readonly personal: ReactNode; readonly continuation: HomeContinuation | undefined; readonly afterVideos: ReactNode }) {
   const series = continuation?.series;
   const video = continuation?.video;
   const playlists = series === undefined ? home.playlists : [series.collection, ...home.playlists.filter((item) => item.slug !== series.collection.slug)];
@@ -39,6 +39,7 @@ function HomeReady({ home, personal, continuation }: { readonly home: HomeView; 
         title="Новые видео"
         variant="video"
       />
+      {afterVideos}
       <MaterialSection
         formatSlug="guide"
         id="home-guides"

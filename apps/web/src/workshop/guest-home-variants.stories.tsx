@@ -8,7 +8,7 @@ const meta = {
   title: "Pages/Guest Home/Prototype 380",
   parameters: {
     layout: "fullscreen",
-    docs: { description: { component: "Три варианта гостевой главной #380 на текущих shell, токенах и карточках Platform. A — сначала материалы; B — закреплённая серия с аватаром Кирилла и фильтрами тем; C — авторская практика. Стрелки переключают вариант. Карточки открывают страницы серии, материала и каталога из main на демонстрационных данных; CTA ведёт на текущий экран входа. Основная поза B — объясняющий жест; портрет и объект сохранены для сравнения. Мобильная кнопка справа. Кандидат мобильной типографики: основной текст 16 px, разделы 18 px, страницы 24 px, заголовки 600. Баннер растёт при увеличении текста. Значки разработки вылетают от плеча короткой последовательностью; учитывается reduced motion. Содержимое и открытость материалов демонстрационные. Production и платежи не подключены. Решение владельца ожидается." } },
+    docs: { description: { component: "Три варианта гостевой главной #380 на текущих shell, токенах и карточках Platform. A — сначала материалы; B — закреплённая серия с аватаром Кирилла и настоящая главная из main: серии, темы, видео, гайды и заметки; C — авторская практика. Стрелки переключают вариант. Карточки открывают страницы серии, материала и каталога из main на демонстрационных данных; CTA ведёт на текущий экран входа. Основная поза B — объясняющий жест с ладонью в сторону; портрет и объект сохранены для сравнения. Мобильная кнопка справа, нижняя навигация — только иконки. Кандидат мобильной типографики: основной текст 16 px, разделы 18 px, страницы 24 px, заголовки 600. Баннер растёт при увеличении текста. Значки разработки повторно вылетают от плеча с паузами; учитывается reduced motion. Содержимое и открытость материалов демонстрационные. Production и платежи не подключены. Решение владельца ожидается." } },
   },
 } satisfies Meta<typeof GuestHomePrototype>;
 export default meta;
@@ -19,6 +19,16 @@ export const SeriesFirst: Story = {
   args: { initialVariant: "B" },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    const sectionNames = Array.from(canvasElement.querySelectorAll("section[aria-labelledby]"), (section) => section.getAttribute("aria-labelledby"));
+    await expect(sectionNames).toEqual(["featured-title", "home-series", "home-videos", "home-guides", "home-notes", "home-catalog"]);
+    await userEvent.click(canvas.getByRole("link", { name: "Все видео" }));
+    await expect(canvas.getByRole("heading", { name: "База знаний" })).toBeVisible();
+    await expect(canvas.getByRole("link", { name: "От задачи до работающего кода с ИИ" })).toBeVisible();
+    await expect(canvas.queryByRole("link", { name: "Что проверять в CI до деплоя" })).not.toBeInTheDocument();
+    const homeLinks = canvas.getAllByRole("link", { name: "Главная" });
+    const homeLink = homeLinks.find((link) => link.getBoundingClientRect().width > 0);
+    if (!homeLink) throw new Error("Home navigation is missing");
+    await userEvent.click(homeLink);
     await userEvent.click(canvas.getByRole("link", { name: "Изучить серию" }));
     await expect(canvasElement.querySelector('[data-discovery-kind="series"]')).toBeInTheDocument();
     await expect(canvas.getByRole("heading", { name: "Маршрут" })).toBeVisible();
