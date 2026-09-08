@@ -8,6 +8,7 @@
 
 - `storybook-pin-*`: production Home, 1440px, 390px и text 200% при 1280px.
 - `editor-*` и `series-list-*`: текущие отдельная страница редактора и список с закрепом, desktop/mobile.
+- `live-series-editor-*`: текущий production editor с авторской навигацией, desktop/mobile.
 - `live-*-authoring-pin.png`: текущий общий список после сохранения закрепа и перезагрузки.
 - `live-*-home-pin*.png`: реальная главная и text 200%, desktop/mobile.
 
@@ -41,3 +42,7 @@ DB acceptance покрывает отрицательный Material UUID, пр�
 Finish review: компактность mobile-строк и отдельный статус сохранения настроек исправлены,
 оба замечания оценены resolved. Standards: общий порядок autosave → archive собран в hook;
 Spec: несоответствий запросу владельца не обнаружено. Это локальная проверка; visual GO не получен.
+
+Дополнительно на локальном приложении проверены pointer drag → сохранение → reload и возврат
+исходного порядка demo-серии, отсутствие overflow на 390/1440px и при text 200%.
+После выделения archive sequencing в hook повторены оба full-stack metadata/archive сценария.
