@@ -79,3 +79,10 @@ passed 32 files / 280 tests. After final reflow adjustments, all ten guest stori
 and Storybook built successfully. Browser checks cover 320/390/430 px and desktop, including
 320 px text at 200% and increased text spacing. These are local browser checks, not native-device
 or complete accessibility certification.
+
+8 September compact gesture/main composition refinement: root `pnpm check` passed (420 backend
+module tests; 494 web tests passed / 1 skipped; 43 route tests; types, lint, guardrails and builds).
+Full Storybook: 32 files / 280 tests passed. The final heading-wrap adjustment was also checked
+in the ten guest stories. Browser inspection: 320/390 px, 320 px text at 200%, and desktop.
+The palm remains visible above the CTA at 320 px; icon-only dock is 170 px wide; document width
+is 320 px at enlarged text. Standards and Spec reviews passed for the refinement.

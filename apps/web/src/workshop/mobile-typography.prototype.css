@@ -48,6 +48,8 @@
   .gh-mobile-type :is([aria-labelledby=home-videos],[aria-labelledby=home-guides]) > ul { grid-template-columns: repeat(auto-fit,minmax(min(8rem,100%),1fr)); }
   .gh-mobile-type [data-material-slug] :is(h2,h3) { display: block; -webkit-line-clamp: unset; overflow: visible; }
   .gh-mobile-type [aria-labelledby=home-catalog] > a { white-space: normal; height: auto; min-height: 2.75rem; max-width: 100%; }
+  .gh-mobile-type section > div:has(> h2[id^=home-]) { flex-wrap: wrap; column-gap: .75rem; row-gap: .5rem; }
+  .gh-mobile-type h2[id^=home-] { max-width: 100%; overflow-wrap: normal; }
 
 }
 /* Simulated user text-spacing preference, scoped to its dedicated verification story. */
