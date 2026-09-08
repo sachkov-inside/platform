@@ -316,12 +316,17 @@ assert_public_status() {
 assert_public_redirect() {
   local domain=$1 path=$2 expected_status=$3 expected_location=$4
   local response
+  local headers_path="$runtime_config_dir/redirect-headers"
   response="$(curl --cacert "$runtime_config_dir/caddy-root.crt" --noproxy '*' \
     --resolve "${domain}:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" \
-    --silent --show-error --output /dev/null --write-out '%{http_code} %{redirect_url}' \
+    --silent --show-error --dump-header "$headers_path" --output /dev/null --write-out '%{http_code} %{redirect_url}' \
     "https://${domain}:${PRODUCTION_SMOKE_HTTPS_PORT}${path}")"
   if [[ "$response" != "$expected_status $expected_location" ]]; then
     echo "Unexpected redirect for $domain$path: $response" >&2
+    exit 1
+  fi
+  if ! grep -qi '^cache-control: no-store' "$headers_path"; then
+    echo "Redirect for $domain$path must not be cached during cutover" >&2
     exit 1
   fi
 }
@@ -570,10 +575,16 @@ assert_public_status GET /.well-known/oauth-protected-resource/mcp 200 inside.sa
 assert_public_status GET /mcp 404
 assert_public_status GET /.well-known/oauth-protected-resource/mcp 404
 for domain in inside.sachkov.dev www.sachkov.dev; do
-  assert_public_redirect "$domain" '/materials/example?from=series&step=2' 308 'https://sachkov.dev/materials/example?from=series&step=2'
-  assert_public_redirect "$domain" '/' 308 'https://sachkov.dev/'
+  assert_public_redirect "$domain" '/materials/example?from=series&step=2' 302 'https://sachkov.dev/materials/example?from=series&step=2'
+  assert_public_redirect "$domain" '/' 302 'https://sachkov.dev/'
 done
 assert_public_redirect inside.sachkov.dev '/callback?code=old-code&state=old-state' 303 'https://sachkov.dev/?authentication=failed'
+# The pre-cutover bridge points apex/www to the still-working old site without cacheable redirects.
+"${application_compose[@]}" exec -T caddy-smoke sh -c \
+  'sed "s|/etc/caddy/platform.caddy|/etc/caddy/primary-domain-stage.caddy|" /etc/caddy/Caddyfile > /tmp/stage.Caddyfile && caddy reload --config /tmp/stage.Caddyfile --adapter caddyfile'
+for domain in sachkov.dev www.sachkov.dev; do
+  assert_public_redirect "$domain" '/materials/example?from=series&step=2' 302 'https://inside.sachkov.dev/materials/example?from=series&step=2'
+done
 # Reload the real maintenance fragment under the same local-only TLS authority.
 "${application_compose[@]}" exec -T caddy-smoke sh -c \
   'sed "s|/etc/caddy/platform.caddy|/etc/caddy/maintenance.caddy|" /etc/caddy/Caddyfile > /tmp/maintenance.Caddyfile && caddy reload --config /tmp/maintenance.Caddyfile --adapter caddyfile'

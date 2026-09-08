@@ -46,12 +46,16 @@ sachkov.dev, inside.sachkov.dev {
 		redir @old_callback https://sachkov.dev/?authentication=failed 303
 
 		@old_web host inside.sachkov.dev
-		redir @old_web https://sachkov.dev{uri} 308
+		header @old_web Cache-Control "no-store"
+		redir @old_web https://sachkov.dev{uri} 302
 
 		reverse_proxy {$PLATFORM_WEB_UPSTREAM:127.0.0.1:13000}
 	}
 }
 
 www.sachkov.dev {
-	redir https://sachkov.dev{uri} 308
+	route {
+		header Cache-Control "no-store"
+		redir https://sachkov.dev{uri} 302
+	}
 }
