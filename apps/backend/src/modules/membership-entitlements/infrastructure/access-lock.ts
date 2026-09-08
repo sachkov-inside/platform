@@ -12,3 +12,11 @@ export async function lockAccess(
   `),
   );
 }
+
+export async function setAccessSnapshotIsolation(
+  prisma: MembershipEntitlementsPrisma,
+): Promise<void> {
+  await prisma.$executeRaw(
+    Prisma.sql`set transaction isolation level repeatable read`,
+  );
+}

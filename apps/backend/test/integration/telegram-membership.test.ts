@@ -455,7 +455,7 @@ describe("TelegramMembership", () => {
       confirmation.ok ? confirmation.state.status : confirmation.error.code,
     );
     expect(statuses).toContain("linked");
-    expect(statuses.every((status) => status === "linked" || status === "conflict")).toBe(true);
+    expect(statuses.filter(status => status !== "linked" && status !== "conflict")).toEqual([]);
     await expect(
       database.prisma.membershipBinding.count({
         where: { accountId: firstAccountId },

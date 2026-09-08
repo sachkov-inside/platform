@@ -13,7 +13,6 @@ import { z } from "zod";
 
 import { accountId, type AccountId } from "../../src/modules/accounts/index.js";
 import {
-  
   type MembershipEntitlements,
   type MembershipEvidenceSource,
 } from "../../src/modules/membership-entitlements/index.js";

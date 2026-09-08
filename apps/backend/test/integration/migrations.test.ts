@@ -53,10 +53,10 @@ const membershipEntitlementTables = [
   "access_changes",
   "access_grants",
   "access_receipts",
-  "legacy_classifications",
   "account_bindings",
   "current_projections",
   "evidence_receipts",
+  "legacy_classifications",
 ] as const;
 
 const memberProfileTables = [

@@ -29,34 +29,36 @@ export const grantTermsSchema = z
     (value) => value.validUntil === null || value.validUntil > value.startsAt,
   );
 export type GrantTerms = z.input<typeof grantTermsSchema>;
-export const accessFailureSchema = z.object({
-  ok: z.literal(false),
-  error: z.object({
-    code: z.enum([
-      "forbidden",
-      "invalid_input",
-      "not_found",
-      "revision_conflict",
-      "operation_conflict",
-      "preview_expired",
-      "identity_changed",
-      "unavailable",
-    ]),
-  }),
-});
-export type AccessFailure = z.infer<typeof accessFailureSchema>;
-export function accessFailure(
-  code: AccessFailure["error"]["code"],
-): AccessFailure {
+export function accessFailure<const Code extends string>(
+  code: Code,
+): { readonly ok: false; readonly error: { readonly code: Code } } {
   return { ok: false, error: { code } };
 }
+export type AccessFailure<Code extends string> = ReturnType<
+  typeof accessFailure<Code>
+>;
+export function accessFailureSchema<
+  const Codes extends readonly [string, ...string[]],
+>(codes: Codes) {
+  return z.object({
+    ok: z.literal(false),
+    error: z.object({ code: z.enum(codes) }),
+  });
+}
+export const grantSuccessSchema = z.object({
+  ok: z.literal(true),
+  grantRef: z.uuid(),
+  revision: z.number().int().positive(),
+});
 export const grantResultSchema = z.union([
-  z.object({
-    ok: z.literal(true),
-    grantRef: z.uuid(),
-    revision: z.number().int().positive(),
-  }),
-  accessFailureSchema,
+  grantSuccessSchema,
+  accessFailureSchema([
+    "invalid_input",
+    "not_found",
+    "revision_conflict",
+    "operation_conflict",
+    "forbidden",
+  ]),
 ]);
 export type GrantResult = z.infer<typeof grantResultSchema>;
 export const classificationSchema = z.enum([

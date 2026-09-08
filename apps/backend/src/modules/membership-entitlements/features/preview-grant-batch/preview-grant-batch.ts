@@ -37,7 +37,7 @@ export const previewRowsSchema = z.array(
   rowSchema.extend({ identityFingerprint: z.string().length(64).nullable() }),
 );
 export type PreviewGrantBatchResult =
-  | AccessFailure
+  | AccessFailure<"invalid_input" | "operation_conflict">
   | {
       readonly ok: true;
       readonly previewRef: string;
@@ -100,13 +100,11 @@ export async function previewGrantBatch(
       previewRef: preview.id,
       revision: preview.revision,
       expiresAt: preview.expiresAt.toISOString(),
-      rows: previewRowsSchema
-        .parse(preview.rows)
-        .map((row) => ({
-          rowKey: row.rowKey,
-          accountId: row.accountId,
-          status: row.identityFingerprint === null ? "not_found" : "confirmed",
-        })),
+      rows: previewRowsSchema.parse(preview.rows).map((row) => ({
+        rowKey: row.rowKey,
+        accountId: row.accountId,
+        status: row.identityFingerprint === null ? "not_found" : "confirmed",
+      })),
     };
   });
 }

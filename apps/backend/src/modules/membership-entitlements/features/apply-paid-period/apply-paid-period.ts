@@ -1,3 +1,4 @@
+import { lockAccountEntitlementChanges } from "../../../../infrastructure/prisma/index.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { Accounts } from "../../../accounts/index.js";
@@ -5,10 +6,10 @@ import type { MembershipEntitlementsPrismaClient } from "../../infrastructure/pr
 import { lockAccess } from "../../infrastructure/access-lock.js";
 import {
   accessFailure,
-  grantResultSchema,
+  accessFailureSchema,
+  grantSuccessSchema,
   grantTermsSchema,
   sourceRefSchema,
-  type GrantResult,
 } from "../../domain/access-grant.js";
 import {
   accessFingerprint,
@@ -25,6 +26,16 @@ const commandSchema = z
     terms: grantTermsSchema.refine((value) => value.validUntil !== null),
   })
   .strict();
+const paidResultSchema = z.union([
+  grantSuccessSchema,
+  accessFailureSchema([
+    "invalid_input",
+    "not_found",
+    "revision_conflict",
+    "operation_conflict",
+  ]),
+]);
+type PaidPeriodResult = z.infer<typeof paidResultSchema>;
 export type ApplyPaidPeriodCommand = z.input<typeof commandSchema>;
 
 // Trusted billing projector only. No transport exposes this payment-proof boundary.
@@ -33,7 +44,7 @@ export async function applyPaidPeriod(
   accounts: Pick<Accounts, "readIdentityForLink">,
   input: ApplyPaidPeriodCommand,
   now: Date,
-): Promise<GrantResult> {
+): Promise<PaidPeriodResult> {
   const parsed = commandSchema.safeParse(input);
   if (!parsed.success) return accessFailure("invalid_input");
   const command = parsed.data;
@@ -48,8 +59,9 @@ export async function applyPaidPeriod(
     );
     if (receipt !== null)
       return receipt.fingerprint === fingerprint
-        ? grantResultSchema.parse(receipt.result)
+        ? paidResultSchema.parse(receipt.result)
         : accessFailure("operation_conflict");
+    await lockAccountEntitlementChanges(transaction, command.accountId);
     await lockAccess(transaction, `paid:${command.periodRef}`);
     const existing = await transaction.accessGrant.findUnique({
       where: {
@@ -86,6 +98,7 @@ export async function applyPaidPeriod(
         scope: "paid-period",
         operationId: command.eventRef,
         fingerprint,
+        payload: command,
         result,
         createdAt: now,
       },

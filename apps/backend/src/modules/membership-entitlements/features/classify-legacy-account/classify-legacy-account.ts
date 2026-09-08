@@ -1,3 +1,4 @@
+import { lockAccountEntitlementChanges } from "../../../../infrastructure/prisma/index.js";
 import { z } from "zod";
 import type { Accounts } from "../../../accounts/index.js";
 import type { MembershipEntitlementsPrismaClient } from "../../infrastructure/prisma.js";
@@ -32,7 +33,12 @@ const commandSchema = z
   );
 export type ClassifyLegacyAccountCommand = z.input<typeof commandSchema>;
 const resultSchema = z.union([
-  accessFailureSchema,
+  accessFailureSchema([
+    "invalid_input",
+    "not_found",
+    "revision_conflict",
+    "operation_conflict",
+  ]),
   z.object({ ok: z.literal(true), revision: z.number().int().positive() }),
 ]);
 export type ClassifyLegacyAccountResult = z.infer<typeof resultSchema>;
@@ -60,6 +66,7 @@ export async function classifyLegacyAccount(
       return receipt.fingerprint === fingerprint
         ? resultSchema.parse(receipt.result)
         : accessFailure("operation_conflict");
+    await lockAccountEntitlementChanges(transaction, command.accountId);
     await lockAccess(transaction, `classification:${command.accountId}`);
     const existing = await transaction.legacyClassification.findUnique({
       where: { accountId: command.accountId },
@@ -86,6 +93,7 @@ export async function classifyLegacyAccount(
         scope: actorId,
         operationId: command.operationId,
         fingerprint,
+        payload: command,
         result,
         createdAt: now,
       },

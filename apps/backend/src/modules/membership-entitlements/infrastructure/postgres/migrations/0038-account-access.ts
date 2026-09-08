@@ -21,6 +21,7 @@ export const statement = `
     operation_id uuid not null,
     fingerprint char(64) not null,
     result jsonb not null,
+    payload jsonb not null,
     created_at timestamptz not null,
     primary key (scope, operation_id)
   );

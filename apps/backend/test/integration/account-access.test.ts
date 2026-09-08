@@ -1,3 +1,5 @@
+import { z } from "zod";
+import { Prisma } from "../../src/infrastructure/prisma/index.js";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import {
@@ -380,6 +382,22 @@ describe("independent Account access", () => {
     expect(
       await grants.changeGrant(owner, { ...extend, operationId: randomUUID() }),
     ).toEqual({ ok: false, error: { code: "revision_conflict" } });
+    expect(
+      (
+        await db.prisma.accessReceipt.findUniqueOrThrow({
+          where: {
+            scope_operationId: {
+              scope: owner,
+              operationId: extend.operationId,
+            },
+          },
+        })
+      ).payload,
+    ).toMatchObject({
+      validUntil: extend.validUntil,
+      expectedRevision: 1,
+      reason: extend.reason,
+    });
     const revoke = {
       operationId: randomUUID(),
       grantRef: finite.grantRef,
@@ -476,6 +494,177 @@ describe("independent Account access", () => {
       kind: "stale",
     });
   });
+  test("reads capability and revision from one snapshot while revoke commits", async () => {
+    now = new Date(start);
+    const target = await member();
+    const grant = await manual(target);
+    const before = await grants.resolveCapabilities(target);
+    const locked = signal();
+    const release = signal();
+    const blocker = db.prisma.$transaction(async (transaction) => {
+      await transaction.$executeRaw(
+        Prisma.sql`lock table membership_entitlements.legacy_classifications in access exclusive mode`,
+      );
+      locked.resolve();
+      await release.promise;
+    });
+    await locked.promise;
+    let reading: ReturnType<AccessGrants["resolveCapabilities"]> | undefined;
+    try {
+      reading = grants.resolveCapabilities(target);
+      await expect
+        .poll(
+          async () =>
+            z.array(z.object({ waiting: z.boolean() })).parse(
+              await db.prisma.$queryRaw(Prisma.sql`
+        select exists(select 1 from pg_locks where relation = 'membership_entitlements.legacy_classifications'::regclass and not granted) as waiting
+      `),
+            )[0]?.waiting,
+        )
+        .toBe(true);
+      expect(
+        (
+          await grants.changeGrant(owner, {
+            operationId: randomUUID(),
+            grantRef: grant.grantRef,
+            expectedRevision: 1,
+            action: "revoke",
+            reason: "Concurrent revoke",
+          })
+        ).ok,
+      ).toBe(true);
+    } finally {
+      release.resolve();
+      await blocker;
+    }
+    expect(await reading).toEqual(before);
+    const after = await grants.resolveCapabilities(target);
+    expect(after).toMatchObject({ ok: true, capabilities: [] });
+    if (!before.ok || !after.ok) throw new Error("Missing snapshot");
+    expect(after.revision).toBeGreaterThan(before.revision);
+  });
+
+  test("serializes changes to different grants of one Account before allocating audit revisions", async () => {
+    now = new Date(start);
+    const target = await member();
+    const first = await manual(target);
+    const second = await manual(target);
+    const locked = signal();
+    const release = signal();
+    const blocker = db.prisma.$transaction(async (transaction) => {
+      await transaction.$executeRaw(
+        Prisma.sql`lock table membership_entitlements.access_changes in access exclusive mode`,
+      );
+      locked.resolve();
+      await release.promise;
+    });
+    await locked.promise;
+    const changes: ReturnType<AccessGrants["changeGrant"]>[] = [];
+    try {
+      changes.push(
+        grants.changeGrant(owner, {
+          operationId: randomUUID(),
+          grantRef: first.grantRef,
+          expectedRevision: 1,
+          action: "revoke",
+          reason: "First decision",
+        }),
+      );
+      await expect
+        .poll(
+          async () =>
+            z.array(z.object({ waiting: z.boolean() })).parse(
+              await db.prisma.$queryRaw(Prisma.sql`
+        select exists(select 1 from pg_locks where relation = 'membership_entitlements.access_changes'::regclass and not granted) as waiting
+      `),
+            )[0]?.waiting,
+        )
+        .toBe(true);
+      changes.push(
+        grants.changeGrant(owner, {
+          operationId: randomUUID(),
+          grantRef: second.grantRef,
+          expectedRevision: 1,
+          action: "revoke",
+          reason: "Second decision",
+        }),
+      );
+      await expect
+        .poll(
+          async () =>
+            z.array(z.object({ waiting: z.boolean() })).parse(
+              await db.prisma.$queryRaw(Prisma.sql`
+        select exists(select 1 from pg_locks where locktype = 'advisory' and not granted and database = (select oid from pg_database where datname = current_database())) as waiting
+      `),
+            )[0]?.waiting,
+        )
+        .toBe(true);
+      expect(
+        (
+          await db.prisma.accessGrant.findUniqueOrThrow({
+            where: { id: second.grantRef },
+          })
+        ).revision,
+      ).toBe(1);
+    } finally {
+      release.resolve();
+      await blocker;
+    }
+    expect((await Promise.all(changes)).every((result) => result.ok)).toBe(
+      true,
+    );
+    const audit = await db.prisma.accessChange.findMany({
+      where: { accountId: target, kind: "revoke" },
+      orderBy: { revision: "asc" },
+    });
+    expect(audit.map((row) => row.grantId)).toEqual([
+      first.grantRef,
+      second.grantRef,
+    ]);
+  });
+
+  test("receipt failure rolls back paid grant and audit; retry then fulfills once", async () => {
+    now = new Date(start);
+    const target = await member();
+    const command = {
+      eventRef: randomUUID(),
+      periodRef: randomUUID(),
+      accountId: target,
+      revision: 1,
+      revoked: false,
+      terms: { ...terms, capabilities: [...terms.capabilities] },
+    };
+    await db.prisma.$executeRaw(
+      Prisma.sql`create function membership_entitlements.reject_test_receipt() returns trigger language plpgsql as $$ begin raise exception 'injected receipt failure'; end $$`,
+    );
+    await db.prisma.$executeRaw(
+      Prisma.sql`create trigger reject_test_receipt before insert on membership_entitlements.access_receipts for each row execute function membership_entitlements.reject_test_receipt()`,
+    );
+    try {
+      expect(await grants.applyPaidPeriod(command)).toEqual({
+        ok: false,
+        error: { code: "unavailable" },
+      });
+      expect(
+        await db.prisma.accessGrant.count({ where: { accountId: target } }),
+      ).toBe(0);
+      expect(
+        await db.prisma.accessChange.count({ where: { accountId: target } }),
+      ).toBe(0);
+    } finally {
+      await db.prisma.$executeRaw(
+        Prisma.sql`drop trigger reject_test_receipt on membership_entitlements.access_receipts`,
+      );
+      await db.prisma.$executeRaw(
+        Prisma.sql`drop function membership_entitlements.reject_test_receipt()`,
+      );
+    }
+    expect((await grants.applyPaidPeriod(command)).ok).toBe(true);
+    expect(
+      await db.prisma.accessGrant.count({ where: { accountId: target } }),
+    ).toBe(1);
+  });
+
   test("link revisions retain stable reference, unlink tombstone and historical binding across relink", async () => {
     const target = await member();
     const linkRef = randomUUID();
@@ -538,3 +727,13 @@ describe("independent Account access", () => {
     );
   });
 });
+
+function signal() {
+  let resolve: () => void = () => {
+    throw new Error("Signal not initialized");
+  };
+  const promise = new Promise<void>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}

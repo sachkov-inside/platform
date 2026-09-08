@@ -229,7 +229,7 @@ paid outbox projector — в #407, community worker — в #415. Facet не пр
 остаются внутри владельца; negative TypeScript fixtures проверяют этот seam.
 
 Paid command принимает eventRef UUID, periodRef, Account, revision, revoked и абсолютный
-полуоткрытый период. Receipt и grant фиксируются в одной entitlement-транзакции; повтор eventRef
+полуоткрытый период. Receipt с неизменяемой командой, grant и audit фиксируются в одной entitlement-транзакции; повтор eventRef
 возвращает сохранённый результат, другая нагрузка конфликтует. Более старая revision не
 перезаписывает новый период/отзыв. Billing использует тот же seam для подтверждённого решения
 о доступе после refund, не общую Prisma transaction с модулем прав.
@@ -256,7 +256,8 @@ legacy gate, не согласие на покупку: unknown запрещён
 
 `resolveCapabilities` объединяет materials/community/reviews отдельно и возвращает границу
 каждой возможности, последнюю audit revision и ближайшее начало/окончание периода для sweep.
-`resolveForAccess` выбирает materials; отрицательное старое evidence не перекрывает независимое
+Изменения grants, classification и cohort evidence сериализуются на уровне Account;
+capabilities и revision читаются из одного RepeatableRead snapshot. `resolveForAccess` выбирает materials; отрицательное старое evidence не перекрывает независимое
 право. ContentAccess, file delivery, video playback, ReadingActivity и Member Profile учитывают
 nullable validUntil. Даже бессрочное право оставляет конечный срок signed URL/token.
 

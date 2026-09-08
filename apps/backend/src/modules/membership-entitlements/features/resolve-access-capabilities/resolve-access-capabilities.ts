@@ -1,3 +1,4 @@
+import type { MembershipAccessState } from "../../facets/membership-entitlements/membership-entitlements.interface.js";
 import type { AccountId } from "../../../accounts/index.js";
 import type { MembershipEntitlementsPrisma } from "../../infrastructure/prisma.js";
 import {
@@ -17,7 +18,9 @@ export async function resolveAccessCapabilities(
   prisma: MembershipEntitlementsPrisma,
   accountId: AccountId,
   now: Date,
-): Promise<AccessCapabilities> {
+): Promise<
+  AccessCapabilities & { readonly membership: MembershipAccessState }
+> {
   const grants = await prisma.accessGrant.findMany({
     where: {
       accountId,
@@ -66,7 +69,47 @@ export async function resolveAccessCapabilities(
       include(capability, projection.validUntil.toISOString());
     futureBoundaries.push(projection.validUntil.getTime());
   }
+  let membership: MembershipAccessState;
+  if (bounds.has("materials")) {
+    membership = {
+      kind: "active",
+      validUntil: bounds.get("materials") ?? null,
+    };
+  } else if (classification?.bridgeEnabled !== true) {
+    const expired = await prisma.accessGrant.findFirst({
+      where: {
+        accountId,
+        capabilities: { has: "materials" },
+        startsAt: { lte: now },
+      },
+      select: { id: true },
+    });
+    membership = { kind: expired === null ? "required" : "expired" };
+  } else if (projection !== null) {
+    membership = {
+      kind: projection.decision === "not_member" ? "expired" : "stale",
+    };
+  } else {
+    const binding = await prisma.membershipBinding.findUnique({
+      where: { accountId },
+      select: { accountId: true },
+    });
+    const last = await prisma.membershipEvidenceReceipt.findFirst({
+      where: { accountId, outcome: "accepted_without_entitlement" },
+      orderBy: [{ receivedAt: "desc" }, { deliveryId: "desc" }],
+      select: { decision: true },
+    });
+    membership = {
+      kind:
+        binding !== null ||
+        last?.decision === "unavailable" ||
+        last?.decision === "identity_conflict"
+          ? "unavailable"
+          : "required",
+    };
+  }
   return {
+    membership,
     capabilities: [...bounds]
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([capability, validUntil]) => ({ capability, validUntil })),

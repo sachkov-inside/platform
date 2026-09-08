@@ -1,3 +1,4 @@
+import { setAccessSnapshotIsolation } from "../../infrastructure/access-lock.js";
 import { z } from "zod";
 import { accountId, type Accounts } from "../../../accounts/index.js";
 import type { MembershipEntitlementsPrismaClient } from "../../infrastructure/prisma.js";
@@ -83,14 +84,16 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       if (!z.uuid().safeParse(targetAccountId).success)
         return accessFailure("invalid_input");
       try {
-        return {
-          ok: true as const,
-          ...(await resolveAccessCapabilities(
-            prisma,
-            accountId(targetAccountId),
-            clock(),
-          )),
-        };
+        return await prisma.$transaction(async (transaction) => {
+          await setAccessSnapshotIsolation(transaction);
+          const { capabilities, revision, nextBoundary } =
+            await resolveAccessCapabilities(
+              transaction,
+              accountId(targetAccountId),
+              clock(),
+            );
+          return { ok: true as const, capabilities, revision, nextBoundary };
+        });
       } catch {
         return accessFailure("unavailable");
       }

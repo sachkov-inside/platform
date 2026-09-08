@@ -1,6 +1,6 @@
+import { lockAccountEntitlementChanges } from "../../../../infrastructure/prisma/index.js";
 import { z } from "zod";
 import type { MembershipEntitlementsPrismaClient } from "../../infrastructure/prisma.js";
-import { lockAccess } from "../../infrastructure/access-lock.js";
 import {
   accessFailure,
   grantResultSchema,
@@ -50,7 +50,12 @@ export async function changeAccessGrant(
       return receipt.fingerprint === fingerprint
         ? grantResultSchema.parse(receipt.result)
         : accessFailure("operation_conflict");
-    await lockAccess(transaction, `grant:${command.grantRef}`);
+    const target = await transaction.accessGrant.findUnique({
+      where: { id: command.grantRef },
+      select: { accountId: true },
+    });
+    if (target === null) return accessFailure("not_found");
+    await lockAccountEntitlementChanges(transaction, target.accountId);
     const grant = await transaction.accessGrant.findUnique({
       where: { id: command.grantRef },
     });
@@ -92,6 +97,7 @@ export async function changeAccessGrant(
         scope: actorId,
         operationId: command.operationId,
         fingerprint,
+        payload: command,
         result,
         createdAt: now,
       },

@@ -4,9 +4,8 @@ export async function enrollLegacyCohortFixture(
   prisma: Pick<PlatformPrisma, "legacyClassification">,
   accountId: string,
 ): Promise<void> {
-  await prisma.legacyClassification.upsert({
-    where: { accountId },
-    create: {
+  await prisma.legacyClassification.createMany({
+    data: {
       accountId,
       classification: "confirmed_legacy",
       sourceRef: "full-stack-synthetic-cohort",
@@ -16,6 +15,6 @@ export async function enrollLegacyCohortFixture(
       bridgeEnabled: true,
       tributeStopped: false,
     },
-    update: {},
+    skipDuplicates: true,
   });
 }

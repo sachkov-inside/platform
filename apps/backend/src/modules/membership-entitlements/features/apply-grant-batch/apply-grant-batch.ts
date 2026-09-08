@@ -1,3 +1,4 @@
+import { lockAccountEntitlementChanges } from "../../../../infrastructure/prisma/index.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { Accounts } from "../../../accounts/index.js";
@@ -6,7 +7,7 @@ import { lockAccess } from "../../infrastructure/access-lock.js";
 import {
   accessFailure,
   accessFailureSchema,
-  grantResultSchema,
+  grantSuccessSchema,
 } from "../../domain/access-grant.js";
 import { previewRowsSchema } from "../preview-grant-batch/preview-grant-batch.js";
 import {
@@ -29,10 +30,25 @@ const commandSchema = z
   .strict();
 export type ApplyGrantBatchCommand = z.input<typeof commandSchema>;
 const batchResultSchema = z.union([
-  accessFailureSchema,
+  accessFailureSchema([
+    "invalid_input",
+    "not_found",
+    "revision_conflict",
+    "operation_conflict",
+    "preview_expired",
+    "identity_changed",
+  ]),
   z.object({
     ok: z.literal(true),
-    rows: z.array(z.object({ rowKey: z.string(), result: grantResultSchema })),
+    rows: z.array(
+      z.object({
+        rowKey: z.string(),
+        result: z.union([
+          grantSuccessSchema,
+          accessFailureSchema(["operation_conflict"]),
+        ]),
+      }),
+    ),
   }),
 ]);
 export type ApplyGrantBatchResult = z.infer<typeof batchResultSchema>;
@@ -80,6 +96,11 @@ export async function applyGrantBatch(
         return accessFailure("not_found");
       if (accessFingerprint(identity) !== row.identityFingerprint)
         return accessFailure("identity_changed");
+    }
+    for (const accountId of [
+      ...new Set(rows.map((row) => row.accountId)),
+    ].sort()) {
+      await lockAccountEntitlementChanges(transaction, accountId);
     }
     // Stable source order avoids deadlocks between overlapping previews.
     for (const row of [...rows].sort((a, b) =>
@@ -140,6 +161,7 @@ export async function applyGrantBatch(
         scope: actorId,
         operationId: command.operationId,
         fingerprint,
+        payload: command,
         result,
         createdAt: now,
       },
