@@ -60,9 +60,18 @@ export function useCollectionDraft(
     setSummary,
     cover,
     setCover,
-    version,
     update,
     archive,
     autosave,
+    setArchived: (archived: boolean) => {
+      void autosave.flush().then((ok) => {
+        if (ok) archive.mutate({
+          archived,
+          collectionId: collection.id,
+          expectedVersion: version.current,
+          kind: collection.kind,
+        });
+      });
+    },
   };
 }

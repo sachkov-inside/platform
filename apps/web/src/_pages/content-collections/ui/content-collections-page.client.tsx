@@ -220,7 +220,7 @@ function CollectionEditor({
     setSummary,
     cover,
     setCover,
-    version,
+    setArchived,
     update,
     archive,
     autosave,
@@ -318,15 +318,7 @@ function CollectionEditor({
             <Button
               disabled={archive.isPending}
               onClick={() => {
-                void autosave.flush().then((ok) => {
-                  if (ok)
-                    archive.mutate({
-                      archived: !collection.archived,
-                      collectionId: collection.id,
-                      expectedVersion: version.current,
-                      kind: collection.kind,
-                    });
-                });
+                setArchived(!collection.archived);
               }}
               type="button"
               variant="ghost"

@@ -24,7 +24,7 @@ export function SeriesEditorPageClient({
     setSummary,
     cover,
     setCover,
-    version,
+    setArchived,
     update,
     archive,
     autosave,
@@ -65,15 +65,7 @@ export function SeriesEditorPageClient({
             <Button
               disabled={archive.isPending}
               onClick={() => {
-                void autosave.flush().then((ok) => {
-                  if (ok)
-                    archive.mutate({
-                      archived: !collection.archived,
-                      collectionId: collection.id,
-                      expectedVersion: version.current,
-                      kind: "series",
-                    });
-                });
+                setArchived(!collection.archived);
               }}
               type="button"
               variant="ghost"
