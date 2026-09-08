@@ -359,3 +359,206 @@ test("a late video response cannot restore a video removed during processing", a
   await page.reload();
   await expect(page.getByText("Основное видео не выбрано")).toBeVisible();
 });
+
+test("paragraph controls insert at the hovered block without changing content on cancel", async ({
+  page,
+}) => {
+  await createDraft(page, "абзацы");
+  const body = page.locator(".ProseMirror");
+  await body.fill("Первый абзац");
+  await body.press("Enter");
+  await page.keyboard.type("Последний абзац");
+  const first = body.locator(":scope > p").first();
+  await first.hover();
+  const plus = page.getByRole("button", { name: "Добавить блок", exact: true });
+  await expect
+    .poll(async () =>
+      Math.abs(
+        ((await plus.boundingBox())?.y ?? Number.NaN) -
+          ((await first.boundingBox())?.y ?? Number.NaN),
+      ),
+    )
+    .toBeLessThan(2);
+  const before = await body.innerHTML();
+  await plus.click();
+  await page.getByLabel("Найти блок").press("Escape");
+  expect(await body.innerHTML()).toBe(before);
+  await first.hover();
+  await expect
+    .poll(async () =>
+      Math.abs(
+        ((await plus.boundingBox())?.y ?? Number.NaN) -
+          ((await first.boundingBox())?.y ?? Number.NaN),
+      ),
+    )
+    .toBeLessThan(2);
+  await plus.click();
+  await page.getByRole("button", { name: "Заголовок H2", exact: true }).click();
+  await page.keyboard.type("Между абзацами");
+  await expect(body.locator(":scope > *")).toHaveText([
+    "Первый абзац",
+    "Между абзацами",
+    "Последний абзац",
+  ]);
+  await saved(page);
+  await page.reload();
+  await expect(body.locator("h2")).toHaveText("Между абзацами");
+  await body.locator("p").last().click();
+  await page.keyboard.press("End");
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Tab");
+  await expect(page.getByLabel("Найти блок")).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(
+    page.getByRole("dialog", { name: "Добавить блок", exact: true }),
+  ).toBeHidden();
+  await first.evaluate((element) => {
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    element.closest<HTMLElement>("[contenteditable]")?.focus();
+  });
+  await expect(
+    page.getByRole("toolbar", { name: "Форматирование" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Полужирный" }).click();
+  await expect(first.locator("strong")).toHaveText("Первый абзац");
+  const typography = () =>
+    body.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { fontSize: style.fontSize, lineHeight: style.lineHeight };
+    });
+  const smallTypography = await typography();
+  await page
+    .getByRole("button", { name: "На весь экран", exact: true })
+    .click();
+  expect(await typography()).toEqual(smallTypography);
+  await body.locator("p").last().click({ position: { x: 2, y: 12 } });
+  await page.keyboard.press("Tab");
+  await expect(page.getByLabel("Найти блок")).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(page.locator("dialog:modal")).toHaveCount(1);
+  await page.keyboard.press("Escape");
+  await expect(page.locator("dialog:modal")).toHaveCount(0);
+});
+
+test("image size survives reload and is used in preview; series are searchable without expanding", async ({
+  page,
+}) => {
+  await createDraft(page, "размер изображения");
+  await expect(
+    page.getByRole("group", { name: "Теги", exact: true }),
+  ).toBeVisible();
+  await page.getByLabel("Поиск серии").fill("Нет такой серии");
+  await expect(page.getByText("Серии не найдены")).toBeVisible();
+  await page.getByLabel("Поиск серии").fill("Demo");
+  const series = page.getByLabel("Выбор серий", { exact: true });
+  await expect(series.getByRole("checkbox").first()).toBeVisible();
+  expect(
+    await series.evaluate(
+      (element) => element.scrollHeight >= element.clientHeight,
+    ),
+  ).toBe(true);
+  await page
+    .getByLabel("Выбрать изображения", { exact: true })
+    .setInputFiles(image);
+  await expect(page.locator(".ProseMirror img")).toBeVisible();
+  await page
+    .getByRole("slider", { name: "Размер изображения", exact: true })
+    .fill("50");
+  await saved(page);
+  await page.reload();
+  await expect(
+    page.getByRole("slider", { name: "Размер изображения", exact: true }),
+  ).toHaveValue("50");
+  const width = await page
+    .locator(".ProseMirror img")
+    .evaluate(
+      (element) =>
+        element.getBoundingClientRect().width /
+        (element.closest(".ProseMirror")?.getBoundingClientRect().width ?? 0),
+    );
+  expect(width).toBeCloseTo(0.5, 1);
+  await page.getByRole("button", { name: "Предпросмотр", exact: true }).click();
+  await expect(page.locator('figure[style*="50%"]')).toBeVisible();
+});
+
+test("block insertion follows its paragraph across a pending upload; cancelling a link leaves no paragraph", async ({
+  page,
+}) => {
+  await createDraft(page, "фоновая вставка");
+  const body = page.locator(".ProseMirror");
+  await body.fill("Первый абзац");
+  await body.press("Enter");
+  await page.keyboard.type("Последний абзац");
+  await saved(page);
+  const plus = page.getByRole("button", { name: "Добавить блок", exact: true });
+  const first = body.locator(":scope > p").first();
+  await first.hover();
+  await expect
+    .poll(async () =>
+      Math.abs(
+        ((await plus.boundingBox())?.y ?? Number.NaN) -
+          ((await first.boundingBox())?.y ?? Number.NaN),
+      ),
+    )
+    .toBeLessThan(2);
+  const before = await body.innerHTML();
+  await plus.click();
+  await page.getByRole("button", { name: "Ссылка", exact: true }).click();
+  await page.getByRole("button", { name: "Отмена", exact: true }).click();
+  expect(await body.innerHTML()).toBe(before);
+  let release: (() => void) | undefined;
+  const gate = new Promise<void>((done) => {
+    release = done;
+  });
+  await page.route("**/api/authoring/materials/*/assets", async (route) => {
+    const response = await route.fetch();
+    await gate;
+    await route.fulfill({ response });
+  });
+  await first.hover();
+  await expect
+    .poll(async () =>
+      Math.abs(
+        ((await plus.boundingBox())?.y ?? Number.NaN) -
+          ((await first.boundingBox())?.y ?? Number.NaN),
+      ),
+    )
+    .toBeLessThan(2);
+  await plus.click();
+  const upload = page.waitForRequest("**/api/authoring/materials/*/assets");
+  await page
+    .getByLabel("Выбрать изображения", { exact: true })
+    .setInputFiles(image);
+  await upload;
+  const last = body.getByText("Последний абзац", { exact: true });
+  await last.hover();
+  await expect
+    .poll(async () =>
+      Math.abs(
+        ((await plus.boundingBox())?.y ?? Number.NaN) -
+          ((await last.boundingBox())?.y ?? Number.NaN),
+      ),
+    )
+    .toBeLessThan(2);
+  await plus.click();
+  release?.();
+  await expect(body.locator("img")).toBeVisible();
+  await page.getByRole("button", { name: "Заголовок H2", exact: true }).click();
+  await page.keyboard.type("После выбранного абзаца");
+  expect(
+    await body
+      .locator("h2")
+      .evaluate((element) => element.previousElementSibling?.textContent),
+  ).toBe("Последний абзац");
+  await saved(page);
+  await page.reload();
+  expect(
+    await body
+      .locator("h2")
+      .evaluate((element) => element.previousElementSibling?.textContent),
+  ).toBe("Последний абзац");
+});

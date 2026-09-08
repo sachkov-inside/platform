@@ -171,6 +171,9 @@ function renderBlock(value: JsonValue): RenderedBlock {
         assetId: string(attrs.assetId, "asset ID"),
         alt: string(attrs.alt, "image alt"),
         ...(caption === undefined ? {} : { caption }),
+        ...(typeof attrs.displayWidthPercent === "number"
+          ? { displayWidthPercent: attrs.displayWidthPercent }
+          : {}),
       };
     }
     case "assetFile":

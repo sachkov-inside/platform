@@ -52,10 +52,14 @@ export function MaterialAssetNodeView({
   const image = imageBlock(blocks, assetId);
   const localImage = localImages[assetId];
   const label = String(node.attrs.label ?? "Файл");
+  const displayWidthPercent =
+    typeof node.attrs.displayWidthPercent === "number"
+      ? node.attrs.displayWidthPercent
+      : 100;
   const alt = String(node.attrs.alt ?? "");
   return (
     <NodeViewWrapper
-      className="group relative my-6 rounded-xl border border-border bg-card"
+      className="group relative mx-auto my-6 rounded-xl bg-card"
       contentEditable={false}
     >
       <div className="absolute right-2 top-2 z-10 flex gap-1 rounded-lg bg-card/95 p-1 sm:opacity-0 focus-within:opacity-100 group-hover:opacity-100">
@@ -78,26 +82,53 @@ export function MaterialAssetNodeView({
       </div>
       {isImage ? (
         <>
-          {localImage ? (
-            <img
-              alt={alt}
-              className="max-h-[65vh] w-full rounded-t-xl object-contain"
-              src={localImage}
-            />
-          ) : image && materialId && contentVersion ? (
-            <MaterialAssetImage
-              {...image}
-              alt={alt}
-              caption={undefined}
-              contentVersion={contentVersion}
-              materialId={materialId}
-              preview
-            />
-          ) : (
-            <p className="p-6 text-sm text-muted-foreground">
-              Изображение сохранено. Предпросмотр временно недоступен.
-            </p>
-          )}
+          <div
+            className="mx-auto"
+            style={{ width: `${String(displayWidthPercent)}%` }}
+          >
+            {localImage ? (
+              <img
+                alt={alt}
+                className="max-h-[65vh] w-full rounded-t-xl object-contain"
+                src={localImage}
+              />
+            ) : image && materialId && contentVersion ? (
+              <MaterialAssetImage
+                {...image}
+                alt={alt}
+                caption={undefined}
+                displayWidthPercent={100}
+                contentVersion={contentVersion}
+                materialId={materialId}
+                preview
+              />
+            ) : (
+              <p className="p-6 text-sm text-muted-foreground">
+                Изображение сохранено. Предпросмотр временно недоступен.
+              </p>
+            )}
+          </div>
+          <div className="flex items-center justify-center gap-2 py-2 text-xs text-muted-foreground">
+            <label className="flex items-center gap-2">
+              Размер{" "}
+              <input
+                aria-label="Размер изображения"
+                type="range"
+                min={25}
+                max={100}
+                step={5}
+                value={displayWidthPercent}
+                disabled={!editor.isEditable}
+                onChange={(event) => {
+                  updateAttributes({
+                    displayWidthPercent: Number(event.currentTarget.value),
+                  });
+                }}
+                className="w-24 accent-primary"
+              />
+            </label>
+            <output>{displayWidthPercent}%</output>
+          </div>
           <input
             aria-label="Описание изображения"
             className="w-full border-0 bg-transparent px-4 py-2 text-sm text-muted-foreground outline-none"

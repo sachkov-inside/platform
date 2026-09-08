@@ -47,6 +47,25 @@ describe("MaterialBodyOperations", () => {
     expect(materialBodyOperations.accept(image(undefined)).ok).toBe(false);
   });
 
+  test("persists image display width separately from pixel dimensions and rejects invalid sizes", () => {
+    const image = (displayWidthPercent: unknown) => ({
+      schemaVersion: 1,
+      doc: { type: "doc", content: [{ type: "assetImage", attrs: {
+        nodeId: testNodeId(1), assetId: testNodeId(2), alt: "", displayWidthPercent,
+      } }] },
+    });
+    for (const width of [25, 50, 100]) {
+      const accepted = materialBodyOperations.accept(image(width));
+      expect(accepted.ok).toBe(true);
+      if (!accepted.ok) throw new Error("Image rejected");
+      const rendered = materialBodyOperations.render(accepted.value);
+      expect(rendered.ok).toBe(true);
+      if (!rendered.ok) throw new Error("Image render rejected");
+      expect(rendered.value.blocks[0]).toMatchObject({ kind: "image", displayWidthPercent: width });
+    }
+    for (const width of [0, 24, 101, 50.5, "50", { width: 50 }]) expect(materialBodyOperations.accept(image(width)).ok).toBe(false);
+  });
+
   test("accepts a representative v1 document without semantic drift", () => {
     const documentOperations = materialBodyOperations;
     const input = {

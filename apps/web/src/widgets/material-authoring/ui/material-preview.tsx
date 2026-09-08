@@ -120,6 +120,7 @@ function PreviewBlock({ block, contentVersion, materialId }: {
           alt={block.alt}
           assetId={block.assetId}
           caption={block.caption}
+          displayWidthPercent={block.displayWidthPercent}
           contentVersion={contentVersion}
           height={block.height}
           materialId={materialId}

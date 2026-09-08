@@ -255,48 +255,67 @@ export function useMaterialAssetUploads(
 export function MaterialAssetUploadButtons({
   controller,
   disabled,
+  insertAt,
+  onSelected,
+  search = "",
 }: {
   readonly controller: MaterialAssetUploadController;
   readonly disabled: boolean;
+  readonly insertAt?: () => number;
+  readonly onSelected?: () => void;
+  readonly search?: string;
 }) {
   const imageInput = useRef<HTMLInputElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const selected =
     (kind: AssetKind) => (event: ChangeEvent<HTMLInputElement>) => {
-      controller.enqueue(Array.from(event.currentTarget.files ?? []), kind);
+      controller.enqueue(
+        Array.from(event.currentTarget.files ?? []),
+        kind,
+        insertAt?.(),
+      );
+      onSelected?.();
       event.currentTarget.value = "";
     };
   return (
     <>
-      <span
-        aria-hidden="true"
-        className="mx-1 h-7 w-px self-center bg-border"
-      />
       <Button
         aria-label="Добавить изображение"
-        className="size-11 sm:size-9"
+        className={cn(
+          "w-full justify-start gap-3 px-3 text-sm",
+          !"Фото и изображения"
+            .toLocaleLowerCase("ru")
+            .includes(search.toLocaleLowerCase("ru")) && "hidden",
+        )}
         disabled={disabled}
         onClick={() => {
           imageInput.current?.click();
         }}
-        size="icon-lg"
+        size="sm"
         type="button"
         variant="ghost"
       >
         <ImagePlus aria-hidden="true" />
+        Изображение
       </Button>
       <Button
         aria-label="Добавить файл"
-        className="size-11 sm:size-9"
+        className={cn(
+          "w-full justify-start gap-3 px-3 text-sm",
+          !"Файл"
+            .toLocaleLowerCase("ru")
+            .includes(search.toLocaleLowerCase("ru")) && "hidden",
+        )}
         disabled={disabled}
         onClick={() => {
           fileInput.current?.click();
         }}
-        size="icon-lg"
+        size="sm"
         type="button"
         variant="ghost"
       >
         <FileText aria-hidden="true" />
+        Файл
       </Button>
       <input
         accept="image/avif,image/jpeg,image/png,image/webp"

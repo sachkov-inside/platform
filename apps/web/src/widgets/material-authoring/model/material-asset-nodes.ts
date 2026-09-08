@@ -51,6 +51,7 @@ export const MaterialAssetImageNode = assetNode("assetImage", [
   "assetId",
   "alt",
   "caption",
+  "displayWidthPercent",
 ]);
 export const MaterialAssetFileNode = assetNode("assetFile", [
   "assetId",

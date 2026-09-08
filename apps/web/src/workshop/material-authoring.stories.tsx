@@ -194,9 +194,8 @@ export const Editing: Story = {
   name: "Редактирование",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.click(canvas.getByText(/^Серии ·/u));
     await expect(
-      canvas.getByRole("group", { name: "Серии" }),
+      canvas.getByRole("group", { name: /^Серии/u }),
     ).toBeInTheDocument();
     await expect(
       canvas.getByRole("checkbox", { name: "Создание Platform Inside" }),
@@ -275,7 +274,9 @@ export const Submitting: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByLabelText("Название")).toBeEnabled();
-    await expect(canvas.getByText(/Сохранение…/u)).toBeVisible();
+    for (const status of canvas.getAllByText(/Сохранение…/u)) {
+      await expect(status).toBeVisible();
+    }
   },
 };
 
@@ -579,7 +580,7 @@ export const Conflict: Story = {
     );
     await expect(canvas.getByLabelText("Название")).toBeEnabled();
     await expect(
-      canvas.getByRole("button", { name: "Полужирный" }),
+      canvas.getByRole("button", { name: "Добавить блок" }),
     ).toBeEnabled();
   },
 };
@@ -667,6 +668,34 @@ export const MobileTextZoom: Story = {
     } finally {
       root.style.fontSize = previousFontSize;
     }
+  },
+};
+
+export const SearchableSeries: Story = {
+  name: "Серии · поиск и продолжение списка",
+  args: {
+    presentation: {
+      ...materialAuthoringPresentation,
+      availableSeries: Array.from({ length: 45 }, (_, index) => ({
+        label: `Серия ${String(index + 1).padStart(2, "0")}`,
+        value: `94000000-0000-4000-8000-${String(index + 100).padStart(12, "0")}`,
+      })),
+      draft: { ...materialAuthoringPresentation.draft, seriesIds: [] },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const series = within(canvas.getByLabelText("Выбор серий"));
+    await expect(series.getAllByRole("checkbox")).toHaveLength(20);
+    const more = series.getByRole("button", { name: "Показать ещё" });
+    more.focus();
+    await userEvent.keyboard("{Enter}");
+    await expect(series.getAllByRole("checkbox").length).toBeGreaterThan(20);
+    await userEvent.type(canvas.getByLabelText("Поиск серии"), "Серия 45");
+    await expect(series.getAllByRole("checkbox")).toHaveLength(1);
+    await expect(series.getByRole("checkbox", { name: "Серия 45" })).toBeVisible();
+    await expect(canvas.getAllByText("Теги", { exact: true })).toHaveLength(1);
+    await expect(canvas.getAllByText("Серии", { exact: true })).toHaveLength(1);
   },
 };
 

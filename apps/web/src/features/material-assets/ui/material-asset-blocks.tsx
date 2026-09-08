@@ -6,6 +6,7 @@ export function MaterialAssetImage({
   assetId,
   caption,
   contentVersion,
+  displayWidthPercent = 100,
   height,
   materialId,
   preview = false,
@@ -16,6 +17,7 @@ export function MaterialAssetImage({
   readonly assetId: string;
   readonly caption?: string | undefined;
   readonly contentVersion: number;
+  readonly displayWidthPercent?: number | undefined;
   readonly height?: number | undefined;
   readonly materialId: string;
   readonly preview?: boolean;
@@ -38,7 +40,7 @@ export function MaterialAssetImage({
   const url = (variantWidth: number) =>
     `/api/materials/${encodeURIComponent(materialId)}/assets/${encodeURIComponent(assetId)}/images/${String(variantWidth)}?${query.toString()}`;
   return (
-    <figure className="overflow-hidden rounded-xl border border-border bg-card">
+    <figure style={{ width: `${String(displayWidthPercent)}%` }} className="mx-auto overflow-hidden rounded-xl bg-card">
       {/* The stable same-origin route re-authorizes protected images; Next Image must not proxy it. */}
       {/* eslint-disable-next-line next/no-img-element -- the protected route requires the viewer's session and cannot pass through the Next optimizer */}
       <img

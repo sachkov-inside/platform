@@ -859,9 +859,7 @@ test("trusted author creates a PostgreSQL draft and opens its current Preview", 
   await page.getByRole("option", { name: "Платформа" }).click();
   await page.getByRole("combobox", { name: "Формат" }).click();
   await page.getByRole("option", { name: "Гайд" }).click();
-  await page.locator("summary").filter({ hasText: "Теги" }).click();
   await page.getByText("Full stack", { exact: true }).click();
-  await page.locator("summary").filter({ hasText: "Серии" }).click();
   await page.getByText("Создание Platform Inside", { exact: true }).click();
   await page
     .getByRole("textbox", { name: "Содержимое материала" })

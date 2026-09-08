@@ -139,6 +139,20 @@ function validateTree(doc: JsonObject): readonly ValidationIssue[] {
           path: validationIssuePath([...path, "attrs", "kind"]),
         });
       }
+      if (type === "assetImage") {
+        const size = isJsonObject(value.attrs)
+          ? value.attrs.displayWidthPercent
+          : undefined;
+        if (
+          size !== undefined && size !== null &&
+          (typeof size !== "number" || !Number.isInteger(size) || size < 25 || size > 100)
+        ) {
+          issues.push({
+            code: "invalid_image_size",
+            path: validationIssuePath([...path, "attrs", "displayWidthPercent"]),
+          });
+        }
+      }
       if (type === "assetImage" || type === "assetFile") {
         const assetId = stringAttribute(value, "assetId");
         if (assetId === undefined || !isUuid(assetId)) {
