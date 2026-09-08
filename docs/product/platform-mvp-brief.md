@@ -8,6 +8,19 @@ Authority этого brief находится в этом Platform repository. �
 дают versioning, provenance и review. Общий Membership-контекст и cross-repository решения остаются
 в [`sachkov-inside/workspace`](https://github.com/sachkov-inside/workspace).
 
+## Следующий этап: собственная подписка
+
+Владелец согласовал модель собственной подписки в Workspace #128 и общий переход в
+[PR #151](https://github.com/sachkov-inside/workspace/pull/151). Platform становится владельцем
+оплаты, подписки и независимых paid/manual/legacy прав; Telegram применяет право участия.
+[Локальная спецификация billing](../specifications/subscription-billing-v1.md) и
+[versioned источники](../contracts/billing-v1/README.md) описывают эту отдельную поставку.
+
+Текущие ограничения v1 ниже описывают прежний реализованный путь с Tribute/evidence; новый
+контракт не включает оплату автоматически. Telegram перестанет быть обязательным для чтения по
+новому paid/manual праву после #404. Юридические тексты/реквизиты и публичные страницы/футер
+поставляются Workspace #149 / Platform #412 и могут появиться раньше нового checkout.
+
 ## Результат первой версии
 
 Первая версия делает собственную платформу основным домом материалов Inside. Она решает две

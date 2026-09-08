@@ -123,8 +123,9 @@ A time-limited statement about an Account's Membership in the canonical closed T
 _Avoid_: MembershipEntitlement, Tribute subscription
 
 **MembershipEntitlement**:
-Platform's time-bounded conclusion that an Account may access Membership-scoped surfaces,
-including protected Library content and Member Profiles. It does not authorize Workshop content.
+Platform's current conclusion that an Account may access Membership-scoped surfaces, including
+protected Library content and Member Profiles, for a finite term or through an independent lifetime
+right. It does not authorize Workshop content.
 _Avoid_: Subscription, Telegram membership status, WorkshopEntitlement
 
 **ContentAccess**:
@@ -244,3 +245,45 @@ _Avoid_: AttemptResult, penalty, completion
 
 `Assignment`, `Attempt`, `AttemptResult` and `SolutionReveal` describe implemented case-first
 foundations. They are not the current Kafka evaluation contract until #278 accepts their reuse.
+
+## Subscription and access
+
+**Subscription**:
+An Account's agreement for a selected Inside access composition, paid period and renewal terms.
+It is distinct from a bank payment and from independently granted access.
+_Avoid_: Payment, MembershipEvidence, AccessGrant
+
+**PaymentAttempt**:
+One recorded attempt to obtain a specific payment outcome, including an unresolved outcome after
+sending a request. It is not proof that a payment succeeded.
+_Avoid_: Retry, paid period, confirmed payment
+
+**Payment**:
+A confirmed transfer associated with one Account and agreed purchase conditions.
+Its refund and the owner's decision about access are separate facts.
+_Avoid_: Browser return, grant, subscription
+
+**AccessGrant**:
+One independent reason an Account has specified Inside capabilities for a finite term or for life.
+Payment, an owner's manual decision and a confirmed prior entitlement are distinct sources.
+_Avoid_: Telegram presence, single global paid flag
+
+**CommunityEntitlement**:
+An Account's effective right to participate in the Inside community, distinct from its actual
+presence in the Telegram chat.
+_Avoid_: ChatMember, membership observation
+
+**BillingContact**:
+An Account's confirmed address for subscription communication and receipts.
+It is distinct from identity evidence used to sign in.
+_Avoid_: Email fingerprint, Telegram username, merchant email
+
+**RenewalConsent**:
+An Account's explicit agreement to future charges under identified terms and a confirmed payment
+method. Ending it preserves the already paid term.
+_Avoid_: Saved card, current chat membership, completed payment
+
+**LegacyCohort**:
+The separately established set of prior Inside participants whose existing access must be accounted
+for during the move to the new subscription. A new Inside-driven join does not add a participant.
+_Avoid_: Current chat roster, all new members
