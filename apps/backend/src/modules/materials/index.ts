@@ -196,3 +196,6 @@ export { PublicContentTargets, type PublicContentTarget, type PublicContentTarge
 export { PublishedSeriesComposition, type PublishedSeriesCompositionResult } from "./features/read-published-series-composition/read-published-series-composition.js";
 
 export { PublishedMaterialSelection } from "./features/select-published-materials/select-published-materials.js";
+
+export { LoadHomePinController } from "./features/load-home-pin/load-home-pin.controller.js";
+export { SetHomePinController } from "./features/set-home-pin/set-home-pin.controller.js";

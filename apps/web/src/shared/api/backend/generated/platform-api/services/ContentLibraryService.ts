@@ -104,6 +104,48 @@ export class ContentLibraryService {
         slug: string;
       };
     }>;
+    pinnedMaterial: {
+      access: 'free' | 'membership' | 'workshop';
+      availability: 'available' | 'locked' | 'unavailable';
+      contentVersion: number;
+      cover: {
+        coverId: string;
+        renditions: Array<{
+          height: number;
+          width: number;
+        }>;
+      } | null;
+      format: {
+        id: 'video' | 'guide' | 'note';
+        name: string;
+        slug: 'video' | 'guide' | 'note';
+      };
+      materialId: string;
+      primaryVideoDurationSeconds?: number;
+      primaryVideoId: string | null;
+      publishedAt: string;
+      seriesMemberships: Array<{
+        ordinal: number;
+        series: {
+          id: string;
+          name: string;
+          slug: string;
+        };
+        stepGroup?: string | null;
+      }>;
+      slug: string;
+      summary: string;
+      tags: Array<{
+        id: string;
+        name: string;
+      }>;
+      title: string;
+      topic: {
+        id: string;
+        name: string;
+        slug: string;
+      };
+    } | null;
     playlists: Array<{
       count: number;
       cover: {

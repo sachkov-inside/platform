@@ -238,6 +238,43 @@ export class MaterialAuthoringService {
     });
   }
   /**
+   * Read the author's Home Material selection
+   * @returns any
+   * @throws ApiError
+   */
+  public loadAuthoringHomePin(): CancelablePromise<{
+    materialId: string | null;
+    version: number;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/authoring/home-pin',
+    });
+  }
+  /**
+   * Replace or remove the author's Home Material selection
+   * @returns any
+   * @throws ApiError
+   */
+  public setAuthoringHomePin({
+    requestBody,
+  }: {
+    requestBody: {
+      expectedVersion: number;
+      materialId: string | null;
+    },
+  }): CancelablePromise<{
+    materialId: string | null;
+    version: number;
+  }> {
+    return this.httpRequest.request({
+      method: 'PUT',
+      url: '/authoring/home-pin',
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
    * List the complete Material authoring corpus
    * @returns any
    * @throws ApiError

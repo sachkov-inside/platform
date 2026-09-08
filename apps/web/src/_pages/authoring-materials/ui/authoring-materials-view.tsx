@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+import type { HomePinControls } from "../model/home-pin";
 import {
   ArrowLeft,
   ArrowRight,
@@ -40,12 +42,16 @@ import {
 } from "./authoring-material-actions.client";
 
 export function AuthoringMaterialsView({
+  homePin,
+  homePinNotice,
   isRefreshing = false,
   onQueryChange,
   onRetry,
   query,
   state,
 }: {
+  readonly homePin?: HomePinControls | undefined;
+  readonly homePinNotice?: ReactNode;
   readonly isRefreshing?: boolean;
   readonly onQueryChange?: (query: AuthoringMaterialsQuery) => void;
   readonly onRetry?: () => void;
@@ -89,12 +95,14 @@ export function AuthoringMaterialsView({
             </Button>
           </header>
 
+          {homePinNotice}
           <AuthoringMaterialsFilters
             {...(onQueryChange === undefined ? {} : { onQueryChange })}
             query={query}
             totalItems={state.totalItems}
           />
           <AuthoringMaterialsResults
+            homePin={homePin}
             {...(onQueryChange === undefined ? {} : { onQueryChange })}
             query={query}
             returnHref={returnHref}
@@ -190,6 +198,7 @@ function AuthoringMaterialsFilters({
 }
 
 function AuthoringMaterialsResults({
+  homePin,
   onQueryChange,
   query,
   returnHref,
@@ -198,6 +207,7 @@ function AuthoringMaterialsResults({
   readonly onQueryChange?: (query: AuthoringMaterialsQuery) => void;
   readonly query: AuthoringMaterialsQuery;
   readonly returnHref: Route;
+  readonly homePin?: HomePinControls | undefined;
   readonly state: Extract<AuthoringMaterialsState, { readonly kind: "ready" }>;
 }) {
   if (state.items.length === 0) {
@@ -245,6 +255,7 @@ function AuthoringMaterialsResults({
       <ul className="divide-y divide-border border-y border-border">
         {state.items.map((material) => (
           <AuthoringMaterialRow
+            homePin={homePin}
             key={material.materialId}
             material={material}
             returnHref={returnHref}
@@ -261,11 +272,13 @@ function AuthoringMaterialsResults({
 }
 
 function AuthoringMaterialRow({
+  homePin,
   material,
   returnHref,
 }: {
   readonly material: AuthoringMaterialListItem;
   readonly returnHref: Route;
+  readonly homePin?: HomePinControls | undefined;
 }) {
   const editorPath = `/authoring/materials/${material.materialId}`;
   const title = material.title ?? "Черновик без названия";
@@ -315,6 +328,7 @@ function AuthoringMaterialRow({
           </Link>
         </Button>
         <AuthoringMaterialActions
+          homePin={homePin}
           editorHref={authoringDestinationHref(editorPath, returnHref)}
           material={material}
         />

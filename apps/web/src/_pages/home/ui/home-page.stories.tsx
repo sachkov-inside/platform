@@ -25,6 +25,7 @@ const note = material({
   title: "Границы хорошего модуля",
 });
 const home = {
+  pinnedMaterial: null,
   membership: { kind: "active" },
   guides: [guide],
   notes: [note],

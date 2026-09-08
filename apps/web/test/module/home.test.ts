@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getHome } from "../../src/_pages/home/api/get-home";
 
-const home = { guides: [], notes: [], playlists: [], topics: [], videos: [] };
+const home = { pinnedMaterial: null, guides: [], notes: [], playlists: [], topics: [], videos: [] };
 
 describe("Home membership presentation", () => {
   afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });

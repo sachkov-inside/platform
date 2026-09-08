@@ -10,6 +10,7 @@ export type MaterialsPrisma = Pick<
   | "contentCoverRendition"
   | "material"
   | "materialRelatedPin"
+  | "homeMaterialPin"
   | "materialSearchDocument"
   | "materialTag"
   | "publishedMaterial"

@@ -98,3 +98,9 @@ PostgreSQL. Kinescope iframe SDK в локальном proof является do
 Root `pnpm check`, PostgreSQL integration, full-stack browser path, Standards/Spec review и current-head
 CI обязательны. Доказательства находятся в `docs/evidence/issue-332/`. Принятие Storybook не заменяет
 отдельный production visual GO, merge и deploy. PR #365 остаётся местом результата и оставшихся решений.
+
+## Авторский закреп на главной
+
+Первый блок главной задаётся автором и одинаков для всех посетителей. Его выбор и видимость
+определяет [контракт главной](../product/platform-mvp-brief.md#поиск-и-навигация).
+Продолжение обучения не меняет этот выбор и остаётся внутри секций Серий и Видео.

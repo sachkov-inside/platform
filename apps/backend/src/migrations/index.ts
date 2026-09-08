@@ -1,3 +1,4 @@
+import { name as homeMaterialPinName, statement as homeMaterialPinStatement } from "../modules/materials/infrastructure/postgres/migrations/0038-home-material-pin.js";
 import {
   name as platformAdminName,
   statement as platformAdminStatement,
@@ -283,6 +284,7 @@ export const platformMigrations = [
     statement: videoUploadRejectionsStatement,
   },
   { name: platformAdminName, statement: platformAdminStatement },
+  { name: homeMaterialPinName, statement: homeMaterialPinStatement },
 ] as const;
 
 export function migrateToLatest(

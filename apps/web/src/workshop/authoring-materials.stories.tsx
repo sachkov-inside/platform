@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
 
@@ -274,3 +275,26 @@ async function expectNoHorizontalOverflow(canvasElement: HTMLElement) {
     storyWindow.innerWidth + 1,
   );
 }
+
+function HomePinExample() {
+  const [materialId, setMaterialId] = useState<string | null>(null);
+  return <AuthoringMaterialsView query={query} state={readyState} homePin={{ pin: { materialId, version: 1 }, pending: false, onChange: setMaterialId }} />;
+}
+export const HomePinSelection: Story = {
+  name: "Закреп на главной · выбор и снятие",
+  render: () => <HomePinExample />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getAllByRole("button", { name: "Закрепить на главной" })).toHaveLength(1);
+    await userEvent.click(canvas.getByRole("button", { name: "Закрепить на главной" }));
+    await userEvent.click(canvas.getByRole("button", { name: "Снять закреп с главной" }));
+    await expect(canvas.getByRole("button", { name: "Закрепить на главной" })).toBeEnabled();
+  },
+};
+export const HomePinPending: Story = {
+  args: { homePin: { pin: { materialId: null, version: 1 }, pending: true, onChange: fn() } },
+  play: async ({ canvasElement }) => { await expect(within(canvasElement).getByRole("button", { name: "Закрепить на главной" })).toBeDisabled(); },
+};
+export const HomePinUnavailable: Story = {
+  args: { homePin: { pin: null, pending: false, onChange: fn() }, homePinNotice: <p role="alert">Закреп временно недоступен. Обновите состояние и повторите действие.</p> },
+};

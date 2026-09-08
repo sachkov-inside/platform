@@ -1,3 +1,5 @@
+import { assembleLoadHomePin } from "../../features/load-home-pin/load-home-pin.js";
+import { assembleSetHomePin } from "../../features/set-home-pin/set-home-pin.js";
 import { assembleCreateDraft } from "../../features/create-draft/create-draft.js";
 import { assembleDeleteDraft } from "../../features/delete-draft/delete-draft.js";
 import { assembleLoadMaterial } from "../../features/load-material/load-material.js";
@@ -22,6 +24,8 @@ export function assembleMaterialAuthoring(
   const loadMaterial = assembleLoadMaterial(dependencies);
   const saveMaterial = assembleSaveMaterial(dependencies);
   return {
+    loadHomePin: assembleLoadHomePin(dependencies),
+    setHomePin: assembleSetHomePin(dependencies),
     createContentCollection: assembleCreateContentCollection(dependencies),
     createDraft: assembleCreateDraft(dependencies),
     deleteDraft: assembleDeleteDraft(dependencies),

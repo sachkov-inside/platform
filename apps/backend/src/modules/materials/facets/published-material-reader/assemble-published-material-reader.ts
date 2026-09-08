@@ -1,3 +1,4 @@
+import { readHomePinnedProjection } from "../../features/read-home-pinned-projection/read-home-pinned-projection.js";
 import type { MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { listPublishedMaterialProjections } from "../../features/list-published-material-projections/list-published-material-projections.js";
 import type { ListPublishedMaterialProjectionsQuery } from "../../features/list-published-material-projections/list-published-material-projections.contract.js";
@@ -22,6 +23,7 @@ export function assemblePublishedMaterialReader(dependencies: {
   readonly videos?: Pick<Videos, "loadPresentation">;
 }): PublishedMaterialReader {
   return Object.freeze({
+    readHomePinnedProjection: () => readHomePinnedProjection(dependencies.prisma),
     discoverProjections: (query: DiscoverPublishedMaterialProjectionsQuery) =>
       discoverPublishedMaterialProjections(dependencies.prisma, query),
     listProjections: (query: ListPublishedMaterialProjectionsQuery) =>
