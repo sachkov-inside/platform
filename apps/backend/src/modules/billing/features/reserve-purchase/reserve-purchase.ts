@@ -13,12 +13,16 @@ export type ReservePurchase = z.infer<typeof reserveSchema>;
 
 // Internal new-subscription operation. The purchase orchestrator owns eligibility,
 // legal/recurring consent, one active lifecycle, and the durable provider attempt (#407).
-export async function reservePurchase(prisma: BillingPrismaClient, input: ReservePurchase, clock: () => Date): Promise<PricingResult<PriceSnapshot>> {
+type ReservePurchaseResult = PricingResult<PriceSnapshot,
+  "invalid_request" | "not_found" | "operation_conflict" | "reservation_conflict" | "quote_expired" | "quote_changed" | "unsupported_amount" | "dependency_unavailable"
+>;
+
+export async function reservePurchase(prisma: BillingPrismaClient, input: ReservePurchase, clock: () => Date): Promise<ReservePurchaseResult> {
   const parsed = reserveSchema.safeParse(input);
   if (!parsed.success) return failure("invalid_request");
   const command = parsed.data;
   try {
-    return await prisma.$transaction(async (tx): Promise<PricingResult<PriceSnapshot>> => {
+    return await prisma.$transaction(async (tx): Promise<ReservePurchaseResult> => {
       await lockPricing(tx);
       const existing = await tx.billingPromoReservation.findUnique({ where: { purchaseRef: command.purchaseRef } });
       if (existing) return existing.accountId === command.accountId && existing.quoteRef === command.quoteRef

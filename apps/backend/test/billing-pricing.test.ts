@@ -1,3 +1,5 @@
+import { toOpenApiSchema } from "../src/infrastructure/http/zod-openapi.js";
+import { quotePurchaseSchema, priceQuoteSchema } from "../src/modules/billing/features/quote-purchase/quote-purchase.js";
 import { randomUUID } from "node:crypto";
 import { describe, expect, test } from "vitest";
 import { applicablePromotion, discountedPrice, moneySchema } from "../src/modules/billing/domain/pricing.js";
@@ -5,6 +7,10 @@ import { manageCatalogSchema } from "../src/modules/billing/features/manage-cata
 import { throwPricingError } from "../src/modules/billing/shared/pricing-http.filter.js";
 
 describe("Billing pricing rules", () => {
+  test("OpenAPI preserves UUID and benefit types through normalization", () => {
+    expect(toOpenApiSchema(quotePurchaseSchema)).toMatchObject({ properties: { operationId: { type: "string", format: "uuid" }, paymentOptionId: { type: "string", format: "uuid" } } });
+    expect(toOpenApiSchema(priceQuoteSchema)).toMatchObject({ properties: { quoteRef: { type: "string", format: "uuid" }, snapshot: { properties: { offer: { properties: { benefits: { type: "array", items: { type: "string" } } } } } } } });
+  });
   test("rounds half up exactly even at the safe-integer ceiling", () => {
     expect(discountedPrice(1, 50)).toBe(1);
     expect(discountedPrice(101, 50)).toBe(51);

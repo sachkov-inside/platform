@@ -68,6 +68,18 @@ describe("Billing catalog, quotes and reservations on PostgreSQL", () => {
     await database.prisma.accountPermission.create({ data: { accountId: owner, permission: "platform:admin" } });
   });
 
+  test("concurrent owner writes do not exhaust the pool; equal offset instants replay", async () => {
+    const commands = Array.from({ length: 12 }, () => ({ operation: "offers.save", operationId: randomUUID(), value: { id: randomUUID(), name: "Concurrent", benefits: ["materials"] } }));
+    const writes = await Promise.all(commands.map((command) => billing.manage(owner, command)));
+    expect(writes.every((result) => result.ok)).toBe(true);
+    const { optionId } = await catalog();
+    const promotion = await promo(optionId, 10);
+    const cmd = { operation: "promotions.save", operationId: randomUUID(), expectedRevision: 1, value: promotion };
+    const saved = await billing.manage(owner, cmd);
+    expect(saved.ok).toBe(true);
+    expect(await billing.manage(owner, { ...cmd, value: { ...promotion, startsAt: new Date(promotion.startsAt).toISOString(), endsAt: new Date(promotion.endsAt).toISOString() } })).toEqual(saved);
+  });
+
   test("best single public/code discount, amount rounding, unchanged renewal and immutable quote replay", async () => {
     const { optionId } = await catalog(100_001, 7);
     await promo(optionId, 10);

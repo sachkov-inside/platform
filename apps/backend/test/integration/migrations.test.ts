@@ -172,6 +172,7 @@ describe("Platform migrations", () => {
           "0035_domain_material_formats",
           "0036_video_upload_rejections",
           "0037_platform_admin",
+          "0038_billing_pricing",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -736,6 +737,7 @@ describe("Platform migrations", () => {
           "0035_domain_material_formats",
           "0036_video_upload_rejections",
           "0037_platform_admin",
+          "0038_billing_pricing",
         ],
       });
 

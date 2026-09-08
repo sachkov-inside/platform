@@ -10,12 +10,16 @@ export const priceQuoteSchema = z.strictObject({ quoteRef: idSchema, snapshot: p
 export type PriceQuote = z.infer<typeof priceQuoteSchema>;
 const quoteValidityMinutes = 15;
 
-export async function quotePurchase(prisma: BillingPrismaClient, accountId: string, input: unknown, clock: () => Date): Promise<PricingResult<PriceQuote>> {
+type QuotePurchaseResult = PricingResult<PriceQuote,
+  "invalid_request" | "not_found" | "unsupported_amount" | "operation_conflict" | "quote_changed" | "dependency_unavailable"
+>;
+
+export async function quotePurchase(prisma: BillingPrismaClient, accountId: string, input: unknown, clock: () => Date): Promise<QuotePurchaseResult> {
   const parsed = quotePurchaseSchema.safeParse(input);
   const identity = idSchema.safeParse(accountId);
   if (!parsed.success || !identity.success) return failure("invalid_request");
   try {
-    return await prisma.$transaction(async (tx): Promise<PricingResult<PriceQuote>> => {
+    return await prisma.$transaction(async (tx): Promise<QuotePurchaseResult> => {
       await lockPricing(tx);
       const command = parsed.data;
       const key = { accountId: identity.data, operationId: command.operationId };

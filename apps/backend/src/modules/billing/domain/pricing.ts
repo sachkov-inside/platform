@@ -1,11 +1,10 @@
 import { z } from "zod";
 
-export const idSchema = z.uuid().transform((value) => value.toLowerCase());
+export const idSchema = z.uuid().toLowerCase();
 export const revisionSchema = z.int().positive().max(2_147_483_647);
 export const moneySchema = z.int().positive();
 export const benefitsSchema = z.array(z.enum(["materials", "community"])).min(1).max(2)
-  .refine((values) => new Set(values).size === values.length, "Duplicate capability")
-  .transform((values) => values.sort());
+  .refine((values) => new Set(values).size === values.length, "Duplicate capability");
 export const offerSchema = z.strictObject({
   id: idSchema, revision: revisionSchema, name: z.string().trim().min(1).max(200),
   benefits: benefitsSchema, archived: z.boolean(),
@@ -35,8 +34,8 @@ export type PricingError = { readonly code:
   | "invalid_request" | "forbidden" | "not_found" | "revision_conflict" | "operation_conflict"
   | "quote_changed" | "quote_expired" | "unsupported_amount" | "reservation_conflict" | "dependency_unavailable"
 };
-export type PricingResult<T> = { readonly ok: true; readonly value: T } | { readonly ok: false; readonly error: PricingError };
-export const failure = (code: PricingError["code"]): { readonly ok: false; readonly error: PricingError } => ({ ok: false, error: { code } });
+export type PricingResult<T, Code extends PricingError["code"] = PricingError["code"]> = { readonly ok: true; readonly value: T } | { readonly ok: false; readonly error: { readonly code: Code } };
+export const failure = <const Code extends PricingError["code"]>(code: Code): { readonly ok: false; readonly error: { readonly code: Code } } => ({ ok: false, error: { code } });
 
 export function discountedPrice(price: number, percent: number): number {
   // Round the final price once, half a kopeck up, with no floating-point arithmetic.

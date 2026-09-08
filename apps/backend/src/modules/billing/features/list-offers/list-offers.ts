@@ -5,7 +5,7 @@ import { selectPrice } from "../../shared/select-price.js";
 
 export const listOffersSchema = z.strictObject({ cursor: idSchema.optional(), limit: z.coerce.number().int().min(1).max(100).default(50) });
 export const offersPageSchema = z.strictObject({ items: z.array(priceSnapshotSchema), nextCursor: idSchema.nullable() });
-export async function listOffers(prisma: BillingPrismaClient, input: unknown, clock: () => Date): Promise<PricingResult<z.infer<typeof offersPageSchema>>> {
+export async function listOffers(prisma: BillingPrismaClient, input: unknown, clock: () => Date): Promise<PricingResult<z.infer<typeof offersPageSchema>, "invalid_request" | "dependency_unavailable">> {
   const parsed = listOffersSchema.safeParse(input);
   if (!parsed.success) return failure("invalid_request");
   try {
@@ -17,7 +17,6 @@ export async function listOffers(prisma: BillingPrismaClient, input: unknown, cl
     for (const row of page) {
       const price = await selectPrice(prisma, row.id, now);
       if (price.ok) items.push(price.value);
-      else if (price.error.code !== "not_found" && price.error.code !== "unsupported_amount") return price;
     }
     return { ok: true, value: { items, nextCursor: rows.length > limit ? page.at(-1)?.id ?? null : null } };
   } catch { return failure("dependency_unavailable"); }

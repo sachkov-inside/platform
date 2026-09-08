@@ -13,11 +13,15 @@ const transitions: Record<ReservationState, readonly ReservationState[]> = {
 
 // Only verified bank outcomes or a proven pre-send cancellation may release capacity.
 // A timer/browser return is never input to this internal operation.
-export async function settleReservation(prisma: BillingPrismaClient, input: SettleReservation): Promise<PricingResult<{ state: ReservationState }>> {
+type SettleReservationResult = PricingResult<{ state: ReservationState },
+  "invalid_request" | "not_found" | "reservation_conflict" | "dependency_unavailable"
+>;
+
+export async function settleReservation(prisma: BillingPrismaClient, input: SettleReservation): Promise<SettleReservationResult> {
   const parsed = transitionSchema.safeParse(input);
   if (!parsed.success) return failure("invalid_request");
   try {
-    return await prisma.$transaction(async (tx): Promise<PricingResult<{ state: ReservationState }>> => {
+    return await prisma.$transaction(async (tx): Promise<SettleReservationResult> => {
       await lockPricing(tx);
       const command = parsed.data;
       const row = await tx.billingPromoReservation.findUnique({ where: { purchaseRef: command.purchaseRef } });

@@ -3848,14 +3848,22 @@
               "schema": {
                 "additionalProperties": false,
                 "properties": {
-                  "operationId": {},
+                  "operationId": {
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                    "type": "string"
+                  },
                   "optionRevision": {
                     "exclusiveMinimum": true,
                     "maximum": 2147483647,
                     "minimum": 0,
                     "type": "integer"
                   },
-                  "paymentOptionId": {},
+                  "paymentOptionId": {
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                    "type": "string"
+                  },
                   "promoCode": {
                     "maxLength": 100,
                     "minLength": 1,
@@ -3890,7 +3898,11 @@
                       "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
                       "type": "string"
                     },
-                    "quoteRef": {},
+                    "quoteRef": {
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                      "type": "string"
+                    },
                     "snapshot": {
                       "additionalProperties": false,
                       "properties": {
@@ -3912,8 +3924,23 @@
                             "archived": {
                               "type": "boolean"
                             },
-                            "benefits": {},
-                            "id": {},
+                            "benefits": {
+                              "items": {
+                                "enum": [
+                                  "materials",
+                                  "community"
+                                ],
+                                "type": "string"
+                              },
+                              "maxItems": 2,
+                              "minItems": 1,
+                              "type": "array"
+                            },
+                            "id": {
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                              "type": "string"
+                            },
                             "name": {
                               "maxLength": 200,
                               "minLength": 1,
@@ -3941,14 +3968,22 @@
                             "archived": {
                               "type": "boolean"
                             },
-                            "id": {},
+                            "id": {
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                              "type": "string"
+                            },
                             "months": {
                               "exclusiveMinimum": true,
                               "maximum": 2147483647,
                               "minimum": 0,
                               "type": "integer"
                             },
-                            "offerId": {},
+                            "offerId": {
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                              "type": "string"
+                            },
                             "priceKopecks": {
                               "exclusiveMinimum": true,
                               "maximum": 9007199254740991,
@@ -3976,7 +4011,11 @@
                           "additionalProperties": false,
                           "nullable": true,
                           "properties": {
-                            "id": {},
+                            "id": {
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                              "type": "string"
+                            },
                             "name": {
                               "type": "string"
                             },
@@ -4151,43 +4190,6 @@
             },
             "description": ""
           },
-          "403": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "additionalProperties": {},
-                  "properties": {
-                    "code": {
-                      "enum": [
-                        "forbidden"
-                      ],
-                      "type": "string"
-                    },
-                    "status": {
-                      "enum": [
-                        403
-                      ],
-                      "type": "number"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "type": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "status",
-                    "title",
-                    "type"
-                  ],
-                  "type": "object"
-                }
-              }
-            },
-            "description": ""
-          },
           "404": {
             "content": {
               "application/problem+json": {
@@ -4236,10 +4238,7 @@
                         "code": {
                           "enum": [
                             "operation_conflict",
-                            "revision_conflict",
-                            "quote_changed",
-                            "quote_expired",
-                            "reservation_conflict"
+                            "quote_changed"
                           ],
                           "type": "string"
                         },
@@ -20514,12 +20513,31 @@
                         ],
                         "type": "string"
                       },
-                      "operationId": {},
+                      "operationId": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
                       "value": {
                         "additionalProperties": false,
                         "properties": {
-                          "benefits": {},
-                          "id": {},
+                          "benefits": {
+                            "items": {
+                              "enum": [
+                                "materials",
+                                "community"
+                              ],
+                              "type": "string"
+                            },
+                            "maxItems": 2,
+                            "minItems": 1,
+                            "type": "array"
+                          },
+                          "id": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
                           "name": {
                             "maxLength": 200,
                             "minLength": 1,
@@ -20550,14 +20568,22 @@
                         "minimum": 0,
                         "type": "integer"
                       },
-                      "id": {},
+                      "id": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
                       "operation": {
                         "enum": [
                           "offers.archive"
                         ],
                         "type": "string"
                       },
-                      "operationId": {}
+                      "operationId": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      }
                     },
                     "required": [
                       "operationId",
@@ -20582,18 +20608,30 @@
                         ],
                         "type": "string"
                       },
-                      "operationId": {},
+                      "operationId": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
                       "value": {
                         "additionalProperties": false,
                         "properties": {
-                          "id": {},
+                          "id": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
                           "months": {
                             "exclusiveMinimum": true,
                             "maximum": 2147483647,
                             "minimum": 0,
                             "type": "integer"
                           },
-                          "offerId": {},
+                          "offerId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
                           "priceKopecks": {
                             "exclusiveMinimum": true,
                             "maximum": 9007199254740991,
@@ -20626,14 +20664,22 @@
                         "minimum": 0,
                         "type": "integer"
                       },
-                      "id": {},
+                      "id": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
                       "operation": {
                         "enum": [
                           "paymentOptions.archive"
                         ],
                         "type": "string"
                       },
-                      "operationId": {}
+                      "operationId": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      }
                     },
                     "required": [
                       "operationId",
@@ -20658,7 +20704,11 @@
                         ],
                         "type": "string"
                       },
-                      "operationId": {},
+                      "operationId": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
                       "value": {
                         "additionalProperties": false,
                         "properties": {
@@ -20673,19 +20723,31 @@
                             "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
                             "type": "string"
                           },
-                          "id": {},
+                          "id": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
                           "name": {
                             "maxLength": 200,
                             "minLength": 1,
                             "type": "string"
                           },
                           "offerIds": {
-                            "items": {},
+                            "items": {
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                              "type": "string"
+                            },
                             "maxItems": 100,
                             "type": "array"
                           },
                           "paymentOptionIds": {
-                            "items": {},
+                            "items": {
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                              "type": "string"
+                            },
                             "maxItems": 100,
                             "type": "array"
                           },
@@ -20737,14 +20799,22 @@
                         "minimum": 0,
                         "type": "integer"
                       },
-                      "id": {},
+                      "id": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
                       "operation": {
                         "enum": [
                           "promotions.archive"
                         ],
                         "type": "string"
                       },
-                      "operationId": {}
+                      "operationId": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      }
                     },
                     "required": [
                       "operationId",
@@ -20770,7 +20840,11 @@
                     "archived": {
                       "type": "boolean"
                     },
-                    "id": {},
+                    "id": {
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                      "type": "string"
+                    },
                     "revision": {
                       "exclusiveMinimum": true,
                       "maximum": 2147483647,
@@ -20989,8 +21063,6 @@
                           "enum": [
                             "operation_conflict",
                             "revision_conflict",
-                            "quote_changed",
-                            "quote_expired",
                             "reservation_conflict"
                           ],
                           "type": "string"
@@ -21050,43 +21122,6 @@
                       "type": "object"
                     }
                   ]
-                }
-              }
-            },
-            "description": ""
-          },
-          "422": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "additionalProperties": {},
-                  "properties": {
-                    "code": {
-                      "enum": [
-                        "unsupported_amount"
-                      ],
-                      "type": "string"
-                    },
-                    "status": {
-                      "enum": [
-                        422
-                      ],
-                      "type": "number"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "type": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "code",
-                    "status",
-                    "title",
-                    "type"
-                  ],
-                  "type": "object"
                 }
               }
             },
@@ -21237,7 +21272,11 @@
             "in": "query",
             "name": "cursor",
             "required": false,
-            "schema": {}
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -21269,8 +21308,23 @@
                               "archived": {
                                 "type": "boolean"
                               },
-                              "benefits": {},
-                              "id": {},
+                              "benefits": {
+                                "items": {
+                                  "enum": [
+                                    "materials",
+                                    "community"
+                                  ],
+                                  "type": "string"
+                                },
+                                "maxItems": 2,
+                                "minItems": 1,
+                                "type": "array"
+                              },
+                              "id": {
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                "type": "string"
+                              },
                               "name": {
                                 "maxLength": 200,
                                 "minLength": 1,
@@ -21298,14 +21352,22 @@
                               "archived": {
                                 "type": "boolean"
                               },
-                              "id": {},
+                              "id": {
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                "type": "string"
+                              },
                               "months": {
                                 "exclusiveMinimum": true,
                                 "maximum": 2147483647,
                                 "minimum": 0,
                                 "type": "integer"
                               },
-                              "offerId": {},
+                              "offerId": {
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                "type": "string"
+                              },
                               "priceKopecks": {
                                 "exclusiveMinimum": true,
                                 "maximum": 9007199254740991,
@@ -21333,7 +21395,11 @@
                             "additionalProperties": false,
                             "nullable": true,
                             "properties": {
-                              "id": {},
+                              "id": {
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                "type": "string"
+                              },
                               "name": {
                                 "type": "string"
                               },
@@ -21384,7 +21450,10 @@
                       "type": "array"
                     },
                     "nextCursor": {
-                      "nullable": true
+                      "format": "uuid",
+                      "nullable": true,
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                      "type": "string"
                     }
                   },
                   "required": [

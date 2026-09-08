@@ -1,7 +1,7 @@
 import type { BillingPrisma } from "../../../infrastructure/prisma/index.js";
 import { applicablePromotion, discountedPrice, failure, offerSchema, optionSchema, promotionSchema, type PriceSnapshot, type PricingResult } from "../domain/pricing.js";
 
-export async function selectPrice(tx: BillingPrisma, optionId: string, now: Date, promoCode?: string): Promise<PricingResult<PriceSnapshot>> {
+export async function selectPrice(tx: BillingPrisma, optionId: string, now: Date, promoCode?: string): Promise<PricingResult<PriceSnapshot, "not_found" | "unsupported_amount">> {
   const row = await tx.billingPaymentOption.findUnique({ where: { id: optionId }, include: { offer: true } });
   if (!row || row.archived || row.offer.archived) return failure("not_found");
   const offer = offerSchema.parse(row.offer);

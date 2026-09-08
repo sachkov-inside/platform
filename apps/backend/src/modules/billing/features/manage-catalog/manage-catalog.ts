@@ -5,17 +5,23 @@ import { lockPricing } from "../../infrastructure/postgres/catalog-lock.js";
 import { catalogOutcomeSchema, manageCatalogSchema, type ManageCatalogCommand } from "./manage-catalog.contract.js";
 
 type Outcome = { id: string; revision: number; archived: boolean };
-export async function manageCatalog(dependencies: { prisma: BillingPrismaClient; accounts: Pick<Accounts, "checkPermission"> }, actor: string, input: unknown): Promise<PricingResult<Outcome>> {
+type ManageCatalogResult = PricingResult<Outcome,
+  "invalid_request" | "forbidden" | "not_found" | "revision_conflict" | "operation_conflict" | "reservation_conflict" | "dependency_unavailable"
+>;
+
+export async function manageCatalog(dependencies: { prisma: BillingPrismaClient; accounts: Pick<Accounts, "checkPermission"> }, actor: string, input: unknown): Promise<ManageCatalogResult> {
   const parsed = manageCatalogSchema.safeParse(input);
   const identity = idSchema.safeParse(actor);
   if (!parsed.success || !identity.success) return failure("invalid_request");
   try {
-    return await dependencies.prisma.$transaction(async (tx): Promise<PricingResult<Outcome>> => {
+    const permission = await dependencies.accounts.checkPermission({ accountId: identity.data, permission: "platform:admin" });
+    if (!permission.ok) return failure("dependency_unavailable");
+    if (!permission.allowed) return failure("forbidden");
+    return await dependencies.prisma.$transaction(async (tx): Promise<ManageCatalogResult> => {
       await lockPricing(tx);
-      const permission = await dependencies.accounts.checkPermission({ accountId: identity.data, permission: "platform:admin" });
-      if (!permission.ok) return failure("dependency_unavailable");
-      if (!permission.allowed) return failure("forbidden");
-      const command = parsed.data;
+      const command = parsed.data.operation === "promotions.save" ? {
+        ...parsed.data, value: { ...parsed.data.value, startsAt: new Date(parsed.data.value.startsAt).toISOString(), endsAt: new Date(parsed.data.value.endsAt).toISOString() },
+      } : parsed.data;
       const key = { actor: identity.data, operationId: command.operationId };
       const fingerprint = JSON.stringify(command);
       const receipt = await tx.billingPricingCommand.findUnique({ where: { actor_operationId: key } });
@@ -28,7 +34,7 @@ export async function manageCatalog(dependencies: { prisma: BillingPrismaClient;
   } catch { return failure("dependency_unavailable"); }
 }
 
-async function changeCatalog(tx: BillingPrisma, command: ManageCatalogCommand): Promise<PricingResult<Outcome>> {
+async function changeCatalog(tx: BillingPrisma, command: ManageCatalogCommand): Promise<ManageCatalogResult> {
   const id = "value" in command ? command.value.id : command.id;
   const current = command.operation.startsWith("offers.") ? await tx.billingOffer.findUnique({ where: { id } })
     : command.operation.startsWith("paymentOptions.") ? await tx.billingPaymentOption.findUnique({ where: { id } })
