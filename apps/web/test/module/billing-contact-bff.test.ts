@@ -144,3 +144,8 @@ it("only returns the contact presentation with no-store", async () => {
   expect(await response.json()).toEqual({ ok: true, contact: null });
   expect(response.headers.get("cache-control")).toBe("private, no-store");
 });
+
+it("maps an unknown backend code to the bounded unavailable outcome", async () => {
+  fakes.start.mockResolvedValue({ ok: false, problem: { code: "new_unsupported_error" }, response: new Response(null, { status: 409 }) });
+  expect(await (await handleStartBillingContact(request({ operationId, email: "buyer@example.test", expectedRevision: "0" }))).json()).toEqual({ ok: false, code: "unavailable" });
+});
