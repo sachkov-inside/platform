@@ -23,6 +23,11 @@ declare const readingPrisma: ReadingActivityPrismaClient;
 await readingPrisma.material.count();
 await materialsPrisma.readingMaterialState.count();
 
+import type { MembershipEntitlementsPrismaClient } from "../../../../src/modules/membership-entitlements/infrastructure/prisma.js";
+declare const entitlementsPrisma: MembershipEntitlementsPrismaClient;
+await accountsPrisma.accessGrant.count();
+await materialsPrisma.legacyClassification.count();
+await entitlementsPrisma.account.count();
 // Billing contact persistence is owned by Accounts, never Materials.
 declare const foreignBillingPrisma: import("../../../../src/infrastructure/prisma/index.js").MaterialsPrisma;
 foreignBillingPrisma.billingContact.findMany();

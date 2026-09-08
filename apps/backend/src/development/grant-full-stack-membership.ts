@@ -1,3 +1,4 @@
+import { enrollLegacyCohortFixture } from "./enroll-legacy-cohort-fixture.js";
 import { randomUUID } from "node:crypto";
 import { assembleMaterials, assembleMaterialResourceFacts, PublishedSeriesComposition } from "../modules/materials/index.js";
 import { assembleContentAccess } from "../modules/content-access/index.js";
@@ -27,6 +28,7 @@ async function main(): Promise<void> {
       select: { id: true },
     });
     if (member === null) throw new Error("Full-stack member Account must be established first");
+    await enrollLegacyCohortFixture(prisma, member.id);
     const checkedAt = new Date();
     const validUntil = new Date(
       checkedAt.getTime() + FULL_STACK_MEMBERSHIP_LIFETIME_MS,
@@ -62,6 +64,7 @@ async function main(): Promise<void> {
         where: { logtoIssuer_logtoSubject: { logtoIssuer: issuer, logtoSubject: fixtureSubject } },
         select: { id: true },
       });
+      await enrollLegacyCohortFixture(prisma, fixtureMember.id);
       if (state === "expired") {
         const membership = assembleMembershipEntitlements({ prisma, workshopEntitlements: assembleWorkshopEntitlements({ prisma }) });
         const prior = new Date(checkedAt.getTime() - 1);

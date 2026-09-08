@@ -1,3 +1,4 @@
+import { enrollLegacyCohortFixture } from "./enroll-legacy-cohort-fixture.js";
 import { loadPlatformConfig } from "../config/load-platform-config.js";
 import { createPrismaClient } from "../infrastructure/prisma/index.js";
 import { accountId } from "../modules/accounts/index.js";
@@ -14,6 +15,7 @@ async function main() {
   const prisma = createPrismaClient(config.database.url);
   try {
     const account = await prisma.account.findUniqueOrThrow({ where: { logtoIssuer_logtoSubject: { logtoIssuer: config.identity.issuer, logtoSubject: "fullstack-member" } }, select: { id: true } });
+    await enrollLegacyCohortFixture(prisma, account.id);
     const now = new Date();
     const membership = assembleMembershipEntitlements({ prisma, workshopEntitlements: assembleWorkshopEntitlements({ prisma }) });
     const result = await membership.acceptEvidence({ accountId: accountId(account.id), deliveryId: `full-stack-home-${now.toISOString()}`, source: "link_time", evidence: {

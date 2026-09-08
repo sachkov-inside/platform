@@ -68,7 +68,7 @@ export type MemberProfilesPrismaClient = MemberProfilesPrisma &
 
 export type TelegramMembershipPrisma = Pick<
   PlatformPrisma,
-  "$queryRaw" | "telegramLinkTransaction"
+  "$queryRaw" | "telegramLinkTransaction" | "telegramAccountLinkState" | "telegramAccountLinkHistory"
 >;
 export type TelegramMembershipPrismaClient = TelegramMembershipPrisma &
   TransactionClient<TelegramMembershipPrisma>;

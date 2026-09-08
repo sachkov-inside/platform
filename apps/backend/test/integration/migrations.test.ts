@@ -53,9 +53,14 @@ const accountTables = [
 ] as const;
 
 const membershipEntitlementTables = [
+  "access_batch_previews",
+  "access_changes",
+  "access_grants",
+  "access_receipts",
   "account_bindings",
   "current_projections",
   "evidence_receipts",
+  "legacy_classifications",
 ] as const;
 
 const memberProfileTables = [
@@ -65,7 +70,7 @@ const memberProfileTables = [
   "profiles",
 ] as const;
 
-const telegramMembershipTables = ["link_transactions"] as const;
+const telegramMembershipTables = ["account_link_history", "account_link_states", "link_transactions"] as const;
 const assetTables = ["material_asset_variants", "material_assets"] as const;
 const videoTables = [
   "deletion_operations",
@@ -176,7 +181,9 @@ describe("Platform migrations", () => {
           "0035_domain_material_formats",
           "0036_video_upload_rejections",
           "0037_platform_admin",
-        "0038_billing_contact",
+          "0038_account_access",
+          "0039_telegram_link_revisions",
+          "0040_billing_contact",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -741,7 +748,9 @@ describe("Platform migrations", () => {
           "0035_domain_material_formats",
           "0036_video_upload_rejections",
           "0037_platform_admin",
-        "0038_billing_contact",
+          "0038_account_access",
+          "0039_telegram_link_revisions",
+          "0040_billing_contact",
         ],
       });
 

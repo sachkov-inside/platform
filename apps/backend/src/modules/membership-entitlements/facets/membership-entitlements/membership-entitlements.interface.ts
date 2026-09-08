@@ -1,7 +1,7 @@
 import type { AccountId } from "../../../accounts/index.js";
 
 export type MembershipAccessState =
-  | Readonly<{ kind: "active"; validUntil: string }>
+  | Readonly<{ kind: "active"; validUntil: string | null }>
   | Readonly<{
       kind: "required" | "expired" | "stale" | "unavailable";
     }>;
