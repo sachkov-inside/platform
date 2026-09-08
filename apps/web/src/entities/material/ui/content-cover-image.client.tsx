@@ -78,7 +78,7 @@ export function ContentCoverImage({
         // oxlint-disable-next-line next/no-img-element
         <img
           alt={alt}
-          className="absolute inset-0 size-full object-cover"
+          className="absolute inset-0 size-full object-cover object-center"
           decoding="async"
           height={selected.height}
           loading="lazy"

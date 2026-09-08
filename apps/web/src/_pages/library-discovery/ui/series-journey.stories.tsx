@@ -59,8 +59,8 @@ export const Guest: Story = {
     const canvas = within(canvasElement);
     await expect(canvas.queryByRole("progressbar")).not.toBeInTheDocument();
     await expect(canvas.getByRole("link", { name: "Начать серию" })).toBeVisible();
-    await expect(canvas.getAllByText("Бесплатно")).toHaveLength(3);
-    await expect(canvas.getAllByText("По подписке")).toHaveLength(9);
+    await expect(canvas.queryByText("Бесплатно")).not.toBeInTheDocument();
+    await expect(canvasElement.querySelectorAll('[data-access-cover="locked"]')).toHaveLength(9);
     await expect(canvas.getByRole("link", { name: "Модель предметной области" })).toBeVisible();
   },
 };
@@ -84,10 +84,10 @@ export const LoadingPreservesRoutePosition: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const top = canvas.getByRole("heading", { name: "Маршрут" }).getBoundingClientRect().top;
+    const top = canvas.getByRole("list", { name: "Материалы серии" }).getBoundingClientRect().top;
     await userEvent.click(canvas.getByRole("button", { name: "Получить прогресс (проверка)" }));
     await expect(canvas.getByRole("progressbar")).toHaveAttribute("value", "8");
-    await expect(Math.abs(canvas.getByRole("heading", { name: "Маршрут" }).getBoundingClientRect().top - top)).toBeLessThan(1);
+    await expect(Math.abs(canvas.getByRole("list", { name: "Материалы серии" }).getBoundingClientRect().top - top)).toBeLessThan(1);
   },
 };
 export const DesktopLoadingPreservesRoutePosition: Story = { ...LoadingPreservesRoutePosition, globals: { viewport: { value: "desktop1440", isRotated: false } } };
@@ -113,3 +113,78 @@ export const EnlargedText: Story = {
 
 export const EnlargedTextInProgress: Story = { ...EnlargedText, args: {} };
 export const EnlargedTextGuest: Story = { ...EnlargedText, args: Guest.args ?? {} };
+
+const videoSummary = "Разбираем путь от коммита до работающего сервиса: сборку, публикацию и откат.";
+const compactRouteResult = {
+  ...result,
+  items: materials.slice(0, 3).map((material, index) => ({
+    ...material,
+    title: index === 0 ? "Как устроен релиз моего проекта" : material.title,
+    summary: index === 0 ? videoSummary : "",
+    cover: { coverId: "27100000-0000-4000-8000-000000000005", renditions: [{ width: 960, height: 540 }] },
+    ...(index === 2 ? { access: "membership" as const, availability: "locked" as const } : {}),
+  })),
+};
+const compactRouteArgs = {
+  result: compactRouteResult,
+  learning: { kind: "ready", read: 1, total: 3, continuation: { materialSlug: "series-material-2", label: "Продолжить здесь" } },
+} satisfies Story["args"];
+
+export const CompactMobileRoute: Story = {
+  args: compactRouteArgs,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const route = within(canvasElement).getByRole("list", { name: "Материалы серии" });
+    const rows = within(route);
+    await expect(rows.getByText(videoSummary)).not.toBeVisible();
+    await expect(rows.queryByText("Продолжить здесь")).not.toBeInTheDocument();
+    await expect(rows.queryByText("Platform")).not.toBeInTheDocument();
+    await expect(rows.getByRole("link", { name: "Как устроен релиз моего проекта" })).toHaveAttribute("href", expect.stringContaining("series-material-1"));
+    await expect(rows.queryByText("Просмотрено")).not.toBeInTheDocument();
+    await expect(rows.queryByText(/^(Бесплатно|По подписке)$/)).not.toBeInTheDocument();
+    await expect(rows.getByRole("img", { name: "Материал 1, изучен" })).toBeVisible();
+    await expect(route.querySelector('[data-access-cover="locked"]')).toBeVisible();
+    await expect(route.querySelector("[data-series-duration]")).toBeVisible();
+    await expect(route.querySelector("[data-series-duration]")).toHaveTextContent("21:00");
+    await expect(route.querySelector('[data-series-ordinal="2"]')).toHaveAttribute("aria-current", "step");
+    for (const card of route.querySelectorAll("article")) await expect(card.getBoundingClientRect().height).toBeLessThan(130);
+  },
+};
+
+export const DesktopRouteDetails: Story = {
+  args: compactRouteArgs,
+  globals: { viewport: { value: "desktop1440", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const route = within(within(canvasElement).getByRole("list", { name: "Материалы серии" }));
+    await expect(route.getByText(videoSummary)).toBeVisible();
+    await expect(route.queryByText("Продолжить здесь")).not.toBeInTheDocument();
+    await expect(route.queryByText("Platform")).not.toBeInTheDocument();
+    await expect(route.queryByText("Бесплатно")).not.toBeInTheDocument();
+    const cards = [...canvasElement.querySelectorAll<HTMLElement>("[data-material-variant=series]")];
+    const heights = cards.map((card) => card.getBoundingClientRect().height);
+    await expect(Math.max(...heights) - Math.min(...heights)).toBeLessThan(1);
+    await expect(Math.max(...heights)).toBeLessThanOrEqual(144);
+    for (const cover of canvasElement.querySelectorAll("article .public-cover-grid")) {
+      const box = cover.getBoundingClientRect();
+      await expect(box.width / box.height).toBeCloseTo(16 / 9, 1);
+    }
+    await expect(canvasElement.querySelector('[data-discovery-kind="series"]')?.getBoundingClientRect().width).toBeLessThanOrEqual(1040);
+  },
+};
+
+
+export const CompactMobileEnlargedText: Story = {
+  ...CompactMobileRoute,
+  globals: { viewport: { value: "mobile320", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const root = canvasElement.ownerDocument.documentElement;
+    const fontSize = root.style.fontSize;
+    try {
+      root.style.fontSize = "200%";
+      await new Promise<void>((resolve) => { requestAnimationFrame(() => { resolve(); }); });
+      await expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth);
+      await expect(canvasElement.querySelector('[data-access-cover="locked"]')).toBeVisible();
+      await expect(canvasElement.querySelector("[data-series-duration]")).toBeVisible();
+    } finally { root.style.fontSize = fontSize; }
+  },
+};

@@ -140,15 +140,15 @@ export const CheckConnections: Story = { name: "Проверка связей", 
   const toolbar = within(canvas.getByRole("complementary", { name: "Проверка прогресса в Storybook" }));
   await expect(canvas.queryByRole("region", { name: "Продолжить изучение" })).not.toBeInTheDocument();
   await userEvent.click(canvas.getByRole("link", { name: "Продолжить серию Создание Platform Inside" }));
-  await expect(canvas.getByRole("heading", { name: "Маршрут" })).toBeVisible();
+  await expect(canvas.getByRole("list", { name: "Материалы серии" })).toBeVisible();
   await expect(canvasElement.querySelector('[aria-current="step"]')).toHaveTextContent(materials[1].title);
   await userEvent.click(canvas.getByRole("link", { name: materials[1].title }));
   await expect(canvas.getByRole("heading", { name: materials[1].title })).toBeVisible();
   await userEvent.click(canvas.getByRole("button", { name: "Просмотрено" }));
   await userEvent.click(toolbar.getByRole("button", { name: "Серия" }));
   await expect(canvas.getByText("Изучено 2 из 3")).toBeVisible();
-  await expect(canvas.getByText("Прочитано", { exact: true })).toBeVisible();
-  await expect(canvas.getByText("Просмотрено", { exact: true })).toBeVisible();
+  await expect(canvas.getByRole("img", { name: "Материал 1, изучен" })).toBeVisible();
+  await expect(canvas.getByRole("img", { name: "Материал 2, изучен" })).toBeVisible();
   await userEvent.click(toolbar.getByRole("button", { name: "Главная" }));
   await expect(canvas.queryByText("Продолжить с 4:03")).not.toBeInTheDocument();
   await expect(canvas.getByRole("link", { name: "Продолжить серию Создание Platform Inside" })).toHaveAttribute("href", expect.stringContaining("/series/platform-inside"));

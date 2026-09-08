@@ -104,13 +104,26 @@ export function ContentCoverEditor({
       <h3 className="text-sm font-semibold" id={`${inputId}-heading`}>
         Обложка
       </h3>
-      <div className="mt-3 grid grid-cols-[6rem_minmax(0,1fr)] items-start gap-3">
-        <ContentCoverImage
+      {ownerKind === "material" ? <>
+        <div className="mt-3 grid max-w-md grid-cols-[minmax(0,16fr)_minmax(0,9fr)] items-start gap-3">
+          <figure className="min-w-0">
+            <ContentCoverImage alt="Превью 16:9" className="aspect-video rounded-lg" cover={cover} sizes="17rem" />
+            <figcaption className="mt-1 text-xs text-muted-foreground">16:9</figcaption>
+          </figure>
+          <figure className="min-w-0">
+            <ContentCoverImage alt="Квадратное превью" className="aspect-square rounded-lg" cover={cover} sizes="10rem" />
+            <figcaption className="mt-1 text-xs text-muted-foreground">Квадрат</figcaption>
+          </figure>
+        </div>
+        <p className="mt-3 text-xs leading-5 text-muted-foreground">Рекомендуем обложку 16:9. В квадратном превью показывается центр изображения.</p>
+      </> : null}
+      <div className={cn("mt-3 grid items-start gap-3", ownerKind !== "material" && "grid-cols-[6rem_minmax(0,1fr)]")}>
+        {ownerKind === "material" ? null : <ContentCoverImage
           alt=""
           className="aspect-video rounded-lg"
           cover={cover}
           sizes="6rem"
-        />
+        />}
         <div className="min-w-0">
           <p className="text-xs leading-5 text-muted-foreground">
             Перетащите изображение или вставьте из буфера.
