@@ -694,3 +694,44 @@ test("responsive image preview loads real pixels, reports a failed delivery and 
     .toBeGreaterThan(1);
   await expect(picture).toHaveAttribute("alt", "Синий фон с белым текстом");
 });
+
+test("image block selection keeps controls readable while resizing and opening the description", async ({
+  page,
+}) => {
+  await createDraft(page, "выделение изображения");
+  await page
+    .getByLabel("Выбрать изображения", { exact: true })
+    .setInputFiles(image);
+  const picture = page.locator(".ProseMirror img");
+  await expect(picture).toBeVisible();
+  await saved(page);
+  for (const fullscreen of [false, true]) {
+    if (fullscreen)
+      await page
+        .getByRole("button", { name: "На весь экран", exact: true })
+        .click();
+    for (const size of [85, 50]) {
+      await page
+        .getByLabel("Размер изображения", { exact: true })
+        .fill(String(size));
+      await saved(page);
+      await page.getByText("Описание", { exact: true }).click();
+      await picture.click();
+      await expect(page.locator(".ProseMirror")).toHaveClass(
+        /ProseMirror-hideselection/u,
+      );
+      const colors = await page
+        .locator(
+          ".ProseMirror label, .ProseMirror summary, .ProseMirror output",
+        )
+        .evaluateAll((elements) =>
+          elements.map((element) => ({
+            text: getComputedStyle(element).color,
+            selected: getComputedStyle(element, "::selection").color,
+          })),
+        );
+      expect(colors.length).toBeGreaterThan(2);
+      for (const color of colors) expect(color.selected).toBe(color.text);
+    }
+  }
+});

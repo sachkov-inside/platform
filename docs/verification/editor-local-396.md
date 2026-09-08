@@ -119,3 +119,22 @@ Current local screenshots: [metadata above article](../evidence/issue-396/editor
 Root `pnpm check` passed on this refinement: 153 tooling, 424 backend, 491 web (one skipped),
 43 browser routes (five skipped), production and Storybook builds. Log: `/tmp/396-refinement-check.log`.
 The local runtime was restarted after the check.
+
+
+## Image control selection fix and owner merge approval (2026-09-08)
+
+The owner's disappearing image controls were reproduced after clicking the image. Tiptap applies
+`ProseMirror-hideselection`, which makes the native selection background transparent; the global
+selection foreground remained white. The selected block includes its labels, explaining the
+apparent flicker without an upload or autosave failure. A feature-local CSS module uses
+`color: currentColor` for hidden native selections. `inherit` is insufficient in Chromium because
+highlight inheritance can retain the parent's highlight colour.
+
+The new browser regression failed before the fix with white selected text versus muted normal
+text. It covers repeated image selection, resizing and description toggles in embedded and
+fullscreen modes. The exact owner scenario was also reproduced in Firefox. Evidence:
+[readable selected image controls](../evidence/issue-396/editor-image-selection.png).
+
+The owner accepted the editor and explicitly authorized merging #396 into main after this fix.
+Production deployment remains excluded. The earlier pending visual/merge statements above record
+prior acceptance stages; this instruction supersedes that merge gate, not the production gate.
