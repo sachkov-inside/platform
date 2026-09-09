@@ -197,3 +197,6 @@ export { PublishedSeriesComposition, type PublishedSeriesCompositionResult } fro
 
 export { PublishedMaterialSelection } from "./features/select-published-materials/select-published-materials.js";
 export { assembleMaterialsNotificationOutbox } from "./facets/notification-outbox/notification-outbox.js";
+
+export { LoadHomePinController } from "./features/load-home-pin/load-home-pin.controller.js";
+export { SetHomePinController } from "./features/set-home-pin/set-home-pin.controller.js";

@@ -337,6 +337,15 @@ model Guide {
   @@schema("materials")
 }
 
+model HomeSeriesPin {
+  id       Int     @id
+  seriesId String? @map("series_id") @db.Uuid
+  version  Int     @default(1)
+
+  @@map("home_series_pin")
+  @@schema("materials")
+}
+
 model Material {
   id               String    @id @db.Uuid
   slug             String?   @unique(map: "materials_slug_unique")

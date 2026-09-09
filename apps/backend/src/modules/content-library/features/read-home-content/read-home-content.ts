@@ -10,6 +10,7 @@ import type {
 import { listPublishedMaterials } from "../list-published-materials/list-published-materials.js";
 
 export interface HomeContentDto {
+  readonly pinnedSeries: PublishedMaterialCatalogFacetDto | null;
   readonly topics: readonly PublishedMaterialCatalogFacetDto[];
   readonly playlists: readonly PublishedMaterialCatalogFacetDto[];
   readonly videos: readonly PublishedMaterialCatalogItemDto[];
@@ -28,14 +29,14 @@ export type HomeContentResult =
 const HOME_MATERIAL_LIMIT = 8;
 
 export async function readHomeContent(
-  publishedMaterialReader: Pick<PublishedMaterialReader, "listProjections">,
+  publishedMaterialReader: Pick<PublishedMaterialReader, "listProjections" | "readHomePinnedSeriesId">,
   contentAccess: Pick<ContentAccess, "checkAvailabilityMany">,
   videoCatalog: Pick<Videos, "loadReadyDurations">,
   membershipEntitlements: Pick<MembershipEntitlements, "resolveForAccess">,
   membershipAcquisitionUrl: string,
   subject: Subject,
 ): Promise<HomeContentResult> {
-  const [catalog, videos, guides, notes, membership] = await Promise.all([
+  const [catalog, videos, guides, notes, pinnedSeriesId, membership] = await Promise.all([
     listPublishedMaterials(publishedMaterialReader, contentAccess, videoCatalog, {
       first: 1,
       subject,
@@ -59,6 +60,7 @@ export async function readHomeContent(
       subject,
       sort: "newest",
     }),
+    publishedMaterialReader.readHomePinnedSeriesId(),
     resolveHomeMembership(
       membershipEntitlements,
       membershipAcquisitionUrl,
@@ -71,9 +73,11 @@ export async function readHomeContent(
   if (!catalog.ok || !videos.ok || !guides.ok || !notes.ok) {
     throw new TypeError("Home content result narrowing failed");
   }
+  if (!pinnedSeriesId.ok) return pinnedSeriesId;
   return {
     ok: true,
     value: {
+      pinnedSeries: catalog.value.facets.series.find((series) => series.id === pinnedSeriesId.value && series.count > 0) ?? null,
       topics: catalog.value.facets.topics.slice(0, 8),
       playlists: catalog.value.facets.series.slice(0, 4),
       videos: videos.value.items,

@@ -333,3 +333,10 @@ export function requestMaterialPreview(
     { accessToken },
   );
 }
+
+export function requestAuthoringHomePin(accessToken: string): Promise<BackendTransportResult> {
+  return executeGeneratedRequest((request) => new MaterialAuthoringService(request).loadAuthoringHomePin(), 200, { accessToken });
+}
+export function requestHomePinUpdate(input: { readonly seriesId: string | null; readonly expectedVersion: number }, accessToken: string): Promise<BackendTransportResult> {
+  return executeGeneratedRequest((request) => new MaterialAuthoringService(request).setAuthoringHomePin({ requestBody: input }), 200, { accessToken });
+}
