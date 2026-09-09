@@ -119,8 +119,11 @@ export const StepAssignments: Story = {
   play: async ({ canvasElement }) => {
     saveOrderSpy.mockClear();
     const canvas = within(canvasElement);
+    const disclosure = canvas.getAllByText("Последовательность шагов")[0];
+    if (disclosure === undefined) throw new Error("Missing step disclosure");
+    await userEvent.click(disclosure);
     const input = canvas.getAllByRole("textbox", {
-      name: "Последовательность шагов",
+      name: "Название последовательности",
     })[0];
     if (input === undefined)
       throw new Error("Step assignment field is missing");

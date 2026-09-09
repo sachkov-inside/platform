@@ -11,6 +11,7 @@ export type MaterialsPrisma = Pick<
   | "materialNotificationOutbox"
   | "material"
   | "materialRelatedPin"
+  | "homeSeriesPin"
   | "materialSearchDocument"
   | "materialTag"
   | "publishedMaterial"

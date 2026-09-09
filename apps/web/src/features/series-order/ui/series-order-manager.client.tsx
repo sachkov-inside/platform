@@ -1,4 +1,5 @@
 "use client";
+import type { ReactNode } from "react";
 
 import {
   ArrowDown,
@@ -6,6 +7,8 @@ import {
   ArrowRight,
   ArrowUp,
   LoaderCircle,
+  GripVertical,
+  ChevronDown,
   Plus,
   Search,
   X,
@@ -36,6 +39,7 @@ import type {
 
 export function SeriesOrderManager({
   embedded = false,
+  homePin,
   createMaterialSearchQueryOptions,
   onBack,
   onRefresh,
@@ -43,6 +47,7 @@ export function SeriesOrderManager({
   presentation,
 }: {
   readonly embedded?: boolean;
+  readonly homePin?: ReactNode;
   readonly createMaterialSearchQueryOptions: CreateSeriesOrderMaterialSearchQueryOptions;
   readonly onBack: () => void;
   readonly onRefresh: () => void;
@@ -78,6 +83,9 @@ export function SeriesOrderManager({
   const result = mutation.data ?? null;
   const pending = autosave.pending;
   const dirty = autosave.dirty;
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dropId, setDropId] = useState<string | null>(null);
+  const [positionNotice, setPositionNotice] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
   const pickerRef = useRef<HTMLDialogElement>(null);
   const close = () => {
@@ -95,6 +103,9 @@ export function SeriesOrderManager({
     next.splice(destination, 0, item);
     mutation.reset();
     setItems(next);
+    setPositionNotice(
+      `${item.title}: позиция ${String(destination + 1)} из ${String(next.length)}`,
+    );
   };
   const openPicker = () => {
     setPickerOpen(true);
@@ -106,91 +117,115 @@ export function SeriesOrderManager({
     <Container
       className={
         embedded
-          ? "bg-background px-4 py-5 text-foreground sm:px-6"
+          ? "text-foreground"
           : "h-full min-h-svh overflow-y-auto bg-background px-4 pb-20 pt-5 text-foreground sm:px-6 md:min-h-0"
       }
       id={embedded ? undefined : "authoring-content"}
       tabIndex={-1}
     >
-      <div className="mx-auto w-full max-w-4xl">
-        <header className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-5">
-          <div className="flex min-w-0 items-start gap-3">
+      <div className={embedded ? "w-full" : "mx-auto w-full max-w-4xl"}>
+        {embedded ? (
+          <header className="flex flex-wrap items-center justify-between gap-4 border-y border-border py-4">
+            <div className="flex items-baseline gap-3">
+              <h2 className="text-xl font-semibold">Материалы руководства</h2>
+              <span className="text-sm tabular-nums text-muted-foreground">
+                {items.length}
+              </span>
+            </div>
             <Button
-              aria-label={
-                embedded ? "Закрыть состав руководства" : "Вернуться к материалам"
-              }
-              className="mt-0.5 size-10"
-              onClick={close}
-              size="icon"
+              disabled={presentation.archived}
+              onClick={openPicker}
               type="button"
-              variant="ghost"
+              variant="outline"
             >
-              <ArrowLeft aria-hidden="true" />
+              <Plus aria-hidden="true" />
+              Добавить материал
             </Button>
-            <div className="min-w-0">
-              <p className="font-mono text-xs text-muted-foreground">
-                Порядок материалов
-              </p>
-              <h1 className="mt-1 truncate text-2xl font-semibold tracking-[-0.03em] sm:text-3xl">
-                {presentation.name}
-              </h1>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-                Порядок и состав сохраняются автоматически.
-              </p>
-            </div>
-          </div>
-          <div className="grid w-full gap-3 sm:w-72">
-            {embedded ? null : (
-              <div>
-                <label
-                  className="mb-2 block text-sm font-medium"
-                  htmlFor="playlist-switcher"
-                >
-                  Руководство
-                </label>
-                <Select
-                  onValueChange={(value) => {
-                    onSelectPlaylist(value);
-                  }}
-                  value={presentation.seriesId}
-                >
-                  <SelectTrigger
-                    className="min-h-11 w-full rounded-xl bg-card"
-                    id="playlist-switcher"
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {presentation.options.map((option) => (
-                      <SelectItem
-                        disabled={
-                          option.archived === true &&
-                          option.value !== presentation.seriesId
-                        }
-                        key={option.value}
-                        value={option.value}
-                      >
-                        {option.label}
-                        {option.archived === true ? " · архив" : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+          </header>
+        ) : (
+          <header className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-5">
+            <div className="flex min-w-0 items-start gap-3">
               <Button
-                disabled={presentation.archived}
-                onClick={openPicker}
+                aria-label={
+                  embedded ? "Закрыть состав руководства" : "Вернуться к материалам"
+                }
+                className="mt-0.5 size-10"
+                onClick={close}
+                size="icon"
                 type="button"
-                variant="outline"
+                variant="ghost"
               >
-                <Plus aria-hidden="true" data-icon="inline-start" />
-                Добавить материал
+                <ArrowLeft aria-hidden="true" />
               </Button>
+              <div className="min-w-0">
+                <p className="font-mono text-xs text-muted-foreground">
+                  Порядок материалов
+                </p>
+                <h1 className="mt-1 truncate text-2xl font-semibold tracking-[-0.03em] sm:text-3xl">
+                  {presentation.name}
+                </h1>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+                  Порядок и состав сохраняются автоматически.
+                </p>
+              </div>
             </div>
-          </div>
-        </header>
+            <div className="grid w-full gap-3 sm:w-72">
+              {embedded ? null : (
+                <div>
+                  <label
+                    className="mb-2 block text-sm font-medium"
+                    htmlFor="playlist-switcher"
+                  >
+                    Руководство
+                  </label>
+                  <Select
+                    onValueChange={(value) => {
+                      onSelectPlaylist(value);
+                    }}
+                    value={presentation.seriesId}
+                  >
+                    <SelectTrigger
+                      className="min-h-11 w-full rounded-xl bg-card"
+                      id="playlist-switcher"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {presentation.options.map((option) => (
+                        <SelectItem
+                          disabled={
+                            option.archived === true &&
+                            option.value !== presentation.seriesId
+                          }
+                          key={option.value}
+                          value={option.value}
+                        >
+                          {option.label}
+                          {option.archived === true ? " · архив" : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+                <Button
+                  disabled={presentation.archived}
+                  onClick={openPicker}
+                  type="button"
+                  variant="outline"
+                >
+                  <Plus aria-hidden="true" data-icon="inline-start" />
+                  Добавить материал
+                </Button>
+              </div>
+            </div>
+          </header>
+        )}
+        {homePin}
+        <p className="sr-only" role="status">
+          {positionNotice}
+        </p>
 
         <OrderFeedback
           dirty={dirty}
@@ -218,7 +253,7 @@ export function SeriesOrderManager({
         />
 
         <form
-          className="mt-6"
+          className="mt-2"
           id="series-order-form"
           onSubmit={(event) => {
             event.preventDefault();
@@ -243,86 +278,179 @@ export function SeriesOrderManager({
               </p>
             </div>
           ) : (
-            <ol className="grid gap-2" aria-label="Материалы руководства">
+            <ol className="divide-y divide-border" aria-label="Материалы руководства">
               {items.map((item, index) => (
                 <li
-                  className="flex min-w-0 items-center gap-3 rounded-2xl border border-border bg-card p-3 sm:p-4"
+                  className={cn(
+                    "group relative min-w-0 py-4",
+                    draggedId === item.materialId && "opacity-50",
+                    dropId === item.materialId &&
+                      "bg-secondary outline-2 outline-ring",
+                  )}
                   key={item.materialId}
+                  onDragOver={(event) => {
+                    if (draggedId === null) return;
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = "move";
+                    setDropId(item.materialId);
+                  }}
+                  onDragLeave={(event) => {
+                    if (
+                      !event.currentTarget.contains(
+                        event.relatedTarget as Node | null,
+                      )
+                    )
+                      setDropId(null);
+                  }}
+                  onDrop={(event) => {
+                    if (draggedId === null) return;
+                    event.preventDefault();
+                    const source = items.findIndex(
+                      ({ materialId }) => materialId === draggedId,
+                    );
+                    const next = [...items];
+                    const [entry] = next.splice(source, 1);
+                    if (source >= 0 && entry !== undefined) {
+                      next.splice(index, 0, entry);
+                      mutation.reset();
+                      setItems(next);
+                      setPositionNotice(
+                        `${entry.title}: позиция ${String(index + 1)} из ${String(next.length)}`,
+                      );
+                    }
+                    setDraggedId(null);
+                    setDropId(null);
+                  }}
                 >
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium">{item.title}</p>
-                    <span
-                      className={cn(
-                        "mt-1 inline-flex rounded-full px-2 py-0.5 font-mono text-[0.6875rem]",
-                        stateClassName(item.publicationState),
-                      )}
-                    >
-                      {stateLabel(item.publicationState)}
+                  <div className="grid min-w-0 grid-cols-[1.5rem_minmax(0,1fr)_auto] items-center gap-x-2 sm:grid-cols-[1.5rem_2.5rem_minmax(0,1fr)_auto] sm:gap-x-3">
+                    <span className="col-start-1 row-start-1 w-6 self-start pt-1.5 text-center text-sm tabular-nums text-muted-foreground">
+                      {index + 1}
                     </span>
-                    <label className="mt-3 block text-xs text-muted-foreground">
-                      Последовательность шагов
-                      <input
-                        className="mt-1 block min-h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-ring"
-                        disabled={false}
-                        maxLength={120}
-                        onChange={(event) => {
-                          const value = event.currentTarget.value;
+                    <button
+                      aria-label={`Переместить «${item.title}»`}
+                      title="Перетащите или используйте клавиши ↑ и ↓"
+                      className="col-start-2 row-start-1 hidden size-10 shrink-0 cursor-grab items-center justify-center rounded-md text-muted-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring active:cursor-grabbing sm:flex"
+                      draggable
+                      type="button"
+                      onDragStart={(event) => {
+                        setDraggedId(item.materialId);
+                        event.dataTransfer.effectAllowed = "move";
+                        event.dataTransfer.setData(
+                          "text/plain",
+                          item.materialId,
+                        );
+                      }}
+                      onDragEnd={() => {
+                        setDraggedId(null);
+                        setDropId(null);
+                      }}
+                      onKeyDown={(event) => {
+                        if (
+                          event.key === "ArrowUp" ||
+                          event.key === "ArrowDown"
+                        ) {
+                          event.preventDefault();
+                          move(index, event.key === "ArrowUp" ? -1 : 1);
+                        }
+                      }}
+                    >
+                      <GripVertical aria-hidden="true" className="size-4" />
+                    </button>
+                    <div className="contents">
+                      <p className="col-span-2 col-start-2 row-start-1 min-w-0 pt-1.5 sm:col-span-1 sm:col-start-3 font-medium leading-snug [overflow-wrap:anywhere]">
+                        {item.title}
+                      </p>
+                      <span
+                        className={cn(
+                          "col-start-2 row-start-2 min-w-0 text-xs sm:col-start-3",
+                          item.publicationState === "published"
+                            ? "text-muted-foreground"
+                            : "font-medium text-action",
+                        )}
+                      >
+                        {stateLabel(item.publicationState)}
+                      </span>
+                      <details className="col-span-2 col-start-2 row-start-3 min-w-0 text-sm sm:col-span-1 sm:col-start-3">
+                        <summary className="flex min-h-9 w-fit max-w-full cursor-pointer list-none items-center gap-1.5 rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
+                          <ChevronDown
+                            aria-hidden="true"
+                            className="size-3.5 shrink-0"
+                          />
+                          <span className="[overflow-wrap:anywhere]">
+                            {item.stepGroup?.trim()
+                              ? item.stepGroup.trim()
+                              : "Последовательность шагов"}
+                          </span>
+                        </summary>
+                        <label className="mt-2 block max-w-sm pb-2 text-xs text-muted-foreground">
+                          Название последовательности
+                          <input
+                            name={`step-group-${item.materialId}`}
+                            className="mt-1 block min-h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-ring"
+                            maxLength={120}
+                            onChange={(event) => {
+                              const value = event.currentTarget.value;
+                              mutation.reset();
+                              setItems((current) =>
+                                current.map((entry) =>
+                                  entry.materialId === item.materialId
+                                    ? { ...entry, stepGroup: value }
+                                    : entry,
+                                ),
+                              );
+                            }}
+                            placeholder="Без последовательности"
+                            value={item.stepGroup ?? ""}
+                          />
+                        </label>
+                      </details>
+                    </div>
+                    <div className="col-start-3 row-start-2 flex shrink-0 justify-end gap-0.5 sm:col-start-4 sm:row-span-3 sm:row-start-1 sm:self-start">
+                      <Button
+                        aria-label={`Поднять «${item.title}»`}
+                        className="size-10"
+                        disabled={index === 0}
+                        onClick={() => {
+                          move(index, -1);
+                        }}
+                        size="icon"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <ArrowUp aria-hidden="true" />
+                      </Button>
+                      <Button
+                        aria-label={`Опустить «${item.title}»`}
+                        className="size-10"
+                        disabled={index === items.length - 1}
+                        onClick={() => {
+                          move(index, 1);
+                        }}
+                        size="icon"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <ArrowDown aria-hidden="true" />
+                      </Button>
+                      <Button
+                        aria-label={`Убрать «${item.title}»`}
+                        className="size-10"
+                        onClick={() => {
                           mutation.reset();
                           setItems((current) =>
-                            current.map((entry) =>
-                              entry.materialId === item.materialId
-                                ? { ...entry, stepGroup: value }
-                                : entry,
+                            current.filter(
+                              ({ materialId }) =>
+                                materialId !== item.materialId,
                             ),
                           );
                         }}
-                        placeholder="Без последовательности"
-                        value={item.stepGroup ?? ""}
-                      />
-                    </label>
-                  </div>
-                  <div className="flex shrink-0 gap-1">
-                    <Button
-                      aria-label={`Поднять «${item.title}»`}
-                      disabled={index === 0}
-                      onClick={() => {
-                        move(index, -1);
-                      }}
-                      size="icon"
-                      type="button"
-                      variant="outline"
-                    >
-                      <ArrowUp aria-hidden="true" />
-                    </Button>
-                    <Button
-                      aria-label={`Опустить «${item.title}»`}
-                      disabled={index === items.length - 1}
-                      onClick={() => {
-                        move(index, 1);
-                      }}
-                      size="icon"
-                      type="button"
-                      variant="outline"
-                    >
-                      <ArrowDown aria-hidden="true" />
-                    </Button>
-                    <Button
-                      aria-label={`Убрать «${item.title}»`}
-                      disabled={false}
-                      onClick={() => {
-                        mutation.reset();
-                        setItems((current) =>
-                          current.filter(
-                            ({ materialId }) => materialId !== item.materialId,
-                          ),
-                        );
-                      }}
-                      size="icon"
-                      type="button"
-                      variant="ghost"
-                    >
-                      <X aria-hidden="true" />
-                    </Button>
+                        size="icon"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <X aria-hidden="true" />
+                      </Button>
+                    </div>
                   </div>
                 </li>
               ))}
@@ -618,14 +746,6 @@ function stateLabel(
   if (state === "published") return "Опубликован";
   if (state === "unpublished") return "Снят с публикации";
   return "Черновик";
-}
-
-function stateClassName(
-  state: SeriesOrderItemPresentation["publicationState"],
-): string {
-  return state === "published"
-    ? "bg-secondary text-foreground"
-    : "bg-muted text-muted-foreground";
 }
 
 function compositionEntries(
