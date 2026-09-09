@@ -16,7 +16,7 @@ export const purchaseStatusSchema = z.strictObject({
   confirmedAt: z.iso.datetime().nullable(), periodEndsAt: z.iso.datetime().nullable(),
 });
 export type PurchaseStatus = z.infer<typeof purchaseStatusSchema>;
-export const paymentFailureCodes = ["invalid_request", "forbidden", "not_found", "operation_conflict", "payment_in_progress",
+export const paymentFailureCodes = ["invalid_request", "forbidden", "not_found", "operation_conflict", "revision_conflict", "payment_in_progress",
   "contact_required", "consent_required", "existing_access", "legacy_review_required", "quote_expired", "quote_changed",
   "unsupported_amount", "method_unavailable", "provider_unavailable", "dependency_unavailable", "invalid_notification"] as const;
 export type PaymentFailureCode = typeof paymentFailureCodes[number];
