@@ -1,3 +1,4 @@
+import { VIDEOS, type Videos } from "../../src/modules/videos/index.js";
 import { Communications } from "../../src/modules/communications/index.js";
 import { createServer, type Server } from "node:http";
 
@@ -96,6 +97,7 @@ describe("delegated Material authoring over MCP", () => {
     mcpServer = createMcpHttpServer({
       accounts: application.get<Accounts>(ACCOUNTS),
       authoring: application.get<MaterialAuthoring>(MATERIAL_AUTHORING),
+      videos: application.get<Videos>(VIDEOS),
       communications: application.get(Communications),
       config: {
         host: "127.0.0.1",
@@ -168,6 +170,7 @@ describe("delegated Material authoring over MCP", () => {
     });
 
     const saved = await callTool("material_save", {
+      primaryVideoId: null,
       idempotencyKey: "mcp-save-draft",
       materialId,
       expectedContentVersion: 1,
@@ -204,6 +207,7 @@ describe("delegated Material authoring over MCP", () => {
     });
 
     const stale = await callTool("material_save", {
+      primaryVideoId: null,
       idempotencyKey: "mcp-save-stale",
       materialId,
       expectedContentVersion: 1,
@@ -232,6 +236,7 @@ describe("delegated Material authoring over MCP", () => {
     });
 
     const published = await callTool("material_save", {
+      primaryVideoId: null,
       idempotencyKey: "mcp-publish",
       materialId,
       expectedContentVersion: 2,
@@ -258,11 +263,19 @@ describe("delegated Material authoring over MCP", () => {
       isError: true,
       structuredContent: { ok: false, error: { code: "forbidden" } },
     });
+    for (const [name, args] of [
+      ["video_attach_existing", { materialId, access: "membership", providerVideoId: "not-allowed" }],
+      ["video_init_upload", { materialId, access: "membership", filename: "recording.mp4", title: "Recording", byteSize: 1024, idempotencyKey: "denied-upload" }],
+      ["video_reconcile", { videoId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc" }],
+    ] as const) {
+      expect(await callTool(name, args)).toMatchObject({ isError: true, structuredContent: { error: { code: "forbidden" } } });
+    }
     await database.prisma.accountPermission.create({
       data: { accountId: ownerAccountId, permission: "materials:manage" },
     });
 
     const unpublished = await callTool("material_save", {
+      primaryVideoId: null,
       idempotencyKey: "mcp-unpublish",
       materialId,
       expectedContentVersion: 3,
@@ -417,6 +430,47 @@ describe("delegated Material authoring over MCP", () => {
       },
     });
     await expect(database.prisma.material.count()).resolves.toBe(countBefore);
+  });
+
+  test("attaches an existing Video, retries without duplication, preserves it on Save, and detaches without deleting the source", async () => {
+    const meta = metadata("MCP existing video", "membership");
+    const body = representativeDocument("Existing video through MCP.");
+    const created = await callTool("material_create_draft", { idempotencyKey: "video-create", metadata: meta, body });
+    const materialId = successfulMaterialId(created);
+    const attachment = { materialId, access: "membership", providerVideoId: "test-mcp-existing-444" };
+    const first = await callTool("video_attach_existing", attachment);
+    const videoId = z.uuid().parse(successfulValue(first).videoId);
+    expect(successfulValue(await callTool("video_attach_existing", attachment)).videoId).toBe(videoId);
+    expect(successfulValue(await callTool("video_reconcile", { videoId })).state).toBe("ready");
+    await expect(database.prisma.video.count({ where: { materialId } })).resolves.toBe(1);
+    const save = { materialId, metadata: meta, body, publicationState: "draft", primaryVideoId: videoId };
+    expect(successfulValue(await callTool("material_save", { ...save, expectedContentVersion: 1, idempotencyKey: "video-select" })).contentVersion).toBe(2);
+    expect(successfulValue(await callTool("material_load", { materialId })).primaryVideoId).toBe(videoId);
+    expect(successfulValue(await callTool("material_save", { ...save, expectedContentVersion: 2, idempotencyKey: "video-keep" })).contentVersion).toBe(3);
+    expect(successfulValue(await callTool("material_load", { materialId })).primaryVideoId).toBe(videoId);
+    const stale = await callTool("material_save", { ...save, primaryVideoId: null, expectedContentVersion: 2, idempotencyKey: "video-stale" });
+    expect(stale).toMatchObject({ isError: true, structuredContent: { error: { code: "stale_content_version" } } });
+    expect(successfulValue(await callTool("material_load", { materialId })).primaryVideoId).toBe(videoId);
+    expect(successfulValue(await callTool("material_save", { ...save, primaryVideoId: null, expectedContentVersion: 3, idempotencyKey: "video-detach" })).contentVersion).toBe(4);
+    const retained = await database.prisma.video.findUniqueOrThrow({ where: { id: videoId } });
+    expect(retained.state).toBe("ready");
+    expect(retained.origin).toBe("external_attachment");
+    expect(successfulValue(await callTool("material_load", { materialId })).primaryVideoId).toBeNull();
+    const other = successfulMaterialId(await callTool("material_create_draft", { idempotencyKey: "video-other", metadata: meta, body }));
+    expect(await callTool("video_attach_existing", { ...attachment, materialId: other })).toMatchObject({ isError: true, structuredContent: { error: { code: "provider_mismatch" } } });
+  });
+
+  test("initializes resumable upload once and rejects actor injection", async () => {
+    const meta = metadata("MCP upload", "membership");
+    const materialId = successfulMaterialId(await callTool("material_create_draft", { idempotencyKey: "upload-create", metadata: meta, body: representativeDocument("Upload.") }));
+    const args = { materialId, access: "membership", filename: "recording.mp4", title: "Recording", byteSize: 1024, idempotencyKey: "mcp-upload-once" };
+    expect(await callTool("video_init_upload", { ...args, actor: ownerAccountId })).toMatchObject({ isError: true });
+    await expect(database.prisma.video.count({ where: { materialId } })).resolves.toBe(0);
+    const first = successfulValue(await callTool("video_init_upload", args));
+    const second = successfulValue(await callTool("video_init_upload", args));
+    expect(second).toEqual(first);
+    await expect(database.prisma.video.count({ where: { materialId } })).resolves.toBe(1);
+    expect(first.uploadEndpoint).toMatch(/^https:\/\/uploads\.invalid\//u);
   });
 
   function callTool(
