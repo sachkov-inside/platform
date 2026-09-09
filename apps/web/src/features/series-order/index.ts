@@ -1,5 +1,11 @@
+export {
+  GUIDE_CHAPTER_NAME_MAX,
+  GUIDE_CHAPTER_SUMMARY_MAX,
+  guideChapterDraftSchema,
+} from "./model/presentation";
 export type {
   CreateSeriesOrderMaterialSearchQueryOptions,
+  GuideChapterPresentation,
   ReorderSeriesInput,
   ReorderSeriesResult,
   SeriesOrderItemPresentation,

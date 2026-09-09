@@ -46,6 +46,13 @@ const discoveryTopicSchema = z
     slug: z.string(),
   })
   .strict();
+const guideChapterSchema = z
+  .object({
+    id: z.string(),
+    materialIds: z.array(z.string()),
+    name: z.string(),
+  })
+  .strict();
 const discoveryNotFoundSchema = z
   .object({
     code: z.literal("discovery_not_found"),
@@ -82,6 +89,7 @@ export function mapLibraryDiscoveryResult<
 
   const responseSchema = z
     .object({
+      chapters: z.array(guideChapterSchema).default([]),
       hasNext: z.boolean(),
       items: z.array(publishedMaterialProjectionSchema),
       kind: z.literal(discoveryKind),
@@ -107,6 +115,7 @@ export function mapLibraryDiscoveryResult<
   };
   if (parsed.data.items.length === 0 && discoveryKind !== "topic") {
     return {
+      chapters: parsed.data.chapters,
       discoveryKind,
       kind: "empty",
       reference,
@@ -115,6 +124,7 @@ export function mapLibraryDiscoveryResult<
     };
   }
   return {
+    chapters: parsed.data.chapters,
     discoveryKind,
     hasNext: parsed.data.hasNext,
     items: parsed.data.items.map(toMaterialPreview),

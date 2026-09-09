@@ -12,6 +12,7 @@ import { executeReorderSeries } from "@/_pages/series-order/api/reorder-series";
 const seriesId = "96000000-0000-4000-8000-000000000001";
 const firstId = "96000000-0000-4000-8000-000000000002";
 const secondId = "96000000-0000-4000-8000-000000000003";
+const chapterId = "96000000-0000-4000-8000-000000000004";
 const orderVersion = "a".repeat(64);
 
 describe("Series order web adapters", () => {
@@ -19,8 +20,11 @@ describe("Series order web adapters", () => {
     const request = vi.fn().mockResolvedValue({
       body: {
         archived: false,
+        chapters: [
+          { id: chapterId, name: "Проект и CI", ordinal: 1, summary: "Первый абзац.\n\nВторой абзац." },
+        ],
         items: [
-          { materialId: firstId, ordinal: 1, publicationState: "published", title: "Первый" },
+          { chapterId, materialId: firstId, ordinal: 1, publicationState: "published", title: "Первый" },
           { materialId: secondId, ordinal: 2, publicationState: "draft", title: null },
         ],
         name: "Создание Platform Inside",
@@ -35,15 +39,38 @@ describe("Series order web adapters", () => {
       kind: "ready",
       order: {
         archived: false,
+        chapters: [
+          { id: chapterId, name: "Проект и CI", summary: "Первый абзац.\n\nВторой абзац." },
+        ],
         items: [
-          { materialId: firstId, publicationState: "published", title: "Первый" },
-          { materialId: secondId, publicationState: "draft", title: "Без названия" },
+          { chapterId, materialId: firstId, publicationState: "published", title: "Первый" },
+          { chapterId: null, materialId: secondId, publicationState: "draft", title: "Без названия" },
         ],
         name: "Создание Platform Inside",
         orderVersion,
         seriesId,
       },
     });
+  });
+
+  it("passes the complete chapter list and placement and rejects a malformed chapter", async () => {
+    const form = validFormData();
+    const chapters = [{ id: chapterId, name: "  Проект и CI  ", summary: "" }];
+    form.set("chapters", JSON.stringify(chapters));
+    form.set("chapterAssignments", JSON.stringify({ [firstId]: chapterId }));
+    const save = vi.fn().mockResolvedValue({ body: { orderVersion, seriesId }, ok: true, response: Response.json({}) });
+    await expect(executeReorderSeries(form, "token", save)).resolves.toMatchObject({ kind: "saved" });
+    expect(save).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        chapterAssignments: { [firstId]: chapterId },
+        chapters: [{ id: chapterId, name: "Проект и CI", summary: "" }],
+      }),
+      "token",
+    );
+    save.mockClear();
+    form.set("chapters", JSON.stringify([{ id: chapterId, name: " ", summary: "" }]));
+    await expect(executeReorderSeries(form, "token", save)).resolves.toEqual({ kind: "error", reference: "series-order-form" });
+    expect(save).not.toHaveBeenCalled();
   });
 
   it("passes explicit step assignments and rejects malformed maps while keeping legacy omission", async () => {

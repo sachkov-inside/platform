@@ -22,6 +22,7 @@ export type MaterialsPrisma = Pick<
   | "guideArtifactMaterialLink"
   | "guideArtifactPlacement"
   | "guideArtifactVersion"
+  | "guideChapter"
   | "guideMembership"
   | "tag"
   | "topic"

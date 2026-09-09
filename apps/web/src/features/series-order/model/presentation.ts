@@ -1,7 +1,25 @@
 import type { UseQueryOptions } from "@tanstack/react-query";
 import { z } from "zod";
 
+export interface GuideChapterPresentation {
+  readonly id: string;
+  readonly name: string;
+  readonly summary: string;
+}
+
+/** One Web-side owner for the chapter limits the Nest contract enforces. */
+export const GUIDE_CHAPTER_NAME_MAX = 120;
+export const GUIDE_CHAPTER_SUMMARY_MAX = 4000;
+export const guideChapterDraftSchema = z
+  .object({
+    id: z.uuid(),
+    name: z.string().trim().min(1).max(GUIDE_CHAPTER_NAME_MAX),
+    summary: z.string().trim().max(GUIDE_CHAPTER_SUMMARY_MAX),
+  })
+  .strict();
+
 export interface SeriesOrderItemPresentation {
+  readonly chapterId?: string | null;
   readonly materialId: string;
   readonly stepGroup?: string | null;
   readonly publicationState: "draft" | "published" | "unpublished";
@@ -10,6 +28,7 @@ export interface SeriesOrderItemPresentation {
 
 export interface SeriesOrderPresentation {
   readonly archived: boolean;
+  readonly chapters: readonly GuideChapterPresentation[];
   readonly items: readonly SeriesOrderItemPresentation[];
   readonly name: string;
   readonly options: readonly { readonly archived?: boolean; readonly label: string; readonly value: string }[];
@@ -48,6 +67,8 @@ export type CreateSeriesOrderMaterialSearchQueryOptions = (input: {
 >;
 
 export interface ReorderSeriesInput {
+  readonly chapters?: readonly GuideChapterPresentation[];
+  readonly chapterAssignments?: Readonly<Record<string, string>>;
   readonly expectedOrderVersion: string;
   readonly orderedMaterialIds: readonly string[];
   readonly stepGroups?: Readonly<Record<string, string>>;
