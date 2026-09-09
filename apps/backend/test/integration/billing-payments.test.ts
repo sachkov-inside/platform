@@ -18,13 +18,10 @@ import { BillingPayments, BillingPricing } from "../../src/modules/billing/index
 import { Tbank, tbankToken } from "../../src/modules/billing/infrastructure/tbank/tbank.js";
 import { tbankConfigSchema } from "../../src/config/tbank-config.js";
 import { createMigratedTestDatabase, type TestDatabase } from "./setup/test-database.js";
+import { eventually } from "./setup/eventually.js";
 
 function value<T>(result: { ok: true; value: T } | { ok: false; error: { code: string } }): T {
   if (!result.ok) throw new Error(result.error.code); return result.value;
-}
-async function eventually(check: () => Promise<void>, budgetMs = 10_000) {
-  const deadline = Date.now() + budgetMs;
-  for (;;) { try { await check(); return; } catch (error) { if (Date.now() >= deadline) throw error; await delay(50); } }
 }
 const config = tbankConfigSchema.parse({ environment: "demo", terminalKey: "SYNTHETICDEMO", password: "synthetic-test-password",
   bindingEncryptionKey: Buffer.alloc(32, 43).toString("base64"), recurringCardConfirmed: true, cardOnlyHostedConfirmed: true,
@@ -111,10 +108,15 @@ describe("subscription payment recovery (real PostgreSQL and real facets; synthe
     const sender = runtime.purchase(s.buyer, s.command);
     await eventually(async () => {
       expect((await db.prisma.billingPurchase.findFirst({ where: { accountId: s.buyer } }))?.state).toBe("sent");
-    });
-    const secondTab = runtime.purchase(s.buyer, { ...s.command, operationId: randomUUID() });
-    // The sender still holds the bank. A caller that sent nothing must not answer from the interim row.
-    expect(await Promise.race([secondTab.then(() => "answered"), delay(500).then(() => "waiting")])).toBe("waiting");
+    }, 10_000);
+    const joining = { ...s.command, operationId: randomUUID() };
+    const secondTab = runtime.purchase(s.buyer, joining);
+    // A barrier, not a stopwatch: once the joining call has committed its command row it has already
+    // passed the point where the unfixed code answered straight from the interim row.
+    await eventually(async () => {
+      expect(await db.prisma.billingPurchaseCommand.findUnique({ where: { accountId_operationId: { accountId: s.buyer, operationId: joining.operationId } } })).not.toBeNull();
+    }, 10_000);
+    expect(await Promise.race([secondTab.then(() => "answered"), delay(50).then(() => "waiting")])).toBe("waiting");
     release();
     const [first, second] = await Promise.all([sender, secondTab]);
     expect(s.requests()).toBe(1);

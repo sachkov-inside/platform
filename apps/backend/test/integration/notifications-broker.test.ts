@@ -1,5 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
+import { RELAY_RETRY_MAX_MS } from '../../src/infrastructure/notification-transport/outbox.js';
+import { retryDelaysMs } from '../../src/modules/notifications/features/dispatch-email/dispatch-email.js';
+import { eventually } from './setup/eventually.js';
 import { GenericContainer, Wait } from 'testcontainers';
 import { expect, test, onTestFinished } from 'vitest';
 import { createMigratedTestDatabase } from './setup/test-database.js';
@@ -16,13 +19,10 @@ import { assembleMaterialsNotificationOutbox } from '../../src/modules/materials
 import { stageMaterialsNotification } from '../../src/modules/materials/facets/notification-outbox/notification-outbox.js';
 import type { NotificationEvent } from '../../src/modules/notifications/domain/notification-wire.js';
 
-// The dispatcher retries a source outage after 1s, 5s and 30s, so a recovery this test itself
-// provokes can legitimately take 36 seconds. A shorter budget fails on the code's own worst case.
-const recoveryBudgetMs = 40_000;
-async function eventually(check: () => Promise<void>) {
-  const deadline = Date.now() + recoveryBudgetMs;
-  for (;;) { try { await check(); return; } catch (error) { if (Date.now() >= deadline) throw error; await delay(100); } }
-}
+// This test provokes a real outage, so both retry ladders the code owns can gate the wait: the
+// outbox relay backs off up to RELAY_RETRY_MAX_MS, and the email dispatcher up to the sum of
+// retryDelaysMs. Deriving the budget keeps it correct when either ladder changes.
+const recoveryBudgetMs = Math.max(RELAY_RETRY_MAX_MS, retryDelaysMs.reduce((total, value) => total + value, 0)) + 15_000;
 test('real RabbitMQ event → audience → email inbox/effect → result outage/recovery; both categories and ACL', async () => {
   const topology = localNotificationTopology('inside-test', 100);
   const broker = await new GenericContainer(NOTIFICATION_BROKER_IMAGE).withExposedPorts(5672).withCopyContentToContainer([
@@ -71,13 +71,13 @@ test('real RabbitMQ event → audience → email inbox/effect → result outage/
     await database.prisma.$transaction(async transaction => { await stageBillingNotification(transaction, billing); });
     await database.prisma.$transaction(async transaction => { await stageMaterialsNotification(transaction, material); });
     await worker.start();
-    await eventually(async () => { expect(await database.prisma.notificationEmailEffect.count({ where: { state: 'sent' } })).toBe(2); });
+    await eventually(async () => { expect(await database.prisma.notificationEmailEffect.count({ where: { state: 'sent' } })).toBe(2); }, recoveryBudgetMs);
     expect(sends).toBe(2);
     expect(await database.prisma.notificationDelivery.count({ where: { state: 'sent' } })).toBe(0);
     expect(await database.prisma.notificationOutbox.count({ where: { scope: 'email', publishedAt: null } })).toBeGreaterThanOrEqual(2);
     const restored = await broker.exec(['rabbitmqctl', 'set_permissions', '-p', 'inside-test', 'local-email', emailPermission.configure, emailPermission.write, emailPermission.read]);
     expect(restored.exitCode).toBe(0);
-    await eventually(async () => { expect(await database.prisma.notificationDelivery.count({ where: { state: 'sent' } })).toBe(2); });
+    await eventually(async () => { expect(await database.prisma.notificationDelivery.count({ where: { state: 'sent' } })).toBe(2); }, recoveryBudgetMs);
     await publishNotification(publisher, encodeNotification('billing', billing));
     await delay(1_500);
     expect(sends).toBe(2);
@@ -87,4 +87,4 @@ test('real RabbitMQ event → audience → email inbox/effect → result outage/
     await worker.stop(); await invalid.close().catch(() => undefined); await publisher.close().catch(() => undefined);
 
   }
-}, 150_000);
+}, recoveryBudgetMs * 2 + 60_000);

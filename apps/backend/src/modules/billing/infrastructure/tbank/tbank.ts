@@ -2,7 +2,7 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes, timingSafeEq
 import { z } from "zod";
 import type { TbankConfig } from "../../../../config/tbank-config.js";
 
-const bankTimeoutMs = 10_000;
+export const bankTimeoutMs = 10_000;
 const reference = z.union([z.string().min(1).max(64), z.int().nonnegative()]);
 const success = z.union([z.boolean(), z.enum(["true", "false"])]);
 const bankPaymentInputSchema = z.object({

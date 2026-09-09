@@ -7,7 +7,7 @@ import type { NotificationDependencies } from '../expand-audience/expand-audienc
 import { authorizeDispatch } from '../authorize-dispatch/authorize-dispatch.js';
 import type { SendNotificationEmail } from '../../ports/notification-sources.js';
 
-const retryDelaysMs = [1_000, 5_000, 30_000] as const;
+export const retryDelaysMs = [1_000, 5_000, 30_000] as const;
 async function persistResult(transaction: NotificationsPrisma, command: DeliveryCommand, digest: string, now: Date,
   outcome: { state: DeliveryResult['state']; reason?: string; attemptRef?: string | null; receiptRef?: string; nextAttemptAt?: string }) {
   const effect = await transaction.notificationEmailEffect.findUniqueOrThrow({ where: { deliveryId: command.deliveryRef } });

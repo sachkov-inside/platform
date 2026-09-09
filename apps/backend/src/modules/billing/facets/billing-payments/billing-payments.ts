@@ -7,15 +7,18 @@ import type { AccessGrants } from "../../../membership-entitlements/index.js";
 import { priceSnapshotSchema } from "../../domain/pricing.js";
 import { subscriptionPeriodEnd } from "../../domain/subscription-period.js";
 import { lockPricing } from "../../infrastructure/postgres/catalog-lock.js";
-import { type Tbank, validatedPaymentUrl, type BankPayment } from "../../infrastructure/tbank/tbank.js";
+import { bankTimeoutMs, type Tbank, validatedPaymentUrl, type BankPayment } from "../../infrastructure/tbank/tbank.js";
 import { reservePurchaseInTransaction } from "../../features/reserve-purchase/reserve-purchase.js";
 import { paymentFailure, purchaseSubscriptionSchema, purchaseStatusSchema, type PaymentResult, type PurchaseStatus } from "../../features/purchase-subscription/purchase-subscription.contract.js";
 import { paidPeriodCommandSchema } from "../../../membership-entitlements/index.js";
 
 const fulfillmentRetryDelayMilliseconds = 60_000;
-// Longer than the bank request timeout, so a joining caller outlives one honest round-trip.
-const inFlightAnswerBudgetMilliseconds = 12_000;
+// Derived from the bank's own timeout so a joining caller outlives exactly one honest round-trip.
+const inFlightAnswerBudgetMilliseconds = bankTimeoutMs + 2_000;
 const inFlightAnswerPollMilliseconds = 50;
+
+// Why this caller did not perform the bank round-trip. Only an in-flight send is worth waiting for.
+type SendOutcome = "sent" | "in_flight" | "not_sendable";
 
 interface Dependencies {
   readonly prisma: BillingPrismaClient;
@@ -89,7 +92,7 @@ export class BillingPayments {
       if (!prepared.ok) return prepared;
       // A concurrent tab joins an existing purchase and sends nothing. Its answer must be the
       // settled result of the caller that did send, never the interim row that carries no payment URL.
-      if (!await this.sendPrepared(prepared.value)) await this.awaitBankAnswer(prepared.value);
+      if (await this.sendPrepared(prepared.value) === "in_flight") await this.awaitBankAnswer(prepared.value);
       return await this.status(accountId, prepared.value);
     } catch { return paymentFailure("dependency_unavailable"); }
   }
@@ -168,23 +171,26 @@ export class BillingPayments {
     const deadline = Date.now() + inFlightAnswerBudgetMilliseconds;
     for (;;) {
       const row = await this.dependencies.prisma.billingPurchase.findUnique({ where: { id: purchaseRef }, select: { state: true } });
-      if (!row || !["prepared", "sent"].includes(row.state) || Date.now() >= deadline) return;
+      if (row?.state !== "sent" || Date.now() >= deadline) return;
       await delay(inFlightAnswerPollMilliseconds);
     }
   }
 
-  private async sendPrepared(purchaseRef: string): Promise<boolean> {
+  private async sendPrepared(purchaseRef: string): Promise<SendOutcome> {
     const { prisma, bank } = this.dependencies;
-    if (!bank) return false;
-    const row = await prisma.$transaction(async tx => {
+    if (!bank) return "not_sendable";
+    const outcome = await prisma.$transaction(async tx => {
       await lockPricing(tx);
       const row = await tx.billingPurchase.findUnique({ where: { id: purchaseRef } });
-      if (!row || row.state !== "prepared" || row.terminalRef !== bank.config.terminalKey || row.environment !== bank.config.environment) return undefined;
+      // A row past `prepared` belongs to another caller; a foreign terminal is nobody's to send.
+      if (!row || row.terminalRef !== bank.config.terminalKey || row.environment !== bank.config.environment) return "not_sendable" as const;
+      if (row.state !== "prepared") return "in_flight" as const;
       await tx.billingPurchase.update({ where: { id: purchaseRef }, data: { state: "sent", updatedAt: this.clock() } });
       await tx.billingPromoReservation.update({ where: { purchaseRef }, data: { state: "sent" } });
       return row;
     });
-    if (!row) return false;
+    if (typeof outcome === "string") return outcome;
+    const row = outcome;
     try {
       const snapshot = priceSnapshotSchema.parse(row.snapshot);
       const contact = z.object({ emailCiphertext: z.string() }).parse(row.contact);
@@ -199,7 +205,7 @@ export class BillingPayments {
         if (changed.count) await tx.billingPromoReservation.update({ where: { purchaseRef }, data: { state: "unknown" } });
       });
     }
-    return true;
+    return "sent";
   }
 
   private async accept(payment: BankPayment, paymentUrl?: string): Promise<PaymentResult<true>> {
