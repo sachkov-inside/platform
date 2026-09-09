@@ -80,6 +80,8 @@ try {
       "content_collection_list",
       "content_collection_set_archive",
       "content_collection_update",
+      "guide_load_composition",
+      "guide_save_composition",
       "material_create_draft",
       "material_load",
       "material_preview",
