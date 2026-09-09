@@ -54,6 +54,7 @@ import {
   describeArtifactContent,
   formatArtifactSize,
 } from "@/features/guide-artifacts/model/guide-artifacts";
+import { MAX_GUIDE_ARTIFACT_MUTATION_BYTES } from "@/shared/api/mutation-limits";
 
 const guideId = "10000000-0000-4000-8000-000000000001";
 const artifactId = "20000000-0000-4000-8000-000000000001";
@@ -142,6 +143,39 @@ describe("Guide artifacts BFF", () => {
     expect(fakes.requestCreateFile).toHaveBeenCalledWith(
       expect.objectContaining({ accessToken: "access-token" }),
     );
+  });
+
+  it("carries the 25 MiB artifact envelope and refuses anything above it", async () => {
+    fakes.requestCreateFile.mockResolvedValue(Response.json({}, { status: 200 }));
+    const upload = (bytes: number) =>
+      new Request(
+        "https://inside.example.test/api/authoring/guide-artifacts/uploads",
+        {
+          body: "--boundary--",
+          headers: {
+            "content-length": String(bytes),
+            "content-type": "multipart/form-data; boundary=boundary",
+            origin: "https://inside.example.test",
+          },
+          method: "POST",
+        },
+      );
+
+    // The shared 2 MiB browser-mutation limit would refuse a normal artifact.
+    const accepted = await handleCreateGuideArtifactFile(
+      upload(MAX_GUIDE_ARTIFACT_MUTATION_BYTES),
+    );
+    expect(accepted.status).toBe(200);
+    expect(fakes.requestCreateFile).toHaveBeenCalledTimes(1);
+
+    const refused = await handleCreateGuideArtifactFile(
+      upload(MAX_GUIDE_ARTIFACT_MUTATION_BYTES + 1),
+    );
+    expect(refused.status).toBe(413);
+    await expect(refused.json()).resolves.toMatchObject({
+      code: "invalid_content",
+    });
+    expect(fakes.requestCreateFile).toHaveBeenCalledTimes(1);
   });
 
   it("keeps the Guides that still reference an artifact in the removal outcome", async () => {

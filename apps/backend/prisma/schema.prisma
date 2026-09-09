@@ -344,9 +344,10 @@ model GuideArtifact {
   access          String
   origin          String
   sourceId        String?   @map("source_id") @db.VarChar(200)
-  importedAt      DateTime? @map("imported_at") @db.Timestamptz
-  importedVersion Int?      @map("imported_version")
-  currentVersion  Int       @map("current_version")
+  importedAt       DateTime? @map("imported_at") @db.Timestamptz
+  importedRevision Int?      @map("imported_revision")
+  revision         Int       @default(1)
+  currentVersion   Int       @map("current_version")
   state           String
   createdBy       String    @map("created_by") @db.Uuid
   archivedAt      DateTime? @map("archived_at") @db.Timestamptz
@@ -367,7 +368,6 @@ model GuideArtifactVersion {
   artifactId          String    @map("artifact_id") @db.Uuid
   version             Int
   contentKind         String    @map("content_kind")
-  state               String
   externalUrl         String?   @map("external_url") @db.VarChar(2048)
   originalFilename    String?   @map("original_filename") @db.VarChar(255)
   contentType         String?   @map("content_type") @db.VarChar(255)
@@ -377,10 +377,9 @@ model GuideArtifactVersion {
   quarantineObjectKey String?   @map("quarantine_object_key") @db.VarChar(512)
   protectedObjectKey  String?   @map("protected_object_key") @db.VarChar(512)
   publicObjectKey     String?   @map("public_object_key") @db.VarChar(512)
-  failureCode         String?   @map("failure_code") @db.VarChar(64)
   createdBy           String    @map("created_by") @db.Uuid
   createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  readyAt             DateTime? @map("ready_at") @db.Timestamptz
+  readyAt             DateTime  @default(now()) @map("ready_at") @db.Timestamptz
   supersededAt        DateTime? @map("superseded_at") @db.Timestamptz
 
   artifact GuideArtifact @relation(fields: [artifactId], references: [id], onDelete: Cascade)

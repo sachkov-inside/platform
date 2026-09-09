@@ -402,7 +402,7 @@ describe("Guide Artifacts", () => {
       where: { artifactId_version: { artifactId, version: 1 } },
     });
     expect(current.protectedObjectKey).toBe(previous.protectedObjectKey);
-    expect(current.state).toBe("ready");
+    expect(current.readyAt).not.toBeNull();
 
     await artifacts.setGuides({ actor: owner, artifactId, guideIds: [] });
     await artifacts.remove({ actor: owner, artifactId });
@@ -537,13 +537,18 @@ describe("Guide Artifacts", () => {
     const artifactId = created.ok ? created.value.outcomes[0]?.artifactId : "";
     expect(artifactId).toBeTruthy();
 
-    const edited = await artifacts.replaceContent({
+    // A hand-edited title carries no new content version, so divergence has to
+    // follow the Platform revision instead.
+    const edited = await artifacts.update({
       actor: owner,
       artifactId: artifactId ?? "",
-      externalUrl: "https://example.test/edited-by-hand",
-      kind: "link",
+      metadata: {
+        access: "free",
+        purpose: "Первая версия",
+        title: "Название, поправленное вручную",
+      },
     });
-    expect(edited).toMatchObject({ ok: true, value: { version: 2 } });
+    expect(edited).toMatchObject({ ok: true, value: { version: 1 } });
 
     const diverged = await artifacts.applyAuthoringImport({
       actor: owner,
@@ -557,7 +562,7 @@ describe("Guide Artifacts", () => {
     const untouched = await db.prisma.guideArtifact.findUniqueOrThrow({
       where: { id: artifactId ?? "" },
     });
-    expect(untouched.title).toBe("Импортированный артефакт");
+    expect(untouched.title).toBe("Название, поправленное вручную");
 
     // An artifact absent from the package is reported, never archived.
     const missing = await artifacts.applyAuthoringImport({
@@ -576,6 +581,104 @@ describe("Guide Artifacts", () => {
         })
       ).state,
     ).toBe("active");
+  });
+
+  test("reuses an authoring artifact that already lives in another guide", async () => {
+    const first = randomUUID();
+    const second = randomUUID();
+    for (const id of [first, second]) {
+      await db.prisma.guide.create({
+        data: { id, name: `Reuse guide ${id}`, slug: id },
+      });
+    }
+    const source = {
+      access: "free" as const,
+      externalUrl: "https://example.test/shared",
+      purpose: "Общий шаблон",
+      sourceId: "shared-template",
+      title: "Общий шаблон",
+    };
+    const created = await artifacts.applyAuthoringImport({
+      actor: owner,
+      artifacts: [source],
+      guideId: first,
+    });
+    const artifactId = created.ok ? created.value.outcomes[0]?.artifactId : "";
+    expect(created).toMatchObject({
+      ok: true,
+      value: { outcomes: [{ outcome: "created" }] },
+    });
+
+    const reused = await artifacts.applyAuthoringImport({
+      actor: owner,
+      artifacts: [source],
+      guideId: second,
+    });
+    expect(reused).toMatchObject({
+      ok: true,
+      value: { outcomes: [{ artifactId, outcome: "unchanged" }] },
+    });
+    expect(await db.prisma.guideArtifact.count({ where: { sourceId: source.sourceId } })).toBe(1);
+    const placements = await db.prisma.guideArtifactPlacement.findMany({
+      where: { artifactId: artifactId ?? "" },
+    });
+    expect(placements.map(({ guideId }) => guideId).toSorted()).toEqual(
+      [first, second].toSorted(),
+    );
+  });
+
+  test("stores the Materials one artifact belongs with outside every Material body", async () => {
+    const artifactId = await createArtifact("free", "Связанный шаблон", guideA);
+    const materialId = randomUUID();
+    await db.prisma.material.create({
+      data: {
+        access: "free",
+        body: {},
+        contentVersion: 1,
+        createdBy: owner,
+        id: materialId,
+        publicationState: "draft",
+        schemaVersion: 1,
+        slug: `material-${materialId}`,
+        title: "Материал для артефакта",
+        topicId,
+      },
+    });
+
+    expect(
+      await artifacts.setMaterials({
+        actor: owner,
+        artifactId,
+        materialIds: [materialId, randomUUID()],
+      }),
+    ).toEqual({ error: { code: "material_not_found" }, ok: false });
+
+    const linked = await artifacts.setMaterials({
+      actor: owner,
+      artifactId,
+      materialIds: [materialId],
+    });
+    expect(linked).toMatchObject({
+      ok: true,
+      value: { materialIds: [materialId] },
+    });
+    const material = await db.prisma.material.findUniqueOrThrow({
+      where: { id: materialId },
+    });
+    expect(material.body).toEqual({});
+    expect(material.contentVersion).toBe(1n);
+
+    // A linked artifact is not removed silently either.
+    expect(await artifacts.remove({ actor: owner, artifactId })).toMatchObject({
+      error: { code: "artifact_referenced" },
+      ok: false,
+    });
+    await artifacts.setMaterials({ actor: owner, artifactId, materialIds: [] });
+    await artifacts.setGuides({ actor: owner, artifactId, guideIds: [] });
+    expect(await artifacts.remove({ actor: owner, artifactId })).toEqual({
+      ok: true,
+      value: { artifactId },
+    });
   });
 
   async function createArtifact(

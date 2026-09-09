@@ -9,7 +9,8 @@ export const statement = `
     origin text not null,
     source_id varchar(200),
     imported_at timestamptz,
-    imported_version integer,
+    imported_revision integer,
+    revision integer not null default 1,
     current_version integer not null,
     state text not null,
     created_by uuid not null,
@@ -20,6 +21,7 @@ export const statement = `
     constraint guide_artifacts_access_check check (access in ('free', 'membership')),
     constraint guide_artifacts_origin_check check (origin in ('platform', 'authoring')),
     constraint guide_artifacts_state_check check (state in ('active', 'archived')),
+    constraint guide_artifacts_revision_check check (revision >= 1),
     constraint guide_artifacts_current_version_check check (current_version >= 1),
     constraint guide_artifacts_archive_shape_check check (
       (state = 'archived') = (archived_at is not null)
@@ -28,7 +30,7 @@ export const statement = `
       (origin = 'platform'
         and source_id is null
         and imported_at is null
-        and imported_version is null)
+        and imported_revision is null)
       or (origin = 'authoring' and source_id is not null)
     ),
     constraint guide_artifacts_source_unique unique (source_id)
@@ -41,7 +43,6 @@ export const statement = `
     artifact_id uuid not null,
     version integer not null,
     content_kind text not null,
-    state text not null,
     external_url varchar(2048),
     original_filename varchar(255),
     content_type varchar(255),
@@ -51,17 +52,15 @@ export const statement = `
     quarantine_object_key varchar(512),
     protected_object_key varchar(512),
     public_object_key varchar(512),
-    failure_code varchar(64),
     created_by uuid not null,
     created_at timestamptz not null default now(),
-    ready_at timestamptz,
+    ready_at timestamptz not null default now(),
     superseded_at timestamptz,
     constraint guide_artifact_versions_primary primary key (artifact_id, version),
     constraint guide_artifact_versions_artifact_fk foreign key (artifact_id)
       references materials.guide_artifacts (id) on delete cascade,
     constraint guide_artifact_versions_version_check check (version >= 1),
     constraint guide_artifact_versions_kind_check check (content_kind in ('file', 'link')),
-    constraint guide_artifact_versions_state_check check (state in ('processing', 'ready')),
     constraint guide_artifact_versions_link_shape_check check (
       content_kind <> 'link'
       or (
@@ -72,6 +71,8 @@ export const statement = `
         and public_object_key is null
       )
     ),
+    -- A file version row exists only after its bytes left quarantine, passed
+    -- inspection and reached protected and public storage.
     constraint guide_artifact_versions_file_shape_check check (
       content_kind <> 'file'
       or (
@@ -79,18 +80,11 @@ export const statement = `
         and original_filename is not null
         and object_nonce is not null
         and quarantine_object_key is not null
-      )
-    ),
-    constraint guide_artifact_versions_ready_file_shape_check check (
-      state <> 'ready'
-      or content_kind <> 'file'
-      or (
-        content_type is not null
+        and content_type is not null
         and byte_size is not null
         and checksum_sha256 is not null
         and protected_object_key is not null
         and public_object_key is not null
-        and ready_at is not null
       )
     ),
     constraint guide_artifact_versions_byte_size_check check (

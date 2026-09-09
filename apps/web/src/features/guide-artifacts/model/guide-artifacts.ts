@@ -48,6 +48,11 @@ export const guideArtifactListStateSchema = z.discriminatedUnion("kind", [
 
 export type GuideArtifactListState = z.infer<typeof guideArtifactListStateSchema>;
 
+/** One wording per refusal, shared by the BFF and the browser adapter. */
+export const ARTIFACT_TOO_LARGE = "Файл больше допустимого размера.";
+export const ARTIFACT_NOT_ACCEPTED =
+  "Такой файл нельзя приложить: он выглядит как программа или скрипт.";
+
 export const guideArtifactMutationResultSchema = z.discriminatedUnion("kind", [
   z.object({ artifact: guideArtifactSchema, kind: z.literal("saved") }).strict(),
   z.object({ artifactId: z.uuid(), kind: z.literal("removed") }).strict(),

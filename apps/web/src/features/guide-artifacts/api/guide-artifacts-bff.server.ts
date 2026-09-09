@@ -24,6 +24,9 @@ import {
   type AuthenticatedMutationFailure,
 } from "@/shared/auth/index.server";
 import {
+  ARTIFACT_NOT_ACCEPTED,
+  ARTIFACT_TOO_LARGE,
+  guideArtifactAccessSchema,
   guideArtifactListSchema,
   guideArtifactSchema,
   type GuideArtifactListState,
@@ -33,7 +36,7 @@ import {
 const uuidSchema = z.uuid();
 const metadataFieldsSchema = z
   .object({
-    access: z.enum(["free", "membership"]),
+    access: guideArtifactAccessSchema,
     purpose: z.string().max(1000),
     title: z.string().min(1).max(200),
   })
@@ -332,14 +335,9 @@ function failureResult(
   if (status === 404) {
     return { kind: "rejected", reason: "Артефакт или руководство не найдены." };
   }
-  if (status === 413) {
-    return { kind: "rejected", reason: "Файл больше допустимого размера." };
-  }
+  if (status === 413) return { kind: "rejected", reason: ARTIFACT_TOO_LARGE };
   if (status === 422) {
-    return {
-      kind: "rejected",
-      reason: "Такой файл нельзя приложить: он выглядит как программа или скрипт.",
-    };
+    return { kind: "rejected", reason: ARTIFACT_NOT_ACCEPTED };
   }
   return { kind: "error", reference: `guide-artifacts-${String(status)}` };
 }

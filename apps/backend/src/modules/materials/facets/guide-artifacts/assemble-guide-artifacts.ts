@@ -316,7 +316,6 @@ export function assembleGuideArtifacts(dependencies: {
           await transaction.guideArtifactPlacement.create({
             data: { artifactId, guideId: parsed.data.guideId },
           });
-          await markVersionReady(transaction, artifactId, 1);
         });
       } catch {
         await forgetStoredFile(stored);
@@ -351,6 +350,9 @@ export function assembleGuideArtifacts(dependencies: {
               access: parsed.data.metadata.access,
               currentVersion: nextVersion,
               purpose: parsed.data.metadata.purpose,
+              // Any editor change advances the revision, so a later import
+              // reports a hand-edited artifact instead of overwriting it.
+              revision: { increment: 1 },
               title: parsed.data.metadata.title,
               updatedAt: new Date(),
             },
@@ -400,18 +402,17 @@ export function assembleGuideArtifacts(dependencies: {
                 : {}),
             }),
           });
-          await markVersionReady(
-            transaction,
-            parsed.data.artifactId,
-            nextVersion,
-          );
           await supersedeVersion(
             transaction,
             parsed.data.artifactId,
             currentVersion,
           );
           await transaction.guideArtifact.update({
-            data: { currentVersion: nextVersion, updatedAt: new Date() },
+            data: {
+              currentVersion: nextVersion,
+              revision: { increment: 1 },
+              updatedAt: new Date(),
+            },
             where: { id: parsed.data.artifactId },
           });
         });
@@ -434,6 +435,7 @@ export function assembleGuideArtifacts(dependencies: {
         const changed = await prisma.guideArtifact.updateMany({
           data: {
             archivedAt: parsed.data.archived ? new Date() : null,
+            revision: { increment: 1 },
             state: parsed.data.archived ? "archived" : "active",
             updatedAt: new Date(),
           },
@@ -718,7 +720,8 @@ export function assembleGuideArtifacts(dependencies: {
       if (new Set(sourceIds).size !== sourceIds.length) {
         return failure({ code: "source_conflict" });
       }
-      let placed: Awaited<ReturnType<typeof loadPlacedArtifacts>>;
+      let placed: readonly ArtifactRow[];
+      let namedBySource: readonly ArtifactRow[];
       try {
         const guide = await prisma.guide.findUnique({
           select: { id: true },
@@ -728,15 +731,27 @@ export function assembleGuideArtifacts(dependencies: {
         placed = await loadPlacedArtifacts(prisma, command.guideId, {
           take: IMPORT_ARTIFACT_LIMIT,
         });
+        // An artifact the authoring base already owns may live in another
+        // Guide; the package reuses that record instead of creating a second.
+        namedBySource =
+          sourceIds.length === 0
+            ? []
+            : await loadArtifactsBySource(prisma, sourceIds);
       } catch {
         return dependencyUnavailable();
       }
       // Records authored on Platform stay outside every import decision: an
       // import never matches, changes or archives them.
       const authored = placed.filter(({ origin }) => origin === "authoring");
+      const candidates = [
+        ...authored,
+        ...namedBySource.filter(
+          (row) => !authored.some(({ id }) => id === row.id),
+        ),
+      ];
       const outcomes: AuthoringImportOutcome[] = [];
       for (const source of command.artifacts) {
-        const outcome = await importOne(source, authored);
+        const outcome = await importOne(source, candidates);
         if (!outcome.ok) return outcome;
         outcomes.push(outcome.value);
       }
@@ -754,7 +769,7 @@ export function assembleGuideArtifacts(dependencies: {
 
       async function importOne(
         source: z.infer<typeof importSchema>["artifacts"][number],
-        existingArtifacts: typeof placed,
+        existingArtifacts: readonly ArtifactRow[],
       ): Promise<GuideArtifactResult<AuthoringImportOutcome>> {
         const existing =
           existingArtifacts.find(({ sourceId }) => sourceId === source.sourceId) ??
@@ -762,7 +777,7 @@ export function assembleGuideArtifacts(dependencies: {
         if (existing === null) {
           return createFromSource(source);
         }
-        if (existing.currentVersion !== existing.importedVersion) {
+        if (existing.revision !== existing.importedRevision) {
           return {
             ok: true,
             value: {
@@ -773,6 +788,7 @@ export function assembleGuideArtifacts(dependencies: {
             },
           };
         }
+        await placeInGuide(existing.id);
         const current = readyVersion(existing);
         const sameContent =
           current !== null &&
@@ -800,6 +816,13 @@ export function assembleGuideArtifacts(dependencies: {
         return updateFromSource(existing, source, sameContent);
       }
 
+      async function placeInGuide(artifactId: string): Promise<void> {
+        await prisma.guideArtifactPlacement.createMany({
+          data: [{ artifactId, guideId: command.guideId }],
+          skipDuplicates: true,
+        });
+      }
+
       async function createFromSource(
         source: z.infer<typeof importSchema>["artifacts"][number],
       ): Promise<GuideArtifactResult<AuthoringImportOutcome>> {
@@ -819,7 +842,7 @@ export function assembleGuideArtifacts(dependencies: {
                 currentVersion: 1,
                 id: artifactId,
                 importedAt: new Date(),
-                importedVersion: 1,
+                importedRevision: 1,
                 origin: "authoring",
                 purpose: source.purpose,
                 sourceId: source.sourceId,
@@ -841,8 +864,7 @@ export function assembleGuideArtifacts(dependencies: {
             await transaction.guideArtifactPlacement.create({
               data: { artifactId, guideId: command.guideId },
             });
-            await markVersionReady(transaction, artifactId, 1);
-          });
+            });
         } catch {
           await forgetStoredFile(stored);
           return dependencyUnavailable();
@@ -862,7 +884,7 @@ export function assembleGuideArtifacts(dependencies: {
       }
 
       async function updateFromSource(
-        existing: (typeof placed)[number],
+        existing: ArtifactRow,
         source: z.infer<typeof importSchema>["artifacts"][number],
         sameContent: boolean,
       ): Promise<GuideArtifactResult<AuthoringImportOutcome>> {
@@ -896,20 +918,21 @@ export function assembleGuideArtifacts(dependencies: {
                     : { externalUrl: source.externalUrl }),
                 }),
               });
-              await markVersionReady(transaction, existing.id, nextVersion);
               await supersedeVersion(
                 transaction,
                 existing.id,
                 existing.currentVersion,
               );
             }
+            const revision = existing.revision + 1;
             await transaction.guideArtifact.update({
               data: {
                 access: source.access,
                 currentVersion: nextVersion,
                 importedAt: new Date(),
-                importedVersion: nextVersion,
+                importedRevision: revision,
                 purpose: source.purpose,
+                revision,
                 title: source.title,
                 updatedAt: new Date(),
               },
@@ -982,6 +1005,20 @@ async function loadArtifactRow(
   });
 }
 
+async function loadArtifactsBySource(
+  prisma: MaterialsPrismaClient,
+  sourceIds: readonly string[],
+): Promise<readonly ArtifactRow[]> {
+  return prisma.guideArtifact.findMany({
+    include: {
+      materialLinks: { orderBy: { materialId: "asc" } },
+      placements: { orderBy: { createdAt: "asc" } },
+      versions: true,
+    },
+    where: { origin: "authoring", sourceId: { in: [...sourceIds] } },
+  });
+}
+
 async function loadPlacedArtifacts(
   prisma: MaterialsPrismaClient,
   guideId: string,
@@ -1021,12 +1058,11 @@ function projectRow(row: ArtifactRow): GuideArtifactDto | null {
   };
 }
 
+/** The stored content the reader may currently receive. */
 function readyVersion(row: ArtifactRow): ArtifactRow["versions"][number] | null {
   return (
-    row.versions.find(
-      (version) =>
-        version.version === row.currentVersion && version.state === "ready",
-    ) ?? null
+    row.versions.find((version) => version.version === row.currentVersion) ??
+    null
   );
 }
 
@@ -1086,7 +1122,6 @@ function versionRow(input: {
       contentKind: "link",
       createdBy: actor,
       externalUrl: externalUrl ?? null,
-      state: "processing",
       version,
     };
   }
@@ -1102,7 +1137,6 @@ function versionRow(input: {
     protectedObjectKey: stored.protectedObjectKey,
     publicObjectKey: stored.publicObjectKey,
     quarantineObjectKey: stored.quarantineObjectKey,
-    state: "processing",
     version,
   };
 }
@@ -1147,23 +1181,11 @@ async function reopenVersionOnAccessChange(
       publicObjectKey: source.publicObjectKey,
       quarantineObjectKey: source.quarantineObjectKey,
       readyAt: new Date(),
-      state: "ready",
       version: nextVersion,
     },
   });
   await supersedeVersion(transaction, input.artifactId, input.currentVersion);
   return nextVersion;
-}
-
-async function markVersionReady(
-  transaction: MaterialsPrismaTransaction,
-  artifactId: string,
-  version: number,
-): Promise<void> {
-  await transaction.guideArtifactVersion.update({
-    data: { readyAt: new Date(), state: "ready" },
-    where: { artifactId_version: { artifactId, version } },
-  });
 }
 
 async function supersedeVersion(
@@ -1177,8 +1199,10 @@ async function supersedeVersion(
   });
 }
 
+// The database constrains this column to two values; an unexpected one stays
+// closed rather than opening protected content to everyone.
 function readAccess(value: string): GuideArtifactAccess {
-  return value === "membership" ? "membership" : "free";
+  return value === "free" ? "free" : "membership";
 }
 
 function failure<Value>(error: GuideArtifactError): GuideArtifactResult<Value> {

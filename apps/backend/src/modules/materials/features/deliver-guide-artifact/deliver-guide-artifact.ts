@@ -2,6 +2,11 @@ import { randomUUID } from "node:crypto";
 
 import type { ObjectStorage } from "../../../../infrastructure/object-storage/index.js";
 import type { ContentAccess, Subject } from "../../../content-access/index.js";
+import {
+  attachmentDisposition,
+  readPublicObject,
+  signedDeliveryTtlSeconds,
+} from "../../shared/protected-delivery.js";
 import type {
   GuideArtifacts,
   ReaderGuideArtifact,
@@ -143,36 +148,26 @@ export function assembleGuideArtifactDelivery(dependencies: {
       if (file === null) return notFound();
       const contentDisposition = attachmentDisposition(file.filename);
       if (decision.reason === "public_resource") {
-        if (file.object.publicKey === null) return notFound();
-        let stored;
-        try {
-          stored = await dependencies.objectStorage.read(
-            "public",
-            file.object.publicKey,
-          );
-        } catch {
-          return dependencyUnavailable();
-        }
-        if (
-          stored === null ||
-          stored.contentLength !== file.size ||
-          stored.contentType !== file.contentType
-        ) {
-          return dependencyUnavailable();
-        }
+        const stored = await readPublicObject(dependencies.objectStorage, {
+          contentType: file.contentType,
+          key: file.object.publicKey,
+          size: file.size,
+        });
+        if (stored.kind === "mismatch") return notFound();
+        if (stored.kind === "unavailable") return dependencyUnavailable();
         return {
           ok: true,
           value: {
-            body: stored.body,
+            body: stored.object.body,
             cacheScope: "public-immutable",
             contentDisposition,
-            contentLength: stored.contentLength,
-            contentType: stored.contentType,
+            contentLength: stored.object.contentLength,
+            contentType: stored.object.contentType,
             kind: "bytes",
           },
         };
       }
-      const ttlSeconds = boundedTtlSeconds(
+      const ttlSeconds = signedDeliveryTtlSeconds(
         dependencies.signedGetTtlSeconds,
         decision.reason === "active_membership" ||
           decision.reason === "active_workshop"
@@ -227,26 +222,6 @@ function projectPublicArtifact(
     updatedAt: artifact.updatedAt,
     version: artifact.version,
   };
-}
-
-function attachmentDisposition(filename: string): string {
-  const encoded = encodeURIComponent(filename).replace(
-    /[!'()*]/gu,
-    (character) => `%${character.codePointAt(0)?.toString(16).toUpperCase() ?? ""}`,
-  );
-  return `attachment; filename="download"; filename*=UTF-8''${encoded}`;
-}
-
-function boundedTtlSeconds(
-  configuredTtlSeconds: number,
-  validUntil: string | null | undefined,
-): number | null {
-  if (validUntil === undefined || validUntil === null) return configuredTtlSeconds;
-  const remainingWholeSeconds = Math.floor(
-    (Date.parse(validUntil) - Date.now()) / 1_000,
-  );
-  const bounded = Math.min(configuredTtlSeconds, remainingWholeSeconds - 1);
-  return bounded >= 1 ? bounded : null;
 }
 
 function notFound<Value>(): GuideArtifactDeliveryResult<Value> {

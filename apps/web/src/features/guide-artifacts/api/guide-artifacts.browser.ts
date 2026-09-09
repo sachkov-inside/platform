@@ -5,6 +5,8 @@ import {
   type SameOriginMutationResult,
 } from "@/shared/api/same-origin-mutation";
 import {
+  ARTIFACT_NOT_ACCEPTED,
+  ARTIFACT_TOO_LARGE,
   guideArtifactListStateSchema,
   guideArtifactMutationResultSchema,
   type GuideArtifactAccess,
@@ -187,14 +189,10 @@ export function interpret(
       return { kind: "unauthorized" };
     }
     if (result.status === 413) {
-      return { kind: "rejected", reason: "Файл больше допустимого размера." };
+      return { kind: "rejected", reason: ARTIFACT_TOO_LARGE };
     }
     if (result.status === 400 || result.status === 422) {
-      return {
-        kind: "rejected",
-        reason:
-          "Такой файл нельзя приложить: он выглядит как программа или скрипт.",
-      };
+      return { kind: "rejected", reason: ARTIFACT_NOT_ACCEPTED };
     }
     return {
       kind: "error",
