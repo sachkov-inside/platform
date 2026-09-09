@@ -39,6 +39,8 @@ Platform общается с владельцами фактов через inte
    оценить объём. PostgreSQL рассматривается первым в существующей архитектуре, без покупки
    внешнего сервиса или speculative analytics cluster. Итог — принятый versioned contract,
    уточнённые schemas и promoted readiness зависимых implementation tickets.
+   Предложенная редакция — [контракт измерений v1](../specifications/author-analytics-measurement-v1.md);
+   она ждёт решения владельца и до него не меняет readiness зависимых задач.
 2. **Сбор посещений и просмотров.** Owned validated ingestion, event IDs/dedupe, bounded input,
    time semantics, доступ к body, bots/consent, retention/deletion. Это enabling capability;
    само по себе не поставляет интерфейс автора. Включение production tracking — отдельный GO.
