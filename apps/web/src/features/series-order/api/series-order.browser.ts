@@ -15,7 +15,7 @@ export async function reorderSeries(
   formData.set("seriesId", input.seriesId);
   if (input.stepGroups !== undefined) formData.set("stepGroups", JSON.stringify(input.stepGroups));
   const result = await requestSameOriginMutation(
-    "/api/authoring/series/order",
+    "/api/authoring/guides/order",
     "PUT",
     formData,
   );

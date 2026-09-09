@@ -6,9 +6,11 @@
     "src/entrypoints/material-assets-worker.ts",
     "src/entrypoints/profile-avatars-worker.ts",
     "src/entrypoints/video-deletions-worker.ts",
+    "src/entrypoints/billing-worker.ts",
     "src/infrastructure/worker-healthcheck.ts",
     "src/migrations/migrate.ts",
-    "src/release/bootstrap-owner-account.ts"
+    "src/release/bootstrap-owner-account.ts",
+    "src/entrypoints/notifications-worker.ts"
   ],
   "include": []
 }

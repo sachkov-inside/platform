@@ -20,7 +20,7 @@ const loadMaterialsSpy = fn(
         {
           materialId: "95000000-0000-4000-8000-000000000004",
           publicationState: "draft" as const,
-          title: "Материал вне серии",
+          title: "Материал вне руководства",
         },
       ],
       kind: "ready" as const,
@@ -85,7 +85,7 @@ const meta = {
   },
   component: SeriesOrderManager,
   parameters: { nextjs: { appDirectory: true } },
-  title: "Pages/Authoring/Серии",
+  title: "Pages/Authoring/Руководства",
 } satisfies Meta<typeof SeriesOrderManager>;
 
 export default meta;
@@ -119,8 +119,11 @@ export const StepAssignments: Story = {
   play: async ({ canvasElement }) => {
     saveOrderSpy.mockClear();
     const canvas = within(canvasElement);
+    const disclosure = canvas.getAllByText("Последовательность шагов")[0];
+    if (disclosure === undefined) throw new Error("Missing step disclosure");
+    await userEvent.click(disclosure);
     const input = canvas.getAllByRole("textbox", {
-      name: "Последовательность шагов",
+      name: "Название последовательности",
     })[0];
     if (input === undefined)
       throw new Error("Step assignment field is missing");
@@ -161,7 +164,7 @@ export const AddMaterial: Story = {
     await expect(dialog).toBeVisible();
     await expect(
       await within(dialog).findByRole("button", {
-        name: "Добавить «Материал вне серии»",
+        name: "Добавить «Материал вне руководства»",
       }),
     ).toBeVisible();
     await expect(loadMaterialsSpy).toHaveBeenCalledOnce();

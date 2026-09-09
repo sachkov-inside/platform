@@ -139,7 +139,7 @@ export const TopicDesktop: Story = {
     await expect(canvas.getByRole("heading", { level: 1, name: "Platform" })).toBeVisible();
     await expect(canvasElement.querySelector("[data-playlist-card]")).toHaveAttribute(
       "href",
-      "/series/platform-inside?from=%2Ftopics%2Fplatform%3Ffrom%3D%252Flibrary",
+      "/guides/platform-inside?from=%2Ftopics%2Fplatform%3Ffrom%3D%252Flibrary",
     );
     for (const coverId of [
       "02000000-0000-4000-8000-000000000061",
@@ -212,7 +212,7 @@ export const EmptySeries: Story = {
     result: {
       discoveryKind: "series",
       kind: "empty",
-      reference: { name: "Новая серия", slug: "new-series", summary: "" },
+      reference: { name: "Новая руководство", slug: "new-series", summary: "" },
       relatedSeries: [],
       topics: [],
     },
@@ -255,7 +255,7 @@ async function expectNoHorizontalOverflow(canvasElement: HTMLElement) {
 
 const connectedStepsResult = {
   ...seriesResult,
-  reference: { cover: null, name: "Релиз своего проекта", slug: "release", summary: "Видео, заметки и последовательные инструкции в одной серии." },
+  reference: { cover: null, name: "Релиз своего проекта", slug: "release", summary: "Видео, заметки и последовательные инструкции в одном руководстве." },
   items: [
     { title: "Как устроен релиз моего проекта", format: "Видео", formatSlug: "video", summary: "От коммита до работающего сервиса: сборка, конфигурация, публикация и откат релиза." },
     { title: "Подготовка приложения", format: "Гайд", formatSlug: "guide", stepGroup: "От проекта до релиза" },
@@ -265,7 +265,7 @@ const connectedStepsResult = {
     { title: "Первый деплой", format: "Гайд", formatSlug: "guide", stepGroup: "От проекта до релиза" },
   ].map((definition, index) => ({
     ...materials[0], ...definition, slug: `release-${String(index)}`,
-    summary: definition.summary ?? "Материал общей серии: изучайте в предложенном порядке или возвращайтесь к нужному шагу.",
+    summary: definition.summary ?? "Материал общего руководства: изучайте в предложенном порядке или возвращайтесь к нужному шагу.",
     seriesMemberships: [{ name: "Релиз своего проекта", slug: "release", ordinal: index + 1, stepGroup: definition.stepGroup ?? null }],
   })),
 } satisfies LibraryDiscoveryResult;
@@ -279,11 +279,11 @@ export const ConnectedStepsDesktop: Story = {
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText("Шаг 1 из 3")).toBeVisible();
-    await expect(canvas.getByText("Шаг 2 из 3")).toBeVisible();
-    await expect(canvas.getByText("Шаг 3 из 3")).toBeVisible();
+    await expect(canvas.queryByText("Шаг 1 из 3")).not.toBeInTheDocument();
+    await expect(canvas.queryByText("Шаг 2 из 3")).not.toBeInTheDocument();
+    await expect(canvas.queryByText("Шаг 3 из 3")).not.toBeInTheDocument();
     await expect(canvasElement.querySelectorAll("[data-series-ordinal]")).toHaveLength(6);
-    await expect(canvasElement.querySelectorAll("[data-series-step]")).toHaveLength(3);
+    await expect(canvasElement.querySelectorAll("[data-series-step]")).toHaveLength(0);
     const rows = canvasElement.querySelectorAll("[data-series-ordinal]");
     const markers = canvasElement.querySelectorAll<HTMLElement>("[data-series-marker]");
     await expect(markers).toHaveLength(6);
@@ -300,13 +300,16 @@ export const ConnectedStepsDesktop: Story = {
     }
     const guide = canvas.getByRole("heading", { name: "Подготовка приложения" }).closest("article");
     if (guide === null) throw new Error("Missing guide card");
-    await expect(within(guide).getByText("Шаг 1 из 3")).toBeVisible();
-    await expect(canvas.getByText(overviewVideo.summary)).toBeVisible();
-    await expect(canvas.getByText(dockerVideo.summary)).toBeVisible();
+    await expect(within(guide).queryByText("Шаг 1 из 3")).not.toBeInTheDocument();
     for (const summary of [overviewVideo.summary, dockerVideo.summary]) {
       const element = canvas.getByText(summary);
+      if (canvasElement.ownerDocument.documentElement.clientWidth < 640) {
+        await expect(element).not.toBeVisible();
+        continue;
+      }
+      await expect(element).toBeVisible();
       const lineHeight = Number.parseFloat(getComputedStyle(element).lineHeight);
-      await expect(element.getBoundingClientRect().height).toBeLessThanOrEqual(lineHeight * 3 + 1);
+      await expect(element.getBoundingClientRect().height).toBeLessThanOrEqual(lineHeight + 1);
     }
     await expectNoHorizontalOverflow(canvasElement);
   },

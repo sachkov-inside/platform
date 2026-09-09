@@ -1,3 +1,4 @@
+import { VIDEOS, type Videos } from "../modules/videos/index.js";
 import { Communications } from "../modules/communications/index.js";
 import "reflect-metadata";
 
@@ -34,6 +35,7 @@ async function bootstrap(): Promise<void> {
   const server = createMcpHttpServer({
     accounts: application.get<Accounts>(ACCOUNTS),
     authoring: application.get<MaterialAuthoring>(MATERIAL_AUTHORING),
+      videos: application.get<Videos>(VIDEOS),
     communications: application.get(Communications),
     config: mcpConfig,
     identityIssuer: config.identity.issuer,

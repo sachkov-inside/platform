@@ -17,7 +17,7 @@ import {
 } from "@/shared/routing/material-reader";
 import {
   MaterialReaderHeader,
-  MaterialReaderMetadataFooter,
+  MaterialReaderFooter,
 } from "./material-reader-view";
 
 import { ReaderReturnNavigation } from "./reader-return-navigation.client";
@@ -137,7 +137,7 @@ export function MaterialReaderAccess({
             </div>
           </section>
           {readingAction}
-          <MaterialReaderMetadataFooter material={material} seriesContext={seriesContext} returnTarget={returnTarget} />
+          <MaterialReaderFooter seriesContext={seriesContext} />
         </div>
       </ReaderReturnNavigation>
     </div>

@@ -1,3 +1,5 @@
+import { NotificationsModule } from "../../modules/notifications/index.js";
+import { BillingModule } from "../../modules/billing/index.js";
 import { ReadingActivityModule } from "../../modules/reading-activity/index.js";
 import { CommunicationsModule, CommunicationsTrackingDeliveryModule } from "../../modules/communications/index.js";
 import { type DynamicModule, Module } from "@nestjs/common";
@@ -29,6 +31,8 @@ import {
   MaterialsModule,
   PreviewMaterialController,
   ReorderSeriesController,
+  LoadHomePinController,
+  SetHomePinController,
   ReadPublishedMaterialController,
   SaveMaterialController,
   TransitionMaterialPublicationController,
@@ -70,6 +74,8 @@ import { HealthController } from "./health.controller.js";
     ValidateMaterialController,
     PreviewMaterialController,
     ReorderSeriesController,
+  LoadHomePinController,
+  SetHomePinController,
     UploadMaterialAssetController,
     DeliverMaterialAssetController,
     AuthoringContentCoverController,
@@ -96,9 +102,11 @@ export class ApiModule {
       module: ApiModule,
       imports: [
         PlatformConfigModule.forRoot(config),
+        NotificationsModule,
         RuntimeIdentityModule,
         PrismaModule,
         AccountsModule,
+        BillingModule,
         ReadingActivityModule,
         CommunicationsModule,
         CommunicationsTrackingDeliveryModule,

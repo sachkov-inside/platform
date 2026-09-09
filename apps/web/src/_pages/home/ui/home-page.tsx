@@ -8,7 +8,7 @@ import {
   PlaylistCard,
   formatMaterialCount,
 } from "@/features/library-discovery";
-import { collectionDiscoveryHref } from "@/shared/routing/material-reader";
+import { libraryRouteHref } from "@/shared/routing/library-route";
 import { Button } from "@/shared/ui/button";
 import { PublicSectionHeading } from "@/shared/ui/public-section-heading";
 import type { HomeContinuation, HomeResult, HomeView } from "../model/home-view";
@@ -24,7 +24,6 @@ export function HomePage({ result, personal, continuation }: { readonly result: 
 
 function HomeReady({ home, personal, continuation }: { readonly home: HomeView; readonly personal: ReactNode; readonly continuation: HomeContinuation | undefined }) {
   const offer = home.membership.kind === "inactive" ? home.membership : null;
-  const featured = offer === null ? undefined : home.playlists.find((item) => item.count > 0);
   const series = continuation?.series;
   const video = continuation?.video;
   const playlists = series === undefined ? home.playlists : [series.collection, ...home.playlists.filter((item) => item.slug !== series.collection.slug)];
@@ -32,8 +31,8 @@ function HomeReady({ home, personal, continuation }: { readonly home: HomeView; 
   return (
     <div className="home-page @container/home min-w-0" data-home-membership={home.membership.kind}>
       <h1 className="sr-only">Главная</h1>
+      {home.pinnedSeries && <FeaturedSeries series={home.pinnedSeries} />}
       {personal}
-      {featured && <FeaturedSeries series={featured} />}
       <PlaylistSection playlists={playlists} continuation={series} />
       <TopicSection topics={home.topics} />
       {offer && <HomeAccessInvitation acquisitionUrl={offer.acquisitionUrl} />}
@@ -69,7 +68,7 @@ function TopicSection({ topics }: { readonly topics: HomeView["topics"] }) {
             <li key={topic.slug}>
               <Link
                 className="inline-flex min-h-11 items-center rounded-full bg-muted px-4 text-sm font-semibold text-muted-foreground no-underline hover:text-action focus-visible:outline-ring"
-                href={collectionDiscoveryHref("topic", topic.slug, "/")}
+                href={libraryRouteHref({ topicSlug: topic.slug, q: "", formatSlug: null, sort: "newest" })}
               >
                 {topic.name}
               </Link>
@@ -146,14 +145,14 @@ function PlaylistSection({
   return (
     <section aria-labelledby="home-series">
       <SectionHeading
-        action="Все серии"
+        action="Все руководства"
         className="mt-2"
         href="/library#series-heading"
         id="home-series"
-        title="Серии"
+        title="Руководства"
       />
       {playlists.length === 0 ? (
-        <EmptyCollection label="Серий пока нет." />
+        <EmptyCollection label="Руководств пока нет." />
       ) : (
         <div className="public-horizontal-rail -mx-4 mt-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 py-1 md:mx-0 md:grid md:grid-cols-2 md:overflow-visible md:px-0">
           {playlists.slice(0, 2).map((playlist) => (
@@ -247,7 +246,7 @@ function CatalogInvitation() {
         Все материалы в одном каталоге
       </h2>
       <p className="mt-2 max-w-[60ch] text-sm leading-6 text-muted-foreground">
-        Ищите независимо от Серий по названию, теме, формату или тегу.
+        Ищите независимо от Руководств по названию, теме, формату или тегу.
       </p>
       <Button asChild className="mt-5" variant="outline">
         <Link href="/library">

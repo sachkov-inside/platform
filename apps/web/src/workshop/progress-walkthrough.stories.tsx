@@ -8,7 +8,7 @@ import { LibraryDiscoveryView } from "@/_pages/library-discovery";
 import { MaterialReaderView, type MaterialReaderMetadata, type ReaderBlock } from "@/_pages/material-reader";
 import { resolveSeriesReaderContext } from "@/_pages/material-reader/model/series-reader-context";
 import { MaterialCard, MaterialReadingContext, type MaterialPreview } from "@/entities/material";
-import { ReadingAction, SeriesProgress, type ReadingActionView } from "@/features/reading-progress";
+import { ReadingAction, type ReadingActionView } from "@/features/reading-progress";
 import { Button } from "@/shared/ui/button";
 import { parseMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 import { ApplicationShell, type ApplicationNavigationItem } from "@/widgets/application-shell";
@@ -22,7 +22,7 @@ const materials = [
 const body: readonly ReaderBlock[] = [{ kind: "paragraph", content: [{ kind: "text", marks: [], text: "Сервер сохранил изменение, но ответ потерялся. Повтор запроса должен вернуть результат той же команды. Так временный сбой соединения не превращается в повторное действие." }] }];
 const register = () => () => undefined;
 const refresh = () => Promise.resolve();
-const surfaces = { home: "Главная", reader: "Материал", series: "Серия", cards: "Карточки" } as const;
+const surfaces = { home: "Главная", reader: "Материал", series: "Руководство", cards: "Карточки" } as const;
 type Surface = keyof typeof surfaces;
 
 function preview(item: ContinueMaterialView): MaterialPreview {
@@ -77,9 +77,9 @@ function ProgressWalkthrough({ initialRead = ["text"], initialSurface = "home", 
     const url = new URL(anchor.href);
     const path = url.pathname;
     const item = items.find((candidate) => path === `/materials/${candidate.slug}`);
-    if (item !== undefined) { event.preventDefault(); setSelectedId(item.id); setReaderFromSeries(url.searchParams.get("from")?.startsWith("/series/") === true); navigate("reader"); }
-    else if (path === "/" || path === "/library" || path.startsWith("/series/") || path.startsWith("/topics/")) {
-      event.preventDefault(); navigate(path === "/" ? "home" : path.startsWith("/series/") ? "series" : "cards");
+    if (item !== undefined) { event.preventDefault(); setSelectedId(item.id); setReaderFromSeries(/^\/(guides|series)\//u.test(url.searchParams.get("from") ?? "")); navigate("reader"); }
+    else if (path === "/" || path === "/library" || /^\/(guides|series)\//u.test(path) || path.startsWith("/topics/")) {
+      event.preventDefault(); navigate(path === "/" ? "home" : /^\/(guides|series)\//u.test(path) ? "series" : "cards");
     }
   };
   const metadata: MaterialReaderMetadata = {
@@ -94,7 +94,7 @@ function ProgressWalkthrough({ initialRead = ["text"], initialSurface = "home", 
     <aside aria-label="Проверка прогресса в Storybook" className="border-b border-border bg-muted px-4 py-4 text-sm">
       <div className="mx-auto max-w-6xl">
         <p className="font-semibold">Проверка прогресса · демонстрационные данные</p>
-        <p className="mt-1 text-muted-foreground">Откройте материал, поставьте отметку и сравните главную, серию и карточки. Продолжение встроено в обычные карточки серии и видео; галочки показывают изученное.</p>
+        <p className="mt-1 text-muted-foreground">Откройте материал, поставьте отметку и сравните главную, руководство и карточки. Продолжение встроено в обычные карточки руководства и видео; галочки показывают изученное.</p>
         <div className="mt-3 flex flex-wrap gap-2">
           {(Object.entries(surfaces) as [Surface, string][]).map(([value, label]) => <Button aria-pressed={surface === value} key={value} size="sm" variant={surface === value ? "default" : "outline"} onClick={() => { navigate(value); }}>{label}</Button>)}
           <Button size="sm" variant="ghost" onClick={() => { setRead(initialRead); setFailure(null); setShouldFail(failFirstSave); setSelectedId("text"); setReaderFromSeries(false); navigate(initialSurface); }}>Сбросить пример</Button>
@@ -110,7 +110,7 @@ function ProgressWalkthrough({ initialRead = ["text"], initialSurface = "home", 
         <ApplicationShell currentPath={surface === "home" ? "/" : "/library"} navigationItems={navigation} mobileNavigationItems={navigation}>
           {surface === "home" ? <HomePage result={{ kind: "ready", value: { ...illustratedHome, videos: illustratedHome.videos.map((item) => item.slug === materials[1].slug ? preview(materials[1]) : item), guides: illustratedHome.guides.map((item) => item.slug === materials[2].slug ? preview(materials[2]) : item), playlists: illustratedHome.playlists.map((item) => item.slug === collection.slug ? collection : item) } }} continuation={continuation} /> : null}
           {surface === "reader" ? <MaterialReaderView body={body} material={metadata} primaryVideo={null} readingAction={action(selected)} returnTarget={returnTarget} seriesContext={seriesContext} /> : null}
-          {surface === "series" ? <LibraryDiscoveryView continuation={hasHistory && next !== undefined ? { materialSlug: next.slug, label: next.id === "video" && !videoEnded ? "Продолжить с 4:03" : "Продолжить здесь" } : undefined} result={{ kind: "ready", discoveryKind: "series", hasNext: false, reference: { name: collection.name, slug: collection.slug, summary: collection.summary ?? "" }, items: materials.map(preview), relatedSeries: [], topics: [] }} seriesProgress={<SeriesProgress view={{ kind: "ready", total: materials.length, read: read.length }} />} /> : null}
+          {surface === "series" ? <LibraryDiscoveryView learning={{ kind: "ready", total: materials.length, read: read.length, continuation: hasHistory && next !== undefined ? { materialSlug: next.slug, label: next.id === "video" && !videoEnded ? "Продолжить с 4:03" : "Продолжить здесь" } : null }} result={{ kind: "ready", discoveryKind: "series", hasNext: false, reference: { name: collection.name, slug: collection.slug, summary: collection.summary ?? "" }, items: materials.map(preview), relatedSeries: [], topics: [] }} /> : null}
           {surface === "cards" ? <div className="mx-auto max-w-5xl">
             <h1 className="text-2xl font-semibold">Карточки материалов</h1>
             <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -125,7 +125,7 @@ function ProgressWalkthrough({ initialRead = ["text"], initialSurface = "home", 
 
 const meta = {
   title: "Pages/Progress walkthrough", component: ProgressWalkthrough,
-  parameters: { controls: { disable: true }, docs: { description: { component: "Связанный визуальный сценарий #329–#332. Верхняя панель относится только к Storybook. Ниже используются компоненты Platform: Reader, ReadingAction, MaterialCard, SeriesProgress, HomePage, PlaylistCard и MaterialCard. Начатая серия и недосмотренное видео стоят первыми в своих секциях без отдельных карточек продолжения. Отметки меняются только в памяти примера. Отметки и их ошибки: Pages/Reading progress. Прежний отдельный блок Pages/Personal Home заменён этим предложением; Реальные Home и Series получают продолжение через private API; этот пример использует только демонстрационные данные." } } },
+  parameters: { controls: { disable: true }, docs: { description: { component: "Связанный визуальный сценарий #329–#332. Верхняя панель относится только к Storybook. Ниже используются компоненты Platform: Reader, ReadingAction, MaterialCard, SeriesProgress, HomePage, PlaylistCard и MaterialCard. Начатое руководство и недосмотренное видео стоят первыми в своих секциях без отдельных карточек продолжения. Отметки меняются только в памяти примера. Отметки и их ошибки: Pages/Reading progress. Прежний отдельный блок Pages/Personal Home заменён этим предложением; Реальные Home и Series получают продолжение через private API; этот пример использует только демонстрационные данные." } } },
 } satisfies Meta<typeof ProgressWalkthrough>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -139,20 +139,20 @@ export const CheckConnections: Story = { name: "Проверка связей", 
   const canvas = within(canvasElement);
   const toolbar = within(canvas.getByRole("complementary", { name: "Проверка прогресса в Storybook" }));
   await expect(canvas.queryByRole("region", { name: "Продолжить изучение" })).not.toBeInTheDocument();
-  await userEvent.click(canvas.getByRole("link", { name: "Продолжить серию Создание Platform Inside" }));
-  await expect(canvas.getByRole("heading", { name: "Маршрут" })).toBeVisible();
+  await userEvent.click(canvas.getByRole("link", { name: "Продолжить руководство Создание Platform Inside" }));
+  await expect(canvas.getByRole("list", { name: "Материалы руководства" })).toBeVisible();
   await expect(canvasElement.querySelector('[aria-current="step"]')).toHaveTextContent(materials[1].title);
   await userEvent.click(canvas.getByRole("link", { name: materials[1].title }));
   await expect(canvas.getByRole("heading", { name: materials[1].title })).toBeVisible();
   await userEvent.click(canvas.getByRole("button", { name: "Просмотрено" }));
-  await userEvent.click(toolbar.getByRole("button", { name: "Серия" }));
+  await userEvent.click(toolbar.getByRole("button", { name: "Руководство" }));
   await expect(canvas.getByText("Изучено 2 из 3")).toBeVisible();
-  await expect(canvas.getByText("Прочитано", { exact: true })).toBeVisible();
-  await expect(canvas.getByText("Просмотрено", { exact: true })).toBeVisible();
+  await expect(canvas.getByRole("img", { name: "Материал 1, изучен" })).toBeVisible();
+  await expect(canvas.getByRole("img", { name: "Материал 2, изучен" })).toBeVisible();
   await userEvent.click(toolbar.getByRole("button", { name: "Главная" }));
   await expect(canvas.queryByText("Продолжить с 4:03")).not.toBeInTheDocument();
-  await expect(canvas.getByRole("link", { name: "Продолжить серию Создание Platform Inside" })).toHaveAttribute("href", expect.stringContaining("/series/platform-inside"));
-  await userEvent.click(canvas.getByRole("link", { name: "Продолжить серию Создание Platform Inside" }));
+  await expect(canvas.getByRole("link", { name: "Продолжить руководство Создание Platform Inside" })).toHaveAttribute("href", expect.stringContaining("/guides/platform-inside"));
+  await userEvent.click(canvas.getByRole("link", { name: "Продолжить руководство Создание Platform Inside" }));
   await expect(canvasElement.querySelector('[aria-current="step"]')).toHaveTextContent(materials[2].title);
   await userEvent.click(toolbar.getByRole("button", { name: "Материал" }));
   await userEvent.click(canvas.getByRole("button", { name: "Просмотрено" }));

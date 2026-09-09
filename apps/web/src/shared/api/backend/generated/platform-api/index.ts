@@ -12,6 +12,7 @@ export type { RecursiveSchema0schema0 } from './models/RecursiveSchema0schema0';
 export type { RecursiveSchema1schema0 } from './models/RecursiveSchema1schema0';
 
 export { AccountsService } from './services/AccountsService';
+export { BillingService } from './services/BillingService';
 export { CommunicationsService } from './services/CommunicationsService';
 export { CommunicationsTrackingService } from './services/CommunicationsTrackingService';
 export { ContentCoversService } from './services/ContentCoversService';
@@ -21,6 +22,7 @@ export { MaterialAssetsService } from './services/MaterialAssetsService';
 export { MaterialAuthoringService } from './services/MaterialAuthoringService';
 export { MaterialVideoAuthoringService } from './services/MaterialVideoAuthoringService';
 export { MemberProfilesService } from './services/MemberProfilesService';
+export { NotificationsService } from './services/NotificationsService';
 export { OperationsService } from './services/OperationsService';
 export { PersonalHomeService } from './services/PersonalHomeService';
 export { PublishedMaterialsService } from './services/PublishedMaterialsService';

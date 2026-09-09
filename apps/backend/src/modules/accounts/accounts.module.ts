@@ -1,3 +1,8 @@
+import { NotificationAccounts } from "./facets/notification-accounts/notification-accounts.js";
+import { BillingContact } from "./facets/billing-contact/billing-contact.js";
+import { BillingContactController } from "./features/billing-contact/billing-contact.controller.js";
+import { billingContactProtection } from "./infrastructure/billing-contact-protection.js";
+import { assembleBillingContactSender } from "./infrastructure/send-billing-contact-code.js";
 import { Module } from "@nestjs/common";
 
 import {
@@ -24,8 +29,22 @@ import {
 
 @Module({
   imports: [PrismaModule],
-  controllers: [EstablishAccountController, ResolveAccountController],
+  controllers: [EstablishAccountController, ResolveAccountController, BillingContactController],
   providers: [
+    { provide: NotificationAccounts, inject: [PrismaClientProvider, PLATFORM_CONFIG],
+      useFactory: (prisma: PrismaClientProvider, config: PlatformConfig) => new NotificationAccounts(prisma,
+        config.billingContact ? billingContactProtection(config.billingContact.encryptionKey) : undefined) },
+    {
+      provide: BillingContact,
+      inject: [PrismaClientProvider, PLATFORM_CONFIG],
+      useFactory: (prisma: PrismaClientProvider, config: PlatformConfig) => new BillingContact({
+        prisma,
+        protection: config.billingContact ? billingContactProtection(config.billingContact.encryptionKey) : undefined,
+        sendCode: config.billingContact ? assembleBillingContactSender(config.billingContact) : undefined,
+        documents: [], // Approved editions arrive through legal #412; never fabricate acceptance text.
+        now: () => new Date(),
+      }),
+    },
     {
       provide: ACCOUNTS,
       inject: [PrismaClientProvider, PLATFORM_CONFIG],
@@ -53,6 +72,8 @@ import {
     OptionalAccountGuard,
   ],
   exports: [
+    BillingContact,
+    NotificationAccounts,
     ACCOUNTS,
     LOGTO_ACCESS_TOKEN_VERIFIER,
     AccountGuard,

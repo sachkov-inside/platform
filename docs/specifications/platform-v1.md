@@ -1,5 +1,8 @@
 # Platform v1 application specification
 
+Текущий переход Series → Guide и сохранённые wire-имена описаны в
+[контракте миграции руководств](guides-migration.md).
+
 Статус: подтверждённый repository-local contract для
 [Platform #16](https://github.com/sachkov-inside/platform/issues/16), дополненный принятыми
 [Platform #27](https://github.com/sachkov-inside/platform/issues/27) engineering decisions и
@@ -315,13 +318,25 @@ Published body читается только для current `published` state; d
 units. Identical case-sensitive labels connect entries within that Series only; there is no second
 stored order or group entity. Current membership owns the label. Published projections enrich only
 published memberships with that current label; draft-only labels and entries never enter public
-step counts. Web derives the badge ordinal and total from the complete published Series composition.
+step metadata. Public cards do not display separate step labels or counts; authoring retains these assignments.
 Reader previous/next still follows every published entry in its one existing order.
 
 The Series list connects every overall ordinal with one dashed rail, first marker to last marker.
-All formats use the same dark filled ordinal marker. The explicit step label appears inside the
-existing Material row below its title; video rows render the existing published summary as plain
-text, limited to three visible lines so long descriptions do not dominate the mixed list. The presentation neither invents descriptions nor reads body content for previews.
+All formats use the ordinal marker, replaced by the saved reading check for studied materials.
+Pagination and continuation follow [personal-home.md](personal-home.md). The visible “Маршрут”
+heading, step labels, Topic and redundant reading/access/continuation captions are omitted.
+The current Material keeps its visual highlight; inaccessible covers remain blurred with a lock.
+
+On wide screens the centered Series page is capped at 1040 px. Equal-height rows use 16:9 covers,
+a two-line title, an optional one-line published summary and a format badge to the right. On narrow
+screens the cover is square, format sits above the title and summaries are hidden. Video duration
+uses a contrasting badge below the square or over the wide cover. Enlarged text permits taller rows.
+The presentation neither invents descriptions nor reads body content for previews.
+
+Material covers use the existing upload/replace/remove lifecycle. Landscape 16:9 source images
+are recommended; backend renditions preserve composition and aspect ratio. Public images use
+centered cover fitting: widescreen containers show the full 16:9 image; square containers crop the
+sides without distortion. Material authoring previews both shapes before and after replacement.
 
 Existing `reorderSeries` / REST `PUT /authoring/series/:seriesId/order` /
 MCP `playlist_save_composition` accept optional `stepGroups: Record<MaterialId, string>` alongside
@@ -338,6 +353,22 @@ assignments. Resolve local Material IDs before sending the map. This is a contra
 importer, not an implemented automatic import or publication flow.
 
 ## Application flows
+
+### Редактор руководства
+
+Общий список `/authoring/guides` показывает обложку, название, число материалов, архивное
+состояние и закреп каждого руководства. Название открывает отдельную страницу
+`/authoring/guides/[seriesId]`; вложенного редактора в списке нет. Значок закрепа меняет
+единственное руководство на главной без открытия редактора; выбранная строка отмечена «На главной».
+Архивное руководство можно открыть для редактирования и снять его существующий закреп.
+
+Страница руководства объединяет редактирование названия, описания, обложки и упорядоченного состава.
+Создание руководства сразу открывает эту страницу. Название, описание и состав сохраняются
+автоматически с прежней защитой от конфликтов. Автор может добавить или убрать материал,
+переставить его перетаскиванием на desktop либо кнопками вверх/вниз с клавиатуры и на mobile.
+Настройка именованной последовательности шагов раскрывается у конкретного материала.
+Возврат ко всем руководствам дожидается сохранения изменений; ошибка не закрывает редактор.
+Архивирование и восстановление остаются на странице руководства.
 
 ### Authoring и publish
 

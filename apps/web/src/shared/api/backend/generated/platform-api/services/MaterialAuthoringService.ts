@@ -8,14 +8,14 @@ import type { BaseHttpRequest } from '../core/BaseHttpRequest';
 export class MaterialAuthoringService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
-   * List Topics or Series for authoring
+   * List Topics or Guides for authoring
    * @returns any
    * @throws ApiError
    */
   public listAuthoringContentCollections({
     kind,
   }: {
-    kind: 'series' | 'topic',
+    kind: 'guide' | 'series' | 'topic',
   }): CancelablePromise<Array<{
     archived: boolean;
     cover: {
@@ -26,7 +26,7 @@ export class MaterialAuthoringService {
       }>;
     } | null;
     id: string;
-    kind: 'series' | 'topic';
+    kind: 'guide' | 'series' | 'topic';
     materialCount: number;
     name: string;
     slug: string;
@@ -42,7 +42,7 @@ export class MaterialAuthoringService {
     });
   }
   /**
-   * Create a Topic or Series with an immutable slug
+   * Create a Topic or Guide with an immutable slug
    * @returns any
    * @throws ApiError
    */
@@ -50,7 +50,7 @@ export class MaterialAuthoringService {
     requestBody,
   }: {
     requestBody: {
-      kind: 'series' | 'topic';
+      kind: 'guide' | 'series' | 'topic';
       name: string;
       slug: string;
       summary: string;
@@ -65,7 +65,7 @@ export class MaterialAuthoringService {
       }>;
     } | null;
     id: string;
-    kind: 'series' | 'topic';
+    kind: 'guide' | 'series' | 'topic';
     materialCount: number;
     name: string;
     slug: string;
@@ -80,7 +80,7 @@ export class MaterialAuthoringService {
     });
   }
   /**
-   * Update Topic or Series metadata without changing its slug
+   * Update Topic or Guide metadata without changing its slug
    * @returns any
    * @throws ApiError
    */
@@ -91,7 +91,7 @@ export class MaterialAuthoringService {
     collectionId: string,
     requestBody: {
       expectedVersion: number;
-      kind: 'series' | 'topic';
+      kind: 'guide' | 'series' | 'topic';
       name: string;
       summary: string;
     },
@@ -105,7 +105,7 @@ export class MaterialAuthoringService {
       }>;
     } | null;
     id: string;
-    kind: 'series' | 'topic';
+    kind: 'guide' | 'series' | 'topic';
     materialCount: number;
     name: string;
     slug: string;
@@ -123,7 +123,7 @@ export class MaterialAuthoringService {
     });
   }
   /**
-   * Archive or restore a Topic or Series
+   * Archive or restore a Topic or Guide
    * @returns any
    * @throws ApiError
    */
@@ -135,7 +135,7 @@ export class MaterialAuthoringService {
     requestBody: {
       archived: boolean;
       expectedVersion: number;
-      kind: 'series' | 'topic';
+      kind: 'guide' | 'series' | 'topic';
     },
   }): CancelablePromise<{
     archived: boolean;
@@ -147,7 +147,7 @@ export class MaterialAuthoringService {
       }>;
     } | null;
     id: string;
-    kind: 'series' | 'topic';
+    kind: 'guide' | 'series' | 'topic';
     materialCount: number;
     name: string;
     slug: string;
@@ -235,6 +235,102 @@ export class MaterialAuthoringService {
       },
       formData: formData,
       mediaType: 'multipart/form-data',
+    });
+  }
+  /**
+   * Load the current Material order for a Guide
+   * @returns any
+   * @throws ApiError
+   */
+  public loadAuthoringGuideOrder({
+    guideId,
+  }: {
+    guideId: string,
+  }): CancelablePromise<{
+    archived: boolean;
+    items: Array<{
+      materialId: string;
+      ordinal: number;
+      publicationState: 'draft' | 'published' | 'unpublished';
+      stepGroup: string | null;
+      title: string | null;
+    }>;
+    name: string;
+    orderVersion: string;
+    seriesId: string;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/authoring/guides/{guideId}/order',
+      path: {
+        'guideId': guideId,
+      },
+    });
+  }
+  /**
+   * Replace the Material order for a Guide
+   * @returns any
+   * @throws ApiError
+   */
+  public reorderAuthoringGuide({
+    guideId,
+    requestBody,
+  }: {
+    guideId: string,
+    requestBody: {
+      expectedOrderVersion: string;
+      orderedMaterialIds: Array<string>;
+      stepGroups?: Record<string, string>;
+    },
+  }): CancelablePromise<{
+    orderVersion: string;
+    seriesId: string;
+  }> {
+    return this.httpRequest.request({
+      method: 'PUT',
+      url: '/authoring/guides/{guideId}/order',
+      path: {
+        'guideId': guideId,
+      },
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
+   * Read the author's Home Series selection
+   * @returns any
+   * @throws ApiError
+   */
+  public loadAuthoringHomePin(): CancelablePromise<{
+    seriesId: string | null;
+    version: number;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/authoring/home-pin',
+    });
+  }
+  /**
+   * Replace or remove the author's Home Series selection
+   * @returns any
+   * @throws ApiError
+   */
+  public setAuthoringHomePin({
+    requestBody,
+  }: {
+    requestBody: {
+      expectedVersion: number;
+      seriesId: string | null;
+    },
+  }): CancelablePromise<{
+    seriesId: string | null;
+    version: number;
+  }> {
+    return this.httpRequest.request({
+      method: 'PUT',
+      url: '/authoring/home-pin',
+      body: requestBody,
+      mediaType: 'application/json',
     });
   }
   /**
@@ -670,6 +766,7 @@ export class MaterialAuthoringService {
     });
   }
   /**
+   * @deprecated
    * Load the current Material order for a Series
    * @returns any
    * @throws ApiError
@@ -700,6 +797,7 @@ export class MaterialAuthoringService {
     });
   }
   /**
+   * @deprecated
    * Replace the Material order for a Series
    * @returns any
    * @throws ApiError

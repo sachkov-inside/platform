@@ -25,6 +25,7 @@ const note = material({
   title: "Границы хорошего модуля",
 });
 const home = {
+  pinnedSeries: null,
   membership: { kind: "active" },
   guides: [guide],
   notes: [note],
@@ -97,7 +98,7 @@ export const RealDataReady: Story = {
     await expect(canvas.getByRole("heading", { name: "Новые видео" })).toBeVisible();
     await expect(canvas.getByText("12:34")).toBeVisible();
     const topicLink = canvas.getByRole("link", { name: "Platform" });
-    await expect(topicLink).toHaveAttribute("href", "/topics/platform?from=%2F");
+    await expect(topicLink).toHaveAttribute("href", "/library?topic=platform");
     await expect(canvas.queryByRole("complementary", { name: "Подписка Inside" })).not.toBeInTheDocument();
     await expect(canvas.queryByText(/продолжить/iu)).not.toBeInTheDocument();
     await expect(canvas.getByRole("link", { name: "Все видео" })).toHaveAttribute(
@@ -120,7 +121,7 @@ export const RealDataReady: Story = {
       "border",
       "bg-card",
     );
-    const seriesHeading = canvas.getByRole("heading", { name: "Серии" });
+    const seriesHeading = canvas.getByRole("heading", { name: "Руководства" });
     const videosHeading = canvas.getByRole("heading", { name: "Новые видео" });
     await expect(
       Boolean(
@@ -141,7 +142,7 @@ export const IllustratedCatalog: Story = {
     const canvas = within(canvasElement);
     const topic = canvas.getByRole("link", { name: "Архитектура" });
     await expect(topic).toBeVisible();
-    const playlist = canvas.getByRole("link", { name: "Открыть серию Создание Platform Inside" });
+    const playlist = canvas.getByRole("link", { name: "Открыть руководство Создание Platform Inside" });
     await expect(playlist.querySelectorAll("[data-content-cover-id]")).toHaveLength(2);
   },
 };

@@ -9,13 +9,34 @@ import { MATERIAL_AUTHORING } from "../../facets/material-authoring/material-aut
 import type { MaterialAuthoring } from "../../facets/material-authoring/material-authoring.js";
 
 @MaterialAuthoringEndpoint()
-@Controller("authoring/series")
+@Controller("authoring")
 export class LoadSeriesOrderController {
   constructor(@Inject(MATERIAL_AUTHORING) private readonly authoring: MaterialAuthoring) {}
 
-  @Get(":seriesId/order")
+  @Get("guides/:guideId/order")
+  @ApiOperation({
+    operationId: "loadAuthoringGuideOrder",
+    summary: "Load the current Material order for a Guide",
+  })
+  @ApiParam({ name: "guideId", schema: { type: "string", format: "uuid" } })
+  @ApiOkResponse({ schema: toOpenApiSchema(seriesOrderSchema) })
+  @ApiMaterialAuthoringErrors(400, 401, 403, 404, 500, 503)
+  async loadGuide(
+    @CurrentAccount() account: AuthenticatedAccount,
+    @Param("guideId") seriesId: string,
+  ) {
+    const result = await this.authoring.loadSeriesOrder({
+      actor: account.accountId,
+      seriesId,
+    });
+    if (!result.ok) throwMaterialAuthoringError(result.error);
+    return result.value;
+  }
+
+  @Get("series/:seriesId/order")
   @ApiOperation({
     operationId: "loadAuthoringSeriesOrder",
+    deprecated: true,
     summary: "Load the current Material order for a Series",
   })
   @ApiParam({ name: "seriesId", schema: { type: "string", format: "uuid" } })

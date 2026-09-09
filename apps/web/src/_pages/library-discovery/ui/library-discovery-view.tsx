@@ -10,7 +10,6 @@ import {
 } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
-import type { ReactNode } from "react";
 
 import type {
   LibraryDiscoveryKind,
@@ -19,7 +18,6 @@ import type {
 } from "@/features/library-discovery";
 import {
   ContentCoverImage,
-  MaterialCard,
   materialPreviewHasVideo,
 } from "@/entities/material";
 import { PlaylistCard, formatMaterialCount } from "@/features/library-discovery";
@@ -31,8 +29,7 @@ import {
   libraryMaterialReaderReturnTarget,
   type MaterialReaderReturnTarget,
 } from "@/shared/routing/material-reader";
-import { SavedSeriesProgress, SeriesMaterialMarker } from "@/features/reading-progress";
-import { seriesSteps } from "../model/series-steps";
+import { SeriesJourney, type SeriesLearningView } from "./series-journey.client";
 import { TopicMaterialCatalog } from "./topic-material-catalog.client";
 
 type ResolvedDiscoveryResult = Exclude<
@@ -43,13 +40,13 @@ type ResolvedDiscoveryResult = Exclude<
 export function LibraryDiscoveryView({
   result,
   returnTarget = libraryMaterialReaderReturnTarget,
-  seriesProgress,
-  continuation,
+  learning,
+  onRetry,
 }: {
   readonly result: ResolvedDiscoveryResult;
   readonly returnTarget?: MaterialReaderReturnTarget;
-  readonly seriesProgress?: ReactNode;
-  readonly continuation?: { readonly materialSlug: string; readonly label: string } | undefined;
+  readonly learning?: SeriesLearningView;
+  readonly onRetry?: (() => void) | undefined;
 }) {
   const isSeries = result.discoveryKind === "series";
   const Icon = isSeries ? ListVideo : Tags;
@@ -61,7 +58,7 @@ export function LibraryDiscoveryView({
 
   return (
     <div
-      className="@container/discovery min-w-0"
+      className={cn("@container/discovery min-w-0", isSeries && "mx-auto w-full max-w-[65rem]")}
       data-discovery-kind={result.discoveryKind}
       data-discovery-state={result.kind}
     >
@@ -71,13 +68,11 @@ export function LibraryDiscoveryView({
         returnTarget={returnTarget}
       />
       <DiscoveryHero Icon={Icon} isSeries={isSeries} result={result} />
-      {isSeries ? seriesProgress ?? (result.reference.id !== undefined ? <SavedSeriesProgress seriesId={result.reference.id} /> : null) : null}
+      {isSeries ? <SeriesJourney currentHref={currentHref} result={{ ...result, discoveryKind: "series" }} {...(learning === undefined ? {} : { learning })} onRetry={onRetry} /> : null}
 
       {result.kind === "empty" ? (
         <DiscoveryEmpty kind={result.discoveryKind} />
-      ) : isSeries ? (
-        <SeriesMaterials currentHref={currentHref} result={result} continuation={continuation} />
-      ) : (
+      ) : isSeries ? null : (
         <TopicMaterials currentHref={currentHref} result={result} />
       )}
     </div>
@@ -112,7 +107,7 @@ function DiscoveryHero({
           >
             {isSeries ? (
               <>
-                Серия ·{" "}
+                Руководство ·{" "}
                 {formatMaterialCount(
                   result.kind === "ready" ? result.items.length : 0,
                 )}
@@ -196,7 +191,7 @@ function TopicMaterials({
         <DiscoverySectionHeading
           count={result.relatedSeries.length}
           id="topic-playlists"
-          title="Серии"
+          title="Руководства"
         />
         {result.relatedSeries.length > 0 ? (
           <div className="@container/playlist-surface mt-4 grid gap-4 @min-[48rem]/discovery:grid-cols-2">
@@ -216,7 +211,7 @@ function TopicMaterials({
           </div>
         ) : (
           <p className="mt-4 rounded-2xl bg-muted px-5 py-7 font-semibold sm:px-8">
-            Связанных серий пока нет
+            Связанных руководств пока нет
           </p>
         )}
       </section>
@@ -229,101 +224,12 @@ function TopicMaterials({
   );
 }
 
-function SeriesMaterials({
-  continuation,
-  currentHref,
-  result,
-}: {
-  readonly continuation: { readonly materialSlug: string; readonly label: string } | undefined;
-  readonly currentHref: Route;
-  readonly result: Extract<ResolvedDiscoveryResult, { readonly kind: "ready" }>;
-}) {
-  const steps = seriesSteps(result.items, result.reference.slug);
-
-  return (
-    <section aria-labelledby="series-materials">
-      <PublicSectionHeading
-        className="mt-11 flex-wrap"
-        id="series-materials"
-        title="Маршрут"
-      />
-      <ol aria-label="Материалы серии" className="mt-4 grid gap-4" data-series-order>
-        {result.items.map((material, index) => {
-          const ordinal =
-            material.seriesMemberships.find(
-              ({ slug }) => slug === result.reference.slug,
-            )?.ordinal ?? index + 1;
-          const step = steps.get(material.slug);
-          return (
-            <li
-              className="relative grid grid-cols-[2rem_minmax(0,1fr)] items-center gap-3"
-              aria-current={continuation?.materialSlug === material.slug ? "step" : undefined}
-              data-series-ordinal={ordinal}
-              key={material.slug}
-            >
-              {result.items.length > 1 ? (
-                <span
-                  aria-hidden="true"
-                  className="pointer-events-none absolute left-[15px] w-0 border-l-2 border-dashed border-action/35"
-                  data-series-rail
-                  style={{
-                    top: index === 0 ? "50%" : "-1rem",
-                    bottom: index === result.items.length - 1 ? "50%" : "-1rem",
-                  }}
-                />
-              ) : null}
-              <div className="relative z-10 flex min-h-11 items-center font-semibold text-muted-foreground">
-                <SeriesMaterialMarker {...(material.materialId === undefined ? {} : { materialId: material.materialId })} ordinal={ordinal} />
-              </div>
-              <div className="min-w-0">
-                <MaterialCard
-                  {...(continuation?.materialSlug === material.slug ? { resumeLabel: continuation.label } : {})}
-                  headingLevel="h3"
-                  material={material}
-                  returnHref={currentHref}
-                  rowAnnotation={step === undefined ? undefined : (
-                    <span className="mt-2 flex flex-wrap items-baseline gap-x-1 text-xs leading-5" data-series-step>
-                      <span className="font-semibold text-foreground">Шаг {step.ordinal} из {step.total}</span>
-                      <span aria-hidden="true" className="text-muted-foreground">·</span>
-                      <span className="min-w-0 break-words text-muted-foreground">{step.label}</span>
-                    </span>
-                  )}
-                  variant="row"
-                />
-              </div>
-            </li>
-          );
-        })}
-      </ol>
-      <DiscoveryContinuation result={result} />
-    </section>
-  );
-}
-
-function DiscoveryContinuation({
-  result,
-}: {
-  readonly result: Extract<ResolvedDiscoveryResult, { readonly kind: "ready" }>;
-}) {
-  if (!result.hasNext) {
-    return null;
-  }
-  const parameter = result.discoveryKind === "series" ? "series" : "topic";
-  return (
-    <Button asChild className="mt-6" variant="outline">
-      <Link href={`/library?${parameter}=${encodeURIComponent(result.reference.slug)}`}>
-        Показать все материалы
-      </Link>
-    </Button>
-  );
-}
-
 function DiscoveryEmpty({ kind }: { readonly kind: LibraryDiscoveryKind }) {
   return (
     <section className="mt-8 max-w-[48rem] rounded-2xl bg-muted px-6 py-7 sm:mt-10 sm:px-8">
       <LibraryBig aria-hidden="true" className="size-6 text-accent" />
       <h2 className="mt-4 text-2xl font-semibold tracking-[-0.03em]">
-        {kind === "series" ? "В серии пока нет материалов" : "В теме пока нет материалов"}
+        {kind === "series" ? "В руководстве пока нет материалов" : "В теме пока нет материалов"}
       </h2>
       <Button asChild className="mt-6" size="lg" variant="outline">
         <Link href="/library">Открыть Базу знаний</Link>
@@ -353,7 +259,7 @@ function DiscoveryBreadcrumb({
             {returnTarget.label}
           </Link>
         </li>
-        <li className="sr-only">{kind === "series" ? "Серия" : "Тема"}</li>
+        <li className="sr-only">{kind === "series" ? "Руководство" : "Тема"}</li>
         <li aria-current="page" className="sr-only">{name}</li>
       </ol>
     </nav>
@@ -456,7 +362,7 @@ export function LibraryDiscoveryNotFound() {
         </Button>
       }
       icon={<SearchX aria-hidden="true" />}
-      message="Проверьте адрес или выберите другую тему или серию в Базе знаний."
+      message="Проверьте адрес или выберите другую тему или руководство в Базе знаний."
       state="not-found"
       title="Подборка не найдена"
     />

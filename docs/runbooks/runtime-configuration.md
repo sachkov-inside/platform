@@ -141,3 +141,9 @@ An explicit uploader 401/403 records a `rejected` upload attempt and returns
 repaired, the browser starts a new attempt. Network errors and ambiguous provider responses retain
 an unresolved attempt and return `upload_outcome_unknown`; check the provider before recovery.
 Never reset such attempts merely because the browser offers a retry.
+
+## Notifications transport
+
+The optional `PlatformConfig.notifications` group belongs to `notifications-worker`. Its URL map,
+CA, prefetch and quarantine limits are defined in the [transport runbook](notification-transport.md).
+The local Compose env file uses disposable scoped principals; production activation remains separate.

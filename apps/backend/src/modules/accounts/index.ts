@@ -35,3 +35,7 @@ export { assembleDelegatedAccountTokenVerifier } from "./adapters/mcp/delegated-
 export type { VerifiedAccountSignIn } from "./facets/accounts/accounts.interface.js";
 
 export { platformPermissions } from "./domain/platform-permission.js";
+
+export { NotificationAccounts } from "./facets/notification-accounts/notification-accounts.js";
+
+export { BillingContact } from "./facets/billing-contact/billing-contact.js";

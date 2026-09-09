@@ -39,12 +39,14 @@ export function assembleMembershipEntitlements(
     },
     async resolveForAccess(
       accountId: AccountId,
+      guideIds: readonly string[] = [],
     ): Promise<MembershipAccessState> {
       try {
         return await resolveMembershipForAccess(
           dependencies.prisma,
           accountId,
           clock(),
+          guideIds,
         );
       } catch {
         return { kind: "unavailable" };

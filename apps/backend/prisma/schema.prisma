@@ -8,7 +8,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  schemas  = ["accounts", "assets", "communications", "materials", "member_profiles", "reading_activity", "membership_entitlements", "telegram_membership", "videos", "workshop"]
+  schemas  = ["notifications", "billing", "accounts", "assets", "communications", "materials", "member_profiles", "reading_activity", "membership_entitlements", "telegram_membership", "videos", "workshop"]
 }
 
 model Account {
@@ -322,7 +322,7 @@ model Tag {
   @@schema("materials")
 }
 
-model Series {
+model Guide {
   id         String    @id @db.Uuid
   slug       String    @unique(map: "series_slug_unique")
   name       String
@@ -334,6 +334,15 @@ model Series {
   updatedAt  DateTime  @default(now()) @map("updated_at") @db.Timestamptz
 
   @@map("series")
+  @@schema("materials")
+}
+
+model HomeSeriesPin {
+  id       Int     @id
+  seriesId String? @map("series_id") @db.Uuid
+  version  Int     @default(1)
+
+  @@map("home_series_pin")
   @@schema("materials")
 }
 
@@ -372,7 +381,7 @@ model MaterialTag {
   @@schema("materials")
 }
 
-model SeriesMembership {
+model GuideMembership {
   stepGroup String? @map("step_group")
   seriesId   String @map("series_id") @db.Uuid
   materialId String @map("material_id") @db.Uuid
@@ -468,7 +477,7 @@ model PublishedMaterialTag {
   @@schema("materials")
 }
 
-model PublishedMaterialSeriesMembership {
+model PublishedMaterialGuideMembership {
   materialId String @map("material_id") @db.Uuid
   seriesId   String @map("series_id") @db.Uuid
   ordinal    Int
@@ -714,4 +723,524 @@ model ReadingMaterialVisit {
   @@index([accountId, lastOpenedAt(sort: Desc), materialId], map: "material_visits_recent")
   @@map("material_visits")
   @@schema("reading_activity")
+}
+
+model AccessGrant {
+  id           String    @id @db.Uuid
+  accountId    String    @map("account_id") @db.Uuid
+  source       String
+  sourceRef    String    @map("source_ref") @db.VarChar(256)
+  capabilities String[]
+  startsAt     DateTime  @map("starts_at") @db.Timestamptz
+  validUntil   DateTime? @map("valid_until") @db.Timestamptz
+  revokedAt    DateTime? @map("revoked_at") @db.Timestamptz
+  revision     Int
+  reason       String    @db.VarChar(1000)
+
+  @@unique([source, sourceRef])
+  @@index([accountId], map: "access_grants_account_idx")
+  @@map("access_grants")
+  @@schema("membership_entitlements")
+}
+
+model AccessReceipt {
+  scope       String   @db.VarChar(256)
+  operationId String   @map("operation_id") @db.Uuid
+  fingerprint String   @db.Char(64)
+  result      Json
+  payload     Json
+  createdAt   DateTime @map("created_at") @db.Timestamptz
+
+  @@id([scope, operationId])
+  @@map("access_receipts")
+  @@schema("membership_entitlements")
+}
+
+model AccessBatchPreview {
+  id          String   @id @db.Uuid
+  actorId     String   @map("actor_id") @db.Uuid
+  operationId String   @map("operation_id") @db.Uuid
+  fingerprint String   @db.Char(64)
+  rows        Json
+  revision    Int      @default(1)
+  expiresAt   DateTime @map("expires_at") @db.Timestamptz
+
+  @@unique([actorId, operationId])
+  @@map("access_batch_previews")
+  @@schema("membership_entitlements")
+}
+
+model LegacyClassification {
+  accountId      String   @id @map("account_id") @db.Uuid
+  classification String
+  sourceRef      String   @map("source_ref") @db.VarChar(256)
+  reason         String   @db.VarChar(1000)
+  verifiedAt     DateTime @map("verified_at") @db.Timestamptz
+  revision       Int
+  bridgeEnabled  Boolean  @default(false) @map("bridge_enabled")
+  tributeStopped Boolean  @default(false) @map("tribute_stopped")
+
+  @@map("legacy_classifications")
+  @@schema("membership_entitlements")
+}
+
+model AccessChange {
+  revision    Int      @id @default(autoincrement())
+  accountId   String   @map("account_id") @db.Uuid
+  grantId     String?  @map("grant_id") @db.Uuid
+  actorId     String?  @map("actor_id") @db.Uuid
+  operationId String   @map("operation_id") @db.Uuid
+  kind        String
+  reason      String   @db.VarChar(1000)
+  recordedAt  DateTime @map("recorded_at") @db.Timestamptz
+
+  @@index([accountId, revision], map: "access_changes_account_idx")
+  @@map("access_changes")
+  @@schema("membership_entitlements")
+}
+
+model TelegramAccountLinkState {
+  accountId    String   @id @map("account_id") @db.Uuid
+  linkRef      String   @unique @map("link_ref") @db.Uuid
+  revision     Int
+  principalRef String?  @map("principal_ref") @db.VarChar(256)
+  identityRef  String?  @map("identity_ref") @db.VarChar(256)
+  updatedAt    DateTime @map("updated_at") @db.Timestamptz
+
+  @@map("account_link_states")
+  @@schema("telegram_membership")
+}
+
+model TelegramAccountLinkHistory {
+  accountId    String   @map("account_id") @db.Uuid
+  revision     Int
+  linkRef      String   @map("link_ref") @db.Uuid
+  principalRef String?  @map("principal_ref") @db.VarChar(256)
+  identityRef  String?  @map("identity_ref") @db.VarChar(256)
+  recordedAt   DateTime @map("recorded_at") @db.Timestamptz
+
+  @@id([accountId, revision])
+  @@map("account_link_history")
+  @@schema("telegram_membership")
+}
+
+model BillingOffer {
+  id String @id @db.Uuid
+  revision Int
+  name String
+  benefits String[]
+  benefitPeriods Json @default("[]") @map("benefit_periods")
+  archived Boolean @default(false)
+  options BillingPaymentOption[]
+  @@map("offers")
+  @@schema("billing")
+}
+model BillingPaymentOption {
+  mode String @default("subscription")
+  id String @id @db.Uuid
+  revision Int
+  offerId String @map("offer_id") @db.Uuid
+  offer BillingOffer @relation(fields: [offerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  months Int
+  priceKopecks BigInt @map("price_kopecks")
+  archived Boolean @default(false)
+  @@map("payment_options")
+  @@schema("billing")
+}
+model BillingPromotion {
+  id String @id @db.Uuid
+  revision Int
+  name String
+  percent Int
+  code String? @unique
+  startsAt DateTime @map("starts_at") @db.Timestamptz
+  endsAt DateTime @map("ends_at") @db.Timestamptz
+  offerIds String[] @map("offer_ids") @db.Uuid
+  paymentOptionIds String[] @map("payment_option_ids") @db.Uuid
+  usageLimit Int? @map("usage_limit")
+  archived Boolean @default(false)
+  reservations BillingPromoReservation[]
+  @@map("promotions")
+  @@schema("billing")
+}
+model BillingPricingCommand {
+  actor String @db.Uuid
+  operationId String @map("operation_id") @db.Uuid
+  fingerprint String
+  outcome Json
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  @@id([actor, operationId])
+  @@map("pricing_commands")
+  @@schema("billing")
+}
+model BillingPriceQuote {
+  id String @id @db.Uuid
+  accountId String @map("account_id") @db.Uuid
+  operationId String @map("operation_id") @db.Uuid
+  fingerprint String
+  snapshot Json
+  promoCode String? @map("promo_code")
+  createdAt DateTime @map("created_at") @db.Timestamptz
+  expiresAt DateTime @map("expires_at") @db.Timestamptz
+  reservation BillingPromoReservation?
+  @@unique([accountId, operationId])
+  @@map("price_quotes")
+  @@schema("billing")
+}
+model BillingPromoReservation {
+  purchaseRef String @id @map("purchase_ref") @db.Uuid
+  accountId String @map("account_id") @db.Uuid
+  quoteRef String @unique @map("quote_ref") @db.Uuid
+  quote BillingPriceQuote @relation(fields: [quoteRef], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  promotionId String? @map("promotion_id") @db.Uuid
+  promotion BillingPromotion? @relation(fields: [promotionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  state String
+  snapshot Json
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  @@index([promotionId, state], map: "billing_promotion_usage")
+  @@map("promo_reservations")
+  @@schema("billing")
+}
+
+model BillingContact {
+ accountId String @id @map("account_id") @db.Uuid
+ revision Int @default(0)
+ emailCiphertext String? @map("email_ciphertext")
+ verifiedAt DateTime? @map("verified_at") @db.Timestamptz
+ challengeRef String? @map("challenge_ref") @db.Uuid
+ @@map("billing_contacts")
+ @@schema("accounts")
+}
+model BillingContactChallenge {
+ id String @id @db.Uuid
+ accountId String @map("account_id") @db.Uuid
+ operationId String @map("operation_id") @db.Uuid
+ fingerprint String
+ recipientFingerprint String @map("recipient_fingerprint")
+ emailCiphertext String @map("email_ciphertext")
+ codeDigest String @map("code_digest")
+ baseRevision Int @map("base_revision")
+ attempts Int @default(0)
+ createdAt DateTime @map("created_at") @db.Timestamptz
+ expiresAt DateTime @map("expires_at") @db.Timestamptz
+ confirmedAt DateTime? @map("confirmed_at") @db.Timestamptz
+ delivery String
+ @@unique([accountId, operationId])
+ @@index([accountId, createdAt], map: "billing_contact_challenges_account_time")
+ @@index([recipientFingerprint, createdAt], map: "billing_contact_challenges_recipient_time")
+ @@map("billing_contact_challenges")
+ @@schema("accounts")
+}
+model BillingContactCommand {
+ accountId String @map("account_id") @db.Uuid
+ operationId String @map("operation_id") @db.Uuid
+ fingerprint String
+ result Json
+ @@id([accountId, operationId])
+ @@map("billing_contact_commands")
+ @@schema("accounts")
+}
+model BillingConsentEvidence {
+ id String @id @db.Uuid
+ accountId String @map("account_id") @db.Uuid
+ operationId String @map("operation_id") @db.Uuid
+ contextRef String @map("context_ref") @db.Uuid
+ kind String
+ documentId String @map("document_id")
+ documentVersion String @map("document_version")
+ documentDigest String @map("document_digest")
+ documentText String @map("document_text")
+ documentUrl String @map("document_url")
+ acceptedAt DateTime @map("accepted_at") @db.Timestamptz
+ @@unique([accountId, operationId, kind])
+ @@map("billing_consent_evidence")
+ @@schema("accounts")
+}
+
+model BillingNotificationOutbox {
+  scope String
+  messageId String @map("message_id") @db.Uuid
+  lane String
+  payload String
+  digest String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  publishedAt DateTime? @map("published_at") @db.Timestamptz
+  nextAttemptAt DateTime @default(now()) @map("next_attempt_at") @db.Timestamptz
+  attempts Int @default(0)
+  lastFailure String? @map("last_failure")
+  @@id([scope, messageId])
+  @@index([lane, publishedAt, nextAttemptAt])
+  @@map("notification_outbox")
+  @@schema("billing")
+}
+
+model MaterialNotificationOutbox {
+  scope String
+  messageId String @map("message_id") @db.Uuid
+  lane String
+  payload String
+  digest String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  publishedAt DateTime? @map("published_at") @db.Timestamptz
+  nextAttemptAt DateTime @default(now()) @map("next_attempt_at") @db.Timestamptz
+  attempts Int @default(0)
+  lastFailure String? @map("last_failure")
+  @@id([scope, messageId])
+  @@index([lane, publishedAt, nextAttemptAt])
+  @@map("notification_outbox")
+  @@schema("materials")
+}
+
+model NotificationOutbox {
+  scope String
+  messageId String @map("message_id") @db.Uuid
+  lane String
+  payload String
+  digest String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  publishedAt DateTime? @map("published_at") @db.Timestamptz
+  nextAttemptAt DateTime @default(now()) @map("next_attempt_at") @db.Timestamptz
+  attempts Int @default(0)
+  lastFailure String? @map("last_failure")
+  @@id([scope, messageId])
+  @@index([lane, publishedAt, nextAttemptAt])
+  @@map("notification_outbox")
+  @@schema("notifications")
+}
+
+model NotificationInbox {
+  nextAttemptAt DateTime @default(now()) @map("next_attempt_at") @db.Timestamptz
+  scope String
+  messageId String @map("message_id") @db.Uuid
+  lane String
+  payload String
+  digest String
+  receivedAt DateTime @default(now()) @map("received_at") @db.Timestamptz
+  completedAt DateTime? @map("completed_at") @db.Timestamptz
+  checkpoint Json @default("{}")
+  @@id([scope, messageId])
+  @@index([lane, completedAt, receivedAt])
+  @@map("inbox")
+  @@schema("notifications")
+}
+model NotificationQuarantine {
+  key String @id
+  lane String
+  reason String
+  digest String
+  payload String?
+  receivedAt DateTime @default(now()) @map("received_at") @db.Timestamptz
+  payloadExpiresAt DateTime @map("payload_expires_at") @db.Timestamptz
+  @@index([payloadExpiresAt])
+  @@map("quarantine")
+  @@schema("notifications")
+}
+
+model NotificationPreference {
+accountId String @id @map("account_id") @db.Uuid
+revision Int
+email Boolean
+telegram Boolean
+changedAt DateTime @map("changed_at") @db.Timestamptz
+@@map("preferences")
+@@schema("notifications")
+}
+
+model NotificationPreferenceRevision {
+accountId String @map("account_id") @db.Uuid
+revision Int
+operationId String @map("operation_id") @db.Uuid
+fingerprint String
+email Boolean
+telegram Boolean
+changedAt DateTime @map("changed_at") @db.Timestamptz
+@@id([accountId, revision])
+@@unique([accountId, operationId])
+@@map("preference_revisions")
+@@schema("notifications")
+}
+
+model Notification {
+id String @id @db.Uuid
+kind String
+occurrenceRef String @map("occurrence_ref") @db.Uuid
+accountId String @map("account_id") @db.Uuid
+eventPayload String @map("event_payload")
+sourceRevision Int @map("source_revision")
+createdAt DateTime @map("created_at") @db.Timestamptz
+deliveries NotificationDelivery[]
+@@unique([kind, occurrenceRef, accountId])
+@@map("notifications")
+@@schema("notifications")
+}
+
+model NotificationDelivery {
+nextCommandAt DateTime? @map("next_command_at") @db.Timestamptz
+id String @id @db.Uuid
+notificationId String @map("notification_id") @db.Uuid
+notification Notification @relation(fields: [notificationId], references: [id])
+channel String
+commandRevision Int @default(0) @map("command_revision")
+state String @default("no_channel")
+reason String?
+resultRevision Int @default(0) @map("result_revision")
+resultDigest String? @map("result_digest")
+attemptRef String? @map("attempt_ref") @db.Uuid
+recoverySkipped Boolean @default(false) @map("recovery_skipped")
+updatedAt DateTime @map("updated_at") @db.Timestamptz
+commands NotificationCommand[]
+@@unique([notificationId, channel])
+@@map("deliveries")
+@@schema("notifications")
+}
+
+model NotificationCommand {
+operationId String @id @map("operation_id") @db.Uuid
+deliveryId String @map("delivery_id") @db.Uuid
+delivery NotificationDelivery @relation(fields: [deliveryId], references: [id])
+revision Int
+payload String
+digest String
+createdAt DateTime @map("created_at") @db.Timestamptz
+@@unique([deliveryId, revision])
+@@map("commands")
+@@schema("notifications")
+}
+
+model NotificationAuthorization {
+channel String
+operationId String @map("operation_id") @db.Uuid
+digest String
+deliveryId String @map("delivery_id") @db.Uuid
+attemptRef String @map("attempt_ref") @db.Uuid
+response String
+createdAt DateTime @map("created_at") @db.Timestamptz
+@@id([channel, operationId])
+@@map("authorizations")
+@@schema("notifications")
+}
+
+model NotificationResult {
+channel String
+messageId String @map("message_id") @db.Uuid
+deliveryId String @map("delivery_id") @db.Uuid
+revision Int
+digest String
+payload String
+recordedAt DateTime @map("recorded_at") @db.Timestamptz
+@@id([channel, messageId])
+@@unique([deliveryId, revision])
+@@map("results")
+@@schema("notifications")
+}
+
+model NotificationEmailEffect {
+category String
+deliveryId String @id @map("delivery_id") @db.Uuid
+operationId String @unique @map("operation_id") @db.Uuid
+commandRevision Int @map("command_revision")
+state String
+attemptRef String? @map("attempt_ref") @db.Uuid
+permitRef String? @map("permit_ref") @db.Uuid
+resultRevision Int @default(0) @map("result_revision")
+resultPayload String? @map("result_payload")
+retries Int @default(0)
+nextAttemptAt DateTime @map("next_attempt_at") @db.Timestamptz
+updatedAt DateTime @map("updated_at") @db.Timestamptz
+attempts NotificationEmailAttempt[]
+@@map("email_effects")
+@@schema("notifications")
+}
+
+model NotificationEmailAttempt {
+id String @id @db.Uuid
+deliveryId String @map("delivery_id") @db.Uuid
+effect NotificationEmailEffect @relation(fields: [deliveryId], references: [deliveryId])
+operationId String @map("operation_id") @db.Uuid
+permitRef String @map("permit_ref") @db.Uuid
+startedAt DateTime @map("started_at") @db.Timestamptz
+state String
+receiptRef String? @map("receipt_ref") @db.Uuid
+completedAt DateTime? @map("completed_at") @db.Timestamptz
+@@map("email_attempts")
+@@schema("notifications")
+}
+
+model NotificationRecoveryAudit {
+operationId String @id @map("operation_id") @db.Uuid
+actorId String @map("actor_id") @db.Uuid
+deliveryId String @map("delivery_id") @db.Uuid
+action String
+fingerprint String
+createdAt DateTime @map("created_at") @db.Timestamptz
+@@map("recovery_audit")
+@@schema("notifications")
+}
+
+model NotificationEmailInbox {
+ rejected Boolean @default(false)
+ operationId String @id @map("operation_id") @db.Uuid
+ deliveryId String @map("delivery_id") @db.Uuid
+ commandRevision Int @map("command_revision")
+ payload String
+ digest String
+ receivedAt DateTime @map("received_at") @db.Timestamptz
+ completedAt DateTime? @map("completed_at") @db.Timestamptz
+ @@unique([deliveryId, commandRevision])
+ @@map("email_inbox")
+ @@schema("notifications")
+}
+
+model BillingPurchase {
+  bindingCiphertext String? @map("binding_ciphertext")
+  lifecycleActive Boolean @default(true) @map("lifecycle_active")
+  id String @id @db.Uuid
+  accountId String @map("account_id") @db.Uuid
+  quoteRef String @unique @map("quote_ref") @db.Uuid
+  state String
+  environment String
+  terminalRef String @map("terminal_ref")
+  paymentId String? @map("payment_id")
+  paymentUrl String? @map("payment_url")
+  amountKopecks BigInt @map("amount_kopecks")
+  snapshot Json
+  acceptance Json
+  contact Json
+  fiscalization String
+  confirmedAt DateTime? @map("confirmed_at") @db.Timestamptz
+  periodEndsAt DateTime? @map("period_ends_at") @db.Timestamptz
+  createdAt DateTime @map("created_at") @db.Timestamptz
+  updatedAt DateTime @map("updated_at") @db.Timestamptz
+  @@unique([environment, terminalRef, paymentId])
+  @@map("purchases")
+  @@schema("billing")
+}
+model BillingPurchaseCommand {
+  accountId String @map("account_id") @db.Uuid
+  operationId String @map("operation_id") @db.Uuid
+  fingerprint String
+  purchaseRef String @map("purchase_ref") @db.Uuid
+  @@id([accountId, operationId])
+  @@map("purchase_commands")
+  @@schema("billing")
+}
+model BillingPaymentEvent {
+  id String @id @db.Uuid
+  purchaseRef String @map("purchase_ref") @db.Uuid
+  kind String
+  payload Json
+  occurredAt DateTime @map("occurred_at") @db.Timestamptz
+  recordedAt DateTime @map("recorded_at") @db.Timestamptz
+  @@unique([purchaseRef, kind])
+  @@map("payment_events")
+  @@schema("billing")
+}
+model BillingFulfillment {
+  nextAttemptAt DateTime @default(now()) @map("next_attempt_at") @db.Timestamptz
+  eventRef String @id @map("event_ref") @db.Uuid
+  purchaseRef String @map("purchase_ref") @db.Uuid
+  payload Json
+  appliedAt DateTime? @map("applied_at") @db.Timestamptz
+  @@map("fulfillment_outbox")
+  @@schema("billing")
 }

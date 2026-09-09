@@ -56,6 +56,12 @@ CMD ["pnpm", "--filter", "@inside/backend", "dev:profile-avatars-worker"]
 FROM development AS video-deletions-worker
 CMD ["pnpm", "--filter", "@inside/backend", "dev:video-deletions-worker"]
 
+FROM development AS billing-worker
+CMD ["pnpm", "--filter", "@inside/backend", "dev:billing-worker"]
+
+FROM development AS notifications-worker
+CMD ["pnpm", "--filter", "@inside/backend", "dev:notifications-worker"]
+
 FROM development AS production-build
 
 RUN pnpm --filter @inside/backend build:production \

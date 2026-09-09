@@ -1,3 +1,4 @@
+import { VIDEOS, type Videos } from "../src/modules/videos/index.js";
 import "reflect-metadata";
 import { execFileSync } from "node:child_process";
 import assert from "node:assert/strict";
@@ -120,6 +121,7 @@ await app.listen(44111, "127.0.0.1");
 const mcp = createMcpHttpServer({
   accounts: app.get<Accounts>(ACCOUNTS),
   authoring: app.get<MaterialAuthoring>(MATERIAL_AUTHORING),
+      videos: app.get<Videos>(VIDEOS),
   communications: app.get(Communications),
   tokenVerifier: app.get<LogtoAccessTokenVerifier>(LOGTO_ACCESS_TOKEN_VERIFIER),
   identityIssuer: issuer,
@@ -295,7 +297,7 @@ try {
     data: { id: topicId, slug: "proof-topic", name: "Synthetic proof" },
   });
 
-  await prisma.series.create({
+  await prisma.guide.create({
     data: { id: seriesId, slug: "telegram-proof", name: "Тестовая серия #310" },
   });
   const metadata = {

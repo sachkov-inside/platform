@@ -13,7 +13,7 @@ import { ContentCollectionsPageClient } from "./content-collections-page.client"
 
 export async function ContentCollectionsPage({ kind }: { readonly kind: ContentCollectionKind }) {
   const accessToken = await sessionToken();
-  const returnHref = kind === "topic" ? "/authoring/topics" : "/authoring/playlists";
+  const returnHref = kind === "topic" ? "/authoring/topics" : "/authoring/guides";
   if (accessToken === undefined) return unauthorized(returnHref);
   const state = await getContentCollections(kind, accessToken);
   if (state.kind === "unauthorized") return unauthorized(returnHref);

@@ -29,10 +29,12 @@ const materialTables = [
   "authoring_idempotency",
   "content_cover_renditions",
   "content_covers",
+  "home_series_pin",
   "material_related_pins",
   "material_search_documents",
   "material_tags",
   "materials",
+  "notification_outbox",
   "published_material_series_memberships",
   "published_material_tags",
   "published_materials",
@@ -46,12 +48,21 @@ const accountTables = [
   "account_audit_events",
   "account_permissions",
   "accounts",
+  "billing_consent_evidence",
+  "billing_contact_challenges",
+  "billing_contact_commands",
+  "billing_contacts",
 ] as const;
 
 const membershipEntitlementTables = [
+  "access_batch_previews",
+  "access_changes",
+  "access_grants",
+  "access_receipts",
   "account_bindings",
   "current_projections",
   "evidence_receipts",
+  "legacy_classifications",
 ] as const;
 
 const memberProfileTables = [
@@ -61,7 +72,7 @@ const memberProfileTables = [
   "profiles",
 ] as const;
 
-const telegramMembershipTables = ["link_transactions"] as const;
+const telegramMembershipTables = ["account_link_history", "account_link_states", "link_transactions"] as const;
 const assetTables = ["material_asset_variants", "material_assets"] as const;
 const videoTables = [
   "deletion_operations",
@@ -172,6 +183,18 @@ describe("Platform migrations", () => {
           "0035_domain_material_formats",
           "0036_video_upload_rejections",
           "0037_platform_admin",
+          "0038_account_access",
+          "0039_telegram_link_revisions",
+          "0040_billing_pricing",
+          "0041_billing_contact",
+          "0042_billing_notification_transport",
+          "0043_materials_notification_transport",
+          "0044_notifications_notification_transport",
+          "0045_notifications",
+          "0038_home_material_pin",
+      "0039_home_series_pin",
+      "0046_scoped_access",
+      "0047_subscription_payments",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -736,6 +759,18 @@ describe("Platform migrations", () => {
           "0035_domain_material_formats",
           "0036_video_upload_rejections",
           "0037_platform_admin",
+          "0038_account_access",
+          "0039_telegram_link_revisions",
+          "0040_billing_pricing",
+          "0041_billing_contact",
+          "0042_billing_notification_transport",
+          "0043_materials_notification_transport",
+          "0044_notifications_notification_transport",
+          "0045_notifications",
+          "0038_home_material_pin",
+      "0039_home_series_pin",
+      "0046_scoped_access",
+      "0047_subscription_payments",
         ],
       });
 

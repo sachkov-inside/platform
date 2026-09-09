@@ -1,20 +1,20 @@
 import { ArrowRight, BookOpen, Code2, GitBranch, Layers, MessageCircle, Terminal, Users } from "lucide-react";
 import Link from "next/link";
-
 import { formatMaterialCount } from "@/features/library-discovery";
-import { collectionDiscoveryHref } from "@/shared/routing/material-reader";
-import type { HomeCollection } from "../model/home-view";
 
-/** Accepted #380 composition; the owning Home adapter supplies published content and access. */
+import type { HomeCollection } from "../model/home-view";
+import { collectionDiscoveryHref } from "@/shared/routing/material-reader";
+
+/** Reuses the #380 presenter composition with the author-selected Series. */
 export function FeaturedSeries({ series }: { readonly series: HomeCollection }) {
   return <section className="home-featured" aria-labelledby="featured-title">
     <div className="home-featured-copy">
-      <p className="home-featured-label">С чего начать · Серия</p>
+      <p className="home-featured-label">Закреплено автором · Руководство</p>
       <h2 id="featured-title">{series.name}</h2>
       {series.summary && <p className="home-featured-description">{series.summary}</p>}
       <div className="home-featured-bottom">
         <span>{formatMaterialCount(series.count)}</span>
-        <Link href={collectionDiscoveryHref("series", series.slug, "/")}>Изучить серию <ArrowRight aria-hidden="true" /></Link>
+        <Link href={collectionDiscoveryHref("series", series.slug, "/")}>Открыть руководство <ArrowRight aria-hidden="true" /></Link>
       </div>
     </div>
     <div className="home-presenter" aria-hidden="true">
@@ -35,7 +35,7 @@ export function FeaturedSeries({ series }: { readonly series: HomeCollection }) 
 export function HomeAccessInvitation({ acquisitionUrl }: { readonly acquisitionUrl: string }) {
   return <section className="home-access-strip" aria-label="Подписка Inside">
     <BookOpen aria-hidden="true" />
-    <div><strong>Гайды, серии и общение с автором</strong><p>Подписка открывает все материалы, обсуждение со мной и сообщество.</p></div>
+    <div><strong>Гайды, руководства и общение с автором</strong><p>Подписка открывает все материалы, обсуждение со мной и сообщество.</p></div>
     <AccessLink href={acquisitionUrl} label="Полный доступ" />
   </section>;
 }
@@ -56,7 +56,7 @@ export function HomeMembershipBenefits({ acquisitionUrl }: { readonly acquisitio
       </div>)}</div>
     </section>
     <section className="home-invitation" aria-labelledby="home-full-access">
-      <div><p className="home-eyebrow">Полный доступ к Inside</p><h2 id="home-full-access">Изучай. Применяй. Обсуждай.</h2><p>Все материалы и серии, вопросы автору и сообщество разработчиков — в одной подписке.</p></div>
+      <div><p className="home-eyebrow">Полный доступ к Inside</p><h2 id="home-full-access">Изучай. Применяй. Обсуждай.</h2><p>Все материалы и руководства, вопросы автору и сообщество разработчиков — в одной подписке.</p></div>
       <AccessLink href={acquisitionUrl} label="Получить полный доступ" />
     </section>
   </>;

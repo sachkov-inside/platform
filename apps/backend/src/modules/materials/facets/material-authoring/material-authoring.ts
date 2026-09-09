@@ -1,3 +1,5 @@
+import type { LoadHomePinOperation } from "../../features/load-home-pin/load-home-pin.contract.js";
+import type { SetHomePinOperation } from "../../features/set-home-pin/set-home-pin.contract.js";
 import type { CreateDraftOperation } from "../../features/create-draft/create-draft.contract.js";
 import type { DeleteDraftOperation } from "../../features/delete-draft/delete-draft.contract.js";
 import type { LoadMaterialOperation } from "../../features/load-material/load-material.contract.js";
@@ -15,6 +17,8 @@ import type { SetContentCollectionArchiveOperation } from "../../features/set-co
 import type { UpdateContentCollectionOperation } from "../../features/update-content-collection/update-content-collection.contract.js";
 
 export interface MaterialAuthoring {
+  readonly loadHomePin: LoadHomePinOperation;
+  readonly setHomePin: SetHomePinOperation;
   readonly createContentCollection: CreateContentCollectionOperation;
   readonly createDraft: CreateDraftOperation;
   readonly deleteDraft: DeleteDraftOperation;

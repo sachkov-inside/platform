@@ -17,7 +17,7 @@ const commandSchema = z
     archived: z.boolean(),
     collectionId: entityId,
     expectedVersion: z.number().int().positive(),
-    kind: z.enum(["series", "topic"]),
+    kind: z.enum(["guide", "series", "topic"]),
   })
   .strict();
 

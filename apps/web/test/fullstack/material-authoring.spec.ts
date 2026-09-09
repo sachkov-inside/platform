@@ -423,6 +423,41 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
   await expect(
     page.locator("[data-video-player-mount] iframe"),
   ).toHaveAttribute("data-seek-seconds", "37");
+  // Explicit chapter links win over saved resume, including zero and same-page hash changes.
+  await page.goto(`/materials/${slug}#t=3`);
+  await expect(page.locator("[data-video-player-mount] iframe")).toHaveAttribute("data-seek-seconds", "3");
+  await page.evaluate(() => { window.location.hash = "t=0"; });
+  await expect(page.locator("[data-video-player-mount] iframe")).toHaveAttribute("data-seek-seconds", "0");
+  await page.evaluate(() => { window.location.hash = "t=261"; });
+  await expect(page.locator("[data-video-player-mount] iframe")).toHaveAttribute("data-seek-seconds", "261");
+  await page.evaluate(() => { window.location.hash = "t=600"; });
+  await expect(page.locator("[data-video-player-mount] iframe")).toHaveAttribute("data-seek-seconds", "261");
+  // A newer hash during the initial asynchronous seek must win when the SDK completes.
+  await page.evaluate(() => {
+    sessionStorage.setItem("test-player-defer-seek", "1");
+  });
+  await page.goto("/library");
+  await page.goto(`/materials/${slug}#t=3`);
+  const playerFrame = page.locator("[data-video-player-mount] iframe");
+  await expect(playerFrame).toHaveAttribute("data-pending-seek-seconds", "3");
+  await page.evaluate(() => new Promise<void>((resolve) => {
+    window.addEventListener("hashchange", () => { resolve(); }, { once: true });
+    window.location.hash = "t=261";
+  }));
+  await page.evaluate(() => { window.dispatchEvent(new Event("test-player-finish-seek")); });
+  await expect(playerFrame).toHaveAttribute("data-seek-seconds", "261");
+  // Serialize later clicks too, so a slow older seek cannot overwrite the newest moment.
+  await page.evaluate(() => {
+    sessionStorage.setItem("test-player-defer-seek", "1");
+    window.location.hash = "t=0";
+  });
+  await expect(playerFrame).toHaveAttribute("data-pending-seek-seconds", "0");
+  await page.evaluate(() => new Promise<void>((resolve) => {
+    window.addEventListener("hashchange", () => { resolve(); }, { once: true });
+    window.location.hash = "t=3";
+  }));
+  await page.evaluate(() => { window.dispatchEvent(new Event("test-player-finish-seek")); });
+  await expect(playerFrame).toHaveAttribute("data-seek-seconds", "3");
   await captureVideoEvidence(page, testInfo, "reader-automatic-player");
   // This fixture is a Guide containing Video: the saved completion belongs to the Material.
   await expect(
@@ -1225,27 +1260,69 @@ test("trusted author sees a typed not-found state for a missing current Preview"
   ).toBeVisible();
 });
 
+test("author edits series metadata on a dedicated page and returns to the list after autosave", async ({ context, page }) => {
+  await addFullStackSession(context);
+  const title = `Full-stack series ${String(Date.now())}`;
+  await page.goto("/authoring/guides");
+  await page.getByRole("button", { name: "Создать руководство" }).click();
+  await page.getByRole("textbox", { name: "Название", exact: true }).fill(title);
+  await page.getByRole("textbox", { name: "Адрес", exact: false }).fill(`series-${String(Date.now())}`);
+  await page.getByRole("button", { name: "Создать", exact: true }).click();
+  await expect(page).toHaveURL(/\/authoring\/guides\/[^/]+$/u);
+  await expect(page.getByRole("heading", { name: "Руководство пока пусто" })).toBeVisible();
+  await page.getByRole("textbox", { name: "Название руководства" }).fill(`${title} · Обновлена`);
+  await page.getByRole("textbox", { name: "Краткое описание" }).fill("Описание сохраняется перед возвратом к списку.");
+  await page.getByRole("button", { name: "Все руководства", exact: true }).click();
+  await expect(page).toHaveURL(/\/authoring\/guides$/u);
+  await page.getByRole("link", { name: new RegExp(title, "u") }).click();
+  await expect(page.getByRole("textbox", { name: "Название руководства" })).toHaveValue(`${title} · Обновлена`);
+  await expect(page.getByRole("textbox", { name: "Краткое описание" })).toHaveValue("Описание сохраняется перед возвратом к списку.");
+  const orderGate = Promise.withResolvers<undefined>();
+  let orderCompleted = false;
+  let archivedBeforeOrder = false;
+  await page.route("**/api/authoring/guides/order", async (route) => {
+    await orderGate.promise;
+    const response = await route.fetch();
+    orderCompleted = true;
+    await route.fulfill({ response });
+  }, { times: 1 });
+  await page.route("**/api/authoring/collections/archive", async (route) => {
+    archivedBeforeOrder = !orderCompleted;
+    await route.continue();
+  }, { times: 1 });
+  await page.getByRole("button", { name: "Добавить материал", exact: true }).click();
+  const picker = page.getByRole("dialog", { name: "Добавить материал", exact: true });
+  const orderStarted = page.waitForRequest("**/api/authoring/guides/order");
+  await picker.getByRole("button", { name: /^Добавить «/u }).first().click();
+  await picker.getByRole("button", { name: "Закрыть выбор материала" }).click();
+  await page.getByRole("button", { name: "В архив", exact: true }).click();
+  try {
+    await orderStarted;
+    await expect(page.getByRole("button", { name: "Вернуть из архива" })).not.toBeVisible();
+  } finally {
+    orderGate.resolve(undefined);
+  }
+  await expect(page.getByRole("button", { name: "Вернуть из архива" })).toBeVisible();
+  expect(archivedBeforeOrder).toBe(false);
+  await page.reload();
+  await expect(page.getByRole("list", { name: "Материалы руководства" }).getByRole("listitem")).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Добавить материал" })).toBeDisabled();
+  await page.getByRole("button", { name: "Вернуть из архива" }).click();
+  await expect(page.getByRole("button", { name: "Добавить материал" })).toBeEnabled();
+  await page.getByRole("button", { name: "В архив", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Вернуть из архива" })).toBeVisible();
+});
+
 test("trusted author reorders a PostgreSQL series with keyboard controls", async ({
   context,
   page,
 }) => {
   await addFullStackSession(context);
 
-  const response = await page.goto("/authoring/playlists");
+  const response = await page.goto("/authoring/guides");
   expect(response?.status()).toBe(200);
-  const seriesRow = page
-    .getByRole("article")
-    .filter({ hasText: "Создание Platform Inside" });
-  const openComposition = async () => {
-    await seriesRow
-      .getByRole("button", { name: /Создание Platform Inside/u })
-      .click();
-    await seriesRow
-      .getByRole("button", { name: "Материалы серии", exact: true })
-      .click();
-  };
-  await openComposition();
-  await expect(page).toHaveURL(/\/authoring\/playlists$/u);
+  await page.getByRole("link", { name: /Создание Platform Inside/u }).click();
+  await expect(page).toHaveURL(/\/authoring\/guides\/[^/]+$/u);
 
   await page.getByRole("button", { name: "Добавить материал" }).click();
   const picker = page.getByRole("dialog", { name: "Добавить материал" });
@@ -1267,15 +1344,16 @@ test("trusted author reorders a PostgreSQL series with keyboard controls", async
   await expect(picker).toBeHidden();
 
   const items = page
-    .getByRole("list", { name: "Материалы серии" })
+    .getByRole("list", { name: "Материалы руководства" })
     .getByRole("listitem");
   const countAfterAdd = await items.count();
   expect(countAfterAdd).toBeGreaterThan(2);
   const firstTitle = await items.first().locator("p").first().innerText();
   const secondTitle = await items.nth(1).locator("p").first().innerText();
+  await items.first().locator("summary").click();
   await items
     .first()
-    .getByRole("textbox", { name: "Последовательность шагов" })
+    .getByRole("textbox", { name: "Название последовательности" })
     .fill("Full-stack instruction");
   const moveDown = items.first().getByRole("button", {
     name: `Опустить «${firstTitle}»`,
@@ -1317,16 +1395,16 @@ test("trusted author reorders a PostgreSQL series with keyboard controls", async
   ).toBeVisible();
   await expect(page.getByText("Порядок сохранён.")).toBeVisible();
   await page.reload();
-  await openComposition();
   await expect(items.first().locator("p").first()).toHaveText(secondTitle);
   const groupedItem = items.filter({
     has: page.locator("p", { hasText: firstTitle }),
   });
+  await groupedItem.locator("summary").click();
   await expect(
-    groupedItem.getByRole("textbox", { name: "Последовательность шагов" }),
+    groupedItem.getByRole("textbox", { name: "Название последовательности" }),
   ).toHaveValue("Full-stack instruction");
   await groupedItem
-    .getByRole("textbox", { name: "Последовательность шагов" })
+    .getByRole("textbox", { name: "Название последовательности" })
     .clear();
   await expect(
     page.getByText("Порядок сохранён.", { exact: true }),
@@ -1347,7 +1425,7 @@ test("guest cannot reach the production Material editor", async ({ page }) => {
 });
 
 test("guest cannot reach the production playlist manager", async ({ page }) => {
-  const response = await page.goto("/authoring/playlists");
+  const response = await page.goto("/authoring/guides");
   expect(response?.status()).toBe(200);
   await expect(
     page.getByRole("heading", { name: "Нет доступа к редактору" }),
@@ -1580,6 +1658,17 @@ async function installPlaybackProviderDouble(page: Page): Promise<void> {
               getDuration: () => Promise.resolve(600),
               on: () => undefined,
               seekTo: (seconds: number) => {
+                if (sessionStorage.getItem("test-player-defer-seek") === "1") {
+                  sessionStorage.removeItem("test-player-defer-seek");
+                  iframe.dataset.pendingSeekSeconds = String(seconds);
+                  return new Promise<void>((resolve) => {
+                    window.addEventListener("test-player-finish-seek", () => {
+                      iframe.dataset.seekSeconds = String(seconds);
+                      delete iframe.dataset.pendingSeekSeconds;
+                      resolve();
+                    }, { once: true });
+                  });
+                }
                 iframe.dataset.seekSeconds = String(seconds);
                 return Promise.resolve();
               },

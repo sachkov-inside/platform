@@ -17,6 +17,7 @@ describe("Prisma schema", () => {
   });
 
   test("maps every table created by the checked-in migration", async () => {
+    expect(await testDatabase.prisma.homeSeriesPin.count()).toBe(1);
     const counts = await Promise.all([
       testDatabase.prisma.readingMaterialState.count(),
       testDatabase.prisma.readingEvent.count(),
@@ -30,15 +31,15 @@ describe("Prisma schema", () => {
       testDatabase.prisma.membershipProjection.count(),
       testDatabase.prisma.topic.count(),
       testDatabase.prisma.tag.count(),
-      testDatabase.prisma.series.count(),
+      testDatabase.prisma.guide.count(),
       testDatabase.prisma.material.count(),
       testDatabase.prisma.materialRelatedPin.count(),
       testDatabase.prisma.materialTag.count(),
-      testDatabase.prisma.seriesMembership.count(),
+      testDatabase.prisma.guideMembership.count(),
       testDatabase.prisma.authoringIdempotency.count(),
       testDatabase.prisma.publishedMaterial.count(),
       testDatabase.prisma.publishedMaterialTag.count(),
-      testDatabase.prisma.publishedMaterialSeriesMembership.count(),
+      testDatabase.prisma.publishedMaterialGuideMembership.count(),
       testDatabase.prisma.materialSearchDocument.count(),
       testDatabase.prisma.video.count(),
       testDatabase.prisma.videoUploadAttempt.count(),

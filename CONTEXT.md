@@ -1,6 +1,6 @@
 # Platform
 
-Platform publishes Inside Materials and Series for visitors and Membership participants. The
+Platform publishes Inside Materials and Guides for visitors and Membership participants. The
 [current product brief](docs/product/platform-mvp-brief.md) owns delivery scope and the boundary
 between editorial originals and published application state. This glossary names the concepts
 shared by product and application work.
@@ -29,7 +29,7 @@ body and body-linked resources stay protected.
 _Avoid_: Teaser revision, public body, access decision
 
 **Content Cover**:
-A dedicated public image owned by exactly one Material, Topic or Series. Platform keeps only
+A dedicated public image owned by exactly one Material, Topic or Guide. Platform keeps only
 normalized responsive renditions; replacement and removal detach the old cover, and API
 projections never expose originals, storage keys or checksums. In Russian product language:
 «Обложка».
@@ -54,18 +54,19 @@ A managed label used to connect and retrieve Materials across Topics and Formats
 have any number of Tags, including none.
 _Avoid_: Free-form keyword, hashtag
 
-**Series**:
-An ordered collection of Materials with its own meaning and reading sequence. A Material may belong
-to any number of Series, including none. Its Topic relation is derived from published Materials,
-never authored directly. A Series has an immutable slug plus mutable name and summary; archiving
-preserves its composition and canonical reader but removes it from new assignments and discovery.
-In the Russian product interface: «Серия».
-_Avoid_: Topic, Playlist, плейлист
+**Guide**:
+A standalone practical Inside product for a reader task, with an authored sequence of reusable
+Materials. In Russian: «Руководство»; distinct from the Material format «Гайд».
+_Avoid_: Series, Playlist, Topic, Material format guide
 
-**Series Step Sequence**:
-An explicitly named connection between some Materials within one Series. Its steps follow the
-Series order even when other Materials appear between them. The same Material may have a different
-connection or none in another Series. It does not rank Materials by importance or create another
+**Guide Chapter**:
+An optional named group in a Guide's main path, without owning copies of Materials.
+_Avoid_: Video chapter, Material, separately purchased Guide
+
+**Guide Step Sequence**:
+An explicitly named connection between some Materials within one Guide. Its steps follow the
+Guide order even when other Materials appear between them. The same Material may have a different
+connection or none in another Guide. It does not rank Materials by importance or create another
 reading path. In Russian product language: «Последовательность шагов».
 _Avoid_: Module, Track, main/optional role
 
@@ -77,7 +78,7 @@ _Avoid_: Material, generated index
 
 **ContentLibrary**:
 The read capability that builds coherent, body-free projections of current Published Materials,
-Topics and Series for Home, Library and discovery pages. Home is a bounded projection of this same
+Topics and Guides for Home, Library and discovery pages. Home is a bounded projection of this same
 model, not an editorial copy or a second content store.
 _Avoid_: Frontend fixture catalog, Home CMS, duplicated publication
 
@@ -108,6 +109,16 @@ Platform's stable private identity for one authenticated human. It owns Platform
 is independent of profile presentation and Membership.
 _Avoid_: Principal, External Identity, Platform Account, Platform Session, user
 
+**Billing Contact**:
+An Account-owned verified email for receipts and subscription notifications, independent of its
+sign-in identity. A pending replacement becomes the contact only after verification.
+_Avoid_: login email, email fingerprint, Account identity
+
+**Consent Evidence**:
+An immutable record of one Account explicitly accepting an exact document edition for a given
+context. Recurring acceptance is distinct from other kinds and does not itself authorize a charge.
+_Avoid_: current legal text, payment permission, preselected checkbox
+
 **Platform Administrator**:
 An Account explicitly granted all known Platform operations through `platform:admin`.
 Its authority is read from current Account grants, never inferred from author access or provider roles.
@@ -123,8 +134,9 @@ A time-limited statement about an Account's Membership in the canonical closed T
 _Avoid_: MembershipEntitlement, Tribute subscription
 
 **MembershipEntitlement**:
-Platform's time-bounded conclusion that an Account may access Membership-scoped surfaces,
-including protected Library content and Member Profiles. It does not authorize Workshop content.
+Platform's current conclusion that an Account may access Membership-scoped surfaces, including
+protected Library content and Member Profiles, for a finite term or through an independent lifetime
+right. It does not authorize Workshop content.
 _Avoid_: Subscription, Telegram membership status, WorkshopEntitlement
 
 **ContentAccess**:
@@ -134,7 +146,7 @@ _Avoid_: Paywall middleware, UI lock state, Membership role
 
 **ReadingState**:
 The current manual read or unread relationship between an Account and a Material, independent of
-Membership and the Series from which it was opened. It records personal acknowledgement, not
+Membership and the Guide from which it was opened. It records personal acknowledgement, not
 verified understanding.
 _Avoid_: Playback position, verified mastery, completion percentage
 
@@ -143,9 +155,9 @@ An Account's private material acknowledgement and opening activity. Opening and 
 read are different facts.
 _Avoid_: Product analytics, ContentAccess, learning assessment
 
-**Series Progress**:
-The number of currently published Materials in a Series that an Account has marked read. A
-non-empty Series is currently all read only when every such Material is marked.
+**Guide Progress**:
+The number of currently published Materials in a Guide that an Account has marked read. A
+non-empty Guide is currently all read only when every such Material is marked.
 _Avoid_: Historical completion certificate, stored course percentage
 
 **VideoPlaybackProgress**:
@@ -155,8 +167,8 @@ _Avoid_: Material completion, read status, Kinescope user profile
 
 ## Deferred Workshop vocabulary
 
-Workshop is deferred while the current platform develops Materials and Series. These terms retain
-the separate Workshop model and implemented foundations; they do not define Series modules or
+Workshop is deferred while the current platform develops Materials and Guides. These terms retain
+the separate Workshop model and implemented foundations; they do not define Guide modules or
 expand the current delivery scope. See the
 [deferred Workshop contract](docs/specifications/workshop-tracks.md).
 
@@ -244,3 +256,67 @@ _Avoid_: AttemptResult, penalty, completion
 
 `Assignment`, `Attempt`, `AttemptResult` and `SolutionReveal` describe implemented case-first
 foundations. They are not the current Kafka evaluation contract until #278 accepts their reuse.
+
+## Subscription and access
+
+**Subscription**:
+An Account's agreement for a selected Inside access composition, paid period and renewal terms.
+It is distinct from a bank payment and from independently granted access.
+_Avoid_: Payment, MembershipEvidence, AccessGrant
+
+**Offer**:
+A versioned description of a chosen access composition, independent of a Guide and a payment.
+Its payment option specifies the price, period and sale mode.
+_Avoid_: Guide, Order, AccessGrant
+
+**AccessScope**:
+The library, a particular Guide, support or the shared community chat covered by an AccessGrant.
+It is independent of a tier's name, price and billing interval.
+_Avoid_: Payment status, Telegram presence, subscription duration
+
+**PaymentAttempt**:
+One recorded attempt to obtain a specific payment outcome, including an unresolved outcome after
+sending a request. It is not proof that a payment succeeded.
+_Avoid_: Retry, paid period, confirmed payment
+
+**Payment**:
+A confirmed transfer associated with one Account and agreed purchase conditions.
+Its refund and the owner's decision about access are separate facts.
+_Avoid_: Browser return, grant, subscription
+
+**AccessGrant**:
+One independent reason an Account has specified Inside capabilities for a finite term or for life.
+Payment, an owner's manual decision and a confirmed prior entitlement are distinct sources.
+_Avoid_: Telegram presence, single global paid flag
+
+**CommunityEntitlement**:
+An Account's effective right to participate in the Inside community, distinct from its actual
+presence in the Telegram chat.
+_Avoid_: ChatMember, membership observation
+
+**BillingContact**:
+An Account's confirmed address for subscription communication and receipts.
+It is distinct from identity evidence used to sign in.
+_Avoid_: Email fingerprint, Telegram username, merchant email
+
+**RenewalConsent**:
+An Account's explicit agreement to future charges under identified terms and a confirmed payment
+method. Ending it preserves the already paid term.
+_Avoid_: Saved card, current chat membership, completed payment
+
+**LegacyCohort**:
+The separately established set of prior Inside participants whose existing access must be accounted
+for during the move to the new subscription. A new Inside-driven join does not add a participant.
+_Avoid_: Current chat roster, all new members
+
+## Notifications
+
+**Notification**:
+Сообщение для одного Account по определённому событию продукта. Оно имеет назначение и может
+доставляться по нескольким каналам независимо.
+_Avoid_: Событие продукта, рассылка, попытка отправки
+
+**Notification Delivery**:
+Доставка одного Notification по выбранному каналу подтверждённому получателю. Результат одного
+канала не определяет результат другого и не означает прочтения.
+_Avoid_: Notification, broker acknowledgement, прочтение

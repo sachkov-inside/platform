@@ -1,3 +1,4 @@
+import type { SetHomePinError } from "../../features/set-home-pin/set-home-pin.contract.js";
 import { HttpException } from "@nestjs/common";
 import { z } from "zod";
 import { seriesStepGroupsSchema } from "../../shared/series-step-groups.js";
@@ -128,7 +129,7 @@ export const reorderSeriesReceiptSchema = z
   .object({ seriesId: z.uuid(), orderVersion: seriesOrderVersionSchema })
   .strict();
 
-export const contentCollectionKindSchema = z.enum(["series", "topic"]);
+export const contentCollectionKindSchema = z.enum(["guide", "series", "topic"]);
 export const contentCollectionSchema = z
   .object({
     archived: z.boolean(),
@@ -315,6 +316,7 @@ export function parseMaterialAuthoringBody<Schema extends z.ZodType>(
 }
 
 type MaterialAuthoringTransportError =
+  | SetHomePinError
   | CreateDraftError
   | DeleteDraftError
   | LoadMaterialError
@@ -346,6 +348,7 @@ export function statusForMaterialAuthoringError(
     case "series_ordinal_conflict":
     case "stale_content_version":
     case "stale_series_order":
+    case "stale_home_pin":
     case "content_collection_slug_conflict":
     case "stale_content_collection_version":
       return 409;

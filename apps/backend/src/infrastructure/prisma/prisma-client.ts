@@ -8,15 +8,17 @@ export type MaterialsPrisma = Pick<
   | "authoringIdempotency"
   | "contentCover"
   | "contentCoverRendition"
+  | "materialNotificationOutbox"
   | "material"
   | "materialRelatedPin"
+  | "homeSeriesPin"
   | "materialSearchDocument"
   | "materialTag"
   | "publishedMaterial"
-  | "publishedMaterialSeriesMembership"
+  | "publishedMaterialGuideMembership"
   | "publishedMaterialTag"
-  | "series"
-  | "seriesMembership"
+  | "guide"
+  | "guideMembership"
   | "tag"
   | "topic"
   | "video"
@@ -51,7 +53,7 @@ export type VideosPrismaClient = VideosPrisma & TransactionClient<VideosPrisma>;
 
 export type AccountsPrisma = Pick<
   PlatformPrisma,
-  "$queryRaw" | "account" | "accountAuditEvent" | "accountPermission"
+  "$queryRaw" | "account" | "accountAuditEvent" | "accountPermission" | "billingContact" | "billingContactChallenge" | "billingContactCommand" | "billingConsentEvidence"
 >;
 export type AccountsPrismaClient = AccountsPrisma & TransactionClient<AccountsPrisma>;
 
@@ -68,7 +70,7 @@ export type MemberProfilesPrismaClient = MemberProfilesPrisma &
 
 export type TelegramMembershipPrisma = Pick<
   PlatformPrisma,
-  "$queryRaw" | "telegramLinkTransaction"
+  "$queryRaw" | "telegramLinkTransaction" | "telegramAccountLinkState" | "telegramAccountLinkHistory"
 >;
 export type TelegramMembershipPrismaClient = TelegramMembershipPrisma &
   TransactionClient<TelegramMembershipPrisma>;
@@ -85,3 +87,14 @@ export type ReadingActivityPrisma = Pick<PlatformPrisma,
   "$executeRaw" | "$queryRaw" | "readingMaterialState" | "readingEvent" | "readingCommand" | "readingMaterialVisit"
 >;
 export type ReadingActivityPrismaClient = ReadingActivityPrisma & TransactionClient<ReadingActivityPrisma>;
+
+export type BillingPrisma = Pick<PlatformPrisma,
+  "$executeRaw" | "billingNotificationOutbox" | "billingOffer" | "billingPaymentOption" | "billingPromotion" |
+  "billingPricingCommand" | "billingPriceQuote" | "billingPromoReservation" | "billingPurchase" | "billingPurchaseCommand" | "billingPaymentEvent" | "billingFulfillment"
+>;
+export type BillingPrismaClient = BillingPrisma & TransactionClient<BillingPrisma>;
+
+export type NotificationsPrisma = Pick<PlatformPrisma,
+  "$executeRaw" | "notificationPreference" | "notificationPreferenceRevision" | "notification" | "notificationDelivery" | "notificationCommand" | "notificationAuthorization" | "notificationResult" | "notificationEmailInbox" | "notificationEmailEffect" | "notificationEmailAttempt" | "notificationRecoveryAudit" | "notificationOutbox" | "notificationInbox" | "notificationQuarantine"
+>;
+export type NotificationsPrismaClient = NotificationsPrisma & TransactionClient<NotificationsPrisma>;

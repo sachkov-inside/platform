@@ -24,6 +24,9 @@ describe("OpenAPI contract", () => {
   test("publishes stable operation ids and concrete success schemas", () => {
     const document = createApiOpenApiDocument(app);
     const expectedOperations = [
+      ["/billing/offers", "get", "billingOffers"],
+      ["/billing/admin", "post", "manageBilling"],
+      ["/accounts/current/billing/quote", "post", "quoteBillingPurchase"],
       ["/health", "get", "getApiHealth"],
       ["/health/live", "get", "getApiLiveness"],
       ["/health/ready", "get", "getApiReadiness"],

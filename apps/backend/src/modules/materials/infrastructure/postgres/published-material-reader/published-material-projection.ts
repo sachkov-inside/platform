@@ -732,7 +732,7 @@ export async function selectPublishedMaterialProjectionsBySeries(
   first: number | null,
 ): Promise<PublishedMaterialDiscoveryPage | undefined> {
   const [reference, rawRows, rawTopics] = await Promise.all([
-    prisma.series.findUnique({
+    prisma.guide.findUnique({
       where: { slug },
       select: { coverId: true, id: true, name: true, slug: true, summary: true },
     }),

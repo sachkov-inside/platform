@@ -70,6 +70,94 @@ export class PersonalHomeService {
     });
   }
   /**
+   * Read saved progress and the next accessible Material in a published Guide
+   * @returns any
+   * @throws ApiError
+   */
+  public getGuideContinuation({
+    slug,
+  }: {
+    slug: string,
+  }): CancelablePromise<{
+    collection: {
+      count: number;
+      cover: {
+        coverId: string;
+        renditions: Array<{
+          height: number;
+          width: number;
+        }>;
+      } | null;
+      id: string;
+      name: string;
+      previewItems: Array<{
+        access: 'free' | 'membership' | 'workshop';
+        availability: 'available' | 'locked' | 'unavailable';
+        contentVersion: number;
+        cover: {
+          coverId: string;
+          renditions: Array<{
+            height: number;
+            width: number;
+          }>;
+        } | null;
+        format: {
+          id: 'video' | 'guide' | 'note';
+          name: string;
+          slug: 'video' | 'guide' | 'note';
+        };
+        materialId: string;
+        primaryVideoDurationSeconds?: number;
+        primaryVideoId: string | null;
+        publishedAt: string;
+        seriesMemberships: Array<{
+          ordinal: number;
+          series: {
+            id: string;
+            name: string;
+            slug: string;
+          };
+          stepGroup?: string | null;
+        }>;
+        slug: string;
+        summary: string;
+        tags: Array<{
+          id: string;
+          name: string;
+        }>;
+        title: string;
+        topic: {
+          id: string;
+          name: string;
+          slug: string;
+        };
+      }>;
+      slug: string;
+      summary: string | null;
+    };
+    continuation: {
+      materialSlug: string;
+      resume: ({
+        kind: 'start';
+      } | {
+        kind: 'position';
+        positionSeconds: number;
+      } | {
+        kind: 'reached-end';
+      });
+    } | null;
+    read: number;
+    total: number;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/reading-activity/guide-continuation/{slug}',
+      path: {
+        'slug': slug,
+      },
+    });
+  }
+  /**
    * Read the latest unfinished Series and partially watched Video of the current Account
    * @returns any
    * @throws ApiError
@@ -230,6 +318,7 @@ export class PersonalHomeService {
     });
   }
   /**
+   * @deprecated
    * Read saved progress and the next accessible Material in a published Series
    * @returns any
    * @throws ApiError

@@ -208,7 +208,7 @@ function isCurrentPath(pathname: string, href: Route): boolean {
   if (href === "/") return pathname === href;
   if (
     href === "/library" &&
-    ["/materials/", "/series/", "/topics/"].some((prefix) =>
+    ["/materials/", "/guides/", "/series/", "/topics/"].some((prefix) =>
       pathname.startsWith(prefix),
     )
   )

@@ -18,7 +18,7 @@ test("mobile navigation keeps real catalog context and public canvas", async ({ 
   await expect(page.getByRole("radio", { name: /Гайды/u })).toBeChecked();
   await navigation.getByRole("link", { name: "Главная" }).click();
   await expect(page.getByRole("heading", { name: "Главная", exact: true })).toBeVisible();
-  await expect(page.getByRole("region", { name: "Серии", exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Руководства", exact: true })).toBeVisible();
   await navigation.getByRole("link", { name: "База знаний" }).click();
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(600);
   expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe("rgb(255, 255, 255)");
@@ -88,7 +88,7 @@ test("mobile navigation displays a cold destination before the server responds",
 
 test("library series initially show three cards and expand on demand", async ({ page }, testInfo) => {
   await page.goto("/library");
-  const series = page.getByRole("region", { name: "Серии", exact: true });
+  const series = page.getByRole("region", { name: "Руководства", exact: true });
   await expect(series.getByRole("link")).toHaveCount(3);
   const showAll = series.getByRole("button", { name: "Показать все" });
   await expect(showAll).toHaveAttribute("aria-expanded", "false");

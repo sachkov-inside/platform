@@ -197,12 +197,12 @@ function LibrarySeries({
       <CollectionHeading
         count={series.length}
         id="series-heading"
-        title="Серии"
+        title="Руководства"
       />
       {series.length === 0 ? (
         <CollectionEmpty
           label={
-            q.length === 0 ? "Серий пока нет" : "Серии по запросу не найдены"
+            q.length === 0 ? "Руководств пока нет" : "Руководства по запросу не найдены"
           }
         />
       ) : (

@@ -139,3 +139,8 @@ Local proof does not approve production DNS/TLS, email credentials/deliverabilit
 secret/JWK custody, backup/PITR, capacity, monitoring, audit retention, incident response, image
 supply chain or release rollout. Those are release/infrastructure decisions, not reasons to grow
 the Account application interface.
+
+Billing contact verification is a separate authenticated product operation described by
+[billing #406](subscription-billing-v1.md#подтверждённый-контакт-и-согласия--406). Statements above
+about Platform not receiving email/code concern sign-in only; the billing operation neither
+changes Logto identity nor establishes a session.

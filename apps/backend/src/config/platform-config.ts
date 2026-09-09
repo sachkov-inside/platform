@@ -1,3 +1,5 @@
+import { tbankConfigSchema, parseTbankConfig } from "./tbank-config.js";
+import { notificationsConfigSchema, parseNotificationsConfig } from './notifications-config.js';
 import { z } from "zod";
 
 const DEFAULT_DATABASE_URL =
@@ -188,6 +190,11 @@ const kinescopeSchema = z.object({
 }).readonly();
 const platformConfigSchema = z
   .object({
+    notifications: notificationsConfigSchema.optional(),
+    notificationDelivery: z.object({
+      origin: z.url().refine(value => { const url = new URL(value); return url.protocol === "https:" && url.pathname === "/" && !url.search && !url.hash && !url.username && !url.password; }),
+      telegramSecret: z.string().min(32),
+    }).optional(),
     mode: platformModeSchema,
     database: z.object({ url: databaseUrlSchema }).readonly(),
     api: z
@@ -198,6 +205,16 @@ const platformConfigSchema = z
         port: apiPortSchema,
       })
       .readonly(),
+    tbank: tbankConfigSchema.optional(),
+    billingContact: z.object({
+      encryptionKey: z.string().refine(value => Buffer.from(value, "base64").length === 32, "BILLING_CONTACT_ENCRYPTION_KEY must be 32 base64-encoded bytes"),
+      smtpHost: z.string().min(1),
+      smtpPort: z.coerce.number().int().min(1).max(65535),
+      smtpUser: z.string().optional(),
+      smtpPassword: z.string().optional(),
+      from: z.email(),
+      localInsecure: z.boolean(),
+    }).refine(value => Boolean(value.smtpUser) === Boolean(value.smtpPassword), "SMTP user and password must be configured together").optional(),
     identity: identitySchema,
     contentAccess: contentAccessSchema,
     objectStorage: objectStorageSchema,
@@ -232,7 +249,9 @@ export type BackendProcess =
   | "material-assets-worker"
   | "mcp"
   | "profile-avatars-worker"
-  | "video-deletions-worker";
+  | "video-deletions-worker"
+  | "notifications-worker"
+  | "billing-worker";
 export type PlatformDatabaseConfig = z.infer<
   typeof platformDatabaseConfigSchema
 >;
@@ -294,6 +313,8 @@ const requiredGroupsByProcess = {
   mcp: new Set(["contentAccess", "identity", "kinescope", "objectStorage"]),
   "profile-avatars-worker": new Set(["objectStorage"]),
   "video-deletions-worker": new Set(["kinescope"]),
+  "notifications-worker": new Set<string>(),
+  "billing-worker": new Set<string>(),
 } satisfies Record<BackendProcess, ReadonlySet<string>>;
 
 export function parsePlatformProcessConfig(
@@ -319,7 +340,22 @@ export function parsePlatformConfig(
 ): PlatformConfig {
   const mode = parsePlatformMode(environment.NODE_ENV);
   const config = platformConfigSchema.safeParse({
+    notifications: parseNotificationsConfig(environment),
+    notificationDelivery: environment.NOTIFICATIONS_PLATFORM_ORIGIN || environment.NOTIFICATIONS_TELEGRAM_SECRET
+      ? { origin: environment.NOTIFICATIONS_PLATFORM_ORIGIN, telegramSecret: environment.NOTIFICATIONS_TELEGRAM_SECRET } : undefined,
     mode,
+    tbank: parseTbankConfig(environment.TBANK_CONFIG_JSON),
+    billingContact: [environment.BILLING_CONTACT_ENCRYPTION_KEY, environment.BILLING_CONTACT_SMTP_HOST,
+      environment.BILLING_CONTACT_SMTP_PORT, environment.BILLING_CONTACT_SMTP_USER, environment.BILLING_CONTACT_SMTP_PASSWORD,
+      environment.BILLING_CONTACT_FROM].every(value => value === undefined) ? undefined : {
+      encryptionKey: environment.BILLING_CONTACT_ENCRYPTION_KEY,
+      smtpHost: environment.BILLING_CONTACT_SMTP_HOST,
+      smtpPort: environment.BILLING_CONTACT_SMTP_PORT ?? "587",
+      smtpUser: environment.BILLING_CONTACT_SMTP_USER,
+      smtpPassword: environment.BILLING_CONTACT_SMTP_PASSWORD,
+      from: environment.BILLING_CONTACT_FROM,
+      localInsecure: mode !== "production" && ["127.0.0.1", "localhost", "::1"].includes(environment.BILLING_CONTACT_SMTP_HOST ?? ""),
+    },
     communicationsTrackingOrigin: environment.TELEGRAM_TRACKING_ORIGIN,
     communications: [environment.TELEGRAM_COMMUNICATIONS_ENDPOINT, environment.TELEGRAM_COMMUNICATIONS_SECRET,
       environment.TELEGRAM_AUTHOR_AUTHORIZATION_SECRET, environment.TELEGRAM_COMMUNICATIONS_BOT_IDENTITY].every(value => value === undefined)

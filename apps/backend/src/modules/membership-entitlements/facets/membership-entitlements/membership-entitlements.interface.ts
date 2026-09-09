@@ -1,7 +1,7 @@
 import type { AccountId } from "../../../accounts/index.js";
 
 export type MembershipAccessState =
-  | Readonly<{ kind: "active"; validUntil: string }>
+  | Readonly<{ kind: "active"; validUntil: string | null }>
   | Readonly<{
       kind: "required" | "expired" | "stale" | "unavailable";
     }>;
@@ -61,7 +61,7 @@ export type MembershipPrincipalBinding =
     }>;
 
 export interface MembershipEntitlements {
-  resolveForAccess(accountId: AccountId): Promise<MembershipAccessState>;
+  resolveForAccess(accountId: AccountId, guideIds?: readonly string[]): Promise<MembershipAccessState>;
   bindPrincipal(command: {
     readonly accountId: AccountId;
     readonly principalRef: string;

@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 for (const scenario of ["anonymous", "signed-in-empty", "free-non-member", "member", "expired", "text-without-position", "partial-video", "reached-end-unmarked", "completed-exclusion", "partial-data", "loading", "unavailable"]) {
   test(`${scenario}: responsive personal Home`, async ({ page }, testInfo) => {
     await page.goto(`/iframe.html?id=pages-personal-home--${scenario}&viewMode=story`);
-    await expect(page.getByRole("heading", { name: "Серии", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Руководства", exact: true })).toBeVisible();
     await page.evaluate(() => document.fonts.ready);
     await page.addStyleTag({ content: "[data-agentation-root] { visibility: hidden !important; }" });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -22,7 +22,7 @@ for (const scenario of ["anonymous", "signed-in-empty", "free-non-member", "memb
 for (const scenario of ["member", "signed-in-empty", "unavailable"]) {
   test(`${scenario}: refresh keeps public Home in place`, async ({ page }) => {
     await page.goto(`/iframe.html?id=pages-personal-home--${scenario}&viewMode=story`);
-    const series = page.getByRole("heading", { name: "Серии", exact: true });
+    const series = page.getByRole("heading", { name: "Руководства", exact: true });
     await expect(series).toBeVisible();
     const before = await series.boundingBox();
     await page.evaluate(() => window.dispatchEvent(new Event("personal-home-proof-refresh")));

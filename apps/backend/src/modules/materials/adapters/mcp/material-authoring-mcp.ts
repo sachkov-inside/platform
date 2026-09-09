@@ -25,7 +25,7 @@ const applicationResult = z.discriminatedUnion("ok", [
     .strict(),
 ]);
 
-const collectionKindSchema = z.enum(["series", "topic"]);
+const collectionKindSchema = z.enum(["guide", "series", "topic"]);
 const collectionIdSchema = z.uuid();
 const collectionVersionSchema = z.number().int().positive();
 const seriesOrderVersionSchema = z.string().regex(/^[a-f0-9]{64}$/u);
@@ -45,9 +45,9 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
     { name: "inside-platform-material-authoring", version: "1.0.0" },
     {
       instructions:
-        "Manage Topics, Playlists, playlist composition, and the complete current Material through the same Platform application rules. " +
+        "Guide is the standalone product, distinct from the Material format guide. Legacy series fields and playlist tools are compatibility aliases. Manage Topics, Guides, Guide composition, and the complete current Material through the same Platform application rules. " +
         "Save may publish, unpublish, replace live content, or change access immediately. " +
-        "Always reload after stale content, collection, or playlist order errors; successful Saves have no server-side Undo or history.",
+        "Always reload after stale content, collection, or Guide order errors; successful Saves have no server-side Undo or history.",
     },
   );
 
@@ -108,12 +108,13 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
     {
       title: "Save complete Material state",
       description:
-        "Atomically replace content, metadata, relations, access, and publication state. This may change live content immediately and has no server-side Undo or history.",
+        "Pass primaryVideoId from material_load to preserve the video, or explicitly null to detach without deleting its source. Atomically replace content, metadata, relations, access, and publication state. This may change live content immediately and has no server-side Undo or history.",
       inputSchema: z
         .object({
           idempotencyKey: idempotencyKeyWireSchema,
           materialId: materialIdWireSchema,
           expectedContentVersion: contentVersionWireSchema,
+          primaryVideoId: z.uuid().nullable(),
           publicationState: publicationStateWireSchema,
           metadata: materialMetadataSelectionWireSchema,
           body: materialBodySnapshotWireSchema,
@@ -129,6 +130,7 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
       idempotencyKey: key,
       materialId,
       expectedContentVersion,
+      primaryVideoId,
       publicationState: targetState,
       metadata,
       body,
@@ -139,6 +141,7 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
           idempotencyKey: key,
           materialId,
           expectedContentVersion,
+          primaryVideoId,
           publicationState: targetState,
           metadata,
           body,
@@ -171,9 +174,9 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
   server.registerTool(
     "content_collection_list",
     {
-      title: "List Topics or Playlists",
+      title: "List Topics or Guides",
       description:
-        "List all active and archived Topics or Playlists with optimistic versions and Material counts.",
+        "List all active and archived Topics or Guides with optimistic versions and Material counts.",
       inputSchema: z.object({ kind: collectionKindSchema }).strict(),
       annotations: {
         readOnlyHint: true,
@@ -193,9 +196,9 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
   server.registerTool(
     "content_collection_create",
     {
-      title: "Create Topic or Playlist",
+      title: "Create Topic or Guide",
       description:
-        "Create a Topic or Playlist. Its slug becomes the immutable canonical URL key.",
+        "Create a Topic or Guide. Its slug becomes the immutable canonical URL key.",
       inputSchema: z
         .object({
           kind: collectionKindSchema,
@@ -225,7 +228,7 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
   server.registerTool(
     "content_collection_update",
     {
-      title: "Update Topic or Playlist",
+      title: "Update Topic or Guide",
       description:
         "Update the mutable name and summary using the latest optimistic version. The canonical slug cannot change.",
       inputSchema: z
@@ -259,7 +262,7 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
   server.registerTool(
     "content_collection_set_archive",
     {
-      title: "Archive or restore Topic or Playlist",
+      title: "Archive or restore Topic or Guide",
       description:
         "Archive hides a collection from new assignments and public discovery while preserving existing links and canonical readers.",
       inputSchema: z
@@ -291,9 +294,9 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
   server.registerTool(
     "playlist_load_composition",
     {
-      title: "Load Playlist composition",
+      title: "Load Guide composition",
       description:
-        "Load the complete ordered Playlist and the searchable pool of Materials with its optimistic order version.",
+        "Load the complete ordered Guide and the searchable pool of Materials with its optimistic order version.",
       inputSchema: z.object({ seriesId: collectionIdSchema }).strict(),
       annotations: {
         readOnlyHint: true,
@@ -313,9 +316,9 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
   server.registerTool(
     "playlist_save_composition",
     {
-      title: "Save complete Playlist composition",
+      title: "Save complete Guide composition",
       description:
-        "Atomically add, remove, and reorder the complete Playlist composition using the latest order version.",
+        "Atomically add, remove, and reorder the complete Guide composition using the latest order version.",
       inputSchema: z
         .object({
           expectedOrderVersion: seriesOrderVersionSchema,
@@ -337,6 +340,60 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
           expectedOrderVersion,
           orderedMaterialIds,
           seriesId,
+          stepGroups,
+        }),
+      ),
+  );
+
+  server.registerTool(
+    "guide_load_composition",
+    {
+      title: "Load Guide composition",
+      description:
+        "Load the complete ordered Guide and the searchable pool of Materials with its optimistic order version.",
+      inputSchema: z.object({ guideId: collectionIdSchema }).strict(),
+      annotations: {
+        readOnlyHint: true,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    ({ guideId }) =>
+      toToolResult(
+        dependencies.authoring.loadSeriesOrder({
+          actor: dependencies.accountId,
+          seriesId: guideId,
+        }),
+      ),
+  );
+
+  server.registerTool(
+    "guide_save_composition",
+    {
+      title: "Save complete Guide composition",
+      description:
+        "Atomically add, remove, and reorder the complete Guide composition using the latest order version.",
+      inputSchema: z
+        .object({
+          expectedOrderVersion: seriesOrderVersionSchema,
+          orderedMaterialIds: z.array(materialIdWireSchema),
+          stepGroups: seriesStepGroupsSchema.optional(),
+          guideId: collectionIdSchema,
+        })
+        .strict(),
+      annotations: {
+        destructiveHint: true,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    ({ expectedOrderVersion, orderedMaterialIds, guideId, stepGroups }) =>
+      toToolResult(
+        dependencies.authoring.reorderSeries({
+          actor: dependencies.accountId,
+          expectedOrderVersion,
+          orderedMaterialIds,
+          seriesId: guideId,
           stepGroups,
         }),
       ),
