@@ -284,6 +284,16 @@ A confirmed transfer associated with one Account and agreed purchase conditions.
 Its refund and the owner's decision about access are separate facts.
 _Avoid_: Browser return, grant, subscription
 
+**PaymentMethodBinding**:
+A proven bank permission to charge a saved payment method for one Account's later attempts.
+Forbidding its use stops new sends and does not delete the buyer's card at the bank.
+_Avoid_: Card, CustomerKey, refund permission
+
+**ScheduledChange**:
+An accepted option change that starts with the next period and leaves the paid term unchanged.
+An upgrade inside the paid term is a separate payment, not a scheduled change.
+_Avoid_: Pending payment, price change, promotion
+
 **AccessGrant**:
 One independent reason an Account has specified Inside capabilities for a finite term or for life.
 Payment, an owner's manual decision and a confirmed prior entitlement are distinct sources.
