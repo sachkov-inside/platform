@@ -15,10 +15,11 @@ import { paidPeriodCommandSchema } from "../../../membership-entitlements/index.
 const fulfillmentRetryDelayMilliseconds = 60_000;
 // Derived from the bank's own timeout so a joining caller outlives exactly one honest round-trip.
 const inFlightAnswerBudgetMilliseconds = bankTimeoutMs + 2_000;
-const inFlightAnswerPollMilliseconds = 50;
+const inFlightAnswerPollMilliseconds = 200;
 
-// Why this caller did not perform the bank round-trip. Only an in-flight send is worth waiting for.
-type SendOutcome = "sent" | "in_flight" | "not_sendable";
+// Who owns the bank round-trip for this purchase, not how it ended: `owned` covers a failed
+// attempt too. Only another caller's round-trip is worth waiting for.
+type SendOwnership = "owned" | "another_caller" | "not_sendable";
 
 interface Dependencies {
   readonly prisma: BillingPrismaClient;
@@ -92,7 +93,7 @@ export class BillingPayments {
       if (!prepared.ok) return prepared;
       // A concurrent tab joins an existing purchase and sends nothing. Its answer must be the
       // settled result of the caller that did send, never the interim row that carries no payment URL.
-      if (await this.sendPrepared(prepared.value) === "in_flight") await this.awaitBankAnswer(prepared.value);
+      if (await this.sendPrepared(prepared.value) === "another_caller") await this.awaitBankAnswer(prepared.value);
       return await this.status(accountId, prepared.value);
     } catch { return paymentFailure("dependency_unavailable"); }
   }
@@ -124,6 +125,7 @@ export class BillingPayments {
       const row = await prisma.billingPurchase.findUnique({ where: { id: purchaseRef } });
       if (!row) return paymentFailure("not_found");
       if (row.environment !== bank.config.environment || row.terminalRef !== bank.config.terminalKey) return paymentFailure("method_unavailable");
+      // Another caller's in-flight send is a settled reconcile: the round-trip is already happening.
       if (row.state === "prepared") { await this.sendPrepared(row.id); return { ok: true, value: true }; }
       if (row.state === "confirmed" || row.state === "failed") return { ok: true, value: true };
       let paymentId = row.paymentId;
@@ -165,8 +167,8 @@ export class BillingPayments {
     } catch { return paymentFailure("dependency_unavailable"); }
   }
 
-  // Waits out another caller's bank round-trip. The budget exceeds the bank timeout, so an
-  // abandoned attempt still returns the current row instead of hanging; recovery owns that row.
+  // Waits out another caller's bank round-trip. An abandoned attempt cannot hang this caller:
+  // the budget runs out and the current row is returned, for recovery to settle later.
   private async awaitBankAnswer(purchaseRef: string): Promise<void> {
     const deadline = Date.now() + inFlightAnswerBudgetMilliseconds;
     for (;;) {
@@ -176,21 +178,21 @@ export class BillingPayments {
     }
   }
 
-  private async sendPrepared(purchaseRef: string): Promise<SendOutcome> {
+  private async sendPrepared(purchaseRef: string): Promise<SendOwnership> {
     const { prisma, bank } = this.dependencies;
     if (!bank) return "not_sendable";
-    const outcome = await prisma.$transaction(async tx => {
+    const claim = await prisma.$transaction(async tx => {
       await lockPricing(tx);
       const row = await tx.billingPurchase.findUnique({ where: { id: purchaseRef } });
-      // A row past `prepared` belongs to another caller; a foreign terminal is nobody's to send.
-      if (!row || row.terminalRef !== bank.config.terminalKey || row.environment !== bank.config.environment) return "not_sendable" as const;
-      if (row.state !== "prepared") return "in_flight" as const;
+      // A foreign terminal is nobody's to send; a row past `prepared` already belongs to someone.
+      if (!row || row.terminalRef !== bank.config.terminalKey || row.environment !== bank.config.environment) return { ownership: "not_sendable" as const };
+      if (row.state !== "prepared") return { ownership: "another_caller" as const };
       await tx.billingPurchase.update({ where: { id: purchaseRef }, data: { state: "sent", updatedAt: this.clock() } });
       await tx.billingPromoReservation.update({ where: { purchaseRef }, data: { state: "sent" } });
-      return row;
+      return { ownership: "owned" as const, row };
     });
-    if (typeof outcome === "string") return outcome;
-    const row = outcome;
+    if (!("row" in claim)) return claim.ownership;
+    const row = claim.row;
     try {
       const snapshot = priceSnapshotSchema.parse(row.snapshot);
       const contact = z.object({ emailCiphertext: z.string() }).parse(row.contact);
@@ -205,7 +207,7 @@ export class BillingPayments {
         if (changed.count) await tx.billingPromoReservation.update({ where: { purchaseRef }, data: { state: "unknown" } });
       });
     }
-    return "sent";
+    return "owned";
   }
 
   private async accept(payment: BankPayment, paymentUrl?: string): Promise<PaymentResult<true>> {

@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { RELAY_RETRY_MAX_MS } from '../../src/infrastructure/notification-transport/outbox.js';
-import { retryDelaysMs } from '../../src/modules/notifications/features/dispatch-email/dispatch-email.js';
 import { eventually } from './setup/eventually.js';
 import { GenericContainer, Wait } from 'testcontainers';
 import { expect, test, onTestFinished } from 'vitest';
@@ -19,10 +18,13 @@ import { assembleMaterialsNotificationOutbox } from '../../src/modules/materials
 import { stageMaterialsNotification } from '../../src/modules/materials/facets/notification-outbox/notification-outbox.js';
 import type { NotificationEvent } from '../../src/modules/notifications/domain/notification-wire.js';
 
-// This test provokes a real outage, so both retry ladders the code owns can gate the wait: the
-// outbox relay backs off up to RELAY_RETRY_MAX_MS, and the email dispatcher up to the sum of
-// retryDelaysMs. Deriving the budget keeps it correct when either ladder changes.
-const recoveryBudgetMs = Math.max(RELAY_RETRY_MAX_MS, retryDelaysMs.reduce((total, value) => total + value, 0)) + 15_000;
+// The outage this test provokes is a revoked publish permission, so the outbox relay owns the wait:
+// it backs off up to RELAY_RETRY_MAX_MS before retrying. The allowance covers the sweeps that carry
+// the backlog once publishing works again. Deriving the budget keeps it right if the ladder changes.
+const relayBacklogAllowanceMs = 15_000;
+const recoveryBudgetMs = RELAY_RETRY_MAX_MS + relayBacklogAllowanceMs;
+// Two sequential recoveries plus container startup and the fixed no-more-sends check.
+const brokerScenarioTimeoutMs = recoveryBudgetMs * 2 + 60_000;
 test('real RabbitMQ event → audience → email inbox/effect → result outage/recovery; both categories and ACL', async () => {
   const topology = localNotificationTopology('inside-test', 100);
   const broker = await new GenericContainer(NOTIFICATION_BROKER_IMAGE).withExposedPorts(5672).withCopyContentToContainer([
@@ -87,4 +89,4 @@ test('real RabbitMQ event → audience → email inbox/effect → result outage/
     await worker.stop(); await invalid.close().catch(() => undefined); await publisher.close().catch(() => undefined);
 
   }
-}, recoveryBudgetMs * 2 + 60_000);
+}, brokerScenarioTimeoutMs);

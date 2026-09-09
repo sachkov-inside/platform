@@ -20,6 +20,11 @@ import { tbankConfigSchema } from "../../src/config/tbank-config.js";
 import { createMigratedTestDatabase, type TestDatabase } from "./setup/test-database.js";
 import { eventually } from "./setup/eventually.js";
 
+// How long a committed database row may take to appear, and how long an unfixed answer would need
+// to arrive. Both are barriers around a committed fact, never a measurement of machine speed.
+const barrierBudgetMs = 10_000;
+const prematureAnswerGraceMs = 50;
+
 function value<T>(result: { ok: true; value: T } | { ok: false; error: { code: string } }): T {
   if (!result.ok) throw new Error(result.error.code); return result.value;
 }
@@ -108,15 +113,15 @@ describe("subscription payment recovery (real PostgreSQL and real facets; synthe
     const sender = runtime.purchase(s.buyer, s.command);
     await eventually(async () => {
       expect((await db.prisma.billingPurchase.findFirst({ where: { accountId: s.buyer } }))?.state).toBe("sent");
-    }, 10_000);
+    }, barrierBudgetMs);
     const joining = { ...s.command, operationId: randomUUID() };
     const secondTab = runtime.purchase(s.buyer, joining);
     // A barrier, not a stopwatch: once the joining call has committed its command row it has already
     // passed the point where the unfixed code answered straight from the interim row.
     await eventually(async () => {
       expect(await db.prisma.billingPurchaseCommand.findUnique({ where: { accountId_operationId: { accountId: s.buyer, operationId: joining.operationId } } })).not.toBeNull();
-    }, 10_000);
-    expect(await Promise.race([secondTab.then(() => "answered"), delay(50).then(() => "waiting")])).toBe("waiting");
+    }, barrierBudgetMs);
+    expect(await Promise.race([secondTab.then(() => "answered"), delay(prematureAnswerGraceMs).then(() => "waiting")])).toBe("waiting");
     release();
     const [first, second] = await Promise.all([sender, secondTab]);
     expect(s.requests()).toBe(1);
