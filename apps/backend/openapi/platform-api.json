@@ -5844,7 +5844,28 @@
                               "maxItems": 100,
                               "type": "array"
                             },
-                            "benefits": {},
+                            "benefits": {
+                              "items": {
+                                "anyOf": [
+                                  {
+                                    "enum": [
+                                      "materials",
+                                      "community",
+                                      "reviews",
+                                      "support"
+                                    ],
+                                    "type": "string"
+                                  },
+                                  {
+                                    "pattern": "^guide:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "maxItems": 100,
+                              "minItems": 1,
+                              "type": "array"
+                            },
                             "id": {
                               "format": "uuid",
                               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
@@ -6560,7 +6581,28 @@
                               "maxItems": 100,
                               "type": "array"
                             },
-                            "benefits": {},
+                            "benefits": {
+                              "items": {
+                                "anyOf": [
+                                  {
+                                    "enum": [
+                                      "materials",
+                                      "community",
+                                      "reviews",
+                                      "support"
+                                    ],
+                                    "type": "string"
+                                  },
+                                  {
+                                    "pattern": "^guide:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "maxItems": 100,
+                              "minItems": 1,
+                              "type": "array"
+                            },
                             "id": {
                               "format": "uuid",
                               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
@@ -7281,7 +7323,28 @@
                               "maxItems": 100,
                               "type": "array"
                             },
-                            "benefits": {},
+                            "benefits": {
+                              "items": {
+                                "anyOf": [
+                                  {
+                                    "enum": [
+                                      "materials",
+                                      "community",
+                                      "reviews",
+                                      "support"
+                                    ],
+                                    "type": "string"
+                                  },
+                                  {
+                                    "pattern": "^guide:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "maxItems": 100,
+                              "minItems": 1,
+                              "type": "array"
+                            },
                             "id": {
                               "format": "uuid",
                               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
@@ -27293,7 +27356,28 @@
                             "maxItems": 100,
                             "type": "array"
                           },
-                          "benefits": {},
+                          "benefits": {
+                            "items": {
+                              "anyOf": [
+                                {
+                                  "enum": [
+                                    "materials",
+                                    "community",
+                                    "reviews",
+                                    "support"
+                                  ],
+                                  "type": "string"
+                                },
+                                {
+                                  "pattern": "^guide:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "maxItems": 100,
+                            "minItems": 1,
+                            "type": "array"
+                          },
                           "id": {
                             "format": "uuid",
                             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
@@ -28113,7 +28197,28 @@
                                 "maxItems": 100,
                                 "type": "array"
                               },
-                              "benefits": {},
+                              "benefits": {
+                                "items": {
+                                  "anyOf": [
+                                    {
+                                      "enum": [
+                                        "materials",
+                                        "community",
+                                        "reviews",
+                                        "support"
+                                      ],
+                                      "type": "string"
+                                    },
+                                    {
+                                      "pattern": "^guide:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                      "type": "string"
+                                    }
+                                  ]
+                                },
+                                "maxItems": 100,
+                                "minItems": 1,
+                                "type": "array"
+                              },
                               "id": {
                                 "format": "uuid",
                                 "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
@@ -28355,51 +28460,104 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": true,
+                "additionalProperties": {},
                 "properties": {
                   "Amount": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
                     "type": "integer"
                   },
                   "ErrorCode": {
                     "type": "string"
                   },
                   "OrderId": {
+                    "maxLength": 50,
+                    "minLength": 1,
                     "type": "string"
                   },
                   "PaymentId": {
-                    "oneOf": [
+                    "anyOf": [
                       {
+                        "maxLength": 64,
+                        "minLength": 1,
                         "type": "string"
                       },
                       {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      }
+                    ]
+                  },
+                  "RebillId": {
+                    "anyOf": [
+                      {
+                        "maxLength": 64,
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
                         "type": "integer"
                       }
                     ]
                   },
                   "Status": {
+                    "enum": [
+                      "RECEIPT",
+                      "NEW",
+                      "FORM_SHOWED",
+                      "DEADLINE_EXPIRED",
+                      "CANCELED",
+                      "PREAUTHORIZING",
+                      "AUTHORIZING",
+                      "AUTHORIZED",
+                      "AUTH_FAIL",
+                      "REJECTED",
+                      "CONFIRMING",
+                      "CONFIRMED",
+                      "REVERSING",
+                      "REVERSED",
+                      "REFUNDING",
+                      "PARTIAL_REFUNDED",
+                      "REFUNDED"
+                    ],
                     "type": "string"
                   },
                   "Success": {
-                    "type": "boolean"
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "enum": [
+                          "true",
+                          "false"
+                        ],
+                        "type": "string"
+                      }
+                    ]
                   },
                   "TerminalKey": {
+                    "maxLength": 64,
+                    "minLength": 1,
                     "type": "string"
                   },
                   "Token": {
-                    "maxLength": 64,
-                    "minLength": 64,
+                    "pattern": "^[a-f0-9]{64}$",
                     "type": "string"
                   }
                 },
                 "required": [
-                  "Token",
                   "TerminalKey",
-                  "PaymentId",
                   "OrderId",
+                  "PaymentId",
                   "Amount",
                   "Status",
                   "Success",
-                  "ErrorCode"
+                  "ErrorCode",
+                  "Token"
                 ],
                 "type": "object"
               }

@@ -3,15 +3,20 @@ import { z } from "zod";
 import type { TbankConfig } from "../../../../config/tbank-config.js";
 
 const bankTimeoutMs = 10_000;
-const reference = z.union([z.string().min(1).max(64), z.int().nonnegative()]).transform(String);
-const success = z.union([z.boolean(), z.enum(["true", "false"])]).transform(value => value === true || value === "true");
-export const bankPaymentSchema = z.object({
+const reference = z.union([z.string().min(1).max(64), z.int().nonnegative()]);
+const success = z.union([z.boolean(), z.enum(["true", "false"])]);
+const bankPaymentInputSchema = z.object({
   TerminalKey: z.string().min(1).max(64), OrderId: z.string().min(1).max(50),
   PaymentId: reference, Amount: z.int().nonnegative(),
   Status: z.enum(["RECEIPT", "NEW", "FORM_SHOWED", "DEADLINE_EXPIRED", "CANCELED", "PREAUTHORIZING", "AUTHORIZING", "AUTHORIZED", "AUTH_FAIL", "REJECTED", "CONFIRMING", "CONFIRMED", "REVERSING", "REVERSED", "REFUNDING", "PARTIAL_REFUNDED", "REFUNDED"]),
   Success: success, ErrorCode: z.string(),
   RebillId: reference.optional(),
 });
+export const bankNotificationSchema = bankPaymentInputSchema.extend({ Token: z.string().regex(/^[a-f0-9]{64}$/u) }).loose();
+export const bankPaymentSchema = bankPaymentInputSchema.transform(({ PaymentId, Success, RebillId, ...value }) => ({ ...value,
+  PaymentId: String(PaymentId), Success: Success === true || Success === "true",
+  ...(RebillId === undefined ? {} : { RebillId: String(RebillId) }),
+}));
 export type BankPayment = z.infer<typeof bankPaymentSchema>;
 const notificationSchema = z.record(z.string(), z.unknown());
 
@@ -23,7 +28,7 @@ export function tbankToken(payload: Readonly<Record<string, unknown>>, password:
 }
 export function validatedPaymentUrl(value: unknown): string {
   const url = new URL(z.url().parse(value));
-  if (url.protocol !== "https:" || url.hostname !== "securepay.tinkoff.ru" || url.port || url.username || url.password || url.hash)
+  if (url.protocol !== "https:" || !["securepay.tinkoff.ru", "pay.tbank.ru"].includes(url.hostname) || url.port || url.username || url.password || url.hash)
     throw new Error("Invalid bank payment URL");
   return url.toString();
 }
@@ -48,10 +53,15 @@ export class Tbank {
   async state(paymentId: string): Promise<BankPayment> {
     return bankPaymentSchema.parse(await this.call("GetState", { PaymentId: paymentId }));
   }
-  async order(orderId: string): Promise<readonly BankPayment[]> {
-    const result = z.object({ TerminalKey: z.string(), OrderId: z.string(), Success: success.pipe(z.literal(true)), ErrorCode: z.literal("0"), Payments: z.array(notificationSchema).max(100) }).parse(await this.call("CheckOrder", { OrderId: orderId }));
+  async order(orderId: string): Promise<readonly string[]> {
+    // CheckOrder locates an attempt; its optional amount/error fields are not payment proof.
+    const result = z.object({ TerminalKey: z.string(), OrderId: z.string(),
+      Success: success.transform(value => value === true || value === "true").pipe(z.literal(true)),
+      ErrorCode: z.union([z.literal("0"), z.literal(0)]),
+      Payments: z.array(z.object({ PaymentId: reference, Status: z.string(), Success: success })).max(100),
+    }).parse(await this.call("CheckOrder", { OrderId: orderId }));
     if (result.TerminalKey !== this.config.terminalKey || result.OrderId !== orderId) throw new Error("Bank order mismatch");
-    return result.Payments.map(payment => bankPaymentSchema.parse({ ...payment, TerminalKey: result.TerminalKey, OrderId: result.OrderId }));
+    return result.Payments.map(payment => String(payment.PaymentId));
   }
   notification(input: unknown): BankPayment | undefined {
     const parsed = notificationSchema.safeParse(input);

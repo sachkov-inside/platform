@@ -17,6 +17,7 @@ describe("concrete bank boundary", () => {
     expect(token).not.toBe(tbankToken({ ...payload, Success: false }, "password"));
   });
   test("hosted redirects reject hostile hosts, credentials, fragments and non-HTTPS", () => {
+    expect(validatedPaymentUrl("https://pay.tbank.ru/new/test")).toBe("https://pay.tbank.ru/new/test");
     expect(validatedPaymentUrl("https://securepay.tinkoff.ru/order/test")).toBe("https://securepay.tinkoff.ru/order/test");
     for (const url of ["https://securepay.tinkoff.ru.evil.test/a", "https://evil.test/", "http://securepay.tinkoff.ru/", "https://user@securepay.tinkoff.ru/", "https://securepay.tinkoff.ru/#fake", "https://securepay.tinkoff.ru:8443/"])
       expect(() => validatedPaymentUrl(url)).toThrow();

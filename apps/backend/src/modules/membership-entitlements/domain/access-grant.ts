@@ -11,7 +11,7 @@ export const capabilitiesSchema = z
   .min(1)
   .max(100)
   .refine((values) => new Set(values).size === values.length)
-  .transform((values) => values.sort());
+  .overwrite((values) => values.sort());
 export const instantSchema = z.iso
   .datetime({ offset: true })
   .transform((value) => new Date(value).toISOString());

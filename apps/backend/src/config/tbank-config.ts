@@ -12,7 +12,7 @@ export const tbankConfigSchema = z.strictObject({
   returnUrl: httpsUrl, notificationUrl: httpsUrl,
   receipt: z.strictObject({
     taxation: z.enum(["osn", "usn_income", "usn_income_outcome", "esn", "patent"]),
-    tax: z.enum(["none", "vat0", "vat5", "vat7", "vat10", "vat20", "vat105", "vat107", "vat110", "vat120"]),
+    tax: z.enum(["none", "vat0", "vat5", "vat7", "vat10", "vat22", "vat105", "vat107", "vat110", "vat122"]),
   }),
 }).refine(value => value.minimumKopecks <= value.maximumKopecks);
 export type TbankConfig = z.infer<typeof tbankConfigSchema>;

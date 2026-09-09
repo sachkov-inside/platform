@@ -1,3 +1,9 @@
+import { Module } from "@nestjs/common";
+import { NestFactory, Reflector } from "@nestjs/core";
+import { FastifyAdapter, type NestFastifyApplication } from "@nestjs/platform-fastify";
+import { AcceptTbankNotificationController } from "../../src/modules/billing/features/accept-notification/accept-notification.controller.js";
+import { ProblemDetailsFilter } from "../../src/infrastructure/http/problem-details.filter.js";
+import { HttpCachePolicyInterceptor } from "../../src/infrastructure/http/http-cache-policy.js";
 import { fork } from "node:child_process";
 import { once } from "node:events";
 import { z } from "zod";
@@ -77,7 +83,7 @@ describe("subscription payment recovery (real PostgreSQL and real facets; synthe
         if (failInit) throw new Error("Synthetic timeout after bank acceptance");
         return Response.json({ ...event(initOutcome), PaymentURL: "https://securepay.tinkoff.ru/test" });
       }
-      if (url.endsWith("/CheckOrder")) return Response.json({ Success: true, ErrorCode: "0", TerminalKey: config.terminalKey, OrderId: body.OrderId, Payments: [event(initOutcome)] });
+      if (url.endsWith("/CheckOrder")) return Response.json({ Success: true, ErrorCode: "0", TerminalKey: config.terminalKey, OrderId: body.OrderId, Payments: [{ PaymentId: paymentId, Status: initOutcome, Success: true, ErrorCode: 0 }] });
       return Response.json(event(initOutcome));
     });
     const runtime = (projector = grants) => new BillingPayments({ prisma: db.prisma, bank, contact, grants: projector, clock: () => now, confirmedInstant: instant => instant });
@@ -148,6 +154,7 @@ describe("subscription payment recovery (real PostgreSQL and real facets; synthe
     expect(value(await runtime.status(s.buyer, purchase.purchaseRef)).snapshot).toEqual(s.quote.snapshot);
     await expect(db.prisma.billingPurchase.update({ where: { id: purchase.purchaseRef }, data: { snapshot: {} } })).rejects.toThrow();
     await expect(db.prisma.billingPaymentEvent.deleteMany({ where: { purchaseRef: purchase.purchaseRef } })).rejects.toThrow();
+    now = new Date(now.getTime() + 60_000);
     await s.runtime().recover(); await s.runtime().recover();
     expect(await db.prisma.accessGrant.count({ where: { accountId: s.buyer } })).toBe(1);
     expect(s.requests()).toBe(1);
@@ -187,6 +194,44 @@ describe("subscription payment recovery (real PostgreSQL and real facets; synthe
     expect(await db.prisma.accessGrant.count({ where: { accountId: s.buyer } })).toBe(1);
     expect(s.requests()).toBe(0);
   }, 15_000);
+
+  test("HTTP callback acknowledges only durable valid notifications as plain text", async () => {
+    const s = await scenario(); const payments = s.runtime();
+    await payments.purchase(s.buyer, s.command);
+    @Module({ controllers: [AcceptTbankNotificationController], providers: [{ provide: BillingPayments, useValue: payments }] })
+    // oxlint-disable-next-line typescript/no-extraneous-class -- Nest requires a concrete module class for the HTTP fixture.
+    class CallbackFixtureModule {}
+    const http = await NestFactory.create<NestFastifyApplication>(CallbackFixtureModule, new FastifyAdapter(), { logger: false });
+    http.useGlobalFilters(new ProblemDetailsFilter());
+    http.useGlobalInterceptors(new HttpCachePolicyInterceptor(new Reflector()));
+    await http.init(); await http.getHttpAdapter().getInstance().ready();
+    try {
+      const success = await http.inject({ method: "POST", url: "/billing/tbank/notification", payload: s.notify("CONFIRMED") });
+      expect(success.statusCode).toBe(200); expect(success.body).toBe("OK");
+      expect(success.headers["content-type"]).toContain("text/plain");
+      expect(success.headers["cache-control"]).toBe("private, no-store");
+      const invalid = await http.inject({ method: "POST", url: "/billing/tbank/notification", payload: { ...s.notify("CONFIRMED"), Token: "bad" } });
+      expect(invalid.statusCode).toBe(400);
+      expect(invalid.headers["content-type"]).toContain("application/problem+json");
+      expect(invalid.json<unknown>()).toMatchObject({ code: "invalid_notification" });
+    } finally { await http.close(); }
+  });
+
+  test("a permanently rejected fulfillment does not starve later purchases", async () => {
+    const first = await scenario(); const second = await scenario();
+    const firstPurchase = value(await first.runtime().purchase(first.buyer, first.command));
+    const secondPurchase = value(await second.runtime().purchase(second.buyer, second.command));
+    await first.runtime().notification(first.notify("CONFIRMED"));
+    await second.runtime().notification(second.notify("CONFIRMED"));
+    await db.prisma.billingFulfillment.updateMany({ where: { purchaseRef: firstPurchase.purchaseRef }, data: { nextAttemptAt: new Date("2029-01-01T00:00:00Z") } });
+    const rejecting = first.runtime({ ...grants, applyPaidPeriod: input => input.accountId === first.buyer
+      ? Promise.resolve({ ok: false, error: { code: "not_found" } }) : grants.applyPaidPeriod(input) });
+    await rejecting.recover(1);
+    expect(value(await first.runtime().status(first.buyer, firstPurchase.purchaseRef)).access).toBe("preparing");
+    // Other tests may have left valid pending outbox rows: bounded passes must still reach this buyer.
+    for (let i = 0; i < 20; i += 1) await rejecting.recover(1);
+    expect(value(await second.runtime().status(second.buyer, secondPurchase.purchaseRef)).access).toBe("ready");
+  });
 
   test("receipt result is separate from confirmation and cannot create access", async () => {
     const s = await scenario(); const runtime = s.runtime();

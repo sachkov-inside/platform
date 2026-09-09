@@ -37,7 +37,7 @@ export class BillingService {
           capability: ('materials' | 'community' | 'reviews' | 'support' | string);
           months: number | null;
         }>;
-        benefits: any;
+        benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
         id: string;
         name: string;
         revision: number;
@@ -94,7 +94,7 @@ export class BillingService {
           capability: ('materials' | 'community' | 'reviews' | 'support' | string);
           months: number | null;
         }>;
-        benefits: any;
+        benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
         id: string;
         name: string;
         revision: number;
@@ -154,7 +154,7 @@ export class BillingService {
           capability: ('materials' | 'community' | 'reviews' | 'support' | string);
           months: number | null;
         }>;
-        benefits: any;
+        benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
         id: string;
         name: string;
         revision: number;
@@ -202,7 +202,7 @@ export class BillingService {
           capability: ('materials' | 'community' | 'reviews' | 'support' | string);
           months: number | null;
         }>;
-        benefits: any;
+        benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
         id: string;
         name: string;
       };
@@ -281,7 +281,7 @@ export class BillingService {
           capability: ('materials' | 'community' | 'reviews' | 'support' | string);
           months: number | null;
         }>;
-        benefits: any;
+        benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
         id: string;
         name: string;
         revision: number;

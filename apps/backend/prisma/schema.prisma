@@ -1236,6 +1236,7 @@ model BillingPaymentEvent {
   @@schema("billing")
 }
 model BillingFulfillment {
+  nextAttemptAt DateTime @default(now()) @map("next_attempt_at") @db.Timestamptz
   eventRef String @id @map("event_ref") @db.Uuid
   purchaseRef String @map("purchase_ref") @db.Uuid
   payload Json

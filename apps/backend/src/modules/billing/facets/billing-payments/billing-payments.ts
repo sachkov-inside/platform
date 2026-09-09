@@ -117,11 +117,15 @@ export class BillingPayments {
       if (row.environment !== bank.config.environment || row.terminalRef !== bank.config.terminalKey) return paymentFailure("method_unavailable");
       if (row.state === "prepared") { await this.sendPrepared(row.id); return { ok: true, value: true }; }
       if (row.state === "confirmed" || row.state === "failed") return { ok: true, value: true };
-      const results = row.paymentId ? [await bank.state(row.paymentId)] : await bank.order(row.id);
-      // Empty/multiple results are uncertainty, not permission to send another Init.
-      if (results.length !== 1) return paymentFailure("provider_unavailable");
-      const payment = results[0];
-      if (!payment || payment.OrderId !== row.id || (row.paymentId && payment.PaymentId !== row.paymentId)) return paymentFailure("invalid_notification");
+      let paymentId = row.paymentId;
+      if (!paymentId) {
+        const candidates = await bank.order(row.id);
+        // Empty/multiple results are uncertainty, not permission to send another Init.
+        if (candidates.length !== 1 || !candidates[0]) return paymentFailure("provider_unavailable");
+        paymentId = candidates[0];
+      }
+      const payment = await bank.state(paymentId);
+      if (payment.OrderId !== row.id || payment.PaymentId !== paymentId) return paymentFailure("invalid_notification");
       return await this.accept(payment);
     } catch { return paymentFailure("provider_unavailable"); }
   }
@@ -134,11 +138,14 @@ export class BillingPayments {
         await this.reconcile(row.id);
         await this.dependencies.prisma.billingPurchase.update({ where: { id: row.id }, data: { updatedAt: this.clock() } });
       }
-      const pending = await this.dependencies.prisma.billingFulfillment.findMany({ where: { appliedAt: null }, orderBy: { eventRef: "asc" }, take: limit });
+      const pending = await this.dependencies.prisma.billingFulfillment.findMany({ where: { appliedAt: null, nextAttemptAt: { lte: this.clock() } }, orderBy: [{ nextAttemptAt: "asc" }, { eventRef: "asc" }], take: limit });
       let applied = 0;
       for (const row of pending) {
-        // Shape was written by billing; entitlement validates again at its owning boundary.
-        const command = paidPeriodCommandSchema.parse(row.payload);
+        // A failed item moves behind other work; a process crash leaves it recoverable after a minute.
+        await this.dependencies.prisma.billingFulfillment.update({ where: { eventRef: row.eventRef }, data: { nextAttemptAt: new Date(this.clock().getTime() + 60_000) } });
+        const parsed = paidPeriodCommandSchema.safeParse(row.payload);
+        if (!parsed.success) continue;
+        const command = parsed.data;
         const result = await this.dependencies.grants.applyPaidPeriod(command);
         if (result.ok) {
           await this.dependencies.prisma.billingFulfillment.update({ where: { eventRef: row.eventRef }, data: { appliedAt: this.clock() } });
@@ -217,7 +224,7 @@ export class BillingPayments {
           const eventRef = randomUUID();
           await tx.billingPurchase.update({ where: { id: row.id }, data: { ...common, state: "confirmed", confirmedAt: paidAt, periodEndsAt: endsAt, paymentUrl: null } });
           await tx.billingPromoReservation.update({ where: { purchaseRef: row.id }, data: { state: "confirmed" } });
-          await tx.billingPaymentEvent.create({ data: { id: eventRef, purchaseRef: row.id, kind: "payment_confirmed", payload: { accountId: row.accountId, amountKopecks: payment.Amount, periodRef: row.id, snapshot }, occurredAt: paidAt, recordedAt: now } });
+          await tx.billingPaymentEvent.create({ data: { id: eventRef, purchaseRef: row.id, kind: "payment_confirmed", payload: { accountId: row.accountId, amountKopecks: payment.Amount, periodRef: row.id, startsAt: paidAt.toISOString(), endsAt: endsAt.toISOString(), snapshot }, occurredAt: paidAt, recordedAt: now } });
           for (const capability of snapshot.offer.benefits) {
             const term = snapshot.offer.benefitPeriods?.find(value => value.capability === capability);
             const validUntil = term?.months === null ? null : subscriptionPeriodEnd(paidAt, term?.months ?? snapshot.paymentOption.months).toISOString();

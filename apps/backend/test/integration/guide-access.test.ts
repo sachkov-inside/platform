@@ -1,4 +1,12 @@
-import { randomUUID } from "node:crypto";
+import { assembleMaterialAssets } from "../../src/modules/assets/index.js";
+import { assembleVideos } from "../../src/modules/videos/index.js";
+import { createTestVideoProvider } from "../../src/modules/videos/adapters/kinescope/test-video-provider.js";
+import { assembleAssetResourceFacts } from "../../src/modules/materials/adapters/content-access/asset-resource-facts.js";
+import { assembleVideoResourceFacts } from "../../src/modules/materials/adapters/content-access/video-resource-facts.js";
+import { assembleMaterialAssetDelivery } from "../../src/modules/materials/features/deliver-material-asset/deliver-material-asset.js";
+import { assembleVideoPlayback } from "../../src/modules/materials/facets/video-playback/video-playback.js";
+import type { ObjectStorage, StoredObject } from "../../src/infrastructure/object-storage/index.js";
+import { createHash, randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { assembleAccounts, accountId } from "../../src/modules/accounts/index.js";
 import { assembleAccessGrants, assembleMembershipEntitlements, type AccessCapability } from "../../src/modules/membership-entitlements/index.js";
@@ -71,6 +79,53 @@ describe("independent guide, library, support and shared chat rights", () => {
     expect(results[0]).toEqual(results[1]);
     expect(await access.authorize({ ...context, subject, action: "read", resource: { kind: "material", materialId: a } })).toMatchObject({ effect: "deny" });
   });
+  test("direct file delivery and video tokens use real guide scope facts and recheck revoked access", async () => {
+    now = new Date("2030-03-01T00:00:00Z");
+    const grantA = await grant([`guide:${guideA}`], null);
+    const objects = new Map<string, StoredObject>();
+    const storage: ObjectStorage = {
+      putImmutable: input => { objects.set(`${input.namespace}:${input.key}`, { body: input.body, checksumSha256: input.checksumSha256, contentLength: input.body.length, contentType: input.contentType }); return Promise.resolve({ ok: true }); },
+      read: (namespace, key) => Promise.resolve(objects.get(`${namespace}:${key}`) ?? null),
+      delete: (namespace, key) => { objects.delete(`${namespace}:${key}`); return Promise.resolve(); },
+      signGet: input => Promise.resolve(`https://storage.example.test/${input.key}?ttl=${String(input.ttlSeconds)}`),
+    };
+    const assets = assembleMaterialAssets({ prisma: db.prisma, objectStorage: storage });
+    const videos = assembleVideos({ prisma: db.prisma, provider: createTestVideoProvider(), projects: { free: "free", membership: "members" }, canManage: () => Promise.resolve(false), clock: () => now });
+    const contentAccess = assembleContentAccess({ assetResourceFacts: assembleAssetResourceFacts(assets), videoResourceFacts: assembleVideoResourceFacts(videos),
+      materialResourceFacts: assembleMaterialResourceFacts(materials.materialContent), accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) }, membershipEntitlements: membership });
+    const delivery = assembleMaterialAssetDelivery({ assets, contentAccess, materialContent: materials.materialContent, objectStorage: storage, signedGetTtlSeconds: 60 });
+    const playback = assembleVideoPlayback({ contentAccess, videos, jwtSecret: "synthetic-playback-signing-key-407", jwtTtlSeconds: 60, clock: () => now });
+    const subject = { kind: "account" as const, accountId: accountId(buyer) };
+    async function resourceFixture(ids: string[]) {
+      const id = await material(ids);
+      const bytes = new TextEncoder().encode("Controlled downloadable guide artifact");
+      const uploaded = await assets.upload({ actor: owner, materialId: id, body: bytes, declaredContentType: "text/plain", declaredSize: bytes.length,
+        expectedChecksumSha256: createHash("sha256").update(bytes).digest("hex"), filename: "guide-artifact.txt", idempotencyKey: randomUUID(), kind: "file" });
+      if (!uploaded.ok) throw new Error(uploaded.error.code);
+      const assetId = uploaded.value.assetId, videoId = randomUUID(), providerVideoId = randomUUID();
+      await db.prisma.video.create({ data: { id: videoId, materialId: id, createdBy: owner, access: "membership", projectId: "members", providerVideoId,
+        title: "Controlled protected video", origin: "platform_upload", providerStatus: "done", state: "ready", readyAt: now, providerVisibleAt: now, providerEmbedLocator: `https://kinescope.io/embed/${providerVideoId}`, durationSeconds: 60 } });
+      await db.prisma.material.update({ where: { id }, data: { primaryVideoId: videoId, body: { type: "doc", content: [{ type: "assetFile", attrs: { nodeId: randomUUID(), assetId, label: "Guide artifact" } }] } } });
+      return { materialId: id, assetId, videoId, providerVideoId };
+    }
+    const [a, shared, b] = await Promise.all([resourceFixture([guideA]), resourceFixture([guideA, guideB]), resourceFixture([guideB])]);
+    let savedToken = "";
+    for (const resource of [a, shared]) {
+      expect(await delivery.deliver({ ...resource, contentVersion: 2, preview: false, subject })).toMatchObject({ ok: true, value: { kind: "redirect", cacheScope: "private-no-store" } });
+      const session = await playback.createSession({ ...resource, subject, correlationId: randomUUID() });
+      if (!session.ok || !session.value.drmAuthToken) throw new Error("Expected protected playback token");
+      expect(await playback.authorizeProvider({ providerVideoId: resource.providerVideoId, token: session.value.drmAuthToken })).toBe(true);
+      if (resource === a) savedToken = session.value.drmAuthToken;
+    }
+    expect(await delivery.deliver({ ...b, contentVersion: 2, preview: false, subject })).toMatchObject({ error: { code: "asset_not_found" } });
+    expect(await playback.createSession({ ...b, subject, correlationId: randomUUID() })).toMatchObject({ error: { code: "access_denied" } });
+    expect(await delivery.deliver({ ...a, materialId: b.materialId, contentVersion: 2, preview: false, subject })).toMatchObject({ error: { code: "asset_not_found" } });
+    expect(await playback.createSession({ ...a, materialId: b.materialId, subject, correlationId: randomUUID() })).toMatchObject({ error: { code: "video_mismatch" } });
+    await grants.changeGrant(owner, { action: "revoke", operationId: randomUUID(), grantRef: grantA.grantRef, expectedRevision: 1, reason: "Revoke controlled guide access" });
+    expect(await playback.authorizeProvider({ providerVideoId: a.providerVideoId, token: savedToken })).toBe(false);
+    expect(await delivery.deliver({ ...a, contentVersion: 2, preview: false, subject })).toMatchObject({ error: { code: "asset_not_found" } });
+  });
+
   test("two sources of the single chat survive one revocation; support expires separately and legacy lifetime remains", async () => {
     now = new Date("2030-01-01T00:00:00Z");
     const first = await grant(["community"], null);

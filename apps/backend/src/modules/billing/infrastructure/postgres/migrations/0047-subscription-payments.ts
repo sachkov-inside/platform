@@ -28,7 +28,7 @@ CREATE TABLE billing.payment_events (
 );
 CREATE TABLE billing.fulfillment_outbox (
  event_ref uuid PRIMARY KEY, purchase_ref uuid NOT NULL REFERENCES billing.purchases(id),
- payload jsonb NOT NULL, applied_at timestamptz
+ payload jsonb NOT NULL, next_attempt_at timestamptz NOT NULL DEFAULT now(), applied_at timestamptz
 );
 CREATE FUNCTION billing.immutable_payment_event() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN RAISE EXCEPTION 'Payment event is immutable'; END; $$;
@@ -39,8 +39,18 @@ BEGIN
  IF ROW(NEW.account_id, NEW.quote_ref, NEW.environment, NEW.terminal_ref, NEW.amount_kopecks, NEW.snapshot, NEW.acceptance, NEW.contact)
  IS DISTINCT FROM ROW(OLD.account_id, OLD.quote_ref, OLD.environment, OLD.terminal_ref, OLD.amount_kopecks, OLD.snapshot, OLD.acceptance, OLD.contact)
  THEN RAISE EXCEPTION 'Purchase conditions are immutable'; END IF;
+ IF OLD.confirmed_at IS NOT NULL AND ROW(NEW.confirmed_at, NEW.period_ends_at) IS DISTINCT FROM ROW(OLD.confirmed_at, OLD.period_ends_at)
+ THEN RAISE EXCEPTION 'Confirmed period is immutable'; END IF;
  RETURN NEW;
 END; $$;
 CREATE TRIGGER immutable_purchase_conditions BEFORE UPDATE ON billing.purchases
  FOR EACH ROW EXECUTE FUNCTION billing.protect_purchase_conditions();
+CREATE FUNCTION billing.protect_fulfillment_command() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+ IF ROW(NEW.event_ref, NEW.purchase_ref, NEW.payload) IS DISTINCT FROM ROW(OLD.event_ref, OLD.purchase_ref, OLD.payload)
+ THEN RAISE EXCEPTION 'Fulfillment command is immutable'; END IF;
+ RETURN NEW;
+END; $$;
+CREATE TRIGGER immutable_fulfillment_command BEFORE UPDATE ON billing.fulfillment_outbox
+ FOR EACH ROW EXECUTE FUNCTION billing.protect_fulfillment_command();
 `;
