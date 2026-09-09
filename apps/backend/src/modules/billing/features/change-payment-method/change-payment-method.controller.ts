@@ -5,7 +5,7 @@ import { problemDetailsOneOfContent, problemDetailsContent, problemDetailsSchema
 import { AccountGuard, AccountProblemDetailsFilter, CurrentAccount, accountProblemSchema, type AuthenticatedAccount } from "../../../accounts/index.js";
 import { subscriptionViewSchema } from "../../domain/subscription-change.js";
 import { BillingSubscriptions } from "../../facets/billing-subscriptions/billing-subscriptions.js";
-import { changeMethodSchema, methodFlowSchema, revokeMethodSchema } from "../manage-subscription/manage-subscription.contract.js";
+import { changeMethodSchema, methodFlowSchema, revokeMethodSchema } from "./change-payment-method.contract.js";
 import { throwPaymentError } from "../../shared/payment-http.filter.js";
 
 @ApiTags("Billing")

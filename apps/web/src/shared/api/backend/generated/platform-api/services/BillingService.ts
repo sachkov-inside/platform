@@ -16,7 +16,7 @@ export class BillingService {
       inFlightPayment: {
         attemptRef: string;
         kind: 'initial' | 'renewal' | 'upgrade';
-        state: string;
+        state: 'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed';
       } | null;
       paidUntil: string;
       paymentMethod: {
@@ -143,7 +143,7 @@ export class BillingService {
     inFlightPayment: {
       attemptRef: string;
       kind: 'initial' | 'renewal' | 'upgrade';
-      state: string;
+      state: 'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed';
     } | null;
     paidUntil: string;
     paymentMethod: {
@@ -424,7 +424,7 @@ export class BillingService {
     inFlightPayment: {
       attemptRef: string;
       kind: 'initial' | 'renewal' | 'upgrade';
-      state: string;
+      state: 'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed';
     } | null;
     paidUntil: string;
     paymentMethod: {
@@ -569,7 +569,7 @@ export class BillingService {
       inFlightPayment: {
         attemptRef: string;
         kind: 'initial' | 'renewal' | 'upgrade';
-        state: string;
+        state: 'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed';
       } | null;
       paidUntil: string;
       paymentMethod: {
@@ -672,7 +672,7 @@ export class BillingService {
     inFlightPayment: {
       attemptRef: string;
       kind: 'initial' | 'renewal' | 'upgrade';
-      state: string;
+      state: 'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed';
     } | null;
     paidUntil: string;
     paymentMethod: {
@@ -873,7 +873,7 @@ export class BillingService {
     inFlightPayment: {
       attemptRef: string;
       kind: 'initial' | 'renewal' | 'upgrade';
-      state: string;
+      state: 'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed';
     } | null;
     paidUntil: string;
     paymentMethod: {

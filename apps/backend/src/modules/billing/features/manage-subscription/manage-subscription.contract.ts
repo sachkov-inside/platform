@@ -9,9 +9,6 @@ export const resumeRenewalSchema = z.strictObject({ ...command, consentEvidenceR
 export const quoteChangeSchema = z.strictObject({ ...command, paymentOptionId: idSchema });
 export const changeOptionSchema = z.strictObject({ ...command, changeQuoteRef: idSchema });
 export const cancelChangeSchema = z.strictObject(command);
-export const changeMethodSchema = z.strictObject(command);
-export const revokeMethodSchema = z.strictObject({ ...command, paymentMethodRef: idSchema });
-
 export const currentBillingSchema = z.strictObject({ subscription: subscriptionViewSchema.nullable() });
 export const changeQuoteResultSchema = z.strictObject({
   changeQuoteRef: idSchema, baseRevision: revisionSchema, plan: changePlanSchema, expiresAt: z.iso.datetime(),
@@ -19,10 +16,5 @@ export const changeQuoteResultSchema = z.strictObject({
 export const changeResultSchema = z.strictObject({
   subscription: subscriptionViewSchema, payment: purchaseStatusSchema.nullable(),
 });
-export const methodFlowSchema = z.strictObject({
-  flowRef: idSchema, state: z.enum(["started", "completed", "rejected"]),
-  formUrl: z.url().nullable(), methodRef: idSchema.nullable(),
-});
 export type ChangeQuoteResult = z.infer<typeof changeQuoteResultSchema>;
 export type ChangeResult = z.infer<typeof changeResultSchema>;
-export type MethodFlowResult = z.infer<typeof methodFlowSchema>;

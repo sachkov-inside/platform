@@ -3877,6 +3877,15 @@
                               "type": "string"
                             },
                             "state": {
+                              "enum": [
+                                "prepared",
+                                "sent",
+                                "unknown",
+                                "pending",
+                                "authorized",
+                                "confirmed",
+                                "failed"
+                              ],
                               "type": "string"
                             }
                           },
@@ -7246,6 +7255,15 @@
                           "type": "string"
                         },
                         "state": {
+                          "enum": [
+                            "prepared",
+                            "sent",
+                            "unknown",
+                            "pending",
+                            "authorized",
+                            "confirmed",
+                            "failed"
+                          ],
                           "type": "string"
                         }
                       },
@@ -10448,6 +10466,15 @@
                           "type": "string"
                         },
                         "state": {
+                          "enum": [
+                            "prepared",
+                            "sent",
+                            "unknown",
+                            "pending",
+                            "authorized",
+                            "confirmed",
+                            "failed"
+                          ],
                           "type": "string"
                         }
                       },
@@ -11751,6 +11778,15 @@
                               "type": "string"
                             },
                             "state": {
+                              "enum": [
+                                "prepared",
+                                "sent",
+                                "unknown",
+                                "pending",
+                                "authorized",
+                                "confirmed",
+                                "failed"
+                              ],
                               "type": "string"
                             }
                           },
@@ -12770,6 +12806,15 @@
                           "type": "string"
                         },
                         "state": {
+                          "enum": [
+                            "prepared",
+                            "sent",
+                            "unknown",
+                            "pending",
+                            "authorized",
+                            "confirmed",
+                            "failed"
+                          ],
                           "type": "string"
                         }
                       },
@@ -14790,6 +14835,15 @@
                           "type": "string"
                         },
                         "state": {
+                          "enum": [
+                            "prepared",
+                            "sent",
+                            "unknown",
+                            "pending",
+                            "authorized",
+                            "confirmed",
+                            "failed"
+                          ],
                           "type": "string"
                         }
                       },

@@ -6,14 +6,18 @@ import type { AccessGrants } from "../../../membership-entitlements/index.js";
 import { priceSnapshotSchema } from "../../domain/pricing.js";
 import { subscriptionPeriodEnd } from "../../domain/subscription-period.js";
 import { lockPricing, lockSubscription } from "../../infrastructure/postgres/catalog-lock.js";
-import { type Tbank, validatedPaymentUrl, type BankPayment } from "../../infrastructure/tbank/tbank.js";
+import { type Tbank, validatedPaymentUrl, type BankPayment, type PaymentInitiator } from "../../infrastructure/tbank/tbank.js";
 import { reservePurchaseInTransaction } from "../../features/reserve-purchase/reserve-purchase.js";
 import { paymentFailure, purchaseSubscriptionSchema, purchaseStatusSchema, type PaymentResult, type PurchaseStatus } from "../../features/purchase-subscription/purchase-subscription.contract.js";
 import { paidPeriodCommandSchema } from "../../../membership-entitlements/index.js";
 import { endLapsedSubscriptions, endSubscription, inFlightStates, settleConfirmedAttempt } from "../../shared/subscription-outcome.js";
-import { renewalAttemptSnapshot, verifyRecurringConsent } from "../../shared/renewal-gate.js";
+import { attemptKindSchema, type AttemptKind } from "../../domain/subscription-change.js";
+import { renewalPriceSnapshot } from "../../domain/subscription-change.js";
+import { verifyRecurringConsent } from "../../shared/recurring-consent.js";
 
 const fulfillmentRetryDelayMilliseconds = 60_000;
+// Первая покупка сохраняет привязку, повышение инициирует покупатель, продление — merchant recurring.
+const paymentInitiators: Record<AttemptKind, PaymentInitiator> = { initial: "1", upgrade: "2", renewal: "R" };
 
 interface Dependencies {
   readonly prisma: BillingPrismaClient;
@@ -204,7 +208,9 @@ export class BillingPayments {
       if (row.subscriptionRef) {
         await lockSubscription(tx, row.subscriptionRef);
         const subscription = await tx.billingSubscription.findUnique({ where: { id: row.subscriptionRef } });
-        if (!subscription || subscription.state !== "active" || !subscription.bindingCiphertext || subscription.bindingRevokedAt !== null) {
+        // Отмена останавливает только продление; принятое повышение оплачивает действующий срок.
+        const schedulable = row.kind === "renewal" ? subscription?.state === "active" : subscription?.state !== "ended";
+        if (!subscription || !schedulable || !subscription.bindingCiphertext || subscription.bindingRevokedAt !== null) {
           // Отмена или отзыв привязки до отправки: внешнего эффекта нет, попытка закрывается.
           await tx.billingPurchase.update({ where: { id: attemptRef }, data: { state: "failed", updatedAt: now } });
           return undefined;
@@ -219,7 +225,7 @@ export class BillingPayments {
       const snapshot = priceSnapshotSchema.parse(row.snapshot);
       const contact = z.object({ emailCiphertext: z.string() }).parse(row.contact);
       const email = z.email().parse(bank.openBinding(`${row.id}:contact`, contact.emailCiphertext));
-      const initiator = row.kind === "initial" ? "1" : row.kind === "renewal" ? "R" : "2";
+      const initiator = paymentInitiators[attemptKindSchema.parse(row.kind)];
       const payment = await bank.init({ orderId: row.id, accountId: row.accountId, amount: Number(row.amountKopecks), name: snapshot.offer.name, email, initiator });
       const accepted = await this.accept(payment, row.kind === "initial" ? payment.PaymentURL : undefined);
       if (!accepted.ok) throw new Error("Bank initialization fact rejected");
@@ -244,7 +250,7 @@ export class BillingPayments {
     ]);
     if (!legacy.ok || !verified.ok) return { blocked: true };
     const verifiedContact = verified.contact;
-    const snapshot = renewalAttemptSnapshot(current.snapshot, current.pendingChange);
+    const snapshot = renewalPriceSnapshot(current.snapshot, current.pendingChange);
     const amountKopecks = snapshot.renewalPriceKopecks;
     const withinLimits = amountKopecks >= bank.config.minimumKopecks && amountKopecks <= bank.config.maximumKopecks;
     return await prisma.$transaction(async (tx): Promise<{ attemptRef?: string; blocked?: boolean }> => {

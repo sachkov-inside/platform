@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { idSchema, priceSnapshotSchema } from "../../domain/pricing.js";
+import { attemptStateSchema } from "../../domain/subscription-change.js";
 
 export const purchaseSubscriptionSchema = z.strictObject({
   operationId: idSchema, quoteRef: idSchema,
@@ -7,9 +8,8 @@ export const purchaseSubscriptionSchema = z.strictObject({
   acknowledgeExistingAccess: z.boolean(),
 });
 export type PurchaseSubscriptionCommand = z.infer<typeof purchaseSubscriptionSchema>;
-export const purchaseStateSchema = z.enum(["prepared", "sent", "unknown", "pending", "authorized", "confirmed", "failed"]);
 export const purchaseStatusSchema = z.strictObject({
-  purchaseRef: idSchema, state: purchaseStateSchema,
+  purchaseRef: idSchema, state: attemptStateSchema,
   paymentUrl: z.url().nullable(), snapshot: priceSnapshotSchema,
   access: z.enum(["awaiting_payment", "preparing", "ready"]),
   fiscalization: z.enum(["not_configured", "pending", "confirmed", "failed"]),

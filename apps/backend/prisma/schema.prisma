@@ -1326,7 +1326,7 @@ model BillingPaymentMethodFlow {
   requestKey String @map("request_key")
   state String
   formUrl String? @map("form_url")
-  observed String?
+  observedStatus String? @map("observed_status")
   appliedBindingRef String? @map("applied_binding_ref") @db.Uuid
   createdAt DateTime @map("created_at") @db.Timestamptz
   updatedAt DateTime @map("updated_at") @db.Timestamptz

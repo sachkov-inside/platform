@@ -286,6 +286,78 @@ describe("подписка: продление, отмена, смена вар�
       .toMatchObject({ error: { code: "quote_changed" } });
   });
 
+  test("второе повышение считается от цены действующего варианта, а не от первой оплаты", async () => {
+    const s = await scenario({ startedAt: "2030-01-01T00:00:00Z", priceKopecks: 100_000 });
+    await s.buy();
+    const higher = await s.offer("Материалы и сопровождение", ["materials", "support"], 1, 350_000);
+    now = new Date("2030-01-16T12:00:00Z");
+    const active = await s.view();
+    const first = value(await s.subscriptions.quoteChange(s.buyer, { operationId: randomUUID(), expectedRevision: active?.revision, paymentOptionId: higher }));
+    const applied = value(await s.subscriptions.change(s.buyer, { operationId: randomUUID(), expectedRevision: active?.revision, changeQuoteRef: first.changeQuoteRef }));
+    const attemptRef = applied.payment?.purchaseRef;
+    if (!attemptRef) throw new Error("Upgrade payment attempt is missing");
+    expect(await s.payments.notification(s.bank.notify(attemptRef, "CONFIRMED"))).toMatchObject({ ok: true });
+    const upgraded = await s.view();
+    expect(upgraded?.periodAmountKopecks).toBe(350_000);
+    // Три четверти месяца позади: остаток при переходе 3 500 ₽ → 5 000 ₽ стоит 375 ₽.
+    const top = await s.offer("Материалы, сопровождение и разбор", ["materials", "support", "community"], 1, 500_000);
+    now = new Date("2030-01-24T06:00:00Z");
+    const second = value(await s.subscriptions.quoteChange(s.buyer, { operationId: randomUUID(), expectedRevision: upgraded?.revision, paymentOptionId: top }));
+    expect(second.plan).toMatchObject({ kind: "upgrade", topUpKopecks: 37_500 });
+  });
+
+  test("повышение доступно внутри отменённого оплаченного срока, а запланированное изменение — нет", async () => {
+    const s = await scenario({ startedAt: "2030-01-01T00:00:00Z" });
+    await s.buy();
+    const higher = await s.offer("Материалы и сопровождение", ["materials", "support"], 1, 350_000);
+    const cheaper = await s.offer("Материалы, короткий доступ", ["materials"], 1, 70_000);
+    now = new Date("2030-01-16T12:00:00Z");
+    const active = await s.view();
+    const canceled = value(await s.subscriptions.cancel(s.buyer, { operationId: randomUUID(), expectedRevision: active?.revision }));
+    expect(await s.subscriptions.quoteChange(s.buyer, { operationId: randomUUID(), expectedRevision: canceled.revision, paymentOptionId: cheaper }))
+      .toMatchObject({ error: { code: "revision_conflict" } });
+    const quoted = value(await s.subscriptions.quoteChange(s.buyer, { operationId: randomUUID(), expectedRevision: canceled.revision, paymentOptionId: higher }));
+    const applied = value(await s.subscriptions.change(s.buyer, { operationId: randomUUID(), expectedRevision: canceled.revision, changeQuoteRef: quoted.changeQuoteRef }));
+    const attemptRef = applied.payment?.purchaseRef;
+    if (!attemptRef) throw new Error("Upgrade payment attempt is missing");
+    expect(await s.payments.notification(s.bank.notify(attemptRef, "CONFIRMED"))).toMatchObject({ ok: true });
+    const upgraded = await s.view();
+    expect(upgraded).toMatchObject({ state: "canceled", periodAmountKopecks: 350_000, paidUntil: "2030-02-01T00:00:00.000Z" });
+  });
+
+  test("потерянный ответ Init завершает ту же попытку через CheckOrder и GetState", async () => {
+    const s = await scenario({ startedAt: "2030-01-01T00:00:00Z" });
+    await s.buy();
+    now = new Date("2030-02-01T00:00:00Z");
+    s.bank.failInit = true;
+    value(await s.payments.renew());
+    const pending = await s.view();
+    const attemptRef = pending?.inFlightPayment?.attemptRef;
+    if (!attemptRef) throw new Error("Missing synthetic renewal attempt");
+    expect(pending?.inFlightPayment).toMatchObject({ kind: "renewal", state: "unknown" });
+    expect((await db.prisma.billingPurchase.findUniqueOrThrow({ where: { id: attemptRef } })).chargeCalled).toBe(false);
+    expect(s.bank.chargeCalls).toBe(0);
+    s.bank.failInit = false;
+    expect(await s.payments.reconcile(attemptRef)).toMatchObject({ ok: true });
+    expect(s.bank.initCalls).toBe(2);
+    expect(s.bank.chargeCalls).toBe(1);
+    expect(await s.view()).toMatchObject({ state: "active", periodIndex: 2, paidUntil: "2030-03-01T00:00:00.000Z" });
+  });
+
+  test("отправленное продление не даёт согласовать другое изменение того же периода", async () => {
+    const s = await scenario({ startedAt: "2030-01-01T00:00:00Z" });
+    await s.buy();
+    const cheaper = await s.offer("Материалы, короткий доступ", ["materials"], 1, 70_000);
+    now = new Date("2030-02-01T00:00:00Z");
+    s.bank.failCharge = true;
+    value(await s.payments.renew());
+    const pending = await s.view();
+    expect(pending?.inFlightPayment).toMatchObject({ kind: "renewal", state: "unknown" });
+    const quoted = value(await s.subscriptions.quoteChange(s.buyer, { operationId: randomUUID(), expectedRevision: pending?.revision, paymentOptionId: cheaper }));
+    expect(await s.subscriptions.change(s.buyer, { operationId: randomUUID(), expectedRevision: pending?.revision, changeQuoteRef: quoted.changeQuoteRef }))
+      .toMatchObject({ error: { code: "payment_in_progress" } });
+  });
+
   test("согласованное изменение применяется следующим периодом по сохранённым условиям", async () => {
     const s = await scenario({ startedAt: "2030-01-01T00:00:00Z" });
     await s.buy();

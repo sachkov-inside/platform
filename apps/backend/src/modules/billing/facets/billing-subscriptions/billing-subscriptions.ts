@@ -6,18 +6,19 @@ import type { BillingContact } from "../../../accounts/index.js";
 import type { AccessGrants } from "../../../membership-entitlements/index.js";
 import { offerSchema, optionSchema, priceSnapshotSchema, type PriceSnapshot } from "../../domain/pricing.js";
 import {
-  changePlanSchema, pendingChangeSchema, planSubscriptionChange, subscriptionConsentSchema,
+  changePlanSchema, pendingChangeSchema, planSubscriptionChange, sameChangeConditions,
   subscriptionSnapshotSchema, subscriptionViewSchema, type ChangePlan, type SubscriptionView,
 } from "../../domain/subscription-change.js";
 import {
-  cancelChangeSchema, cancelRenewalSchema, changeMethodSchema, changeOptionSchema, changeQuoteResultSchema,
-  methodFlowSchema, quoteChangeSchema, resumeRenewalSchema, revokeMethodSchema,
-  type ChangeQuoteResult, type ChangeResult, type MethodFlowResult,
+  cancelChangeSchema, cancelRenewalSchema, changeOptionSchema, changeQuoteResultSchema,
+  quoteChangeSchema, resumeRenewalSchema, type ChangeQuoteResult, type ChangeResult,
 } from "../../features/manage-subscription/manage-subscription.contract.js";
+import { changeMethodSchema, methodFlowSchema, revokeMethodSchema, type MethodFlowResult } from "../../features/change-payment-method/change-payment-method.contract.js";
 import { paymentFailure, type PaymentResult } from "../../features/purchase-subscription/purchase-subscription.contract.js";
 import { lockPricing, lockSubscription } from "../../infrastructure/postgres/catalog-lock.js";
 import type { Tbank } from "../../infrastructure/tbank/tbank.js";
-import { inFlightStates } from "../../shared/subscription-outcome.js";
+import { acceptRecurringConsent } from "../../shared/recurring-consent.js";
+import { advanceSubscription, inFlightStates } from "../../shared/subscription-outcome.js";
 import type { BillingPayments } from "../billing-payments/billing-payments.js";
 
 const changeQuoteLifetimeMs = 15 * 60 * 1_000;
@@ -57,7 +58,7 @@ export class BillingSubscriptions {
       if (row.revision !== command.expectedRevision) return paymentFailure("revision_conflict");
       if (row.state !== "active") return paymentFailure("revision_conflict");
       // Уже отправленный платёж не отзывается командой отмены; он сверяется своим путём.
-      await this.advance(tx, row, { state: "canceled", pendingChange: {} }, "renewal_canceled", { paidUntil: row.paidUntil.toISOString() }, now);
+      await advanceSubscription(tx, row, { state: "canceled", pendingChange: {} }, "renewal_canceled", { paidUntil: row.paidUntil.toISOString() }, now);
       return { ok: true, value: true };
     });
   }
@@ -66,14 +67,21 @@ export class BillingSubscriptions {
     const parsed = resumeRenewalSchema.safeParse(input);
     if (!parsed.success) return paymentFailure("invalid_request");
     const command = parsed.data;
-    const consent = await this.acceptedRecurringConsent(accountId, command.operationId, command.consentEvidenceRefs);
-    if (!consent.ok) return consent;
+    const contact = await this.dependencies.contact.read(accountId);
+    if (!contact.ok) return paymentFailure("dependency_unavailable");
+    if (!contact.contact) return paymentFailure("contact_required");
+    const consent = await acceptRecurringConsent(this.dependencies.contact, accountId, command.operationId, command.consentEvidenceRefs, contact.documents);
+    if (!consent) return paymentFailure("consent_required");
+    // Возобновление снова включает списания, поэтому проходит ту же проверку, что и покупка.
+    const legacy = await this.dependencies.grants.readLegacyClassification(accountId);
+    if (!legacy.ok) return paymentFailure("dependency_unavailable");
+    if (!legacy.recurringAllowed) return paymentFailure("legacy_review_required");
     return this.transition(accountId, command.operationId, fingerprint("resume", command), async (tx, row, now) => {
       if (row.revision !== command.expectedRevision) return paymentFailure("revision_conflict");
       // Возобновляется только действующий оплаченный срок на прежних условиях.
       if (row.state !== "canceled" || row.paidUntil <= now) return paymentFailure("not_found");
       if (!row.bindingCiphertext || row.bindingRevokedAt !== null) return paymentFailure("method_unavailable");
-      await this.advance(tx, row, { state: "active", consent: consent.value }, "renewal_resumed", { paidUntil: row.paidUntil.toISOString() }, now);
+      await advanceSubscription(tx, row, { state: "active", consent }, "renewal_resumed", { paidUntil: row.paidUntil.toISOString() }, now);
       return { ok: true, value: true };
     });
   }
@@ -94,9 +102,10 @@ export class BillingSubscriptions {
         const row = await tx.billingSubscription.findFirst({ where: { accountId, state: { not: "ended" } } });
         if (!row) return paymentFailure("not_found");
         if (row.revision !== command.expectedRevision) return paymentFailure("revision_conflict");
-        if (row.state !== "active") return paymentFailure("revision_conflict");
         const plan = await this.planChange(tx, row, command.paymentOptionId, now);
         if (!plan.ok) return plan;
+        // У отменённого расписания нет следующего периода: остаётся только повышение текущего срока.
+        if (plan.value.kind === "scheduled" && row.state !== "active") return paymentFailure("revision_conflict");
         const changeQuoteRef = randomUUID();
         const expiresAt = new Date(now.getTime() + changeQuoteLifetimeMs);
         await tx.billingChangeQuote.create({ data: { id: changeQuoteRef, subscriptionRef: row.id, accountId,
@@ -115,14 +124,14 @@ export class BillingSubscriptions {
     const { prisma, bank, payments } = this.dependencies;
     // Контакт чека читается до открытия транзакции: замки не удерживаются на чужом чтении.
     const verified = await this.dependencies.contact.read(accountId);
-    let receipt: z.infer<typeof changeReceiptSchema> | undefined;
+    let accepted: z.infer<typeof changeReceiptSchema> | undefined;
     try {
       const previous = await prisma.billingSubscriptionCommand.findUnique({ where: { accountId_operationId: { accountId, operationId: command.operationId } } });
       if (previous) {
         if (previous.fingerprint !== digest) return paymentFailure("operation_conflict");
-        receipt = changeReceiptSchema.parse(previous.result);
+        accepted = changeReceiptSchema.parse(previous.result);
       }
-      if (!receipt) receipt = await prisma.$transaction(async tx => {
+      accepted ??= await prisma.$transaction(async tx => {
         const now = this.clock();
         await lockPricing(tx);
         const quote = await tx.billingChangeQuote.findFirst({ where: { id: command.changeQuoteRef, accountId } });
@@ -132,15 +141,18 @@ export class BillingSubscriptions {
         await lockSubscription(tx, quote.subscriptionRef);
         const row = await tx.billingSubscription.findUniqueOrThrow({ where: { id: quote.subscriptionRef } });
         if (row.revision !== command.expectedRevision || row.revision !== quote.baseRevision) throw new CommandFailure("revision_conflict");
-        if (row.state !== "active") throw new CommandFailure("revision_conflict");
+        if (plan.kind === "scheduled" && row.state !== "active") throw new CommandFailure("revision_conflict");
         // Каталог мог измениться после расчёта: согласие относится к конкретным условиям.
         // Сама доплата остаётся принятой суммой расчёта в пределах его срока действия.
         const current = await this.planChange(tx, row, plan.snapshot.paymentOption.id, now);
         if (!current.ok) throw new CommandFailure(current.error.code);
-        if (current.value.kind !== plan.kind || JSON.stringify(current.value.snapshot) !== JSON.stringify(plan.snapshot))
+        if (current.value.kind !== plan.kind || !sameChangeConditions(current.value.snapshot, plan.snapshot))
           throw new CommandFailure("quote_changed");
         if (plan.kind === "scheduled") {
-          await this.advance(tx, row, { pendingChange: { snapshot: plan.snapshot, acceptedAt: now.toISOString(), changeQuoteRef: quote.id } },
+          // Отправленная попытка уже несёт прежние условия следующего периода.
+          if (await tx.billingPurchase.count({ where: { subscriptionRef: row.id, kind: "renewal", state: { in: inFlightStates } } }))
+            throw new CommandFailure("payment_in_progress");
+          await advanceSubscription(tx, row, { pendingChange: { snapshot: plan.snapshot, acceptedAt: now.toISOString(), changeQuoteRef: quote.id } },
             "change_scheduled", { paymentOptionId: plan.snapshot.paymentOption.id, effectiveAt: plan.effectiveAt }, now);
           const value = { subscription: await subscriptionView(tx, await tx.billingSubscription.findUniqueOrThrow({ where: { id: row.id } })), attemptRef: null };
           await tx.billingSubscriptionCommand.create({ data: { accountId, operationId: command.operationId, fingerprint: digest, result: value, createdAt: now } });
@@ -165,11 +177,11 @@ export class BillingSubscriptions {
         return value;
       });
     } catch (error) { return error instanceof CommandFailure ? paymentFailure(error.code) : paymentFailure("dependency_unavailable"); }
-    if (receipt.attemptRef) await payments.dispatch(receipt.attemptRef);
-    const payment = receipt.attemptRef ? await payments.status(accountId, receipt.attemptRef) : undefined;
+    if (accepted.attemptRef) await payments.dispatch(accepted.attemptRef);
+    const payment = accepted.attemptRef ? await payments.status(accountId, accepted.attemptRef) : undefined;
     const subscription = await this.read(accountId);
     return { ok: true, value: {
-      subscription: subscription.ok && subscription.value ? subscription.value : receipt.subscription,
+      subscription: subscription.ok && subscription.value ? subscription.value : accepted.subscription,
       payment: payment?.ok ? payment.value : null,
     } };
   }
@@ -183,7 +195,7 @@ export class BillingSubscriptions {
       if (!pendingChangeSchema.safeParse(row.pendingChange).success) return paymentFailure("not_found");
       // Отправленная попытка уже несёт согласованные условия следующего периода.
       if (await tx.billingPurchase.count({ where: { subscriptionRef: row.id, kind: "renewal", state: { in: inFlightStates } } })) return paymentFailure("payment_in_progress");
-      await this.advance(tx, row, { pendingChange: {} }, "change_canceled", {}, now);
+      await advanceSubscription(tx, row, { pendingChange: {} }, "change_canceled", {}, now);
       return { ok: true, value: true };
     });
   }
@@ -221,7 +233,7 @@ export class BillingSubscriptions {
       const session = await bank.addCard(accountId);
       await prisma.billingPaymentMethodFlow.update({ where: { id: flowRef }, data: { requestKey: session.requestKey, formUrl: session.formUrl, updatedAt: this.clock() } });
     } catch {
-      await prisma.billingPaymentMethodFlow.updateMany({ where: { id: flowRef, state: "started" }, data: { state: "rejected", observed: "session_unavailable", updatedAt: this.clock() } });
+      await prisma.billingPaymentMethodFlow.updateMany({ where: { id: flowRef, state: "started" }, data: { state: "rejected", observedStatus: "session_unavailable", updatedAt: this.clock() } });
       return paymentFailure("provider_unavailable");
     }
     const row = await prisma.billingPaymentMethodFlow.findUniqueOrThrow({ where: { id: flowRef } });
@@ -237,7 +249,7 @@ export class BillingSubscriptions {
       if (row.bindingRef !== command.paymentMethodRef) return paymentFailure("not_found");
       if (row.bindingRevokedAt !== null) return paymentFailure("revision_conflict");
       // Запрет распространяется на новые отправки; уже отправленная попытка видна отдельно.
-      await this.advance(tx, row, { bindingRevokedAt: now }, "method_revoked", { methodRef: command.paymentMethodRef }, now);
+      await advanceSubscription(tx, row, { bindingRevokedAt: now }, "method_revoked", { methodRef: command.paymentMethodRef }, now);
       return { ok: true, value: true };
     });
   }
@@ -255,13 +267,13 @@ export class BillingSubscriptions {
         const now = this.clock();
         if (row.requestKey === row.id) {
           // Ответ банка потерян: локальная сессия закрывается, новая начинается отдельной командой.
-          await prisma.billingPaymentMethodFlow.updateMany({ where: { id: row.id, state: "started" }, data: { state: "rejected", observed: "no_bank_session", updatedAt: now } });
+          await prisma.billingPaymentMethodFlow.updateMany({ where: { id: row.id, state: "started" }, data: { state: "rejected", observedStatus: "no_bank_session", updatedAt: now } });
           continue;
         }
         let observed: Awaited<ReturnType<Tbank["addCardState"]>>;
         try { observed = await bank.addCardState(row.requestKey); } catch { continue; }
         if (!observed.success || observed.errorCode !== "0") {
-          await prisma.billingPaymentMethodFlow.updateMany({ where: { id: row.id, state: "started" }, data: { state: "rejected", observed: observed.status, updatedAt: now } });
+          await prisma.billingPaymentMethodFlow.updateMany({ where: { id: row.id, state: "started" }, data: { state: "rejected", observedStatus: observed.status, updatedAt: now } });
           continue;
         }
         if (!observed.rebillId) continue;
@@ -272,7 +284,7 @@ export class BillingSubscriptions {
           if (flow.state !== "started") return 0;
           const subscription = await tx.billingSubscription.findUniqueOrThrow({ where: { id: row.subscriptionRef } });
           if (subscription.state === "ended") {
-            await tx.billingPaymentMethodFlow.update({ where: { id: row.id }, data: { state: "rejected", observed: "subscription_ended", updatedAt: now } });
+            await tx.billingPaymentMethodFlow.update({ where: { id: row.id }, data: { state: "rejected", observedStatus: "subscription_ended", updatedAt: now } });
             return 0;
           }
           // Новая привязка применяется к следующим разрешённым попыткам и не включает отменённое продление.
@@ -280,7 +292,7 @@ export class BillingSubscriptions {
             bindingCiphertext: bank.sealBinding(row.id, rebillId), bindingRevokedAt: null, revision: subscription.revision + 1, updatedAt: now } });
           await tx.billingSubscriptionEvent.create({ data: { id: randomUUID(), subscriptionRef: subscription.id, kind: "method_changed",
             revision: subscription.revision + 1, payload: { flowRef: row.id }, occurredAt: now, recordedAt: now } });
-          await tx.billingPaymentMethodFlow.update({ where: { id: row.id }, data: { state: "completed", observed: observed.status, appliedBindingRef: row.id, updatedAt: now } });
+          await tx.billingPaymentMethodFlow.update({ where: { id: row.id }, data: { state: "completed", observedStatus: observed.status, appliedBindingRef: row.id, updatedAt: now } });
           return 1;
         });
       }
@@ -311,33 +323,6 @@ export class BillingSubscriptions {
     // Границы терминала подтверждены capability и не выдумываются в коде.
     if (plan.topUpKopecks < bank.config.minimumKopecks || plan.topUpKopecks > bank.config.maximumKopecks) return paymentFailure("unsupported_amount");
     return { ok: true, value: { kind: "upgrade", snapshot, topUpKopecks: plan.topUpKopecks, effectiveAt: now.toISOString() } };
-  }
-
-  private async acceptedRecurringConsent(accountId: string, contextRef: string, evidenceRefs: readonly string[]): Promise<PaymentResult<z.infer<typeof subscriptionConsentSchema>>> {
-    const contact = await this.dependencies.contact.read(accountId);
-    if (!contact.ok) return paymentFailure("dependency_unavailable");
-    if (!contact.contact) return paymentFailure("contact_required");
-    const results = await Promise.all(evidenceRefs.map(ref => this.dependencies.contact.readConsent(accountId, ref)));
-    const evidence = results.flatMap(result => result.ok ? [result.evidence] : []);
-    if (evidence.length !== evidenceRefs.length) return paymentFailure("consent_required");
-    if (new Set(evidence.map(item => item.document.kind)).size !== evidence.length) return paymentFailure("consent_required");
-    if (!evidence.some(item => item.document.kind === "recurring")) return paymentFailure("consent_required");
-    // Согласие относится к этой команде и к действующим редакциям предъявленных документов.
-    if (evidence.some(item => item.contextRef !== contextRef || !contact.documents.some(document =>
-      document.kind === item.document.kind && document.documentId === item.document.documentId
-      && document.version === item.document.version && document.digest === item.document.digest))) return paymentFailure("consent_required");
-    const first = evidence[0];
-    if (!first) return paymentFailure("consent_required");
-    return { ok: true, value: subscriptionConsentSchema.parse({ evidenceRefs: [...evidenceRefs],
-      documents: evidence.map(item => ({ kind: item.document.kind, documentId: item.document.documentId, version: item.document.version, digest: item.document.digest })),
-      acceptedAt: first.acceptedAt }) };
-  }
-
-  private async advance(tx: BillingPrisma, row: SubscriptionRow, data: Parameters<BillingPrisma["billingSubscription"]["update"]>[0]["data"],
-    kind: string, payload: { readonly [key: string]: string | number | boolean | null }, now: Date): Promise<void> {
-    const revision = row.revision + 1;
-    await tx.billingSubscription.update({ where: { id: row.id }, data: { ...data, revision, updatedAt: now } });
-    await tx.billingSubscriptionEvent.create({ data: { id: randomUUID(), subscriptionRef: row.id, kind, revision, payload, occurredAt: now, recordedAt: now } });
   }
 
   private async transition(accountId: string, operationId: string, digest: string,

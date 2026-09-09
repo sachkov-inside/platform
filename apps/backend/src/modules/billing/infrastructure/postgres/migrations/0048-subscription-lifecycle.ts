@@ -51,7 +51,7 @@ CREATE TABLE billing.payment_method_flows (
  account_id uuid NOT NULL, operation_id uuid NOT NULL, fingerprint text NOT NULL,
  environment text NOT NULL, terminal_ref text NOT NULL, request_key text NOT NULL,
  state text NOT NULL CHECK (state IN ('started','completed','rejected')),
- form_url text, observed text, applied_binding_ref uuid,
+ form_url text, observed_status text, applied_binding_ref uuid,
  created_at timestamptz NOT NULL, updated_at timestamptz NOT NULL,
  UNIQUE(account_id, operation_id), UNIQUE(environment, terminal_ref, request_key)
 );

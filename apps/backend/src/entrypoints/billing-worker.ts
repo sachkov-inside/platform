@@ -9,9 +9,9 @@ import { BillingWorkerModule } from "./billing-worker/billing-worker.module.js";
 
 const recoveryQueue = "billing.payment-recovery";
 const renewalQueue = "billing.subscription-renewal";
-const recoveryTimeoutSeconds = 300;
-const recoveryRetentionSeconds = 86_400;
-const recoveryIntervalSeconds = 60;
+const jobTimeoutSeconds = 300;
+const jobRetentionSeconds = 86_400;
+const jobIntervalSeconds = 60;
 void bootstrap().catch(() => { console.error("Billing worker failed"); process.exitCode = 1; });
 async function bootstrap(): Promise<void> {
   const application = await NestFactory.createApplicationContext(BillingWorkerModule.forRoot());
@@ -22,17 +22,17 @@ async function bootstrap(): Promise<void> {
   jobs.on("error", () => console.error("Billing recovery queue unavailable"));
   await runWorker({ application, databaseUrl: config.database.url, jobs, process: "billing-worker", readiness: application.get(OperationalReadiness),
     async registerJobs() {
-      await jobs.createQueue(recoveryQueue, { deleteAfterSeconds: recoveryRetentionSeconds, expireInSeconds: recoveryTimeoutSeconds, retryLimit: 0 });
+      await jobs.createQueue(recoveryQueue, { deleteAfterSeconds: jobRetentionSeconds, expireInSeconds: jobTimeoutSeconds, retryLimit: 0 });
       await jobs.schedule(recoveryQueue, "* * * * *", {});
-      await jobs.send(recoveryQueue, {}, { singletonSeconds: recoveryIntervalSeconds });
+      await jobs.send(recoveryQueue, {}, { singletonSeconds: jobIntervalSeconds });
       await jobs.work(recoveryQueue, async () => {
         const result = await payments.recover(20);
         if (!result.ok) throw new Error(result.error.code);
         return result.value;
       });
-      await jobs.createQueue(renewalQueue, { deleteAfterSeconds: recoveryRetentionSeconds, expireInSeconds: recoveryTimeoutSeconds, retryLimit: 0 });
+      await jobs.createQueue(renewalQueue, { deleteAfterSeconds: jobRetentionSeconds, expireInSeconds: jobTimeoutSeconds, retryLimit: 0 });
       await jobs.schedule(renewalQueue, "* * * * *", {});
-      await jobs.send(renewalQueue, {}, { singletonSeconds: recoveryIntervalSeconds });
+      await jobs.send(renewalQueue, {}, { singletonSeconds: jobIntervalSeconds });
       await jobs.work(renewalQueue, async () => {
         const renewed = await payments.renew(20);
         if (!renewed.ok) throw new Error(renewed.error.code);

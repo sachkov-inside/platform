@@ -16,17 +16,25 @@ import { ManageCatalogController } from "./features/manage-catalog/manage-catalo
 import { QuotePurchaseController } from "./features/quote-purchase/quote-purchase.controller.js";
 import { ListOffersController } from "./features/list-offers/list-offers.controller.js";
 
+// Один банковский adapter и один entitlement facet на модуль: у привязки и прав один владелец.
+const BILLING_BANK = Symbol("BillingBank");
+const BILLING_GRANTS = Symbol("BillingAccessGrants");
+type BillingGrants = ReturnType<typeof assembleAccessGrants>;
+
 @Module({
   imports: [PrismaModule, AccountsModule],
   controllers: [PurchaseSubscriptionController, ManageSubscriptionController, ChangePaymentMethodController, AcceptTbankNotificationController, ManageCatalogController, QuotePurchaseController, ListOffersController],
-  providers: [{ provide: BillingPayments, inject: [PrismaClientProvider, ACCOUNTS, BillingContact, PLATFORM_CONFIG],
-    useFactory: (prisma: PrismaClientProvider, accounts: Accounts, contact: BillingContact, config: PlatformConfig) => new BillingPayments({
-      prisma, contact, grants: assembleAccessGrants({ prisma, accounts }), bank: config.tbank ? new Tbank(config.tbank) : undefined,
-    }) },
-    { provide: BillingSubscriptions, inject: [PrismaClientProvider, ACCOUNTS, BillingContact, BillingPayments, PLATFORM_CONFIG],
-      useFactory: (prisma: PrismaClientProvider, accounts: Accounts, contact: BillingContact, payments: BillingPayments, config: PlatformConfig) => new BillingSubscriptions({
-        prisma, contact, payments, grants: assembleAccessGrants({ prisma, accounts }), bank: config.tbank ? new Tbank(config.tbank) : undefined,
-      }) },
+  providers: [
+    { provide: BILLING_BANK, inject: [PLATFORM_CONFIG],
+      useFactory: (config: PlatformConfig) => config.tbank ? new Tbank(config.tbank) : undefined },
+    { provide: BILLING_GRANTS, inject: [PrismaClientProvider, ACCOUNTS],
+      useFactory: (prisma: PrismaClientProvider, accounts: Accounts) => assembleAccessGrants({ prisma, accounts }) },
+    { provide: BillingPayments, inject: [PrismaClientProvider, BillingContact, BILLING_GRANTS, BILLING_BANK],
+      useFactory: (prisma: PrismaClientProvider, contact: BillingContact, grants: BillingGrants, bank: Tbank | undefined) =>
+        new BillingPayments({ prisma, contact, grants, bank }) },
+    { provide: BillingSubscriptions, inject: [PrismaClientProvider, BillingContact, BILLING_GRANTS, BILLING_BANK, BillingPayments],
+      useFactory: (prisma: PrismaClientProvider, contact: BillingContact, grants: BillingGrants, bank: Tbank | undefined, payments: BillingPayments) =>
+        new BillingSubscriptions({ prisma, contact, grants, bank, payments }) },
     { provide: BillingPricing, inject: [PrismaClientProvider, ACCOUNTS], useFactory: (prisma: PrismaClientProvider, accounts: Accounts) => new BillingPricing({ prisma, accounts }) }],
   exports: [BillingPayments, BillingSubscriptions],
 })

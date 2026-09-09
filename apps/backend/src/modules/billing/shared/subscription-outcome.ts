@@ -4,7 +4,7 @@ import type { BillingPrisma } from "../../../infrastructure/prisma/index.js";
 import { lockSubscription } from "../infrastructure/postgres/catalog-lock.js";
 import { priceSnapshotSchema, type PriceSnapshot } from "../domain/pricing.js";
 import { subscriptionPeriodEnd } from "../domain/subscription-period.js";
-import { attemptKindSchema, subscriptionConsentSchema, type AttemptKind } from "../domain/subscription-change.js";
+import { attemptKindSchema, subscriptionConsentSchema, type AttemptKind, type SubscriptionEndReason, type SubscriptionEventKind } from "../domain/subscription-change.js";
 
 const acceptanceSchema = z.object({
   command: z.object({ consentEvidenceRefs: z.array(z.uuid()) }),
@@ -21,10 +21,17 @@ export interface PaidPeriod {
   readonly subscriptionRef: string; readonly startsAt: Date; readonly endsAt: Date; readonly snapshot: PriceSnapshot;
 }
 
-type TransitionPayload = { readonly [key: string]: string | number | boolean | null };
+export type TransitionPayload = { readonly [key: string]: string | number | boolean | null };
+type SubscriptionRow = Awaited<ReturnType<BillingPrisma["billingSubscription"]["findUniqueOrThrow"]>>;
 
-async function recordTransition(tx: BillingPrisma, subscriptionRef: string, kind: string, revision: number, payload: TransitionPayload, now: Date): Promise<void> {
-  await tx.billingSubscriptionEvent.create({ data: { id: randomUUID(), subscriptionRef, kind, revision, payload, occurredAt: now, recordedAt: now } });
+/** Единственный способ изменить подписку: новая revision вместе с записью перехода. */
+export async function advanceSubscription(tx: BillingPrisma, row: SubscriptionRow,
+  data: Parameters<BillingPrisma["billingSubscription"]["update"]>[0]["data"],
+  kind: SubscriptionEventKind, payload: TransitionPayload, now: Date): Promise<number> {
+  const revision = row.revision + 1;
+  await tx.billingSubscription.update({ where: { id: row.id }, data: { ...data, revision, updatedAt: now } });
+  await tx.billingSubscriptionEvent.create({ data: { id: randomUUID(), subscriptionRef: row.id, kind, revision, payload, occurredAt: now, recordedAt: now } });
+  return revision;
 }
 
 /**
@@ -49,40 +56,36 @@ export async function settleConfirmedAttempt(tx: BillingPrisma, attempt: Attempt
       createdAt: paidAt, updatedAt: paidAt,
     } });
     await tx.billingPurchase.update({ where: { id: attempt.id }, data: { subscriptionRef, periodIndex: 1 } });
-    await recordTransition(tx, subscriptionRef, "subscription_started", 1, { attemptRef: attempt.id, paidUntil: endsAt.toISOString() }, paidAt);
+    await tx.billingSubscriptionEvent.create({ data: { id: randomUUID(), subscriptionRef, kind: "subscription_started", revision: 1,
+      payload: { attemptRef: attempt.id, paidUntil: endsAt.toISOString() }, occurredAt: paidAt, recordedAt: paidAt } });
     return { subscriptionRef, startsAt: paidAt, endsAt, snapshot };
   }
   const subscriptionRef = attempt.subscriptionRef;
   if (!subscriptionRef) throw new Error("Scheduled attempt without a subscription");
   const current = await tx.billingSubscription.findUniqueOrThrow({ where: { id: subscriptionRef } });
-  const revision = current.revision + 1;
   if (kind === "renewal") {
     const anchorMonths = current.anchorMonths + snapshot.paymentOption.months;
     const startsAt = current.paidUntil;
     const endsAt = subscriptionPeriodEnd(current.anchorAt, anchorMonths);
-    await tx.billingSubscription.update({ where: { id: subscriptionRef }, data: {
-      revision, anchorMonths, periodIndex: current.periodIndex + 1, periodStartsAt: startsAt, paidUntil: endsAt,
-      periodAmountKopecks: attempt.amountKopecks, snapshot: subscriptionSnapshot(snapshot), pendingChange: {}, updatedAt: paidAt,
-    } });
-    await recordTransition(tx, subscriptionRef, "period_renewed", revision, { attemptRef: attempt.id, paidUntil: endsAt.toISOString() }, paidAt);
+    await advanceSubscription(tx, current, {
+      anchorMonths, periodIndex: current.periodIndex + 1, periodStartsAt: startsAt, paidUntil: endsAt,
+      periodAmountKopecks: attempt.amountKopecks, snapshot: subscriptionSnapshot(snapshot), pendingChange: {},
+    }, "period_renewed", { attemptRef: attempt.id, paidUntil: endsAt.toISOString() }, paidAt);
     return { subscriptionRef, startsAt, endsAt, snapshot };
   }
   // Повышение оплачивает разницу за остаток срока: конец периода и его anchor не меняются.
-  await tx.billingSubscription.update({ where: { id: subscriptionRef }, data: {
-    revision, snapshot: subscriptionSnapshot(snapshot), periodAmountKopecks: BigInt(snapshot.paymentOption.priceKopecks), updatedAt: paidAt,
-  } });
-  await recordTransition(tx, subscriptionRef, "option_upgraded", revision, { attemptRef: attempt.id, paymentOptionId: snapshot.paymentOption.id }, paidAt);
+  // Дальше срок держится по цене нового варианта, поэтому она же становится базой следующего расчёта.
+  await advanceSubscription(tx, current, { snapshot: subscriptionSnapshot(snapshot), periodAmountKopecks: BigInt(snapshot.paymentOption.priceKopecks) },
+    "option_upgraded", { attemptRef: attempt.id, paymentOptionId: snapshot.paymentOption.id }, paidAt);
   return { subscriptionRef, startsAt: paidAt, endsAt: current.paidUntil, snapshot };
 }
 
 /** Завершение расписания: оплаченный срок сохраняется, а место для новой покупки освобождается. */
-export async function endSubscription(tx: BillingPrisma, subscriptionRef: string, reason: string, now: Date): Promise<void> {
+export async function endSubscription(tx: BillingPrisma, subscriptionRef: string, reason: SubscriptionEndReason, now: Date): Promise<void> {
   const current = await tx.billingSubscription.findUnique({ where: { id: subscriptionRef } });
   if (!current || current.state === "ended") return;
-  const revision = current.revision + 1;
-  await tx.billingSubscription.update({ where: { id: subscriptionRef }, data: { state: "ended", revision, pendingChange: {}, updatedAt: now } });
   await tx.billingPurchase.updateMany({ where: { subscriptionRef, kind: "initial", lifecycleActive: true }, data: { lifecycleActive: false } });
-  await recordTransition(tx, subscriptionRef, "subscription_ended", revision, { reason }, now);
+  await advanceSubscription(tx, current, { state: "ended", pendingChange: {} }, "subscription_ended", { reason }, now);
 }
 
 /**
@@ -90,6 +93,9 @@ export async function endSubscription(tx: BillingPrisma, subscriptionRef: string
  * нечем. Незавершённая попытка оплаты сохраняет подписку до сверки.
  */
 export async function endLapsedSubscriptions(tx: BillingPrisma, accountId: string, now: Date): Promise<void> {
+  // Покупка, подтверждённая до появления подписок, освобождает место по своему сохранённому концу.
+  await tx.billingPurchase.updateMany({ where: { accountId, kind: "initial", state: "confirmed", lifecycleActive: true,
+    subscriptionRef: null, periodEndsAt: { lte: now } }, data: { lifecycleActive: false } });
   const candidates = await tx.billingSubscription.findMany({ where: { accountId, state: { not: "ended" }, paidUntil: { lte: now } } });
   for (const candidate of candidates) {
     await lockSubscription(tx, candidate.id);
