@@ -21,7 +21,7 @@ const bank = new Tbank(input.config, async (_url, options) => {
   await new Promise(() => undefined);
   throw new Error("Child must be killed while provider result is unknown");
 });
-const payments = new BillingPayments({ prisma, contact, grants: assembleAccessGrants({ prisma, accounts, clock }), bank, clock, confirmedInstant: instant => instant });
+const payments = new BillingPayments({ prisma, contact, grants: assembleAccessGrants({ prisma, accounts, clock }), bank, clock });
 if (input.notification) {
   const result = await payments.notification(input.notification);
   if (!result.ok) throw new Error(result.error.code);

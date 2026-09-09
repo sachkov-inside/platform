@@ -422,7 +422,8 @@ same encryption key available for recovery of saved receipt contacts and recurri
 log the configuration, card binding or receipt email. The callback is
 `POST /billing/tbank/notification`; it acknowledges a validated durable result with plain `OK`.
 
-**Open owner decision (#407):** standard card status responses have no exact bank payment timestamp.
-The proposed first-period anchor is the first server-verified CONFIRMED observation. Until accepted,
-production composition does not provide the time policy and purchase admission remains disabled.
-Synthetic integration fixtures explicitly use this proposed policy; they are not acceptance of it.
+The first period starts when Inside first verifies and durably records CONFIRMED, whether from a
+signed notification or server reconciliation (owner-approved for #407 on 2026-09-09). Delayed
+confirmation still gives a full period; duplicate notifications and fulfillment recovery preserve
+the original saved bounds. No separate time-policy injection is required. Missing terminal
+configuration continues to disable payment admission; DEMO/production activation remains separate.

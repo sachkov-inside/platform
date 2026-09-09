@@ -19,7 +19,6 @@ import { ListOffersController } from "./features/list-offers/list-offers.control
   providers: [{ provide: BillingPayments, inject: [PrismaClientProvider, ACCOUNTS, BillingContact, PLATFORM_CONFIG],
     useFactory: (prisma: PrismaClientProvider, accounts: Accounts, contact: BillingContact, config: PlatformConfig) => new BillingPayments({
       prisma, contact, grants: assembleAccessGrants({ prisma, accounts }), bank: config.tbank ? new Tbank(config.tbank) : undefined,
-      confirmedInstant: undefined,
     }) }, { provide: BillingPricing, inject: [PrismaClientProvider, ACCOUNTS], useFactory: (prisma: PrismaClientProvider, accounts: Accounts) => new BillingPricing({ prisma, accounts }) }],
   exports: [BillingPayments],
 })

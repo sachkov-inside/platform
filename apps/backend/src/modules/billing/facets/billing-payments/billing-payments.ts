@@ -19,8 +19,6 @@ interface Dependencies {
   readonly grants: Pick<AccessGrants, "readLegacyClassification" | "resolveCapabilities" | "applyPaidPeriod">;
   readonly bank: Tbank | undefined;
   readonly clock?: () => Date;
-  // Supplied only after the payment-time policy is accepted; never taken from a browser.
-  readonly confirmedInstant: ((observedAt: Date) => Date) | undefined;
 }
 
 /** Purchase, authoritative confirmation and recoverable fulfillment. Never repeats Init. */
@@ -32,7 +30,7 @@ export class BillingPayments {
     const parsed = purchaseSubscriptionSchema.safeParse(input);
     if (!z.uuid().safeParse(accountId).success || !parsed.success) return paymentFailure("invalid_request");
     const bank = this.dependencies.bank;
-    if (!bank || !this.dependencies.confirmedInstant) return paymentFailure("method_unavailable");
+    if (!bank) return paymentFailure("method_unavailable");
     const command = parsed.data;
     const fingerprint = JSON.stringify(command);
     try {
@@ -187,7 +185,7 @@ export class BillingPayments {
   }
 
   private async accept(payment: BankPayment, paymentUrl?: string): Promise<PaymentResult<true>> {
-    const { prisma, bank, confirmedInstant } = this.dependencies;
+    const { prisma, bank } = this.dependencies;
     if (!bank) return paymentFailure("method_unavailable");
     try {
       return await prisma.$transaction(async tx => {
@@ -219,8 +217,9 @@ export class BillingPayments {
           ...(payment.RebillId ? { bindingCiphertext: bank.sealBinding(row.id, payment.RebillId) } : {}),
         };
         if (payment.Status === "CONFIRMED") {
-          if (!payment.Success || payment.ErrorCode !== "0" || !confirmedInstant) return paymentFailure("invalid_notification");
-          const paidAt = confirmedInstant(now);
+          if (!payment.Success || payment.ErrorCode !== "0") return paymentFailure("invalid_notification");
+          // The first durably verified CONFIRMED starts the full period; replays returned above.
+          const paidAt = now;
           const snapshot = priceSnapshotSchema.parse(row.snapshot);
           const endsAt = subscriptionPeriodEnd(paidAt, snapshot.paymentOption.months);
           const eventRef = randomUUID();

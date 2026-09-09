@@ -86,7 +86,7 @@ describe("subscription payment recovery (real PostgreSQL and real facets; synthe
       if (url.endsWith("/CheckOrder")) return Response.json({ Success: true, ErrorCode: "0", TerminalKey: config.terminalKey, OrderId: body.OrderId, Payments: [{ PaymentId: paymentId, Status: initOutcome, Success: true, ErrorCode: 0 }] });
       return Response.json(event(initOutcome));
     });
-    const runtime = (projector = grants) => new BillingPayments({ prisma: db.prisma, bank, contact, grants: projector, clock: () => now, confirmedInstant: instant => instant });
+    const runtime = (projector = grants) => new BillingPayments({ prisma: db.prisma, bank, contact, grants: projector, clock: () => now });
     const notify = (status: string, extra = {}) => { const body = event(status, extra); return { ...body, Token: tbankToken(body, config.password) }; };
     return { buyer, command, offerId, quote, runtime, notify, requests: () => requests, timeout: () => { failInit = true; }, outcome: (value: string) => { initOutcome = value; } };
   }
@@ -130,6 +130,25 @@ describe("subscription payment recovery (real PostgreSQL and real facets; synthe
     expect(value(await runtime.status(s.buyer, purchase.purchaseRef)).access).toBe("ready");
     expect(s.requests()).toBe(1);
     expect(await db.prisma.accessGrant.count({ where: { accountId: s.buyer } })).toBe(1);
+  });
+
+  test.each(["notification", "reconciliation"] as const)("first verified %s starts a full period and late replays keep its original bounds", async source => {
+    const s = await scenario();
+    const runtime = s.runtime();
+    const purchase = value(await runtime.purchase(s.buyer, s.command));
+    await runtime.notification(s.notify("AUTHORIZED"));
+    now = new Date("2030-02-02T14:15:00Z");
+    if (source === "notification") await runtime.notification(s.notify("CONFIRMED"));
+    else { s.outcome("CONFIRMED"); expect(await runtime.reconcile(purchase.purchaseRef)).toMatchObject({ ok: true }); }
+    const bounds = { confirmedAt: "2030-02-02T14:15:00.000Z", periodEndsAt: "2030-03-02T14:15:00.000Z" };
+    expect(value(await runtime.status(s.buyer, purchase.purchaseRef))).toMatchObject(bounds);
+    now = new Date("2030-02-10T00:00:00Z");
+    await Promise.all([runtime.notification(s.notify("CONFIRMED")), runtime.reconcile(purchase.purchaseRef), runtime.recover()]);
+    expect(value(await runtime.status(s.buyer, purchase.purchaseRef))).toMatchObject({ ...bounds, access: "ready" });
+    const granted = await db.prisma.accessGrant.findMany({ where: { accountId: s.buyer } });
+    expect(granted).toHaveLength(1);
+    expect(granted[0]?.startsAt.toISOString()).toBe(bounds.confirmedAt);
+    expect(granted[0]?.validUntil?.toISOString()).toBe(bounds.periodEndsAt);
   });
 
   test("signature and terminal/order/payment/amount matching precede dedupe", async () => {
