@@ -94,6 +94,6 @@ export type BillingPrisma = Pick<PlatformPrisma,
 export type BillingPrismaClient = BillingPrisma & TransactionClient<BillingPrisma>;
 
 export type NotificationsPrisma = Pick<PlatformPrisma,
-  "$executeRaw" | "notificationOutbox" | "notificationInbox" | "notificationQuarantine"
+  "$executeRaw" | "notificationPreference" | "notificationPreferenceRevision" | "notification" | "notificationDelivery" | "notificationCommand" | "notificationAuthorization" | "notificationResult" | "notificationEmailInbox" | "notificationEmailEffect" | "notificationEmailAttempt" | "notificationRecoveryAudit" | "notificationOutbox" | "notificationInbox" | "notificationQuarantine"
 >;
 export type NotificationsPrismaClient = NotificationsPrisma & TransactionClient<NotificationsPrisma>;

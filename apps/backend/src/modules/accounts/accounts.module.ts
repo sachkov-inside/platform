@@ -1,3 +1,4 @@
+import { NotificationAccounts } from "./facets/notification-accounts/notification-accounts.js";
 import { BillingContact } from "./facets/billing-contact/billing-contact.js";
 import { BillingContactController } from "./features/billing-contact/billing-contact.controller.js";
 import { billingContactProtection } from "./infrastructure/billing-contact-protection.js";
@@ -30,6 +31,9 @@ import {
   imports: [PrismaModule],
   controllers: [EstablishAccountController, ResolveAccountController, BillingContactController],
   providers: [
+    { provide: NotificationAccounts, inject: [PrismaClientProvider, PLATFORM_CONFIG],
+      useFactory: (prisma: PrismaClientProvider, config: PlatformConfig) => new NotificationAccounts(prisma,
+        config.billingContact ? billingContactProtection(config.billingContact.encryptionKey) : undefined) },
     {
       provide: BillingContact,
       inject: [PrismaClientProvider, PLATFORM_CONFIG],
@@ -68,6 +72,7 @@ import {
     OptionalAccountGuard,
   ],
   exports: [
+    NotificationAccounts,
     ACCOUNTS,
     LOGTO_ACCESS_TOKEN_VERIFIER,
     AccountGuard,

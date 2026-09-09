@@ -47,6 +47,7 @@ expectFailure(
     "legacyClassification",
     "billingContact",
     "billingConsentEvidence",
+    "notificationEmailAttempt",
     "Cannot find name 'describe'",
   ],
 );

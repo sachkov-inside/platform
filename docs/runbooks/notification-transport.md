@@ -103,3 +103,5 @@ Production Compose activation, credentials, deploy and real notifications are ou
 
 Transport settings do not yet activate a production worker in `compose.production.yaml`. The
 compiled entrypoint is included in the backend image so the later rollout can use the same artifact.
+
+Core, preferences, email effect ledger и операторские API описаны в [Notifications runbook](notifications.md).
