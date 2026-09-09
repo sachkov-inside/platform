@@ -27,7 +27,7 @@ export class UpdateContentCollectionController {
   @Put(":collectionId")
   @ApiOperation({
     operationId: "updateAuthoringContentCollection",
-    summary: "Update Topic or Series metadata without changing its slug",
+    summary: "Update Topic or Guide metadata without changing its slug",
   })
   @ApiParam({ name: "collectionId", schema: { format: "uuid", type: "string" } })
   @ApiBody({ schema: toOpenApiSchema(updateContentCollectionBodySchema) })

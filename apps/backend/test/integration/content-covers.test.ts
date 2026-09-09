@@ -336,7 +336,7 @@ describe("ContentCovers", () => {
     const id = randomUUID();
     const row = { id, name: "Disposable cover owner", slug: `cleanup-${id}` };
     if (kind === "topic") await database.prisma.topic.create({ data: row });
-    else await database.prisma.series.create({ data: row });
+    else await database.prisma.guide.create({ data: row });
     const covers = assembleContentCovers({
       prisma: database.prisma, objectStorage, authorPolicy: { canManage: () => true },
     });
@@ -348,7 +348,7 @@ describe("ContentCovers", () => {
     const coverId = uploaded.value.cover.coverId;
     const keys = await database.prisma.contentCoverRendition.findMany({ where: { coverId } });
     if (kind === "topic") await database.prisma.topic.delete({ where: { id } });
-    else await database.prisma.series.delete({ where: { id } });
+    else await database.prisma.guide.delete({ where: { id } });
     await expect(database.prisma.contentCoverRendition.findMany({ where: { coverId } })).resolves.toEqual(keys);
     const maintenance = assembleContentCoverMaintenance({ prisma: database.prisma, objectStorage });
     const now = new Date(Date.now() + 2_000);

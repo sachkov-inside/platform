@@ -28,7 +28,7 @@ export function SeriesOrderPageClient({
       }}
       onSelectPlaylist={(seriesId) => {
         void flushPendingEdits().then((ok) => {
-          if (ok) router.push(`/authoring/playlists/${seriesId}`);
+          if (ok) router.push(`/authoring/guides/${seriesId}`);
         });
       }}
       presentation={presentation}

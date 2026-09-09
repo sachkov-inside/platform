@@ -10,7 +10,7 @@ type RouteState =
   | { readonly kind: "error"; readonly reference: string };
 
 export function SeriesOrderRouteState({
-  retryHref = "/authoring/playlists",
+  retryHref = "/authoring/guides",
   state,
 }: {
   readonly retryHref?: string;
@@ -36,7 +36,7 @@ export function SeriesOrderRouteState({
             {state.kind === "empty" ? null : (
               <Button asChild>
                 <Link href={{ pathname: retryHref }}>
-                  {state.kind === "not_found" ? "Выбрать другую серию" : "Повторить"}
+                  {state.kind === "not_found" ? "Выбрать другое руководство" : "Повторить"}
                 </Link>
               </Button>
             )}
@@ -56,18 +56,18 @@ export function SeriesOrderRouteState({
 function routeStateContent(state: RouteState): { readonly text: string; readonly title: string } {
   if (state.kind === "empty") {
     return {
-      text: "Добавьте серию в справочные данные, чтобы управлять порядком материалов.",
-      title: "Серий пока нет",
+      text: "Добавьте руководство в справочные данные, чтобы управлять порядком материалов.",
+      title: "Руководств пока нет",
     };
   }
   if (state.kind === "not_found") {
     return {
-      text: "Возможно, серия была удалена. Выберите другую серию и продолжите работу.",
-      title: "Серия не найдена",
+      text: "Возможно, руководство было удалено. Выберите другое руководство и продолжите работу.",
+      title: "Руководство не найдено",
     };
   }
   return {
     text: "Данные не изменены. Повторите попытку после восстановления соединения.",
-    title: "Не удалось открыть серию",
+    title: "Не удалось открыть руководство",
   };
 }

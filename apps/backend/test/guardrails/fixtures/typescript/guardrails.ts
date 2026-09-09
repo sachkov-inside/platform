@@ -32,3 +32,8 @@ await entitlementsPrisma.account.count();
 declare const foreignBillingPrisma: import("../../../../src/infrastructure/prisma/index.js").MaterialsPrisma;
 foreignBillingPrisma.billingContact.findMany();
 foreignBillingPrisma.billingConsentEvidence.findMany();
+
+// Notifications cannot read contacts; Accounts cannot operate delivery attempts.
+declare const notificationsPrisma: import("../../../../src/infrastructure/prisma/index.js").NotificationsPrisma;
+notificationsPrisma.billingContact.findMany();
+accountsPrisma.notificationEmailAttempt.findMany();

@@ -270,8 +270,8 @@ export function requestSeriesOrder(
 ): Promise<BackendTransportResult> {
   return executeGeneratedRequest(
     (request) =>
-      new MaterialAuthoringService(request).loadAuthoringSeriesOrder({
-        seriesId,
+      new MaterialAuthoringService(request).loadAuthoringGuideOrder({
+        guideId: seriesId,
       }),
     200,
     { accessToken },
@@ -289,8 +289,8 @@ export function requestSeriesReorder(
 ): Promise<BackendTransportResult> {
   return executeGeneratedRequest(
     (request) =>
-      new MaterialAuthoringService(request).reorderAuthoringSeries({
-        seriesId: input.seriesId,
+      new MaterialAuthoringService(request).reorderAuthoringGuide({
+        guideId: input.seriesId,
         requestBody: {
           expectedOrderVersion: input.expectedOrderVersion,
           orderedMaterialIds: [...input.orderedMaterialIds],

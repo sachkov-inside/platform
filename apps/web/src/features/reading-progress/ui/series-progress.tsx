@@ -11,7 +11,7 @@ export function SeriesProgress({ view }: { readonly view: SeriesProgressView }) 
             <p className="text-lg font-semibold">Изучено {view.read} из {view.total}</p>
             <span className="text-sm text-muted-foreground">{view.total === 0 ? 0 : Math.round(view.read / view.total * 100)}%</span>
           </div>
-          {view.total > 0 ? <progress aria-label="Прогресс серии" className="block h-2 w-full overflow-hidden rounded-full border-0 bg-border text-accent accent-accent [&::-webkit-progress-bar]:bg-border [&::-webkit-progress-value]:rounded-full [&::-webkit-progress-value]:bg-accent [&::-moz-progress-bar]:bg-accent" max={view.total} value={view.read} /> : null}
+          {view.total > 0 ? <progress aria-label="Прогресс руководства" className="block h-2 w-full overflow-hidden rounded-full border-0 bg-border text-accent accent-accent [&::-webkit-progress-bar]:bg-border [&::-webkit-progress-value]:rounded-full [&::-webkit-progress-value]:bg-accent [&::-moz-progress-bar]:bg-accent" max={view.total} value={view.read} /> : null}
           {complete ? <p className="inline-flex items-center gap-2 text-sm font-medium"><CircleCheck aria-hidden="true" className="size-4" />Все материалы изучены</p> : null}
         </>}
     </div>

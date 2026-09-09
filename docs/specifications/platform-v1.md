@@ -1,5 +1,8 @@
 # Platform v1 application specification
 
+Текущий переход Series → Guide и сохранённые wire-имена описаны в
+[контракте миграции руководств](guides-migration.md).
+
 Статус: подтверждённый repository-local contract для
 [Platform #16](https://github.com/sachkov-inside/platform/issues/16), дополненный принятыми
 [Platform #27](https://github.com/sachkov-inside/platform/issues/27) engineering decisions и

@@ -85,7 +85,7 @@ export function PlaylistCard({
 
   return (
     <Link
-      aria-label={`${playlist.continuation === undefined ? "Открыть" : "Продолжить"} серию ${playlist.name}`}
+      aria-label={`${playlist.continuation === undefined ? "Открыть" : "Продолжить"} руководство ${playlist.name}`}
       className="group/playlist flex h-full min-w-0 flex-col overflow-hidden rounded-[2rem] bg-primary p-5 text-left text-white no-underline transition-transform duration-200 hover:-translate-y-0.5 focus-visible:outline-ring motion-reduce:transform-none motion-reduce:transition-none"
       data-playlist-card
       href={collectionDiscoveryHref("series", playlist.slug, returnHref)}
@@ -94,7 +94,7 @@ export function PlaylistCard({
       <span className="flex items-start justify-between gap-3">
         <span className={cn("inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold", playlist.continuation === undefined ? "bg-white/10 text-white/75" : "bg-accent text-accent-foreground")}>
           {playlist.continuation === undefined ? null : <Play aria-hidden="true" className="size-3 shrink-0 fill-current" />}
-          <span>{playlist.continuation === undefined ? `Серия · ${playlist.countLabel}` : `Продолжить · изучено ${String(playlist.continuation.read)} из ${String(playlist.continuation.total)}`}</span>
+          <span>{playlist.continuation === undefined ? `Руководство · ${playlist.countLabel}` : `Продолжить · изучено ${String(playlist.continuation.read)} из ${String(playlist.continuation.total)}`}</span>
         </span>
         <span
           aria-hidden="true"

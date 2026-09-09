@@ -72,3 +72,25 @@ export const EmptyMobile: Story = {
     );
   },
 };
+
+export const GuidesMobile: Story = {
+  args: {
+    initialCollections: collections.map((collection) => ({
+      ...collection,
+      kind: "series",
+    })),
+    kind: "series",
+  },
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+  play: async ({ canvasElement }) => {
+    const button = within(canvasElement).getByRole("button", {
+      name: "Создать руководство",
+    });
+    await expect(button).toBeVisible();
+    const bounds = button.getBoundingClientRect();
+    await expect(bounds.left).toBeGreaterThanOrEqual(0);
+    await expect(bounds.right).toBeLessThanOrEqual(
+      canvasElement.ownerDocument.documentElement.clientWidth,
+    );
+  },
+};

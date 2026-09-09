@@ -1,7 +1,7 @@
 # Platform Notifications v1
 
-Target specification [#434](https://github.com/sachkov-inside/platform/issues/434), без application
-runtime. Owner-approved RabbitMQ и оба первых сценария из Workspace #152 сохранены в
+Принятый контракт [#434](https://github.com/sachkov-inside/platform/issues/434); общий runtime
+#436 описан в [runbook](../runbooks/notifications.md). Owner-approved RabbitMQ и оба первых сценария из Workspace #152 сохранены в
 [локальном bundle](../contracts/notifications-v1/README.md). В первой поставке работают сообщения
 подписки и новых материалов, не только transport abstraction для будущего источника.
 
@@ -11,7 +11,7 @@ Notifications — capability `notifications` в текущем Nest backend и �
 durable job. Сохраняются ADR 0001/0004/0005: feature slices, публичные facets и private Prisma schema.
 RabbitMQ adapters принадлежат infrastructure; доменные операции не импортируют broker SDK.
 pg-boss обслуживает локальные задания и sweeps; межсервисные events/delivery/results идут RabbitMQ.
-Новые runtime files, endpoints и dependencies в #434 не создаются.
+Runtime #436 добавляет core/facets/email; producers подключаются в #410/#437.
 
 | Владелец | Интерфейс, вводимый вместе с потребителем |
 |---|---|

@@ -17,7 +17,7 @@ export type {
   MaterialMetadataDto,
   MaterialMetadataSelectionInput,
   MaterialMutationReceiptDto,
-  SeriesMembershipInput,
+  GuideMembershipInput,
 } from "./facets/material-authoring/material-authoring.contract.js";
 export type {
   ContentCollectionDto,

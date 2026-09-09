@@ -44,11 +44,11 @@ function ReadingProof({ initial = { kind: "ready", isRead: false, canMark: true 
     {surface === "reader" ? <MaterialReaderView body={body} material={{ ...metadata, format: { name: formatName, slug: format } }} primaryVideo={format === "video" ? { state: "ready", videoId: "02000000-0000-4000-8000-000000000015", title: metadata.title } : null} readingAction={action} /> :
       <div className="mx-auto max-w-5xl">
         <h1 className="text-2xl font-semibold">{surface === "series" ? "Надёжное приложение" : "Изученные материалы"}</h1>
-        <p className="mt-3 text-muted-foreground">{surface === "series" ? "От первого запроса до устойчивой работы в продакшене." : "Одна отметка видна в базе знаний, теме, серии и на главной."}</p>
+        <p className="mt-3 text-muted-foreground">{surface === "series" ? "От первого запроса до устойчивой работы в продакшене." : "Одна отметка видна в базе знаний, теме, руководстве и на главной."}</p>
         {progress}
         {surface === "cards" ? <div className="mt-8 grid gap-8 sm:grid-cols-2">
           {(["default", "compact", "row", "feed"] as const).map((variant) => <div key={variant}><MaterialCard material={{ ...preview, format: formatName }} variant={variant} readingStatus={<MaterialReadingStatus format={format} isRead={isRead} />} /></div>)}
-        </div> : <div className="mt-6 grid gap-3">{total > 0 ? <MaterialCard material={preview} variant="row" readingStatus={<MaterialReadingStatus format={format} isRead={isRead} />} /> : <p className="text-muted-foreground">В этой серии пока нет опубликованных материалов.</p>}</div>}
+        </div> : <div className="mt-6 grid gap-3">{total > 0 ? <MaterialCard material={preview} variant="row" readingStatus={<MaterialReadingStatus format={format} isRead={isRead} />} /> : <p className="text-muted-foreground">В этом руководстве пока нет опубликованных материалов.</p>}</div>}
         {total > 0 ? action : null}
       </div>}
   </ApplicationShell>;

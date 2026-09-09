@@ -19,18 +19,18 @@ test("series journey resumes the last opened guide and preserves the Reader retu
     if (await button.getAttribute("aria-pressed") === "true") { await button.click(); await expect(button).toHaveAttribute("aria-pressed", "false"); }
   }
   await page.goto("/series/demo-series-harness");
-  const journey = page.getByRole("region", { name: "Прохождение серии" });
+  const journey = page.getByRole("region", { name: "Прохождение руководства" });
   await expect(journey.getByRole("progressbar")).toHaveAttribute("value", "0");
   const resume = journey.getByRole("link", { name: "Продолжить", exact: true });
   await expect(resume).toHaveAttribute("href", /demo-295-finalnyy-gayd/u);
   await expect(journey.getByRole("button", { name: "Показать в маршруте" })).toHaveCount(0);
   await resume.click();
-  await page.getByRole("link", { name: "Назад к серии", exact: true }).first().click();
+  await page.getByRole("link", { name: "Назад к руководству", exact: true }).first().click();
   await expect(page).toHaveURL(/at=demo-295-finalnyy-gayd/u);
   await page.reload();
   await expect(journey.getByRole("link", { name: "Продолжить", exact: true })).toHaveAttribute("href", /demo-295-finalnyy-gayd/u);
   await page.locator('[data-series-ordinal="2"]:visible').getByRole("link", { name: "Demo #295 · Финальный гайд", exact: true }).click();
-  await page.getByRole("link", { name: "Назад к серии", exact: true }).first().click();
+  await page.getByRole("link", { name: "Назад к руководству", exact: true }).first().click();
   await expect(page).toHaveURL(/at=demo-295-finalnyy-gayd/u);
   await expect(page.locator('[data-series-ordinal="2"]:visible')).toBeInViewport();
   await expect(page.getByRole("navigation", { name: "Страницы маршрута" })).toHaveCount(0);
@@ -56,7 +56,7 @@ test("series journey paginates a real composition and returns from Reader to pag
   await context.addCookies([{ name, value, url: origin, httpOnly: true, sameSite: "Lax" }]);
   await page.addLocatorHandler(page.getByRole("button", { name: "Закрыть подключение Telegram" }), async (button) => { await button.click(); });
   const slug = `series-journey-${String(Date.now())}`;
-  const created = await page.request.post("/api/authoring/collections", { headers: { origin }, multipart: { kind: "series", name: "Demo #426 · Длинный маршрут", slug, summary: "Локальная проверка прохождения серии." } });
+  const created = await page.request.post("/api/authoring/collections", { headers: { origin }, multipart: { kind: "series", name: "Demo #426 · Длинный маршрут", slug, summary: "Локальная проверка прохождения руководства." } });
   expect(created.ok()).toBe(true);
   const { collection } = z.object({ kind: z.literal("saved"), collection: z.object({ id: z.uuid(), version: z.number() }) }).parse(await created.json());
   try {
@@ -83,13 +83,13 @@ test("series journey paginates a real composition and returns from Reader to pag
     const row = page.locator('[data-series-ordinal="13"]:visible');
     await row.getByRole("heading").getByRole("link").click();
     await expect(page.locator("[data-reader-body]:visible")).toBeVisible();
-    await page.getByRole("link", { name: "Назад к серии", exact: true }).first().click();
+    await page.getByRole("link", { name: "Назад к руководству", exact: true }).first().click();
     await expect(page).toHaveURL(/page=2&at=/u);
     await expect(row).toBeInViewport();
     await page.reload();
     await expect(row).toBeInViewport();
     await expect(page.locator("[data-series-ordinal]:visible")).toHaveCount(1);
-    await expect(page.getByRole("region", { name: "Прохождение серии" }).getByRole("progressbar")).toHaveAttribute("max", "13");
+    await expect(page.getByRole("region", { name: "Прохождение руководства" }).getByRole("progressbar")).toHaveAttribute("max", "13");
     await page.goto(`/series/${slug}`);
     await expect(page).toHaveURL(/page=2$/u);
     await expect(page.getByRole("button", { name: "Страница 2, продолжение", exact: true })).toHaveAttribute("aria-current", "page");

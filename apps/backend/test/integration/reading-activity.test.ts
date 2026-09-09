@@ -88,7 +88,7 @@ describe("ReadingActivity on PostgreSQL", () => {
   }
   async function series() {
     const id = randomUUID();
-    await database.prisma.series.create({ data: { id, slug: `series-${id}`, name: "Reading series" } });
+    await database.prisma.guide.create({ data: { id, slug: `series-${id}`, name: "Reading series" } });
     return id;
   }
 
@@ -262,7 +262,7 @@ describe("ReadingActivity on PostgreSQL", () => {
     expect(saved).toMatchObject({ ok: true });
     expect(await reading.getSeriesProgress({ accountId, seriesId: a })).toMatchObject({ ok: true, value: { read: 0, total: 1 } });
     expect(await reading.getSeriesProgress({ accountId, seriesId: b })).toMatchObject({ ok: true, value: { read: 1, total: 1 } });
-    await database.prisma.series.update({ where: { id: b }, data: { archivedAt: new Date() } });
+    await database.prisma.guide.update({ where: { id: b }, data: { archivedAt: new Date() } });
     expect(await reading.getSeriesProgress({ accountId, seriesId: b })).toEqual({ ok: false, error: { code: "series_not_found" } });
     expect(await reading.getReadingStates({ accountId, materialIds: [shared] })).toMatchObject({ ok: true, value: [{ isRead: true, version: 1 }] });
   });

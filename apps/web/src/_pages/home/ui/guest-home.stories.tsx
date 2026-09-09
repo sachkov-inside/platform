@@ -27,7 +27,7 @@ export const Ready: Story = {
   args: { result: { kind: "ready", value: home } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("link", { name: "Изучить серию" })).toHaveAttribute("href", `/series/${String(home.playlists[0]?.slug)}?from=%2F`);
+    await expect(canvas.getByRole("link", { name: "Изучить руководство" })).toHaveAttribute("href", `/guides/${String(home.playlists[0]?.slug)}?from=%2F`);
     await expect(canvas.getByRole("link", { name: /^Полный доступ$/u })).toHaveAttribute("href", "https://t.me/tribute");
     await expect(canvas.queryByRole("heading", { name: "Все материалы в одном каталоге" })).not.toBeInTheDocument();
     const sections = Array.from(canvasElement.querySelectorAll('section[aria-labelledby], section[aria-label="Подписка Inside"]'), (section) => section.getAttribute("aria-labelledby") ?? section.getAttribute("aria-label"));
@@ -39,8 +39,8 @@ export const ActiveMember: Story = { args: { result: { kind: "ready", value: { .
 export const UnknownMembership: Story = { args: { result: { kind: "ready", value: { ...home, membership: { kind: "unknown" } } } }, play: noAcquisition };
 export const Empty: Story = { args: { result: { kind: "ready", value: { ...home, playlists: [], videos: [], guides: [], notes: [], topics: [] } } }, play: async ({ canvasElement }) => {
   const canvas = within(canvasElement);
-  await expect(canvas.queryByRole("link", { name: "Изучить серию" })).not.toBeInTheDocument();
-  await expect(canvas.getByText("Серий пока нет.")).toBeVisible();
+  await expect(canvas.queryByRole("link", { name: "Изучить руководство" })).not.toBeInTheDocument();
+  await expect(canvas.getByText("Руководств пока нет.")).toBeVisible();
 } };
 export const Unavailable: Story = { args: { result: { kind: "unavailable" } }, play: noAcquisition };
 export const Loading: Story = { args: { result: { kind: "unavailable" } }, render: () => <HomeLoading /> };
@@ -50,5 +50,5 @@ async function noAcquisition({ canvasElement }: { canvasElement: HTMLElement }) 
   const canvas = within(canvasElement);
   await expect(canvas.queryByRole("region", { name: "Подписка Inside" })).not.toBeInTheDocument();
   await expect(canvas.queryByRole("link", { name: "Получить полный доступ" })).not.toBeInTheDocument();
-  await expect(canvas.queryByRole("link", { name: "Изучить серию" })).not.toBeInTheDocument();
+  await expect(canvas.queryByRole("link", { name: "Изучить руководство" })).not.toBeInTheDocument();
 }

@@ -56,8 +56,21 @@ export class ReadingActivityController {
     return result.value;
   }
 
+  @Get("guides/:guideId")
+  @ApiOperation({ operationId: "getGuideReadingProgress", summary: "Read progress over the current published Guide composition" })
+  @ApiParam({ name: "guideId", schema: toOpenApiSchema(z.uuid()) })
+  @ApiOkResponse({ schema: toOpenApiSchema(seriesProgressSchema) })
+  @ApiResponse({ status: 404, content: problemDetailsContent(problemDetailsSchema(404, ["series_not_found"])) })
+  @ApiResponse({ status: 409, content: problemDetailsContent(accountProblemSchema) })
+  @ApiResponse({ status: 422, content: problemDetailsContent(problemDetailsSchema(422, ["series_too_large"])) })
+  async guide(@CurrentAccount() current: AuthenticatedAccount, @Param("guideId") seriesId: string) {
+    const result = await this.reading.getSeriesProgress({ seriesId, accountId: current.accountId });
+    if (!result.ok) throwReadingError(result.error);
+    return result.value;
+  }
+
   @Get("series/:seriesId")
-  @ApiOperation({ operationId: "getSeriesReadingProgress", summary: "Read progress over the current published Series composition" })
+  @ApiOperation({ operationId: "getSeriesReadingProgress", deprecated: true, summary: "Read progress over the current published Series composition" })
   @ApiParam({ name: "seriesId", schema: toOpenApiSchema(z.uuid()) })
   @ApiOkResponse({ schema: toOpenApiSchema(seriesProgressSchema) })
   @ApiResponse({ status: 404, content: problemDetailsContent(problemDetailsSchema(404, ["series_not_found"])) })

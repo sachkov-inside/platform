@@ -189,6 +189,7 @@ describe("Platform migrations", () => {
           "0042_billing_notification_transport",
           "0043_materials_notification_transport",
           "0044_notifications_notification_transport",
+          "0045_notifications",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -760,6 +761,7 @@ describe("Platform migrations", () => {
           "0042_billing_notification_transport",
           "0043_materials_notification_transport",
           "0044_notifications_notification_transport",
+          "0045_notifications",
         ],
       });
 

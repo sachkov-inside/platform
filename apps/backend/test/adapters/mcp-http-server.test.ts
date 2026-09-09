@@ -76,6 +76,8 @@ describe("MCP Streamable HTTP adapter", () => {
         "content_collection_set_archive",
         "playlist_load_composition",
         "playlist_save_composition",
+        "guide_load_composition",
+        "guide_save_composition",
         "video_attach_existing",
         "video_init_upload",
         "video_reconcile",

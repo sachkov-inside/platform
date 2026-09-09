@@ -190,6 +190,10 @@ const kinescopeSchema = z.object({
 const platformConfigSchema = z
   .object({
     notifications: notificationsConfigSchema.optional(),
+    notificationDelivery: z.object({
+      origin: z.url().refine(value => { const url = new URL(value); return url.protocol === "https:" && url.pathname === "/" && !url.search && !url.hash && !url.username && !url.password; }),
+      telegramSecret: z.string().min(32),
+    }).optional(),
     mode: platformModeSchema,
     database: z.object({ url: databaseUrlSchema }).readonly(),
     api: z
@@ -333,6 +337,8 @@ export function parsePlatformConfig(
   const mode = parsePlatformMode(environment.NODE_ENV);
   const config = platformConfigSchema.safeParse({
     notifications: parseNotificationsConfig(environment),
+    notificationDelivery: environment.NOTIFICATIONS_PLATFORM_ORIGIN || environment.NOTIFICATIONS_TELEGRAM_SECRET
+      ? { origin: environment.NOTIFICATIONS_PLATFORM_ORIGIN, telegramSecret: environment.NOTIFICATIONS_TELEGRAM_SECRET } : undefined,
     mode,
     billingContact: [environment.BILLING_CONTACT_ENCRYPTION_KEY, environment.BILLING_CONTACT_SMTP_HOST,
       environment.BILLING_CONTACT_SMTP_PORT, environment.BILLING_CONTACT_SMTP_USER, environment.BILLING_CONTACT_SMTP_PASSWORD,

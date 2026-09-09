@@ -344,7 +344,7 @@ async function readCurrentCoverId(
       )?.coverId;
     case "series":
       return (
-        await transaction.series.findUnique({
+        await transaction.guide.findUnique({
           where: { id: owner.id },
           select: { coverId: true },
         })
@@ -375,7 +375,7 @@ async function writeCurrentCoverId(
       });
       return;
     case "series":
-      await transaction.series.update({
+      await transaction.guide.update({
         data: { coverId, updatedAt: new Date() },
         where: { id: owner.id },
       });

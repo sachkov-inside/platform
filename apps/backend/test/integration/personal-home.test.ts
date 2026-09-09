@@ -156,7 +156,7 @@ describe("Personal Home on PostgreSQL", () => {
   });
   async function series() {
     const id = randomUUID(); const slug = `series-${id}`;
-    await database.prisma.series.create({ data: { id, slug, name: "Learning series" } });
+    await database.prisma.guide.create({ data: { id, slug, name: "Learning series" } });
     return { id, slug };
   }
   test("learning Home keeps completed visits as series history, highlights author order and excludes all-read series", async () => {
@@ -176,7 +176,7 @@ describe("Personal Home on PostgreSQL", () => {
     expect(await home.getLearning(accountId)).toEqual({ ok: true, value: { video: null, series: null } });
     await reading.setReadingState({ accountId, materialId: first.materialId, commandId: randomUUID(), expectedVersion: 1, isRead: false });
     expect(await home.getLearning(accountId)).toMatchObject({ ok: true, value: { series: { total: 2, read: 1 } } });
-    await database.prisma.series.update({ where: { id: collection.id }, data: { archivedAt: new Date() } });
+    await database.prisma.guide.update({ where: { id: collection.id }, data: { archivedAt: new Date() } });
     expect(await home.getLearning(accountId)).toEqual({ ok: true, value: { video: null, series: null } });
   });
   test("learning video searches beyond six text visits and rejects ended, completed or replaced Video progress", async () => {

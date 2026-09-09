@@ -145,10 +145,10 @@ test("images, files and ready video persist automatically; fullscreen preserves 
 test("series picker shows materials before typing and saves composition on the same page", async ({
   page,
 }) => {
-  await createDraft(page, "для серии");
+  await createDraft(page, "для руководства");
   await page.goto("/authoring/playlists");
-  await page.getByRole("button", { name: "Создать серию" }).click();
-  const name = `Серия ${String(Date.now())}`;
+  await page.getByRole("button", { name: "Создать руководство" }).click();
+  const name = `Руководство ${String(Date.now())}`;
   await page.getByLabel("Название", { exact: true }).fill(name);
   await page
     .getByLabel("Адрес", { exact: false })
@@ -157,7 +157,7 @@ test("series picker shows materials before typing and saves composition on the s
   const row = page.getByRole("article").filter({ hasText: name });
   await row.getByRole("button", { name: new RegExp(name, "u") }).click();
   await row
-    .getByRole("button", { name: "Материалы серии", exact: true })
+    .getByRole("button", { name: "Материалы руководства", exact: true })
     .click();
   await row
     .getByRole("button", { name: "Добавить материал", exact: true })
@@ -186,10 +186,10 @@ test("series picker shows materials before typing and saves composition on the s
     .getByRole("button", { name: new RegExp(name, "u") })
     .click();
   await page
-    .getByRole("button", { name: "Материалы серии", exact: true })
+    .getByRole("button", { name: "Материалы руководства", exact: true })
     .click();
   await expect(
-    page.getByRole("list", { name: "Материалы серии" }),
+    page.getByRole("list", { name: "Материалы руководства" }),
   ).toContainText(title ?? "");
 });
 
@@ -454,10 +454,10 @@ test("image size survives reload and is used in preview; series are searchable w
   await expect(
     page.getByRole("group", { name: "Теги", exact: true }),
   ).toBeVisible();
-  await page.getByLabel("Поиск серии").fill("Нет такой серии");
-  await expect(page.getByText("Серии не найдены")).toBeVisible();
-  await page.getByLabel("Поиск серии").fill("Demo");
-  const series = page.getByLabel("Выбор серий", { exact: true });
+  await page.getByLabel("Поиск руководств").fill("Нет такой руководства");
+  await expect(page.getByText("Руководства не найдены")).toBeVisible();
+  await page.getByLabel("Поиск руководств").fill("Demo");
+  const series = page.getByLabel("Выбор руководств", { exact: true });
   await expect(series.getByRole("checkbox").first()).toBeVisible();
   expect(
     await series.evaluate(

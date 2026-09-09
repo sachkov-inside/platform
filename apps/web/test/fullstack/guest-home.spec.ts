@@ -5,7 +5,7 @@ test("guest Home uses published series and the existing acquisition route", asyn
   await page.goto("/");
   await expect(page.locator('[data-home-membership="inactive"]:visible')).toBeVisible();
   const title = await page.getByRole("heading", { level: 2 }).first().innerText();
-  const seriesLink = page.getByRole("link", { name: "Изучить серию" });
+  const seriesLink = page.getByRole("link", { name: "Изучить руководство" });
   await expect(seriesLink).toHaveAttribute("href", /^\/series\/[^?]+\?from=%2F$/u);
   const offer = page.getByRole("region", { name: "Подписка Inside" });
   await expect(offer.getByRole("link", { name: "Полный доступ", exact: true })).toHaveAttribute("href", /^https?:\/\//u);

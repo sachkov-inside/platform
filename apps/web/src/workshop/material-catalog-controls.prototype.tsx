@@ -49,7 +49,7 @@ export function MaterialCatalogControls({
   selectedFormats,
   selectedSeriesIds,
   selectedTopics,
-  seriesLabel = "Серия",
+  seriesLabel = "Руководство",
   seriesOptions,
   setQuery,
   setSelectedFormats,

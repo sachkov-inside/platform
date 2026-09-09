@@ -22,6 +22,7 @@ export { MaterialAssetsService } from './services/MaterialAssetsService';
 export { MaterialAuthoringService } from './services/MaterialAuthoringService';
 export { MaterialVideoAuthoringService } from './services/MaterialVideoAuthoringService';
 export { MemberProfilesService } from './services/MemberProfilesService';
+export { NotificationsService } from './services/NotificationsService';
 export { OperationsService } from './services/OperationsService';
 export { PersonalHomeService } from './services/PersonalHomeService';
 export { PublishedMaterialsService } from './services/PublishedMaterialsService';

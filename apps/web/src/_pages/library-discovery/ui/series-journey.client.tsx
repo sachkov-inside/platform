@@ -74,7 +74,7 @@ export function SeriesJourney({ result, currentHref, learning = { kind: "guest" 
   }
 
   return <>
-    {items.length > 0 ? <section aria-label="Прохождение серии" className="mt-8 grid min-h-52 gap-6 md:min-h-36 xl:min-h-28 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] md:items-center md:gap-12" data-series-learning={learning.kind}>
+    {items.length > 0 ? <section aria-label="Прохождение руководства" className="mt-8 grid min-h-52 gap-6 md:min-h-36 xl:min-h-28 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] md:items-center md:gap-12" data-series-learning={learning.kind}>
       <div className="min-w-0">
         {learning.kind === "guest" ? <>
           <h2 className="text-lg font-semibold">Изучайте в своём темпе</h2>
@@ -89,17 +89,17 @@ export function SeriesJourney({ result, currentHref, learning = { kind: "guest" 
             <p className="text-sm text-muted-foreground">{next === undefined ? "Первый материал" : "Продолжить изучение"}</p>
             <h2 className="mt-1 line-clamp-2 break-words text-lg font-semibold leading-7">{target.title}</h2>
           </div>
-          <Button asChild className="h-auto min-h-11 max-w-full whitespace-normal [overflow-wrap:anywhere]" size="lg"><Link href={targetHref}><Play aria-hidden="true" className="size-4" />{next === undefined ? "Начать серию" : continuation?.label === "Продолжить здесь" ? "Продолжить" : continuation?.label}</Link></Button>
+          <Button asChild className="h-auto min-h-11 max-w-full whitespace-normal [overflow-wrap:anywhere]" size="lg"><Link href={targetHref}><Play aria-hidden="true" className="size-4" />{next === undefined ? "Начать руководство" : continuation?.label === "Продолжить здесь" ? "Продолжить" : continuation?.label}</Link></Button>
         </div> : complete ? <p className="max-w-md leading-7 text-muted-foreground">Можно вернуться к любому материалу в маршруте и повторить нужное.</p> : learning.kind === "loading" ? <p className="text-muted-foreground">Ищем место продолжения…</p> : learning.kind === "unavailable" ? <p className="text-sm leading-6 text-muted-foreground">Материалы можно открыть в маршруте ниже.</p> : <p className="text-sm leading-6 text-muted-foreground">Выберите материал в маршруте. Условия доступа указаны на карточках.</p>}
       </div>
     </section> : null}
     {result.kind === "ready" ? <section aria-labelledby="series-materials" className="mt-10 scroll-mt-6 focus:outline-none" ref={routeRef} tabIndex={-1}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="sr-only" id="series-materials">Материалы серии</h2>
+        <h2 className="sr-only" id="series-materials">Материалы руководства</h2>
         {page.count > 1 ? <p aria-live="polite" className="text-sm tabular-nums text-muted-foreground">Материалы {page.offset + 1}–{page.offset + page.items.length} из {items.length}</p> : null}
       </div>
       {items.some((item) => item.availability === "unavailable") ? <Button className="mt-4 h-auto min-h-11 max-w-full whitespace-normal" onClick={() => { router.refresh(); }} variant="outline"><RefreshCw aria-hidden="true" />Повторить проверку доступа</Button> : null}
-      <ol aria-label="Материалы серии" className={page.count > 1 ? "mt-5 grid gap-4" : "grid gap-4"} data-series-order start={page.offset + 1}>
+      <ol aria-label="Материалы руководства" className={page.count > 1 ? "mt-5 grid gap-4" : "grid gap-4"} data-series-order start={page.offset + 1}>
         {page.items.map((material, index) => {
           const ordinal = material.seriesMemberships.find(({ slug }) => slug === result.reference.slug)?.ordinal ?? page.offset + index + 1;
           return <li aria-current={next?.slug === material.slug ? "step" : undefined} className="@container/series-entry relative grid scroll-mt-6 grid-cols-[2rem_minmax(0,1fr)] items-center gap-3 rounded-2xl focus-visible:outline-2 focus-visible:outline-ring" data-route-material={material.slug} data-series-ordinal={ordinal} key={material.slug} tabIndex={-1}>

@@ -78,8 +78,8 @@ export function ContentCollectionsPageClient({
   const refreshCollections = () => {
     router.refresh();
   };
-  const noun = kind === "topic" ? "тему" : "серию";
-  const plural = kind === "topic" ? "Темы" : "Серии";
+  const noun = kind === "topic" ? "тему" : "руководство";
+  const plural = kind === "topic" ? "Темы" : "Руководства";
 
   return (
     <main
@@ -88,7 +88,7 @@ export function ContentCollectionsPageClient({
       tabIndex={-1}
     >
       <div className="mx-auto w-full max-w-5xl">
-        <header className="flex items-center justify-between gap-4 border-b border-border py-4">
+        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border py-4">
           <h1 className="text-3xl font-semibold tracking-tight">
             {plural}{" "}
             <span className="text-base font-normal text-muted-foreground">
@@ -96,13 +96,14 @@ export function ContentCollectionsPageClient({
             </span>
           </h1>
           <Button
+            aria-label={`Создать ${noun}`}
             onClick={() => {
               setCreateOpen(!createOpen);
             }}
             type="button"
           >
             <Plus />
-            Создать {noun}
+            {kind === "topic" ? "Создать тему" : "Создать"}
           </Button>
         </header>
         {createOpen ? (
@@ -355,7 +356,7 @@ function CollectionEditor({
                 variant="outline"
                 aria-expanded={compositionOpen}
               >
-                Материалы серии
+                Материалы руководства
               </Button>
             ) : null}
             <Button
