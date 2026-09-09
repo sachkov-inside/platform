@@ -37,3 +37,5 @@ export type { VerifiedAccountSignIn } from "./facets/accounts/accounts.interface
 export { platformPermissions } from "./domain/platform-permission.js";
 
 export { NotificationAccounts } from "./facets/notification-accounts/notification-accounts.js";
+
+export { BillingContact } from "./facets/billing-contact/billing-contact.js";

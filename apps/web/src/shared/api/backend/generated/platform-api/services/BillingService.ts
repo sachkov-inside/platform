@@ -7,6 +7,127 @@ import type { BaseHttpRequest } from '../core/BaseHttpRequest';
 export class BillingService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
+   * Start or recover one subscription purchase
+   * @returns any
+   * @throws ApiError
+   */
+  public purchaseBillingSubscription({
+    requestBody,
+  }: {
+    requestBody: {
+      acknowledgeExistingAccess: boolean;
+      consentEvidenceRefs: Array<string>;
+      contactRevision: number;
+      operationId: string;
+      quoteRef: string;
+    },
+  }): CancelablePromise<{
+    access: 'awaiting_payment' | 'preparing' | 'ready';
+    confirmedAt: string | null;
+    fiscalization: 'not_configured' | 'pending' | 'confirmed' | 'failed';
+    paymentUrl: string | null;
+    periodEndsAt: string | null;
+    purchaseRef: string;
+    snapshot: {
+      currency: 'RUB';
+      firstPriceKopecks: number;
+      offer: {
+        archived: boolean;
+        benefitPeriods?: Array<{
+          capability: ('materials' | 'community' | 'reviews' | 'support' | string);
+          months: number | null;
+        }>;
+        benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+        id: string;
+        name: string;
+        revision: number;
+      };
+      paymentOption: {
+        archived: boolean;
+        id: string;
+        mode?: 'subscription';
+        months: number;
+        offerId: string;
+        priceKopecks: number;
+        revision: number;
+      };
+      promotion: {
+        id: string;
+        name: string;
+        percent: number;
+        revision: number;
+      } | null;
+      renewalPriceKopecks: number;
+      timezone: 'Europe/Moscow';
+    };
+    state: 'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed';
+  }> {
+    return this.httpRequest.request({
+      method: 'POST',
+      url: '/accounts/current/billing/purchase',
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
+   * Read authoritative own payment and access status
+   * @returns any
+   * @throws ApiError
+   */
+  public readBillingPurchase({
+    purchaseRef,
+  }: {
+    purchaseRef: string,
+  }): CancelablePromise<{
+    access: 'awaiting_payment' | 'preparing' | 'ready';
+    confirmedAt: string | null;
+    fiscalization: 'not_configured' | 'pending' | 'confirmed' | 'failed';
+    paymentUrl: string | null;
+    periodEndsAt: string | null;
+    purchaseRef: string;
+    snapshot: {
+      currency: 'RUB';
+      firstPriceKopecks: number;
+      offer: {
+        archived: boolean;
+        benefitPeriods?: Array<{
+          capability: ('materials' | 'community' | 'reviews' | 'support' | string);
+          months: number | null;
+        }>;
+        benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+        id: string;
+        name: string;
+        revision: number;
+      };
+      paymentOption: {
+        archived: boolean;
+        id: string;
+        mode?: 'subscription';
+        months: number;
+        offerId: string;
+        priceKopecks: number;
+        revision: number;
+      };
+      promotion: {
+        id: string;
+        name: string;
+        percent: number;
+        revision: number;
+      } | null;
+      renewalPriceKopecks: number;
+      timezone: 'Europe/Moscow';
+    };
+    state: 'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed';
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/accounts/current/billing/purchases/{purchaseRef}',
+      path: {
+        'purchaseRef': purchaseRef,
+      },
+    });
+  }
+  /**
    * Save a price quote for a new subscription
    * @returns any
    * @throws ApiError
@@ -29,7 +150,11 @@ export class BillingService {
       firstPriceKopecks: number;
       offer: {
         archived: boolean;
-        benefits: Array<'materials' | 'community'>;
+        benefitPeriods?: Array<{
+          capability: ('materials' | 'community' | 'reviews' | 'support' | string);
+          months: number | null;
+        }>;
+        benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
         id: string;
         name: string;
         revision: number;
@@ -37,6 +162,7 @@ export class BillingService {
       paymentOption: {
         archived: boolean;
         id: string;
+        mode?: 'subscription';
         months: number;
         offerId: string;
         priceKopecks: number;
@@ -72,7 +198,11 @@ export class BillingService {
       operation: 'offers.save';
       operationId: string;
       value: {
-        benefits: Array<'materials' | 'community'>;
+        benefitPeriods?: Array<{
+          capability: ('materials' | 'community' | 'reviews' | 'support' | string);
+          months: number | null;
+        }>;
+        benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
         id: string;
         name: string;
       };
@@ -87,6 +217,7 @@ export class BillingService {
       operationId: string;
       value: {
         id: string;
+        mode?: 'subscription';
         months: number;
         offerId: string;
         priceKopecks: number;
@@ -146,7 +277,11 @@ export class BillingService {
       firstPriceKopecks: number;
       offer: {
         archived: boolean;
-        benefits: Array<'materials' | 'community'>;
+        benefitPeriods?: Array<{
+          capability: ('materials' | 'community' | 'reviews' | 'support' | string);
+          months: number | null;
+        }>;
+        benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
         id: string;
         name: string;
         revision: number;
@@ -154,6 +289,7 @@ export class BillingService {
       paymentOption: {
         archived: boolean;
         id: string;
+        mode?: 'subscription';
         months: number;
         offerId: string;
         priceKopecks: number;
@@ -177,6 +313,23 @@ export class BillingService {
         'limit': limit,
         'cursor': cursor,
       },
+    });
+  }
+  /**
+   * Durably accept a signed bank notification
+   * @returns string
+   * @throws ApiError
+   */
+  public acceptTbankNotification({
+    requestBody,
+  }: {
+    requestBody: Record<string, any>,
+  }): CancelablePromise<'OK'> {
+    return this.httpRequest.request({
+      method: 'POST',
+      url: '/billing/tbank/notification',
+      body: requestBody,
+      mediaType: 'application/json',
     });
   }
 }

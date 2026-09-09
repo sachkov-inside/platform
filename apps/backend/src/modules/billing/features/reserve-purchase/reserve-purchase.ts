@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import type { BillingPrisma, BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { failure, idSchema, moneySchema, priceSnapshotSchema, type PriceSnapshot, type PricingResult } from "../../domain/pricing.js";
 import { lockPricing } from "../../infrastructure/postgres/catalog-lock.js";
 import { selectPrice } from "../../shared/select-price.js";
@@ -23,6 +23,13 @@ export async function reservePurchase(prisma: BillingPrismaClient, input: Reserv
   const command = parsed.data;
   try {
     return await prisma.$transaction(async (tx): Promise<ReservePurchaseResult> => {
+      return reservePurchaseInTransaction(tx, command, clock());
+    });
+  } catch { return failure("dependency_unavailable"); }
+}
+
+// Same billing-owned transaction as the durable purchase; never nests a transaction.
+export async function reservePurchaseInTransaction(tx: BillingPrisma, command: ReservePurchase, now: Date): Promise<ReservePurchaseResult> {
       await lockPricing(tx);
       const existing = await tx.billingPromoReservation.findUnique({ where: { purchaseRef: command.purchaseRef } });
       if (existing) return existing.accountId === command.accountId && existing.quoteRef === command.quoteRef
@@ -32,7 +39,6 @@ export async function reservePurchase(prisma: BillingPrismaClient, input: Reserv
       if (await tx.billingPromoReservation.findFirst({ where: { OR: [
         { quoteRef: command.quoteRef }, { accountId: command.accountId, state: { in: ["reserved", "sent", "unknown"] } },
       ] } })) return failure("reservation_conflict");
-      const now = clock();
       if (now >= quote.expiresAt) return failure("quote_expired");
       const snapshot = priceSnapshotSchema.parse(quote.snapshot);
       const current = await selectPrice(tx, snapshot.paymentOption.id, now, quote.promoCode ?? undefined);
@@ -44,6 +50,4 @@ export async function reservePurchase(prisma: BillingPrismaClient, input: Reserv
         promotionId: snapshot.promotion?.id ?? null, state: "reserved", snapshot,
       } });
       return { ok: true, value: snapshot };
-    });
-  } catch { return failure("dependency_unavailable"); }
 }

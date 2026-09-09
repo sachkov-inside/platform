@@ -20,6 +20,7 @@ export interface MaterialAccessFacts {
   readonly access: MaterialAccess;
   readonly contentVersion: number;
   readonly primaryVideoId: string | null;
+  readonly guideIds?: readonly string[];
 }
 
 type MaterialContentError =
@@ -109,7 +110,10 @@ export function assembleMaterialContent(dependencies: {
             error: mapPostgresReadError(new TypeError("invalid Material facts")),
           };
         }
-        return { ok: true, value: facts };
+        const memberships = await dependencies.prisma.publishedMaterialGuideMembership.findMany({
+          where: { materialId: parsed.data }, select: { seriesId: true },
+        });
+        return { ok: true, value: { ...facts, ...(memberships.length ? { guideIds: memberships.map(value => value.seriesId) } : {}) } };
       } catch (error) {
         return { ok: false, error: mapPostgresReadError(error) };
       }
@@ -134,7 +138,14 @@ export function assembleMaterialContent(dependencies: {
             primaryVideoId: true,
           },
         });
-        const facts = rows.map(toAccessFacts);
+        const memberships = await dependencies.prisma.publishedMaterialGuideMembership.findMany({
+          where: { materialId: { in: checkedMaterialIds } }, select: { materialId: true, seriesId: true },
+        });
+        const facts: (MaterialAccessFacts | undefined)[] = rows.map(row => {
+          const fact = toAccessFacts(row);
+          const guideIds = memberships.filter(value => value.materialId === row.id).map(value => value.seriesId);
+          return fact && { ...fact, ...(guideIds.length ? { guideIds } : {}) };
+        });
         if (facts.some((item) => item === undefined)) {
           return {
             ok: false,

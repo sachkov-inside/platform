@@ -12,6 +12,7 @@ export interface MaterialResourceFacts {
   readonly access: "free" | "membership" | "workshop";
   readonly contentVersion: number;
   readonly primaryVideoId: string | null;
+  readonly guideIds?: readonly string[];
 }
 
 export interface MaterialResourceFactsAdapter {

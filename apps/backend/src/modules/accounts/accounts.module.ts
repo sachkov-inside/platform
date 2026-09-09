@@ -72,6 +72,7 @@ import {
     OptionalAccountGuard,
   ],
   exports: [
+    BillingContact,
     NotificationAccounts,
     ACCOUNTS,
     LOGTO_ACCESS_TOKEN_VERIFIER,

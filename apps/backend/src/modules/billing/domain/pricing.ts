@@ -1,17 +1,22 @@
 import { z } from "zod";
+import { accessCapabilitySchema, capabilitiesSchema } from "../../membership-entitlements/index.js";
 
 export const idSchema = z.uuid().toLowerCase();
 export const revisionSchema = z.int().positive().max(2_147_483_647);
 export const moneySchema = z.int().positive();
-export const benefitsSchema = z.array(z.enum(["materials", "community"])).min(1).max(2)
-  .refine((values) => new Set(values).size === values.length, "Duplicate capability");
+export const benefitsSchema = capabilitiesSchema;
+export const benefitPeriodsSchema = z.array(z.strictObject({
+  capability: accessCapabilitySchema,
+  months: z.int().positive().max(1200).nullable(),
+})).max(100);
 export const offerSchema = z.strictObject({
   id: idSchema, revision: revisionSchema, name: z.string().trim().min(1).max(200),
-  benefits: benefitsSchema, archived: z.boolean(),
+  benefits: benefitsSchema, benefitPeriods: benefitPeriodsSchema.optional(), archived: z.boolean(),
 });
 export const optionSchema = z.strictObject({
   id: idSchema, revision: revisionSchema, offerId: idSchema,
-  months: revisionSchema, priceKopecks: moneySchema, archived: z.boolean(),
+  mode: z.literal("subscription").optional(),
+  months: revisionSchema.max(1200), priceKopecks: moneySchema, archived: z.boolean(),
 });
 export const promotionSchema = z.strictObject({
   id: idSchema, revision: revisionSchema, name: z.string().trim().min(1).max(200),

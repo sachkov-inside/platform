@@ -1,3 +1,5 @@
+import { name as scopedAccessName, statement as scopedAccessStatement } from "../modules/membership-entitlements/infrastructure/postgres/migrations/0046-scoped-access.js";
+import { name as subscriptionPaymentsName, statement as subscriptionPaymentsStatement } from "../modules/billing/infrastructure/postgres/migrations/0047-subscription-payments.js";
 import { name as notificationsName, statement as notificationsStatement } from "../modules/notifications/infrastructure/postgres/migrations/0045-notifications.js";
 import { name as notificationsTransportName, statement as notificationsTransportStatement } from "../modules/notifications/infrastructure/postgres/migrations/0044-notification-transport.js";
 import { name as materialsTransportName, statement as materialsTransportStatement } from "../modules/materials/infrastructure/postgres/migrations/0043-notification-transport.js";
@@ -303,6 +305,8 @@ export const platformMigrations = [
   { name: notificationsName, statement: notificationsStatement },
   { name: homeMaterialPinName, statement: homeMaterialPinStatement },
   { name: homeSeriesPinName, statement: homeSeriesPinStatement },
+  { name: scopedAccessName, statement: scopedAccessStatement },
+  { name: subscriptionPaymentsName, statement: subscriptionPaymentsStatement },
 ] as const;
 
 export function migrateToLatest(

@@ -21,6 +21,7 @@ The default stack contains:
   has no HTTP listener;
 - `video-deletions-worker`, which owns explicit Platform-uploaded Kinescope Video deletion,
   reference rechecks and bounded retry and has no HTTP listener;
+- `billing-worker`, which reconciles saved bank attempts and projects confirmed payments into access grants;
 - RabbitMQ with local TLS, bounded quorum queues and `notifications-worker` for durable transport;
   see [Notifications transport](notification-transport.md) for recovery and the production boundary;
 - Next.js web on <http://127.0.0.1:3000>.
@@ -409,3 +410,26 @@ docker stop platform-396-postgres platform-396-storage
 ```
 
 Do not remove their data or use the shared Compose shutdown command for this isolated runtime.
+
+## Subscription payment recovery
+
+`pnpm dev:billing-worker` starts the same recovery process provided by the local Compose service.
+It scans durable purchases every minute, reconciles unresolved attempts through CheckOrder/GetState,
+and applies the saved entitlement outbox. A failed or unknown Init is never automatically repeated.
+The worker and API share the database and optional `TBANK_CONFIG_JSON` configuration; its schema is
+`apps/backend/src/config/tbank-config.ts`. Without that configuration payment admission is unavailable.
+Use only synthetic bank adapters in automated tests. DEMO configuration and production activation
+belong to #413 and #414 respectively; this change does not enable either environment.
+
+The JSON configuration requires explicit environment/terminal credentials, a 32-byte base64 encryption
+key, receipt tax settings, HTTPS notification and return URLs, amount limits, and confirmation that
+the terminal supports recurrent cards and its hosted form exposes only supported cards. Keep the
+same encryption key available for recovery of saved receipt contacts and recurring bindings. Do not
+log the configuration, card binding or receipt email. The callback is
+`POST /billing/tbank/notification`; it acknowledges a validated durable result with plain `OK`.
+
+The first period starts when Inside first verifies and durably records CONFIRMED, whether from a
+signed notification or server reconciliation (owner-approved for #407 on 2026-09-09). Delayed
+confirmation still gives a full period; duplicate notifications and fulfillment recovery preserve
+the original saved bounds. No separate time-policy injection is required. Missing terminal
+configuration continues to disable payment admission; DEMO/production activation remains separate.

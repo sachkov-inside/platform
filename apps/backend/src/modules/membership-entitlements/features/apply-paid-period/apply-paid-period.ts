@@ -16,14 +16,14 @@ import {
   readAccessReceipt,
 } from "../../shared/access-receipts.js";
 
-const commandSchema = z
+export const paidPeriodCommandSchema = z
   .object({
     eventRef: z.uuid(),
     periodRef: sourceRefSchema,
     accountId: z.uuid(),
     revision: z.number().int().positive(),
     revoked: z.boolean(),
-    terms: grantTermsSchema.refine((value) => value.validUntil !== null),
+    terms: grantTermsSchema,
   })
   .strict();
 const paidResultSchema = z.union([
@@ -36,7 +36,7 @@ const paidResultSchema = z.union([
   ]),
 ]);
 type PaidPeriodResult = z.infer<typeof paidResultSchema>;
-export type ApplyPaidPeriodCommand = z.input<typeof commandSchema>;
+export type ApplyPaidPeriodCommand = z.input<typeof paidPeriodCommandSchema>;
 
 // Trusted billing projector only. No transport exposes this payment-proof boundary.
 export async function applyPaidPeriod(
@@ -45,7 +45,7 @@ export async function applyPaidPeriod(
   input: ApplyPaidPeriodCommand,
   now: Date,
 ): Promise<PaidPeriodResult> {
-  const parsed = commandSchema.safeParse(input);
+  const parsed = paidPeriodCommandSchema.safeParse(input);
   if (!parsed.success) return accessFailure("invalid_input");
   const command = parsed.data;
   if ((await accounts.readIdentityForLink(command.accountId)) === undefined)

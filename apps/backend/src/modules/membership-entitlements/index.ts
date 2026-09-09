@@ -18,3 +18,7 @@ export type { PreviewGrantBatchCommand, PreviewGrantBatchResult } from "./featur
 export type { ApplyGrantBatchCommand, ApplyGrantBatchResult } from "./features/apply-grant-batch/apply-grant-batch.js";
 export type { ChangeAccessGrantCommand } from "./features/change-access-grant/change-access-grant.js";
 export type { ClassifyLegacyAccountCommand } from "./features/classify-legacy-account/classify-legacy-account.js";
+
+export { accessCapabilitySchema, capabilitiesSchema } from "./domain/access-grant.js";
+
+export { paidPeriodCommandSchema } from "./features/apply-paid-period/apply-paid-period.js";

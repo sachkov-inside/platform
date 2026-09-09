@@ -193,6 +193,8 @@ describe("Platform migrations", () => {
           "0045_notifications",
           "0038_home_material_pin",
       "0039_home_series_pin",
+      "0046_scoped_access",
+      "0047_subscription_payments",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -767,6 +769,8 @@ describe("Platform migrations", () => {
           "0045_notifications",
           "0038_home_material_pin",
       "0039_home_series_pin",
+      "0046_scoped_access",
+      "0047_subscription_payments",
         ],
       });
 

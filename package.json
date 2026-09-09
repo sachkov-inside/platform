@@ -57,7 +57,8 @@
     "smoke:communications": "node scripts/communications-browser-smoke.mjs",
     "conformance:communications": "pnpm --filter @inside/backend conformance:communications",
     "editor:local": "node scripts/editor-local-review.mjs",
-    "dev:notifications-worker": "pnpm --filter @inside/backend dev:notifications-worker"
+    "dev:notifications-worker": "pnpm --filter @inside/backend dev:notifications-worker",
+    "dev:billing-worker": "pnpm --filter @inside/backend dev:billing-worker"
   },
   "dependencies": {
     "zod": "4.4.3"

@@ -1,17 +1,17 @@
 import { z } from "zod";
 
-export const accessCapabilitySchema = z.enum([
-  "materials",
-  "community",
-  "reviews",
+export const globalAccessCapabilities = ["materials", "community", "reviews", "support"] as const;
+export const accessCapabilitySchema = z.union([
+  z.enum(globalAccessCapabilities),
+  z.templateLiteral(["guide:", z.uuid()]),
 ]);
 export type AccessCapability = z.infer<typeof accessCapabilitySchema>;
 export const capabilitiesSchema = z
   .array(accessCapabilitySchema)
   .min(1)
-  .max(3)
+  .max(100)
   .refine((values) => new Set(values).size === values.length)
-  .transform((values) => values.sort());
+  .overwrite((values) => values.sort());
 export const instantSchema = z.iso
   .datetime({ offset: true })
   .transform((value) => new Date(value).toISOString());

@@ -264,6 +264,16 @@ An Account's agreement for a selected Inside access composition, paid period and
 It is distinct from a bank payment and from independently granted access.
 _Avoid_: Payment, MembershipEvidence, AccessGrant
 
+**Offer**:
+A versioned description of a chosen access composition, independent of a Guide and a payment.
+Its payment option specifies the price, period and sale mode.
+_Avoid_: Guide, Order, AccessGrant
+
+**AccessScope**:
+The library, a particular Guide, support or the shared community chat covered by an AccessGrant.
+It is independent of a tier's name, price and billing interval.
+_Avoid_: Payment status, Telegram presence, subscription duration
+
 **PaymentAttempt**:
 One recorded attempt to obtain a specific payment outcome, including an unresolved outcome after
 sending a request. It is not proof that a payment succeeded.

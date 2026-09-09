@@ -9,7 +9,7 @@ import { throwPricingError } from "../src/modules/billing/shared/pricing-http.fi
 describe("Billing pricing rules", () => {
   test("OpenAPI preserves UUID and benefit types through normalization", () => {
     expect(toOpenApiSchema(quotePurchaseSchema)).toMatchObject({ properties: { operationId: { type: "string", format: "uuid" }, paymentOptionId: { type: "string", format: "uuid" } } });
-    expect(toOpenApiSchema(priceQuoteSchema)).toMatchObject({ properties: { quoteRef: { type: "string", format: "uuid" }, snapshot: { properties: { offer: { properties: { benefits: { type: "array", items: { type: "string" } } } } } } } });
+    expect(toOpenApiSchema(priceQuoteSchema)).toMatchObject({ properties: { quoteRef: { type: "string", format: "uuid" }, snapshot: { properties: { offer: { properties: { benefits: { type: "array", items: { anyOf: [{ type: "string", enum: ["materials", "community", "reviews", "support"] }, { type: "string" }] } } } } } } } });
   });
   test("rounds half up exactly even at the safe-integer ceiling", () => {
     expect(discountedPrice(1, 50)).toBe(1);
