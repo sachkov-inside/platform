@@ -1234,7 +1234,7 @@ test("author edits series metadata on a dedicated page and returns to the list a
   await page.getByRole("textbox", { name: "Адрес", exact: false }).fill(`series-${String(Date.now())}`);
   await page.getByRole("button", { name: "Создать", exact: true }).click();
   await expect(page).toHaveURL(/\/authoring\/guides\/[^/]+$/u);
-  await expect(page.getByRole("heading", { name: "Руководство пока пуста" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Руководство пока пусто" })).toBeVisible();
   await page.getByRole("textbox", { name: "Название руководства" }).fill(`${title} · Обновлена`);
   await page.getByRole("textbox", { name: "Краткое описание" }).fill("Описание сохраняется перед возвратом к списку.");
   await page.getByRole("button", { name: "Все руководства", exact: true }).click();
@@ -1242,9 +1242,35 @@ test("author edits series metadata on a dedicated page and returns to the list a
   await page.getByRole("link", { name: new RegExp(title, "u") }).click();
   await expect(page.getByRole("textbox", { name: "Название руководства" })).toHaveValue(`${title} · Обновлена`);
   await expect(page.getByRole("textbox", { name: "Краткое описание" })).toHaveValue("Описание сохраняется перед возвратом к списку.");
+  const orderGate = Promise.withResolvers<undefined>();
+  let orderCompleted = false;
+  let archivedBeforeOrder = false;
+  await page.route("**/api/authoring/guides/order", async (route) => {
+    await orderGate.promise;
+    const response = await route.fetch();
+    orderCompleted = true;
+    await route.fulfill({ response });
+  }, { times: 1 });
+  await page.route("**/api/authoring/collections/archive", async (route) => {
+    archivedBeforeOrder = !orderCompleted;
+    await route.continue();
+  }, { times: 1 });
+  await page.getByRole("button", { name: "Добавить материал", exact: true }).click();
+  const picker = page.getByRole("dialog", { name: "Добавить материал", exact: true });
+  const orderStarted = page.waitForRequest("**/api/authoring/guides/order");
+  await picker.getByRole("button", { name: /^Добавить «/u }).first().click();
+  await picker.getByRole("button", { name: "Закрыть выбор материала" }).click();
   await page.getByRole("button", { name: "В архив", exact: true }).click();
+  try {
+    await orderStarted;
+    await expect(page.getByRole("button", { name: "Вернуть из архива" })).not.toBeVisible();
+  } finally {
+    orderGate.resolve(undefined);
+  }
   await expect(page.getByRole("button", { name: "Вернуть из архива" })).toBeVisible();
+  expect(archivedBeforeOrder).toBe(false);
   await page.reload();
+  await expect(page.getByRole("list", { name: "Материалы руководства" }).getByRole("listitem")).toHaveCount(1);
   await expect(page.getByRole("button", { name: "Добавить материал" })).toBeDisabled();
   await page.getByRole("button", { name: "Вернуть из архива" }).click();
   await expect(page.getByRole("button", { name: "Добавить материал" })).toBeEnabled();

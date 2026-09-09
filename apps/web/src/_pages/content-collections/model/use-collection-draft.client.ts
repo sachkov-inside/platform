@@ -1,7 +1,7 @@
 "use client";
 import { useMutation } from "@tanstack/react-query";
 import { useRef, useState } from "react";
-import { useAutosave } from "@/shared/lib/autosave/use-autosave";
+import { flushPendingEdits, useAutosave } from "@/shared/lib/autosave/use-autosave";
 import {
   setContentCollectionArchive,
   updateContentCollection,
@@ -64,7 +64,7 @@ export function useCollectionDraft(
     archive,
     autosave,
     setArchived: (archived: boolean) => {
-      void autosave.flush().then((ok) => {
+      void flushPendingEdits().then((ok) => {
         if (ok) archive.mutate({
           archived,
           collectionId: collection.id,

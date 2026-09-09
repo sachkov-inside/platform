@@ -43,7 +43,7 @@ test("series journey resumes the last opened guide and preserves the Reader retu
   await context.clearCookies();
   await page.goto("/series/platform-inside");
   await expect(page.locator("[data-series-learning]:visible")).toHaveAttribute("data-series-learning", "guest");
-  await expect(page.locator("[data-series-access]:visible").getByText("По подписке")).toBeVisible();
+  await expect(page.getByRole("list", { name: "Материалы руководства" }).getByText("Для участников", { exact: true })).toBeVisible();
   await expect(page.getByRole("progressbar")).toHaveCount(0);
 });
 
