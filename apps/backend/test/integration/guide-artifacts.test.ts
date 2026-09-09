@@ -352,6 +352,62 @@ describe("Guide Artifacts", () => {
     });
   });
 
+  test("opens a new delivery version when the access class changes", async () => {
+    const artifactId = await createArtifact("free", "Смена доступа", guideB);
+    const before = await delivery.deliver({
+      artifactId,
+      guideId: guideB,
+      preview: false,
+      subject: { kind: "anonymous" },
+      version: 1,
+    });
+    expect(before).toMatchObject({ ok: true, value: { kind: "bytes" } });
+
+    const restricted = await artifacts.update({
+      actor: owner,
+      artifactId,
+      metadata: {
+        access: "membership",
+        purpose: "Проверка доступа",
+        title: "Смена доступа",
+      },
+    });
+    expect(restricted).toMatchObject({ ok: true, value: { version: 2 } });
+
+    // The public address issued under the previous access class stops working.
+    expect(
+      await delivery.deliver({
+        artifactId,
+        guideId: guideB,
+        preview: false,
+        subject: { kind: "anonymous" },
+        version: 1,
+      }),
+    ).toEqual({ error: { code: "artifact_not_found" }, ok: false });
+    expect(
+      await delivery.deliver({
+        artifactId,
+        guideId: guideB,
+        preview: false,
+        subject: { kind: "anonymous" },
+        version: 2,
+      }),
+    ).toEqual({ error: { code: "artifact_not_found" }, ok: false });
+
+    // The new version keeps the same stored content for an authorized reader.
+    const current = await db.prisma.guideArtifactVersion.findUniqueOrThrow({
+      where: { artifactId_version: { artifactId, version: 2 } },
+    });
+    const previous = await db.prisma.guideArtifactVersion.findUniqueOrThrow({
+      where: { artifactId_version: { artifactId, version: 1 } },
+    });
+    expect(current.protectedObjectKey).toBe(previous.protectedObjectKey);
+    expect(current.state).toBe("ready");
+
+    await artifacts.setGuides({ actor: owner, artifactId, guideIds: [] });
+    await artifacts.remove({ actor: owner, artifactId });
+  });
+
   test("archives an artifact and refuses to remove one a guide still references", async () => {
     const artifactId = await createArtifact("free", "Временный шаблон", guideB);
     const referenced = await artifacts.remove({ actor: owner, artifactId });

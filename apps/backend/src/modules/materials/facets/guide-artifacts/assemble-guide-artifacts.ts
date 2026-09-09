@@ -144,6 +144,11 @@ const importSchema = z
   })
   .strict();
 
+/** The reader batch stays inside the shared ContentAccess availability limit. */
+const READER_ARTIFACT_LIMIT = 100;
+const AUTHORING_ARTIFACT_LIMIT = 200;
+const IMPORT_ARTIFACT_LIMIT = 250;
+
 interface StoredArtifactFile {
   readonly checksumSha256: string;
   readonly contentType: string;
@@ -334,46 +339,17 @@ export function assembleGuideArtifacts(dependencies: {
         });
         if (current === null) return failure({ code: "artifact_not_found" });
         await prisma.$transaction(async (transaction) => {
-          // An access change alters who may download the current bytes, so it
-          // opens a new delivery version instead of reusing a cached address.
-          if (current.access !== parsed.data.metadata.access) {
-            const nextVersion = current.currentVersion + 1;
-            const source = await transaction.guideArtifactVersion.findUniqueOrThrow({
-              where: {
-                artifactId_version: {
-                  artifactId: current.id,
-                  version: current.currentVersion,
-                },
-              },
-            });
-            await transaction.guideArtifactVersion.create({
-              data: {
-                artifactId: current.id,
-                byteSize: source.byteSize,
-                checksumSha256: source.checksumSha256,
-                contentKind: source.contentKind,
-                contentType: source.contentType,
-                createdBy: parsed.data.actor,
-                externalUrl: source.externalUrl,
-                objectNonce: source.objectNonce,
-                originalFilename: source.originalFilename,
-                protectedObjectKey: source.protectedObjectKey,
-                publicObjectKey: source.publicObjectKey,
-                quarantineObjectKey: source.quarantineObjectKey,
-                readyAt: new Date(),
-                state: "ready",
-                version: nextVersion,
-              },
-            });
-            await supersedeVersion(transaction, current.id, current.currentVersion);
-            await transaction.guideArtifact.update({
-              data: { currentVersion: nextVersion },
-              where: { id: current.id },
-            });
-          }
+          const nextVersion = await reopenVersionOnAccessChange(transaction, {
+            actor: parsed.data.actor,
+            artifactId: current.id,
+            currentAccess: current.access,
+            currentVersion: current.currentVersion,
+            nextAccess: parsed.data.metadata.access,
+          });
           await transaction.guideArtifact.update({
             data: {
               access: parsed.data.metadata.access,
+              currentVersion: nextVersion,
               purpose: parsed.data.metadata.purpose,
               title: parsed.data.metadata.title,
               updatedAt: new Date(),
@@ -604,16 +580,15 @@ export function assembleGuideArtifacts(dependencies: {
           where: { id: parsed.data.guideId },
         });
         if (guide === null) return failure({ code: "guide_not_found" });
-        const placements = await prisma.guideArtifactPlacement.findMany({
-          orderBy: [{ createdAt: "asc" }, { artifactId: "asc" }],
-          where: { guideId: parsed.data.guideId },
+        const rows = await loadPlacedArtifacts(prisma, parsed.data.guideId, {
+          take: AUTHORING_ARTIFACT_LIMIT,
         });
-        const projected = await Promise.all(
-          placements.map(({ artifactId }) => projectArtifact(prisma, artifactId)),
-        );
         return {
           ok: true,
-          value: projected.filter((value): value is GuideArtifactDto => value !== null),
+          value: rows.flatMap((row) => {
+            const projected = projectRow(row);
+            return projected === null ? [] : [projected];
+          }),
         };
       } catch {
         return dependencyUnavailable();
@@ -630,19 +605,21 @@ export function assembleGuideArtifacts(dependencies: {
       if (forbidden !== null) return failure(forbidden);
       try {
         const rows = await prisma.guideArtifact.findMany({
+          include: {
+            materialLinks: { orderBy: { materialId: "asc" } },
+            placements: { orderBy: { createdAt: "asc" } },
+            versions: true,
+          },
           orderBy: { updatedAt: "desc" },
-          select: { id: true },
-          take: 200,
+          take: AUTHORING_ARTIFACT_LIMIT,
           where: { state: "active" },
         });
-        const projected = await Promise.all(
-          rows.map(({ id }) => projectArtifact(prisma, id)),
-        );
         return {
           ok: true,
-          value: projected.filter(
-            (value): value is GuideArtifactDto => value !== null,
-          ),
+          value: rows.flatMap((row) => {
+            const projected = projectRow(row);
+            return projected === null ? [] : [projected];
+          }),
         };
       } catch {
         return dependencyUnavailable();
@@ -658,11 +635,10 @@ export function assembleGuideArtifacts(dependencies: {
           where: { id: parsedGuideId.data },
         });
         if (guide === null) return failure({ code: "guide_not_found" });
-        const rows = await loadPlacedArtifacts(
-          prisma,
-          parsedGuideId.data,
-          "active",
-        );
+        const rows = await loadPlacedArtifacts(prisma, parsedGuideId.data, {
+          state: "active",
+          take: READER_ARTIFACT_LIMIT,
+        });
         return {
           ok: true,
           value: rows.flatMap((row): readonly ReaderGuideArtifact[] => {
@@ -749,7 +725,9 @@ export function assembleGuideArtifacts(dependencies: {
           where: { id: command.guideId },
         });
         if (guide === null) return failure({ code: "guide_not_found" });
-        placed = await loadPlacedArtifacts(prisma, command.guideId);
+        placed = await loadPlacedArtifacts(prisma, command.guideId, {
+          take: IMPORT_ARTIFACT_LIMIT,
+        });
       } catch {
         return dependencyUnavailable();
       }
@@ -894,10 +872,19 @@ export function assembleGuideArtifacts(dependencies: {
           if (!file.ok) return file;
           stored = file.value;
         }
-        const nextVersion = existing.currentVersion + (sameContent ? 0 : 1);
         try {
           await prisma.$transaction(async (transaction) => {
-            if (!sameContent) {
+            let nextVersion = existing.currentVersion;
+            if (sameContent) {
+              nextVersion = await reopenVersionOnAccessChange(transaction, {
+                actor: command.actor,
+                artifactId: existing.id,
+                currentAccess: existing.access,
+                currentVersion: existing.currentVersion,
+                nextAccess: source.access,
+              });
+            } else {
+              nextVersion = existing.currentVersion + 1;
               await transaction.guideArtifactVersion.create({
                 data: versionRow({
                   actor: command.actor,
@@ -998,7 +985,7 @@ async function loadArtifactRow(
 async function loadPlacedArtifacts(
   prisma: MaterialsPrismaClient,
   guideId: string,
-  state?: "active",
+  options: { readonly state?: "active"; readonly take: number },
 ): Promise<readonly ArtifactRow[]> {
   return prisma.guideArtifact.findMany({
     include: {
@@ -1007,11 +994,31 @@ async function loadPlacedArtifacts(
       versions: true,
     },
     orderBy: { createdAt: "asc" },
+    take: options.take,
     where: {
       placements: { some: { guideId } },
-      ...(state === undefined ? {} : { state }),
+      ...(options.state === undefined ? {} : { state: options.state }),
     },
   });
+}
+
+function projectRow(row: ArtifactRow): GuideArtifactDto | null {
+  const content = currentContent(row);
+  if (content === null) return null;
+  return {
+    access: readAccess(row.access),
+    archived: row.state === "archived",
+    artifactId: row.id,
+    content,
+    guideIds: row.placements.map(({ guideId }) => guideId),
+    materialIds: row.materialLinks.map(({ materialId }) => materialId),
+    origin: row.origin === "authoring" ? "authoring" : "platform",
+    purpose: row.purpose,
+    sourceId: row.sourceId,
+    title: row.title,
+    updatedAt: row.updatedAt.toISOString(),
+    version: row.currentVersion,
+  };
 }
 
 function readyVersion(row: ArtifactRow): ArtifactRow["versions"][number] | null {
@@ -1048,23 +1055,7 @@ async function projectArtifact(
   artifactId: string,
 ): Promise<GuideArtifactDto | null> {
   const row = await loadArtifactRow(prisma, artifactId);
-  if (row === null) return null;
-  const content = currentContent(row);
-  if (content === null) return null;
-  return {
-    access: readAccess(row.access),
-    archived: row.state === "archived",
-    artifactId: row.id,
-    content,
-    guideIds: row.placements.map(({ guideId }) => guideId),
-    materialIds: row.materialLinks.map(({ materialId }) => materialId),
-    origin: row.origin === "authoring" ? "authoring" : "platform",
-    purpose: row.purpose,
-    sourceId: row.sourceId,
-    title: row.title,
-    updatedAt: row.updatedAt.toISOString(),
-    version: row.currentVersion,
-  };
+  return row === null ? null : projectRow(row);
 }
 
 async function projectOrFail(
@@ -1114,6 +1105,54 @@ function versionRow(input: {
     state: "processing",
     version,
   };
+}
+
+/**
+ * An access change alters who may download the current bytes, so it opens a new
+ * delivery version over the same stored content instead of leaving a cached
+ * address valid under the previous access class.
+ */
+async function reopenVersionOnAccessChange(
+  transaction: MaterialsPrismaTransaction,
+  input: {
+    readonly actor: string;
+    readonly artifactId: string;
+    readonly currentAccess: string;
+    readonly currentVersion: number;
+    readonly nextAccess: GuideArtifactAccess;
+  },
+): Promise<number> {
+  if (input.currentAccess === input.nextAccess) return input.currentVersion;
+  const nextVersion = input.currentVersion + 1;
+  const source = await transaction.guideArtifactVersion.findUniqueOrThrow({
+    where: {
+      artifactId_version: {
+        artifactId: input.artifactId,
+        version: input.currentVersion,
+      },
+    },
+  });
+  await transaction.guideArtifactVersion.create({
+    data: {
+      artifactId: input.artifactId,
+      byteSize: source.byteSize,
+      checksumSha256: source.checksumSha256,
+      contentKind: source.contentKind,
+      contentType: source.contentType,
+      createdBy: input.actor,
+      externalUrl: source.externalUrl,
+      objectNonce: source.objectNonce,
+      originalFilename: source.originalFilename,
+      protectedObjectKey: source.protectedObjectKey,
+      publicObjectKey: source.publicObjectKey,
+      quarantineObjectKey: source.quarantineObjectKey,
+      readyAt: new Date(),
+      state: "ready",
+      version: nextVersion,
+    },
+  });
+  await supersedeVersion(transaction, input.artifactId, input.currentVersion);
+  return nextVersion;
 }
 
 async function markVersionReady(

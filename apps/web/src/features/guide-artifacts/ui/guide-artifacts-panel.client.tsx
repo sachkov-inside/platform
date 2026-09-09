@@ -21,6 +21,7 @@ import {
 import {
   describeArtifactAccess,
   describeArtifactContent,
+  guidesInWords,
   type GuideArtifact,
   type GuideArtifactAccess,
   type GuideArtifactMutationResult,
@@ -145,6 +146,7 @@ function ArtifactCard({
   readonly onResult: (result: GuideArtifactMutationResult) => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const [replacingLink, setReplacingLink] = useState(false);
   const [linkDraft, setLinkDraft] = useState(
     artifact.content.kind === "link" ? artifact.content.externalUrl : "",
   );
@@ -212,9 +214,7 @@ function ArtifactCard({
         Версия {artifact.version} · обновлён{" "}
         {new Date(artifact.updatedAt).toLocaleDateString("ru-RU")}
         {artifact.origin === "authoring" ? " · из авторской базы" : ""}
-        {otherGuides > 0
-          ? ` · ещё в ${String(otherGuides)} руководств(е/ах)`
-          : ""}
+        {otherGuides > 0 ? ` · ещё в ${guidesInWords(otherGuides)}` : ""}
         {artifact.archived ? " · в архиве" : ""}
       </p>
 
@@ -276,7 +276,19 @@ function ArtifactCard({
               type="file"
             />
           </>
-        ) : null}
+        ) : (
+          <Button
+            disabled={pending}
+            onClick={() => {
+              setReplacingLink((value) => !value);
+            }}
+            type="button"
+            variant="outline"
+          >
+            <Link2 aria-hidden="true" />
+            Заменить ссылку
+          </Button>
+        )}
         <Button
           disabled={pending}
           onClick={() => {
@@ -315,7 +327,7 @@ function ArtifactCard({
         </Button>
       </div>
 
-      {artifact.content.kind === "link" ? (
+      {artifact.content.kind === "link" && replacingLink ? (
         <form
           aria-label={`Заменить ссылку артефакта «${artifact.title}»`}
           className="mt-3 flex flex-wrap items-end gap-2"
@@ -338,8 +350,7 @@ function ArtifactCard({
             />
           </label>
           <Button disabled={pending} type="submit" variant="outline">
-            <Link2 aria-hidden="true" />
-            Заменить ссылку
+            Сохранить адрес
           </Button>
         </form>
       ) : null}
@@ -630,8 +641,8 @@ function MutationNotice({
     case "referenced":
       return (
         <span role="alert">
-          Артефакт ещё используется в {String(result.guideIds.length)}{" "}
-          руководств(е/ах). Сначала уберите его оттуда.
+          Артефакт ещё используется в {guidesInWords(result.guideIds.length)}.
+          Сначала уберите его оттуда.
         </span>
       );
     case "rejected":

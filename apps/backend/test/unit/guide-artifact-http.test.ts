@@ -138,23 +138,32 @@ function authoringController(
 }
 
 function multipartRequest(): FastifyRequest {
+  const fields = {
+    access: { type: "field", value: "free" },
+    checksumSha256: { type: "field", value: "a".repeat(64) },
+    declaredSize: { type: "field", value: "3" },
+    guideId: { type: "field", value: guideId },
+    purpose: { type: "field", value: "Проверка" },
+    title: { type: "field", value: "Чек-лист" },
+  };
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- The controller reads only this tested MultipartFile subset.
   const part = {
-    fields: {
-      access: { type: "field", value: "free" },
-      checksumSha256: { type: "field", value: "a".repeat(64) },
-      declaredSize: { type: "field", value: "3" },
-      guideId: { type: "field", value: guideId },
-      purpose: { type: "field", value: "Проверка" },
-      title: { type: "field", value: "Чек-лист" },
-    },
+    fields,
     file: { truncated: false },
     filename: "checklist.md",
     mimetype: "text/markdown",
     toBuffer: () => Promise.resolve(Buffer.from("abc")),
   } as unknown as MultipartFile;
+  // The fixture enforces the declared multipart limits, so a form that carries
+  // more fields than the controller allows fails here instead of in production.
+  const file = vi.fn((options?: { limits?: { fields?: number } }) => {
+    const allowed = options?.limits?.fields ?? 0;
+    return Object.keys(fields).length > allowed
+      ? Promise.reject(new Error("FieldsLimitError"))
+      : Promise.resolve(part);
+  });
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- The controller reads only request.file from this transport fixture.
-  return { file: vi.fn().mockResolvedValue(part) } as unknown as FastifyRequest;
+  return { file } as unknown as FastifyRequest;
 }
 
 async function expectHttpProblem(

@@ -80,3 +80,10 @@ export function describeArtifactContent(artifact: GuideArtifact): string {
     ? `${artifact.content.filename} · ${formatArtifactSize(artifact.content.size)}`
     : artifact.content.externalUrl;
 }
+
+/** «в 1 руководстве» / «в 4 руководствах» in the reader's own language. */
+export function guidesInWords(count: number): string {
+  const lastTwo = count % 100;
+  const singular = count % 10 === 1 && lastTwo !== 11;
+  return `${String(count)} ${singular ? "руководстве" : "руководствах"}`;
+}

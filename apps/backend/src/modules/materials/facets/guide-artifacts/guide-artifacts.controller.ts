@@ -217,7 +217,7 @@ export class GuideArtifactAuthoringController {
     @CurrentAccount() account: AuthenticatedAccount,
     @Req() request: FastifyRequest,
   ) {
-    const upload = await readUpload(request, 5);
+    const upload = await readUpload(request, 6);
     const metadata = metadataBodySchema.safeParse({
       access: field(upload.part, "access"),
       purpose: field(upload.part, "purpose") ?? "",
