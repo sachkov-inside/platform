@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { setTimeout as delay } from "node:timers/promises";
 import { z } from "zod";
 import type { BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { BillingContact } from "../../../accounts/index.js";
@@ -12,6 +13,9 @@ import { paymentFailure, purchaseSubscriptionSchema, purchaseStatusSchema, type 
 import { paidPeriodCommandSchema } from "../../../membership-entitlements/index.js";
 
 const fulfillmentRetryDelayMilliseconds = 60_000;
+// Longer than the bank request timeout, so a joining caller outlives one honest round-trip.
+const inFlightAnswerBudgetMilliseconds = 12_000;
+const inFlightAnswerPollMilliseconds = 50;
 
 interface Dependencies {
   readonly prisma: BillingPrismaClient;
@@ -83,7 +87,9 @@ export class BillingPayments {
         return { ok: true, value: purchaseRef };
       });
       if (!prepared.ok) return prepared;
-      await this.sendPrepared(prepared.value);
+      // A concurrent tab joins an existing purchase and sends nothing. Its answer must be the
+      // settled result of the caller that did send, never the interim row that carries no payment URL.
+      if (!await this.sendPrepared(prepared.value)) await this.awaitBankAnswer(prepared.value);
       return await this.status(accountId, prepared.value);
     } catch { return paymentFailure("dependency_unavailable"); }
   }
@@ -156,9 +162,20 @@ export class BillingPayments {
     } catch { return paymentFailure("dependency_unavailable"); }
   }
 
-  private async sendPrepared(purchaseRef: string): Promise<void> {
+  // Waits out another caller's bank round-trip. The budget exceeds the bank timeout, so an
+  // abandoned attempt still returns the current row instead of hanging; recovery owns that row.
+  private async awaitBankAnswer(purchaseRef: string): Promise<void> {
+    const deadline = Date.now() + inFlightAnswerBudgetMilliseconds;
+    for (;;) {
+      const row = await this.dependencies.prisma.billingPurchase.findUnique({ where: { id: purchaseRef }, select: { state: true } });
+      if (!row || !["prepared", "sent"].includes(row.state) || Date.now() >= deadline) return;
+      await delay(inFlightAnswerPollMilliseconds);
+    }
+  }
+
+  private async sendPrepared(purchaseRef: string): Promise<boolean> {
     const { prisma, bank } = this.dependencies;
-    if (!bank) return;
+    if (!bank) return false;
     const row = await prisma.$transaction(async tx => {
       await lockPricing(tx);
       const row = await tx.billingPurchase.findUnique({ where: { id: purchaseRef } });
@@ -167,7 +184,7 @@ export class BillingPayments {
       await tx.billingPromoReservation.update({ where: { purchaseRef }, data: { state: "sent" } });
       return row;
     });
-    if (!row) return;
+    if (!row) return false;
     try {
       const snapshot = priceSnapshotSchema.parse(row.snapshot);
       const contact = z.object({ emailCiphertext: z.string() }).parse(row.contact);
@@ -182,6 +199,7 @@ export class BillingPayments {
         if (changed.count) await tx.billingPromoReservation.update({ where: { purchaseRef }, data: { state: "unknown" } });
       });
     }
+    return true;
   }
 
   private async accept(payment: BankPayment, paymentUrl?: string): Promise<PaymentResult<true>> {

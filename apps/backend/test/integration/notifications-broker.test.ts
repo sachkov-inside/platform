@@ -16,8 +16,11 @@ import { assembleMaterialsNotificationOutbox } from '../../src/modules/materials
 import { stageMaterialsNotification } from '../../src/modules/materials/facets/notification-outbox/notification-outbox.js';
 import type { NotificationEvent } from '../../src/modules/notifications/domain/notification-wire.js';
 
+// The dispatcher retries a source outage after 1s, 5s and 30s, so a recovery this test itself
+// provokes can legitimately take 36 seconds. A shorter budget fails on the code's own worst case.
+const recoveryBudgetMs = 40_000;
 async function eventually(check: () => Promise<void>) {
-  const deadline = Date.now() + 30_000;
+  const deadline = Date.now() + recoveryBudgetMs;
   for (;;) { try { await check(); return; } catch (error) { if (Date.now() >= deadline) throw error; await delay(100); } }
 }
 test('real RabbitMQ event → audience → email inbox/effect → result outage/recovery; both categories and ACL', async () => {
@@ -84,4 +87,4 @@ test('real RabbitMQ event → audience → email inbox/effect → result outage/
     await worker.stop(); await invalid.close().catch(() => undefined); await publisher.close().catch(() => undefined);
 
   }
-}, 90_000);
+}, 150_000);

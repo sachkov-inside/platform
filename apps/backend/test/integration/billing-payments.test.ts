@@ -5,6 +5,7 @@ import { AcceptTbankNotificationController } from "../../src/modules/billing/fea
 import { ProblemDetailsFilter } from "../../src/infrastructure/http/problem-details.filter.js";
 import { HttpCachePolicyInterceptor } from "../../src/infrastructure/http/http-cache-policy.js";
 import { fork } from "node:child_process";
+import { setTimeout as delay } from "node:timers/promises";
 import { once } from "node:events";
 import { z } from "zod";
 import { createHash, randomUUID } from "node:crypto";
@@ -20,6 +21,10 @@ import { createMigratedTestDatabase, type TestDatabase } from "./setup/test-data
 
 function value<T>(result: { ok: true; value: T } | { ok: false; error: { code: string } }): T {
   if (!result.ok) throw new Error(result.error.code); return result.value;
+}
+async function eventually(check: () => Promise<void>, budgetMs = 10_000) {
+  const deadline = Date.now() + budgetMs;
+  for (;;) { try { await check(); return; } catch (error) { if (Date.now() >= deadline) throw error; await delay(50); } }
 }
 const config = tbankConfigSchema.parse({ environment: "demo", terminalKey: "SYNTHETICDEMO", password: "synthetic-test-password",
   bindingEncryptionKey: Buffer.alloc(32, 43).toString("base64"), recurringCardConfirmed: true, cardOnlyHostedConfirmed: true,
@@ -67,6 +72,7 @@ describe("subscription payment recovery (real PostgreSQL and real facets; synthe
     if (!consent.ok) throw new Error(consent.error.code);
     const command = { operationId: randomUUID(), quoteRef: quote.quoteRef, contactRevision: 1, consentEvidenceRefs: consent.evidenceRefs, acknowledgeExistingAccess: false };
     let requests = 0, initOutcome = "NEW", failInit = false;
+    let initGate: Promise<void> | undefined;
     let orderId = "";
     const paymentId = String(Math.floor(Math.random() * 1_000_000_000));
     const event = (status: string, extra = {}) => ({ TerminalKey: config.terminalKey, OrderId: orderId, PaymentId: paymentId, Amount: 200_000, Status: status, Success: true, ErrorCode: "0", ...extra });
@@ -81,6 +87,7 @@ describe("subscription payment recovery (real PostgreSQL and real facets; synthe
         expect(body.Receipt?.Email).toBe(`${buyer}@example.test`);
         expect(body.Token).toBe(tbankToken(body, config.password));
         if (failInit) throw new Error("Synthetic timeout after bank acceptance");
+        if (initGate) await initGate;
         return Response.json({ ...event(initOutcome), PaymentURL: "https://securepay.tinkoff.ru/test" });
       }
       if (url.endsWith("/CheckOrder")) return Response.json({ Success: true, ErrorCode: "0", TerminalKey: config.terminalKey, OrderId: body.OrderId, Payments: [{ PaymentId: paymentId, Status: initOutcome, Success: true, ErrorCode: 0 }] });
@@ -88,8 +95,35 @@ describe("subscription payment recovery (real PostgreSQL and real facets; synthe
     });
     const runtime = (projector = grants) => new BillingPayments({ prisma: db.prisma, bank, contact, grants: projector, clock: () => now });
     const notify = (status: string, extra = {}) => { const body = event(status, extra); return { ...body, Token: tbankToken(body, config.password) }; };
-    return { buyer, command, offerId, quote, runtime, notify, requests: () => requests, timeout: () => { failInit = true; }, outcome: (value: string) => { initOutcome = value; } };
+    // Holds the bank answer so a second caller meets the sender mid-flight on purpose.
+    const holdInit = () => {
+      let release: (() => void) | undefined;
+      initGate = new Promise<void>(resolve => { release = resolve; });
+      return () => { initGate = undefined; release?.(); };
+    };
+    return { buyer, command, offerId, quote, runtime, notify, holdInit, requests: () => requests, timeout: () => { failInit = true; }, outcome: (value: string) => { initOutcome = value; } };
   }
+
+  test("a second tab waits for the in-flight bank answer instead of returning an intermediate state", async () => {
+    const s = await scenario(["materials"]);
+    const runtime = s.runtime();
+    const release = s.holdInit();
+    const sender = runtime.purchase(s.buyer, s.command);
+    await eventually(async () => {
+      expect((await db.prisma.billingPurchase.findFirst({ where: { accountId: s.buyer } }))?.state).toBe("sent");
+    });
+    const secondTab = runtime.purchase(s.buyer, { ...s.command, operationId: randomUUID() });
+    // The sender still holds the bank. A caller that sent nothing must not answer from the interim row.
+    expect(await Promise.race([secondTab.then(() => "answered"), delay(500).then(() => "waiting")])).toBe("waiting");
+    release();
+    const [first, second] = await Promise.all([sender, secondTab]);
+    expect(s.requests()).toBe(1);
+    for (const result of [value(first), value(second)]) {
+      expect(result.state).toBe("pending");
+      expect(result.paymentUrl).toBe("https://securepay.tinkoff.ru/test");
+    }
+    expect(value(second).purchaseRef).toBe(value(first).purchaseRef);
+  });
 
   test("two tabs and concurrent CONFIRMED create one payment and one set of grants; return status is not payment evidence", async () => {
     const s = await scenario(["materials", "support", "community"], [{ capability: "support", months: 2 }]);
