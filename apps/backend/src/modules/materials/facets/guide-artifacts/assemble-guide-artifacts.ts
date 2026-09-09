@@ -144,10 +144,11 @@ const importSchema = z
   })
   .strict();
 
-/** The reader batch stays inside the shared ContentAccess availability limit. */
-const READER_ARTIFACT_LIMIT = 100;
 const AUTHORING_ARTIFACT_LIMIT = 200;
 const IMPORT_ARTIFACT_LIMIT = 250;
+
+/** One editor change landed while the import was deciding against an older revision. */
+class ConcurrentArtifactChange extends Error {}
 
 interface StoredArtifactFile {
   readonly checksumSha256: string;
@@ -639,7 +640,7 @@ export function assembleGuideArtifacts(dependencies: {
         if (guide === null) return failure({ code: "guide_not_found" });
         const rows = await loadPlacedArtifacts(prisma, parsedGuideId.data, {
           state: "active",
-          take: READER_ARTIFACT_LIMIT,
+          take: AUTHORING_ARTIFACT_LIMIT,
         });
         return {
           ok: true,
@@ -864,7 +865,7 @@ export function assembleGuideArtifacts(dependencies: {
             await transaction.guideArtifactPlacement.create({
               data: { artifactId, guideId: command.guideId },
             });
-            });
+          });
         } catch {
           await forgetStoredFile(stored);
           return dependencyUnavailable();
@@ -896,7 +897,7 @@ export function assembleGuideArtifacts(dependencies: {
         }
         try {
           await prisma.$transaction(async (transaction) => {
-            let nextVersion = existing.currentVersion;
+            let nextVersion: number;
             if (sameContent) {
               nextVersion = await reopenVersionOnAccessChange(transaction, {
                 actor: command.actor,
@@ -924,8 +925,11 @@ export function assembleGuideArtifacts(dependencies: {
                 existing.currentVersion,
               );
             }
+            // The write only lands on the revision the import decided against.
+            // An editor change that arrives in between makes this a no-op, and
+            // the artifact is reported as diverged instead of overwritten.
             const revision = existing.revision + 1;
-            await transaction.guideArtifact.update({
+            const applied = await transaction.guideArtifact.updateMany({
               data: {
                 access: source.access,
                 currentVersion: nextVersion,
@@ -936,11 +940,23 @@ export function assembleGuideArtifacts(dependencies: {
                 title: source.title,
                 updatedAt: new Date(),
               },
-              where: { id: existing.id },
+              where: { id: existing.id, revision: existing.revision },
             });
+            if (applied.count !== 1) throw new ConcurrentArtifactChange();
           });
-        } catch {
+        } catch (error) {
           await forgetStoredFile(stored);
+          if (error instanceof ConcurrentArtifactChange) {
+            return {
+              ok: true,
+              value: {
+                artifactId: existing.id,
+                outcome: "diverged",
+                sourceId: source.sourceId,
+                title: existing.title,
+              },
+            };
+          }
           return dependencyUnavailable();
         }
         if (stored !== null) {
@@ -1180,7 +1196,6 @@ async function reopenVersionOnAccessChange(
       protectedObjectKey: source.protectedObjectKey,
       publicObjectKey: source.publicObjectKey,
       quarantineObjectKey: source.quarantineObjectKey,
-      readyAt: new Date(),
       version: nextVersion,
     },
   });

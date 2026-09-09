@@ -402,7 +402,7 @@ describe("Guide Artifacts", () => {
       where: { artifactId_version: { artifactId, version: 1 } },
     });
     expect(current.protectedObjectKey).toBe(previous.protectedObjectKey);
-    expect(current.readyAt).not.toBeNull();
+    expect(current.contentKind).toBe(previous.contentKind);
 
     await artifacts.setGuides({ actor: owner, artifactId, guideIds: [] });
     await artifacts.remove({ actor: owner, artifactId });
@@ -563,6 +563,38 @@ describe("Guide Artifacts", () => {
       where: { id: artifactId ?? "" },
     });
     expect(untouched.title).toBe("Название, поправленное вручную");
+
+    // Archiving is an explicit Platform action, so a later import reports the
+    // record instead of resurrecting it or placing it in another guide.
+    const otherGuide = randomUUID();
+    await db.prisma.guide.create({
+      data: { id: otherGuide, name: "Archive guide", slug: otherGuide },
+    });
+    await artifacts.setArchived({
+      actor: owner,
+      archived: true,
+      artifactId: artifactId ?? "",
+    });
+    expect(
+      await artifacts.applyAuthoringImport({
+        actor: owner,
+        artifacts: [source],
+        guideId: otherGuide,
+      }),
+    ).toMatchObject({
+      ok: true,
+      value: { outcomes: [{ artifactId, outcome: "diverged" }] },
+    });
+    expect(
+      await db.prisma.guideArtifactPlacement.count({
+        where: { guideId: otherGuide },
+      }),
+    ).toBe(0);
+    await artifacts.setArchived({
+      actor: owner,
+      archived: false,
+      artifactId: artifactId ?? "",
+    });
 
     // An artifact absent from the package is reported, never archived.
     const missing = await artifacts.applyAuthoringImport({

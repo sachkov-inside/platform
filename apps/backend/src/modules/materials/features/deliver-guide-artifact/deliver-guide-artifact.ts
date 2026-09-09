@@ -14,6 +14,9 @@ import type {
 
 export const GUIDE_ARTIFACT_DELIVERY = Symbol("GUIDE_ARTIFACT_DELIVERY");
 
+/** Matches the batch size the shared ContentAccess availability read accepts. */
+const AVAILABILITY_BATCH_SIZE = 100;
+
 export type PublicGuideArtifactContent =
   | Readonly<{
       contentType: string;
@@ -86,28 +89,33 @@ export function assembleGuideArtifactDelivery(dependencies: {
           : dependencyUnavailable();
       }
       if (loaded.value.length === 0) return { ok: true, value: [] };
-      let availability;
-      try {
-        availability = await dependencies.contentAccess.checkAvailabilityMany({
-          correlationId: randomUUID(),
-          enforcementPoint: "guide_artifact_read",
-          operations: loaded.value.map((artifact) => ({
-            action: "download" as const,
-            itemId: artifact.artifactId,
-            resource: {
-              artifactId: artifact.artifactId,
-              kind: "guideArtifact" as const,
-            },
-          })),
-          subject: query.subject,
-        });
-      } catch {
-        return dependencyUnavailable();
+      const states = new Map<string, "available" | "locked" | "unavailable">();
+      // The shared availability batch is bounded, so a long artifact section is
+      // decided in whole batches instead of being silently cut short.
+      for (const batch of inBatches(loaded.value, AVAILABILITY_BATCH_SIZE)) {
+        let availability;
+        try {
+          availability = await dependencies.contentAccess.checkAvailabilityMany({
+            correlationId: randomUUID(),
+            enforcementPoint: "guide_artifact_read",
+            operations: batch.map((artifact) => ({
+              action: "download" as const,
+              itemId: artifact.artifactId,
+              resource: {
+                artifactId: artifact.artifactId,
+                kind: "guideArtifact" as const,
+              },
+            })),
+            subject: query.subject,
+          });
+        } catch {
+          return dependencyUnavailable();
+        }
+        if (!availability.ok) return dependencyUnavailable();
+        for (const item of availability.items) {
+          states.set(item.itemId, item.availability);
+        }
       }
-      if (!availability.ok) return dependencyUnavailable();
-      const states = new Map(
-        availability.items.map((item) => [item.itemId, item.availability]),
-      );
       return {
         ok: true,
         value: loaded.value.flatMap((artifact) => {
@@ -196,6 +204,15 @@ export function assembleGuideArtifactDelivery(dependencies: {
     },
   };
   return Object.freeze(delivery);
+}
+
+function* inBatches<Value>(
+  values: readonly Value[],
+  size: number,
+): Generator<readonly Value[]> {
+  for (let start = 0; start < values.length; start += size) {
+    yield values.slice(start, start + size);
+  }
 }
 
 function projectPublicArtifact(

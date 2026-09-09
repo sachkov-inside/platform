@@ -379,7 +379,6 @@ model GuideArtifactVersion {
   publicObjectKey     String?   @map("public_object_key") @db.VarChar(512)
   createdBy           String    @map("created_by") @db.Uuid
   createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  readyAt             DateTime  @default(now()) @map("ready_at") @db.Timestamptz
   supersededAt        DateTime? @map("superseded_at") @db.Timestamptz
 
   artifact GuideArtifact @relation(fields: [artifactId], references: [id], onDelete: Cascade)

@@ -54,7 +54,6 @@ export const statement = `
     public_object_key varchar(512),
     created_by uuid not null,
     created_at timestamptz not null default now(),
-    ready_at timestamptz not null default now(),
     superseded_at timestamptz,
     constraint guide_artifact_versions_primary primary key (artifact_id, version),
     constraint guide_artifact_versions_artifact_fk foreign key (artifact_id)
