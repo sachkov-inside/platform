@@ -11,6 +11,13 @@ export interface DiscoverPublishedMaterialProjectionsQuery {
 }
 
 export interface PublishedMaterialDiscoveryPageDto {
+  /** Chapters of a Guide's main path, in author order; empty for every other discovery kind. */
+  readonly chapters: readonly {
+    readonly id: string;
+    readonly materialIds: readonly string[];
+    readonly name: string;
+    readonly summary: string;
+  }[];
   readonly hasNext: boolean;
   readonly items: readonly PublishedMaterialProjectionDto[];
   readonly kind: PublishedMaterialDiscoveryKind;

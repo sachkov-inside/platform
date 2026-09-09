@@ -5,14 +5,24 @@ import {
 } from "../../../../infrastructure/prisma/index.js";
 import { z } from "zod";
 import type { GuideMembership } from "../../domain/material-metadata.js";
+import type { GuideChapterEntry } from "../../shared/guide-order-version.js";
 import type { MaterialId } from "../../domain/material-identifiers.js";
 import { refreshPublishedMaterialSearchProjections } from "./published-material-search.js";
 
 const publicationStateSchema = z.enum(["draft", "published", "unpublished"]);
 
+export interface GuideChapterSnapshot {
+  readonly id: string;
+  readonly name: string;
+  readonly ordinal: number;
+  readonly summary: string;
+}
+
 export interface SeriesOrderSnapshot {
   readonly archived: boolean;
+  readonly chapters: readonly GuideChapterSnapshot[];
   readonly items: readonly {
+    readonly chapterId: string | null;
     readonly materialId: string;
     readonly ordinal: number;
     readonly stepGroup: string | null;
@@ -27,7 +37,7 @@ export async function loadSeriesOrderSnapshot(
   prisma: MaterialsPrisma,
   seriesId: string,
 ): Promise<SeriesOrderSnapshot | undefined> {
-  const [series, memberships] = await Promise.all([
+  const [series, memberships, chapters] = await Promise.all([
     prisma.guide.findUnique({
       where: { id: seriesId },
       select: { archivedAt: true, id: true, name: true },
@@ -35,7 +45,12 @@ export async function loadSeriesOrderSnapshot(
     prisma.guideMembership.findMany({
       where: { seriesId },
       orderBy: [{ ordinal: "asc" }, { materialId: "asc" }],
-      select: { materialId: true, ordinal: true, stepGroup: true },
+      select: { chapterId: true, materialId: true, ordinal: true, stepGroup: true },
+    }),
+    prisma.guideChapter.findMany({
+      where: { guideId: seriesId },
+      orderBy: [{ ordinal: "asc" }, { id: "asc" }],
+      select: { id: true, name: true, ordinal: true, summary: true },
     }),
   ]);
   if (series === null) {
@@ -51,12 +66,14 @@ export async function loadSeriesOrderSnapshot(
   const materialById = new Map(materials.map((material) => [material.id, material]));
   return {
     archived: series.archivedAt !== null,
-    items: memberships.map(({ materialId, ordinal, stepGroup }) => {
+    chapters,
+    items: memberships.map(({ chapterId, materialId, ordinal, stepGroup }) => {
       const material = materialById.get(materialId);
       if (material === undefined) {
-        throw new TypeError("Series membership references a missing Material");
+        throw new TypeError("Guide membership references a missing Material");
       }
       return {
+        chapterId,
         materialId,
         ordinal,
         stepGroup,
@@ -154,30 +171,42 @@ export async function lockMaterialSeries(
   );
 }
 
-export async function replaceSeriesOrder(
+export async function replaceGuideComposition(
   transaction: MaterialsPrismaTransaction,
-  seriesId: string,
-  orderedMaterialIds: readonly string[],
-  stepGroups: Readonly<Record<string, string>>,
+  {
+    chapterAssignments,
+    chapters,
+    guideId,
+    orderedMaterialIds,
+    stepGroups,
+  }: {
+    readonly chapterAssignments: Readonly<Record<string, string>>;
+    readonly chapters: readonly GuideChapterEntry[];
+    readonly guideId: string;
+    readonly orderedMaterialIds: readonly string[];
+    readonly stepGroups: Readonly<Record<string, string>>;
+  },
 ): Promise<void> {
   const previousMemberships = await transaction.guideMembership.findMany({
-    where: { seriesId },
+    where: { seriesId: guideId },
     select: { materialId: true },
   });
-  await transaction.guideMembership.deleteMany({ where: { seriesId } });
+  await transaction.guideMembership.deleteMany({ where: { seriesId: guideId } });
+  await replaceGuideChapters(transaction, guideId, chapters);
   if (orderedMaterialIds.length > 0) {
     await transaction.guideMembership.createMany({
       data: orderedMaterialIds.map((materialId, index) => ({
+        chapterId: chapterAssignments[materialId] ?? null,
         materialId,
         ordinal: index + 1,
         stepGroup: stepGroups[materialId] ?? null,
-        seriesId,
+        seriesId: guideId,
       })),
     });
   }
 
   await transaction.publishedMaterialGuideMembership.deleteMany({
-    where: { seriesId },
+    where: { seriesId: guideId },
   });
   const published =
     orderedMaterialIds.length === 0
@@ -192,7 +221,7 @@ export async function replaceSeriesOrder(
   const publishedIds = new Set(published.map(({ id }) => id));
   const publishedMemberships = orderedMaterialIds.flatMap((materialId, index) =>
     publishedIds.has(materialId)
-      ? [{ materialId, ordinal: index + 1, seriesId }]
+      ? [{ materialId, ordinal: index + 1, seriesId: guideId }]
       : [],
   );
   if (publishedMemberships.length > 0) {
@@ -209,4 +238,41 @@ export async function replaceSeriesOrder(
       ]),
     ],
   });
+}
+
+/**
+ * Chapters keep their identity across renames and reordering, so kept rows are updated in place.
+ * Removing a chapter detaches its Materials through the membership foreign key; it never deletes
+ * a Material. The (guide_id, ordinal) constraint is deferred, so positions may swap inside the
+ * transaction.
+ */
+async function replaceGuideChapters(
+  transaction: MaterialsPrismaTransaction,
+  guideId: string,
+  chapters: readonly GuideChapterEntry[],
+): Promise<void> {
+  const existing = await transaction.guideChapter.findMany({
+    where: { guideId },
+    select: { id: true },
+  });
+  const kept = new Set(chapters.map(({ id }) => id));
+  const removed = existing.flatMap(({ id }) => (kept.has(id) ? [] : [id]));
+  if (removed.length > 0) {
+    await transaction.guideChapter.deleteMany({ where: { guideId, id: { in: removed } } });
+  }
+  const known = new Set(existing.map(({ id }) => id));
+  const updatedAt = new Date();
+  for (const [index, { id, name, summary }] of chapters.entries()) {
+    const ordinal = index + 1;
+    if (known.has(id)) {
+      await transaction.guideChapter.update({
+        where: { id },
+        data: { name, ordinal, summary, updatedAt },
+      });
+    } else {
+      await transaction.guideChapter.create({
+        data: { id, guideId, name, ordinal, summary },
+      });
+    }
+  }
 }

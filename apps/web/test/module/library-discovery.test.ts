@@ -51,6 +51,48 @@ describe("Library discovery server adapter", () => {
     vi.unstubAllGlobals();
   });
 
+  it("keeps the published chapter programme of a Guide", async () => {
+    vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
+    const chapter = {
+      id: "72000000-0000-4000-8000-000000000030",
+      materialIds: ["72000000-0000-4000-8000-000000000020"],
+      name: "Проект и CI",
+      summary: "Первый абзац.\n\nВторой абзац.",
+    };
+    const empty = {
+      id: "72000000-0000-4000-8000-000000000031",
+      materialIds: [],
+      name: "Эксплуатация",
+      summary: "",
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        Response.json({
+          chapters: [chapter, empty],
+          hasNext: false,
+          items: [publishedProjection],
+          kind: "series",
+          reference: {
+            cover: null,
+            id: "72000000-0000-4000-8000-000000000002",
+            name: "Platform",
+            slug: "platform",
+            summary: "Материалы о Platform.",
+          },
+          relatedSeries: [],
+          topics: [],
+        }),
+      ),
+    );
+
+    const result = await getPublishedSeries("platform");
+    expect(result.kind === "ready" ? result.chapters : []).toEqual([
+      chapter,
+      empty,
+    ]);
+  });
+
   it.each([
     ["topic", getPublishedTopic, "/library/topics/platform"],
     ["series", getPublishedSeries, "/library/guides/platform"],
@@ -79,6 +121,7 @@ describe("Library discovery server adapter", () => {
       );
 
       await expect(getDiscovery("platform")).resolves.toEqual({
+        chapters: [],
         discoveryKind: kind,
         hasNext: false,
         items: [
@@ -149,6 +192,7 @@ describe("Library discovery server adapter", () => {
     await expect(
       getRelatedMaterials("inside-platform-overview"),
     ).resolves.toEqual({
+      chapters: [],
       discoveryKind: "related",
       kind: "empty",
       reference: {

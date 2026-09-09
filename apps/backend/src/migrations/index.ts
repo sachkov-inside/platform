@@ -1,3 +1,4 @@
+import { name as guideChaptersName, statement as guideChaptersStatement } from "../modules/materials/infrastructure/postgres/migrations/0049-guide-chapters.js";
 import { name as scopedAccessName, statement as scopedAccessStatement } from "../modules/membership-entitlements/infrastructure/postgres/migrations/0046-scoped-access.js";
 import { name as subscriptionPaymentsName, statement as subscriptionPaymentsStatement } from "../modules/billing/infrastructure/postgres/migrations/0047-subscription-payments.js";
 import { name as subscriptionLifecycleName, statement as subscriptionLifecycleStatement } from "../modules/billing/infrastructure/postgres/migrations/0048-subscription-lifecycle.js";
@@ -309,6 +310,7 @@ export const platformMigrations = [
   { name: scopedAccessName, statement: scopedAccessStatement },
   { name: subscriptionPaymentsName, statement: subscriptionPaymentsStatement },
   { name: subscriptionLifecycleName, statement: subscriptionLifecycleStatement },
+  { name: guideChaptersName, statement: guideChaptersStatement },
 ] as const;
 
 export function migrateToLatest(

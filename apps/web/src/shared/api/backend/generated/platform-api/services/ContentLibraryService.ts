@@ -16,6 +16,12 @@ export class ContentLibraryService {
   }: {
     slug: string,
   }): CancelablePromise<{
+    chapters: Array<{
+      id: string;
+      materialIds: Array<string>;
+      name: string;
+      summary: string;
+    }>;
     hasNext: boolean;
     items: Array<{
       access: 'free' | 'membership' | 'workshop';
@@ -702,6 +708,12 @@ export class ContentLibraryService {
   }: {
     slug: string,
   }): CancelablePromise<{
+    chapters: Array<{
+      id: string;
+      materialIds: Array<string>;
+      name: string;
+      summary: string;
+    }>;
     hasNext: boolean;
     items: Array<{
       access: 'free' | 'membership' | 'workshop';
@@ -813,6 +825,12 @@ export class ContentLibraryService {
   }: {
     slug: string,
   }): CancelablePromise<{
+    chapters: Array<{
+      id: string;
+      materialIds: Array<string>;
+      name: string;
+      summary: string;
+    }>;
     hasNext: boolean;
     items: Array<{
       access: 'free' | 'membership' | 'workshop';
@@ -923,6 +941,12 @@ export class ContentLibraryService {
   }: {
     slug: string,
   }): CancelablePromise<{
+    chapters: Array<{
+      id: string;
+      materialIds: Array<string>;
+      name: string;
+      summary: string;
+    }>;
     hasNext: boolean;
     items: Array<{
       access: 'free' | 'membership' | 'workshop';

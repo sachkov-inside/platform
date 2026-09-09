@@ -20,6 +20,13 @@ export interface RelatedPlaylist {
   readonly totalMaterialCount: number;
 }
 
+export interface GuideChapter {
+  readonly id: string;
+  readonly materialIds: readonly string[];
+  readonly name: string;
+  readonly summary: string;
+}
+
 export interface DiscoveryTopic {
   readonly cover?: ContentCover | null | undefined;
   readonly id: string;
@@ -31,6 +38,7 @@ export type LibraryDiscoveryResult<
   DiscoveryKind extends LibraryDiscoveryKind = LibraryDiscoveryKind,
 > =
   | {
+      readonly chapters: readonly GuideChapter[];
       readonly discoveryKind: DiscoveryKind;
       readonly hasNext: boolean;
       readonly items: readonly MaterialPreview[];
@@ -40,6 +48,7 @@ export type LibraryDiscoveryResult<
       readonly topics: readonly DiscoveryTopic[];
     }
   | {
+      readonly chapters: readonly GuideChapter[];
       readonly discoveryKind: DiscoveryKind;
       readonly kind: "empty";
       readonly reference: LibraryDiscoveryReference;

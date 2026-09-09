@@ -7,9 +7,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { MaterialCard } from "@/entities/material";
-import type { PublishedSeriesResult } from "@/features/library-discovery";
+import type { MaterialPreview } from "@/entities/material";
+import { formatMaterialCount, type GuideChapter, type PublishedSeriesResult } from "@/features/library-discovery";
 import { SeriesMaterialMarker, SeriesProgress } from "@/features/reading-progress";
 import { Button } from "@/shared/ui/button";
+import { guideChapterRuns } from "@/shared/lib/guide-chapter-runs";
 import { materialReaderHref, readSeriesPage, seriesReaderReturnHref } from "@/shared/routing/material-reader";
 import { seriesPage, SERIES_PAGE_SIZE } from "../model/series-page";
 
@@ -93,22 +95,38 @@ export function SeriesJourney({ result, currentHref, learning = { kind: "guest" 
         </div> : complete ? <p className="max-w-md leading-7 text-muted-foreground">Можно вернуться к любому материалу в маршруте и повторить нужное.</p> : learning.kind === "loading" ? <p className="text-muted-foreground">Ищем место продолжения…</p> : learning.kind === "unavailable" ? <p className="text-sm leading-6 text-muted-foreground">Материалы можно открыть в маршруте ниже.</p> : <p className="text-sm leading-6 text-muted-foreground">Выберите материал в маршруте. Условия доступа указаны на карточках.</p>}
       </div>
     </section> : null}
+    {result.chapters.length > 0 ? <section aria-labelledby="guide-programme" className="mt-10">
+      <h2 className="text-xl font-semibold tracking-[-0.02em]" id="guide-programme">Программа руководства</h2>
+      <ol className="mt-5 grid gap-6">
+        {chapterRuns(items, result.chapters).map((part) => <li className="grid grid-cols-[2rem_minmax(0,1fr)] gap-x-3" key={part.chapter?.id ?? `open-${String(part.offset)}`}>
+          <span aria-hidden="true" className="pt-0.5 text-sm tabular-nums text-muted-foreground">{part.chapter === null ? "" : result.chapters.indexOf(part.chapter) + 1}</span>
+          <div className="min-w-0">
+            <h3 className="text-lg font-semibold leading-7 [overflow-wrap:anywhere]">{part.chapter?.name ?? "Материалы вне глав"}</h3>
+            {(part.chapter?.summary ?? "").split(/\n{2,}/u).filter((paragraph) => paragraph.trim().length > 0).map((paragraph, position) => <p className="mt-2 max-w-2xl leading-7 text-muted-foreground" key={`paragraph-${String(position)}`}>{paragraph}</p>)}
+            <p className="mt-2 text-sm text-muted-foreground">{part.items.length === 0 ? "Материалы готовятся." : formatMaterialCount(part.items.length)}</p>
+          </div>
+        </li>)}
+      </ol>
+    </section> : null}
     {result.kind === "ready" ? <section aria-labelledby="series-materials" className="mt-10 scroll-mt-6 focus:outline-none" ref={routeRef} tabIndex={-1}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="sr-only" id="series-materials">Материалы руководства</h2>
         {page.count > 1 ? <p aria-live="polite" className="text-sm tabular-nums text-muted-foreground">Материалы {page.offset + 1}–{page.offset + page.items.length} из {items.length}</p> : null}
       </div>
       {items.some((item) => item.availability === "unavailable") ? <Button className="mt-4 h-auto min-h-11 max-w-full whitespace-normal" onClick={() => { router.refresh(); }} variant="outline"><RefreshCw aria-hidden="true" />Повторить проверку доступа</Button> : null}
-      <ol aria-label="Материалы руководства" className={page.count > 1 ? "mt-5 grid gap-4" : "grid gap-4"} data-series-order start={page.offset + 1}>
-        {page.items.map((material, index) => {
-          const ordinal = material.seriesMemberships.find(({ slug }) => slug === result.reference.slug)?.ordinal ?? page.offset + index + 1;
-          return <li aria-current={next?.slug === material.slug ? "step" : undefined} className="@container/series-entry relative grid scroll-mt-6 grid-cols-[2rem_minmax(0,1fr)] items-center gap-3 rounded-2xl focus-visible:outline-2 focus-visible:outline-ring" data-route-material={material.slug} data-series-ordinal={ordinal} key={material.slug} tabIndex={-1}>
-            {page.items.length > 1 ? <span aria-hidden="true" className="pointer-events-none absolute left-[15px] w-0 border-l-2 border-dashed border-border" data-series-rail style={{ top: index === 0 ? "50%" : "-1rem", bottom: index === page.items.length - 1 ? "50%" : "-1rem" }} /> : null}
-            <div className="relative z-10 flex min-h-11 items-center"><SeriesMaterialMarker {...(material.materialId === undefined ? {} : { materialId: material.materialId })} ordinal={ordinal} /></div>
-            <MaterialCard headingLevel="h3" material={material} {...(next?.slug === material.slug && continuation !== null ? { resumeLabel: continuation.label } : {})} returnHref={seriesReaderReturnHref(currentHref, page.number, material.slug)} variant="series" />
-          </li>;
-        })}
-      </ol>
+      {chapterRuns(page.items, result.chapters).filter((run) => run.items.length > 0).map((run) => <div className={page.count > 1 ? "mt-5" : ""} key={run.chapter?.id ?? `open-${String(run.offset)}`}>
+        {result.chapters.length === 0 ? null : <h3 className="mb-4 text-lg font-semibold">{run.chapter?.name ?? "Материалы вне глав"}</h3>}
+        <ol aria-label={run.chapter !== null ? `Материалы главы «${run.chapter.name}»` : result.chapters.length === 0 ? "Материалы руководства" : "Материалы вне глав"} className="grid gap-4" data-series-order start={page.offset + run.offset + 1}>
+          {run.items.map((material, index) => {
+            const ordinal = material.seriesMemberships.find(({ slug }) => slug === result.reference.slug)?.ordinal ?? page.offset + run.offset + index + 1;
+            return <li aria-current={next?.slug === material.slug ? "step" : undefined} className="@container/series-entry relative grid scroll-mt-6 grid-cols-[2rem_minmax(0,1fr)] items-center gap-3 rounded-2xl focus-visible:outline-2 focus-visible:outline-ring" data-route-material={material.slug} data-series-ordinal={ordinal} key={material.slug} tabIndex={-1}>
+              {run.items.length > 1 ? <span aria-hidden="true" className="pointer-events-none absolute left-[15px] w-0 border-l-2 border-dashed border-border" data-series-rail style={{ top: index === 0 ? "50%" : "-1rem", bottom: index === run.items.length - 1 ? "50%" : "-1rem" }} /> : null}
+              <div className="relative z-10 flex min-h-11 items-center"><SeriesMaterialMarker {...(material.materialId === undefined ? {} : { materialId: material.materialId })} ordinal={ordinal} /></div>
+              <MaterialCard headingLevel={result.chapters.length === 0 ? "h3" : "h4"} material={material} {...(next?.slug === material.slug && continuation !== null ? { resumeLabel: continuation.label } : {})} returnHref={seriesReaderReturnHref(currentHref, page.number, material.slug)} variant="series" />
+            </li>;
+          })}
+        </ol>
+      </div>)}
       {page.count > 1 ? <nav aria-label="Страницы маршрута" className="mt-7 flex flex-wrap items-center justify-between gap-3">
         <Button className="min-h-11" disabled={page.number === 1} onClick={() => { navigate(page.number - 1); }} variant="outline"><ArrowLeft aria-hidden="true" />Назад</Button>
         <div className="flex flex-wrap items-center gap-1">
@@ -118,4 +136,9 @@ export function SeriesJourney({ result, currentHref, learning = { kind: "guest" 
       </nav> : null}
     </section> : null}
   </>;
+}
+
+function chapterRuns(visible: readonly MaterialPreview[], chapters: readonly GuideChapter[]) {
+  const byMaterial = new Map(chapters.flatMap((chapter) => chapter.materialIds.map((materialId) => [materialId, chapter.id] as const)));
+  return guideChapterRuns(visible, chapters, (material) => material.materialId === undefined ? null : byMaterial.get(material.materialId) ?? null);
 }

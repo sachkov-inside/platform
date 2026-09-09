@@ -15,7 +15,17 @@ const materials = titles.map((title, index): MaterialPreview => ({
   summary: "", topic: "Platform", topicSlug: "platform", tags: [],
   seriesMemberships: [{ name: "Создание Platform Inside", slug: "platform-inside", ordinal: index + 1 }],
 }));
-const result = { discoveryKind: "series", kind: "ready", hasNext: false, reference: { name: "Создание Platform Inside", slug: "platform-inside", summary: "От продуктовой идеи до работающего приложения." }, items: materials, relatedSeries: [], topics: [] } satisfies PublishedSeriesResult;
+const result = { chapters: [], discoveryKind: "series", kind: "ready", hasNext: false, reference: { name: "Создание Platform Inside", slug: "platform-inside", summary: "От продуктовой идеи до работающего приложения." }, items: materials, relatedSeries: [], topics: [] } satisfies PublishedSeriesResult;
+const chapterTitles = ["Основа продукта", "Данные и доступ", "Проверки и релизы", "Эксплуатация", "Что дальше"];
+const chapters = chapterTitles.map((name, index) => ({
+  id: `chapter-${String(index + 1)}`,
+  name,
+  materialIds: materials.slice(index * 6, index * 6 + 6).map(({ materialId }) => materialId ?? ""),
+  summary: index === 0
+    ? "Разберём, из чего складывается первая версия продукта и какие решения принимаются до кода.\n\nТы опишешь границы, сценарии и предметную область своего проекта."
+    : `Практическая часть руководства: ${name.toLowerCase()}.`,
+}));
+const chapteredResult = { ...result, chapters } satisfies PublishedSeriesResult;
 const resume = { materialSlug: "series-material-13", label: "Продолжить с 12:40" };
 const register = () => () => undefined;
 const refresh = () => Promise.resolve();
@@ -70,6 +80,38 @@ export const Completed: Story = { args: { learning: { kind: "ready", read: 24, t
 export const ProgressUnavailable: Story = { args: { learning: { kind: "unavailable" } }, play: async ({ canvasElement, args }) => { await userEvent.click(within(canvasElement).getByRole("button", { name: "Повторить загрузку прогресса" })); await expect(args.onRetry).toHaveBeenCalled(); } };
 export const Loading: Story = { args: { learning: { kind: "loading" } } };
 export const AccessUnavailable: Story = { args: { result: { ...result, items: materials.map((material) => ({ ...material, availability: "unavailable" })) }, learning: { kind: "ready", read: 8, total: 24, continuation: null } } };
+export const Chapters: Story = {
+  args: { result: chapteredResult },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole("heading", { name: "Программа руководства" })).toBeVisible();
+    await expect(canvas.getByText("Разберём, из чего складывается первая версия продукта и какие решения принимаются до кода.")).toBeVisible();
+    await expect(canvas.getByRole("heading", { level: 3, name: "Основа продукта" })).toBeVisible();
+    await expect(canvas.getByText("Материалы готовятся.")).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Страница 1" }));
+    await expect(canvas.getAllByRole("list", { name: "Материалы главы «Основа продукта»" })[0]).toBeVisible();
+    await expect(canvas.getAllByRole("list", { name: "Материалы главы «Данные и доступ»" })[0]).toBeVisible();
+    await expect(canvas.getAllByRole("heading", { level: 3, name: "Данные и доступ" })).toHaveLength(2);
+  },
+};
+export const ChaptersMobile: Story = { args: { result: chapteredResult }, globals: { viewport: { value: "mobile390", isRotated: false } } };
+export const PartiallyGrouped: Story = {
+  args: {
+    learning: { kind: "guest" },
+    result: {
+      ...result,
+      chapters: chapters.map((chapter, index) => index === 0
+        ? { ...chapter, materialIds: chapter.materialIds.slice(0, 5) }
+        : chapter),
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getAllByRole("heading", { name: "Материалы вне глав" }).length).toBeGreaterThan(0);
+    await expect(canvas.getByRole("list", { name: "Материалы вне глав" })).toBeVisible();
+    await expect(canvas.getAllByText("1 материал").length).toBeGreaterThan(0);
+  },
+};
 export const ShortSeries: Story = { args: { result: { ...result, items: materials.slice(0, 2) }, learning: { kind: "ready", read: 0, total: 2, continuation: null } }, play: async ({ canvasElement }) => { await expect(within(canvasElement).queryByRole("navigation", { name: "Страницы маршрута" })).not.toBeInTheDocument(); } };
 
 function ProgressResolution({ longTitle = false }: { longTitle?: boolean }) {

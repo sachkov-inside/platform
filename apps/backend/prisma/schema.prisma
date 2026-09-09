@@ -337,6 +337,21 @@ model Guide {
   @@schema("materials")
 }
 
+model GuideChapter {
+  id        String   @id @db.Uuid
+  guideId   String   @map("guide_id") @db.Uuid
+  name      String
+  summary   String   @default("")
+  ordinal   Int
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz
+
+  @@unique([id, guideId], map: "guide_chapters_identity_unique")
+  @@unique([guideId, ordinal], map: "guide_chapters_ordinal_unique")
+  @@map("guide_chapters")
+  @@schema("materials")
+}
+
 model HomeSeriesPin {
   id       Int     @id
   seriesId String? @map("series_id") @db.Uuid
@@ -382,7 +397,8 @@ model MaterialTag {
 }
 
 model GuideMembership {
-  stepGroup String? @map("step_group")
+  stepGroup  String? @map("step_group")
+  chapterId  String? @map("chapter_id") @db.Uuid
   seriesId   String @map("series_id") @db.Uuid
   materialId String @map("material_id") @db.Uuid
   ordinal    Int

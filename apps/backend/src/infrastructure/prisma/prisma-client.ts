@@ -18,6 +18,7 @@ export type MaterialsPrisma = Pick<
   | "publishedMaterialGuideMembership"
   | "publishedMaterialTag"
   | "guide"
+  | "guideChapter"
   | "guideMembership"
   | "tag"
   | "topic"

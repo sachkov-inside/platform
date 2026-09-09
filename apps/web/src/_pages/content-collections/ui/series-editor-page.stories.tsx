@@ -45,6 +45,7 @@ function Fixture({
         ...collection,
         seriesId: collection.id,
         orderVersion: "a".repeat(64),
+        chapters: [],
         items: empty ? [] : items,
       },
     });

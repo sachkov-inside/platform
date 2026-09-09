@@ -280,6 +280,12 @@ export function requestSeriesOrder(
 
 export function requestSeriesReorder(
   input: {
+    readonly chapters?: readonly {
+      readonly id: string;
+      readonly name: string;
+      readonly summary: string;
+    }[];
+    readonly chapterAssignments?: Readonly<Record<string, string>>;
     readonly expectedOrderVersion: string;
     readonly orderedMaterialIds: readonly string[];
     readonly stepGroups?: Readonly<Record<string, string>>;
@@ -297,6 +303,12 @@ export function requestSeriesReorder(
           ...(input.stepGroups === undefined
             ? {}
             : { stepGroups: { ...input.stepGroups } }),
+          ...(input.chapters === undefined
+            ? {}
+            : { chapters: input.chapters.map((chapter) => ({ ...chapter })) }),
+          ...(input.chapterAssignments === undefined
+            ? {}
+            : { chapterAssignments: { ...input.chapterAssignments } }),
         },
       }),
     200,

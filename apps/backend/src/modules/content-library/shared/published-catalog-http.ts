@@ -74,8 +74,18 @@ const discoveryTopicHttpSchema = z
   })
   .strict();
 
+const guideChapterHttpSchema = z
+  .object({
+    id: z.uuid(),
+    materialIds: z.array(z.uuid()),
+    name: z.string(),
+    summary: z.string(),
+  })
+  .strict();
+
 export const publishedDiscoveryPageHttpSchema = z
   .object({
+    chapters: z.array(guideChapterHttpSchema),
     hasNext: z.boolean(),
     items: z.array(publishedCatalogItemHttpSchema),
     kind: z.enum(["related", "series", "topic"]),

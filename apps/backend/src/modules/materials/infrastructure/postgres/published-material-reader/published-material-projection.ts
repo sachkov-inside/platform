@@ -28,6 +28,13 @@ interface PublishedMaterialProjectionSearchValues {
 }
 
 export interface PublishedMaterialDiscoveryPage {
+  /** Chapters of a Guide's main path, in author order; empty for every other discovery kind. */
+  readonly chapters: readonly {
+    readonly id: string;
+    readonly materialIds: readonly string[];
+    readonly name: string;
+    readonly summary: string;
+  }[];
   readonly reference: {
     readonly id: string;
     readonly name: string;
@@ -53,6 +60,15 @@ export interface PublishedMaterialDiscoveryPage {
   readonly items: readonly PublishedMaterialProjectionDto[];
   readonly hasNext: boolean;
 }
+
+const guideChapterRowSchema = z
+  .object({
+    id: z.uuid(),
+    material_ids: z.array(z.uuid()),
+    name: z.string(),
+    summary: z.string(),
+  })
+  .strict();
 
 const relatedSeriesRowSchema = z
   .object({
@@ -700,6 +716,7 @@ export async function selectPublishedMaterialProjectionsByTopic(
     ),
   );
   return {
+    chapters: [],
     reference: {
       id: reference.id,
       name: reference.name,
@@ -731,7 +748,7 @@ export async function selectPublishedMaterialProjectionsBySeries(
   slug: string,
   first: number | null,
 ): Promise<PublishedMaterialDiscoveryPage | undefined> {
-  const [reference, rawRows, rawTopics] = await Promise.all([
+  const [reference, rawRows, rawTopics, rawChapters] = await Promise.all([
     prisma.guide.findUnique({
       where: { slug },
       select: { coverId: true, id: true, name: true, slug: true, summary: true },
@@ -769,12 +786,38 @@ export async function selectPublishedMaterialProjectionsBySeries(
         and publication.access <> 'workshop'
       order by topic.name, topic.id
     `),
+    prisma.$queryRaw(Prisma.sql`
+      select
+        chapter.id,
+        chapter.name,
+        chapter.summary,
+        coalesce(
+          (
+            select json_agg(published.material_id order by published.ordinal)
+            from materials.published_material_series_memberships as published
+            join materials.series_memberships as current_membership
+              on current_membership.series_id = published.series_id
+             and current_membership.material_id = published.material_id
+            join materials.published_materials as publication
+              on publication.material_id = published.material_id
+            where published.series_id = chapter.guide_id
+              and current_membership.chapter_id = chapter.id
+              and publication.access <> 'workshop'
+          ),
+          '[]'::json
+        ) as material_ids
+      from materials.guide_chapters as chapter
+      join materials.series as series on series.id = chapter.guide_id
+      where series.slug = ${slug}
+      order by chapter.ordinal, chapter.id
+    `),
   ]);
   if (reference === null) {
     return undefined;
   }
   const rows = publishedMaterialProjectionRowSchema.array().parse(rawRows);
   const topics = discoveryTopicRowSchema.array().parse(rawTopics);
+  const chapters = guideChapterRowSchema.array().parse(rawChapters);
   const covers = await loadContentCoverProjections(
     prisma,
     [reference.coverId, ...topics.map(({ cover_id }) => cover_id)].flatMap(
@@ -782,6 +825,12 @@ export async function selectPublishedMaterialProjectionsBySeries(
     ),
   );
   return {
+    chapters: chapters.map(({ id, material_ids, name, summary }) => ({
+      id,
+      materialIds: material_ids,
+      name,
+      summary,
+    })),
     reference: {
       id: reference.id,
       name: reference.name,
@@ -876,6 +925,7 @@ export async function selectRelatedPublishedMaterialProjections(
     ),
   );
   return {
+    chapters: [],
     reference: {
       id: source.materialId,
       name: source.title,

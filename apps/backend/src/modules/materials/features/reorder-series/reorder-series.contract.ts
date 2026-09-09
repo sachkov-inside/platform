@@ -4,11 +4,16 @@ import type {
   InvalidReferenceError,
   SystemError,
 } from "../../facets/material-authoring/material-authoring.contract.js";
+import type { GuideChapterDraft } from "../../shared/guide-chapters.js";
 import type { SeriesNotFoundError } from "../load-series-order/load-series-order.contract.js";
 import type { Result } from "../../result.js";
 
 export interface ReorderSeriesCommand {
   readonly actor: string;
+  /** The complete ordered chapter list; omitted keeps the current chapters unchanged. */
+  readonly chapters?: readonly GuideChapterDraft[] | undefined;
+  /** Material to chapter placement; omitted keeps the placement of retained Materials. */
+  readonly chapterAssignments?: Readonly<Record<string, string>> | undefined;
   readonly expectedOrderVersion: string;
   readonly orderedMaterialIds: readonly string[];
   readonly stepGroups?: Readonly<Record<string, string>> | undefined;
