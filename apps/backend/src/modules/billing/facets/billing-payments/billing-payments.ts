@@ -11,6 +11,8 @@ import { reservePurchaseInTransaction } from "../../features/reserve-purchase/re
 import { paymentFailure, purchaseSubscriptionSchema, purchaseStatusSchema, type PaymentResult, type PurchaseStatus } from "../../features/purchase-subscription/purchase-subscription.contract.js";
 import { paidPeriodCommandSchema } from "../../../membership-entitlements/index.js";
 
+const fulfillmentRetryDelayMilliseconds = 60_000;
+
 interface Dependencies {
   readonly prisma: BillingPrismaClient;
   readonly contact: Pick<BillingContact, "read" | "readConsent">;
@@ -142,7 +144,7 @@ export class BillingPayments {
       let applied = 0;
       for (const row of pending) {
         // A failed item moves behind other work; a process crash leaves it recoverable after a minute.
-        await this.dependencies.prisma.billingFulfillment.update({ where: { eventRef: row.eventRef }, data: { nextAttemptAt: new Date(this.clock().getTime() + 60_000) } });
+        await this.dependencies.prisma.billingFulfillment.update({ where: { eventRef: row.eventRef }, data: { nextAttemptAt: new Date(this.clock().getTime() + fulfillmentRetryDelayMilliseconds) } });
         const parsed = paidPeriodCommandSchema.safeParse(row.payload);
         if (!parsed.success) continue;
         const command = parsed.data;
