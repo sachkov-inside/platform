@@ -1,20 +1,20 @@
 import { ArrowRight, BookOpen, Code2, GitBranch, Layers, MessageCircle, Terminal, Users } from "lucide-react";
 import Link from "next/link";
-
 import { formatMaterialCount } from "@/features/library-discovery";
-import { collectionDiscoveryHref } from "@/shared/routing/material-reader";
-import type { HomeCollection } from "../model/home-view";
 
-/** Accepted #380 composition; the owning Home adapter supplies published content and access. */
+import type { HomeCollection } from "../model/home-view";
+import { collectionDiscoveryHref } from "@/shared/routing/material-reader";
+
+/** Reuses the #380 presenter composition with the author-selected Series. */
 export function FeaturedSeries({ series }: { readonly series: HomeCollection }) {
   return <section className="home-featured" aria-labelledby="featured-title">
     <div className="home-featured-copy">
-      <p className="home-featured-label">С чего начать · Руководство</p>
+      <p className="home-featured-label">Закреплено автором · Руководство</p>
       <h2 id="featured-title">{series.name}</h2>
       {series.summary && <p className="home-featured-description">{series.summary}</p>}
       <div className="home-featured-bottom">
         <span>{formatMaterialCount(series.count)}</span>
-        <Link href={collectionDiscoveryHref("series", series.slug, "/")}>Изучить руководство <ArrowRight aria-hidden="true" /></Link>
+        <Link href={collectionDiscoveryHref("series", series.slug, "/")}>Открыть руководство <ArrowRight aria-hidden="true" /></Link>
       </div>
     </div>
     <div className="home-presenter" aria-hidden="true">

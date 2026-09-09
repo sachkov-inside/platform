@@ -16,6 +16,7 @@ describe("material authoring transport mapping", () => {
         issues: [{ code: "unsafe_link", path: "/doc/content/0" }],
       }),
     ).toBe(422);
+    expect(statusForMaterialAuthoringError({ code: "stale_home_pin" })).toBe(409);
     expect(statusForMaterialAuthoringError({ code: "forbidden" })).toBe(403);
     expect(
       statusForMaterialAuthoringError({

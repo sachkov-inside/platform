@@ -6,13 +6,13 @@ import { seriesOrderMaterialSearchQueryOptions } from "../model/series-order-mat
 import { SeriesOrderManager } from "./series-order-manager.client";
 export function SeriesOrderPanel({
   seriesId,
-  onClose,
+  archived,
 }: {
   readonly seriesId: string;
-  readonly onClose: () => void;
+  readonly archived: boolean;
 }) {
   const query = useQuery(seriesOrderQueryOptions(seriesId));
-  if (query.isPending || query.isFetching)
+  if (query.isPending)
     return (
       <p className="p-6" role="status">
         Загружаем материалы руководства…
@@ -35,15 +35,17 @@ export function SeriesOrderPanel({
   const order = query.data.order;
   return (
     <SeriesOrderManager
+      key={order.orderVersion}
       embedded
       createMaterialSearchQueryOptions={seriesOrderMaterialSearchQueryOptions}
-      onBack={onClose}
+      onBack={() => undefined}
       onRefresh={() => {
         void query.refetch();
       }}
       onSelectPlaylist={() => undefined}
       presentation={{
         ...order,
+        archived,
         options: [{ label: order.name, value: order.seriesId }],
       }}
     />

@@ -9,28 +9,24 @@ import {
 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useState } from "react";
 
-import { SeriesOrderPanel } from "@/features/series-order";
+import { useHomePin, HomeSeriesPinButton } from "@/features/series-order";
+import Link from "next/link";
+import { formatMaterialCount } from "@/features/library-discovery";
+import { MutationNotice } from "./collection-mutation-notice";
+import { useCollectionDraft } from "../model/use-collection-draft.client";
 import { ContentCoverImage } from "@/entities/material";
-import {
-  flushPendingEdits,
-  useAutosave,
-} from "@/shared/lib/autosave/use-autosave";
+import { flushPendingEdits } from "@/shared/lib/autosave/use-autosave";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { ContentCoverEditor } from "@/features/content-covers";
 
-import {
-  createContentCollection,
-  setContentCollectionArchive,
-  updateContentCollection,
-} from "../api/content-collections.browser";
+import { createContentCollection } from "../api/content-collections.browser";
 import type {
   ContentCollection,
   ContentCollectionKind,
   ContentCollectionMutationResult,
-  UpdateContentCollectionInput,
 } from "../model/content-collections";
 
 export function ContentCollectionsPageClient({
@@ -71,6 +67,8 @@ export function ContentCollectionsPageClient({
         setSlug("");
         setSummary("");
         setCreateOpen(false);
+        if (kind === "series")
+          router.push(`/authoring/guides/${result.collection.id}`);
       }
     },
   });
@@ -189,6 +187,8 @@ export function ContentCollectionsPageClient({
                 Нажмите «Создать», чтобы добавить первую запись.
               </p>
             </div>
+          ) : kind === "series" ? (
+            <SeriesList collections={collections} />
           ) : (
             <div className="mt-4 grid gap-3">
               {collections.map((collection) => (
@@ -214,45 +214,18 @@ function CollectionEditor({
   readonly onSaved: (result: ContentCollectionMutationResult) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [compositionOpen, setCompositionOpen] = useState(false);
-  const [name, setName] = useState(collection.name);
-  const [summary, setSummary] = useState(collection.summary);
-  const [cover, setCover] = useState(collection.cover ?? null);
-  const version = useRef(collection.version);
-  const attempted = useRef<UpdateContentCollectionInput | null>(null);
-  const update = useMutation({ mutationFn: updateContentCollection });
-  const archive = useMutation({
-    mutationFn: setContentCollectionArchive,
-    onSuccess: (result) => {
-      if (result.kind === "saved") version.current = result.collection.version;
-      onSaved(result);
-    },
-  });
-  const autosave = useAutosave({
-    value: { name, summary },
-    enabled: name.trim().length > 0,
-    save: async (value) => {
-      const input = attempted.current ?? {
-        ...value,
-        collectionId: collection.id,
-        expectedVersion: version.current,
-        kind: collection.kind,
-      };
-      attempted.current = input;
-      const result = await update.mutateAsync(input);
-      if (result.kind === "saved") {
-        version.current = result.collection.version;
-        attempted.current = null;
-        onSaved(result);
-        return "saved";
-      }
-      if (result.kind === "invalid") {
-        attempted.current = null;
-        return "invalid";
-      }
-      return "failed";
-    },
-  });
+  const {
+    name,
+    setName,
+    summary,
+    setSummary,
+    cover,
+    setCover,
+    setArchived,
+    update,
+    archive,
+    autosave,
+  } = useCollectionDraft(collection, onSaved);
   return (
     <article
       className={cn(
@@ -281,7 +254,7 @@ function CollectionEditor({
         <span className="min-w-0 flex-1">
           <span className="block truncate font-semibold">{name}</span>
           <span className="mt-1 block text-xs text-muted-foreground">
-            /{collection.slug} · {formatCount(collection.materialCount)}
+            /{collection.slug} · {formatMaterialCount(collection.materialCount)}
             {collection.archived ? " · Архив" : ""}
           </span>
         </span>
@@ -343,34 +316,10 @@ function CollectionEditor({
                 Повторить сохранение
               </Button>
             ) : null}
-            {collection.kind === "series" ? (
-              <Button
-                onClick={() => {
-                  if (!compositionOpen) setCompositionOpen(true);
-                  else
-                    void flushPendingEdits().then((ok) => {
-                      if (ok) setCompositionOpen(false);
-                    });
-                }}
-                type="button"
-                variant="outline"
-                aria-expanded={compositionOpen}
-              >
-                Материалы руководства
-              </Button>
-            ) : null}
             <Button
               disabled={archive.isPending}
               onClick={() => {
-                void autosave.flush().then((ok) => {
-                  if (ok)
-                    archive.mutate({
-                      archived: !collection.archived,
-                      collectionId: collection.id,
-                      expectedVersion: version.current,
-                      kind: collection.kind,
-                    });
-                });
+                setArchived(!collection.archived);
               }}
               type="button"
               variant="ghost"
@@ -387,16 +336,6 @@ function CollectionEditor({
               autosave.error ? (update.data ?? null) : (archive.data ?? null)
             }
           />
-          {compositionOpen ? (
-            <div className="mt-5 border-t border-border">
-              <SeriesOrderPanel
-                seriesId={collection.id}
-                onClose={() => {
-                  setCompositionOpen(false);
-                }}
-              />
-            </div>
-          ) : null}
         </div>
       ) : null}
     </article>
@@ -425,54 +364,87 @@ function Field({
   );
 }
 
-function MutationNotice({
-  onRefresh,
-  result,
-}: {
-  readonly onRefresh: () => void;
-  readonly result: ContentCollectionMutationResult | null;
-}) {
-  if (result === null) return null;
-  if (result.kind === "saved")
-    return (
-      <p className="mt-4 text-sm font-semibold" role="status">
-        Изменения сохранены.
-      </p>
-    );
-  if (result.kind === "conflict") {
-    return (
-      <div className="mt-4 rounded-xl bg-muted p-4 text-sm" role="alert">
-        <p className="font-semibold">Запись изменилась в другой вкладке.</p>
-        <Button
-          className="mt-3"
-          onClick={onRefresh}
-          size="sm"
-          type="button"
-          variant="outline"
-        >
-          Загрузить актуальную версию
-        </Button>
-      </div>
-    );
-  }
-  const message =
-    result.kind === "slug_conflict"
-      ? "Такой slug уже занят. Выберите другой."
-      : result.kind === "invalid"
-        ? "Проверьте название, slug и длину описания."
-        : result.kind === "unauthorized"
-          ? "Сессия завершилась или права изменились."
-          : `Не удалось сохранить. Код: ${result.reference}`;
-  return (
-    <p className="mt-4 rounded-xl bg-destructive/6 p-4 text-sm" role="alert">
-      {message}
-    </p>
-  );
-}
-
 const fieldClassName =
   "min-h-11 w-full rounded-xl border border-input bg-background px-3 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 disabled:opacity-60";
 
-function formatCount(count: number): string {
-  return `${String(count)} ${count === 1 ? "материал" : "материалов"}`;
+function SeriesList({
+  collections,
+}: {
+  readonly collections: readonly ContentCollection[];
+}) {
+  const { controls, hasError, message, retry } = useHomePin();
+  return (
+    <>
+      <div
+        className="mt-3 grid min-h-28 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 text-sm text-muted-foreground sm:min-h-16"
+        role={hasError ? "alert" : "status"}
+      >
+        <p>
+          {hasError
+            ? message
+            : "Закрепите руководство значком справа — оно появится первым на главной."}
+        </p>
+        <Button
+          className={
+            hasError
+              ? "max-w-28 whitespace-normal"
+              : "invisible max-w-28 whitespace-normal"
+          }
+          disabled={!hasError}
+          onClick={retry}
+          type="button"
+          variant="outline"
+          size="sm"
+        >
+          Обновить закреп
+        </Button>
+      </div>
+      <ul
+        className="mt-2 divide-y divide-border border-y border-border"
+        aria-label="Все руководства"
+      >
+        {collections.map((collection) => {
+          const pinned = controls.pin?.seriesId === collection.id;
+          return (
+            <li
+              className="flex items-center gap-3 py-4 sm:gap-5"
+              key={collection.id}
+            >
+              <Link
+                className="group flex min-w-0 flex-1 items-center gap-3 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring sm:gap-5"
+                href={`/authoring/guides/${collection.id}`}
+              >
+                <ContentCoverImage
+                  alt=""
+                  cover={collection.cover ?? null}
+                  className="aspect-video w-20 shrink-0 rounded-lg sm:w-28"
+                  sizes="7rem"
+                />
+                <span className="min-w-0">
+                  <span className="block text-base font-semibold leading-snug group-hover:underline sm:text-lg">
+                    {collection.name}
+                  </span>
+                  <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground sm:text-sm">
+                    <span>{formatMaterialCount(collection.materialCount)}</span>
+                    {collection.archived ? <span>Архив</span> : null}
+                    {pinned ? (
+                      <span className="font-medium text-action">
+                        На главной
+                      </span>
+                    ) : null}
+                  </span>
+                </span>
+              </Link>
+              <HomeSeriesPinButton
+                seriesId={collection.id}
+                seriesName={collection.name}
+                archived={collection.archived}
+                controls={controls}
+              />
+            </li>
+          );
+        })}
+      </ul>
+    </>
+  );
 }
