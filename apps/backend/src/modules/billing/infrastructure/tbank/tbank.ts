@@ -18,6 +18,8 @@ export const bankPaymentSchema = bankPaymentInputSchema.transform(({ PaymentId, 
   ...(RebillId === undefined ? {} : { RebillId: String(RebillId) }),
 }));
 export type BankPayment = z.infer<typeof bankPaymentSchema>;
+/** Инициатива операции: первая CIT-привязка, покупатель по сохранённому средству, merchant recurring. */
+export type PaymentInitiator = "1" | "2" | "R";
 const notificationSchema = z.record(z.string(), z.unknown());
 
 export function tbankToken(payload: Readonly<Record<string, unknown>>, password: string): string {
@@ -36,11 +38,14 @@ export function validatedPaymentUrl(value: unknown): string {
 // Concrete T-Bank adapter. No automatic retries, caller persists sent/unknown before I/O.
 export class Tbank {
   constructor(readonly config: TbankConfig, private readonly request: typeof fetch = fetch) {}
-  async init(input: { orderId: string; accountId: string; amount: number; name: string; email: string }): Promise<BankPayment & { PaymentURL: string }> {
+  async init(input: { orderId: string; accountId: string; amount: number; name: string; email: string; initiator?: PaymentInitiator }): Promise<BankPayment & { PaymentURL: string }> {
+    const initiator = input.initiator ?? "1";
     const result = await this.call("Init", {
       Amount: input.amount, OrderId: input.orderId, Description: input.name.slice(0, 140),
-      CustomerKey: input.accountId, Recurrent: "Y", PayType: "O",
-      DATA: { OperationInitiatorType: "1" },
+      CustomerKey: input.accountId, PayType: "O",
+      // Only the parent card-on-file purchase asks the bank to save a binding.
+      ...(initiator === "1" ? { Recurrent: "Y" } : {}),
+      DATA: { OperationInitiatorType: initiator },
       SuccessURL: this.config.returnUrl, FailURL: this.config.returnUrl,
       NotificationURL: this.config.notificationUrl,
       Receipt: { Email: input.email, Taxation: this.config.receipt.taxation,
@@ -49,6 +54,30 @@ export class Tbank {
     });
     const payment = bankPaymentSchema.parse(result);
     return { ...payment, PaymentURL: validatedPaymentUrl(notificationSchema.parse(result).PaymentURL) };
+  }
+  /** Списание по сохранённой привязке. RebillId нельзя заменить CustomerKey или CardId. */
+  async charge(input: { paymentId: string; rebillId: string }): Promise<BankPayment> {
+    return bankPaymentSchema.parse(await this.call("Charge", { PaymentId: input.paymentId, RebillId: input.rebillId }));
+  }
+  /** Банковская форма привязки. Начальный ответ не является завершённой привязкой. */
+  async addCard(accountId: string): Promise<{ requestKey: string; formUrl: string }> {
+    const binding = this.config.cardBinding;
+    if (!binding) throw new Error("Card binding is not a confirmed terminal capability");
+    const result = z.object({ Success: success.transform(value => value === true || value === "true").pipe(z.literal(true)),
+      ErrorCode: z.union([z.literal("0"), z.literal(0)]), TerminalKey: z.string(), RequestKey: z.string().min(1).max(64),
+      PaymentURL: z.unknown(),
+    }).parse(await this.call("AddCard", { CustomerKey: accountId, CheckType: binding.checkType }));
+    if (result.TerminalKey !== this.config.terminalKey) throw new Error("Bank binding terminal mismatch");
+    return { requestKey: result.RequestKey, formUrl: validatedPaymentUrl(result.PaymentURL) };
+  }
+  /** Серверная сверка сессии привязки; token признаётся только вместе с успешным результатом. */
+  async addCardState(requestKey: string): Promise<{ status: string; success: boolean; errorCode: string; rebillId?: string }> {
+    const result = z.object({ TerminalKey: z.string(), RequestKey: z.string().min(1).max(64), Status: z.string().min(1).max(64),
+      Success: success, ErrorCode: z.string(), RebillId: reference.optional(),
+    }).parse(await this.call("GetAddCardState", { RequestKey: requestKey }));
+    if (result.TerminalKey !== this.config.terminalKey || result.RequestKey !== requestKey) throw new Error("Bank binding session mismatch");
+    return { status: result.Status, success: result.Success === true || result.Success === "true", errorCode: result.ErrorCode,
+      ...(result.RebillId === undefined ? {} : { rebillId: String(result.RebillId) }) };
   }
   async state(paymentId: string): Promise<BankPayment> {
     return bankPaymentSchema.parse(await this.call("GetState", { PaymentId: paymentId }));
@@ -85,7 +114,7 @@ export class Tbank {
     decipher.setAuthTag(data.subarray(12, 28));
     return Buffer.concat([decipher.update(data.subarray(28)), decipher.final()]).toString("utf8");
   }
-  private async call(method: "Init" | "GetState" | "CheckOrder", values: Readonly<Record<string, unknown>>): Promise<unknown> {
+  private async call(method: "Init" | "GetState" | "CheckOrder" | "Charge" | "AddCard" | "GetAddCardState", values: Readonly<Record<string, unknown>>): Promise<unknown> {
     const body = { ...values, TerminalKey: this.config.terminalKey };
     const response = await this.request(`https://securepay.tinkoff.ru/v2/${method}`, {
       method: "POST", headers: { "content-type": "application/json" },

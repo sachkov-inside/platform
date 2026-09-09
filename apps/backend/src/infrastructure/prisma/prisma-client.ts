@@ -90,7 +90,8 @@ export type ReadingActivityPrismaClient = ReadingActivityPrisma & TransactionCli
 
 export type BillingPrisma = Pick<PlatformPrisma,
   "$executeRaw" | "billingNotificationOutbox" | "billingOffer" | "billingPaymentOption" | "billingPromotion" |
-  "billingPricingCommand" | "billingPriceQuote" | "billingPromoReservation" | "billingPurchase" | "billingPurchaseCommand" | "billingPaymentEvent" | "billingFulfillment"
+  "billingPricingCommand" | "billingPriceQuote" | "billingPromoReservation" | "billingPurchase" | "billingPurchaseCommand" | "billingPaymentEvent" | "billingFulfillment" |
+  "billingSubscription" | "billingSubscriptionEvent" | "billingSubscriptionCommand" | "billingChangeQuote" | "billingPaymentMethodFlow"
 >;
 export type BillingPrismaClient = BillingPrisma & TransactionClient<BillingPrisma>;
 
