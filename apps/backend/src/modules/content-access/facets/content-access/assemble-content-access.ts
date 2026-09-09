@@ -68,23 +68,20 @@ export function assembleContentAccess(
           })),
         };
       }
-      const needsProtectedFacts = input.operations.some((operation) => {
-        const facts = resourcesByKey.get(resourceKey(operation.resource));
-        return facts !== undefined &&
-          !isWorkshopDelivery(facts, operation.action) &&
-          needsSubjectFacts(facts, operation.action);
-      });
-      const needsMembershipFacts = input.operations.some((operation) => {
-        const facts = resourcesByKey.get(resourceKey(operation.resource));
-        return facts !== undefined && needsMembership(facts, operation.action);
-      });
-      const subjectFacts = needsProtectedFacts
-        ? await resolveSubjectFacts(
-            dependencies,
-            input.subject,
-            needsMembershipFacts,
-          )
-        : undefined;
+      // Materials in the same guide scope share one subject read within this batch.
+      const subjectReads = new Map<string, Promise<SubjectFacts | undefined>>();
+      const subjectFactsByResource = new Map(await Promise.all([...resourcesByKey].map(async ([key, facts]) => {
+        const required = input.operations.some(operation => resourceKey(operation.resource) === key &&
+          !isWorkshopDelivery(facts, operation.action) && needsSubjectFacts(facts, operation.action));
+        if (!required) return [key, undefined] as const;
+        const scopeKey = JSON.stringify([facts.access === "membership", [...(facts.guideIds ?? [])].sort()]);
+        let pending = subjectReads.get(scopeKey);
+        if (!pending) {
+          pending = resolveSubjectFacts(dependencies, input.subject, facts.access === "membership", facts.guideIds);
+          subjectReads.set(scopeKey, pending);
+        }
+        return [key, await pending] as const;
+      })));
       const workshopAccessByMaterial = await resolveWorkshopAccessMany(
         dependencies,
         input.subject,
@@ -104,7 +101,7 @@ export function assembleContentAccess(
             resourcesByKey.get(resourceKey(resource)),
             action,
             input.subject,
-            subjectFacts,
+            subjectFactsByResource.get(resourceKey(resource)),
             workshopAccessByMaterial.get(
               resourcesByKey.get(resourceKey(resource))?.materialId ?? "",
             ),
@@ -179,6 +176,7 @@ export function assembleContentAccess(
         dependencies,
         input.subject,
         needsMembership(facts, input.action),
+        facts.guideIds,
       );
       const reason = evaluate(facts, input.action, input.subject, subjectFacts);
       if (reason === "public_resource" || reason === "materials_manager") {
@@ -226,6 +224,7 @@ async function resolveSubjectFacts(
   dependencies: ContentAccessDependencies,
   subject: Subject,
   includeMembership: boolean,
+  guideIds: readonly string[] = [],
 ): Promise<SubjectFacts | undefined> {
   if (subject.kind === "anonymous") {
     return undefined;
@@ -249,6 +248,7 @@ async function resolveSubjectFacts(
       permission: "denied",
       membership: await dependencies.membershipEntitlements.resolveForAccess(
         subject.accountId,
+        guideIds,
       ),
     };
   } catch {

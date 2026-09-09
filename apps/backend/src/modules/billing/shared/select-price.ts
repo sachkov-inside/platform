@@ -4,8 +4,10 @@ import { applicablePromotion, discountedPrice, failure, offerSchema, optionSchem
 export async function selectPrice(tx: BillingPrisma, optionId: string, now: Date, promoCode?: string): Promise<PricingResult<PriceSnapshot, "not_found" | "unsupported_amount">> {
   const row = await tx.billingPaymentOption.findUnique({ where: { id: optionId }, include: { offer: true } });
   if (!row || row.archived || row.offer.archived) return failure("not_found");
-  const offer = offerSchema.parse(row.offer);
-  const option = optionSchema.parse({ id: row.id, offerId: row.offerId, revision: row.revision, months: row.months, priceKopecks: Number(row.priceKopecks), archived: row.archived });
+  const offer = offerSchema.parse({ id: row.offer.id, name: row.offer.name, revision: row.offer.revision, benefits: row.offer.benefits,
+    archived: row.offer.archived, ...(Array.isArray(row.offer.benefitPeriods) && row.offer.benefitPeriods.length > 0 ? { benefitPeriods: row.offer.benefitPeriods } : {}),
+  });
+  const option = optionSchema.parse({ id: row.id, offerId: row.offerId, revision: row.revision, months: row.months, mode: row.mode, priceKopecks: Number(row.priceKopecks), archived: row.archived });
   const rows = await tx.billingPromotion.findMany({ where: { archived: false, startsAt: { lte: now }, endsAt: { gt: now }, OR: [{ code: null }, ...(promoCode ? [{ code: promoCode }] : [])] } });
   const available = [];
   for (const row of rows) {

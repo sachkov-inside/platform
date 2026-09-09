@@ -3,6 +3,7 @@ import type { AccountId } from "../../../accounts/index.js";
 import type { MembershipEntitlementsPrisma } from "../../infrastructure/prisma.js";
 import {
   accessCapabilitySchema,
+  globalAccessCapabilities,
   type AccessCapability,
 } from "../../domain/access-grant.js";
 
@@ -65,7 +66,7 @@ export async function resolveAccessCapabilities(
       );
   }
   if (projection?.decision === "member" && projection.validUntil > now) {
-    for (const capability of accessCapabilitySchema.options)
+    for (const capability of globalAccessCapabilities)
       include(capability, projection.validUntil.toISOString());
     futureBoundaries.push(projection.validUntil.getTime());
   }

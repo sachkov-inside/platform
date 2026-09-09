@@ -42,7 +42,9 @@
     "notifications:generate": "node scripts/generate-notification-schema.mjs && tsx scripts/generate-notification-topology.ts",
     "notifications:check": "node scripts/generate-notification-schema.mjs --check && tsx scripts/generate-notification-topology.ts --check",
     "dev:notifications-worker": "tsx watch src/entrypoints/notifications-worker.ts",
-    "start:notifications-worker": "node dist/entrypoints/notifications-worker.js"
+    "start:notifications-worker": "node dist/entrypoints/notifications-worker.js",
+    "dev:billing-worker": "tsx watch src/entrypoints/billing-worker.ts",
+    "start:billing-worker": "node dist/entrypoints/billing-worker.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1121.0",

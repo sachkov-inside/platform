@@ -5686,6 +5686,1477 @@
         ]
       }
     },
+    "/accounts/current/billing/purchase": {
+      "post": {
+        "operationId": "purchaseBillingSubscription",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "acknowledgeExistingAccess": {
+                    "type": "boolean"
+                  },
+                  "consentEvidenceRefs": {
+                    "items": {
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                      "type": "string"
+                    },
+                    "maxItems": 4,
+                    "minItems": 2,
+                    "type": "array"
+                  },
+                  "contactRevision": {
+                    "exclusiveMinimum": true,
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "operationId": {
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                    "type": "string"
+                  },
+                  "quoteRef": {
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "operationId",
+                  "quoteRef",
+                  "contactRevision",
+                  "consentEvidenceRefs",
+                  "acknowledgeExistingAccess"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "access": {
+                      "enum": [
+                        "awaiting_payment",
+                        "preparing",
+                        "ready"
+                      ],
+                      "type": "string"
+                    },
+                    "confirmedAt": {
+                      "format": "date-time",
+                      "nullable": true,
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                      "type": "string"
+                    },
+                    "fiscalization": {
+                      "enum": [
+                        "not_configured",
+                        "pending",
+                        "confirmed",
+                        "failed"
+                      ],
+                      "type": "string"
+                    },
+                    "paymentUrl": {
+                      "format": "uri",
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "periodEndsAt": {
+                      "format": "date-time",
+                      "nullable": true,
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                      "type": "string"
+                    },
+                    "purchaseRef": {
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                      "type": "string"
+                    },
+                    "snapshot": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "currency": {
+                          "enum": [
+                            "RUB"
+                          ],
+                          "type": "string"
+                        },
+                        "firstPriceKopecks": {
+                          "exclusiveMinimum": true,
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "offer": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "archived": {
+                              "type": "boolean"
+                            },
+                            "benefitPeriods": {
+                              "items": {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "capability": {
+                                    "anyOf": [
+                                      {
+                                        "enum": [
+                                          "materials",
+                                          "community",
+                                          "reviews",
+                                          "support"
+                                        ],
+                                        "type": "string"
+                                      },
+                                      {
+                                        "pattern": "^guide:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "months": {
+                                    "exclusiveMinimum": true,
+                                    "maximum": 1200,
+                                    "minimum": 0,
+                                    "nullable": true,
+                                    "type": "integer"
+                                  }
+                                },
+                                "required": [
+                                  "capability",
+                                  "months"
+                                ],
+                                "type": "object"
+                              },
+                              "maxItems": 100,
+                              "type": "array"
+                            },
+                            "benefits": {},
+                            "id": {
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                              "type": "string"
+                            },
+                            "name": {
+                              "maxLength": 200,
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "revision": {
+                              "exclusiveMinimum": true,
+                              "maximum": 2147483647,
+                              "minimum": 0,
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "revision",
+                            "name",
+                            "benefits",
+                            "archived"
+                          ],
+                          "type": "object"
+                        },
+                        "paymentOption": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "archived": {
+                              "type": "boolean"
+                            },
+                            "id": {
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                              "type": "string"
+                            },
+                            "mode": {
+                              "enum": [
+                                "subscription"
+                              ],
+                              "type": "string"
+                            },
+                            "months": {
+                              "exclusiveMinimum": true,
+                              "maximum": 1200,
+                              "minimum": 0,
+                              "type": "integer"
+                            },
+                            "offerId": {
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                              "type": "string"
+                            },
+                            "priceKopecks": {
+                              "exclusiveMinimum": true,
+                              "maximum": 9007199254740991,
+                              "minimum": 0,
+                              "type": "integer"
+                            },
+                            "revision": {
+                              "exclusiveMinimum": true,
+                              "maximum": 2147483647,
+                              "minimum": 0,
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "revision",
+                            "offerId",
+                            "months",
+                            "priceKopecks",
+                            "archived"
+                          ],
+                          "type": "object"
+                        },
+                        "promotion": {
+                          "additionalProperties": false,
+                          "nullable": true,
+                          "properties": {
+                            "id": {
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "percent": {
+                              "maximum": 100,
+                              "minimum": 1,
+                              "type": "integer"
+                            },
+                            "revision": {
+                              "exclusiveMinimum": true,
+                              "maximum": 2147483647,
+                              "minimum": 0,
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "revision",
+                            "name",
+                            "percent"
+                          ],
+                          "type": "object"
+                        },
+                        "renewalPriceKopecks": {
+                          "exclusiveMinimum": true,
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "timezone": {
+                          "enum": [
+                            "Europe/Moscow"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "offer",
+                        "paymentOption",
+                        "promotion",
+                        "currency",
+                        "timezone",
+                        "firstPriceKopecks",
+                        "renewalPriceKopecks"
+                      ],
+                      "type": "object"
+                    },
+                    "state": {
+                      "enum": [
+                        "prepared",
+                        "sent",
+                        "unknown",
+                        "pending",
+                        "authorized",
+                        "confirmed",
+                        "failed"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "purchaseRef",
+                    "state",
+                    "paymentUrl",
+                    "snapshot",
+                    "access",
+                    "fiscalization",
+                    "confirmedAt",
+                    "periodEndsAt"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "additionalProperties": {},
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid_request"
+                          ],
+                          "type": "string"
+                        },
+                        "status": {
+                          "enum": [
+                            400
+                          ],
+                          "type": "number"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "status",
+                        "title",
+                        "type"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "correlationId": {
+                          "type": "string"
+                        },
+                        "detail": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "maximum": 9007199254740991,
+                          "minimum": -9007199254740991,
+                          "type": "integer"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "title",
+                        "status",
+                        "detail",
+                        "code"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "forbidden"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "enum": [
+                        403
+                      ],
+                      "type": "number"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "status",
+                    "title",
+                    "type"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "not_found"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "enum": [
+                        404
+                      ],
+                      "type": "number"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "status",
+                    "title",
+                    "type"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "additionalProperties": {},
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "operation_conflict",
+                            "payment_in_progress",
+                            "contact_required",
+                            "consent_required",
+                            "existing_access",
+                            "legacy_review_required",
+                            "quote_expired",
+                            "quote_changed"
+                          ],
+                          "type": "string"
+                        },
+                        "status": {
+                          "enum": [
+                            409
+                          ],
+                          "type": "number"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "status",
+                        "title",
+                        "type"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "correlationId": {
+                          "type": "string"
+                        },
+                        "detail": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "maximum": 9007199254740991,
+                          "minimum": -9007199254740991,
+                          "type": "integer"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "title",
+                        "status",
+                        "detail",
+                        "code"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "unsupported_amount",
+                        "method_unavailable"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "enum": [
+                        422
+                      ],
+                      "type": "number"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "status",
+                    "title",
+                    "type"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "additionalProperties": {},
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "provider_unavailable",
+                            "dependency_unavailable"
+                          ],
+                          "type": "string"
+                        },
+                        "status": {
+                          "enum": [
+                            503
+                          ],
+                          "type": "number"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "status",
+                        "title",
+                        "type"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "correlationId": {
+                          "type": "string"
+                        },
+                        "detail": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "maximum": 9007199254740991,
+                          "minimum": -9007199254740991,
+                          "type": "integer"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "title",
+                        "status",
+                        "detail",
+                        "code"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "logto": []
+          }
+        ],
+        "summary": "Start or recover one subscription purchase",
+        "tags": [
+          "Billing"
+        ]
+      }
+    },
+    "/accounts/current/billing/purchases/{purchaseRef}": {
+      "get": {
+        "operationId": "readBillingPurchase",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "purchaseRef",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "access": {
+                      "enum": [
+                        "awaiting_payment",
+                        "preparing",
+                        "ready"
+                      ],
+                      "type": "string"
+                    },
+                    "confirmedAt": {
+                      "format": "date-time",
+                      "nullable": true,
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                      "type": "string"
+                    },
+                    "fiscalization": {
+                      "enum": [
+                        "not_configured",
+                        "pending",
+                        "confirmed",
+                        "failed"
+                      ],
+                      "type": "string"
+                    },
+                    "paymentUrl": {
+                      "format": "uri",
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "periodEndsAt": {
+                      "format": "date-time",
+                      "nullable": true,
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                      "type": "string"
+                    },
+                    "purchaseRef": {
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                      "type": "string"
+                    },
+                    "snapshot": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "currency": {
+                          "enum": [
+                            "RUB"
+                          ],
+                          "type": "string"
+                        },
+                        "firstPriceKopecks": {
+                          "exclusiveMinimum": true,
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "offer": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "archived": {
+                              "type": "boolean"
+                            },
+                            "benefitPeriods": {
+                              "items": {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "capability": {
+                                    "anyOf": [
+                                      {
+                                        "enum": [
+                                          "materials",
+                                          "community",
+                                          "reviews",
+                                          "support"
+                                        ],
+                                        "type": "string"
+                                      },
+                                      {
+                                        "pattern": "^guide:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "months": {
+                                    "exclusiveMinimum": true,
+                                    "maximum": 1200,
+                                    "minimum": 0,
+                                    "nullable": true,
+                                    "type": "integer"
+                                  }
+                                },
+                                "required": [
+                                  "capability",
+                                  "months"
+                                ],
+                                "type": "object"
+                              },
+                              "maxItems": 100,
+                              "type": "array"
+                            },
+                            "benefits": {},
+                            "id": {
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                              "type": "string"
+                            },
+                            "name": {
+                              "maxLength": 200,
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "revision": {
+                              "exclusiveMinimum": true,
+                              "maximum": 2147483647,
+                              "minimum": 0,
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "revision",
+                            "name",
+                            "benefits",
+                            "archived"
+                          ],
+                          "type": "object"
+                        },
+                        "paymentOption": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "archived": {
+                              "type": "boolean"
+                            },
+                            "id": {
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                              "type": "string"
+                            },
+                            "mode": {
+                              "enum": [
+                                "subscription"
+                              ],
+                              "type": "string"
+                            },
+                            "months": {
+                              "exclusiveMinimum": true,
+                              "maximum": 1200,
+                              "minimum": 0,
+                              "type": "integer"
+                            },
+                            "offerId": {
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                              "type": "string"
+                            },
+                            "priceKopecks": {
+                              "exclusiveMinimum": true,
+                              "maximum": 9007199254740991,
+                              "minimum": 0,
+                              "type": "integer"
+                            },
+                            "revision": {
+                              "exclusiveMinimum": true,
+                              "maximum": 2147483647,
+                              "minimum": 0,
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "revision",
+                            "offerId",
+                            "months",
+                            "priceKopecks",
+                            "archived"
+                          ],
+                          "type": "object"
+                        },
+                        "promotion": {
+                          "additionalProperties": false,
+                          "nullable": true,
+                          "properties": {
+                            "id": {
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "percent": {
+                              "maximum": 100,
+                              "minimum": 1,
+                              "type": "integer"
+                            },
+                            "revision": {
+                              "exclusiveMinimum": true,
+                              "maximum": 2147483647,
+                              "minimum": 0,
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "revision",
+                            "name",
+                            "percent"
+                          ],
+                          "type": "object"
+                        },
+                        "renewalPriceKopecks": {
+                          "exclusiveMinimum": true,
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "timezone": {
+                          "enum": [
+                            "Europe/Moscow"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "offer",
+                        "paymentOption",
+                        "promotion",
+                        "currency",
+                        "timezone",
+                        "firstPriceKopecks",
+                        "renewalPriceKopecks"
+                      ],
+                      "type": "object"
+                    },
+                    "state": {
+                      "enum": [
+                        "prepared",
+                        "sent",
+                        "unknown",
+                        "pending",
+                        "authorized",
+                        "confirmed",
+                        "failed"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "purchaseRef",
+                    "state",
+                    "paymentUrl",
+                    "snapshot",
+                    "access",
+                    "fiscalization",
+                    "confirmedAt",
+                    "periodEndsAt"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "additionalProperties": {},
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid_request"
+                          ],
+                          "type": "string"
+                        },
+                        "status": {
+                          "enum": [
+                            400
+                          ],
+                          "type": "number"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "status",
+                        "title",
+                        "type"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "correlationId": {
+                          "type": "string"
+                        },
+                        "detail": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "maximum": 9007199254740991,
+                          "minimum": -9007199254740991,
+                          "type": "integer"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "title",
+                        "status",
+                        "detail",
+                        "code"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "forbidden"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "enum": [
+                        403
+                      ],
+                      "type": "number"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "status",
+                    "title",
+                    "type"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "not_found"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "enum": [
+                        404
+                      ],
+                      "type": "number"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "status",
+                    "title",
+                    "type"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "additionalProperties": {},
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "operation_conflict",
+                            "payment_in_progress",
+                            "contact_required",
+                            "consent_required",
+                            "existing_access",
+                            "legacy_review_required",
+                            "quote_expired",
+                            "quote_changed"
+                          ],
+                          "type": "string"
+                        },
+                        "status": {
+                          "enum": [
+                            409
+                          ],
+                          "type": "number"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "status",
+                        "title",
+                        "type"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "correlationId": {
+                          "type": "string"
+                        },
+                        "detail": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "maximum": 9007199254740991,
+                          "minimum": -9007199254740991,
+                          "type": "integer"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "title",
+                        "status",
+                        "detail",
+                        "code"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "unsupported_amount",
+                        "method_unavailable"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "enum": [
+                        422
+                      ],
+                      "type": "number"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "status",
+                    "title",
+                    "type"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "additionalProperties": {},
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "provider_unavailable",
+                            "dependency_unavailable"
+                          ],
+                          "type": "string"
+                        },
+                        "status": {
+                          "enum": [
+                            503
+                          ],
+                          "type": "number"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "status",
+                        "title",
+                        "type"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "correlationId": {
+                          "type": "string"
+                        },
+                        "detail": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "maximum": 9007199254740991,
+                          "minimum": -9007199254740991,
+                          "type": "integer"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "title",
+                        "status",
+                        "detail",
+                        "code"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "logto": []
+          }
+        ],
+        "summary": "Read authoritative own payment and access status",
+        "tags": [
+          "Billing"
+        ]
+      }
+    },
     "/accounts/current/billing/quote": {
       "post": {
         "operationId": "quoteBillingPurchase",
@@ -5772,18 +7243,45 @@
                             "archived": {
                               "type": "boolean"
                             },
-                            "benefits": {
+                            "benefitPeriods": {
                               "items": {
-                                "enum": [
-                                  "materials",
-                                  "community"
+                                "additionalProperties": false,
+                                "properties": {
+                                  "capability": {
+                                    "anyOf": [
+                                      {
+                                        "enum": [
+                                          "materials",
+                                          "community",
+                                          "reviews",
+                                          "support"
+                                        ],
+                                        "type": "string"
+                                      },
+                                      {
+                                        "pattern": "^guide:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "months": {
+                                    "exclusiveMinimum": true,
+                                    "maximum": 1200,
+                                    "minimum": 0,
+                                    "nullable": true,
+                                    "type": "integer"
+                                  }
+                                },
+                                "required": [
+                                  "capability",
+                                  "months"
                                 ],
-                                "type": "string"
+                                "type": "object"
                               },
-                              "maxItems": 2,
-                              "minItems": 1,
+                              "maxItems": 100,
                               "type": "array"
                             },
+                            "benefits": {},
                             "id": {
                               "format": "uuid",
                               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
@@ -5821,9 +7319,15 @@
                               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                               "type": "string"
                             },
+                            "mode": {
+                              "enum": [
+                                "subscription"
+                              ],
+                              "type": "string"
+                            },
                             "months": {
                               "exclusiveMinimum": true,
-                              "maximum": 2147483647,
+                              "maximum": 1200,
                               "minimum": 0,
                               "type": "integer"
                             },
@@ -25751,18 +27255,45 @@
                       "value": {
                         "additionalProperties": false,
                         "properties": {
-                          "benefits": {
+                          "benefitPeriods": {
                             "items": {
-                              "enum": [
-                                "materials",
-                                "community"
+                              "additionalProperties": false,
+                              "properties": {
+                                "capability": {
+                                  "anyOf": [
+                                    {
+                                      "enum": [
+                                        "materials",
+                                        "community",
+                                        "reviews",
+                                        "support"
+                                      ],
+                                      "type": "string"
+                                    },
+                                    {
+                                      "pattern": "^guide:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                      "type": "string"
+                                    }
+                                  ]
+                                },
+                                "months": {
+                                  "exclusiveMinimum": true,
+                                  "maximum": 1200,
+                                  "minimum": 0,
+                                  "nullable": true,
+                                  "type": "integer"
+                                }
+                              },
+                              "required": [
+                                "capability",
+                                "months"
                               ],
-                              "type": "string"
+                              "type": "object"
                             },
-                            "maxItems": 2,
-                            "minItems": 1,
+                            "maxItems": 100,
                             "type": "array"
                           },
+                          "benefits": {},
                           "id": {
                             "format": "uuid",
                             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
@@ -25851,9 +27382,15 @@
                             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                             "type": "string"
                           },
+                          "mode": {
+                            "enum": [
+                              "subscription"
+                            ],
+                            "type": "string"
+                          },
                           "months": {
                             "exclusiveMinimum": true,
-                            "maximum": 2147483647,
+                            "maximum": 1200,
                             "minimum": 0,
                             "type": "integer"
                           },
@@ -26538,18 +28075,45 @@
                               "archived": {
                                 "type": "boolean"
                               },
-                              "benefits": {
+                              "benefitPeriods": {
                                 "items": {
-                                  "enum": [
-                                    "materials",
-                                    "community"
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "capability": {
+                                      "anyOf": [
+                                        {
+                                          "enum": [
+                                            "materials",
+                                            "community",
+                                            "reviews",
+                                            "support"
+                                          ],
+                                          "type": "string"
+                                        },
+                                        {
+                                          "pattern": "^guide:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                          "type": "string"
+                                        }
+                                      ]
+                                    },
+                                    "months": {
+                                      "exclusiveMinimum": true,
+                                      "maximum": 1200,
+                                      "minimum": 0,
+                                      "nullable": true,
+                                      "type": "integer"
+                                    }
+                                  },
+                                  "required": [
+                                    "capability",
+                                    "months"
                                   ],
-                                  "type": "string"
+                                  "type": "object"
                                 },
-                                "maxItems": 2,
-                                "minItems": 1,
+                                "maxItems": 100,
                                 "type": "array"
                               },
+                              "benefits": {},
                               "id": {
                                 "format": "uuid",
                                 "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
@@ -26587,9 +28151,15 @@
                                 "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                                 "type": "string"
                               },
+                              "mode": {
+                                "enum": [
+                                  "subscription"
+                                ],
+                                "type": "string"
+                              },
                               "months": {
                                 "exclusiveMinimum": true,
-                                "maximum": 2147483647,
+                                "maximum": 1200,
                                 "minimum": 0,
                                 "type": "integer"
                               },
@@ -26772,6 +28342,162 @@
           }
         },
         "summary": "Read active options and public first-payment prices",
+        "tags": [
+          "Billing"
+        ]
+      }
+    },
+    "/billing/tbank/notification": {
+      "post": {
+        "operationId": "acceptTbankNotification",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "properties": {
+                  "Amount": {
+                    "type": "integer"
+                  },
+                  "ErrorCode": {
+                    "type": "string"
+                  },
+                  "OrderId": {
+                    "type": "string"
+                  },
+                  "PaymentId": {
+                    "oneOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "integer"
+                      }
+                    ]
+                  },
+                  "Status": {
+                    "type": "string"
+                  },
+                  "Success": {
+                    "type": "boolean"
+                  },
+                  "TerminalKey": {
+                    "type": "string"
+                  },
+                  "Token": {
+                    "maxLength": 64,
+                    "minLength": 64,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "Token",
+                  "TerminalKey",
+                  "PaymentId",
+                  "OrderId",
+                  "Amount",
+                  "Status",
+                  "Success",
+                  "ErrorCode"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "enum": [
+                    "OK"
+                  ],
+                  "type": "string"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "invalid_notification"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "enum": [
+                        400
+                      ],
+                      "type": "number"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "status",
+                    "title",
+                    "type"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "dependency_unavailable"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "enum": [
+                        503
+                      ],
+                      "type": "number"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "status",
+                    "title",
+                    "type"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [],
+        "summary": "Durably accept a signed bank notification",
         "tags": [
           "Billing"
         ]

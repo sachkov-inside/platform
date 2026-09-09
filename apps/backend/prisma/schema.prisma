@@ -829,12 +829,14 @@ model BillingOffer {
   revision Int
   name String
   benefits String[]
+  benefitPeriods Json @default("[]") @map("benefit_periods")
   archived Boolean @default(false)
   options BillingPaymentOption[]
   @@map("offers")
   @@schema("billing")
 }
 model BillingPaymentOption {
+  mode String @default("subscription")
   id String @id @db.Uuid
   revision Int
   offerId String @map("offer_id") @db.Uuid
@@ -1187,4 +1189,57 @@ model NotificationEmailInbox {
  @@unique([deliveryId, commandRevision])
  @@map("email_inbox")
  @@schema("notifications")
+}
+
+model BillingPurchase {
+  bindingCiphertext String? @map("binding_ciphertext")
+  lifecycleActive Boolean @default(true) @map("lifecycle_active")
+  id String @id @db.Uuid
+  accountId String @map("account_id") @db.Uuid
+  quoteRef String @unique @map("quote_ref") @db.Uuid
+  state String
+  environment String
+  terminalRef String @map("terminal_ref")
+  paymentId String? @map("payment_id")
+  paymentUrl String? @map("payment_url")
+  amountKopecks BigInt @map("amount_kopecks")
+  snapshot Json
+  acceptance Json
+  contact Json
+  fiscalization String
+  confirmedAt DateTime? @map("confirmed_at") @db.Timestamptz
+  periodEndsAt DateTime? @map("period_ends_at") @db.Timestamptz
+  createdAt DateTime @map("created_at") @db.Timestamptz
+  updatedAt DateTime @map("updated_at") @db.Timestamptz
+  @@unique([environment, terminalRef, paymentId])
+  @@map("purchases")
+  @@schema("billing")
+}
+model BillingPurchaseCommand {
+  accountId String @map("account_id") @db.Uuid
+  operationId String @map("operation_id") @db.Uuid
+  fingerprint String
+  purchaseRef String @map("purchase_ref") @db.Uuid
+  @@id([accountId, operationId])
+  @@map("purchase_commands")
+  @@schema("billing")
+}
+model BillingPaymentEvent {
+  id String @id @db.Uuid
+  purchaseRef String @map("purchase_ref") @db.Uuid
+  kind String
+  payload Json
+  occurredAt DateTime @map("occurred_at") @db.Timestamptz
+  recordedAt DateTime @map("recorded_at") @db.Timestamptz
+  @@unique([purchaseRef, kind])
+  @@map("payment_events")
+  @@schema("billing")
+}
+model BillingFulfillment {
+  eventRef String @id @map("event_ref") @db.Uuid
+  purchaseRef String @map("purchase_ref") @db.Uuid
+  payload Json
+  appliedAt DateTime? @map("applied_at") @db.Timestamptz
+  @@map("fulfillment_outbox")
+  @@schema("billing")
 }

@@ -45,7 +45,9 @@ async function changeCatalog(tx: BillingPrisma, command: ManageCatalogCommand): 
   const archived = !('value' in command);
   switch (command.operation) {
     case "offers.save": {
-      const data = { ...command.value, revision, archived: false };
+      const periods = command.value.benefitPeriods ?? [];
+      if (new Set(periods.map(value => value.capability)).size !== periods.length || periods.some(value => !command.value.benefits.includes(value.capability))) return failure("invalid_request");
+      const data = { ...command.value, benefitPeriods: periods, revision, archived: false };
       await tx.billingOffer.upsert({ where: { id }, create: data, update: data });
       break;
     }
@@ -53,7 +55,7 @@ async function changeCatalog(tx: BillingPrisma, command: ManageCatalogCommand): 
     case "paymentOptions.save": {
       const offer = await tx.billingOffer.findUnique({ where: { id: command.value.offerId } });
       if (!offer || offer.archived) return failure("not_found");
-      const data = { ...command.value, revision, archived: false };
+      const data = { ...command.value, mode: command.value.mode ?? "subscription", revision, archived: false };
       await tx.billingPaymentOption.upsert({ where: { id }, create: data, update: data });
       break;
     }
