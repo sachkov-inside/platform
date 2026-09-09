@@ -238,6 +238,461 @@ export class MaterialAuthoringService {
     });
   }
   /**
+   * List every active artifact an author may reuse in another Guide
+   * @returns any
+   * @throws ApiError
+   */
+  public listReusableGuideArtifacts(): CancelablePromise<{
+    artifacts: Array<{
+      access: 'free' | 'membership';
+      archived: boolean;
+      artifactId: string;
+      content: ({
+        contentType: string;
+        filename: string;
+        kind: 'file';
+        size: number;
+      } | {
+        externalUrl: string;
+        kind: 'link';
+      });
+      guideIds: Array<string>;
+      materialIds: Array<string>;
+      origin: 'authoring' | 'platform';
+      purpose: string;
+      sourceId: string | null;
+      title: string;
+      updatedAt: string;
+      version: number;
+    }>;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/authoring/guide-artifacts',
+    });
+  }
+  /**
+   * Remove one Guide Artifact that no Guide or Material still references
+   * @returns any
+   * @throws ApiError
+   */
+  public removeGuideArtifact({
+    artifactId,
+  }: {
+    artifactId: string,
+  }): CancelablePromise<{
+    artifactId: string;
+  }> {
+    return this.httpRequest.request({
+      method: 'DELETE',
+      url: '/authoring/guide-artifacts/{artifactId}',
+      path: {
+        'artifactId': artifactId,
+      },
+    });
+  }
+  /**
+   * Change the name, purpose or access class of one Guide Artifact
+   * @returns any
+   * @throws ApiError
+   */
+  public updateGuideArtifact({
+    artifactId,
+    requestBody,
+  }: {
+    artifactId: string,
+    requestBody: {
+      access: 'free' | 'membership';
+      purpose: string;
+      title: string;
+    },
+  }): CancelablePromise<{
+    access: 'free' | 'membership';
+    archived: boolean;
+    artifactId: string;
+    content: ({
+      contentType: string;
+      filename: string;
+      kind: 'file';
+      size: number;
+    } | {
+      externalUrl: string;
+      kind: 'link';
+    });
+    guideIds: Array<string>;
+    materialIds: Array<string>;
+    origin: 'authoring' | 'platform';
+    purpose: string;
+    sourceId: string | null;
+    title: string;
+    updatedAt: string;
+    version: number;
+  }> {
+    return this.httpRequest.request({
+      method: 'PATCH',
+      url: '/authoring/guide-artifacts/{artifactId}',
+      path: {
+        'artifactId': artifactId,
+      },
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
+   * Archive one Guide Artifact or return it from the archive
+   * @returns any
+   * @throws ApiError
+   */
+  public setGuideArtifactArchived({
+    artifactId,
+    requestBody,
+  }: {
+    artifactId: string,
+    requestBody: {
+      archived: boolean;
+    },
+  }): CancelablePromise<{
+    access: 'free' | 'membership';
+    archived: boolean;
+    artifactId: string;
+    content: ({
+      contentType: string;
+      filename: string;
+      kind: 'file';
+      size: number;
+    } | {
+      externalUrl: string;
+      kind: 'link';
+    });
+    guideIds: Array<string>;
+    materialIds: Array<string>;
+    origin: 'authoring' | 'platform';
+    purpose: string;
+    sourceId: string | null;
+    title: string;
+    updatedAt: string;
+    version: number;
+  }> {
+    return this.httpRequest.request({
+      method: 'PUT',
+      url: '/authoring/guide-artifacts/{artifactId}/archive',
+      path: {
+        'artifactId': artifactId,
+      },
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
+   * Set the Guides that reuse one artifact without copying it
+   * @returns any
+   * @throws ApiError
+   */
+  public setGuideArtifactGuides({
+    artifactId,
+    requestBody,
+  }: {
+    artifactId: string,
+    requestBody: {
+      guideIds: Array<string>;
+    },
+  }): CancelablePromise<{
+    access: 'free' | 'membership';
+    archived: boolean;
+    artifactId: string;
+    content: ({
+      contentType: string;
+      filename: string;
+      kind: 'file';
+      size: number;
+    } | {
+      externalUrl: string;
+      kind: 'link';
+    });
+    guideIds: Array<string>;
+    materialIds: Array<string>;
+    origin: 'authoring' | 'platform';
+    purpose: string;
+    sourceId: string | null;
+    title: string;
+    updatedAt: string;
+    version: number;
+  }> {
+    return this.httpRequest.request({
+      method: 'PUT',
+      url: '/authoring/guide-artifacts/{artifactId}/guides',
+      path: {
+        'artifactId': artifactId,
+      },
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
+   * Replace the artifact content with a new external address version
+   * @returns any
+   * @throws ApiError
+   */
+  public replaceGuideArtifactLink({
+    artifactId,
+    requestBody,
+  }: {
+    artifactId: string,
+    requestBody: {
+      externalUrl: string;
+    },
+  }): CancelablePromise<{
+    access: 'free' | 'membership';
+    archived: boolean;
+    artifactId: string;
+    content: ({
+      contentType: string;
+      filename: string;
+      kind: 'file';
+      size: number;
+    } | {
+      externalUrl: string;
+      kind: 'link';
+    });
+    guideIds: Array<string>;
+    materialIds: Array<string>;
+    origin: 'authoring' | 'platform';
+    purpose: string;
+    sourceId: string | null;
+    title: string;
+    updatedAt: string;
+    version: number;
+  }> {
+    return this.httpRequest.request({
+      method: 'PUT',
+      url: '/authoring/guide-artifacts/{artifactId}/link',
+      path: {
+        'artifactId': artifactId,
+      },
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
+   * Set the Materials one artifact belongs with inside its Guides
+   * @returns any
+   * @throws ApiError
+   */
+  public setGuideArtifactMaterials({
+    artifactId,
+    requestBody,
+  }: {
+    artifactId: string,
+    requestBody: {
+      materialIds: Array<string>;
+    },
+  }): CancelablePromise<{
+    access: 'free' | 'membership';
+    archived: boolean;
+    artifactId: string;
+    content: ({
+      contentType: string;
+      filename: string;
+      kind: 'file';
+      size: number;
+    } | {
+      externalUrl: string;
+      kind: 'link';
+    });
+    guideIds: Array<string>;
+    materialIds: Array<string>;
+    origin: 'authoring' | 'platform';
+    purpose: string;
+    sourceId: string | null;
+    title: string;
+    updatedAt: string;
+    version: number;
+  }> {
+    return this.httpRequest.request({
+      method: 'PUT',
+      url: '/authoring/guide-artifacts/{artifactId}/materials',
+      path: {
+        'artifactId': artifactId,
+      },
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
+   * Replace the artifact content with a new uploaded file version
+   * @returns any
+   * @throws ApiError
+   */
+  public replaceGuideArtifactFile({
+    formData,
+  }: {
+    formData: {
+      artifactId: string;
+      checksumSha256: string;
+      declaredSize: number;
+      file: Blob;
+    },
+  }): CancelablePromise<{
+    access: 'free' | 'membership';
+    archived: boolean;
+    artifactId: string;
+    content: ({
+      contentType: string;
+      filename: string;
+      kind: 'file';
+      size: number;
+    } | {
+      externalUrl: string;
+      kind: 'link';
+    });
+    guideIds: Array<string>;
+    materialIds: Array<string>;
+    origin: 'authoring' | 'platform';
+    purpose: string;
+    sourceId: string | null;
+    title: string;
+    updatedAt: string;
+    version: number;
+  }> {
+    return this.httpRequest.request({
+      method: 'PUT',
+      url: '/authoring/guide-artifacts/file',
+      formData: formData,
+      mediaType: 'multipart/form-data',
+    });
+  }
+  /**
+   * Create one Guide Artifact from an uploaded file
+   * @returns any
+   * @throws ApiError
+   */
+  public createGuideArtifactFromFile({
+    formData,
+  }: {
+    formData: {
+      access: 'free' | 'membership';
+      checksumSha256: string;
+      declaredSize: number;
+      file: Blob;
+      guideId: string;
+      purpose: string;
+      title: string;
+    },
+  }): CancelablePromise<{
+    access: 'free' | 'membership';
+    archived: boolean;
+    artifactId: string;
+    content: ({
+      contentType: string;
+      filename: string;
+      kind: 'file';
+      size: number;
+    } | {
+      externalUrl: string;
+      kind: 'link';
+    });
+    guideIds: Array<string>;
+    materialIds: Array<string>;
+    origin: 'authoring' | 'platform';
+    purpose: string;
+    sourceId: string | null;
+    title: string;
+    updatedAt: string;
+    version: number;
+  }> {
+    return this.httpRequest.request({
+      method: 'POST',
+      url: '/authoring/guide-artifacts/files',
+      formData: formData,
+      mediaType: 'multipart/form-data',
+    });
+  }
+  /**
+   * Create one Guide Artifact that points at an explicit external address
+   * @returns any
+   * @throws ApiError
+   */
+  public createGuideArtifactFromLink({
+    requestBody,
+  }: {
+    requestBody: {
+      access: 'free' | 'membership';
+      externalUrl: string;
+      guideId: string;
+      purpose: string;
+      title: string;
+    },
+  }): CancelablePromise<{
+    access: 'free' | 'membership';
+    archived: boolean;
+    artifactId: string;
+    content: ({
+      contentType: string;
+      filename: string;
+      kind: 'file';
+      size: number;
+    } | {
+      externalUrl: string;
+      kind: 'link';
+    });
+    guideIds: Array<string>;
+    materialIds: Array<string>;
+    origin: 'authoring' | 'platform';
+    purpose: string;
+    sourceId: string | null;
+    title: string;
+    updatedAt: string;
+    version: number;
+  }> {
+    return this.httpRequest.request({
+      method: 'POST',
+      url: '/authoring/guide-artifacts/links',
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
+   * List the artifacts placed in one Guide
+   * @returns any
+   * @throws ApiError
+   */
+  public listAuthoringGuideArtifacts({
+    guideId,
+  }: {
+    guideId: string,
+  }): CancelablePromise<{
+    artifacts: Array<{
+      access: 'free' | 'membership';
+      archived: boolean;
+      artifactId: string;
+      content: ({
+        contentType: string;
+        filename: string;
+        kind: 'file';
+        size: number;
+      } | {
+        externalUrl: string;
+        kind: 'link';
+      });
+      guideIds: Array<string>;
+      materialIds: Array<string>;
+      origin: 'authoring' | 'platform';
+      purpose: string;
+      sourceId: string | null;
+      title: string;
+      updatedAt: string;
+      version: number;
+    }>;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/authoring/guides/{guideId}/artifacts',
+      path: {
+        'guideId': guideId,
+      },
+    });
+  }
+  /**
    * Load the current Material order for a Guide
    * @returns any
    * @throws ApiError

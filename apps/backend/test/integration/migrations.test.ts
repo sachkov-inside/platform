@@ -29,6 +29,10 @@ const materialTables = [
   "authoring_idempotency",
   "content_cover_renditions",
   "content_covers",
+  "guide_artifact_material_links",
+  "guide_artifact_placements",
+  "guide_artifact_versions",
+  "guide_artifacts",
   "home_series_pin",
   "material_related_pins",
   "material_search_documents",
@@ -196,6 +200,7 @@ describe("Platform migrations", () => {
       "0046_scoped_access",
       "0047_subscription_payments",
       "0048_subscription_lifecycle",
+      "0050_guide_artifacts",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -773,6 +778,7 @@ describe("Platform migrations", () => {
       "0046_scoped_access",
       "0047_subscription_payments",
       "0048_subscription_lifecycle",
+      "0050_guide_artifacts",
         ],
       });
 

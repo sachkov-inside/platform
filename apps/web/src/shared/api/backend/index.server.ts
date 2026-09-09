@@ -17,6 +17,7 @@ export {
 } from "./backend-proxy-response.server";
 export * from "./content-library.server";
 export * from "./content-covers.server";
+export * from "./guide-artifacts.server";
 export * from "./material-assets.server";
 export * from "./material-authoring.server";
 export * from "./material-videos.server";
