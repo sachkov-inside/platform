@@ -15,6 +15,8 @@ import {
 import {
   isVideoWatchedPosition,
   resolveVideoPlaybackProgress,
+  readVideoTimeFragment,
+  resolveVideoStartPosition,
 } from "../model/video";
 
 interface MaterialPrimaryVideoProps {
@@ -58,6 +60,7 @@ export function MaterialPrimaryVideo({ className, materialId, video, showWatched
     if (video.state !== "ready") return;
     let active = true;
     let mountedPlayer: { destroy(): Promise<void> } | null = null;
+    let removeTimeListener: (() => void) | undefined;
     const loadPlayer = async () => {
       try {
         const session = await createPlaybackSession({ materialId, videoId: video.videoId });
@@ -113,9 +116,34 @@ export function MaterialPrimaryVideo({ className, materialId, video, showWatched
         const duration = Math.max(1, Math.round(await player.getDuration()));
         if (!active) return;
         const playbackProgress = resolveVideoPlaybackProgress(savedPositionSeconds, duration);
-        const resumeSeconds = playbackProgress.resumeSeconds;
-        if (resumeSeconds !== null && resumeSeconds > 5) {
-          await player.seekTo(resumeSeconds);
+        const resumeSeconds = resolveVideoStartPosition(savedPositionSeconds, duration, window.location.hash);
+        let currentTime = resumeSeconds ?? 0;
+        let pendingSeek: number | null = null;
+        let seeking = false;
+        const seekToMoment = async (seconds: number) => {
+          pendingSeek = seconds;
+          if (seeking) return;
+          seeking = true;
+          try {
+            while (active && pendingSeek !== null) {
+              const target = pendingSeek;
+              pendingSeek = null;
+              await player.seekTo(target);
+              if (active) currentTime = target;
+            }
+          } finally {
+            seeking = false;
+          }
+        };
+        const seekToFragment = () => {
+          const seconds = readVideoTimeFragment(window.location.hash, duration);
+          if (!active || seconds === null) return;
+          void seekToMoment(seconds).catch(() => { if (active) setPhase("error"); });
+        };
+        window.addEventListener("hashchange", seekToFragment);
+        removeTimeListener = () => { window.removeEventListener("hashchange", seekToFragment); };
+        if (resumeSeconds !== null) {
+          await seekToMoment(resumeSeconds);
         }
         if (!active) return;
         setMeasuredDuration(duration);
@@ -124,8 +152,7 @@ export function MaterialPrimaryVideo({ className, materialId, video, showWatched
           scope: session.progressScope,
         };
         if (!progressInteractionRef.current) setWatchedOverride(playbackProgress.watched);
-        let lastPersisted = resumeSeconds ?? 0;
-        let currentTime = resumeSeconds ?? 0;
+        let lastPersisted = currentTime;
         const persist = (position: number) => {
           if (!active) return;
           const rounded = Math.max(0, Math.min(duration, Math.round(position)));
@@ -154,6 +181,7 @@ export function MaterialPrimaryVideo({ className, materialId, video, showWatched
         setPhase("playing");
       } catch {
         if (active) {
+          removeTimeListener?.();
           void mountedPlayer?.destroy();
           mountedPlayer = null;
           setPhase("error");
@@ -163,6 +191,7 @@ export function MaterialPrimaryVideo({ className, materialId, video, showWatched
     void loadPlayer();
     return () => {
       active = false;
+      removeTimeListener?.();
       void mountedPlayer?.destroy();
     };
   }, [createPlaybackSession, materialId, persistAccountProgress, retryAttempt, video.durationSeconds, video.state, video.title, video.videoId]);

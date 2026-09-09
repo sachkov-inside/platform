@@ -1,3 +1,4 @@
+import { registerVideoTools, type VideoAuthoringTools } from "../../modules/videos/index.js";
 import { registerCommunicationsTools, type Communications } from "../../modules/communications/index.js";
 import { createServer, type Server as NodeHttpServer } from "node:http";
 
@@ -35,6 +36,7 @@ export interface McpHttpServer {
 export function createMcpHttpServer(dependencies: {
   readonly accounts: Accounts;
   readonly authoring: MaterialAuthoring;
+  readonly videos: VideoAuthoringTools;
   readonly communications: Pick<Communications, "execute">;
   readonly config: McpConfig;
   readonly identityIssuer: string;
@@ -53,6 +55,7 @@ export function createMcpHttpServer(dependencies: {
     ({ authInfo }) => {
       const accountId = authenticatedAccountId(authInfo?.extra);
       const server = assembleMaterialAuthoringMcpServer({ accountId, authoring: dependencies.authoring });
+      registerVideoTools(server, { accountId, videos: dependencies.videos });
       registerCommunicationsTools(server, { accountId, communications: dependencies.communications });
       return server;
     },

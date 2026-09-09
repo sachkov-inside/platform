@@ -167,7 +167,13 @@ access, and the adapter has no service identity or provider secret.
 The exposed tools are `material_create_draft`, `material_load`, `material_save`,
 `material_preview`, `content_collection_list`, `content_collection_create`,
 `content_collection_update`, `content_collection_set_archive`, `playlist_load_composition` and
-`playlist_save_composition`. Material Save replaces content, metadata, current relations, access
+`playlist_save_composition`, `video_attach_existing`, `video_init_upload` and `video_reconcile`.
+The Video tools use the same Videos facet as the editor and its current `materials:manage` check.
+`material_save` requires an explicit `primaryVideoId`: preserve the value from `material_load`,
+or pass `null` to detach without requesting provider deletion. Older clients omitting the field
+receive a validation error instead of silently detaching the Video.
+See [the video authoring procedure](video-authoring.md) for exact steps and limits.
+Material Save replaces content, metadata, current relations, access
 and publication state atomically using `expectedContentVersion`; Series composition Save replaces
 the full ordered composition using its optimistic version. Both can affect live content and have no
 server-side Undo/history. Preview uses canonical ContentAccess. MCP clients can discover the protected resource

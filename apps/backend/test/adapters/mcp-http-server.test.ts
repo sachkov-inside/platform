@@ -31,6 +31,11 @@ describe("MCP Streamable HTTP adapter", () => {
     server = createMcpHttpServer({
       accounts: fakeAccounts(),
       authoring: stubMaterialAuthoring(),
+      videos: {
+        attachExisting: () => Promise.resolve({ ok: false, error: { code: "forbidden" } }),
+        initUpload: () => Promise.resolve({ ok: false, error: { code: "forbidden" } }),
+        reconcile: () => Promise.resolve({ ok: false, error: { code: "forbidden" } }),
+      },
       communications: { execute: () => Promise.resolve({ ok: false, error: { code: "forbidden" } }) },
       config: {
         host: "127.0.0.1",
@@ -73,6 +78,9 @@ describe("MCP Streamable HTTP adapter", () => {
         "playlist_save_composition",
         "guide_load_composition",
         "guide_save_composition",
+        "video_attach_existing",
+        "video_init_upload",
+        "video_reconcile",
       ]);
     } finally {
       await client.close();

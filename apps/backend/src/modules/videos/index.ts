@@ -41,3 +41,5 @@ export type {
   VideoProvider,
 } from "./ports/video-provider.js";
 export { createConfiguredVideoProvider } from "./shared/configured-video-provider.js";
+
+export { registerVideoTools, type VideoAuthoringTools } from "./adapters/mcp/register-video-tools.js";

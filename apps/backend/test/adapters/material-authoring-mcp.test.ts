@@ -90,6 +90,35 @@ describe("Material authoring MCP adapter", () => {
     });
   });
 
+  test("requires an explicit primary Video decision before saving", async () => {
+    let calls = 0;
+    ({ client, server } = await connect(stubMaterialAuthoring({ saveMaterial: () => {
+      calls += 1;
+      return Promise.resolve(forbiddenAuthoringResult);
+    } })));
+    const result = await client.callTool({ name: "material_save", arguments: {
+      idempotencyKey: "missing-video", materialId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      expectedContentVersion: 1, publicationState: "draft",
+      metadata: incompleteMetadata("Draft"), body: emptyBody(),
+    } });
+    expect(result.isError).toBe(true);
+    expect(calls).toBe(0);
+  });
+
+  test.each(["cccccccc-cccc-4ccc-8ccc-cccccccccccc", null])("forwards explicit primary Video %s with the loaded version", async (primaryVideoId) => {
+    let received: unknown;
+    ({ client, server } = await connect(stubMaterialAuthoring({ saveMaterial: command => {
+      received = command;
+      return Promise.resolve(forbiddenAuthoringResult);
+    } })));
+    await client.callTool({ name: "material_save", arguments: {
+      idempotencyKey: "explicit-video", materialId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      expectedContentVersion: 7, publicationState: "draft", primaryVideoId,
+      metadata: incompleteMetadata("Draft"), body: emptyBody(),
+    } });
+    expect(received).toMatchObject({ actor: accountId, primaryVideoId, expectedContentVersion: 7 });
+  });
+
   test("returns successful application values as structured content", async () => {
     ({ client, server } = await connect(
       stubMaterialAuthoring({
