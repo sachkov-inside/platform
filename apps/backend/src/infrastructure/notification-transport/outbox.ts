@@ -23,7 +23,7 @@ export async function stageNotification(table: NotificationOutboxTable, lane: No
   if (row.digest !== envelope.digest || row.lane !== lane) throw new Error('notification_operation_conflict');
 }
 const RELAY_RETRY_INITIAL_MS = 1_000;
-export const RELAY_RETRY_MAX_MS = 60_000;
+const RELAY_RETRY_MAX_MS = 60_000;
 export function assembleNotificationOutbox(table: NotificationOutboxTable, allowed: readonly NotificationLane[], now: () => Date = () => new Date()): NotificationOutbox {
   return {
     async relay(lane, publish) {
