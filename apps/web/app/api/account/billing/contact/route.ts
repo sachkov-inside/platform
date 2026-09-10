@@ -1,4 +1,4 @@
-import { handleReadBillingContact } from "@/_pages/billing-contact.server";
+import { handleReadBillingContact } from "@/features/billing-contact.server";
 export function GET(): Promise<Response> {
   return handleReadBillingContact();
 }

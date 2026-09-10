@@ -108,7 +108,10 @@ export function AccountPageClient({
         </form>
       </header>
 
-      <p className="mb-6"><Link className="underline underline-offset-4" href="/account/email">Email для чеков и уведомлений</Link></p>
+      <p className="mb-6 flex flex-wrap gap-x-6 gap-y-2">
+        <Link className="underline underline-offset-4" href="/account/subscription">Платёжный кабинет</Link>
+        <Link className="underline underline-offset-4" href="/account/email">Email для чеков и уведомлений</Link>
+      </p>
       <AccountMembershipPanel
         onRefresh={onTelegramMembershipRefresh}
         presentation={initialTelegramMembership}

@@ -251,6 +251,21 @@ not define a second layout or terminology.
 - **Copy:** `Профиль участника` names the projection directly; supporting copy explains only privacy,
   validation or current visibility state.
 
+### Subscription, Checkout and Billing Cabinet
+
+- **Status:** production-owned modules from issue #411; owner visual GO is not yet recorded.
+- **Composition:** витрина показывает тарифы одинаковыми bounded cards на тёплом canvas и
+  сохраняет мобильный порядок «тариф → оформление → email»; кабинет и владельческая страница
+  используют те же карточные поверхности и тонкие разделители без второго визуального диалекта.
+- **State:** банковское состояние попытки, готовность доступа и результат чека показаны как
+  отдельные факты словами, а не только цветом. Orange остаётся редким сигналом текущего состояния
+  (действующий тариф, скидка, запланированное изменение) и не используется как заливка.
+- **Copy:** страницы не обещают неподключённую кассу: пока условия не опубликованы, оформление
+  прямо сообщает, что принять оплату нельзя, а возврат из банка называется состоянием, а не успехом.
+
+**The Billing Facts Rule.** Суммы, сроки и состав приходят снимком сервера; интерфейс их не
+пересчитывает и не додумывает недостающую дату.
+
 ### Candidate Authoring Workbench
 
 - **Status:** candidate pattern from issue #38; finish verdict is `ship`, but global adoption awaits owner visual/interaction GO.
