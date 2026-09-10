@@ -23,6 +23,7 @@ describe("Prisma schema", () => {
       testDatabase.prisma.readingEvent.count(),
       testDatabase.prisma.readingCommand.count(),
       testDatabase.prisma.readingMaterialVisit.count(),
+      testDatabase.prisma.bookmarkedMaterial.count(),
       testDatabase.prisma.account.count(),
       testDatabase.prisma.accountPermission.count(),
       testDatabase.prisma.accountAuditEvent.count(),
@@ -58,6 +59,6 @@ describe("Prisma schema", () => {
       testDatabase.prisma.workshopSolutionReveal.count(),
     ]);
 
-    expect(counts).toEqual(Array.from({ length: 37 }, () => 0));
+    expect(counts).toEqual(Array.from({ length: 38 }, () => 0));
   });
 });

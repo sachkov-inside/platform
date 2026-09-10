@@ -24,4 +24,8 @@ export {
 } from "./features/read-home-content/read-home-content.js";
 
 export { readAvailableMaterials } from "./features/read-available-materials/read-available-materials.js";
+export {
+  readPublishedCatalogItems,
+  type PublishedCatalogDependencies,
+} from "./features/read-available-materials/read-available-materials.js";
 export { publishedCatalogItemHttpSchema, publishedCatalogFacetHttpSchema } from "./shared/published-catalog-http.js";

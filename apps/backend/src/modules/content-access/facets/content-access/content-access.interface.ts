@@ -39,6 +39,7 @@ export type EnforcementPoint =
   | "material_open"
   | "personal_home"
   | "reading_state_change"
+  | "bookmark_change"
   | "published_material_read"
   | "material_preview"
   | "mcp_material_read"

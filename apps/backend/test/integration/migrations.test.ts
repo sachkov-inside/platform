@@ -201,9 +201,10 @@ describe("Platform migrations", () => {
       "0046_scoped_access",
       "0047_subscription_payments",
       "0048_subscription_lifecycle",
-      "0050_guide_artifacts",
-      "0051_guide_chapters",
-      "0052_billing_notices",
+          "0050_guide_artifacts",
+          "0051_guide_chapters",
+          "0052_bookmarks",
+      "0053_billing_notices",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -223,6 +224,7 @@ describe("Platform migrations", () => {
       telegramMembershipTables,
     );
     await expectTables(testDatabase, "reading_activity", ["commands", "events", "material_states", "material_visits"]);
+    await expectTables(testDatabase, "bookmarks", ["bookmarked_materials"]);
     await expectTables(testDatabase, "assets", assetTables);
     await expectTables(testDatabase, "videos", videoTables);
     await expectTables(testDatabase, "workshop", workshopTables);
@@ -249,6 +251,7 @@ describe("Platform migrations", () => {
       where constraint_record.contype = 'f'
         and source_schema.nspname in (
           'reading_activity',
+          'bookmarks',
           'materials',
           'membership_entitlements',
           'telegram_membership',
@@ -781,9 +784,10 @@ describe("Platform migrations", () => {
       "0046_scoped_access",
       "0047_subscription_payments",
       "0048_subscription_lifecycle",
-      "0050_guide_artifacts",
-      "0051_guide_chapters",
-      "0052_billing_notices",
+          "0050_guide_artifacts",
+          "0051_guide_chapters",
+          "0052_bookmarks",
+      "0053_billing_notices",
         ],
       });
 
@@ -969,6 +973,7 @@ async function expectTables(
   database: TestDatabase,
   schema:
     | "reading_activity"
+    | "bookmarks"
     | "accounts"
     | "assets"
     | "identity_principals"

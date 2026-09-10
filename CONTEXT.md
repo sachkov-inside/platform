@@ -174,6 +174,13 @@ A coarse resume position for one Account and one local Video identity. Replaceme
 starts independently, and playback progress never changes ReadingState.
 _Avoid_: Material completion, read status, Kinescope user profile
 
+**Bookmark**:
+A private `Account ↔ Material` relation recording that the Account saved the Material to return to
+later. It is the presence of the relation, not access: it never grants the right to read a body or
+its linked resources, survives the loss of Membership and adds no public field. In Russian product
+language: «Закладка».
+_Avoid_: AccessGrant, ReadingState, collection, favorite
+
 ## Deferred Workshop vocabulary
 
 Workshop is deferred while the current platform develops Materials and Guides. These terms retain
