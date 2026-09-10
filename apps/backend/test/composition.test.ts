@@ -9,6 +9,7 @@ import {
   type PlatformConfig,
 } from "../src/config/platform-config.js";
 import { createApiApplication } from "../src/entrypoints/api/create-api-application.js";
+import { BillingWorkerModule } from "../src/entrypoints/billing-worker/billing-worker.module.js";
 import { createMcpApplication } from "../src/entrypoints/create-mcp-application.js";
 import { MaterialAssetsWorkerModule } from "../src/entrypoints/material-assets-worker/material-assets-worker.module.js";
 import { ProfileAvatarsWorkerModule } from "../src/entrypoints/profile-avatars-worker/profile-avatars-worker.module.js";
@@ -113,6 +114,20 @@ describe("backend process composition", () => {
     application = undefined;
 
     expect(disconnect).toHaveBeenCalledOnce();
+  });
+
+  it("binds the Billing worker to readiness and its access consumers", async () => {
+    application = await NestFactory.createApplicationContext(
+      BillingWorkerModule.forRoot(config),
+      { logger: false },
+    );
+
+    expect(application.get<PlatformConfig>(PLATFORM_CONFIG)).toBe(config);
+    expect(application.get(OperationalReadiness)).toBeInstanceOf(
+      OperationalReadiness,
+    );
+    expect(application.get(BillingPayments)).toBeDefined();
+    expect(application.get(CommunityEntitlements)).toBeDefined();
   });
 
   it("loads and validates worker config through Nest composition", async () => {
