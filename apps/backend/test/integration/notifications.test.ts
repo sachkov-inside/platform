@@ -8,6 +8,7 @@ import { fork } from 'node:child_process';
 import { once } from 'node:events';
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
+import { distinctClock } from './setup/distinct-clock.js';
 import { createMigratedTestDatabase, type TestDatabase } from './setup/test-database.js';
 import { Notifications, type NotificationDependencies, type NotificationSource } from '../../src/modules/notifications/index.js';
 import { NotificationAccounts, assembleAccounts } from '../../src/modules/accounts/index.js';
@@ -56,9 +57,7 @@ describe('Notifications persistence and delivery (real PostgreSQL; synthetic sou
     const commands = async () => database.prisma.notificationCommand.findMany({ where: { delivery: { notification: { occurrenceRef: event.occurrenceRef, accountId: actor } } }, orderBy: { revision: 'asc' } });
     const command = async () => { const row = (await commands()).at(-1); if (!row) throw new Error('Missing command'); return { row, value: deliverySchema.parse(JSON.parse(row.payload)) }; };
     const admit = async () => { const { value } = await command(); await app.acceptEvent(encodeNotification(category === 'material' ? 'emailMaterial' : 'emailSubscription', value)); return value; };
-    // A clock that answers a new millisecond each call, for a producer that must not read it twice.
-    const ticking = () => { let reading = instant.getTime(); return () => new Date(reading += 1); };
-    return { actor, app, deps, event, fact, contacts, verify, advance, publish, commands, command, admit, ticking,
+    return { actor, app, deps, event, fact, contacts, verify, advance, publish, commands, command, admit,
       source: (value: NotificationSource) => { source = value; }, access: (value: typeof access) => { access = value; } };
   }
   function request(command: DeliveryCommand, digest: string): AuthorizeRequest {
@@ -180,7 +179,7 @@ describe('Notifications persistence and delivery (real PostgreSQL; synthetic sou
     expect((await project(s.app, c.deliveryRef)).state).toBe('suppressed'); expect(sends).toBe(0);
     // The replacement command is issued against a clock that moves: its window has to stay inside the
     // lifetime its own consumer accepts, or the command is quarantined instead of delivered.
-    await refreshDeliveries({ ...s.deps, now: s.ticking() }); expect(await s.commands()).toHaveLength(2);
+    await refreshDeliveries({ ...s.deps, now: distinctClock(() => s.deps.now().getTime()) }); expect(await s.commands()).toHaveLength(2);
     const next = await s.admit(); expect(next.commandRevision).toBe(2); expect(next.deliveryRef).toBe(c.deliveryRef);
     expect(Date.parse(next.notAfter) - Date.parse(next.issuedAt)).toBeLessThanOrEqual(COMMAND_LIFETIME_MS);
     await dispatchEmail(s.deps, () => { sends += 1; return Promise.resolve({ state: 'sent' }); }, 'subscription');

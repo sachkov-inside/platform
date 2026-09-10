@@ -80,13 +80,14 @@ export async function expandAudience(deps: NotificationDependencies, lane: 'bill
         if (delivery.commandRevision > 0 || delivery.recoverySkipped) continue;
         const binding = await deps.recipients.binding(accountId, channel);
         if (!binding) continue;
+        const deliveryWindow = commandWindow(now(), deadline);
+        if (!deliveryWindow) continue;
         const template = renderNotification(source, deps.origin);
         const command = deliverySchema.parse({
           contractVersion: 'inside.notification-delivery.v1', operationId: randomUUID(), notificationRef: notification.id,
           deliveryRef: delivery.id, commandRevision: 1, sourceEventId: event.messageId, content: source.content,
           templateRef: template.templateRef, templateRevision: template.templateRevision, text: template.text,
-          ...(channel === 'email' ? { subject: template.subject } : {}), binding,
-          ...commandWindow(now(), deadline.getTime()),
+          ...(channel === 'email' ? { subject: template.subject } : {}), binding, ...deliveryWindow,
         });
         await stageDeliveryCommand(transaction, command, now());
       }

@@ -82,6 +82,14 @@ not dependency wiring.
   [`IdP flow specification`](../../docs/specifications/idp-application-flow-v1.md) for Logto, BFF,
   callback, token, cookie, and logout behaviour.
 
+## Tests against real infrastructure
+
+- Poll a durable fact with `test/integration/setup/eventually.ts`; a scenario that must not depend
+  on two clock readings landing in one millisecond takes `setup/distinct-clock.ts`.
+- Read broker state through `setup/broker-queues.ts` rather than parsing `rabbitmqctl` output again.
+- Each test owns its isolated database and containers. Its barriers therefore read its own rows,
+  never a global count another file can move.
+
 ## Enforcement
 
 Keep Oxlint and architecture guardrails aligned with every changed boundary, including negative

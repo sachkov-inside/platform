@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { GenericContainer, Wait } from 'testcontainers';
 import { expect, test, onTestFinished } from 'vitest';
-import { z } from 'zod';
+import { queueDepth } from './setup/broker-queues.js';
+import { distinctClock } from './setup/distinct-clock.js';
 import { eventually } from './setup/eventually.js';
 import { createMigratedTestDatabase } from './setup/test-database.js';
 import { localNotificationTopology, NOTIFICATION_BROKER_IMAGE } from '../../src/infrastructure/notification-transport/topology.js';
@@ -26,6 +27,7 @@ test('real RabbitMQ event → audience → email inbox/effect → result outage/
     { content: 'definitions.import_backend = local_filesystem\ndefinitions.local.path = /etc/rabbitmq/definitions.json\n', target: '/etc/rabbitmq/rabbitmq.conf' },
   ]).withWaitStrategy(Wait.forLogMessage(/Server startup complete/)).start();
   onTestFinished(async () => { await broker.stop(); });
+  const admin = async (args: string[]) => { const result = await broker.exec(['rabbitmqctl', ...args]); expect(result.exitCode, result.output).toBe(0); return result.output; };
   const database = await createMigratedTestDatabase();
   onTestFinished(() => database.dispose());
   const url = (principal: string) => `amqp://local-${principal}:inside-local-only@${broker.getHost()}:${broker.getMappedPort(5672)}/inside-test`;
@@ -45,11 +47,9 @@ test('real RabbitMQ event → audience → email inbox/effect → result outage/
     accountId: candidate.eventType === 'material.published' ? null : actor,
     content: candidate.eventType === 'material.published' ? { category: 'material', kind: 'material_published' } : { category: 'subscription', kind: 'payment_succeeded' },
     title: 'Synthetic source for real transport proof', readerPath: '/materials/broker-proof' });
-  // Wall time that never answers twice in the same millisecond. Two reads landing inside one
-  // millisecond is luck, and a delivery command assembled from two reads outlives what its own
-  // consumer accepts, so this clock makes that dependency fail here instead of at random on CI.
-  let lastRead = 0;
-  const now = () => { const reading = Math.max(Date.now(), lastRead + 1); lastRead = reading; return new Date(reading); };
+  // A delivery command assembled from two clock readings outlives what its own consumer accepts,
+  // so this clock makes that dependency fail here instead of at random on a loaded machine.
+  const now = distinctClock();
   const app = new Notifications({ prisma: database.prisma, origin: 'https://inside.example.test', now,
     sources: { resolve: candidate => Promise.resolve([billing.occurrenceRef, material.occurrenceRef].includes(candidate.occurrenceRef) ? source(candidate) : { status: 'unavailable' }), canRead: () => Promise.resolve('allowed') },
     recipients: { exists: id => contacts.exists(id), enumerate: query => contacts.enumerate(query), binding: (id, channel) => channel === 'email' ? contacts.binding(id) : Promise.resolve(null), email: binding => contacts.email(binding) },
@@ -59,17 +59,12 @@ test('real RabbitMQ event → audience → email inbox/effect → result outage/
   await database.prisma.notificationPreferenceRevision.create({ data: { accountId: actor, revision: 1, email: true, telegram: false, changedAt: before, operationId: randomUUID(), fingerprint: 'fixture' } });
   const emailPermission = topology.permissions.find(permission => permission.user === 'local-email');
   if (!emailPermission) throw new Error('Missing email permission');
-  const revoked = await broker.exec(['rabbitmqctl', 'set_permissions', '-p', 'inside-test', 'local-email', '^$', '^$', emailPermission.read]);
-  expect(revoked.exitCode).toBe(0);
+  await admin(['set_permissions', '-p', 'inside-test', 'local-email', '^$', '^$', emailPermission.read]);
   let sends = 0;
   const reports: Record<string, unknown>[] = [];
   const worker = assembleNotificationWorker({ config: { urls, prefetch: 2, quarantineCapacity: 100 }, transport: app.transport,
     billing: assembleBillingNotificationOutbox(database.prisma), materials: assembleMaterialsNotificationOutbox(database.prisma),
     processInbox: () => app.sweep(() => { sends += 1; return Promise.resolve({ state: 'sent' }); }), report: event => { reports.push(event); } });
-  // Counts ready and unacknowledged messages, so an empty queue proves a publish was consumed and acknowledged.
-  const queued = async (queue: string) => z.array(z.object({ name: z.string(), messages: z.number() }))
-    .parse(JSON.parse((await broker.exec(['rabbitmqctl', 'list_queues', '-p', 'inside-test', 'name', 'messages', '--formatter', 'json'])).output))
-    .find(row => row.name === queue)?.messages;
   const invalid = await connectNotificationBroker({ url: urls.email });
   const publisher = await connectNotificationBroker({ url: urls.billing });
   try {
@@ -92,13 +87,12 @@ test('real RabbitMQ event → audience → email inbox/effect → result outage/
     }, barrierBudgetMs);
     expect(await database.prisma.notificationDelivery.count({ where: { state: 'sent' } })).toBe(0);
     expect(await database.prisma.notificationOutbox.count({ where: { scope: 'email', publishedAt: null } })).toBeGreaterThanOrEqual(2);
-    const restored = await broker.exec(['rabbitmqctl', 'set_permissions', '-p', 'inside-test', 'local-email', emailPermission.configure, emailPermission.write, emailPermission.read]);
-    expect(restored.exitCode).toBe(0);
+    await admin(['set_permissions', '-p', 'inside-test', 'local-email', emailPermission.configure, emailPermission.write, emailPermission.read]);
     await eventually(async () => { expect(await database.prisma.notificationDelivery.count({ where: { state: 'sent' } })).toBe(2); }, barrierBudgetMs);
     await publishNotification(publisher, encodeNotification('billing', billing));
     // A drained queue proves the republished event was consumed and acknowledged; a fixed pause here
     // would only guess how fast this machine is.
-    await eventually(async () => { expect(await queued(lanes.billing.queue)).toBe(0); }, barrierBudgetMs);
+    await eventually(async () => { expect(await queueDepth(admin, 'inside-test', lanes.billing.queue)).toBe(0); }, barrierBudgetMs);
     expect(sends).toBe(2);
     expect(await database.prisma.notification.count()).toBe(2);
     expect(await database.prisma.notificationEmailAttempt.count()).toBe(2);

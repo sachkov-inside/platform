@@ -27,10 +27,12 @@ export async function refreshDeliveries(deps: NotificationDependencies) {
     if (source.content.category === 'material' && (!await optedIn(transaction, delivery.notification.accountId, channel, new Date(event.occurredAt)) || await deps.sources.canRead(delivery.notification.accountId, event.sourceRef) !== 'allowed')) return;
     const binding = await deps.recipients.binding(delivery.notification.accountId, channel);
     if (!binding || fingerprint(binding) !== fingerprint(old.binding)) return;
+    const deliveryWindow = commandWindow(deps.now(), new Date(event.notAfter));
+    if (!deliveryWindow) return;
     const template = renderNotification(source, deps.origin);
     const command = { ...old, operationId: randomUUID(), commandRevision: old.commandRevision + 1, sourceEventId: event.messageId,
       content: source.content, templateRef: template.templateRef, templateRevision: template.templateRevision, text: template.text,
-      ...(channel === 'email' ? { subject: template.subject } : {}), ...commandWindow(deps.now(), Date.parse(event.notAfter)) };
+      ...(channel === 'email' ? { subject: template.subject } : {}), ...deliveryWindow };
     await stageDeliveryCommand(transaction, command, deps.now());
   });
 }

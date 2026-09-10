@@ -58,6 +58,10 @@ mutations.
   visual snapshots cannot establish stability.
 - Keep editor and explicit CLI checks on the committed TypeScript project that excludes stale
   `.next/dev` artifacts. Do not re-enable the removed JavaScript compiler API checker.
+- Read a browser fact in one evaluation. Resolving a locator and evaluating on it are two round
+  trips, and a re-render between them detaches the resolved node, which then matches nothing.
+- Treat `clock.runFor` as a trigger: it returns once the page's virtual timers ran, before the
+  request they started has been answered. Wait for the response or the applied render.
 - Keep Web guardrails and negative fixtures aligned with environment ownership, browser bypass,
   slice direction, mutation boundaries, and bundle limits. Use focused mapping/query tests,
   Storybook for meaningful UI states, and Playwright for route behaviour and accessibility.

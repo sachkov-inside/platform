@@ -10,6 +10,7 @@ import type { ChannelModel } from 'amqplib';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { z } from 'zod';
 import fixtures from '../../../../docs/contracts/notifications-v1/fixtures.json' with { type: 'json' };
+import { queueDepth } from './setup/broker-queues.js';
 import { eventually } from './setup/eventually.js';
 import { createMigratedTestDatabase, type TestDatabase } from './setup/test-database.js';
 import { localNotificationTopology, NOTIFICATION_BROKER_IMAGE } from '../../src/infrastructure/notification-transport/topology.js';
@@ -121,10 +122,7 @@ describe('Notifications real PostgreSQL / RabbitMQ transport', () => {
           await once(child, 'message', { signal: controller.signal });
           if (phase === 'before-confirm') {
             // Broker persistence is observed while the application is still denied its confirm.
-            await eventually(async () => {
-              const rows = z.array(z.object({ name: z.string(), messages: z.number() })).parse(JSON.parse(await admin(['list_queues', '-p', 'inside-test', 'name', 'messages', '--formatter', 'json'])));
-              expect(rows.find(row => row.name === lanes.billing.queue)?.messages).toBe(1);
-            }, barrierBudgetMs);
+            await eventually(async () => { expect(await queueDepth(admin, 'inside-test', lanes.billing.queue)).toBe(1); }, barrierBudgetMs);
           }
         } catch { throw new Error(`Crash child failed: ${errors}`); } finally { clearTimeout(timeout); }
       } finally { child.kill('SIGKILL'); await once(child, 'exit'); }
@@ -138,10 +136,7 @@ describe('Notifications real PostgreSQL / RabbitMQ transport', () => {
         expect(await database.prisma.notificationInbox.findUnique({ where: { scope_messageId: { scope: 'billing', messageId: envelope.messageId } } })).toMatchObject({ payload: envelope.payload, completedAt: null, checkpoint: {} });
       }, barrierBudgetMs);
       // Wait for both confirm-window copies to be consumed before moving to the next crash phase.
-      await eventually(async () => {
-        const rows = z.array(z.object({ name: z.string(), messages: z.number() })).parse(JSON.parse(await admin(['list_queues', '-p', 'inside-test', 'name', 'messages', '--formatter', 'json'])));
-        expect(rows.find(row => row.name === lanes.billing.queue)?.messages).toBe(0);
-      }, barrierBudgetMs);
+      await eventually(async () => { expect(await queueDepth(admin, 'inside-test', lanes.billing.queue)).toBe(0); }, barrierBudgetMs);
       await consumer.stop();
       expect(await database.prisma.notificationInbox.count({ where: { messageId: envelope.messageId } })).toBe(1);
     }, 45_000);

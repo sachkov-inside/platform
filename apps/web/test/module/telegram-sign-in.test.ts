@@ -5,6 +5,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { chromium, webkit, type Browser, type Page } from "@playwright/test";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import {
+  pollIntervalMilliseconds,
   telegramSignInPage,
   telegramSignInScript,
   type InsideTelegramPresentation,
@@ -61,9 +62,8 @@ afterAll(async () => {
   await new Promise<void>((resolve, reject) => server?.close((error) => { if (error) reject(error); else resolve(); }));
 });
 
-// The page polls on this interval; the extra step only makes the virtual clock cross it.
-const pollIntervalMs = 1500;
-const clockStepMs = pollIntervalMs + 100;
+// One step of the virtual clock crosses the page's own polling interval.
+const clockStepMs = pollIntervalMilliseconds + 100;
 
 // runFor returns once the virtual timers have run, not once the request they started was answered:
 // the answer travels over a real socket. Waiting for the answer is the fact; the clock is only the trigger.
@@ -142,7 +142,9 @@ it("keeps keyboard focus and control geometry across polls, reconnects, and retu
   await page.getByRole("status").filter({ hasText: "Вы отменили вход" }).waitFor();
   expect(await focusedId(page)).toBe("alternative");
   const stoppedAt = requests;
-  await page.clock.runFor(pollIntervalMs * 3);
+  // Proving that nothing happens is the one wait a duration can settle: the clock is virtual, the
+  // decline above is already applied, and no timer is left to fire inside three polling intervals.
+  await page.clock.runFor(pollIntervalMilliseconds * 3);
   expect(requests).toBe(stoppedAt);
   // The visual fixture has no Logto interaction; assert the return destination without starting auth.
   await page.route(`${origin}/sign-in`, async (route) => {
@@ -168,15 +170,20 @@ it("automatically completes in the original tab after approval and respects redu
 it("offers a keyboard-accessible return during persistent connection failure, including the first poll", async () => {
   const page = await browser.newPage();
   await page.clock.install();
+  let refused = 0;
   await page.route(`${origin}/api/inside-telegram/status`, async (route) => {
+    refused += 1;
     await route.fulfill({ status: 503, body: "Service unavailable" });
   });
   await page.goto(`${origin}/api/inside-telegram`);
   await page.getByRole("status").filter({ hasText: "Нет связи" }).waitFor();
-  await page.clock.runFor(10000);
+  const afterFirstPoll = refused;
+  await page.clock.runFor(pollIntervalMilliseconds * 3);
+  // The refused polls are the fact: the return has to survive them, not only the first failure.
+  await expect.poll(() => refused).toBeGreaterThan(afterFirstPoll);
   expect(await page.locator("#alternative").getAttribute("href")).toBe("/sign-in");
   await page.keyboard.press("Tab");
-  expect(await page.locator("#alternative").evaluate((element) => element === document.activeElement)).toBe(true);
+  expect(await focusedId(page)).toBe("alternative");
   // The visual fixture has no Logto interaction; assert the return destination without starting auth.
   await page.route(`${origin}/sign-in`, async (route) => {
     await route.fulfill({ contentType: "text/html", body: "<h1>Sign-in fixture</h1>" });

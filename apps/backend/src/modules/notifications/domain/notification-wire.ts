@@ -62,10 +62,12 @@ export function fingerprint(input: unknown): string {
   return digestNotificationPayload(JSON.stringify(sort(z.json().parse(input))));
 }
 export const COMMAND_LIFETIME_MS = 10 * 60 * 1_000;
-// Both ends of the window come from one clock read. A second read can declare a lifetime longer
-// than the one the command's own consumer accepts, and such a command is quarantined, not delivered.
-export function commandWindow(issuedAt: Date, deadline: number) {
-  return { issuedAt: issuedAt.toISOString(), notAfter: new Date(Math.min(deadline, issuedAt.getTime() + COMMAND_LIFETIME_MS)).toISOString() };
+// Both ends of the window come from one clock reading. A second reading can declare a lifetime
+// longer than the one the command's own consumer accepts, and such a command is quarantined instead
+// of delivered. A deadline already reached leaves no window at all, and there is no command to issue.
+export function commandWindow(issuedAt: Date, deadline: Date) {
+  if (deadline <= issuedAt) return null;
+  return { issuedAt: issuedAt.toISOString(), notAfter: new Date(Math.min(deadline.getTime(), issuedAt.getTime() + COMMAND_LIFETIME_MS)).toISOString() };
 }
 export const PERMIT_LIFETIME_MS = 5_000;
 export const MATERIAL_LIFETIME_MS = 24 * 60 * 60 * 1_000;
