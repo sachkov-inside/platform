@@ -103,12 +103,18 @@ describe("служебные сообщения подписки (реальны
     const sent: { subject: string; text: string; email: string }[] = [];
     const deliverEmail: SendNotificationEmail = message => { sent.push(message); return Promise.resolve({ state: "sent" }); };
 
+    /** Сколько собственных событий покупателя ещё ждут раскрытия: sweep берёт по одному. */
+    async function pendingEvents() {
+      const events = await db.prisma.billingNoticeRevision.findMany({ where: { notice: { accountId: buyer } }, select: { messageId: true } });
+      return db.prisma.notificationInbox.count({ where: { messageId: { in: events.map(row => row.messageId) }, completedAt: null } });
+    }
     /**
      * Пробег общего пути вместо брокера: outbox источника, раскрытие аудитории, доставка и
-     * проекция результата. Заканчивается на факте — когда очередной пробег ничего не перенёс.
+     * проекция результата. Заканчивается на факте: собственных нераскрытых событий не осталось
+     * и очередной пробег ничего не перенёс.
      */
     async function pump(send?: SendNotificationEmail) {
-      for (let pass = 0; pass < 12; pass += 1) {
+      for (let pass = 0; pass < 24; pass += 1) {
         let moved = false;
         while (await relay.relay("billing", envelope => notifications.acceptEvent(envelope).then(() => undefined))) moved = true;
         await notifications.sweep(send);
@@ -117,17 +123,15 @@ describe("служебные сообщения подписки (реальны
             if (lane === "telegramSubscription") { telegramCommands.push(JSON.parse(envelope.payload)); return Promise.resolve(); }
             return notifications.acceptEvent(envelope).then(() => undefined);
           })) moved = true;
-        if (!moved) return;
+        if (!moved && await pendingEvents() === 0) return;
       }
       throw new Error("Путь сообщений не сошёлся");
     }
-    /** Готовит команды всех принятых событий, но не отправляет: sweep раскрывает по одному. */
+    /** Готовит команды всех принятых событий, но не отправляет. */
     async function prepare() {
       while (await relay.relay("billing", envelope => notifications.acceptEvent(envelope).then(() => undefined))) { /* durable events */ }
-      for (let pass = 0; pass < 12; pass += 1) {
-        // Ждём факт: каждое событие своего покупателя обработано, а не «прошло N пробегов».
-        const events = await db.prisma.billingNoticeRevision.findMany({ where: { notice: { accountId: buyer } }, select: { messageId: true } });
-        if (await db.prisma.notificationInbox.count({ where: { messageId: { in: events.map(row => row.messageId) }, completedAt: null } }) === 0) return;
+      for (let pass = 0; pass < 24; pass += 1) {
+        if (await pendingEvents() === 0) return;
         await notifications.sweep();
       }
       throw new Error("Аудитория не раскрыта");
