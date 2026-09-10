@@ -107,6 +107,38 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
         return accessFailure("unavailable");
       }
     },
+    /**
+     * Ordered audit cursor for projectors that must not miss an access change.
+     * It reports which Accounts changed, never why or with which capabilities.
+     */
+    async readChangedAccounts(query: {
+      readonly afterRevision: number;
+      readonly limit: number;
+    }) {
+      const parsed = z
+        .object({
+          afterRevision: z.number().int().min(0),
+          limit: z.number().int().min(1).max(500),
+        })
+        .strict()
+        .safeParse(query);
+      if (!parsed.success) return accessFailure("invalid_input");
+      try {
+        const rows = await prisma.accessChange.findMany({
+          where: { revision: { gt: parsed.data.afterRevision } },
+          orderBy: { revision: "asc" },
+          take: parsed.data.limit,
+          select: { accountId: true, revision: true },
+        });
+        return {
+          ok: true as const,
+          accountIds: [...new Set(rows.map((row) => row.accountId))],
+          cursor: rows.at(-1)?.revision ?? parsed.data.afterRevision,
+        };
+      } catch {
+        return accessFailure("unavailable");
+      }
+    },
     async readLegacyClassification(targetAccountId: string) {
       if (!z.uuid().safeParse(targetAccountId).success)
         return accessFailure("invalid_input");

@@ -219,6 +219,45 @@ REVERSED|PARTIAL_REVERSED` даёт `confirmed`; неуспех — `failed`; в
 доступа, историю событий, решения о возврате и audit этого платежа.
 `subscriptions.cancel` выполняет тот же use case, что и команда покупателя, поэтому правила срока
 и revision общие. Очередь `billing.payment-recovery` дополнительно сверяет незавершённые возвраты.
+## Текущая поставка #415
+
+Platform становится producer общего права участия. Проектор собирает желаемое состояние из
+совокупности действующих оснований (`resolveCapabilities`) и подтверждённой связи
+(`TelegramAccountLinks.readBinding`), читает только публичные facets и сам прав не выдаёт.
+Монотонная `entitlementRevision` растёт и при смене связи, а не только при смене доступа.
+Устаревшее чтение не двигает проекцию назад. Unlink и relink дают две команды разным получателям:
+`cleanup` по исторической связи и `apply` по новой. Отказ уходит только тому получателю, которому
+раньше сообщили о допуске.
+
+Durable outbox `telegram_membership.community_operations` хранит точную команду, её канонический
+fingerprint, состояние доставки и последний результат провайдера. Потерянный ответ повторяется тем
+же operationId и той же нагрузкой, поэтому повтор не становится второй командой. Решённый отказ
+переходит в `rejected` и является работой оператора, а не новым идентификатором операции.
+Callback контрактом не предусмотрен: опрос `entitlement.status` превращает принятое намерение в
+наблюдаемое применение и замечает вышедшего участника без новой revision. Ack очереди не выдаётся
+за членство: желаемое, принятое и применённое остаются разными полями.
+
+Фоновая сверка в `billing-worker` раз в минуту покрывает три источника без запроса пользователя:
+упорядоченный курсор изменений доступа, наступившую границу срока и изменившуюся связь. Курсор
+двигается только по полностью спроецированному окну. Незавершённая работа старше пяти минут
+сообщается как `operator_attention`.
+
+Каждый ответ провайдера сверяется с самой отправленной командой: операция, получатель, revision и
+access. Ответ с чужой связью или другой revision — неизвестный исход, а не факт об Account.
+
+`/internal/billing-dispatch/authorize` пересчитывает актуальные право и связь заново, а не доверяет
+поставленной в очередь команде. Получатель проверяется раньше revision, поэтому команда с уехавшей
+связью называется binding_conflict независимо от того, выпущена ли уже более новая. Ответ
+unavailable — временный сбой, а не решение, и не сохраняется: тот же authorization operationId
+позже может получить настоящий ответ. Истёкшее основание не разрешает вход и не разрешает удалить
+участника, у которого уже есть другое действующее или бессрочное. Удаление исторической identity
+после unlink допускается только по собственной записи того же Account и при отсутствии переноса;
+спорная identity уходит оператору. Permit живёт не дольше 5 секунд и не дольше самого права; повтор
+того же authorization operationId возвращает исходный ответ вместе с исходным сроком. Ledger
+эффекта принадлежит Telegram. Сбой community не меняет подтверждённую оплату и доступ к материалам.
+
+Поверхность, конфигурация и границы описаны в
+[Community entitlements](../integrations/community-entitlements-v1.md).
 
 ## Возможности и модули
 
@@ -233,7 +272,7 @@ REVERSED|PARTIAL_REVERSED` даёт `confirmed`; неуспех — `failed`; в
 | `billing` (новый модуль) | Offers, price/consent snapshots, subscription, attempts, bank/fiscal results, lifecycle events и outbox; purchase/change/renew/cancel/reconcile/refund | #405, #407–#409 |
 | `membership-entitlements` | Независимые paid/manual/legacy grants; applyPaidPeriod, grant/revoke/preview/batch, resolveForAccess; legacy classification | #404 |
 | `content-access` | Финальный доступ к материалам/файлам/video token из публичного entitlement facet, без provider I/O | #404 |
-| `telegram-membership` | Community desired state, entitlement revision, outbox и delivery observation; project/dispatch/reconcile/authorizeDispatch | #415 |
+| `telegram-membership` | Community desired state, entitlement revision, outbox и delivery observation; project/sweep/authorizeDispatch/readDelivery | #415 |
 | `billing` | Notice-ready event, due reminder и актуальность billing source | #410 |
 | `notifications` | Общие Notification/Delivery, verified recipient snapshot, email/Telegram adapters и authorizeDispatch по [Notifications v1](notifications-v1.md) | #434/#436/#410 |
 

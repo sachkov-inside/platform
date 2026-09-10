@@ -57,8 +57,12 @@ describe("Prisma schema", () => {
       testDatabase.prisma.workshopCaseMaterial.count(),
       testDatabase.prisma.workshopHintReveal.count(),
       testDatabase.prisma.workshopSolutionReveal.count(),
+      testDatabase.prisma.telegramCommunityDesiredState.count(),
+      testDatabase.prisma.telegramCommunityOperation.count(),
+      testDatabase.prisma.telegramCommunityAuthorization.count(),
+      testDatabase.prisma.telegramCommunityProjectionCursor.count(),
     ]);
 
-    expect(counts).toEqual(Array.from({ length: 38 }, () => 0));
+    expect(counts).toEqual(Array.from({ length: 42 }, () => 0));
   });
 });

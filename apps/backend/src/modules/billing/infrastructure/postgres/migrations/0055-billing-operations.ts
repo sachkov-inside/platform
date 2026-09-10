@@ -1,4 +1,4 @@
-export const name = "0054_billing_operations";
+export const name = "0055_billing_operations";
 export const statement = `
 CREATE TABLE billing.owner_commands (
  sequence bigserial NOT NULL,

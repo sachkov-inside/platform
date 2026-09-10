@@ -48,6 +48,7 @@ expectFailure(
     "billingContact",
     "billingConsentEvidence",
     "notificationEmailAttempt",
+    "telegramCommunityOperation",
     "Cannot find name 'describe'",
   ],
 );

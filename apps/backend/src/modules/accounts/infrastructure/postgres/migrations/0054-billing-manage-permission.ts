@@ -1,4 +1,4 @@
-export const name = "0053_billing_manage_permission";
+export const name = "0054_billing_manage_permission";
 export const statement = `
   alter table accounts.account_permissions
     drop constraint account_permissions_value_check,
