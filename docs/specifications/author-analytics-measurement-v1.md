@@ -10,8 +10,9 @@ parent [Specification #325](https://github.com/sachkov-inside/platform/issues/32
 Документ отвечает на один вопрос: что именно Platform считает, из какого факта, с какой точностью и
 какой минимальной реализацией. До принятия контракта и отдельного GO сбор не включается, а
 [#334](https://github.com/sachkov-inside/platform/issues/334)–[#336](https://github.com/sachkov-inside/platform/issues/336)
-остаются `needs-info`. Выручка, покупки и подписки в этот контракт не входят: их источник выбирает
-[#337](https://github.com/sachkov-inside/platform/issues/337).
+остаются `needs-info`. Выручка, покупки и подписки в этот контракт не входят: их источник, показатели
+и пределы точности живут в [контракте измерений подписочной аналитики v1](subscription-analytics-measurement-v1.md)
+по задаче [#337](https://github.com/sachkov-inside/platform/issues/337).
 
 ## Решения владельца
 

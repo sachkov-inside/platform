@@ -61,17 +61,20 @@ ReadingActivity хранит state и transactional transition history с сам
 Material visits персональной Home — recency state, не журнал всех посещений и не замена analytics.
 Прошлые anonymous visits и просмотры до rollout восстановить из этих таблиц нельзя.
 
-## Будущий учёт подписок — отдельная задача Later
+## Учёт подписок — отдельное направление
 
-Нужно сначала найти authority событий purchase, renewal, cancellation, expiration и refund,
-проверить идентификацию Account, provider-event dedupe, late/out-of-order reconciliation и backfill.
 MembershipEntitlement подтверждает доступ, Telegram join подтверждает участие, outbound acquisition
 URL — намерение перейти. Ни одно из них не подтверждает оплату.
 
-Исследование подписок независимо от #325; после выбора источника создаются repo-owned delivery
-specifications и при необходимости Workspace cross-repo parent. Не вводить billing authority,
-выручку, MRR или cohort retention из предположений. Новые credentials, paid/trial services,
-provider enablement и исторический импорт не разрешены этим планированием.
+Источник событий purchase, renewal, cancellation и expiration выбран и проверен по коду в
+[контракте измерений подписочной аналитики v1](../specifications/subscription-analytics-measurement-v1.md):
+это journal-таблицы billing. Там же зафиксированы идентификация Account, dedupe без provider event ID,
+поведение поздней сверки, границы backfill и пять разрывов до отчёта, включая нереализованные
+возвраты. Контракт ждёт решения владельца и до него не меняет readiness зависимых задач.
+
+Направление независимо от #325; delivery ticket отчёта заводится после принятия контракта. Не
+вводить billing authority, выручку, MRR или cohort retention из предположений. Новые credentials,
+paid/trial services, provider enablement и исторический импорт не разрешены этим планированием.
 
 ## Проверяемый результат
 
