@@ -316,6 +316,9 @@ function publicationFingerprint(
   );
 }
 
+// Workshop orders keys with localeCompare. The billing integration digest in
+// infrastructure/contracts/canonical-digest.ts orders by code point, so the two forms
+// differ for non-ASCII keys and must not be merged without re-deriving stored digests.
 function canonicalJson(value: unknown): string {
   if (Array.isArray(value)) {
     return `[${value.map(canonicalJson).join(",")}]`;

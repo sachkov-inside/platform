@@ -927,6 +927,80 @@ model TelegramAccountLinkHistory {
   @@schema("telegram_membership")
 }
 
+model TelegramCommunityDesiredState {
+  accountId           String    @id @map("account_id") @db.Uuid
+  entitlementRevision Int       @default(0) @map("entitlement_revision")
+  accessRevision      Int       @default(0) @map("access_revision")
+  linkRevision        Int       @default(0) @map("link_revision")
+  linkRef             String?   @map("link_ref") @db.Uuid
+  accountRef          String?   @map("account_ref") @db.VarChar(256)
+  identityRef         String?   @map("identity_ref") @db.VarChar(256)
+  access              Json
+  nextBoundary        DateTime? @map("next_boundary") @db.Timestamptz
+  latestOperationId   String?   @map("latest_operation_id") @db.Uuid
+  projectedAt         DateTime  @map("projected_at") @db.Timestamptz
+
+  @@map("community_desired_states")
+  @@schema("telegram_membership")
+}
+
+model TelegramCommunityOperation {
+  operationId         String    @id @map("operation_id") @db.Uuid
+  accountId           String    @map("account_id") @db.Uuid
+  entitlementRevision Int       @map("entitlement_revision")
+  purpose             String
+  linkRef             String    @map("link_ref") @db.Uuid
+  linkRevision        Int       @map("link_revision")
+  accountRef          String    @map("account_ref") @db.VarChar(256)
+  identityRef         String    @map("identity_ref") @db.VarChar(256)
+  access              Json
+  command             Json
+  payloadDigest       String    @map("payload_digest") @db.Char(64)
+  issuedAt            DateTime  @map("issued_at") @db.Timestamptz
+  delivery            String
+  attempts            Int       @default(0)
+  nextAttemptAt       DateTime  @map("next_attempt_at") @db.Timestamptz
+  errorCode           String?   @map("error_code")
+  result              Json?
+  resultStatus        String?   @map("result_status")
+  observedMembership  String?   @map("observed_membership")
+  resultAt            DateTime? @map("result_at") @db.Timestamptz
+  polledAt            DateTime? @map("polled_at") @db.Timestamptz
+  createdAt           DateTime  @map("created_at") @db.Timestamptz
+  updatedAt           DateTime  @map("updated_at") @db.Timestamptz
+
+  @@unique([accountId, entitlementRevision])
+  @@index([delivery, nextAttemptAt], map: "community_operations_delivery_idx")
+  @@index([delivery, resultStatus, polledAt], map: "community_operations_poll_idx")
+  @@map("community_operations")
+  @@schema("telegram_membership")
+}
+
+model TelegramCommunityAuthorization {
+  operationId String   @id @map("operation_id") @db.Uuid
+  dispatchId  String   @map("dispatch_id") @db.Uuid
+  attemptId   String   @map("attempt_id") @db.Uuid
+  effectRef   String   @map("effect_ref") @db.Uuid
+  effect      String
+  digest      String   @db.Char(64)
+  response    Json
+  createdAt   DateTime @map("created_at") @db.Timestamptz
+
+  @@index([dispatchId, createdAt], map: "community_authorizations_dispatch_idx")
+  @@map("community_authorizations")
+  @@schema("telegram_membership")
+}
+
+model TelegramCommunityProjectionCursor {
+  id             Int      @id @db.SmallInt
+  accessRevision Int      @default(0) @map("access_revision")
+  updatedAt      DateTime @map("updated_at") @db.Timestamptz
+
+  @@map("community_projection_cursor")
+  @@schema("telegram_membership")
+}
+
+
 model BillingOffer {
   id String @id @db.Uuid
   revision Int
