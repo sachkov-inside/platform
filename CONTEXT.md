@@ -63,6 +63,15 @@ _Avoid_: Series, Playlist, Topic, Material format guide
 An optional named group in a Guide's main path, without owning copies of Materials.
 _Avoid_: Video chapter, Material, separately purchased Guide
 
+**Guide Artifact**:
+A standalone practical result a reader takes away — a template, configuration or checklist — with
+a permanent identity, a version history and either stored bytes or one explicitly external
+address. It lives outside every MaterialBody, is reused across Guides through separate placements
+rather than copies, and its `origin` says whether the Platform editor or the Inside Content
+authoring base owns the record. Replacement opens a new version and keeps the identity and the
+placements; delivery goes through ContentAccess. In Russian product language: «Артефакт».
+_Avoid_: MaterialAsset, supplementary Material, inline attachment, Content Cover
+
 **Guide Step Sequence**:
 An explicitly named connection between some Materials within one Guide. Its steps follow the
 Guide order even when other Materials appear between them. The same Material may have a different

@@ -36,6 +36,10 @@ describe("Prisma schema", () => {
       testDatabase.prisma.materialRelatedPin.count(),
       testDatabase.prisma.materialTag.count(),
       testDatabase.prisma.guideMembership.count(),
+      testDatabase.prisma.guideArtifact.count(),
+      testDatabase.prisma.guideArtifactVersion.count(),
+      testDatabase.prisma.guideArtifactPlacement.count(),
+      testDatabase.prisma.guideArtifactMaterialLink.count(),
       testDatabase.prisma.authoringIdempotency.count(),
       testDatabase.prisma.publishedMaterial.count(),
       testDatabase.prisma.publishedMaterialTag.count(),
@@ -54,6 +58,6 @@ describe("Prisma schema", () => {
       testDatabase.prisma.workshopSolutionReveal.count(),
     ]);
 
-    expect(counts).toEqual(Array.from({ length: 33 }, () => 0));
+    expect(counts).toEqual(Array.from({ length: 37 }, () => 0));
   });
 });

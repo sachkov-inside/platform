@@ -34,6 +34,7 @@ import {
 import { VIDEOS, VideosModule, type Videos } from "../videos/index.js";
 import { assembleMaterialResourceFacts } from "./adapters/content-access/material-resource-facts.js";
 import { assembleAssetResourceFacts } from "./adapters/content-access/asset-resource-facts.js";
+import { assembleGuideArtifactResourceFacts } from "./adapters/content-access/guide-artifact-resource-facts.js";
 import { assembleVideoResourceFacts } from "./adapters/content-access/video-resource-facts.js";
 import { assembleMaterialAuthoring } from "./facets/material-authoring/assemble-material-authoring.js";
 import type { MaterialAuthoring } from "./facets/material-authoring/material-authoring.js";
@@ -77,6 +78,16 @@ import {
   CONTENT_COVERS,
   type ContentCovers,
 } from "./facets/content-covers/content-covers.js";
+import { assembleGuideArtifacts } from "./facets/guide-artifacts/assemble-guide-artifacts.js";
+import {
+  GUIDE_ARTIFACTS,
+  type GuideArtifacts,
+} from "./facets/guide-artifacts/guide-artifacts.js";
+import {
+  assembleGuideArtifactDelivery,
+  GUIDE_ARTIFACT_DELIVERY,
+  type GuideArtifactDelivery,
+} from "./features/deliver-guide-artifact/deliver-guide-artifact.js";
 
 @Module({
   imports: [
@@ -144,6 +155,41 @@ import {
       },
     },
     {
+      provide: GUIDE_ARTIFACTS,
+      inject: [PrismaClientProvider, ACCOUNTS, OBJECT_STORAGE],
+      useFactory: (
+        prisma: PrismaClientProvider,
+        accounts: Accounts,
+        objectStorage: ObjectStorage,
+      ): GuideArtifacts => {
+        const accountPermissions = assembleCurrentAccountPermissions(accounts);
+        return assembleGuideArtifacts({
+          authorPolicy: {
+            canManage: (accountId) =>
+              accountPermissions.hasMaterialsManage(checkedAccountId(accountId)),
+          },
+          objectStorage,
+          prisma,
+        });
+      },
+    },
+    {
+      provide: GUIDE_ARTIFACT_DELIVERY,
+      inject: [GUIDE_ARTIFACTS, CONTENT_ACCESS, OBJECT_STORAGE, PLATFORM_CONFIG],
+      useFactory: (
+        artifacts: GuideArtifacts,
+        contentAccess: ContentAccess,
+        objectStorage: ObjectStorage,
+        config: PlatformConfig,
+      ): GuideArtifactDelivery =>
+        assembleGuideArtifactDelivery({
+          artifacts,
+          contentAccess,
+          objectStorage,
+          signedGetTtlSeconds: config.objectStorage.signedGetTtlSeconds,
+        }),
+    },
+    {
       provide: MATERIAL_ASSET_AUTHORING,
       inject: [MATERIAL_AUTHORING, MATERIAL_ASSETS],
       useFactory: (
@@ -179,6 +225,7 @@ import {
       inject: [
         MATERIAL_CONTENT,
         MATERIAL_ASSETS,
+        GUIDE_ARTIFACTS,
         VIDEOS,
         ACCOUNTS,
         MEMBERSHIP_ENTITLEMENTS,
@@ -187,6 +234,7 @@ import {
       useFactory: (
         materialContent: MaterialContent,
         materialAssets: MaterialAssets,
+        guideArtifacts: GuideArtifacts,
         videos: Videos,
         accounts: Accounts,
         membershipEntitlements: MembershipEntitlements,
@@ -194,6 +242,8 @@ import {
       ): ContentAccess =>
         assembleContentAccess({
           assetResourceFacts: assembleAssetResourceFacts(materialAssets),
+          guideArtifactResourceFacts:
+            assembleGuideArtifactResourceFacts(guideArtifacts),
           videoResourceFacts: assembleVideoResourceFacts(videos),
           materialResourceFacts: assembleMaterialResourceFacts(materialContent),
           accountPermissions: assembleCurrentAccountPermissions(accounts),
@@ -248,6 +298,8 @@ import {
   exports: [
     CONTENT_ACCESS,
     CONTENT_COVERS,
+    GUIDE_ARTIFACTS,
+    GUIDE_ARTIFACT_DELIVERY,
     MATERIAL_AUTHORING,
     MATERIAL_ASSET_AUTHORING,
     MATERIAL_ASSET_DELIVERY,

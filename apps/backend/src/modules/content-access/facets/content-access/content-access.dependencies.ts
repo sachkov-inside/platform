@@ -33,6 +33,21 @@ export interface AssetResourceFactsAdapter {
   findOne(assetId: string): Promise<AssetResourceFacts | null>;
 }
 
+export interface GuideArtifactResourceFacts {
+  readonly access: "free" | "membership";
+  readonly archived: boolean;
+  readonly artifactId: string;
+  readonly guideIds: readonly string[];
+  readonly version: number;
+}
+
+export interface GuideArtifactResourceFactsAdapter {
+  findMany(
+    artifactIds: readonly string[],
+  ): Promise<readonly GuideArtifactResourceFacts[]>;
+  findOne(artifactId: string): Promise<GuideArtifactResourceFacts | null>;
+}
+
 export interface VideoResourceFacts {
   readonly videoId: string;
   readonly materialId: MaterialId;
@@ -56,6 +71,7 @@ export type MembershipEntitlements = Pick<
 
 export interface ContentAccessDependencies {
   readonly assetResourceFacts?: AssetResourceFactsAdapter;
+  readonly guideArtifactResourceFacts?: GuideArtifactResourceFactsAdapter;
   readonly videoResourceFacts?: VideoResourceFactsAdapter;
   readonly materialResourceFacts: MaterialResourceFactsAdapter;
   readonly accountPermissions: AccountPermissions;
