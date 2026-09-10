@@ -106,17 +106,22 @@ export class CommunityEntitlements {
       accounts.add(accountId);
     }
 
+    const inWindow = new Set(changed.ok ? changed.accountIds : []);
     let failed = 0;
+    let windowFailed = false;
     for (const accountId of accounts) {
       const projection = await projectCommunityEntitlement(
         this.dependencies,
         accountId,
         now,
       );
-      if (!projection.ok) failed += 1;
+      if (projection.ok) continue;
+      failed += 1;
+      // Only a failure inside the cursor's own window may hold the cursor back;
+      // an unrelated boundary or link Account must not stall the audit trail.
+      if (inWindow.has(accountId)) windowFailed = true;
     }
-    // The audit cursor only advances over a fully projected window.
-    if (changed.ok && failed === 0 && changed.cursor > afterRevision) {
+    if (changed.ok && !windowFailed && changed.cursor > afterRevision) {
       await prisma.telegramCommunityProjectionCursor.upsert({
         where: { id: 1 },
         create: { id: 1, accessRevision: changed.cursor, updatedAt: now },

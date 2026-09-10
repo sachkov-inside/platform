@@ -34,7 +34,9 @@ a projection backwards: a lower access or link revision is ignored and the next 
 
 An unlink or relink produces two separate commands to two separate recipients: a `cleanup` denial
 addressed to the historical binding, and, when a new link exists, an `apply` command addressed to
-it. A denial is only ever sent to a recipient that was previously told to admit.
+it. The recipient is the opaque account reference, so a new link creates a new recipient even when
+the Telegram identity behind it is unchanged. A denial is only ever sent to a recipient that was
+previously told to admit.
 
 ## Delivery
 
@@ -58,8 +60,10 @@ recipient is marked superseded in the delivery state and keeps its last provider
 
 The background pass runs in `billing-worker` once a minute and covers three sources without any
 user request: the ordered access-change cursor, a reached expiry boundary, and a changed verified
-link. The cursor only advances over a fully projected window, so a failure repeats rather than
-skips. Work still unfinished after five minutes is reported as `operator_attention`.
+link. Projection and delivery happen in the same pass, so a change found by a pass is sent by that
+pass. The cursor only advances over a fully projected window, and only a failure inside its own
+window holds it back: an unrelated boundary or link Account cannot stall the audit trail. Work
+still unfinished after five minutes is reported as `operator_attention`.
 
 ## Dispatch authorization
 

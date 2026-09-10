@@ -1,5 +1,8 @@
 import { createHash, randomUUID } from "node:crypto";
 
+import { Module } from "@nestjs/common";
+import { NestFactory, Reflector } from "@nestjs/core";
+import { FastifyAdapter, type NestFastifyApplication } from "@nestjs/platform-fastify";
 import { Ajv } from "ajv";
 import addFormats from "ajv-formats";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
@@ -35,6 +38,10 @@ import type {
   CommunityDeliveryOutcome,
   CommunityEntitlementProvider,
 } from "../../src/modules/telegram-membership/ports/community-entitlement-provider.js";
+import { parsePlatformConfig, PLATFORM_CONFIG } from "../../src/config/platform-config.js";
+import { Prisma } from "../../src/infrastructure/prisma/index.js";
+import { HttpCachePolicyInterceptor } from "../../src/infrastructure/http/http-cache-policy.js";
+import { CommunityDispatchController } from "../../src/modules/telegram-membership/adapters/nest/community-dispatch.controller.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -777,6 +784,190 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
       ok: true,
       result: { decision: { status: "allowed" } },
     });
+  });
+
+  test("an unknown provider outcome stays unapplied and visible to the operator", async () => {
+    now = new Date(start);
+    const account = await member();
+    await link(account, `identity-${account}`);
+    await grantCommunity(account, null);
+    const provider = new ProviderDouble();
+    const app = community(provider);
+    await app.sweep();
+    const [queued] = await operations(account);
+
+    provider.observe(queued?.operationId ?? "", "unknown", "unknown");
+    now = new Date(new Date(start).getTime() + 61_000);
+    const report = await app.sweep();
+    expect(report.backlog.unapplied).toBeGreaterThan(0);
+    const [row] = await operations(account);
+    // An unknown external outcome is never presented as a decided one.
+    expect(row).toMatchObject({
+      delivery: "accepted",
+      observedMembership: "unknown",
+      resultStatus: "unknown",
+    });
+  });
+
+  test("relinking to the same Telegram identity still closes the previous recipient", async () => {
+    now = new Date(start);
+    const account = await member();
+    const identity = `stable-${account}`;
+    await link(account, identity);
+    const { grantRef, revision } = await grantCommunity(account, null);
+    const provider = new ProviderDouble();
+    const app = community(provider);
+    await app.sweep();
+    const [first] = await operations(account);
+
+    // A new link transaction to the same identity produces a new opaque recipient.
+    await unlink(account);
+    await link(account, identity);
+    expect(
+      await grants.changeGrant(owner, {
+        action: "revoke",
+        grantRef,
+        expectedRevision: revision,
+        operationId: randomUUID(),
+        reason: "Owner revoked while the link was being replaced",
+      }),
+    ).toMatchObject({ ok: true });
+    await app.project(account);
+
+    const rows = await operations(account);
+    const closing = rows.find(
+      (row) => row.accountRef === first?.accountRef && row.purpose === "cleanup",
+    );
+    // The recipient that was told to admit is told to stop, even though the
+    // Telegram identity behind it never changed.
+    expect(closing?.access).toEqual({ kind: "denied" });
+  });
+
+  test("the dispatch endpoint maps every protocol answer to its exact status", async () => {
+    now = new Date(start);
+    const account = await member();
+    await link(account, `identity-${account}`);
+    await grantCommunity(account, null);
+    const provider = new ProviderDouble();
+    const app = community(provider);
+    await app.sweep();
+    const [live] = await operations(account);
+
+    const dispatchSecret = "community-dispatch-http-test-secret";
+    const config = parsePlatformConfig({
+      NODE_ENV: "test",
+      TELEGRAM_COMMUNITY_DISPATCH_SECRET: dispatchSecret,
+      TELEGRAM_COMMUNITY_ENTITLEMENT_ENDPOINT:
+        "https://telegram.example.test/integrations/platform/v1/community-entitlements",
+      TELEGRAM_COMMUNITY_ENTITLEMENT_SECRET: "community-provider-http-test-secret",
+    });
+    @Module({
+      controllers: [CommunityDispatchController],
+      providers: [
+        { provide: CommunityEntitlements, useValue: app },
+        { provide: PLATFORM_CONFIG, useValue: config },
+      ],
+    })
+    // oxlint-disable-next-line typescript/no-extraneous-class -- Nest requires a concrete module class for the HTTP fixture.
+    class DispatchFixtureModule {}
+    const http = await NestFactory.create<NestFastifyApplication>(
+      DispatchFixtureModule,
+      new FastifyAdapter(),
+      { logger: false },
+    );
+    http.useGlobalInterceptors(new HttpCachePolicyInterceptor(new Reflector()));
+    await http.init();
+    await http.getHttpAdapter().getInstance().ready();
+    const url = "/internal/billing-dispatch/authorize";
+    const send = (payload: object, secret = dispatchSecret) =>
+      http.inject({
+        method: "POST",
+        url,
+        headers: { authorization: `Bearer ${secret}` },
+        payload,
+      });
+    try {
+      const request = authorization(
+        live?.operationId ?? "",
+        live?.payloadDigest ?? "",
+        "community.approve_join",
+      );
+
+      const unauthorized = await send(request, "wrong-secret");
+      expect(unauthorized.statusCode).toBe(401);
+      expect(unauthorized.json()).toEqual({ code: "unauthorized" });
+      expect(unauthorized.headers["cache-control"]).toBe("private, no-store");
+
+      const allowed = await send(request);
+      expect(allowed.statusCode).toBe(200);
+      expect(allowed.json()).toMatchObject({
+        operation: "dispatch.result",
+        operationId: request.operationId,
+        decision: { status: "allowed" },
+      });
+
+      // The same identifier with another payload is a conflict, not a second permit.
+      const conflict = await send({ ...request, attemptId: randomUUID() });
+      expect(conflict.statusCode).toBe(409);
+      expect(conflict.json()).toMatchObject({
+        operation: "dispatch.error",
+        error: "operation_conflict",
+      });
+
+      const wrongVersion = await send({
+        ...authorization(
+          live?.operationId ?? "",
+          live?.payloadDigest ?? "",
+          "community.approve_join",
+        ),
+        contractVersion: "inside.community-entitlement.v1",
+      });
+      expect(wrongVersion.statusCode).toBe(422);
+      expect(wrongVersion.json()).toMatchObject({
+        operation: "dispatch.error",
+        error: "unsupported_contract",
+      });
+
+      // Without a parseable operationId there is no correlation to invent.
+      const malformed = await send({ contractVersion: "inside.billing-dispatch.v1" });
+      expect(malformed.statusCode).toBe(400);
+      expect(malformed.json()).toEqual({ code: "malformed" });
+
+      const denied = await send(
+        authorization(randomUUID(), live?.payloadDigest ?? "", "community.approve_join"),
+      );
+      expect(denied.statusCode).toBe(200);
+      expect(denied.json()).toMatchObject({
+        decision: { reason: "not_found", status: "denied" },
+      });
+    } finally {
+      await http.close();
+    }
+  });
+
+  test("one revision addresses one desired state, so two cannot disagree", async () => {
+    now = new Date(start);
+    const account = await member();
+    await link(account, `identity-${account}`);
+    await grantCommunity(account, null);
+    const app = community(new ProviderDouble());
+    await app.project(account);
+    const [issued] = await operations(account);
+    if (issued === undefined) throw new Error("Missing issued command");
+    const command = communitySetSchema.parse(issued.command);
+
+    // The producer can never emit a second, different state at the same revision.
+    await expect(
+      database.prisma.telegramCommunityOperation.create({
+        data: {
+          ...issued,
+          operationId: randomUUID(),
+          access: { kind: "denied" },
+          command: { ...command, access: { kind: "denied" } },
+          result: Prisma.JsonNull,
+        },
+      }),
+    ).rejects.toThrow();
   });
 
   test("an Account without a verified link keeps its material right and queues nothing", async () => {

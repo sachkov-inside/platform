@@ -143,13 +143,15 @@ export async function projectCommunityEntitlement(
         issued.push(command.operationId);
       };
 
-      // The identity we last told to admit is the only one we may later close.
+      // The recipient we last told to admit is the only one we may later close, and a
+      // recipient is its opaque reference: a new link produces a new one even when the
+      // Telegram identity behind it is unchanged.
       if (
         stored !== null &&
         stored.identityRef !== null &&
         stored.accountRef !== null &&
         stored.linkRef !== null &&
-        stored.identityRef !== currentIdentity &&
+        stored.accountRef !== currentAccountRef &&
         storedAccess !== null &&
         storedAccess.kind !== "denied"
       ) {
@@ -165,16 +167,20 @@ export async function projectCommunityEntitlement(
         );
       }
 
-      const boundToCurrent =
+      const sameRecipient =
         stored !== null &&
-        stored.identityRef === currentIdentity &&
-        stored.linkRevision === currentLinkRevision;
+        stored.accountRef !== null &&
+        stored.accountRef === currentAccountRef;
       const unchanged =
-        boundToCurrent && storedAccess !== null && sameAccess(storedAccess, access);
+        sameRecipient &&
+        stored.identityRef === currentIdentity &&
+        stored.linkRevision === currentLinkRevision &&
+        storedAccess !== null &&
+        sameAccess(storedAccess, access);
       // A denial only goes to a recipient we previously told to admit.
       const announces =
         accessAllows(access, now) ||
-        (boundToCurrent && storedAccess !== null && storedAccess.kind !== "denied");
+        (sameRecipient && storedAccess !== null && storedAccess.kind !== "denied");
       if (
         currentIdentity !== null &&
         currentAccountRef !== null &&

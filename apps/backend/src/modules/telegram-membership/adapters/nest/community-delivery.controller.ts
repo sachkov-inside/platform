@@ -32,6 +32,10 @@ import {
 import { CommunityEntitlements } from "../../facets/community-entitlements/community-entitlements.js";
 import { communityDeliveryViewSchema } from "../../facets/community-entitlements/community-delivery.contract.js";
 
+const deliveryFailureStatus: Readonly<
+  Record<"invalid_input" | "forbidden" | "unavailable", number>
+> = Object.freeze({ forbidden: 403, invalid_input: 400, unavailable: 503 });
+
 @ApiTags("Telegram Community")
 @ApiBearerAuth("logto")
 @PrivateNoStore()
@@ -76,12 +80,7 @@ export class CommunityDeliveryController {
       accountId,
     );
     if (result.ok) return result.value;
-    const status =
-      result.error.code === "invalid_input"
-        ? 400
-        : result.error.code === "forbidden"
-          ? 403
-          : 503;
+    const status = deliveryFailureStatus[result.error.code];
     throw new HttpException(
       {
         code: result.error.code,

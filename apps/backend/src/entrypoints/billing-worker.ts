@@ -5,13 +5,14 @@ import { PLATFORM_CONFIG, type PlatformConfig } from "../config/platform-config.
 import { OperationalReadiness } from "../infrastructure/operational-readiness.js";
 import { runWorker } from "../infrastructure/worker-runtime.js";
 import { BillingPayments, BillingSubscriptions } from "../modules/billing/index.js";
-import { CommunityEntitlements } from "../modules/telegram-membership/index.js";
+import { COMMUNITY_RECONCILIATION_INTERVAL_MS, CommunityEntitlements } from "../modules/telegram-membership/index.js";
 import { BillingWorkerModule } from "./billing-worker/billing-worker.module.js";
 
 const recoveryQueue = "billing.payment-recovery";
 const renewalQueue = "billing.subscription-renewal";
 const communityQueue = "community.entitlement-delivery";
 const communityBatchSize = 50;
+const communityIntervalSeconds = COMMUNITY_RECONCILIATION_INTERVAL_MS / 1_000;
 const jobTimeoutSeconds = 300;
 const jobRetentionSeconds = 86_400;
 const jobIntervalSeconds = 60;
@@ -48,7 +49,7 @@ async function bootstrap(): Promise<void> {
       if (!config.communityEntitlements) return;
       await jobs.createQueue(communityQueue, { deleteAfterSeconds: jobRetentionSeconds, expireInSeconds: jobTimeoutSeconds, retryLimit: 0 });
       await jobs.schedule(communityQueue, "* * * * *", {});
-      await jobs.send(communityQueue, {}, { singletonSeconds: jobIntervalSeconds });
+      await jobs.send(communityQueue, {}, { singletonSeconds: communityIntervalSeconds });
       await jobs.work(communityQueue, async () => {
         const report = await community.sweep(communityBatchSize);
         if (report.backlog.overdue > 0 || report.backlog.rejected > 0 || report.failed > 0) {
