@@ -1,6 +1,6 @@
 import { stageDeliveryCommand } from '../../infrastructure/stage-delivery-command.js';
 import { randomUUID } from 'node:crypto';
-import { deliverySchema, eventSchema, fingerprint, COMMAND_LIFETIME_MS, channelSchema } from '../../domain/notification-wire.js';
+import { deliverySchema, eventSchema, fingerprint, commandWindow, channelSchema } from '../../domain/notification-wire.js';
 import { renderNotification } from '../../domain/templates.js';
 import { lockNotification } from '../../infrastructure/locks.js';
 import { optedIn } from '../change-preferences/change-preferences.js';
@@ -17,7 +17,9 @@ export async function refreshDeliveries(deps: NotificationDependencies) {
     const stored = await transaction.notificationCommand.findUniqueOrThrow({ where: { deliveryId_revision: { deliveryId: delivery.id, revision: delivery.commandRevision } } });
     const old = deliverySchema.parse(JSON.parse(stored.payload));
     const event = eventSchema.parse(JSON.parse(delivery.notification.eventPayload));
-    if (Date.parse(event.notAfter) <= deps.now().getTime()) {
+    // One reading decides both that the event is still live and what window the replacement gets.
+    const deliveryWindow = commandWindow(deps.now(), new Date(event.notAfter));
+    if (!deliveryWindow) {
       await transaction.notificationDelivery.update({ where: { id: delivery.id }, data: { nextCommandAt: null } });
       return;
     }
@@ -30,8 +32,7 @@ export async function refreshDeliveries(deps: NotificationDependencies) {
     const template = renderNotification(source, deps.origin);
     const command = { ...old, operationId: randomUUID(), commandRevision: old.commandRevision + 1, sourceEventId: event.messageId,
       content: source.content, templateRef: template.templateRef, templateRevision: template.templateRevision, text: template.text,
-      ...(channel === 'email' ? { subject: template.subject } : {}), issuedAt: deps.now().toISOString(),
-      notAfter: new Date(Math.min(Date.parse(event.notAfter), deps.now().getTime() + COMMAND_LIFETIME_MS)).toISOString() };
+      ...(channel === 'email' ? { subject: template.subject } : {}), ...deliveryWindow };
     await stageDeliveryCommand(transaction, command, deps.now());
   });
 }
