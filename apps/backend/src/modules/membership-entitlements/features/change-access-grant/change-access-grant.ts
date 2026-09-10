@@ -19,7 +19,7 @@ const common = {
   expectedRevision: z.number().int().positive(),
   reason: reasonSchema,
 };
-const commandSchema = z.discriminatedUnion("action", [
+export const changeAccessGrantCommandSchema = z.discriminatedUnion("action", [
   z
     .object({
       ...common,
@@ -29,14 +29,14 @@ const commandSchema = z.discriminatedUnion("action", [
     .strict(),
   z.object({ ...common, action: z.literal("revoke") }).strict(),
 ]);
-export type ChangeAccessGrantCommand = z.input<typeof commandSchema>;
+export type ChangeAccessGrantCommand = z.input<typeof changeAccessGrantCommandSchema>;
 export async function changeAccessGrant(
   prisma: MembershipEntitlementsPrismaClient,
   actorId: string,
   input: ChangeAccessGrantCommand,
   now: Date,
 ): Promise<GrantResult> {
-  const parsed = commandSchema.safeParse(input);
+  const parsed = changeAccessGrantCommandSchema.safeParse(input);
   if (!parsed.success) return accessFailure("invalid_input");
   const command = parsed.data;
   const fingerprint = accessFingerprint({ kind: "changeGrant", ...command });

@@ -101,7 +101,8 @@ export type BookmarksPrismaClient = BookmarksPrisma & TransactionClient<Bookmark
 export type BillingPrisma = Pick<PlatformPrisma,
   "$executeRaw" | "billingNotificationOutbox" | "billingOffer" | "billingPaymentOption" | "billingPromotion" |
   "billingPricingCommand" | "billingPriceQuote" | "billingPromoReservation" | "billingPurchase" | "billingPurchaseCommand" | "billingPaymentEvent" | "billingFulfillment" |
-  "billingSubscription" | "billingSubscriptionEvent" | "billingSubscriptionCommand" | "billingChangeQuote" | "billingPaymentMethodFlow"
+  "billingSubscription" | "billingSubscriptionEvent" | "billingSubscriptionCommand" | "billingChangeQuote" | "billingPaymentMethodFlow" |
+  "billingOwnerCommand" | "billingRefundDecision" | "billingRefund"
 >;
 export type BillingPrismaClient = BillingPrisma & TransactionClient<BillingPrisma>;
 

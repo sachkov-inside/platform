@@ -204,6 +204,8 @@ describe("Platform migrations", () => {
           "0050_guide_artifacts",
           "0051_guide_chapters",
           "0052_bookmarks",
+          "0053_billing_manage_permission",
+          "0054_billing_operations",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -786,6 +788,8 @@ describe("Platform migrations", () => {
           "0050_guide_artifacts",
           "0051_guide_chapters",
           "0052_bookmarks",
+          "0053_billing_manage_permission",
+          "0054_billing_operations",
         ],
       });
 
