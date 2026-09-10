@@ -1,4 +1,5 @@
 import { VIDEOS, type Videos } from "../modules/videos/index.js";
+import { BillingOperations } from "../modules/billing/index.js";
 import { Communications } from "../modules/communications/index.js";
 import "reflect-metadata";
 
@@ -37,6 +38,7 @@ async function bootstrap(): Promise<void> {
     authoring: application.get<MaterialAuthoring>(MATERIAL_AUTHORING),
       videos: application.get<Videos>(VIDEOS),
     communications: application.get(Communications),
+    billing: application.get(BillingOperations),
     config: mcpConfig,
     identityIssuer: config.identity.issuer,
     readiness: application.get(OperationalReadiness),

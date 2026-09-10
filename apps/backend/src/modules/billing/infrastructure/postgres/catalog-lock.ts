@@ -10,3 +10,8 @@ export async function lockSubscription(transaction: BillingPrisma, subscriptionR
   // Worker dispatch, cancel, change and payment-method decisions serialize on one subscription.
   await transaction.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtextextended(${`billing:subscription:${subscriptionRef}`}, 0::bigint))`);
 }
+
+export async function lockPurchase(transaction: BillingPrisma, purchaseRef: string): Promise<void> {
+  // Refund decisions and their execution serialize on one confirmed payment; no provider I/O under the lock.
+  await transaction.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtextextended(${`billing:purchase:${purchaseRef}`}, 0::bigint))`);
+}

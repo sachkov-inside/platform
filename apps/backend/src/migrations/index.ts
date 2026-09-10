@@ -1,4 +1,4 @@
-import { name as billingNoticesName, statement as billingNoticesStatement } from "../modules/billing/infrastructure/postgres/migrations/0054-billing-notices.js";
+import { name as billingNoticesName, statement as billingNoticesStatement } from "../modules/billing/infrastructure/postgres/migrations/0056-billing-notices.js";
 import { name as communityEntitlementsName, statement as communityEntitlementsStatement } from "../modules/telegram-membership/infrastructure/postgres/migrations/0053-community-entitlements.js";
 import { name as bookmarksName, statement as bookmarksStatement } from "../modules/bookmarks/infrastructure/postgres/migrations/0052-bookmarks.js";
 import { name as guideChaptersName, statement as guideChaptersStatement } from "../modules/materials/infrastructure/postgres/migrations/0051-guide-chapters.js";
@@ -6,6 +6,8 @@ import { name as guideArtifactsName, statement as guideArtifactsStatement } from
 import { name as scopedAccessName, statement as scopedAccessStatement } from "../modules/membership-entitlements/infrastructure/postgres/migrations/0046-scoped-access.js";
 import { name as subscriptionPaymentsName, statement as subscriptionPaymentsStatement } from "../modules/billing/infrastructure/postgres/migrations/0047-subscription-payments.js";
 import { name as subscriptionLifecycleName, statement as subscriptionLifecycleStatement } from "../modules/billing/infrastructure/postgres/migrations/0048-subscription-lifecycle.js";
+import { name as billingManagePermissionName, statement as billingManagePermissionStatement } from "../modules/accounts/infrastructure/postgres/migrations/0054-billing-manage-permission.js";
+import { name as billingOperationsName, statement as billingOperationsStatement } from "../modules/billing/infrastructure/postgres/migrations/0055-billing-operations.js";
 import { name as notificationsName, statement as notificationsStatement } from "../modules/notifications/infrastructure/postgres/migrations/0045-notifications.js";
 import { name as notificationsTransportName, statement as notificationsTransportStatement } from "../modules/notifications/infrastructure/postgres/migrations/0044-notification-transport.js";
 import { name as materialsTransportName, statement as materialsTransportStatement } from "../modules/materials/infrastructure/postgres/migrations/0043-notification-transport.js";
@@ -318,6 +320,8 @@ export const platformMigrations = [
   { name: guideChaptersName, statement: guideChaptersStatement },
   { name: bookmarksName, statement: bookmarksStatement },
   { name: communityEntitlementsName, statement: communityEntitlementsStatement },
+  { name: billingManagePermissionName, statement: billingManagePermissionStatement },
+  { name: billingOperationsName, statement: billingOperationsStatement },
   { name: billingNoticesName, statement: billingNoticesStatement },
 ] as const;
 

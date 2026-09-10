@@ -15,7 +15,7 @@ import {
   readAccessReceipt,
 } from "../../shared/access-receipts.js";
 
-const commandSchema = z
+export const applyGrantBatchCommandSchema = z
   .object({
     operationId: z.uuid(),
     previewRef: z.uuid(),
@@ -28,7 +28,7 @@ const commandSchema = z
       .transform((rows) => rows.sort()),
   })
   .strict();
-export type ApplyGrantBatchCommand = z.input<typeof commandSchema>;
+export type ApplyGrantBatchCommand = z.input<typeof applyGrantBatchCommandSchema>;
 const batchResultSchema = z.union([
   accessFailureSchema([
     "invalid_input",
@@ -60,7 +60,7 @@ export async function applyGrantBatch(
   input: ApplyGrantBatchCommand,
   now: Date,
 ): Promise<ApplyGrantBatchResult> {
-  const parsed = commandSchema.safeParse(input);
+  const parsed = applyGrantBatchCommandSchema.safeParse(input);
   if (!parsed.success) return accessFailure("invalid_input");
   const command = parsed.data;
   const fingerprint = accessFingerprint({ kind: "applyBatch", ...command });

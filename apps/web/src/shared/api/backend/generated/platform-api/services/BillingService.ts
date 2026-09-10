@@ -968,7 +968,7 @@ export class BillingService {
     });
   }
   /**
-   * Manage offers, options and promotions
+   * Manage offers, payments, refund decisions and manual access with the owner billing permission
    * @returns any
    * @throws ApiError
    */
@@ -1029,11 +1029,483 @@ export class BillingService {
       id: string;
       operation: 'promotions.archive';
       operationId: string;
+    } | {
+      accountId?: string;
+      cursor?: string;
+      kind?: 'initial' | 'renewal' | 'upgrade';
+      limit: number;
+      operation: 'payments.list';
+      operationId: string;
+      state?: 'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed';
+    } | {
+      operation: 'payments.read';
+      operationId: string;
+      purchaseRef: string;
+    } | {
+      operation: 'payments.reconcile';
+      operationId: string;
+      purchaseRef: string;
+    } | {
+      accountId: string;
+      expectedRevision: number;
+      operation: 'subscriptions.cancel';
+      operationId: string;
+      reason: string;
+    } | {
+      access: 'keep' | 'revoke';
+      amountKopecks: number;
+      operation: 'refunds.decide';
+      operationId: string;
+      purchaseRef: string;
+      reason: string;
+      recurring: 'keep' | 'cancel';
+    } | {
+      decisionRef: string;
+      expectedRevision: number;
+      operation: 'refunds.execute';
+      operationId: string;
+    } | {
+      operation: 'refunds.read';
+      operationId: string;
+      purchaseRef: string;
+    } | {
+      accountId: string;
+      operation: 'grants.read';
+      operationId: string;
+    } | {
+      operation: 'grants.previewBatch';
+      operationId: string;
+      rows: Array<{
+        accountId: string;
+        rowKey: string;
+        source: 'manual' | 'legacy';
+        sourceRef: string;
+        terms: {
+          capabilities: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+          reason: string;
+          startsAt: any;
+          validUntil: any;
+        };
+      }>;
+    } | {
+      confirmedRows: any;
+      expectedRevision: number;
+      operation: 'grants.applyBatch';
+      operationId: string;
+      previewRef: string;
+    } | {
+      expectedRevision: number;
+      grantRef: string;
+      operation: 'grants.extend';
+      operationId: string;
+      reason: string;
+      validUntil: any;
+    } | {
+      expectedRevision: number;
+      grantRef: string;
+      operation: 'grants.revoke';
+      operationId: string;
+      reason: string;
     }),
   }): CancelablePromise<{
-    archived: boolean;
-    id: string;
-    revision: number;
+    operationRef: string;
+    result: ({
+      outcome: 'catalog';
+      value: {
+        archived: boolean;
+        id: string;
+        revision: number;
+      };
+    } | {
+      items: Array<{
+        access: 'awaiting_payment' | 'preparing' | 'ready';
+        accountId: string;
+        amountKopecks: number;
+        confirmedAt: string | null;
+        createdAt: string;
+        environment: 'demo' | 'production';
+        fiscalization: 'not_configured' | 'pending' | 'confirmed' | 'failed';
+        kind: 'initial' | 'renewal' | 'upgrade';
+        paymentId: string | null;
+        periodEndsAt: string | null;
+        periodIndex: number | null;
+        purchaseRef: string;
+        refundableKopecks: number;
+        refundedKopecks: number;
+        snapshot: {
+          currency: 'RUB';
+          firstPriceKopecks: number;
+          offer: {
+            archived: boolean;
+            benefitPeriods?: Array<{
+              capability: ('materials' | 'community' | 'reviews' | 'support' | string);
+              months: number | null;
+            }>;
+            benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+            id: string;
+            name: string;
+            revision: number;
+          };
+          paymentOption: {
+            archived: boolean;
+            id: string;
+            mode?: 'subscription';
+            months: number;
+            offerId: string;
+            priceKopecks: number;
+            revision: number;
+          };
+          promotion: {
+            id: string;
+            name: string;
+            percent: number;
+            revision: number;
+          } | null;
+          renewalPriceKopecks: number;
+          timezone: 'Europe/Moscow';
+        };
+        state: 'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed';
+        subscriptionRef: string | null;
+        terminalRef: string;
+        updatedAt: string;
+      }>;
+      nextCursor: string | null;
+      outcome: 'payments';
+    } | {
+      audit: Array<{
+        actorId: string;
+        createdAt: string;
+        operation: string;
+        operationId: string;
+        reason: string;
+      }>;
+      decisions: Array<{
+        access: 'keep' | 'revoke';
+        accountId: string;
+        actorId: string;
+        amountKopecks: number;
+        attempt: {
+          amountKopecks: number;
+          errorCode: string | null;
+          observedStatus: string | null;
+          refundRef: string;
+          state: 'sent' | 'unknown' | 'confirmed' | 'failed';
+          updatedAt: string;
+        } | null;
+        createdAt: string;
+        decisionRef: string;
+        purchaseRef: string;
+        reason: string;
+        recurring: 'keep' | 'cancel';
+        revision: number;
+        state: 'decided' | 'executing' | 'executed' | 'failed';
+        updatedAt: string;
+      }>;
+      events: Array<{
+        kind: string;
+        occurredAt: string;
+        recordedAt: string;
+      }>;
+      outcome: 'payment';
+      value: {
+        access: 'awaiting_payment' | 'preparing' | 'ready';
+        accountId: string;
+        amountKopecks: number;
+        confirmedAt: string | null;
+        createdAt: string;
+        environment: 'demo' | 'production';
+        fiscalization: 'not_configured' | 'pending' | 'confirmed' | 'failed';
+        kind: 'initial' | 'renewal' | 'upgrade';
+        paymentId: string | null;
+        periodEndsAt: string | null;
+        periodIndex: number | null;
+        purchaseRef: string;
+        refundableKopecks: number;
+        refundedKopecks: number;
+        snapshot: {
+          currency: 'RUB';
+          firstPriceKopecks: number;
+          offer: {
+            archived: boolean;
+            benefitPeriods?: Array<{
+              capability: ('materials' | 'community' | 'reviews' | 'support' | string);
+              months: number | null;
+            }>;
+            benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+            id: string;
+            name: string;
+            revision: number;
+          };
+          paymentOption: {
+            archived: boolean;
+            id: string;
+            mode?: 'subscription';
+            months: number;
+            offerId: string;
+            priceKopecks: number;
+            revision: number;
+          };
+          promotion: {
+            id: string;
+            name: string;
+            percent: number;
+            revision: number;
+          } | null;
+          renewalPriceKopecks: number;
+          timezone: 'Europe/Moscow';
+        };
+        state: 'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed';
+        subscriptionRef: string | null;
+        terminalRef: string;
+        updatedAt: string;
+      };
+    } | {
+      outcome: 'reconciled';
+      value: {
+        access: 'awaiting_payment' | 'preparing' | 'ready';
+        accountId: string;
+        amountKopecks: number;
+        confirmedAt: string | null;
+        createdAt: string;
+        environment: 'demo' | 'production';
+        fiscalization: 'not_configured' | 'pending' | 'confirmed' | 'failed';
+        kind: 'initial' | 'renewal' | 'upgrade';
+        paymentId: string | null;
+        periodEndsAt: string | null;
+        periodIndex: number | null;
+        purchaseRef: string;
+        refundableKopecks: number;
+        refundedKopecks: number;
+        snapshot: {
+          currency: 'RUB';
+          firstPriceKopecks: number;
+          offer: {
+            archived: boolean;
+            benefitPeriods?: Array<{
+              capability: ('materials' | 'community' | 'reviews' | 'support' | string);
+              months: number | null;
+            }>;
+            benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+            id: string;
+            name: string;
+            revision: number;
+          };
+          paymentOption: {
+            archived: boolean;
+            id: string;
+            mode?: 'subscription';
+            months: number;
+            offerId: string;
+            priceKopecks: number;
+            revision: number;
+          };
+          promotion: {
+            id: string;
+            name: string;
+            percent: number;
+            revision: number;
+          } | null;
+          renewalPriceKopecks: number;
+          timezone: 'Europe/Moscow';
+        };
+        state: 'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed';
+        subscriptionRef: string | null;
+        terminalRef: string;
+        updatedAt: string;
+      };
+    } | {
+      outcome: 'subscription';
+      value: {
+        inFlightPayment: {
+          attemptRef: string;
+          kind: 'initial' | 'renewal' | 'upgrade';
+          state: 'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed';
+        } | null;
+        paidUntil: string;
+        paymentMethod: {
+          methodRef: string;
+          revoked: boolean;
+        } | null;
+        pendingChange: {
+          acceptedAt: string;
+          changeQuoteRef: string;
+          snapshot: {
+            currency: 'RUB';
+            firstPriceKopecks: number;
+            offer: {
+              archived: boolean;
+              benefitPeriods?: Array<{
+                capability: ('materials' | 'community' | 'reviews' | 'support' | string);
+                months: number | null;
+              }>;
+              benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+              id: string;
+              name: string;
+              revision: number;
+            };
+            paymentOption: {
+              archived: boolean;
+              id: string;
+              mode?: 'subscription';
+              months: number;
+              offerId: string;
+              priceKopecks: number;
+              revision: number;
+            };
+            promotion: {
+              id: string;
+              name: string;
+              percent: number;
+              revision: number;
+            } | null;
+            renewalPriceKopecks: number;
+            timezone: 'Europe/Moscow';
+          };
+        } | null;
+        pendingMethodChange: {
+          flowRef: string;
+          formUrl: string | null;
+        } | null;
+        periodAmountKopecks: number;
+        periodIndex: number;
+        periodStartsAt: string;
+        revision: number;
+        snapshot: {
+          currency: 'RUB';
+          offer: {
+            archived: boolean;
+            benefitPeriods?: Array<{
+              capability: ('materials' | 'community' | 'reviews' | 'support' | string);
+              months: number | null;
+            }>;
+            benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+            id: string;
+            name: string;
+            revision: number;
+          };
+          paymentOption: {
+            archived: boolean;
+            id: string;
+            mode?: 'subscription';
+            months: number;
+            offerId: string;
+            priceKopecks: number;
+            revision: number;
+          };
+          renewalPriceKopecks: number;
+          timezone: 'Europe/Moscow';
+        };
+        state: 'active' | 'canceled' | 'ended';
+        subscriptionRef: string;
+      };
+    } | {
+      outcome: 'refundDecision';
+      value: {
+        access: 'keep' | 'revoke';
+        accountId: string;
+        actorId: string;
+        amountKopecks: number;
+        attempt: {
+          amountKopecks: number;
+          errorCode: string | null;
+          observedStatus: string | null;
+          refundRef: string;
+          state: 'sent' | 'unknown' | 'confirmed' | 'failed';
+          updatedAt: string;
+        } | null;
+        createdAt: string;
+        decisionRef: string;
+        purchaseRef: string;
+        reason: string;
+        recurring: 'keep' | 'cancel';
+        revision: number;
+        state: 'decided' | 'executing' | 'executed' | 'failed';
+        updatedAt: string;
+      };
+    } | {
+      decisions: Array<{
+        access: 'keep' | 'revoke';
+        accountId: string;
+        actorId: string;
+        amountKopecks: number;
+        attempt: {
+          amountKopecks: number;
+          errorCode: string | null;
+          observedStatus: string | null;
+          refundRef: string;
+          state: 'sent' | 'unknown' | 'confirmed' | 'failed';
+          updatedAt: string;
+        } | null;
+        createdAt: string;
+        decisionRef: string;
+        purchaseRef: string;
+        reason: string;
+        recurring: 'keep' | 'cancel';
+        revision: number;
+        state: 'decided' | 'executing' | 'executed' | 'failed';
+        updatedAt: string;
+      }>;
+      outcome: 'refunds';
+      purchaseRef: string;
+      refundableKopecks: number;
+      refundedKopecks: number;
+    } | {
+      outcome: 'grants';
+      value: {
+        accountId: string;
+        grants: Array<{
+          accountId: string;
+          active: boolean;
+          capabilities: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+          grantRef: string;
+          reason: string;
+          revision: number;
+          revokedAt: string | null;
+          source: 'paid' | 'manual' | 'legacy';
+          sourceRef: string;
+          startsAt: string;
+          validUntil: string | null;
+        }>;
+        history: Array<{
+          actorId: string | null;
+          grantRef: string | null;
+          kind: string;
+          operationId: string;
+          reason: string;
+          recordedAt: string;
+          revision: number;
+        }>;
+      };
+    } | {
+      expiresAt: string;
+      outcome: 'grantPreview';
+      previewRef: string;
+      revision: number;
+      rows: Array<{
+        accountId: string;
+        rowKey: string;
+        status: 'confirmed' | 'not_found';
+      }>;
+    } | {
+      outcome: 'grantBatch';
+      rows: Array<{
+        result: ({
+          grantRef: string;
+          ok: boolean;
+          revision: number;
+        } | {
+          error: {
+            code: 'operation_conflict';
+          };
+          ok: boolean;
+        });
+        rowKey: string;
+      }>;
+    } | {
+      grantRef: string;
+      outcome: 'grant';
+      revision: number;
+    });
   }> {
     return this.httpRequest.request({
       method: 'POST',

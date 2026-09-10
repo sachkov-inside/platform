@@ -1,6 +1,6 @@
 import { setAccessSnapshotIsolation } from "../../infrastructure/access-lock.js";
 import { z } from "zod";
-import { accountId, type Accounts } from "../../../accounts/index.js";
+import { accountId, type Accounts, type PlatformPermission } from "../../../accounts/index.js";
 import type { MembershipEntitlementsPrismaClient } from "../../infrastructure/prisma.js";
 import {
   accessFailure,
@@ -27,6 +27,10 @@ import {
   type ClassifyLegacyAccountCommand,
 } from "../../features/classify-legacy-account/classify-legacy-account.js";
 import { resolveAccessCapabilities } from "../../features/resolve-access-capabilities/resolve-access-capabilities.js";
+import {
+  listAccessGrants,
+  type ListAccessGrantsCommand,
+} from "../../features/list-access-grants/list-access-grants.js";
 
 export interface AccessGrantsDependencies {
   readonly prisma: MembershipEntitlementsPrismaClient;
@@ -34,23 +38,25 @@ export interface AccessGrantsDependencies {
   readonly clock?: () => Date;
 }
 // Internal capability for billing fulfillment, owner operations (#409), and community projection (#415).
-// Actor comes from the delegated adapter, outside the command payload.
+// Actor comes from the delegated adapter, outside the command payload. Grant operations share the
+// scoped billing:manage permission with the billing admin surface; platform:admin includes it.
 export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
   const { prisma, accounts } = dependencies;
   const clock = dependencies.clock ?? (() => new Date());
   async function manage<Result>(
     actorId: string,
+    permission: PlatformPermission,
     operation: () => Promise<Result>,
   ) {
     try {
       if (!z.uuid().safeParse(actorId).success)
         return accessFailure("invalid_input");
-      const permission = await accounts.checkPermission({
+      const decision = await accounts.checkPermission({
         accountId: actorId,
-        permission: "platform:admin",
+        permission,
       });
-      if (!permission.ok) return accessFailure("unavailable");
-      if (!permission.allowed) return accessFailure("forbidden");
+      if (!decision.ok) return accessFailure("unavailable");
+      if (!decision.allowed) return accessFailure("forbidden");
       return await operation();
     } catch {
       return accessFailure("unavailable");
@@ -65,19 +71,22 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       }
     },
     previewBatch: (actorId: string, command: PreviewGrantBatchCommand) =>
-      manage(actorId, () =>
+      manage(actorId, "billing:manage", () =>
         previewGrantBatch(prisma, accounts, actorId, command, clock()),
       ),
     applyBatch: (actorId: string, command: ApplyGrantBatchCommand) =>
-      manage(actorId, () =>
+      manage(actorId, "billing:manage", () =>
         applyGrantBatch(prisma, accounts, actorId, command, clock()),
       ),
     changeGrant: (actorId: string, command: ChangeAccessGrantCommand) =>
-      manage(actorId, () =>
+      manage(actorId, "billing:manage", () =>
         changeAccessGrant(prisma, actorId, command, clock()),
       ),
+    listGrants: (actorId: string, command: ListAccessGrantsCommand) =>
+      manage(actorId, "billing:manage", () => listAccessGrants(prisma, command, clock())),
+    // Классификация старой подписки остаётся за platform:admin: она не входит в billing-операции.
     classifyLegacy: (actorId: string, command: ClassifyLegacyAccountCommand) =>
-      manage(actorId, () =>
+      manage(actorId, "platform:admin", () =>
         classifyLegacyAccount(prisma, accounts, actorId, command, clock()),
       ),
     async resolveCapabilities(targetAccountId: string) {

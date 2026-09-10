@@ -27,6 +27,7 @@ import {
   MATERIAL_AUTHORING,
   type MaterialAuthoring,
 } from "../src/modules/materials/index.js";
+import { BillingOperations } from "../src/modules/billing/index.js";
 import { Communications } from "../src/modules/communications/index.js";
 import { TrackingVisits } from "../src/modules/communications/facets/tracking-visits/tracking-visits.js";
 import {
@@ -123,6 +124,7 @@ const mcp = createMcpHttpServer({
   authoring: app.get<MaterialAuthoring>(MATERIAL_AUTHORING),
       videos: app.get<Videos>(VIDEOS),
   communications: app.get(Communications),
+      billing: app.get(BillingOperations),
   tokenVerifier: app.get<LogtoAccessTokenVerifier>(LOGTO_ACCESS_TOKEN_VERIFIER),
   identityIssuer: issuer,
   config: { host: "127.0.0.1", port: 0, serverUrl: "http://127.0.0.1:0/mcp" },

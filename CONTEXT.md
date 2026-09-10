@@ -300,6 +300,12 @@ A confirmed transfer associated with one Account and agreed purchase conditions.
 Its refund and the owner's decision about access are separate facts.
 _Avoid_: Browser return, grant, subscription
 
+**RefundDecision**:
+The owner's recorded decision about one Payment: how much to return, whether access is kept or
+revoked, and whether renewal stops. It is separate from the bank attempt that executes it, and an
+unresolved or failed attempt is never presented as executed.
+_Avoid_: Refund attempt, access revocation, dispute
+
 **PaymentMethodBinding**:
 A proven bank permission to charge a saved payment method for one Account's later attempts.
 Forbidding its use stops new sends and does not delete the buyer's card at the bank.

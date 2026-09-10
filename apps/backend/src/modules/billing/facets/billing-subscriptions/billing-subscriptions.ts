@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { createHash } from "node:crypto";
 import { z } from "zod";
 import type { BillingPrisma, BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { BillingContact } from "../../../accounts/index.js";
@@ -20,6 +19,7 @@ import type { Tbank } from "../../infrastructure/tbank/tbank.js";
 import { lifecycleWindow, renewalCancelledSourceRef, type NoticeView } from "../../domain/notice.js";
 import { recordBillingNotice, supersedeRenewalReminders } from "../../shared/record-notice.js";
 import type { BillingNotices } from "../billing-notices/billing-notices.js";
+import { commandFingerprint } from "../../shared/command-fingerprint.js";
 import { acceptRecurringConsent } from "../../shared/recurring-consent.js";
 import { advanceSubscription, inFlightStates } from "../../shared/subscription-outcome.js";
 import type { BillingPayments } from "../billing-payments/billing-payments.js";
@@ -64,7 +64,7 @@ export class BillingSubscriptions {
     const parsed = cancelRenewalSchema.safeParse(input);
     if (!parsed.success) return paymentFailure("invalid_request");
     const command = parsed.data;
-    return this.transition(accountId, command.operationId, fingerprint("cancel", command), async (tx, row, now) => {
+    return this.transition(accountId, command.operationId, commandFingerprint("cancel", command), async (tx, row, now) => {
       if (row.revision !== command.expectedRevision) return paymentFailure("revision_conflict");
       if (row.state !== "active") return paymentFailure("revision_conflict");
       // Уже отправленный платёж не отзывается командой отмены; он сверяется своим путём.
@@ -91,7 +91,7 @@ export class BillingSubscriptions {
     const legacy = await this.dependencies.grants.readLegacyClassification(accountId);
     if (!legacy.ok) return paymentFailure("dependency_unavailable");
     if (!legacy.recurringAllowed) return paymentFailure("legacy_review_required");
-    return this.transition(accountId, command.operationId, fingerprint("resume", command), async (tx, row, now) => {
+    return this.transition(accountId, command.operationId, commandFingerprint("resume", command), async (tx, row, now) => {
       if (row.revision !== command.expectedRevision) return paymentFailure("revision_conflict");
       // Возобновляется только действующий оплаченный срок на прежних условиях.
       if (row.state !== "canceled" || row.paidUntil <= now) return paymentFailure("not_found");
@@ -106,7 +106,7 @@ export class BillingSubscriptions {
     if (!parsed.success) return paymentFailure("invalid_request");
     if (!z.uuid().safeParse(accountId).success) return paymentFailure("forbidden");
     const command = parsed.data;
-    const digest = fingerprint("quoteChange", command);
+    const digest = commandFingerprint("quoteChange", command);
     try {
       return await this.dependencies.prisma.$transaction(async (tx): Promise<PaymentResult<ChangeQuoteResult>> => {
         const now = this.clock();
@@ -135,7 +135,7 @@ export class BillingSubscriptions {
     if (!parsed.success) return paymentFailure("invalid_request");
     if (!z.uuid().safeParse(accountId).success) return paymentFailure("forbidden");
     const command = parsed.data;
-    const digest = fingerprint("change", command);
+    const digest = commandFingerprint("change", command);
     const { prisma, bank, payments } = this.dependencies;
     // Контакт чека читается до открытия транзакции: замки не удерживаются на чужом чтении.
     const verified = await this.dependencies.contact.read(accountId);
@@ -207,7 +207,7 @@ export class BillingSubscriptions {
     const parsed = cancelChangeSchema.safeParse(input);
     if (!parsed.success) return paymentFailure("invalid_request");
     const command = parsed.data;
-    return this.transition(accountId, command.operationId, fingerprint("cancelChange", command), async (tx, row, now) => {
+    return this.transition(accountId, command.operationId, commandFingerprint("cancelChange", command), async (tx, row, now) => {
       if (row.revision !== command.expectedRevision) return paymentFailure("revision_conflict");
       if (!pendingChangeSchema.safeParse(row.pendingChange).success) return paymentFailure("not_found");
       // Отправленная попытка уже несёт согласованные условия следующего периода.
@@ -223,7 +223,7 @@ export class BillingSubscriptions {
     if (!parsed.success) return paymentFailure("invalid_request");
     if (!z.uuid().safeParse(accountId).success) return paymentFailure("forbidden");
     const command = parsed.data;
-    const digest = fingerprint("changeMethod", command);
+    const digest = commandFingerprint("changeMethod", command);
     const { prisma, bank } = this.dependencies;
     if (!bank?.config.cardBinding) return paymentFailure("method_unavailable");
     let flowRef: string;
@@ -262,7 +262,7 @@ export class BillingSubscriptions {
     const parsed = revokeMethodSchema.safeParse(input);
     if (!parsed.success) return paymentFailure("invalid_request");
     const command = parsed.data;
-    return this.transition(accountId, command.operationId, fingerprint("revokeMethod", command), async (tx, row, now) => {
+    return this.transition(accountId, command.operationId, commandFingerprint("revokeMethod", command), async (tx, row, now) => {
       if (row.revision !== command.expectedRevision) return paymentFailure("revision_conflict");
       if (row.bindingRef !== command.paymentMethodRef) return paymentFailure("not_found");
       if (row.bindingRevokedAt !== null) return paymentFailure("revision_conflict");
@@ -374,10 +374,6 @@ export class BillingSubscriptions {
 
 class CommandFailure extends Error {
   constructor(readonly code: Parameters<typeof paymentFailure>[0]) { super(code); }
-}
-
-function fingerprint(operation: string, command: Readonly<Record<string, unknown>>): string {
-  return createHash("sha256").update(JSON.stringify({ operation, command })).digest("hex");
 }
 
 function quoteResult(changeQuoteRef: string, baseRevision: number, plan: unknown, expiresAt: Date): ChangeQuoteResult {

@@ -165,6 +165,10 @@ permission inside each Materials authoring operation. Communications tools indep
 `communications:manage` and a confirmed Telegram link. Provider roles and scopes do not grant
 access, and the adapter has no service identity or provider secret.
 
+Owner billing tools `billing_<operation>` are described in
+[owner billing operations](#owner-billing-operations); they check `billing:manage`, not
+`materials:manage`.
+
 The exposed tools are `material_create_draft`, `material_load`, `material_save`,
 `material_preview`, `content_collection_list`, `content_collection_create`,
 `content_collection_update`, `content_collection_set_archive`, `playlist_load_composition` and
@@ -331,7 +335,8 @@ pnpm --filter @inside/backend release:bootstrap-owner
 ```
 
 The command ensures one Account and `materials:manage` by default. Explicitly set
-`OWNER_PERMISSION=communications:manage` to grant only communications management instead. It writes
+`OWNER_PERMISSION=communications:manage` or `OWNER_PERMISSION=billing:manage` to grant only that
+management surface instead. It writes
 redacted Account audit events including the selected permission,
 and prints a JSON summary. It does not run from an application startup hook or public route and does
 not need the owner's email. Repeating it reports that no Account or permission was created.
@@ -441,6 +446,25 @@ same attempt and never repeated. Cancelling a renewal or revoking a saved method
 same lock as worker dispatch. Changing a card needs the optional `cardBinding` capability in
 `TBANK_CONFIG_JSON` with an explicit confirmed check type; without it the operation reports
 `method_unavailable` instead of guessing a binding.
+
+The `billing.payment-recovery` queue also reconciles unresolved refunds. A refund attempt is stored
+before the bank call and its own identifier travels as `ExternalRequestId`, which the bank treats as
+the same request, so reconciliation repeats that identifier instead of sending a second refund. A
+lost response keeps the attempt `unknown` and visible to the owner; only a terminal refunded or
+reversed status settles it, and only then are the recorded access and renewal decisions applied.
+
+## Owner billing operations
+
+`POST /billing/admin` and the MCP tools named `billing_<operation>` are the same operations behind
+one facet, so authorization, idempotency, revision checks and audit are identical. They need the
+`billing:manage` permission of the current owner; `platform:admin` includes it. Grant it locally
+through the [owner release bootstrap](#owner-account-release-bootstrap) with `OWNER_PERMISSION=billing:manage`.
+
+Reading and previewing repeat freely. Every changing command stores an audit row with the actor,
+operation, reason and result, which also acts as its replay receipt: the same payload returns the
+original result and a changed payload conflicts. Refund execution is a real external money
+operation and requires `TBANK_CONFIG_JSON`; without it the operation reports `method_unavailable`.
+Automated tests use synthetic bank adapters only and perform no real refunds or grants.
 
 The first period starts when Inside first verifies and durably records CONFIRMED, whether from a
 signed notification or server reconciliation (owner-approved for #407 on 2026-09-09). Delayed

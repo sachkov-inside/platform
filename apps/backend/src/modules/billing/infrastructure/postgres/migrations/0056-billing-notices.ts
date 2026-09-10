@@ -1,4 +1,4 @@
-export const name = "0054_billing_notices";
+export const name = "0056_billing_notices";
 export const statement = `
 CREATE TABLE billing.notices (
  id uuid PRIMARY KEY, account_id uuid NOT NULL,
