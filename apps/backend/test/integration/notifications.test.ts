@@ -17,7 +17,7 @@ import { encodeNotification } from '../../src/infrastructure/notification-transp
 import { expandAudience } from '../../src/modules/notifications/features/expand-audience/expand-audience.js';
 import { dispatchEmail, acceptEmailCommand } from '../../src/modules/notifications/features/dispatch-email/dispatch-email.js';
 import { refreshDeliveries } from '../../src/modules/notifications/features/expand-audience/refresh-deliveries.js';
-import { deliverySchema, resultSchema, type NotificationEvent, type DeliveryCommand, type AuthorizeRequest } from '../../src/modules/notifications/domain/notification-wire.js';
+import { deliverySchema, resultSchema, COMMAND_LIFETIME_MS, type NotificationEvent, type DeliveryCommand, type AuthorizeRequest } from '../../src/modules/notifications/domain/notification-wire.js';
 import { renderNotification } from '../../src/modules/notifications/domain/templates.js';
 const protection = billingContactProtection(Buffer.alloc(32, 43).toString('base64'));
 
@@ -56,7 +56,9 @@ describe('Notifications persistence and delivery (real PostgreSQL; synthetic sou
     const commands = async () => database.prisma.notificationCommand.findMany({ where: { delivery: { notification: { occurrenceRef: event.occurrenceRef, accountId: actor } } }, orderBy: { revision: 'asc' } });
     const command = async () => { const row = (await commands()).at(-1); if (!row) throw new Error('Missing command'); return { row, value: deliverySchema.parse(JSON.parse(row.payload)) }; };
     const admit = async () => { const { value } = await command(); await app.acceptEvent(encodeNotification(category === 'material' ? 'emailMaterial' : 'emailSubscription', value)); return value; };
-    return { actor, app, deps, event, fact, contacts, verify, advance, publish, commands, command, admit,
+    // A clock that answers a new millisecond each call, for a producer that must not read it twice.
+    const ticking = () => { let reading = instant.getTime(); return () => new Date(reading += 1); };
+    return { actor, app, deps, event, fact, contacts, verify, advance, publish, commands, command, admit, ticking,
       source: (value: NotificationSource) => { source = value; }, access: (value: typeof access) => { access = value; } };
   }
   function request(command: DeliveryCommand, digest: string): AuthorizeRequest {
@@ -176,8 +178,11 @@ describe('Notifications persistence and delivery (real PostgreSQL; synthetic sou
     let sends = 0;
     await dispatchEmail(s.deps, () => { sends += 1; return Promise.resolve({ state: 'sent' }); }, 'subscription');
     expect((await project(s.app, c.deliveryRef)).state).toBe('suppressed'); expect(sends).toBe(0);
-    await refreshDeliveries(s.deps); expect(await s.commands()).toHaveLength(2);
+    // The replacement command is issued against a clock that moves: its window has to stay inside the
+    // lifetime its own consumer accepts, or the command is quarantined instead of delivered.
+    await refreshDeliveries({ ...s.deps, now: s.ticking() }); expect(await s.commands()).toHaveLength(2);
     const next = await s.admit(); expect(next.commandRevision).toBe(2); expect(next.deliveryRef).toBe(c.deliveryRef);
+    expect(Date.parse(next.notAfter) - Date.parse(next.issuedAt)).toBeLessThanOrEqual(COMMAND_LIFETIME_MS);
     await dispatchEmail(s.deps, () => { sends += 1; return Promise.resolve({ state: 'sent' }); }, 'subscription');
     expect(sends).toBe(1); expect((await project(s.app, c.deliveryRef)).state).toBe('sent');
   });

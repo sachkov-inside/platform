@@ -2,7 +2,7 @@ import { stageDeliveryCommand } from '../../infrastructure/stage-delivery-comman
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { NotificationsPrismaClient } from '../../../../infrastructure/prisma/index.js';
-import { eventSchema, deliverySchema, parseWire, COMMAND_LIFETIME_MS, MATERIAL_LIFETIME_MS, fingerprint, type NotificationEvent, type Channel } from '../../domain/notification-wire.js';
+import { eventSchema, deliverySchema, parseWire, commandWindow, MATERIAL_LIFETIME_MS, fingerprint, type NotificationEvent, type Channel } from '../../domain/notification-wire.js';
 import { renderNotification } from '../../domain/templates.js';
 import type { NotificationRecipients, NotificationSources, NotificationSource } from '../../ports/notification-sources.js';
 import { optedIn } from '../change-preferences/change-preferences.js';
@@ -86,7 +86,7 @@ export async function expandAudience(deps: NotificationDependencies, lane: 'bill
           deliveryRef: delivery.id, commandRevision: 1, sourceEventId: event.messageId, content: source.content,
           templateRef: template.templateRef, templateRevision: template.templateRevision, text: template.text,
           ...(channel === 'email' ? { subject: template.subject } : {}), binding,
-          issuedAt: now().toISOString(), notAfter: new Date(Math.min(deadline.getTime(), now().getTime() + COMMAND_LIFETIME_MS)).toISOString(),
+          ...commandWindow(now(), deadline.getTime()),
         });
         await stageDeliveryCommand(transaction, command, now());
       }

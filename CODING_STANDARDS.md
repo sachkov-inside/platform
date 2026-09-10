@@ -23,6 +23,24 @@ nearest `AGENTS.md` owns task routing and verification commands.
   not hand-edit generated output.
 - Name protocol, token, cookie, retry, and polling durations in domain units at the owning boundary.
   Call sites express the policy name, not arithmetic.
+- Derive values that are validated together from one clock reading. A window, a deadline pair, or
+  any bound another component rechecks must come from a single reading: two readings differ by a
+  millisecond often enough to make the rechecking side reject a correct value at random.
+
+## Waiting in tests
+
+A test that waits by duration measures the machine instead of the behaviour: it hides a defect on an
+idle machine and fails at random on a loaded one.
+
+- End every wait on a committed fact: a persisted row, a rendered state, a drained queue, a reported
+  outcome. A pause and an advanced virtual clock start work; neither observes it.
+- Wait for the fact the current step produces. A barrier the previous state already satisfies proves
+  nothing and leaves the assertion racing the change it was meant to follow.
+- Poll that fact with the shared `eventually` helper and give it a budget that only bounds a stuck
+  run. Raising a budget is not a repair, and neither is retrying a failed job.
+- Read a browser fact in one evaluation. Resolving a locator and evaluating on it are two round
+  trips, and a re-render between them detaches the resolved node.
+- Assert without depending on the order of rows that share a sort key.
 
 ## Live HTTP checks
 

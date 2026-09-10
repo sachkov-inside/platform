@@ -5,12 +5,12 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { setTimeout as delay } from 'node:timers/promises';
 import { GenericContainer, Wait, type StartedTestContainer } from 'testcontainers';
 import type { ChannelModel } from 'amqplib';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { z } from 'zod';
 import fixtures from '../../../../docs/contracts/notifications-v1/fixtures.json' with { type: 'json' };
+import { eventually } from './setup/eventually.js';
 import { createMigratedTestDatabase, type TestDatabase } from './setup/test-database.js';
 import { localNotificationTopology, NOTIFICATION_BROKER_IMAGE } from '../../src/infrastructure/notification-transport/topology.js';
 import { connectNotificationBroker, consumeNotificationLane, publishNotification } from '../../src/infrastructure/notification-transport/rabbitmq.js';
@@ -27,10 +27,8 @@ import { assembleNotificationTransport } from '../../src/modules/notifications/i
 const billingFixture = fixtures.find(f => f.valid && f.definition === 'billingEvent')?.value;
 const materialFixture = fixtures.find(f => f.valid && f.definition === 'materialEvent')?.value;
 function event() { return { ...billingFixture, messageId: randomUUID() }; }
-async function eventually(assertion: () => Promise<void>, timeout = 15_000) {
-  const deadline = Date.now() + timeout;
-  for (;;) { try { await assertion(); return; } catch (error) { if (Date.now() >= deadline) throw error; await delay(100); } }
-}
+// Every wait below ends on a committed fact; the budget only bounds a stuck run.
+const barrierBudgetMs = 15_000;
 
 describe('Notifications real PostgreSQL / RabbitMQ transport', () => {
   let broker: StartedTestContainer;
@@ -126,7 +124,7 @@ describe('Notifications real PostgreSQL / RabbitMQ transport', () => {
             await eventually(async () => {
               const rows = z.array(z.object({ name: z.string(), messages: z.number() })).parse(JSON.parse(await admin(['list_queues', '-p', 'inside-test', 'name', 'messages', '--formatter', 'json'])));
               expect(rows.find(row => row.name === lanes.billing.queue)?.messages).toBe(1);
-            });
+            }, barrierBudgetMs);
           }
         } catch { throw new Error(`Crash child failed: ${errors}`); } finally { clearTimeout(timeout); }
       } finally { child.kill('SIGKILL'); await once(child, 'exit'); }
@@ -138,12 +136,12 @@ describe('Notifications real PostgreSQL / RabbitMQ transport', () => {
       const consumer = await consumeNotificationLane(await connect('notifications'), 'billing', transport, 1);
       await eventually(async () => {
         expect(await database.prisma.notificationInbox.findUnique({ where: { scope_messageId: { scope: 'billing', messageId: envelope.messageId } } })).toMatchObject({ payload: envelope.payload, completedAt: null, checkpoint: {} });
-      });
+      }, barrierBudgetMs);
       // Wait for both confirm-window copies to be consumed before moving to the next crash phase.
       await eventually(async () => {
         const rows = z.array(z.object({ name: z.string(), messages: z.number() })).parse(JSON.parse(await admin(['list_queues', '-p', 'inside-test', 'name', 'messages', '--formatter', 'json'])));
         expect(rows.find(row => row.name === lanes.billing.queue)?.messages).toBe(0);
-      });
+      }, barrierBudgetMs);
       await consumer.stop();
       expect(await database.prisma.notificationInbox.count({ where: { messageId: envelope.messageId } })).toBe(1);
     }, 45_000);
@@ -177,7 +175,7 @@ describe('Notifications real PostgreSQL / RabbitMQ transport', () => {
     await publishNotification(producer, encodeNotification('materials', { ...materialFixture, messageId: randomUUID() }));
     const transport = assembleNotificationTransport(database.prisma, 100);
     const consumer = await consumeNotificationLane(await connect('notifications'), 'materials', transport, 1);
-    await eventually(async () => { expect(await database.prisma.notificationInbox.count({ where: { lane: 'materials' } })).toBeGreaterThan(0); });
+    await eventually(async () => { expect(await database.prisma.notificationInbox.count({ where: { lane: 'materials' } })).toBeGreaterThan(0); }, barrierBudgetMs);
     await consumer.stop();
   }, 45_000);
 
@@ -188,7 +186,7 @@ describe('Notifications real PostgreSQL / RabbitMQ transport', () => {
     const transport = assembleNotificationTransport(database.prisma, 1);
     const consumer = await consumeNotificationLane(await connect('notifications'), 'emailResult', transport, 1);
     await publishPoison('{broken:1');
-    await eventually(async () => { expect(await database.prisma.notificationQuarantine.count()).toBe(1); });
+    await eventually(async () => { expect(await database.prisma.notificationQuarantine.count()).toBe(1); }, barrierBudgetMs);
     await publishPoison('{broken:2');
     await expect(consumer.failed).rejects.toThrow('notification_receipt_unavailable');
     await consumer.stop();
@@ -196,7 +194,7 @@ describe('Notifications real PostgreSQL / RabbitMQ transport', () => {
     await transport.observe();
     expect(await database.prisma.notificationQuarantine.findFirst()).toMatchObject({ payload: null });
     const recovered = await consumeNotificationLane(await connect('notifications'), 'emailResult', transport, 1);
-    await eventually(async () => { expect(await database.prisma.notificationQuarantine.count()).toBe(2); });
+    await eventually(async () => { expect(await database.prisma.notificationQuarantine.count()).toBe(2); }, barrierBudgetMs);
     await recovered.stop();
   }, 30_000);
 
@@ -211,12 +209,12 @@ describe('Notifications real PostgreSQL / RabbitMQ transport', () => {
     const receiver = await consumeNotificationLane(await connect('notifications'), 'materials', transport, 1);
     const relay = assembleNotificationOutbox(database.prisma.materialNotificationOutbox, ['materials']);
     while (await relay.relay('materials', message => publishNotification(producer, message))) { /* bounded test fixture backlog */ }
-    await eventually(async () => { expect(await database.prisma.notificationInbox.count({ where: { lane: 'materials' } })).toBeGreaterThan(1); });
+    await eventually(async () => { expect(await database.prisma.notificationInbox.count({ where: { lane: 'materials' } })).toBeGreaterThan(1); }, barrierBudgetMs);
     await receiver.stop();
     const billingReceiver = await consumeNotificationLane(await connect('notifications'), 'billing', transport, 1);
     await eventually(async () => {
       for (const messageId of confirmedBeforeOutage) expect(await database.prisma.notificationInbox.findUnique({ where: { scope_messageId: { scope: 'billing', messageId } } })).not.toBeNull();
-    });
+    }, barrierBudgetMs);
     await billingReceiver.stop();
   }, 45_000);
   test('composed worker relays both sources and email/results, drains and reports broker failure', async () => {
@@ -251,12 +249,12 @@ describe('Notifications real PostgreSQL / RabbitMQ transport', () => {
     });
     void running.catch(() => undefined);
     try {
-      await Promise.race([running, eventually(async () => { expect(JSON.parse(await readFile(WORKER_READINESS_PATH, 'utf8'))).toMatchObject({ process: 'notifications-worker', status: 'ready' }); })]);
+      await Promise.race([running, eventually(async () => { expect(JSON.parse(await readFile(WORKER_READINESS_PATH, 'utf8'))).toMatchObject({ process: 'notifications-worker', status: 'ready' }); }, barrierBudgetMs)]);
       await eventually(async () => {
         for (const messageId of [billing.messageId, material.messageId, email.operationId, result.messageId]) {
           expect(await database.prisma.notificationInbox.count({ where: { messageId, completedAt: null } })).toBe(1);
         }
-      });
+      }, barrierBudgetMs);
       expect(observed.some(event => event.status === 'transport_observation' || event.status === 'operator_attention')).toBe(true);
       await admin(['stop_app']);
       await expect(running).rejects.toThrow(/notification_broker_disconnected|notification_consumer_stopped/u);

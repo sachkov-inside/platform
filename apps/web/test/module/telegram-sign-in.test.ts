@@ -61,6 +61,23 @@ afterAll(async () => {
   await new Promise<void>((resolve, reject) => server?.close((error) => { if (error) reject(error); else resolve(); }));
 });
 
+// The page polls on this interval; the extra step only makes the virtual clock cross it.
+const pollIntervalMs = 1500;
+const clockStepMs = pollIntervalMs + 100;
+
+// runFor returns once the virtual timers have run, not once the request they started was answered:
+// the answer travels over a real socket. Waiting for the answer is the fact; the clock is only the trigger.
+async function poll(page: Page) {
+  const answered = page.waitForResponse((response) => response.url().endsWith("/api/inside-telegram/status"));
+  await page.clock.runFor(clockStepMs);
+  await answered;
+}
+
+// Reading the focused element by id in one evaluation. Resolving a locator and evaluating on it are
+// two round trips, and a re-render between them detaches the resolved node, which never equals
+// document.activeElement however correct the page is.
+const focusedId = (page: Page) => page.evaluate(() => document.activeElement?.id);
+
 async function open(page: Page, status: InsideTelegramPresentation["status"]) {
   offline = false;
   requests = 0;
@@ -110,20 +127,22 @@ it("keeps keyboard focus and control geometry across polls, reconnects, and retu
   await page.keyboard.press("Tab");
   const bounds = await page.locator("#bot").boundingBox();
   expect(await page.locator("#bot").evaluate((element) => getComputedStyle(element).outlineStyle)).toBe("solid");
-  await page.clock.runFor(1600);
-  expect(await page.locator("#bot").evaluate((element) => element === document.activeElement)).toBe(true);
+  await poll(page);
+  expect(await focusedId(page)).toBe("bot");
   expect(await page.locator("#bot").boundingBox()).toEqual(bounds);
   offline = true;
-  await page.clock.runFor(1600);
+  await poll(page);
   await page.getByRole("status").filter({ hasText: "Нет связи" }).waitFor();
-  expect(await page.locator("#alternative").evaluate((element) => element === document.activeElement)).toBe(true);
+  expect(await focusedId(page)).toBe("alternative");
   offline = false;
   state = { status: "denied" };
-  await page.clock.runFor(1600);
-  await page.locator("#alternative").waitFor();
-  expect(await page.locator("#alternative").evaluate((element) => element === document.activeElement)).toBe(true);
+  await poll(page);
+  // The rendered decline is the fact. #alternative is already on screen from the reconnecting state,
+  // so waiting for it would only wait for the previous render and read focus mid-replacement.
+  await page.getByRole("status").filter({ hasText: "Вы отменили вход" }).waitFor();
+  expect(await focusedId(page)).toBe("alternative");
   const stoppedAt = requests;
-  await page.clock.runFor(5000);
+  await page.clock.runFor(pollIntervalMs * 3);
   expect(requests).toBe(stoppedAt);
   // The visual fixture has no Logto interaction; assert the return destination without starting auth.
   await page.route(`${origin}/sign-in`, async (route) => {
@@ -139,7 +158,7 @@ it("automatically completes in the original tab after approval and respects redu
   await page.clock.install();
   await open(page, "pending");
   state = { status: "approved", callback: `${origin}/callback?fixture=approved` };
-  await page.clock.runFor(1600);
+  await page.clock.runFor(clockStepMs);
   await page.waitForURL(`${origin}/callback?fixture=approved`);
   await open(page, "approved");
   expect(await page.locator(".inside-telegram-progress").evaluate((element) => getComputedStyle(element).animationName)).toBe("none");
