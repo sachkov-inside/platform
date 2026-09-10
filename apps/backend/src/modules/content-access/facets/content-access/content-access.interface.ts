@@ -22,7 +22,16 @@ export type VideoResource = Readonly<{
   videoId: string;
 }>;
 
-export type Resource = MaterialResource | AssetResource | VideoResource;
+export type GuideArtifactResource = Readonly<{
+  artifactId: string;
+  kind: "guideArtifact";
+}>;
+
+export type Resource =
+  | MaterialResource
+  | AssetResource
+  | GuideArtifactResource
+  | VideoResource;
 
 export type AccessAction = "read" | "preview" | "download" | "play";
 
@@ -35,6 +44,8 @@ export type EnforcementPoint =
   | "mcp_material_read"
   | "asset_delivery"
   | "download_delivery"
+  | "guide_artifact_read"
+  | "guide_artifact_delivery"
   | "playback_token_issue"
   | "video_authorization_callback";
 

@@ -2,6 +2,7 @@
 import { ArrowLeft, Archive, RotateCcw } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { GuideArtifactsPanel } from "@/features/guide-artifacts";
 import { HomeSeriesPin, SeriesOrderPanel } from "@/features/series-order";
 import { ContentCoverEditor } from "@/features/content-covers";
 import { Button } from "@/shared/ui/button";
@@ -156,6 +157,10 @@ export function SeriesEditorPageClient({
         <SeriesOrderPanel
           seriesId={collection.id}
           archived={collection.archived}
+        />
+        <GuideArtifactsPanel
+          archived={collection.archived}
+          guideId={collection.id}
         />
       </div>
     </main>

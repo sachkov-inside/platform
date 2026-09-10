@@ -16,6 +16,7 @@ import type {
 } from "./content-access.interface.js";
 import type {
   ContentAccessDependencies,
+  GuideArtifactResourceFacts,
   MaterialResourceFacts,
   MembershipAccessState,
 } from "./content-access.dependencies.js";
@@ -27,9 +28,20 @@ interface SubjectFacts {
   readonly membership?: MembershipAccessState;
 }
 
-interface ResolvedResourceFacts extends MaterialResourceFacts {
+interface ResolvedResourceFacts {
+  readonly access: MaterialResourceFacts["access"];
+  readonly contentVersion: number;
+  readonly guideIds?: readonly string[];
+  /** Absent for resources that no Material owns, such as a Guide Artifact. */
+  readonly materialId?: MaterialResourceFacts["materialId"];
+  readonly publicationState: MaterialResourceFacts["publicationState"];
   readonly resourceKey: string;
-  readonly resourceKind: "file_asset" | "image_asset" | "material" | "video";
+  readonly resourceKind:
+    | "file_asset"
+    | "guide_artifact"
+    | "image_asset"
+    | "material"
+    | "video";
 }
 
 export function assembleContentAccess(
@@ -87,7 +99,7 @@ export function assembleContentAccess(
         input.subject,
         input.operations.flatMap(({ action, resource }) => {
           const facts = resourcesByKey.get(resourceKey(resource));
-          return facts !== undefined && isWorkshopDelivery(facts, action)
+          return facts?.materialId !== undefined && isWorkshopDelivery(facts, action)
             ? [facts.materialId]
             : [];
         }),
@@ -132,14 +144,18 @@ export function assembleContentAccess(
 
       let workshopAccess: WorkshopMaterialAccessState | undefined;
       if (isWorkshopDelivery(facts, input.action)) {
+        const workshopMaterialId = facts.materialId;
         if (input.subject.kind === "account") {
-          if (dependencies.workshopMaterialAccess === undefined) {
+          if (
+            dependencies.workshopMaterialAccess === undefined ||
+            workshopMaterialId === undefined
+          ) {
             return decision("dependency_unavailable");
           }
           try {
             workshopAccess = await dependencies.workshopMaterialAccess.resolve(
               input.subject.accountId,
-              facts.materialId,
+              workshopMaterialId,
             );
           } catch {
             return decision("dependency_unavailable");
@@ -367,6 +383,7 @@ function isWorkshopDelivery(
   action: AccessAction,
 ): boolean {
   return facts.access === "workshop" &&
+    facts.materialId !== undefined &&
     (action === "read" || action === "download" || action === "play");
 }
 
@@ -409,6 +426,7 @@ function resourceReason(
     (facts.resourceKind === "material" && action === "read") ||
     (facts.resourceKind === "image_asset" && action === "read") ||
     (facts.resourceKind === "file_asset" && action === "download") ||
+    (facts.resourceKind === "guide_artifact" && action === "download") ||
     (facts.resourceKind === "video" && action === "play");
   if (!validPair) {
     return "resource_action_invalid";
@@ -447,6 +465,12 @@ async function resolveOneResourceFacts(
         : `video-mismatch:${video.videoId}`,
     );
   }
+  if (resource.kind === "guideArtifact") {
+    const artifact =
+      await dependencies.guideArtifactResourceFacts?.findOne(resource.artifactId) ??
+      null;
+    return artifact === null ? null : resolveGuideArtifactFacts(artifact);
+  }
   const asset = await dependencies.assetResourceFacts?.findOne(resource.assetId) ?? null;
   if (asset === null) return null;
   const material = await dependencies.materialResourceFacts.findOne(asset.materialId);
@@ -468,6 +492,15 @@ async function resolveManyResourceFacts(
   const assets = assetIds.length === 0
     ? []
     : await dependencies.assetResourceFacts?.findMany(assetIds) ?? [];
+  const artifactIds = [...new Set(resources.flatMap((resource) =>
+    resource.kind === "guideArtifact" ? [resource.artifactId] : [],
+  ))];
+  const artifacts = artifactIds.length === 0
+    ? []
+    : await dependencies.guideArtifactResourceFacts?.findMany(artifactIds) ?? [];
+  const artifactsById = new Map(
+    artifacts.map((facts) => [facts.artifactId, facts]),
+  );
   const videoIds = [...new Set(resources.flatMap((resource) =>
     resource.kind === "video" ? [resource.videoId] : [],
   ))];
@@ -481,7 +514,10 @@ async function resolveManyResourceFacts(
     ...assets.map(({ materialId }) => materialId),
     ...videos.map(({ materialId }) => materialId),
   ])];
-  const materials = await dependencies.materialResourceFacts.findMany(materialIds);
+  // A batch may now carry only Guide Artifacts, which no Material owns.
+  const materials = materialIds.length === 0
+    ? []
+    : await dependencies.materialResourceFacts.findMany(materialIds);
   const materialsById = new Map(materials.map((facts) => [facts.materialId, facts]));
   const assetsById = new Map(assets.map((facts) => [facts.assetId, facts]));
   const videosById = new Map(videos.map((facts) => [facts.videoId, facts]));
@@ -503,6 +539,12 @@ async function resolveManyResourceFacts(
         material.primaryVideoId !== video.videoId
         ? []
         : [[resourceKey(resource), resolveMaterialFacts(material, "video", resourceKey(resource))]];
+    }
+    if (resource.kind === "guideArtifact") {
+      const artifact = artifactsById.get(resource.artifactId);
+      return artifact === undefined
+        ? []
+        : [[resourceKey(resource), resolveGuideArtifactFacts(artifact)]];
     }
     const asset = assetsById.get(resource.assetId);
     const material = asset === undefined
@@ -529,8 +571,24 @@ function resolveMaterialFacts(
   return { ...material, resourceKey: resourceKeyValue, resourceKind };
 }
 
+function resolveGuideArtifactFacts(
+  artifact: GuideArtifactResourceFacts,
+): ResolvedResourceFacts {
+  return {
+    access: artifact.access,
+    contentVersion: artifact.version,
+    guideIds: artifact.guideIds,
+    publicationState: artifact.archived ? "unpublished" : "published",
+    resourceKey: `guide-artifact:${artifact.artifactId}`,
+    resourceKind: "guide_artifact",
+  };
+}
+
 function resourceKey(resource: Resource): string {
   if (resource.kind === "material") return `material:${resource.materialId}`;
   if (resource.kind === "video") return `video:${resource.videoId}`;
+  if (resource.kind === "guideArtifact") {
+    return `guide-artifact:${resource.artifactId}`;
+  }
   return `asset:${resource.assetId}`;
 }
