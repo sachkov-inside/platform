@@ -45,7 +45,7 @@ describe("Bookmarks on PostgreSQL", () => {
         membershipEntitlements: membership,
       }),
       selection: new PublishedMaterialSelection(prisma),
-      videos: { loadReadyDurations: async () => ({ ok: true as const, value: [] }) },
+      videos: { loadReadyDurations: () => Promise.resolve({ ok: true as const, value: [] }) },
     });
   }
   async function material(access: "free" | "membership" = "free") {
@@ -70,7 +70,7 @@ describe("Bookmarks on PostgreSQL", () => {
     });
     if (!changed.ok) throw new Error(changed.error.code);
   }
-  async function memberWithAccess(materialId: string) {
+  async function memberWithAccess() {
     const memberId = checkedAccountId(randomUUID());
     await membership.acceptEvidence({ accountId: memberId, deliveryId: randomUUID(), source: "link_time", evidence: {
       contractVersion: "inside.membership-evidence.v1", principalRef: `principal-${memberId}`, decision: "member", reasonCode: "chat_member",
@@ -106,7 +106,7 @@ describe("Bookmarks on PostgreSQL", () => {
   test("protected Materials require current access and stay removable after access loss", async () => {
     const protectedId = await material("membership");
     expect(await bookmarks.addBookmark({ accountId, materialId: protectedId })).toEqual({ ok: false, error: { code: "access_denied" } });
-    const memberId = await memberWithAccess(protectedId);
+    const memberId = await memberWithAccess();
     expect(await bookmarks.addBookmark({ accountId: memberId, materialId: protectedId })).toMatchObject({ ok: true, value: { bookmarked: true } });
     expect(await bookmarks.listBookmarks({ accountId: memberId, first: 12 })).toMatchObject({ ok: true, value: { items: [{ materialId: protectedId, availability: "available" }] } });
     await expireMembership(memberId, 2);
