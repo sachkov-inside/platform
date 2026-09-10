@@ -8,6 +8,7 @@ import {
   assembleBillingNotificationOutbox, BillingNotices, BillingPayments, BillingPricing, BillingSubscriptions,
 } from "../../src/modules/billing/index.js";
 import { Notifications, type SendNotificationEmail } from "../../src/modules/notifications/index.js";
+import { subscriptionConsentSchema, subscriptionSnapshotSchema } from "../../src/modules/billing/domain/subscription-change.js";
 import { deliverySchema } from "../../src/modules/notifications/domain/notification-wire.js";
 import { encodeNotification } from "../../src/infrastructure/notification-transport/wire.js";
 import { tbankConfigSchema } from "../../src/config/tbank-config.js";
@@ -249,6 +250,26 @@ describe("служебные сообщения подписки (реальны
     expect(value(await s.notices.scheduleReminders())).toMatchObject({ created: 0, refreshed: 0, superseded: 0 });
     await s.pump(s.deliverEmail);
     expect(s.sent.filter(message => message.subject === "Скоро продление подписки Inside")).toHaveLength(1);
+  });
+
+  test("календарь доходит до каждой подписки, а не перебирает одни и те же", async () => {
+    const s = await scenario();
+    await s.buy();
+    s.at("2030-02-26T10:00:00Z");
+    const original = await db.prisma.billingSubscription.findFirstOrThrow({ where: { accountId: s.buyer } });
+    const neighbours = [randomUUID(), randomUUID()];
+    for (const [index, accountId] of neighbours.entries()) {
+      await db.prisma.account.create({ data: { id: accountId, logtoIssuer: "https://identity.example.test", logtoSubject: accountId } });
+      await db.prisma.billingSubscription.create({ data: { ...original, id: randomUUID(), accountId,
+        snapshot: subscriptionSnapshotSchema.parse(original.snapshot), consent: subscriptionConsentSchema.parse(original.consent),
+        pendingChange: {},
+        // Списание позже исходной подписки: выборка по возрастанию срока ставит их в конец очереди.
+        paidUntil: new Date(original.paidUntil.getTime() + (index + 1) * 60_000) } });
+    }
+    // Ёмкость одного пробега меньше очереди: каждый следующий берёт подписку, которой повода ещё нет.
+    for (const expected of [1, 1, 1, 0]) expect(value(await s.notices.scheduleReminders(1))).toMatchObject({ created: expected });
+    expect(await db.prisma.billingNotice.count({ where: { kind: "renewal_reminder", state: "current",
+      accountId: { in: [s.buyer, ...neighbours] } } })).toBe(3);
   });
 
   test("отмена до отправки закрывает напоминание и сообщает об отмене продления", async () => {

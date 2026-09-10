@@ -20,11 +20,15 @@ export const RENEWAL_REMINDER_LEAD_MS = 3 * 24 * 60 * 60 * 1_000;
 /** Через сутки после самого события служебное сообщение перестаёт быть актуальным. */
 export const NOTICE_LIFETIME_MS = 24 * 60 * 60 * 1_000;
 
+/**
+ * Выбор полей события своего источника. Полную неизменяемую форму провода проверяет AJV на
+ * границе транспорта, поэтому момент здесь читается так же терпимо, как в принятом контракте.
+ */
 export const noticeEventSchema = z.strictObject({
   contractVersion: z.literal("inside.notification-event.v1"),
   messageId: idSchema, occurrenceRef: idSchema,
   sourceRef: z.string().min(1).max(128), sourceRevision: revisionSchema,
-  occurredAt: z.iso.datetime(), notAfter: z.iso.datetime(),
+  occurredAt: z.iso.datetime({ offset: true }), notAfter: z.iso.datetime({ offset: true }),
   eventType: z.literal("billing.notice-ready"), accountRef: idSchema, kind: noticeKindSchema,
 });
 export type NoticeEvent = z.infer<typeof noticeEventSchema>;
@@ -36,11 +40,25 @@ export const noticeViewSchema = z.strictObject({
 });
 export type NoticeView = z.infer<typeof noticeViewSchema>;
 
-export interface NoticeOccurrence {
+/** Что именно обещано получателю: название операции и, если они есть, сумма и дата. */
+export interface NoticeConditions {
+  readonly title: string;
+  readonly amountKopecks?: number | undefined;
+  readonly dueAt?: Date | undefined;
+}
+export interface NoticeOccurrence extends NoticeConditions {
   readonly kind: NoticeKind; readonly accountId: string; readonly sourceRef: string;
-  readonly title: string; readonly occurredAt: Date; readonly notAfter: Date;
+  readonly occurredAt: Date; readonly notAfter: Date;
   readonly subscriptionRef?: string | undefined; readonly attemptRef?: string | undefined;
-  readonly amountKopecks?: number | undefined; readonly dueAt?: Date | undefined;
+}
+/** Строка повода в условия: пустой столбец и отсутствие значения — одно и то же обещание. */
+export function noticeConditions(row: { title: string; amountKopecks: bigint | null; dueAt: Date | null }): NoticeConditions {
+  return { title: row.title, ...(row.amountKopecks === null ? {} : { amountKopecks: Number(row.amountKopecks) }),
+    ...(row.dueAt === null ? {} : { dueAt: row.dueAt }) };
+}
+export function sameNoticeConditions(left: NoticeConditions, right: NoticeConditions): boolean {
+  return left.title === right.title && left.amountKopecks === right.amountKopecks
+    && left.dueAt?.getTime() === right.dueAt?.getTime();
 }
 
 /** Повод конкретной попытки: успех и отказ одной попытки — разные поводы одного платежа. */
@@ -78,11 +96,13 @@ export function lifecycleWindow(occurredAt: Date): { occurredAt: Date; notAfter:
   return { occurredAt, notAfter: new Date(occurredAt.getTime() + NOTICE_LIFETIME_MS) };
 }
 
+/** Предстоящее списание в доменных значениях: строка подписки остаётся у своего владельца. */
 export interface RenewalReminderSubject {
-  readonly id: string; readonly accountId: string; readonly state: string;
+  readonly subscriptionRef: string; readonly accountId: string;
+  /** Расписание действует, и списать есть чем: без этого предстоящего списания нет. */
+  readonly scheduled: boolean;
   readonly snapshot: unknown; readonly pendingChange: unknown;
-  readonly paidUntil: Date; readonly periodIndex: number;
-  readonly bindingCiphertext: string | null; readonly bindingRevokedAt: Date | null;
+  readonly paidUntil: Date; readonly nextPeriodIndex: number;
 }
 
 /**
@@ -91,13 +111,13 @@ export interface RenewalReminderSubject {
  * берутся из принятых условий следующего периода, а не из текущего каталога.
  */
 export function planRenewalReminder(subject: RenewalReminderSubject, now: Date): NoticeOccurrence | undefined {
-  if (subject.state !== "active" || !subject.bindingCiphertext || subject.bindingRevokedAt !== null) return undefined;
+  if (!subject.scheduled) return undefined;
   if (subject.paidUntil <= now || subject.paidUntil.getTime() - now.getTime() > RENEWAL_REMINDER_LEAD_MS) return undefined;
   const snapshot = renewalPriceSnapshot(subject.snapshot, subject.pendingChange);
   return {
     kind: "renewal_reminder", accountId: subject.accountId,
-    sourceRef: renewalReminderSourceRef(subject.id, subject.periodIndex + 1),
-    subscriptionRef: subject.id, title: snapshot.offer.name,
+    sourceRef: renewalReminderSourceRef(subject.subscriptionRef, subject.nextPeriodIndex),
+    subscriptionRef: subject.subscriptionRef, title: snapshot.offer.name,
     amountKopecks: moneySchema.parse(snapshot.renewalPriceKopecks),
     occurredAt: now, notAfter: subject.paidUntil, dueAt: subject.paidUntil,
   };

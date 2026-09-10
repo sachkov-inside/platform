@@ -1,16 +1,14 @@
 import { randomUUID } from "node:crypto";
 import type { BillingPrisma } from "../../../infrastructure/prisma/index.js";
-import { noticeEvent, type NoticeOccurrence } from "../domain/notice.js";
+import { noticeConditions, noticeEvent, sameNoticeConditions, type NoticeOccurrence } from "../domain/notice.js";
 import { stageBillingNotification } from "../facets/notification-outbox/notification-outbox.js";
 
 export type NoticeOutcome = "created" | "refreshed" | "unchanged";
 
-function sameConditions(row: {
+function unchanged(row: {
   title: string; amountKopecks: bigint | null; dueAt: Date | null; notAfter: Date; state: string;
 }, occurrence: NoticeOccurrence): boolean {
-  return row.state === "current" && row.title === occurrence.title
-    && (row.amountKopecks === null ? undefined : Number(row.amountKopecks)) === occurrence.amountKopecks
-    && (row.dueAt === null ? undefined : row.dueAt.getTime()) === occurrence.dueAt?.getTime()
+  return row.state === "current" && sameNoticeConditions(noticeConditions(row), occurrence)
     && row.notAfter.getTime() === occurrence.notAfter.getTime();
 }
 
@@ -25,7 +23,7 @@ function sameConditions(row: {
  */
 export async function recordBillingNotice(tx: BillingPrisma, occurrence: NoticeOccurrence, now: Date): Promise<NoticeOutcome> {
   const existing = await tx.billingNotice.findUnique({ where: { kind_sourceRef: { kind: occurrence.kind, sourceRef: occurrence.sourceRef } } });
-  if (existing && sameConditions(existing, occurrence)) return "unchanged";
+  if (existing && unchanged(existing, occurrence)) return "unchanged";
   const noticeRef = existing?.id ?? randomUUID();
   const revision = (existing?.revision ?? 0) + 1;
   const event = noticeEvent({ messageId: randomUUID(), occurrenceRef: noticeRef, sourceRevision: revision,

@@ -5,7 +5,7 @@ import { lockSubscription } from "../infrastructure/postgres/catalog-lock.js";
 import { priceSnapshotSchema, type PriceSnapshot } from "../domain/pricing.js";
 import { subscriptionPeriodEnd } from "../domain/subscription-period.js";
 import { attemptKindSchema, subscriptionConsentSchema, subscriptionSnapshotSchema, type AttemptKind, type SubscriptionEndReason, type SubscriptionEventKind } from "../domain/subscription-change.js";
-import { NOTICE_LIFETIME_MS, subscriptionEndedSourceRef } from "../domain/notice.js";
+import { lifecycleWindow, subscriptionEndedSourceRef } from "../domain/notice.js";
 import { recordBillingNotice, supersedeRenewalReminders } from "./record-notice.js";
 
 const acceptanceSchema = z.object({
@@ -65,6 +65,8 @@ export async function settleConfirmedAttempt(tx: BillingPrisma, attempt: Attempt
   const subscriptionRef = attempt.subscriptionRef;
   if (!subscriptionRef) throw new Error("Scheduled attempt without a subscription");
   const current = await tx.billingSubscription.findUniqueOrThrow({ where: { id: subscriptionRef } });
+  // Оплаченный период сменился: обещанные дата и сумма следующего списания больше не те.
+  await supersedeRenewalReminders(tx, subscriptionRef, paidAt);
   if (kind === "renewal") {
     const anchorMonths = current.anchorMonths + snapshot.paymentOption.months;
     const startsAt = current.paidUntil;
@@ -93,7 +95,7 @@ export async function endSubscription(tx: BillingPrisma, subscriptionRef: string
   // опозданием сообщение истекает по своему сроку вместо того, чтобы прийти как новость.
   await recordBillingNotice(tx, { kind: "access_expired", accountId: current.accountId, sourceRef: subscriptionEndedSourceRef(subscriptionRef),
     subscriptionRef, title: subscriptionSnapshotSchema.parse(current.snapshot).offer.name, dueAt: current.paidUntil,
-    occurredAt: current.paidUntil, notAfter: new Date(current.paidUntil.getTime() + NOTICE_LIFETIME_MS) }, now);
+    ...lifecycleWindow(current.paidUntil) }, now);
 }
 
 /**

@@ -1365,6 +1365,7 @@ model BillingSubscription {
   events BillingSubscriptionEvent[]
   changeQuotes BillingChangeQuote[]
   methodFlows BillingPaymentMethodFlow[]
+  notices BillingNotice[]
   @@index([paidUntil], map: "billing_due_subscriptions")
   @@map("subscriptions")
   @@schema("billing")
@@ -1434,6 +1435,7 @@ model BillingNotice {
   kind String
   sourceRef String @map("source_ref")
   subscriptionRef String? @map("subscription_ref") @db.Uuid
+  subscription BillingSubscription? @relation(fields: [subscriptionRef], references: [id], onDelete: NoAction, onUpdate: NoAction)
   attemptRef String? @map("attempt_ref") @db.Uuid
   revision Int
   state String

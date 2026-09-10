@@ -12,8 +12,7 @@ const offer = { id: randomUUID(), revision: 1, name: "Материалы", benef
 const paymentOption = { id: randomUUID(), offerId: offer.id, revision: 1, months: 1, priceKopecks: 100_000, archived: false };
 const snapshot = { offer, paymentOption, currency: "RUB", timezone: "Europe/Moscow", renewalPriceKopecks: 100_000 };
 const active: RenewalReminderSubject = {
-  id: subscriptionRef, accountId, state: "active", snapshot, pendingChange: {},
-  paidUntil, periodIndex: 1, bindingCiphertext: "sealed", bindingRevokedAt: null,
+  subscriptionRef, accountId, scheduled: true, snapshot, pendingChange: {}, paidUntil, nextPeriodIndex: 2,
 };
 
 describe("напоминание о списании", () => {
@@ -40,12 +39,11 @@ describe("напоминание о списании", () => {
 
   test("нет предстоящего списания — нет и повода", () => {
     const now = new Date("2030-02-26T10:00:00Z");
-    expect(planRenewalReminder({ ...active, state: "canceled" }, now)).toBeUndefined();
-    expect(planRenewalReminder({ ...active, bindingRevokedAt: now }, now)).toBeUndefined();
-    expect(planRenewalReminder({ ...active, bindingCiphertext: null }, now)).toBeUndefined();
+    // Отменённое расписание, отозванная привязка и её отсутствие — один и тот же ответ источника.
+    expect(planRenewalReminder({ ...active, scheduled: false }, now)).toBeUndefined();
     expect(planRenewalReminder(active, paidUntil)).toBeUndefined();
     // Продление сдвигает период: следующий повод получает собственный ключ.
-    expect(planRenewalReminder({ ...active, periodIndex: 2 }, now)?.sourceRef)
+    expect(planRenewalReminder({ ...active, nextPeriodIndex: 3 }, now)?.sourceRef)
       .toBe(renewalReminderSourceRef(subscriptionRef, 3));
   });
 });
