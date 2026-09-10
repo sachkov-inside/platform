@@ -5,11 +5,15 @@ import { PLATFORM_CONFIG, type PlatformConfig } from "../config/platform-config.
 import { OperationalReadiness } from "../infrastructure/operational-readiness.js";
 import { runWorker } from "../infrastructure/worker-runtime.js";
 import { BillingNotices, BillingPayments, BillingSubscriptions } from "../modules/billing/index.js";
+import { COMMUNITY_RECONCILIATION_INTERVAL_MS, CommunityEntitlements } from "../modules/telegram-membership/index.js";
 import { BillingWorkerModule } from "./billing-worker/billing-worker.module.js";
 
 const recoveryQueue = "billing.payment-recovery";
 const renewalQueue = "billing.subscription-renewal";
 const noticeQueue = "billing.subscription-notices";
+const communityQueue = "community.entitlement-delivery";
+const communityBatchSize = 50;
+const communityIntervalSeconds = COMMUNITY_RECONCILIATION_INTERVAL_MS / 1_000;
 const jobTimeoutSeconds = 300;
 const jobRetentionSeconds = 86_400;
 const jobIntervalSeconds = 60;
@@ -20,6 +24,7 @@ async function bootstrap(): Promise<void> {
   const payments = application.get(BillingPayments);
   const subscriptions = application.get(BillingSubscriptions);
   const notices = application.get(BillingNotices);
+  const community = application.get(CommunityEntitlements);
   const jobs = new PgBoss({ connectionString: config.database.url, createSchema: false, migrate: false, schema: "pgboss" });
   jobs.on("error", () => console.error("Billing recovery queue unavailable"));
   await runWorker({ application, databaseUrl: config.database.url, jobs, process: "billing-worker", readiness: application.get(OperationalReadiness),
@@ -50,6 +55,19 @@ async function bootstrap(): Promise<void> {
         const result = await notices.scheduleReminders(20);
         if (!result.ok) throw new Error(result.error.code);
         return result.value;
+      });
+      // Community delivery only runs where the provider direction is actually configured.
+      if (!config.communityEntitlements) return;
+      await jobs.createQueue(communityQueue, { deleteAfterSeconds: jobRetentionSeconds, expireInSeconds: jobTimeoutSeconds, retryLimit: 0 });
+      await jobs.schedule(communityQueue, "* * * * *", {});
+      await jobs.send(communityQueue, {}, { singletonSeconds: communityIntervalSeconds });
+      await jobs.work(communityQueue, async () => {
+        const report = await community.sweep(communityBatchSize);
+        if (report.backlog.overdue > 0 || report.backlog.rejected > 0 || report.failed > 0) {
+          // Overdue or refused community work is operator attention, not a silent retry.
+          console.warn(JSON.stringify({ process: "billing-worker", queue: communityQueue, status: "operator_attention", ...report }));
+        }
+        return report;
       });
     },
   });

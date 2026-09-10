@@ -1,4 +1,5 @@
-import { name as billingNoticesName, statement as billingNoticesStatement } from "../modules/billing/infrastructure/postgres/migrations/0053-billing-notices.js";
+import { name as billingNoticesName, statement as billingNoticesStatement } from "../modules/billing/infrastructure/postgres/migrations/0054-billing-notices.js";
+import { name as communityEntitlementsName, statement as communityEntitlementsStatement } from "../modules/telegram-membership/infrastructure/postgres/migrations/0053-community-entitlements.js";
 import { name as bookmarksName, statement as bookmarksStatement } from "../modules/bookmarks/infrastructure/postgres/migrations/0052-bookmarks.js";
 import { name as guideChaptersName, statement as guideChaptersStatement } from "../modules/materials/infrastructure/postgres/migrations/0051-guide-chapters.js";
 import { name as guideArtifactsName, statement as guideArtifactsStatement } from "../modules/materials/infrastructure/postgres/migrations/0050-guide-artifacts.js";
@@ -316,6 +317,7 @@ export const platformMigrations = [
   { name: guideArtifactsName, statement: guideArtifactsStatement },
   { name: guideChaptersName, statement: guideChaptersStatement },
   { name: bookmarksName, statement: bookmarksStatement },
+  { name: communityEntitlementsName, statement: communityEntitlementsStatement },
   { name: billingNoticesName, statement: billingNoticesStatement },
 ] as const;
 
