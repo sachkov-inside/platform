@@ -14,21 +14,40 @@ import {
 } from "../../shared/command-validation.js";
 import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
 import { contentCollectionPersistence } from "../../infrastructure/postgres/content-collection-persistence.js";
+import type { GuideIntroductionDto } from "../../facets/material-authoring/content-collection.contract.js";
 import type {
   UpdateContentCollectionError,
   UpdateContentCollectionOperation,
 } from "./update-content-collection.contract.js";
+
+/** One introduction field holds an authored paragraph, not a headline. */
+const GUIDE_INTRODUCTION_FIELD_MAX = 4000;
+
+const introductionField = z.string().trim().max(GUIDE_INTRODUCTION_FIELD_MAX);
 
 const commandSchema = z
   .object({
     actor: accountId,
     collectionId: entityId,
     expectedVersion: z.number().int().positive(),
+    introduction: z
+      .object({
+        audience: introductionField,
+        outcome: introductionField,
+        prerequisites: introductionField,
+        scope: introductionField,
+      })
+      .strict()
+      .optional(),
     kind: z.enum(["guide", "series", "topic"]),
     name: z.string().trim().min(1).max(120),
     summary: z.string().trim().max(500),
   })
-  .strict();
+  .strict()
+  .refine(
+    ({ introduction, kind }) => kind !== "topic" || introduction === undefined,
+    { path: ["introduction"] },
+  );
 
 export function assembleUpdateContentCollection(
   dependencies: MaterialAuthoringDependencies,
@@ -50,9 +69,13 @@ export function assembleUpdateContentCollection(
           transaction,
           command.kind,
         );
+        // An omitted introduction preserves the stored one, so renaming a Guide
+        // from the collection list never clears text the editor owns.
+        const introduction = command.introduction ?? null;
         const updated = await persistence.updateMetadata({
           expectedVersion: command.expectedVersion,
           id: command.collectionId,
+          introduction,
           name: command.name,
           summary: command.summary,
         });
@@ -60,7 +83,9 @@ export function assembleUpdateContentCollection(
           const current = await persistence.load(command.collectionId);
           if (
             current?.name === command.name &&
-            current.summary === command.summary
+            current.summary === command.summary &&
+            (introduction === null ||
+              introductionMatches(current.introduction, introduction))
           )
             return current;
           return current === undefined
@@ -82,4 +107,17 @@ export function assembleUpdateContentCollection(
       (error): UpdateContentCollectionError => mapPostgresReadError(error),
     );
   };
+}
+
+function introductionMatches(
+  current: GuideIntroductionDto | null,
+  requested: GuideIntroductionDto,
+): boolean {
+  return (
+    current !== null &&
+    current.audience === requested.audience &&
+    current.outcome === requested.outcome &&
+    current.prerequisites === requested.prerequisites &&
+    current.scope === requested.scope
+  );
 }

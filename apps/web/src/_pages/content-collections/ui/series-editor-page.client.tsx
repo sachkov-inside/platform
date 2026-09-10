@@ -7,7 +7,39 @@ import { HomeSeriesPin, SeriesOrderPanel } from "@/features/series-order";
 import { ContentCoverEditor } from "@/features/content-covers";
 import { Button } from "@/shared/ui/button";
 import { flushPendingEdits } from "@/shared/lib/autosave/use-autosave";
-import type { ContentCollection } from "../model/content-collections";
+import {
+  GUIDE_INTRODUCTION_FIELD_MAX,
+  type ContentCollection,
+  type GuideIntroductionDraft,
+} from "../model/content-collections";
+
+/** Reader-facing wording; the field names follow the Inside Content `guide.yaml`. */
+const INTRODUCTION_FIELDS: readonly {
+  readonly field: keyof GuideIntroductionDraft;
+  readonly label: string;
+  readonly placeholder: string;
+}[] = [
+  {
+    field: "outcome",
+    label: "Что читатель сможет",
+    placeholder: "Какую задачу читатель решит после полного руководства?",
+  },
+  {
+    field: "audience",
+    label: "Для кого",
+    placeholder: "Кому это руководство полезно?",
+  },
+  {
+    field: "prerequisites",
+    label: "Что нужно знать заранее",
+    placeholder: "Какие знания и опыт нужны до начала?",
+  },
+  {
+    field: "scope",
+    label: "Что разбираем и что остаётся за границами",
+    placeholder: "Что входит в руководство, а что нет и что ещё готовится?",
+  },
+];
 import { useCollectionDraft } from "../model/use-collection-draft.client";
 import { MutationNotice } from "./collection-mutation-notice";
 
@@ -23,15 +55,21 @@ export function SeriesEditorPageClient({
     setName,
     summary,
     setSummary,
+    introduction,
+    editIntroduction,
     cover,
     setCover,
     setArchived,
     update,
     archive,
     autosave,
-  } = useCollectionDraft(collection, (result) => {
-    if (result.kind === "saved") setCollection(result.collection);
-  });
+  } = useCollectionDraft(
+    collection,
+    (result) => {
+      if (result.kind === "saved") setCollection(result.collection);
+    },
+    { editsIntroduction: true },
+  );
   const back = () => {
     void flushPendingEdits().then((ok) => {
       if (ok) router.push("/authoring/guides");
@@ -134,6 +172,27 @@ export function SeriesEditorPageClient({
                 ownerLabel={name}
               />
             </div>
+            <fieldset className="mt-8 grid gap-6 border-0 p-0 sm:grid-cols-2">
+              <legend className="mb-4 block text-sm font-semibold">
+                О руководстве для читателя
+              </legend>
+              {INTRODUCTION_FIELDS.map(({ field, label, placeholder }) => (
+                <label className="block" key={field}>
+                  <span className="text-sm text-muted-foreground">{label}</span>
+                  <textarea
+                    className="mt-2 block min-h-28 w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm leading-relaxed outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
+                    maxLength={GUIDE_INTRODUCTION_FIELD_MAX}
+                    name={field}
+                    onChange={(event) => {
+                      editIntroduction(field, event.currentTarget.value);
+                    }}
+                    placeholder={placeholder}
+                    rows={4}
+                    value={introduction[field]}
+                  />
+                </label>
+              ))}
+            </fieldset>
             {autosave.error ? (
               <Button className="mt-4" type="submit" variant="outline">
                 Повторить сохранение

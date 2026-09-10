@@ -29,6 +29,8 @@ import {
   libraryMaterialReaderReturnTarget,
   type MaterialReaderReturnTarget,
 } from "@/shared/routing/material-reader";
+import type { ReaderGuideArtifactsResult } from "@/features/guide-artifacts.reader";
+import { GuideIntroductionSection } from "./guide-introduction";
 import { SeriesJourney, type SeriesLearningView } from "./series-journey.client";
 import { TopicMaterialCatalog } from "./topic-material-catalog.client";
 
@@ -38,17 +40,20 @@ type ResolvedDiscoveryResult = Exclude<
 >;
 
 export function LibraryDiscoveryView({
+  artifacts,
   result,
   returnTarget = libraryMaterialReaderReturnTarget,
   learning,
   onRetry,
 }: {
+  readonly artifacts?: ReaderGuideArtifactsResult;
   readonly result: ResolvedDiscoveryResult;
   readonly returnTarget?: MaterialReaderReturnTarget;
   readonly learning?: SeriesLearningView;
   readonly onRetry?: (() => void) | undefined;
 }) {
   const isSeries = result.discoveryKind === "series";
+  const introduction = result.reference.introduction ?? null;
   const Icon = isSeries ? ListVideo : Tags;
   const currentHref = collectionDiscoveryHref(
     result.discoveryKind,
@@ -68,7 +73,8 @@ export function LibraryDiscoveryView({
         returnTarget={returnTarget}
       />
       <DiscoveryHero Icon={Icon} isSeries={isSeries} result={result} />
-      {isSeries ? <SeriesJourney currentHref={currentHref} result={{ ...result, discoveryKind: "series" }} {...(learning === undefined ? {} : { learning })} onRetry={onRetry} /> : null}
+      {isSeries && introduction !== null ? <GuideIntroductionSection introduction={introduction} /> : null}
+      {isSeries ? <SeriesJourney {...(artifacts === undefined ? {} : { artifacts })} currentHref={currentHref} result={{ ...result, discoveryKind: "series" }} {...(learning === undefined ? {} : { learning })} onRetry={onRetry} /> : null}
 
       {result.kind === "empty" ? (
         <DiscoveryEmpty kind={result.discoveryKind} />

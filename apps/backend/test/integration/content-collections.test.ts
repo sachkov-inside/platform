@@ -188,6 +188,95 @@ describe("Topic and Playlist authoring", () => {
       }),
     );
   });
+
+  test("writes the Guide introduction, preserves it on an ordinary edit and refuses it on a Topic", async () => {
+    const { authoring } = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: { canManage: () => true },
+    });
+    const guide = await authoring.createContentCollection({
+      actor,
+      kind: "series",
+      name: "Releases",
+      slug: "releases",
+      summary: "From a check to a confirmed update.",
+    });
+    const topic = await authoring.createContentCollection({
+      actor,
+      kind: "topic",
+      name: "Delivery",
+      slug: "delivery",
+      summary: "",
+    });
+    if (!guide.ok || !topic.ok) throw new Error("Expected collections");
+    expect(guide.value.introduction).toEqual({
+      audience: "",
+      outcome: "",
+      prerequisites: "",
+      scope: "",
+    });
+    expect(topic.value.introduction).toBeNull();
+
+    const introduction = {
+      audience: "Разработчики, которые впервые выпускают своё приложение.",
+      outcome: "Настроить путь от проверок до подтверждённого обновления.",
+      prerequisites: "Базовый Git и умение выполнить команду в терминале.",
+      scope: "Один проект и один тестовый сервер; мониторинг пока в плане.",
+    };
+    const written = await authoring.updateContentCollection({
+      actor,
+      collectionId: guide.value.id,
+      expectedVersion: guide.value.version,
+      introduction,
+      kind: "series",
+      name: guide.value.name,
+      summary: guide.value.summary,
+    });
+    if (!written.ok) throw new Error(written.error.code);
+    expect(written.value.introduction).toEqual(introduction);
+
+    // An edit that does not carry the introduction keeps the authored text.
+    const renamed = await authoring.updateContentCollection({
+      actor,
+      collectionId: guide.value.id,
+      expectedVersion: written.value.version,
+      kind: "series",
+      name: "Инфраструктура, релизы и продакшен",
+      summary: guide.value.summary,
+    });
+    if (!renamed.ok) throw new Error(renamed.error.code);
+    expect(renamed.value.introduction).toEqual(introduction);
+
+    // Repeating the same write on a stale version is the accepted no-op.
+    await expect(
+      authoring.updateContentCollection({
+        actor,
+        collectionId: guide.value.id,
+        expectedVersion: written.value.version,
+        introduction,
+        kind: "series",
+        name: renamed.value.name,
+        summary: guide.value.summary,
+      }),
+    ).resolves.toEqual(renamed);
+
+    const rejected = await authoring.updateContentCollection({
+      actor,
+      collectionId: topic.value.id,
+      expectedVersion: topic.value.version,
+      introduction,
+      kind: "topic",
+      name: topic.value.name,
+      summary: topic.value.summary,
+    });
+    expect(rejected).toMatchObject({
+      ok: false,
+      error: {
+        code: "invalid_content",
+        issues: [{ code: "invalid_command", path: "/introduction" }],
+      },
+    });
+  });
 });
 
 function metadata(topicId: string, seriesId: string, title: string) {

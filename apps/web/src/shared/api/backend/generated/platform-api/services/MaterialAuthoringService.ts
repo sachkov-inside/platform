@@ -26,6 +26,12 @@ export class MaterialAuthoringService {
       }>;
     } | null;
     id: string;
+    introduction: {
+      audience: string;
+      outcome: string;
+      prerequisites: string;
+      scope: string;
+    } | null;
     kind: 'guide' | 'series' | 'topic';
     materialCount: number;
     name: string;
@@ -65,6 +71,12 @@ export class MaterialAuthoringService {
       }>;
     } | null;
     id: string;
+    introduction: {
+      audience: string;
+      outcome: string;
+      prerequisites: string;
+      scope: string;
+    } | null;
     kind: 'guide' | 'series' | 'topic';
     materialCount: number;
     name: string;
@@ -91,6 +103,12 @@ export class MaterialAuthoringService {
     collectionId: string,
     requestBody: {
       expectedVersion: number;
+      introduction?: {
+        audience: string;
+        outcome: string;
+        prerequisites: string;
+        scope: string;
+      };
       kind: 'guide' | 'series' | 'topic';
       name: string;
       summary: string;
@@ -105,6 +123,12 @@ export class MaterialAuthoringService {
       }>;
     } | null;
     id: string;
+    introduction: {
+      audience: string;
+      outcome: string;
+      prerequisites: string;
+      scope: string;
+    } | null;
     kind: 'guide' | 'series' | 'topic';
     materialCount: number;
     name: string;
@@ -147,6 +171,12 @@ export class MaterialAuthoringService {
       }>;
     } | null;
     id: string;
+    introduction: {
+      audience: string;
+      outcome: string;
+      prerequisites: string;
+      scope: string;
+    } | null;
     kind: 'guide' | 'series' | 'topic';
     materialCount: number;
     name: string;

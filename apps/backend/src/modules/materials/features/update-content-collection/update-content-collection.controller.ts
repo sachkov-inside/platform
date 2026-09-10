@@ -42,10 +42,12 @@ export class UpdateContentCollectionController {
       updateContentCollectionBodySchema,
       input,
     );
+    const { introduction, ...metadata } = body;
     const result = await this.authoring.updateContentCollection({
       actor: account.accountId,
       collectionId,
-      ...body,
+      ...metadata,
+      ...(introduction === undefined ? {} : { introduction }),
     });
     if (!result.ok) throwMaterialAuthoringError(result.error);
     return result.value;

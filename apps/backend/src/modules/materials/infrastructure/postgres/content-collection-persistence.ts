@@ -2,6 +2,7 @@ import type { MaterialsPrisma } from "../../../../infrastructure/prisma/index.js
 import type {
   ContentCollectionDto,
   ContentCollectionKind,
+  GuideIntroductionDto,
 } from "../../facets/material-authoring/content-collection.contract.js";
 import type { ContentCoverProjection } from "../../facets/content-covers/content-covers.js";
 import { loadContentCoverProjections } from "./content-cover-projections.js";
@@ -16,6 +17,8 @@ interface ContentCollectionRecord {
   readonly coverId: string | null;
 }
 
+type GuideRecord = ContentCollectionRecord & GuideIntroductionDto;
+
 interface ContentCollectionPersistence {
   readonly create: (data: {
     readonly id: string;
@@ -23,6 +26,8 @@ interface ContentCollectionPersistence {
     readonly slug: string;
     readonly summary: string;
   }) => Promise<ContentCollectionDto>;
+  /** Absent for a Topic, which has no introduction to write. */
+  readonly supportsIntroduction: boolean;
   readonly list: () => Promise<readonly ContentCollectionDto[]>;
   readonly load: (id: string) => Promise<ContentCollectionDto | undefined>;
   readonly setArchive: (input: {
@@ -34,6 +39,7 @@ interface ContentCollectionPersistence {
   readonly updateMetadata: (input: {
     readonly expectedVersion: number;
     readonly id: string;
+    readonly introduction: GuideIntroductionDto | null;
     readonly name: string;
     readonly summary: string;
   }) => Promise<number>;
@@ -63,6 +69,7 @@ function topicPersistence(prisma: MaterialsPrisma): ContentCollectionPersistence
     return toDto(
       "topic",
       record,
+      null,
       materialCount,
       record.coverId === null ? null : covers.get(record.coverId) ?? null,
     );
@@ -70,7 +77,7 @@ function topicPersistence(prisma: MaterialsPrisma): ContentCollectionPersistence
   return {
     create: async (data) => {
       const record = await prisma.topic.create({ data });
-      return toDto("topic", record, 0, null);
+      return toDto("topic", record, null, 0, null);
     },
     list: async () => {
       const [records, counts] = await Promise.all([
@@ -96,6 +103,7 @@ function topicPersistence(prisma: MaterialsPrisma): ContentCollectionPersistence
         toDto(
           "topic",
           record,
+          null,
           countById.get(record.id) ?? 0,
           record.coverId === null ? null : covers.get(record.coverId) ?? null,
         ),
@@ -115,6 +123,7 @@ function topicPersistence(prisma: MaterialsPrisma): ContentCollectionPersistence
         })
       ).count,
     slugConstraint: "topics_slug_unique",
+    supportsIntroduction: false,
     updateMetadata: async ({ expectedVersion, id, name, summary }) =>
       (
         await prisma.topic.updateMany({
@@ -132,7 +141,7 @@ function topicPersistence(prisma: MaterialsPrisma): ContentCollectionPersistence
 
 function guidePersistence(prisma: MaterialsPrisma, kind: "guide" | "series"): ContentCollectionPersistence {
   const project = async (
-    record: ContentCollectionRecord | null,
+    record: GuideRecord | null,
   ): Promise<ContentCollectionDto | undefined> => {
     if (record === null) return undefined;
     const [materialCount, covers] = await Promise.all([
@@ -145,6 +154,7 @@ function guidePersistence(prisma: MaterialsPrisma, kind: "guide" | "series"): Co
     return toDto(
       kind,
       record,
+      introductionOf(record),
       materialCount,
       record.coverId === null ? null : covers.get(record.coverId) ?? null,
     );
@@ -152,7 +162,7 @@ function guidePersistence(prisma: MaterialsPrisma, kind: "guide" | "series"): Co
   return {
     create: async (data) => {
       const record = await prisma.guide.create({ data });
-      return toDto(kind, record, 0, null);
+      return toDto(kind, record, introductionOf(record), 0, null);
     },
     list: async () => {
       const [records, counts] = await Promise.all([
@@ -175,6 +185,7 @@ function guidePersistence(prisma: MaterialsPrisma, kind: "guide" | "series"): Co
         toDto(
           kind,
           record,
+          introductionOf(record),
           countById.get(record.id) ?? 0,
           record.coverId === null ? null : covers.get(record.coverId) ?? null,
         ),
@@ -194,13 +205,15 @@ function guidePersistence(prisma: MaterialsPrisma, kind: "guide" | "series"): Co
         })
       ).count,
     slugConstraint: "series_slug_unique",
-    updateMetadata: async ({ expectedVersion, id, name, summary }) =>
+    supportsIntroduction: true,
+    updateMetadata: async ({ expectedVersion, id, introduction, name, summary }) =>
       (
         await prisma.guide.updateMany({
           where: { id, version: expectedVersion },
           data: {
             name,
             summary,
+            ...(introduction ?? {}),
             updatedAt: new Date(),
             version: { increment: 1 },
           },
@@ -209,15 +222,26 @@ function guidePersistence(prisma: MaterialsPrisma, kind: "guide" | "series"): Co
   };
 }
 
+function introductionOf(record: GuideIntroductionDto): GuideIntroductionDto {
+  return {
+    audience: record.audience,
+    outcome: record.outcome,
+    prerequisites: record.prerequisites,
+    scope: record.scope,
+  };
+}
+
 function toDto(
   kind: ContentCollectionKind,
   record: ContentCollectionRecord,
+  introduction: GuideIntroductionDto | null,
   materialCount: number,
   cover: ContentCoverProjection | null,
 ): ContentCollectionDto {
   return {
     archived: record.archivedAt !== null,
     id: record.id,
+    introduction,
     kind,
     materialCount,
     name: record.name,

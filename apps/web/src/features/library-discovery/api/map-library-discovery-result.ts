@@ -18,10 +18,19 @@ import type {
   LibraryDiscoveryResult,
 } from "../model/library-discovery-view";
 
+const guideIntroductionSchema = z
+  .object({
+    audience: z.string(),
+    outcome: z.string(),
+    prerequisites: z.string(),
+    scope: z.string(),
+  })
+  .strict();
 const discoveryReferenceSchema = z
   .object({
     cover: contentCoverSchema.nullable(),
     id: z.string(),
+    introduction: guideIntroductionSchema.nullable().default(null),
     name: z.string(),
     slug: z.string(),
     summary: z.string(),
@@ -109,6 +118,7 @@ export function mapLibraryDiscoveryResult<
   const reference = {
     id: parsed.data.reference.id,
     cover: parsed.data.reference.cover,
+    introduction: parsed.data.reference.introduction,
     name: parsed.data.reference.name,
     slug: parsed.data.reference.slug,
     summary: parsed.data.reference.summary,

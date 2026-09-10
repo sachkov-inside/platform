@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { MaterialCard } from "@/entities/material";
 import type { MaterialPreview } from "@/entities/material";
+import { ReaderGuideArtifacts, type ReaderGuideArtifact, type ReaderGuideArtifactsResult } from "@/features/guide-artifacts.reader";
 import { formatMaterialCount, type GuideChapter, type PublishedSeriesResult } from "@/features/library-discovery";
 import { SeriesMaterialMarker, SeriesProgress } from "@/features/reading-progress";
 import { Button } from "@/shared/ui/button";
@@ -24,7 +25,8 @@ export type SeriesLearningView =
 
 type SeriesResult = Extract<PublishedSeriesResult, { readonly kind: "ready" | "empty" }>;
 
-export function SeriesJourney({ result, currentHref, learning = { kind: "guest" }, onRetry }: {
+export function SeriesJourney({ artifacts = { kind: "ready", artifacts: [] }, result, currentHref, learning = { kind: "guest" }, onRetry }: {
+  readonly artifacts?: ReaderGuideArtifactsResult;
   readonly result: SeriesResult;
   readonly currentHref: Route;
   readonly learning?: SeriesLearningView;
@@ -37,21 +39,26 @@ export function SeriesJourney({ result, currentHref, learning = { kind: "guest" 
   const routeRef = useRef<HTMLElement>(null);
   const items = result.kind === "ready" ? result.items : [];
   const chapterOf = chapterLookup(result.chapters);
-  // Chapters are the Guide programme; anything the author has not placed in one is a second part.
+  const guideArtifacts = artifacts.kind === "ready" ? artifacts.artifacts : [];
+  // Chapters are the Guide programme; anything the author has not placed in one is supplementary.
   // Each part carries the chapters that apply to it, so no part identifier decides presentation.
-  const parts: readonly GuidePart[] = result.chapters.length === 0
-    ? [{ id: "programme", label: "Программа", chapters: [], items }]
-    : [
-        { id: "programme", label: "Программа", chapters: result.chapters, items: items.filter((item) => chapterOf(item) !== null) },
-        { id: "other", label: "Другие материалы", chapters: [], items: items.filter((item) => chapterOf(item) === null) },
-      ].filter((entry, index) => index === 0 || entry.items.length > 0);
+  const materialParts: readonly GuidePart[] = result.chapters.length === 0
+    ? [{ id: "programme", kind: "materials", label: "Программа", chapters: [], items }]
+    : ([
+        { id: "programme", kind: "materials", label: "Программа", chapters: result.chapters, items: items.filter((item) => chapterOf(item) !== null) },
+        { id: "supplementary", kind: "materials", label: "Дополнительные материалы", chapters: [], items: items.filter((item) => chapterOf(item) === null) },
+      ] satisfies readonly GuidePart[]).filter((entry, index) => index === 0 || entry.items.length > 0);
+  // Artifacts are a takeaway result, not a step of the route, so they are their own part.
+  const parts: readonly GuidePart[] = guideArtifacts.length === 0
+    ? materialParts
+    : [...materialParts, { artifacts: guideArtifacts, id: "artifacts", kind: "artifacts", label: "Артефакты" }];
   const [selection, setSelection] = useState(() => ({
-    id: (parts.find((entry) => entry.items.some((item) => item.slug === requestedMaterial)) ?? parts[0])?.id ?? "programme",
+    id: (parts.find((entry) => partItems(entry).some((item) => item.slug === requestedMaterial)) ?? parts[0])?.id ?? "programme",
     // An explicit switch abandons the page in the address, which belongs to the previous part.
     explicit: false,
   }));
   const part = parts.find(({ id }) => id === selection.id) ?? parts[0];
-  const visible = part?.items ?? [];
+  const visible = part === undefined ? [] : partItems(part);
   const continuation = learning.kind === "ready" ? learning.continuation : null;
   const resumeIndex = visible.findIndex((item) => item.slug === continuation?.materialSlug && item.availability === "available");
   const resumePage = resumeIndex < 0 ? undefined : Math.floor(resumeIndex / SERIES_PAGE_SIZE) + 1;
@@ -68,10 +75,10 @@ export function SeriesJourney({ result, currentHref, learning = { kind: "guest" 
   const canStart = learning.kind === "guest" || (learning.kind === "ready" && learning.read === 0 && continuation === null);
   const target = next ?? (canStart ? first : undefined);
   // The continuation may live in another part, so its page is counted inside the part that holds it.
-  const targetPart = parts.find((entry) => entry.items.some((item) => item.slug === target?.slug));
+  const targetPart = parts.find((entry) => partItems(entry).some((item) => item.slug === target?.slug));
   const targetPage = targetPart === undefined
     ? 1
-    : Math.floor(targetPart.items.findIndex((item) => item.slug === target?.slug) / SERIES_PAGE_SIZE) + 1;
+    : Math.floor(partItems(targetPart).findIndex((item) => item.slug === target?.slug) / SERIES_PAGE_SIZE) + 1;
   const targetHref = target === undefined ? undefined : materialReaderHref(target.slug, seriesReaderReturnHref(currentHref, targetPage, target.slug));
 
   useEffect(() => {
@@ -123,13 +130,14 @@ export function SeriesJourney({ result, currentHref, learning = { kind: "guest" 
         </div> : complete ? <p className="max-w-md leading-7 text-muted-foreground">Можно вернуться к любому материалу в маршруте и повторить нужное.</p> : learning.kind === "loading" ? <p className="text-muted-foreground">Ищем место продолжения…</p> : learning.kind === "unavailable" ? <p className="text-sm leading-6 text-muted-foreground">Материалы можно открыть в маршруте ниже.</p> : <p className="text-sm leading-6 text-muted-foreground">Выберите материал в маршруте. Условия доступа указаны на карточках.</p>}
       </div>
     </section> : null}
-    {result.kind === "ready" || result.chapters.length > 0 ? <section aria-labelledby="series-materials" className="mt-10 scroll-mt-6 focus:outline-none" ref={routeRef} tabIndex={-1}>
+    {result.kind === "ready" || result.chapters.length > 0 || parts.length > materialParts.length || artifacts.kind === "unavailable" ? <section aria-labelledby="series-materials" className="mt-10 scroll-mt-6 focus:outline-none" ref={routeRef} tabIndex={-1}>
       <h2 className="sr-only" id="series-materials">Материалы руководства</h2>
-      {parts.length > 1 ? <div className="flex flex-wrap items-center gap-1 rounded-full bg-muted p-1" role="tablist" aria-label="Разделы руководства">
+      {artifacts.kind === "unavailable" ? <p className="mb-4 rounded-2xl bg-muted px-5 py-4 text-sm leading-6 text-muted-foreground">Раздел артефактов сейчас не открывается. Материалы руководства это не затрагивает.</p> : null}
+      {parts.length > 1 ? <div className="flex max-w-full flex-wrap items-center gap-1 rounded-3xl bg-muted p-1" role="tablist" aria-label="Разделы руководства">
         {parts.map((entry) => <button
           aria-controls={`series-part-panel-${entry.id}`}
           aria-selected={entry.id === part?.id}
-          className={cn("min-h-11 rounded-full px-5 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring", entry.id === part?.id ? "bg-background text-foreground shadow-card" : "text-muted-foreground hover:text-foreground")}
+          className={cn("min-h-11 max-w-full rounded-3xl px-4 py-2 text-sm font-semibold whitespace-normal transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring", entry.id === part?.id ? "bg-background text-foreground shadow-card" : "text-muted-foreground hover:text-foreground")}
           id={`series-part-${entry.id}`}
           key={entry.id}
           onClick={() => { selectPart(entry.id); }}
@@ -151,11 +159,12 @@ export function SeriesJourney({ result, currentHref, learning = { kind: "guest" 
           type="button"
         >
           {entry.label}
-          <span className="ml-2 tabular-nums font-normal text-muted-foreground">{entry.items.length}</span>
+          <span className="ml-2 tabular-nums font-normal text-muted-foreground">{partCount(entry)}</span>
         </button>)}
       </div> : null}
-      {parts.length > 1 ? <p aria-live="polite" className="sr-only">{part?.label}: {formatMaterialCount(visible.length)}</p> : null}
+      {parts.length > 1 ? <p aria-live="polite" className="sr-only">{part?.label}: {part?.kind === "artifacts" ? artifactsInWords(part.artifacts.length) : formatMaterialCount(visible.length)}</p> : null}
       <div aria-labelledby={part === undefined ? undefined : `series-part-${part.id}`} id={`series-part-panel-${part?.id ?? "programme"}`} role={parts.length > 1 ? "tabpanel" : undefined} tabIndex={parts.length > 1 ? 0 : undefined} className="focus-visible:outline-2 focus-visible:outline-ring">
+        {part?.kind === "artifacts" ? <div className="mt-6"><ReaderGuideArtifacts artifacts={part.artifacts} guideId={result.reference.id ?? ""} /></div> : <>
         {page.count > 1 ? <p aria-live="polite" className="mt-6 text-sm tabular-nums text-muted-foreground">Материалы {page.offset + 1}–{page.offset + page.items.length} из {visible.length}</p> : null}
         {items.some((item) => item.availability === "unavailable") ? <Button className="mt-4 h-auto min-h-11 max-w-full whitespace-normal" onClick={() => { router.refresh(); }} variant="outline"><RefreshCw aria-hidden="true" />Повторить проверку доступа</Button> : null}
         <div className="mt-6 grid gap-10">
@@ -180,8 +189,9 @@ export function SeriesJourney({ result, currentHref, learning = { kind: "guest" 
             </ol>}
           </section>)}
         </div>
+        </>}
       </div>
-      {page.count > 1 ? <nav aria-label="Страницы маршрута" className="mt-7 flex flex-wrap items-center justify-between gap-3">
+      {part?.kind === "materials" && page.count > 1 ? <nav aria-label="Страницы маршрута" className="mt-7 flex flex-wrap items-center justify-between gap-3">
         <Button className="min-h-11" disabled={page.number === 1} onClick={() => { navigate(page.number - 1); }} variant="outline"><ArrowLeft aria-hidden="true" />Назад</Button>
         <div className="flex flex-wrap items-center gap-1">
           {page.pages.map((number, index) => number === null ? <span aria-hidden="true" className="px-1 text-muted-foreground" key={`gap-${String(index)}`}>…</span> : <Button aria-current={page.number === number ? "page" : undefined} aria-label={`Страница ${String(number)}${number === resumePage ? ", продолжение" : ""}`} className="min-h-11 min-w-11 tabular-nums" key={number} onClick={() => { navigate(number); }} variant={page.number === number ? "default" : "ghost"}>{number}{number === resumePage ? <Play aria-hidden="true" className="size-3 fill-current" /> : null}</Button>)}
@@ -219,11 +229,39 @@ function visibleChapterRuns(
     });
 }
 
-interface GuidePart {
-  readonly chapters: readonly GuideChapter[];
-  readonly id: string;
-  readonly items: readonly MaterialPreview[];
-  readonly label: string;
+type GuidePart =
+  | {
+      readonly chapters: readonly GuideChapter[];
+      readonly id: string;
+      readonly items: readonly MaterialPreview[];
+      readonly kind: "materials";
+      readonly label: string;
+    }
+  | {
+      readonly artifacts: readonly ReaderGuideArtifact[];
+      readonly id: "artifacts";
+      readonly kind: "artifacts";
+      readonly label: string;
+    };
+
+/** Only a route part is paginated and numbered; an artifact part has no route. */
+function partItems(part: GuidePart): readonly MaterialPreview[] {
+  return part.kind === "materials" ? part.items : [];
+}
+
+function partCount(part: GuidePart): number {
+  return part.kind === "materials" ? part.items.length : part.artifacts.length;
+}
+
+/** «1 артефакт» / «2 артефакта» / «5 артефактов» for the live part announcement. */
+function artifactsInWords(count: number): string {
+  const lastTwo = count % 100;
+  const lastOne = count % 10;
+  const form = lastTwo >= 11 && lastTwo <= 14 ? "артефактов"
+    : lastOne === 1 ? "артефакт"
+    : lastOne >= 2 && lastOne <= 4 ? "артефакта"
+    : "артефактов";
+  return `${String(count)} ${form}`;
 }
 
 function chapterLookup(chapters: readonly GuideChapter[]): (material: MaterialPreview) => string | null {

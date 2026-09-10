@@ -148,10 +148,19 @@ export const reorderSeriesReceiptSchema = z
   .strict();
 
 export const contentCollectionKindSchema = z.enum(["guide", "series", "topic"]);
+export const guideIntroductionSchema = z
+  .object({
+    audience: z.string().max(4000),
+    outcome: z.string().max(4000),
+    prerequisites: z.string().max(4000),
+    scope: z.string().max(4000),
+  })
+  .strict();
 export const contentCollectionSchema = z
   .object({
     archived: z.boolean(),
     id: z.uuid(),
+    introduction: guideIntroductionSchema.nullable(),
     kind: contentCollectionKindSchema,
     materialCount: z.number().int().nonnegative(),
     name: z.string().min(1).max(120),
@@ -173,6 +182,7 @@ export const createContentCollectionBodySchema = z
 export const updateContentCollectionBodySchema = z
   .object({
     expectedVersion: z.number().int().positive(),
+    introduction: guideIntroductionSchema.optional(),
     kind: contentCollectionKindSchema,
     name: z.string(),
     summary: z.string(),

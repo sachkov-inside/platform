@@ -216,6 +216,7 @@ describe("Platform migrations", () => {
           "0054_billing_manage_permission",
           "0055_billing_operations",
           "0056_billing_notices",
+          "0057_guide_introduction",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -802,6 +803,7 @@ describe("Platform migrations", () => {
           "0054_billing_manage_permission",
           "0055_billing_operations",
           "0056_billing_notices",
+          "0057_guide_introduction",
         ],
       });
 
