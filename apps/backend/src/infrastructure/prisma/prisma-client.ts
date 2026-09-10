@@ -75,7 +75,15 @@ export type MemberProfilesPrismaClient = MemberProfilesPrisma &
 
 export type TelegramMembershipPrisma = Pick<
   PlatformPrisma,
-  "$queryRaw" | "telegramLinkTransaction" | "telegramAccountLinkState" | "telegramAccountLinkHistory"
+  | "$executeRaw"
+  | "$queryRaw"
+  | "telegramLinkTransaction"
+  | "telegramAccountLinkState"
+  | "telegramAccountLinkHistory"
+  | "telegramCommunityDesiredState"
+  | "telegramCommunityOperation"
+  | "telegramCommunityAuthorization"
+  | "telegramCommunityProjectionCursor"
 >;
 export type TelegramMembershipPrismaClient = TelegramMembershipPrisma &
   TransactionClient<TelegramMembershipPrisma>;
@@ -92,6 +100,11 @@ export type ReadingActivityPrisma = Pick<PlatformPrisma,
   "$executeRaw" | "$queryRaw" | "readingMaterialState" | "readingEvent" | "readingCommand" | "readingMaterialVisit"
 >;
 export type ReadingActivityPrismaClient = ReadingActivityPrisma & TransactionClient<ReadingActivityPrisma>;
+
+export type BookmarksPrisma = Pick<PlatformPrisma,
+  "$executeRaw" | "$queryRaw" | "bookmarkedMaterial"
+>;
+export type BookmarksPrismaClient = BookmarksPrisma & TransactionClient<BookmarksPrisma>;
 
 export type BillingPrisma = Pick<PlatformPrisma,
   "$executeRaw" | "billingNotificationOutbox" | "billingOffer" | "billingPaymentOption" | "billingPromotion" |

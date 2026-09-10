@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Bookmark,
   Home,
   LibraryBig,
   Map,
@@ -16,7 +17,7 @@ import type { ReactNode } from "react";
 import { cn } from "@/shared/lib/utils";
 import { InsideBrand } from "./inside-brand";
 
-type ApplicationNavigationIcon = "home" | "library" | "map" | "pen" | "profile";
+type ApplicationNavigationIcon = "bookmark" | "home" | "library" | "map" | "pen" | "profile";
 
 export interface ApplicationNavigationItem {
   readonly href: Route;
@@ -35,6 +36,7 @@ export interface ApplicationShellProps {
 }
 
 const iconByName: Readonly<Record<ApplicationNavigationIcon, LucideIcon>> = {
+  bookmark: Bookmark,
   home: Home,
   library: LibraryBig,
   map: Map,

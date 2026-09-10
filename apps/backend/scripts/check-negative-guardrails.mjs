@@ -48,6 +48,7 @@ expectFailure(
     "billingContact",
     "billingConsentEvidence",
     "notificationEmailAttempt",
+    "telegramCommunityOperation",
     "Cannot find name 'describe'",
   ],
 );
@@ -93,6 +94,7 @@ expectFailure(
     'accounts.accounts',
     'src/modules/notifications/infrastructure/foreign-schema.ts: database table references must stay inside the owning Module schema (billing.notification_outbox)',
     'src/modules/reading-activity/infrastructure/postgres/foreign-schema.ts: database table references must stay inside the owning Module schema (materials.published_materials)',
+    'src/modules/bookmarks/infrastructure/postgres/foreign-schema.ts: database table references must stay inside the owning Module schema (materials.published_materials)',
   ],
 );
 

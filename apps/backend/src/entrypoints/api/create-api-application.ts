@@ -61,6 +61,7 @@ export function createApiOpenApiDocument(
     )
     .addBearerAuth({ type: "http", scheme: "bearer", description: "Dedicated Telegram notification dispatch credential." }, "telegram-notifications")
     .addBearerAuth({ type: "http", scheme: "bearer", description: "Dedicated Telegram author-authorization service credential." }, "telegram-communications")
+    .addBearerAuth({ type: "http", scheme: "bearer", description: "Dedicated Telegram community dispatch credential." }, "telegram-community")
     .addBasicAuth(
       {
         type: "http",

@@ -23,6 +23,7 @@ describe("Prisma schema", () => {
       testDatabase.prisma.readingEvent.count(),
       testDatabase.prisma.readingCommand.count(),
       testDatabase.prisma.readingMaterialVisit.count(),
+      testDatabase.prisma.bookmarkedMaterial.count(),
       testDatabase.prisma.account.count(),
       testDatabase.prisma.accountPermission.count(),
       testDatabase.prisma.accountAuditEvent.count(),
@@ -56,8 +57,12 @@ describe("Prisma schema", () => {
       testDatabase.prisma.workshopCaseMaterial.count(),
       testDatabase.prisma.workshopHintReveal.count(),
       testDatabase.prisma.workshopSolutionReveal.count(),
+      testDatabase.prisma.telegramCommunityDesiredState.count(),
+      testDatabase.prisma.telegramCommunityOperation.count(),
+      testDatabase.prisma.telegramCommunityAuthorization.count(),
+      testDatabase.prisma.telegramCommunityProjectionCursor.count(),
     ]);
 
-    expect(counts).toEqual(Array.from({ length: 37 }, () => 0));
+    expect(counts).toEqual(Array.from({ length: 42 }, () => 0));
   });
 });

@@ -77,7 +77,15 @@ const memberProfileTables = [
   "profiles",
 ] as const;
 
-const telegramMembershipTables = ["account_link_history", "account_link_states", "link_transactions"] as const;
+const telegramMembershipTables = [
+  "account_link_history",
+  "account_link_states",
+  "community_authorizations",
+  "community_desired_states",
+  "community_operations",
+  "community_projection_cursor",
+  "link_transactions",
+] as const;
 const assetTables = ["material_asset_variants", "material_assets"] as const;
 const videoTables = [
   "deletion_operations",
@@ -201,8 +209,10 @@ describe("Platform migrations", () => {
       "0046_scoped_access",
       "0047_subscription_payments",
       "0048_subscription_lifecycle",
-      "0050_guide_artifacts",
-      "0051_guide_chapters",
+          "0050_guide_artifacts",
+          "0051_guide_chapters",
+          "0052_bookmarks",
+          "0053_community_entitlements",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -222,6 +232,7 @@ describe("Platform migrations", () => {
       telegramMembershipTables,
     );
     await expectTables(testDatabase, "reading_activity", ["commands", "events", "material_states", "material_visits"]);
+    await expectTables(testDatabase, "bookmarks", ["bookmarked_materials"]);
     await expectTables(testDatabase, "assets", assetTables);
     await expectTables(testDatabase, "videos", videoTables);
     await expectTables(testDatabase, "workshop", workshopTables);
@@ -248,6 +259,7 @@ describe("Platform migrations", () => {
       where constraint_record.contype = 'f'
         and source_schema.nspname in (
           'reading_activity',
+          'bookmarks',
           'materials',
           'membership_entitlements',
           'telegram_membership',
@@ -780,8 +792,10 @@ describe("Platform migrations", () => {
       "0046_scoped_access",
       "0047_subscription_payments",
       "0048_subscription_lifecycle",
-      "0050_guide_artifacts",
-      "0051_guide_chapters",
+          "0050_guide_artifacts",
+          "0051_guide_chapters",
+          "0052_bookmarks",
+          "0053_community_entitlements",
         ],
       });
 
@@ -967,6 +981,7 @@ async function expectTables(
   database: TestDatabase,
   schema:
     | "reading_activity"
+    | "bookmarks"
     | "accounts"
     | "assets"
     | "identity_principals"

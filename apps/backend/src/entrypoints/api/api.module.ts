@@ -1,6 +1,7 @@
 import { NotificationsModule } from "../../modules/notifications/index.js";
 import { BillingModule } from "../../modules/billing/index.js";
 import { ReadingActivityModule } from "../../modules/reading-activity/index.js";
+import { BookmarksModule } from "../../modules/bookmarks/index.js";
 import { CommunicationsModule, CommunicationsTrackingDeliveryModule } from "../../modules/communications/index.js";
 import { type DynamicModule, Module } from "@nestjs/common";
 import { APP_FILTER, APP_INTERCEPTOR } from "@nestjs/core";
@@ -19,7 +20,10 @@ import {
 } from "../../modules/content-library/index.js";
 import { AccountsModule } from "../../modules/accounts/index.js";
 import { MemberProfilesModule } from "../../modules/member-profiles/index.js";
-import { TelegramMembershipModule } from "../../modules/telegram-membership/index.js";
+import {
+  CommunityEntitlementsModule,
+  TelegramMembershipModule,
+} from "../../modules/telegram-membership/index.js";
 import { MembershipEntitlementsModule } from "../../modules/membership-entitlements/index.js";
 import {
   CreateDraftController,
@@ -112,10 +116,12 @@ export class ApiModule {
         AccountsModule,
         BillingModule,
         ReadingActivityModule,
+        BookmarksModule,
         CommunicationsModule,
         CommunicationsTrackingDeliveryModule,
         MemberProfilesModule,
         TelegramMembershipModule,
+        CommunityEntitlementsModule,
         MembershipEntitlementsModule,
         MaterialsModule,
         VideosModule,

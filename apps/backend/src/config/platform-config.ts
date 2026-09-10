@@ -129,6 +129,12 @@ const objectStorageSchema = z
     ),
   })
   .readonly();
+const telegramIntegrationEndpointSchema = (name: string, path: string) =>
+  httpUrlSchema(name).refine(value => {
+    const url = new URL(value);
+    return (url.protocol === "https:" || ["127.0.0.1", "localhost", "[::1]"].includes(url.hostname)) &&
+      !url.username && !url.password && !url.search && !url.hash && url.pathname === path;
+  }, { message: `${name} is invalid` });
 const telegramSecretSchema = (name: string) =>
   z.string().regex(/^[A-Za-z0-9_-]{16,256}$/u, {
     message: `${name} must be a base64url credential of at least 16 characters`,
@@ -224,13 +230,15 @@ const platformConfigSchema = z
       const url = new URL(value);
       return url.protocol === "https:" && url.pathname === "/" && !url.search && !url.hash && !url.username && !url.password;
     }).optional(),
+    communityEntitlements: z.object({
+      endpoint: telegramIntegrationEndpointSchema("TELEGRAM_COMMUNITY_ENTITLEMENT_ENDPOINT",
+        "/integrations/platform/v1/community-entitlements"),
+      providerSecret: telegramSecretSchema("TELEGRAM_COMMUNITY_ENTITLEMENT_SECRET"),
+      dispatchSecret: telegramSecretSchema("TELEGRAM_COMMUNITY_DISPATCH_SECRET"),
+    }).readonly().optional(),
     communications: z.object({
-      endpoint: httpUrlSchema("TELEGRAM_COMMUNICATIONS_ENDPOINT").refine(value => {
-        const url = new URL(value);
-        return (url.protocol === "https:" || ["127.0.0.1", "localhost", "[::1]"].includes(url.hostname)) &&
-          !url.username && !url.password && !url.search && !url.hash &&
-          url.pathname === "/integrations/platform/v1/communications";
-      }),
+      endpoint: telegramIntegrationEndpointSchema("TELEGRAM_COMMUNICATIONS_ENDPOINT",
+        "/integrations/platform/v1/communications"),
       secret: telegramSecretSchema("TELEGRAM_COMMUNICATIONS_SECRET"),
       publicOrigin: httpUrlSchema("TELEGRAM_COMMUNICATIONS_PUBLIC_ORIGIN").optional(),
       authorizationSecret: telegramSecretSchema("TELEGRAM_AUTHOR_AUTHORIZATION_SECRET"),
@@ -355,6 +363,12 @@ export function parsePlatformConfig(
       smtpPassword: environment.BILLING_CONTACT_SMTP_PASSWORD,
       from: environment.BILLING_CONTACT_FROM,
       localInsecure: mode !== "production" && ["127.0.0.1", "localhost", "::1"].includes(environment.BILLING_CONTACT_SMTP_HOST ?? ""),
+    },
+    communityEntitlements: [environment.TELEGRAM_COMMUNITY_ENTITLEMENT_ENDPOINT, environment.TELEGRAM_COMMUNITY_ENTITLEMENT_SECRET,
+      environment.TELEGRAM_COMMUNITY_DISPATCH_SECRET].every(value => value === undefined) ? undefined : {
+      endpoint: environment.TELEGRAM_COMMUNITY_ENTITLEMENT_ENDPOINT,
+      providerSecret: environment.TELEGRAM_COMMUNITY_ENTITLEMENT_SECRET,
+      dispatchSecret: environment.TELEGRAM_COMMUNITY_DISPATCH_SECRET,
     },
     communicationsTrackingOrigin: environment.TELEGRAM_TRACKING_ORIGIN,
     communications: [environment.TELEGRAM_COMMUNICATIONS_ENDPOINT, environment.TELEGRAM_COMMUNICATIONS_SECRET,
@@ -580,6 +594,27 @@ export function parsePlatformConfig(
     )
   ) {
     throw new Error("TELEGRAM_LINKING_ENDPOINT is invalid");
+  }
+
+  // Community authenticates on its own credentials; reusing another direction's secret
+  // would let that caller inherit community authority. Only the two settings added here
+  // are gated, so an existing deployment keeps starting with whatever it already has.
+  if (config.data.communityEntitlements) {
+    const { dispatchSecret, providerSecret } = config.data.communityEntitlements;
+    const otherSecrets = [
+      config.data.telegramMembership.linkingSecret,
+      config.data.telegramMembership.evidenceIngressSecret,
+      config.data.identity.telegramSignInIntegrationSecret,
+      config.data.communications?.secret,
+      config.data.communications?.authorizationSecret,
+    ].filter((secret): secret is string => secret !== undefined);
+    if (
+      dispatchSecret === providerSecret ||
+      otherSecrets.includes(dispatchSecret) ||
+      otherSecrets.includes(providerSecret)
+    ) {
+      throw new Error("Community integration secrets must differ from every other Telegram secret");
+    }
   }
 
   if (config.data.identity.telegramSignInEnabled) {

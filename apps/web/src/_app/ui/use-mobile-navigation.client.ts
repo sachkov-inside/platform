@@ -8,14 +8,14 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, useTransitio
 import { accountPresentationQueryKey } from "@/features/account-access";
 import { libraryCatalogQueryOptions, parseLibrarySearchParams } from "@/features/library-catalog";
 
-const rootPaths = ["/", "/library", "/account"] as const;
+const rootPaths = ["/", "/library", "/bookmarks", "/account"] as const;
 type RootPath = typeof rootPaths[number];
 interface TabPosition { readonly href: Route; readonly top: number }
 type TabPositions = Partial<Record<RootPath, TabPosition>>;
 const prefetchDelayMs = 250;
 const restorationTimeoutMs = 3_000;
 
-/** Remembers only the three root tabs; App Router still owns routing and browser history. */
+/** Remembers only the four root tabs; App Router still owns routing and browser history. */
 export function useMobileNavigation(pathname: string, accountId: string | null, authResolved: boolean) {
   const positions = useRef<TabPositions>({});
   const [links, setLinks] = useState<TabPositions>({});

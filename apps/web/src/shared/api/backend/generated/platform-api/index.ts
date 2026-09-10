@@ -13,6 +13,7 @@ export type { RecursiveSchema1schema0 } from './models/RecursiveSchema1schema0';
 
 export { AccountsService } from './services/AccountsService';
 export { BillingService } from './services/BillingService';
+export { BookmarksService } from './services/BookmarksService';
 export { CommunicationsService } from './services/CommunicationsService';
 export { CommunicationsTrackingService } from './services/CommunicationsTrackingService';
 export { ContentCoversService } from './services/ContentCoversService';
@@ -28,6 +29,7 @@ export { OperationsService } from './services/OperationsService';
 export { PersonalHomeService } from './services/PersonalHomeService';
 export { PublishedMaterialsService } from './services/PublishedMaterialsService';
 export { ReadingActivityService } from './services/ReadingActivityService';
+export { TelegramCommunityService } from './services/TelegramCommunityService';
 export { TelegramMembershipService } from './services/TelegramMembershipService';
 export { TelegramMembershipIntegrationService } from './services/TelegramMembershipIntegrationService';
 export { TelegramSignInService } from './services/TelegramSignInService';

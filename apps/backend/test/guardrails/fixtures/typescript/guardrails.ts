@@ -37,3 +37,8 @@ foreignBillingPrisma.billingConsentEvidence.findMany();
 declare const notificationsPrisma: import("../../../../src/infrastructure/prisma/index.js").NotificationsPrisma;
 notificationsPrisma.billingContact.findMany();
 accountsPrisma.notificationEmailAttempt.findMany();
+
+// Community delivery state belongs to Telegram Membership; access grants never do.
+declare const telegramCommunityPrisma: import("../../../../src/infrastructure/prisma/index.js").TelegramMembershipPrisma;
+telegramCommunityPrisma.accessGrant.count();
+entitlementsPrisma.telegramCommunityOperation.count();
