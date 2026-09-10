@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { setTimeout as delay } from "node:timers/promises";
 import { z } from "zod";
 import type { BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { BillingContact } from "../../../accounts/index.js";
@@ -6,7 +7,7 @@ import type { AccessGrants } from "../../../membership-entitlements/index.js";
 import { priceSnapshotSchema } from "../../domain/pricing.js";
 import { subscriptionPeriodEnd } from "../../domain/subscription-period.js";
 import { lockPricing, lockSubscription } from "../../infrastructure/postgres/catalog-lock.js";
-import { type Tbank, validatedPaymentUrl, type BankPayment, type PaymentInitiator } from "../../infrastructure/tbank/tbank.js";
+import { bankTimeoutMs, type Tbank, validatedPaymentUrl, type BankPayment, type PaymentInitiator } from "../../infrastructure/tbank/tbank.js";
 import { reservePurchaseInTransaction } from "../../features/reserve-purchase/reserve-purchase.js";
 import { paymentFailure, purchaseSubscriptionSchema, purchaseStatusSchema, type PaymentResult, type PurchaseStatus } from "../../features/purchase-subscription/purchase-subscription.contract.js";
 import { paidPeriodCommandSchema } from "../../../membership-entitlements/index.js";
@@ -16,6 +17,9 @@ import { renewalPriceSnapshot } from "../../domain/subscription-change.js";
 import { verifyRecurringConsent } from "../../shared/recurring-consent.js";
 
 const fulfillmentRetryDelayMilliseconds = 60_000;
+// Derived from the bank's own timeout, so a caller outlives exactly one honest round-trip.
+const inFlightAnswerBudgetMilliseconds = bankTimeoutMs + 2_000;
+const inFlightAnswerPollMilliseconds = 200;
 // Первая покупка сохраняет привязку, повышение инициирует покупатель, продление — merchant recurring.
 const paymentInitiators: Record<AttemptKind, PaymentInitiator> = { initial: "1", upgrade: "2", renewal: "R" };
 
@@ -89,7 +93,11 @@ export class BillingPayments {
         return { ok: true, value: purchaseRef };
       });
       if (!prepared.ok) return prepared;
+      // A second tab joins an existing attempt and dispatches nothing, so it must not answer from
+      // the interim row that carries no payment URL. The caller that did dispatch already settled
+      // the row, so it waits for nothing here.
       await this.dispatch(prepared.value);
+      await this.awaitBankAnswer(prepared.value);
       return await this.status(accountId, prepared.value);
     } catch { return paymentFailure("dependency_unavailable"); }
   }
@@ -197,6 +205,17 @@ export class BillingPayments {
   }
 
   /** Одна отправка одной durable попытки; отмена и отзыв привязки проверяются под тем же замком. */
+  // Waits out another caller's bank round-trip. An abandoned attempt cannot hang this caller: the
+  // budget runs out and the current row is returned, for reconciliation to settle later.
+  private async awaitBankAnswer(attemptRef: string): Promise<void> {
+    const deadline = Date.now() + inFlightAnswerBudgetMilliseconds;
+    for (;;) {
+      const row = await this.dependencies.prisma.billingPurchase.findUnique({ where: { id: attemptRef }, select: { state: true } });
+      if (row?.state !== "sent" || Date.now() >= deadline) return;
+      await delay(inFlightAnswerPollMilliseconds);
+    }
+  }
+
   async dispatch(attemptRef: string): Promise<void> {
     const { prisma, bank } = this.dependencies;
     if (!bank) return;
