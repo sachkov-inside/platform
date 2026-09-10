@@ -47,7 +47,7 @@ parent [Specification #325](https://github.com/sachkov-inside/platform/issues/32
 | Страница руководства | ContentLibrary | `GET /library/guides/:slug` и совместимый `GET /library/series/:slug` | Да, отдельная точка, не смешанная с материалами |
 | Переход по ссылке рассылки | Telegram, контракт `inside-communications-v1` | `communications.tracking_hits` (`token`, `occurred_at`, `traffic`) и доставка `tracking.recordHit` | Да, но это переход, а не просмотр; определения источников и воронок принадлежат Telegram |
 | Переход к покупке | Platform | Внешний адрес `MEMBERSHIP_ACQUISITION_URL` в CTA заблокированного материала, по умолчанию Tribute | Частично: виден только клик, результат за пределами Platform |
-| Подтверждённая оплата | Billing | Поставлена в [#407](https://github.com/sachkov-inside/platform/issues/407): подтверждённая покупка со своим сроком и неизменяемая история платёжных событий; контракт — [billing v1](subscription-billing-v1.md) | Источник существует, но выбирает его [#337](https://github.com/sachkov-inside/platform/issues/337); этот контракт покупок не считает |
+| Подтверждённая оплата | Billing | Поставлена в [#407](https://github.com/sachkov-inside/platform/issues/407): подтверждённая покупка со своим сроком и неизменяемая история платёжных событий; контракт — [billing v1](subscription-billing-v1.md) | Источник выбран в [контракте измерений подписочной аналитики v1](subscription-analytics-measurement-v1.md); этот контракт покупок не считает |
 
 Три известных разрыва в сегодняшних переходах по ссылкам рассылки.
 
@@ -108,8 +108,8 @@ Platform не заводит — см. [сессии и principals](identity-pri
 **Ни один из этих показателей не является покупкой.** Выданное право доступа (MembershipEntitlement),
 вступление в общий чат Telegram и нажатие на предложение доступа — три разных факта, и ни один из них
 не подтверждает оплату. Отчёт не имеет права называть их покупкой, продлением или выручкой:
-подтверждённый платёж — отдельный факт Billing, и выбирает его источником
-[#337](https://github.com/sachkov-inside/platform/issues/337).
+подтверждённый платёж — отдельный факт Billing, и его источник выбран в
+[контракте измерений подписочной аналитики v1](subscription-analytics-measurement-v1.md).
 
 ## Минимальный набор событий
 

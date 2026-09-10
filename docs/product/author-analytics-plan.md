@@ -29,7 +29,7 @@ Platform общается с владельцами фактов через inte
 | Просмотр материала | Видимый Reader после получения разрешённого body; не teaser, prefetch или download |
 | Изучение материала | Ручной ReadingState transition; не playback и не проверка знаний |
 | Переход из Telegram | Отдельное событие communications; attribution не доказывает изучение/покупку |
-| Подписка/продление | Подтверждённый lifecycle факт выбранного источника; отсутствует в первом отчёте |
+| Подписка/продление | Подтверждённый факт billing по [контракту подписочной аналитики](../specifications/subscription-analytics-measurement-v1.md); отсутствует в первом отчёте |
 
 Граница сессии, повторные views/reload, foreground/visible criteria, anonymous storage/consent,
 таймзона отчёта, bots/automation, retention/deletion, attribution allowlist и поздние события
@@ -66,11 +66,12 @@ Material visits персональной Home — recency state, не журна
 MembershipEntitlement подтверждает доступ, Telegram join подтверждает участие, outbound acquisition
 URL — намерение перейти. Ни одно из них не подтверждает оплату.
 
-Источник событий purchase, renewal, cancellation и expiration выбран и проверен по коду в
+Источник событий покупки, продления, отмены и окончания подписки выбран и проверен по коду в
 [контракте измерений подписочной аналитики v1](../specifications/subscription-analytics-measurement-v1.md):
-это journal-таблицы billing. Там же зафиксированы идентификация Account, dedupe без provider event ID,
-поведение поздней сверки, границы backfill и пять разрывов до отчёта, включая нереализованные
-возвраты. Контракт ждёт решения владельца и до него не меняет readiness зависимых задач.
+это журнальные таблицы модуля `billing`. Там же зафиксированы связь с Account, дедупликация без
+идентификатора события от банка, поведение поздней сверки, границы восстановления истории и пять
+разрывов до отчёта, включая нереализованные возвраты. Контракт ждёт решения владельца и до него не
+меняет readiness зависимых задач.
 
 Направление независимо от #325; delivery ticket отчёта заводится после принятия контракта. Не
 вводить billing authority, выручку, MRR или cohort retention из предположений. Новые credentials,
