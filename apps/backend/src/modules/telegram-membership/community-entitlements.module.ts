@@ -9,7 +9,11 @@ import {
   PrismaModule,
 } from "../../infrastructure/prisma/index.js";
 import { ACCOUNTS, AccountsModule, type Accounts } from "../accounts/index.js";
-import { assembleAccessGrants } from "../membership-entitlements/index.js";
+import {
+  ACCESS_GRANTS,
+  MembershipEntitlementsModule,
+  type AccessGrants,
+} from "../membership-entitlements/index.js";
 import { CommunityDeliveryController } from "./adapters/nest/community-delivery.controller.js";
 import { CommunityDispatchController } from "./adapters/nest/community-dispatch.controller.js";
 import { CommunityEntitlements } from "./facets/community-entitlements/community-entitlements.js";
@@ -18,33 +22,28 @@ import { HttpCommunityEntitlementProvider } from "./infrastructure/http/http-com
 import { disabledCommunityEntitlementProvider } from "./ports/community-entitlement-provider.js";
 import { TelegramAccountLinksModule } from "./telegram-account-links.module.js";
 
-// Community projection reads access through the same public grant facet billing uses.
-const COMMUNITY_GRANTS = Symbol("CommunityAccessGrants");
-type CommunityGrants = ReturnType<typeof assembleAccessGrants>;
-
 @Module({
-  imports: [PrismaModule, AccountsModule, TelegramAccountLinksModule],
+  imports: [
+    PrismaModule,
+    AccountsModule,
+    MembershipEntitlementsModule,
+    TelegramAccountLinksModule,
+  ],
   controllers: [CommunityDispatchController, CommunityDeliveryController],
   providers: [
-    {
-      provide: COMMUNITY_GRANTS,
-      inject: [PrismaClientProvider, ACCOUNTS],
-      useFactory: (prisma: PrismaClientProvider, accounts: Accounts) =>
-        assembleAccessGrants({ accounts, prisma }),
-    },
     {
       provide: CommunityEntitlements,
       inject: [
         PrismaClientProvider,
         ACCOUNTS,
-        COMMUNITY_GRANTS,
+        ACCESS_GRANTS,
         TelegramAccountLinks,
         PLATFORM_CONFIG,
       ],
       useFactory: (
         prisma: PrismaClientProvider,
         accounts: Accounts,
-        grants: CommunityGrants,
+        grants: AccessGrants,
         links: TelegramAccountLinks,
         config: PlatformConfig,
       ) =>

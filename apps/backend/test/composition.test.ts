@@ -22,12 +22,17 @@ import {
   ACCOUNTS,
   LOGTO_ACCESS_TOKEN_VERIFIER,
 } from "../src/modules/accounts/index.js";
+import { BillingPayments } from "../src/modules/billing/index.js";
 import {
   MATERIAL_AUTHORING,
   PUBLISHED_MATERIAL_READER,
 } from "../src/modules/materials/index.js";
-import { MEMBERSHIP_ENTITLEMENTS } from "../src/modules/membership-entitlements/index.js";
+import {
+  ACCESS_GRANTS,
+  MEMBERSHIP_ENTITLEMENTS,
+} from "../src/modules/membership-entitlements/index.js";
 import { PROFILE_AVATAR_MAINTENANCE } from "../src/modules/member-profiles/index.js";
+import { CommunityEntitlements } from "../src/modules/telegram-membership/index.js";
 import { VIDEO_DELETION_MAINTENANCE } from "../src/modules/videos/index.js";
 import {
   WORKSHOP_MATERIAL_ACCESS,
@@ -78,6 +83,15 @@ describe("backend process composition", () => {
     application = undefined;
 
     expect(disconnect).toHaveBeenCalledOnce();
+  });
+
+  it("gives billing and community one access grant provider", async () => {
+    const api = await createApiApplication(config, { logger: false });
+    application = api;
+
+    expect(api.get(ACCESS_GRANTS, { each: true })).toHaveLength(1);
+    expect(api.get(BillingPayments)).toBeDefined();
+    expect(api.get(CommunityEntitlements)).toBeDefined();
   });
 
   it("uses the same required bindings for the MCP context", async () => {
