@@ -26,12 +26,12 @@ export class ManageSubscriptionController {
   constructor(@Inject(BillingSubscriptions) private readonly subscriptions: BillingSubscriptions) {}
 
   @Get()
-  @ApiOperation({ operationId: "currentBilling", summary: "Read own subscription, its paid term and pending changes" })
+  @ApiOperation({ operationId: "currentBilling", summary: "Read own subscription, its paid term, pending changes and service notices" })
   @ApiOkResponse({ schema: toOpenApiSchema(currentBillingSchema) })
   async read(@CurrentAccount() account: AuthenticatedAccount) {
     const result = await this.subscriptions.read(account.accountId);
     if (!result.ok) throwPaymentError(result.error.code);
-    return { subscription: result.value };
+    return result.value;
   }
 
   @Post("subscription/cancel")

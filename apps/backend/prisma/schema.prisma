@@ -1412,3 +1412,37 @@ model BillingPaymentMethodFlow {
   @@map("payment_method_flows")
   @@schema("billing")
 }
+model BillingNotice {
+  id String @id @db.Uuid
+  accountId String @map("account_id") @db.Uuid
+  kind String
+  sourceRef String @map("source_ref")
+  subscriptionRef String? @map("subscription_ref") @db.Uuid
+  attemptRef String? @map("attempt_ref") @db.Uuid
+  revision Int
+  state String
+  occurredAt DateTime @map("occurred_at") @db.Timestamptz
+  notAfter DateTime @map("not_after") @db.Timestamptz
+  title String
+  amountKopecks BigInt? @map("amount_kopecks")
+  dueAt DateTime? @map("due_at") @db.Timestamptz
+  createdAt DateTime @map("created_at") @db.Timestamptz
+  updatedAt DateTime @map("updated_at") @db.Timestamptz
+  revisions BillingNoticeRevision[]
+  @@unique([kind, sourceRef])
+  @@index([accountId, occurredAt, id], map: "billing_notices_by_account")
+  @@index([subscriptionRef, kind, state], map: "billing_notices_by_subscription")
+  @@map("notices")
+  @@schema("billing")
+}
+model BillingNoticeRevision {
+  noticeRef String @map("notice_ref") @db.Uuid
+  notice BillingNotice @relation(fields: [noticeRef], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  revision Int
+  messageId String @unique @map("message_id") @db.Uuid
+  payload Json
+  createdAt DateTime @map("created_at") @db.Timestamptz
+  @@id([noticeRef, revision])
+  @@map("notice_revisions")
+  @@schema("billing")
+}

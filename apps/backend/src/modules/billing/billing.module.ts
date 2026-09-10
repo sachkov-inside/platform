@@ -11,6 +11,7 @@ import { AcceptTbankNotificationController } from "./features/accept-notificatio
 import { Module } from "@nestjs/common";
 import { PrismaClientProvider, PrismaModule } from "../../infrastructure/prisma/index.js";
 import { ACCOUNTS, AccountsModule, type Accounts } from "../accounts/index.js";
+import { BillingNotices } from "./facets/billing-notices/billing-notices.js";
 import { BillingPricing } from "./facets/billing-pricing/billing-pricing.js";
 import { ManageCatalogController } from "./features/manage-catalog/manage-catalog.controller.js";
 import { QuotePurchaseController } from "./features/quote-purchase/quote-purchase.controller.js";
@@ -32,10 +33,11 @@ type BillingGrants = ReturnType<typeof assembleAccessGrants>;
     { provide: BillingPayments, inject: [PrismaClientProvider, BillingContact, BILLING_GRANTS, BILLING_BANK],
       useFactory: (prisma: PrismaClientProvider, contact: BillingContact, grants: BillingGrants, bank: Tbank | undefined) =>
         new BillingPayments({ prisma, contact, grants, bank }) },
-    { provide: BillingSubscriptions, inject: [PrismaClientProvider, BillingContact, BILLING_GRANTS, BILLING_BANK, BillingPayments],
-      useFactory: (prisma: PrismaClientProvider, contact: BillingContact, grants: BillingGrants, bank: Tbank | undefined, payments: BillingPayments) =>
-        new BillingSubscriptions({ prisma, contact, grants, bank, payments }) },
+    { provide: BillingNotices, inject: [PrismaClientProvider], useFactory: (prisma: PrismaClientProvider) => new BillingNotices({ prisma }) },
+    { provide: BillingSubscriptions, inject: [PrismaClientProvider, BillingContact, BILLING_GRANTS, BILLING_BANK, BillingPayments, BillingNotices],
+      useFactory: (prisma: PrismaClientProvider, contact: BillingContact, grants: BillingGrants, bank: Tbank | undefined, payments: BillingPayments, notices: BillingNotices) =>
+        new BillingSubscriptions({ prisma, contact, grants, bank, payments, notices }) },
     { provide: BillingPricing, inject: [PrismaClientProvider, ACCOUNTS], useFactory: (prisma: PrismaClientProvider, accounts: Accounts) => new BillingPricing({ prisma, accounts }) }],
-  exports: [BillingPayments, BillingSubscriptions],
+  exports: [BillingPayments, BillingSubscriptions, BillingNotices],
 })
 export class BillingModule {}

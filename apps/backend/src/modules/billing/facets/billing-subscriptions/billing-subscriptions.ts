@@ -17,6 +17,9 @@ import { changeMethodSchema, methodFlowSchema, revokeMethodSchema, type MethodFl
 import { paymentFailure, type PaymentResult } from "../../features/purchase-subscription/purchase-subscription.contract.js";
 import { lockPricing, lockSubscription } from "../../infrastructure/postgres/catalog-lock.js";
 import type { Tbank } from "../../infrastructure/tbank/tbank.js";
+import { lifecycleWindow, renewalCancelledSourceRef, type NoticeView } from "../../domain/notice.js";
+import { recordBillingNotice, supersedeRenewalReminders } from "../../shared/record-notice.js";
+import type { BillingNotices } from "../billing-notices/billing-notices.js";
 import { acceptRecurringConsent } from "../../shared/recurring-consent.js";
 import { advanceSubscription, inFlightStates } from "../../shared/subscription-outcome.js";
 import type { BillingPayments } from "../billing-payments/billing-payments.js";
@@ -30,6 +33,7 @@ interface Dependencies {
   readonly contact: Pick<BillingContact, "read" | "readConsent">;
   readonly grants: Pick<AccessGrants, "readLegacyClassification">;
   readonly payments: Pick<BillingPayments, "dispatch" | "status">;
+  readonly notices: Pick<BillingNotices, "readNotices">;
   readonly bank: Tbank | undefined;
   readonly clock?: () => Date;
 }
@@ -42,12 +46,18 @@ export class BillingSubscriptions {
   private readonly clock: () => Date;
   constructor(private readonly dependencies: Dependencies) { this.clock = dependencies.clock ?? (() => new Date()); }
 
-  async read(accountId: string): Promise<PaymentResult<SubscriptionView | null>> {
+  /** Кабинет: действующая подписка и история служебных сообщений о её оплате и доступе. */
+  async read(accountId: string): Promise<PaymentResult<{ subscription: SubscriptionView | null; notices: NoticeView[] }>> {
     if (!z.uuid().safeParse(accountId).success) return paymentFailure("forbidden");
     try {
-      const row = await this.dependencies.prisma.billingSubscription.findFirst({ where: { accountId, state: { not: "ended" } } });
-      return { ok: true, value: row ? await subscriptionView(this.dependencies.prisma, row) : null };
+      return { ok: true, value: { subscription: await this.currentSubscription(accountId),
+        notices: await this.dependencies.notices.readNotices(accountId) } };
     } catch { return paymentFailure("dependency_unavailable"); }
+  }
+
+  private async currentSubscription(accountId: string): Promise<SubscriptionView | null> {
+    const row = await this.dependencies.prisma.billingSubscription.findFirst({ where: { accountId, state: { not: "ended" } } });
+    return row ? await subscriptionView(this.dependencies.prisma, row) : null;
   }
 
   async cancel(accountId: string, input: unknown): Promise<PaymentResult<SubscriptionView>> {
@@ -58,7 +68,12 @@ export class BillingSubscriptions {
       if (row.revision !== command.expectedRevision) return paymentFailure("revision_conflict");
       if (row.state !== "active") return paymentFailure("revision_conflict");
       // Уже отправленный платёж не отзывается командой отмены; он сверяется своим путём.
-      await advanceSubscription(tx, row, { state: "canceled", pendingChange: {} }, "renewal_canceled", { paidUntil: row.paidUntil.toISOString() }, now);
+      const revision = await advanceSubscription(tx, row, { state: "canceled", pendingChange: {} }, "renewal_canceled", { paidUntil: row.paidUntil.toISOString() }, now);
+      // Списания больше не будет: напоминание о нём перестаёт быть актуальным до любой отправки.
+      await supersedeRenewalReminders(tx, row.id, now);
+      await recordBillingNotice(tx, { kind: "renewal_cancelled", accountId, sourceRef: renewalCancelledSourceRef(row.id, revision),
+        subscriptionRef: row.id, title: subscriptionSnapshotSchema.parse(row.snapshot).offer.name,
+        dueAt: row.paidUntil, ...lifecycleWindow(now) }, now);
       return { ok: true, value: true };
     });
   }
@@ -154,6 +169,8 @@ export class BillingSubscriptions {
             throw new CommandFailure("payment_in_progress");
           await advanceSubscription(tx, row, { pendingChange: { snapshot: plan.snapshot, acceptedAt: now.toISOString(), changeQuoteRef: quote.id } },
             "change_scheduled", { paymentOptionId: plan.snapshot.paymentOption.id, effectiveAt: plan.effectiveAt }, now);
+          // Следующий период меняет состав и сумму: расписание выпустит напоминание с новыми условиями.
+          await supersedeRenewalReminders(tx, row.id, now);
           const value = { subscription: await subscriptionView(tx, await tx.billingSubscription.findUniqueOrThrow({ where: { id: row.id } })), attemptRef: null };
           await tx.billingSubscriptionCommand.create({ data: { accountId, operationId: command.operationId, fingerprint: digest, result: value, createdAt: now } });
           return value;
@@ -179,9 +196,9 @@ export class BillingSubscriptions {
     } catch (error) { return error instanceof CommandFailure ? paymentFailure(error.code) : paymentFailure("dependency_unavailable"); }
     if (accepted.attemptRef) await payments.dispatch(accepted.attemptRef);
     const payment = accepted.attemptRef ? await payments.status(accountId, accepted.attemptRef) : undefined;
-    const subscription = await this.read(accountId);
+    const current = await this.currentSubscription(accountId).catch(() => null);
     return { ok: true, value: {
-      subscription: subscription.ok && subscription.value ? subscription.value : accepted.subscription,
+      subscription: current ?? accepted.subscription,
       payment: payment?.ok ? payment.value : null,
     } };
   }
@@ -196,6 +213,7 @@ export class BillingSubscriptions {
       // Отправленная попытка уже несёт согласованные условия следующего периода.
       if (await tx.billingPurchase.count({ where: { subscriptionRef: row.id, kind: "renewal", state: { in: inFlightStates } } })) return paymentFailure("payment_in_progress");
       await advanceSubscription(tx, row, { pendingChange: {} }, "change_canceled", {}, now);
+      await supersedeRenewalReminders(tx, row.id, now);
       return { ok: true, value: true };
     });
   }
@@ -250,6 +268,8 @@ export class BillingSubscriptions {
       if (row.bindingRevokedAt !== null) return paymentFailure("revision_conflict");
       // Запрет распространяется на новые отправки; уже отправленная попытка видна отдельно.
       await advanceSubscription(tx, row, { bindingRevokedAt: now }, "method_revoked", { methodRef: command.paymentMethodRef }, now);
+      // Списывать нечем: обещать дату и сумму следующего списания больше нельзя.
+      await supersedeRenewalReminders(tx, row.id, now);
       return { ok: true, value: true };
     });
   }

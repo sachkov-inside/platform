@@ -4,11 +4,12 @@ import { PgBoss } from "pg-boss";
 import { PLATFORM_CONFIG, type PlatformConfig } from "../config/platform-config.js";
 import { OperationalReadiness } from "../infrastructure/operational-readiness.js";
 import { runWorker } from "../infrastructure/worker-runtime.js";
-import { BillingPayments, BillingSubscriptions } from "../modules/billing/index.js";
+import { BillingNotices, BillingPayments, BillingSubscriptions } from "../modules/billing/index.js";
 import { BillingWorkerModule } from "./billing-worker/billing-worker.module.js";
 
 const recoveryQueue = "billing.payment-recovery";
 const renewalQueue = "billing.subscription-renewal";
+const noticeQueue = "billing.subscription-notices";
 const jobTimeoutSeconds = 300;
 const jobRetentionSeconds = 86_400;
 const jobIntervalSeconds = 60;
@@ -18,6 +19,7 @@ async function bootstrap(): Promise<void> {
   const config = application.get<PlatformConfig>(PLATFORM_CONFIG);
   const payments = application.get(BillingPayments);
   const subscriptions = application.get(BillingSubscriptions);
+  const notices = application.get(BillingNotices);
   const jobs = new PgBoss({ connectionString: config.database.url, createSchema: false, migrate: false, schema: "pgboss" });
   jobs.on("error", () => console.error("Billing recovery queue unavailable"));
   await runWorker({ application, databaseUrl: config.database.url, jobs, process: "billing-worker", readiness: application.get(OperationalReadiness),
@@ -39,6 +41,15 @@ async function bootstrap(): Promise<void> {
         const bindings = await subscriptions.reconcileMethodFlows(20);
         // Смена карты не настроена терминалом: продление остаётся рабочим результатом задания.
         return { ...renewed.value, bindings: bindings.ok ? bindings.value : bindings.error.code };
+      });
+      await jobs.createQueue(noticeQueue, { deleteAfterSeconds: jobRetentionSeconds, expireInSeconds: jobTimeoutSeconds, retryLimit: 0 });
+      await jobs.schedule(noticeQueue, "* * * * *", {});
+      await jobs.send(noticeQueue, {}, { singletonSeconds: jobIntervalSeconds });
+      await jobs.work(noticeQueue, async () => {
+        // Календарь напоминаний живёт отдельно от списаний: сбой одного не останавливает другое.
+        const result = await notices.scheduleReminders(20);
+        if (!result.ok) throw new Error(result.error.code);
+        return result.value;
       });
     },
   });
