@@ -17,10 +17,15 @@ Platform общается с владельцами фактов через inte
 
 ## Словарь будущих показателей
 
+Этот словарь остаётся действующим до принятия
+[контракта измерений v1](../specifications/author-analytics-measurement-v1.md). После принятия точные
+определения показателей, их пределы точности и правила счёта живут в контракте, а этот раздел
+остаётся кратким продуктовым описанием и на них ссылается.
+
 | Показатель | Что обязан различать контракт |
 |---|---|
 | Посещение Platform | Начало определённой сессии; session boundary ещё предстоит выбрать |
-| Уникальный посетитель | Известный Account либо приближение anonymous browser; не точное число людей |
+| Уникальный посетитель | Приближение браузера, а не человек; точное определение — в контракте измерений |
 | Просмотр материала | Видимый Reader после получения разрешённого body; не teaser, prefetch или download |
 | Изучение материала | Ручной ReadingState transition; не playback и не проверка знаний |
 | Переход из Telegram | Отдельное событие communications; attribution не доказывает изучение/покупку |
@@ -39,6 +44,8 @@ Platform общается с владельцами фактов через inte
    оценить объём. PostgreSQL рассматривается первым в существующей архитектуре, без покупки
    внешнего сервиса или speculative analytics cluster. Итог — принятый versioned contract,
    уточнённые schemas и promoted readiness зависимых implementation tickets.
+   Предложенная редакция — [контракт измерений v1](../specifications/author-analytics-measurement-v1.md);
+   она ждёт решения владельца и до него не меняет readiness зависимых задач.
 2. **Сбор посещений и просмотров.** Owned validated ingestion, event IDs/dedupe, bounded input,
    time semantics, доступ к body, bots/consent, retention/deletion. Это enabling capability;
    само по себе не поставляет интерфейс автора. Включение production tracking — отдельный GO.

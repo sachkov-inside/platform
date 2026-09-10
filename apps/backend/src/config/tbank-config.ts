@@ -10,6 +10,8 @@ export const tbankConfigSchema = z.strictObject({
   recurringCardConfirmed: z.literal(true), cardOnlyHostedConfirmed: z.literal(true),
   minimumKopecks: z.int().positive(), maximumKopecks: z.int().positive(),
   returnUrl: httpsUrl, notificationUrl: httpsUrl,
+  // Смена карты требует отдельно подтверждённой проверки: CheckType=NO не возвращает RebillId.
+  cardBinding: z.strictObject({ confirmed: z.literal(true), checkType: z.enum(["3DS", "3DSHOLD", "HOLD"]) }).optional(),
   receipt: z.strictObject({
     taxation: z.enum(["osn", "usn_income", "usn_income_outcome", "esn", "patent"]),
     tax: z.enum(["none", "vat0", "vat5", "vat7", "vat10", "vat22", "vat105", "vat107", "vat110", "vat122"]),

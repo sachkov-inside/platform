@@ -4,6 +4,11 @@ import type { ObjectStorage } from "../../../../infrastructure/object-storage/in
 import type { Subject, ContentAccess } from "../../../content-access/index.js";
 import type { MaterialAssets } from "../../../assets/index.js";
 import { materialId as checkedMaterialId } from "../../domain/material-identifiers.js";
+import {
+  attachmentDisposition,
+  readPublicObject,
+  signedDeliveryTtlSeconds,
+} from "../../shared/protected-delivery.js";
 import type { MaterialContent } from "../../facets/material-content/material-content.js";
 
 export const MATERIAL_ASSET_DELIVERY = Symbol("MATERIAL_ASSET_DELIVERY");
@@ -89,33 +94,26 @@ export function assembleMaterialAssetDelivery(dependencies: {
         ? attachmentDisposition(asset.filename)
         : undefined;
       if (access.reason === "public_resource") {
-        if (asset.object.publicKey === null) return notFound();
-        let stored;
-        try {
-          stored = await dependencies.objectStorage.read("public", asset.object.publicKey);
-        } catch {
-          return dependencyUnavailable();
-        }
-        if (
-          stored === null ||
-          stored.contentLength !== asset.size ||
-          stored.contentType !== asset.contentType
-        ) {
-          return dependencyUnavailable();
-        }
+        const stored = await readPublicObject(dependencies.objectStorage, {
+          contentType: asset.contentType,
+          key: asset.object.publicKey,
+          size: asset.size,
+        });
+        if (stored.kind === "mismatch") return notFound();
+        if (stored.kind === "unavailable") return dependencyUnavailable();
         return {
           ok: true,
           value: {
-            body: stored.body,
+            body: stored.object.body,
             cacheScope: "public-immutable",
             ...(contentDisposition === undefined ? {} : { contentDisposition }),
-            contentLength: stored.contentLength,
-            contentType: stored.contentType,
+            contentLength: stored.object.contentLength,
+            contentType: stored.object.contentType,
             kind: "bytes",
           },
         };
       }
-      const ttlSeconds = signedGetTtlSeconds(
+      const ttlSeconds = signedDeliveryTtlSeconds(
         dependencies.signedGetTtlSeconds,
         access.reason === "active_membership" || access.reason === "active_workshop"
           ? access.validUntil
@@ -147,32 +145,10 @@ export function assembleMaterialAssetDelivery(dependencies: {
   return Object.freeze(delivery);
 }
 
-function attachmentDisposition(filename: string): string {
-  const encoded = encodeURIComponent(filename).replace(/[!'()*]/gu, (character) =>
-    `%${character.codePointAt(0)?.toString(16).toUpperCase() ?? ""}`,
-  );
-  return `attachment; filename="download"; filename*=UTF-8''${encoded}`;
-}
-
 function notFound(): DeliverMaterialAssetResult {
   return { error: { code: "asset_not_found" }, ok: false };
 }
 
 function dependencyUnavailable(): DeliverMaterialAssetResult {
   return { error: { code: "dependency_unavailable" }, ok: false };
-}
-
-function signedGetTtlSeconds(
-  configuredTtlSeconds: number,
-  validUntil: string | null | undefined,
-): number | null {
-  if (validUntil === undefined || validUntil === null) return configuredTtlSeconds;
-  const remainingWholeSeconds = Math.floor(
-    (Date.parse(validUntil) - Date.now()) / 1_000,
-  );
-  const boundedTtlSeconds = Math.min(
-    configuredTtlSeconds,
-    remainingWholeSeconds - 1,
-  );
-  return boundedTtlSeconds >= 1 ? boundedTtlSeconds : null;
 }

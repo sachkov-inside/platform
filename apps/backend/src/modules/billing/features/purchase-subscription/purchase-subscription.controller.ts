@@ -16,7 +16,7 @@ import { throwPaymentError } from "../../shared/payment-http.filter.js";
 @ApiResponse({ status: 401, content: problemDetailsContent(accountProblemSchema) })
 @ApiResponse({ status: 403, content: problemDetailsContent(problemDetailsSchema(403, ["forbidden"])) })
 @ApiResponse({ status: 404, content: problemDetailsContent(problemDetailsSchema(404, ["not_found"])) })
-@ApiResponse({ status: 409, content: problemDetailsOneOfContent(problemDetailsSchema(409, ["operation_conflict", "payment_in_progress", "contact_required", "consent_required", "existing_access", "legacy_review_required", "quote_expired", "quote_changed"]), accountProblemSchema) })
+@ApiResponse({ status: 409, content: problemDetailsOneOfContent(problemDetailsSchema(409, ["operation_conflict", "revision_conflict", "payment_in_progress", "contact_required", "consent_required", "existing_access", "legacy_review_required", "quote_expired", "quote_changed"]), accountProblemSchema) })
 @ApiResponse({ status: 422, content: problemDetailsContent(problemDetailsSchema(422, ["unsupported_amount", "method_unavailable"])) })
 @ApiResponse({ status: 500, content: problemDetailsContent(accountProblemSchema) })
 @ApiResponse({ status: 503, content: problemDetailsOneOfContent(problemDetailsSchema(503, ["provider_unavailable", "dependency_unavailable"]), accountProblemSchema) })

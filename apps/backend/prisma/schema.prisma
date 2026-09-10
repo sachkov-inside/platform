@@ -337,6 +337,83 @@ model Guide {
   @@schema("materials")
 }
 
+model GuideArtifact {
+  id              String    @id @db.Uuid
+  title           String    @db.VarChar(200)
+  purpose         String    @default("") @db.VarChar(1000)
+  access          String
+  origin          String
+  sourceId        String?   @map("source_id") @db.VarChar(200)
+  importedAt       DateTime? @map("imported_at") @db.Timestamptz
+  importedRevision Int?      @map("imported_revision")
+  revision         Int       @default(1)
+  currentVersion   Int       @map("current_version")
+  state           String
+  createdBy       String    @map("created_by") @db.Uuid
+  archivedAt      DateTime? @map("archived_at") @db.Timestamptz
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @default(now()) @map("updated_at") @db.Timestamptz
+
+  versions      GuideArtifactVersion[]
+  placements    GuideArtifactPlacement[]
+  materialLinks GuideArtifactMaterialLink[]
+
+  @@unique([sourceId], map: "guide_artifacts_source_unique")
+  @@index([state, updatedAt(sort: Desc)], map: "guide_artifacts_state_idx")
+  @@map("guide_artifacts")
+  @@schema("materials")
+}
+
+model GuideArtifactVersion {
+  artifactId          String    @map("artifact_id") @db.Uuid
+  version             Int
+  contentKind         String    @map("content_kind")
+  externalUrl         String?   @map("external_url") @db.VarChar(2048)
+  originalFilename    String?   @map("original_filename") @db.VarChar(255)
+  contentType         String?   @map("content_type") @db.VarChar(255)
+  byteSize            Int?      @map("byte_size")
+  checksumSha256      String?   @map("checksum_sha256") @db.Char(64)
+  objectNonce         String?   @map("object_nonce") @db.Uuid
+  quarantineObjectKey String?   @map("quarantine_object_key") @db.VarChar(512)
+  protectedObjectKey  String?   @map("protected_object_key") @db.VarChar(512)
+  publicObjectKey     String?   @map("public_object_key") @db.VarChar(512)
+  createdBy           String    @map("created_by") @db.Uuid
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  supersededAt        DateTime? @map("superseded_at") @db.Timestamptz
+
+  artifact GuideArtifact @relation(fields: [artifactId], references: [id], onDelete: Cascade)
+
+  @@id([artifactId, version], map: "guide_artifact_versions_primary")
+  @@map("guide_artifact_versions")
+  @@schema("materials")
+}
+
+model GuideArtifactPlacement {
+  artifactId String   @map("artifact_id") @db.Uuid
+  guideId    String   @map("guide_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  artifact GuideArtifact @relation(fields: [artifactId], references: [id], onDelete: Restrict)
+
+  @@id([artifactId, guideId], map: "guide_artifact_placements_primary")
+  @@index([guideId, createdAt], map: "guide_artifact_placements_guide_idx")
+  @@map("guide_artifact_placements")
+  @@schema("materials")
+}
+
+model GuideArtifactMaterialLink {
+  artifactId String   @map("artifact_id") @db.Uuid
+  materialId String   @map("material_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  artifact GuideArtifact @relation(fields: [artifactId], references: [id], onDelete: Restrict)
+
+  @@id([artifactId, materialId], map: "guide_artifact_material_links_primary")
+  @@index([materialId], map: "guide_artifact_material_links_material_idx")
+  @@map("guide_artifact_material_links")
+  @@schema("materials")
+}
+
 model HomeSeriesPin {
   id       Int     @id
   seriesId String? @map("series_id") @db.Uuid
@@ -1196,7 +1273,12 @@ model BillingPurchase {
   lifecycleActive Boolean @default(true) @map("lifecycle_active")
   id String @id @db.Uuid
   accountId String @map("account_id") @db.Uuid
-  quoteRef String @unique @map("quote_ref") @db.Uuid
+  quoteRef String? @unique @map("quote_ref") @db.Uuid
+  subscriptionRef String? @map("subscription_ref") @db.Uuid
+  subscription BillingSubscription? @relation(fields: [subscriptionRef], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  kind String @default("initial")
+  periodIndex Int? @map("period_index")
+  chargeCalled Boolean @default(false) @map("charge_called")
   state String
   environment String
   terminalRef String @map("terminal_ref")
@@ -1242,5 +1324,91 @@ model BillingFulfillment {
   payload Json
   appliedAt DateTime? @map("applied_at") @db.Timestamptz
   @@map("fulfillment_outbox")
+  @@schema("billing")
+}
+model BillingSubscription {
+  id String @id @db.Uuid
+  accountId String @map("account_id") @db.Uuid
+  state String
+  snapshot Json
+  consent Json
+  anchorAt DateTime @map("anchor_at") @db.Timestamptz
+  anchorMonths Int @map("anchor_months")
+  periodIndex Int @map("period_index")
+  periodStartsAt DateTime @map("period_starts_at") @db.Timestamptz
+  paidUntil DateTime @map("paid_until") @db.Timestamptz
+  periodAmountKopecks BigInt @map("period_amount_kopecks")
+  bindingRef String? @map("binding_ref") @db.Uuid
+  bindingCiphertext String? @map("binding_ciphertext")
+  bindingRevokedAt DateTime? @map("binding_revoked_at") @db.Timestamptz
+  pendingChange Json @default("{}") @map("pending_change")
+  revision Int
+  createdAt DateTime @map("created_at") @db.Timestamptz
+  updatedAt DateTime @map("updated_at") @db.Timestamptz
+  attempts BillingPurchase[]
+  events BillingSubscriptionEvent[]
+  changeQuotes BillingChangeQuote[]
+  methodFlows BillingPaymentMethodFlow[]
+  @@index([paidUntil], map: "billing_due_subscriptions")
+  @@map("subscriptions")
+  @@schema("billing")
+}
+model BillingSubscriptionEvent {
+  id String @id @db.Uuid
+  subscriptionRef String @map("subscription_ref") @db.Uuid
+  subscription BillingSubscription @relation(fields: [subscriptionRef], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  kind String
+  payload Json
+  revision Int
+  occurredAt DateTime @map("occurred_at") @db.Timestamptz
+  recordedAt DateTime @map("recorded_at") @db.Timestamptz
+  @@unique([subscriptionRef, revision])
+  @@map("subscription_events")
+  @@schema("billing")
+}
+model BillingSubscriptionCommand {
+  accountId String @map("account_id") @db.Uuid
+  operationId String @map("operation_id") @db.Uuid
+  fingerprint String
+  result Json
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  @@id([accountId, operationId])
+  @@map("subscription_commands")
+  @@schema("billing")
+}
+model BillingChangeQuote {
+  id String @id @db.Uuid
+  subscriptionRef String @map("subscription_ref") @db.Uuid
+  subscription BillingSubscription @relation(fields: [subscriptionRef], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  accountId String @map("account_id") @db.Uuid
+  operationId String @map("operation_id") @db.Uuid
+  fingerprint String
+  baseRevision Int @map("base_revision")
+  plan Json
+  createdAt DateTime @map("created_at") @db.Timestamptz
+  expiresAt DateTime @map("expires_at") @db.Timestamptz
+  @@unique([accountId, operationId])
+  @@map("change_quotes")
+  @@schema("billing")
+}
+model BillingPaymentMethodFlow {
+  id String @id @db.Uuid
+  subscriptionRef String @map("subscription_ref") @db.Uuid
+  subscription BillingSubscription @relation(fields: [subscriptionRef], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  accountId String @map("account_id") @db.Uuid
+  operationId String @map("operation_id") @db.Uuid
+  fingerprint String
+  environment String
+  terminalRef String @map("terminal_ref")
+  requestKey String @map("request_key")
+  state String
+  formUrl String? @map("form_url")
+  observedStatus String? @map("observed_status")
+  appliedBindingRef String? @map("applied_binding_ref") @db.Uuid
+  createdAt DateTime @map("created_at") @db.Timestamptz
+  updatedAt DateTime @map("updated_at") @db.Timestamptz
+  @@unique([accountId, operationId])
+  @@unique([environment, terminalRef, requestKey])
+  @@map("payment_method_flows")
   @@schema("billing")
 }

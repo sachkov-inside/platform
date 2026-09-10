@@ -48,6 +48,8 @@ import {
   VideoProgressController,
   AuthoringContentCoverController,
   ContentCoverDeliveryController,
+  GuideArtifactAuthoringController,
+  GuideArtifactReadController,
 } from "../../modules/materials/index.js";
 import {
   KinescopeWebhookController,
@@ -80,6 +82,8 @@ import { HealthController } from "./health.controller.js";
     DeliverMaterialAssetController,
     AuthoringContentCoverController,
     ContentCoverDeliveryController,
+    GuideArtifactAuthoringController,
+    GuideArtifactReadController,
     ListContentCollectionsController,
     CreateContentCollectionController,
     UpdateContentCollectionController,
