@@ -10,12 +10,20 @@ export const legalDocumentKindSchema = z.enum([
   "personal_data",
   "marketing",
 ]);
+/**
+ * Адрес документа приходит с сервера и попадает в `href`, поэтому принимается только собственный
+ * путь приложения или https-адрес: остальные схемы, включая `javascript:`, отклоняются.
+ */
+export const legalDocumentUrlSchema = z.union([
+  z.string().regex(/^\/(?!\/)/u),
+  z.url({ protocol: /^https$/u }),
+]);
 export const legalDocumentSchema = z.object({
   kind: legalDocumentKindSchema,
   documentId: z.string().min(1),
   version: z.string().min(1),
   digest: z.string().length(64),
-  url: z.string().min(1),
+  url: legalDocumentUrlSchema,
   text: z.string(),
 });
 /** Ссылка на конкретную редакцию, которую покупатель принимает вместе с командой. */

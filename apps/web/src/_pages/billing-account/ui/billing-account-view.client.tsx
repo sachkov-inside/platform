@@ -1,7 +1,10 @@
 "use client";
 import { useState } from "react";
 
-import type { PriceSnapshot } from "@/entities/subscription";
+import {
+  publicSubscriptionOffers,
+  type PriceSnapshot,
+} from "@/entities/subscription";
 import {
   BillingContactPanel,
   type BillingContactState,
@@ -24,7 +27,7 @@ export function BillingAccountView({ options }: BillingAccountViewProps) {
     <div className="grid gap-6">
       <BillingCabinetPanel
         contactHref="/account/email"
-        options={options}
+        options={publicSubscriptionOffers(options)}
         resumeDocuments={contactState?.documents ?? []}
         storefrontHref="/subscription"
       />

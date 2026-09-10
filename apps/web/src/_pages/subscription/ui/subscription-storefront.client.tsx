@@ -8,6 +8,7 @@ import {
   billingErrorMessage,
   formatKopecks,
   formatMonths,
+  publicSubscriptionOffers,
   type PriceSnapshot,
 } from "@/entities/subscription";
 import {
@@ -29,13 +30,14 @@ export interface SubscriptionStorefrontProps {
 }
 
 export function SubscriptionStorefront({
-  offers,
+  offers: catalog,
   unavailable = false,
   returnTo,
   originHref,
   cabinetHref = "/account/subscription",
   contactHref = "/account/email",
 }: SubscriptionStorefrontProps) {
+  const offers = publicSubscriptionOffers(catalog);
   const [selectedId, setSelectedId] = useState<string | null>(
     offers[0]?.paymentOption.id ?? null,
   );

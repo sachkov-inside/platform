@@ -1,6 +1,7 @@
 import "server-only";
 
 import {
+  billingFailureResponse,
   executeBillingCommand,
   readAuthenticatedBilling,
   readBillingResource,
@@ -9,7 +10,6 @@ import {
   offersPageSchema,
   purchaseStatusSchema,
   quoteSchema,
-  type PriceSnapshot,
 } from "@/entities/subscription";
 import {
   requestBillingOffers,
@@ -69,35 +69,11 @@ export function handleBillingPurchaseStatus(
   const purchaseRef = purchaseRefSchema.safeParse(
     new URL(request.url).searchParams.get("purchaseRef"),
   );
-  if (!purchaseRef.success) {
-    return Promise.resolve(
-      Response.json(
-        { ok: false, code: "not_found" },
-        { headers: { "cache-control": "private, no-store", vary: "cookie" }, status: 404 },
-      ),
-    );
-  }
+  if (!purchaseRef.success)
+    return Promise.resolve(billingFailureResponse("not_found", 404));
   return readAuthenticatedBilling(
     (accessToken) =>
       requestBillingPurchaseStatus(purchaseRef.data, accessToken),
     purchaseStatusSchema,
   );
-}
-
-export type OffersResult =
-  | { readonly kind: "ready"; readonly offers: readonly PriceSnapshot[] }
-  | { readonly kind: "unavailable" };
-
-/** Витрина рендерится сервером: цены и состав приходят из каталога, а не из разметки. */
-export async function loadBillingOffers(): Promise<OffersResult> {
-  try {
-    const result = await requestBillingOffers({ limit: 50 });
-    if (!result.ok) return { kind: "unavailable" };
-    const parsed = offersPageSchema.safeParse(result.body);
-    return parsed.success
-      ? { kind: "ready", offers: parsed.data.items }
-      : { kind: "unavailable" };
-  } catch {
-    return { kind: "unavailable" };
-  }
 }

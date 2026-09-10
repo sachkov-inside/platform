@@ -3,11 +3,11 @@ import Link from "next/link";
 import { useId } from "react";
 
 import {
+  ConsentChecklist,
   attemptStateLabel,
   formatBillingDateTime,
   formatKopecks,
   formatMonths,
-  legalDocumentLabel,
   promotionLabel,
   requiredConsentKinds,
   type BillingQuote,
@@ -182,46 +182,17 @@ export function CheckoutPanel({
               Мы включим оформление, как только документы появятся.
             </p>
           ) : (
-            <fieldset className="mt-5 border-t border-border pt-5">
-              <legend className="text-sm font-semibold">
-                Согласия перед оплатой
-              </legend>
-              <ul className="mt-3 grid gap-3">
-                {documents.map((document) => (
-                  <li key={`${document.kind}:${document.documentId}`}>
-                    <label className="flex items-start gap-3 text-sm leading-6">
-                      <input
-                        checked={accepted.includes(document.kind)}
-                        className="mt-1 size-5 shrink-0 rounded border-input accent-primary"
-                        disabled={pending}
-                        name={`consent-${document.kind}`}
-                        onChange={() => {
-                          onToggleDocument(document.kind);
-                        }}
-                        type="checkbox"
-                      />
-                      <span className="min-w-0">
-                        Принимаю{" "}
-                        <a
-                          className="text-action underline underline-offset-4"
-                          href={document.url}
-                          rel="noreferrer"
-                          target="_blank"
-                        >
-                          {legalDocumentLabel(document.kind)}
-                        </a>
-                        {requiredConsentKinds.includes(document.kind) ? null : (
-                          <span className="text-muted-foreground">
-                            {" "}
-                            · по желанию
-                          </span>
-                        )}
-                      </span>
-                    </label>
-                  </li>
-                ))}
-              </ul>
-            </fieldset>
+            <div className="mt-5 border-t border-border pt-5">
+              <ConsentChecklist
+                accepted={accepted}
+                disabled={pending}
+                documents={documents}
+                legend="Согласия перед оплатой"
+                markOptional
+                namePrefix="consent"
+                onToggle={onToggleDocument}
+              />
+            </div>
           )}
 
           {existingAccess ? (

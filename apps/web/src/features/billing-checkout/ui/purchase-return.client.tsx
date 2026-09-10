@@ -8,6 +8,7 @@ import {
   billingErrorMessage,
   formatBillingDate,
   formatKopecks,
+  type AttemptState,
   type PurchaseStatus,
 } from "@/entities/subscription";
 import { Button } from "@/shared/ui/button";
@@ -15,7 +16,8 @@ import { Button } from "@/shared/ui/button";
 import { readBillingPurchaseStatus } from "../api/billing-checkout.browser";
 import { recallPurchase } from "../model/checkout";
 
-const settledStates = new Set(["confirmed", "failed"]);
+/** Банк ответил окончательно: дальше состояние меняет только сверка, а не опрос страницы. */
+const settledStates: ReadonlySet<AttemptState> = new Set(["confirmed", "failed"]);
 
 export interface PurchaseReturnViewProps {
   readonly purchase: PurchaseStatus | null;

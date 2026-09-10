@@ -38,10 +38,22 @@ export function billingFailureCode(
   }
 }
 
-const privateHeaders = {
+/** Ответ billing всегда принадлежит одному Account: он приватен и не кэшируется. */
+export const privateBillingHeaders = {
   "cache-control": "private, no-store",
   vary: "cookie",
 };
+
+/** Закрытый исход без тела бэкенда: тот же конверт, что и у успешного ответа. */
+export function billingFailureResponse(
+  code: BillingFailureCode,
+  status: number,
+): Response {
+  return Response.json(
+    { ok: false, code },
+    { headers: privateBillingHeaders, status },
+  );
+}
 
 /**
  * Один продуктовый read через собственный маршрут: тело бэкенда проверяется схемой, а не
@@ -55,27 +67,20 @@ export async function readBillingResource(
   try {
     result = await execute();
   } catch {
-    return Response.json(
-      { ok: false, code: "unavailable" },
-      { headers: privateHeaders, status: 503 },
-    );
+    return billingFailureResponse("unavailable", 503);
   }
-  if (!result.ok) {
-    return Response.json(
-      { ok: false, code: billingFailureCode(result) },
-      { headers: privateHeaders, status: result.response.status },
+  if (!result.ok)
+    return billingFailureResponse(
+      billingFailureCode(result),
+      result.response.status,
     );
-  }
   const parsed = schema.safeParse(result.body);
   return parsed.success
     ? Response.json(
         { ok: true, value: parsed.data },
-        { headers: privateHeaders },
+        { headers: privateBillingHeaders },
       )
-    : Response.json(
-        { ok: false, code: "unavailable" },
-        { headers: privateHeaders, status: 502 },
-      );
+    : billingFailureResponse("unavailable", 502);
 }
 
 /**
@@ -124,19 +129,9 @@ export async function readAuthenticatedBilling(
   try {
     accessToken = await getPlatformAccessToken(readLogtoBffConfig());
   } catch (error) {
-    return Response.json(
-      {
-        ok: false,
-        code:
-          error instanceof LogtoSessionUnavailableError
-            ? "unauthorized"
-            : "unavailable",
-      },
-      {
-        headers: privateHeaders,
-        status: error instanceof LogtoSessionUnavailableError ? 401 : 503,
-      },
-    );
+    return error instanceof LogtoSessionUnavailableError
+      ? billingFailureResponse("unauthorized", 401)
+      : billingFailureResponse("unavailable", 503);
   }
   return readBillingResource(() => execute(accessToken), schema);
 }

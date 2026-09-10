@@ -1,4 +1,4 @@
-import { loadBillingOffers } from "@/features/billing-checkout.server";
+import { loadBillingOffers } from "@/entities/subscription.server";
 
 import { BillingAccountView } from "./billing-account-view.client";
 

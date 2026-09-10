@@ -3,13 +3,13 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import {
+  ConsentChecklist,
   attemptStateLabel,
   benefitLines,
   formatBillingDate,
   formatBillingDateTime,
   formatKopecks,
   formatMonths,
-  legalDocumentLabel,
   noticeLabel,
   subscriptionStateLabel,
   type ChangeQuote,
@@ -202,6 +202,9 @@ export function BillingCabinetView({
               <Row label="Ссылка для поддержки">
                 <span className="font-mono text-xs [overflow-wrap:anywhere]">
                   {subscription.subscriptionRef}
+                  {subscription.inFlightPayment === null
+                    ? ""
+                    : ` · операция ${subscription.inFlightPayment.attemptRef}`}
                 </span>
               </Row>
             </dl>
@@ -298,35 +301,16 @@ export function BillingCabinetView({
                     списания нельзя.
                   </p>
                 ) : (
-                  <ul className="mt-3 grid gap-2">
-                    {resumeDocuments.map((document) => (
-                      <li key={`${document.kind}:${document.documentId}`}>
-                        <label className="flex items-start gap-3 text-sm leading-6">
-                          <input
-                            checked={resumeAccepted.includes(document.kind)}
-                            className="mt-1 size-5 shrink-0 rounded border-input accent-primary"
-                            disabled={pending}
-                            name={`resume-consent-${document.kind}`}
-                            onChange={() => {
-                              onToggleResumeDocument(document.kind);
-                            }}
-                            type="checkbox"
-                          />
-                          <span className="min-w-0">
-                            Принимаю{" "}
-                            <a
-                              className="text-action underline underline-offset-4"
-                              href={document.url}
-                              rel="noreferrer"
-                              target="_blank"
-                            >
-                              {legalDocumentLabel(document.kind)}
-                            </a>
-                          </span>
-                        </label>
-                      </li>
-                    ))}
-                  </ul>
+                  <div className="mt-3">
+                    <ConsentChecklist
+                      accepted={resumeAccepted}
+                      disabled={pending}
+                      documents={resumeDocuments}
+                      legend="Согласие на списания"
+                      namePrefix="resume-consent"
+                      onToggle={onToggleResumeDocument}
+                    />
+                  </div>
                 )}
                 <Button
                   className="mt-3 h-auto min-h-11 max-w-full whitespace-normal"

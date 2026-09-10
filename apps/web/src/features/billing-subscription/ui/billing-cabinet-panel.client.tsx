@@ -1,10 +1,11 @@
 "use client";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
   acceptBillingConsents,
   billingErrorMessage,
+  useBillingOperations,
   type ChangeQuote,
   type LegalDocument,
   type LegalDocumentKind,
@@ -62,15 +63,7 @@ export function BillingCabinetPanel({
     readonly LegalDocumentKind[]
   >([]);
   const [error, setError] = useState<string>();
-  const operations = useRef(new Map<string, { key: string; id: string }>());
-
-  function operationId(slot: string, key: string): string {
-    const current = operations.current.get(slot);
-    if (current !== undefined && current.key === key) return current.id;
-    const next = { key, id: crypto.randomUUID() };
-    operations.current.set(slot, next);
-    return next.id;
-  }
+  const operationId = useBillingOperations();
 
   const billing = query.data?.ok === true ? query.data.value : null;
   const subscription = billing?.subscription ?? null;
@@ -111,15 +104,15 @@ export function BillingCabinetPanel({
       readonly expectedRevision: number;
       readonly accepted: readonly LegalDocumentKind[];
     }) => {
-      const commandId = operationId(
-        "resume",
-        `${String(input.expectedRevision)}:${input.accepted.join(",")}`,
-      );
+      const commandId = operationId("resume", {
+        expectedRevision: input.expectedRevision,
+        accepted: input.accepted,
+      });
       const selected = resumeDocuments.filter((document) =>
         input.accepted.includes(document.kind),
       );
       const consents = await acceptBillingConsents({
-        operationId: operationId("resume-consents", commandId),
+        operationId: operationId("resume-consents", { commandId }),
         contextRef: commandId,
         documents: selected.map((document) => ({
           kind: document.kind,
@@ -239,10 +232,9 @@ export function BillingCabinetPanel({
         if (subscription === null) return;
         setError(undefined);
         dropChange.mutate({
-          operationId: operationId(
-            "change-cancel",
-            String(subscription.revision),
-          ),
+          operationId: operationId("change-cancel", {
+            revision: subscription.revision,
+          }),
           expectedRevision: subscription.revision,
         });
       }}
@@ -250,7 +242,7 @@ export function BillingCabinetPanel({
         if (subscription === null) return;
         setError(undefined);
         cancelRenewal.mutate({
-          operationId: operationId("cancel", String(subscription.revision)),
+          operationId: operationId("cancel", { revision: subscription.revision }),
           expectedRevision: subscription.revision,
         });
       }}
@@ -258,10 +250,9 @@ export function BillingCabinetPanel({
         if (subscription === null) return;
         setError(undefined);
         changeMethod.mutate({
-          operationId: operationId(
-            "method-change",
-            String(subscription.revision),
-          ),
+          operationId: operationId("method-change", {
+            revision: subscription.revision,
+          }),
           expectedRevision: subscription.revision,
         });
       }}
@@ -269,7 +260,9 @@ export function BillingCabinetPanel({
         if (subscription === null || changeQuote === null) return;
         setError(undefined);
         confirmChange.mutate({
-          operationId: operationId("change", changeQuote.changeQuoteRef),
+          operationId: operationId("change", {
+            changeQuoteRef: changeQuote.changeQuoteRef,
+          }),
           expectedRevision: subscription.revision,
           changeQuoteRef: changeQuote.changeQuoteRef,
         });
@@ -279,10 +272,10 @@ export function BillingCabinetPanel({
         setError(undefined);
         setChangeQuote(null);
         quoteChange.mutate({
-          operationId: operationId(
-            "change-quote",
-            `${String(subscription.revision)}:${selectedOptionId}`,
-          ),
+          operationId: operationId("change-quote", {
+            revision: subscription.revision,
+            paymentOptionId: selectedOptionId,
+          }),
           expectedRevision: subscription.revision,
           paymentOptionId: selectedOptionId,
         });
@@ -303,7 +296,7 @@ export function BillingCabinetPanel({
         if (subscription?.paymentMethod == null) return;
         setError(undefined);
         revokeMethod.mutate({
-          operationId: operationId("method-revoke", String(subscription.revision)),
+          operationId: operationId("method-revoke", { revision: subscription.revision }),
           expectedRevision: subscription.revision,
           paymentMethodRef: subscription.paymentMethod.methodRef,
         });

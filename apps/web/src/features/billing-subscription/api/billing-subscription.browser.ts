@@ -1,9 +1,10 @@
 import {
+  billingCommandPayload,
   billingCommandResult,
-  billingReadResult,
   changeQuoteSchema,
   changeResultSchema,
   currentBillingSchema,
+  readBillingEndpoint,
   subscriptionViewSchema,
   type BillingCommandResult,
   type ChangeQuote,
@@ -23,25 +24,10 @@ import {
   type RevokeMethodInput,
 } from "../model/subscription-commands";
 
-function payload(input: unknown): FormData {
-  const form = new FormData();
-  form.set("input", JSON.stringify(input));
-  return form;
-}
-
-export async function readCurrentBilling(): Promise<
+export function readCurrentBilling(): Promise<
   BillingCommandResult<CurrentBilling>
 > {
-  try {
-    const response = await fetch("/api/account/billing", {
-      cache: "no-store",
-      credentials: "same-origin",
-      headers: { accept: "application/json" },
-    });
-    return await billingReadResult(response, currentBillingSchema);
-  } catch {
-    return { ok: false, code: "unavailable" };
-  }
+  return readBillingEndpoint("/api/account/billing", currentBillingSchema);
 }
 
 export async function cancelBillingRenewal(
@@ -51,7 +37,7 @@ export async function cancelBillingRenewal(
     await requestSameOriginMutation(
       "/api/account/billing/subscription/cancel",
       "POST",
-      payload(input),
+      billingCommandPayload(input),
     ),
     subscriptionViewSchema,
   );
@@ -64,7 +50,7 @@ export async function resumeBillingRenewal(
     await requestSameOriginMutation(
       "/api/account/billing/subscription/resume",
       "POST",
-      payload(input),
+      billingCommandPayload(input),
     ),
     subscriptionViewSchema,
   );
@@ -77,7 +63,7 @@ export async function quoteBillingChange(
     await requestSameOriginMutation(
       "/api/account/billing/subscription/change-quote",
       "POST",
-      payload(input),
+      billingCommandPayload(input),
     ),
     changeQuoteSchema,
   );
@@ -90,7 +76,7 @@ export async function changeBillingOption(
     await requestSameOriginMutation(
       "/api/account/billing/subscription/change",
       "POST",
-      payload(input),
+      billingCommandPayload(input),
     ),
     changeResultSchema,
   );
@@ -103,7 +89,7 @@ export async function cancelBillingChange(
     await requestSameOriginMutation(
       "/api/account/billing/subscription/change-cancel",
       "POST",
-      payload(input),
+      billingCommandPayload(input),
     ),
     subscriptionViewSchema,
   );
@@ -116,7 +102,7 @@ export async function changeBillingPaymentMethod(
     await requestSameOriginMutation(
       "/api/account/billing/payment-method/change",
       "POST",
-      payload(input),
+      billingCommandPayload(input),
     ),
     methodChangeValueSchema,
   );
@@ -129,7 +115,7 @@ export async function revokeBillingPaymentMethod(
     await requestSameOriginMutation(
       "/api/account/billing/payment-method/revoke",
       "POST",
-      payload(input),
+      billingCommandPayload(input),
     ),
     subscriptionViewSchema,
   );

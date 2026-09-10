@@ -1,10 +1,11 @@
 "use client";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 
 import {
   acceptBillingConsents,
   billingErrorMessage,
+  useBillingOperations,
   type BillingQuote,
   type LegalDocument,
   type LegalDocumentKind,
@@ -49,18 +50,7 @@ export function CheckoutFlow({
   const [legacyBlocked, setLegacyBlocked] = useState(false);
   const [purchase, setPurchase] = useState<PurchaseStatus | null>(null);
   const [error, setError] = useState<string>();
-  const quoteOperation = useRef<{ key: string; operationId: string } | null>(null);
-  const consentOperation = useRef<{ key: string; operationId: string } | null>(null);
-  const purchaseOperation = useRef<{ key: string; operationId: string } | null>(null);
-
-  function operationId(
-    slot: { current: { key: string; operationId: string } | null },
-    key: string,
-  ): string {
-    if (slot.current === null || slot.current.key !== key)
-      slot.current = { key, operationId: crypto.randomUUID() };
-    return slot.current.operationId;
-  }
+  const operationId = useBillingOperations();
 
   const quoteMutation = useMutation({
     mutationFn: createBillingQuote,
@@ -75,8 +65,6 @@ export function CheckoutFlow({
       setAccepted([]);
       setExistingAccess(false);
       setLegacyBlocked(false);
-      consentOperation.current = null;
-      purchaseOperation.current = null;
     },
   });
 
@@ -92,10 +80,10 @@ export function CheckoutFlow({
         input.accepted.includes(document.kind),
       );
       const consents = await acceptBillingConsents({
-        operationId: operationId(
-          consentOperation,
-          `${input.quote.quoteRef}:${input.accepted.join(",")}`,
-        ),
+        operationId: operationId("consents", {
+          quoteRef: input.quote.quoteRef,
+          accepted: input.accepted,
+        }),
         contextRef: input.quote.quoteRef,
         documents: selected.map((document) => ({
           kind: document.kind,
@@ -107,10 +95,11 @@ export function CheckoutFlow({
       if (!consents.ok) return consents;
       const evidenceRefs = consents.value.evidenceRefs;
       return await startBillingPurchase({
-        operationId: operationId(
-          purchaseOperation,
-          `${input.quote.quoteRef}:${evidenceRefs.join(",")}:${String(input.acknowledgeExistingAccess)}`,
-        ),
+        operationId: operationId("purchase", {
+          quoteRef: input.quote.quoteRef,
+          evidenceRefs,
+          acknowledgeExistingAccess: input.acknowledgeExistingAccess,
+        }),
         quoteRef: input.quote.quoteRef,
         contactRevision: input.contactRevision,
         consentEvidenceRefs: [...evidenceRefs],
@@ -172,10 +161,10 @@ export function CheckoutFlow({
       onQuote={() => {
         setError(undefined);
         quoteMutation.mutate({
-          operationId: operationId(
-            quoteOperation,
-            `${snapshot.paymentOption.id}:${String(snapshot.paymentOption.revision)}`,
-          ),
+          operationId: operationId("quote", {
+            paymentOptionId: snapshot.paymentOption.id,
+            optionRevision: snapshot.paymentOption.revision,
+          }),
           paymentOptionId: snapshot.paymentOption.id,
           optionRevision: snapshot.paymentOption.revision,
         });

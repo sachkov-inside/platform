@@ -28,6 +28,7 @@ import { subscriptionHrefFrom } from "@/shared/routing/subscription-route";
 import {
   collectionDiscoveryHref,
   libraryMaterialReaderReturnTarget,
+  materialReaderOriginHref,
   type MaterialReaderReturnTarget,
 } from "@/shared/routing/material-reader";
 import { SeriesJourney, type SeriesLearningView } from "./series-journey.client";
@@ -95,7 +96,13 @@ function SubscriptionCallout({ slug }: { readonly slug: string }) {
         вас сюда после входа.
       </p>
       <Button asChild className="mt-4 h-auto min-h-11 max-w-full whitespace-normal">
-        <Link href={{ pathname: subscriptionHrefFrom(`/guides/${slug}`) }}>
+        <Link
+          href={{
+            pathname: subscriptionHrefFrom(
+              materialReaderOriginHref("series", slug),
+            ),
+          }}
+        >
           Посмотреть тарифы
         </Link>
       </Button>

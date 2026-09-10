@@ -4,7 +4,16 @@ import { z } from "zod";
  * Форма провода billing, которую читает браузер. Генерируемые типы остаются подсказкой
  * компилятора: адаптеры принимают тело как `unknown` и проверяют его этими схемами.
  */
-export const accessCapabilitySchema = z.string().min(1).max(200);
+export const globalAccessCapabilities = [
+  "materials",
+  "community",
+  "reviews",
+  "support",
+] as const;
+export const accessCapabilitySchema = z.union([
+  z.enum(globalAccessCapabilities),
+  z.templateLiteral(["guide:", z.uuid()]),
+]);
 export const offerSchema = z.object({
   id: z.uuid(),
   revision: z.number().int().positive(),
@@ -52,7 +61,7 @@ export const offersPageSchema = z.object({
 /** Подтверждённый контакт для чеков: собственный факт Account, а не способ входа. */
 export const verifiedContactSchema = z.object({
   email: z.email(),
-  revision: z.number().int().positive(),
+  revision: z.number().int().nonnegative().max(2_147_483_646),
   verifiedAt: z.iso.datetime(),
 });
 
@@ -189,4 +198,19 @@ export type ChangePlan = z.infer<typeof changePlanSchema>;
 export type ChangeResult = z.infer<typeof changeResultSchema>;
 export type BillingFailureCode = z.infer<typeof billingFailureCodeSchema>;
 export type BillingFailure = z.infer<typeof billingFailureSchema>;
+
+/**
+ * Публично продаётся только подписка на опубликованный каталог. Отдельное право на руководство
+ * выдаётся контролируемо и на витрину не выводится, как и снятые с продажи позиции.
+ */
+export function publicSubscriptionOffers(
+  offers: readonly PriceSnapshot[],
+): readonly PriceSnapshot[] {
+  return offers.filter(
+    (snapshot) =>
+      !snapshot.offer.archived &&
+      !snapshot.paymentOption.archived &&
+      snapshot.offer.benefits.includes("materials"),
+  );
+}
 export type VerifiedContact = z.infer<typeof verifiedContactSchema>;

@@ -5,6 +5,11 @@ import type {
   TextareaHTMLAttributes,
 } from "react";
 
+import {
+  accessCapabilitySchema,
+  type AccessCapability,
+} from "@/entities/subscription";
+
 /** Общая разметка владельческой формы: плотная, без декоративных карточек. */
 export function AdminSection({
   title,
@@ -28,7 +33,7 @@ export function AdminSection({
   );
 }
 
-export function Field({
+export function AdminField({
   label,
   name,
   hint,
@@ -57,7 +62,7 @@ export function Field({
   );
 }
 
-export function AreaField({
+export function AdminTextArea({
   label,
   name,
   hint,
@@ -86,7 +91,7 @@ export function AreaField({
   );
 }
 
-export function SelectField({
+export function AdminSelect({
   label,
   name,
   options,
@@ -116,43 +121,61 @@ export function SelectField({
   );
 }
 
-/** Строки состава прав: `capability`, `capability=12` или `capability=null` для бессрочного. */
-export function parseBenefits(value: string): {
-  readonly benefits: readonly string[];
-  readonly benefitPeriods: readonly {
-    readonly capability: string;
+export interface ParsedCapabilities {
+  readonly capabilities: readonly AccessCapability[];
+  readonly periods: readonly {
+    readonly capability: AccessCapability;
     readonly months: number | null;
   }[];
-} {
-  const benefits: string[] = [];
-  const benefitPeriods: { capability: string; months: number | null }[] = [];
+  /** Записи, которых нет в принятом наборе прав: их нельзя отправлять командой. */
+  readonly invalid: readonly string[];
+}
+
+/**
+ * Строки состава прав: `capability`, `capability=12` или `capability=null` для бессрочного.
+ * Право проверяется тем же закрытым набором, что и на сервере, поэтому опечатка видна в форме.
+ */
+export function parseCapabilities(value: string): ParsedCapabilities {
+  const capabilities: AccessCapability[] = [];
+  const periods: { capability: AccessCapability; months: number | null }[] = [];
+  const invalid: string[] = [];
   for (const line of value.split(/[\n,]/u)) {
     const entry = line.trim();
     if (entry.length === 0) continue;
-    const [capability = "", months] = entry.split("=", 2);
-    const name = capability.trim();
-    if (name.length === 0) continue;
-    benefits.push(name);
+    const [name = "", months] = entry.split("=", 2);
+    const parsed = accessCapabilitySchema.safeParse(name.trim());
+    if (!parsed.success) {
+      invalid.push(entry);
+      continue;
+    }
+    capabilities.push(parsed.data);
     if (months === undefined) continue;
     const term = months.trim();
-    benefitPeriods.push({
-      capability: name,
+    periods.push({
+      capability: parsed.data,
       months: term === "null" || term === "" ? null : Number(term),
     });
   }
-  return { benefits, benefitPeriods };
+  return { capabilities, periods, invalid };
 }
 
-export function optionalNumber(value: FormDataEntryValue | null): number | undefined {
-  const text = typeof value === "string" ? value.trim() : "";
-  return text.length === 0 ? undefined : Number(text);
+export const capabilityHint =
+  "Известные права: materials, community, reviews, support и guide:<uuid>.";
+
+export function optionalFormNumber(
+  value: FormDataEntryValue | null,
+): number | undefined {
+  const entry = formText(value);
+  return entry.length === 0 ? undefined : Number(entry);
 }
 
-export function optionalText(value: FormDataEntryValue | null): string | undefined {
-  const text = typeof value === "string" ? value.trim() : "";
-  return text.length === 0 ? undefined : text;
+export function optionalFormText(
+  value: FormDataEntryValue | null,
+): string | undefined {
+  const entry = formText(value);
+  return entry.length === 0 ? undefined : entry;
 }
 
-export function text(value: FormDataEntryValue | null): string {
+export function formText(value: FormDataEntryValue | null): string {
   return typeof value === "string" ? value.trim() : "";
 }

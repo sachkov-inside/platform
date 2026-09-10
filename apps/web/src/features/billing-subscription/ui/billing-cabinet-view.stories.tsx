@@ -3,6 +3,7 @@ import { expect, fn, within } from "storybook/test";
 
 import {
   activeSubscription,
+  materialsOffer,
   billingNotices,
   billingOffers,
   canceledSubscription,
@@ -115,6 +116,27 @@ export const NoSubscription: Story = {
   },
 };
 
+export const MaterialsWithoutTelegram: Story = {
+  args: {
+    subscription: {
+      ...activeSubscription,
+      snapshot: {
+        offer: materialsOffer.offer,
+        paymentOption: materialsOffer.paymentOption,
+        currency: "RUB",
+        timezone: "Europe/Moscow",
+        renewalPriceKopecks: materialsOffer.renewalPriceKopecks,
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByText("Все опубликованные материалы и руководства"),
+    ).toBeInTheDocument();
+    await expect(canvas.queryByText("Общий чат")).not.toBeInTheDocument();
+  },
+};
 export const SessionExpired: Story = { args: { sessionExpired: true } };
 export const Loading: Story = { args: { subscription: null, loading: true } };
 export const Unavailable: Story = {

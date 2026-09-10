@@ -51,3 +51,27 @@ export async function billingReadResult<Schema extends z.ZodType>(
     return { ok: false, code: "unavailable" };
   }
 }
+
+/** Одна форма команды billing: собственный BFF читает её как единственное поле `input`. */
+export function billingCommandPayload(input: unknown): FormData {
+  const form = new FormData();
+  form.set("input", JSON.stringify(input));
+  return form;
+}
+
+/** Собственный read через маршрут BFF: недоступность остаётся честной, а не пустым значением. */
+export async function readBillingEndpoint<Schema extends z.ZodType>(
+  route: string,
+  valueSchema: Schema,
+): Promise<BillingCommandResult<z.infer<Schema>>> {
+  try {
+    const response = await fetch(route, {
+      cache: "no-store",
+      credentials: "same-origin",
+      headers: { accept: "application/json" },
+    });
+    return await billingReadResult(response, valueSchema);
+  } catch {
+    return { ok: false, code: "unavailable" };
+  }
+}

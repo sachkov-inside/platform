@@ -65,9 +65,8 @@ export function capabilityLabel(capability: AccessCapability): string {
     case "reviews":
       return "Разборы работ";
     default:
-      return capability.startsWith("guide:")
-        ? "Отдельное руководство"
-        : capability;
+      // В закрытом наборе остаётся только право на конкретное руководство.
+      return "Отдельное руководство";
   }
 }
 

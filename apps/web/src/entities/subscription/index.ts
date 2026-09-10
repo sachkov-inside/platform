@@ -11,6 +11,7 @@ export {
   offersPageSchema,
   paymentOptionSchema,
   priceSnapshotSchema,
+  publicSubscriptionOffers,
   purchaseStatusSchema,
   quoteSchema,
   subscriptionViewSchema,
@@ -65,7 +66,14 @@ export {
 } from "./model/legal-documents";
 export { acceptBillingConsents } from "./api/billing-consents.browser";
 export {
+  billingCommandPayload,
   billingCommandResult,
   billingReadResult,
+  readBillingEndpoint,
   type BillingCommandResult,
 } from "./api/billing-result.browser";
+export { useBillingOperations } from "./model/use-billing-operations.client";
+export {
+  ConsentChecklist,
+  type ConsentChecklistProps,
+} from "./ui/consent-checklist.client";

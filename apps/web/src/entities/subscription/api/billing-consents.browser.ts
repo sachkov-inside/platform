@@ -5,6 +5,7 @@ import {
   type ConsentsInput,
 } from "../model/legal-documents";
 import {
+  billingCommandPayload,
   billingCommandResult,
   type BillingCommandResult,
 } from "./billing-result.browser";
@@ -16,13 +17,11 @@ import {
 export async function acceptBillingConsents(
   input: ConsentsInput,
 ): Promise<BillingCommandResult<{ readonly evidenceRefs: readonly string[] }>> {
-  const form = new FormData();
-  form.set("input", JSON.stringify(input));
   return billingCommandResult(
     await requestSameOriginMutation(
       "/api/account/billing/consents",
       "POST",
-      form,
+      billingCommandPayload(input),
     ),
     consentsValueSchema,
   );

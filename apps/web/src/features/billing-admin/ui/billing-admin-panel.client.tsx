@@ -1,9 +1,10 @@
 "use client";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 
 import {
   billingErrorMessage,
+  useBillingOperations,
   type BillingCommandResult,
   type BillingFailureCode,
   type PriceSnapshot,
@@ -70,16 +71,7 @@ export function BillingAdminPanel({ offers }: BillingAdminPanelProps) {
   const [batch, setBatch] = useState<GrantBatchOutcome["result"] | null>(null);
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
-  const operations = useRef(new Map<string, { key: string; id: string }>());
-
-  function operationId(slot: string, payload: unknown): string {
-    const key = JSON.stringify(payload);
-    const current = operations.current.get(slot);
-    if (current !== undefined && current.key === key) return current.id;
-    const next = { key, id: crypto.randomUUID() };
-    operations.current.set(slot, next);
-    return next.id;
-  }
+  const operationId = useBillingOperations();
 
   const command = useMutation({
     retry: false,
@@ -96,23 +88,21 @@ export function BillingAdminPanel({ offers }: BillingAdminPanelProps) {
     },
   });
 
-  function dispatch<Input extends { readonly operationId: string }, Value>(
-    slot: string,
-    payload: Omit<Input, "operationId">,
-    call: (input: Input) => Promise<BillingCommandResult<Value>>,
+  /**
+   * Каждая операция вызывает собственный адаптер со своим точным типом; сюда попадает уже
+   * готовый вызов, поэтому общий исход не размывает контракт отдельной команды.
+   */
+  function dispatch<Value>(
+    call: () => Promise<BillingCommandResult<Value>>,
     apply: (value: Value) => void,
     notice: string,
   ): void {
-    const input = {
-      ...payload,
-      operationId: operationId(slot, payload),
-    } as Input;
     setError(undefined);
     setNotice(undefined);
     command.mutate({
       notice,
       run: async (): Promise<TaskOutcome> => {
-        const result = await call(input);
+        const result = await call();
         return result.ok
           ? {
               ok: true,
@@ -134,9 +124,11 @@ export function BillingAdminPanel({ offers }: BillingAdminPanelProps) {
       offers={offers}
       onApplyBatch={(input) => {
         dispatch(
-          "grants.applyBatch",
-          input,
-          applyAccessGrantBatch,
+          () =>
+            applyAccessGrantBatch({
+              ...input,
+              operationId: operationId("grants.applyBatch", input),
+            }),
           (value) => {
             setBatch(value.result);
             setPreview(null);
@@ -146,45 +138,55 @@ export function BillingAdminPanel({ offers }: BillingAdminPanelProps) {
       }}
       onArchiveOffer={(input) => {
         dispatch(
-          "offers.archive",
-          input,
-          archiveBillingOffer,
+          () =>
+            archiveBillingOffer({
+              ...input,
+              operationId: operationId("offers.archive", input),
+            }),
           () => undefined,
           "Предложение архивировано.",
         );
       }}
       onArchivePaymentOption={(input) => {
         dispatch(
-          "paymentOptions.archive",
-          input,
-          archiveBillingPaymentOption,
+          () =>
+            archiveBillingPaymentOption({
+              ...input,
+              operationId: operationId("paymentOptions.archive", input),
+            }),
           () => undefined,
           "Вариант оплаты архивирован.",
         );
       }}
       onArchivePromotion={(input) => {
         dispatch(
-          "promotions.archive",
-          input,
-          archiveBillingPromotion,
+          () =>
+            archiveBillingPromotion({
+              ...input,
+              operationId: operationId("promotions.archive", input),
+            }),
           () => undefined,
           "Скидка архивирована.",
         );
       }}
       onCancelSubscription={(input) => {
         dispatch(
-          "subscriptions.cancel",
-          input,
-          cancelOwnerSubscription,
+          () =>
+            cancelOwnerSubscription({
+              ...input,
+              operationId: operationId("subscriptions.cancel", input),
+            }),
           () => undefined,
           "Продление отменено; оплаченный срок сохранён.",
         );
       }}
       onDecideRefund={(input) => {
         dispatch(
-          "refunds.decide",
-          input,
-          decideBillingRefund,
+          () =>
+            decideBillingRefund({
+              ...input,
+              operationId: operationId("refunds.decide", input),
+            }),
           (value) => {
             setNotice(
               `Решение ${value.result.value.decisionRef}, редакция ${String(value.result.value.revision)}.`,
@@ -195,9 +197,11 @@ export function BillingAdminPanel({ offers }: BillingAdminPanelProps) {
       }}
       onExecuteRefund={(input) => {
         dispatch(
-          "refunds.execute",
-          input,
-          executeBillingRefund,
+          () =>
+            executeBillingRefund({
+              ...input,
+              operationId: operationId("refunds.execute", input),
+            }),
           (value) => {
             setNotice(
               `Состояние решения: ${value.result.value.state}. Банк отвечает своим исходом.`,
@@ -208,18 +212,22 @@ export function BillingAdminPanel({ offers }: BillingAdminPanelProps) {
       }}
       onExtendGrant={(input) => {
         dispatch(
-          "grants.extend",
-          input,
-          extendAccessGrant,
+          () =>
+            extendAccessGrant({
+              ...input,
+              operationId: operationId("grants.extend", input),
+            }),
           () => undefined,
           "Основание продлено.",
         );
       }}
       onListPayments={(input) => {
         dispatch(
-          "payments.list",
-          input,
-          listBillingPayments,
+          () =>
+            listBillingPayments({
+              ...input,
+              operationId: operationId("payments.list", input),
+            }),
           (value) => {
             setPayments(value.result.items);
             setPaymentsCursor(value.result.nextCursor);
@@ -229,9 +237,11 @@ export function BillingAdminPanel({ offers }: BillingAdminPanelProps) {
       }}
       onPreviewBatch={(input) => {
         dispatch(
-          "grants.previewBatch",
-          input,
-          previewAccessGrantBatch,
+          () =>
+            previewAccessGrantBatch({
+              ...input,
+              operationId: operationId("grants.previewBatch", input),
+            }),
           (value) => {
             setPreview(value.result);
             setBatch(null);
@@ -241,9 +251,11 @@ export function BillingAdminPanel({ offers }: BillingAdminPanelProps) {
       }}
       onReadGrants={(input) => {
         dispatch(
-          "grants.read",
-          input,
-          readAccessGrants,
+          () =>
+            readAccessGrants({
+              ...input,
+              operationId: operationId("grants.read", input),
+            }),
           (value) => {
             setGrants(value.result.value);
           },
@@ -252,9 +264,11 @@ export function BillingAdminPanel({ offers }: BillingAdminPanelProps) {
       }}
       onReadPayment={(input) => {
         dispatch(
-          "payments.read",
-          input,
-          readBillingPayment,
+          () =>
+            readBillingPayment({
+              ...input,
+              operationId: operationId("payments.read", input),
+            }),
           (value) => {
             setPayment(value.result);
           },
@@ -263,9 +277,11 @@ export function BillingAdminPanel({ offers }: BillingAdminPanelProps) {
       }}
       onReadRefunds={(input) => {
         dispatch(
-          "refunds.read",
-          input,
-          readBillingRefunds,
+          () =>
+            readBillingRefunds({
+              ...input,
+              operationId: operationId("refunds.read", input),
+            }),
           (value) => {
             setRefunds(value.result);
           },
@@ -274,9 +290,11 @@ export function BillingAdminPanel({ offers }: BillingAdminPanelProps) {
       }}
       onReconcilePayment={(input) => {
         dispatch(
-          "payments.reconcile",
-          input,
-          reconcileBillingPayment,
+          () =>
+            reconcileBillingPayment({
+              ...input,
+              operationId: operationId("payments.reconcile", input),
+            }),
           (value) => {
             setPayment((current) =>
               current === null
@@ -289,18 +307,22 @@ export function BillingAdminPanel({ offers }: BillingAdminPanelProps) {
       }}
       onRevokeGrant={(input) => {
         dispatch(
-          "grants.revoke",
-          input,
-          revokeAccessGrant,
+          () =>
+            revokeAccessGrant({
+              ...input,
+              operationId: operationId("grants.revoke", input),
+            }),
           () => undefined,
           "Основание отозвано.",
         );
       }}
       onSaveOffer={(input) => {
         dispatch(
-          "offers.save",
-          input,
-          saveBillingOffer,
+          () =>
+            saveBillingOffer({
+              ...input,
+              operationId: operationId("offers.save", input),
+            }),
           (value) => {
             setNotice(
               `Предложение сохранено, редакция ${String(value.result.value.revision)}.`,
@@ -311,9 +333,11 @@ export function BillingAdminPanel({ offers }: BillingAdminPanelProps) {
       }}
       onSavePaymentOption={(input) => {
         dispatch(
-          "paymentOptions.save",
-          input,
-          saveBillingPaymentOption,
+          () =>
+            saveBillingPaymentOption({
+              ...input,
+              operationId: operationId("paymentOptions.save", input),
+            }),
           (value) => {
             setNotice(
               `Вариант сохранён, редакция ${String(value.result.value.revision)}.`,
@@ -324,9 +348,11 @@ export function BillingAdminPanel({ offers }: BillingAdminPanelProps) {
       }}
       onSavePromotion={(input) => {
         dispatch(
-          "promotions.save",
-          input,
-          saveBillingPromotion,
+          () =>
+            saveBillingPromotion({
+              ...input,
+              operationId: operationId("promotions.save", input),
+            }),
           (value) => {
             setNotice(
               `Скидка сохранена, редакция ${String(value.result.value.revision)}.`,

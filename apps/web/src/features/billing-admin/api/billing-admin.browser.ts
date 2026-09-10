@@ -1,4 +1,5 @@
 import {
+  billingCommandPayload,
   billingCommandResult,
   type BillingCommandResult,
 } from "@/entities/subscription";
@@ -42,12 +43,6 @@ import {
   type SavePromotionInput,
 } from "../model/admin-operations";
 
-function payload(input: unknown): FormData {
-  const form = new FormData();
-  form.set("input", JSON.stringify(input));
-  return form;
-}
-
 export async function saveBillingOffer(
   input: SaveOfferInput,
 ): Promise<BillingCommandResult<CatalogOutcome>> {
@@ -55,7 +50,7 @@ export async function saveBillingOffer(
     await requestSameOriginMutation(
       "/api/authoring/billing/offers/save",
       "POST",
-      payload(input),
+      billingCommandPayload(input),
     ),
     catalogOutcomeSchema,
   );
@@ -68,7 +63,7 @@ export async function archiveBillingOffer(
     await requestSameOriginMutation(
       "/api/authoring/billing/offers/archive",
       "POST",
-      payload(input),
+      billingCommandPayload(input),
     ),
     catalogOutcomeSchema,
   );
@@ -81,7 +76,7 @@ export async function saveBillingPaymentOption(
     await requestSameOriginMutation(
       "/api/authoring/billing/payment-options/save",
       "POST",
-      payload(input),
+      billingCommandPayload(input),
     ),
     catalogOutcomeSchema,
   );
@@ -94,7 +89,7 @@ export async function archiveBillingPaymentOption(
     await requestSameOriginMutation(
       "/api/authoring/billing/payment-options/archive",
       "POST",
-      payload(input),
+      billingCommandPayload(input),
     ),
     catalogOutcomeSchema,
   );
@@ -107,7 +102,7 @@ export async function saveBillingPromotion(
     await requestSameOriginMutation(
       "/api/authoring/billing/promotions/save",
       "POST",
-      payload(input),
+      billingCommandPayload(input),
     ),
     catalogOutcomeSchema,
   );
@@ -120,7 +115,7 @@ export async function archiveBillingPromotion(
     await requestSameOriginMutation(
       "/api/authoring/billing/promotions/archive",
       "POST",
-      payload(input),
+      billingCommandPayload(input),
     ),
     catalogOutcomeSchema,
   );
@@ -133,7 +128,7 @@ export async function listBillingPayments(
     await requestSameOriginMutation(
       "/api/authoring/billing/payments/list",
       "POST",
-      payload(input),
+      billingCommandPayload(input),
     ),
     paymentsOutcomeSchema,
   );
@@ -146,7 +141,7 @@ export async function readBillingPayment(
     await requestSameOriginMutation(
       "/api/authoring/billing/payments/read",
       "POST",
-      payload(input),
+      billingCommandPayload(input),
     ),
     paymentOutcomeSchema,
   );
@@ -159,7 +154,7 @@ export async function reconcileBillingPayment(
     await requestSameOriginMutation(
       "/api/authoring/billing/payments/reconcile",
       "POST",
-      payload(input),
+      billingCommandPayload(input),
     ),
     reconciledOutcomeSchema,
   );
@@ -172,7 +167,7 @@ export async function cancelOwnerSubscription(
     await requestSameOriginMutation(
       "/api/authoring/billing/subscriptions/cancel",
       "POST",
-      payload(input),
+      billingCommandPayload(input),
     ),
     subscriptionOutcomeSchema,
   );
@@ -185,7 +180,7 @@ export async function decideBillingRefund(
     await requestSameOriginMutation(
       "/api/authoring/billing/refunds/decide",
       "POST",
-      payload(input),
+      billingCommandPayload(input),
     ),
     refundDecisionOutcomeSchema,
   );
@@ -198,7 +193,7 @@ export async function executeBillingRefund(
     await requestSameOriginMutation(
       "/api/authoring/billing/refunds/execute",
       "POST",
-      payload(input),
+      billingCommandPayload(input),
     ),
     refundDecisionOutcomeSchema,
   );
@@ -211,7 +206,7 @@ export async function readBillingRefunds(
     await requestSameOriginMutation(
       "/api/authoring/billing/refunds/read",
       "POST",
-      payload(input),
+      billingCommandPayload(input),
     ),
     refundsOutcomeSchema,
   );
@@ -224,7 +219,7 @@ export async function readAccessGrants(
     await requestSameOriginMutation(
       "/api/authoring/billing/grants/read",
       "POST",
-      payload(input),
+      billingCommandPayload(input),
     ),
     grantsOutcomeSchema,
   );
@@ -237,7 +232,7 @@ export async function previewAccessGrantBatch(
     await requestSameOriginMutation(
       "/api/authoring/billing/grants/preview-batch",
       "POST",
-      payload(input),
+      billingCommandPayload(input),
     ),
     grantPreviewOutcomeSchema,
   );
@@ -250,7 +245,7 @@ export async function applyAccessGrantBatch(
     await requestSameOriginMutation(
       "/api/authoring/billing/grants/apply-batch",
       "POST",
-      payload(input),
+      billingCommandPayload(input),
     ),
     grantBatchOutcomeSchema,
   );
@@ -263,7 +258,7 @@ export async function extendAccessGrant(
     await requestSameOriginMutation(
       "/api/authoring/billing/grants/extend",
       "POST",
-      payload(input),
+      billingCommandPayload(input),
     ),
     grantOutcomeSchema,
   );
@@ -276,7 +271,7 @@ export async function revokeAccessGrant(
     await requestSameOriginMutation(
       "/api/authoring/billing/grants/revoke",
       "POST",
-      payload(input),
+      billingCommandPayload(input),
     ),
     grantOutcomeSchema,
   );

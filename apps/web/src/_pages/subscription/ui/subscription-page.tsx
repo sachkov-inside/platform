@@ -1,4 +1,4 @@
-import { loadBillingOffers } from "@/features/billing-checkout.server";
+import { loadBillingOffers } from "@/entities/subscription.server";
 import type { SubscriptionRouteTarget } from "@/shared/routing/subscription-route";
 import { SubscriptionStorefront } from "./subscription-storefront.client";
 

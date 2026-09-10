@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   attemptStateLabel,
+  publicSubscriptionOffers,
   benefitLines,
   billingErrorMessage,
   capabilityLabel,
@@ -46,8 +47,9 @@ describe("состав доступа", () => {
       "Все опубликованные материалы и руководства",
     );
     expect(capabilityLabel("support")).toBe("Вопросы автору и эфиры");
-    expect(capabilityLabel("guide:abc")).toBe("Отдельное руководство");
-    expect(capabilityLabel("unknown-capability")).toBe("unknown-capability");
+    expect(
+      capabilityLabel("guide:00000000-0000-4000-8000-000000000f01"),
+    ).toBe("Отдельное руководство");
   });
 
   it("наследует срок периода, а явный null делает право бессрочным", () => {
@@ -68,6 +70,30 @@ describe("состав доступа", () => {
   it("показывает скидку только когда она есть в снимке", () => {
     expect(promotionLabel(materialsOffer)).toBeUndefined();
     expect(promotionLabel(supportOffer)).toBe("Старт · −20%");
+  });
+});
+
+describe("что можно продать публично", () => {
+  it("оставляет только подписку на каталог", () => {
+    expect(
+      publicSubscriptionOffers([
+        materialsOffer,
+        supportOffer,
+        guideOnlyOffer,
+      ]).map((snapshot) => snapshot.offer.name),
+    ).toEqual([materialsOffer.offer.name, supportOffer.offer.name]);
+  });
+
+  it("не выводит снятые с продажи позиции", () => {
+    expect(
+      publicSubscriptionOffers([
+        { ...materialsOffer, offer: { ...materialsOffer.offer, archived: true } },
+        {
+          ...supportOffer,
+          paymentOption: { ...supportOffer.paymentOption, archived: true },
+        },
+      ]),
+    ).toEqual([]);
   });
 });
 

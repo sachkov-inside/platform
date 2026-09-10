@@ -1,4 +1,4 @@
-import { loadBillingOffers } from "@/features/billing-checkout.server";
+import { loadBillingOffers } from "@/entities/subscription.server";
 import { BillingAdminPanel } from "@/features/billing-admin";
 
 export async function BillingAdminPage() {
