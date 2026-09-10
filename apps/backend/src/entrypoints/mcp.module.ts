@@ -1,3 +1,4 @@
+import { BillingModule } from "../modules/billing/index.js";
 import { CommunicationsModule } from "../modules/communications/index.js";
 import { type DynamicModule, Module } from "@nestjs/common";
 
@@ -21,6 +22,7 @@ export class McpModule {
         AccountsModule,
         CommunicationsModule,
         MaterialsModule,
+        BillingModule,
       ],
     };
   }

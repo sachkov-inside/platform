@@ -14,7 +14,8 @@ export async function manageCatalog(dependencies: { prisma: BillingPrismaClient;
   const identity = idSchema.safeParse(actor);
   if (!parsed.success || !identity.success) return failure("invalid_request");
   try {
-    const permission = await dependencies.accounts.checkPermission({ accountId: identity.data, permission: "platform:admin" });
+    // Каталог — часть billing:manage; platform:admin владельца включает это право.
+    const permission = await dependencies.accounts.checkPermission({ accountId: identity.data, permission: "billing:manage" });
     if (!permission.ok) return failure("dependency_unavailable");
     if (!permission.allowed) return failure("forbidden");
     return await dependencies.prisma.$transaction(async (tx): Promise<ManageCatalogResult> => {

@@ -1,4 +1,5 @@
 import { VIDEOS, type Videos } from "../../src/modules/videos/index.js";
+import { BillingOperations } from "../../src/modules/billing/index.js";
 import { Communications } from "../../src/modules/communications/index.js";
 import { createServer, type Server } from "node:http";
 
@@ -99,6 +100,7 @@ describe("delegated Material authoring over MCP", () => {
       authoring: application.get<MaterialAuthoring>(MATERIAL_AUTHORING),
       videos: application.get<Videos>(VIDEOS),
       communications: application.get(Communications),
+      billing: application.get(BillingOperations),
       config: {
         host: "127.0.0.1",
         port: 0,

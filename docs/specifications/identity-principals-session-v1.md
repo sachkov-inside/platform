@@ -101,6 +101,13 @@ the product workflow.
 from `materials:manage`; a confirmed author link is also required. The server-side actor mapping,
 author callback and HTTP/MCP parity are defined in the
 [communications integration contract](../integrations/communications-v1.md).
+`billing:manage` independently permits the owner billing operations: offers and payment options,
+payments and their reconciliation, renewal cancellation, refund decisions and their execution, and
+manual access grants. It never follows from `materials:manage` or `communications:manage`. Migration
+0052 adds it to the permission constraint without promoting existing authors. Legacy subscription
+classification stays with `platform:admin`. The operations and their audit are defined in the
+[billing specification](subscription-billing-v1.md#текущая-поставка-409).
+
 `platform:admin` is an explicit current Account grant covering every known Platform permission.
 Only the trusted owner bootstrap can grant it (`OWNER_PERMISSION=platform:admin`); migration 0037
 changes the constraint without promoting existing authors. The existing bootstrap default remains
@@ -139,8 +146,8 @@ consumer exists.
 
 After migrations and before traffic, an explicit release job receives `OWNER_LOGTO_ISSUER` and
 `OWNER_LOGTO_SUBJECT`. It idempotently ensures the Account and one selected permission:
-`OWNER_PERMISSION` defaults to `materials:manage`; `communications:manage` requires that explicit
-selection. It appends redacted audit facts including the granted permission. It is not a schema migration, application startup side effect or public HTTP
+`OWNER_PERMISSION` defaults to `materials:manage`; `communications:manage` and `billing:manage`
+require that explicit selection. It appends redacted audit facts including the granted permission. It is not a schema migration, application startup side effect or public HTTP
 route. The Logto owner must exist before the release is promoted.
 
 ## Audit and privacy

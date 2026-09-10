@@ -1,3 +1,4 @@
+import { registerBillingTools, type BillingOwnerTools } from "../../modules/billing/index.js";
 import { registerVideoTools, type VideoAuthoringTools } from "../../modules/videos/index.js";
 import { registerCommunicationsTools, type Communications } from "../../modules/communications/index.js";
 import { createServer, type Server as NodeHttpServer } from "node:http";
@@ -38,6 +39,7 @@ export function createMcpHttpServer(dependencies: {
   readonly authoring: MaterialAuthoring;
   readonly videos: VideoAuthoringTools;
   readonly communications: Pick<Communications, "execute">;
+  readonly billing: BillingOwnerTools;
   readonly config: McpConfig;
   readonly identityIssuer: string;
   readonly readiness: Pick<OperationalReadiness, "check" | "live">;
@@ -57,6 +59,7 @@ export function createMcpHttpServer(dependencies: {
       const server = assembleMaterialAuthoringMcpServer({ accountId, authoring: dependencies.authoring });
       registerVideoTools(server, { accountId, videos: dependencies.videos });
       registerCommunicationsTools(server, { accountId, communications: dependencies.communications });
+      registerBillingTools(server, { accountId, billing: dependencies.billing });
       return server;
     },
     { responseMode: "json" },

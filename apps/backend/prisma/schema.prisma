@@ -1512,3 +1512,56 @@ model BillingPaymentMethodFlow {
   @@map("payment_method_flows")
   @@schema("billing")
 }
+model BillingOwnerCommand {
+  sequence BigInt @default(autoincrement())
+  actorId String @map("actor_id") @db.Uuid
+  operationId String @map("operation_id") @db.Uuid
+  operation String
+  fingerprint String
+  targetRef String @map("target_ref")
+  reason String @db.VarChar(1000)
+  result Json
+  createdAt DateTime @map("created_at") @db.Timestamptz
+  @@id([actorId, operationId])
+  @@index([targetRef, sequence], map: "billing_owner_commands_target")
+  @@map("owner_commands")
+  @@schema("billing")
+}
+model BillingRefundDecision {
+  id String @id @db.Uuid
+  purchaseRef String @map("purchase_ref") @db.Uuid
+  accountId String @map("account_id") @db.Uuid
+  actorId String @map("actor_id") @db.Uuid
+  operationId String @map("operation_id") @db.Uuid
+  amountKopecks BigInt @map("amount_kopecks")
+  access String
+  recurring String
+  reason String @db.VarChar(1000)
+  state String
+  revision Int
+  createdAt DateTime @map("created_at") @db.Timestamptz
+  updatedAt DateTime @map("updated_at") @db.Timestamptz
+  refund BillingRefund?
+  @@unique([actorId, operationId], map: "billing_one_decision_per_command")
+  @@index([purchaseRef, createdAt], map: "billing_refund_decisions_purchase")
+  @@map("refund_decisions")
+  @@schema("billing")
+}
+model BillingRefund {
+  id String @id @db.Uuid
+  decisionRef String @unique @map("decision_ref") @db.Uuid
+  decision BillingRefundDecision @relation(fields: [decisionRef], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  purchaseRef String @map("purchase_ref") @db.Uuid
+  environment String
+  terminalRef String @map("terminal_ref")
+  paymentId String @map("payment_id")
+  amountKopecks BigInt @map("amount_kopecks")
+  state String
+  observedStatus String? @map("observed_status")
+  errorCode String? @map("error_code")
+  createdAt DateTime @map("created_at") @db.Timestamptz
+  updatedAt DateTime @map("updated_at") @db.Timestamptz
+  @@index([purchaseRef, createdAt], map: "billing_refunds_purchase")
+  @@map("refunds")
+  @@schema("billing")
+}
