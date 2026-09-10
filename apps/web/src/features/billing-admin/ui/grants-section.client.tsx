@@ -1,7 +1,11 @@
 "use client";
 import { useState } from "react";
 
-import { formatBillingDate, formatBillingDateTime } from "@/entities/subscription";
+import {
+  billingActionClass,
+  formatBillingDate,
+  formatBillingDateTime,
+} from "@/entities/subscription";
 import { Button } from "@/shared/ui/button";
 
 import type {
@@ -21,8 +25,10 @@ import {
   AdminTextArea,
   capabilityHint,
   formText,
+  onAdminSubmit,
   optionalFormText,
   parseCapabilities,
+  reasonMaxLength,
 } from "./admin-form.client";
 
 export interface GrantsSectionProps {
@@ -57,16 +63,14 @@ export function GrantsSection({
       >
         <form
           className="grid gap-4"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const form = new FormData(event.currentTarget);
+          onSubmit={onAdminSubmit((form) => {
             onReadGrants({ accountId: formText(form.get("grantsAccount")) });
-          }}
+          })}
         >
           <AdminField label="Account" name="grantsAccount" required />
           <p>
             <Button
-              className="h-auto min-h-11 max-w-full whitespace-normal"
+              className={billingActionClass}
               disabled={pending}
               type="submit"
             >
@@ -91,9 +95,7 @@ export function GrantsSection({
 
         <form
           className="grid gap-4 border-t border-border pt-5"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const form = new FormData(event.currentTarget);
+          onSubmit={onAdminSubmit((form) => {
             const validUntil = optionalFormText(form.get("extendUntil"));
             onExtendGrant({
               grantRef: formText(form.get("extendGrant")),
@@ -101,7 +103,7 @@ export function GrantsSection({
               reason: formText(form.get("extendReason")),
               validUntil: validUntil ?? null,
             });
-          }}
+          })}
         >
           <AdminField label="Продлить основание" name="extendGrant" required />
           <AdminField
@@ -117,13 +119,13 @@ export function GrantsSection({
           />
           <AdminTextArea
             label="Основание"
-            maxLength={1000}
+            maxLength={reasonMaxLength}
             name="extendReason"
             required
           />
           <p>
             <Button
-              className="h-auto min-h-11 max-w-full whitespace-normal"
+              className={billingActionClass}
               disabled={pending}
               type="submit"
             >
@@ -134,15 +136,13 @@ export function GrantsSection({
 
         <form
           className="grid gap-4 border-t border-border pt-5"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const form = new FormData(event.currentTarget);
+          onSubmit={onAdminSubmit((form) => {
             onRevokeGrant({
               grantRef: formText(form.get("revokeGrant")),
               expectedRevision: Number(formText(form.get("revokeRevision"))),
               reason: formText(form.get("revokeReason")),
             });
-          }}
+          })}
         >
           <AdminField label="Отозвать основание" name="revokeGrant" required />
           <AdminField
@@ -153,13 +153,13 @@ export function GrantsSection({
           />
           <AdminTextArea
             label="Основание"
-            maxLength={1000}
+            maxLength={reasonMaxLength}
             name="revokeReason"
             required
           />
           <p>
             <Button
-              className="h-auto min-h-11 max-w-full whitespace-normal"
+              className={billingActionClass}
               disabled={pending}
               type="submit"
               variant="outline"
@@ -176,9 +176,7 @@ export function GrantsSection({
       >
         <form
           className="grid gap-4"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const form = new FormData(event.currentTarget);
+          onSubmit={onAdminSubmit((form) => {
             const parsed = parseGrantRows(formText(form.get("batchRows")));
             if (parsed.invalid.length > 0 || parsed.rows.length === 0) {
               setRowsError(
@@ -190,7 +188,7 @@ export function GrantsSection({
             }
             setRowsError(undefined);
             onPreviewBatch({ rows: parsed.rows });
-          }}
+          })}
         >
           <AdminTextArea
             hint={`Строка: rowKey | accountId | manual|legacy | sourceRef | права через запятую | startsAt | validUntil или null | основание. ${capabilityHint}`}
@@ -206,7 +204,7 @@ export function GrantsSection({
           )}
           <p>
             <Button
-              className="h-auto min-h-11 max-w-full whitespace-normal"
+              className={billingActionClass}
               disabled={pending}
               type="submit"
             >
@@ -230,7 +228,7 @@ export function GrantsSection({
               ))}
             </ul>
             <Button
-              className="mt-3 h-auto min-h-11 max-w-full whitespace-normal"
+              className={`mt-3 ${billingActionClass}`}
               disabled={
                 pending ||
                 preview.rows.every((row) => row.status !== "confirmed")

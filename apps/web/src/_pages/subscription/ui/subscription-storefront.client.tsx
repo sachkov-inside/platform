@@ -1,9 +1,11 @@
 "use client";
+import type { Route } from "next";
 import Link from "next/link";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import {
+  billingActionClass,
   OfferCard,
   billingErrorMessage,
   formatKopecks,
@@ -24,9 +26,9 @@ export interface SubscriptionStorefrontProps {
   readonly unavailable?: boolean;
   /** Куда вернуть покупателя после входа: контекст страницы руководства сохраняется. */
   readonly returnTo: string;
-  readonly originHref?: string;
-  readonly cabinetHref?: string;
-  readonly contactHref?: string;
+  readonly originHref?: Route;
+  readonly cabinetHref?: Route;
+  readonly contactHref?: Route;
 }
 
 export function SubscriptionStorefront({
@@ -66,7 +68,7 @@ export function SubscriptionStorefront({
           <p className="text-sm">
             <Link
               className="text-action underline underline-offset-4"
-              href={{ pathname: originHref }}
+              href={originHref}
             >
               Вернуться к материалу
             </Link>
@@ -89,7 +91,7 @@ export function SubscriptionStorefront({
               У вас уже есть подписка «{subscription.snapshot.offer.name}».{" "}
               <Link
                 className="font-semibold text-action underline underline-offset-4"
-                href={{ pathname: cabinetHref }}
+                href={cabinetHref}
               >
                 Управлять ею в платёжном кабинете
               </Link>
@@ -142,7 +144,7 @@ export function SubscriptionStorefront({
               </p>
               <form action="/auth/sign-in" className="mt-4" method="post">
                 <input name="returnTo" type="hidden" value={returnTo} />
-                <Button className="h-auto min-h-11 max-w-full whitespace-normal" type="submit">
+                <Button className={billingActionClass} type="submit">
                   Войти
                 </Button>
               </form>

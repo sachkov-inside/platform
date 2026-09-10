@@ -200,8 +200,9 @@ export type BillingFailureCode = z.infer<typeof billingFailureCodeSchema>;
 export type BillingFailure = z.infer<typeof billingFailureSchema>;
 
 /**
- * Публично продаётся только подписка на опубликованный каталог. Отдельное право на руководство
- * выдаётся контролируемо и на витрину не выводится, как и снятые с продажи позиции.
+ * Отдельное право на руководство выдаётся контролируемо, поэтому публичной продажи у него нет.
+ * Снятые с продажи позиции тоже не выводятся. Остальной состав каталога страница не выбирает:
+ * две карточки не зашиты как единственная модель.
  */
 export function publicSubscriptionOffers(
   offers: readonly PriceSnapshot[],
@@ -210,7 +211,9 @@ export function publicSubscriptionOffers(
     (snapshot) =>
       !snapshot.offer.archived &&
       !snapshot.paymentOption.archived &&
-      snapshot.offer.benefits.includes("materials"),
+      !snapshot.offer.benefits.every((capability) =>
+        capability.startsWith("guide:"),
+      ),
   );
 }
 export type VerifiedContact = z.infer<typeof verifiedContactSchema>;

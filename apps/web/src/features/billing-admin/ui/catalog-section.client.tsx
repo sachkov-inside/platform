@@ -2,6 +2,7 @@
 import { useState } from "react";
 
 import {
+  billingActionClass,
   formatKopecks,
   formatMonths,
   type PriceSnapshot,
@@ -20,6 +21,7 @@ import {
   AdminTextArea,
   capabilityHint,
   formText,
+  onAdminSubmit,
   optionalFormNumber,
   optionalFormText,
   parseCapabilities,
@@ -88,9 +90,7 @@ export function CatalogSection({
       >
         <form
           className="grid gap-4"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const form = new FormData(event.currentTarget);
+          onSubmit={onAdminSubmit((form) => {
             const parsed = parseCapabilities(formText(form.get("offerBenefits")));
             if (parsed.invalid.length > 0) {
               setBenefitError(
@@ -111,7 +111,7 @@ export function CatalogSection({
                   : { benefitPeriods: [...parsed.periods] }),
               },
             });
-          }}
+          })}
         >
           <AdminField
             hint="UUID существующего предложения или новый."
@@ -144,7 +144,7 @@ export function CatalogSection({
           )}
           <p>
             <Button
-              className="h-auto min-h-11 max-w-full whitespace-normal"
+              className={billingActionClass}
               disabled={pending}
               type="submit"
             >
@@ -166,9 +166,7 @@ export function CatalogSection({
       >
         <form
           className="grid gap-4"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const form = new FormData(event.currentTarget);
+          onSubmit={onAdminSubmit((form) => {
             const revision = optionalFormNumber(form.get("optionRevision"));
             onSavePaymentOption({
               ...(revision === undefined ? {} : { expectedRevision: revision }),
@@ -180,7 +178,7 @@ export function CatalogSection({
                 mode: "subscription",
               },
             });
-          }}
+          })}
         >
           <AdminField label="Идентификатор варианта" name="optionId" required />
           <AdminField
@@ -209,7 +207,7 @@ export function CatalogSection({
           />
           <p>
             <Button
-              className="h-auto min-h-11 max-w-full whitespace-normal"
+              className={billingActionClass}
               disabled={pending}
               type="submit"
             >
@@ -231,9 +229,7 @@ export function CatalogSection({
       >
         <form
           className="grid gap-4"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const form = new FormData(event.currentTarget);
+          onSubmit={onAdminSubmit((form) => {
             const revision = optionalFormNumber(form.get("promotionRevision"));
             const usageLimit = optionalFormNumber(form.get("promotionLimit"));
             onSavePromotion({
@@ -252,7 +248,7 @@ export function CatalogSection({
                 usageLimit: usageLimit ?? null,
               },
             });
-          }}
+          })}
         >
           <AdminField label="Идентификатор скидки" name="promotionId" required />
           <AdminField
@@ -308,7 +304,7 @@ export function CatalogSection({
           />
           <p>
             <Button
-              className="h-auto min-h-11 max-w-full whitespace-normal"
+              className={billingActionClass}
               disabled={pending}
               type="submit"
             >
@@ -342,14 +338,12 @@ function ArchiveForm({
   return (
     <form
       className="grid gap-4 border-t border-border pt-5"
-      onSubmit={(event) => {
-        event.preventDefault();
-        const form = new FormData(event.currentTarget);
+      onSubmit={onAdminSubmit((form) => {
         onArchive({
           id: formText(form.get(`${fieldName}Id`)),
           expectedRevision: Number(formText(form.get(`${fieldName}Revision`))),
         });
-      }}
+      })}
     >
       <AdminField label={label} name={`${fieldName}Id`} required />
       <AdminField
@@ -360,7 +354,7 @@ function ArchiveForm({
       />
       <p>
         <Button
-          className="h-auto min-h-11 max-w-full whitespace-normal"
+          className={billingActionClass}
           disabled={pending}
           type="submit"
           variant="outline"

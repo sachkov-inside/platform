@@ -1,9 +1,11 @@
 "use client";
+import type { Route } from "next";
 import Link from "next/link";
 import { useSyncExternalStore } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import {
+  billingActionClass,
   attemptStateLabel,
   billingErrorMessage,
   formatBillingDate,
@@ -18,13 +20,15 @@ import { recallPurchase } from "../model/checkout";
 
 /** Банк ответил окончательно: дальше состояние меняет только сверка, а не опрос страницы. */
 const settledStates: ReadonlySet<AttemptState> = new Set(["confirmed", "failed"]);
+/** Пока банк не ответил окончательно, страница переспрашивает сервер раз в три секунды. */
+const purchaseStatusPollMs = 3_000;
 
 export interface PurchaseReturnViewProps {
   readonly purchase: PurchaseStatus | null;
   readonly loading?: boolean;
   readonly error?: string | undefined;
   readonly unknownReference?: boolean;
-  readonly accountHref: string;
+  readonly accountHref: Route;
   readonly onRefresh: () => void;
 }
 
@@ -58,8 +62,8 @@ export function PurchaseReturnView({
             оплаченный срок.
           </p>
           <Link
-            className="mt-3 inline-flex h-auto min-h-11 max-w-full whitespace-normal items-center font-semibold text-action underline underline-offset-4"
-            href={{ pathname: accountHref }}
+            className={`mt-3 inline-flex items-center font-semibold text-action underline underline-offset-4 ${billingActionClass}`}
+            href={accountHref}
           >
             Платёжный кабинет
           </Link>
@@ -117,7 +121,7 @@ export function PurchaseReturnView({
           </dl>
           <div className="mt-5 flex flex-wrap gap-2">
             <Button
-              className="h-auto min-h-11 max-w-full whitespace-normal"
+              className={billingActionClass}
               disabled={loading}
               onClick={onRefresh}
               type="button"
@@ -125,8 +129,8 @@ export function PurchaseReturnView({
             >
               Обновить состояние
             </Button>
-            <Button asChild className="h-auto min-h-11 max-w-full whitespace-normal" variant="ghost">
-              <Link href={{ pathname: accountHref }}>Платёжный кабинет</Link>
+            <Button asChild className={billingActionClass} variant="ghost">
+              <Link href={accountHref}>Платёжный кабинет</Link>
             </Button>
           </div>
         </div>
@@ -142,7 +146,7 @@ export function PurchaseReturnView({
 }
 
 export interface PurchaseReturnPanelProps {
-  readonly accountHref: string;
+  readonly accountHref: Route;
 }
 
 export function PurchaseReturnPanel({ accountHref }: PurchaseReturnPanelProps) {
@@ -163,7 +167,7 @@ export function PurchaseReturnPanel({ accountHref }: PurchaseReturnPanelProps) {
     refetchInterval: (query) => {
       const result = query.state.data;
       return result?.ok === true && !settledStates.has(result.value.state)
-        ? 3_000
+        ? purchaseStatusPollMs
         : false;
     },
   });

@@ -2,6 +2,7 @@
 import type { ReactNode } from "react";
 
 import {
+  billingActionClass,
   formatBillingDateTime,
   formatKopecks,
 } from "@/entities/subscription";
@@ -24,7 +25,9 @@ import {
   AdminSelect,
   AdminTextArea,
   formText,
+  onAdminSubmit,
   optionalFormText,
+  reasonMaxLength,
 } from "./admin-form.client";
 
 export interface PaymentsSectionProps {
@@ -68,9 +71,7 @@ export function PaymentsSection({
       >
         <form
           className="grid gap-4"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const form = new FormData(event.currentTarget);
+          onSubmit={onAdminSubmit((form) => {
             const accountId = optionalFormText(form.get("paymentsAccount"));
             const state = optionalFormText(form.get("paymentsState"));
             const kind = optionalFormText(form.get("paymentsKind"));
@@ -84,7 +85,7 @@ export function PaymentsSection({
                 ? {}
                 : { kind: kind as ListPaymentsInput["kind"] }),
             });
-          }}
+          })}
         >
           <AdminField
             hint="Пусто — все Account."
@@ -123,7 +124,7 @@ export function PaymentsSection({
           />
           <p>
             <Button
-              className="h-auto min-h-11 max-w-full whitespace-normal"
+              className={billingActionClass}
               disabled={pending}
               type="submit"
             >
@@ -171,16 +172,14 @@ export function PaymentsSection({
 
         <form
           className="grid gap-4 border-t border-border pt-5"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const form = new FormData(event.currentTarget);
+          onSubmit={onAdminSubmit((form) => {
             onReadPayment({ purchaseRef: formText(form.get("paymentRef")) });
-          }}
+          })}
         >
           <AdminField label="Открыть платёж" name="paymentRef" required />
           <p>
             <Button
-              className="h-auto min-h-11 max-w-full whitespace-normal"
+              className={billingActionClass}
               disabled={pending}
               type="submit"
             >
@@ -238,7 +237,7 @@ export function PaymentsSection({
             )}
             <p className="flex flex-wrap gap-2">
               <Button
-                className="h-auto min-h-11 max-w-full whitespace-normal"
+                className={billingActionClass}
                 disabled={pending}
                 onClick={() => {
                   onReconcilePayment({
@@ -251,7 +250,7 @@ export function PaymentsSection({
                 Сверить с банком
               </Button>
               <Button
-                className="h-auto min-h-11 max-w-full whitespace-normal"
+                className={billingActionClass}
                 disabled={pending}
                 onClick={() => {
                   onReadRefunds({ purchaseRef: payment.value.purchaseRef });
@@ -272,9 +271,7 @@ export function PaymentsSection({
       >
         <form
           className="grid gap-4"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const form = new FormData(event.currentTarget);
+          onSubmit={onAdminSubmit((form) => {
             onDecideRefund({
               purchaseRef: formText(form.get("refundPurchase")),
               amountKopecks: Number(formText(form.get("refundAmount"))),
@@ -284,7 +281,7 @@ export function PaymentsSection({
                 | "cancel",
               reason: formText(form.get("refundReason")),
             });
-          }}
+          })}
         >
           <AdminField label="Платёж" name="refundPurchase" required />
           <AdminField
@@ -312,13 +309,13 @@ export function PaymentsSection({
           />
           <AdminTextArea
             label="Основание"
-            maxLength={1000}
+            maxLength={reasonMaxLength}
             name="refundReason"
             required
           />
           <p>
             <Button
-              className="h-auto min-h-11 max-w-full whitespace-normal"
+              className={billingActionClass}
               disabled={pending}
               type="submit"
             >
@@ -329,14 +326,12 @@ export function PaymentsSection({
 
         <form
           className="grid gap-4 border-t border-border pt-5"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const form = new FormData(event.currentTarget);
+          onSubmit={onAdminSubmit((form) => {
             onExecuteRefund({
               decisionRef: formText(form.get("executeDecision")),
               expectedRevision: Number(formText(form.get("executeRevision"))),
             });
-          }}
+          })}
         >
           <AdminField label="Решение" name="executeDecision" required />
           <AdminField
@@ -347,7 +342,7 @@ export function PaymentsSection({
           />
           <p>
             <Button
-              className="h-auto min-h-11 max-w-full whitespace-normal"
+              className={billingActionClass}
               disabled={pending}
               type="submit"
             >
@@ -396,15 +391,13 @@ export function PaymentsSection({
       >
         <form
           className="grid gap-4"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const form = new FormData(event.currentTarget);
+          onSubmit={onAdminSubmit((form) => {
             onCancelSubscription({
               accountId: formText(form.get("cancelAccount")),
               expectedRevision: Number(formText(form.get("cancelRevision"))),
               reason: formText(form.get("cancelReason")),
             });
-          }}
+          })}
         >
           <AdminField label="Account" name="cancelAccount" required />
           <AdminField
@@ -415,13 +408,13 @@ export function PaymentsSection({
           />
           <AdminTextArea
             label="Основание"
-            maxLength={1000}
+            maxLength={reasonMaxLength}
             name="cancelReason"
             required
           />
           <p>
             <Button
-              className="h-auto min-h-11 max-w-full whitespace-normal"
+              className={billingActionClass}
               disabled={pending}
               type="submit"
               variant="outline"

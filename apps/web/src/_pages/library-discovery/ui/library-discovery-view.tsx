@@ -20,6 +20,7 @@ import {
   ContentCoverImage,
   materialPreviewHasVideo,
 } from "@/entities/material";
+import { billingActionClass } from "@/entities/subscription";
 import { PlaylistCard, formatMaterialCount } from "@/features/library-discovery";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
@@ -95,14 +96,8 @@ function SubscriptionCallout({ slug }: { readonly slug: string }) {
         Подписка открывает все опубликованные материалы и руководства. Мы вернём
         вас сюда после входа.
       </p>
-      <Button asChild className="mt-4 h-auto min-h-11 max-w-full whitespace-normal">
-        <Link
-          href={{
-            pathname: subscriptionHrefFrom(
-              materialReaderOriginHref("series", slug),
-            ),
-          }}
-        >
+      <Button asChild className={`mt-4 ${billingActionClass}`}>
+        <Link href={subscriptionHrefFrom(materialReaderOriginHref("series", slug))}>
           Посмотреть тарифы
         </Link>
       </Button>

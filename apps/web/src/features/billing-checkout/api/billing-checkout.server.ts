@@ -4,15 +4,9 @@ import {
   billingFailureResponse,
   executeBillingCommand,
   readAuthenticatedBilling,
-  readBillingResource,
 } from "@/entities/subscription.server";
+import { purchaseStatusSchema, quoteSchema } from "@/entities/subscription";
 import {
-  offersPageSchema,
-  purchaseStatusSchema,
-  quoteSchema,
-} from "@/entities/subscription";
-import {
-  requestBillingOffers,
   requestBillingPurchase,
   requestBillingPurchaseStatus,
   requestBillingQuote,
@@ -24,14 +18,6 @@ import {
   purchaseRefSchema,
   quoteInputSchema,
 } from "../model/checkout";
-
-/** Витрина публична: цены приходят с сервера и не зависят от сессии покупателя. */
-export function handleBillingOffers(): Promise<Response> {
-  return readBillingResource(
-    () => requestBillingOffers({ limit: 50 }),
-    offersPageSchema,
-  );
-}
 
 export function handleBillingQuote(request: Request): Promise<Response> {
   return handleAuthenticatedMutation(request, (form, accessToken) =>

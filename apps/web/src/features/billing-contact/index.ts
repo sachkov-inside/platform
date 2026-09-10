@@ -13,4 +13,5 @@ export {
   readContactSchema,
   type BillingContact,
   type BillingContactState,
+  type ContactFailureCode,
 } from "./model/billing-contact";

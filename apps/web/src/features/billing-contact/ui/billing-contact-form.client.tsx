@@ -4,6 +4,7 @@ import { useId, useState } from "react";
 import { Button } from "@/shared/ui/button";
 
 import {
+  billingActionClass,
   legalDocumentLabel,
   type LegalDocument,
 } from "@/entities/subscription";
@@ -86,7 +87,7 @@ export function BillingContactForm({
           <p className="font-semibold">Сессия завершилась.</p>
           <form action="/auth/sign-in" className="mt-3" method="post">
             <input name="returnTo" type="hidden" value="/account/email" />
-            <Button className="h-auto min-h-11 max-w-full whitespace-normal" type="submit">
+            <Button className={billingActionClass} type="submit">
               Войти снова
             </Button>
           </form>
@@ -99,7 +100,7 @@ export function BillingContactForm({
         <div className="mt-5 space-y-3 text-sm" role="alert">
           <p>{error ?? "Данные контакта сейчас недоступны."}</p>
           <Button
-            className="h-auto min-h-11 max-w-full whitespace-normal"
+            className={billingActionClass}
             disabled={pending}
             onClick={onRefresh}
             type="button"
@@ -126,7 +127,7 @@ export function BillingContactForm({
 
           {contact !== null && !editorOpen ? (
             <Button
-              className="mt-4 h-auto min-h-11 max-w-full whitespace-normal"
+              className={`mt-4 ${billingActionClass}`}
               disabled={pending}
               onClick={onEdit}
               type="button"
@@ -164,7 +165,7 @@ export function BillingContactForm({
                 value={email}
               />
               <div className="mt-4 flex flex-wrap gap-2">
-                <Button className="h-auto min-h-11 max-w-full whitespace-normal" disabled={pending} type="submit">
+                <Button className={billingActionClass} disabled={pending} type="submit">
                   {pending === true
                     ? "Подождите…"
                     : challenge === null
@@ -173,7 +174,7 @@ export function BillingContactForm({
                 </Button>
                 {contact !== null && onCancelEdit !== undefined ? (
                   <Button
-                    className="h-auto min-h-11 max-w-full whitespace-normal"
+                    className={billingActionClass}
                     disabled={pending}
                     onClick={onCancelEdit}
                     type="button"
@@ -224,7 +225,7 @@ export function BillingContactForm({
                 Шесть цифр из последнего письма. Код действует 10 минут, новый
                 можно запросить через минуту.
               </p>
-              <Button className="mt-4 h-auto min-h-11 max-w-full whitespace-normal" disabled={pending} type="submit">
+              <Button className={`mt-4 ${billingActionClass}`} disabled={pending} type="submit">
                 Подтвердить email
               </Button>
             </form>
@@ -240,7 +241,7 @@ export function BillingContactForm({
             <div className="mt-5 space-y-3 rounded-xl border border-destructive/30 bg-destructive/6 p-4 text-sm" role="alert">
               <p>{error}</p>
               <Button
-                className="h-auto min-h-11 max-w-full whitespace-normal"
+                className={billingActionClass}
                 disabled={pending}
                 onClick={onRefresh}
                 type="button"

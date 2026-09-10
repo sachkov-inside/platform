@@ -1,4 +1,5 @@
 "use client";
+import type { Route } from "next";
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 
@@ -26,7 +27,7 @@ export interface CheckoutFlowProps {
   readonly snapshot: PriceSnapshot;
   readonly contact: VerifiedContact | null;
   readonly documents: readonly LegalDocument[];
-  readonly contactHref: string;
+  readonly contactHref: Route;
   readonly onPurchase?: (purchase: PurchaseStatus) => void;
   readonly onNavigate?: (paymentUrl: string) => void;
 }

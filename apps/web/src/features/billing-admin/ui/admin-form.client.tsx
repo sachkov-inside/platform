@@ -2,6 +2,7 @@
 import type {
   InputHTMLAttributes,
   ReactNode,
+  SubmitEventHandler,
   TextareaHTMLAttributes,
 } from "react";
 
@@ -158,6 +159,19 @@ export function parseCapabilities(value: string): ParsedCapabilities {
   }
   return { capabilities, periods, invalid };
 }
+
+/** Владельческая форма читает собственные поля и не отправляет страницу браузером. */
+export function onAdminSubmit(
+  handle: (form: FormData) => void,
+): SubmitEventHandler<HTMLFormElement> {
+  return (event) => {
+    event.preventDefault();
+    handle(new FormData(event.currentTarget));
+  };
+}
+
+/** Основание операции хранится как текст той же длины, что принимает команда. */
+export const reasonMaxLength = 1000;
 
 export const capabilityHint =
   "Известные права: materials, community, reviews, support и guide:<uuid>.";

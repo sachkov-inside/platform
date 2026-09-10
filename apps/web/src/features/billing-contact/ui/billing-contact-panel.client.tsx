@@ -1,6 +1,8 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+
+import { useBillingOperations } from "@/entities/subscription";
 
 import {
   confirmBillingContact,
@@ -10,8 +12,6 @@ import {
 import {
   contactErrorMessage,
   type BillingContactState,
-  type ConfirmContactInput,
-  type StartContactInput,
 } from "../model/billing-contact";
 import { BillingContactForm } from "./billing-contact-form.client";
 
@@ -33,7 +33,7 @@ export interface BillingContactPanelProps {
 
 /**
  * Производственный путь контакта: собственный BFF, повторяемые команды и один presentation
- * interface с Storybook. Повтор той же попытки использует прежний operationId.
+ * interface с Storybook. Повтор той же попытки использует прежнюю ссылку на операцию.
  */
 export function BillingContactPanel({
   headingLevel,
@@ -41,6 +41,7 @@ export function BillingContactPanel({
 }: BillingContactPanelProps) {
   const queryClient = useQueryClient();
   const query = useQuery(billingContactQueryOptions());
+  const operationId = useBillingOperations();
   const [challenge, setChallenge] = useState<{
     challengeRef: string;
     email: string;
@@ -49,11 +50,12 @@ export function BillingContactPanel({
   const [error, setError] = useState<string>();
   const [verified, setVerified] = useState(false);
   const [editing, setEditing] = useState(false);
-  const startAttempt = useRef<StartContactInput | null>(null);
-  const confirmAttempt = useRef<ConfirmContactInput | null>(null);
+
+  const state = query.data?.ok === true ? query.data : undefined;
+  const failure = query.data?.ok === false ? query.data.code : undefined;
   useEffect(() => {
-    if (query.data !== undefined) onStateChange?.(query.data);
-  }, [onStateChange, query.data]);
+    if (state !== undefined) onStateChange?.(state);
+  }, [onStateChange, state]);
 
   const start = useMutation({
     mutationFn: startBillingContact,
@@ -63,8 +65,6 @@ export function BillingContactPanel({
         setError(contactErrorMessage(result.code));
         return;
       }
-      startAttempt.current = null;
-      confirmAttempt.current = null;
       setChallenge({
         challengeRef: result.challengeRef,
         email: input.email,
@@ -82,7 +82,6 @@ export function BillingContactPanel({
         return;
       }
       setChallenge(null);
-      confirmAttempt.current = null;
       setError(undefined);
       setVerified(true);
       setEditing(false);
@@ -90,18 +89,18 @@ export function BillingContactPanel({
     },
   });
 
-  const sessionExpired =
-    query.isError && query.error.message === "unauthorized";
+  const unavailable = failure !== undefined || query.isError;
+  const sessionExpired = failure === "unauthorized";
   return (
     <BillingContactForm
       challenge={challenge}
-      contact={query.data?.contact ?? null}
-      documents={query.data?.documents ?? []}
+      contact={state?.contact ?? null}
+      documents={state?.documents ?? []}
       editing={editing}
       error={
         error ??
-        (query.isError && !sessionExpired
-          ? contactErrorMessage(query.error.message)
+        (failure !== undefined && !sessionExpired
+          ? contactErrorMessage(failure)
           : undefined)
       }
       {...(headingLevel === undefined ? {} : { headingLevel })}
@@ -114,17 +113,14 @@ export function BillingContactPanel({
       onConfirm={(code) => {
         if (challenge === null) return;
         setError(undefined);
-        if (
-          confirmAttempt.current === null ||
-          confirmAttempt.current.code !== code ||
-          confirmAttempt.current.challengeRef !== challenge.challengeRef
-        )
-          confirmAttempt.current = {
-            operationId: crypto.randomUUID(),
+        confirm.mutate({
+          operationId: operationId("contact-confirm", {
             challengeRef: challenge.challengeRef,
             code,
-          };
-        confirm.mutate(confirmAttempt.current);
+          }),
+          challengeRef: challenge.challengeRef,
+          code,
+        });
       }}
       onEdit={() => {
         setEditing(true);
@@ -135,25 +131,19 @@ export function BillingContactPanel({
         void query.refetch();
       }}
       onStart={(email) => {
-        if (query.data === undefined) return;
+        if (state === undefined) return;
         setVerified(false);
         setError(undefined);
-        const expectedRevision = query.data.contact?.revision ?? 0;
-        if (
-          startAttempt.current === null ||
-          startAttempt.current.email !== email ||
-          startAttempt.current.expectedRevision !== expectedRevision
-        )
-          startAttempt.current = {
-            operationId: crypto.randomUUID(),
-            email,
-            expectedRevision,
-          };
-        start.mutate(startAttempt.current);
+        const expectedRevision = state.contact?.revision ?? 0;
+        start.mutate({
+          operationId: operationId("contact-start", { email, expectedRevision }),
+          email,
+          expectedRevision,
+        });
       }}
       pending={start.isPending || confirm.isPending}
       sessionExpired={sessionExpired}
-      unavailable={query.isError && !sessionExpired}
+      unavailable={unavailable && !sessionExpired}
       verified={verified}
     />
   );

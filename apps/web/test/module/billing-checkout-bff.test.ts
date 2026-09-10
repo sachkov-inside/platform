@@ -34,18 +34,19 @@ vi.mock("@/shared/auth/logto-bff-config.server", () => ({
 }));
 
 import {
-  handleBillingOffers,
   handleBillingPurchase,
   handleBillingPurchaseStatus,
   handleBillingQuote,
 } from "@/features/billing-checkout.server";
+import { loadBillingOffers } from "@/entities/subscription.server";
 import { handleBillingConsents } from "@/entities/subscription.server";
 import { handleCancelRenewal, handleCurrentBilling } from "@/features/billing-subscription.server";
 import {
   activeSubscription,
+  materialsOffer,
+  pendingPurchase,
   savedQuote,
   supportOffer,
-  pendingPurchase,
 } from "@/workshop/billing.fixtures";
 
 const origin = "https://inside.example.test";
@@ -76,15 +77,22 @@ beforeEach(() => {
   fakes.token.mockResolvedValue("trusted-token");
 });
 
-it("отдаёт витрину с сервера без сессии покупателя", async () => {
-  fakes.offers.mockResolvedValue(ok({ items: [supportOffer], nextCursor: null }));
-  const response = await handleBillingOffers();
-  expect(await response.json()).toEqual({
-    ok: true,
-    value: { items: [supportOffer], nextCursor: null },
+it("дочитывает каталог по курсору и не обрывает его молча", async () => {
+  const cursor = "50000000-0000-4000-8000-000000000001";
+  fakes.offers
+    .mockResolvedValueOnce(ok({ items: [materialsOffer], nextCursor: cursor }))
+    .mockResolvedValueOnce(ok({ items: [supportOffer], nextCursor: null }));
+  expect(await loadBillingOffers()).toEqual({
+    kind: "ready",
+    offers: [materialsOffer, supportOffer],
   });
-  expect(fakes.offers).toHaveBeenCalledWith({ limit: 50 });
-  expect(response.headers.get("cache-control")).toBe("private, no-store");
+  expect(fakes.offers).toHaveBeenNthCalledWith(1, { limit: 50 });
+  expect(fakes.offers).toHaveBeenNthCalledWith(2, { limit: 50, cursor });
+});
+
+it("сообщает о недоступности каталога, а не показывает пустую витрину", async () => {
+  fakes.offers.mockResolvedValue(problem("dependency_unavailable", 503));
+  expect(await loadBillingOffers()).toEqual({ kind: "unavailable" });
 });
 
 it("сохраняет расчёт под собственным operationId и не передаёт пустой промокод", async () => {

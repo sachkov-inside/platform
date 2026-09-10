@@ -1,4 +1,5 @@
 "use client";
+import type { Route } from "next";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -39,8 +40,8 @@ export function currentBillingQueryOptions() {
 export interface BillingCabinetPanelProps {
   readonly options: readonly PriceSnapshot[];
   readonly resumeDocuments: readonly LegalDocument[];
-  readonly storefrontHref: string;
-  readonly contactHref: string;
+  readonly storefrontHref: Route;
+  readonly contactHref: Route;
   readonly onNavigate?: (url: string) => void;
 }
 

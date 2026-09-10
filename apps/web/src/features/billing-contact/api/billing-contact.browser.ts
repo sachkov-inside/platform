@@ -7,16 +7,32 @@ import {
   type ConfirmContactInput,
   type StartContactResult,
   type ConfirmContactResult,
+  type ReadContactResult,
 } from "../model/billing-contact";
 
-export async function readBillingContact() {
-  const response = await fetch("/api/account/billing/contact", {
-    cache: "no-store",
-    credentials: "same-origin",
-  });
+/** Собственный контакт Account: закрытый исход вместо строки в тексте ошибки. */
+export async function readBillingContact(): Promise<ReadContactResult> {
+  let response: Response;
+  try {
+    response = await fetch("/api/account/billing/contact", {
+      cache: "no-store",
+      credentials: "same-origin",
+      headers: { accept: "application/json" },
+    });
+  } catch {
+    return { ok: false, code: "unavailable" };
+  }
   if (!response.ok)
-    throw new Error(response.status === 401 ? "unauthorized" : "unavailable");
-  return readContactSchema.parse(await response.json());
+    return {
+      ok: false,
+      code: response.status === 401 ? "unauthorized" : "unavailable",
+    };
+  try {
+    const parsed = readContactSchema.safeParse(await response.json());
+    return parsed.success ? parsed.data : { ok: false, code: "unavailable" };
+  } catch {
+    return { ok: false, code: "unavailable" };
+  }
 }
 export async function startBillingContact(
   input: StartContactInput,

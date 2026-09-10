@@ -17,27 +17,7 @@ const paymentOption = {
   priceKopecks: 100_000,
   archived: false,
 };
-const offers = {
-  ok: true,
-  value: {
-    items: [
-      {
-        offer,
-        paymentOption,
-        promotion: null,
-        currency: "RUB",
-        timezone: "Europe/Moscow",
-        firstPriceKopecks: 100_000,
-        renewalPriceKopecks: 100_000,
-      },
-    ],
-    nextCursor: null,
-  },
-};
 async function stubBilling(page: Page, billing: unknown, status = 200) {
-  await page.route("**/api/billing/offers", (route) =>
-    route.fulfill({ json: offers }),
-  );
   await page.route("**/api/account/billing", (route) =>
     route.fulfill({ json: billing, status }),
   );

@@ -6,6 +6,7 @@ import {
   requestConfirmBillingContact,
   type BackendTransportResult,
 } from "@/shared/api/backend/index.server";
+import { privateBillingHeaders } from "@/entities/subscription.server";
 import {
   getPlatformAccessToken,
   readLogtoBffConfig,
@@ -35,7 +36,7 @@ function mapResult(result: BackendTransportResult): unknown {
   };
 }
 export async function handleReadBillingContact(): Promise<Response> {
-  const headers = { "cache-control": "private, no-store", vary: "cookie" };
+  const headers = privateBillingHeaders;
   try {
     const token = await getPlatformAccessToken(readLogtoBffConfig());
     const result = await requestBillingContact(token);

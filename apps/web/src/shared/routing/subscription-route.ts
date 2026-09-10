@@ -1,4 +1,6 @@
-import { isInternalRoute } from "./internal-route";
+import type { Route } from "next";
+
+import { internalRoute, isInternalRoute } from "./internal-route";
 
 /**
  * CTA страницы руководства ведёт на витрину и сохраняет контекст: после входа покупатель
@@ -18,15 +20,15 @@ export interface SubscriptionRouteTarget {
   /** Куда вернуть покупателя после входа. */
   readonly returnTo: string;
   /** Исходная страница, если она известна и внутренняя. */
-  readonly originHref?: string;
+  readonly originHref?: Route;
 }
 
-function publicOrigin(value: string | undefined): string | undefined {
+function publicOrigin(value: string | undefined): Route | undefined {
   if (value === undefined || !isInternalRoute(value)) return undefined;
   return publicOriginSections.some(
     (section) => value === section.replace(/\/$/u, "") || value.startsWith(section),
   )
-    ? value
+    ? internalRoute(value)
     : undefined;
 }
 
@@ -39,9 +41,12 @@ export function subscriptionRouteTarget(
     : { returnTo: subscriptionHrefFrom(origin), originHref: origin };
 }
 
-/** Ссылка на витрину со страницы руководства или темы. */
-export function subscriptionHrefFrom(origin: string): string {
+/**
+ * Ссылка на витрину со страницы руководства или темы. Строка отдаётся `Link` как есть:
+ * `pathname` объекта URL заэкранировал бы `?` и увёл бы покупателя на несуществующий путь.
+ */
+export function subscriptionHrefFrom(origin: string): Route {
   return publicOrigin(origin) === undefined
-    ? "/subscription"
-    : `/subscription?from=${encodeURIComponent(origin)}`;
+    ? internalRoute("/subscription")
+    : internalRoute(`/subscription?from=${encodeURIComponent(origin)}`);
 }

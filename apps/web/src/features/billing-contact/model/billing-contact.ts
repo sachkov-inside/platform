@@ -31,6 +31,7 @@ export const contactFailureSchema = z.object({
   ok: z.literal(false),
   code: contactFailureCodeSchema,
 });
+export type ContactFailure = z.infer<typeof contactFailureSchema>;
 export const startContactResultSchema = z.union([
   z.object({
     ok: z.literal(true),
@@ -46,12 +47,14 @@ export const confirmContactResultSchema = z.union([
 ]);
 export type BillingContact = z.infer<typeof contactSchema>;
 export type BillingContactState = z.infer<typeof readContactSchema>;
+export type ContactFailureCode = z.infer<typeof contactFailureCodeSchema>;
+export type ReadContactResult = BillingContactState | ContactFailure;
 export type { LegalDocument, LegalDocumentKind };
 export type StartContactInput = z.infer<typeof startContactInputSchema>;
 export type ConfirmContactInput = z.infer<typeof confirmContactInputSchema>;
 export type StartContactResult = z.infer<typeof startContactResultSchema>;
 export type ConfirmContactResult = z.infer<typeof confirmContactResultSchema>;
-export function contactErrorMessage(code: string): string {
+export function contactErrorMessage(code: ContactFailureCode): string {
   switch (code) {
     case "challenge_invalid":
       return "Код неверный или устарел. Проверьте последнее письмо или запросите новый код.";
@@ -66,7 +69,16 @@ export function contactErrorMessage(code: string): string {
       return "Проверьте адрес и шестизначный код.";
     case "provider_unavailable":
       return "Подтверждение email сейчас недоступно. Попробуйте позже.";
-    default:
+    case "contact_required":
+      return "Сначала подтвердите email для чеков.";
+    case "document_changed":
+      return "Условия обновились. Обновите страницу и примите действующую редакцию.";
+    case "not_found":
+      return "Мы не нашли эту операцию.";
+    case "operation_conflict":
+      return "Эта операция уже выполнена с другими данными. Обновите страницу и повторите.";
+    case "internal_error":
+    case "unavailable":
       return "Не удалось получить результат. Повторите действие — повторный запрос безопасен.";
   }
 }

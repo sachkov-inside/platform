@@ -1,8 +1,10 @@
 "use client";
+import type { Route } from "next";
 import Link from "next/link";
 import { useId } from "react";
 
 import {
+  billingActionClass,
   ConsentChecklist,
   attemptStateLabel,
   formatBillingDateTime,
@@ -26,7 +28,7 @@ export interface CheckoutPanelProps {
   readonly documents: readonly LegalDocument[];
   readonly accepted: readonly LegalDocumentKind[];
   readonly contact: VerifiedContact | null;
-  readonly contactHref: string;
+  readonly contactHref: Route;
   readonly acknowledgeExistingAccess: boolean;
   readonly existingAccess?: boolean;
   readonly legacyBlocked?: boolean;
@@ -133,7 +135,7 @@ export function CheckoutPanel({
             до согласия и оплаты.
           </p>
           <Button
-            className="mt-4 h-auto min-h-11 max-w-full whitespace-normal"
+            className={`mt-4 ${billingActionClass}`}
             disabled={pending}
             onClick={onQuote}
             type="button"
@@ -160,8 +162,8 @@ export function CheckoutPanel({
                 На него придут чек и служебные сообщения о подписке.
               </p>
               <Link
-                className="mt-3 inline-flex h-auto min-h-11 max-w-full whitespace-normal items-center font-semibold text-action underline underline-offset-4"
-                href={{ pathname: contactHref }}
+                className={`mt-3 inline-flex items-center font-semibold text-action underline underline-offset-4 ${billingActionClass}`}
+                href={contactHref}
               >
                 Подтвердить email
               </Link>
@@ -224,7 +226,7 @@ export function CheckoutPanel({
             </p>
           ) : (
             <Button
-              className="mt-6 h-auto min-h-11 max-w-full whitespace-normal w-full sm:w-auto"
+              className={`mt-6 w-full sm:w-auto ${billingActionClass}`}
               disabled={!payable || pending}
               onClick={onPay}
               type="button"
@@ -248,7 +250,7 @@ export function CheckoutPanel({
                 : "Доступ откроется после подтверждения оплаты сервером."}
           </p>
           <Button
-            className="mt-3 h-auto min-h-11 max-w-full whitespace-normal"
+            className={`mt-3 ${billingActionClass}`}
             disabled={pending}
             onClick={onRefreshStatus}
             type="button"

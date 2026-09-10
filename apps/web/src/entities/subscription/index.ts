@@ -2,7 +2,6 @@ export {
   accessCapabilitySchema,
   attemptStateSchema,
   billingFailureCodeSchema,
-  billingFailureSchema,
   changeQuoteSchema,
   changeResultSchema,
   currentBillingSchema,
@@ -50,6 +49,7 @@ export {
   subscriptionStateLabel,
   type BenefitLine,
 } from "./model/presentation";
+export { billingActionClass } from "./ui/billing-action-class";
 export { OfferCard, type OfferCardProps } from "./ui/offer-card";
 export {
   acceptedDocumentSchema,
@@ -68,7 +68,6 @@ export { acceptBillingConsents } from "./api/billing-consents.browser";
 export {
   billingCommandPayload,
   billingCommandResult,
-  billingReadResult,
   readBillingEndpoint,
   type BillingCommandResult,
 } from "./api/billing-result.browser";

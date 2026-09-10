@@ -1,11 +1,9 @@
 import {
   billingCommandPayload,
   billingCommandResult,
-  offersPageSchema,
   purchaseStatusSchema,
   quoteSchema,
   type BillingCommandResult,
-  type OffersPage,
   type PurchaseStatus,
   readBillingEndpoint,
   type BillingQuote,
@@ -13,12 +11,6 @@ import {
 import { requestSameOriginMutation } from "@/shared/api/same-origin-mutation";
 
 import type { PurchaseInput, QuoteInput } from "../model/checkout";
-
-export function readBillingOffers(): Promise<
-  BillingCommandResult<OffersPage>
-> {
-  return readBillingEndpoint("/api/billing/offers", offersPageSchema);
-}
 
 export async function createBillingQuote(
   input: QuoteInput,
