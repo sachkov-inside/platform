@@ -1,17 +1,43 @@
 import type { ContentAccess, Subject } from "../../../content-access/index.js";
 import type { PublishedMaterialSelection } from "../../../materials/index.js";
 import type { Videos } from "../../../videos/index.js";
-import { projectPublishedCatalogItems } from "../../shared/project-published-catalog-items.js";
+import { projectPublishedCatalogItems, type PublishedCatalogItemsResult } from "../../shared/project-published-catalog-items.js";
 
-/** Published discovery and current body access own admission to personal Home. */
-export async function readAvailableMaterials(dependencies: {
+export interface PublishedCatalogDependencies {
   readonly selection: Pick<PublishedMaterialSelection, "read">;
   readonly contentAccess: Pick<ContentAccess, "checkAvailabilityMany">;
   readonly videos: Pick<Videos, "loadReadyDurations">;
-}, subject: Subject, materialIds: readonly string[]) {
+}
+
+/** Safe published projections for a bounded set of Material IDs, including locked items. */
+export function readPublishedCatalogItems(
+  dependencies: PublishedCatalogDependencies,
+  subject: Subject,
+  materialIds: readonly string[],
+): Promise<PublishedCatalogItemsResult> {
+  return readProjections(dependencies, subject, materialIds);
+}
+
+/** Published discovery and current body access own admission to personal Home. */
+export async function readAvailableMaterials(
+  dependencies: PublishedCatalogDependencies,
+  subject: Subject,
+  materialIds: readonly string[],
+) {
+  const projected = await readProjections(dependencies, subject, materialIds);
+  return projected.ok
+    ? { ok: true as const, value: projected.items.filter((item) => item.availability === "available") }
+    : { ok: false as const, error: { code: "dependency_unavailable" as const } };
+}
+
+async function readProjections(
+  dependencies: PublishedCatalogDependencies,
+  subject: Subject,
+  materialIds: readonly string[],
+): Promise<PublishedCatalogItemsResult> {
   const selected = await dependencies.selection.read(materialIds);
-  if (!selected.ok) return { ok: false as const, error: { code: "dependency_unavailable" as const } };
-  const projected = await projectPublishedCatalogItems(dependencies.contentAccess, {
+  if (!selected.ok) return { ok: false, error: { code: "dependency_unavailable", retryable: true } };
+  return projectPublishedCatalogItems(dependencies.contentAccess, {
     loadReadyDurations: async (ids) => {
       try {
         const result = await dependencies.videos.loadReadyDurations(ids);
@@ -19,5 +45,4 @@ export async function readAvailableMaterials(dependencies: {
       } catch { return { ok: true as const, value: [] }; }
     },
   }, subject, selected.value);
-  return projected.ok ? { ok: true as const, value: projected.items.filter((item) => item.availability === "available") } : { ok: false as const, error: { code: "dependency_unavailable" as const } };
 }

@@ -24,6 +24,7 @@ interface AppShellProps {
 const publicNavigationItems = [
   { href: "/", icon: "home", label: "Главная" },
   { href: "/library", icon: "library", label: "База знаний" },
+  { href: "/bookmarks", icon: "bookmark", label: "Закладки" },
 ] satisfies readonly ApplicationNavigationItem[];
 
 const mobileNavigationItems = [
