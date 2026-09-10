@@ -2,7 +2,7 @@ import { stageDeliveryCommand } from '../../infrastructure/stage-delivery-comman
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { NotificationsPrismaClient } from '../../../../infrastructure/prisma/index.js';
-import { eventSchema, deliverySchema, parseWire, COMMAND_LIFETIME_MS, MATERIAL_LIFETIME_MS, fingerprint, type NotificationEvent, type Channel } from '../../domain/notification-wire.js';
+import { eventSchema, deliverySchema, parseWire, commandWindow, MATERIAL_LIFETIME_MS, fingerprint, type NotificationEvent, type Channel } from '../../domain/notification-wire.js';
 import { renderNotification } from '../../domain/templates.js';
 import type { NotificationRecipients, NotificationSources, NotificationSource } from '../../ports/notification-sources.js';
 import { optedIn } from '../change-preferences/change-preferences.js';
@@ -32,8 +32,12 @@ export async function expandAudience(deps: NotificationDependencies, lane: 'bill
     const { value: event } = parseWire(lane, JSON.parse(row.payload), eventSchema);
     const occurredAt = new Date(event.occurredAt);
     const deadline = new Date(event.notAfter);
-    const invalid = occurredAt >= deadline || occurredAt > now() || (lane === 'materials' && deadline.getTime() - occurredAt.getTime() !== MATERIAL_LIFETIME_MS);
-    if (invalid || deadline <= now()) {
+    // One reading decides both that the event is still live and what window its commands get, so the
+    // deadline cannot pass between the two and leave a command its own consumer refuses.
+    const issuedAt = now();
+    const invalid = occurredAt >= deadline || occurredAt > issuedAt || (lane === 'materials' && deadline.getTime() - occurredAt.getTime() !== MATERIAL_LIFETIME_MS);
+    const deliveryWindow = invalid ? null : commandWindow(issuedAt, deadline);
+    if (!deliveryWindow) {
       await transaction.notificationInbox.update({ where: key, data: { completedAt: now(), checkpoint: { reason: invalid ? 'invalid_event_time' : 'expired' } } });
       return true;
     }
@@ -85,8 +89,7 @@ export async function expandAudience(deps: NotificationDependencies, lane: 'bill
           contractVersion: 'inside.notification-delivery.v1', operationId: randomUUID(), notificationRef: notification.id,
           deliveryRef: delivery.id, commandRevision: 1, sourceEventId: event.messageId, content: source.content,
           templateRef: template.templateRef, templateRevision: template.templateRevision, text: template.text,
-          ...(channel === 'email' ? { subject: template.subject } : {}), binding,
-          issuedAt: now().toISOString(), notAfter: new Date(Math.min(deadline.getTime(), now().getTime() + COMMAND_LIFETIME_MS)).toISOString(),
+          ...(channel === 'email' ? { subject: template.subject } : {}), binding, ...deliveryWindow,
         });
         await stageDeliveryCommand(transaction, command, now());
       }

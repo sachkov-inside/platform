@@ -81,7 +81,7 @@ export function renderTelegramSignInPage(view: InsideTelegramView): string {
 
 export const telegramSignInPage = renderTelegramSignInPage({ status: 'loading' }).replace('</body>', '<script src="/api/inside-telegram/script"></script></body>');
 
-const pollIntervalMilliseconds = 1500;
+export const pollIntervalMilliseconds = 1500;
 const statusRequestTimeoutMilliseconds = 8000;
 export const telegramSignInScript = `
 const render = ${renderTelegramSignInContent.toString()};
