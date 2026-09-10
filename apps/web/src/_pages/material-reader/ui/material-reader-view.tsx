@@ -80,8 +80,12 @@ export function MaterialReaderView({
               path={[]}
             />
           </article>
-          {bookmarkAction}
-          {readingAction}
+          {bookmarkAction === undefined && readingAction === undefined ? null : (
+            <div className="flex flex-wrap items-start justify-end gap-x-3" data-material-actions>
+              {bookmarkAction}
+              {readingAction}
+            </div>
+          )}
           <MaterialReaderFooter seriesContext={seriesContext} />
         </div>
       </ReaderReturnNavigation>

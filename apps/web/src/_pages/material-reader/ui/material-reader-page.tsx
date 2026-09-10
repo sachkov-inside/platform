@@ -69,7 +69,7 @@ export async function MaterialReaderPage({
     <VisibleMaterialOpen key={`${result.material.materialId}:${String(result.material.contentVersion)}`} materialId={result.material.materialId} contentVersion={result.material.contentVersion}>
     <MaterialReaderView
       readingAction={<SavedReadingAction key={result.material.materialId} materialId={result.material.materialId} format={result.material.format.slug} />}
-      bookmarkAction={<SavedBookmarkAction key={result.material.materialId} materialId={result.material.materialId} />}
+      bookmarkAction={<SavedBookmarkAction materialId={result.material.materialId} />}
       body={result.body}
       material={result.material}
       primaryVideo={result.primaryVideo}

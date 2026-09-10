@@ -11,7 +11,20 @@ export const bookmarkStateSchema = z
   .strict();
 export type BookmarkState = z.infer<typeof bookmarkStateSchema>;
 
-export const bookmarkStatesResultSchema = z.array(bookmarkStateSchema).max(100);
+export const bookmarkStatesResultSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("ready"), states: z.array(bookmarkStateSchema).max(100) }).strict(),
+  z.object({ kind: z.literal("unauthorized") }).strict(),
+  z.object({ kind: z.literal("unavailable") }).strict(),
+  z.object({ kind: z.literal("invalid_input") }).strict(),
+]);
+
+export const bookmarkStateResultSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("ready"), state: bookmarkStateSchema }).strict(),
+  z.object({ kind: z.literal("unauthorized") }).strict(),
+  z.object({ kind: z.literal("denied") }).strict(),
+  z.object({ kind: z.literal("unavailable") }).strict(),
+  z.object({ kind: z.literal("invalid_input") }).strict(),
+]);
 
 export const bookmarkCommandSchema = z
   .object({ materialId: z.uuid(), bookmarked: z.boolean() })
