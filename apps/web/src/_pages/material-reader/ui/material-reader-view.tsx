@@ -29,6 +29,7 @@ export interface MaterialReaderViewProps {
   readonly returnTarget?: MaterialReaderReturnTarget;
   readonly seriesContext?: SeriesReaderContext | null;
   readonly readingAction?: ReactNode;
+  readonly bookmarkAction?: ReactNode;
 }
 
 interface OutlineItem {
@@ -45,6 +46,7 @@ export function MaterialReaderView({
   returnTarget = libraryMaterialReaderReturnTarget,
   seriesContext = null,
   readingAction,
+  bookmarkAction,
 }: MaterialReaderViewProps) {
   const outline = collectOutline(body);
 
@@ -78,6 +80,7 @@ export function MaterialReaderView({
               path={[]}
             />
           </article>
+          {bookmarkAction}
           {readingAction}
           <MaterialReaderFooter seriesContext={seriesContext} />
         </div>

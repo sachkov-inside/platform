@@ -8,7 +8,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  schemas  = ["notifications", "billing", "accounts", "assets", "communications", "materials", "member_profiles", "reading_activity", "membership_entitlements", "telegram_membership", "videos", "workshop"]
+  schemas  = ["notifications", "billing", "accounts", "assets", "bookmarks", "communications", "materials", "member_profiles", "reading_activity", "membership_entitlements", "telegram_membership", "videos", "workshop"]
 }
 
 model Account {
@@ -816,6 +816,16 @@ model ReadingMaterialVisit {
   @@index([accountId, lastOpenedAt(sort: Desc), materialId], map: "material_visits_recent")
   @@map("material_visits")
   @@schema("reading_activity")
+}
+
+model BookmarkedMaterial {
+  accountId String @map("account_id") @db.Uuid
+  materialId String @map("material_id") @db.Uuid
+  bookmarkedAt DateTime @map("bookmarked_at") @db.Timestamptz
+  @@id([accountId, materialId])
+  @@index([accountId, bookmarkedAt(sort: Desc), materialId], map: "bookmarked_materials_recent")
+  @@map("bookmarked_materials")
+  @@schema("bookmarks")
 }
 
 model AccessGrant {
