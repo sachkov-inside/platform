@@ -8,6 +8,7 @@ import { fork } from 'node:child_process';
 import { once } from 'node:events';
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
+import { distinctClock } from './setup/distinct-clock.js';
 import { createMigratedTestDatabase, type TestDatabase } from './setup/test-database.js';
 import { Notifications, type NotificationDependencies, type NotificationSource } from '../../src/modules/notifications/index.js';
 import { NotificationAccounts, assembleAccounts } from '../../src/modules/accounts/index.js';
@@ -17,7 +18,7 @@ import { encodeNotification } from '../../src/infrastructure/notification-transp
 import { expandAudience } from '../../src/modules/notifications/features/expand-audience/expand-audience.js';
 import { dispatchEmail, acceptEmailCommand } from '../../src/modules/notifications/features/dispatch-email/dispatch-email.js';
 import { refreshDeliveries } from '../../src/modules/notifications/features/expand-audience/refresh-deliveries.js';
-import { deliverySchema, resultSchema, type NotificationEvent, type DeliveryCommand, type AuthorizeRequest } from '../../src/modules/notifications/domain/notification-wire.js';
+import { deliverySchema, resultSchema, COMMAND_LIFETIME_MS, type NotificationEvent, type DeliveryCommand, type AuthorizeRequest } from '../../src/modules/notifications/domain/notification-wire.js';
 import { renderNotification } from '../../src/modules/notifications/domain/templates.js';
 const protection = billingContactProtection(Buffer.alloc(32, 43).toString('base64'));
 
@@ -176,8 +177,11 @@ describe('Notifications persistence and delivery (real PostgreSQL; synthetic sou
     let sends = 0;
     await dispatchEmail(s.deps, () => { sends += 1; return Promise.resolve({ state: 'sent' }); }, 'subscription');
     expect((await project(s.app, c.deliveryRef)).state).toBe('suppressed'); expect(sends).toBe(0);
-    await refreshDeliveries(s.deps); expect(await s.commands()).toHaveLength(2);
+    // The replacement command is issued against a clock that moves: its window has to stay inside the
+    // lifetime its own consumer accepts, or the command is quarantined instead of delivered.
+    await refreshDeliveries({ ...s.deps, now: distinctClock(() => s.deps.now().getTime()) }); expect(await s.commands()).toHaveLength(2);
     const next = await s.admit(); expect(next.commandRevision).toBe(2); expect(next.deliveryRef).toBe(c.deliveryRef);
+    expect(Date.parse(next.notAfter) - Date.parse(next.issuedAt)).toBeLessThanOrEqual(COMMAND_LIFETIME_MS);
     await dispatchEmail(s.deps, () => { sends += 1; return Promise.resolve({ state: 'sent' }); }, 'subscription');
     expect(sends).toBe(1); expect((await project(s.app, c.deliveryRef)).state).toBe('sent');
   });
