@@ -428,6 +428,14 @@ same encryption key available for recovery of saved receipt contacts and recurri
 log the configuration, card binding or receipt email. The callback is
 `POST /billing/tbank/notification`; it acknowledges a validated durable result with plain `OK`.
 
+The same process owns the `billing.subscription-renewal` queue: it starts due renewals, reconciles
+card binding sessions and closes lapsed schedules. A renewal persists its attempt before Init and
+records `CHARGE_CALLED` before the network, so a lost response is reconciled through GetState on the
+same attempt and never repeated. Cancelling a renewal or revoking a saved method is checked under the
+same lock as worker dispatch. Changing a card needs the optional `cardBinding` capability in
+`TBANK_CONFIG_JSON` with an explicit confirmed check type; without it the operation reports
+`method_unavailable` instead of guessing a binding.
+
 The first period starts when Inside first verifies and durably records CONFIRMED, whether from a
 signed notification or server reconciliation (owner-approved for #407 on 2026-09-09). Delayed
 confirmation still gives a full period; duplicate notifications and fulfillment recovery preserve

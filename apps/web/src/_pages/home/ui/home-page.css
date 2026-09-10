@@ -24,6 +24,7 @@
 .home-benefits p { margin-top: .5rem; color: var(--body-muted); }
 .home-invitation { display: flex; align-items: center; justify-content: space-between; gap: 2rem; padding: 2rem; margin-top: 3rem; border-radius: 1.75rem; background: var(--secondary); }
 .home-invitation p { max-width: 54ch; margin-top: .75rem; color: var(--body-muted); }
+.home-invitation p:first-child { margin-top: 0; }
 .home-page .home-eyebrow { margin-bottom: .75rem; color: var(--action); font-size: .875rem; font-weight: 500; }
 .home-page { font-size: var(--type-body); line-height: 1.5; font-weight: 400; overflow-wrap: anywhere; }
 .home-page h1:not(.sr-only) { font-size: var(--type-page); line-height: 1.25; font-weight: 600; letter-spacing: -.025em; }
@@ -35,8 +36,8 @@
 .home-page input, .home-page textarea { font-size: var(--type-body); line-height: 1.5; }
 .home-page .home-access-strip strong { font-size: var(--type-card); line-height: 1.4; font-weight: 600; }
 .home-page .home-access-strip p { font-size: var(--type-summary); line-height: 1.5; }
-.home-page section > div:has(> h2[id^=home-]) { flex-wrap: wrap; gap: .5rem .75rem; margin-top: var(--space-section); }
-.home-page section[aria-labelledby=home-series] > div:has(> h2) { margin-top: 0; }
+.home-page .home-section-heading { flex-wrap: wrap; gap: .5rem .75rem; margin-top: var(--space-section); }
+.home-page section[aria-labelledby=home-series] > .home-section-heading { margin-top: 0; }
 .home-page h2[id^=home-] { max-width: 100%; overflow-wrap: normal; }
 
 /* Cards keep their production markup. Their visual roles follow the same scale. */
@@ -49,7 +50,6 @@
 .home-page [data-material-variant=default] [data-access-cover] > span:last-child > span svg { width: 14px; flex-shrink: 0; }
 .home-page [aria-labelledby=home-guides] > ul { grid-template-columns: repeat(auto-fit,minmax(min(100%,max(12rem,calc((100% - 3 * var(--home-grid-gap)) / 4))),1fr)); gap: 2rem var(--home-grid-gap); }
 .home-page [aria-labelledby=home-videos] > ul { grid-template-columns: repeat(auto-fit,minmax(min(100%,max(15rem,calc((100% - 2 * var(--home-grid-gap)) / 3))),1fr)); gap: 2rem var(--home-grid-gap); }
-.home-page [aria-label="Лента заметок"] { max-width: 65ch; }
 .home-page .home-benefits { grid-template-columns: repeat(auto-fit,minmax(min(100%,15rem),1fr)); gap: 1.5rem; }
 
 /* The banner can grow with user text preferences; artwork has a separate bounded footprint. */

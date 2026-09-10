@@ -48,6 +48,14 @@ function Fixture({
         items: empty ? [] : items,
       },
     });
+    queryClient.setQueryData(["guide-artifacts", collection.id], {
+      artifacts: [],
+      kind: "ready",
+    });
+    queryClient.setQueryData(["guide-artifacts", "reusable"], {
+      artifacts: [],
+      kind: "ready",
+    });
     queryClient.setQueryData(["authoring-home-pin"], {
       kind: "ready",
       pin: { seriesId: collection.id, version: 1 },

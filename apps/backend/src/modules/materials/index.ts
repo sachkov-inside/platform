@@ -185,6 +185,38 @@ export {
   AuthoringContentCoverController,
   ContentCoverDeliveryController,
 } from "./facets/content-covers/content-covers.controller.js";
+export { assembleGuideArtifacts } from "./facets/guide-artifacts/assemble-guide-artifacts.js";
+export {
+  GUIDE_ARTIFACTS,
+  guideArtifactAccessSchema,
+  type AuthoringGuideArtifactSource,
+  type AuthoringImportOutcome,
+  type AuthoringImportReport,
+  type GuideArtifactAccess,
+  type GuideArtifactAccessFacts,
+  type GuideArtifactContent,
+  type GuideArtifactDto,
+  type GuideArtifactError,
+  type GuideArtifactFileDelivery,
+  type GuideArtifactOrigin,
+  type GuideArtifactResult,
+  type GuideArtifacts,
+  type ReaderGuideArtifact,
+} from "./facets/guide-artifacts/guide-artifacts.js";
+export {
+  GuideArtifactAuthoringController,
+  guideArtifactHttpSchema,
+  guideArtifactProblemSchema,
+} from "./facets/guide-artifacts/guide-artifacts.controller.js";
+export {
+  assembleGuideArtifactDelivery,
+  GUIDE_ARTIFACT_DELIVERY,
+  type DeliveredGuideArtifact,
+  type GuideArtifactDelivery,
+  type PublicGuideArtifactDto,
+} from "./features/deliver-guide-artifact/deliver-guide-artifact.js";
+export { GuideArtifactReadController } from "./features/deliver-guide-artifact/deliver-guide-artifact.controller.js";
+export { assembleGuideArtifactResourceFacts } from "./adapters/content-access/guide-artifact-resource-facts.js";
 export {
   MATERIAL_ASSET_MAINTENANCE,
   type CleanupMaterialAssetsResult,

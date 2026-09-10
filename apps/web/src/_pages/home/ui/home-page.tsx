@@ -184,10 +184,10 @@ function NoteFeed({ items }: { readonly items: HomeView["notes"] }) {
       {items.length === 0 ? (
         <EmptyCollection label="В этом разделе пока нет опубликованных материалов." />
       ) : (
-        <ul aria-label="Лента заметок" className="mt-4 max-w-[48rem] space-y-4" role="list">
+        <ul aria-label="Лента заметок" className="mt-4 grid items-start gap-4 @min-[48rem]/home:grid-cols-2" role="list">
           {items.map((material, index) => {
             const teaser = items.length > 1 && index === items.length - 1;
-            return <li className={teaser ? "relative isolate overflow-hidden rounded-[1.5rem]" : undefined} key={material.slug}>
+            return <li className={teaser ? "relative isolate overflow-hidden rounded-[1.5rem]" : items.length === 1 ? "col-span-full flex justify-center" : undefined} key={material.slug}>
               <div aria-hidden={teaser || undefined} inert={teaser} className={teaser ? "pointer-events-none max-h-64 select-none opacity-80 blur-[4px] [mask-image:linear-gradient(#000,transparent)]" : undefined}>
                 <MaterialCard headingLevel="h3" material={material} returnHref="/" variant="feed" {...(teaser ? { readingStatus: null } : {})} />
               </div>
@@ -196,7 +196,7 @@ function NoteFeed({ items }: { readonly items: HomeView["notes"] }) {
           })}
         </ul>
       )}
-      {items.length < 2 ? <div className="flex max-w-[48rem] justify-center py-6"><AllNotesLink /></div> : null}
+      {items.length < 2 ? <div className="flex justify-center py-6"><AllNotesLink /></div> : null}
     </section>
   );
 }
@@ -232,7 +232,7 @@ function SectionHeading({
           {action}
         </Link>
       }
-      className={className}
+      className={`home-section-heading ${className}`}
       id={id}
       title={title}
     />
