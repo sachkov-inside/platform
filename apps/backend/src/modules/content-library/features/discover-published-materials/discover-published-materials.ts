@@ -60,6 +60,7 @@ export async function discoverPublishedMaterials(
     ? {
         ok: true,
         value: {
+          chapters: page.value.chapters,
           hasNext: page.value.hasNext,
           items: projected.items,
           kind: page.value.kind,

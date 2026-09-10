@@ -2,7 +2,7 @@ import "server-only";
 
 import { z } from "zod";
 
-import type { ReorderSeriesResult } from "@/features/series-order";
+import { guideChapterDraftSchema, type ReorderSeriesResult } from "@/features/series-order";
 import {
   requestSeriesReorder,
   type BackendTransportResult,
@@ -39,15 +39,23 @@ export async function executeReorderSeries(
     return { kind: "error", reference: "series-order-form" };
   }
 
-  let stepGroups: Record<string, string> | undefined;
-  const groupsValue = formData.get("stepGroups");
-  if (groupsValue !== null) {
-    if (typeof groupsValue !== "string") return { kind: "error", reference: "series-order-form" };
-    try {
-      stepGroups = z.record(z.uuid(), z.string().trim().min(1).max(120)).parse(JSON.parse(groupsValue) as unknown);
-    } catch {
-      return { kind: "error", reference: "series-order-form" };
-    }
+  const stepGroups = readJsonField(
+    formData,
+    "stepGroups",
+    z.record(z.uuid(), z.string().trim().min(1).max(120)),
+  );
+  const chapters = readJsonField(formData, "chapters", z.array(guideChapterDraftSchema));
+  const chapterAssignments = readJsonField(
+    formData,
+    "chapterAssignments",
+    z.record(z.uuid(), z.uuid()),
+  );
+  if (
+    stepGroups === invalidField ||
+    chapters === invalidField ||
+    chapterAssignments === invalidField
+  ) {
+    return { kind: "error", reference: "series-order-form" };
   }
 
   let result: BackendTransportResult;
@@ -57,6 +65,8 @@ export async function executeReorderSeries(
         expectedOrderVersion: parsed.data.expectedOrderVersion,
         orderedMaterialIds: orderedMaterialIds.data,
         ...(stepGroups === undefined ? {} : { stepGroups }),
+        ...(chapters === undefined ? {} : { chapters }),
+        ...(chapterAssignments === undefined ? {} : { chapterAssignments }),
         seriesId: parsed.data.seriesId,
       },
       accessToken,
@@ -76,4 +86,22 @@ export async function executeReorderSeries(
     return { kind: "error", reference: "series-order-receipt" };
   }
   return { kind: "saved", orderVersion: receipt.data.orderVersion };
+}
+
+const invalidField = Symbol("invalid-series-order-field");
+
+/** Optional JSON-encoded form fields stay absent, valid, or an explicit rejection. */
+function readJsonField<Value>(
+  formData: FormData,
+  name: string,
+  schema: z.ZodType<Value>,
+): Value | undefined | typeof invalidField {
+  const value = formData.get(name);
+  if (value === null) return undefined;
+  if (typeof value !== "string") return invalidField;
+  try {
+    return schema.parse(JSON.parse(value) as unknown);
+  } catch {
+    return invalidField;
+  }
 }

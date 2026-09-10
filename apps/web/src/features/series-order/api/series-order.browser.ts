@@ -14,6 +14,10 @@ export async function reorderSeries(
   formData.set("orderedMaterialIds", JSON.stringify(input.orderedMaterialIds));
   formData.set("seriesId", input.seriesId);
   if (input.stepGroups !== undefined) formData.set("stepGroups", JSON.stringify(input.stepGroups));
+  if (input.chapters !== undefined) formData.set("chapters", JSON.stringify(input.chapters));
+  if (input.chapterAssignments !== undefined) {
+    formData.set("chapterAssignments", JSON.stringify(input.chapterAssignments));
+  }
   const result = await requestSameOriginMutation(
     "/api/authoring/guides/order",
     "PUT",

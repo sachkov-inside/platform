@@ -52,6 +52,7 @@ const materials = [
 ] as const satisfies readonly MaterialPreview[];
 
 const topicResult = {
+  chapters: [],
   discoveryKind: "topic",
   hasNext: false,
   items: materials,
@@ -83,6 +84,7 @@ const topicResult = {
 } as const satisfies LibraryDiscoveryResult;
 
 const seriesResult = {
+  chapters: [],
   discoveryKind: "series",
   hasNext: false,
   items: materials,
@@ -210,6 +212,7 @@ export const SeriesLongTitle: Story = {
 export const EmptySeries: Story = {
   args: {
     result: {
+      chapters: [],
       discoveryKind: "series",
       kind: "empty",
       reference: { name: "Новая руководство", slug: "new-series", summary: "" },

@@ -703,7 +703,14 @@ export class MaterialAuthoringService {
     guideId: string,
   }): CancelablePromise<{
     archived: boolean;
+    chapters: Array<{
+      id: string;
+      name: string;
+      ordinal: number;
+      summary: string;
+    }>;
     items: Array<{
+      chapterId: string | null;
       materialId: string;
       ordinal: number;
       publicationState: 'draft' | 'published' | 'unpublished';
@@ -733,6 +740,12 @@ export class MaterialAuthoringService {
   }: {
     guideId: string,
     requestBody: {
+      chapterAssignments?: Record<string, string>;
+      chapters?: Array<{
+        id: string;
+        name: string;
+        summary: string;
+      }>;
       expectedOrderVersion: string;
       orderedMaterialIds: Array<string>;
       stepGroups?: Record<string, string>;
@@ -1232,7 +1245,14 @@ export class MaterialAuthoringService {
     seriesId: string,
   }): CancelablePromise<{
     archived: boolean;
+    chapters: Array<{
+      id: string;
+      name: string;
+      ordinal: number;
+      summary: string;
+    }>;
     items: Array<{
+      chapterId: string | null;
       materialId: string;
       ordinal: number;
       publicationState: 'draft' | 'published' | 'unpublished';
@@ -1263,6 +1283,12 @@ export class MaterialAuthoringService {
   }: {
     seriesId: string,
     requestBody: {
+      chapterAssignments?: Record<string, string>;
+      chapters?: Array<{
+        id: string;
+        name: string;
+        summary: string;
+      }>;
       expectedOrderVersion: string;
       orderedMaterialIds: Array<string>;
       stepGroups?: Record<string, string>;

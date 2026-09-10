@@ -1,6 +1,12 @@
 import type { SetHomePinError } from "../../features/set-home-pin/set-home-pin.contract.js";
 import { HttpException } from "@nestjs/common";
 import { z } from "zod";
+import {
+  GUIDE_CHAPTER_NAME_MAX,
+  GUIDE_CHAPTER_SUMMARY_MAX,
+  guideChapterAssignmentsSchema,
+  guideChapterDraftsSchema,
+} from "../../shared/guide-chapters.js";
 import { seriesStepGroupsSchema } from "../../shared/series-step-groups.js";
 
 import type {
@@ -94,12 +100,22 @@ export const deleteDraftBodySchema = z
   .strict();
 
 export const seriesOrderVersionSchema = z.string().regex(/^[a-f0-9]{64}$/u);
+export const guideChapterSchema = z
+  .object({
+    id: z.uuid(),
+    name: z.string().min(1).max(GUIDE_CHAPTER_NAME_MAX),
+    ordinal: z.number().int().positive(),
+    summary: z.string().max(GUIDE_CHAPTER_SUMMARY_MAX),
+  })
+  .strict();
 export const seriesOrderSchema = z
   .object({
     archived: z.boolean(),
+    chapters: z.array(guideChapterSchema),
     items: z.array(
       z
         .object({
+          chapterId: z.uuid().nullable(),
           materialId: materialIdSchema,
           ordinal: z.number().int().positive(),
           stepGroup: z.string().nullable(),
@@ -115,6 +131,8 @@ export const seriesOrderSchema = z
   .strict();
 export const reorderSeriesBodySchema = z
   .object({
+    chapters: guideChapterDraftsSchema.optional(),
+    chapterAssignments: guideChapterAssignmentsSchema.optional(),
     expectedOrderVersion: seriesOrderVersionSchema,
     orderedMaterialIds: z.array(materialIdSchema),
     stepGroups: seriesStepGroupsSchema.optional(),

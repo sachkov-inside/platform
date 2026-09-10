@@ -6,7 +6,7 @@ import { authorizeManager } from "../../ports/author-policy.js";
 import { failure } from "../../shared/application-result.js";
 import { accountId, entityId, parseCommand } from "../../shared/command-validation.js";
 import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
-import { seriesOrderVersion } from "../../shared/series-order-version.js";
+import { guideOrderVersion } from "../../shared/guide-order-version.js";
 import type { LoadSeriesOrderOperation } from "./load-series-order.contract.js";
 
 const querySchema = z
@@ -40,10 +40,7 @@ export function assembleLoadSeriesOrder(
         ok: true,
         value: {
           ...snapshot,
-          orderVersion: seriesOrderVersion(
-            snapshot.items.map(({ materialId }) => materialId),
-            Object.fromEntries(snapshot.items.flatMap(({ materialId, stepGroup }) => stepGroup === null ? [] : [[materialId, stepGroup]])),
-          ),
+          orderVersion: guideOrderVersion(snapshot.items, snapshot.chapters),
         },
       };
     } catch (error) {

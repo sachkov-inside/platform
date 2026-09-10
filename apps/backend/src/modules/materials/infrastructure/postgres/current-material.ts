@@ -164,9 +164,15 @@ export async function replaceCurrentRelations(
   }
   const previousMemberships = await transaction.guideMembership.findMany({
     where: { materialId },
-    select: { seriesId: true, stepGroup: true },
+    select: { chapterId: true, seriesId: true, stepGroup: true },
   });
-  const stepGroups = new Map(previousMemberships.map(({ seriesId, stepGroup }) => [seriesId, stepGroup]));
+  // A full Material Save keeps the Guide-owned placement of every retained membership.
+  const placements = new Map(
+    previousMemberships.map(({ chapterId, seriesId, stepGroup }) => [
+      seriesId,
+      { chapterId, stepGroup },
+    ]),
+  );
   await transaction.guideMembership.deleteMany({ where: { materialId } });
   if (metadata.seriesMemberships.length > 0) {
     await transaction.guideMembership.createMany({
@@ -174,7 +180,8 @@ export async function replaceCurrentRelations(
         materialId,
         seriesId,
         ordinal,
-        stepGroup: stepGroups.get(seriesId) ?? null,
+        chapterId: placements.get(seriesId)?.chapterId ?? null,
+        stepGroup: placements.get(seriesId)?.stepGroup ?? null,
       })),
     });
   }
