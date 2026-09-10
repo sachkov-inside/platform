@@ -4,12 +4,13 @@ import { PgBoss } from "pg-boss";
 import { PLATFORM_CONFIG, type PlatformConfig } from "../config/platform-config.js";
 import { OperationalReadiness } from "../infrastructure/operational-readiness.js";
 import { runWorker } from "../infrastructure/worker-runtime.js";
-import { BillingOperations, BillingPayments, BillingSubscriptions } from "../modules/billing/index.js";
+import { BillingNotices, BillingOperations, BillingPayments, BillingSubscriptions } from "../modules/billing/index.js";
 import { COMMUNITY_RECONCILIATION_INTERVAL_MS, CommunityEntitlements } from "../modules/telegram-membership/index.js";
 import { BillingWorkerModule } from "./billing-worker/billing-worker.module.js";
 
 const recoveryQueue = "billing.payment-recovery";
 const renewalQueue = "billing.subscription-renewal";
+const noticeQueue = "billing.subscription-notices";
 const communityQueue = "community.entitlement-delivery";
 const communityBatchSize = 50;
 const communityIntervalSeconds = COMMUNITY_RECONCILIATION_INTERVAL_MS / 1_000;
@@ -22,6 +23,7 @@ async function bootstrap(): Promise<void> {
   const config = application.get<PlatformConfig>(PLATFORM_CONFIG);
   const payments = application.get(BillingPayments);
   const subscriptions = application.get(BillingSubscriptions);
+  const notices = application.get(BillingNotices);
   const operations = application.get(BillingOperations);
   const community = application.get(CommunityEntitlements);
   const jobs = new PgBoss({ connectionString: config.database.url, createSchema: false, migrate: false, schema: "pgboss" });
@@ -47,6 +49,15 @@ async function bootstrap(): Promise<void> {
         const bindings = await subscriptions.reconcileMethodFlows(20);
         // Смена карты не настроена терминалом: продление остаётся рабочим результатом задания.
         return { ...renewed.value, bindings: bindings.ok ? bindings.value : bindings.error.code };
+      });
+      await jobs.createQueue(noticeQueue, { deleteAfterSeconds: jobRetentionSeconds, expireInSeconds: jobTimeoutSeconds, retryLimit: 0 });
+      await jobs.schedule(noticeQueue, "* * * * *", {});
+      await jobs.send(noticeQueue, {}, { singletonSeconds: jobIntervalSeconds });
+      await jobs.work(noticeQueue, async () => {
+        // Календарь напоминаний живёт отдельно от списаний: сбой одного не останавливает другое.
+        const result = await notices.scheduleReminders(20);
+        if (!result.ok) throw new Error(result.error.code);
+        return result.value;
       });
       // Community delivery only runs where the provider direction is actually configured.
       if (!config.communityEntitlements) return;

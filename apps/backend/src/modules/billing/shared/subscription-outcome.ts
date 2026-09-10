@@ -4,7 +4,9 @@ import type { BillingPrisma } from "../../../infrastructure/prisma/index.js";
 import { lockSubscription } from "../infrastructure/postgres/catalog-lock.js";
 import { priceSnapshotSchema, type PriceSnapshot } from "../domain/pricing.js";
 import { subscriptionPeriodEnd } from "../domain/subscription-period.js";
-import { attemptKindSchema, subscriptionConsentSchema, type AttemptKind, type SubscriptionEndReason, type SubscriptionEventKind } from "../domain/subscription-change.js";
+import { attemptKindSchema, subscriptionConsentSchema, subscriptionSnapshotSchema, type AttemptKind, type SubscriptionEndReason, type SubscriptionEventKind } from "../domain/subscription-change.js";
+import { lifecycleWindow, subscriptionEndedSourceRef } from "../domain/notice.js";
+import { recordBillingNotice, supersedeRenewalReminders } from "./record-notice.js";
 
 const acceptanceSchema = z.object({
   command: z.object({ consentEvidenceRefs: z.array(z.uuid()) }),
@@ -63,6 +65,8 @@ export async function settleConfirmedAttempt(tx: BillingPrisma, attempt: Attempt
   const subscriptionRef = attempt.subscriptionRef;
   if (!subscriptionRef) throw new Error("Scheduled attempt without a subscription");
   const current = await tx.billingSubscription.findUniqueOrThrow({ where: { id: subscriptionRef } });
+  // Оплаченный период сменился: обещанные дата и сумма следующего списания больше не те.
+  await supersedeRenewalReminders(tx, subscriptionRef, paidAt);
   if (kind === "renewal") {
     const anchorMonths = current.anchorMonths + snapshot.paymentOption.months;
     const startsAt = current.paidUntil;
@@ -86,6 +90,12 @@ export async function endSubscription(tx: BillingPrisma, subscriptionRef: string
   if (!current || current.state === "ended") return;
   await tx.billingPurchase.updateMany({ where: { subscriptionRef, kind: "initial", lifecycleActive: true }, data: { lifecycleActive: false } });
   await advanceSubscription(tx, current, { state: "ended", pendingChange: {} }, "subscription_ended", { reason }, now);
+  await supersedeRenewalReminders(tx, subscriptionRef, now);
+  // Повод — сам конец оплаченного срока, а не момент, когда его заметили: замеченное с большим
+  // опозданием сообщение истекает по своему сроку вместо того, чтобы прийти как новость.
+  await recordBillingNotice(tx, { kind: "access_expired", accountId: current.accountId, sourceRef: subscriptionEndedSourceRef(subscriptionRef),
+    subscriptionRef, title: subscriptionSnapshotSchema.parse(current.snapshot).offer.name, dueAt: current.paidUntil,
+    ...lifecycleWindow(current.paidUntil) }, now);
 }
 
 /**

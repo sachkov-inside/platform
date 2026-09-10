@@ -15,6 +15,8 @@ import { endLapsedSubscriptions, endSubscription, inFlightStates, settleConfirme
 import { attemptKindSchema, type AttemptKind } from "../../domain/subscription-change.js";
 import { renewalPriceSnapshot } from "../../domain/subscription-change.js";
 import { verifyRecurringConsent } from "../../shared/recurring-consent.js";
+import { attemptSourceRef, lifecycleWindow } from "../../domain/notice.js";
+import { recordBillingNotice } from "../../shared/record-notice.js";
 
 const fulfillmentRetryDelayMilliseconds = 60_000;
 // Derived from the bank's own timeout, so a caller outlives exactly one honest round-trip.
@@ -364,6 +366,10 @@ export class BillingPayments {
           await tx.billingPurchase.update({ where: { id: row.id }, data: { ...common, state: "confirmed", confirmedAt: paidAt, periodEndsAt: period.endsAt, paymentUrl: null } });
           if (row.kind === "initial") await tx.billingPromoReservation.update({ where: { purchaseRef: row.id }, data: { state: "confirmed" } });
           await tx.billingPaymentEvent.create({ data: { id: eventRef, purchaseRef: row.id, kind: "payment_confirmed", payload: { accountId: row.accountId, amountKopecks: payment.Amount, periodRef: row.id, startsAt: period.startsAt.toISOString(), endsAt: period.endsAt.toISOString(), snapshot }, occurredAt: paidAt, recordedAt: now } });
+          // Подтверждённая оплата — повод сообщения; имя и сумма берутся из снимка самой операции.
+          await recordBillingNotice(tx, { kind: "payment_succeeded", accountId: row.accountId, sourceRef: attemptSourceRef(row.id),
+            subscriptionRef: period.subscriptionRef, attemptRef: row.id, title: snapshot.offer.name,
+            amountKopecks: payment.Amount, dueAt: period.endsAt, ...lifecycleWindow(paidAt) }, now);
           for (const capability of snapshot.offer.benefits) {
             const term = snapshot.offer.benefitPeriods?.find(value => value.capability === capability);
             // Право без собственного срока действует ровно оплаченный период; собственный срок считается от его начала.
@@ -378,7 +384,13 @@ export class BillingPayments {
           await tx.billingPurchase.update({ where: { id: row.id }, data: { ...common, state: "failed", lifecycleActive: false, paymentUrl: null } });
           if (row.kind === "initial") await tx.billingPromoReservation.update({ where: { purchaseRef: row.id }, data: { state: "failed" } });
           // Однозначный отказ по расписанию завершает продление без automatic retry и без неоплаченного grace.
-          if (row.kind === "renewal" && row.subscriptionRef) await endSubscription(tx, row.subscriptionRef, "renewal_declined", now);
+          if (row.kind === "renewal" && row.subscriptionRef) {
+            // О списании без покупателя сообщаем: отказ по расписанию он иначе не увидит.
+            await recordBillingNotice(tx, { kind: "payment_failed", accountId: row.accountId, sourceRef: attemptSourceRef(row.id),
+              subscriptionRef: row.subscriptionRef, attemptRef: row.id, title: priceSnapshotSchema.parse(row.snapshot).offer.name,
+              amountKopecks: Number(row.amountKopecks), ...lifecycleWindow(now) }, now);
+            await endSubscription(tx, row.subscriptionRef, "renewal_declined", now);
+          }
         } else if (["REVERSING", "REFUNDING", "PARTIAL_REFUNDED", "REFUNDED"].includes(payment.Status) || !payment.Success || payment.ErrorCode !== "0") {
           // An unsupported or contradictory bank state requires reconciliation, never a new charge.
           await tx.billingPurchase.update({ where: { id: row.id }, data: { ...common, state: "unknown", paymentUrl: null } });

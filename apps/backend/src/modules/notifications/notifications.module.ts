@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { PLATFORM_CONFIG, type PlatformConfig } from '../../config/platform-config.js';
 import { PrismaModule, PrismaClientProvider } from '../../infrastructure/prisma/index.js';
 import { AccountsModule, ACCOUNTS, NotificationAccounts, accountId, type Accounts } from '../accounts/index.js';
+import { BillingModule, BillingNotices } from '../billing/index.js';
 import { TelegramAccountLinksModule, TelegramAccountLinks } from '../telegram-membership/index.js';
 import { MaterialsModule, materialId } from '../materials/index.js';
 import { CONTENT_ACCESS, type ContentAccess } from '../content-access/index.js';
@@ -10,15 +11,15 @@ import { NotificationPreferencesController, NotificationOperationsController } f
 import { NotificationDispatchController } from './features/authorize-dispatch/notification-dispatch.controller.js';
 
 @Module({
-  imports: [PrismaModule, AccountsModule, TelegramAccountLinksModule, MaterialsModule],
+  imports: [PrismaModule, AccountsModule, TelegramAccountLinksModule, MaterialsModule, BillingModule],
   controllers: [NotificationPreferencesController, NotificationOperationsController, NotificationDispatchController],
-  providers: [{ provide: Notifications, inject: [PrismaClientProvider, ACCOUNTS, NotificationAccounts, TelegramAccountLinks, CONTENT_ACCESS, PLATFORM_CONFIG],
-    useFactory: (prisma: PrismaClientProvider, accounts: Accounts, contacts: NotificationAccounts, telegram: TelegramAccountLinks, access: ContentAccess, config: PlatformConfig) => new Notifications({
+  providers: [{ provide: Notifications, inject: [PrismaClientProvider, ACCOUNTS, NotificationAccounts, TelegramAccountLinks, CONTENT_ACCESS, PLATFORM_CONFIG, BillingNotices],
+    useFactory: (prisma: PrismaClientProvider, accounts: Accounts, contacts: NotificationAccounts, telegram: TelegramAccountLinks, access: ContentAccess, config: PlatformConfig, notices: BillingNotices) => new Notifications({
       prisma, now: () => new Date(), origin: config.notificationDelivery?.origin ?? '',
       sources: {
-        // Producer facts and their facets arrive with Billing #410 / first-publication #437.
-        // Transport acceptance is durable while an unconnected source remains unavailable.
-        resolve: () => Promise.resolve({ status: 'unavailable' }),
+        // Billing подтверждает повод собственными фактами; первая публикация Materials подключается
+        // в #437, и до этого её события остаются durable pending до собственного срока.
+        resolve: event => event.eventType === 'billing.notice-ready' ? notices.resolveNotice(event) : Promise.resolve({ status: 'unavailable' }),
         canRead: async (account, sourceRef) => {
           const decision = await access.authorize({ subject: { kind: 'account', accountId: accountId(account) },
             resource: { kind: 'material', materialId: materialId(sourceRef) }, action: 'read', enforcementPoint: 'published_material_read', correlationId: 'notifications' });

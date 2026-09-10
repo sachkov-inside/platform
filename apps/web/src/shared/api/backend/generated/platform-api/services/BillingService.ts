@@ -7,11 +7,19 @@ import type { BaseHttpRequest } from '../core/BaseHttpRequest';
 export class BillingService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
-   * Read own subscription, its paid term and pending changes
+   * Read own subscription, its paid term, pending changes and service notices
    * @returns any
    * @throws ApiError
    */
   public currentBilling(): CancelablePromise<{
+    notices: Array<{
+      amountKopecks: number | null;
+      dueAt: string | null;
+      kind: 'renewal_reminder' | 'payment_succeeded' | 'payment_failed' | 'renewal_cancelled' | 'access_expired' | 'refund_resolved';
+      noticeRef: string;
+      occurredAt: string;
+      state: 'current' | 'superseded';
+    }>;
     subscription: {
       inFlightPayment: {
         attemptRef: string;

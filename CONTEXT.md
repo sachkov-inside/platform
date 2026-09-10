@@ -341,6 +341,12 @@ An Account's explicit agreement to future charges under identified terms and a c
 method. Ending it preserves the already paid term.
 _Avoid_: Saved card, current chat membership, completed payment
 
+**BillingNotice**:
+One occurrence in a Subscription's paid life that is worth a service message: an upcoming charge, a
+confirmed or declined payment, a cancelled renewal, an ended access term or a resolved refund. It is
+a Billing fact with its own revisions, not the message, the channel or the delivery.
+_Avoid_: Notification, Delivery, email, reminder job
+
 **LegacyCohort**:
 The separately established set of prior Inside participants whose existing access must be accounted
 for during the move to the new subscription. A new Inside-driven join does not add a participant.

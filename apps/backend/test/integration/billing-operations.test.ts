@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { assembleAccounts, BillingContact } from "../../src/modules/accounts/index.js";
 import { billingContactProtection } from "../../src/modules/accounts/infrastructure/billing-contact-protection.js";
 import { assembleAccessGrants } from "../../src/modules/membership-entitlements/index.js";
-import { BillingOperations, BillingPayments, BillingPricing, BillingSubscriptions } from "../../src/modules/billing/index.js";
+import { BillingNotices, BillingOperations, BillingPayments, BillingPricing, BillingSubscriptions } from "../../src/modules/billing/index.js";
 import type { OwnerOutcome, OwnerResult } from "../../src/modules/billing/domain/owner-operations.js";
 import { Tbank, tbankToken } from "../../src/modules/billing/infrastructure/tbank/tbank.js";
 import { tbankConfigSchema } from "../../src/config/tbank-config.js";
@@ -182,7 +182,8 @@ describe("владельческие операции billing: платежи, �
     const bank = new BankFixture();
     const client = bank.client();
     const payments = new BillingPayments({ prisma: db.prisma, bank: client, contact, grants, clock: () => now });
-    const subscriptions = new BillingSubscriptions({ prisma: db.prisma, bank: client, contact, grants, payments, clock: () => now });
+    const notices = new BillingNotices({ prisma: db.prisma, clock: () => now });
+    const subscriptions = new BillingSubscriptions({ prisma: db.prisma, bank: client, contact, grants, payments, notices, clock: () => now });
     const operations = new BillingOperations({ prisma: db.prisma, accounts, pricing, payments, subscriptions, grants, bank: client, clock: () => now });
 
     async function consentFor(contextRef: string) {
@@ -267,7 +268,7 @@ describe("владельческие операции billing: платежи, �
     value(await s.payments.recover());
     expect(await s.capabilities()).toEqual([`guide:${s.guideId}`, "materials", "support"]);
     expect(await db.prisma.accessGrant.findUniqueOrThrow({ where: { id: guideGrant } })).toMatchObject({ revokedAt: null, validUntil: null });
-    expect(value(await s.subscriptions.read(s.buyer))).toMatchObject({ state: "canceled", paidUntil: "2030-04-30T10:00:00.000Z" });
+    expect(value(await s.subscriptions.read(s.buyer)).subscription).toMatchObject({ state: "canceled", paidUntil: "2030-04-30T10:00:00.000Z" });
     const totals = asRefunds(await s.operations.execute(owner, { operation: "refunds.read", operationId: randomUUID(), purchaseRef }));
     expect(totals).toMatchObject({ refundedKopecks: 100_000, refundableKopecks: 0 });
     expect(totals.decisions).toHaveLength(1);
@@ -381,7 +382,7 @@ describe("владельческие операции billing: платежи, �
     expect(paid.length).toBeGreaterThan(0);
     expect(paid.every(grant => grant.revokedAt !== null && grant.revision === 2)).toBe(true);
     expect(await db.prisma.accessGrant.findUniqueOrThrow({ where: { id: guideGrant } })).toMatchObject({ revokedAt: null });
-    expect(value(await s.subscriptions.read(s.buyer))).toMatchObject({ state: "active" });
+    expect(value(await s.subscriptions.read(s.buyer)).subscription).toMatchObject({ state: "active" });
     const history = asGrants(await s.operations.execute(owner, { operation: "grants.read", operationId: randomUUID(), accountId: s.buyer })).value;
     expect(history.history.map(entry => entry.kind)).toContain("paid_revoked");
   });
@@ -496,6 +497,6 @@ describe("владельческие операции billing: платежи, �
     expect(withdrawn.value).toEqual({ id: s.offerId, revision: 2, archived: true });
     const detail = asPayment(await s.operations.execute(owner, { operation: "payments.read", operationId: randomUUID(), purchaseRef }));
     expect(detail.value.snapshot.offer).toMatchObject({ id: s.offerId, revision: 1, archived: false });
-    expect(value(await s.subscriptions.read(s.buyer))).toMatchObject({ state: "active", snapshot: { offer: { revision: 1, archived: false } } });
+    expect(value(await s.subscriptions.read(s.buyer)).subscription).toMatchObject({ state: "active", snapshot: { offer: { revision: 1, archived: false } } });
   });
 });

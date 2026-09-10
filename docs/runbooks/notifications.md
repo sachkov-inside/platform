@@ -15,11 +15,13 @@ API предоставляет настройки без необходимос�
 отдельной конфигурацией worker. Без email-конфигурации worker сохраняет задания и обрабатывает
 результаты, но не начинает SMTP-попытки. Credentials не входят в repository.
 
-Источники подключаются в `NotificationsModule` через `NotificationSources.resolve` при поставке
-Billing #410 и первой публикации Materials #437. До этого resolver возвращает `unavailable`, а
-events остаются durable pending до deadline. Он обязан вернуть подтверждённый собственными
-данными occurrence, source revision, время, назначение, Account и данные шаблона; пересказ
-broker payload не является реализацией проверки. `canRead` уже использует ContentAccess.
+Источники подключаются в `NotificationsModule` через `NotificationSources.resolve`. Подписка
+подключена: `billing.notice-ready` отвечает публичный фасет Billing `resolveNotice`
+([границы поводов](../specifications/subscription-billing-v1.md#текущая-поставка-410)). Первая
+публикация Materials подключается в #437, до этого её events остаются durable pending до deadline.
+Источник обязан вернуть подтверждённый собственными данными occurrence, source revision, время,
+назначение, Account и данные шаблона; пересказ broker payload не является реализацией проверки.
+`canRead` уже использует ContentAccess.
 Новые guide purchase schemas вводятся отдельной версией в #407/#410. Контакты разрешаются
 через `NotificationAccounts`, Telegram binding — через `TelegramAccountLinks`.
 
@@ -77,6 +79,9 @@ Email inbox, effect, attempts и result outbox хранятся отдельно
 
 ## Проверки
 
+`billing-notices.test.ts` проводит подтверждённую оплату, напоминание, отмену и конец срока через
+реальные фасеты Billing и Notifications на PostgreSQL, а `billing-notices-broker.test.ts` повторяет
+оплату через реальный RabbitMQ до письма и команды Telegram в её очереди.
 `notifications.test.ts` использует PostgreSQL, Accounts verified contact и синтетические
 source/provider факты: concurrency, opt-in history, checkpoints, correlation, смену контакта,
 задержанные results, fresh permit, replay и SIGKILL после started. Broker test проводит оба
@@ -84,7 +89,7 @@ source/provider факты: concurrency, opt-in history, checkpoints, correlatio
 через ACL, затем проверяет восстановление проекции без повторной отправки.
 
 ```bash
-pnpm --filter @inside/backend test:integration test/integration/notifications.test.ts test/integration/notifications-broker.test.ts test/integration/notification-transport.test.ts
+pnpm --filter @inside/backend test:integration test/integration/notifications.test.ts test/integration/notifications-broker.test.ts test/integration/notification-transport.test.ts test/integration/billing-notices.test.ts test/integration/billing-notices-broker.test.ts
 pnpm test:integration
 pnpm check
 ```

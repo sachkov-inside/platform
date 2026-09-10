@@ -15,7 +15,7 @@ Runtime #436 добавляет core/facets/email; producers подключаю�
 
 | Владелец | Интерфейс, вводимый вместе с потребителем |
 |---|---|
-| Billing | Immutable notice-ready event/outbox; `resolveNotice(occurrenceRef, revision)` возвращает актуальные purpose, template data, recipient Account и deadline или superseded/unavailable |
+| Billing | Immutable notice-ready event/outbox; `resolveNotice(event)` возвращает актуальные purpose, template data, recipient Account и deadline или superseded/unavailable |
 | Materials | First-publication event/outbox; `resolveAnnouncement(materialRef, occurrenceRef)` возвращает publication identity, текущие title/reader path/contentVersion или unpublished/not_found |
 | Accounts | Публичные verified email/contact revision и Account enumeration; никакого чтения чужой schema |
 | ContentAccess | Текущий доступ Account к Material через существующий публичный facet; нет provider I/O |
@@ -68,8 +68,9 @@ Notifications сохраняет сведения о неподключённо�
 
 Эта specification заменяет `billing` notice intent/sender ownership из #403: Billing оставляет
 source facts, notice occurrence и due reminder; Notifications владеет Notification/Delivery,
-шаблонами и отправкой через каналы. При чтении кабинета Billing получает notification summary
-через публичный Notifications facet. Следующие charge attempts не ждут успеха уведомлений.
+шаблонами и отправкой через каналы. Кабинет Billing показывает собственные поводы, а состояния
+доставок читаются endpoint Notifications: обратной зависимости Billing на Notifications нет, и у
+доставки остаётся один владелец. Следующие charge attempts не ждут успеха уведомлений.
 
 Community entitlement и его permit остаются в telegram-membership и отдельном billing-v1 corpus.
 Общая шина не превращает notification в выдачу права. Один paid event может дать два независимых
@@ -87,7 +88,9 @@ Community entitlement и его permit остаются в telegram-membership �
   durable pending inbox/checkpoint, lifecycle/ACL/backpressure; real broker crash tests. Business
   facts, audience jobs and channel effects are integrated by the following tickets.
 - #436: core/facets/email, PostgreSQL uniqueness/rollback/concurrency и positive/negative module guards.
-- #410: Billing events/reminders через общий модуль; #408/#406 остаются зависимостями.
+- #410 (поставлено): Billing events/reminders через общий модуль; `NotificationSources.resolve`
+  отвечает подтверждёнными фактами Billing, а `billing.notice-ready` проходит оба канала.
+  Границы поводов описаны в [billing v1](subscription-billing-v1.md#текущая-поставка-410).
 - #437: first publication и settings UI, desktop/mobile/accessibility и no-backfill proof.
 - Telegram #56: real consumer/inbox/effect ledger, shared bot limits и result relay.
 - #438: реальные PostgreSQL/RabbitMQ и обе стороны при synthetic provider; отдельное разрешённое

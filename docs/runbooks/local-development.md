@@ -433,6 +433,12 @@ same encryption key available for recovery of saved receipt contacts and recurri
 log the configuration, card binding or receipt email. The callback is
 `POST /billing/tbank/notification`; it acknowledges a validated durable result with plain `OK`.
 
+The same process owns the `billing.subscription-notices` queue: three days before a charge it
+records the renewal reminder for an active schedule with a usable payment method, issues its next
+revision when the date, amount or composition changes, and closes it when the charge is no longer
+coming. It records the occurrence only; templates, channels and sending belong to
+[Notifications](notifications.md).
+
 The same process owns the `billing.subscription-renewal` queue: it starts due renewals, reconciles
 card binding sessions and closes lapsed schedules. A renewal persists its attempt before Init and
 records `CHARGE_CALLED` before the network, so a lost response is reconciled through GetState on the
