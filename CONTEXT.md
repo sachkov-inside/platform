@@ -320,6 +320,11 @@ An Account's effective right to participate in the Inside community, distinct fr
 presence in the Telegram chat.
 _Avoid_: ChatMember, membership observation
 
+**CommunityDelivery**:
+One attempt to make a CommunityEntitlement real in Telegram. Its desired state, the provider's
+acceptance and the observed membership are separate facts.
+_Avoid_: Queue acknowledgement as membership, entitlement revision as proof of admission
+
 **BillingContact**:
 An Account's confirmed address for subscription communication and receipts.
 It is distinct from identity evidence used to sign in.

@@ -10,9 +10,10 @@ named after that Module; a Module without persistent state does not receive an e
 current names are `Accounts` → `accounts`, `Assets` → `assets`, `Materials` → `materials`,
 `MemberProfiles` → `member_profiles`, `MembershipEntitlements` → `membership_entitlements`,
 `TelegramMembership` → `telegram_membership`, `Videos` → `videos` and `Workshop` → `workshop`.
-TelegramMembership stores only Platform-owned link transaction state and opaque provider
-correlations; entitlement evidence and its Account binding remain behind the
-MembershipEntitlements interface. Workshop owns bounded grants, immutable Case publication links
+TelegramMembership stores Platform-owned link transaction state, opaque provider correlations and,
+since [ADR 0022](0022-community-delivery-state-in-telegram-membership.md), the community delivery
+state addressed to that provider; entitlement evidence, the right itself and its Account binding
+remain behind the MembershipEntitlements interface. Workshop owns bounded grants, immutable Case publication links
 and reveal evidence; it stores Account and Material references as opaque IDs without cross-schema
 foreign keys.
 

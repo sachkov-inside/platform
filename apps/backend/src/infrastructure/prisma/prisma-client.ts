@@ -75,7 +75,15 @@ export type MemberProfilesPrismaClient = MemberProfilesPrisma &
 
 export type TelegramMembershipPrisma = Pick<
   PlatformPrisma,
-  "$queryRaw" | "telegramLinkTransaction" | "telegramAccountLinkState" | "telegramAccountLinkHistory"
+  | "$executeRaw"
+  | "$queryRaw"
+  | "telegramLinkTransaction"
+  | "telegramAccountLinkState"
+  | "telegramAccountLinkHistory"
+  | "telegramCommunityDesiredState"
+  | "telegramCommunityOperation"
+  | "telegramCommunityAuthorization"
+  | "telegramCommunityProjectionCursor"
 >;
 export type TelegramMembershipPrismaClient = TelegramMembershipPrisma &
   TransactionClient<TelegramMembershipPrisma>;
