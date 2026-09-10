@@ -1,5 +1,5 @@
 import type { INestApplicationContext } from "@nestjs/common";
-import { NestFactory } from "@nestjs/core";
+import { ModulesContainer, NestFactory } from "@nestjs/core";
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -9,6 +9,7 @@ import {
   type PlatformConfig,
 } from "../src/config/platform-config.js";
 import { createApiApplication } from "../src/entrypoints/api/create-api-application.js";
+import { BillingWorkerModule } from "../src/entrypoints/billing-worker/billing-worker.module.js";
 import { createMcpApplication } from "../src/entrypoints/create-mcp-application.js";
 import { MaterialAssetsWorkerModule } from "../src/entrypoints/material-assets-worker/material-assets-worker.module.js";
 import { ProfileAvatarsWorkerModule } from "../src/entrypoints/profile-avatars-worker/profile-avatars-worker.module.js";
@@ -22,17 +23,42 @@ import {
   ACCOUNTS,
   LOGTO_ACCESS_TOKEN_VERIFIER,
 } from "../src/modules/accounts/index.js";
+import { BillingPayments } from "../src/modules/billing/index.js";
 import {
   MATERIAL_AUTHORING,
   PUBLISHED_MATERIAL_READER,
 } from "../src/modules/materials/index.js";
 import { MEMBERSHIP_ENTITLEMENTS } from "../src/modules/membership-entitlements/index.js";
 import { PROFILE_AVATAR_MAINTENANCE } from "../src/modules/member-profiles/index.js";
+import { CommunityEntitlements } from "../src/modules/telegram-membership/index.js";
 import { VIDEO_DELETION_MAINTENANCE } from "../src/modules/videos/index.js";
 import {
   WORKSHOP_MATERIAL_ACCESS,
   WORKSHOP_MATERIAL_PROTECTION,
 } from "../src/modules/workshop/index.js";
+
+function isAccessGrants(instance: unknown): boolean {
+  return (
+    typeof instance === "object" &&
+    instance !== null &&
+    "applyPaidPeriod" in instance &&
+    typeof instance.applyPaidPeriod === "function" &&
+    "resolveCapabilities" in instance &&
+    typeof instance.resolveCapabilities === "function"
+  );
+}
+
+/**
+ * Every assembled grant facet in the process, whatever token holds it: a consumer
+ * that assembles its own copy shows up here even under a private symbol.
+ */
+function accessGrantFacets(context: INestApplicationContext): unknown[] {
+  const modules = context.get(ModulesContainer, { strict: false });
+  const instances = [...modules.values()].flatMap((module) =>
+    [...module.providers.values()].map((provider) => provider.instance),
+  );
+  return [...new Set(instances.filter(isAccessGrants))];
+}
 
 const config = parsePlatformConfig({
   NODE_ENV: "test",
@@ -80,6 +106,15 @@ describe("backend process composition", () => {
     expect(disconnect).toHaveBeenCalledOnce();
   });
 
+  it("gives billing and community one access grant provider", async () => {
+    const api = await createApiApplication(config, { logger: false });
+    application = api;
+
+    expect(accessGrantFacets(api)).toHaveLength(1);
+    expect(api.get(BillingPayments)).toBeDefined();
+    expect(api.get(CommunityEntitlements)).toBeDefined();
+  });
+
   it("uses the same required bindings for the MCP context", async () => {
     const mcp = await createMcpApplication(config, { logger: false });
     application = mcp;
@@ -99,6 +134,21 @@ describe("backend process composition", () => {
     application = undefined;
 
     expect(disconnect).toHaveBeenCalledOnce();
+  });
+
+  it("binds the Billing worker to readiness and its access consumers", async () => {
+    application = await NestFactory.createApplicationContext(
+      BillingWorkerModule.forRoot(config),
+      { logger: false },
+    );
+
+    expect(application.get<PlatformConfig>(PLATFORM_CONFIG)).toBe(config);
+    expect(application.get(OperationalReadiness)).toBeInstanceOf(
+      OperationalReadiness,
+    );
+    expect(accessGrantFacets(application)).toHaveLength(1);
+    expect(application.get(BillingPayments)).toBeDefined();
+    expect(application.get(CommunityEntitlements)).toBeDefined();
   });
 
   it("loads and validates worker config through Nest composition", async () => {
