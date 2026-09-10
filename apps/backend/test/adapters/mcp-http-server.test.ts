@@ -37,6 +37,7 @@ describe("MCP Streamable HTTP adapter", () => {
         reconcile: () => Promise.resolve({ ok: false, error: { code: "forbidden" } }),
       },
       communications: { execute: () => Promise.resolve({ ok: false, error: { code: "forbidden" } }) },
+      billing: { execute: () => Promise.resolve({ ok: false, error: { code: "forbidden" } }) },
       config: {
         host: "127.0.0.1",
         port: 0,
@@ -65,7 +66,8 @@ describe("MCP Streamable HTTP adapter", () => {
     try {
       await client.connect(transport);
       const { tools } = await client.listTools();
-      expect(tools.map(({ name }) => name).filter(name => !name.startsWith("communications_"))).toEqual([
+      const names = tools.map(({ name }) => name);
+      expect(names.filter(name => !name.startsWith("communications_") && !name.startsWith("billing_"))).toEqual([
         "material_create_draft",
         "material_load",
         "material_save",
@@ -82,6 +84,17 @@ describe("MCP Streamable HTTP adapter", () => {
         "video_init_upload",
         "video_reconcile",
       ]);
+      // Владельческие billing-операции доступны тем же делегированным Account, без своей власти.
+      expect(names.filter(name => name.startsWith("billing_"))).toEqual([
+        "billing_offers_save", "billing_offers_archive", "billing_paymentOptions_save", "billing_paymentOptions_archive",
+        "billing_promotions_save", "billing_promotions_archive", "billing_payments_list", "billing_payments_read",
+        "billing_payments_reconcile", "billing_subscriptions_cancel", "billing_refunds_decide", "billing_refunds_execute",
+        "billing_refunds_read", "billing_grants_read", "billing_grants_previewBatch", "billing_grants_applyBatch",
+        "billing_grants_extend", "billing_grants_revoke",
+      ]);
+      const refund = tools.find(tool => tool.name === "billing_refunds_execute");
+      expect(refund?.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true, openWorldHint: true });
+      expect(tools.find(tool => tool.name === "billing_payments_read")?.annotations).toMatchObject({ readOnlyHint: true });
     } finally {
       await client.close();
     }

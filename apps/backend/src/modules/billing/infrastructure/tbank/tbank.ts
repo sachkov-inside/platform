@@ -18,6 +18,13 @@ export const bankPaymentSchema = bankPaymentInputSchema.transform(({ PaymentId, 
   ...(RebillId === undefined ? {} : { RebillId: String(RebillId) }),
 }));
 export type BankPayment = z.infer<typeof bankPaymentSchema>;
+export const refundTerminalStatuses = ["REFUNDED", "PARTIAL_REFUNDED", "REVERSED", "PARTIAL_REVERSED"] as const;
+const bankRefundSchema = z.object({
+  TerminalKey: z.string().min(1).max(64), OrderId: z.string().min(1).max(50), PaymentId: reference,
+  Status: z.string().min(1).max(64), Success: success, ErrorCode: z.string(),
+  OriginalAmount: z.int().nonnegative().optional(), NewAmount: z.int().nonnegative().optional(),
+}).transform(({ PaymentId, Success, ...value }) => ({ ...value, PaymentId: String(PaymentId), Success: Success === true || Success === "true" }));
+export type BankRefund = z.infer<typeof bankRefundSchema>;
 /** Инициатива операции: первая CIT-привязка, покупатель по сохранённому средству, merchant recurring. */
 export type PaymentInitiator = "1" | "2" | "R";
 const notificationSchema = z.record(z.string(), z.unknown());
@@ -79,6 +86,21 @@ export class Tbank {
     return { status: result.Status, success: result.Success === true || result.Success === "true", errorCode: result.ErrorCode,
       ...(result.RebillId === undefined ? {} : { rebillId: String(result.RebillId) }) };
   }
+  /**
+   * Возврат по подтверждённому платежу. ExternalRequestId закрепляет одну попытку за одной
+   * refund записью; повтор с тем же идентификатором банк считает тем же запросом. Позиции чека
+   * повторяют исходную покупку на сумму возврата.
+   */
+  async cancel(input: { paymentId: string; amount: number; externalRequestId: string; name: string; email: string }): Promise<BankRefund> {
+    const result = bankRefundSchema.parse(await this.call("Cancel", {
+      PaymentId: input.paymentId, Amount: input.amount, ExternalRequestId: input.externalRequestId,
+      Receipt: { Email: input.email, Taxation: this.config.receipt.taxation,
+        Items: [{ Name: input.name.slice(0, 128), Price: input.amount, Quantity: 1, Amount: input.amount,
+          PaymentMethod: "full_payment", PaymentObject: "service", Tax: this.config.receipt.tax }] },
+    }));
+    if (result.TerminalKey !== this.config.terminalKey || result.PaymentId !== input.paymentId) throw new Error("Bank refund payment mismatch");
+    return result;
+  }
   async state(paymentId: string): Promise<BankPayment> {
     return bankPaymentSchema.parse(await this.call("GetState", { PaymentId: paymentId }));
   }
@@ -114,7 +136,7 @@ export class Tbank {
     decipher.setAuthTag(data.subarray(12, 28));
     return Buffer.concat([decipher.update(data.subarray(28)), decipher.final()]).toString("utf8");
   }
-  private async call(method: "Init" | "GetState" | "CheckOrder" | "Charge" | "AddCard" | "GetAddCardState", values: Readonly<Record<string, unknown>>): Promise<unknown> {
+  private async call(method: "Init" | "GetState" | "CheckOrder" | "Charge" | "Cancel" | "AddCard" | "GetAddCardState", values: Readonly<Record<string, unknown>>): Promise<unknown> {
     const body = { ...values, TerminalKey: this.config.terminalKey };
     const response = await this.request(`https://securepay.tinkoff.ru/v2/${method}`, {
       method: "POST", headers: { "content-type": "application/json" },

@@ -4,7 +4,7 @@ import { PgBoss } from "pg-boss";
 import { PLATFORM_CONFIG, type PlatformConfig } from "../config/platform-config.js";
 import { OperationalReadiness } from "../infrastructure/operational-readiness.js";
 import { runWorker } from "../infrastructure/worker-runtime.js";
-import { BillingPayments, BillingSubscriptions } from "../modules/billing/index.js";
+import { BillingOperations, BillingPayments, BillingSubscriptions } from "../modules/billing/index.js";
 import { BillingWorkerModule } from "./billing-worker/billing-worker.module.js";
 
 const recoveryQueue = "billing.payment-recovery";
@@ -18,6 +18,7 @@ async function bootstrap(): Promise<void> {
   const config = application.get<PlatformConfig>(PLATFORM_CONFIG);
   const payments = application.get(BillingPayments);
   const subscriptions = application.get(BillingSubscriptions);
+  const operations = application.get(BillingOperations);
   const jobs = new PgBoss({ connectionString: config.database.url, createSchema: false, migrate: false, schema: "pgboss" });
   jobs.on("error", () => console.error("Billing recovery queue unavailable"));
   await runWorker({ application, databaseUrl: config.database.url, jobs, process: "billing-worker", readiness: application.get(OperationalReadiness),
@@ -28,7 +29,9 @@ async function bootstrap(): Promise<void> {
       await jobs.work(recoveryQueue, async () => {
         const result = await payments.recover(20);
         if (!result.ok) throw new Error(result.error.code);
-        return result.value;
+        // Незавершённый возврат сверяется тем же ExternalRequestId и не отправляется заново.
+        const refunds = await operations.reconcileRefunds(20);
+        return { ...result.value, refunds };
       });
       await jobs.createQueue(renewalQueue, { deleteAfterSeconds: jobRetentionSeconds, expireInSeconds: jobTimeoutSeconds, retryLimit: 0 });
       await jobs.schedule(renewalQueue, "* * * * *", {});

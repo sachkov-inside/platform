@@ -79,7 +79,7 @@ describe("Billing pricing HTTP", () => {
     await database.prisma.accountPermission.create({ data: { accountId: account.id, permission: "platform:admin" } });
     const saved = await server.inject({ method: "POST", url: "/billing/admin", headers, payload: command });
     expect(saved.statusCode).toBe(200); expect(saved.headers["cache-control"]).toBe("private, no-store");
-    expect(saved.json()).toEqual({ id: offerId, revision: 1, archived: false });
+    expect(saved.json()).toEqual({ operationRef: command.operationId, result: { outcome: "catalog", value: { id: offerId, revision: 1, archived: false } } });
     expect((await server.inject({ method: "POST", url: "/billing/admin", headers, payload: { ...command, actor: account.id } })).statusCode).toBe(400);
     expect((await server.inject({ method: "POST", url: "/billing/admin", headers, payload: { operation: "paymentOptions.save", operationId: randomUUID(), value: { id: optionId, offerId, months: 5, priceKopecks: 500_000 } } })).statusCode).toBe(200);
     const list = await server.inject({ method: "GET", url: "/billing/offers?limit=1" });
@@ -94,6 +94,32 @@ describe("Billing pricing HTTP", () => {
     const stale = await server.inject({ method: "POST", url: "/accounts/current/billing/quote", headers, payload: { ...quote, operationId: randomUUID(), optionRevision: 99 } });
     expect(stale.statusCode).toBe(409); expect(stale.headers["content-type"]).toContain("application/problem+json"); expect(stale.json()).toMatchObject({ code: "quote_changed" });
     expect((await server.inject({ method: "POST", url: "/billing/reservations", headers, payload: {} })).statusCode).toBe(404);
+  });
+
+  test("scoped billing permission opens the owner surface and maps its result codes", async () => {
+    const server = app.getHttpAdapter().getInstance();
+    const headers = { authorization: `Bearer ${await signToken({ subject: "billing-manager-001", email: "manager@example.test" })}` };
+    expect((await server.inject({ method: "POST", url: "/accounts", headers })).statusCode).toBe(201);
+    const manager = await database.prisma.account.findUniqueOrThrow({ where: { logtoIssuer_logtoSubject: { logtoIssuer: issuer, logtoSubject: "billing-manager-001" } } });
+    const payments = { operation: "payments.list", operationId: randomUUID() };
+    expect((await server.inject({ method: "POST", url: "/billing/admin", headers, payload: payments })).statusCode).toBe(403);
+    // Владельческая поверхность открывается отдельным правом billing:manage, без platform:admin.
+    await database.prisma.accountPermission.create({ data: { accountId: manager.id, permission: "billing:manage" } });
+    const list = await server.inject({ method: "POST", url: "/billing/admin", headers, payload: payments });
+    expect(list.statusCode).toBe(200);
+    expect(list.json()).toEqual({ operationRef: payments.operationId, result: { outcome: "payments", items: [], nextCursor: null } });
+    const missing = await server.inject({ method: "POST", url: "/billing/admin", headers, payload: { operation: "refunds.read", operationId: randomUUID(), purchaseRef: randomUUID() } });
+    expect(missing.statusCode).toBe(404);
+    expect(missing.headers["content-type"]).toContain("application/problem+json");
+    expect(missing.json()).toMatchObject({ code: "not_found" });
+    const decision = { operation: "refunds.decide", operationId: randomUUID(), purchaseRef: randomUUID(), amountKopecks: 0, access: "keep", recurring: "keep", reason: "Недопустимая сумма" };
+    expect((await server.inject({ method: "POST", url: "/billing/admin", headers, payload: decision })).statusCode).toBe(400);
+    const grant = { operation: "grants.revoke", operationId: randomUUID(), grantRef: randomUUID(), expectedRevision: 1, reason: "Неизвестное основание" };
+    expect((await server.inject({ method: "POST", url: "/billing/admin", headers, payload: grant })).statusCode).toBe(404);
+    // Чтение не занимает operationId, поэтому повторяется свободно и с другой нагрузкой.
+    const repeated = await server.inject({ method: "POST", url: "/billing/admin", headers, payload: { ...payments, limit: 5 } });
+    expect(repeated.statusCode).toBe(200);
+    expect(repeated.json()).toEqual({ operationRef: payments.operationId, result: { outcome: "payments", items: [], nextCursor: null } });
   });
 
   async function signToken(

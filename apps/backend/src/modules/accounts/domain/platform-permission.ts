@@ -1,6 +1,7 @@
 export const platformPermissions = [
   "materials:manage",
   "communications:manage",
+  "billing:manage",
   "platform:admin",
 ] as const;
 export type PlatformPermission = (typeof platformPermissions)[number];
