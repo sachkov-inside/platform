@@ -8,8 +8,18 @@ const schema = z.discriminatedUnion("kind", [
       seriesId: z.uuid(),
       name: z.string(),
       orderVersion: z.string(),
+      chapters: z
+        .array(
+          z.object({
+            id: z.uuid(),
+            name: z.string(),
+            summary: z.string(),
+          }),
+        )
+        .default([]),
       items: z.array(
         z.object({
+          chapterId: z.uuid().nullable().default(null),
           materialId: z.uuid(),
           title: z.string(),
           publicationState: z.enum(["draft", "published", "unpublished"]),

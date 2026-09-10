@@ -33,6 +33,7 @@ const materialTables = [
   "guide_artifact_placements",
   "guide_artifact_versions",
   "guide_artifacts",
+  "guide_chapters",
   "home_series_pin",
   "material_related_pins",
   "material_search_documents",
@@ -201,6 +202,8 @@ describe("Platform migrations", () => {
       "0047_subscription_payments",
       "0048_subscription_lifecycle",
       "0050_guide_artifacts",
+      "0051_guide_chapters",
+      "0052_billing_notices",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -779,6 +782,7 @@ describe("Platform migrations", () => {
       "0047_subscription_payments",
       "0048_subscription_lifecycle",
       "0050_guide_artifacts",
+      "0051_guide_chapters",
         ],
       });
 

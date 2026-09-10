@@ -11,12 +11,14 @@ import {
   ChevronDown,
   Plus,
   Search,
+  Trash2,
   X,
 } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import type { RefObject } from "react";
 
+import { guideChapterRuns } from "@/shared/lib/guide-chapter-runs";
 import { useAutosave } from "@/shared/lib/autosave/use-autosave";
 import { cn } from "@/shared/lib/utils";
 import { useLiveSearchValue } from "@/shared/lib/use-live-search-value.client";
@@ -32,10 +34,19 @@ import {
 import { reorderSeries } from "../api/series-order.browser";
 import type {
   CreateSeriesOrderMaterialSearchQueryOptions,
+  GuideChapterPresentation,
   ReorderSeriesResult,
   SeriesOrderItemPresentation,
   SeriesOrderPresentation,
 } from "../model/presentation";
+
+import {
+  GUIDE_CHAPTER_NAME_MAX,
+  GUIDE_CHAPTER_SUMMARY_MAX,
+} from "../model/presentation";
+
+const STEP_GROUP_LIMIT = 120;
+const UNASSIGNED = "unassigned";
 
 export function SeriesOrderManager({
   embedded = false,
@@ -54,21 +65,37 @@ export function SeriesOrderManager({
   readonly onSelectPlaylist: (seriesId: string) => void;
   readonly presentation: SeriesOrderPresentation;
 }) {
+  const [chapters, setChapters] = useState(presentation.chapters);
   const [items, setItems] = useState(presentation.items);
   const version = useRef(presentation.orderVersion);
   const mutation = useMutation({ mutationFn: reorderSeries });
   const attempted = useRef<Parameters<typeof reorderSeries>[0] | null>(null);
   const autosave = useAutosave({
-    value: compositionEntries(items),
-    enabled: items.every(
-      ({ stepGroup }) => (stepGroup?.trim().length ?? 0) <= 120,
-    ),
-    save: async (entries) => {
+    value: composition(items, chapters),
+    enabled:
+      items.every(
+        ({ stepGroup }) => (stepGroup?.trim().length ?? 0) <= STEP_GROUP_LIMIT,
+      ) &&
+      chapters.every(
+        ({ name, summary }) =>
+          name.trim().length > 0 &&
+          name.trim().length <= GUIDE_CHAPTER_NAME_MAX &&
+          summary.trim().length <= GUIDE_CHAPTER_SUMMARY_MAX,
+      ),
+    save: async (snapshot) => {
       const input = attempted.current ?? {
+        chapters: snapshot.chapters,
+        chapterAssignments: Object.fromEntries(
+          snapshot.entries.flatMap(({ chapterId, materialId }) =>
+            chapterId === null ? [] : [[materialId, chapterId]],
+          ),
+        ),
         expectedOrderVersion: version.current,
-        orderedMaterialIds: entries.map(([id]) => id),
+        orderedMaterialIds: snapshot.entries.map(({ materialId }) => materialId),
         stepGroups: Object.fromEntries(
-          entries.flatMap(([id, group]) => (group ? [[id, group]] : [])),
+          snapshot.entries.flatMap(({ materialId, stepGroup }) =>
+            stepGroup === null ? [] : [[materialId, stepGroup]],
+          ),
         ),
         seriesId: presentation.seriesId,
       };
@@ -85,6 +112,7 @@ export function SeriesOrderManager({
   const dirty = autosave.dirty;
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dropId, setDropId] = useState<string | null>(null);
+  const dragState = { draggedId, dropId, setDraggedId, setDropId };
   const [positionNotice, setPositionNotice] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
   const pickerRef = useRef<HTMLDialogElement>(null);
@@ -94,18 +122,121 @@ export function SeriesOrderManager({
     });
   };
 
+  /** Positions move inside one chapter; the chapter itself is changed explicitly. */
   const move = (index: number, offset: -1 | 1) => {
+    const item = items[index];
     const destination = index + offset;
-    if (destination < 0 || destination >= items.length) return;
+    const neighbour = items[destination];
+    if (
+      item === undefined ||
+      neighbour === undefined ||
+      (neighbour.chapterId ?? null) !== (item.chapterId ?? null)
+    )
+      return;
     const next = [...items];
-    const [item] = next.splice(index, 1);
-    if (item === undefined) return;
+    next.splice(index, 1);
     next.splice(destination, 0, item);
     mutation.reset();
     setItems(next);
     setPositionNotice(
       `${item.title}: позиция ${String(destination + 1)} из ${String(next.length)}`,
     );
+  };
+  const placeBefore = (materialId: string, targetIndex: number) => {
+    const target = items[targetIndex];
+    const source = items.findIndex((entry) => entry.materialId === materialId);
+    const entry = items[source];
+    if (target === undefined || entry === undefined || source === targetIndex) return;
+    const chapterId = target.chapterId ?? null;
+    const next = [...items];
+    next.splice(source, 1);
+    next.splice(next.indexOf(target), 0, { ...entry, chapterId });
+    mutation.reset();
+    setItems(next);
+    setPositionNotice(
+      `${entry.title}: позиция ${String(next.indexOf(entry) + 1)} из ${String(next.length)}`,
+    );
+  };
+  const assign = (materialId: string, chapterId: string | null) => {
+    mutation.reset();
+    setItems((current) => {
+      const source = current.findIndex((entry) => entry.materialId === materialId);
+      const entry = current[source];
+      if (entry === undefined) return current;
+      const rest = current.filter((_, index) => index !== source);
+      const destination = chapterRunEnd(rest, chapters, chapterId);
+      return [
+        ...rest.slice(0, destination),
+        { ...entry, chapterId },
+        ...rest.slice(destination),
+      ];
+    });
+  };
+  const addChapter = () => {
+    mutation.reset();
+    setChapters((current) => [
+      ...current,
+      { id: crypto.randomUUID(), name: "Новая глава", summary: "" },
+    ]);
+  };
+  const editChapter = (id: string, values: Partial<GuideChapterPresentation>) => {
+    mutation.reset();
+    setChapters((current) =>
+      current.map((chapter) =>
+        chapter.id === id ? { ...chapter, ...values } : chapter,
+      ),
+    );
+  };
+  const moveChapter = (index: number, offset: -1 | 1) => {
+    const destination = index + offset;
+    const chapter = chapters[index];
+    if (chapter === undefined || destination < 0 || destination >= chapters.length)
+      return;
+    const other = chapters[destination];
+    if (other === undefined) return;
+    const next = [...chapters];
+    next.splice(index, 1);
+    next.splice(destination, 0, chapter);
+    mutation.reset();
+    setChapters(next);
+    setItems((current) => exchangeRuns(current, chapter.id, other.id));
+    setPositionNotice(
+      `${chapter.name}: глава ${String(destination + 1)} из ${String(next.length)}`,
+    );
+  };
+  const removeItem = (materialId: string) => {
+    mutation.reset();
+    setItems((current) =>
+      current.filter((entry) => entry.materialId !== materialId),
+    );
+  };
+  const setStepGroup = (materialId: string, stepGroup: string) => {
+    mutation.reset();
+    setItems((current) =>
+      current.map((entry) =>
+        entry.materialId === materialId ? { ...entry, stepGroup } : entry,
+      ),
+    );
+  };
+  const removeChapter = (id: string) => {
+    const next = chapters.filter((chapter) => chapter.id !== id);
+    mutation.reset();
+    setChapters(next);
+    setItems((current) =>
+      current.map((entry) =>
+        entry.chapterId === id ? { ...entry, chapterId: null } : entry,
+      ),
+    );
+  };
+  const actions: CompositionActions = {
+    assign,
+    editChapter,
+    move,
+    moveChapter,
+    placeBefore,
+    removeChapter,
+    removeItem,
+    setStepGroup,
   };
   const openPicker = () => {
     setPickerOpen(true);
@@ -132,15 +263,26 @@ export function SeriesOrderManager({
                 {items.length}
               </span>
             </div>
-            <Button
-              disabled={presentation.archived}
-              onClick={openPicker}
-              type="button"
-              variant="outline"
-            >
-              <Plus aria-hidden="true" />
-              Добавить материал
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                disabled={presentation.archived}
+                onClick={addChapter}
+                type="button"
+                variant="outline"
+              >
+                <Plus aria-hidden="true" />
+                Добавить главу
+              </Button>
+              <Button
+                disabled={presentation.archived}
+                onClick={openPicker}
+                type="button"
+                variant="outline"
+              >
+                <Plus aria-hidden="true" />
+                Добавить материал
+              </Button>
+            </div>
           </header>
         ) : (
           <header className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-5">
@@ -208,7 +350,16 @@ export function SeriesOrderManager({
                   </Select>
                 </div>
               )}
-              <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  disabled={presentation.archived}
+                  onClick={addChapter}
+                  type="button"
+                  variant="outline"
+                >
+                  <Plus aria-hidden="true" data-icon="inline-start" />
+                  Добавить главу
+                </Button>
                 <Button
                   disabled={presentation.archived}
                   onClick={openPicker}
@@ -244,7 +395,7 @@ export function SeriesOrderManager({
                 ({ materialId }) => materialId === material.materialId,
               )
                 ? current
-                : [...current, material],
+                : [...current, { ...material, chapterId: null }],
             );
           }}
           onOpenChange={setPickerOpen}
@@ -270,7 +421,7 @@ export function SeriesOrderManager({
             </div>
           ) : null}
 
-          {items.length === 0 ? (
+          {items.length === 0 && chapters.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-border bg-card px-5 py-14 text-center">
               <h2 className="text-lg font-semibold">Руководство пока пусто</h2>
               <p className="mt-2 text-sm text-muted-foreground">
@@ -278,183 +429,31 @@ export function SeriesOrderManager({
               </p>
             </div>
           ) : (
-            <ol className="divide-y divide-border" aria-label="Материалы руководства">
-              {items.map((item, index) => (
-                <li
-                  className={cn(
-                    "group relative min-w-0 py-4",
-                    draggedId === item.materialId && "opacity-50",
-                    dropId === item.materialId &&
-                      "bg-secondary outline-2 outline-ring",
-                  )}
-                  key={item.materialId}
-                  onDragOver={(event) => {
-                    if (draggedId === null) return;
-                    event.preventDefault();
-                    event.dataTransfer.dropEffect = "move";
-                    setDropId(item.materialId);
-                  }}
-                  onDragLeave={(event) => {
-                    if (
-                      !event.currentTarget.contains(
-                        event.relatedTarget as Node | null,
-                      )
-                    )
-                      setDropId(null);
-                  }}
-                  onDrop={(event) => {
-                    if (draggedId === null) return;
-                    event.preventDefault();
-                    const source = items.findIndex(
-                      ({ materialId }) => materialId === draggedId,
-                    );
-                    const next = [...items];
-                    const [entry] = next.splice(source, 1);
-                    if (source >= 0 && entry !== undefined) {
-                      next.splice(index, 0, entry);
-                      mutation.reset();
-                      setItems(next);
-                      setPositionNotice(
-                        `${entry.title}: позиция ${String(index + 1)} из ${String(next.length)}`,
-                      );
+            <div className="grid gap-8">
+              {guideChapterRuns(items, chapters, ({ chapterId }) => chapterId ?? null).map(
+                (section) => (
+                  <ChapterSection
+                    actions={actions}
+                    archived={presentation.archived}
+                    chapter={section.chapter}
+                    chapters={chapters}
+                    dragState={dragState}
+                    entries={section.items.map((item, index) => ({
+                      item,
+                      position: section.offset + index,
+                    }))}
+                    grouped={chapters.length > 0}
+                    key={section.chapter?.id ?? `open-${String(section.offset)}`}
+                    number={
+                      section.chapter === null
+                        ? null
+                        : chapters.indexOf(section.chapter) + 1
                     }
-                    setDraggedId(null);
-                    setDropId(null);
-                  }}
-                >
-                  <div className="grid min-w-0 grid-cols-[1.5rem_minmax(0,1fr)_auto] items-center gap-x-2 sm:grid-cols-[1.5rem_2.5rem_minmax(0,1fr)_auto] sm:gap-x-3">
-                    <span className="col-start-1 row-start-1 w-6 self-start pt-1.5 text-center text-sm tabular-nums text-muted-foreground">
-                      {index + 1}
-                    </span>
-                    <button
-                      aria-label={`Переместить «${item.title}»`}
-                      title="Перетащите или используйте клавиши ↑ и ↓"
-                      className="col-start-2 row-start-1 hidden size-10 shrink-0 cursor-grab items-center justify-center rounded-md text-muted-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring active:cursor-grabbing sm:flex"
-                      draggable
-                      type="button"
-                      onDragStart={(event) => {
-                        setDraggedId(item.materialId);
-                        event.dataTransfer.effectAllowed = "move";
-                        event.dataTransfer.setData(
-                          "text/plain",
-                          item.materialId,
-                        );
-                      }}
-                      onDragEnd={() => {
-                        setDraggedId(null);
-                        setDropId(null);
-                      }}
-                      onKeyDown={(event) => {
-                        if (
-                          event.key === "ArrowUp" ||
-                          event.key === "ArrowDown"
-                        ) {
-                          event.preventDefault();
-                          move(index, event.key === "ArrowUp" ? -1 : 1);
-                        }
-                      }}
-                    >
-                      <GripVertical aria-hidden="true" className="size-4" />
-                    </button>
-                    <div className="contents">
-                      <p className="col-span-2 col-start-2 row-start-1 min-w-0 pt-1.5 sm:col-span-1 sm:col-start-3 font-medium leading-snug [overflow-wrap:anywhere]">
-                        {item.title}
-                      </p>
-                      <span
-                        className={cn(
-                          "col-start-2 row-start-2 min-w-0 text-xs sm:col-start-3",
-                          item.publicationState === "published"
-                            ? "text-muted-foreground"
-                            : "font-medium text-action",
-                        )}
-                      >
-                        {stateLabel(item.publicationState)}
-                      </span>
-                      <details className="col-span-2 col-start-2 row-start-3 min-w-0 text-sm sm:col-span-1 sm:col-start-3">
-                        <summary className="flex min-h-9 w-fit max-w-full cursor-pointer list-none items-center gap-1.5 rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
-                          <ChevronDown
-                            aria-hidden="true"
-                            className="size-3.5 shrink-0"
-                          />
-                          <span className="[overflow-wrap:anywhere]">
-                            {item.stepGroup?.trim()
-                              ? item.stepGroup.trim()
-                              : "Последовательность шагов"}
-                          </span>
-                        </summary>
-                        <label className="mt-2 block max-w-sm pb-2 text-xs text-muted-foreground">
-                          Название последовательности
-                          <input
-                            name={`step-group-${item.materialId}`}
-                            className="mt-1 block min-h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-ring"
-                            maxLength={120}
-                            onChange={(event) => {
-                              const value = event.currentTarget.value;
-                              mutation.reset();
-                              setItems((current) =>
-                                current.map((entry) =>
-                                  entry.materialId === item.materialId
-                                    ? { ...entry, stepGroup: value }
-                                    : entry,
-                                ),
-                              );
-                            }}
-                            placeholder="Без последовательности"
-                            value={item.stepGroup ?? ""}
-                          />
-                        </label>
-                      </details>
-                    </div>
-                    <div className="col-start-3 row-start-2 flex shrink-0 justify-end gap-0.5 sm:col-start-4 sm:row-span-3 sm:row-start-1 sm:self-start">
-                      <Button
-                        aria-label={`Поднять «${item.title}»`}
-                        className="size-10"
-                        disabled={index === 0}
-                        onClick={() => {
-                          move(index, -1);
-                        }}
-                        size="icon"
-                        type="button"
-                        variant="ghost"
-                      >
-                        <ArrowUp aria-hidden="true" />
-                      </Button>
-                      <Button
-                        aria-label={`Опустить «${item.title}»`}
-                        className="size-10"
-                        disabled={index === items.length - 1}
-                        onClick={() => {
-                          move(index, 1);
-                        }}
-                        size="icon"
-                        type="button"
-                        variant="ghost"
-                      >
-                        <ArrowDown aria-hidden="true" />
-                      </Button>
-                      <Button
-                        aria-label={`Убрать «${item.title}»`}
-                        className="size-10"
-                        onClick={() => {
-                          mutation.reset();
-                          setItems((current) =>
-                            current.filter(
-                              ({ materialId }) =>
-                                materialId !== item.materialId,
-                            ),
-                          );
-                        }}
-                        size="icon"
-                        type="button"
-                        variant="ghost"
-                      >
-                        <X aria-hidden="true" />
-                      </Button>
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ol>
+                    total={items.length}
+                  />
+                ),
+              )}
+            </div>
           )}
 
           <div className="mt-6 flex justify-end border-t border-border pt-5">
@@ -748,11 +747,468 @@ function stateLabel(
   return "Черновик";
 }
 
-function compositionEntries(
+interface DragState {
+  readonly draggedId: string | null;
+  readonly dropId: string | null;
+  readonly setDraggedId: (materialId: string | null) => void;
+  readonly setDropId: (materialId: string | null) => void;
+}
+
+interface CompositionActions {
+  readonly assign: (materialId: string, chapterId: string | null) => void;
+  readonly editChapter: (id: string, values: Partial<GuideChapterPresentation>) => void;
+  readonly move: (position: number, offset: -1 | 1) => void;
+  readonly moveChapter: (index: number, offset: -1 | 1) => void;
+  readonly placeBefore: (materialId: string, targetPosition: number) => void;
+  readonly removeChapter: (id: string) => void;
+  readonly removeItem: (materialId: string) => void;
+  readonly setStepGroup: (materialId: string, stepGroup: string) => void;
+}
+
+interface ChapterSectionProps {
+  readonly actions: CompositionActions;
+  readonly archived: boolean;
+  readonly chapter: GuideChapterPresentation | null;
+  readonly chapters: readonly GuideChapterPresentation[];
+  readonly dragState: DragState;
+  readonly entries: readonly {
+    readonly item: SeriesOrderItemPresentation;
+    readonly position: number;
+  }[];
+  readonly grouped: boolean;
+  readonly number: number | null;
+  readonly total: number;
+}
+
+/** One chapter of the main path, or the Materials the author has not grouped yet. */
+function ChapterSection({
+  actions,
+  archived,
+  chapter,
+  chapters,
+  dragState,
+  entries,
+  grouped,
+  number,
+  total,
+}: ChapterSectionProps) {
+  const index = (number ?? 1) - 1;
+  if (chapter === null && !grouped) {
+    return (
+      <MaterialList
+        actions={actions}
+        archived={archived}
+        chapters={chapters}
+        dragState={dragState}
+        entries={entries}
+        label="Материалы руководства"
+        total={total}
+      />
+    );
+  }
+  const headingId = `chapter-${chapter?.id ?? `open-${String(entries[0]?.position ?? 0)}`}`;
+  return (
+    <section aria-labelledby={headingId} className="min-w-0">
+      {chapter === null ? (
+        <h2 className="border-b border-border pb-2 text-sm font-semibold text-muted-foreground" id={headingId}>
+          Вне глав
+        </h2>
+      ) : (
+        <div className="border-b border-border pb-3">
+          <div className="flex min-w-0 items-start gap-2">
+            <span className="mt-3 w-6 shrink-0 text-center text-sm tabular-nums text-muted-foreground">
+              {index + 1}
+            </span>
+            <label className="min-w-0 flex-1">
+              <span className="sr-only" id={headingId}>
+                Глава {index + 1}: {chapter.name}
+              </span>
+              <input
+                aria-label={`Название главы ${String(index + 1)}`}
+                className="block min-h-11 w-full rounded-md border border-transparent bg-transparent px-2 text-lg font-semibold outline-none hover:border-input focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30"
+                maxLength={GUIDE_CHAPTER_NAME_MAX}
+                name={`chapter-name-${chapter.id}`}
+                onChange={(event) => {
+                  actions.editChapter(chapter.id, { name: event.currentTarget.value });
+                }}
+                placeholder="Название главы"
+                required
+                value={chapter.name}
+              />
+            </label>
+            <div className="flex shrink-0 gap-0.5">
+              <Button
+                aria-label={`Поднять главу «${chapter.name}»`}
+                className="size-10"
+                disabled={index === 0}
+                onClick={() => {
+                  actions.moveChapter(index, -1);
+                }}
+                size="icon"
+                type="button"
+                variant="ghost"
+              >
+                <ArrowUp aria-hidden="true" />
+              </Button>
+              <Button
+                aria-label={`Опустить главу «${chapter.name}»`}
+                className="size-10"
+                disabled={index === chapters.length - 1}
+                onClick={() => {
+                  actions.moveChapter(index, 1);
+                }}
+                size="icon"
+                type="button"
+                variant="ghost"
+              >
+                <ArrowDown aria-hidden="true" />
+              </Button>
+              <Button
+                aria-label={`Удалить главу «${chapter.name}»`}
+                className="size-10"
+                onClick={() => {
+                  actions.removeChapter(chapter.id);
+                }}
+                size="icon"
+                type="button"
+                variant="ghost"
+              >
+                <Trash2 aria-hidden="true" />
+              </Button>
+            </div>
+          </div>
+          <details className="mt-1 min-w-0 px-2 text-sm">
+            <summary className="flex min-h-9 w-fit max-w-full cursor-pointer list-none items-center gap-1.5 rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
+              <ChevronDown aria-hidden="true" className="size-3.5 shrink-0" />
+              <span>
+                {chapter.summary.trim() ? "Описание главы" : "Добавить описание главы"}
+              </span>
+            </summary>
+            <label className="mt-2 block pb-2 text-xs text-muted-foreground">
+              Зачем эта глава, что читатель в ней сделает и какой получит результат
+              <textarea
+                className="mt-1 block min-h-28 w-full resize-y rounded-md border border-input bg-background p-3 text-sm leading-6 text-foreground focus-visible:outline-ring"
+                maxLength={GUIDE_CHAPTER_SUMMARY_MAX}
+                name={`chapter-summary-${chapter.id}`}
+                onChange={(event) => {
+                  actions.editChapter(chapter.id, { summary: event.currentTarget.value });
+                }}
+                placeholder="Несколько абзацев для читателя"
+                value={chapter.summary}
+              />
+            </label>
+          </details>
+        </div>
+      )}
+      {entries.length === 0 ? (
+        <p className="px-2 py-5 text-sm text-muted-foreground">
+          Глава пока пустая. Перенесите в неё материал из списка ниже.
+        </p>
+      ) : (
+        <MaterialList
+          actions={actions}
+          archived={archived}
+          chapters={chapters}
+          dragState={dragState}
+          entries={entries}
+          label={chapter === null ? "Материалы вне глав" : `Материалы главы «${chapter.name}»`}
+          total={total}
+        />
+      )}
+    </section>
+  );
+}
+
+function MaterialList({
+  actions,
+  archived,
+  chapters,
+  dragState,
+  entries,
+  label,
+  total,
+}: {
+  readonly actions: CompositionActions;
+  readonly archived: boolean;
+  readonly chapters: readonly GuideChapterPresentation[];
+  readonly dragState: DragState;
+  readonly entries: readonly {
+    readonly item: SeriesOrderItemPresentation;
+    readonly position: number;
+  }[];
+  readonly label: string;
+  readonly total: number;
+}) {
+  return (
+    <ol aria-label={label} className="divide-y divide-border">
+      {entries.map(({ item, position }, index) => (
+        <MaterialRow
+          actions={actions}
+          archived={archived}
+          chapters={chapters}
+          dragState={dragState}
+          first={index === 0}
+          item={item}
+          key={item.materialId}
+          last={index === entries.length - 1}
+          position={position}
+          total={total}
+        />
+      ))}
+    </ol>
+  );
+}
+
+function MaterialRow({
+  actions,
+  archived,
+  chapters,
+  dragState,
+  first,
+  item,
+  last,
+  position,
+  total,
+}: {
+  readonly actions: CompositionActions;
+  readonly archived: boolean;
+  readonly chapters: readonly GuideChapterPresentation[];
+  readonly dragState: DragState;
+  readonly first: boolean;
+  readonly item: SeriesOrderItemPresentation;
+  readonly last: boolean;
+  readonly position: number;
+  readonly total: number;
+}) {
+  const { draggedId, dropId, setDraggedId, setDropId } = dragState;
+  return (
+    <li
+      className={cn(
+        "group relative min-w-0 py-4",
+        draggedId === item.materialId && "opacity-50",
+        dropId === item.materialId && "bg-secondary outline-2 outline-ring",
+      )}
+      onDragOver={(event) => {
+        if (draggedId === null) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+        setDropId(item.materialId);
+      }}
+      onDragLeave={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null))
+          setDropId(null);
+      }}
+      onDrop={(event) => {
+        if (draggedId === null) return;
+        event.preventDefault();
+        actions.placeBefore(draggedId, position);
+        setDraggedId(null);
+        setDropId(null);
+      }}
+    >
+      <div className="grid min-w-0 grid-cols-[1.5rem_minmax(0,1fr)_auto] items-center gap-x-2 sm:grid-cols-[1.5rem_2.5rem_minmax(0,1fr)_auto] sm:gap-x-3">
+        <span className="col-start-1 row-start-1 w-6 self-start pt-1.5 text-center text-sm tabular-nums text-muted-foreground">
+          {position + 1}
+        </span>
+        <button
+          aria-label={`Переместить «${item.title}»`}
+          title="Перетащите или используйте клавиши ↑ и ↓"
+          className="col-start-2 row-start-1 hidden size-10 shrink-0 cursor-grab items-center justify-center rounded-md text-muted-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring active:cursor-grabbing sm:flex"
+          draggable
+          type="button"
+          onDragStart={(event) => {
+            setDraggedId(item.materialId);
+            event.dataTransfer.effectAllowed = "move";
+            event.dataTransfer.setData("text/plain", item.materialId);
+          }}
+          onDragEnd={() => {
+            setDraggedId(null);
+            setDropId(null);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+              event.preventDefault();
+              actions.move(position, event.key === "ArrowUp" ? -1 : 1);
+            }
+          }}
+        >
+          <GripVertical aria-hidden="true" className="size-4" />
+        </button>
+        <div className="contents">
+          <p className="col-span-2 col-start-2 row-start-1 min-w-0 pt-1.5 sm:col-span-1 sm:col-start-3 font-medium leading-snug [overflow-wrap:anywhere]">
+            {item.title}
+          </p>
+          <span
+            className={cn(
+              "col-start-2 row-start-2 min-w-0 text-xs sm:col-start-3",
+              item.publicationState === "published"
+                ? "text-muted-foreground"
+                : "font-medium text-action",
+            )}
+          >
+            {stateLabel(item.publicationState)}
+          </span>
+          <details className="col-span-2 col-start-2 row-start-3 min-w-0 text-sm sm:col-span-1 sm:col-start-3">
+            <summary className="flex min-h-9 w-fit max-w-full cursor-pointer list-none items-center gap-1.5 rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
+              <ChevronDown aria-hidden="true" className="size-3.5 shrink-0" />
+              <span className="[overflow-wrap:anywhere]">
+                {item.stepGroup?.trim()
+                  ? item.stepGroup.trim()
+                  : "Последовательность шагов"}
+              </span>
+            </summary>
+            <div className="mt-2 grid max-w-sm gap-3 pb-2">
+              <label className="block text-xs text-muted-foreground">
+                Название последовательности
+                <input
+                  name={`step-group-${item.materialId}`}
+                  className="mt-1 block min-h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-ring"
+                  maxLength={STEP_GROUP_LIMIT}
+                  onChange={(event) => {
+                    actions.setStepGroup(item.materialId, event.currentTarget.value);
+                  }}
+                  placeholder="Без последовательности"
+                  value={item.stepGroup ?? ""}
+                />
+              </label>
+              {chapters.length === 0 ? null : (
+                <label className="block text-xs text-muted-foreground">
+                  Глава
+                  <select
+                    className="mt-1 block min-h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-ring"
+                    disabled={archived}
+                    name={`chapter-of-${item.materialId}`}
+                    onChange={(event) => {
+                      const value = event.currentTarget.value;
+                      actions.assign(item.materialId, value === UNASSIGNED ? null : value);
+                    }}
+                    value={item.chapterId ?? UNASSIGNED}
+                  >
+                    <option value={UNASSIGNED}>Вне глав</option>
+                    {chapters.map((chapter, chapterIndex) => (
+                      <option key={chapter.id} value={chapter.id}>
+                        {chapterIndex + 1}. {chapter.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+            </div>
+          </details>
+        </div>
+        <div className="col-start-3 row-start-2 flex shrink-0 justify-end gap-0.5 sm:col-start-4 sm:row-span-3 sm:row-start-1 sm:self-start">
+          <Button
+            aria-label={`Поднять «${item.title}»`}
+            className="size-10"
+            disabled={first}
+            onClick={() => {
+              actions.move(position, -1);
+            }}
+            size="icon"
+            type="button"
+            variant="ghost"
+          >
+            <ArrowUp aria-hidden="true" />
+          </Button>
+          <Button
+            aria-label={`Опустить «${item.title}»`}
+            className="size-10"
+            disabled={last}
+            onClick={() => {
+              actions.move(position, 1);
+            }}
+            size="icon"
+            type="button"
+            variant="ghost"
+          >
+            <ArrowDown aria-hidden="true" />
+          </Button>
+          <Button
+            aria-label={`Убрать «${item.title}»`}
+            className="size-10"
+            onClick={() => {
+              actions.removeItem(item.materialId);
+            }}
+            size="icon"
+            type="button"
+            variant="ghost"
+          >
+            <X aria-hidden="true" />
+          </Button>
+        </div>
+      </div>
+      <span className="sr-only">
+        Позиция {position + 1} из {total}
+      </span>
+    </li>
+  );
+}
+
+/**
+ * A chapter owns one continuous run of the main path, so a Material joins the end of its run.
+ * A chapter that holds nothing yet starts right after the last preceding chapter that does.
+ */
+function chapterRunEnd(
   items: readonly SeriesOrderItemPresentation[],
-): readonly (readonly [string, string | null])[] {
-  return items.map(({ materialId, stepGroup }) => [
-    materialId,
-    stepGroup?.trim() ? stepGroup.trim() : null,
-  ]);
+  chapters: readonly GuideChapterPresentation[],
+  chapterId: string | null,
+): number {
+  if (chapterId === null) return items.length;
+  const last = items.findLastIndex((entry) => (entry.chapterId ?? null) === chapterId);
+  if (last >= 0) return last + 1;
+  const preceding = new Set(
+    chapters.slice(0, chapters.findIndex(({ id }) => id === chapterId)).map(({ id }) => id),
+  );
+  return items.findLastIndex((entry) => preceding.has(entry.chapterId ?? "")) + 1;
+}
+
+/** Exchange two chapter runs in place, leaving every other Material where the author put it. */
+function exchangeRuns(
+  items: readonly SeriesOrderItemPresentation[],
+  first: string,
+  second: string,
+): readonly SeriesOrderItemPresentation[] {
+  const run = (chapterId: string) => {
+    const start = items.findIndex((entry) => entry.chapterId === chapterId);
+    return start < 0
+      ? null
+      : { start, end: items.findLastIndex((entry) => entry.chapterId === chapterId) + 1 };
+  };
+  const left = run(first);
+  const right = run(second);
+  if (left === null || right === null) return items;
+  const [earlier, later] = left.start < right.start ? [left, right] : [right, left];
+  return [
+    ...items.slice(0, earlier.start),
+    ...items.slice(later.start, later.end),
+    ...items.slice(earlier.end, later.start),
+    ...items.slice(earlier.start, earlier.end),
+    ...items.slice(later.end),
+  ];
+}
+
+/** The saved shape of the whole composition; autosave compares it and sends it unchanged. */
+function composition(
+  items: readonly SeriesOrderItemPresentation[],
+  chapters: readonly GuideChapterPresentation[],
+): {
+  readonly chapters: readonly GuideChapterPresentation[];
+  readonly entries: readonly {
+    readonly chapterId: string | null;
+    readonly materialId: string;
+    readonly stepGroup: string | null;
+  }[];
+} {
+  return {
+    chapters: chapters.map(({ id, name, summary }) => ({
+      id,
+      name: name.trim(),
+      summary: summary.trim(),
+    })),
+    entries: items.map(({ chapterId, materialId, stepGroup }) => ({
+      chapterId: chapterId ?? null,
+      materialId,
+      stepGroup: stepGroup?.trim() ? stepGroup.trim() : null,
+    })),
+  };
 }

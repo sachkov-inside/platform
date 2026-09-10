@@ -18,7 +18,7 @@ import { SavedMaterialReadingStatus } from "./saved-material-reading-status.clie
 
 export interface MaterialCardProps {
   /** Match the heading level to the surrounding page outline. */
-  readonly headingLevel?: "h2" | "h3";
+  readonly headingLevel?: "h2" | "h3" | "h4";
   readonly material: MaterialPreview;
   readonly returnHref?: Route;
   /** Series-owned context rendered below the row title. */
@@ -189,7 +189,7 @@ function MaterialRow({
   showAccessDetails,
 }: {
   readonly showAccessDetails: boolean;
-  readonly headingLevel: "h2" | "h3";
+  readonly headingLevel: "h2" | "h3" | "h4";
   readonly material: MaterialPreview;
   readonly readerHref: Route;
   readonly resumeLabel: string | undefined;
@@ -259,7 +259,7 @@ function MaterialRow({
 }
 
 function SeriesMaterialRow({ headingLevel: Heading, material, readerHref, current }: {
-  readonly headingLevel: "h2" | "h3";
+  readonly headingLevel: "h2" | "h3" | "h4";
   readonly material: MaterialPreview;
   readonly readerHref: Route;
   readonly current: boolean;

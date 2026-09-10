@@ -5,7 +5,15 @@ import type {
 } from "../../facets/material-authoring/material-authoring.contract.js";
 import type { Result } from "../../result.js";
 
+export interface GuideChapterDto {
+  readonly id: string;
+  readonly name: string;
+  readonly ordinal: number;
+  readonly summary: string;
+}
+
 export interface SeriesOrderMaterialDto {
+  readonly chapterId: string | null;
   readonly materialId: string;
   readonly ordinal: number;
   readonly stepGroup: string | null;
@@ -15,6 +23,7 @@ export interface SeriesOrderMaterialDto {
 
 export interface SeriesOrderDto {
   readonly archived: boolean;
+  readonly chapters: readonly GuideChapterDto[];
   readonly items: readonly SeriesOrderMaterialDto[];
   readonly name: string;
   readonly orderVersion: string;

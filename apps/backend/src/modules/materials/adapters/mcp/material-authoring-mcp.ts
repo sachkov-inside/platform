@@ -3,6 +3,10 @@ import {
   type CallToolResult,
 } from "@modelcontextprotocol/server";
 import { z } from "zod";
+import {
+  guideChapterAssignmentsSchema,
+  guideChapterDraftsSchema,
+} from "../../shared/guide-chapters.js";
 import { seriesStepGroupsSchema } from "../../shared/series-step-groups.js";
 
 import type { MaterialAuthoring } from "../../facets/material-authoring/material-authoring.js";
@@ -318,9 +322,11 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
     {
       title: "Save complete Guide composition",
       description:
-        "Atomically add, remove, and reorder the complete Guide composition using the latest order version.",
+        "Atomically add, remove, and reorder the complete Guide composition using the latest order version. Chapters are the optional named groups of the main path: send the complete ordered list with stable identifiers and place every Material through chapterAssignments. Each chapter must stay one continuous run.",
       inputSchema: z
         .object({
+          chapters: guideChapterDraftsSchema.optional(),
+          chapterAssignments: guideChapterAssignmentsSchema.optional(),
           expectedOrderVersion: seriesOrderVersionSchema,
           orderedMaterialIds: z.array(materialIdWireSchema),
           stepGroups: seriesStepGroupsSchema.optional(),
@@ -333,10 +339,19 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
         openWorldHint: false,
       },
     },
-    ({ expectedOrderVersion, orderedMaterialIds, seriesId, stepGroups }) =>
+    ({
+      chapterAssignments,
+      chapters,
+      expectedOrderVersion,
+      orderedMaterialIds,
+      seriesId,
+      stepGroups,
+    }) =>
       toToolResult(
         dependencies.authoring.reorderSeries({
           actor: dependencies.accountId,
+          chapterAssignments,
+          chapters,
           expectedOrderVersion,
           orderedMaterialIds,
           seriesId,
@@ -372,9 +387,11 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
     {
       title: "Save complete Guide composition",
       description:
-        "Atomically add, remove, and reorder the complete Guide composition using the latest order version.",
+        "Atomically add, remove, and reorder the complete Guide composition using the latest order version. Chapters are the optional named groups of the main path: send the complete ordered list with stable identifiers and place every Material through chapterAssignments. Each chapter must stay one continuous run.",
       inputSchema: z
         .object({
+          chapters: guideChapterDraftsSchema.optional(),
+          chapterAssignments: guideChapterAssignmentsSchema.optional(),
           expectedOrderVersion: seriesOrderVersionSchema,
           orderedMaterialIds: z.array(materialIdWireSchema),
           stepGroups: seriesStepGroupsSchema.optional(),
@@ -387,10 +404,19 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
         openWorldHint: false,
       },
     },
-    ({ expectedOrderVersion, orderedMaterialIds, guideId, stepGroups }) =>
+    ({
+      chapterAssignments,
+      chapters,
+      expectedOrderVersion,
+      orderedMaterialIds,
+      guideId,
+      stepGroups,
+    }) =>
       toToolResult(
         dependencies.authoring.reorderSeries({
           actor: dependencies.accountId,
+          chapterAssignments,
+          chapters,
           expectedOrderVersion,
           orderedMaterialIds,
           seriesId: guideId,
