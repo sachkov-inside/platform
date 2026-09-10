@@ -58,8 +58,9 @@ mutations.
   visual snapshots cannot establish stability.
 - Keep editor and explicit CLI checks on the committed TypeScript project that excludes stale
   `.next/dev` artifacts. Do not re-enable the removed JavaScript compiler API checker.
-- Read a browser fact in one evaluation. Resolving a locator and evaluating on it are two round
-  trips, and a re-render between them detaches the resolved node, which then matches nothing.
+- Compare a node with live document state inside one evaluation, `document.activeElement` above all.
+  A locator resolves in one round trip and evaluates in the next, so a re-render between them leaves
+  the assertion holding a detached node that can never equal what the document reports now.
 - Treat `clock.runFor` as a trigger: it returns once the page's virtual timers ran, before the
   request they started has been answered. Wait for the response or the applied render.
 - Keep Web guardrails and negative fixtures aligned with environment ownership, browser bypass,

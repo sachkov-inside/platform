@@ -32,8 +32,12 @@ export async function expandAudience(deps: NotificationDependencies, lane: 'bill
     const { value: event } = parseWire(lane, JSON.parse(row.payload), eventSchema);
     const occurredAt = new Date(event.occurredAt);
     const deadline = new Date(event.notAfter);
-    const invalid = occurredAt >= deadline || occurredAt > now() || (lane === 'materials' && deadline.getTime() - occurredAt.getTime() !== MATERIAL_LIFETIME_MS);
-    if (invalid || deadline <= now()) {
+    // One reading decides both that the event is still live and what window its commands get, so the
+    // deadline cannot pass between the two and leave a command its own consumer refuses.
+    const issuedAt = now();
+    const invalid = occurredAt >= deadline || occurredAt > issuedAt || (lane === 'materials' && deadline.getTime() - occurredAt.getTime() !== MATERIAL_LIFETIME_MS);
+    const deliveryWindow = invalid ? null : commandWindow(issuedAt, deadline);
+    if (!deliveryWindow) {
       await transaction.notificationInbox.update({ where: key, data: { completedAt: now(), checkpoint: { reason: invalid ? 'invalid_event_time' : 'expired' } } });
       return true;
     }
@@ -80,8 +84,6 @@ export async function expandAudience(deps: NotificationDependencies, lane: 'bill
         if (delivery.commandRevision > 0 || delivery.recoverySkipped) continue;
         const binding = await deps.recipients.binding(accountId, channel);
         if (!binding) continue;
-        const deliveryWindow = commandWindow(now(), deadline);
-        if (!deliveryWindow) continue;
         const template = renderNotification(source, deps.origin);
         const command = deliverySchema.parse({
           contractVersion: 'inside.notification-delivery.v1', operationId: randomUUID(), notificationRef: notification.id,

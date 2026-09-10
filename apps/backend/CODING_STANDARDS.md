@@ -86,7 +86,8 @@ not dependency wiring.
 
 - Poll a durable fact with `test/integration/setup/eventually.ts`; a scenario that must not depend
   on two clock readings landing in one millisecond takes `setup/distinct-clock.ts`.
-- Read broker state through `setup/broker-queues.ts` rather than parsing `rabbitmqctl` output again.
+- Run `rabbitmqctl` and read queue depth through `setup/broker.ts`; a one-off column of its own may
+  still be parsed at the call site.
 - Each test owns its isolated database and containers. Its barriers therefore read its own rows,
   never a global count another file can move.
 

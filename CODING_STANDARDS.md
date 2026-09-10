@@ -25,7 +25,8 @@ nearest `AGENTS.md` owns task routing and verification commands.
   Call sites express the policy name, not arithmetic.
 - Derive values that are validated together from one clock reading. A window, a deadline pair, or
   any bound another component rechecks must come from a single reading: two readings differ by a
-  millisecond often enough to make the rechecking side reject a correct value at random.
+  millisecond often enough to make the rechecking side reject a correct value at random. The
+  delivery-command window owns this shape; `notification-wire.test.ts` is its fitness function.
 
 ## Waiting in tests
 
@@ -38,8 +39,8 @@ reject correct tests. It becomes a fitness candidate if a narrower seam appears.
   outcome. A pause and an advanced virtual clock start work; neither observes it.
 - Wait for the fact the current step produces. A barrier the previous state already satisfies proves
   nothing and leaves the assertion racing the change it was meant to follow.
-- Bound a barrier with a budget that only stops a stuck run. Raising a budget is not a repair, and
-  neither is an automatic re-run of a failed check.
+- Bound a barrier with a budget that only stops a stuck run. Neither raising that budget nor
+  re-running the check repairs a flaky test; both hide the cause the failure was pointing at.
 - Read the fact without depending on the order of rows that share a sort key: such a read answers
   from an arbitrary row and turns a correct assertion into a coin toss.
 - Proving that nothing happened is the exception. Advance a virtual clock past the interval in

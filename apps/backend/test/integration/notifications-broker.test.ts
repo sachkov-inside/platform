@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { GenericContainer, Wait } from 'testcontainers';
 import { expect, test, onTestFinished } from 'vitest';
-import { queueDepth } from './setup/broker-queues.js';
+import { brokerAdmin, queueDepth } from './setup/broker.js';
 import { distinctClock } from './setup/distinct-clock.js';
 import { eventually } from './setup/eventually.js';
 import { createMigratedTestDatabase } from './setup/test-database.js';
@@ -27,7 +27,7 @@ test('real RabbitMQ event → audience → email inbox/effect → result outage/
     { content: 'definitions.import_backend = local_filesystem\ndefinitions.local.path = /etc/rabbitmq/definitions.json\n', target: '/etc/rabbitmq/rabbitmq.conf' },
   ]).withWaitStrategy(Wait.forLogMessage(/Server startup complete/)).start();
   onTestFinished(async () => { await broker.stop(); });
-  const admin = async (args: string[]) => { const result = await broker.exec(['rabbitmqctl', ...args]); expect(result.exitCode, result.output).toBe(0); return result.output; };
+  const admin = brokerAdmin(broker);
   const database = await createMigratedTestDatabase();
   onTestFinished(() => database.dispose());
   const url = (principal: string) => `amqp://local-${principal}:inside-local-only@${broker.getHost()}:${broker.getMappedPort(5672)}/inside-test`;

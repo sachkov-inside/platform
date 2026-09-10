@@ -17,7 +17,9 @@ export async function refreshDeliveries(deps: NotificationDependencies) {
     const stored = await transaction.notificationCommand.findUniqueOrThrow({ where: { deliveryId_revision: { deliveryId: delivery.id, revision: delivery.commandRevision } } });
     const old = deliverySchema.parse(JSON.parse(stored.payload));
     const event = eventSchema.parse(JSON.parse(delivery.notification.eventPayload));
-    if (Date.parse(event.notAfter) <= deps.now().getTime()) {
+    // One reading decides both that the event is still live and what window the replacement gets.
+    const deliveryWindow = commandWindow(deps.now(), new Date(event.notAfter));
+    if (!deliveryWindow) {
       await transaction.notificationDelivery.update({ where: { id: delivery.id }, data: { nextCommandAt: null } });
       return;
     }
@@ -27,8 +29,6 @@ export async function refreshDeliveries(deps: NotificationDependencies) {
     if (source.content.category === 'material' && (!await optedIn(transaction, delivery.notification.accountId, channel, new Date(event.occurredAt)) || await deps.sources.canRead(delivery.notification.accountId, event.sourceRef) !== 'allowed')) return;
     const binding = await deps.recipients.binding(delivery.notification.accountId, channel);
     if (!binding || fingerprint(binding) !== fingerprint(old.binding)) return;
-    const deliveryWindow = commandWindow(deps.now(), new Date(event.notAfter));
-    if (!deliveryWindow) return;
     const template = renderNotification(source, deps.origin);
     const command = { ...old, operationId: randomUUID(), commandRevision: old.commandRevision + 1, sourceEventId: event.messageId,
       content: source.content, templateRef: template.templateRef, templateRevision: template.templateRevision, text: template.text,

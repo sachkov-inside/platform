@@ -10,7 +10,7 @@ import type { ChannelModel } from 'amqplib';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { z } from 'zod';
 import fixtures from '../../../../docs/contracts/notifications-v1/fixtures.json' with { type: 'json' };
-import { queueDepth } from './setup/broker-queues.js';
+import { brokerAdmin, queueDepth } from './setup/broker.js';
 import { eventually } from './setup/eventually.js';
 import { createMigratedTestDatabase, type TestDatabase } from './setup/test-database.js';
 import { localNotificationTopology, NOTIFICATION_BROKER_IMAGE } from '../../src/infrastructure/notification-transport/topology.js';
@@ -41,11 +41,7 @@ describe('Notifications real PostgreSQL / RabbitMQ transport', () => {
   const confirmedBeforeOutage: string[] = [];
   const config = (principal: string, vhost = 'inside-test') => ({ url: `amqps://local-${principal}:inside-local-only@${host}/${vhost}?heartbeat=5`, caFile });
   async function connect(principal: string) { const connection = await connectNotificationBroker(config(principal)); connections.push(connection); return connection; }
-  async function admin(args: string[]) {
-    const result = await broker.exec(['rabbitmqctl', ...args]);
-    expect(result.exitCode, result.output).toBe(0);
-    return result.output;
-  }
+  const admin = (args: string[]) => brokerAdmin(broker)(args);
   beforeAll(async () => {
     directory = await mkdtemp(join(tmpdir(), 'platform-435-'));
     caFile = join(directory, 'cert.pem');

@@ -62,8 +62,10 @@ afterAll(async () => {
   await new Promise<void>((resolve, reject) => server?.close((error) => { if (error) reject(error); else resolve(); }));
 });
 
-// One step of the virtual clock crosses the page's own polling interval.
+// One step of the virtual clock lands just past the page's own polling interval, so the poll timer
+// is due; `severalPollsMs` covers enough intervals to show that polling continued or stopped.
 const clockStepMs = pollIntervalMilliseconds + 100;
+const severalPollsMs = pollIntervalMilliseconds * 3;
 
 // runFor returns once the virtual timers have run, not once the request they started was answered:
 // the answer travels over a real socket. Waiting for the answer is the fact; the clock is only the trigger.
@@ -144,7 +146,7 @@ it("keeps keyboard focus and control geometry across polls, reconnects, and retu
   const stoppedAt = requests;
   // Proving that nothing happens is the one wait a duration can settle: the clock is virtual, the
   // decline above is already applied, and no timer is left to fire inside three polling intervals.
-  await page.clock.runFor(pollIntervalMilliseconds * 3);
+  await page.clock.runFor(severalPollsMs);
   expect(requests).toBe(stoppedAt);
   // The visual fixture has no Logto interaction; assert the return destination without starting auth.
   await page.route(`${origin}/sign-in`, async (route) => {
@@ -178,7 +180,7 @@ it("offers a keyboard-accessible return during persistent connection failure, in
   await page.goto(`${origin}/api/inside-telegram`);
   await page.getByRole("status").filter({ hasText: "Нет связи" }).waitFor();
   const afterFirstPoll = refused;
-  await page.clock.runFor(pollIntervalMilliseconds * 3);
+  await page.clock.runFor(severalPollsMs);
   // The refused polls are the fact: the return has to survive them, not only the first failure.
   await expect.poll(() => refused).toBeGreaterThan(afterFirstPoll);
   expect(await page.locator("#alternative").getAttribute("href")).toBe("/sign-in");
