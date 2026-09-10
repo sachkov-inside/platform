@@ -560,7 +560,8 @@ State transitions требуют real PostgreSQL concurrency/rollback/crash test
 
 Обновление текстов downstream issues после #403 не закрывает их dependencies. #337 получает
 immutable paid/renewal/cancel/expiry/refund eventRef, source revision, occurredAt/recordedAt и
-Account reference через локальную спецификацию аналитики; manual grant не считается выручкой.
+Account reference через [контракт измерений подписочной аналитики v1](subscription-analytics-measurement-v1.md);
+manual grant не считается выручкой.
 Точный публичный analytics schema остаётся за #337 и не блокирует оплату.
 
 ## Реализованный access foundation #404
