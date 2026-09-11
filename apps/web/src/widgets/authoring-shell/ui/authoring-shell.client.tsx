@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  CreditCard,
   Eye,
   Files,
   Globe2,
@@ -20,15 +21,17 @@ const materialsHref = "/authoring/materials" as Route;
 
 export function AuthoringShell({ children }: { readonly children: ReactNode }) {
   const pathname = usePathname();
-  const current = pathname.startsWith("/authoring/topics")
-    ? "topics"
-    : (pathname.startsWith("/authoring/guides") || pathname.startsWith("/authoring/playlists"))
-      ? "playlists"
-      : pathname.endsWith("/preview")
-        ? "preview"
-        : pathname.startsWith(materialsHref)
-          ? "materials"
-          : undefined;
+  const current = pathname.startsWith("/authoring/billing")
+    ? "billing"
+    : pathname.startsWith("/authoring/topics")
+      ? "topics"
+      : (pathname.startsWith("/authoring/guides") || pathname.startsWith("/authoring/playlists"))
+        ? "playlists"
+        : pathname.endsWith("/preview")
+          ? "preview"
+          : pathname.startsWith(materialsHref)
+            ? "materials"
+            : undefined;
 
   return (
     <div className="min-h-svh bg-background text-foreground md:flex md:h-svh md:min-h-0 md:overflow-hidden">
@@ -90,6 +93,12 @@ export function AuthoringShell({ children }: { readonly children: ReactNode }) {
                 <span>Предпросмотр черновика</span>
               </div>
             ) : null}
+            <AuthoringLink
+              current={current === "billing"}
+              href="/authoring/billing"
+              icon={<CreditCard aria-hidden="true" />}
+              label="Оплата и права"
+            />
             <AuthoringLink
               href="/library"
               icon={<LibraryBig aria-hidden="true" />}

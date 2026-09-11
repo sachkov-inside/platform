@@ -20,13 +20,16 @@ import {
   ContentCoverImage,
   materialPreviewHasVideo,
 } from "@/entities/material";
+import { billingActionClass } from "@/entities/subscription";
 import { PlaylistCard, formatMaterialCount } from "@/features/library-discovery";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { PublicSectionHeading } from "@/shared/ui/public-section-heading";
+import { subscriptionHrefFrom } from "@/shared/routing/subscription-route";
 import {
   collectionDiscoveryHref,
   libraryMaterialReaderReturnTarget,
+  materialReaderOriginHref,
   type MaterialReaderReturnTarget,
 } from "@/shared/routing/material-reader";
 import { SeriesJourney, type SeriesLearningView } from "./series-journey.client";
@@ -70,12 +73,35 @@ export function LibraryDiscoveryView({
       <DiscoveryHero Icon={Icon} isSeries={isSeries} result={result} />
       {isSeries ? <SeriesJourney currentHref={currentHref} result={{ ...result, discoveryKind: "series" }} {...(learning === undefined ? {} : { learning })} onRetry={onRetry} /> : null}
 
+      {isSeries && result.kind === "ready" &&
+      result.items.some((item) => item.availability === "locked") ? (
+        <SubscriptionCallout slug={result.reference.slug} />
+      ) : null}
+
       {result.kind === "empty" ? (
         <DiscoveryEmpty kind={result.discoveryKind} />
       ) : isSeries ? null : (
         <TopicMaterials currentHref={currentHref} result={result} />
       )}
     </div>
+  );
+}
+
+/** Часть руководства закрыта: CTA ведёт на витрину и сохраняет контекст после входа. */
+function SubscriptionCallout({ slug }: { readonly slug: string }) {
+  return (
+    <section className="mt-8 rounded-2xl border border-border bg-card p-6 shadow-card">
+      <h2 className="text-xl font-semibold">Часть материалов открыта по подписке</h2>
+      <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+        Подписка открывает все опубликованные материалы и руководства. Мы вернём
+        вас сюда после входа.
+      </p>
+      <Button asChild className={`mt-4 ${billingActionClass}`}>
+        <Link href={subscriptionHrefFrom(materialReaderOriginHref("series", slug))}>
+          Посмотреть тарифы
+        </Link>
+      </Button>
+    </section>
   );
 }
 

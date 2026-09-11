@@ -7,6 +7,6 @@ export function internalRoute(value: string): Route {
   return value;
 }
 
-function isInternalRoute(value: string): value is Route {
+export function isInternalRoute(value: string): value is Route {
   return value.startsWith("/") && !value.startsWith("//");
 }

@@ -428,7 +428,10 @@ belong to #413 and #414 respectively; this change does not enable either environ
 
 The JSON configuration requires explicit environment/terminal credentials, a 32-byte base64 encryption
 key, receipt tax settings, HTTPS notification and return URLs, amount limits, and confirmation that
-the terminal supports recurrent cards and its hosted form exposes only supported cards. Keep the
+the terminal supports recurrent cards and its hosted form exposes only supported cards. The terminal
+has one return URL for both outcomes, so point it at `https://<web host>/subscription/return`: that
+page reads the authoritative purchase state from the server and never treats the redirect itself as
+a successful payment. Keep the
 same encryption key available for recovery of saved receipt contacts and recurring bindings. Do not
 log the configuration, card binding or receipt email. The callback is
 `POST /billing/tbank/notification`; it acknowledges a validated durable result with plain `OK`.

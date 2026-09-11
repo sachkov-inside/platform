@@ -21,7 +21,7 @@ import {
   handleStartBillingContact,
   handleConfirmBillingContact,
   handleReadBillingContact,
-} from "@/_pages/billing-contact.server";
+} from "@/features/billing-contact.server";
 const operationId = "20000000-0000-4000-8000-000000000001";
 const challengeRef = "30000000-0000-4000-8000-000000000001";
 function request(
@@ -141,11 +141,39 @@ it("only returns the contact presentation with no-store", async () => {
     response: new Response(),
   });
   const response = await handleReadBillingContact();
-  expect(await response.json()).toEqual({ ok: true, contact: null });
+  // Каталог применимых документов входит в тот же ответ: его редакции нужны checkout #411.
+  expect(await response.json()).toEqual({
+    ok: true,
+    contact: null,
+    documents: [],
+  });
   expect(response.headers.get("cache-control")).toBe("private, no-store");
 });
 
 it("maps an unknown backend code to the bounded unavailable outcome", async () => {
   fakes.start.mockResolvedValue({ ok: false, problem: { code: "new_unsupported_error" }, response: new Response(null, { status: 409 }) });
   expect(await (await handleStartBillingContact(request({ operationId, email: "buyer@example.test", expectedRevision: "0" }))).json()).toEqual({ ok: false, code: "unavailable" });
+});
+
+it("keeps the exact document editions the checkout must present", async () => {
+  const documents = [
+    {
+      kind: "recurring",
+      documentId: "recurring",
+      version: "2026-09-01",
+      digest: "b".repeat(64),
+      url: "https://inside.example.test/legal/recurring",
+      text: "Текст",
+    },
+  ];
+  fakes.read.mockResolvedValue({
+    ok: true,
+    body: { ok: true, contact: null, documents, secret: "hidden" },
+    response: new Response(),
+  });
+  expect(await (await handleReadBillingContact()).json()).toEqual({
+    ok: true,
+    contact: null,
+    documents,
+  });
 });

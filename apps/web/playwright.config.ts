@@ -8,7 +8,12 @@ export default defineConfig({
   testDir: "./test/e2e",
   testMatch: captureEvidence
     ? "evidence.spec.ts"
-    : ["routes.spec.ts", "communications.spec.ts", "mobile-navigation.spec.ts"],
+    : [
+        "routes.spec.ts",
+        "communications.spec.ts",
+        "mobile-navigation.spec.ts",
+        "subscription.spec.ts",
+      ],
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,

@@ -12,6 +12,13 @@ export class BillingService {
    * @throws ApiError
    */
   public currentBilling(): CancelablePromise<{
+    grounds: Array<{
+      active: boolean;
+      capabilities: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+      source: 'paid' | 'manual' | 'legacy';
+      startsAt: string;
+      validUntil: string | null;
+    }>;
     notices: Array<{
       amountKopecks: number | null;
       dueAt: string | null;
@@ -19,6 +26,18 @@ export class BillingService {
       noticeRef: string;
       occurredAt: string;
       state: 'current' | 'superseded';
+    }>;
+    payments: Array<{
+      amountKopecks: number;
+      confirmedAt: string | null;
+      createdAt: string;
+      fiscalization: 'not_configured' | 'pending' | 'confirmed' | 'failed';
+      kind: 'initial' | 'renewal' | 'upgrade';
+      months: number;
+      offerName: string;
+      periodEndsAt: string | null;
+      purchaseRef: string;
+      state: 'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed';
     }>;
     subscription: {
       inFlightPayment: {
