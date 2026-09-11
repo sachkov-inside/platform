@@ -43,9 +43,19 @@ export const publishedCatalogPageHttpSchema = z
   })
   .strict();
 
+const guideIntroductionHttpSchema = z
+  .object({
+    audience: z.string(),
+    outcome: z.string(),
+    prerequisites: z.string(),
+    scope: z.string(),
+  })
+  .strict();
+
 const discoveryReferenceHttpSchema = z
   .object({
     id: z.uuid(),
+    introduction: guideIntroductionHttpSchema.nullable(),
     name: z.string(),
     slug: z.string(),
     summary: z.string(),

@@ -9,12 +9,15 @@ import type { Result } from "../../result.js";
 import type {
   ContentCollectionDto,
   ContentCollectionKind,
+  GuideIntroductionDto,
 } from "../../facets/material-authoring/content-collection.contract.js";
 
 export interface UpdateContentCollectionCommand {
   readonly actor: string;
   readonly collectionId: string;
   readonly expectedVersion: number;
+  /** Omitted preserves the stored introduction; supplied replaces all of it. */
+  readonly introduction?: GuideIntroductionDto;
   readonly kind: ContentCollectionKind;
   readonly name: string;
   readonly summary: string;

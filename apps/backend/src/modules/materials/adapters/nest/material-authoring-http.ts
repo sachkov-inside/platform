@@ -8,6 +8,7 @@ import {
   guideChapterDraftsSchema,
 } from "../../shared/guide-chapters.js";
 import { seriesStepGroupsSchema } from "../../shared/series-step-groups.js";
+import { GUIDE_INTRODUCTION_FIELD_MAX } from "../../facets/material-authoring/content-collection.contract.js";
 
 import type {
   CreateDraftError,
@@ -148,10 +149,20 @@ export const reorderSeriesReceiptSchema = z
   .strict();
 
 export const contentCollectionKindSchema = z.enum(["guide", "series", "topic"]);
+const introductionField = z.string().max(GUIDE_INTRODUCTION_FIELD_MAX);
+export const guideIntroductionSchema = z
+  .object({
+    audience: introductionField,
+    outcome: introductionField,
+    prerequisites: introductionField,
+    scope: introductionField,
+  })
+  .strict();
 export const contentCollectionSchema = z
   .object({
     archived: z.boolean(),
     id: z.uuid(),
+    introduction: guideIntroductionSchema.nullable(),
     kind: contentCollectionKindSchema,
     materialCount: z.number().int().nonnegative(),
     name: z.string().min(1).max(120),
@@ -173,6 +184,7 @@ export const createContentCollectionBodySchema = z
 export const updateContentCollectionBodySchema = z
   .object({
     expectedVersion: z.number().int().positive(),
+    introduction: guideIntroductionSchema.optional(),
     kind: contentCollectionKindSchema,
     name: z.string(),
     summary: z.string(),

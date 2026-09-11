@@ -14,6 +14,7 @@ const collectionId = "96500000-0000-4000-8000-000000000001";
 const collection = {
   archived: false,
   id: collectionId,
+  introduction: null,
   kind: "topic",
   materialCount: 3,
   name: "Platform",
@@ -98,6 +99,45 @@ describe("Content collection web adapters", () => {
     await expect(
       executeUpdateContentCollection(metadataForm(), "token", conflict),
     ).resolves.toEqual({ kind: "conflict" });
+  });
+
+  it("sends the Guide introduction only when its four fields travel together", async () => {
+    const withIntroduction = successfulRequest();
+    const form = metadataForm();
+    const introduction = {
+      audience: "Разработчики, которые впервые выпускают своё приложение.",
+      outcome: "Настроить путь от проверок до подтверждённого обновления.",
+      prerequisites: "Базовый Git и умение выполнить команду в терминале.",
+      scope: "Один проект и один тестовый сервер.",
+    };
+    for (const [field, value] of Object.entries(introduction)) {
+      form.set(field, value);
+    }
+    await expect(
+      executeUpdateContentCollection(form, "token", withIntroduction),
+    ).resolves.toEqual({ kind: "saved", collection });
+    expect(withIntroduction).toHaveBeenCalledWith(
+      expect.objectContaining({ introduction }),
+      "token",
+    );
+
+    // A rename that carries no introduction field must not clear the stored text.
+    const withoutIntroduction = successfulRequest();
+    await expect(
+      executeUpdateContentCollection(metadataForm(), "token", withoutIntroduction),
+    ).resolves.toEqual({ kind: "saved", collection });
+    expect(withoutIntroduction.mock.calls[0]?.[0]).not.toHaveProperty(
+      "introduction",
+    );
+
+    // A partial introduction is a malformed command, not a partial write.
+    const partial = successfulRequest();
+    const partialForm = metadataForm();
+    partialForm.set("audience", introduction.audience);
+    await expect(
+      executeUpdateContentCollection(partialForm, "token", partial),
+    ).resolves.toEqual({ kind: "invalid" });
+    expect(partial).not.toHaveBeenCalled();
   });
 
   it("archives a collection through the focused archive operation", async () => {

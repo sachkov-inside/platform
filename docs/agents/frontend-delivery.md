@@ -6,7 +6,8 @@ second application or data path.
 For Home, Library, Series or Reader changes, read the current
 [product navigation contract](../product/platform-mvp-brief.md#поиск-и-навигация) and
 [Series composition contract](../specifications/platform-v1.md#series-step-sequences) and the
-[Guide chapters contract](../specifications/platform-v1.md#guide-chapters).
+[Guide chapters contract](../specifications/platform-v1.md#guide-chapters) and the
+[Guide page contract](../specifications/platform-v1.md#страница-руководства).
 These own the accepted content relationships and presentation; earlier design proofs provide
 history, not an alternative product model.
 

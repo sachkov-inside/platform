@@ -9,14 +9,28 @@ import {
 import type {
   ContentCollection,
   ContentCollectionMutationResult,
+  GuideIntroductionDraft,
   UpdateContentCollectionInput,
 } from "./content-collections";
+
+const EMPTY_INTRODUCTION: GuideIntroductionDraft = {
+  audience: "",
+  outcome: "",
+  prerequisites: "",
+  scope: "",
+};
+
 export function useCollectionDraft(
   collection: ContentCollection,
   onSaved: (result: ContentCollectionMutationResult) => void,
+  /** A surface that does not edit the introduction leaves the stored text alone. */
+  options: { readonly editsIntroduction?: boolean } = {},
 ) {
   const [name, setName] = useState(collection.name);
   const [summary, setSummary] = useState(collection.summary);
+  const [introduction, setIntroduction] = useState(
+    collection.introduction ?? EMPTY_INTRODUCTION,
+  );
   const [cover, setCover] = useState(collection.cover ?? null);
   const version = useRef(collection.version);
   const attempted = useRef<UpdateContentCollectionInput | null>(null);
@@ -29,7 +43,9 @@ export function useCollectionDraft(
     },
   });
   const autosave = useAutosave({
-    value: { name, summary },
+    value: options.editsIntroduction === true
+      ? { introduction, name, summary }
+      : { name, summary },
     enabled: name.trim().length > 0,
     save: async (value) => {
       const input = attempted.current ?? {
@@ -58,6 +74,10 @@ export function useCollectionDraft(
     setName,
     summary,
     setSummary,
+    introduction,
+    editIntroduction: (field: keyof GuideIntroductionDraft, value: string) => {
+      setIntroduction((current) => ({ ...current, [field]: value }));
+    },
     cover,
     setCover,
     update,

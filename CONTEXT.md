@@ -63,6 +63,13 @@ _Avoid_: Series, Playlist, Topic, Material format guide
 An optional named group in a Guide's main path, without owning copies of Materials.
 _Avoid_: Video chapter, Material, separately purchased Guide
 
+**Guide Introduction**:
+The author's own answer, on the Guide, to what a reader will be able to do, who the Guide is
+written for, what they need beforehand and what it leaves outside. Its four fields carry the
+authoring base wording unchanged, an unwritten field is absent rather than empty, and none of it
+is an access decision. In Russian product language: «О руководстве».
+_Avoid_: Summary, marketing page, access condition, price
+
 **Guide Artifact**:
 A standalone practical result a reader takes away — a template, configuration or checklist — with
 a permanent identity, a version history and either stored bytes or one explicitly external
