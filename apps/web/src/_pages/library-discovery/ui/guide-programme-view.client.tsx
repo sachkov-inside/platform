@@ -108,7 +108,7 @@ function ProgrammePurchase({
   return (
     <Button
       asChild
-      className={`h-auto min-h-11 rounded-full px-6 text-base font-semibold ${billingActionClass}`}
+      className={`billing-invite h-auto min-h-11 rounded-full px-6 text-base font-semibold ${billingActionClass}`}
       data-guide-offer={offer.paymentOption.id}
     >
       <Link href={guidePurchaseHref(slug)}>Оплатить сейчас</Link>
