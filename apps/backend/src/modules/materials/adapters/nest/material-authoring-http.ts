@@ -1,6 +1,6 @@
 import type { SetHomePinError } from "../../features/set-home-pin/set-home-pin.contract.js";
 import { HttpException } from "@nestjs/common";
-import { renderedBlockSchema } from "@inside/material-blocks";
+import { headingLevelSchema, renderedMaterialBodySchema } from "@inside/material-blocks";
 import { z } from "zod";
 import {
   GUIDE_CHAPTER_NAME_MAX,
@@ -211,12 +211,7 @@ export const validatedMaterialSchema = z
     extraction: z
       .object({
         plainText: z.string(),
-        headings: z.array(
-          z.object({
-            level: z.union([z.literal(2), z.literal(3), z.literal(4)]),
-            text: z.string(),
-          }),
-        ),
+        headings: z.array(z.object({ level: headingLevelSchema, text: z.string() })),
         resources: z.array(
           z.discriminatedUnion("kind", [
             z.object({
@@ -240,12 +235,7 @@ export const previewMaterialSchema = z
     publicationState: publicationStateWireSchema,
     metadata: materialMetadataSchema,
     cacheScope: z.literal("private-no-store"),
-    body: z
-      .object({
-        schemaVersion: z.literal(1),
-        blocks: z.array(renderedBlockSchema),
-      })
-      .strict(),
+    body: renderedMaterialBodySchema,
   })
   .strict();
 

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { renderedBlockSchema } from "@inside/material-blocks";
+import { renderedMaterialBodySchema } from "@inside/material-blocks";
 
 import { materialFormatSchema } from "../../domain/material-format.js";
 
@@ -46,7 +46,7 @@ export const publishedMaterialReadHttpSchema = z.discriminatedUnion("kind", [
         title: z.string(),
         videoId: z.uuid(),
       }).strict().nullable(),
-      body: z.object({ schemaVersion: z.literal(1), blocks: z.array(renderedBlockSchema) }).strict(),
+      body: renderedMaterialBodySchema,
     })
     .strict(),
   z
