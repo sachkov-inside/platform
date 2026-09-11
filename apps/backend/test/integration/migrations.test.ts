@@ -40,6 +40,8 @@ const materialTables = [
   "material_tags",
   "materials",
   "notification_outbox",
+  "publication_announcement_revisions",
+  "publication_announcements",
   "published_material_series_memberships",
   "published_material_tags",
   "published_materials",
@@ -219,6 +221,7 @@ describe("Platform migrations", () => {
           "0057_guide_introduction",
           "0058_offer_for_sale",
           "0059_one_time_purchase",
+          "0060_material_announcements",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -807,6 +810,7 @@ describe("Platform migrations", () => {
           "0057_guide_introduction",
           "0058_offer_for_sale",
           "0059_one_time_purchase",
+          "0060_material_announcements",
         ],
       });
 

@@ -2,7 +2,8 @@ import { stageDeliveryCommand } from '../../infrastructure/stage-delivery-comman
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { NotificationsPrismaClient } from '../../../../infrastructure/prisma/index.js';
-import { eventSchema, deliverySchema, parseWire, commandWindow, MATERIAL_LIFETIME_MS, fingerprint, type NotificationEvent, type Channel } from '../../domain/notification-wire.js';
+import { MATERIAL_EVENT_LIFETIME_MS } from '../../../../infrastructure/notification-transport/wire.js';
+import { eventSchema, deliverySchema, parseWire, commandWindow, fingerprint, type NotificationEvent, type Channel } from '../../domain/notification-wire.js';
 import { renderNotification } from '../../domain/templates.js';
 import type { NotificationRecipients, NotificationSources, NotificationSource } from '../../ports/notification-sources.js';
 import { optedIn } from '../change-preferences/change-preferences.js';
@@ -35,7 +36,7 @@ export async function expandAudience(deps: NotificationDependencies, lane: 'bill
     // One reading decides both that the event is still live and what window its commands get, so the
     // deadline cannot pass between the two and leave a command its own consumer refuses.
     const issuedAt = now();
-    const invalid = occurredAt >= deadline || occurredAt > issuedAt || (lane === 'materials' && deadline.getTime() - occurredAt.getTime() !== MATERIAL_LIFETIME_MS);
+    const invalid = occurredAt >= deadline || occurredAt > issuedAt || (lane === 'materials' && deadline.getTime() - occurredAt.getTime() !== MATERIAL_EVENT_LIFETIME_MS);
     const deliveryWindow = invalid ? null : commandWindow(issuedAt, deadline);
     if (!deliveryWindow) {
       await transaction.notificationInbox.update({ where: key, data: { completedAt: now(), checkpoint: { reason: invalid ? 'invalid_event_time' : 'expired' } } });

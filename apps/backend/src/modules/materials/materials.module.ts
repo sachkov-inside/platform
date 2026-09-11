@@ -79,6 +79,7 @@ import {
   CONTENT_COVERS,
   type ContentCovers,
 } from "./facets/content-covers/content-covers.js";
+import { MaterialAnnouncements } from "./facets/material-announcements/material-announcements.js";
 import { assembleGuideArtifacts } from "./facets/guide-artifacts/assemble-guide-artifacts.js";
 import {
   GUIDE_ARTIFACTS,
@@ -136,6 +137,12 @@ import {
           materialBodyOperations,
         });
       },
+    },
+    {
+      provide: MaterialAnnouncements,
+      inject: [PrismaClientProvider],
+      useFactory: (prisma: PrismaClientProvider): MaterialAnnouncements =>
+        new MaterialAnnouncements({ prisma }),
     },
     {
       provide: CONTENT_COVERS,
@@ -303,6 +310,7 @@ import {
   exports: [
     CONTENT_ACCESS,
     CONTENT_COVERS,
+    MaterialAnnouncements,
     GUIDE_ARTIFACTS,
     GUIDE_ARTIFACT_DELIVERY,
     MATERIAL_AUTHORING,
