@@ -182,7 +182,7 @@ export class BillingPayments {
       if (payment.OrderId !== row.id || payment.PaymentId !== paymentId) return paymentFailure("invalid_notification");
       const accepted = await this.accept(payment);
       // Init прошёл, Charge ещё не вызывался: только доказанное NEW разрешает завершить ту же попытку.
-      if (accepted.ok && !isQuotedPurchase(row.kind) && !row.chargeCalled && payment.Status === "NEW") await this.chargeSaved(row.id, paymentId);
+      if (accepted.ok && !isQuotedPurchase(attemptKindSchema.parse(row.kind)) && !row.chargeCalled && payment.Status === "NEW") await this.chargeSaved(row.id, paymentId);
       return accepted;
     } catch { return paymentFailure("provider_unavailable"); }
   }
@@ -263,12 +263,13 @@ export class BillingPayments {
       await lockPricing(tx);
       const row = await tx.billingPurchase.findUnique({ where: { id: attemptRef } });
       if (!row || row.state !== "prepared" || row.terminalRef !== bank.config.terminalKey || row.environment !== bank.config.environment) return undefined;
+      const kind = attemptKindSchema.parse(row.kind);
       const now = this.clock();
       if (row.subscriptionRef) {
         await lockSubscription(tx, row.subscriptionRef);
         const subscription = await tx.billingSubscription.findUnique({ where: { id: row.subscriptionRef } });
         // Отмена останавливает только продление; принятое повышение оплачивает действующий срок.
-        const schedulable = row.kind === "renewal" ? subscription?.state === "active" : subscription?.state !== "ended";
+        const schedulable = kind === "renewal" ? subscription?.state === "active" : subscription?.state !== "ended";
         if (!subscription || !schedulable || !subscription.bindingCiphertext || subscription.bindingRevokedAt !== null) {
           // Отмена или отзыв привязки до отправки: внешнего эффекта нет, попытка закрывается.
           await tx.billingPurchase.update({ where: { id: attemptRef }, data: { state: "failed", updatedAt: now } });
@@ -276,7 +277,7 @@ export class BillingPayments {
         }
       }
       await tx.billingPurchase.update({ where: { id: attemptRef }, data: { state: "sent", updatedAt: now } });
-      if (isQuotedPurchase(row.kind)) await tx.billingPromoReservation.update({ where: { purchaseRef: attemptRef }, data: { state: "sent" } });
+      if (isQuotedPurchase(kind)) await tx.billingPromoReservation.update({ where: { purchaseRef: attemptRef }, data: { state: "sent" } });
       return row;
     });
     if (!row) return;
@@ -284,16 +285,16 @@ export class BillingPayments {
       const snapshot = priceSnapshotSchema.parse(row.snapshot);
       const contact = z.object({ emailCiphertext: z.string() }).parse(row.contact);
       const email = z.email().parse(bank.openBinding(`${row.id}:contact`, contact.emailCiphertext));
-      const initiator = paymentInitiators[attemptKindSchema.parse(row.kind)];
-      const payment = await bank.init({ orderId: row.id, accountId: row.accountId, amount: Number(row.amountKopecks), name: snapshot.offer.name, email, initiator });
-      const accepted = await this.accept(payment, isQuotedPurchase(row.kind) ? payment.PaymentURL : undefined);
+      const kind = attemptKindSchema.parse(row.kind);
+      const payment = await bank.init({ orderId: row.id, accountId: row.accountId, amount: Number(row.amountKopecks), name: snapshot.offer.name, email, initiator: paymentInitiators[kind] });
+      const accepted = await this.accept(payment, isQuotedPurchase(kind) ? payment.PaymentURL : undefined);
       if (!accepted.ok) throw new Error("Bank initialization fact rejected");
-      if (!isQuotedPurchase(row.kind) && !await this.chargeSaved(row.id, payment.PaymentId)) throw new Error("Saved method charge is unresolved");
+      if (!isQuotedPurchase(kind) && !await this.chargeSaved(row.id, payment.PaymentId)) throw new Error("Saved method charge is unresolved");
     } catch {
       await prisma.$transaction(async tx => {
         await lockPricing(tx);
         const changed = await tx.billingPurchase.updateMany({ where: { id: row.id, state: { in: ["sent", "pending"] } }, data: { state: "unknown", updatedAt: this.clock() } });
-        if (changed.count && isQuotedPurchase(row.kind)) await tx.billingPromoReservation.update({ where: { purchaseRef: attemptRef }, data: { state: "unknown" } });
+        if (changed.count && isQuotedPurchase(attemptKindSchema.parse(row.kind))) await tx.billingPromoReservation.update({ where: { purchaseRef: attemptRef }, data: { state: "unknown" } });
       });
     }
   }
@@ -364,6 +365,7 @@ export class BillingPayments {
         if (!row || row.environment !== bank.config.environment || row.terminalRef !== payment.TerminalKey || row.terminalRef !== bank.config.terminalKey ||
           Number(row.amountKopecks) !== payment.Amount || (row.paymentId !== null && row.paymentId !== payment.PaymentId) || row.state === "prepared") return paymentFailure("invalid_notification");
         const now = this.clock();
+        const kind = attemptKindSchema.parse(row.kind);
         if (row.subscriptionRef) await lockSubscription(tx, row.subscriptionRef);
         if (payment.Status === "RECEIPT") {
           const fiscalization = payment.Success && payment.ErrorCode === "0" ? "confirmed" : "failed";
@@ -405,7 +407,7 @@ export class BillingPayments {
           // своими сроками, и обещать дату окончания самой покупки было бы неправдой.
           const paidUntil = period.endsAt;
           await tx.billingPurchase.update({ where: { id: row.id }, data: { ...common, state: "confirmed", confirmedAt: paidAt, periodEndsAt: paidUntil, paymentUrl: null } });
-          if (isQuotedPurchase(row.kind)) await tx.billingPromoReservation.update({ where: { purchaseRef: row.id }, data: { state: "confirmed" } });
+          if (isQuotedPurchase(kind)) await tx.billingPromoReservation.update({ where: { purchaseRef: row.id }, data: { state: "confirmed" } });
           await tx.billingPaymentEvent.create({ data: { id: eventRef, purchaseRef: row.id, kind: "payment_confirmed", payload: { accountId: row.accountId, amountKopecks: payment.Amount, periodRef: row.id, startsAt: period.startsAt.toISOString(), endsAt: paidUntil?.toISOString() ?? null, snapshot }, occurredAt: paidAt, recordedAt: now } });
           // Подтверждённая оплата — повод сообщения; имя и сумма берутся из снимка самой операции.
           await recordBillingNotice(tx, { kind: "payment_succeeded", accountId: row.accountId, sourceRef: attemptSourceRef(row.id),
@@ -425,9 +427,9 @@ export class BillingPayments {
           }
         } else if (["REJECTED", "AUTH_FAIL", "CANCELED", "DEADLINE_EXPIRED", "REVERSED"].includes(payment.Status)) {
           await tx.billingPurchase.update({ where: { id: row.id }, data: { ...common, state: "failed", lifecycleActive: false, paymentUrl: null } });
-          if (isQuotedPurchase(row.kind)) await tx.billingPromoReservation.update({ where: { purchaseRef: row.id }, data: { state: "failed" } });
+          if (isQuotedPurchase(kind)) await tx.billingPromoReservation.update({ where: { purchaseRef: row.id }, data: { state: "failed" } });
           // Однозначный отказ по расписанию завершает продление без automatic retry и без неоплаченного grace.
-          if (row.kind === "renewal" && row.subscriptionRef) {
+          if (kind === "renewal" && row.subscriptionRef) {
             // О списании без покупателя сообщаем: отказ по расписанию он иначе не увидит.
             await recordBillingNotice(tx, { kind: "payment_failed", accountId: row.accountId, sourceRef: attemptSourceRef(row.id),
               subscriptionRef: row.subscriptionRef, attemptRef: row.id, title: priceSnapshotSchema.parse(row.snapshot).offer.name,

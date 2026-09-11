@@ -34,11 +34,7 @@ export function OfferCard({
   const Heading = headingLevel;
   const promotion = promotionLabel(snapshot);
   const mode = paymentMode(snapshot);
-  const lines = benefitLines(
-    snapshot.offer,
-    snapshot.paymentOption.months,
-    mode,
-  );
+  const lines = benefitLines(snapshot);
   const renewalDiffers =
     mode === "subscription" &&
     snapshot.renewalPriceKopecks !== snapshot.firstPriceKopecks;

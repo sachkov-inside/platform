@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { loadGuideOffer } from "@/entities/subscription.server";
 import { loadPublishedSeries } from "@/features/library-discovery.server";
 
-import { GuidePurchaseView } from "./guide-purchase-view.client";
+import { GuidePurchase } from "./guide-purchase.client";
 
 /**
  * Витрина одного руководства: его название и цена приходят с сервера, а оформление идёт тем
@@ -19,11 +19,11 @@ export async function GuidePurchasePage({
   const guide = await loadPublishedSeries(slug, accessToken);
   if (guide.kind === "not-found") notFound();
   if (guide.kind === "unavailable" || guide.reference.id === undefined) {
-    return <GuidePurchaseView guide={null} offer={null} slug={slug} unavailable />;
+    return <GuidePurchase guide={null} offer={null} slug={slug} unavailable />;
   }
   const catalog = await loadGuideOffer(guide.reference.id);
   return (
-    <GuidePurchaseView
+    <GuidePurchase
       guide={{ name: guide.reference.name, summary: guide.reference.summary }}
       offer={catalog.kind === "ready" ? catalog.offer : null}
       slug={slug}

@@ -13,6 +13,6 @@ export type AttemptState = z.infer<typeof attemptStateSchema>;
  * Покупка по сохранённому расчёту: покупатель начинает её сам, она держит резерв цены и
  * получает собственную ссылку на оплату. Продление и повышение идут по уже принятым условиям.
  */
-export function isQuotedPurchase(kind: string): kind is "initial" | "one_time" {
+export function isQuotedPurchase(kind: AttemptKind): boolean {
   return kind === "initial" || kind === "one_time";
 }

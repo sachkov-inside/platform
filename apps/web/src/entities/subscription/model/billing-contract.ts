@@ -233,6 +233,14 @@ export type ChangeResult = z.infer<typeof changeResultSchema>;
 export type BillingFailureCode = z.infer<typeof billingFailureCodeSchema>;
 export type BillingFailure = z.infer<typeof billingFailureSchema>;
 
+/** Право на конкретное руководство: строка права собирается и читается одним владельцем. */
+export function guideCapability(guideId: string): AccessCapability {
+  return `guide:${guideId}`;
+}
+export function isGuideCapability(capability: AccessCapability): boolean {
+  return capability.startsWith("guide:");
+}
+
 /** Способ продажи снимка: у старых снимков его нет, и это подписка. */
 export function paymentMode(snapshot: PriceSnapshot): PaymentMode {
   return snapshot.paymentOption.mode ?? "subscription";
@@ -251,22 +259,21 @@ export function publicSubscriptionOffers(
       !snapshot.offer.archived &&
       !snapshot.paymentOption.archived &&
       paymentMode(snapshot) === "subscription" &&
-      !snapshot.offer.benefits.every((capability) =>
-        capability.startsWith("guide:"),
-      ),
+      !snapshot.offer.benefits.every(isGuideCapability),
   );
 }
 
 /**
  * Разовое предложение конкретного руководства. Руководство продаётся, только когда владелец
- * завёл ему цену, поэтому отсутствие предложения — это «не продаётся», а не ошибка. Из
- * нескольких подходящих берётся самое дешёвое: предлагать покупателю дороже нечестно.
+ * завёл ему цену, поэтому отсутствие предложения — это «не продаётся», а не ошибка. Подходящее
+ * предложение обычно одно; при совпадении берётся самое дешёвое, а равные цены разводит
+ * стабильный идентификатор, чтобы выбор не зависел от порядка ответа.
  */
 export function guidePurchaseOffer(
   offers: readonly PriceSnapshot[],
   guideId: string,
 ): PriceSnapshot | null {
-  const capability: AccessCapability = `guide:${guideId}`;
+  const capability = guideCapability(guideId);
   const matching = offers.filter(
     (snapshot) =>
       !snapshot.offer.archived &&
@@ -276,7 +283,9 @@ export function guidePurchaseOffer(
   );
   return (
     [...matching].sort(
-      (left, right) => left.firstPriceKopecks - right.firstPriceKopecks,
+      (left, right) =>
+        left.firstPriceKopecks - right.firstPriceKopecks ||
+        left.paymentOption.id.localeCompare(right.paymentOption.id),
     )[0] ?? null
   );
 }

@@ -3,8 +3,10 @@ import "server-only";
 import { requestBillingOffers } from "@/shared/api/backend/index.server";
 
 import {
+  guideCapability,
   guidePurchaseOffer,
   offersPageSchema,
+  type PaymentMode,
   type PriceSnapshot,
 } from "../model/billing-contract";
 
@@ -18,7 +20,7 @@ const catalogPageBudget = 5;
 
 /** Чего именно спрашивает страница: витрина подписки и витрина руководства разные. */
 export interface CatalogQuery {
-  readonly mode?: "subscription" | "one_time";
+  readonly mode?: PaymentMode;
   readonly capability?: string;
 }
 
@@ -60,7 +62,7 @@ export async function loadGuideOffer(
 > {
   const result = await loadBillingOffers({
     mode: "one_time",
-    capability: `guide:${guideId}`,
+    capability: guideCapability(guideId),
   });
   return result.kind === "unavailable"
     ? result

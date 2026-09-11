@@ -5,6 +5,7 @@ import type { Route } from "next";
 import {
   billingActionClass,
   ConsentChecklist,
+  resumeConsentKinds,
   formatBillingDate,
   formatBillingDateTime,
   formatKopecks,
@@ -106,7 +107,7 @@ export function SubscriptionActions({
                   legend="Согласие на списания"
                   namePrefix="resume-consent"
                   onToggle={onToggleResumeDocument}
-                  required={["recurring"]}
+                  required={resumeConsentKinds}
                 />
               </div>
             )}

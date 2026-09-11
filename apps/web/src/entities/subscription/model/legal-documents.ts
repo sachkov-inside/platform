@@ -49,28 +49,34 @@ export function legalDocumentLabel(kind: LegalDocumentKind): string {
   }
 }
 
-/**
- * Подписка требует принятых `terms` и `recurring`; разовая покупка — только `terms`.
- * Остальные виды независимы.
- */
-export function requiredConsentKinds(
-  mode: PaymentMode,
-): readonly LegalDocumentKind[] {
-  return mode === "one_time" ? ["terms"] : ["terms", "recurring"];
+export interface ConsentPolicy {
+  /** Без чего оплату принять нельзя. */
+  readonly required: readonly LegalDocumentKind[];
+  /** Что вообще показывать: лишнее согласие сервер не примет. */
+  readonly applicable: readonly LegalDocument[];
 }
 
 /**
- * Разовая покупка не показывает согласие на регулярные списания: списаний по ней не будет,
- * и сервер такое согласие не принимает.
+ * Какие согласия нужны перед оплатой. Подписка требует принятых `terms` и `recurring`; разовая
+ * покупка — только `terms`, и согласие на регулярные списания ей не показывается, потому что
+ * списаний по ней не будет и сервер такое согласие не принимает.
  */
-export function applicableConsentDocuments(
+export function purchaseConsentPolicy(
   documents: readonly LegalDocument[],
   mode: PaymentMode,
-): readonly LegalDocument[] {
+): ConsentPolicy {
   return mode === "one_time"
-    ? documents.filter((document) => document.kind !== "recurring")
-    : documents;
+    ? {
+        required: ["terms"],
+        applicable: documents.filter(
+          (document) => document.kind !== "recurring",
+        ),
+      }
+    : { required: ["terms", "recurring"], applicable: documents };
 }
+
+/** Возобновление списаний требует только нового явного согласия на них. */
+export const resumeConsentKinds: readonly LegalDocumentKind[] = ["recurring"];
 
 /** Согласие фиксируется одной командой на конкретный контекст будущей операции. */
 export const consentsInputSchema = z.strictObject({

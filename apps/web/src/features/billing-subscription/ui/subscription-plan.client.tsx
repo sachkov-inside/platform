@@ -49,10 +49,7 @@ export function SubscriptionPlan({
         </div>
 
         <ul className="mt-4 grid gap-2 text-sm leading-6">
-          {benefitLines(
-            subscription.snapshot.offer,
-            subscription.snapshot.paymentOption.months,
-          ).map((line) => (
+          {benefitLines(subscription.snapshot).map((line) => (
             <li className="flex flex-wrap gap-x-2" key={line.capability}>
               <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">
                 {line.label}

@@ -60,9 +60,6 @@ async function changeCatalog(tx: BillingPrisma, command: ManageCatalogCommand): 
       // Способ оплаты входит в принятые условия покупки, поэтому у существующего варианта он
       // не переписывается: подписку не превращают в разовую продажу задним числом.
       if (current && "mode" in current && current.mode !== mode) return failure("invalid_request");
-      // Одно предложение продаётся одним способом. Иначе покупатель увидел бы его и подпиской,
-      // и разовой покупкой, а состав прав у него один.
-      if (await tx.billingPaymentOption.count({ where: { offerId: command.value.offerId, archived: false, mode: { not: mode }, id: { not: id } } })) return failure("invalid_request");
       const data = { ...command.value, mode, revision, archived: false };
       await tx.billingPaymentOption.upsert({ where: { id }, create: data, update: data });
       break;

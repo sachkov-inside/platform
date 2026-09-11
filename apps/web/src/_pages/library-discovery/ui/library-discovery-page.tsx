@@ -50,13 +50,11 @@ export async function PublishedSeriesPage({
       : undefined;
   // Руководство продаётся, только когда владелец завёл ему цену: её отсутствие — обычное состояние.
   const catalog = id === undefined ? undefined : await loadGuideOffer(id);
-  return renderPublishedSeriesResult(
-    result,
-    slug,
-    returnTarget,
-    accessToken,
-    catalog?.kind === "ready" ? catalog.offer : null,
-  );
+  return renderPublishedSeriesResult(result, slug, {
+    ...(returnTarget === undefined ? {} : { returnTarget }),
+    ...(accessToken === undefined ? {} : { accessToken }),
+    guideOffer: catalog?.kind === "ready" ? catalog.offer : null,
+  });
 }
 
 function renderPublishedTopicResult(
@@ -78,12 +76,17 @@ function renderPublishedTopicResult(
   );
 }
 
+interface SeriesRenderConditions {
+  readonly returnTarget?: MaterialReaderReturnTarget;
+  readonly accessToken?: string;
+  /** Разовая цена руководства, когда владелец её завёл. */
+  readonly guideOffer?: PriceSnapshot | null;
+}
+
 function renderPublishedSeriesResult(
   result: PublishedSeriesResult,
   slug: string,
-  returnTarget?: MaterialReaderReturnTarget,
-  accessToken?: string,
-  guideOffer: PriceSnapshot | null = null,
+  conditions: SeriesRenderConditions,
 ) {
   if (result.kind === "not-found") {
     notFound();
@@ -93,10 +96,14 @@ function renderPublishedSeriesResult(
   }
   return (
     <PersonalSeries
-      guideOffer={guideOffer}
+      guideOffer={conditions.guideOffer ?? null}
       result={result}
-      {...(accessToken === undefined ? {} : { accessToken })}
-      {...(returnTarget === undefined ? {} : { returnTarget })}
+      {...(conditions.accessToken === undefined
+        ? {}
+        : { accessToken: conditions.accessToken })}
+      {...(conditions.returnTarget === undefined
+        ? {}
+        : { returnTarget: conditions.returnTarget })}
     />
   );
 }

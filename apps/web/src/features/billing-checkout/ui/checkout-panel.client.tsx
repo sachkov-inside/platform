@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useId } from "react";
 
 import {
-  applicableConsentDocuments,
   billingActionClass,
   ConsentChecklist,
   attemptStateLabel,
@@ -13,7 +12,7 @@ import {
   formatMonths,
   paymentMode,
   promotionLabel,
-  requiredConsentKinds,
+  purchaseConsentPolicy,
   type BillingQuote,
   type LegalDocument,
   type LegalDocumentKind,
@@ -72,12 +71,9 @@ export function CheckoutPanel({
   const acknowledgeId = useId();
   const conditions = quote?.snapshot ?? snapshot;
   const promotion = promotionLabel(conditions);
-  const recurring = paymentMode(conditions) === "subscription";
-  const required = requiredConsentKinds(paymentMode(conditions));
-  const applicable = applicableConsentDocuments(
-    documents,
-    paymentMode(conditions),
-  );
+  const mode = paymentMode(conditions);
+  const recurring = mode === "subscription";
+  const { required, applicable } = purchaseConsentPolicy(documents, mode);
   const missingRequired = required.filter(
     (kind) => !applicable.some((document) => document.kind === kind),
   );

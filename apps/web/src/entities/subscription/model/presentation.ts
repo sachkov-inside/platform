@@ -5,8 +5,8 @@ import type {
   AttemptState,
   BillingFailureCode,
   BillingOffer,
+  BillingPaymentOption,
   NoticeKind,
-  PaymentMode,
   PriceSnapshot,
   SubscriptionState,
 } from "./billing-contract";
@@ -84,20 +84,20 @@ export interface BenefitLine {
  * наследует период варианта оплаты, у разовой покупки такого периода нет и право бессрочно.
  * Явный `null` означает бессрочное право в обоих случаях.
  */
-export function benefitLines(
-  offer: BillingOffer,
-  months: number,
-  mode: PaymentMode = "subscription",
-): readonly BenefitLine[] {
+export function benefitLines(conditions: {
+  readonly offer: BillingOffer;
+  readonly paymentOption: BillingPaymentOption;
+}): readonly BenefitLine[] {
+  const { offer, paymentOption } = conditions;
   return offer.benefits.map((capability) => {
     const period = offer.benefitPeriods?.find(
       (entry) => entry.capability === capability,
     );
     const term =
       period === undefined
-        ? mode === "one_time"
+        ? paymentOption.mode === "one_time"
           ? "бессрочно"
-          : formatMonths(months)
+          : formatMonths(paymentOption.months)
         : period.months === null
           ? "бессрочно"
           : formatMonths(period.months);

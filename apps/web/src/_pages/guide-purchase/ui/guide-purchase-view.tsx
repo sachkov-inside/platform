@@ -1,52 +1,46 @@
-"use client";
+import type { ReactNode } from "react";
 import Link from "next/link";
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 
 import {
   billingActionClass,
   OfferCard,
-  billingErrorMessage,
   formatKopecks,
   type PriceSnapshot,
 } from "@/entities/subscription";
-import {
-  BillingContactPanel,
-  type BillingContactState,
-} from "@/features/billing-contact";
-import { CheckoutFlow } from "@/features/billing-checkout";
-import { currentBillingQueryOptions } from "@/features/billing-subscription";
 import { internalRoute } from "@/shared/routing/internal-route";
 import { guidePurchaseHref } from "@/shared/routing/subscription-route";
 import { Button } from "@/shared/ui/button";
+
+/** Кто смотрит витрину: это решает, показывать оформление или приглашение войти. */
+export type GuidePurchaseViewer = "loading" | "guest" | "member";
 
 export interface GuidePurchaseViewProps {
   readonly guide: { readonly name: string; readonly summary: string } | null;
   readonly offer: PriceSnapshot | null;
   readonly slug: string;
+  readonly viewer: GuidePurchaseViewer;
+  /** Цену не удалось прочитать: это временный сбой, а не «не продаётся». */
   readonly unavailable?: boolean;
-  readonly contactHref?: string;
+  readonly notice?: string | undefined;
+  /** Оформление покупки участника: витрина сама его не собирает. */
+  readonly children?: ReactNode;
 }
 
 /**
- * Руководство продаётся, только когда владелец завёл ему цену, поэтому отсутствие предложения
- * здесь — обычное состояние, а не ошибка. Подписка на эту страницу не влияет: её можно
- * не включать вовсе.
+ * Витрина одного руководства. Руководство продаётся, только когда владелец завёл ему цену,
+ * поэтому отсутствие предложения здесь — обычное состояние, а не ошибка. Подписка на эту
+ * страницу не влияет: её можно не включать вовсе.
  */
 export function GuidePurchaseView({
   guide,
   offer,
   slug,
+  viewer,
   unavailable = false,
-  contactHref = "/account/email",
+  notice,
+  children,
 }: GuidePurchaseViewProps) {
-  const [contactState, setContactState] = useState<BillingContactState | null>(
-    null,
-  );
-  const billing = useQuery(currentBillingQueryOptions());
   const guideHref = internalRoute(`/guides/${encodeURIComponent(slug)}`);
-  const signedOut =
-    billing.data?.ok === false && billing.data.code === "unauthorized";
 
   return (
     <div className="mx-auto grid max-w-5xl gap-8">
@@ -87,11 +81,11 @@ export function GuidePurchaseView({
         >
           Это руководство сейчас не продаётся отдельно.
         </p>
-      ) : billing.isPending ? (
+      ) : viewer === "loading" ? (
         <p className="text-sm text-muted-foreground" role="status">
           Проверяем ваши покупки…
         </p>
-      ) : signedOut ? (
+      ) : viewer === "guest" ? (
         <section className="rounded-2xl border border-border bg-card p-6 shadow-card">
           <h2 className="text-xl font-semibold">Войдите, чтобы купить</h2>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
@@ -108,21 +102,15 @@ export function GuidePurchaseView({
       ) : (
         <div className="grid gap-6 lg:grid-cols-2">
           <OfferCard headingLevel="h2" snapshot={offer} />
-          <CheckoutFlow
-            contact={contactState?.contact ?? null}
-            contactHref={internalRoute(contactHref)}
-            documents={contactState?.documents ?? []}
-            snapshot={offer}
-          />
-          <BillingContactPanel onStateChange={setContactState} />
+          {children}
         </div>
       )}
 
-      {billing.data?.ok === false && !signedOut ? (
+      {notice === undefined ? null : (
         <p className="text-sm text-muted-foreground" role="status">
-          {billingErrorMessage(billing.data.code)}
+          {notice}
         </p>
-      ) : null}
+      )}
     </div>
   );
 }

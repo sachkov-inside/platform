@@ -68,13 +68,16 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
     const requests: Record<string, unknown>[] = [];
     // Каждая попытка — свой платёж банка: терминал не сопоставляет два заказа одному PaymentId.
     let paymentId = String(Math.floor(Math.random() * 1_000_000_000));
+    // Банк отвечает про ту сумму, которую у него запросили: сверка отвергает чужую.
+    let amountKopecks = guidePrice;
     const event = (state: string, extra = {}) => ({ TerminalKey: config.terminalKey, OrderId: orderId, PaymentId: paymentId,
-      Amount: guidePrice, Status: state, Success: true, ErrorCode: "0", ...extra });
+      Amount: amountKopecks, Status: state, Success: true, ErrorCode: "0", ...extra });
     const bank = new Tbank(config, (url, init) => {
       if (typeof init?.body !== "string" || typeof url !== "string") throw new Error("Unexpected bank request");
-      const body = z.object({ OrderId: z.string().optional(), Token: z.string() }).loose().parse(JSON.parse(init.body));
+      const body = z.object({ OrderId: z.string().optional(), Amount: z.number().optional(), Token: z.string() }).loose().parse(JSON.parse(init.body));
       if (url.endsWith("/Init")) {
         requests.push(body); orderId = z.string().parse(body.OrderId);
+        amountKopecks = z.number().parse(body.Amount);
         paymentId = String(Number(paymentId) + 1);
         expect(body.Token).toBe(tbankToken(body, config.password));
         return Promise.resolve(Response.json({ ...event(status), PaymentURL: "https://securepay.tinkoff.ru/test" }));
@@ -164,12 +167,37 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
     expect(await db.prisma.billingSubscription.count({ where: { accountId: s.buyer } })).toBe(0);
   });
 
-  test("каталог продаёт одно предложение одним способом и не меняет способ задним числом", async () => {
+  test("способ продажи сохранённого варианта не меняется задним числом", async () => {
     const s = await scenario();
-    expect(code(await pricing.manage(owner, { operationId: randomUUID(), operation: "paymentOptions.save",
-      value: { id: randomUUID(), offerId: s.offerId, months: 1, priceKopecks: 100_000 } }))).toBe("invalid_request");
+    // Способ входит в принятые условия уже совершённых покупок, поэтому подписку из него не делают.
     expect(code(await pricing.manage(owner, { operationId: randomUUID(), operation: "paymentOptions.save", expectedRevision: 1,
       value: { id: s.optionId, offerId: s.offerId, months: 1, priceKopecks: guidePrice } }))).toBe("invalid_request");
+    expect(value(await pricing.manage(owner, { operationId: randomUUID(), operation: "paymentOptions.save", expectedRevision: 1,
+      value: { id: s.optionId, offerId: s.offerId, mode: "one_time", months: 1, priceKopecks: 190_000 } }))).toMatchObject({ revision: 2 });
+  });
+
+  test("действующая подписка не мешает купить руководство и не занимается разовой покупкой", async () => {
+    const s = await scenario();
+    // Подписка того же покупателя: собственное предложение и своё место жизненного цикла.
+    const subscriptionOffer = randomUUID(), subscriptionOption = randomUUID();
+    value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.save",
+      value: { id: subscriptionOffer, name: "Материалы", benefits: ["materials"] } }));
+    value(await pricing.manage(owner, { operationId: randomUUID(), operation: "paymentOptions.save",
+      value: { id: subscriptionOption, offerId: subscriptionOffer, months: 1, priceKopecks: 100_000 } }));
+    await s.buy();
+    expect(await db.prisma.billingSubscription.count({ where: { accountId: s.buyer } })).toBe(0);
+
+    const classification = await grants.classifyLegacy(owner, { operationId: randomUUID(), accountId: s.buyer, expectedRevision: 0,
+      classification: "confirmed_new", sourceRef: s.buyer, reason: "Synthetic new buyer", bridgeEnabled: false, tributeStopped: false });
+    expect(classification.ok).toBe(true);
+    const quote = value(await pricing.quote(s.buyer, { operationId: randomUUID(), paymentOptionId: subscriptionOption, optionRevision: 1 }));
+    const consent = await contact.acceptConsents(s.buyer, { operationId: randomUUID(), contextRef: quote.quoteRef,
+      documents: documents.filter(item => item.kind !== "personal_data")
+        .map(item => ({ kind: item.kind, documentId: item.documentId, version: item.version, digest: item.digest, accepted: true })) });
+    if (!consent.ok) throw new Error(consent.error.code);
+    // Разовая покупка не заняла место подписки: оформить её всё ещё можно.
+    expect(value(await s.runtime.purchase(s.buyer, { operationId: randomUUID(), quoteRef: quote.quoteRef, contactRevision: 1,
+      consentEvidenceRefs: consent.evidenceRefs, acknowledgeExistingAccess: false }))).toMatchObject({ state: "pending" });
   });
 
   test("витрина руководства спрашивает только своё разовое предложение", async () => {

@@ -100,6 +100,10 @@ export function LibraryDiscoveryView({
 /**
  * Часть руководства закрыта. Когда у него есть своя цена, покупка руководства — главный путь,
  * а подписка остаётся вторым. Без цены остаётся прежний CTA на витрину тарифов.
+ *
+ * Предложение разрешает продажу, но само по себе не повод звать к оплате: у кого руководство
+ * уже открыто, тому предлагать покупку нечестно. Поэтому блок показывается там, где читателю
+ * действительно чего-то не хватает. Цену при этом всегда видно на витрине руководства.
  */
 function LockedMaterialsCallout({
   offer,
@@ -126,10 +130,7 @@ function LockedMaterialsCallout({
     );
   }
   return (
-    <section
-      className="mt-8 rounded-2xl border border-border bg-card p-6 shadow-card"
-      data-guide-offer={offer.paymentOption.id}
-    >
+    <section className="mt-8 rounded-2xl border border-border bg-card p-6 shadow-card">
       <h2 className="text-xl font-semibold">Купите это руководство</h2>
       <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
         Разовая покупка за{" "}
