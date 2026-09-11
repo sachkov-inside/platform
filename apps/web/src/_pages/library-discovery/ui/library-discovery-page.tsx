@@ -2,7 +2,7 @@ import { PersonalSeries } from "./personal-series.server";
 import { notFound } from "next/navigation";
 
 import { loadBillingOffers } from "@/entities/subscription.server";
-import { guidePurchaseOffers, paymentMode } from "@/entities/subscription";
+import { guidePurchaseOffers, publicSubscriptionOffers } from "@/entities/subscription";
 
 import type {
   PublishedSeriesResult,
@@ -81,7 +81,8 @@ export async function GuideProgrammePage({
   }
   const guideId = result.reference.id;
   // Публичный каталог отдаёт только включённое в продажу, поэтому один запрос отвечает сразу на
-  // два вопроса программы: продаётся ли это руководство и предлагается ли вообще подписка.
+  // два вопроса программы: продаётся ли это руководство и есть ли вообще что предложить на витрине
+  // подписки. На второй отвечает её собственный отбор: звать туда, где пусто, нельзя.
   const [artifacts, catalog] = await Promise.all([
     guideId === undefined
       ? Promise.resolve<ReaderGuideArtifactsResult>({ artifacts: [], kind: "ready" })
@@ -98,9 +99,7 @@ export async function GuideProgrammePage({
       artifacts={artifacts}
       guideOffer={programmeOffer}
       result={result}
-      subscriptionOffered={forSale.some(
-        (snapshot) => paymentMode(snapshot) === "subscription",
-      )}
+      subscriptionOffered={publicSubscriptionOffers(forSale).length > 0}
       {...(accessToken === undefined ? {} : { accessToken })}
     />
   );

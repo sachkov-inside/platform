@@ -152,8 +152,8 @@ export function paymentSubjectLabel(payment: {
  * а не просто руководством: покупатель должен видеть, за что платит.
  */
 export function offerCompositionLabel(offer: BillingOffer): string {
-  // Каждая часть названа дважды: сама по себе и после «с». Русский требует творительного падежа,
-  // а склеивать его из именительного нечем — поэтому обе формы написаны, а не выведены.
+  // Каждая часть названа дважды: сама по себе и после предлога. Русский требует творительного
+  // падежа, а склеивать его из именительного нечем — поэтому обе формы написаны, а не выведены.
   const parts: { readonly alone: string; readonly after: string }[] = [];
   if (offer.benefits.some(isGuideCapability)) {
     parts.push({ alone: "Руководство", after: "руководством" });
@@ -170,7 +170,14 @@ export function offerCompositionLabel(offer: BillingOffer): string {
   const [first, ...rest] = parts;
   if (first === undefined) return offer.name;
   if (rest.length === 0) return first.alone;
-  return `${first.alone} с ${rest.map((part) => part.after).join(" и ")}`;
+  // Перечисление разделяется запятыми, и только последняя часть присоединяется союзом.
+  const last = rest[rest.length - 1];
+  const head = rest.slice(0, -1).map((part) => part.after);
+  const tail = last === undefined ? "" : last.after;
+  const listed = head.length === 0 ? tail : `${head.join(", ")} и ${tail}`;
+  // Перед стечением согласных предлог удлиняется: «со всеми», но «с сопровождением».
+  const preposition = listed.startsWith("всеми") ? "со" : "с";
+  return `${first.alone} ${preposition} ${listed}`;
 }
 
 /** Банковское состояние попытки отделено от готовности доступа. */

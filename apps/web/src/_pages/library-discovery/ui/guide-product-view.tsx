@@ -1,4 +1,4 @@
-import { ArrowRight, Check, FileDown, Play, ShieldCheck } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, FileDown, Play, ShieldCheck } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -11,6 +11,7 @@ import {
 } from "@/features/library-discovery";
 import { cn } from "@/shared/lib/utils";
 import { guideProgrammeHref } from "@/shared/routing/subscription-route";
+import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 import { Button } from "@/shared/ui/button";
 
 import { formatArtifactCount, formatChapterCount } from "./guide-counts";
@@ -27,9 +28,12 @@ export function GuideProductView({
   artifacts = { kind: "ready", artifacts: [] },
   result,
   freeEntryHref,
+  returnTarget,
 }: {
   readonly artifacts?: ReaderGuideArtifactsResult;
   readonly result: ResolvedSeriesResult;
+  /** Откуда читатель пришёл: страница продукта — вход в руководство, и выход из неё нужен. */
+  readonly returnTarget: MaterialReaderReturnTarget;
   /** Бесплатный вход из обложки. Он ведёт в программу: там читатель сразу видит открытые уроки. */
   readonly freeEntryHref?: Route;
 }) {
@@ -47,7 +51,25 @@ export function GuideProductView({
   return (
     <div className="min-w-0" data-guide-product={reference.slug}>
       <div className="mx-auto w-full min-w-0 max-w-[46rem]">
-        <header className="mt-5 overflow-hidden rounded-[1.75rem] bg-primary p-4 text-white">
+        <nav aria-label="Хлебные крошки" className="pt-4">
+          <ol className="flex min-h-10 flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            <li>
+              <Link
+                className="inline-flex min-h-10 items-center gap-2 rounded-full bg-secondary px-4 font-semibold no-underline hover:text-foreground focus-visible:outline-ring"
+                href={returnTarget.href}
+              >
+                <ArrowLeft aria-hidden="true" className="size-4 shrink-0" />
+                {returnTarget.label}
+              </Link>
+            </li>
+            <li className="sr-only">Руководство</li>
+            <li aria-current="page" className="sr-only">
+              {reference.name}
+            </li>
+          </ol>
+        </nav>
+
+        <header className="mt-3 overflow-hidden rounded-[1.75rem] bg-primary p-4 text-white">
           <p className="text-xs font-bold uppercase tracking-[0.14em] text-white/60">
             Руководство
           </p>

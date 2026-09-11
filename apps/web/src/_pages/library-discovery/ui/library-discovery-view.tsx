@@ -61,6 +61,7 @@ export function LibraryDiscoveryView({
       <GuideProductView
         artifacts={artifacts}
         result={result}
+        returnTarget={returnTarget}
         {...(entry === undefined ? {} : { freeEntryHref: entry })}
       />
     );

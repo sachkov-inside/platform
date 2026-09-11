@@ -118,12 +118,14 @@ function readReturnTarget(
 
   // Программа руководства — такой же возврат, как и само руководство: читатель уходит в материал
   // именно оттуда и возвращается на ту же страницу и страницу списка.
-  const match = /^\/(guides|series|topics)\/([^/]+)(\/programme)?$/u.exec(url.pathname);
-  if (match === null || match[2] === undefined || !slugPattern.test(match[2])) {
-    return undefined;
-  }
-  const routeKind = match[3] === undefined ? match[1] : "guides";
-  if (match[3] !== undefined && match[1] === "topics") return undefined;
+  // Программа есть только у руководства, поэтому шаблон её темой и не допускает.
+  const match = /^\/(?:(guides|series)\/([^/]+)(\/programme)?|(topics)\/([^/]+))$/u.exec(
+    url.pathname,
+  );
+  if (match === null) return undefined;
+  const slug = match[2] ?? match[5];
+  if (slug === undefined || !slugPattern.test(slug)) return undefined;
+  const routeKind = match[3] === undefined ? match[1] ?? match[4] : "guides";
   if (url.search.length > 0) {
     const from = singleSearchValue(url.searchParams, "from");
     const page = singleSearchValue(url.searchParams, "page");
@@ -146,7 +148,7 @@ function readReturnTarget(
       href,
       kind: "series",
       label: match[3] === undefined ? "Назад к руководству" : "Назад к программе",
-      seriesSlug: match[2],
+      seriesSlug: slug,
     };
   }
   if (routeKind === "topics") {
