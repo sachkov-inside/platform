@@ -226,10 +226,6 @@ export const validatedMaterialSchema = z
               caption: z.string().optional(),
             }),
             z.object({ assetId: z.uuid(), kind: z.literal("file"), label: z.string() }),
-            z.object({
-              kind: z.literal("video"),
-              caption: z.string().optional(),
-            }),
           ]),
         ),
       })

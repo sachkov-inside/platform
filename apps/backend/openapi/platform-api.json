@@ -37349,24 +37349,6 @@
                                   "label"
                                 ],
                                 "type": "object"
-                              },
-                              {
-                                "additionalProperties": false,
-                                "properties": {
-                                  "caption": {
-                                    "type": "string"
-                                  },
-                                  "kind": {
-                                    "enum": [
-                                      "video"
-                                    ],
-                                    "type": "string"
-                                  }
-                                },
-                                "required": [
-                                  "kind"
-                                ],
-                                "type": "object"
                               }
                             ]
                           },
