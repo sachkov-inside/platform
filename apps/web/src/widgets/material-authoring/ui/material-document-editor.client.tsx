@@ -45,7 +45,7 @@ import type {
   MaterialAuthoringActions,
   MaterialAuthoringPresentation,
 } from "../model/presentation";
-import { materialDocumentExtensions } from "../model/material-document-extensions";
+import { materialEditorExtensions } from "../model/material-editor-extensions";
 import {
   MaterialAssetUploadButtons,
   MaterialAssetUploadQueue,
@@ -114,7 +114,7 @@ export function MaterialDocumentEditor({
   const editor = useEditor({
     content: initialDocument,
     editable: !disabled,
-    extensions: materialDocumentExtensions,
+    extensions: materialEditorExtensions,
     immediatelyRender: false,
     shouldRerenderOnTransaction: true,
     editorProps: {

@@ -1,29 +1,9 @@
-import { Extension, Node } from "@tiptap/core";
+import { Extension } from "@tiptap/core";
 import { TextSelection } from "@tiptap/pm/state";
-import { TableKit } from "@tiptap/extension-table";
-import UniqueID from "@tiptap/extension-unique-id";
-import { StarterKit } from "@tiptap/starter-kit";
-import { materialBlockTypes } from "./material-document-identifiers";
-import {
-  MaterialAssetFileNode,
-  MaterialAssetImageNode,
-} from "./material-asset-nodes";
+import { ReactNodeViewRenderer } from "@tiptap/react";
+import { materialDocumentExtensions } from "@inside/material-blocks/schema";
+import { MaterialAssetNodeView } from "../ui/material-asset-node-view.client";
 
-const Callout = Node.create({
-  name: "callout",
-  group: "block",
-  content: "block+",
-  defining: true,
-  addAttributes() {
-    return { kind: { default: "note" } };
-  },
-  parseHTML() {
-    return [{ tag: "aside[data-callout]" }];
-  },
-  renderHTML({ HTMLAttributes }) {
-    return ["aside", { ...HTMLAttributes, "data-callout": "note" }, 0];
-  },
-});
 // Leave the whole top-level block, including nested table/list content.
 const ExitMaterialBlock = Extension.create({
   name: "exitMaterialBlock",
@@ -59,21 +39,12 @@ const ExitMaterialBlock = Extension.create({
     };
   },
 });
-// Match the persisted MaterialBody schema so editing cannot silently drop supported blocks.
-export const materialDocumentExtensions = [
-  StarterKit.configure({
-    heading: { levels: [2, 3, 4] },
-    hardBreak: false,
-    underline: false,
-    link: { openOnClick: false, HTMLAttributes: { rel: null, target: null } },
+// The registry owns every block; the editor only adds its own appearance and shortcuts.
+const assetNodeView = () => ReactNodeViewRenderer(MaterialAssetNodeView);
+
+export const materialEditorExtensions = [
+  ...materialDocumentExtensions({
+    nodeViews: { assetFile: assetNodeView, assetImage: assetNodeView },
   }),
-  TableKit,
   ExitMaterialBlock,
-  UniqueID.configure({
-    attributeName: "nodeId",
-    types: [...materialBlockTypes],
-  }),
-  Callout,
-  MaterialAssetImageNode,
-  MaterialAssetFileNode,
 ];

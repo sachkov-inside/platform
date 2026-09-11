@@ -13,7 +13,7 @@ import {
   isJsonObject,
   isUnknownArray,
   isUnknownRecord,
-} from "./json-guards.js";
+} from "@inside/material-blocks";
 
 interface TextNode extends JsonObject {
   readonly type: "text";

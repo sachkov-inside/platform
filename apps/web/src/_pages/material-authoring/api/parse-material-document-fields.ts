@@ -4,7 +4,7 @@ import type { JSONContent } from "@tiptap/core";
 import { z } from "zod";
 
 import {
-  materialDocumentSchema,
+  materialDocumentContentSchema,
   type MaterialValidationIssue,
 } from "@/widgets/material-authoring/model";
 
@@ -43,7 +43,7 @@ export function parseMaterialDocumentFields(input: {
     };
   }
 
-  const parsedDocument = materialDocumentSchema.safeParse(document);
+  const parsedDocument = materialDocumentContentSchema.safeParse(document);
   const parsedSeriesIds = seriesIdsSchema.safeParse(seriesIds);
   if (!parsedDocument.success || !parsedSeriesIds.success) {
     return {

@@ -176,7 +176,9 @@ production trade-off подтверждён evidence, а не заранее д�
   архитектурная граница владения поверх общей runtime role, а не security boundary; полный rationale
   зафиксирован в [ADR 0003](../adr/0003-one-postgresql-schema-per-state-owning-module.md).
 - Новый workspace package, process или separately deployable module допустим только после доказанной
-  operational/domain seam. Speculative packages и generic layer folders запрещены.
+  operational/domain seam. Speculative packages и generic layer folders запрещены. Доказанные
+  packages: `@inside/runtime-identity` (release identity и healthcheck) и
+  `@inside/material-blocks` (описание блоков материала для сервера, редактора и читателя).
 - Один глубокий `Materials` module предоставляет caller-oriented facets `MaterialAuthoring` и
   `PublishedMaterialReader`; generic command bus не вводится. `assembleMaterials` является одной
   canonical framework-agnostic assembly для acceptance tests, seeds и non-Nest entrypoints; Nest
@@ -196,9 +198,13 @@ production trade-off подтверждён evidence, а не заранее д�
   `AccountId`; он не владеет business rules.
 - `MaterialAuthoring` владеет permissions, author workflow, metadata policy и координацией reference
   preconditions через public interfaces `Accounts`, `Assets` и `Videos`.
-- Internal `MaterialBody` module владеет current document schema, validation, migration, safe
-  render и extraction. Отдельный public `ContentSchema` capability появляется только вместе с
-  независимым caller; единственная Tiptap implementation не оборачивается в speculative port.
+- Internal `MaterialBody` module владеет acceptance, validation, migration, safe render и
+  extraction документа: document limits, node identity, canonicalization и versioning остаются
+  внутри Materials. Описание самих блоков вынесено в workspace package `@inside/material-blocks`,
+  потому что редактор, читательский рендер и транспортный контракт стали независимыми callers;
+  граница зафиксирована в [ADR 0023](../adr/0023-material-block-registry-package.md). Registry
+  entry описывает блок один раз и не зависит от Tiptap; document-schema entry собирает из него
+  ProseMirror-схему и является единственным импортёром Tiptap.
 - PostgreSQL constraints владеют durable uniqueness, foreign keys, lifecycle consistency и финальным
   race arbitration.
 - Application operations возвращают discriminated transport-neutral results со stable codes.
