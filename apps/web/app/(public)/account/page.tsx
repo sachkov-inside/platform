@@ -3,7 +3,6 @@ import { AccountPageQuery } from "@/_pages/account";
 
 export const metadata: Metadata = {
   title: "Профиль",
-  robots: { follow: false, index: false },
 };
 
 export default function AccountRoute() {

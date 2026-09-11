@@ -1,6 +1,7 @@
 export {
   contentCoverSchema,
   contentCoverUrl,
+  coverLinkPreviewImage,
   type ContentCover,
 } from "./material/model/content-cover";
 export {

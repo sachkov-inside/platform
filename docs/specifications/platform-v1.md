@@ -719,6 +719,13 @@ Storybook и реальные маршруты используют один pro
 - home, Topic, Series, Roadmap, public cards и free Materials имеют stable canonical URLs,
   server-rendered content/metadata, sitemap и crawlable internal links; Library сохраняет stable
   canonical URL и server-rendered metadata, но browser-owned catalog загружает через BFF;
+- canonical адрес руководства — `/guides/<slug>`; совместимый `/series/<slug>` отдаёт ту же
+  страницу и тот же canonical, остаётся crawlable и не попадает в sitemap отдельной записью;
+- каждая публичная страница отдаёт полную карточку ссылки: `openGraph`, `twitter`, canonical и
+  `og:locale`. `metadataBase` читается из среды выполнения, поэтому перенос домена не требует
+  пересборки;
+- картинка карточки — обложка материала, руководства или темы, а без обложки — сгенерированная
+  карточка с названием страницы. Пустого предпросмотра не бывает;
 - closed card может индексироваться, но closed body отсутствует в HTML, RSC, structured data,
   search response и shared cache;
 - draft, preview, admin, Account, Member Profile и MCP surfaces имеют `noindex` и не

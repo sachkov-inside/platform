@@ -13,6 +13,10 @@ mutations.
   and use a focused sub-entrypoint when a broad barrel crosses runtime or bundle boundaries.
 - Keep route-specific behaviour beside its `_pages/<page>` slice. Promote code to `shared` only
   after multiple real consumers need the smaller interface.
+- Public page metadata comes from `src/shared/link-preview`; each page slice maps its own result to
+  one `PublicPagePreview`. Read the public origin only through that module: it waits for the request
+  so the domain stays a runtime value. A closed area declares `noindex` once in its layout, not in
+  every page.
 - Mark backend adapters, BFF handlers, and server query options `server-only`; use `*.client.tsx`
   for the interactive boundary. Client-reachable code imports no server-only interface.
 - Storybook proofs and fixtures remain outside the production graph.

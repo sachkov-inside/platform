@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
 
+import { guideLinkPreview } from "@/_pages/library-discovery";
 import { loadPublishedSeries } from "@/features/library-discovery.server";
 import { PublishedSeriesPage } from "@/_pages/library-discovery.server";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/optional-platform-access-token.server";
+import { hiddenPageMetadata, publicPageMetadata } from "@/shared/link-preview";
+import { readPublicSiteOrigin } from "@/shared/link-preview/index.server";
 import { parseMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 
 interface SeriesPageProps {
@@ -18,15 +21,17 @@ export async function generateMetadata({
     slug,
     await getOptionalPlatformAccessToken(),
   );
-  return result.kind === "ready" || result.kind === "empty"
-    ? {
-        title: `${result.reference.name} — руководство`,
-        description: `Опубликованные материалы руководства «${result.reference.name}» в авторском порядке.`,
-      }
-    : {
-        title:
-          result.kind === "not-found" ? "Руководство не найдено" : "Руководство недоступно",
-      };
+  if (result.kind === "not-found") {
+    return hiddenPageMetadata("Руководство не найдено");
+  }
+  if (result.kind === "unavailable") {
+    return hiddenPageMetadata("Руководство недоступно");
+  }
+  return publicPageMetadata(
+    await readPublicSiteOrigin(),
+    "website",
+    guideLinkPreview(result.reference),
+  );
 }
 
 export default async function SeriesRoute({ params, searchParams }: SeriesPageProps) {

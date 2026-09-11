@@ -1,3 +1,7 @@
+export {
+  guideLinkPreview,
+  topicLinkPreview,
+} from "./model/collection-link-preview";
 export type {
   LibraryDiscoveryKind,
   LibraryDiscoveryReference,
