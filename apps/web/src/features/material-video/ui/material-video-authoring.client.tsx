@@ -31,6 +31,7 @@ import {
   type ResumableVideoUpload,
 } from "../api/video-upload-transfer.browser";
 import {
+  awaitsReconciliation,
   phaseForReconciledVideo,
   phaseForVideo,
   resolveInitialVideoAuthoring,
@@ -91,7 +92,12 @@ export function MaterialVideoAuthoring({
     setDeletionVideo(latestVideoDeletion);
   }
   const [phase, setPhase] = useState<MaterialVideoAuthoringPhase>(initial.phase);
-  usePendingUploadGuard(phase === "uploading" || phase === "processing");
+  // Only this tab's own transfer can be lost by leaving. An adopted upload is Kinescope's work
+  // and must not hold the author on the page.
+  usePendingUploadGuard(
+    phase === "uploading" ||
+      (phase === "processing" && video?.videoId !== recoveredVideoId),
+  );
   const [progress, setProgress] = useState(0);
   const { mutateAsync: uploadVideo } = useMutation({
     mutationFn: initMaterialVideoUpload,
@@ -156,13 +162,7 @@ export function MaterialVideoAuthoring({
   );
 
   useEffect(() => {
-    if (
-      materialId === null ||
-      phase !== "processing" ||
-      video === null ||
-      video.state === "ready" ||
-      video.state === "failed"
-    )
+    if (!awaitsReconciliation({ materialId, phase, video }) || video === null)
       return;
     const timer = window.setTimeout(() => {
       void reconcile(video.videoId);
@@ -447,7 +447,8 @@ export function MaterialVideoAuthoringView({
           </Button>
           {activeVideo === null ||
           phase === "ready" ||
-          phase === "interrupted_unusable" ? null : (
+          (phase === "interrupted_unusable" &&
+            activeVideo.state === "failed") ? null : (
             <Button
               disabled={busy}
               onClick={onReconcile}
@@ -656,11 +657,11 @@ function interruptedUploadText(
   if (phase === "processing")
     return `${leftover} и пока не привязано к материалу. Проверяем его состояние в Kinescope.`;
   if (phase === "error")
-    return `${leftover}. Проверить его состояние в Kinescope не удалось.`;
+    return `${leftover}. Проверить его состояние в Kinescope не удалось — нажмите «Проверить».`;
   if (phase !== "interrupted_unusable") return null;
   return video.state === "failed"
     ? `Kinescope не смог обработать файл «${video.title}». Загрузите видео заново или удалите незавершённую запись.`
-    : `Kinescope получил файл «${video.title}» не полностью, поэтому видео не готово. Загрузите файл заново или удалите незавершённую запись.`;
+    : `Kinescope получил файл «${video.title}» не полностью. Если загрузка идёт в другой вкладке, дождитесь её и нажмите «Проверить»; иначе загрузите файл заново или удалите незавершённую запись.`;
 }
 
 function phaseLabel(

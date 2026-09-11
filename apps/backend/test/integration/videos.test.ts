@@ -335,13 +335,11 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
       value: { title: "Second attempt", videoId: second.value.video.videoId },
     });
 
+    // Once the Material holds a Video, the author already has what an upload would restore.
     await expect(videos.loadUnselectedUpload({
       materialId,
       selectedVideoId: second.value.video.videoId,
-    })).resolves.toMatchObject({
-      ok: true,
-      value: { videoId: first.value.video.videoId },
-    });
+    })).resolves.toEqual({ ok: true, value: null });
 
     // A settled upload was already shown to its author; recovery must not undo their decision.
     const secondProviderVideoId = started[1] ?? "";

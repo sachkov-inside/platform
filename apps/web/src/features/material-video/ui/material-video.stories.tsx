@@ -228,10 +228,8 @@ export const AuthoringRecoveredIncomplete: Story = {
     await expect(
       canvas.getByRole("button", { name: "Загрузить" }),
     ).toBeEnabled();
-    // Checking again cannot change a transfer that no longer exists.
-    await expect(
-      canvas.queryByRole("button", { name: "Проверить" }),
-    ).not.toBeInTheDocument();
+    // Another tab may still be sending the same file, so re-checking stays available.
+    await expect(canvas.getByRole("button", { name: "Проверить" })).toBeEnabled();
   },
 };
 
@@ -245,6 +243,10 @@ export const AuthoringRecoveredFailed: Story = {
     ).toBeVisible();
     await expect(
       canvas.queryByText("Нужна повторная попытка"),
+    ).not.toBeInTheDocument();
+    // A terminal provider failure cannot be checked away.
+    await expect(
+      canvas.queryByRole("button", { name: "Проверить" }),
     ).not.toBeInTheDocument();
   },
 };

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  awaitsReconciliation,
   phaseForReconciledVideo,
   resolveInitialVideoAuthoring,
   retainUnselectedUpload,
@@ -74,7 +75,7 @@ describe("Interrupted upload recovery", () => {
     expect(phaseForReconciledVideo(video, video.videoId)).toBe("ready");
   });
 
-  it("stops carrying an adopted upload the author has now selected or deleted", () => {
+  it("stops carrying an adopted upload once the draft selects or deletes a Video", () => {
     const upload = uploadedVideo("processing");
     expect(
       retainUnselectedUpload({
@@ -90,13 +91,45 @@ describe("Interrupted upload recovery", () => {
         unselectedUpload: upload,
       }),
     ).toBeNull();
+    // Agrees with resolveInitialVideoAuthoring: any selected Video ends the recovery.
     expect(
       retainUnselectedUpload({
         deleteVideoId: null,
         primaryVideoId: otherVideo.videoId,
         unselectedUpload: upload,
       }),
+    ).toBeNull();
+    expect(
+      retainUnselectedUpload({
+        deleteVideoId: null,
+        primaryVideoId: null,
+        unselectedUpload: upload,
+      }),
     ).toEqual(upload);
+  });
+
+  it("keeps asking Kinescope about an adopted upload until it settles", () => {
+    const gate = (video: MaterialAuthoringVideo | null) =>
+      awaitsReconciliation({ materialId: "m", phase: "processing", video });
+    expect(gate(uploadedVideo("uploading"))).toBe(true);
+    expect(gate(uploadedVideo("processing"))).toBe(true);
+    expect(gate(uploadedVideo("ready"))).toBe(false);
+    expect(gate(uploadedVideo("failed"))).toBe(false);
+    expect(gate(null)).toBe(false);
+  });
+
+  it("asks nothing before the draft exists or outside the waiting state", () => {
+    const video = uploadedVideo("processing");
+    expect(
+      awaitsReconciliation({ materialId: null, phase: "processing", video }),
+    ).toBe(false);
+    expect(
+      awaitsReconciliation({
+        materialId: "m",
+        phase: "interrupted_unusable",
+        video,
+      }),
+    ).toBe(false);
   });
 
   it("does not offer a generic retry for an adopted upload the provider failed", () => {

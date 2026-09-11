@@ -71,11 +71,27 @@ export function retainUnselectedUpload(input: {
   readonly primaryVideoId: string | null;
   readonly unselectedUpload: MaterialAuthoringVideo | null;
 }): MaterialAuthoringVideo | null {
-  if (input.unselectedUpload === null) return null;
-  return input.unselectedUpload.videoId === input.primaryVideoId ||
-    input.unselectedUpload.videoId === input.deleteVideoId
+  if (input.unselectedUpload === null || input.primaryVideoId !== null) return null;
+  return input.unselectedUpload.videoId === input.deleteVideoId
     ? null
     : input.unselectedUpload;
+}
+
+/**
+ * Reconciliation continues while the provider still owns the answer. A Video of this session and
+ * an adopted upload use the same gate: only Kinescope can end an unfinished state.
+ */
+export function awaitsReconciliation(input: {
+  readonly materialId: string | null;
+  readonly phase: MaterialVideoAuthoringPhase;
+  readonly video: MaterialAuthoringVideo | null;
+}): boolean {
+  if (input.materialId === null || input.phase !== "processing") return false;
+  return (
+    input.video !== null &&
+    input.video.state !== "ready" &&
+    input.video.state !== "failed"
+  );
 }
 
 export function phaseForVideo(
