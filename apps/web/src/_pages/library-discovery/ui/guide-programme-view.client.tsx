@@ -28,14 +28,12 @@ export function GuideProgrammeView({
   result,
   learning,
   guideOffer = null,
-  onRetry,
 }: {
   readonly artifacts?: ReaderGuideArtifactsResult;
   readonly result: ResolvedSeriesResult;
   readonly learning?: SeriesLearningView;
   /** Разовая цена этого руководства, когда владелец её завёл. */
   readonly guideOffer?: PriceSnapshot | null;
-  readonly onRetry?: (() => void) | undefined;
 }) {
   const slug = result.reference.slug;
   const currentHref = internalRoute(`/guides/${encodeURIComponent(slug)}/programme`);
@@ -58,17 +56,12 @@ export function GuideProgrammeView({
         </Link>
       </nav>
 
-      <h1 className="mt-5 break-words text-[1.75rem] font-semibold leading-[1.15] tracking-[-0.035em] md:text-4xl">
-        Программа
-      </h1>
-
       {locked ? <ProgrammePurchase offer={guideOffer} slug={slug} /> : null}
 
       <SeriesJourney
         {...(artifacts === undefined ? {} : { artifacts })}
         currentHref={currentHref}
         {...(learning === undefined ? {} : { learning })}
-        onRetry={onRetry}
         result={{ ...result, discoveryKind: "series" }}
       />
     </div>

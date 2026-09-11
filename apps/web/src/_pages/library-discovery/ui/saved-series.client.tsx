@@ -31,7 +31,6 @@ function AccountSeries({ artifacts, result, accountId, resolved, guideOffer = nu
     artifacts={artifacts}
     guideOffer={guideOffer}
     learning={view?.kind === "ready" ? view : view?.kind === "hidden" ? { kind: "guest" } : view?.kind === "unavailable" ? { kind: "unavailable" } : { kind: "loading" }}
-    onRetry={() => { void query.refetch(); }}
     result={result}
   />;
 }

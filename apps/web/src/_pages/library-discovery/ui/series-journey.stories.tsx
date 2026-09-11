@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, userEvent, within } from "storybook/test";
+import { expect, userEvent, within } from "storybook/test";
 import { MaterialReadingContext, type MaterialPreview } from "@/entities/material";
 import type { PublishedSeriesResult } from "@/features/library-discovery";
 import { ApplicationShell, type ApplicationNavigationItem } from "@/widgets/application-shell";
@@ -31,7 +31,7 @@ const meta = {
   component: GuideProgrammeView,
   title: "Pages/Guide/Programme",
   parameters: { layout: "fullscreen", docs: { description: { component: "Страница программы руководства. Учебный состав из 24 материалов проверяет прогресс, страницы, продолжение и состояния доступа; редакционных и провайдерских утверждений в нём нет." } } },
-  args: { result, learning: { kind: "ready", read: 8, total: 24, continuation: resume }, onRetry: fn() },
+  args: { result, learning: { kind: "ready", read: 8, total: 24, continuation: resume } },
   decorators: [(Story, context) => {
     const view = context.args.learning;
     const read = view?.kind === "ready" ? view.read : 0;
@@ -45,13 +45,11 @@ type Story = StoryObj<typeof meta>;
 export const InProgress: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("progressbar", { name: "Прогресс руководства" })).toHaveAttribute("value", "8");
     await expect(canvasElement.querySelectorAll("[data-series-ordinal]")).toHaveLength(12);
     await expect(canvas.queryByRole("button", { name: "Показать в маршруте" })).not.toBeInTheDocument();
     await expect(canvas.getByRole("button", { name: "Страница 2, продолжение" })).toHaveAttribute("aria-current", "page");
     await expect(canvas.getByText("Материалы 13–24 из 24")).toBeVisible();
     await expect(canvasElement.querySelector('[data-series-ordinal="13"]')).toHaveAttribute("aria-current", "step");
-    await expect(canvas.getByRole("progressbar")).toHaveAttribute("value", "8");
     await expect(canvas.getAllByRole("link", { name: "Настройка CI" })[0]).toHaveAttribute("href", expect.stringContaining("page%3D2%26at%3Dseries-material-13"));
     await userEvent.click(canvas.getByRole("button", { name: "Страница 1" }));
     await expect(canvas.getByText("Материалы 1–12 из 24")).toBeVisible();
@@ -65,8 +63,6 @@ export const Guest: Story = {
   args: { result: lockedResult, learning: { kind: "guest" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.queryByRole("progressbar")).not.toBeInTheDocument();
-    await expect(canvas.getByRole("link", { name: "Начать руководство" })).toBeVisible();
     await expect(canvas.queryByText("Бесплатно")).not.toBeInTheDocument();
     await expect(canvasElement.querySelectorAll('[data-access-cover="locked"]')).toHaveLength(9);
     await expect(canvas.getByRole("link", { name: "Модель предметной области" })).toBeVisible();
@@ -93,7 +89,8 @@ export const OpenSeriesHidesSubscription: Story = {
 export const FreeAccount: Story = { args: { result: lockedResult, learning: { kind: "ready", read: 2, total: 24, continuation: { materialSlug: "series-material-3", label: "Продолжить здесь" } } } };
 export const ExpiredMembership: Story = { args: { result: lockedResult, learning: { kind: "ready", read: 8, total: 24, continuation: null } } };
 export const Completed: Story = { args: { learning: { kind: "ready", read: 24, total: 24, continuation: null } } };
-export const ProgressUnavailable: Story = { args: { learning: { kind: "unavailable" } }, play: async ({ canvasElement, args }) => { await userEvent.click(within(canvasElement).getByRole("button", { name: "Повторить загрузку прогресса" })); await expect(args.onRetry).toHaveBeenCalled(); } };
+// Прогресс не читается: маршрут всё равно открыт, а отдельной сводки над ним больше нет.
+export const ProgressUnavailable: Story = { args: { learning: { kind: "unavailable" } }, play: async ({ canvasElement }) => { await expect(within(canvasElement).getByRole("list", { name: "Материалы руководства" })).toBeVisible(); } };
 export const Loading: Story = { args: { learning: { kind: "loading" } } };
 export const AccessUnavailable: Story = { args: { result: { ...result, items: materials.map((material) => ({ ...material, availability: "unavailable" })) }, learning: { kind: "ready", read: 8, total: 24, continuation: null } } };
 export const Chapters: Story = {
@@ -191,8 +188,8 @@ export const LoadingPreservesRoutePosition: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const top = canvas.getByRole("list", { name: "Материалы руководства" }).getBoundingClientRect().top;
+    // Разрешение прогресса не двигает маршрут: сводки над ним больше нет, и сдвигаться нечему.
     await userEvent.click(canvas.getByRole("button", { name: "Получить прогресс (проверка)" }));
-    await expect(canvas.getByRole("progressbar")).toHaveAttribute("value", "8");
     await expect(Math.abs(canvas.getByRole("list", { name: "Материалы руководства" }).getBoundingClientRect().top - top)).toBeLessThan(1);
   },
 };

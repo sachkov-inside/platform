@@ -146,7 +146,8 @@ export const CheckConnections: Story = { name: "Проверка связей", 
   await expect(canvas.getByRole("heading", { name: materials[1].title })).toBeVisible();
   await userEvent.click(canvas.getByRole("button", { name: "Просмотрено" }));
   await userEvent.click(toolbar.getByRole("button", { name: "Руководство" }));
-  await expect(canvas.getByText("Изучено 2 из 3")).toBeVisible();
+  // Сводка прогресса над маршрутом убрана: изученное видно отметкой на карточке материала.
+  await expect(canvas.getAllByRole("img", { name: /изучен/u }).length).toBeGreaterThanOrEqual(2);
   await expect(canvas.getByRole("img", { name: "Материал 1, изучен" })).toBeVisible();
   await expect(canvas.getByRole("img", { name: "Материал 2, изучен" })).toBeVisible();
   await userEvent.click(toolbar.getByRole("button", { name: "Главная" }));

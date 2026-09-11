@@ -24,7 +24,6 @@ import { PlaylistCard, formatMaterialCount } from "@/features/library-discovery"
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { PublicSectionHeading } from "@/shared/ui/public-section-heading";
-import { guideProgrammeHref } from "@/shared/routing/subscription-route";
 import {
   collectionDiscoveryHref,
   libraryMaterialReaderReturnTarget,
@@ -32,13 +31,7 @@ import {
   type MaterialReaderReturnTarget,
 } from "@/shared/routing/material-reader";
 import type { ReaderGuideArtifactsResult } from "@/features/guide-artifacts.reader";
-import { GuideIntroductionSection } from "./guide-introduction";
-import {
-  GuideArtifactsPromise,
-  GuideChaptersOverview,
-  GuideFreeEntry,
-  GuideProgrammeBar,
-} from "./guide-product-sections";
+import { GuideProductView } from "./guide-product-view";
 import { TopicMaterialCatalog } from "./topic-material-catalog.client";
 
 type ResolvedDiscoveryResult = Exclude<
@@ -62,15 +55,22 @@ export function LibraryDiscoveryView({
   readonly returnTarget?: MaterialReaderReturnTarget;
 }) {
   const isSeries = result.discoveryKind === "series";
-  const introduction = result.reference.introduction ?? null;
   const Icon = isSeries ? ListVideo : Tags;
   const currentHref = collectionDiscoveryHref(
     result.discoveryKind,
     result.reference.slug,
     returnTarget.href,
   );
-  const items = result.kind === "ready" ? result.items : [];
-  const free = isSeries ? items.find((item) => item.availability === "available") : undefined;
+  const entry = freeEntryHref(result, currentHref);
+  if (isSeries) {
+    return (
+      <GuideProductView
+        artifacts={artifacts}
+        result={result}
+        {...(entry === undefined ? {} : { freeEntryHref: entry })}
+      />
+    );
+  }
 
   return (
     <div
@@ -83,31 +83,13 @@ export function LibraryDiscoveryView({
         name={result.reference.name}
         returnTarget={returnTarget}
       />
-      <DiscoveryHero
-        Icon={Icon}
-        isSeries={isSeries}
-        result={result}
-        {...(free === undefined
-          ? {}
-          : { freeEntryHref: materialReaderHref(free.slug, currentHref) })}
-      />
-      {isSeries && introduction !== null ? <GuideIntroductionSection introduction={introduction} /> : null}
-      {isSeries ? (
-        <>
-          <GuideChaptersOverview chapters={result.chapters} materialCount={items.length} />
-          <GuideArtifactsPromise artifacts={artifacts} />
-        </>
-      ) : null}
+      <DiscoveryHero Icon={Icon} isSeries={isSeries} result={result} />
 
       {result.kind === "empty" ? (
         <DiscoveryEmpty kind={result.discoveryKind} />
-      ) : isSeries ? null : (
+      ) : (
         <TopicMaterials currentHref={currentHref} result={result} />
       )}
-
-      {isSeries && result.kind === "ready" ? (
-        <GuideProgrammeBar href={guideProgrammeHref(result.reference.slug)} />
-      ) : null}
     </div>
   );
 }
@@ -116,13 +98,10 @@ function DiscoveryHero({
   Icon,
   isSeries,
   result,
-  freeEntryHref,
 }: {
   readonly Icon: LucideIcon;
   readonly isSeries: boolean;
   readonly result: ResolvedDiscoveryResult;
-  /** Первый открытый материал руководства, когда он есть. */
-  readonly freeEntryHref?: Route;
 }) {
   return (
     <header
@@ -165,7 +144,6 @@ function DiscoveryHero({
               {result.reference.summary}
             </p>
           ) : null}
-          {freeEntryHref === undefined ? null : <GuideFreeEntry href={freeEntryHref} />}
         </div>
         {isSeries && result.kind === "ready" ? (
           <div className="grid w-full max-w-xl shrink-0 grid-cols-3 gap-2 md:w-[18rem]">
@@ -460,4 +438,15 @@ function DiscoveryStatus({
       </div>
     </section>
   );
+}
+
+
+/** Первый открытый материал руководства: бесплатный вход из обложки. */
+function freeEntryHref(
+  result: ResolvedDiscoveryResult,
+  currentHref: Route,
+): Route | undefined {
+  if (result.kind !== "ready") return undefined;
+  const free = result.items.find((item) => item.availability === "available");
+  return free === undefined ? undefined : materialReaderHref(free.slug, currentHref);
 }
