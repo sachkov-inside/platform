@@ -1,10 +1,30 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, within } from "storybook/test";
 
+import { ApplicationShell, type ApplicationNavigationItem } from "@/widgets/application-shell";
 import { GuideShowcasePrototype } from "@/workshop/guide-showcase.prototype";
+
+const navigation = [
+  { href: "/", icon: "home", label: "Главная" },
+  { href: "/library", icon: "library", label: "База знаний" },
+] satisfies readonly ApplicationNavigationItem[];
 
 const meta = {
   component: GuideShowcasePrototype,
+  // The real shell owns desktop scrolling: from 48rem the document itself is
+  // `overflow: hidden` and `#content` scrolls instead. A page reviewed outside
+  // the shell cannot scroll on desktop and does not look like the product.
+  decorators: [
+    (Story) => (
+      <ApplicationShell
+        currentPath="/guides/ci-and-reproducible-releases"
+        mobileNavigationItems={[...navigation, { href: "/account", icon: "profile", label: "Профиль" }]}
+        navigationItems={navigation}
+      >
+        <Story />
+      </ApplicationShell>
+    ),
+  ],
   // A full-page prototype has nothing to show in a Docs block: the block caps its
   // height and clips the page instead of scrolling it. Review it as a story.
   tags: ["!autodocs"],
@@ -75,7 +95,10 @@ export const EnlargedText: Story = {
           resolve();
         });
       });
-      await expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth);
+      // Scope the check to the page this prototype owns: the shared shell's own
+      // skip link already exceeds 320 px at 200% text, which belongs to the shell.
+      const page = canvasElement.querySelector<HTMLElement>("[data-guide-showcase]");
+      await expect(page?.scrollWidth ?? 0).toBeLessThanOrEqual(root.clientWidth);
     } finally {
       root.style.fontSize = fontSize;
     }

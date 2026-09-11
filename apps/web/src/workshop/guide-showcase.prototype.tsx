@@ -35,7 +35,11 @@ export function GuideShowcasePrototype({
 }) {
   const [opened, setOpened] = useState(owned);
   return (
-    <div className="flex min-h-full flex-col bg-background text-foreground" data-showcase-state={opened ? "programme" : "showcase"}>
+    <div
+      className="flex min-h-full flex-col bg-background text-foreground"
+      data-guide-showcase
+      data-showcase-state={opened ? "programme" : "showcase"}
+    >
       {opened ? (
         <ProgrammeStub guide={guide} onBack={() => { setOpened(false); }} />
       ) : (
@@ -54,7 +58,7 @@ function Showcase({
 }) {
   return (
     <>
-      <main className="mx-auto w-full max-w-[46rem] flex-1 px-4 pb-10 sm:px-6">
+      <div className="mx-auto w-full max-w-[46rem] flex-1 px-4 pb-10 sm:px-6">
         <Hero guide={guide} onOpen={onOpen} />
 
         <h1 className="mt-7 break-words text-[1.75rem] font-semibold leading-[1.15] tracking-[-0.035em] md:text-4xl">
@@ -180,7 +184,7 @@ function Showcase({
             <p className="break-words text-sm leading-6 text-muted-foreground">{guide.outOfScope}</p>
           </div>
         </Section>
-      </main>
+      </div>
 
       {/* Sticky, not fixed: the bar has to pin to whatever scrolls it — the page,
           a Storybook viewport frame or a Docs block — and never leave the flow. */}
@@ -219,7 +223,7 @@ function Hero({
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-white/70 tabular-nums">{guide.materials} материалов</p>
         <button
-          className="inline-flex min-h-11 items-center gap-2 rounded-full bg-white/15 px-5 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          className="inline-flex min-h-11 max-w-full items-center justify-center gap-2 whitespace-normal rounded-full bg-white/15 px-5 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           onClick={onOpen}
           type="button"
         >
@@ -239,7 +243,7 @@ function ProgrammeStub({
   readonly onBack: () => void;
 }) {
   return (
-    <main className="mx-auto w-full max-w-[46rem] px-4 pb-24 sm:px-6">
+    <div className="mx-auto w-full max-w-[46rem] px-4 pb-24 sm:px-6">
       <button
         className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-full bg-muted px-4 text-sm font-semibold"
         onClick={onBack}
@@ -283,7 +287,7 @@ function ProgrammeStub({
           </li>
         ))}
       </ol>
-    </main>
+    </div>
   );
 }
 
