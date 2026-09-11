@@ -526,7 +526,9 @@ redirect и cache policy остаются за backend.
 7. Member route `/members/<publicProfileId>` не образует directory/search и получает только
    `publicProfileId + displayName + bio + opaque current avatarId` после current active Membership
    check. Avatar rendition endpoint повторяет ту же Membership/Profile/current-avatar проверку и
-   только затем выдаёт краткоживущий protected presigned GET. Replace/remove немедленно делает
+   только затем выдаёт краткоживущий protected presigned GET. Membership check относится к чужой
+   проекции: владелец профиля всегда получает собственный current avatar по настроенному TTL,
+   иначе owner-only Account composition не показала бы только что загруженный аватар. Replace/remove немедленно делает
    старый Platform endpoint недоступным; уже выданный storage credential живёт только до своего
    bounded TTL и намеренно не получает отдельный revocation path. Anonymous,
    non-member, expired member, crawler, missing/disabled Profile получают одинаковый `404`
