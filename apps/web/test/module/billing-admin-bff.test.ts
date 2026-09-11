@@ -16,11 +16,11 @@ import {
   handleApplyGrantBatch,
   handleDecideRefund,
   handleExecuteRefund,
-  handleListOffers,
   handleListPayments,
   handlePublishOffer,
   handleSaveOffer,
   handleUnpublishOffer,
+  loadBillingOffersForOwner,
 } from "@/features/billing-admin.server";
 
 const origin = "https://inside.example.test";
@@ -213,13 +213,9 @@ it("читает владельческий каталог, где остают�
       result: { outcome: "catalogOffers", items: [], nextCursor: null },
     }),
   );
-  const response = await handleListOffers(
-    command("/api/authoring/billing/offers/list", { operationId, limit: 50 }),
-  );
-  expect(await response.json()).toMatchObject({ ok: true });
+  await expect(loadBillingOffersForOwner()).resolves.toEqual([]);
   expect(fakes.manage).toHaveBeenCalledWith(
-    { operation: "offers.list", operationId, limit: 50 },
+    expect.objectContaining({ operation: "offers.list", limit: 100 }),
     "owner-token",
-    {},
   );
 });

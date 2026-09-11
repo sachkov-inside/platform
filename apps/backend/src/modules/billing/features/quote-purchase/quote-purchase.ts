@@ -31,8 +31,6 @@ export async function quotePurchase(prisma: BillingPrismaClient, accountId: stri
       const now = clock();
       const price = await selectPrice(tx, command.paymentOptionId, now, command.promoCode);
       if (!price.ok) return price;
-      // Выключенное из продажи предложение не продаётся, даже если клиент прислал его вариант вручную.
-      if (price.value.offer.published !== true) return failure("not_found");
       if (price.value.paymentOption.revision !== command.optionRevision) return failure("quote_changed");
       const expiresAt = new Date(now.getTime() + quoteValidityMinutes * 60_000);
       const id = randomUUID();

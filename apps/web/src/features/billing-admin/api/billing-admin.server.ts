@@ -27,7 +27,6 @@ import {
   grantOutcomeSchema,
   grantPreviewOutcomeSchema,
   grantsOutcomeSchema,
-  listOffersInputSchema,
   listPaymentsInputSchema,
   paymentOutcomeSchema,
   paymentsOutcomeSchema,
@@ -106,20 +105,6 @@ export function handleUnpublishOffer(request: Request): Promise<Response> {
     archiveInputSchema,
     catalogOutcomeSchema,
     (input) => ({ ...input, operation: "offers.unpublish" }),
-  );
-}
-
-export function handleListOffers(request: Request): Promise<Response> {
-  return ownerCommand(
-    request,
-    listOffersInputSchema,
-    catalogOffersOutcomeSchema,
-    (input) => ({
-      operation: "offers.list",
-      operationId: input.operationId,
-      limit: input.limit,
-      ...(input.cursor === undefined ? {} : { cursor: input.cursor }),
-    }),
   );
 }
 

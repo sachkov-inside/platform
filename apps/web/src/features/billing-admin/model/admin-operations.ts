@@ -154,11 +154,6 @@ export const catalogOffersOutcomeSchema = envelope(
     nextCursor: z.uuid().nullable(),
   }),
 );
-export const listOffersInputSchema = z.strictObject({
-  operationId,
-  cursor: z.uuid().optional(),
-  limit: z.number().int().min(1).max(100),
-});
 export const paymentViewSchema = z.object({
   purchaseRef: z.uuid(),
   accountId: z.uuid(),
@@ -331,7 +326,6 @@ export type SaveOfferInput = z.infer<typeof saveOfferInputSchema>;
 export type SavePaymentOptionInput = z.infer<typeof savePaymentOptionInputSchema>;
 export type SavePromotionInput = z.infer<typeof savePromotionInputSchema>;
 export type ArchiveInput = z.infer<typeof archiveInputSchema>;
-export type ListOffersInput = z.infer<typeof listOffersInputSchema>;
 export type ListPaymentsInput = z.infer<typeof listPaymentsInputSchema>;
 export type PurchaseCommandInput = z.infer<typeof purchaseInputSchema>;
 export type CancelSubscriptionInput = z.infer<typeof cancelSubscriptionInputSchema>;

@@ -19,7 +19,7 @@ export async function listOffers(prisma: BillingPrismaClient, input: unknown, cl
     const items = [];
     const now = clock();
     for (const row of page) {
-      const price = await selectPrice(prisma, row.id, now);
+      const price = await selectPrice(prisma, row.id, now, undefined, { allowUnpublished: options.publishedOnly !== true });
       if (price.ok) items.push(price.value);
     }
     return { ok: true, value: { items, nextCursor: rows.length > limit ? page.at(-1)?.id ?? null : null } };

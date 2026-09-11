@@ -40,8 +40,8 @@ async function changeCatalog(tx: BillingPrisma, command: ManageCatalogCommand): 
   const current = command.operation.startsWith("offers.") ? await tx.billingOffer.findUnique({ where: { id } })
     : command.operation.startsWith("paymentOptions.") ? await tx.billingPaymentOption.findUnique({ where: { id } })
     : await tx.billingPromotion.findUnique({ where: { id } });
-  if ((current?.revision) !== command.expectedRevision) return failure("revision_conflict");
   if (!current && !('value' in command)) return failure("not_found");
+  if ((current?.revision) !== command.expectedRevision) return failure("revision_conflict");
   const currentPublished = current !== null && "published" in current ? current.published : false;
   const revision = (current?.revision ?? 0) + 1;
   const archived = !('value' in command);

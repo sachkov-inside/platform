@@ -82,7 +82,7 @@ export function CatalogSection({
                     <span
                       className={
                         published
-                          ? "rounded-full bg-accent/15 px-2 py-0.5 text-xs font-medium text-[#9A3412]"
+                          ? "rounded-full bg-accent/15 px-2 py-0.5 text-xs font-medium text-accent-hover"
                           : "rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
                       }
                     >

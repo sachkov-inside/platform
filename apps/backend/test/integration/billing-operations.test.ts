@@ -497,7 +497,7 @@ describe("владельческие операции billing: платежи, �
     expect(archived.value).toEqual({ id: offerId, revision: 2, archived: true, published: false });
     // Архивирование продаваемого предложения не переписывает оплаченные условия и историю.
     const purchaseRef = await s.buy();
-    // Выключение варианта обратимо: та же редакция каталога возвращается в продажу повторным включением.
+    // Выключение обратимо: предложение и его состав не пересоздаются, повторное включение возвращает продажу.
     const offSale = asCatalog(await s.operations.execute(owner, { operation: "offers.unpublish", operationId: randomUUID(),
       id: s.offerId, expectedRevision: 2 }));
     expect(offSale.value).toEqual({ id: s.offerId, revision: 3, archived: false, published: false });

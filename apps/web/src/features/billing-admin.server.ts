@@ -7,7 +7,6 @@ export {
   handleDecideRefund,
   handleExecuteRefund,
   handleExtendGrant,
-  handleListOffers,
   handleListPayments,
   handlePreviewGrantBatch,
   handlePublishOffer,

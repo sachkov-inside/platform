@@ -103,7 +103,10 @@ function InsideAccessCard({
 }: {
   readonly pending: boolean;
   readonly refresh: () => void;
-  readonly state: AccountTelegramMembership["membership"];
+  readonly state: Exclude<
+    AccountTelegramMembership["membership"],
+    { kind: "notOffered" }
+  >;
 }) {
   const view = accessView(state, { pending, refresh });
 
@@ -268,7 +271,10 @@ function TelegramButton({
 }
 
 function accessView(
-  state: AccountTelegramMembership["membership"],
+  state: Exclude<
+    AccountTelegramMembership["membership"],
+    { kind: "notOffered" }
+  >,
   actions: { readonly pending: boolean; readonly refresh: () => void },
 ): {
   readonly action: ReactNode;
@@ -336,13 +342,6 @@ function accessView(
         ),
         description:
           "Все материалы Inside остаются здесь. Обновите статус, чтобы увидеть возможности вашей подписки.",
-        label: "Подписка Inside",
-      };
-    // Подписка не продаётся: карточка не показывается, поэтому эта ветка не рендерится.
-    case "notOffered":
-      return {
-        action: null,
-        description: "",
         label: "Подписка Inside",
       };
   }
