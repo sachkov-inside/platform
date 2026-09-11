@@ -8,10 +8,7 @@ import {
   offerCompositionLabel,
   type PriceSnapshot,
 } from "@/entities/subscription";
-import {
-  BillingContactPanel,
-  type BillingContactState,
-} from "@/features/billing-contact";
+import { billingContactQueryOptions } from "@/features/billing-contact";
 import { CheckoutFlow, type CheckoutInclusion } from "@/features/billing-checkout";
 import { currentBillingQueryOptions } from "@/features/billing-subscription";
 import { internalRoute } from "@/shared/routing/internal-route";
@@ -36,13 +33,14 @@ export function GuidePurchase({
   slug,
   unavailable = false,
 }: GuidePurchaseProps) {
-  const [contactState, setContactState] = useState<BillingContactState | null>(
-    null,
-  );
   const [selectedId, setSelectedId] = useState<string | null>(
     offers[0]?.paymentOption.id ?? null,
   );
   const billing = useQuery(currentBillingQueryOptions());
+  // Подтверждённый контакт и редакции документов нужны самому оформлению, поэтому страница
+  // читает их прямо, а не через форму подтверждения: формы здесь больше нет.
+  const contact = useQuery(billingContactQueryOptions());
+  const contactState = contact.data?.ok === true ? contact.data : null;
   const signedOut =
     billing.data?.ok === false && billing.data.code === "unauthorized";
   const viewer = billing.isPending ? "loading" : signedOut ? "guest" : "member";
@@ -114,9 +112,6 @@ export function GuidePurchase({
             inclusions={inclusionsOf(selected)}
             snapshot={selected}
           />
-          <div className="mt-8">
-            <BillingContactPanel onStateChange={setContactState} />
-          </div>
         </>
       )}
     </GuidePurchaseView>

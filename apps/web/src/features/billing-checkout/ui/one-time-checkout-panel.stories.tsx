@@ -79,9 +79,14 @@ export const ContactRequired: Story = {
   args: { accepted: ["terms"], contact: null },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    // Формы подтверждения здесь нет: страница объясняет предел и ведёт в кабинет.
+    await expect(canvas.getByRole("status")).toHaveTextContent(
+      "пока не подтверждён",
+    );
     await expect(
-      canvas.getByRole("link", { name: "Подтвердить почту" }),
+      canvas.getByRole("link", { name: "Подтвердить его в кабинете" }),
     ).toBeInTheDocument();
+    await expect(canvas.queryByLabelText("Email")).not.toBeInTheDocument();
     await expect(canvas.getByRole("button", { name: /Купить за/u })).toBeDisabled();
   },
 };

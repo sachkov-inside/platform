@@ -1,5 +1,5 @@
 "use client";
-import { Check, Infinity as InfinityIcon, Play } from "lucide-react";
+import { Infinity as InfinityIcon, Play } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useId } from "react";
@@ -163,27 +163,15 @@ export function OneTimeCheckoutPanel({
         </Button>
       ) : null}
 
-      <div className="mt-5 border-t border-border pt-5">
-        <p className="text-sm font-semibold">Почта для чека</p>
-        {contact === null ? (
-          <div className="mt-2 rounded-xl border border-border bg-secondary/50 p-4 text-sm leading-6">
-            <p className="text-muted-foreground">
-              На неё придёт чек. Подтвердите адрес — без него оплату принять нельзя.
-            </p>
-            <Link
-              className={`mt-3 inline-flex min-h-11 items-center font-semibold text-action underline underline-offset-4 ${billingActionClass}`}
-              href={contactHref}
-            >
-              Подтвердить почту
-            </Link>
-          </div>
-        ) : (
-          <p className="mt-2 flex flex-wrap items-center gap-2 break-words text-sm">
-            <Check aria-hidden="true" className="size-4 shrink-0 text-accent" />
-            <span className="font-semibold">{contact.email}</span>
-          </p>
-        )}
-      </div>
+      {contact === null ? (
+        <p className="mt-5 rounded-xl border border-border bg-muted/50 p-4 text-sm leading-6" role="status">
+          Чек выписывается на подтверждённый адрес, а он пока не подтверждён.{" "}
+          <Link className="font-semibold text-action underline underline-offset-4" href={contactHref}>
+            Подтвердить его в кабинете
+          </Link>
+          .
+        </p>
+      ) : null}
 
       {missingRequired.length > 0 ? (
         <p

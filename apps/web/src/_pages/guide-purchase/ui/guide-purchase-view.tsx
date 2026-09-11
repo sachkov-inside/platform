@@ -56,16 +56,16 @@ export function GuidePurchaseView({
         </Link>
       </nav>
 
-      <h1 className="mt-6 break-words text-[2rem] font-bold leading-[1.1] tracking-[-0.04em] md:text-5xl">
+      <h1 className="mt-6 break-words text-2xl font-bold leading-[1.15] tracking-[-0.03em] md:text-3xl">
         {guide?.name ?? "Руководство"}
       </h1>
       {guide === null || guide.summary === "" ? null : (
-        <p className="mt-4 break-words text-base leading-7 text-muted-foreground md:text-lg">
+        <p className="mt-3 break-words text-sm leading-6 text-muted-foreground md:text-base">
           {guide.summary}
         </p>
       )}
 
-      <div className="mt-7">
+      <div className="mt-6">
         {unavailable ? (
           <p
             className="rounded-2xl border border-border bg-card p-6 text-sm leading-6 shadow-card"
