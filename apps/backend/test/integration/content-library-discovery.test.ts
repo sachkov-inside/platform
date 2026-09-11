@@ -25,7 +25,13 @@ describe("Content Library discovery", () => {
     });
     await testDatabase.prisma.guide.update({
       where: { slug: "platform-inside" },
-      data: { summary: "Build the platform in a deliberate order." },
+      data: {
+        audience: "Engineers who own a product surface end to end.",
+        outcome: "Ship a working slice of the platform in a deliberate order.",
+        prerequisites: "Comfort with Git and a running local stack.",
+        scope: "One product surface; operations stay outside this Guide.",
+        summary: "Build the platform in a deliberate order.",
+      },
     });
   });
 
@@ -58,6 +64,7 @@ describe("Content Library discovery", () => {
     expect(result.value).toMatchObject({
       kind: "topic",
       reference: {
+        introduction: null,
         name: "Platform",
         slug: "platform",
         summary: "Platform boundaries, delivery and operations.",
@@ -181,6 +188,12 @@ describe("Content Library discovery", () => {
       value: {
         kind: "series",
         reference: {
+          introduction: {
+            audience: "Engineers who own a product surface end to end.",
+            outcome: "Ship a working slice of the platform in a deliberate order.",
+            prerequisites: "Comfort with Git and a running local stack.",
+            scope: "One product surface; operations stay outside this Guide.",
+          },
           name: "Создание Platform Inside",
           slug: "platform-inside",
           summary: "Build the platform in a deliberate order.",

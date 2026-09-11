@@ -17568,6 +17568,35 @@
                         "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                         "type": "string"
                       },
+                      "introduction": {
+                        "additionalProperties": false,
+                        "nullable": true,
+                        "properties": {
+                          "audience": {
+                            "maxLength": 4000,
+                            "type": "string"
+                          },
+                          "outcome": {
+                            "maxLength": 4000,
+                            "type": "string"
+                          },
+                          "prerequisites": {
+                            "maxLength": 4000,
+                            "type": "string"
+                          },
+                          "scope": {
+                            "maxLength": 4000,
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "audience",
+                          "outcome",
+                          "prerequisites",
+                          "scope"
+                        ],
+                        "type": "object"
+                      },
                       "kind": {
                         "enum": [
                           "guide",
@@ -17605,6 +17634,7 @@
                     "required": [
                       "archived",
                       "id",
+                      "introduction",
                       "kind",
                       "materialCount",
                       "name",
@@ -18177,6 +18207,35 @@
                       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                       "type": "string"
                     },
+                    "introduction": {
+                      "additionalProperties": false,
+                      "nullable": true,
+                      "properties": {
+                        "audience": {
+                          "maxLength": 4000,
+                          "type": "string"
+                        },
+                        "outcome": {
+                          "maxLength": 4000,
+                          "type": "string"
+                        },
+                        "prerequisites": {
+                          "maxLength": 4000,
+                          "type": "string"
+                        },
+                        "scope": {
+                          "maxLength": 4000,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "audience",
+                        "outcome",
+                        "prerequisites",
+                        "scope"
+                      ],
+                      "type": "object"
+                    },
                     "kind": {
                       "enum": [
                         "guide",
@@ -18214,6 +18273,7 @@
                   "required": [
                     "archived",
                     "id",
+                    "introduction",
                     "kind",
                     "materialCount",
                     "name",
@@ -18896,6 +18956,34 @@
                     "minimum": 0,
                     "type": "integer"
                   },
+                  "introduction": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "audience": {
+                        "maxLength": 4000,
+                        "type": "string"
+                      },
+                      "outcome": {
+                        "maxLength": 4000,
+                        "type": "string"
+                      },
+                      "prerequisites": {
+                        "maxLength": 4000,
+                        "type": "string"
+                      },
+                      "scope": {
+                        "maxLength": 4000,
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "audience",
+                      "outcome",
+                      "prerequisites",
+                      "scope"
+                    ],
+                    "type": "object"
+                  },
                   "kind": {
                     "enum": [
                       "guide",
@@ -18979,6 +19067,35 @@
                       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                       "type": "string"
                     },
+                    "introduction": {
+                      "additionalProperties": false,
+                      "nullable": true,
+                      "properties": {
+                        "audience": {
+                          "maxLength": 4000,
+                          "type": "string"
+                        },
+                        "outcome": {
+                          "maxLength": 4000,
+                          "type": "string"
+                        },
+                        "prerequisites": {
+                          "maxLength": 4000,
+                          "type": "string"
+                        },
+                        "scope": {
+                          "maxLength": 4000,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "audience",
+                        "outcome",
+                        "prerequisites",
+                        "scope"
+                      ],
+                      "type": "object"
+                    },
                     "kind": {
                       "enum": [
                         "guide",
@@ -19016,6 +19133,7 @@
                   "required": [
                     "archived",
                     "id",
+                    "introduction",
                     "kind",
                     "materialCount",
                     "name",
@@ -19867,6 +19985,35 @@
                       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                       "type": "string"
                     },
+                    "introduction": {
+                      "additionalProperties": false,
+                      "nullable": true,
+                      "properties": {
+                        "audience": {
+                          "maxLength": 4000,
+                          "type": "string"
+                        },
+                        "outcome": {
+                          "maxLength": 4000,
+                          "type": "string"
+                        },
+                        "prerequisites": {
+                          "maxLength": 4000,
+                          "type": "string"
+                        },
+                        "scope": {
+                          "maxLength": 4000,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "audience",
+                        "outcome",
+                        "prerequisites",
+                        "scope"
+                      ],
+                      "type": "object"
+                    },
                     "kind": {
                       "enum": [
                         "guide",
@@ -19904,6 +20051,7 @@
                   "required": [
                     "archived",
                     "id",
+                    "introduction",
                     "kind",
                     "materialCount",
                     "name",
@@ -77920,6 +78068,31 @@
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                           "type": "string"
                         },
+                        "introduction": {
+                          "additionalProperties": false,
+                          "nullable": true,
+                          "properties": {
+                            "audience": {
+                              "type": "string"
+                            },
+                            "outcome": {
+                              "type": "string"
+                            },
+                            "prerequisites": {
+                              "type": "string"
+                            },
+                            "scope": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "audience",
+                            "outcome",
+                            "prerequisites",
+                            "scope"
+                          ],
+                          "type": "object"
+                        },
                         "name": {
                           "type": "string"
                         },
@@ -77932,6 +78105,7 @@
                       },
                       "required": [
                         "id",
+                        "introduction",
                         "name",
                         "slug",
                         "summary",
@@ -82185,6 +82359,31 @@
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                           "type": "string"
                         },
+                        "introduction": {
+                          "additionalProperties": false,
+                          "nullable": true,
+                          "properties": {
+                            "audience": {
+                              "type": "string"
+                            },
+                            "outcome": {
+                              "type": "string"
+                            },
+                            "prerequisites": {
+                              "type": "string"
+                            },
+                            "scope": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "audience",
+                            "outcome",
+                            "prerequisites",
+                            "scope"
+                          ],
+                          "type": "object"
+                        },
                         "name": {
                           "type": "string"
                         },
@@ -82197,6 +82396,7 @@
                       },
                       "required": [
                         "id",
+                        "introduction",
                         "name",
                         "slug",
                         "summary",
@@ -82993,6 +83193,31 @@
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                           "type": "string"
                         },
+                        "introduction": {
+                          "additionalProperties": false,
+                          "nullable": true,
+                          "properties": {
+                            "audience": {
+                              "type": "string"
+                            },
+                            "outcome": {
+                              "type": "string"
+                            },
+                            "prerequisites": {
+                              "type": "string"
+                            },
+                            "scope": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "audience",
+                            "outcome",
+                            "prerequisites",
+                            "scope"
+                          ],
+                          "type": "object"
+                        },
                         "name": {
                           "type": "string"
                         },
@@ -83005,6 +83230,7 @@
                       },
                       "required": [
                         "id",
+                        "introduction",
                         "name",
                         "slug",
                         "summary",
@@ -83800,6 +84026,31 @@
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                           "type": "string"
                         },
+                        "introduction": {
+                          "additionalProperties": false,
+                          "nullable": true,
+                          "properties": {
+                            "audience": {
+                              "type": "string"
+                            },
+                            "outcome": {
+                              "type": "string"
+                            },
+                            "prerequisites": {
+                              "type": "string"
+                            },
+                            "scope": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "audience",
+                            "outcome",
+                            "prerequisites",
+                            "scope"
+                          ],
+                          "type": "object"
+                        },
                         "name": {
                           "type": "string"
                         },
@@ -83812,6 +84063,7 @@
                       },
                       "required": [
                         "id",
+                        "introduction",
                         "name",
                         "slug",
                         "summary",

@@ -9,6 +9,7 @@ const collections = [
   {
     archived: false,
     id: "97000000-0000-4000-8000-000000000001",
+    introduction: null,
     kind: "topic",
     materialCount: 8,
     name: "Product engineering",
@@ -19,6 +20,7 @@ const collections = [
   {
     archived: true,
     id: "97000000-0000-4000-8000-000000000002",
+    introduction: null,
     kind: "topic",
     materialCount: 2,
     name: "Legacy topic",
