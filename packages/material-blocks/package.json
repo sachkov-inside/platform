@@ -27,7 +27,7 @@
     "@tiptap/extension-unique-id": "3.30.3",
     "@tiptap/pm": "3.30.3",
     "@tiptap/starter-kit": "3.30.3",
-    "zod": "4.4.3"
+    "zod": "4.5.4"
   },
   "devDependencies": {
     "typescript": "7.0.2"
