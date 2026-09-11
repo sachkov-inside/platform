@@ -1,7 +1,7 @@
 import { PersonalSeries } from "./personal-series.server";
 import { notFound } from "next/navigation";
 
-import { loadGuideOffer } from "@/entities/subscription.server";
+import { loadGuideOffers } from "@/entities/subscription.server";
 
 import type {
   PublishedSeriesResult,
@@ -84,12 +84,12 @@ export async function GuideProgrammePage({
     guideId === undefined
       ? Promise.resolve<ReaderGuideArtifactsResult>({ artifacts: [], kind: "ready" })
       : readReaderGuideArtifacts(guideId, accessToken),
-    guideId === undefined ? Promise.resolve(undefined) : loadGuideOffer(guideId),
+    guideId === undefined ? Promise.resolve(undefined) : loadGuideOffers(guideId),
   ]);
   return (
     <PersonalSeries
       artifacts={artifacts}
-      guideOffer={catalog?.kind === "ready" ? catalog.offer : null}
+      guideOffer={catalog?.kind === "ready" ? catalog.offers[0] ?? null : null}
       result={result}
       {...(accessToken === undefined ? {} : { accessToken })}
     />

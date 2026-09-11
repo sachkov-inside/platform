@@ -1,3 +1,4 @@
+import { isGuideCapability } from "./billing-contract";
 import type {
   AccessCapability,
   AccessSource,
@@ -144,6 +145,23 @@ export function paymentSubjectLabel(payment: {
   return payment.kind === "one_time"
     ? "разовая покупка"
     : formatMonths(payment.months);
+}
+
+/**
+ * Как назвать состав предложения покупателю. Руководство с сопровождением называется именно так,
+ * а не просто руководством: покупатель должен видеть, за что платит.
+ */
+export function offerCompositionLabel(offer: BillingOffer): string {
+  const guide = offer.benefits.some(isGuideCapability);
+  const parts: string[] = [];
+  if (guide) parts.push("Руководство");
+  if (offer.benefits.includes("materials")) parts.push("все материалы");
+  if (offer.benefits.includes("support")) parts.push("сопровождение");
+  if (offer.benefits.includes("community")) parts.push("общий чат");
+  if (parts.length === 0) return offer.name;
+  if (parts.length === 1) return parts[0] ?? offer.name;
+  const [first, ...rest] = parts;
+  return `${first ?? ""} с ${rest.join(" и ")}`;
 }
 
 /** Банковское состояние попытки отделено от готовности доступа. */

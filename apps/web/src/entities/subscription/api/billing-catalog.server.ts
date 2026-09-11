@@ -4,7 +4,7 @@ import { requestBillingOffers } from "@/shared/api/backend/index.server";
 
 import {
   guideCapability,
-  guidePurchaseOffer,
+  guidePurchaseOffers,
   offersPageSchema,
   type PaymentMode,
   type PriceSnapshot,
@@ -51,13 +51,14 @@ export async function loadBillingOffers(
 }
 
 /**
- * Разовое предложение одного руководства. Отсутствие предложения — обычное состояние:
- * руководство продаётся, только когда владелец завёл ему цену.
+ * Все разовые предложения одного руководства. Отсутствие предложений — обычное состояние:
+ * руководство продаётся, только когда владелец завёл ему цену. Их может быть несколько, поэтому
+ * страница оплаты умеет показать выбор.
  */
-export async function loadGuideOffer(
+export async function loadGuideOffers(
   guideId: string,
 ): Promise<
-  | { readonly kind: "ready"; readonly offer: PriceSnapshot | null }
+  | { readonly kind: "ready"; readonly offers: readonly PriceSnapshot[] }
   | { readonly kind: "unavailable" }
 > {
   const result = await loadBillingOffers({
@@ -66,5 +67,5 @@ export async function loadGuideOffer(
   });
   return result.kind === "unavailable"
     ? result
-    : { kind: "ready", offer: guidePurchaseOffer(result.offers, guideId) };
+    : { kind: "ready", offers: guidePurchaseOffers(result.offers, guideId) };
 }

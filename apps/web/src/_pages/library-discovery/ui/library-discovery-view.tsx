@@ -24,10 +24,10 @@ import { PlaylistCard, formatMaterialCount } from "@/features/library-discovery"
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { PublicSectionHeading } from "@/shared/ui/public-section-heading";
+import { guideProgrammeHref } from "@/shared/routing/subscription-route";
 import {
   collectionDiscoveryHref,
   libraryMaterialReaderReturnTarget,
-  materialReaderHref,
   type MaterialReaderReturnTarget,
 } from "@/shared/routing/material-reader";
 import type { ReaderGuideArtifactsResult } from "@/features/guide-artifacts.reader";
@@ -61,7 +61,7 @@ export function LibraryDiscoveryView({
     result.reference.slug,
     returnTarget.href,
   );
-  const entry = freeEntryHref(result, currentHref);
+  const entry = freeEntryHref(result);
   if (isSeries) {
     return (
       <GuideProductView
@@ -441,12 +441,13 @@ function DiscoveryStatus({
 }
 
 
-/** Первый открытый материал руководства: бесплатный вход из обложки. */
-function freeEntryHref(
-  result: ResolvedDiscoveryResult,
-  currentHref: Route,
-): Route | undefined {
+/**
+ * Бесплатный вход из обложки ведёт в программу: там читатель сразу видит открытые уроки и то,
+ * что за ними. Кнопка появляется, только когда открытый материал действительно есть.
+ */
+function freeEntryHref(result: ResolvedDiscoveryResult): Route | undefined {
   if (result.kind !== "ready") return undefined;
-  const free = result.items.find((item) => item.availability === "available");
-  return free === undefined ? undefined : materialReaderHref(free.slug, currentHref);
+  return result.items.some((item) => item.availability === "available")
+    ? guideProgrammeHref(result.reference.slug)
+    : undefined;
 }

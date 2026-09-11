@@ -1,6 +1,6 @@
 "use client";
 import type { Route } from "next";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 
 import {
@@ -9,6 +9,7 @@ import {
   type BillingQuote,
   type LegalDocument,
   type LegalDocumentKind,
+  paymentMode,
   type PriceSnapshot,
   type PurchaseStatus,
   type VerifiedContact,
@@ -22,6 +23,7 @@ import {
 } from "../api/billing-checkout.browser";
 import { rememberPurchase } from "../model/checkout";
 import { CheckoutPanel } from "./checkout-panel.client";
+import { OneTimeCheckoutPanel } from "./one-time-checkout-panel.client";
 
 export interface CheckoutFlowProps {
   readonly snapshot: PriceSnapshot;
@@ -30,6 +32,14 @@ export interface CheckoutFlowProps {
   readonly contactHref: Route;
   readonly onPurchase?: (purchase: PurchaseStatus) => void;
   readonly onNavigate?: (paymentUrl: string) => void;
+  /** Состав покупки для компактной страницы оплаты: что именно получает покупатель. */
+  readonly inclusions?: readonly CheckoutInclusion[];
+}
+
+export interface CheckoutInclusion {
+  readonly caption: string;
+  readonly detail: string;
+  readonly title: string;
 }
 
 /**
@@ -43,6 +53,7 @@ export function CheckoutFlow({
   contactHref,
   onPurchase,
   onNavigate,
+  inclusions = [],
 }: CheckoutFlowProps) {
   const [quote, setQuote] = useState<BillingQuote | null>(null);
   const [accepted, setAccepted] = useState<readonly LegalDocumentKind[]>([]);
@@ -141,61 +152,73 @@ export function CheckoutFlow({
     },
   });
 
-  return (
-    <CheckoutPanel
-      acknowledgeExistingAccess={acknowledge}
-      accepted={accepted}
-      contact={contact}
-      contactHref={contactHref}
-      documents={documents}
-      error={error}
-      existingAccess={existingAccess}
-      legacyBlocked={legacyBlocked}
-      onPay={() => {
-        if (quote === null || contact === null) return;
-        setError(undefined);
-        payMutation.mutate({
-          quote,
-          contactRevision: contact.revision,
-          acknowledgeExistingAccess: acknowledge,
-          accepted,
-        });
-      }}
-      onQuote={() => {
-        setError(undefined);
-        quoteMutation.mutate({
-          operationId: operationId("quote", {
-            paymentOptionId: snapshot.paymentOption.id,
-            optionRevision: snapshot.paymentOption.revision,
-          }),
-          paymentOptionId: snapshot.paymentOption.id,
-          optionRevision: snapshot.paymentOption.revision,
-        });
-      }}
-      onRefreshStatus={() => {
-        if (purchase === null) return;
-        setError(undefined);
-        statusMutation.mutate(purchase.purchaseRef);
-      }}
-      onToggleAcknowledge={() => {
-        setAcknowledge((value) => !value);
-      }}
-      onToggleDocument={(kind) => {
-        setAccepted((value) =>
-          value.includes(kind)
-            ? value.filter((entry) => entry !== kind)
-            : [...value, kind],
-        );
-      }}
-      pending={
-        quoteMutation.isPending ||
-        payMutation.isPending ||
-        statusMutation.isPending
-      }
-      purchase={purchase}
-      quote={quote}
-      snapshot={snapshot}
-    />
+  const requestQuote = () => {
+    setError(undefined);
+    quoteMutation.mutate({
+      operationId: operationId("quote", {
+        paymentOptionId: snapshot.paymentOption.id,
+        optionRevision: snapshot.paymentOption.revision,
+      }),
+      paymentOptionId: snapshot.paymentOption.id,
+      optionRevision: snapshot.paymentOption.revision,
+    });
+  };
+  // Разовая покупка показывает цену сразу: отдельный шаг «рассчитать» здесь только мешал бы.
+  // Расчёт запрашивается один раз на вариант; повтор того же operationId вернёт тот же расчёт.
+  const oneTime = paymentMode(snapshot) === "one_time";
+  const requested = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!oneTime || requested.current === snapshot.paymentOption.id) return;
+    requested.current = snapshot.paymentOption.id;
+    requestQuote();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- расчёт принадлежит выбранному варианту
+  }, [oneTime, snapshot.paymentOption.id]);
+
+  const shared = {
+    acknowledgeExistingAccess: acknowledge,
+    accepted,
+    contact,
+    contactHref,
+    documents,
+    error,
+    existingAccess,
+    legacyBlocked,
+    onPay: () => {
+      if (quote === null || contact === null) return;
+      setError(undefined);
+      payMutation.mutate({
+        quote,
+        contactRevision: contact.revision,
+        acknowledgeExistingAccess: acknowledge,
+        accepted,
+      });
+    },
+    onRefreshStatus: () => {
+      if (purchase === null) return;
+      setError(undefined);
+      statusMutation.mutate(purchase.purchaseRef);
+    },
+    onToggleAcknowledge: () => {
+      setAcknowledge((value) => !value);
+    },
+    onToggleDocument: (kind: LegalDocumentKind) => {
+      setAccepted((value) =>
+        value.includes(kind)
+          ? value.filter((entry) => entry !== kind)
+          : [...value, kind],
+      );
+    },
+    pending:
+      quoteMutation.isPending || payMutation.isPending || statusMutation.isPending,
+    purchase,
+    quote,
+    snapshot,
+  } as const;
+
+  return oneTime ? (
+    <OneTimeCheckoutPanel {...shared} inclusions={inclusions} onRetryQuote={requestQuote} />
+  ) : (
+    <CheckoutPanel {...shared} onQuote={requestQuote} />
   );
 }
 

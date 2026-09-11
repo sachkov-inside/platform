@@ -266,11 +266,35 @@ export function publicSubscriptionOffers(
 }
 
 /**
- * Разовое предложение конкретного руководства. Руководство продаётся, только когда владелец
+ * Все разовые предложения руководства, от дешёвого к дорогому. Их может быть несколько:
+ * например, руководство отдельно и руководство с сопровождением.
+ */
+/**
+ * Одно разовое предложение конкретного руководства. Руководство продаётся, только когда владелец
  * завёл ему цену, поэтому отсутствие предложения — это «не продаётся», а не ошибка. Подходящее
  * предложение обычно одно; при совпадении берётся самое дешёвое, а равные цены разводит
  * стабильный идентификатор, чтобы выбор не зависел от порядка ответа.
  */
+export function guidePurchaseOffers(
+  offers: readonly PriceSnapshot[],
+  guideId: string,
+): readonly PriceSnapshot[] {
+  const capability = guideCapability(guideId);
+  return [...offers]
+    .filter(
+      (snapshot) =>
+        !snapshot.offer.archived &&
+        !snapshot.paymentOption.archived &&
+        paymentMode(snapshot) === "one_time" &&
+        snapshot.offer.benefits.includes(capability),
+    )
+    .sort(
+      (left, right) =>
+        left.firstPriceKopecks - right.firstPriceKopecks ||
+        left.paymentOption.id.localeCompare(right.paymentOption.id),
+    );
+}
+
 export function guidePurchaseOffer(
   offers: readonly PriceSnapshot[],
   guideId: string,

@@ -2,13 +2,9 @@
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
-import {
-  billingActionClass,
-  formatKopecks,
-  type PriceSnapshot,
-} from "@/entities/subscription";
+import { billingActionClass, type PriceSnapshot } from "@/entities/subscription";
 import type { ReaderGuideArtifactsResult } from "@/features/guide-artifacts.reader";
-import type { PublishedSeriesResult } from "@/features/library-discovery";
+import { formatMaterialCount, type PublishedSeriesResult } from "@/features/library-discovery";
 import { collectionDiscoveryHref } from "@/shared/routing/material-reader";
 import { internalRoute } from "@/shared/routing/internal-route";
 import { guidePurchaseHref, subscriptionHrefFrom } from "@/shared/routing/subscription-route";
@@ -38,8 +34,16 @@ export function GuideProgrammeView({
   const slug = result.reference.slug;
   const currentHref = internalRoute(`/guides/${encodeURIComponent(slug)}/programme`);
   const productHref = internalRoute(`/guides/${encodeURIComponent(slug)}`);
-  const locked =
-    result.kind === "ready" && result.items.some((item) => item.availability === "locked");
+  const items = result.kind === "ready" ? result.items : [];
+  const locked = items.some((item) => item.availability === "locked");
+  const free = items.find((item) => item.availability === "available");
+  const meta = [
+    result.chapters.length === 0
+      ? undefined
+      : `${String(result.chapters.length)} ${chapterWord(result.chapters.length)}`,
+    formatMaterialCount(items.length),
+    free === undefined ? undefined : "первый открыт",
+  ].filter((value): value is string => value !== undefined);
 
   return (
     <div
@@ -56,7 +60,10 @@ export function GuideProgrammeView({
         </Link>
       </nav>
 
-      {locked ? <ProgrammePurchase offer={guideOffer} slug={slug} /> : null}
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+        <p className="min-w-0 text-sm text-muted-foreground">{meta.join(" · ")}</p>
+        {locked ? <ProgrammePurchase offer={guideOffer} slug={slug} /> : null}
+      </div>
 
       <SeriesJourney
         {...(artifacts === undefined ? {} : { artifacts })}
@@ -68,10 +75,19 @@ export function GuideProgrammeView({
   );
 }
 
+function chapterWord(count: number): string {
+  const tail = count % 100;
+  const last = count % 10;
+  if (tail > 10 && tail < 20) return "глав";
+  if (last === 1) return "глава";
+  if (last > 1 && last < 5) return "главы";
+  return "глав";
+}
+
 /**
- * Цена сверху программы. Она появляется там, где читателю чего-то не хватает: у кого руководство
- * уже открыто, тому предлагать покупку нечего. Без заведённой цены остаётся прежний путь —
- * подписка.
+ * Единственное действие продажи в программе. Цену и состав покупки показывает страница оплаты,
+ * поэтому здесь только приглашение — читатель сначала видит бесплатные уроки и замки.
+ * Без заведённой цены остаётся прежний путь: подписка.
  */
 function ProgrammePurchase({
   offer,
@@ -80,52 +96,22 @@ function ProgrammePurchase({
   readonly offer: PriceSnapshot | null;
   readonly slug: string;
 }) {
-  const subscriptionHref = subscriptionHrefFrom(
-    collectionDiscoveryHref("series", slug, undefined),
-  );
   if (offer === null) {
     return (
-      <section className="mt-6 rounded-2xl border border-border bg-card p-5 shadow-card">
-        <p className="text-sm leading-6 text-muted-foreground">
-          Часть материалов открыта по подписке. Она открывает все опубликованные материалы и
-          руководства.
-        </p>
-        <Button asChild className={`mt-3 ${billingActionClass}`} variant="outline">
-          <Link href={subscriptionHref}>Посмотреть тарифы</Link>
-        </Button>
-      </section>
+      <Button asChild className={billingActionClass} variant="outline">
+        <Link href={subscriptionHrefFrom(collectionDiscoveryHref("series", slug, undefined))}>
+          Посмотреть тарифы
+        </Link>
+      </Button>
     );
   }
   return (
-    <section
-      className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-border bg-card p-5 shadow-card"
+    <Button
+      asChild
+      className={`h-auto min-h-11 rounded-full px-6 text-base font-semibold ${billingActionClass}`}
       data-guide-offer={offer.paymentOption.id}
     >
-      <div className="min-w-0">
-        <p className="flex flex-wrap items-baseline gap-x-2">
-          <span className="text-2xl font-bold tabular-nums tracking-[-0.03em]">
-            {formatKopecks(offer.firstPriceKopecks)}
-          </span>
-          <span className="text-sm text-muted-foreground">разовая покупка</span>
-        </p>
-        <p className="mt-1 text-sm leading-6 text-muted-foreground">
-          Открывает руководство целиком и навсегда. Подписку включать не нужно, и списаний по
-          этой покупке не будет.
-        </p>
-      </div>
-      <div className="flex flex-wrap items-center gap-3">
-        <Button asChild className={billingActionClass}>
-          <Link href={guidePurchaseHref(slug)}>
-            Купить за {formatKopecks(offer.firstPriceKopecks)}
-          </Link>
-        </Button>
-        <Link
-          className="text-sm text-action underline underline-offset-4"
-          href={subscriptionHref}
-        >
-          Посмотреть подписку
-        </Link>
-      </div>
-    </section>
+      <Link href={guidePurchaseHref(slug)}>Оплатить сейчас</Link>
+    </Button>
   );
 }
