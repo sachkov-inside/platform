@@ -12,7 +12,8 @@ import {
 export interface SubscriptionGroundsProps {
   readonly grounds: readonly AccessGround[];
   readonly loading: boolean;
-  readonly storefrontHref: Route;
+  /** Адрес витрины даётся, только когда подписку продают: иначе звать туда не с чем. */
+  readonly storefrontHref?: Route | undefined;
 }
 
 /**
@@ -41,12 +42,14 @@ export function SubscriptionGrounds({
           <p className="mt-3 text-sm leading-6 text-muted-foreground">
             Действующих оснований доступа нет.
           </p>
-          <Link
-            className="mt-4 inline-flex min-h-11 items-center font-semibold text-action underline underline-offset-4"
-            href={storefrontHref}
-          >
-            Посмотреть тарифы
-          </Link>
+          {storefrontHref === undefined ? null : (
+            <Link
+              className="mt-4 inline-flex min-h-11 items-center font-semibold text-action underline underline-offset-4"
+              href={storefrontHref}
+            >
+              Посмотреть тарифы
+            </Link>
+          )}
         </>
       ) : (
         <ul className="mt-4 grid gap-4">
