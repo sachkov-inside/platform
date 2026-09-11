@@ -83,6 +83,7 @@ expectFailure(
     "membership-entitlements capability index.ts",
     "telegram-membership capability index.ts",
     "capability implementation cannot import Nest adapters",
+    "material document blocks belong to the shared block registry",
     "raw persistence imports",
     "Kysely is forbidden",
     "src/infrastructure/operational-readiness.ts",

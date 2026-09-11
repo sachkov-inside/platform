@@ -46,7 +46,17 @@ const fixtures = [
   },
   {
     root: "test/guardrails/fixtures/architecture/editor-bundle",
-    diagnostics: ["lightweight authoring routes cannot reach the Tiptap editor bundle"],
+    diagnostics: [
+      "app/authoring/materials/page.tsx: reading and lightweight authoring routes cannot reach the Tiptap editor bundle",
+      "app/(public)/(catalog)/materials/[slug]/page.tsx: reading and lightweight authoring routes cannot reach the Tiptap editor bundle",
+    ],
+  },
+  {
+    root: "test/guardrails/fixtures/architecture/document-blocks",
+    diagnostics: [
+      "kit.ts: material document blocks belong to the shared block registry; import them from @inside/material-blocks",
+      "callout.ts: material document blocks belong to the shared block registry; add the block there instead of declaring a node here",
+    ],
   },
 ];
 

@@ -11,7 +11,8 @@ export {
   type MaterialValidationIssue,
   type MaterialValidationState,
 } from "./model/presentation";
-export { materialDocumentSchema } from "./model/material-document-schema";
+export { materialDocumentContentSchema } from "./model/material-document-content-schema";
+export { materialEditorExtensions } from "./model/material-editor-extensions";
 export { MaterialAuthoringWorkspace } from "./ui/material-authoring-workspace.client";
 export { MaterialCurrentPreview } from "./ui/material-current-preview";
 export {

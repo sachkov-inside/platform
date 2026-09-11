@@ -42,8 +42,10 @@ not dependency wiring.
   results stay transport-neutral and use the operation's actual discriminated error union; adapter
   mapping is exhaustive.
 - Public DTOs keep serializable string IDs. Boundary codecs convert them to checked domain IDs.
-  `MaterialBody` validation, versioning, rendering, and extraction remain inside Materials until an
-  independent caller proves another seam.
+  `MaterialBody` acceptance, versioning, rendering, and extraction remain inside Materials. The
+  description of a block — node type, fields, field rules, rendered shape, search text and headings
+  — belongs to `@inside/material-blocks`; the backend builds its document schema, addressable block
+  list and wire block enumeration from that registry and declares no Tiptap node of its own.
 - Framework-agnostic assembly may serve tests, seeds, and non-Nest entrypoints. Nest binds real
   facets directly rather than assembling and immediately splitting an aggregate.
 - Application functions do not import Nest, `pg`, Prisma packages, or the generated Prisma client.

@@ -17,7 +17,8 @@ consumers and imports the real Accounts, MembershipEntitlements and ContentAcces
 serializable `MaterialBodySnapshot`; persisted data retains an explicit schema discriminator, and
 version suffixes are limited to codecs and migrations. Runtime codecs validate public string IDs
 at the module boundary and convert them to checked domain IDs. A separate public ContentSchema
-capability is deferred until an independent caller proves the seam.
+capability was deferred until an independent caller proved the seam; [ADR 0023](0023-material-block-registry-package.md)
+records that the seam is now proven and owns the block registry package.
 
 The module owns one current mutable Material instead of ADR 0002's immutable revision lifecycle. A
 never-published Draft becomes Published through the same full-state Save used for later live edits;
