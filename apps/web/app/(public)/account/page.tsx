@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { AccountPageQuery } from "@/_pages/account";
 
 export const metadata: Metadata = {
-  title: "Аккаунт",
+  title: "Профиль",
   robots: { follow: false, index: false },
 };
 

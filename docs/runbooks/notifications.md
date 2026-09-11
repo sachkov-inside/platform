@@ -43,6 +43,10 @@ API предоставляет настройки без необходимос�
 | Пропустить unknown | `POST /operations/notifications/unknown/resolve` | operationId, deliveryRef, action=`skip`; текущий admin, durable audit |
 | Разрешить Telegram attempt | `POST /internal/notifications/dispatch/authorize` | Отдельный service bearer, exact schema/correlation из v1 bundle |
 
+Раздел «Уведомления» личного кабинета (`/account/notifications`) читает и меняет эти настройки
+через собственные маршруты BFF `GET /api/account/notifications/preferences` и
+`POST /api/account/notifications/preferences/change`.
+
 Email использует тот же facet с email authority. Telegram credential не разрешает email
 Delivery. Dispatch errors сохраняют wire JSON и correlation при 409/422/503; неподдающийся
 разбору запрос и неверный credential возвращают generic 400/401.

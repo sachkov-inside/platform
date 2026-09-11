@@ -1,4 +1,7 @@
 "use client";
+import Link from "next/link";
+import type { Route } from "next";
+
 import {
   accessSourceLabel,
   capabilityLabel,
@@ -8,13 +11,19 @@ import {
 
 export interface SubscriptionGroundsProps {
   readonly grounds: readonly AccessGround[];
+  readonly loading: boolean;
+  readonly storefrontHref: Route;
 }
 
 /**
  * Что уже доступно, по какому основанию и до какого срока. Основания независимы: подписка их
  * не заменяет, а отдельное право на руководство переживает её окончание.
  */
-export function SubscriptionGrounds({ grounds }: SubscriptionGroundsProps) {
+export function SubscriptionGrounds({
+  grounds,
+  loading,
+  storefrontHref,
+}: SubscriptionGroundsProps) {
   return (
     <section
       aria-labelledby="billing-grounds"
@@ -23,10 +32,22 @@ export function SubscriptionGrounds({ grounds }: SubscriptionGroundsProps) {
       <h2 className="text-xl font-semibold" id="billing-grounds">
         Что вам доступно
       </h2>
-      {grounds.length === 0 ? (
-        <p className="mt-3 text-sm leading-6 text-muted-foreground">
-          Действующих оснований доступа нет.
+      {loading && grounds.length === 0 ? (
+        <p className="mt-3 text-sm leading-6 text-muted-foreground" role="status">
+          Загружаем основания доступа…
         </p>
+      ) : grounds.length === 0 ? (
+        <>
+          <p className="mt-3 text-sm leading-6 text-muted-foreground">
+            Действующих оснований доступа нет.
+          </p>
+          <Link
+            className="mt-4 inline-flex min-h-11 items-center font-semibold text-action underline underline-offset-4"
+            href={storefrontHref}
+          >
+            Посмотреть тарифы
+          </Link>
+        </>
       ) : (
         <ul className="mt-4 grid gap-4">
           {grounds.map((ground) => (

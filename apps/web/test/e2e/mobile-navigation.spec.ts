@@ -107,19 +107,25 @@ test("background Profile failure retains data but lost authorization removes it"
     } });
   });
   await page.route("**/api/library/materials**", (route) => route.fulfill({ json: catalog }));
-  await page.goto("/account");
-  await expect(page.getByRole("heading", { name: "Ваш профиль" })).toBeVisible();
+  await page.goto("/account/access");
+  await expect(page.getByRole("heading", { name: "Аккаунт", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Выйти из аккаунта" })).toBeVisible();
   for (const status of [503, 401]) {
     accountStatus = status;
     const before = requests;
-    await page.getByRole("button", { name: "Обновить доступ" }).click();
+    // Платформа перечитывает состояние сама: возврат во вкладку и есть это действие.
+    await page.evaluate(() => {
+      window.dispatchEvent(new Event("visibilitychange"));
+      window.dispatchEvent(new Event("focus"));
+    });
     await expect.poll(() => requests).toBeGreaterThan(before);
     if (status === 503) {
       await expect(page.getByRole("button", { name: "Выйти из аккаунта" })).toBeVisible();
-      await expect(page.getByText("Account временно недоступен")).toHaveCount(0);
+      await expect(page.getByText("Состояние аккаунта сейчас недоступно.")).toHaveCount(0);
     } else {
-      await expect(page.getByRole("heading", { name: "Войдите в аккаунт" })).toBeVisible();
+      await expect(
+        page.getByText("Войдите, чтобы управлять связью с Telegram."),
+      ).toBeVisible();
       await expect(page.getByRole("button", { name: "Выйти из аккаунта" })).toHaveCount(0);
     }
   }

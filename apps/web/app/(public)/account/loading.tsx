@@ -1,3 +1,3 @@
-import { AccountLoading } from "@/_pages/account";
+import { AccountSectionLoading } from "@/widgets/account-cabinet";
 
-export default AccountLoading;
+export default AccountSectionLoading;

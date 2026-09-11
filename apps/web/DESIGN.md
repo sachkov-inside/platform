@@ -243,13 +243,40 @@ not define a second layout or terminology.
 
 ### Account and Member Profile
 
-- **Status:** accepted production pattern from issue #189 after owner desktop/mobile visual GO.
-- **Composition:** private Account presents one bounded editor and the exact member projection as two
-  balanced desktop columns; mobile preserves editor → projection order without a decorative seam.
+- **Status:** composition replaced in issue #494 by owner decision; the two-column editor and the
+  separate member projection from issue #189 are history, not an alternative.
+- **Composition:** раздел «Профиль» — одна карточка: аватар, имя, о себе и постоянная ссылка для
+  участников. Профиль показан сразу и правится на месте; отдельного предпросмотра рядом нет,
+  потому что поля и есть то, что видят участники. Мобильный порядок тот же, в одну колонку.
 - **Actions:** Profile create/edit and the opaque member link are the complete self-service surface;
   complaint, export and delete controls are absent.
-- **Copy:** `Профиль участника` names the projection directly; supporting copy explains only privacy,
-  validation or current visibility state.
+- **Copy:** подписи объясняют только приватность, ограничения полей и текущую видимость.
+
+### Account Cabinet Sections
+
+- **Status:** production-owned navigation from issue #494; owner visual GO is not yet recorded.
+- **Composition:** `/account` разделён на разделы «Профиль», «Аккаунт», «Покупки», «Подписка» и
+  «Уведомления». Один и тот же список разделов живёт внутри принятой платформенной оболочки: на
+  десктопе — постоянная боковая колонка слева от содержания, на телефоне — раскрывающийся список
+  над ним. Второй оболочки не появляется, нижняя навигация не меняется.
+- **State:** «Подписка» показывается, когда подписка продаётся или когда она уже есть; текущий
+  раздел помечен `aria-current` и тем же сдержанным orange, что и остальная навигация.
+- **Copy:** каждый раздел назван одним словом задачи и объясняет её одной строкой. Ни один раздел
+  не показывает задачи другого: продающий блок и ссылки на чужие задачи из кабинета убраны.
+
+**The Self-Refreshing Data Rule.** Поверхности платформы перечитывают состояние сами: возврат во
+вкладку, восстановление сети и незавершённая банковская операция обновляют данные без действий
+человека. Кнопки «Обновить данные» на продуктовых поверхностях нет; остаётся только честный текст
+о недоступности. Правило владеет `shared/api/self-refreshing-query`.
+
+### Shell Reminders
+
+- **Status:** production-owned from issue #494; owner visual GO is not yet recorded.
+- **Composition:** пока Telegram не подключён, в шапке рядом с «Аккаунтом» висит тихий значок с
+  оранжевой точкой, а на телефоне точка появляется на пункте «Профиль» нижней навигации.
+- **Behaviour:** значок открывает принятое окно подключения поверх текущей страницы и не уводит
+  с неё. Закрытое окно возвращается по этому значку.
+- **Copy:** окно коротко объясняет, что даёт бот, и не обещает того, что даёт оплата.
 
 ### Subscription, Checkout and Billing Cabinet
 

@@ -125,8 +125,10 @@ describe("состояния и ошибки", () => {
     expect(billingErrorMessage("payment_in_progress")).toContain(
       "новую покупку начинать не нужно",
     );
+    // Незавершённая оплата бывает и у разовой покупки, поэтому ведём в «Покупки»,
+    // где видны все платежи, а не только расписание подписки.
     expect(billingErrorMessage("payment_in_progress")).toContain(
-      "платёжный кабинет",
+      "раздел «Покупки»",
     );
     expect(billingErrorMessage("existing_access")).toContain("уже есть доступ");
   });

@@ -14,7 +14,7 @@ export type NoticeKind = z.infer<typeof noticeKindSchema>;
 export const noticeStateSchema = z.enum(["current", "superseded"]);
 
 /** Страница кабинета, на которую ведёт служебное сообщение; origin принадлежит Notifications. */
-export const BILLING_CABINET_PATH = "/account/subscription";
+export const BILLING_CABINET_PATH = "/account/purchases";
 /** Напоминание о списании создаётся за три дня до даты списания. */
 export const RENEWAL_REMINDER_LEAD_MS = 3 * 24 * 60 * 60 * 1_000;
 /** Через сутки после самого события служебное сообщение перестаёт быть актуальным. */

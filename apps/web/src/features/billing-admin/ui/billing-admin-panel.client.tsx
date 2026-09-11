@@ -4,11 +4,11 @@ import { useMutation } from "@tanstack/react-query";
 
 import {
   billingErrorMessage,
-  useBillingOperations,
   type BillingCommandResult,
   type BillingFailureCode,
   type PriceSnapshot,
 } from "@/entities/subscription";
+import { useRepeatableOperations } from "@/shared/lib/repeatable-operations.client";
 
 import {
   applyAccessGrantBatch,
@@ -74,7 +74,7 @@ export function BillingAdminPanel({ offers }: BillingAdminPanelProps) {
   const [batch, setBatch] = useState<GrantBatchOutcome["result"] | null>(null);
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
-  const { operationId } = useBillingOperations();
+  const { operationId } = useRepeatableOperations();
 
   const command = useMutation({
     retry: false,

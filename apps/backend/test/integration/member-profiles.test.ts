@@ -244,6 +244,7 @@ describe("MemberProfiles", () => {
       await expect(sharp(body).metadata()).resolves.toMatchObject({ format: "webp" });
     }
 
+    // Свой аватар владелец профиля видит всегда: членство решает доступ к чужим профилям.
     await expect(
       profiles.deliverAvatar({
         avatarId: firstAvatarId,
@@ -251,7 +252,11 @@ describe("MemberProfiles", () => {
         size: 320,
         viewerAccountId: ownerAccountId,
       }),
-    ).resolves.toEqual({ error: { code: "not_found" }, ok: false });
+    ).resolves.toEqual({
+      location: "https://storage.example.test/avatar",
+      ok: true,
+    });
+    expect(signedGetRequests.at(-1)?.ttlSeconds).toBe(60);
     membership.set(ownerAccountId, {
       kind: "active",
       validUntil: new Date(Date.now() + 30_000).toISOString(),
@@ -267,7 +272,6 @@ describe("MemberProfiles", () => {
       location: "https://storage.example.test/avatar",
       ok: true,
     });
-    expect(signedGetRequests.at(-1)?.ttlSeconds).toBeLessThanOrEqual(29);
 
     await expect(
       profiles.deliverAvatar({

@@ -2,7 +2,11 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { useBillingOperations } from "@/entities/subscription";
+import {
+  selfRefreshingRead,
+  unavailableRetryIntervalMs,
+} from "@/shared/api/self-refreshing-query";
+import { useRepeatableOperations } from "@/shared/lib/repeatable-operations.client";
 
 import {
   confirmBillingContact,
@@ -19,10 +23,19 @@ export const billingContactQueryKey = ["account", "billing-contact"] as const;
 
 export function billingContactQueryOptions() {
   return {
+    ...selfRefreshingRead,
     queryKey: billingContactQueryKey,
     queryFn: readBillingContact,
-    retry: false,
-    staleTime: 0,
+    refetchInterval: ({
+      state,
+    }: {
+      readonly state: {
+        readonly data: { readonly ok: boolean; readonly code?: string } | undefined;
+      };
+    }) =>
+      state.data !== undefined && !state.data.ok && state.data.code !== "unauthorized"
+        ? unavailableRetryIntervalMs
+        : (false as const),
   };
 }
 
@@ -41,7 +54,7 @@ export function BillingContactPanel({
 }: BillingContactPanelProps) {
   const queryClient = useQueryClient();
   const query = useQuery(billingContactQueryOptions());
-  const { operationId, completeOperation } = useBillingOperations();
+  const { operationId, completeOperation } = useRepeatableOperations();
   const [challenge, setChallenge] = useState<{
     challengeRef: string;
     email: string;
@@ -128,10 +141,6 @@ export function BillingContactPanel({
       onEdit={() => {
         setEditing(true);
         setVerified(false);
-      }}
-      onRefresh={() => {
-        setError(undefined);
-        void query.refetch();
       }}
       onStart={(email) => {
         if (state === undefined) return;

@@ -30,6 +30,15 @@ const nextConfig: NextConfig = {
   output: "standalone",
   outputFileTracingRoot: join(applicationDirectory, "../.."),
   poweredByHeader: false,
+  /**
+   * Прежний адрес формы контакта. Перенаправление живёт здесь, а не в маршруте: раздел
+   * «Покупки» стримится, и редирект из страницы успел бы отдать каркас с кодом 200.
+   */
+  redirects: () => Promise.resolve([{
+    source: "/account/email",
+    destination: "/account/purchases",
+    permanent: true,
+  }]),
   headers: () => Promise.resolve([{
     headers: [
       { key: "Content-Security-Policy", value: contentSecurityPolicy },

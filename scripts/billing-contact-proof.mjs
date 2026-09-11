@@ -148,7 +148,7 @@ try {
     ],
     { ...env, NODE_ENV: "development", WATCHPACK_POLLING: "true" },
   );
-  await waitReady(`${webBaseUrl}/account/email`, (body) =>
+  await waitReady(`${webBaseUrl}/account/purchases`, (body) =>
     body.includes("Email"),
   );
   await mkdir(evidence, { recursive: true });
@@ -177,7 +177,7 @@ try {
       },
     ]);
     const page = await context.newPage();
-    await page.goto(`${webBaseUrl}/account/email`);
+    await page.goto(`${webBaseUrl}/account/purchases`);
     await page.getByLabel("Email", { exact: true }).waitFor();
     await page
       .getByRole("button", { name: "Закрыть подключение Telegram" })

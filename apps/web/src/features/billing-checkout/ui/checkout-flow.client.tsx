@@ -6,7 +6,6 @@ import { useMutation } from "@tanstack/react-query";
 import {
   acceptBillingConsents,
   billingErrorMessage,
-  useBillingOperations,
   type BillingQuote,
   type LegalDocument,
   type LegalDocumentKind,
@@ -14,6 +13,7 @@ import {
   type PurchaseStatus,
   type VerifiedContact,
 } from "@/entities/subscription";
+import { useRepeatableOperations } from "@/shared/lib/repeatable-operations.client";
 
 import {
   createBillingQuote,
@@ -51,7 +51,7 @@ export function CheckoutFlow({
   const [legacyBlocked, setLegacyBlocked] = useState(false);
   const [purchase, setPurchase] = useState<PurchaseStatus | null>(null);
   const [error, setError] = useState<string>();
-  const { operationId, completeOperation } = useBillingOperations();
+  const { operationId, completeOperation } = useRepeatableOperations();
 
   const quoteMutation = useMutation({
     mutationFn: createBillingQuote,

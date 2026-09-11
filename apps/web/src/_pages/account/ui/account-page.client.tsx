@@ -1,22 +1,16 @@
 "use client";
-import Link from "next/link";
-
 import { Check, Copy, RotateCcw } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { useId, useState } from "react";
 
 import {
-  MemberProfileProjection,
   bioLengthIsValid,
   displayNameLengthIsValid,
   memberProfileTextLength,
   type PrivateMemberProfile,
 } from "@/entities/member-profile";
-import {
-  AccountMembershipPanel,
-  type AccountTelegramMembership,
-} from "@/features/account-access";
 import { Button } from "@/shared/ui/button";
+import { AccountSectionHeader } from "@/widgets/account-cabinet";
 
 import { createMemberProfile } from "../api/create-member-profile.browser";
 import { updateMemberProfile } from "../api/update-member-profile.browser";
@@ -26,15 +20,11 @@ import { ProfileAvatarEditor } from "./profile-avatar-editor.client";
 
 interface AccountPageClientProps {
   readonly initialProfile: PrivateMemberProfile | null;
-  readonly initialTelegramMembership: AccountTelegramMembership;
-  readonly onTelegramMembershipRefresh?: () => Promise<void>;
   readonly onProfileChange?: (profile: PrivateMemberProfile) => void;
 }
 
 export function AccountPageClient({
   initialProfile,
-  initialTelegramMembership,
-  onTelegramMembershipRefresh = () => Promise.resolve(),
   onProfileChange,
 }: AccountPageClientProps) {
   const [profile, setProfile] = useState(initialProfile);
@@ -96,29 +86,20 @@ export function AccountPageClient({
     emptyToNull(bio) !== profile.bio;
 
   return (
-    <div className="mx-auto max-w-6xl">
-      <header className="mb-8 flex flex-col gap-5 border-b border-border pb-7 sm:flex-row sm:items-end sm:justify-between">
-        <h1 className="text-balance text-4xl font-bold tracking-[-0.04em] sm:text-5xl">
-          Ваш профиль
-        </h1>
-        <form action="/auth/sign-out" method="post">
-          <Button className="min-h-11 px-4" type="submit" variant="outline">
-            Выйти из аккаунта
-          </Button>
-        </form>
-      </header>
+    <div>
+      <AccountSectionHeader section="profile" />
 
-      <p className="mb-6 flex flex-wrap gap-x-6 gap-y-2">
-        <Link className="underline underline-offset-4" href="/account/subscription">Платёжный кабинет</Link>
-        <Link className="underline underline-offset-4" href="/account/email">Email для чеков и уведомлений</Link>
-      </p>
-      <AccountMembershipPanel
-        onRefresh={onTelegramMembershipRefresh}
-        presentation={initialTelegramMembership}
-      />
+      {profile?.status === "disabled" ? (
+        <div className="mb-6 rounded-xl border border-destructive/30 bg-destructive/6 p-4 text-sm">
+          <p className="font-semibold">Профиль скрыт модерацией</p>
+          <p className="mt-1 text-muted-foreground">
+            Другие участники получают безопасную страницу 404. Поля можно исправить;
+            восстановление выполняет владелец платформы.
+          </p>
+        </div>
+      ) : null}
 
       <form
-        className="grid gap-8 lg:grid-cols-2 lg:gap-12"
         onSubmit={(event) => {
           event.preventDefault();
           if (profile === null) {
@@ -132,37 +113,32 @@ export function AccountPageClient({
           });
         }}
       >
-        <section aria-labelledby="profile-editor-heading" className="min-w-0">
-          <div className="mb-7 flex items-start justify-between gap-4">
-            <div>
-              <h2
-                aria-label="Редактирование"
-                className="text-2xl font-bold tracking-[-0.035em]"
-                id="profile-editor-heading"
-              >
-                Редактирование
-              </h2>
-              <p className="mt-1 text-sm font-medium text-muted-foreground">Только вы</p>
-            </div>
-            <Button
-              className="min-h-11 px-4"
-              disabled={savePending || nameInvalid || bioInvalid || !fieldsAreValid || !fieldsAreDirty}
-              type="submit"
-            >
-              {savePending ? "Сохраняем…" : profile === null ? "Создать" : "Сохранить"}
-            </Button>
-          </div>
+        <section
+          aria-labelledby="profile-heading"
+          className="rounded-2xl border border-border bg-card p-6 shadow-card sm:p-7"
+        >
+          <h2 className="sr-only" id="profile-heading">
+            Ваш профиль
+          </h2>
 
-          <div className="grid gap-7">
-            {profile === null ? null : (
-              <ProfileAvatarEditor
-                onProfileChange={(updated) => {
-                  setProfile(updated);
-                  onProfileChange?.(updated);
-                }}
-                profile={profile}
-              />
-            )}
+          {profile === null ? (
+            <div className="flex items-center gap-4 border-b border-border pb-7">
+              <ProfileAvatarPlaceholder displayName={displayName} />
+              <p className="min-w-0 flex-1 text-sm leading-6 text-muted-foreground">
+                Аватар можно будет загрузить сразу после создания профиля.
+              </p>
+            </div>
+          ) : (
+            <ProfileAvatarEditor
+              onProfileChange={(updated) => {
+                setProfile(updated);
+                onProfileChange?.(updated);
+              }}
+              profile={profile}
+            />
+          )}
+
+          <div className="mt-7 grid gap-7">
             <div>
               <label className="text-sm font-semibold" htmlFor="profile-display-name">
                 Имя
@@ -170,7 +146,7 @@ export function AccountPageClient({
               <input
                 aria-describedby={`${nameHelpId}${nameInvalid ? ` ${nameErrorId}` : ""}`}
                 aria-invalid={nameInvalid || undefined}
-                className="profile-field mt-2 min-h-12 w-full rounded-xl border border-input bg-background px-4 text-base shadow-sm transition-colors placeholder:text-muted-foreground/65 focus:border-ring"
+                className="profile-field mt-2 min-h-14 w-full rounded-xl border border-input bg-background px-4 text-2xl font-bold tracking-[-0.025em] shadow-sm transition-colors placeholder:text-xl placeholder:font-normal placeholder:tracking-normal placeholder:text-muted-foreground/65 focus:border-ring"
                 id="profile-display-name"
                 name="displayName"
                 onBlur={() => {
@@ -229,65 +205,60 @@ export function AccountPageClient({
             </div>
           </div>
 
-          <MutationNotice result={saveResult} />
-        </section>
-
-        <section aria-labelledby="profile-preview-heading" className="min-w-0 border-t border-border pt-7 lg:border-t-0 lg:pt-0">
-          <div className="mb-7">
-            <h2
-              aria-label="Профиль участника"
-              className="text-2xl font-bold tracking-[-0.035em]"
-              id="profile-preview-heading"
-            >
-              Профиль участника
-            </h2>
-            <p className="mt-1 text-sm font-medium text-muted-foreground">
-              {profile === null ? "Появится после создания" : "Видят участники"}
-            </p>
-          </div>
-          {profile?.status === "disabled" ? (
-            <div className="mb-4 rounded-xl border border-destructive/30 bg-destructive/6 p-4 text-sm">
-              <p className="font-semibold">Профиль скрыт модерацией</p>
-              <p className="mt-1 text-muted-foreground">
-                Другие участники получают безопасную страницу 404. Поля можно исправить;
-                восстановление выполняет владелец платформы.
-              </p>
-            </div>
-          ) : null}
-          <MemberProfileProjection
-            fields={
-              profile === null
-                ? { avatar: null, bio: null, displayName: "" }
-                : {
-                    avatar: profile.avatar,
-                    bio: profile.bio,
-                    displayName: profile.displayName,
-                    publicProfileId: profile.publicProfileId,
-                  }
-            }
-          />
           {profile === null ? (
-            <p className="mt-4 text-sm text-muted-foreground">
+            <p className="mt-7 border-t border-border pt-7 text-sm leading-6 text-muted-foreground">
               После создания профиль получит постоянную ссылку для участников.
             </p>
           ) : (
-            <ProfileLink
-              copied={copied}
-              onCopy={() => {
-                const url = `${window.location.origin}/members/${profile.publicProfileId}`;
-                void navigator.clipboard.writeText(url).then(() => {
-                  setCopied(true);
-                  window.setTimeout(() => {
-                    setCopied(false);
-                  }, 1_500);
-                });
-              }}
-              publicProfileId={profile.publicProfileId}
-            />
+            <div className="mt-7 border-t border-border pt-7">
+              <p className="text-sm font-semibold">Ссылка для участников</p>
+              <ProfileLink
+                copied={copied}
+                onCopy={() => {
+                  const url = `${window.location.origin}/members/${profile.publicProfileId}`;
+                  void navigator.clipboard.writeText(url).then(() => {
+                    setCopied(true);
+                    window.setTimeout(() => {
+                      setCopied(false);
+                    }, 1_500);
+                  });
+                }}
+                publicProfileId={profile.publicProfileId}
+              />
+            </div>
           )}
+
+          <div className="mt-7 flex flex-wrap items-center gap-4">
+            <Button
+              className="min-h-11 px-4"
+              disabled={savePending || nameInvalid || bioInvalid || !fieldsAreValid || !fieldsAreDirty}
+              type="submit"
+            >
+              {savePending ? "Сохраняем…" : profile === null ? "Создать профиль" : "Сохранить"}
+            </Button>
+            <MutationNotice result={saveResult} />
+          </div>
         </section>
       </form>
     </div>
+  );
+}
+
+/** До создания профиля аватара ещё нет: место под него занимает та же круглая заглушка. */
+function ProfileAvatarPlaceholder({ displayName }: { readonly displayName: string }) {
+  const initials = displayName
+    .trim()
+    .split(/\s+/u)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join("");
+  return (
+    <span
+      aria-hidden="true"
+      className="grid size-16 shrink-0 place-items-center rounded-full bg-secondary text-lg font-bold text-muted-foreground"
+    >
+      {initials === "" ? "\u00A0" : initials}
+    </span>
   );
 }
 

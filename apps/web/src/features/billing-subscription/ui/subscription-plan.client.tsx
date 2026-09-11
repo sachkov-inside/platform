@@ -20,8 +20,9 @@ export interface SubscriptionPlanProps {
 }
 
 /**
- * Действующие условия подписки: состав, оплаченный срок, следующее списание и способ оплаты.
- * Банковское состояние попытки и готовность доступа остаются разными фактами.
+ * Действующие условия подписки: состав, оплаченный срок и следующее списание. Способ оплаты
+ * и история денег принадлежат разделу «Покупки»; банковское состояние попытки и готовность
+ * доступа остаются разными фактами.
  */
 export function SubscriptionPlan({
   subscription,
@@ -88,15 +89,6 @@ export function SubscriptionPlan({
               <span>Списаний больше не будет</span>
             )}
           </Row>
-          <Row label="Способ оплаты">
-            {subscription.paymentMethod === null ? (
-              <span>Не сохранён</span>
-            ) : subscription.paymentMethod.revoked ? (
-              <span>Отозван</span>
-            ) : (
-              <span>Сохранён</span>
-            )}
-          </Row>
           <Row label="Ссылка для поддержки">
             <span className="font-mono text-xs [overflow-wrap:anywhere]">
               {subscription.subscriptionRef}
@@ -112,23 +104,6 @@ export function SubscriptionPlan({
             Незавершённая операция:{" "}
             {attemptStateLabel(subscription.inFlightPayment.state)}. Новую
             оплату начинать не нужно.
-          </p>
-        )}
-
-        {subscription.pendingMethodChange === null ? null : (
-          <p className="mt-4 rounded-xl border border-border bg-muted/50 p-4 text-sm leading-6">
-            Начата привязка нового способа оплаты.{" "}
-            {subscription.pendingMethodChange.formUrl === null ? (
-              "Ждём результат банка."
-            ) : (
-              <a
-                className="text-action underline underline-offset-4"
-                href={subscription.pendingMethodChange.formUrl}
-                rel="noreferrer"
-              >
-                Продолжить в банке
-              </a>
-            )}
           </p>
         )}
 

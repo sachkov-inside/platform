@@ -25,16 +25,6 @@ export async function deliverProfileAvatar(
   if (avatarId === undefined || publicProfileId === undefined) return notFound();
 
   try {
-    const membership = await dependencies.membershipEntitlements.resolveForAccess(
-      input.viewerAccountId,
-    );
-    if (membership.kind !== "active") return notFound();
-    const ttlSeconds = remainingMembershipTtlSeconds(
-      dependencies.signedGetTtlSeconds,
-      membership.validUntil,
-    );
-    if (ttlSeconds === null) return notFound();
-
     const profile = await dependencies.prisma.memberProfile.findUnique({
       where: { publicProfileId },
       select: { accountId: true, avatarId: true, status: true },
@@ -46,6 +36,15 @@ export async function deliverProfileAvatar(
     ) {
       return notFound();
     }
+    /**
+     * Членство решает доступ к чужой проекции участника. Свой собственный аватар владелец
+     * профиля видит всегда: владельческая поверхность Account не расширяется этой проверкой.
+     */
+    const ttlSeconds =
+      profile.accountId === input.viewerAccountId
+        ? dependencies.signedGetTtlSeconds
+        : await viewerTtlSeconds(dependencies, input.viewerAccountId);
+    if (ttlSeconds === null) return notFound();
     const rendition = await dependencies.prisma.profileAvatarRendition.findUnique({
       where: { avatarId_size: { avatarId, size: input.size } },
       include: { avatar: { select: { accountId: true, state: true } } },
@@ -67,6 +66,24 @@ export async function deliverProfileAvatar(
   } catch {
     return { error: { code: "dependency_unavailable" }, ok: false };
   }
+}
+
+/** Чужая проекция открыта только действующему участнику и не переживает его срок. */
+async function viewerTtlSeconds(
+  dependencies: {
+    readonly membershipEntitlements: Pick<MembershipEntitlements, "resolveForAccess">;
+    readonly signedGetTtlSeconds: number;
+  },
+  viewerAccountId: AccountId,
+): Promise<number | null> {
+  const membership = await dependencies.membershipEntitlements.resolveForAccess(
+    viewerAccountId,
+  );
+  if (membership.kind !== "active") return null;
+  return remainingMembershipTtlSeconds(
+    dependencies.signedGetTtlSeconds,
+    membership.validUntil,
+  );
 }
 
 function remainingMembershipTtlSeconds(

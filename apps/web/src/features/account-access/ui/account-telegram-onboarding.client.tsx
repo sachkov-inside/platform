@@ -9,6 +9,14 @@ import { AccountTelegramLinkPanel } from "./account-telegram-link-panel.client";
 const dismissalStorageKey = "inside.telegram-onboarding.dismissed";
 const dismissalListeners = new Set<() => void>();
 
+/**
+ * Открыть окно подключения по просьбе из оболочки: закрытое в этой сессии окно возвращается,
+ * потому что человек сам попросил его показать.
+ */
+export function openTelegramOnboarding(): void {
+  writeDismissal(false);
+}
+
 export function AccountTelegramOnboarding({
   authenticated,
   authResolved,

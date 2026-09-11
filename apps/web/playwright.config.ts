@@ -9,6 +9,7 @@ export default defineConfig({
   testMatch: captureEvidence
     ? "evidence.spec.ts"
     : [
+        "account-cabinet.spec.ts",
         "routes.spec.ts",
         "communications.spec.ts",
         "guide-purchase.spec.ts",

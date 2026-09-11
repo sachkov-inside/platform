@@ -88,11 +88,6 @@ export {
   type BillingCommandResult,
 } from "./api/billing-result.browser";
 export {
-  createBillingOperations,
-  useBillingOperations,
-  type BillingOperations,
-} from "./model/use-billing-operations.client";
-export {
   ConsentChecklist,
   type ConsentChecklistProps,
 } from "./ui/consent-checklist.client";

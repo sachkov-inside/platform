@@ -33,13 +33,11 @@ export interface SubscriptionActionsProps {
   readonly onSelectOption: (paymentOptionId: string) => void;
   readonly onQuoteChange: () => void;
   readonly onConfirmChange: () => void;
-  readonly onChangeMethod: () => void;
-  readonly onRevokeMethod: () => void;
 }
 
 /**
- * Управление подпиской: отмена и возобновление продления, смена варианта и способа оплаты.
- * Возобновление требует нового явного согласия на списания.
+ * Управление подпиской: отмена и возобновление продления и смена варианта. Возобновление
+ * требует нового явного согласия на списания.
  */
 export function SubscriptionActions({
   subscription,
@@ -56,8 +54,6 @@ export function SubscriptionActions({
   onSelectOption,
   onQuoteChange,
   onConfirmChange,
-  onChangeMethod,
-  onRevokeMethod,
 }: SubscriptionActionsProps) {
   return (
       <section
@@ -217,36 +213,6 @@ export function SubscriptionActions({
           </div>
         )}
 
-        <div className="mt-6 border-t border-border pt-5">
-          <h3 className="text-base font-semibold">Способ оплаты</h3>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Button
-              className={billingActionClass}
-              disabled={pending}
-              onClick={onChangeMethod}
-              type="button"
-              variant="outline"
-            >
-              Привязать другую карту
-            </Button>
-            {subscription.paymentMethod === null ||
-            subscription.paymentMethod.revoked ? null : (
-              <Button
-                className={billingActionClass}
-                disabled={pending}
-                onClick={onRevokeMethod}
-                type="button"
-                variant="ghost"
-              >
-                Запретить использование
-              </Button>
-            )}
-          </div>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            Запрет останавливает будущие списания. Карту в банке мы не
-            удаляем.
-          </p>
-        </div>
       </section>
   );
 }
