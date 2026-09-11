@@ -15,9 +15,8 @@ import { SeriesJourney, type SeriesLearningView } from "./series-journey.client"
 type ResolvedSeriesResult = Extract<PublishedSeriesResult, { kind: "ready" | "empty" }>;
 
 /**
- * Программа руководства: главы, материалы и состояния доступа. Цена встречает читателя здесь,
- * рядом с бесплатными материалами и замками, — страница продукта продаёт смыслом и цены не
- * показывает.
+ * Программа руководства: главы, материалы и состояния доступа. Продажа живёт здесь одним
+ * приглашением: страница продукта продаёт смыслом, цену и оформление показывает страница оплаты.
  */
 export function GuideProgrammeView({
   artifacts,

@@ -50,8 +50,8 @@ export function guideProgrammeHref(slug: string): Route {
 }
 
 /**
- * Витрина одного руководства: его цена и оформление живут отдельным адресом, потому что
- * покупают здесь именно руководство, а не тариф подписки.
+ * Страница оплаты одного руководства: цена и оформление живут отдельным адресом, потому что
+ * покупают здесь именно руководство, а не тариф подписки, и программа до неё только приглашает.
  */
 export function guidePurchaseHref(slug: string): Route {
   return internalRoute(`/guides/${encodeURIComponent(slug)}/buy`);
