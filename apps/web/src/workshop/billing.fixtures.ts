@@ -2,6 +2,7 @@ import type {
   AccessGround,
   BillingQuote,
   ChangeQuote,
+  CurrentBilling,
   LegalDocument,
   NoticeView,
   OwnPayment,
@@ -194,6 +195,19 @@ export const activeSubscription: SubscriptionView = {
   pendingMethodChange: null,
   inFlightPayment: null,
 };
+
+/** Ответ собственного BFF о состоянии billing: конверт принадлежит фикстурам, а не сторис. */
+export function currentBillingResponse(
+  subscription: SubscriptionView | null,
+): Response {
+  const value: CurrentBilling = {
+    subscription,
+    notices: [],
+    grounds: [],
+    payments: [],
+  };
+  return Response.json({ ok: true, value });
+}
 
 export const canceledSubscription: SubscriptionView = {
   ...activeSubscription,

@@ -1,6 +1,7 @@
 export {
   contentCoverSchema,
   contentCoverUrl,
+  coverLinkPreviewImage,
   type ContentCover,
   materialPreviewHasVideo,
   type MaterialPreview,

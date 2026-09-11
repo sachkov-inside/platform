@@ -14,6 +14,7 @@ export default defineConfig({
         "communications.spec.ts",
         "guide-product.spec.ts",
         "guide-purchase.spec.ts",
+        "link-indexing.spec.ts",
         "mobile-navigation.spec.ts",
         "subscription.spec.ts",
       ],
@@ -52,6 +53,8 @@ export default defineConfig({
     env: {
       BACKEND_BASE_URL:
         process.env.PLAYWRIGHT_BACKEND_BASE_URL ?? "http://127.0.0.1:1",
+      /** Публичный адрес площадки читается из конфигурации, а не из заголовка запроса. */
+      WEB_BASE_URL: baseURL,
     },
     url: baseURL,
     reuseExistingServer: false,

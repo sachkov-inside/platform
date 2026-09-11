@@ -1,8 +1,15 @@
 import type { Metadata } from "next";
 
+import { topicLinkPreview } from "@/_pages/library-discovery";
 import { loadPublishedTopic } from "@/features/library-discovery.server";
 import { PublishedTopicPage } from "@/_pages/library-discovery.server";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/optional-platform-access-token.server";
+import {
+  hiddenPageMetadata,
+  publicPageMetadata,
+  unavailablePageMetadata,
+} from "@/shared/link-preview";
+import { readPublicSiteOrigin } from "@/shared/link-preview/index.server";
 import { parseMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 
 interface TopicPageProps {
@@ -18,12 +25,17 @@ export async function generateMetadata({
     slug,
     await getOptionalPlatformAccessToken(),
   );
-  return result.kind === "ready" || result.kind === "empty"
-    ? {
-        title: `${result.reference.name} — тема`,
-        description: `Опубликованные материалы по теме «${result.reference.name}».`,
-      }
-    : { title: result.kind === "not-found" ? "Тема не найдена" : "Тема недоступна" };
+  if (result.kind === "not-found") {
+    return hiddenPageMetadata("Тема не найдена");
+  }
+  if (result.kind === "unavailable") {
+    return unavailablePageMetadata("Тема недоступна");
+  }
+  return publicPageMetadata(
+    await readPublicSiteOrigin(),
+    "website",
+    topicLinkPreview(result.reference),
+  );
 }
 
 export default async function TopicRoute({ params, searchParams }: TopicPageProps) {

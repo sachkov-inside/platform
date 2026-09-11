@@ -1,3 +1,9 @@
+export {
+  guideLinkPreview,
+  guideSocialCard,
+  topicLinkPreview,
+  topicSocialCard,
+} from "./model/collection-link-preview";
 export type {
   LibraryDiscoveryKind,
   LibraryDiscoveryReference,
