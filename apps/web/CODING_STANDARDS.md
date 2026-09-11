@@ -13,6 +13,14 @@ mutations.
   and use a focused sub-entrypoint when a broad barrel crosses runtime or bundle boundaries.
 - Keep route-specific behaviour beside its `_pages/<page>` slice. Promote code to `shared` only
   after multiple real consumers need the smaller interface.
+- Public page metadata comes from `src/shared/link-preview`; each page slice maps its own result to
+  one `PublicPagePreview` and its own social card content, so a route stays load, map, respond. That
+  ownership has no executable check yet: the seam is one function call, not an import boundary, so
+  it stays prose until a route hand-rolls `openGraph` and gives the check a shape to match.
+  `check-web-architecture` does enforce the narrower rule that only that module reads the public
+  site origin, which keeps the domain a request-time value. A closed area with its own layout
+  declares `noindex` there once instead of repeating it on every page. A transient dependency
+  failure never answers with `noindex`.
 - Mark backend adapters, BFF handlers, and server query options `server-only`; use `*.client.tsx`
   for the interactive boundary. Client-reachable code imports no server-only interface.
 - Storybook proofs and fixtures remain outside the production graph.

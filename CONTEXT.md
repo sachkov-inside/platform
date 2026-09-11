@@ -35,6 +35,13 @@ projections never expose originals, storage keys or checksums. In Russian produc
 «Обложка».
 _Avoid_: MaterialAsset, shared media-library image, original upload
 
+**Link Preview**:
+The public card a Material, Guide, Topic or the home page shows wherever its link is opened: title,
+description, canonical address and one preview image. The image is the owner's Content Cover when it
+exists and a generated card with the page title otherwise. A closed Material keeps its Link Preview
+while its body stays protected. In Russian product language: «Карточка ссылки».
+_Avoid_: OG tags, meta preview, share image
+
 **Topic**:
 The single subject area to which a Material belongs. Topics are one level deep in v1 and have an
 immutable slug plus mutable name and summary. Archiving removes a Topic from new assignments and

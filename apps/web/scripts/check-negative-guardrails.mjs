@@ -23,6 +23,10 @@ const fixtures = [
     ],
   },
   {
+    root: "test/guardrails/fixtures/architecture/public-site-origin",
+    diagnostics: ["the public site origin belongs to the link preview module"],
+  },
+  {
     root: "test/guardrails/fixtures/architecture/absolute-fetch",
     diagnostics: ["browser code cannot call a Nest operation by absolute URL"],
   },
