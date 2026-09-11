@@ -46,9 +46,19 @@ export function validatedPaymentUrl(value: unknown): string {
   return url.toString();
 }
 
+/**
+ * Узкий шов исходящего запроса к банку. Он описывает ровно то, что нужно адаптеру, поэтому
+ * подходит и встроенный `fetch`, и клиент с собственным корневым сертификатом.
+ */
+export type BankResponse = { readonly ok: boolean; json(): Promise<unknown> };
+export type BankRequest = (url: string, init: {
+  method: string; headers: Record<string, string>; body: string;
+  signal: AbortSignal; redirect: "error";
+}) => Promise<BankResponse>;
+
 // Concrete T-Bank adapter. No automatic retries, caller persists sent/unknown before I/O.
 export class Tbank {
-  constructor(readonly config: TbankConfig, private readonly request: typeof fetch = fetch) {}
+  constructor(readonly config: TbankConfig, private readonly request: BankRequest = fetch) {}
   async init(input: { orderId: string; accountId: string; amount: number; name: string; email: string; initiator?: PaymentInitiator }): Promise<BankPayment & { PaymentURL: string }> {
     const initiator = input.initiator ?? "1";
     const result = await this.call("Init", {

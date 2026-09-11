@@ -1,5 +1,10 @@
+import { X509Certificate } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
 import { describe, expect, test } from "vitest";
 import { Tbank, tbankToken, validatedPaymentUrl } from "../../src/modules/billing/infrastructure/tbank/tbank.js";
+import { bankRequest } from "../../src/modules/billing/infrastructure/tbank/bank-request.js";
 import { tbankConfigSchema } from "../../src/config/tbank-config.js";
 import { subscriptionPeriodEnd } from "../../src/modules/billing/domain/subscription-period.js";
 
@@ -7,6 +12,9 @@ const config = tbankConfigSchema.parse({ environment: "demo", terminalKey: "SYNT
   bindingEncryptionKey: Buffer.alloc(32, 42).toString("base64"), recurringCardConfirmed: true, cardOnlyHostedConfirmed: true,
   minimumKopecks: 100, maximumKopecks: 1000000, returnUrl: "https://example.test/account", notificationUrl: "https://example.test/billing/tbank/notification",
   receipt: { taxation: "usn_income", tax: "none" } });
+
+const bankRootFingerprint =
+  "D2:6D:2D:02:31:B7:C3:9F:92:CC:73:85:12:BA:54:10:35:19:E4:40:5D:68:B5:BD:70:3E:97:88:CA:8E:CF:31";
 
 describe("concrete bank boundary", () => {
   test("signature excludes nested receipt/DATA and Token, but binds all scalar fields", () => {
@@ -30,6 +38,16 @@ describe("concrete bank boundary", () => {
     expect(() => new Tbank({ ...config, environment: "production" }).openBinding("order-a", ciphertext)).toThrow();
     expect(() => new Tbank({ ...config, terminalKey: "another" }).openBinding("order-a", ciphertext)).toThrow();
     expect(() => new Tbank({ ...config, bindingEncryptionKey: Buffer.alloc(32, 1).toString("base64") }).openBinding("order-a", ciphertext)).toThrow();
+  });
+  test("pinned bank root matches the documented fingerprint and a missing file fails loudly", () => {
+    // Без собственного корня клиент остаётся встроенным: доверие приложения не меняется.
+    expect(bankRequest(undefined)).toBe(globalThis.fetch);
+    const root = fileURLToPath(new URL("../../../../infra/tls/russian-trusted-root-ca.pem", import.meta.url));
+    // Отпечаток записан в docs/runbooks/runtime-configuration.md; подмена корня ломает этот тест.
+    expect(new X509Certificate(readFileSync(root)).fingerprint256).toBe(bankRootFingerprint);
+    expect(bankRequest(root)).not.toBe(globalThis.fetch);
+    // Отсутствующий корень — отказ, а не молчаливое соединение без проверки сертификата.
+    expect(() => bankRequest(`${root}.missing`)).toThrow();
   });
   test("months clamp the Moscow local date while preserving the original anchor", () => {
     const anchor = new Date("2032-01-30T22:15:12.345Z"); // Jan 31 in Moscow, leap year.
