@@ -4,7 +4,6 @@ import { expect, within } from "storybook/test";
 
 import type { LibraryDiscoveryResult } from "@/features/library-discovery";
 import type { MaterialPreview } from "@/entities/material";
-import { publicPageEnvironment } from "@/workshop/story-environment";
 import { GuideProgrammeView } from "./guide-programme-view.client";
 import {
   LibraryDiscoveryLoading,
@@ -13,6 +12,7 @@ import {
   LibraryDiscoveryUnavailable,
   LibraryDiscoveryView,
 } from "./library-discovery-view";
+import { publicPageEnvironment } from "@/workshop/story-environment";
 
 /**
  * Истории программы живут под общим meta страницы открытия, поэтому её результат сужается здесь

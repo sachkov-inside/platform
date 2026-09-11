@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 
 import { SeriesOrderRouteState } from "@/features/series-order";
+
 import { authoringPageEnvironment } from "./story-environment";
 
 const environment = authoringPageEnvironment("/authoring/playlists");

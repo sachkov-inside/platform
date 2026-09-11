@@ -5,7 +5,6 @@ import type {
   MaterialReaderMetadata,
   ReaderBlock,
 } from "@/_pages/material-reader/model/material-reader-view";
-import { publicPageEnvironment } from "@/workshop/story-environment";
 import {
   materialReaderHref,
   parseMaterialReaderReturnTarget,
@@ -18,6 +17,7 @@ import {
   MaterialReaderUnavailable,
 } from "./material-reader-states";
 import { MaterialReaderView } from "./material-reader-view";
+import { publicPageEnvironment } from "@/workshop/story-environment";
 
 const material = {
   materialId: "02000000-0000-4000-8000-000000000010",

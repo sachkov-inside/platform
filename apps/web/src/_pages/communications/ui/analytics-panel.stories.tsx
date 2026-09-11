@@ -6,11 +6,11 @@ import {
   statisticsFixture,
 } from "./broadcasts.fixtures";
 import { AnalyticsPanel, EntryHistory } from "./analytics-panel";
-import { authoringPageEnvironment } from "@/workshop/story-environment";
 
-import { BroadcastsPageFrame } from "./broadcasts-page-frame";
 
-const environment = authoringPageEnvironment("/authoring/communications/broadcasts");
+import { broadcastsPageEnvironment } from "@/workshop/broadcasts-story-environment";
+
+const environment = broadcastsPageEnvironment();
 
 const meta = {
   title: "Pages/Communications/Аналитика",
@@ -24,14 +24,6 @@ const meta = {
     result: statisticsFixture,
   },
   ...environment,
-  decorators: [
-    (Story) => (
-      <BroadcastsPageFrame>
-        <Story />
-      </BroadcastsPageFrame>
-    ),
-    ...environment.decorators,
-  ],
 } satisfies Meta<typeof AnalyticsPanel>;
 export default meta;
 type Story = StoryObj<typeof meta>;

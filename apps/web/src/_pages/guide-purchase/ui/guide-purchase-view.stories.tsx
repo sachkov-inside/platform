@@ -5,11 +5,12 @@ import { guideOnlyOffer } from "@/workshop/billing.fixtures";
 
 import { GuidePurchaseView } from "./guide-purchase-view";
 
+import { publicPageEnvironment, routeContent } from "@/workshop/story-environment";
+
 const guide = {
   name: "Создание Platform Inside",
   summary: "Как устроен продукт: архитектура, границы и порядок поставки.",
 };
-import { publicPageEnvironment, routeContent } from "@/workshop/story-environment";
 
 const environment = publicPageEnvironment("/guides/platform-inside/buy");
 

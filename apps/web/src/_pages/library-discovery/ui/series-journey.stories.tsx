@@ -4,8 +4,8 @@ import { expect, userEvent, within } from "storybook/test";
 import { MaterialReadingContext, type MaterialPreview } from "@/entities/material";
 import type { PublishedSeriesResult } from "@/features/library-discovery";
 import { guideOnlyOffer } from "@/workshop/billing.fixtures";
-import { publicPageEnvironment } from "@/workshop/story-environment";
 import { GuideProgrammeView } from "./guide-programme-view.client";
+import { publicPageEnvironment } from "@/workshop/story-environment";
 
 const titles = ["От идеи к первой версии", "Границы продукта", "Сценарии пользователя", "Модель предметной области", "Выбор технической основы", "Первый вертикальный срез", "Хранение данных", "Миграции без потери данных", "Вход и сессии", "Права доступа", "Контракты API", "Проверки приложения", "Настройка CI", "Сборка образа", "Секреты и конфигурация", "Подготовка сервера", "Первый деплой", "Обновление приложения", "Логи и диагностика", "Метрики и оповещения", "Резервное копирование", "Восстановление после сбоя", "Проверка под нагрузкой", "Что улучшать дальше"];
 const materials = titles.map((title, index): MaterialPreview => ({

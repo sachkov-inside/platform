@@ -6,23 +6,27 @@ import { withMutationFetch } from "@/workshop/mutation-mock";
 
 import type { AccountTelegramMembership } from "../model/account-telegram-membership";
 import { AccountTelegramPanel } from "./account-telegram-panel.client";
+import { accountSectionEnvironment } from "@/workshop/story-environment";
 
 const journeyLinkRef = "62000000-0000-4000-8000-000000000001";
 
+const environment = accountSectionEnvironment("/account/access");
+
 const meta = {
+  ...environment,
   args: {
     link: { kind: "linked" },
     onRefresh: () => Promise.resolve(),
   },
   component: AccountTelegramPanel,
   parameters: {
+    ...environment.parameters,
     docs: {
       description: {
         component:
           "Раздел «Аккаунт» отвечает только за связь с Telegram. Что открыто и до какого срока объясняет раздел «Покупки».",
       },
     },
-    nextjs: { appDirectory: true },
   },
   title: "Pages/Account/Telegram connection",
 } satisfies Meta<typeof AccountTelegramPanel>;

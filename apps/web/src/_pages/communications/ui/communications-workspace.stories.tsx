@@ -2,12 +2,12 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { expect, fn, userEvent, within } from "storybook/test";
 import { useState } from "react";
-import { authoringPageEnvironment } from "@/workshop/story-environment";
 import type { Funnel, Part, Preview } from "../model/communications";
 import {
   CommunicationsWorkspace,
   type CommunicationsActions,
 } from "./communications-workspace.client";
+import { authoringPageEnvironment } from "@/workshop/story-environment";
 
 const id = "30800000-0000-4000-8000-000000000001";
 const part: Part = {

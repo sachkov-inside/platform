@@ -6,6 +6,7 @@ import { withMutationFetch } from "@/workshop/mutation-mock";
 
 import { AccountLoading, AccountUnavailable } from "./account-page";
 import { AccountPageClient } from "./account-page.client";
+import { accountSectionEnvironment } from "@/workshop/story-environment";
 
 const activeProfile = {
   avatar: null,
@@ -18,17 +19,20 @@ const activeProfile = {
   version: 3,
 } as const satisfies PrivateMemberProfile;
 
+const environment = accountSectionEnvironment("/account");
+
 const meta = {
+  ...environment,
   args: { initialProfile: activeProfile },
   component: AccountPageClient,
   parameters: {
+    ...environment.parameters,
     docs: {
       description: {
         component:
           "Раздел «Профиль»: редактор полей, защищённая загрузка аватара и точная проекция участника. Связь с Telegram, покупки и уведомления живут в своих разделах кабинета.",
       },
     },
-    nextjs: { appDirectory: true },
   },
   title: "Pages/Account/Profile",
 } satisfies Meta<typeof AccountPageClient>;
@@ -55,7 +59,11 @@ export const ActiveDesktop: Story = {
     await expect(canvas.queryByText(/жалоб|скачать|удалить профиль/iu)).not.toBeInTheDocument();
     await expect(canvas.getByRole("heading", { name: "Аватар" })).toBeInTheDocument();
     // Ни один раздел не показывает задачи другого.
-    await expect(canvas.queryByText(/Telegram/u)).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByText(/Telegram/u, {
+        ignore: "script, style, [data-account-section-nav] *",
+      }),
+    ).not.toBeInTheDocument();
     await expect(
       canvas.queryByRole("button", { name: "Выйти из аккаунта" }),
     ).not.toBeInTheDocument();

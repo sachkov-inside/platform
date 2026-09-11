@@ -22,7 +22,7 @@ const meta = {
       },
     },
   },
-  title: "Pages/Member profile/Production projection",
+  title: "Components/Member profile/Production projection",
 } satisfies Meta<typeof MemberProfileProjection>;
 
 export default meta;

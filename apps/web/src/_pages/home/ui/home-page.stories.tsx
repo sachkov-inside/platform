@@ -2,10 +2,10 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
 
 import type { MaterialPreview } from "@/entities/material";
-import { publicPageEnvironment } from "@/workshop/story-environment";
 import type { HomeView } from "../model/home-view";
 import { HomePage } from "./home-page";
 import { illustratedHome } from "./illustrated-home.fixture";
+import { publicPageEnvironment } from "@/workshop/story-environment";
 
 const video = material({
   format: "Видео",

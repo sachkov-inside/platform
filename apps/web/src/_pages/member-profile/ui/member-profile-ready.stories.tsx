@@ -2,6 +2,8 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
 
 import { MemberProfileReady } from "./member-profile-ready";
+import { publicPageEnvironment } from "@/workshop/story-environment";
+
 
 const profile = {
   avatar: null,
@@ -9,7 +11,6 @@ const profile = {
   displayName: "Кирилл Сачков",
   publicProfileId: "5d34da22-548e-4b02-b6e8-9c918ad536ef",
 } as const;
-import { publicPageEnvironment } from "@/workshop/story-environment";
 
 const environment = publicPageEnvironment(`/members/${profile.publicProfileId}`);
 

@@ -24,6 +24,7 @@ import {
   savedAfterEditingPresentation,
   savedContentVersion,
 } from "./material-authoring.fixtures";
+import { authoringPageEnvironment, routeContent } from "./story-environment";
 
 const noopActions = {
   onBack: fn(),
@@ -139,7 +140,6 @@ function MaterialAuthoringFixture({
     <MaterialAuthoringWorkspace actions={actions} presentation={presentation} />
   );
 }
-import { authoringPageEnvironment, routeContent } from "./story-environment";
 
 const environment = authoringPageEnvironment("/authoring/materials/96000000-0000-4000-8000-000000000001");
 

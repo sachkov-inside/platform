@@ -5,7 +5,7 @@ import { accountSections, visibleAccountSections } from "../model/account-sectio
 import { AccountSectionNav } from "./account-section-nav.client";
 
 const meta = {
-  title: "Pages/Account/Section navigation",
+  title: "Components/Account/Section navigation",
   component: AccountSectionNav,
   args: { currentHref: "/account", sections: accountSections },
   parameters: {

@@ -3,8 +3,8 @@ import { useState } from "react";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 import { MaterialReaderView, type MaterialReaderMetadata, type ReaderBlock } from "@/_pages/material-reader";
 import { MaterialCard, MaterialReadingStatus, type MaterialPreview } from "@/entities/material";
-import { publicPageEnvironment } from "@/workshop/story-environment";
 import { ReadingAction, SeriesProgress, type ReadingActionView } from "@/features/reading-progress";
+import { publicPageEnvironment } from "@/workshop/story-environment";
 
 const metadata: MaterialReaderMetadata = {
   materialId: "02000000-0000-4000-8000-000000000010", contentVersion: 1, access: "free", cover: null,

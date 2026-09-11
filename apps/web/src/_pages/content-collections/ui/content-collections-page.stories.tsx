@@ -4,6 +4,8 @@ import { expect, within } from "storybook/test";
 import { withMutationFetch } from "@/workshop/mutation-mock";
 
 import { ContentCollectionsPageClient } from "./content-collections-page.client";
+import { authoringPageEnvironment } from "@/workshop/story-environment";
+
 
 const collections = [
   {
@@ -29,7 +31,6 @@ const collections = [
     version: 2,
   },
 ] as const;
-import { authoringPageEnvironment } from "@/workshop/story-environment";
 
 const environment = authoringPageEnvironment("/authoring/topics");
 

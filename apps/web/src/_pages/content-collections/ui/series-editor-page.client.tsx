@@ -3,6 +3,7 @@ import { ArrowLeft, Archive, RotateCcw } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { GuideArtifactsPanel } from "@/features/guide-artifacts";
+import { SeriesEditorPageFrame } from "./series-editor-page-frame";
 import { HomeSeriesPin, SeriesOrderPanel } from "@/features/series-order";
 import { ContentCoverEditor } from "@/features/content-covers";
 import { Button } from "@/shared/ui/button";
@@ -76,12 +77,7 @@ export function SeriesEditorPageClient({
     });
   };
   return (
-    <main
-      className="h-full min-h-svh overflow-y-auto bg-background text-foreground md:min-h-0"
-      id="authoring-content"
-      tabIndex={-1}
-    >
-      <div className="mx-auto w-full max-w-5xl px-4 pb-24 sm:px-8">
+    <SeriesEditorPageFrame>
         <nav
           aria-label="Навигация руководства"
           className="flex flex-wrap items-center justify-between gap-3 border-b border-border py-4"
@@ -221,7 +217,6 @@ export function SeriesEditorPageClient({
           archived={collection.archived}
           guideId={collection.id}
         />
-      </div>
-    </main>
+    </SeriesEditorPageFrame>
   );
 }

@@ -4,11 +4,15 @@ import { expect, fn, within } from "storybook/test";
 import { billingOffers, materialsOffer, supportOffer } from "@/workshop/billing.fixtures";
 
 import { BillingAdminView } from "./billing-admin-view.client";
+import { authoringPageEnvironment } from "@/workshop/story-environment";
 
 const purchaseRef = "00000000-0000-4000-8000-0000000000b1";
 const accountId = "00000000-0000-4000-8000-0000000000c1";
 
+const environment = authoringPageEnvironment("/authoring/billing");
+
 const meta = {
+  ...environment,
   title: "Pages/Authoring/Billing admin",
   component: BillingAdminView,
   args: {
@@ -42,6 +46,7 @@ const meta = {
     onApplyBatch: fn(),
   },
   parameters: {
+    ...environment.parameters,
     docs: {
       description: {
         component:

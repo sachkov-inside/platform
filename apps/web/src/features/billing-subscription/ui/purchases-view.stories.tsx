@@ -9,8 +9,12 @@ import {
 } from "@/workshop/billing.fixtures";
 
 import { PurchasesSectionView } from "./purchases-view.client";
+import { accountSectionEnvironment } from "@/workshop/story-environment";
+
+const environment = accountSectionEnvironment("/account/purchases");
 
 const meta = {
+  ...environment,
   title: "Pages/Account/Purchases",
   component: PurchasesSectionView,
   args: {
@@ -22,6 +26,7 @@ const meta = {
     onRevokeMethod: fn(),
   },
   parameters: {
+    ...environment.parameters,
     docs: {
       description: {
         component:

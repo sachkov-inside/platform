@@ -1,10 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
-import { publicPageEnvironment } from "@/workshop/story-environment";
 import { HomePage } from "./home-page";
 import { HomeLoading } from "./home-loading";
 import { illustratedHome } from "./illustrated-home.fixture";
 import type { HomeView } from "../model/home-view";
+import { publicPageEnvironment } from "@/workshop/story-environment";
 
 const home: HomeView = {
   ...illustratedHome,
