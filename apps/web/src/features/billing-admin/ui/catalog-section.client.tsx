@@ -15,6 +15,8 @@ import type {
   SavePaymentOptionInput,
   SavePromotionInput,
 } from "../model/admin-operations";
+import { paymentModeSchema } from "@/entities/subscription";
+
 import {
   AdminField,
   AdminSection,
@@ -176,10 +178,9 @@ export function CatalogSection({
                 offerId: formText(form.get("optionOfferId")),
                 months: Number(formText(form.get("optionMonths"))),
                 priceKopecks: Number(formText(form.get("optionPrice"))),
-                mode:
-                  formText(form.get("optionMode")) === "one_time"
-                    ? "one_time"
-                    : "subscription",
+                mode: paymentModeSchema
+                  .catch("subscription")
+                  .parse(formText(form.get("optionMode"))),
               },
             });
           })}

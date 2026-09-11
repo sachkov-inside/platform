@@ -176,7 +176,7 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
       value: { id: s.optionId, offerId: s.offerId, mode: "one_time", months: 1, priceKopecks: 190_000 } }))).toMatchObject({ revision: 2 });
   });
 
-  test("действующая подписка не мешает купить руководство и не занимается разовой покупкой", async () => {
+  test("подписка не мешает купить руководство ни до, ни после неё", async () => {
     const s = await scenario();
     // Подписка того же покупателя: собственное предложение и своё место жизненного цикла.
     const subscriptionOffer = randomUUID(), subscriptionOption = randomUUID();
@@ -198,6 +198,14 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
     // Разовая покупка не заняла место подписки: оформить её всё ещё можно.
     expect(value(await s.runtime.purchase(s.buyer, { operationId: randomUUID(), quoteRef: quote.quoteRef, contactRevision: 1,
       consentEvidenceRefs: consent.evidenceRefs, acknowledgeExistingAccess: false }))).toMatchObject({ state: "pending" });
+    expect(await s.runtime.notification(s.notify("CONFIRMED"))).toMatchObject({ ok: true });
+    const subscription = await db.prisma.billingSubscription.findFirstOrThrow({ where: { accountId: s.buyer } });
+    expect(subscription.state).toBe("active");
+
+    // И обратный порядок: при действующей подписке руководство всё равно покупается отдельно.
+    const another = await scenario();
+    const first = value(await another.runtime.purchase(another.buyer, await another.command()));
+    expect(first.state).toBe("pending");
   });
 
   test("витрина руководства спрашивает только своё разовое предложение", async () => {

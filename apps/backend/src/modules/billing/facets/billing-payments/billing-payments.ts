@@ -168,6 +168,7 @@ export class BillingPayments {
     try {
       const row = await prisma.billingPurchase.findUnique({ where: { id: purchaseRef } });
       if (!row) return paymentFailure("not_found");
+      const kind = attemptKindSchema.parse(row.kind);
       if (row.environment !== bank.config.environment || row.terminalRef !== bank.config.terminalKey) return paymentFailure("method_unavailable");
       if (row.state === "prepared") { await this.dispatch(row.id); return { ok: true, value: true }; }
       if (row.state === "confirmed" || row.state === "failed") return { ok: true, value: true };
@@ -182,7 +183,7 @@ export class BillingPayments {
       if (payment.OrderId !== row.id || payment.PaymentId !== paymentId) return paymentFailure("invalid_notification");
       const accepted = await this.accept(payment);
       // Init прошёл, Charge ещё не вызывался: только доказанное NEW разрешает завершить ту же попытку.
-      if (accepted.ok && !isQuotedPurchase(attemptKindSchema.parse(row.kind)) && !row.chargeCalled && payment.Status === "NEW") await this.chargeSaved(row.id, paymentId);
+      if (accepted.ok && !isQuotedPurchase(kind) && !row.chargeCalled && payment.Status === "NEW") await this.chargeSaved(row.id, paymentId);
       return accepted;
     } catch { return paymentFailure("provider_unavailable"); }
   }
@@ -259,7 +260,7 @@ export class BillingPayments {
   async dispatch(attemptRef: string): Promise<void> {
     const { prisma, bank } = this.dependencies;
     if (!bank) return;
-    const row = await prisma.$transaction(async tx => {
+    const prepared = await prisma.$transaction(async tx => {
       await lockPricing(tx);
       const row = await tx.billingPurchase.findUnique({ where: { id: attemptRef } });
       if (!row || row.state !== "prepared" || row.terminalRef !== bank.config.terminalKey || row.environment !== bank.config.environment) return undefined;
@@ -278,14 +279,14 @@ export class BillingPayments {
       }
       await tx.billingPurchase.update({ where: { id: attemptRef }, data: { state: "sent", updatedAt: now } });
       if (isQuotedPurchase(kind)) await tx.billingPromoReservation.update({ where: { purchaseRef: attemptRef }, data: { state: "sent" } });
-      return row;
+      return { row, kind };
     });
-    if (!row) return;
+    if (!prepared) return;
+    const { row, kind } = prepared;
     try {
       const snapshot = priceSnapshotSchema.parse(row.snapshot);
       const contact = z.object({ emailCiphertext: z.string() }).parse(row.contact);
       const email = z.email().parse(bank.openBinding(`${row.id}:contact`, contact.emailCiphertext));
-      const kind = attemptKindSchema.parse(row.kind);
       const payment = await bank.init({ orderId: row.id, accountId: row.accountId, amount: Number(row.amountKopecks), name: snapshot.offer.name, email, initiator: paymentInitiators[kind] });
       const accepted = await this.accept(payment, isQuotedPurchase(kind) ? payment.PaymentURL : undefined);
       if (!accepted.ok) throw new Error("Bank initialization fact rejected");
@@ -294,7 +295,7 @@ export class BillingPayments {
       await prisma.$transaction(async tx => {
         await lockPricing(tx);
         const changed = await tx.billingPurchase.updateMany({ where: { id: row.id, state: { in: ["sent", "pending"] } }, data: { state: "unknown", updatedAt: this.clock() } });
-        if (changed.count && isQuotedPurchase(attemptKindSchema.parse(row.kind))) await tx.billingPromoReservation.update({ where: { purchaseRef: attemptRef }, data: { state: "unknown" } });
+        if (changed.count && isQuotedPurchase(kind)) await tx.billingPromoReservation.update({ where: { purchaseRef: attemptRef }, data: { state: "unknown" } });
       });
     }
   }

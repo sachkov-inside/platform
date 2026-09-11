@@ -225,6 +225,31 @@ export const SeriesForSaleMobile: Story = {
   },
 };
 
+/** Всё уже открыто: цена есть, но звать к оплате нечего. */
+export const SeriesForSaleAlreadyOpen: Story = {
+  args: {
+    result: {
+      ...seriesResult,
+      items: seriesResult.items.map((item) => ({
+        ...item,
+        availability: "available" as const,
+      })),
+    },
+    guideOffer: guideOnlyOffer,
+  },
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
+  name: "Series · guide for sale, nothing locked",
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.queryByRole("link", { name: /Купить за/u }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("link", { name: "Посмотреть тарифы" }),
+    ).not.toBeInTheDocument();
+  },
+};
+
 export const SeriesNotForSale: Story = {
   args: { result: seriesResult },
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
