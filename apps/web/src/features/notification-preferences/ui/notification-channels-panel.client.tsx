@@ -4,10 +4,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useRepeatableOperations } from "@/shared/lib/repeatable-operations.client";
 
+import { changeNotificationPreferences } from "../api/notification-preferences.browser";
 import {
-  changeNotificationPreferences,
-  readNotificationPreferences,
-} from "../api/notification-preferences.browser";
+  notificationPreferencesQueryKey,
+  notificationPreferencesQueryOptions,
+} from "../model/notification-preferences-query";
 import {
   notificationErrorMessage,
   type NotificationPreferences,
@@ -16,20 +17,6 @@ import {
   NotificationChannelsForm,
   type NotificationChannel,
 } from "./notification-channels-form.client";
-
-export const notificationPreferencesQueryKey = [
-  "account",
-  "notification-preferences",
-] as const;
-
-export function notificationPreferencesQueryOptions() {
-  return {
-    queryKey: notificationPreferencesQueryKey,
-    queryFn: readNotificationPreferences,
-    retry: false,
-    staleTime: 0,
-  };
-}
 
 /**
  * Производственный путь настроек: собственный BFF, ожидаемая revision и повторяемая команда.

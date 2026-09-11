@@ -1,12 +1,14 @@
 import type { Route } from "next";
 
+export type AccountSectionId =
+  | "profile"
+  | "access"
+  | "purchases"
+  | "subscription"
+  | "notifications";
+
 export interface AccountSection {
-  readonly id:
-    | "profile"
-    | "access"
-    | "purchases"
-    | "subscription"
-    | "notifications";
+  readonly id: AccountSectionId;
   readonly href: Route;
   readonly label: string;
   /** Одна задача раздела, названная словами владельца аккаунта. */
@@ -47,6 +49,13 @@ const sections = [
 ] as const satisfies readonly AccountSection[];
 
 export const accountSections: readonly AccountSection[] = sections;
+
+/** Название и задача раздела живут в одном месте: их берут и навигация, и заголовок раздела. */
+export const accountSectionById: Readonly<
+  Record<AccountSectionId, AccountSection>
+> = Object.fromEntries(
+  sections.map((section) => [section.id, section]),
+) as Readonly<Record<AccountSectionId, AccountSection>>;
 
 /**
  * «Подписка» появляется, когда её продают или когда она уже есть. Пока её не продают и у

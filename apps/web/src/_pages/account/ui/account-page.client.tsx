@@ -11,6 +11,7 @@ import {
   type PrivateMemberProfile,
 } from "@/entities/member-profile";
 import { Button } from "@/shared/ui/button";
+import { AccountSectionHeader } from "@/widgets/account-cabinet";
 
 import { createMemberProfile } from "../api/create-member-profile.browser";
 import { updateMemberProfile } from "../api/update-member-profile.browser";
@@ -87,14 +88,7 @@ export function AccountPageClient({
 
   return (
     <div>
-      <header className="mb-8 border-b border-border pb-7">
-        <h1 className="text-balance text-4xl font-bold tracking-[-0.04em] sm:text-5xl">
-          Профиль
-        </h1>
-        <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          Имя, описание и аватар, которые видят участники по вашей ссылке.
-        </p>
-      </header>
+      <AccountSectionHeader section="profile" />
 
       <form
         className="grid gap-8 lg:grid-cols-2 lg:gap-12"

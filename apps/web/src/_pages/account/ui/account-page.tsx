@@ -41,7 +41,7 @@ export function AccountLoading() {
         Профиль
       </h1>
       <p className="mt-4 text-muted-foreground" role="status">
-        Загружаем профиль…
+        Загружаем раздел…
       </p>
       <div className="mt-8 h-56 animate-pulse rounded-2xl border border-border bg-muted/50 motion-reduce:animate-none" />
     </section>

@@ -178,6 +178,24 @@ test("раздел «Подписка» появляется, когда под�
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Подписка");
 });
 
+test("завершённая подписка не возвращает раздел «Подписка»", async ({
+  page,
+}, testInfo) => {
+  const mode = navigationMode(testInfo.project.name);
+  await stubAccount(page, {
+    grounds: [],
+    subscription: { ...activeSubscription, state: "ended" },
+  });
+
+  await page.goto("/account/purchases");
+
+  const navigation = cabinetNavigation(page, mode);
+  if (mode === "mobile")
+    await page.getByRole("button", { name: /Личный кабинет/u }).click();
+  await expect(navigation.getByRole("link", { name: /Покупки/u })).toBeVisible();
+  await expect(navigation.getByRole("link", { name: /Подписка/u })).toHaveCount(0);
+});
+
 test("список разделов на телефоне открывается и закрывается сам", async ({
   page,
 }, testInfo) => {

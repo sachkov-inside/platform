@@ -8,11 +8,11 @@ import {
   ownPayments,
 } from "@/workshop/billing.fixtures";
 
-import { PurchasesView } from "./purchases-view.client";
+import { PurchasesSectionView } from "./purchases-view.client";
 
 const meta = {
   title: "Pages/Account/Purchases",
-  component: PurchasesView,
+  component: PurchasesSectionView,
   args: {
     grounds: accessGrounds,
     notices: billingNotices,
@@ -31,7 +31,7 @@ const meta = {
       },
     },
   },
-} satisfies Meta<typeof PurchasesView>;
+} satisfies Meta<typeof PurchasesSectionView>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 

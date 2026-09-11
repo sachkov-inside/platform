@@ -62,7 +62,7 @@ export const ActiveDesktop: Story = {
 export const Loading: Story = {
   play: async ({ canvasElement }) => {
     await expect(
-      within(canvasElement).getByText("Загружаем профиль…"),
+      within(canvasElement).getByText("Загружаем раздел…"),
     ).toBeInTheDocument();
   },
   render: () => <AccountLoading />,

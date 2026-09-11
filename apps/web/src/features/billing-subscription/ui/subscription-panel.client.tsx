@@ -19,6 +19,7 @@ import {
   quoteBillingChange,
   resumeBillingRenewal,
 } from "../api/billing-subscription.browser";
+import { assignLocation } from "../model/navigate";
 import { useBillingCabinet } from "../model/use-billing-cabinet.client";
 import { SubscriptionSectionView } from "./subscription-view.client";
 
@@ -52,12 +53,7 @@ export function SubscriptionPanel({
     mutationFn: cancelBillingRenewal,
     retry: false,
     onSuccess: (result) => {
-      if (!result.ok) {
-        cabinet.fail(result.code);
-        return;
-      }
-      cabinet.setError(undefined);
-      cabinet.applySubscription(result.value);
+      cabinet.settle(result, cabinet.applySubscription);
     },
   });
   const resumeRenewal = useMutation({
@@ -91,56 +87,45 @@ export function SubscriptionPanel({
       });
     },
     onSuccess: (result) => {
-      if (!result.ok) {
-        cabinet.fail(result.code);
-        return;
-      }
-      cabinet.setError(undefined);
-      setResumeAccepted([]);
-      cabinet.applySubscription(result.value);
+      cabinet.settle(result, (value) => {
+        setResumeAccepted([]);
+        cabinet.applySubscription(value);
+      });
     },
   });
   const quoteChange = useMutation({
     mutationFn: quoteBillingChange,
     retry: false,
     onSuccess: (result) => {
-      if (!result.ok) {
-        cabinet.fail(result.code);
-        return;
-      }
-      completeOperation("change-quote");
-      cabinet.setError(undefined);
-      setChangeQuote(result.value);
+      cabinet.settle(result, (value) => {
+        completeOperation("change-quote");
+        setChangeQuote(value);
+      });
     },
   });
   const confirmChange = useMutation({
     mutationFn: changeBillingOption,
     retry: false,
     onSuccess: (result) => {
-      if (!result.ok) {
-        if (result.code === "quote_expired" || result.code === "quote_changed")
-          setChangeQuote(null);
-        cabinet.fail(result.code);
-        return;
-      }
-      completeOperation("change");
-      cabinet.setError(undefined);
-      setChangeQuote(null);
-      cabinet.applySubscription(result.value.subscription);
-      const paymentUrl = result.value.payment?.paymentUrl ?? null;
-      if (paymentUrl !== null) (onNavigate ?? navigate)(paymentUrl);
+      if (
+        !result.ok &&
+        (result.code === "quote_expired" || result.code === "quote_changed")
+      )
+        setChangeQuote(null);
+      cabinet.settle(result, (value) => {
+        completeOperation("change");
+        setChangeQuote(null);
+        cabinet.applySubscription(value.subscription);
+        const paymentUrl = value.payment?.paymentUrl ?? null;
+        if (paymentUrl !== null) (onNavigate ?? assignLocation)(paymentUrl);
+      });
     },
   });
   const dropChange = useMutation({
     mutationFn: cancelBillingChange,
     retry: false,
     onSuccess: (result) => {
-      if (!result.ok) {
-        cabinet.fail(result.code);
-        return;
-      }
-      cabinet.setError(undefined);
-      cabinet.applySubscription(result.value);
+      cabinet.settle(result, cabinet.applySubscription);
     },
   });
 
@@ -229,8 +214,4 @@ export function SubscriptionPanel({
       subscription={subscription}
     />
   );
-}
-
-function navigate(url: string): void {
-  window.location.assign(url);
 }

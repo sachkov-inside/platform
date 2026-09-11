@@ -8,8 +8,9 @@ import {
   changeBillingPaymentMethod,
   revokeBillingPaymentMethod,
 } from "../api/billing-subscription.browser";
+import { assignLocation } from "../model/navigate";
 import { useBillingCabinet } from "../model/use-billing-cabinet.client";
-import { PurchasesView } from "./purchases-view.client";
+import { PurchasesSectionView } from "./purchases-view.client";
 
 export interface PurchasesPanelProps {
   readonly storefrontHref: Route;
@@ -29,30 +30,22 @@ export function PurchasesPanel({
     mutationFn: changeBillingPaymentMethod,
     retry: false,
     onSuccess: (result) => {
-      if (!result.ok) {
-        cabinet.fail(result.code);
-        return;
-      }
-      cabinet.refresh();
-      if (result.value.formUrl !== null)
-        (onNavigate ?? navigate)(result.value.formUrl);
+      cabinet.settle(result, (value) => {
+        cabinet.refresh();
+        if (value.formUrl !== null) (onNavigate ?? assignLocation)(value.formUrl);
+      });
     },
   });
   const revokeMethod = useMutation({
     mutationFn: revokeBillingPaymentMethod,
     retry: false,
     onSuccess: (result) => {
-      if (!result.ok) {
-        cabinet.fail(result.code);
-        return;
-      }
-      cabinet.setError(undefined);
-      cabinet.applySubscription(result.value);
+      cabinet.settle(result, cabinet.applySubscription);
     },
   });
 
   return (
-    <PurchasesView
+    <PurchasesSectionView
       error={cabinet.error}
       grounds={cabinet.billing?.grounds ?? []}
       loading={cabinet.loading}
@@ -86,8 +79,4 @@ export function PurchasesPanel({
       subscription={subscription}
     />
   );
-}
-
-function navigate(url: string): void {
-  window.location.assign(url);
 }

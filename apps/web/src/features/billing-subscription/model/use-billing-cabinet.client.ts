@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
   billingErrorMessage,
+  type BillingCommandResult,
   type BillingFailureCode,
   type CurrentBilling,
   type SubscriptionView,
@@ -25,6 +26,14 @@ export interface BillingCabinet {
   readonly applySubscription: (value: SubscriptionView) => void;
   readonly fail: (code: BillingFailureCode) => void;
   readonly refresh: () => void;
+  /**
+   * Исход команды разбирается одинаково: ожидаемая ошибка объясняется словами и перечитывает
+   * состояние, успех продолжает работу раздела.
+   */
+  readonly settle: <Value>(
+    result: BillingCommandResult<Value>,
+    onSuccess: (value: Value) => void,
+  ) => void;
 }
 
 /**
@@ -39,6 +48,11 @@ export function useBillingCabinet(): BillingCabinet {
   const billing = query.data?.ok === true ? query.data.value : null;
   const readFailure = query.data?.ok === false ? query.data.code : undefined;
   const sessionExpired = readFailure === "unauthorized";
+
+  function fail(code: BillingFailureCode): void {
+    setError(billingErrorMessage(code));
+    void query.refetch();
+  }
 
   return {
     billing,
@@ -60,13 +74,18 @@ export function useBillingCabinet(): BillingCabinet {
             : current,
       );
     },
-    fail: (code) => {
-      setError(billingErrorMessage(code));
-      void query.refetch();
-    },
+    fail,
     refresh: () => {
       setError(undefined);
       void query.refetch();
+    },
+    settle: (result, onSuccess) => {
+      if (!result.ok) {
+        fail(result.code);
+        return;
+      }
+      setError(undefined);
+      onSuccess(result.value);
     },
   };
 }

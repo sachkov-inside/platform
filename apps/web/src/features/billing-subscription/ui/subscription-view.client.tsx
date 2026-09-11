@@ -8,7 +8,7 @@ import {
   type LegalDocument,
   type LegalDocumentKind,
   type PriceSnapshot,
-  type SubscriptionView as SubscriptionSnapshot,
+  type SubscriptionView,
 } from "@/entities/subscription";
 import { Button } from "@/shared/ui/button";
 
@@ -24,7 +24,7 @@ export interface SubscriptionSectionViewProps
     SubscriptionActionsProps,
     "subscription" | "pending" | "storefrontHref"
   > {
-  readonly subscription: SubscriptionSnapshot | null;
+  readonly subscription: SubscriptionView | null;
   readonly options: readonly PriceSnapshot[];
   readonly selectedOptionId: string | null;
   readonly changeQuote: ChangeQuote | null;

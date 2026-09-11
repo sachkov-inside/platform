@@ -15,7 +15,7 @@ import { BillingSignIn } from "./billing-sign-in";
 import { PaymentMethodCard } from "./payment-method-card.client";
 import { SubscriptionGrounds } from "./subscription-grounds.client";
 
-export interface PurchasesViewProps {
+export interface PurchasesSectionViewProps {
   readonly grounds: readonly AccessGround[];
   readonly payments: readonly OwnPayment[];
   readonly notices: readonly NoticeView[];
@@ -34,7 +34,7 @@ export interface PurchasesViewProps {
  * Покупки отвечают на один вопрос: что уже доступно, по какому основанию, за какие деньги и
  * какой картой платим. Условия действующей подписки и управление ею живут в своём разделе.
  */
-export function PurchasesView({
+export function PurchasesSectionView({
   grounds,
   payments,
   notices,
@@ -47,7 +47,7 @@ export function PurchasesView({
   onRefresh,
   onChangeMethod,
   onRevokeMethod,
-}: PurchasesViewProps) {
+}: PurchasesSectionViewProps) {
   if (sessionExpired) {
     return (
       <BillingSignIn

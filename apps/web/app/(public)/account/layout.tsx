@@ -1,22 +1,11 @@
 import type { ReactNode } from "react";
 
-import { publicSubscriptionOffers } from "@/entities/subscription";
-import { loadBillingOffers } from "@/entities/subscription.server";
-import { AccountCabinet } from "@/widgets/account-cabinet";
+import { AccountCabinetFrame } from "@/widgets/account-cabinet.server";
 
-/** Разделы кабинета живут в одной рамке: каталог читается один раз на весь кабинет. */
-export default async function AccountLayout({
+export default function AccountLayout({
   children,
 }: {
   readonly children: ReactNode;
 }) {
-  const result = await loadBillingOffers();
-  const offers = publicSubscriptionOffers(
-    result.kind === "ready" ? result.offers : [],
-  );
-  return (
-    <AccountCabinet subscriptionOffered={offers.length > 0}>
-      {children}
-    </AccountCabinet>
-  );
+  return <AccountCabinetFrame>{children}</AccountCabinetFrame>;
 }

@@ -1,4 +1,5 @@
 export { currentBillingQueryOptions } from "./model/current-billing";
+export { useBillingCabinet } from "./model/use-billing-cabinet.client";
 export {
   PurchasesPanel,
   type PurchasesPanelProps,

@@ -215,3 +215,10 @@ function TelegramLinkJourney() {
     />
   );
 }
+
+export const Mobile: Story = {
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+};
+export const Desktop: Story = {
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
+};
