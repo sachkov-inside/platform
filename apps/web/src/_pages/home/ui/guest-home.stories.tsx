@@ -14,10 +14,12 @@ const home: HomeView = {
     ...series, name: "Создаём реальный продукт с ИИ", summary: "От идеи и архитектуры до кода и деплоя. На примере самой платформы Inside.",
   } : series),
 };
+const environment = publicPageEnvironment("/");
+
 const meta = {
+  ...environment,
   component: HomePage,
   title: "Pages/Home/Guest",
-  ...publicPageEnvironment("/"),
   tags: ["autodocs"],
 } satisfies Meta<typeof HomePage>;
 export default meta;

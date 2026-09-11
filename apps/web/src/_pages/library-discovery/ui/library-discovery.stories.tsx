@@ -123,9 +123,11 @@ const seriesResult = {
   topics: [{ id: "topic-platform", name: "Platform", slug: "platform" }],
 } as const satisfies LibraryDiscoveryResult;
 
+const environment = publicPageEnvironment("/topics/platform");
+
 const meta = {
+  ...environment,
   component: LibraryDiscoveryView,
-  ...publicPageEnvironment("/topics/platform"),
   title: "Pages/Mobile-first Platform/Collections",
 } satisfies Meta<typeof LibraryDiscoveryView>;
 

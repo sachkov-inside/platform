@@ -53,16 +53,19 @@ function routeEnvironment(currentPath: string, decorators: Decorator[]): StoryEn
 /** Публичная оболочка приложения с её настоящей навигацией и слотом аккаунта. */
 export function PublicShellFrame({
   account = "guest",
+  accountSlot,
   children,
   currentPath,
 }: {
   readonly account?: AccountState;
+  /** Собственное наполнение слота аккаунта; по умолчанию — контрол для этого состояния. */
+  readonly accountSlot?: ReactNode;
   readonly children: ReactNode;
   readonly currentPath: string;
 }) {
   return (
     <ApplicationShell
-      accountSlot={<HeaderAuthControl state={account} />}
+      accountSlot={accountSlot ?? <HeaderAuthControl state={account} />}
       currentPath={currentPath}
       mobileNavigationItems={publicMobileNavigationItems}
       navigationItems={publicNavigationItems}
@@ -98,20 +101,15 @@ export function publicPageEnvironment(
 export function publicHeaderEnvironment(currentPath = "/"): StoryEnvironment {
   return routeEnvironment(currentPath, [
     (Story) => (
-      <ApplicationShell
-        accountSlot={<Story />}
-        currentPath={currentPath}
-        mobileNavigationItems={publicMobileNavigationItems}
-        navigationItems={publicNavigationItems}
-      >
+      <PublicShellFrame accountSlot={<Story />} currentPath={currentPath}>
         {null}
-      </ApplicationShell>
+      </PublicShellFrame>
     ),
   ]);
 }
 
 /** Рамка личного кабинета: разделы слева, один раздел справа — как в `account/layout.tsx`. */
-function AccountCabinetFrame({ children }: { readonly children: ReactNode }) {
+function AccountSectionFrame({ children }: { readonly children: ReactNode }) {
   return (
     <AccountCabinet options={publicSubscriptionOffers(billingOffers)}>{children}</AccountCabinet>
   );
@@ -124,7 +122,7 @@ function AccountCabinetFrame({ children }: { readonly children: ReactNode }) {
 export function accountSectionEnvironment(currentPath: string): StoryEnvironment {
   return publicPageEnvironment(currentPath, {
     account: "authenticated",
-    frame: AccountCabinetFrame,
+    frame: AccountSectionFrame,
   });
 }
 
@@ -134,7 +132,7 @@ export function accountSectionEnvironment(currentPath: string): StoryEnvironment
  */
 export function authoringPageEnvironment(
   currentPath: string,
-  frame?: PageFrame,
+  { frame }: { readonly frame?: PageFrame } = {},
 ): StoryEnvironment {
   return routeEnvironment(currentPath, [
     ...(frame === undefined ? [] : [frameDecorator(frame)]),

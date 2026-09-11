@@ -62,9 +62,11 @@ const home = {
   ],
 } as const satisfies HomeView;
 
+const environment = publicPageEnvironment("/");
+
 const meta = {
+  ...environment,
   component: HomePage,
-  ...publicPageEnvironment("/"),
   tags: ["autodocs"],
   title: "Pages/Mobile-first Platform/Home",
 } satisfies Meta<typeof HomePage>;

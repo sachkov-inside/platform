@@ -12,6 +12,7 @@ import {
 } from "@/workshop/billing.fixtures";
 
 import { OneTimeCheckoutPanel } from "./one-time-checkout-panel.client";
+import { publicPageEnvironment } from "@/workshop/story-environment";
 
 // Состав читается настоящим кодом: иначе история подтверждала бы свою же строку.
 const inclusions = [
@@ -24,7 +25,10 @@ const inclusions = [
   },
 ] as const;
 
+const environment = publicPageEnvironment("/guides/platform-inside/buy");
+
 const meta = {
+  ...environment,
   title: "Pages/Guide/Payment",
   component: OneTimeCheckoutPanel,
   args: {
@@ -44,6 +48,7 @@ const meta = {
     onRetryQuote: fn(),
   },
   parameters: {
+    ...environment.parameters,
     docs: {
       description: {
         component:

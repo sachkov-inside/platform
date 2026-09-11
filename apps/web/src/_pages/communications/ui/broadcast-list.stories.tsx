@@ -9,7 +9,7 @@ import { BroadcastsPageFrame } from "./broadcasts-page-frame";
 
 const environment = authoringPageEnvironment(
   "/authoring/communications/broadcasts",
-  BroadcastsPageFrame,
+  { frame: BroadcastsPageFrame },
 );
 
 const meta = {

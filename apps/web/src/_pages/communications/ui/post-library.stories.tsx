@@ -27,7 +27,7 @@ const post = {
 
 const environment = authoringPageEnvironment(
   "/authoring/communications/broadcasts",
-  BroadcastsPageFrame,
+  { frame: BroadcastsPageFrame },
 );
 
 const meta = {
