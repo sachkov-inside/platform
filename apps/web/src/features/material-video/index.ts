@@ -12,6 +12,7 @@ export {
 export {
   isVideoWatchedPosition,
   resolveVideoPlaybackProgress,
+  retainUnselectedUpload,
   type MaterialAuthoringVideo,
   type MaterialVideoAuthoringPhase,
   type VideoPlaybackProgress,

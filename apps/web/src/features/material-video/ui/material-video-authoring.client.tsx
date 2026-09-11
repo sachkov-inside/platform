@@ -78,7 +78,9 @@ export function MaterialVideoAuthoring({
     [],
   );
   const [providerVideoId, setProviderVideoId] = useState("");
-  const initial = resolveInitialVideoAuthoring({ primaryVideo, unselectedUpload });
+  const [initial] = useState(() =>
+    resolveInitialVideoAuthoring({ primaryVideo, unselectedUpload }),
+  );
   const [recoveredVideoId, setRecoveredVideoId] = useState(initial.recoveredVideoId);
   const [video, setVideo] = useState<MaterialAuthoringVideo | null>(initial.video);
   const [deletionVideo, setDeletionVideo] =
@@ -104,6 +106,11 @@ export function MaterialVideoAuthoring({
     mutationFn: retryMaterialVideoDeletion,
   });
 
+  const latestOnChange = useRef(onChange);
+  useEffect(() => {
+    latestOnChange.current = onChange;
+  });
+
   const applyVideoResult = useCallback(
     (result: VideoMutationResult<MaterialVideo>) => {
       if (result.kind !== "ready") {
@@ -123,11 +130,11 @@ export function MaterialVideoAuthoring({
         }
         uploadTransfer.current = null;
         setRecoveredVideoId(null);
-        onChange(result.value, deleteVideoId);
+        latestOnChange.current(result.value, deleteVideoId);
       }
       setPhase(next);
     },
-    [deleteVideoId, onChange, recoveredVideoId],
+    [deleteVideoId, recoveredVideoId],
   );
 
   const reconcile = useCallback(
@@ -628,14 +635,7 @@ function InterruptedUploadStatus({
   readonly video: MaterialAuthoringVideo | null;
 }) {
   if (!recovered || video === null) return null;
-  const text =
-    phase === "processing"
-      ? `Видео «${video.title}» осталось от незавершённой загрузки и пока не привязано к материалу. Проверяем его состояние в Kinescope.`
-      : phase !== "interrupted_unusable"
-        ? null
-        : video.state === "failed"
-          ? `Kinescope не смог обработать файл «${video.title}». Загрузите видео заново или удалите незавершённую запись.`
-          : `Kinescope получил файл «${video.title}» не полностью, поэтому видео не готово. Загрузите файл заново или удалите незавершённую запись.`;
+  const text = interruptedUploadText(phase, video);
   if (text === null) return null;
   return (
     <div
@@ -645,6 +645,22 @@ function InterruptedUploadStatus({
       <p>{text}</p>
     </div>
   );
+}
+
+/** An adopted upload stays explained until the author resolves it, including while a check fails. */
+function interruptedUploadText(
+  phase: MaterialVideoAuthoringPhase,
+  video: MaterialAuthoringVideo,
+): string | null {
+  const leftover = `Видео «${video.title}» осталось от незавершённой загрузки`;
+  if (phase === "processing")
+    return `${leftover} и пока не привязано к материалу. Проверяем его состояние в Kinescope.`;
+  if (phase === "error")
+    return `${leftover}. Проверить его состояние в Kinescope не удалось.`;
+  if (phase !== "interrupted_unusable") return null;
+  return video.state === "failed"
+    ? `Kinescope не смог обработать файл «${video.title}». Загрузите видео заново или удалите незавершённую запись.`
+    : `Kinescope получил файл «${video.title}» не полностью, поэтому видео не готово. Загрузите файл заново или удалите незавершённую запись.`;
 }
 
 function phaseLabel(

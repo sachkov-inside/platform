@@ -10,6 +10,7 @@ import {
   type ProviderVideo,
   type VideoProvider,
 } from "../../src/modules/videos/index.js";
+import { distinctClock } from "./setup/distinct-clock.js";
 import { createMigratedTestDatabase, type TestDatabase } from "./setup/test-database.js";
 
 const unusedDelete: VideoProvider["delete"] = () =>
@@ -288,6 +289,9 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
     };
     const videos = assembleVideos({
       canManage: () => Promise.resolve(true),
+      // Two attempts of one Material are ordered by when they started, so their timestamps must
+      // not land in the same millisecond.
+      clock: distinctClock(),
       prisma: database.prisma,
       provider,
       projects: { free: "public-project", membership: "member-project" },

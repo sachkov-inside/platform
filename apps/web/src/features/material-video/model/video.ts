@@ -62,6 +62,22 @@ export function resolveInitialVideoAuthoring(input: {
     : { phase: "processing", recoveredVideoId: recovered.videoId, video: recovered };
 }
 
+/**
+ * The browser draft answers the same question the server answered when the Material was loaded,
+ * for a choice the author has made but not saved yet.
+ */
+export function retainUnselectedUpload(input: {
+  readonly deleteVideoId: string | null;
+  readonly primaryVideoId: string | null;
+  readonly unselectedUpload: MaterialAuthoringVideo | null;
+}): MaterialAuthoringVideo | null {
+  if (input.unselectedUpload === null) return null;
+  return input.unselectedUpload.videoId === input.primaryVideoId ||
+    input.unselectedUpload.videoId === input.deleteVideoId
+    ? null
+    : input.unselectedUpload;
+}
+
 export function phaseForVideo(
   video: MaterialAuthoringVideo | null,
 ): MaterialVideoAuthoringPhase {

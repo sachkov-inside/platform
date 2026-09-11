@@ -13,6 +13,7 @@ import {
   type MaterialDraftField,
 } from "@/widgets/material-authoring/editor";
 import { deleteMaterialDraft } from "@/features/material-lifecycle";
+import { retainUnselectedUpload } from "@/features/material-video";
 import {
   flushPendingEdits,
   useAutosave,
@@ -313,19 +314,17 @@ export function MaterialAuthoringPageClient({
         draftRef.current.primaryVideo?.videoId === deleteVideoId
           ? draftRef.current.primaryVideo
           : draftRef.current.latestVideoDeletion;
-      const unselectedUpload = draftRef.current.unselectedVideoUpload;
       markDirty({
         ...draftRef.current,
         deleteVideoId,
         latestVideoDeletion: deletionCandidate,
         primaryVideo,
         primaryVideoId: primaryVideo?.videoId ?? null,
-        unselectedVideoUpload:
-          unselectedUpload === null ||
-          unselectedUpload.videoId === primaryVideo?.videoId ||
-          unselectedUpload.videoId === deleteVideoId
-            ? null
-            : unselectedUpload,
+        unselectedVideoUpload: retainUnselectedUpload({
+          deleteVideoId,
+          primaryVideoId: primaryVideo?.videoId ?? null,
+          unselectedUpload: draftRef.current.unselectedVideoUpload,
+        }),
       });
     },
     onRetry: () => {

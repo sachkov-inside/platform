@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   phaseForReconciledVideo,
   resolveInitialVideoAuthoring,
+  retainUnselectedUpload,
   type MaterialAuthoringVideo,
 } from "@/features/material-video/model/video";
 
@@ -71,6 +72,31 @@ describe("Interrupted upload recovery", () => {
   it("hands a recovered upload back to the Material once it is ready", () => {
     const video = uploadedVideo("ready");
     expect(phaseForReconciledVideo(video, video.videoId)).toBe("ready");
+  });
+
+  it("stops carrying an adopted upload the author has now selected or deleted", () => {
+    const upload = uploadedVideo("processing");
+    expect(
+      retainUnselectedUpload({
+        deleteVideoId: null,
+        primaryVideoId: upload.videoId,
+        unselectedUpload: upload,
+      }),
+    ).toBeNull();
+    expect(
+      retainUnselectedUpload({
+        deleteVideoId: upload.videoId,
+        primaryVideoId: null,
+        unselectedUpload: upload,
+      }),
+    ).toBeNull();
+    expect(
+      retainUnselectedUpload({
+        deleteVideoId: null,
+        primaryVideoId: otherVideo.videoId,
+        unselectedUpload: upload,
+      }),
+    ).toEqual(upload);
   });
 
   it("does not offer a generic retry for an adopted upload the provider failed", () => {
