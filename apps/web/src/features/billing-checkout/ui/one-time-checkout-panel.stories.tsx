@@ -1,24 +1,28 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, within } from "storybook/test";
 
+import { offerCompositionLabel } from "@/entities/subscription";
 import {
   confirmedGuidePurchase,
   guideOnlyOffer,
   guideQuote,
+  guideWithSupportOffer,
   legalDocuments,
   verifiedContact,
 } from "@/workshop/billing.fixtures";
 
 import { OneTimeCheckoutPanel } from "./one-time-checkout-panel.client";
 
+// Состав читается настоящим кодом: иначе история подтверждала бы свою же строку.
 const inclusions = [
-  { caption: "Доступ", title: "Навсегда", detail: "без подписки" },
+  { kind: "term", caption: "Доступ", title: "Навсегда", detail: "без подписки" },
   {
+    kind: "composition",
     caption: "Состав",
-    title: "Руководство с сопровождением",
-    detail: "Руководство «Создание Platform Inside»",
+    title: offerCompositionLabel(guideWithSupportOffer.offer),
+    detail: guideWithSupportOffer.offer.name,
   },
-];
+] as const;
 
 const meta = {
   title: "Pages/Guide/Payment",

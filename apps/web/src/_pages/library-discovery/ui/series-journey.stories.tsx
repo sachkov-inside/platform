@@ -4,6 +4,7 @@ import { expect, userEvent, within } from "storybook/test";
 import { MaterialReadingContext, type MaterialPreview } from "@/entities/material";
 import type { PublishedSeriesResult } from "@/features/library-discovery";
 import { ApplicationShell, type ApplicationNavigationItem } from "@/widgets/application-shell";
+import { guideOnlyOffer } from "@/workshop/billing.fixtures";
 import { GuideProgrammeView } from "./guide-programme-view.client";
 
 const navigation = [{ href: "/", icon: "home", label: "Главная" }, { href: "/library", icon: "library", label: "База знаний" }] satisfies readonly ApplicationNavigationItem[];
@@ -69,7 +70,7 @@ export const Guest: Story = {
   },
 };
 export const LockedSeriesOffersSubscription: Story = {
-  args: { result: lockedResult, learning: { kind: "guest" } },
+  args: { result: lockedResult, learning: { kind: "guest" }, subscriptionOffered: true },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     // Контекст руководства сохраняется в ссылке, иначе после входа покупатель теряет место.
@@ -77,6 +78,47 @@ export const LockedSeriesOffersSubscription: Story = {
       "href",
       "/subscription?from=%2Fguides%2Fplatform-inside",
     );
+  },
+};
+export const LockedSeriesInvitesPayment: Story = {
+  args: { result: lockedResult, learning: { kind: "guest" }, guideOffer: guideOnlyOffer },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    // Приглашение, а не цена: сумму и состав показывает страница оплаты.
+    await expect(canvas.getByRole("link", { name: "Оплатить сейчас" })).toHaveAttribute(
+      "href",
+      "/guides/platform-inside/buy",
+    );
+    await expect(canvas.queryByText(/2\s?500/u)).not.toBeInTheDocument();
+    await expect(canvas.queryByRole("link", { name: "Посмотреть тарифы" })).not.toBeInTheDocument();
+  },
+};
+export const PaymentInviteMobile: Story = {
+  args: { result: lockedResult, learning: { kind: "guest" }, guideOffer: guideOnlyOffer },
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).getByRole("link", { name: "Оплатить сейчас" }),
+    ).toBeVisible();
+  },
+};
+export const SubscriptionNotForSaleHidesInvite: Story = {
+  args: { result: lockedResult, learning: { kind: "guest" }, subscriptionOffered: false },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    // Выключенную продажу нельзя предлагать: без своей цены программа молчит про оплату.
+    await expect(canvas.queryByRole("link", { name: "Посмотреть тарифы" })).not.toBeInTheDocument();
+    await expect(canvas.queryByRole("link", { name: "Оплатить сейчас" })).not.toBeInTheDocument();
+    await expect(canvas.getByRole("link", { name: "Модель предметной области" })).toBeVisible();
+  },
+};
+export const OpenSeriesHidesPayment: Story = {
+  args: { guideOffer: guideOnlyOffer },
+  play: async ({ canvasElement }) => {
+    // Право уже открыто: предлагать покупку нечего, даже когда цена заведена.
+    await expect(
+      within(canvasElement).queryByRole("link", { name: "Оплатить сейчас" }),
+    ).not.toBeInTheDocument();
   },
 };
 export const OpenSeriesHidesSubscription: Story = {

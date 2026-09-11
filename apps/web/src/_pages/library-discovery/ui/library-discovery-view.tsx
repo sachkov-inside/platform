@@ -1,12 +1,10 @@
 import {
   ArrowLeft,
   LibraryBig,
-  ListVideo,
   RefreshCw,
   SearchX,
   ShieldAlert,
   Tags,
-  type LucideIcon,
 } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
@@ -18,7 +16,6 @@ import type {
 } from "@/features/library-discovery";
 import {
   ContentCoverImage,
-  materialPreviewHasVideo,
 } from "@/entities/material";
 import { PlaylistCard, formatMaterialCount } from "@/features/library-discovery";
 import { cn } from "@/shared/lib/utils";
@@ -38,12 +35,16 @@ type ResolvedDiscoveryResult = Exclude<
   PublishedSeriesResult | PublishedTopicResult,
   { readonly kind: "not-found" | "unavailable" }
 >;
+type PublishedTopicResultResolved = Exclude<
+  PublishedTopicResult,
+  { readonly kind: "not-found" | "unavailable" }
+>;
 
 /**
- * Страница продукта руководства и страница темы. У руководства она рассказывает: обложка,
- * авторские ответы на четыре вопроса, программа обзором и артефакты как обещание результата.
- * Сами материалы, их состояния доступа и цена живут на странице программы, поэтому отсюда
- * ведёт одно действие — «Открыть программу».
+ * Развилка двух разных страниц. Руководство уходит на свою страницу продукта: она рассказывает —
+ * обложка, авторские ответы на четыре вопроса, программа обзором и артефакты как обещание
+ * результата, — а материалы, состояния доступа и приглашение к оплате живут в программе.
+ * Тема остаётся прежней страницей со своим заголовком и списком материалов.
  */
 export function LibraryDiscoveryView({
   artifacts = { kind: "ready", artifacts: [] },
@@ -54,15 +55,8 @@ export function LibraryDiscoveryView({
   readonly result: ResolvedDiscoveryResult;
   readonly returnTarget?: MaterialReaderReturnTarget;
 }) {
-  const isSeries = result.discoveryKind === "series";
-  const Icon = isSeries ? ListVideo : Tags;
-  const currentHref = collectionDiscoveryHref(
-    result.discoveryKind,
-    result.reference.slug,
-    returnTarget.href,
-  );
-  const entry = freeEntryHref(result);
-  if (isSeries) {
+  if (result.discoveryKind === "series") {
+    const entry = freeEntryHref(result);
     return (
       <GuideProductView
         artifacts={artifacts}
@@ -71,10 +65,15 @@ export function LibraryDiscoveryView({
       />
     );
   }
+  const currentHref = collectionDiscoveryHref(
+    result.discoveryKind,
+    result.reference.slug,
+    returnTarget.href,
+  );
 
   return (
     <div
-      className={cn("@container/discovery min-w-0", isSeries && "mx-auto w-full max-w-[65rem]")}
+      className="@container/discovery min-w-0"
       data-discovery-kind={result.discoveryKind}
       data-discovery-state={result.kind}
     >
@@ -83,7 +82,7 @@ export function LibraryDiscoveryView({
         name={result.reference.name}
         returnTarget={returnTarget}
       />
-      <DiscoveryHero Icon={Icon} isSeries={isSeries} result={result} />
+      <DiscoveryHero result={result} />
 
       {result.kind === "empty" ? (
         <DiscoveryEmpty kind={result.discoveryKind} />
@@ -94,98 +93,40 @@ export function LibraryDiscoveryView({
   );
 }
 
-function DiscoveryHero({
-  Icon,
-  isSeries,
-  result,
-}: {
-  readonly Icon: LucideIcon;
-  readonly isSeries: boolean;
-  readonly result: ResolvedDiscoveryResult;
-}) {
+/** Заголовок темы: руководство сюда не попадает — у него своя страница продукта. */
+function DiscoveryHero({ result }: { readonly result: PublishedTopicResultResolved }) {
   return (
     <header
       className={cn(
         "mt-5 overflow-hidden rounded-[2rem] p-6 md:p-10",
-        isSeries
-          ? "bg-primary text-white"
-          : cn(discoveryToneClass(result.reference.slug), "text-foreground"),
+        discoveryToneClass(result.reference.slug),
+        "text-foreground",
       )}
     >
       <div className="flex flex-col justify-between gap-6 md:flex-row md:items-center">
         <div className="min-w-0">
-          <p
-            className={cn(
-              "text-xs font-bold uppercase tracking-[0.14em]",
-              isSeries ? "text-white/65" : "text-body-muted",
-            )}
-          >
-            {isSeries ? (
-              <>
-                Руководство ·{" "}
-                {formatMaterialCount(
-                  result.kind === "ready" ? result.items.length : 0,
-                )}
-              </>
-            ) : (
-              "Тема"
-            )}
-          </p>
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-body-muted">Тема</p>
           <h1 className="mt-3 max-w-3xl break-words text-[1.75rem] font-semibold leading-[1.15] tracking-[-0.035em] md:text-4xl">
             {result.reference.name}
           </h1>
           {result.reference.summary ? (
-            <p
-              className={cn(
-                "mt-4 max-w-2xl text-base leading-7 md:text-lg",
-                isSeries ? "text-white/65" : "text-body-muted",
-              )}
-            >
+            <p className="mt-4 max-w-2xl text-base leading-7 text-body-muted md:text-lg">
               {result.reference.summary}
             </p>
           ) : null}
         </div>
-        {isSeries && result.kind === "ready" ? (
-          <div className="grid w-full max-w-xl shrink-0 grid-cols-3 gap-2 md:w-[18rem]">
-            {result.items.slice(0, 3).map((material, index) => {
-              const collectionCover = index === 0
-                ? result.reference.cover ?? null
-                : null;
-              return (
-                <ContentCoverImage
-                  alt=""
-                  className="aspect-[4/3] min-h-0 rounded-2xl"
-                  cover={collectionCover ?? material.cover ?? null}
-                  fallbackKind={
-                    collectionCover !== null
-                      ? "playlist"
-                      : materialPreviewHasVideo(material)
-                      ? "video"
-                      : "material"
-                  }
-                  fallbackSeed={
-                    collectionCover === null
-                      ? material.slug
-                      : result.reference.slug
-                  }
-                  key={material.slug}
-                  sizes="10rem"
-                />
-              );
-            })}
-          </div>
-        ) : result.reference.cover !== null && result.reference.cover !== undefined ? (
+        {result.reference.cover !== null && result.reference.cover !== undefined ? (
           <ContentCoverImage
             alt=""
             className="size-24 shrink-0 rotate-[-5deg] rounded-[1.6rem] shadow-xl md:size-32"
             cover={result.reference.cover}
-            fallbackKind={isSeries ? "playlist" : "topic"}
+            fallbackKind="topic"
             fallbackSeed={result.reference.slug}
             sizes="8rem"
           />
         ) : (
           <span className="grid size-24 shrink-0 rotate-[-5deg] place-items-center rounded-[1.6rem] border border-white/45 bg-white/75 text-foreground shadow-xl backdrop-blur-sm md:size-32">
-            <Icon aria-hidden="true" className="size-12 md:size-16" strokeWidth={1.6} />
+            <Tags aria-hidden="true" className="size-12 md:size-16" strokeWidth={1.6} />
           </span>
         )}
       </div>

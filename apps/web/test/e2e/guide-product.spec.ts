@@ -4,13 +4,14 @@ import { expect, test } from "@playwright/test";
 const product = "/guides/platform-inside";
 const programme = `${product}/programme`;
 
-test("страница продукта отвечает и ведёт в программу", async ({ page }) => {
+test("страница продукта отвечает и не продаёт", async ({ page }) => {
   const response = await page.goto(product);
 
   expect(response?.status()).toBe(200);
-  // Каталог недоступен в этом окружении, поэтому страница честно сообщает об этом,
-  // а не показывает пустое руководство.
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  // Продажа целиком уехала в программу: со страницы продукта купить нельзя.
+  await expect(page.getByRole("link", { name: /Оплатить сейчас/u })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /Купить за/u })).toHaveCount(0);
 });
 
 test("программа отвечает по обоим адресам руководства", async ({ page }) => {

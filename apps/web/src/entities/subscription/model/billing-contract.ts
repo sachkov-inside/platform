@@ -266,14 +266,12 @@ export function publicSubscriptionOffers(
 }
 
 /**
- * Все разовые предложения руководства, от дешёвого к дорогому. Их может быть несколько:
- * например, руководство отдельно и руководство с сопровождением.
- */
-/**
- * Одно разовое предложение конкретного руководства. Руководство продаётся, только когда владелец
- * завёл ему цену, поэтому отсутствие предложения — это «не продаётся», а не ошибка. Подходящее
- * предложение обычно одно; при совпадении берётся самое дешёвое, а равные цены разводит
- * стабильный идентификатор, чтобы выбор не зависел от порядка ответа.
+ * Предложения одного руководства, от дешёвого к дорогому: например, руководство отдельно и
+ * руководство с сопровождением. Способ оплаты здесь не проверяется — что именно продаётся,
+ * решает запрос к каталогу, — поэтому подписка на руководство встанет сюда без правки отбора.
+ * Руководство продаётся, только когда владелец завёл ему цену, поэтому пустой список — это
+ * «не продаётся», а не ошибка. Равные цены разводит стабильный идентификатор, чтобы порядок
+ * не зависел от ответа сервера.
  */
 export function guidePurchaseOffers(
   offers: readonly PriceSnapshot[],
@@ -285,7 +283,6 @@ export function guidePurchaseOffers(
       (snapshot) =>
         !snapshot.offer.archived &&
         !snapshot.paymentOption.archived &&
-        paymentMode(snapshot) === "one_time" &&
         snapshot.offer.benefits.includes(capability),
     )
     .sort(
@@ -295,24 +292,4 @@ export function guidePurchaseOffers(
     );
 }
 
-export function guidePurchaseOffer(
-  offers: readonly PriceSnapshot[],
-  guideId: string,
-): PriceSnapshot | null {
-  const capability = guideCapability(guideId);
-  const matching = offers.filter(
-    (snapshot) =>
-      !snapshot.offer.archived &&
-      !snapshot.paymentOption.archived &&
-      paymentMode(snapshot) === "one_time" &&
-      snapshot.offer.benefits.includes(capability),
-  );
-  return (
-    [...matching].sort(
-      (left, right) =>
-        left.firstPriceKopecks - right.firstPriceKopecks ||
-        left.paymentOption.id.localeCompare(right.paymentOption.id),
-    )[0] ?? null
-  );
-}
 export type VerifiedContact = z.infer<typeof verifiedContactSchema>;

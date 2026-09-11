@@ -131,11 +131,13 @@ function inclusionsOf(snapshot: PriceSnapshot): readonly CheckoutInclusion[] {
   });
   return [
     {
+      kind: "term",
       caption: "Доступ",
       title: perpetual ? "Навсегда" : "На срок предложения",
       detail: "без подписки",
     },
     {
+      kind: "composition",
       caption: "Состав",
       title: offerCompositionLabel(snapshot.offer),
       detail: snapshot.offer.name,

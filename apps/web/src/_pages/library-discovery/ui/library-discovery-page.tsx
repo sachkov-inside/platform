@@ -1,7 +1,8 @@
 import { PersonalSeries } from "./personal-series.server";
 import { notFound } from "next/navigation";
 
-import { loadGuideOffers } from "@/entities/subscription.server";
+import { loadBillingOffers } from "@/entities/subscription.server";
+import { guidePurchaseOffers, paymentMode } from "@/entities/subscription";
 
 import type {
   PublishedSeriesResult,
@@ -61,8 +62,8 @@ export async function PublishedSeriesPage({
 }
 
 /**
- * Программа руководства: материалы по главам и цена сверху. Прогресс читателя принадлежит ей,
- * поэтому именно здесь он и запрашивается.
+ * Программа руководства: материалы по главам и приглашение к оплате сверху. Прогресс читателя
+ * принадлежит ей, поэтому именно здесь он и запрашивается.
  */
 export async function GuideProgrammePage({
   accessToken,
@@ -79,18 +80,27 @@ export async function GuideProgrammePage({
     return <LibraryDiscoveryUnavailable kind="series" slug={slug} />;
   }
   const guideId = result.reference.id;
-  // Руководство продаётся, только когда владелец завёл ему цену: её отсутствие — обычное состояние.
+  // Публичный каталог отдаёт только включённое в продажу, поэтому один запрос отвечает сразу на
+  // два вопроса программы: продаётся ли это руководство и предлагается ли вообще подписка.
   const [artifacts, catalog] = await Promise.all([
     guideId === undefined
       ? Promise.resolve<ReaderGuideArtifactsResult>({ artifacts: [], kind: "ready" })
       : readReaderGuideArtifacts(guideId, accessToken),
-    guideId === undefined ? Promise.resolve(undefined) : loadGuideOffers(guideId),
+    loadBillingOffers(),
   ]);
+  const forSale = catalog.kind === "ready" ? catalog.offers : [];
+  // Программе хватает самого дешёвого варианта: он решает, приглашать ли к оплате.
+  // Выбор между вариантами живёт на странице оплаты, где их видно составом и ценой.
+  const programmeOffer =
+    guideId === undefined ? null : guidePurchaseOffers(forSale, guideId)[0] ?? null;
   return (
     <PersonalSeries
       artifacts={artifacts}
-      guideOffer={catalog?.kind === "ready" ? catalog.offers[0] ?? null : null}
+      guideOffer={programmeOffer}
       result={result}
+      subscriptionOffered={forSale.some(
+        (snapshot) => paymentMode(snapshot) === "subscription",
+      )}
       {...(accessToken === undefined ? {} : { accessToken })}
     />
   );

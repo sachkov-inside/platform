@@ -36,7 +36,12 @@ export interface CheckoutFlowProps {
   readonly inclusions?: readonly CheckoutInclusion[];
 }
 
+/**
+ * Одна строка состава покупки. `kind` называет, о чём она, — срок или содержимое, — и по нему
+ * панель выбирает значок. Разбирать для этого подпись было бы гаданием по тексту.
+ */
 export interface CheckoutInclusion {
+  readonly kind: "term" | "composition";
   readonly caption: string;
   readonly detail: string;
   readonly title: string;

@@ -7,8 +7,8 @@ import {
   formatKopecks,
   type PriceSnapshot,
 } from "@/entities/subscription";
-import { internalRoute } from "@/shared/routing/internal-route";
-import { guidePurchaseHref } from "@/shared/routing/subscription-route";
+
+import { guideProgrammeHref, guidePurchaseHref } from "@/shared/routing/subscription-route";
 import { Button } from "@/shared/ui/button";
 
 /** Кто смотрит страницу оплаты: это решает, показывать оформление или приглашение войти. */
@@ -40,9 +40,7 @@ export function GuidePurchaseView({
   notice,
   children,
 }: GuidePurchaseViewProps) {
-  const programmeHref = internalRoute(
-    `/guides/${encodeURIComponent(slug)}/programme`,
-  );
+  const programmeHref = guideProgrammeHref(slug);
 
   return (
     <div className="mx-auto w-full min-w-0 max-w-[38rem]">

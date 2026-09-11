@@ -105,7 +105,7 @@ export function OneTimeCheckoutPanel({
                 aria-hidden="true"
                 className="grid size-10 place-items-center rounded-xl bg-background text-foreground"
               >
-                {inclusion.caption === "Доступ" ? (
+                {inclusion.kind === "term" ? (
                   <InfinityIcon className="size-5" />
                 ) : (
                   <Play className="size-5" />

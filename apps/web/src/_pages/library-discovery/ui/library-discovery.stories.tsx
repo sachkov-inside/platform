@@ -1,3 +1,4 @@
+import type { ComponentProps } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
 
@@ -15,6 +16,19 @@ import {
   LibraryDiscoveryUnavailable,
   LibraryDiscoveryView,
 } from "./library-discovery-view";
+
+/**
+ * Истории программы живут под общим meta страницы открытия, поэтому её результат сужается здесь
+ * один раз — настоящей проверкой, а не приведением типа.
+ */
+function programmeResult(
+  result: ComponentProps<typeof LibraryDiscoveryView>["result"],
+): ComponentProps<typeof GuideProgrammeView>["result"] {
+  if (result.discoveryKind !== "series") {
+    throw new Error("Истории программы строятся на результате руководства");
+  }
+  return result;
+}
 
 const navigationItems = [
   { href: "/", icon: "home", label: "Главная" },
@@ -191,7 +205,7 @@ export const TopicLongTitle: Story = {
 
 export const SeriesDesktop: Story = {
   args: { result: seriesResult },
-  render: (storyArgs) => <GuideProgrammeView learning={{ kind: "guest" }} result={storyArgs.result as never} />,
+  render: (storyArgs) => <GuideProgrammeView learning={{ kind: "guest" }} result={programmeResult(storyArgs.result)} />,
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   name: "Series · ordered desktop",
   play: async ({ canvasElement }) => {
@@ -322,7 +336,7 @@ if (overviewVideo === undefined || dockerVideo === undefined) throw new Error("M
 
 export const ConnectedStepsDesktop: Story = {
   args: { result: connectedStepsResult },
-  render: (storyArgs) => <GuideProgrammeView learning={{ kind: "guest" }} result={storyArgs.result as never} />,
+  render: (storyArgs) => <GuideProgrammeView learning={{ kind: "guest" }} result={programmeResult(storyArgs.result)} />,
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -369,7 +383,7 @@ export const ConnectedStepsMobile: Story = {
 const literalSummary = '<img src=x onerror="alert(1)"> Команда остаётся текстом.';
 export const VideoSummaryIsPlainText: Story = {
   args: { result: { ...connectedStepsResult, items: [{ ...overviewVideo, summary: literalSummary }] } },
-  render: (storyArgs) => <GuideProgrammeView learning={{ kind: "guest" }} result={storyArgs.result as never} />,
+  render: (storyArgs) => <GuideProgrammeView learning={{ kind: "guest" }} result={programmeResult(storyArgs.result)} />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByText(literalSummary)).toBeVisible();

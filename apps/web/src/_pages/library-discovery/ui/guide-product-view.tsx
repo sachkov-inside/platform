@@ -13,13 +13,15 @@ import { cn } from "@/shared/lib/utils";
 import { guideProgrammeHref } from "@/shared/routing/subscription-route";
 import { Button } from "@/shared/ui/button";
 
+import { formatArtifactCount, formatChapterCount } from "./guide-counts";
+
 type ResolvedSeriesResult = Extract<PublishedSeriesResult, { kind: "ready" | "empty" }>;
 
 /**
  * Страница продукта руководства: она отвечает, о чём это, кому, что получится и что остаётся за
  * границами. Материалы, состояния доступа и приглашение к оплате живут на странице программы,
- * поэтому отсюда ведёт одно действие — «Открыть программу». Ненаписанное поле не показывается, поэтому частично
- * готовое руководство не выглядит завершённым.
+ * поэтому отсюда ведёт одно действие — «Открыть программу». Ненаписанное поле не показывается,
+ * поэтому частично готовое руководство не выглядит завершённым.
  */
 export function GuideProductView({
   artifacts = { kind: "ready", artifacts: [] },
@@ -28,7 +30,7 @@ export function GuideProductView({
 }: {
   readonly artifacts?: ReaderGuideArtifactsResult;
   readonly result: ResolvedSeriesResult;
-  /** Первый открытый материал: бесплатный вход из обложки. */
+  /** Бесплатный вход из обложки. Он ведёт в программу: там читатель сразу видит открытые уроки. */
   readonly freeEntryHref?: Route;
 }) {
   const { reference } = result;
@@ -38,8 +40,8 @@ export function GuideProductView({
   const guideArtifacts = artifacts.kind === "ready" ? artifacts.artifacts : [];
   const meta = [
     formatMaterialCount(items.length),
-    chapters.length === 0 ? undefined : `${String(chapters.length)} ${chapterWord(chapters.length)}`,
-    guideArtifacts.length === 0 ? undefined : `${String(guideArtifacts.length)} ${artifactWord(guideArtifacts.length)}`,
+    chapters.length === 0 ? undefined : formatChapterCount(chapters.length),
+    guideArtifacts.length === 0 ? undefined : formatArtifactCount(guideArtifacts.length),
   ].filter((value): value is string => value !== undefined);
 
   return (
@@ -139,15 +141,10 @@ export function GuideProductView({
         )}
 
         {introduction === null || introduction.prerequisites === "" ? null : (
-          <Section title="Как это работает">
-            <div className="rounded-2xl bg-muted p-5">
-              <p className="flex items-center gap-2 font-semibold">
-                <Check aria-hidden="true" className="size-5 shrink-0 text-accent" />
-                Что понадобится
-              </p>
-              <div className="mt-3">
-                <Prose value={introduction.prerequisites} />
-              </div>
+          <Section title="Что понадобится">
+            <div className="grid grid-cols-[1.25rem_minmax(0,1fr)] gap-3 rounded-2xl bg-muted p-5">
+              <Check aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-accent" />
+              <Prose value={introduction.prerequisites} />
             </div>
           </Section>
         )}
@@ -239,20 +236,3 @@ function chapterTone(index: number): string {
   return `${chapterTones[index % chapterTones.length] ?? "bg-secondary"} text-foreground`;
 }
 
-function chapterWord(count: number): string {
-  const tail = count % 100;
-  const last = count % 10;
-  if (tail > 10 && tail < 20) return "глав";
-  if (last === 1) return "глава";
-  if (last > 1 && last < 5) return "главы";
-  return "глав";
-}
-
-function artifactWord(count: number): string {
-  const tail = count % 100;
-  const last = count % 10;
-  if (tail > 10 && tail < 20) return "артефактов";
-  if (last === 1) return "артефакт";
-  if (last > 1 && last < 5) return "артефакта";
-  return "артефактов";
-}

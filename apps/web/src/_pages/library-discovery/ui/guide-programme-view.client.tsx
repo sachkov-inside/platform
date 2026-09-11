@@ -6,10 +6,10 @@ import { billingActionClass, type PriceSnapshot } from "@/entities/subscription"
 import type { ReaderGuideArtifactsResult } from "@/features/guide-artifacts.reader";
 import { formatMaterialCount, type PublishedSeriesResult } from "@/features/library-discovery";
 import { collectionDiscoveryHref } from "@/shared/routing/material-reader";
-import { internalRoute } from "@/shared/routing/internal-route";
-import { guidePurchaseHref, subscriptionHrefFrom } from "@/shared/routing/subscription-route";
+import { guideProductHref, guideProgrammeHref, guidePurchaseHref, subscriptionHrefFrom } from "@/shared/routing/subscription-route";
 import { Button } from "@/shared/ui/button";
 
+import { formatChapterCount } from "./guide-counts";
 import { SeriesJourney, type SeriesLearningView } from "./series-journey.client";
 
 type ResolvedSeriesResult = Extract<PublishedSeriesResult, { kind: "ready" | "empty" }>;
@@ -23,23 +23,24 @@ export function GuideProgrammeView({
   result,
   learning,
   guideOffer = null,
+  subscriptionOffered = false,
 }: {
   readonly artifacts?: ReaderGuideArtifactsResult;
   readonly result: ResolvedSeriesResult;
   readonly learning?: SeriesLearningView;
-  /** Разовая цена этого руководства, когда владелец её завёл. */
+  /** Цена этого руководства, когда владелец её завёл и включил в продажу. */
   readonly guideOffer?: PriceSnapshot | null;
+  /** Продаётся ли вообще подписка: выключенную звать нельзя, даже когда своей цены нет. */
+  readonly subscriptionOffered?: boolean;
 }) {
   const slug = result.reference.slug;
-  const currentHref = internalRoute(`/guides/${encodeURIComponent(slug)}/programme`);
-  const productHref = internalRoute(`/guides/${encodeURIComponent(slug)}`);
+  const currentHref = guideProgrammeHref(slug);
+  const productHref = guideProductHref(slug);
   const items = result.kind === "ready" ? result.items : [];
   const locked = items.some((item) => item.availability === "locked");
   const free = items.find((item) => item.availability === "available");
   const meta = [
-    result.chapters.length === 0
-      ? undefined
-      : `${String(result.chapters.length)} ${chapterWord(result.chapters.length)}`,
+    result.chapters.length === 0 ? undefined : formatChapterCount(result.chapters.length),
     formatMaterialCount(items.length),
     free === undefined ? undefined : "первый открыт",
   ].filter((value): value is string => value !== undefined);
@@ -61,7 +62,13 @@ export function GuideProgrammeView({
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
         <p className="min-w-0 text-sm text-muted-foreground">{meta.join(" · ")}</p>
-        {locked ? <ProgrammePurchase offer={guideOffer} slug={slug} /> : null}
+        {locked ? (
+          <ProgrammePurchase
+            offer={guideOffer}
+            slug={slug}
+            subscriptionOffered={subscriptionOffered}
+          />
+        ) : null}
       </div>
 
       <SeriesJourney
@@ -74,28 +81,24 @@ export function GuideProgrammeView({
   );
 }
 
-function chapterWord(count: number): string {
-  const tail = count % 100;
-  const last = count % 10;
-  if (tail > 10 && tail < 20) return "глав";
-  if (last === 1) return "глава";
-  if (last > 1 && last < 5) return "главы";
-  return "глав";
-}
 
 /**
  * Единственное действие продажи в программе. Цену и состав покупки показывает страница оплаты,
  * поэтому здесь только приглашение — читатель сначала видит бесплатные уроки и замки.
- * Без заведённой цены остаётся прежний путь: подписка.
+ * Без заведённой цены остаётся прежний путь, подписка, — но только пока она продаётся:
+ * выключенную продажу нельзя предлагать ни отсюда, ни откуда-либо ещё.
  */
 function ProgrammePurchase({
   offer,
   slug,
+  subscriptionOffered,
 }: {
   readonly offer: PriceSnapshot | null;
   readonly slug: string;
+  readonly subscriptionOffered: boolean;
 }) {
   if (offer === null) {
+    if (!subscriptionOffered) return null;
     return (
       <Button asChild className={billingActionClass} variant="outline">
         <Link href={subscriptionHrefFrom(collectionDiscoveryHref("series", slug, undefined))}>

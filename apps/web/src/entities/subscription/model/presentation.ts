@@ -152,16 +152,25 @@ export function paymentSubjectLabel(payment: {
  * а не просто руководством: покупатель должен видеть, за что платит.
  */
 export function offerCompositionLabel(offer: BillingOffer): string {
-  const guide = offer.benefits.some(isGuideCapability);
-  const parts: string[] = [];
-  if (guide) parts.push("Руководство");
-  if (offer.benefits.includes("materials")) parts.push("все материалы");
-  if (offer.benefits.includes("support")) parts.push("сопровождение");
-  if (offer.benefits.includes("community")) parts.push("общий чат");
-  if (parts.length === 0) return offer.name;
-  if (parts.length === 1) return parts[0] ?? offer.name;
+  // Каждая часть названа дважды: сама по себе и после «с». Русский требует творительного падежа,
+  // а склеивать его из именительного нечем — поэтому обе формы написаны, а не выведены.
+  const parts: { readonly alone: string; readonly after: string }[] = [];
+  if (offer.benefits.some(isGuideCapability)) {
+    parts.push({ alone: "Руководство", after: "руководством" });
+  }
+  if (offer.benefits.includes("materials")) {
+    parts.push({ alone: "Все материалы", after: "всеми материалами" });
+  }
+  if (offer.benefits.includes("support")) {
+    parts.push({ alone: "Сопровождение", after: "сопровождением" });
+  }
+  if (offer.benefits.includes("community")) {
+    parts.push({ alone: "Общий чат", after: "общим чатом" });
+  }
   const [first, ...rest] = parts;
-  return `${first ?? ""} с ${rest.join(" и ")}`;
+  if (first === undefined) return offer.name;
+  if (rest.length === 0) return first.alone;
+  return `${first.alone} с ${rest.map((part) => part.after).join(" и ")}`;
 }
 
 /** Банковское состояние попытки отделено от готовности доступа. */

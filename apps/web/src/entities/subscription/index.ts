@@ -9,7 +9,6 @@ export {
   ownPaymentSchema,
   noticeViewSchema,
   guideCapability,
-  guidePurchaseOffer,
   guidePurchaseOffers,
   isGuideCapability,
   offerSchema,
