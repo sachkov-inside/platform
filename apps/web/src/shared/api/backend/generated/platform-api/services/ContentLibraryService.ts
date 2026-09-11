@@ -20,6 +20,7 @@ export class ContentLibraryService {
       id: string;
       materialIds: Array<string>;
       name: string;
+      summary: string;
     }>;
     hasNext: boolean;
     items: Array<{
@@ -719,6 +720,7 @@ export class ContentLibraryService {
       id: string;
       materialIds: Array<string>;
       name: string;
+      summary: string;
     }>;
     hasNext: boolean;
     items: Array<{
@@ -841,6 +843,7 @@ export class ContentLibraryService {
       id: string;
       materialIds: Array<string>;
       name: string;
+      summary: string;
     }>;
     hasNext: boolean;
     items: Array<{
@@ -962,6 +965,7 @@ export class ContentLibraryService {
       id: string;
       materialIds: Array<string>;
       name: string;
+      summary: string;
     }>;
     hasNext: boolean;
     items: Array<{

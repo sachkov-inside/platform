@@ -20,28 +20,25 @@ import {
   ContentCoverImage,
   materialPreviewHasVideo,
 } from "@/entities/material";
-import {
-  billingActionClass,
-  formatKopecks,
-  type PriceSnapshot,
-} from "@/entities/subscription";
 import { PlaylistCard, formatMaterialCount } from "@/features/library-discovery";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { PublicSectionHeading } from "@/shared/ui/public-section-heading";
-import {
-  guidePurchaseHref,
-  subscriptionHrefFrom,
-} from "@/shared/routing/subscription-route";
+import { guideProgrammeHref } from "@/shared/routing/subscription-route";
 import {
   collectionDiscoveryHref,
   libraryMaterialReaderReturnTarget,
-  materialReaderOriginHref,
+  materialReaderHref,
   type MaterialReaderReturnTarget,
 } from "@/shared/routing/material-reader";
 import type { ReaderGuideArtifactsResult } from "@/features/guide-artifacts.reader";
 import { GuideIntroductionSection } from "./guide-introduction";
-import { SeriesJourney, type SeriesLearningView } from "./series-journey.client";
+import {
+  GuideArtifactsPromise,
+  GuideChaptersOverview,
+  GuideFreeEntry,
+  GuideProgrammeBar,
+} from "./guide-product-sections";
 import { TopicMaterialCatalog } from "./topic-material-catalog.client";
 
 type ResolvedDiscoveryResult = Exclude<
@@ -49,21 +46,20 @@ type ResolvedDiscoveryResult = Exclude<
   { readonly kind: "not-found" | "unavailable" }
 >;
 
+/**
+ * Страница продукта руководства и страница темы. У руководства она рассказывает: обложка,
+ * авторские ответы на четыре вопроса, программа обзором и артефакты как обещание результата.
+ * Сами материалы, их состояния доступа и цена живут на странице программы, поэтому отсюда
+ * ведёт одно действие — «Открыть программу».
+ */
 export function LibraryDiscoveryView({
-  artifacts,
+  artifacts = { kind: "ready", artifacts: [] },
   result,
   returnTarget = libraryMaterialReaderReturnTarget,
-  learning,
-  guideOffer = null,
-  onRetry,
 }: {
   readonly artifacts?: ReaderGuideArtifactsResult;
   readonly result: ResolvedDiscoveryResult;
   readonly returnTarget?: MaterialReaderReturnTarget;
-  readonly learning?: SeriesLearningView;
-  /** Разовая цена этого руководства, когда владелец её завёл. */
-  readonly guideOffer?: PriceSnapshot | null;
-  readonly onRetry?: (() => void) | undefined;
 }) {
   const isSeries = result.discoveryKind === "series";
   const introduction = result.reference.introduction ?? null;
@@ -73,6 +69,8 @@ export function LibraryDiscoveryView({
     result.reference.slug,
     returnTarget.href,
   );
+  const items = result.kind === "ready" ? result.items : [];
+  const free = isSeries ? items.find((item) => item.availability === "available") : undefined;
 
   return (
     <div
@@ -85,13 +83,20 @@ export function LibraryDiscoveryView({
         name={result.reference.name}
         returnTarget={returnTarget}
       />
-      <DiscoveryHero Icon={Icon} isSeries={isSeries} result={result} />
+      <DiscoveryHero
+        Icon={Icon}
+        isSeries={isSeries}
+        result={result}
+        {...(free === undefined
+          ? {}
+          : { freeEntryHref: materialReaderHref(free.slug, currentHref) })}
+      />
       {isSeries && introduction !== null ? <GuideIntroductionSection introduction={introduction} /> : null}
-      {isSeries ? <SeriesJourney {...(artifacts === undefined ? {} : { artifacts })} currentHref={currentHref} result={{ ...result, discoveryKind: "series" }} {...(learning === undefined ? {} : { learning })} onRetry={onRetry} /> : null}
-
-      {isSeries && result.kind === "ready" &&
-      result.items.some((item) => item.availability === "locked") ? (
-        <LockedMaterialsCallout offer={guideOffer} slug={result.reference.slug} />
+      {isSeries ? (
+        <>
+          <GuideChaptersOverview chapters={result.chapters} materialCount={items.length} />
+          <GuideArtifactsPromise artifacts={artifacts} />
+        </>
       ) : null}
 
       {result.kind === "empty" ? (
@@ -99,68 +104,11 @@ export function LibraryDiscoveryView({
       ) : isSeries ? null : (
         <TopicMaterials currentHref={currentHref} result={result} />
       )}
-    </div>
-  );
-}
 
-/**
- * Часть руководства закрыта. Когда у него есть своя цена, покупка руководства — главный путь,
- * а подписка остаётся вторым. Без цены остаётся прежний CTA на витрину тарифов.
- *
- * Предложение разрешает продажу, но само по себе не повод звать к оплате: у кого руководство
- * уже открыто, тому предлагать покупку нечего. Поэтому блок показывается там, где читателю
- * действительно чего-то не хватает, и он же служит входом на витрину руководства. Витрина
- * доступна и по прямому адресу, но ссылки на неё со страницы в этом состоянии нет.
- */
-function LockedMaterialsCallout({
-  offer,
-  slug,
-}: {
-  readonly offer: PriceSnapshot | null;
-  readonly slug: string;
-}) {
-  const subscriptionHref = subscriptionHrefFrom(
-    materialReaderOriginHref("series", slug),
-  );
-  if (offer === null) {
-    return (
-      <section className="mt-8 rounded-2xl border border-border bg-card p-6 shadow-card">
-        <h2 className="text-xl font-semibold">Часть материалов открыта по подписке</h2>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-          Подписка открывает все опубликованные материалы и руководства. Мы вернём
-          вас сюда после входа.
-        </p>
-        <Button asChild className={`mt-4 ${billingActionClass}`}>
-          <Link href={subscriptionHref}>Посмотреть тарифы</Link>
-        </Button>
-      </section>
-    );
-  }
-  return (
-    <section className="mt-8 rounded-2xl border border-border bg-card p-6 shadow-card">
-      <h2 className="text-xl font-semibold">Купите это руководство</h2>
-      <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-        Разовая покупка за{" "}
-        <span className="font-semibold text-foreground">
-          {formatKopecks(offer.firstPriceKopecks)}
-        </span>{" "}
-        открывает его целиком и навсегда. Подписку включать не нужно, и списаний
-        по этой покупке не будет.
-      </p>
-      <div className="mt-4 flex flex-wrap items-center gap-3">
-        <Button asChild className={billingActionClass}>
-          <Link href={guidePurchaseHref(slug)}>
-            Купить за {formatKopecks(offer.firstPriceKopecks)}
-          </Link>
-        </Button>
-        <Link
-          className="text-sm text-action underline underline-offset-4"
-          href={subscriptionHref}
-        >
-          Посмотреть подписку
-        </Link>
-      </div>
-    </section>
+      {isSeries && result.kind === "ready" ? (
+        <GuideProgrammeBar href={guideProgrammeHref(result.reference.slug)} />
+      ) : null}
+    </div>
   );
 }
 
@@ -168,10 +116,13 @@ function DiscoveryHero({
   Icon,
   isSeries,
   result,
+  freeEntryHref,
 }: {
   readonly Icon: LucideIcon;
   readonly isSeries: boolean;
   readonly result: ResolvedDiscoveryResult;
+  /** Первый открытый материал руководства, когда он есть. */
+  readonly freeEntryHref?: Route;
 }) {
   return (
     <header
@@ -214,6 +165,7 @@ function DiscoveryHero({
               {result.reference.summary}
             </p>
           ) : null}
+          {freeEntryHref === undefined ? null : <GuideFreeEntry href={freeEntryHref} />}
         </div>
         {isSeries && result.kind === "ready" ? (
           <div className="grid w-full max-w-xl shrink-0 grid-cols-3 gap-2 md:w-[18rem]">

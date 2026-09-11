@@ -18,6 +18,7 @@ export interface MaterialReaderReturnTarget {
     | "Назад в профиль"
     | "Назад на Главную"
     | "Назад к руководству"
+    | "Назад к программе"
     | "Назад к теме";
   readonly seriesSlug?: string;
 }
@@ -115,12 +116,14 @@ function readReturnTarget(
     };
   }
 
-  const match = /^\/(guides|series|topics)\/([^/]+)$/u.exec(url.pathname);
+  // Программа руководства — такой же возврат, как и само руководство: читатель уходит в материал
+  // именно оттуда и возвращается на ту же страницу и страницу списка.
+  const match = /^\/(guides|series|topics)\/([^/]+)(\/programme)?$/u.exec(url.pathname);
   if (match === null || match[2] === undefined || !slugPattern.test(match[2])) {
     return undefined;
   }
-
-  const routeKind = match[1];
+  const routeKind = match[3] === undefined ? match[1] : "guides";
+  if (match[3] !== undefined && match[1] === "topics") return undefined;
   if (url.search.length > 0) {
     const from = singleSearchValue(url.searchParams, "from");
     const page = singleSearchValue(url.searchParams, "page");
@@ -138,11 +141,11 @@ function readReturnTarget(
   }
 
   const href = internalRoute(`${url.pathname}${url.search}`);
-  if ((routeKind === "series" || routeKind === "guides")) {
+  if (routeKind === "series" || routeKind === "guides") {
     return {
       href,
       kind: "series",
-      label: "Назад к руководству",
+      label: match[3] === undefined ? "Назад к руководству" : "Назад к программе",
       seriesSlug: match[2],
     };
   }

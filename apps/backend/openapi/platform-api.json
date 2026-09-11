@@ -77842,12 +77842,16 @@
                           },
                           "name": {
                             "type": "string"
+                          },
+                          "summary": {
+                            "type": "string"
                           }
                         },
                         "required": [
                           "id",
                           "materialIds",
-                          "name"
+                          "name",
+                          "summary"
                         ],
                         "type": "object"
                       },
@@ -82133,12 +82137,16 @@
                           },
                           "name": {
                             "type": "string"
+                          },
+                          "summary": {
+                            "type": "string"
                           }
                         },
                         "required": [
                           "id",
                           "materialIds",
-                          "name"
+                          "name",
+                          "summary"
                         ],
                         "type": "object"
                       },
@@ -82967,12 +82975,16 @@
                           },
                           "name": {
                             "type": "string"
+                          },
+                          "summary": {
+                            "type": "string"
                           }
                         },
                         "required": [
                           "id",
                           "materialIds",
-                          "name"
+                          "name",
+                          "summary"
                         ],
                         "type": "object"
                       },
@@ -83800,12 +83812,16 @@
                           },
                           "name": {
                             "type": "string"
+                          },
+                          "summary": {
+                            "type": "string"
                           }
                         },
                         "required": [
                           "id",
                           "materialIds",
-                          "name"
+                          "name",
+                          "summary"
                         ],
                         "type": "object"
                       },

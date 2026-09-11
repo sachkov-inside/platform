@@ -16,7 +16,6 @@ import {
   LibraryDiscoveryUnavailable,
   LibraryDiscoveryView,
 } from "./library-discovery-view";
-import type { PriceSnapshot } from "@/entities/subscription";
 import type { ReaderGuideArtifactsResult } from "@/features/guide-artifacts.reader";
 import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 
@@ -46,12 +45,40 @@ export async function PublishedSeriesPage({
   readonly slug: string;
 }) {
   const result = await loadPublishedSeries(slug, accessToken);
-  // The artifact section and the guide price are both addressed by Guide id, which only a
-  // resolved Guide carries. A not-found or unavailable result never reaches either at all.
+  // Раздел артефактов адресуется по id руководства, который несёт только разрешённый результат.
   const guideId =
     result.kind === "ready" || result.kind === "empty"
       ? result.reference.id
       : undefined;
+  const artifacts: ReaderGuideArtifactsResult =
+    guideId === undefined
+      ? { artifacts: [], kind: "ready" }
+      : await readReaderGuideArtifacts(guideId, accessToken);
+  return renderPublishedSeriesResult(result, slug, {
+    ...(returnTarget === undefined ? {} : { returnTarget }),
+    artifacts,
+  });
+}
+
+/**
+ * Программа руководства: материалы по главам и цена сверху. Прогресс читателя принадлежит ей,
+ * поэтому именно здесь он и запрашивается.
+ */
+export async function GuideProgrammePage({
+  accessToken,
+  slug,
+}: {
+  readonly accessToken?: string;
+  readonly slug: string;
+}) {
+  const result = await loadPublishedSeries(slug, accessToken);
+  if (result.kind === "not-found") {
+    notFound();
+  }
+  if (result.kind === "unavailable") {
+    return <LibraryDiscoveryUnavailable kind="series" slug={slug} />;
+  }
+  const guideId = result.reference.id;
   // Руководство продаётся, только когда владелец завёл ему цену: её отсутствие — обычное состояние.
   const [artifacts, catalog] = await Promise.all([
     guideId === undefined
@@ -59,12 +86,14 @@ export async function PublishedSeriesPage({
       : readReaderGuideArtifacts(guideId, accessToken),
     guideId === undefined ? Promise.resolve(undefined) : loadGuideOffer(guideId),
   ]);
-  return renderPublishedSeriesResult(result, slug, {
-    ...(returnTarget === undefined ? {} : { returnTarget }),
-    ...(accessToken === undefined ? {} : { accessToken }),
-    artifacts,
-    guideOffer: catalog?.kind === "ready" ? catalog.offer : null,
-  });
+  return (
+    <PersonalSeries
+      artifacts={artifacts}
+      guideOffer={catalog?.kind === "ready" ? catalog.offer : null}
+      result={result}
+      {...(accessToken === undefined ? {} : { accessToken })}
+    />
+  );
 }
 
 function renderPublishedTopicResult(
@@ -88,10 +117,7 @@ function renderPublishedTopicResult(
 
 interface SeriesRenderConditions {
   readonly returnTarget?: MaterialReaderReturnTarget;
-  readonly accessToken?: string;
   readonly artifacts: ReaderGuideArtifactsResult;
-  /** Разовая цена руководства, когда владелец её завёл. */
-  readonly guideOffer?: PriceSnapshot | null;
 }
 
 function renderPublishedSeriesResult(
@@ -106,13 +132,9 @@ function renderPublishedSeriesResult(
     return <LibraryDiscoveryUnavailable kind="series" slug={slug} />;
   }
   return (
-    <PersonalSeries
+    <LibraryDiscoveryView
       artifacts={conditions.artifacts}
-      guideOffer={conditions.guideOffer ?? null}
       result={result}
-      {...(conditions.accessToken === undefined
-        ? {}
-        : { accessToken: conditions.accessToken })}
       {...(conditions.returnTarget === undefined
         ? {}
         : { returnTarget: conditions.returnTarget })}
