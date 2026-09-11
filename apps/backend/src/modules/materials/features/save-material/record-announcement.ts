@@ -3,13 +3,10 @@ import { randomUUID } from "node:crypto";
 import type { MaterialsPrisma } from "../../../../infrastructure/prisma/index.js";
 import {
   announcementEvent,
-  announcementWindow,
   sameAnnouncementConditions,
   type AnnouncementOccurrence,
 } from "../../domain/announcement.js";
-import { stageMaterialsNotification } from "../notification-outbox/notification-outbox.js";
-
-export type AnnouncementOutcome = "announced" | "refreshed" | "unchanged";
+import { stageMaterialsNotification } from "../../facets/notification-outbox/notification-outbox.js";
 
 /**
  * Вызывается внутри транзакции, которая сохраняет саму публикацию: анонс, его неизменяемая
@@ -29,19 +26,18 @@ export async function recordMaterialAnnouncement(
     readonly firstPublication: boolean;
   },
   now: Date,
-): Promise<AnnouncementOutcome> {
+): Promise<void> {
   const { occurrence } = input;
   const existing = await transaction.materialAnnouncement.findUnique({
     where: { materialId: occurrence.materialId },
   });
-  if (existing === null && !input.firstPublication) return "unchanged";
-  const window = announcementWindow(occurrence.firstPublishedAt);
+  if (existing === null && !input.firstPublication) return;
   // Просроченный анонс не обновляется: команду с таким сроком потребитель уже не примет.
   if (
     existing !== null &&
-    (window.notAfter <= now || sameAnnouncementConditions(existing, occurrence))
+    (existing.notAfter <= now || sameAnnouncementConditions(existing, occurrence))
   ) {
-    return "unchanged";
+    return;
   }
   const announcementRef = existing?.id ?? randomUUID();
   const revision = (existing?.revision ?? 0) + 1;
@@ -58,12 +54,13 @@ export async function recordMaterialAnnouncement(
     updatedAt: now,
   };
   if (existing === null) {
+    // Срок строки берётся из самого события: у повода и его сообщения одно окно, а не два.
     await transaction.materialAnnouncement.create({
       data: {
         id: announcementRef,
         materialId: occurrence.materialId,
-        occurredAt: window.occurredAt,
-        notAfter: window.notAfter,
+        occurredAt: new Date(event.occurredAt),
+        notAfter: new Date(event.notAfter),
         createdAt: now,
         ...conditions,
       },
@@ -84,5 +81,4 @@ export async function recordMaterialAnnouncement(
     },
   });
   await stageMaterialsNotification(transaction, event);
-  return existing === null ? "announced" : "refreshed";
 }

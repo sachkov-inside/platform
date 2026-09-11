@@ -6,6 +6,8 @@ import { BillingModule, BillingNotices } from '../billing/index.js';
 import { TelegramAccountLinksModule, TelegramAccountLinks } from '../telegram-membership/index.js';
 import { MaterialAnnouncements, MaterialsModule, materialId } from '../materials/index.js';
 import { CONTENT_ACCESS, type ContentAccess } from '../content-access/index.js';
+import type { NotificationEvent } from './domain/notification-wire.js';
+import type { NotificationSource } from './ports/notification-sources.js';
 import { Notifications } from './facets/notifications/notifications.js';
 import { NotificationPreferencesController, NotificationOperationsController } from './features/read-deliveries/notifications.controller.js';
 import { NotificationDispatchController } from './features/authorize-dispatch/notification-dispatch.controller.js';
@@ -19,7 +21,12 @@ import { NotificationDispatchController } from './features/authorize-dispatch/no
       sources: {
         // Каждый источник подтверждает свой повод собственными фактами: Billing — поводом оплаты,
         // Materials — анонсом первой публикации. Данные брокера сами по себе отправку не разрешают.
-        resolve: event => event.eventType === 'billing.notice-ready' ? notices.resolveNotice(event) : announcements.resolveAnnouncement(event),
+        // Таблица закрыта типом события: следующий источник обязан назвать здесь своего владельца,
+        // иначе его события молча спрашивали бы чужой повод.
+        resolve: event => ({
+          'billing.notice-ready': () => notices.resolveNotice(event),
+          'material.published': () => announcements.resolveAnnouncement(event),
+        } satisfies Record<NotificationEvent['eventType'], () => Promise<NotificationSource>>)[event.eventType](),
         canRead: async (account, sourceRef) => {
           const decision = await access.authorize({ subject: { kind: 'account', accountId: accountId(account) },
             resource: { kind: 'material', materialId: materialId(sourceRef) }, action: 'read', enforcementPoint: 'published_material_read', correlationId: 'notifications' });

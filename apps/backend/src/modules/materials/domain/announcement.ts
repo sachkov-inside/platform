@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { MATERIAL_LIFETIME_MS } from "../../../infrastructure/notification-transport/wire.js";
+import { MATERIAL_EVENT_LIFETIME_MS } from "../../../infrastructure/notification-transport/wire.js";
 import { normalizedUuidSchema } from "./uuid.js";
 
 /**
@@ -42,6 +42,11 @@ export interface AnnouncementOccurrence extends AnnouncementConditions {
   readonly firstPublishedAt: Date;
 }
 
+/**
+ * Сравнивается всё, что обещано читателю. Ссылка сегодня измениться не может: slug закреплён
+ * первой публикацией (`0005_mutable_materials`), — но условие названо здесь целиком, чтобы
+ * ослабление того правила не оставило устаревшее обещание без новой revision.
+ */
 export function sameAnnouncementConditions(
   left: AnnouncementConditions,
   right: AnnouncementConditions,
@@ -59,7 +64,7 @@ export function announcementWindow(firstPublishedAt: Date): {
 } {
   return {
     occurredAt: firstPublishedAt,
-    notAfter: new Date(firstPublishedAt.getTime() + MATERIAL_LIFETIME_MS),
+    notAfter: new Date(firstPublishedAt.getTime() + MATERIAL_EVENT_LIFETIME_MS),
   };
 }
 

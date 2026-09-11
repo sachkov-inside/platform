@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 
 import {
   encodeNotification,
-  MATERIAL_LIFETIME_MS,
+  MATERIAL_EVENT_LIFETIME_MS,
 } from "../../src/infrastructure/notification-transport/wire.js";
 import {
   announcementEvent,
@@ -25,7 +25,7 @@ describe("анонс первой публикации", () => {
   test("живёт ровно сутки от самой публикации, а не от момента, когда его заметили", () => {
     expect(announcementWindow(firstPublishedAt)).toEqual({
       occurredAt: firstPublishedAt,
-      notAfter: new Date(firstPublishedAt.getTime() + MATERIAL_LIFETIME_MS),
+      notAfter: new Date(firstPublishedAt.getTime() + MATERIAL_EVENT_LIFETIME_MS),
     });
   });
 
@@ -43,7 +43,7 @@ describe("анонс первой публикации", () => {
       sourceRevision: 1,
       occurredAt: firstPublishedAt.toISOString(),
       notAfter: new Date(
-        firstPublishedAt.getTime() + MATERIAL_LIFETIME_MS,
+        firstPublishedAt.getTime() + MATERIAL_EVENT_LIFETIME_MS,
       ).toISOString(),
     });
     // Ни заголовка, ни ссылки, ни тела материала событие не переносит: их отдаёт сам источник.

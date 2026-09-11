@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import {
   lanes,
-  MATERIAL_LIFETIME_MS,
+  MATERIAL_EVENT_LIFETIME_MS,
 } from "../../src/infrastructure/notification-transport/wire.js";
 import {
   assembleMaterials,
@@ -119,7 +119,7 @@ describe("анонс первой публикации материала", () =
       readerPath: "/materials/kak-my-sobiraem-platformu",
     });
     expect(announcement.notAfter.getTime() - announcement.occurredAt.getTime()).toBe(
-      MATERIAL_LIFETIME_MS,
+      MATERIAL_EVENT_LIFETIME_MS,
     );
 
     const revisions = await database.prisma.materialAnnouncementRevision.findMany({
@@ -266,18 +266,20 @@ describe("анонс первой публикации материала", () =
 
   test("анонс невозможно записать материалу, который ещё не публиковался", async () => {
     const materialId = await draft("Черновик без публикации");
+    // Обе границы окна приходят из одного чтения часов, как их считает сам источник.
+    const occurredAt = new Date();
     await expect(
       database.prisma.materialAnnouncement.create({
         data: {
           id: randomUUID(),
           materialId,
           revision: 1,
-          occurredAt: new Date(),
-          notAfter: new Date(Date.now() + MATERIAL_LIFETIME_MS),
+          occurredAt,
+          notAfter: new Date(occurredAt.getTime() + MATERIAL_EVENT_LIFETIME_MS),
           title: "Черновик без публикации",
           readerPath: "/materials/chernovik-bez-publikatsii",
-          createdAt: new Date(),
-          updatedAt: new Date(),
+          createdAt: occurredAt,
+          updatedAt: occurredAt,
         },
       }),
     ).rejects.toThrow(/publication announcement requires a published Material/u);
@@ -285,6 +287,7 @@ describe("анонс первой публикации материала", () =
 
   test("чужой и неизвестный повод не открывают отправку", async () => {
     const facet = new MaterialAnnouncements({ prisma: database.prisma });
+    const unknownOccurredAt = new Date();
     expect(await facet.resolveAnnouncement({ contractVersion: "other" })).toEqual({
       status: "superseded",
     });
@@ -296,8 +299,10 @@ describe("анонс первой публикации материала", () =
         occurrenceRef: randomUUID(),
         sourceRef: randomUUID(),
         sourceRevision: 1,
-        occurredAt: new Date().toISOString(),
-        notAfter: new Date(Date.now() + MATERIAL_LIFETIME_MS).toISOString(),
+        occurredAt: unknownOccurredAt.toISOString(),
+        notAfter: new Date(
+          unknownOccurredAt.getTime() + MATERIAL_EVENT_LIFETIME_MS,
+        ).toISOString(),
       }),
     ).toEqual({ status: "superseded" });
   });

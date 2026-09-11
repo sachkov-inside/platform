@@ -7,7 +7,11 @@ create table materials.publication_announcements (
   revision int not null check (revision >= 1),
   occurred_at timestamptz not null,
   not_after timestamptz not null,
+  -- Верхняя граница взята у шаблона Notifications, а не у заголовка материала: она заведомо
+  -- шире собственного предела Materials, поэтому публикация на ней упасть не может.
   title text not null check (char_length(title) between 1 and 1500),
+  -- Форму ссылки задаёт materialReaderPath в домене Materials; здесь она только не даёт
+  -- записать повод, из которого получится чужой или нерабочий адрес читателя.
   reader_path text not null check (reader_path ~ '^/materials/[a-z0-9-]+$'),
   created_at timestamptz not null,
   updated_at timestamptz not null,

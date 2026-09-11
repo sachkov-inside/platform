@@ -36,7 +36,7 @@ import { requireReferenceIntegrity } from "../../shared/reference-integrity.js";
 import { toDatabaseJson } from "../../infrastructure/postgres/database-json.js";
 import { requestVideoDeletion } from "../../../videos/index.js";
 import { materialReaderPath } from "../../domain/announcement.js";
-import { recordMaterialAnnouncement } from "../../facets/material-announcements/record-announcement.js";
+import { recordMaterialAnnouncement } from "./record-announcement.js";
 import { lockMaterialForLifecycleChange } from "../../infrastructure/postgres/material-locks.js";
 import { allocateMaterialSlug } from "../../infrastructure/postgres/material-slug.js";
 import { replaceCurrentRelations } from "../../infrastructure/postgres/current-material.js";
