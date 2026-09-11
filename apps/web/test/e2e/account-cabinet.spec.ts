@@ -127,7 +127,7 @@ test("каждый раздел решает одну задачу", async ({ pa
 
   await page.goto("/account/purchases");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Покупки");
-  await expect(page.getByText("Оплаченная подписка")).toBeVisible();
+  await expect(page.getByText("Оплаченный доступ")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Способ оплаты" })).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Отменить продление" }),

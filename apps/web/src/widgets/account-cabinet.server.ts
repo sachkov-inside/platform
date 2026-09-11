@@ -1,1 +1,1 @@
-export { AccountCabinetFrame } from "./account-cabinet/ui/account-cabinet-frame";
+export * from "./account-cabinet/index.server";

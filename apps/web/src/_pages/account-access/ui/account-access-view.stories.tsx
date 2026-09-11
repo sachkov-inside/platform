@@ -64,7 +64,7 @@ export const SessionExpired: Story = {
 };
 
 export const Unavailable: Story = {
-  args: { link: null },
+  args: { link: null, unavailable: true },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("alert")).toHaveTextContent(

@@ -23,6 +23,11 @@ const privateHeaders = { "cache-control": "private, no-store" };
 const booleanField = z
   .enum(["true", "false"])
   .transform((value) => value === "true");
+// Пустое и отсутствующее поле не должны превращаться в допустимую нулевую revision.
+const revisionField = z
+  .string()
+  .regex(/^(?:0|[1-9][0-9]*)$/u)
+  .transform(Number);
 
 function failure(result: Extract<BackendTransportResult, { ok: false }>): {
   readonly ok: false;
@@ -68,7 +73,7 @@ export function handleChangeNotificationPreferences(
   return handleAuthenticatedMutation(request, async (form, token) => {
     const parsed = changeNotificationPreferencesInputSchema.safeParse({
       operationId: form.get("operationId"),
-      expectedRevision: Number(form.get("expectedRevision")),
+      expectedRevision: revisionField.safeParse(form.get("expectedRevision")).data,
       email: booleanField.safeParse(form.get("email")).data,
       telegram: booleanField.safeParse(form.get("telegram")).data,
     });

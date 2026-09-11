@@ -2,15 +2,14 @@
 import type { Route } from "next";
 
 import {
-  billingActionClass,
   type AccessGround,
   type NoticeView,
   type OwnPayment,
   type SubscriptionView,
 } from "@/entities/subscription";
-import { Button } from "@/shared/ui/button";
 
 import { BillingHistory } from "./billing-history.client";
+import { BillingSectionFooter } from "./billing-section-footer.client";
 import { BillingSignIn } from "./billing-sign-in";
 import { PaymentMethodCard } from "./payment-method-card.client";
 import { SubscriptionGrounds } from "./subscription-grounds.client";
@@ -71,25 +70,11 @@ export function PurchasesSectionView({
         subscription={subscription}
       />
       <BillingHistory notices={notices} payments={payments} />
-      <div className="flex flex-wrap gap-2">
-        <Button
-          className={billingActionClass}
-          disabled={loading || pending}
-          onClick={onRefresh}
-          type="button"
-          variant="outline"
-        >
-          Обновить данные
-        </Button>
-      </div>
-      {error === undefined ? null : (
-        <p
-          className="rounded-xl border border-destructive/30 bg-destructive/6 p-4 text-sm leading-6"
-          role="alert"
-        >
-          {error}
-        </p>
-      )}
+      <BillingSectionFooter
+        disabled={loading || pending}
+        error={error}
+        onRefresh={onRefresh}
+      />
     </div>
   );
 }

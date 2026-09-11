@@ -19,7 +19,7 @@ import {
   quoteBillingChange,
   resumeBillingRenewal,
 } from "../api/billing-subscription.browser";
-import { assignLocation } from "../model/navigate";
+import { assignLocation } from "../model/assign-location";
 import { useBillingCabinet } from "../model/use-billing-cabinet.client";
 import { SubscriptionSectionView } from "./subscription-view.client";
 
@@ -107,18 +107,21 @@ export function SubscriptionPanel({
     mutationFn: changeBillingOption,
     retry: false,
     onSuccess: (result) => {
-      if (
-        !result.ok &&
-        (result.code === "quote_expired" || result.code === "quote_changed")
-      )
-        setChangeQuote(null);
-      cabinet.settle(result, (value) => {
-        completeOperation("change");
-        setChangeQuote(null);
-        cabinet.applySubscription(value.subscription);
-        const paymentUrl = value.payment?.paymentUrl ?? null;
-        if (paymentUrl !== null) (onNavigate ?? assignLocation)(paymentUrl);
-      });
+      cabinet.settle(
+        result,
+        (value) => {
+          completeOperation("change");
+          setChangeQuote(null);
+          cabinet.applySubscription(value.subscription);
+          const paymentUrl = value.payment?.paymentUrl ?? null;
+          if (paymentUrl !== null) (onNavigate ?? assignLocation)(paymentUrl);
+        },
+        (code) => {
+          // Устаревший расчёт нельзя подтверждать повторно: он больше не описывает условия.
+          if (code === "quote_expired" || code === "quote_changed")
+            setChangeQuote(null);
+        },
+      );
     },
   });
   const dropChange = useMutation({

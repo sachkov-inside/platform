@@ -8,7 +8,7 @@ import {
   changeBillingPaymentMethod,
   revokeBillingPaymentMethod,
 } from "../api/billing-subscription.browser";
-import { assignLocation } from "../model/navigate";
+import { assignLocation } from "../model/assign-location";
 import { useBillingCabinet } from "../model/use-billing-cabinet.client";
 import { PurchasesSectionView } from "./purchases-view.client";
 

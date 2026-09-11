@@ -38,7 +38,7 @@ type Story = StoryObj<typeof meta>;
 export const OwnGroundsAndPayments: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText("Оплаченная подписка")).toBeInTheDocument();
+    await expect(canvas.getByText("Оплаченный доступ")).toBeInTheDocument();
     // Ручная выдача переживает подписку и не называется покупкой.
     await expect(canvas.getByText("Выдано вручную")).toBeInTheDocument();
     await expect(canvas.getByText("Отдельное руководство")).toBeInTheDocument();

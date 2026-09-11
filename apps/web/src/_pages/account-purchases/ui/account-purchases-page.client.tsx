@@ -1,6 +1,9 @@
 "use client";
 import { BillingContactPanel } from "@/features/billing-contact";
-import { PurchasesPanel, useBillingCabinet } from "@/features/billing-subscription";
+import {
+  PurchasesPanel,
+  useBillingSessionExpired,
+} from "@/features/billing-subscription";
 import { AccountSectionHeader } from "@/widgets/account-cabinet";
 
 /**
@@ -9,7 +12,7 @@ import { AccountSectionHeader } from "@/widgets/account-cabinet";
  */
 export function AccountPurchasesPage() {
   // Завершённая сессия объясняется один раз: форма контакта не повторяет ту же просьбу войти.
-  const { sessionExpired } = useBillingCabinet();
+  const sessionExpired = useBillingSessionExpired();
 
   return (
     <div>

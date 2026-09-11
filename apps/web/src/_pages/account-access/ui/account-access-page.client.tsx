@@ -21,6 +21,7 @@ export function AccountAccessPage() {
       onTelegramRefresh={() => query.refetch().then(() => undefined)}
       refreshing={query.isFetching}
       sessionExpired={query.data?.kind === "unauthorized"}
+      unavailable={query.isError && presentation === null}
     />
   );
 }

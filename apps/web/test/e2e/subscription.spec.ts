@@ -139,7 +139,7 @@ test("раздел подписки показывает оплаченный с
     page.getByRole("button", { name: "Отменить продление" }),
   ).toBeEnabled();
   // Основания доступа и способ оплаты — задача раздела «Покупки».
-  await expect(page.getByText("Оплаченная подписка")).toHaveCount(0);
+  await expect(page.getByText("Оплаченный доступ")).toHaveCount(0);
   await expect(
     page.getByRole("heading", { name: "Способ оплаты" }),
   ).toHaveCount(0);

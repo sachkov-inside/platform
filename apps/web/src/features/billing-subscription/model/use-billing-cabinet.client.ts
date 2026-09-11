@@ -33,6 +33,7 @@ export interface BillingCabinet {
   readonly settle: <Value>(
     result: BillingCommandResult<Value>,
     onSuccess: (value: Value) => void,
+    onFailure?: (code: BillingFailureCode) => void,
   ) => void;
 }
 
@@ -79,8 +80,9 @@ export function useBillingCabinet(): BillingCabinet {
       setError(undefined);
       void query.refetch();
     },
-    settle: (result, onSuccess) => {
+    settle: (result, onSuccess, onFailure) => {
       if (!result.ok) {
+        onFailure?.(result.code);
         fail(result.code);
         return;
       }
@@ -88,4 +90,13 @@ export function useBillingCabinet(): BillingCabinet {
       onSuccess(result.value);
     },
   };
+}
+
+/**
+ * Завершённая сессия объясняется один раз на раздел, поэтому соседняя панель спрашивает только
+ * этот факт, а не всё состояние кабинета.
+ */
+export function useBillingSessionExpired(): boolean {
+  const query = useQuery(currentBillingQueryOptions());
+  return query.data?.ok === false && query.data.code === "unauthorized";
 }

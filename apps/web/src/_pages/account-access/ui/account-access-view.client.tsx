@@ -11,6 +11,7 @@ export interface AccountAccessViewProps {
   readonly loading?: boolean;
   readonly refreshing?: boolean;
   readonly sessionExpired?: boolean;
+  readonly unavailable?: boolean;
   readonly onTelegramRefresh: () => Promise<void>;
   readonly onReload: () => void;
 }
@@ -24,6 +25,7 @@ export function AccountAccessView({
   loading = false,
   refreshing = false,
   sessionExpired = false,
+  unavailable = false,
   onTelegramRefresh,
   onReload,
 }: AccountAccessViewProps) {
@@ -46,7 +48,8 @@ export function AccountAccessView({
             </Button>
           </form>
         </div>
-      ) : link === null ? (
+      ) : unavailable || link === null ? (
+        // Состояние без связи читать нечего: это та же недоступность, названная прямо.
         <div
           className="rounded-2xl border border-border bg-card p-6 shadow-card"
           role="alert"
