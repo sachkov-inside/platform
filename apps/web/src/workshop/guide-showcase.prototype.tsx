@@ -189,8 +189,10 @@ function Showcase({
       </div>
 
       {/* Sticky, not fixed: the bar has to pin to whatever scrolls it — the page,
-          a Storybook viewport frame or a Docs block — and never leave the flow. */}
-      <div className="sticky bottom-0 z-10 border-t border-border bg-background/95 backdrop-blur">
+          a Storybook viewport frame or a Docs block — and never leave the flow.
+          Below lg the shell floats its own navigation dock at the bottom, so the
+          bar rests above it instead of hiding behind it. */}
+      <div className="sticky bottom-[calc(5rem+env(safe-area-inset-bottom))] z-10 rounded-2xl border border-border bg-background/95 shadow-card backdrop-blur lg:bottom-0 lg:rounded-none lg:border-x-0 lg:border-b-0 lg:shadow-none">
         <div className="mx-auto flex w-full max-w-[46rem] items-center gap-3 px-4 py-3 sm:px-6">
           <button
             className="min-h-12 flex-1 rounded-2xl bg-foreground px-6 text-base font-semibold text-background focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
