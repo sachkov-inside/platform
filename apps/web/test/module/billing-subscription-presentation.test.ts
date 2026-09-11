@@ -10,11 +10,13 @@ import {
   formatKopecks,
   formatMonths,
   noticeLabel,
+  offerCompositionLabel,
   promotionLabel,
   subscriptionStateLabel,
 } from "@/entities/subscription";
 import {
   guideOnlyOffer,
+  guideWithSupportOffer,
   materialsOffer,
   supportOffer,
 } from "@/workshop/billing.fixtures";
@@ -131,5 +133,38 @@ describe("состояния и ошибки", () => {
       "раздел «Покупки»",
     );
     expect(billingErrorMessage("existing_access")).toContain("уже есть доступ");
+  });
+});
+
+describe("состав предложения", () => {
+  it("называет руководство с сопровождением по-русски", () => {
+    expect(offerCompositionLabel(guideWithSupportOffer.offer)).toBe(
+      "Руководство с сопровождением",
+    );
+  });
+
+  it("одну часть называет ею самой", () => {
+    expect(offerCompositionLabel(guideOnlyOffer.offer)).toBe("Руководство");
+  });
+
+  it("перечисление разделяет запятой, а союз ставит только перед последним", () => {
+    expect(offerCompositionLabel(supportOffer.offer)).toBe(
+      "Все материалы с сопровождением и общим чатом",
+    );
+  });
+
+  it("удлиняет предлог перед стечением согласных", () => {
+    const offer = {
+      ...guideWithSupportOffer.offer,
+      benefits: [...guideWithSupportOffer.offer.benefits, "materials" as const],
+    };
+    expect(offerCompositionLabel(offer)).toBe(
+      "Руководство со всеми материалами и сопровождением",
+    );
+  });
+
+  it("без знакомого состава оставляет имя предложения", () => {
+    const offer = { ...guideOnlyOffer.offer, benefits: [] };
+    expect(offerCompositionLabel(offer)).toBe(offer.name);
   });
 });

@@ -34,6 +34,8 @@ export interface PublishedMaterialDiscoveryPage {
     readonly id: string;
     readonly materialIds: readonly string[];
     readonly name: string;
+    /** Авторское описание главы: на странице продукта оно объясняет, что внутри. */
+    readonly summary: string;
   }[];
   readonly reference: {
     readonly id: string;
@@ -68,6 +70,7 @@ const guideChapterRowSchema = z
     id: z.uuid(),
     material_ids: z.array(z.uuid()),
     name: z.string(),
+    summary: z.string(),
   })
   .strict();
 
@@ -802,6 +805,7 @@ export async function selectPublishedMaterialProjectionsBySeries(
       select
         chapter.id,
         chapter.name,
+        chapter.summary,
         coalesce(
           (
             select json_agg(published.material_id order by published.ordinal)
@@ -836,10 +840,11 @@ export async function selectPublishedMaterialProjectionsBySeries(
     ),
   );
   return {
-    chapters: chapters.map(({ id, material_ids, name }) => ({
+    chapters: chapters.map(({ id, material_ids, name, summary }) => ({
       id,
       materialIds: material_ids,
       name,
+      summary,
     })),
     reference: {
       id: reference.id,

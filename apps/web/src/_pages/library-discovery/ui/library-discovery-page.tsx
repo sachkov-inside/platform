@@ -1,7 +1,8 @@
 import { PersonalSeries } from "./personal-series.server";
 import { notFound } from "next/navigation";
 
-import { loadGuideOffer } from "@/entities/subscription.server";
+import { loadBillingOffers } from "@/entities/subscription.server";
+import { guidePurchaseOffers, publicSubscriptionOffers } from "@/entities/subscription";
 
 import type {
   PublishedSeriesResult,
@@ -16,7 +17,6 @@ import {
   LibraryDiscoveryUnavailable,
   LibraryDiscoveryView,
 } from "./library-discovery-view";
-import type { PriceSnapshot } from "@/entities/subscription";
 import type { ReaderGuideArtifactsResult } from "@/features/guide-artifacts.reader";
 import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 
@@ -46,25 +46,63 @@ export async function PublishedSeriesPage({
   readonly slug: string;
 }) {
   const result = await loadPublishedSeries(slug, accessToken);
-  // The artifact section and the guide price are both addressed by Guide id, which only a
-  // resolved Guide carries. A not-found or unavailable result never reaches either at all.
+  // Раздел артефактов адресуется по id руководства, который несёт только разрешённый результат.
   const guideId =
     result.kind === "ready" || result.kind === "empty"
       ? result.reference.id
       : undefined;
-  // Руководство продаётся, только когда владелец завёл ему цену: её отсутствие — обычное состояние.
+  const artifacts: ReaderGuideArtifactsResult =
+    guideId === undefined
+      ? { artifacts: [], kind: "ready" }
+      : await readReaderGuideArtifacts(guideId, accessToken);
+  return renderPublishedSeriesResult(result, slug, {
+    ...(returnTarget === undefined ? {} : { returnTarget }),
+    artifacts,
+  });
+}
+
+/**
+ * Программа руководства: материалы по главам и приглашение к оплате сверху. Прогресс читателя
+ * принадлежит ей, поэтому именно здесь он и запрашивается.
+ */
+export async function GuideProgrammePage({
+  accessToken,
+  slug,
+}: {
+  readonly accessToken?: string;
+  readonly slug: string;
+}) {
+  const result = await loadPublishedSeries(slug, accessToken);
+  if (result.kind === "not-found") {
+    notFound();
+  }
+  if (result.kind === "unavailable") {
+    return <LibraryDiscoveryUnavailable kind="series" slug={slug} />;
+  }
+  const guideId = result.reference.id;
+  // Публичный каталог отдаёт только включённое в продажу, поэтому один запрос отвечает сразу на
+  // два вопроса программы: продаётся ли это руководство и есть ли вообще что предложить на витрине
+  // подписки. На второй отвечает её собственный отбор: звать туда, где пусто, нельзя.
   const [artifacts, catalog] = await Promise.all([
     guideId === undefined
       ? Promise.resolve<ReaderGuideArtifactsResult>({ artifacts: [], kind: "ready" })
       : readReaderGuideArtifacts(guideId, accessToken),
-    guideId === undefined ? Promise.resolve(undefined) : loadGuideOffer(guideId),
+    loadBillingOffers(),
   ]);
-  return renderPublishedSeriesResult(result, slug, {
-    ...(returnTarget === undefined ? {} : { returnTarget }),
-    ...(accessToken === undefined ? {} : { accessToken }),
-    artifacts,
-    guideOffer: catalog?.kind === "ready" ? catalog.offer : null,
-  });
+  const forSale = catalog.kind === "ready" ? catalog.offers : [];
+  // Программе хватает самого дешёвого варианта: он решает, приглашать ли к оплате.
+  // Выбор между вариантами живёт на странице оплаты, где их видно составом и ценой.
+  const programmeOffer =
+    guideId === undefined ? null : guidePurchaseOffers(forSale, guideId)[0] ?? null;
+  return (
+    <PersonalSeries
+      artifacts={artifacts}
+      guideOffer={programmeOffer}
+      result={result}
+      subscriptionOffered={publicSubscriptionOffers(forSale).length > 0}
+      {...(accessToken === undefined ? {} : { accessToken })}
+    />
+  );
 }
 
 function renderPublishedTopicResult(
@@ -88,10 +126,7 @@ function renderPublishedTopicResult(
 
 interface SeriesRenderConditions {
   readonly returnTarget?: MaterialReaderReturnTarget;
-  readonly accessToken?: string;
   readonly artifacts: ReaderGuideArtifactsResult;
-  /** Разовая цена руководства, когда владелец её завёл. */
-  readonly guideOffer?: PriceSnapshot | null;
 }
 
 function renderPublishedSeriesResult(
@@ -106,13 +141,9 @@ function renderPublishedSeriesResult(
     return <LibraryDiscoveryUnavailable kind="series" slug={slug} />;
   }
   return (
-    <PersonalSeries
+    <LibraryDiscoveryView
       artifacts={conditions.artifacts}
-      guideOffer={conditions.guideOffer ?? null}
       result={result}
-      {...(conditions.accessToken === undefined
-        ? {}
-        : { accessToken: conditions.accessToken })}
       {...(conditions.returnTarget === undefined
         ? {}
         : { returnTarget: conditions.returnTarget })}

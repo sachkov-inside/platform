@@ -1,3 +1,4 @@
+import { isGuideCapability } from "./billing-contract";
 import type {
   AccessCapability,
   AccessSource,
@@ -144,6 +145,39 @@ export function paymentSubjectLabel(payment: {
   return payment.kind === "one_time"
     ? "разовая покупка"
     : formatMonths(payment.months);
+}
+
+/**
+ * Как назвать состав предложения покупателю. Руководство с сопровождением называется именно так,
+ * а не просто руководством: покупатель должен видеть, за что платит.
+ */
+export function offerCompositionLabel(offer: BillingOffer): string {
+  // Каждая часть названа дважды: сама по себе и после предлога. Русский требует творительного
+  // падежа, а склеивать его из именительного нечем — поэтому обе формы написаны, а не выведены.
+  const parts: { readonly alone: string; readonly after: string }[] = [];
+  if (offer.benefits.some(isGuideCapability)) {
+    parts.push({ alone: "Руководство", after: "руководством" });
+  }
+  if (offer.benefits.includes("materials")) {
+    parts.push({ alone: "Все материалы", after: "всеми материалами" });
+  }
+  if (offer.benefits.includes("support")) {
+    parts.push({ alone: "Сопровождение", after: "сопровождением" });
+  }
+  if (offer.benefits.includes("community")) {
+    parts.push({ alone: "Общий чат", after: "общим чатом" });
+  }
+  const [first, ...rest] = parts;
+  if (first === undefined) return offer.name;
+  if (rest.length === 0) return first.alone;
+  // Перечисление разделяется запятыми, и только последняя часть присоединяется союзом.
+  const last = rest[rest.length - 1];
+  const head = rest.slice(0, -1).map((part) => part.after);
+  const tail = last === undefined ? "" : last.after;
+  const listed = head.length === 0 ? tail : `${head.join(", ")} и ${tail}`;
+  // Перед стечением согласных предлог удлиняется: «со всеми», но «с сопровождением».
+  const preposition = listed.startsWith("всеми") ? "со" : "с";
+  return `${first.alone} ${preposition} ${listed}`;
 }
 
 /** Банковское состояние попытки отделено от готовности доступа. */

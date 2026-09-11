@@ -1,13 +1,14 @@
+import type { ComponentProps } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
 
 import type { LibraryDiscoveryResult } from "@/features/library-discovery";
-import { guideOnlyOffer } from "@/workshop/billing.fixtures";
 import type { MaterialPreview } from "@/entities/material";
 import {
   ApplicationShell,
   type ApplicationNavigationItem,
 } from "@/widgets/application-shell";
+import { GuideProgrammeView } from "./guide-programme-view.client";
 import {
   LibraryDiscoveryLoading,
   LibraryDiscoveryNotFound,
@@ -15,6 +16,19 @@ import {
   LibraryDiscoveryUnavailable,
   LibraryDiscoveryView,
 } from "./library-discovery-view";
+
+/**
+ * Истории программы живут под общим meta страницы открытия, поэтому её результат сужается здесь
+ * один раз — настоящей проверкой, а не приведением типа.
+ */
+function programmeResult(
+  result: ComponentProps<typeof LibraryDiscoveryView>["result"],
+): ComponentProps<typeof GuideProgrammeView>["result"] {
+  if (result.discoveryKind !== "series") {
+    throw new Error("Истории программы строятся на результате руководства");
+  }
+  return result;
+}
 
 const navigationItems = [
   { href: "/", icon: "home", label: "Главная" },
@@ -84,6 +98,20 @@ const topicResult = {
   topics: [],
 } as const satisfies LibraryDiscoveryResult;
 
+const seriesChapters = [
+  {
+    id: "72000000-0000-4000-8000-000000000801",
+    name: "Основа продукта",
+    summary: "Разбираем границы, сценарии и первый вертикальный срез.",
+    materialIds: [],
+  },
+  {
+    id: "72000000-0000-4000-8000-000000000802",
+    name: "Проверки и релизы",
+    summary: "Собираем CI, образ и подтверждённое обновление.",
+    materialIds: [],
+  },
+];
 const seriesResult = {
   chapters: [],
   discoveryKind: "series",
@@ -177,6 +205,7 @@ export const TopicLongTitle: Story = {
 
 export const SeriesDesktop: Story = {
   args: { result: seriesResult },
+  render: (storyArgs) => <GuideProgrammeView learning={{ kind: "guest" }} result={programmeResult(storyArgs.result)} />,
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   name: "Series · ordered desktop",
   play: async ({ canvasElement }) => {
@@ -188,6 +217,24 @@ export const SeriesDesktop: Story = {
     await expect(
       canvasElement.querySelector('[data-access-cover="locked"]'),
     ).toBeInTheDocument();
+  },
+};
+
+/**
+ * Страница продукта рассказывает и никуда не продаёт: цену читатель встречает в программе.
+ * Отсюда ведёт одно действие — «Открыть программу».
+ */
+export const SeriesProductDesktop: Story = {
+  args: { result: { ...seriesResult, chapters: seriesChapters } },
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
+  name: "Series · product desktop",
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("link", { name: /Открыть программу/u }),
+    ).toBeInTheDocument();
+    await expect(canvas.queryByRole("link", { name: /Купить за/u })).not.toBeInTheDocument();
+    await expect(canvas.getByText("Что внутри руководства")).toBeInTheDocument();
     await expect(
       canvasElement.querySelector(
         '[data-content-cover-id="02000000-0000-4000-8000-000000000063"]',
@@ -196,72 +243,12 @@ export const SeriesDesktop: Story = {
   },
 };
 
-/**
- * У руководства есть своя цена: покупка руководства — главный путь, подписка остаётся вторым.
- * Без цены остаётся прежний CTA на тарифы, поэтому оба состояния показаны рядом.
- */
-export const SeriesForSaleDesktop: Story = {
-  args: { result: seriesResult, guideOffer: guideOnlyOffer },
-  globals: { viewport: { isRotated: false, value: "desktop1440" } },
-  name: "Series · guide for sale desktop",
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    await expect(
-      canvas.getByRole("link", { name: /Купить за/u }),
-    ).toBeInTheDocument();
-    await expect(
-      canvas.getByRole("link", { name: "Посмотреть подписку" }),
-    ).toBeInTheDocument();
-    await expect(canvas.getByText(/навсегда/u)).toBeInTheDocument();
-  },
-};
-
-export const SeriesForSaleMobile: Story = {
-  args: { result: seriesResult, guideOffer: guideOnlyOffer },
+export const SeriesProductMobile: Story = {
+  args: { result: { ...seriesResult, chapters: seriesChapters } },
   globals: { viewport: { isRotated: false, value: "mobile360" } },
-  name: "Series · guide for sale mobile",
+  name: "Series · product mobile",
   play: async ({ canvasElement }) => {
     await expectNoHorizontalOverflow(canvasElement);
-  },
-};
-
-/** Всё уже открыто: цена есть, но звать к оплате нечего. */
-export const SeriesForSaleAlreadyOpen: Story = {
-  args: {
-    result: {
-      ...seriesResult,
-      items: seriesResult.items.map((item) => ({
-        ...item,
-        availability: "available" as const,
-      })),
-    },
-    guideOffer: guideOnlyOffer,
-  },
-  globals: { viewport: { isRotated: false, value: "desktop1440" } },
-  name: "Series · guide for sale, nothing locked",
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    await expect(
-      canvas.queryByRole("link", { name: /Купить за/u }),
-    ).not.toBeInTheDocument();
-    await expect(
-      canvas.queryByRole("link", { name: "Посмотреть тарифы" }),
-    ).not.toBeInTheDocument();
-  },
-};
-
-export const SeriesNotForSale: Story = {
-  args: { result: seriesResult },
-  globals: { viewport: { isRotated: false, value: "desktop1440" } },
-  name: "Series · guide not for sale",
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    await expect(
-      canvas.queryByRole("link", { name: /Купить за/u }),
-    ).not.toBeInTheDocument();
-    await expect(
-      canvas.getByRole("link", { name: "Посмотреть тарифы" }),
-    ).toBeInTheDocument();
   },
 };
 
@@ -349,6 +336,7 @@ if (overviewVideo === undefined || dockerVideo === undefined) throw new Error("M
 
 export const ConnectedStepsDesktop: Story = {
   args: { result: connectedStepsResult },
+  render: (storyArgs) => <GuideProgrammeView learning={{ kind: "guest" }} result={programmeResult(storyArgs.result)} />,
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -395,6 +383,7 @@ export const ConnectedStepsMobile: Story = {
 const literalSummary = '<img src=x onerror="alert(1)"> Команда остаётся текстом.';
 export const VideoSummaryIsPlainText: Story = {
   args: { result: { ...connectedStepsResult, items: [{ ...overviewVideo, summary: literalSummary }] } },
+  render: (storyArgs) => <GuideProgrammeView learning={{ kind: "guest" }} result={programmeResult(storyArgs.result)} />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByText(literalSummary)).toBeVisible();
