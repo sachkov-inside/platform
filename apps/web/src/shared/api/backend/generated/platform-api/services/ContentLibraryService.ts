@@ -74,6 +74,12 @@ export class ContentLibraryService {
         }>;
       } | null;
       id: string;
+      introduction: {
+        audience: string;
+        outcome: string;
+        prerequisites: string;
+        scope: string;
+      } | null;
       name: string;
       slug: string;
       summary: string;
@@ -765,6 +771,12 @@ export class ContentLibraryService {
         }>;
       } | null;
       id: string;
+      introduction: {
+        audience: string;
+        outcome: string;
+        prerequisites: string;
+        scope: string;
+      } | null;
       name: string;
       slug: string;
       summary: string;
@@ -881,6 +893,12 @@ export class ContentLibraryService {
         }>;
       } | null;
       id: string;
+      introduction: {
+        audience: string;
+        outcome: string;
+        prerequisites: string;
+        scope: string;
+      } | null;
       name: string;
       slug: string;
       summary: string;
@@ -996,6 +1014,12 @@ export class ContentLibraryService {
         }>;
       } | null;
       id: string;
+      introduction: {
+        audience: string;
+        outcome: string;
+        prerequisites: string;
+        scope: string;
+      } | null;
       name: string;
       slug: string;
       summary: string;

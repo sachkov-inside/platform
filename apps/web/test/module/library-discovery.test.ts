@@ -150,6 +150,7 @@ describe("Library discovery server adapter", () => {
         reference: {
           cover: null,
           id: "72000000-0000-4000-8000-000000000002",
+          introduction: null,
           name: "Platform",
           slug: "platform",
           summary: "Материалы о Platform.",
@@ -196,6 +197,7 @@ describe("Library discovery server adapter", () => {
       reference: {
         cover: null,
         id: "72000000-0000-4000-8000-000000000020",
+        introduction: null,
         name: "Как устроен Inside Platform",
         slug: "inside-platform-overview",
         summary: "Один реальный published Material.",
@@ -269,6 +271,42 @@ describe("Library discovery server adapter", () => {
     });
     await expect(getPublishedSeries("platform")).resolves.toEqual({
       kind: "unavailable",
+    });
+  });
+
+  it("carries the Guide introduction through to the page model", async () => {
+    const introduction = {
+      audience: "Разработчики, которые впервые выпускают своё приложение.",
+      outcome: "Настроить путь от проверок до подтверждённого обновления.",
+      prerequisites: "Базовый Git и умение выполнить команду в терминале.",
+      scope: "Один проект и один тестовый сервер.",
+    };
+    vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        Response.json({
+          chapters: [],
+          hasNext: false,
+          items: [publishedProjection],
+          kind: "series",
+          reference: {
+            cover: null,
+            id: "72000000-0000-4000-8000-000000000002",
+            introduction,
+            name: "Platform",
+            slug: "platform",
+            summary: "Материалы о Platform.",
+          },
+          relatedSeries: [],
+          topics: [],
+        }),
+      ),
+    );
+
+    await expect(getPublishedSeries("platform")).resolves.toMatchObject({
+      kind: "ready",
+      reference: { introduction },
     });
   });
 

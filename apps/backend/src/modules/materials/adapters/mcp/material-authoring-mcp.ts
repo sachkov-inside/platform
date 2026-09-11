@@ -8,6 +8,7 @@ import {
   guideChapterDraftsSchema,
 } from "../../shared/guide-chapters.js";
 import { seriesStepGroupsSchema } from "../../shared/series-step-groups.js";
+import { GUIDE_INTRODUCTION_FIELD_MAX } from "../../facets/material-authoring/content-collection.contract.js";
 
 import type { MaterialAuthoring } from "../../facets/material-authoring/material-authoring.js";
 import {
@@ -30,6 +31,15 @@ const applicationResult = z.discriminatedUnion("ok", [
 ]);
 
 const collectionKindSchema = z.enum(["guide", "series", "topic"]);
+const introductionField = z.string().max(GUIDE_INTRODUCTION_FIELD_MAX);
+const guideIntroductionSchema = z
+  .object({
+    audience: introductionField,
+    outcome: introductionField,
+    prerequisites: introductionField,
+    scope: introductionField,
+  })
+  .strict();
 const collectionIdSchema = z.uuid();
 const collectionVersionSchema = z.number().int().positive();
 const seriesOrderVersionSchema = z.string().regex(/^[a-f0-9]{64}$/u);
@@ -234,11 +244,13 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
     {
       title: "Update Topic or Guide",
       description:
-        "Update the mutable name and summary using the latest optimistic version. The canonical slug cannot change.",
+        "Update the mutable name and summary using the latest optimistic version. The canonical slug cannot change. " +
+        "A Guide also carries the reader introduction: omit it to keep the stored text, send all four fields to replace it. A Topic has none.",
       inputSchema: z
         .object({
           collectionId: collectionIdSchema,
           expectedVersion: collectionVersionSchema,
+          introduction: guideIntroductionSchema.optional(),
           kind: collectionKindSchema,
           name: z.string(),
           summary: z.string(),
@@ -250,12 +262,13 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
         openWorldHint: false,
       },
     },
-    ({ collectionId, expectedVersion, kind, name, summary }) =>
+    ({ collectionId, expectedVersion, introduction, kind, name, summary }) =>
       toToolResult(
         dependencies.authoring.updateContentCollection({
           actor: dependencies.accountId,
           collectionId,
           expectedVersion,
+          ...(introduction === undefined ? {} : { introduction }),
           kind,
           name,
           summary,

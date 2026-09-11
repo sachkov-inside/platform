@@ -1,6 +1,9 @@
 import type { Subject } from "../../../content-access/index.js";
 import type { PublishedMaterialCatalogItemDto } from "../list-published-materials/list-published-materials.contract.js";
-import type { ContentCoverProjection } from "../../../materials/index.js";
+import type {
+  ContentCoverProjection,
+  GuideIntroductionDto,
+} from "../../../materials/index.js";
 
 export interface DiscoverPublishedMaterialsQuery {
   readonly first: number | null;
@@ -21,6 +24,8 @@ export interface PublishedMaterialDiscoveryDto {
   readonly kind: "related" | "series" | "topic";
   readonly reference: {
     readonly id: string;
+    /** Author-written Guide introduction; null for every other discovery kind. */
+    readonly introduction: GuideIntroductionDto | null;
     readonly name: string;
     readonly slug: string;
     readonly summary: string;

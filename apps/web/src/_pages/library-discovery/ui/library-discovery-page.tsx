@@ -5,6 +5,7 @@ import type {
   PublishedSeriesResult,
   PublishedTopicResult,
 } from "@/features/library-discovery";
+import { readReaderGuideArtifacts } from "@/features/guide-artifacts.server";
 import {
   loadPublishedSeries,
   loadPublishedTopic,
@@ -13,6 +14,7 @@ import {
   LibraryDiscoveryUnavailable,
   LibraryDiscoveryView,
 } from "./library-discovery-view";
+import type { ReaderGuideArtifactsResult } from "@/features/guide-artifacts.reader";
 import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 
 export async function PublishedTopicPage({
@@ -40,8 +42,20 @@ export async function PublishedSeriesPage({
   readonly returnTarget?: MaterialReaderReturnTarget;
   readonly slug: string;
 }) {
+  const result = await loadPublishedSeries(slug, accessToken);
+  // The artifact section is addressed by Guide id, which only a resolved Guide
+  // carries. A not-found or unavailable result never reaches the section at all.
+  const guideId =
+    result.kind === "ready" || result.kind === "empty"
+      ? result.reference.id
+      : undefined;
+  const artifacts: ReaderGuideArtifactsResult =
+    guideId === undefined
+      ? { artifacts: [], kind: "ready" }
+      : await readReaderGuideArtifacts(guideId, accessToken);
   return renderPublishedSeriesResult(
-    await loadPublishedSeries(slug, accessToken),
+    result,
+    artifacts,
     slug,
     returnTarget,
     accessToken,
@@ -69,6 +83,7 @@ function renderPublishedTopicResult(
 
 function renderPublishedSeriesResult(
   result: PublishedSeriesResult,
+  artifacts: ReaderGuideArtifactsResult,
   slug: string,
   returnTarget?: MaterialReaderReturnTarget,
   accessToken?: string,
@@ -81,6 +96,7 @@ function renderPublishedSeriesResult(
   }
   return (
     <PersonalSeries
+      artifacts={artifacts}
       result={result}
       {...(accessToken === undefined ? {} : { accessToken })}
       {...(returnTarget === undefined ? {} : { returnTarget })}
