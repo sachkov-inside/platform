@@ -20,6 +20,12 @@ const post = {
     ],
   },
 };
+import { authoringPageEnvironment } from "@/workshop/story-environment";
+
+import { BroadcastsPageFrame } from "./broadcasts-page-frame";
+
+const environment = authoringPageEnvironment("/authoring/communications/broadcasts");
+
 const meta = {
   title: "Pages/Communications/Посты из Telegram",
   component: PostLibrary,
@@ -36,12 +42,14 @@ const meta = {
     ),
     onSample: fn<PostLibraryProps["onSample"]>(() => Promise.resolve(true)),
   },
+  ...environment,
   decorators: [
     (Story) => (
-      <main className="mx-auto max-w-2xl p-4">
+      <BroadcastsPageFrame>
         <Story />
-      </main>
+      </BroadcastsPageFrame>
     ),
+    ...environment.decorators,
   ],
 } satisfies Meta<typeof PostLibrary>;
 export default meta;

@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
-import { ApplicationShell } from "@/widgets/application-shell";
+import { publicPageEnvironment } from "@/workshop/story-environment";
 import { HomePage } from "./home-page";
 import { HomeLoading } from "./home-loading";
 import { illustratedHome } from "./illustrated-home.fixture";
@@ -17,8 +17,7 @@ const home: HomeView = {
 const meta = {
   component: HomePage,
   title: "Pages/Home/Guest",
-  decorators: [(Story) => <ApplicationShell currentPath="/" navigationItems={[{ href: "/", icon: "home", label: "Главная" }, { href: "/library", icon: "library", label: "База знаний" }]} mobileNavigationItems={[{ href: "/", icon: "home", label: "Главная" }, { href: "/library", icon: "library", label: "База знаний" }, { href: "/account", icon: "profile", label: "Профиль" }]}><Story /></ApplicationShell>],
-  parameters: { layout: "fullscreen" },
+  ...publicPageEnvironment("/"),
   tags: ["autodocs"],
 } satisfies Meta<typeof HomePage>;
 export default meta;

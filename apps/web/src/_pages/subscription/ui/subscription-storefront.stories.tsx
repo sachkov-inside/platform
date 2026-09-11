@@ -20,6 +20,9 @@ const subscribed = fetchBeforeRender(() =>
 
 const desktop = { viewport: { isRotated: false, value: "desktop1440" } };
 const mobile = { viewport: { isRotated: false, value: "mobile390" } };
+import { publicPageEnvironment } from "@/workshop/story-environment";
+
+const environment = publicPageEnvironment("/subscription");
 
 const meta = {
   title: "Pages/Subscription/Storefront",
@@ -27,8 +30,9 @@ const meta = {
   args: { offers: billingOffers, returnTo: "/subscription" },
   beforeEach: signedOut,
   globals: desktop,
+  ...environment,
   parameters: {
-    nextjs: { appDirectory: true },
+    ...environment.parameters,
     docs: {
       description: {
         component:

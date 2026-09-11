@@ -139,6 +139,9 @@ function MaterialAuthoringFixture({
     <MaterialAuthoringWorkspace actions={actions} presentation={presentation} />
   );
 }
+import { authoringPageEnvironment, routeContent } from "./story-environment";
+
+const environment = authoringPageEnvironment("/authoring/materials/96000000-0000-4000-8000-000000000001");
 
 const meta = {
   args: {
@@ -146,7 +149,9 @@ const meta = {
     presentation: materialAuthoringPresentation,
   },
   component: MaterialAuthoringWorkspace,
+  ...environment,
   parameters: {
+    ...environment.parameters,
     controls: {
       exclude: ["actions"],
     },
@@ -155,9 +160,6 @@ const meta = {
         component:
           "Production-композиция редактора и точного предпросмотра. Сценарии передают только сериализуемые данные представления; transport, авторизация и сохранение остаются вне UI-модуля.",
       },
-    },
-    nextjs: {
-      appDirectory: true,
     },
   },
   render: ({ presentation }) => (
@@ -299,6 +301,8 @@ export const Saved: Story = {
     await expect(
       canvas.queryByRole("button", { name: "Сохранить" }),
     ).not.toBeInTheDocument();
+    // Первым в порядке обхода стоит содержимое маршрута: оболочку проверяет её собственная story.
+    within(canvasElement).getByRole("main").focus();
     await userEvent.tab();
     await expect(
       canvas.getByRole("button", { name: "Вернуться к материалам" }),
@@ -694,8 +698,9 @@ export const SearchableSeries: Story = {
     await userEvent.type(canvas.getByLabelText("Поиск руководств"), "Руководство 45");
     await expect(series.getAllByRole("checkbox")).toHaveLength(1);
     await expect(series.getByRole("checkbox", { name: "Руководство 45" })).toBeVisible();
-    await expect(canvas.getAllByText("Теги", { exact: true })).toHaveLength(1);
-    await expect(canvas.getAllByText("Руководства", { exact: true })).toHaveLength(1);
+    const page = routeContent(canvasElement);
+    await expect(page.getAllByText("Теги", { exact: true })).toHaveLength(1);
+    await expect(page.getAllByText("Руководства", { exact: true })).toHaveLength(1);
   },
 };
 

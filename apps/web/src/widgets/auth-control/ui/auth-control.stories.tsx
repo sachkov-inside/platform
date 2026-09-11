@@ -1,24 +1,17 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, within } from "storybook/test";
+import { publicHeaderEnvironment } from "@/workshop/story-environment";
+
 import { HeaderAuthControl } from "./auth-control.client";
+
+const environment = publicHeaderEnvironment();
 
 const meta = {
   args: { state: "guest" },
   component: HeaderAuthControl,
-  decorators: [
-    (Story) => (
-      <div
-        data-public-shell
-        className="min-h-64 bg-background p-6 text-foreground"
-        onSubmit={(event) => {
-          event.preventDefault();
-        }}
-      >
-        <Story />
-      </div>
-    ),
-  ],
+  ...environment,
   parameters: {
+    ...environment.parameters,
     docs: {
       description: {
         component:

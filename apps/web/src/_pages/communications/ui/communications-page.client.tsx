@@ -1,7 +1,7 @@
 "use client";
-import Link from "next/link";
-import { ArrowLeft, Plus, RefreshCw } from "lucide-react";
+import { Plus, RefreshCw } from "lucide-react";
 import styles from "./broadcasts.module.css";
+import { BroadcastsPageFrame } from "./broadcasts-page-frame";
 import { BroadcastList } from "./broadcast-list";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -92,19 +92,7 @@ export function CommunicationsPage() {
     setContact(null);
   }
   return (
-    <main
-      id="authoring-content"
-      tabIndex={-1}
-      className="h-full overflow-y-auto bg-background px-4 pb-24 pt-5 text-foreground sm:px-6"
-    >
-      <div className={styles.page}>
-        <Link
-          className="flex min-h-11 w-fit items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-          href="/authoring/communications"
-        >
-          <ArrowLeft aria-hidden="true" className="size-4" />
-          Воронки Telegram
-        </Link>
+    <BroadcastsPageFrame>
         <header className={styles.header}>
           <div className="space-y-3">
             <p className={styles.eyebrow}>Коммуникации · Telegram</p>
@@ -390,7 +378,6 @@ export function CommunicationsPage() {
             </section>
           ) : null}
         </section>
-      </div>
-    </main>
+    </BroadcastsPageFrame>
   );
 }

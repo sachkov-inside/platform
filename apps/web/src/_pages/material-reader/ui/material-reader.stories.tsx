@@ -5,10 +5,7 @@ import type {
   MaterialReaderMetadata,
   ReaderBlock,
 } from "@/_pages/material-reader/model/material-reader-view";
-import {
-  ApplicationShell,
-  type ApplicationNavigationItem,
-} from "@/widgets/application-shell";
+import { publicPageEnvironment } from "@/workshop/story-environment";
 import {
   materialReaderHref,
   parseMaterialReaderReturnTarget,
@@ -21,11 +18,6 @@ import {
   MaterialReaderUnavailable,
 } from "./material-reader-states";
 import { MaterialReaderView } from "./material-reader-view";
-
-const navigationItems = [
-  { href: "/", icon: "home", label: "Главная" },
-  { href: "/library", icon: "library", label: "База знаний" },
-] satisfies readonly ApplicationNavigationItem[];
 
 const material = {
   materialId: "02000000-0000-4000-8000-000000000010",
@@ -208,15 +200,7 @@ type ReaderStoryMode =
   | "video-processing";
 
 function MaterialReaderBoard({ mode }: { readonly mode: ReaderStoryMode }) {
-  return (
-    <ApplicationShell
-      currentPath={`/materials/${material.slug}`}
-      navigationItems={navigationItems}
-      mobileNavigationItems={[...navigationItems, { href: "/account", icon: "profile", label: "Профиль" }]}
-    >
-      <MaterialReaderState mode={mode} />
-    </ApplicationShell>
-  );
+  return <MaterialReaderState mode={mode} />;
 }
 
 function MaterialReaderState({ mode }: { readonly mode: ReaderStoryMode }) {
@@ -313,16 +297,18 @@ function MaterialReaderState({ mode }: { readonly mode: ReaderStoryMode }) {
   }
 }
 
+const environment = publicPageEnvironment(`/materials/${material.slug}`);
 const meta = {
   component: MaterialReaderBoard,
+  ...environment,
   parameters: {
+    ...environment.parameters,
     docs: {
       description: {
         component:
           "Production-owned Reader presentation. Stories exercise the exact UI used by the App Router route while fixtures stay outside the production graph.",
       },
     },
-    nextjs: { appDirectory: true },
   },
   title: "Pages/Mobile-first Platform/Reader",
 } satisfies Meta<typeof MaterialReaderBoard>;

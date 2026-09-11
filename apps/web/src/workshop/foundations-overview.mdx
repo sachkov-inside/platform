@@ -19,6 +19,11 @@ product content, and asserts its critical behavior in a `play` test. Controls ar
 supported props; they are not a substitute for named states. Responsive page proofs start at
 320 × 568 and keep the same information hierarchy on desktop.
 
+A story shows the production module in its production environment: a page-level story wraps it in
+the shell of its route, a component story uses the containers its real page gives it, and neither
+re-creates page markup of its own. `src/workshop/story-environment` owns those wrappers. When a
+story and the application disagree, the application is the reference and the story changes.
+
 ## Agent workflow
 
 When Storybook is running, inspect the catalog and rendered Docs at `http://localhost:6006`. Read

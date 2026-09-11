@@ -29,18 +29,22 @@ const collections = [
     version: 2,
   },
 ] as const;
+import { authoringPageEnvironment } from "@/workshop/story-environment";
+
+const environment = authoringPageEnvironment("/authoring/topics");
 
 const meta = {
   args: { initialCollections: collections, kind: "topic" },
   component: ContentCollectionsPageClient,
+  ...environment,
   decorators: [
     withMutationFetch(() =>
       Promise.resolve(
         Response.json({ kind: "saved", collection: collections[0] }),
       ),
     ),
+    ...environment.decorators,
   ],
-  parameters: { nextjs: { appDirectory: true } },
   title: "Pages/Authoring/Коллекции",
 } satisfies Meta<typeof ContentCollectionsPageClient>;
 

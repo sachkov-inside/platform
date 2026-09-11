@@ -1,9 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { expect, fn, mocked, userEvent, within } from "storybook/test";
+import { expect, fn, userEvent, within } from "storybook/test";
 import { useState } from "react";
-import { usePathname } from "next/navigation";
-import { AuthoringShell } from "@/widgets/authoring-shell";
+import { authoringPageEnvironment } from "@/workshop/story-environment";
 import type { Funnel, Part, Preview } from "../model/communications";
 import {
   CommunicationsWorkspace,
@@ -202,25 +201,22 @@ function QueryFixture({ children }: { children: React.ReactNode }) {
   );
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
+const environment = authoringPageEnvironment("/authoring/communications");
 const meta = {
   title: "Pages/Authoring/Воронки Telegram",
   component: CommunicationsWorkspace,
   args: { actions },
-  beforeEach: () => {
-    mocked(usePathname).mockReturnValue("/authoring/communications");
-  },
+  ...environment,
   decorators: [
     (Story) => (
       <QueryFixture>
-        <AuthoringShell>
-          <Story />
-        </AuthoringShell>
+        <Story />
       </QueryFixture>
     ),
+    ...environment.decorators,
   ],
   parameters: {
-    layout: "fullscreen",
-    nextjs: { appDirectory: true },
+    ...environment.parameters,
     docs: {
       description: {
         component:

@@ -76,6 +76,11 @@ const readyState = {
   totalItems: 35,
   totalPages: 2,
 } satisfies Extract<AuthoringMaterialsState, { readonly kind: "ready" }>;
+import { authoringMaterialsRootHref } from "@/shared/routing/authoring";
+
+import { authoringPageEnvironment, routeContent } from "./story-environment";
+
+const environment = authoringPageEnvironment(authoringMaterialsRootHref);
 
 const meta = {
   args: {
@@ -83,14 +88,15 @@ const meta = {
     state: readyState,
   },
   component: AuthoringMaterialsView,
+  ...environment,
   parameters: {
+    ...environment.parameters,
     docs: {
       description: {
         component:
           "Production-представление списка материалов. Страница использует browser-owned TanStack Query; Storybook передаёт сериализуемое состояние напрямую.",
       },
     },
-    nextjs: { appDirectory: true },
   },
   title: "Страницы/Редактор/Материалы",
 } satisfies Meta<typeof AuthoringMaterialsView>;
@@ -172,7 +178,9 @@ export const Mobile: Story = {
 export const Keyboard: Story = {
   name: "Список · клавиатура",
   play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
+    const canvas = routeContent(canvasElement);
+    // В приложении в содержимое попадают по ссылке «Перейти к содержанию»; отсюда и порядок.
+    within(canvasElement).getByRole("main").focus();
     await userEvent.tab();
     await expect(canvas.getByRole("link", { name: "Новый материал" })).toHaveFocus();
     await userEvent.tab();

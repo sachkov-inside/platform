@@ -4,10 +4,7 @@ import { expect, within } from "storybook/test";
 
 import type { LibraryDiscoveryResult } from "@/features/library-discovery";
 import type { MaterialPreview } from "@/entities/material";
-import {
-  ApplicationShell,
-  type ApplicationNavigationItem,
-} from "@/widgets/application-shell";
+import { publicPageEnvironment } from "@/workshop/story-environment";
 import { GuideProgrammeView } from "./guide-programme-view.client";
 import {
   LibraryDiscoveryLoading,
@@ -29,11 +26,6 @@ function programmeResult(
   }
   return result;
 }
-
-const navigationItems = [
-  { href: "/", icon: "home", label: "Главная" },
-  { href: "/library", icon: "library", label: "База знаний" },
-] satisfies readonly ApplicationNavigationItem[];
 
 const materials = [
   {
@@ -131,30 +123,9 @@ const seriesResult = {
   topics: [{ id: "topic-platform", name: "Platform", slug: "platform" }],
 } as const satisfies LibraryDiscoveryResult;
 
-function ProductionShell({ children }: { readonly children: React.ReactNode }) {
-  return (
-    <ApplicationShell
-      currentPath="/topics/platform"
-      navigationItems={navigationItems}
-      mobileNavigationItems={[...navigationItems, { href: "/account", icon: "profile", label: "Профиль" }]}
-    >
-      {children}
-    </ApplicationShell>
-  );
-}
-
 const meta = {
   component: LibraryDiscoveryView,
-  decorators: [
-    (Story) => (
-      <ProductionShell>
-        <Story />
-      </ProductionShell>
-    ),
-  ],
-  parameters: {
-    nextjs: { appDirectory: true },
-  },
+  ...publicPageEnvironment("/topics/platform"),
   title: "Pages/Mobile-first Platform/Collections",
 } satisfies Meta<typeof LibraryDiscoveryView>;
 

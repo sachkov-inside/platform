@@ -6,22 +6,6 @@
 }
 
 @media (max-width: 47.999rem) {
-  #content > div:has(
-    > :is(
-      [data-prototype="library-responsive"],
-      [data-prototype="knowledge-base-responsive"],
-      [data-prototype="material-reader-responsive"]
-    )
-  ) {
-    margin: 0;
-    inline-size: 100%;
-    max-inline-size: none;
-    padding-block-start: 0;
-    border: 0;
-    border-radius: 0;
-    background: var(--background);
-  }
-
   .library-topic-rail {
     scrollbar-width: none;
   }
@@ -32,5 +16,19 @@
 
   .platform-agentation {
     bottom: calc(4rem + env(safe-area-inset-bottom)) !important;
+  }
+}
+
+/*
+ * Прокрутка предпросмотра. С 48rem `globals.css` отдаёт прокрутку оболочке приложения, поэтому
+ * `html` и `body` её не имеют. Story без продуктовой оболочки — отдельный модуль, а не маршрут:
+ * прокручивать её должен документ, иначе на десктопе видно только первый экран. Story с оболочкой
+ * прокручивается ровно так же, как её маршрут.
+ */
+@media (width >= 48rem) {
+  html:not(:has([data-public-shell], [data-authoring-shell])),
+  body:not(:has([data-public-shell], [data-authoring-shell])) {
+    block-size: auto;
+    overflow: visible;
   }
 }

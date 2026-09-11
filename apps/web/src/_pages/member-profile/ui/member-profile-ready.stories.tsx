@@ -9,11 +9,16 @@ const profile = {
   displayName: "Кирилл Сачков",
   publicProfileId: "5d34da22-548e-4b02-b6e8-9c918ad536ef",
 } as const;
+import { publicPageEnvironment } from "@/workshop/story-environment";
+
+const environment = publicPageEnvironment(`/members/${profile.publicProfileId}`);
 
 const meta = {
   args: { profile },
   component: MemberProfileReady,
+  ...environment,
   parameters: {
+    ...environment.parameters,
     docs: {
       description: {
         component:

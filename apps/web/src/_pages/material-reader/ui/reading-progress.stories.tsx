@@ -3,10 +3,9 @@ import { useState } from "react";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 import { MaterialReaderView, type MaterialReaderMetadata, type ReaderBlock } from "@/_pages/material-reader";
 import { MaterialCard, MaterialReadingStatus, type MaterialPreview } from "@/entities/material";
-import { ApplicationShell, type ApplicationNavigationItem } from "@/widgets/application-shell";
+import { publicPageEnvironment } from "@/workshop/story-environment";
 import { ReadingAction, SeriesProgress, type ReadingActionView } from "@/features/reading-progress";
 
-const navigation = [{ href: "/", icon: "home", label: "Главная" }, { href: "/library", icon: "library", label: "База знаний" }] satisfies readonly ApplicationNavigationItem[];
 const metadata: MaterialReaderMetadata = {
   materialId: "02000000-0000-4000-8000-000000000010", contentVersion: 1, access: "free", cover: null,
   format: { name: "Текст", slug: "text" }, publishedAt: "2026-09-06T12:00:00.000Z", seriesMemberships: [],
@@ -40,7 +39,7 @@ function ReadingProof({ initial = { kind: "ready", isRead: false, canMark: true 
   const action = <ReadingAction format={format} view={view} onSetReadingState={onSetReadingState} onRefresh={() => { setView({ kind: "ready", isRead, canMark: true }); }} />;
   const progress = <div className="mt-5"><SeriesProgress view={{ kind: "ready", total, read: displayedRead }} /></div>;
   const formatName = format === "video" ? "Видео" : format === "text" ? "Текст" : format === "note" ? "Заметка" : "Гайд";
-  return <ApplicationShell currentPath="/library" navigationItems={navigation} mobileNavigationItems={navigation}>
+  return <>
     {surface === "reader" ? <MaterialReaderView body={body} material={{ ...metadata, format: { name: formatName, slug: format } }} primaryVideo={format === "video" ? { state: "ready", videoId: "02000000-0000-4000-8000-000000000015", title: metadata.title } : null} readingAction={action} /> :
       <div className="mx-auto max-w-5xl">
         <h1 className="text-2xl font-semibold">{surface === "series" ? "Надёжное приложение" : "Изученные материалы"}</h1>
@@ -51,11 +50,13 @@ function ReadingProof({ initial = { kind: "ready", isRead: false, canMark: true 
         </div> : <div className="mt-6 grid gap-3">{total > 0 ? <MaterialCard material={preview} variant="row" readingStatus={<MaterialReadingStatus format={format} isRead={isRead} />} /> : <p className="text-muted-foreground">В этом руководстве пока нет опубликованных материалов.</p>}</div>}
         {total > 0 ? action : null}
       </div>}
-  </ApplicationShell>;
+  </>;
 }
+const environment = publicPageEnvironment("/library");
 const meta = {
-  title: "Pages/Reading progress", component: ReadingProof,
-  parameters: { docs: { description: { component: "#328: production-owned presentation proof. Reader actions, card status and current Series count; real persistence and transport are supplied by #329 after visual acceptance." } } },
+  title: "Features/Reading progress", component: ReadingProof,
+  ...environment,
+  parameters: { ...environment.parameters, docs: { description: { component: "Отметка «Изучено» в тех же продакшен-модулях, что и на маршрутах: читалка, карточки материала и счётчик руководства. Сохранение и транспорт живут в приложении; здесь проверяются только состояния и их ошибки." } } },
 } satisfies Meta<typeof ReadingProof>;
 export default meta;
 type Story = StoryObj<typeof meta>;
