@@ -2,6 +2,7 @@ import type {
   AccessGround,
   BillingQuote,
   ChangeQuote,
+  CurrentBilling,
   LegalDocument,
   NoticeView,
   OwnPayment,
@@ -91,6 +92,36 @@ export const guideOnlyOffer: PriceSnapshot = {
   renewalPriceKopecks: 250_000,
 };
 
+/** Второй разовый вариант того же руководства: он и даёт странице оплаты выбор. */
+export const guideWithSupportOffer: PriceSnapshot = {
+  offer: {
+    id: uuid("104"),
+    revision: 1,
+    name: "Руководство «Создание Platform Inside» с сопровождением",
+    benefits: [`guide:${uuid("f01")}`, "support"],
+    benefitPeriods: [
+      { capability: `guide:${uuid("f01")}`, months: null },
+      { capability: "support", months: 3 },
+    ],
+    archived: false,
+    published: false,
+  },
+  paymentOption: {
+    id: uuid("204"),
+    revision: 1,
+    offerId: uuid("104"),
+    mode: "one_time",
+    months: 1,
+    priceKopecks: 490_000,
+    archived: false,
+  },
+  promotion: null,
+  currency: "RUB",
+  timezone: "Europe/Moscow",
+  firstPriceKopecks: 490_000,
+  renewalPriceKopecks: 490_000,
+};
+
 export const billingOffers: readonly PriceSnapshot[] = [
   materialsOffer,
   supportOffer,
@@ -164,6 +195,19 @@ export const activeSubscription: SubscriptionView = {
   pendingMethodChange: null,
   inFlightPayment: null,
 };
+
+/** Ответ собственного BFF о состоянии billing: конверт принадлежит фикстурам, а не сторис. */
+export function currentBillingResponse(
+  subscription: SubscriptionView | null,
+): Response {
+  const value: CurrentBilling = {
+    subscription,
+    notices: [],
+    grounds: [],
+    payments: [],
+  };
+  return Response.json({ ok: true, value });
+}
 
 export const canceledSubscription: SubscriptionView = {
   ...activeSubscription,

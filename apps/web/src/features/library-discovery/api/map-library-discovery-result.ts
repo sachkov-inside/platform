@@ -60,6 +60,8 @@ const guideChapterSchema = z
     id: z.string(),
     materialIds: z.array(z.string()),
     name: z.string(),
+    // Прежние ответы без описания читаются: страница просто не показывает его.
+    summary: z.string().default(""),
   })
   .strict();
 const discoveryNotFoundSchema = z

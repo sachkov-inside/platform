@@ -57,11 +57,13 @@ describe("Library discovery server adapter", () => {
       id: "72000000-0000-4000-8000-000000000030",
       materialIds: ["72000000-0000-4000-8000-000000000020"],
       name: "Проект и CI",
+      summary: "Собираем проект и первые проверки.",
     };
     const empty = {
       id: "72000000-0000-4000-8000-000000000031",
       materialIds: [],
       name: "Эксплуатация",
+      summary: "",
     };
     vi.stubGlobal(
       "fetch",

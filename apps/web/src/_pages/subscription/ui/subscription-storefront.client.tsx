@@ -54,29 +54,33 @@ export function SubscriptionStorefront({
     billing.data?.ok === true ? billing.data.value.subscription : null;
   const currentOptionId = subscription?.snapshot.paymentOption.id ?? null;
 
+  // Пустой каталог при живом чтении — это выключенная владельцем продажа, а не сбой. Такая
+  // страница ничего не обещает: рекламировать то, чего нельзя купить, и звать зайти позже за
+  // тем, что не появится, одинаково неверно.
+  const notOffered = !unavailable && offers.length === 0;
+
   return (
     <div className="mx-auto grid max-w-5xl gap-8">
       <header className="grid gap-3">
         <h1 className="text-balance text-4xl font-bold tracking-[-0.04em] sm:text-5xl">
-          Подписка Sachkov Inside
+          {notOffered ? "Подписка сейчас не продаётся" : "Подписка Sachkov Inside"}
         </h1>
         <p className="max-w-2xl text-base leading-7 text-muted-foreground">
-          Оба тарифа открывают все опубликованные материалы и руководства.
-          Старший добавляет вопросы автору, эфиры и общий чат.
+          {notOffered
+            ? "Оформить её пока нельзя. Уже оформленная подписка продолжает работать, и доступ по ней сохраняется."
+            : "Оба тарифа открывают все опубликованные материалы и руководства. Старший добавляет вопросы автору, эфиры и общий чат."}
         </p>
-        {originHref === undefined ? null : (
-          <p className="text-sm">
-            <Link
-              className="text-action underline underline-offset-4"
-              href={originHref}
-            >
-              Вернуться к материалу
-            </Link>
-          </p>
-        )}
+        <StorefrontOriginLink originHref={originHref} />
       </header>
 
-      {unavailable || offers.length === 0 ? (
+      {/* Действующая подписка не зависит от продажи, поэтому вход в кабинет живёт снаружи
+          состояний каталога: он нужен и когда продажи нет, и когда каталог не прочитался. */}
+      <CurrentSubscriptionNote
+        cabinetHref={cabinetHref}
+        offerName={subscription?.snapshot.offer.name ?? null}
+      />
+
+      {notOffered ? null : unavailable ? (
         <p
           className="rounded-2xl border border-border bg-card p-6 text-sm leading-6 shadow-card"
           role="status"
@@ -86,19 +90,6 @@ export function SubscriptionStorefront({
         </p>
       ) : (
         <>
-          {subscription === null ? null : (
-            <p className="rounded-2xl border border-accent/35 bg-accent/6 p-4 text-sm leading-6">
-              У вас уже есть подписка «{subscription.snapshot.offer.name}».{" "}
-              <Link
-                className="font-semibold text-action underline underline-offset-4"
-                href={cabinetHref}
-              >
-                Управлять ею в платёжном кабинете
-              </Link>
-              .
-            </p>
-          )}
-
           <fieldset>
             <legend className="text-sm font-semibold text-muted-foreground">
               Выберите тариф
@@ -169,5 +160,50 @@ export function SubscriptionStorefront({
         </p>
       ) : null}
     </div>
+  );
+}
+
+/** Контекст страницы руководства сохраняется в любом состоянии витрины. */
+function StorefrontOriginLink({
+  originHref,
+}: {
+  readonly originHref: Route | undefined;
+}) {
+  if (originHref === undefined) return null;
+  return (
+    <p className="text-sm">
+      <Link
+        className="text-action underline underline-offset-4"
+        href={originHref}
+      >
+        Вернуться к материалу
+      </Link>
+    </p>
+  );
+}
+
+/**
+ * Действующая подписка живёт независимо от продажи, поэтому её владелец находит вход в
+ * кабинет и тогда, когда продажа выключена.
+ */
+function CurrentSubscriptionNote({
+  cabinetHref,
+  offerName,
+}: {
+  readonly cabinetHref: Route;
+  readonly offerName: string | null;
+}) {
+  if (offerName === null) return null;
+  return (
+    <p className="rounded-2xl border border-accent/35 bg-accent/6 p-4 text-sm leading-6">
+      У вас уже есть подписка «{offerName}».{" "}
+      <Link
+        className="font-semibold text-action underline underline-offset-4"
+        href={cabinetHref}
+      >
+        Управлять ею в платёжном кабинете
+      </Link>
+      .
+    </p>
   );
 }

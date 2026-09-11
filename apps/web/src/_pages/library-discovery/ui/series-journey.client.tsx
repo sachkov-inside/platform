@@ -2,7 +2,6 @@
 
 import { ArrowLeft, ArrowRight, Play, RefreshCw } from "lucide-react";
 import type { Route } from "next";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
@@ -10,11 +9,11 @@ import { MaterialCard } from "@/entities/material";
 import type { MaterialPreview } from "@/entities/material";
 import { ReaderGuideArtifacts, type ReaderGuideArtifact, type ReaderGuideArtifactsResult } from "@/features/guide-artifacts.reader";
 import { formatMaterialCount, type GuideChapter, type PublishedSeriesResult } from "@/features/library-discovery";
-import { SeriesMaterialMarker, SeriesProgress } from "@/features/reading-progress";
+import { SeriesMaterialMarker } from "@/features/reading-progress";
 import { Button } from "@/shared/ui/button";
 import { cn } from "@/shared/lib/utils";
 import { guideChapterRuns } from "@/shared/lib/guide-chapter-runs";
-import { materialReaderHref, readSeriesPage, seriesReaderReturnHref } from "@/shared/routing/material-reader";
+import { readSeriesPage, seriesReaderReturnHref } from "@/shared/routing/material-reader";
 import { seriesPage, SERIES_PAGE_SIZE } from "../model/series-page";
 
 export type SeriesLearningView =
@@ -25,12 +24,11 @@ export type SeriesLearningView =
 
 type SeriesResult = Extract<PublishedSeriesResult, { readonly kind: "ready" | "empty" }>;
 
-export function SeriesJourney({ artifacts = { kind: "ready", artifacts: [] }, result, currentHref, learning = { kind: "guest" }, onRetry }: {
+export function SeriesJourney({ artifacts = { kind: "ready", artifacts: [] }, result, currentHref, learning = { kind: "guest" } }: {
   readonly artifacts?: ReaderGuideArtifactsResult;
   readonly result: SeriesResult;
   readonly currentHref: Route;
   readonly learning?: SeriesLearningView;
-  readonly onRetry?: (() => void) | undefined;
 }) {
   const search = useSearchParams();
   const router = useRouter();
@@ -73,17 +71,8 @@ export function SeriesJourney({ artifacts = { kind: "ready", artifacts: [] }, re
   const [navigation, setNavigation] = useState({ source: restoredPage, page: restoredPage });
   if (navigation.source !== restoredPage) setNavigation({ source: restoredPage, page: restoredPage });
   const page = seriesPage(visible, navigation.source === restoredPage ? navigation.page : restoredPage, resumePage);
+  // Место продолжения отмечается прямо на карточке: отдельной сводки над маршрутом больше нет.
   const next = items.find((item) => item.slug === continuation?.materialSlug && item.availability === "available");
-  const first = items.find((item) => item.availability === "available");
-  const complete = learning.kind === "ready" && learning.total > 0 && learning.read === learning.total;
-  const canStart = learning.kind === "guest" || (learning.kind === "ready" && learning.read === 0 && continuation === null);
-  const target = next ?? (canStart ? first : undefined);
-  // The continuation may live in another part, so its page is counted inside the part that holds it.
-  const targetPart = parts.find((entry) => partItems(entry).some((item) => item.slug === target?.slug));
-  const targetPage = targetPart === undefined
-    ? 1
-    : Math.floor(partItems(targetPart).findIndex((item) => item.slug === target?.slug) / SERIES_PAGE_SIZE) + 1;
-  const targetHref = target === undefined ? undefined : materialReaderHref(target.slug, seriesReaderReturnHref(currentHref, targetPage, target.slug));
 
   useEffect(() => {
     if (resumePage === undefined || search.has("page") || search.has("at")) return;
@@ -115,25 +104,6 @@ export function SeriesJourney({ artifacts = { kind: "ready", artifacts: [] }, re
   }
 
   return <>
-    {items.length > 0 ? <section aria-label="Прохождение руководства" className="mt-8 grid min-h-52 gap-6 md:min-h-36 xl:min-h-28 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] md:items-center md:gap-12" data-series-learning={learning.kind}>
-      <div className="min-w-0">
-        {learning.kind === "guest" ? <>
-          <h2 className="text-lg font-semibold">Изучайте в своём темпе</h2>
-          <p className="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">Войдите, чтобы сохранять прогресс и возвращаться к месту остановки.</p>
-          <Link className="mt-3 inline-flex min-h-11 items-center font-semibold text-action underline-offset-4 hover:underline" href="/account">Войти</Link>
-        </> : <SeriesProgress view={learning} />}
-        {learning.kind === "unavailable" ? <Button className="mt-3 h-auto min-h-11 max-w-full whitespace-normal" onClick={onRetry} variant="outline"><RefreshCw aria-hidden="true" />Повторить загрузку прогресса</Button> : null}
-      </div>
-      <div className="min-w-0">
-        {target !== undefined && targetHref !== undefined && !complete ? <div className="flex min-w-0 flex-wrap items-center gap-x-6 gap-y-3">
-          <div className="min-w-0 max-w-sm">
-            <p className="text-sm text-muted-foreground">{next === undefined ? "Первый материал" : "Продолжить изучение"}</p>
-            <h2 className="mt-1 line-clamp-2 break-words text-lg font-semibold leading-7">{target.title}</h2>
-          </div>
-          <Button asChild className="h-auto min-h-11 max-w-full whitespace-normal [overflow-wrap:anywhere]" size="lg"><Link href={targetHref}><Play aria-hidden="true" className="size-4" />{next === undefined ? "Начать руководство" : continuation?.label === "Продолжить здесь" ? "Продолжить" : continuation?.label}</Link></Button>
-        </div> : complete ? <p className="max-w-md leading-7 text-muted-foreground">Можно вернуться к любому материалу в маршруте и повторить нужное.</p> : learning.kind === "loading" ? <p className="text-muted-foreground">Ищем место продолжения…</p> : learning.kind === "unavailable" ? <p className="text-sm leading-6 text-muted-foreground">Материалы можно открыть в маршруте ниже.</p> : <p className="text-sm leading-6 text-muted-foreground">Выберите материал в маршруте. Условия доступа указаны на карточках.</p>}
-      </div>
-    </section> : null}
     {result.kind === "ready" || result.chapters.length > 0 || parts.length > materialParts.length || artifacts.kind === "unavailable" ? <section aria-labelledby="series-materials" className="mt-10 scroll-mt-6 focus:outline-none" ref={routeRef} tabIndex={-1}>
       <h2 className="sr-only" id="series-materials">Материалы руководства</h2>
       {artifacts.kind === "unavailable" ? <p className="mb-4 rounded-2xl bg-muted px-5 py-4 text-sm leading-6 text-muted-foreground">Раздел артефактов сейчас не открывается. Материалы руководства это не затрагивает.</p> : null}

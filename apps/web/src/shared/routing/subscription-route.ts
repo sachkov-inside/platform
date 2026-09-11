@@ -41,9 +41,22 @@ export function subscriptionRouteTarget(
     : { returnTo: subscriptionHrefFrom(origin), originHref: origin };
 }
 
+/** Страница продукта руководства: она рассказывает и никогда не называет цену. */
+export function guideProductHref(slug: string): Route {
+  return internalRoute(`/guides/${encodeURIComponent(slug)}`);
+}
+
 /**
- * Витрина одного руководства: его цена и оформление живут отдельным адресом, потому что
- * покупают здесь именно руководство, а не тариф подписки.
+ * Программа руководства: материалы по главам живут отдельным адресом, потому что страница
+ * продукта рассказывает, а программа учит. Приглашение к оплате встречает читателя именно здесь.
+ */
+export function guideProgrammeHref(slug: string): Route {
+  return internalRoute(`/guides/${encodeURIComponent(slug)}/programme`);
+}
+
+/**
+ * Страница оплаты одного руководства: цена и оформление живут отдельным адресом, потому что
+ * покупают здесь именно руководство, а не тариф подписки, и программа до неё только приглашает.
  */
 export function guidePurchaseHref(slug: string): Route {
   return internalRoute(`/guides/${encodeURIComponent(slug)}/buy`);

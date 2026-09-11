@@ -12,6 +12,7 @@ export default defineConfig({
         "account-cabinet.spec.ts",
         "routes.spec.ts",
         "communications.spec.ts",
+        "guide-product.spec.ts",
         "guide-purchase.spec.ts",
         "link-indexing.spec.ts",
         "mobile-navigation.spec.ts",

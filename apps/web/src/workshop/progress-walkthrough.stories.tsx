@@ -4,7 +4,7 @@ import { expect, userEvent, within } from "storybook/test";
 
 import { HomePage, type HomeCollection, type HomeContinuation, type ContinueMaterialView } from "@/_pages/home";
 import { illustratedHome } from "@/_pages/home/ui/illustrated-home.fixture";
-import { LibraryDiscoveryView } from "@/_pages/library-discovery";
+import { GuideProgrammeView } from "@/_pages/library-discovery";
 import { MaterialReaderView, type MaterialReaderMetadata, type ReaderBlock } from "@/_pages/material-reader";
 import { resolveSeriesReaderContext } from "@/_pages/material-reader/model/series-reader-context";
 import { MaterialCard, MaterialReadingContext, type MaterialPreview } from "@/entities/material";
@@ -110,7 +110,7 @@ function ProgressWalkthrough({ initialRead = ["text"], initialSurface = "home", 
         <ApplicationShell currentPath={surface === "home" ? "/" : "/library"} navigationItems={navigation} mobileNavigationItems={navigation}>
           {surface === "home" ? <HomePage result={{ kind: "ready", value: { ...illustratedHome, videos: illustratedHome.videos.map((item) => item.slug === materials[1].slug ? preview(materials[1]) : item), guides: illustratedHome.guides.map((item) => item.slug === materials[2].slug ? preview(materials[2]) : item), playlists: illustratedHome.playlists.map((item) => item.slug === collection.slug ? collection : item) } }} continuation={continuation} /> : null}
           {surface === "reader" ? <MaterialReaderView body={body} material={metadata} primaryVideo={null} readingAction={action(selected)} returnTarget={returnTarget} seriesContext={seriesContext} /> : null}
-          {surface === "series" ? <LibraryDiscoveryView learning={{ kind: "ready", total: materials.length, read: read.length, continuation: hasHistory && next !== undefined ? { materialSlug: next.slug, label: next.id === "video" && !videoEnded ? "Продолжить с 4:03" : "Продолжить здесь" } : null }} result={{ chapters: [], kind: "ready", discoveryKind: "series", hasNext: false, reference: { name: collection.name, slug: collection.slug, summary: collection.summary ?? "" }, items: materials.map(preview), relatedSeries: [], topics: [] }} /> : null}
+          {surface === "series" ? <GuideProgrammeView learning={{ kind: "ready", total: materials.length, read: read.length, continuation: hasHistory && next !== undefined ? { materialSlug: next.slug, label: next.id === "video" && !videoEnded ? "Продолжить с 4:03" : "Продолжить здесь" } : null }} result={{ chapters: [], kind: "ready", discoveryKind: "series", hasNext: false, reference: { name: collection.name, slug: collection.slug, summary: collection.summary ?? "" }, items: materials.map(preview), relatedSeries: [], topics: [] }} /> : null}
           {surface === "cards" ? <div className="mx-auto max-w-5xl">
             <h1 className="text-2xl font-semibold">Карточки материалов</h1>
             <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -146,7 +146,8 @@ export const CheckConnections: Story = { name: "Проверка связей", 
   await expect(canvas.getByRole("heading", { name: materials[1].title })).toBeVisible();
   await userEvent.click(canvas.getByRole("button", { name: "Просмотрено" }));
   await userEvent.click(toolbar.getByRole("button", { name: "Руководство" }));
-  await expect(canvas.getByText("Изучено 2 из 3")).toBeVisible();
+  // Сводка прогресса над маршрутом убрана: изученное видно отметкой на карточке материала.
+  await expect(canvas.getAllByRole("img", { name: /изучен/u }).length).toBeGreaterThanOrEqual(2);
   await expect(canvas.getByRole("img", { name: "Материал 1, изучен" })).toBeVisible();
   await expect(canvas.getByRole("img", { name: "Материал 2, изучен" })).toBeVisible();
   await userEvent.click(toolbar.getByRole("button", { name: "Главная" }));

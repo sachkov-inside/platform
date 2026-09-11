@@ -89,6 +89,7 @@ const guideChapterHttpSchema = z
     id: z.uuid(),
     materialIds: z.array(z.uuid()),
     name: z.string(),
+    summary: z.string(),
   })
   .strict();
 

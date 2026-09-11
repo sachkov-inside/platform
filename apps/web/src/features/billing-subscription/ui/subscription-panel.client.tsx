@@ -26,7 +26,8 @@ import { SubscriptionSectionView } from "./subscription-view.client";
 export interface SubscriptionPanelProps {
   readonly options: readonly PriceSnapshot[];
   readonly resumeDocuments: readonly LegalDocument[];
-  readonly storefrontHref: Route;
+  /** Адрес витрины даётся, только когда подписку продают: иначе звать туда не с чем. */
+  readonly storefrontHref?: Route | undefined;
   readonly onNavigate?: (url: string) => void;
 }
 

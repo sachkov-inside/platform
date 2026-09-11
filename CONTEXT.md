@@ -72,6 +72,12 @@ A standalone practical Inside product for a reader task, with an authored sequen
 Materials. In Russian: «Руководство»; distinct from the Material format «Гайд».
 _Avoid_: Series, Playlist, Topic, Material format guide
 
+**GuideProgramme**:
+The reader-facing surface that carries a Guide's Materials, their chapters, access states and
+progress, and the Guide's own price. It is separate from the product page, which explains the Guide
+and neither prices nor sells it.
+_Avoid_: Guide page, route, catalog
+
 **Guide Chapter**:
 An optional named group in a Guide's main path, without owning copies of Materials.
 _Avoid_: Video chapter, Material, separately purchased Guide
