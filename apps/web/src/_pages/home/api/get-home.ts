@@ -34,6 +34,7 @@ const homeSchema = z
     membership: z.discriminatedUnion("kind", [
       z.object({ kind: z.literal("active") }).strict(),
       z.object({ acquisitionUrl: z.url({ protocol: /^https?$/u }), kind: z.literal("inactive") }).strict(),
+      z.object({ kind: z.literal("notOffered") }).strict(),
       z.object({ kind: z.literal("unknown") }).strict(),
     ]),
     playlists: z.array(homeCollectionSchema),

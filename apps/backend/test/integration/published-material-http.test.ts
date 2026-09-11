@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
@@ -56,10 +56,8 @@ describe("published Material HTTP contract", () => {
       },
       access: {
         availability: "locked",
-        cta: {
-          label: "Получить доступ",
-          url: "https://t.me/tribute/app?startapp=inside",
-        },
+        // По умолчанию ни один вариант подписки не продаётся: CTA не показывается.
+        cta: null,
       },
     });
     expect(response.body).not.toContain("schemaVersion");
@@ -202,10 +200,8 @@ describe("published Material HTTP contract", () => {
       }[];
     }>();
     expect(home.topics.map(({ slug }) => slug)).toContain("platform");
-    expect(home.membership).toEqual({
-      acquisitionUrl: "https://t.me/tribute/app?startapp=inside",
-      kind: "inactive",
-    });
+    // Ни один вариант подписки не включён, поэтому подписка не предлагается вовсе.
+    expect(home.membership).toEqual({ kind: "notOffered" });
     expect(home.playlists).toHaveLength(4);
     expect(home.playlists.map(({ slug }) => slug)).toContain("demo-progress-series");
     expect(home.playlists[0]?.previewItems).toBeInstanceOf(Array);
@@ -464,5 +460,33 @@ describe("published Material HTTP contract", () => {
     } finally {
       await unavailableApp.close();
     }
+  });
+
+  test("shows the subscription CTA and inactive membership while a variant is on sale", async () => {
+    const offerId = randomUUID();
+    const optionId = randomUUID();
+    await testDatabase.prisma.billingOffer.create({
+      data: { id: offerId, revision: 1, name: "Материалы", benefits: ["materials"], published: true },
+    });
+    await testDatabase.prisma.billingPaymentOption.create({
+      data: { id: optionId, revision: 1, offerId, months: 1, priceKopecks: 100_000 },
+    });
+
+    const home = (await app.getHttpAdapter().getInstance().inject({ method: "GET", url: "/library/home" })).json<{ membership: unknown }>();
+    expect(home.membership).toEqual({
+      acquisitionUrl: "https://t.me/tribute/app?startapp=inside",
+      kind: "inactive",
+    });
+    const teaser = (await app.getHttpAdapter().getInstance().inject({
+      method: "GET",
+      url: "/materials/developer-pipeline-bez-poteri-konteksta",
+    })).json<{ access: unknown }>();
+    expect(teaser.access).toEqual({
+      availability: "locked",
+      cta: {
+        label: "Получить доступ",
+        url: "https://t.me/tribute/app?startapp=inside",
+      },
+    });
   });
 });

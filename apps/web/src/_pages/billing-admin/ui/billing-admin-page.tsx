@@ -1,11 +1,7 @@
-import { loadBillingOffers } from "@/entities/subscription.server";
+import { loadBillingOffersForOwner } from "@/features/billing-admin.server";
 import { BillingAdminPanel } from "@/features/billing-admin";
 
 export async function BillingAdminPage() {
-  const result = await loadBillingOffers();
-  return (
-    <BillingAdminPanel
-      offers={result.kind === "ready" ? result.offers : []}
-    />
-  );
+  const offers = await loadBillingOffersForOwner();
+  return <BillingAdminPanel offers={offers} />;
 }

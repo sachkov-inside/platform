@@ -12,7 +12,17 @@ export class BillingPricing {
     this.clock = dependencies.clock ?? (() => new Date());
   }
   manage(actor: string, input: unknown) { return manageCatalog(this.dependencies, actor, input); }
-  offers(input: unknown) { return listOffers(this.dependencies.prisma, input, this.clock); }
+  /** Публичная витрина: только предложения, включённые в продажу. */
+  offers(input: unknown) { return listOffers(this.dependencies.prisma, input, this.clock, { publishedOnly: true }); }
+  /** Владельческий каталог: весь неархивный каталог вместе с выключенными из продажи предложениями. */
+  ownerCatalog(input: unknown) { return listOffers(this.dependencies.prisma, input, this.clock, { publishedOnly: false }); }
+  /** Подписка предлагается тогда, когда продаётся хотя бы один неархивный вариант. */
+  async hasOffersForSale(): Promise<boolean> {
+    const count = await this.dependencies.prisma.billingOffer.count({
+      where: { archived: false, published: true, options: { some: { archived: false } } },
+    });
+    return count > 0;
+  }
   quote(accountId: string, input: unknown) { return quotePurchase(this.dependencies.prisma, accountId, input, this.clock); }
   reserve(input: ReservePurchase) { return reservePurchase(this.dependencies.prisma, input, this.clock); }
   settle(input: SettleReservation) { return settleReservation(this.dependencies.prisma, input); }

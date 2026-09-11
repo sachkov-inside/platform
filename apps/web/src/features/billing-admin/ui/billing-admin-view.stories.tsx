@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, within } from "storybook/test";
 
-import { billingOffers, supportOffer } from "@/workshop/billing.fixtures";
+import { billingOffers, materialsOffer, supportOffer } from "@/workshop/billing.fixtures";
 
 import { BillingAdminView } from "./billing-admin-view.client";
 
@@ -22,6 +22,8 @@ const meta = {
     batch: null,
     onSaveOffer: fn(),
     onArchiveOffer: fn(),
+    onPublishOffer: fn(),
+    onUnpublishOffer: fn(),
     onSavePaymentOption: fn(),
     onArchivePaymentOption: fn(),
     onSavePromotion: fn(),
@@ -60,6 +62,42 @@ export const Catalog: Story = {
     await expect(
       canvas.getByRole("button", { name: "Сохранить предложение" }),
     ).toBeEnabled();
+    // Оба тарифа включены в продажу отдельным обратимым признаком.
+    await expect(canvas.getAllByText("В продаже")).toHaveLength(2);
+    await expect(
+      canvas.getAllByRole("button", { name: "Снять с продажи" }),
+    ).toHaveLength(2);
+  },
+};
+
+export const CatalogNotOnSale: Story = {
+  args: {
+    offers: billingOffers.map((snapshot) => ({
+      ...snapshot,
+      offer: { ...snapshot.offer, published: false },
+    })),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getAllByText("Не продаётся")).toHaveLength(2);
+    await expect(
+      canvas.getAllByRole("button", { name: "Вернуть в продажу" }),
+    ).toHaveLength(2);
+  },
+};
+
+/** Один из двух тарифов продаётся: тумблеры независимы. */
+export const CatalogOneOnSale: Story = {
+  args: {
+    offers: [
+      materialsOffer,
+      { ...supportOffer, offer: { ...supportOffer.offer, published: false } },
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getAllByText("В продаже")).toHaveLength(1);
+    await expect(canvas.getAllByText("Не продаётся")).toHaveLength(1);
   },
 };
 
@@ -119,7 +157,19 @@ export const Failure: Story = {
 
 export const Mobile: Story = {
   globals: { viewport: { isRotated: false, value: "mobile390" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getAllByRole("button", { name: "Снять с продажи" }),
+    ).toHaveLength(2);
+  },
 };
 export const Desktop: Story = {
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getAllByRole("button", { name: "Снять с продажи" }),
+    ).toHaveLength(2);
+  },
 };

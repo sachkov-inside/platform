@@ -289,7 +289,9 @@ _Avoid_: Payment, MembershipEvidence, AccessGrant
 
 **Offer**:
 A versioned description of a chosen access composition, independent of a Guide and a payment.
-Its payment option specifies the price, period and sale mode.
+Its payment option specifies the price, period and sale mode. It carries a reversible `published`
+(for-sale) state, separate from permanent archival; while no offer is published, the subscription is
+not offered anywhere.
 _Avoid_: Guide, Order, AccessGrant
 
 **AccessScope**:

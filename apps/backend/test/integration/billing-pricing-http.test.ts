@@ -79,9 +79,14 @@ describe("Billing pricing HTTP", () => {
     await database.prisma.accountPermission.create({ data: { accountId: account.id, permission: "platform:admin" } });
     const saved = await server.inject({ method: "POST", url: "/billing/admin", headers, payload: command });
     expect(saved.statusCode).toBe(200); expect(saved.headers["cache-control"]).toBe("private, no-store");
-    expect(saved.json()).toEqual({ operationRef: command.operationId, result: { outcome: "catalog", value: { id: offerId, revision: 1, archived: false } } });
+    expect(saved.json()).toEqual({ operationRef: command.operationId, result: { outcome: "catalog", value: { id: offerId, revision: 1, archived: false, published: false } } });
     expect((await server.inject({ method: "POST", url: "/billing/admin", headers, payload: { ...command, actor: account.id } })).statusCode).toBe(400);
     expect((await server.inject({ method: "POST", url: "/billing/admin", headers, payload: { operation: "paymentOptions.save", operationId: randomUUID(), value: { id: optionId, offerId, months: 5, priceKopecks: 500_000 } } })).statusCode).toBe(200);
+    // По умолчанию предложение не продаётся: пока владелец не включит его, витрина пуста.
+    const publishOperationId = randomUUID();
+    const published = await server.inject({ method: "POST", url: "/billing/admin", headers, payload: { operation: "offers.publish", operationId: publishOperationId, expectedRevision: 1, id: offerId } });
+    expect(published.statusCode).toBe(200);
+    expect(published.json()).toEqual({ operationRef: publishOperationId, result: { outcome: "catalog", value: { id: offerId, revision: 2, archived: false, published: true } } });
     const list = await server.inject({ method: "GET", url: "/billing/offers?limit=1" });
     expect(list.statusCode).toBe(200); expect(list.json()).toMatchObject({ items: [{ firstPriceKopecks: 500_000, renewalPriceKopecks: 500_000 }] });
     const quote = { operationId: randomUUID(), paymentOptionId: optionId, optionRevision: 1 };
@@ -94,6 +99,21 @@ describe("Billing pricing HTTP", () => {
     const stale = await server.inject({ method: "POST", url: "/accounts/current/billing/quote", headers, payload: { ...quote, operationId: randomUUID(), optionRevision: 99 } });
     expect(stale.statusCode).toBe(409); expect(stale.headers["content-type"]).toContain("application/problem+json"); expect(stale.json()).toMatchObject({ code: "quote_changed" });
     expect((await server.inject({ method: "POST", url: "/billing/reservations", headers, payload: {} })).statusCode).toBe(404);
+
+    // Второй вариант включается отдельно: сначала продан только первый, затем оба.
+    const secondOfferId = randomUUID(); const secondOptionId = randomUUID();
+    await server.inject({ method: "POST", url: "/billing/admin", headers, payload: { operation: "offers.save", operationId: randomUUID(), value: { id: secondOfferId, name: "Сопровождение", benefits: ["support"] } } });
+    await server.inject({ method: "POST", url: "/billing/admin", headers, payload: { operation: "paymentOptions.save", operationId: randomUUID(), value: { id: secondOptionId, offerId: secondOfferId, months: 1, priceKopecks: 350_000 } } });
+    const one = await server.inject({ method: "GET", url: "/billing/offers?limit=100" });
+    expect(one.json<{ items: readonly unknown[] }>().items).toHaveLength(1);
+    await server.inject({ method: "POST", url: "/billing/admin", headers, payload: { operation: "offers.publish", operationId: randomUUID(), expectedRevision: 1, id: secondOfferId } });
+    const both = await server.inject({ method: "GET", url: "/billing/offers?limit=100" });
+    expect(both.json<{ items: readonly unknown[] }>().items).toHaveLength(2);
+    // Выключение первого варианта убирает только его; выключенный не покупается даже напрямую.
+    expect((await server.inject({ method: "POST", url: "/billing/admin", headers, payload: { operation: "offers.unpublish", operationId: randomUUID(), expectedRevision: 2, id: offerId } })).statusCode).toBe(200);
+    const onlySecond = await server.inject({ method: "GET", url: "/billing/offers?limit=100" });
+    expect(onlySecond.json<{ items: readonly { readonly offer: { readonly id: string } }[] }>().items.map((item) => item.offer.id)).toEqual([secondOfferId]);
+    expect((await server.inject({ method: "POST", url: "/accounts/current/billing/quote", headers, payload: { operationId: randomUUID(), paymentOptionId: optionId, optionRevision: 1 } })).statusCode).toBe(404);
   });
 
   test("scoped billing permission opens the owner surface and maps its result codes", async () => {

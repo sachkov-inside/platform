@@ -35,6 +35,7 @@ describe("Billing catalog, quotes and reservations on PostgreSQL", () => {
     const offerId = randomUUID(); const optionId = randomUUID();
     value(await billing.manage(owner, { operation: "offers.save", operationId: randomUUID(), value: { id: offerId, name: "Материалы", benefits: ["materials"] } }));
     value(await billing.manage(owner, { operation: "paymentOptions.save", operationId: randomUUID(), value: { id: optionId, offerId, months, priceKopecks } }));
+    value(await billing.manage(owner, { operation: "offers.publish", operationId: randomUUID(), expectedRevision: 1, id: offerId }));
     return { offerId, optionId };
   }
   async function promo(optionId: string, percent: number, usageLimit: number | null = null, code: string | null = null) {
@@ -156,7 +157,7 @@ describe("Billing catalog, quotes and reservations on PostgreSQL", () => {
     const reservation = await reserve(randomUUID(), optionId);
     const snapshot = value(await billing.reserve(reservation));
     expect(await billing.manage(owner, { operation: "promotions.save", operationId: randomUUID(), expectedRevision: 1, value: { ...promotion, usageLimit: 1 } })).toMatchObject({ ok: true });
-    value(await billing.manage(owner, { operation: "offers.archive", operationId: randomUUID(), expectedRevision: 1, id: offerId }));
+    value(await billing.manage(owner, { operation: "offers.archive", operationId: randomUUID(), expectedRevision: 2, id: offerId }));
     value(await billing.manage(owner, { operation: "paymentOptions.archive", operationId: randomUUID(), expectedRevision: 1, id: optionId }));
     value(await billing.manage(owner, { operation: "promotions.archive", operationId: randomUUID(), expectedRevision: 2, id: promotion.id }));
     expect(value(await billing.reserve(reservation))).toEqual(snapshot);

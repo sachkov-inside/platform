@@ -21,6 +21,7 @@ export interface HomeView {
   readonly membership:
     | { readonly kind: "active" }
     | { readonly kind: "inactive"; readonly acquisitionUrl: string }
+    | { readonly kind: "notOffered" }
     | { readonly kind: "unknown" };
   readonly guides: readonly MaterialPreview[];
   readonly notes: readonly MaterialPreview[];

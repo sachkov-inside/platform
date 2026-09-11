@@ -75,7 +75,7 @@ export class PublishedMaterialsService {
       cta: {
         label: 'Получить доступ';
         url: string;
-      };
+      } | null;
     };
     cacheScope: 'public' | 'private-no-store';
     kind: 'teaser';

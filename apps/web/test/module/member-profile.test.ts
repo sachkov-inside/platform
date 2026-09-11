@@ -103,6 +103,34 @@ describe("Member Profile web workflow", () => {
     }
   });
 
+  it("accepts a cabinet where the subscription is not on sale", async () => {
+    const fetch = vi.fn().mockResolvedValue(
+      Response.json(
+        {
+          profile: { kind: "missing" },
+          telegramMembership: {
+            link: { kind: "unlinked" },
+            membership: { kind: "notOffered" },
+          },
+        },
+        { status: 200 },
+      ),
+    );
+    vi.stubGlobal("fetch", fetch);
+    try {
+      await expect(
+        requestAccountPresentation(new AbortController().signal),
+      ).resolves.toMatchObject({
+        kind: "ready",
+        presentation: {
+          telegramMembership: { membership: { kind: "notOffered" } },
+        },
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("maps only the private coarse Telegram and Membership presentation", async () => {
     const request = vi.fn().mockResolvedValue({
       body: {

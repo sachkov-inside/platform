@@ -1,11 +1,16 @@
 import type { BillingPrisma } from "../../../infrastructure/prisma/index.js";
 import { applicablePromotion, discountedPrice, failure, offerSchema, optionSchema, promotionSchema, type PriceSnapshot, type PricingResult } from "../domain/pricing.js";
 
-export async function selectPrice(tx: BillingPrisma, optionId: string, now: Date, promoCode?: string): Promise<PricingResult<PriceSnapshot, "not_found" | "unsupported_amount">> {
+export interface SelectPriceOptions {
+  /** Владельческий каталог читает и выключенные из продажи предложения; покупка их не видит. */
+  readonly allowUnpublished?: boolean;
+}
+
+export async function selectPrice(tx: BillingPrisma, optionId: string, now: Date, promoCode?: string, options: SelectPriceOptions = {}): Promise<PricingResult<PriceSnapshot, "not_found" | "unsupported_amount">> {
   const row = await tx.billingPaymentOption.findUnique({ where: { id: optionId }, include: { offer: true } });
-  if (!row || row.archived || row.offer.archived) return failure("not_found");
+  if (!row || row.archived || row.offer.archived || (options.allowUnpublished !== true && !row.offer.published)) return failure("not_found");
   const offer = offerSchema.parse({ id: row.offer.id, name: row.offer.name, revision: row.offer.revision, benefits: row.offer.benefits,
-    archived: row.offer.archived, ...(Array.isArray(row.offer.benefitPeriods) && row.offer.benefitPeriods.length > 0 ? { benefitPeriods: row.offer.benefitPeriods } : {}),
+    archived: row.offer.archived, published: row.offer.published, ...(Array.isArray(row.offer.benefitPeriods) && row.offer.benefitPeriods.length > 0 ? { benefitPeriods: row.offer.benefitPeriods } : {}),
   });
   const option = optionSchema.parse({ id: row.id, offerId: row.offerId, revision: row.revision, months: row.months, mode: row.mode, priceKopecks: Number(row.priceKopecks), archived: row.archived });
   const rows = await tx.billingPromotion.findMany({ where: { archived: false, startsAt: { lte: now }, endsAt: { gt: now }, OR: [{ code: null }, ...(promoCode ? [{ code: promoCode }] : [])] } });

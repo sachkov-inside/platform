@@ -69,6 +69,32 @@ export async function archiveBillingOffer(
   );
 }
 
+export async function publishBillingOffer(
+  input: ArchiveInput,
+): Promise<BillingCommandResult<CatalogOutcome>> {
+  return billingCommandResult(
+    await requestSameOriginMutation(
+      "/api/authoring/billing/offers/publish",
+      "POST",
+      billingCommandPayload(input),
+    ),
+    catalogOutcomeSchema,
+  );
+}
+
+export async function unpublishBillingOffer(
+  input: ArchiveInput,
+): Promise<BillingCommandResult<CatalogOutcome>> {
+  return billingCommandResult(
+    await requestSameOriginMutation(
+      "/api/authoring/billing/offers/unpublish",
+      "POST",
+      billingCommandPayload(input),
+    ),
+    catalogOutcomeSchema,
+  );
+}
+
 export async function saveBillingPaymentOption(
   input: SavePaymentOptionInput,
 ): Promise<BillingCommandResult<CatalogOutcome>> {

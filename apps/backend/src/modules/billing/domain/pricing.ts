@@ -12,6 +12,8 @@ export const benefitPeriodsSchema = z.array(z.strictObject({
 export const offerSchema = z.strictObject({
   id: idSchema, revision: revisionSchema, name: z.string().trim().min(1).max(200),
   benefits: benefitsSchema, benefitPeriods: benefitPeriodsSchema.optional(), archived: z.boolean(),
+  /** Обратимый признак продажи, независимый от архивации. В прежних снимках может отсутствовать. */
+  published: z.boolean().optional(),
 });
 export const optionSchema = z.strictObject({
   id: idSchema, revision: revisionSchema, offerId: idSchema,

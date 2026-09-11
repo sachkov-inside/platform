@@ -17,7 +17,10 @@ import {
   handleDecideRefund,
   handleExecuteRefund,
   handleListPayments,
+  handlePublishOffer,
   handleSaveOffer,
+  handleUnpublishOffer,
+  loadBillingOffersForOwner,
 } from "@/features/billing-admin.server";
 
 const origin = "https://inside.example.test";
@@ -164,5 +167,55 @@ it("применяет только подтверждённые строки т
     },
     "owner-token",
     {},
+  );
+});
+
+it("включает и выключает продажу варианта отдельной обратимой командой", async () => {
+  fakes.manage.mockResolvedValue(
+    ok({
+      operationRef: operationId,
+      result: {
+        outcome: "catalog",
+        value: { id: offerId, revision: 3, archived: false, published: true },
+      },
+    }),
+  );
+  await handlePublishOffer(
+    command("/api/authoring/billing/offers/publish", {
+      operationId,
+      id: offerId,
+      expectedRevision: 2,
+    }),
+  );
+  expect(fakes.manage).toHaveBeenCalledWith(
+    { operation: "offers.publish", operationId, id: offerId, expectedRevision: 2 },
+    "owner-token",
+    {},
+  );
+  await handleUnpublishOffer(
+    command("/api/authoring/billing/offers/unpublish", {
+      operationId,
+      id: offerId,
+      expectedRevision: 3,
+    }),
+  );
+  expect(fakes.manage).toHaveBeenCalledWith(
+    { operation: "offers.unpublish", operationId, id: offerId, expectedRevision: 3 },
+    "owner-token",
+    {},
+  );
+});
+
+it("читает владельческий каталог, где остаются и выключенные из продажи варианты", async () => {
+  fakes.manage.mockResolvedValue(
+    ok({
+      operationRef: operationId,
+      result: { outcome: "catalogOffers", items: [], nextCursor: null },
+    }),
+  );
+  await expect(loadBillingOffersForOwner()).resolves.toEqual([]);
+  expect(fakes.manage).toHaveBeenCalledWith(
+    expect.objectContaining({ operation: "offers.list", limit: 100 }),
+    "owner-token",
   );
 });

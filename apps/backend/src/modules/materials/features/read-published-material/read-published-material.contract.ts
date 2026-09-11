@@ -6,10 +6,11 @@ import type { VideoPresentation } from "../../../videos/index.js";
 
 export interface LockedMaterialAccessDto {
   readonly availability: "locked";
+  /** Подписка не предлагается, когда в каталоге нет ни одного включённого в продажу варианта. */
   readonly cta: {
     readonly label: "Получить доступ";
     readonly url: string;
-  };
+  } | null;
 }
 
 export type PublishedMaterialReadDto =
