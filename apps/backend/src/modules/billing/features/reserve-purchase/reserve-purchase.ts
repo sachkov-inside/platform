@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { BillingPrisma, BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
-import { failure, idSchema, moneySchema, priceSnapshotSchema, type PriceSnapshot, type PricingResult } from "../../domain/pricing.js";
+import { failure, idSchema, moneySchema, paymentMode, priceSnapshotSchema, type PriceSnapshot, type PricingResult } from "../../domain/pricing.js";
 import { lockPricing } from "../../infrastructure/postgres/catalog-lock.js";
 import { selectPrice } from "../../shared/select-price.js";
 
@@ -46,7 +46,11 @@ export async function reservePurchaseInTransaction(tx: BillingPrisma, command: R
       if (!current.ok) return current;
       if (JSON.stringify(current.value) !== JSON.stringify(snapshot)) return failure("quote_changed");
       const limits = command.amountLimits;
-      if (!limits || [snapshot.firstPriceKopecks, snapshot.renewalPriceKopecks].some((amount) => amount < limits.minimumKopecks || amount > limits.maximumKopecks)) return failure("unsupported_amount");
+      // Разовая покупка не продлевается, поэтому цена продления у неё ничего не значит и не
+      // может отказать в платеже, которого не будет.
+      const charged = paymentMode(snapshot.paymentOption) === "subscription"
+        ? [snapshot.firstPriceKopecks, snapshot.renewalPriceKopecks] : [snapshot.firstPriceKopecks];
+      if (!limits || charged.some((amount) => amount < limits.minimumKopecks || amount > limits.maximumKopecks)) return failure("unsupported_amount");
       await tx.billingPromoReservation.create({ data: {
         purchaseRef: command.purchaseRef, accountId: command.accountId, quoteRef: command.quoteRef,
         promotionId: snapshot.promotion?.id ?? null, state: "reserved", snapshot,

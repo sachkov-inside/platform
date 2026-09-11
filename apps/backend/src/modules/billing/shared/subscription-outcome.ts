@@ -4,7 +4,8 @@ import type { BillingPrisma } from "../../../infrastructure/prisma/index.js";
 import { lockSubscription } from "../infrastructure/postgres/catalog-lock.js";
 import { priceSnapshotSchema, type PriceSnapshot } from "../domain/pricing.js";
 import { subscriptionPeriodEnd } from "../domain/subscription-period.js";
-import { attemptKindSchema, subscriptionConsentSchema, subscriptionSnapshotSchema, type AttemptKind, type SubscriptionEndReason, type SubscriptionEventKind } from "../domain/subscription-change.js";
+import { attemptKindSchema, type AttemptKind } from "../domain/payment-attempt.js";
+import { subscriptionConsentSchema, subscriptionSnapshotSchema, type SubscriptionEndReason, type SubscriptionEventKind } from "../domain/subscription-change.js";
 import { lifecycleWindow, subscriptionEndedSourceRef } from "../domain/notice.js";
 import { recordBillingNotice, supersedeRenewalReminders } from "./record-notice.js";
 
@@ -20,7 +21,12 @@ export interface AttemptRow {
   readonly snapshot: unknown; readonly acceptance: unknown; readonly bindingCiphertext: string | null;
 }
 export interface PaidPeriod {
-  readonly subscriptionRef: string; readonly startsAt: Date; readonly endsAt: Date; readonly snapshot: PriceSnapshot;
+  /** Разовая покупка подписки не создаёт, поэтому у её оплаченного результата её нет. */
+  readonly subscriptionRef: string | null;
+  readonly startsAt: Date;
+  /** Конец оплаченного срока подписки. У разовой покупки оплаченного срока нет. */
+  readonly endsAt: Date | null;
+  readonly snapshot: PriceSnapshot;
 }
 
 export type TransitionPayload = { readonly [key: string]: string | number | boolean | null };
@@ -39,11 +45,16 @@ export async function advanceSubscription(tx: BillingPrisma, row: SubscriptionRo
 /**
  * Единственный переход подписки по подтверждённому банком платежу. Первая оплата задаёт
  * календарный anchor, своевременное продление считается от прежнего конца, повышение
- * сохраняет действующий срок.
+ * сохраняет действующий срок. Разовая покупка подписки не касается.
  */
 export async function settleConfirmedAttempt(tx: BillingPrisma, attempt: AttemptRow, paidAt: Date): Promise<PaidPeriod> {
   const kind: AttemptKind = attemptKindSchema.parse(attempt.kind);
   const snapshot = priceSnapshotSchema.parse(attempt.snapshot);
+  if (kind === "one_time") {
+    // Разовая покупка заканчивается собой: расписания, anchor и накопленных месяцев у неё нет,
+    // а срок каждого права приходит из состава предложения.
+    return { subscriptionRef: null, startsAt: paidAt, endsAt: null, snapshot };
+  }
   if (kind === "initial") {
     const subscriptionRef = randomUUID();
     const endsAt = subscriptionPeriodEnd(paidAt, snapshot.paymentOption.months);

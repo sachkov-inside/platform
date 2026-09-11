@@ -52,8 +52,11 @@ describe("состав доступа", () => {
     ).toBe("Отдельное руководство");
   });
 
-  it("наследует срок периода, а явный null делает право бессрочным", () => {
-    const lines = benefitLines(supportOffer.offer, 3);
+  it("наследует период подписки, а явный null делает право бессрочным", () => {
+    const lines = benefitLines({
+      offer: supportOffer.offer,
+      paymentOption: { ...supportOffer.paymentOption, months: 3 },
+    });
     expect(lines.map((line) => line.term)).toEqual([
       "3 месяца",
       "3 месяца",
@@ -62,8 +65,17 @@ describe("состав доступа", () => {
   });
 
   it("называет отдельное право на руководство и сохраняет его бессрочный срок", () => {
-    const [line] = benefitLines(guideOnlyOffer.offer, 1);
+    const [line] = benefitLines(guideOnlyOffer);
     expect(line?.label).toBe("Отдельное руководство");
+    expect(line?.term).toBe("бессрочно");
+  });
+
+  it("разовая покупка открывает право без объявленного срока бессрочно", () => {
+    const [line] = benefitLines({
+      offer: { ...guideOnlyOffer.offer, benefitPeriods: [] },
+      paymentOption: guideOnlyOffer.paymentOption,
+    });
+    // Наследовать нечего: оплаченного периода у разовой покупки нет.
     expect(line?.term).toBe("бессрочно");
   });
 
@@ -113,8 +125,10 @@ describe("состояния и ошибки", () => {
     expect(billingErrorMessage("payment_in_progress")).toContain(
       "новую покупку начинать не нужно",
     );
+    // Незавершённая оплата бывает и у разовой покупки, поэтому ведём в «Покупки»,
+    // где видны все платежи, а не только расписание подписки.
     expect(billingErrorMessage("payment_in_progress")).toContain(
-      "раздел «Подписка»",
+      "раздел «Покупки»",
     );
     expect(billingErrorMessage("existing_access")).toContain("уже есть доступ");
   });

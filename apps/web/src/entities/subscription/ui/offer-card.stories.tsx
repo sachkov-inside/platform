@@ -48,6 +48,9 @@ export const GuideOnly: Story = {
     const canvas = within(canvasElement);
     await expect(canvas.getByText("Отдельное руководство")).toBeInTheDocument();
     await expect(canvas.getByText("бессрочно")).toBeInTheDocument();
+    // Разовая покупка не обещает ни периода, ни следующей цены.
+    await expect(canvas.getByText("разовая покупка")).toBeInTheDocument();
+    await expect(canvas.queryByText(/Дальше —/u)).not.toBeInTheDocument();
   },
 };
 export const Current: Story = {

@@ -4010,6 +4010,7 @@
                           "kind": {
                             "enum": [
                               "initial",
+                              "one_time",
                               "renewal",
                               "upgrade"
                             ],
@@ -4082,6 +4083,7 @@
                             "kind": {
                               "enum": [
                                 "initial",
+                                "one_time",
                                 "renewal",
                                 "upgrade"
                               ],
@@ -4268,7 +4270,8 @@
                                     },
                                     "mode": {
                                       "enum": [
-                                        "subscription"
+                                        "subscription",
+                                        "one_time"
                                       ],
                                       "type": "string"
                                     },
@@ -4531,7 +4534,8 @@
                                 },
                                 "mode": {
                                   "enum": [
-                                    "subscription"
+                                    "subscription",
+                                    "one_time"
                                   ],
                                   "type": "string"
                                 },
@@ -7469,6 +7473,7 @@
                         "kind": {
                           "enum": [
                             "initial",
+                            "one_time",
                             "renewal",
                             "upgrade"
                           ],
@@ -7655,7 +7660,8 @@
                                 },
                                 "mode": {
                                   "enum": [
-                                    "subscription"
+                                    "subscription",
+                                    "one_time"
                                   ],
                                   "type": "string"
                                 },
@@ -7918,7 +7924,8 @@
                             },
                             "mode": {
                               "enum": [
-                                "subscription"
+                                "subscription",
+                                "one_time"
                               ],
                               "type": "string"
                             },
@@ -8459,7 +8466,7 @@
                       "type": "string"
                     },
                     "maxItems": 4,
-                    "minItems": 2,
+                    "minItems": 1,
                     "type": "array"
                   },
                   "contactRevision": {
@@ -8661,7 +8668,8 @@
                             },
                             "mode": {
                               "enum": [
-                                "subscription"
+                                "subscription",
+                                "one_time"
                               ],
                               "type": "string"
                             },
@@ -9213,7 +9221,7 @@
             "logto": []
           }
         ],
-        "summary": "Start or recover one subscription purchase",
+        "summary": "Start or recover one subscription or one-time purchase",
         "tags": [
           "Billing"
         ]
@@ -9402,7 +9410,8 @@
                             },
                             "mode": {
                               "enum": [
-                                "subscription"
+                                "subscription",
+                                "one_time"
                               ],
                               "type": "string"
                             },
@@ -10148,7 +10157,8 @@
                             },
                             "mode": {
                               "enum": [
-                                "subscription"
+                                "subscription",
+                                "one_time"
                               ],
                               "type": "string"
                             },
@@ -10695,6 +10705,7 @@
                         "kind": {
                           "enum": [
                             "initial",
+                            "one_time",
                             "renewal",
                             "upgrade"
                           ],
@@ -10881,7 +10892,8 @@
                                 },
                                 "mode": {
                                   "enum": [
-                                    "subscription"
+                                    "subscription",
+                                    "one_time"
                                   ],
                                   "type": "string"
                                 },
@@ -11144,7 +11156,8 @@
                             },
                             "mode": {
                               "enum": [
-                                "subscription"
+                                "subscription",
+                                "one_time"
                               ],
                               "type": "string"
                             },
@@ -11882,7 +11895,8 @@
                                 },
                                 "mode": {
                                   "enum": [
-                                    "subscription"
+                                    "subscription",
+                                    "one_time"
                                   ],
                                   "type": "string"
                                 },
@@ -12016,6 +12030,7 @@
                             "kind": {
                               "enum": [
                                 "initial",
+                                "one_time",
                                 "renewal",
                                 "upgrade"
                               ],
@@ -12202,7 +12217,8 @@
                                     },
                                     "mode": {
                                       "enum": [
-                                        "subscription"
+                                        "subscription",
+                                        "one_time"
                                       ],
                                       "type": "string"
                                     },
@@ -12465,7 +12481,8 @@
                                 },
                                 "mode": {
                                   "enum": [
-                                    "subscription"
+                                    "subscription",
+                                    "one_time"
                                   ],
                                   "type": "string"
                                 },
@@ -13050,6 +13067,7 @@
                         "kind": {
                           "enum": [
                             "initial",
+                            "one_time",
                             "renewal",
                             "upgrade"
                           ],
@@ -13236,7 +13254,8 @@
                                 },
                                 "mode": {
                                   "enum": [
-                                    "subscription"
+                                    "subscription",
+                                    "one_time"
                                   ],
                                   "type": "string"
                                 },
@@ -13499,7 +13518,8 @@
                             },
                             "mode": {
                               "enum": [
-                                "subscription"
+                                "subscription",
+                                "one_time"
                               ],
                               "type": "string"
                             },
@@ -14226,7 +14246,8 @@
                                     },
                                     "mode": {
                                       "enum": [
-                                        "subscription"
+                                        "subscription",
+                                        "one_time"
                                       ],
                                       "type": "string"
                                     },
@@ -14478,7 +14499,8 @@
                                     },
                                     "mode": {
                                       "enum": [
-                                        "subscription"
+                                        "subscription",
+                                        "one_time"
                                       ],
                                       "type": "string"
                                     },
@@ -15091,6 +15113,7 @@
                         "kind": {
                           "enum": [
                             "initial",
+                            "one_time",
                             "renewal",
                             "upgrade"
                           ],
@@ -15277,7 +15300,8 @@
                                 },
                                 "mode": {
                                   "enum": [
-                                    "subscription"
+                                    "subscription",
+                                    "one_time"
                                   ],
                                   "type": "string"
                                 },
@@ -15540,7 +15564,8 @@
                             },
                             "mode": {
                               "enum": [
-                                "subscription"
+                                "subscription",
+                                "one_time"
                               ],
                               "type": "string"
                             },
@@ -42371,7 +42396,8 @@
                           },
                           "mode": {
                             "enum": [
-                              "subscription"
+                              "subscription",
+                              "one_time"
                             ],
                             "type": "string"
                           },
@@ -42627,6 +42653,7 @@
                       "kind": {
                         "enum": [
                           "initial",
+                          "one_time",
                           "renewal",
                           "upgrade"
                         ],
@@ -43323,7 +43350,8 @@
                                       },
                                       "mode": {
                                         "enum": [
-                                          "subscription"
+                                          "subscription",
+                                          "one_time"
                                         ],
                                         "type": "string"
                                       },
@@ -43495,6 +43523,7 @@
                                   "kind": {
                                     "enum": [
                                       "initial",
+                                      "one_time",
                                       "renewal",
                                       "upgrade"
                                     ],
@@ -43655,7 +43684,8 @@
                                           },
                                           "mode": {
                                             "enum": [
-                                              "subscription"
+                                              "subscription",
+                                              "one_time"
                                             ],
                                             "type": "string"
                                           },
@@ -44088,6 +44118,7 @@
                                 "kind": {
                                   "enum": [
                                     "initial",
+                                    "one_time",
                                     "renewal",
                                     "upgrade"
                                   ],
@@ -44248,7 +44279,8 @@
                                         },
                                         "mode": {
                                           "enum": [
-                                            "subscription"
+                                            "subscription",
+                                            "one_time"
                                           ],
                                           "type": "string"
                                         },
@@ -44463,6 +44495,7 @@
                                 "kind": {
                                   "enum": [
                                     "initial",
+                                    "one_time",
                                     "renewal",
                                     "upgrade"
                                   ],
@@ -44623,7 +44656,8 @@
                                         },
                                         "mode": {
                                           "enum": [
-                                            "subscription"
+                                            "subscription",
+                                            "one_time"
                                           ],
                                           "type": "string"
                                         },
@@ -44798,6 +44832,7 @@
                                     "kind": {
                                       "enum": [
                                         "initial",
+                                        "one_time",
                                         "renewal",
                                         "upgrade"
                                       ],
@@ -44984,7 +45019,8 @@
                                             },
                                             "mode": {
                                               "enum": [
-                                                "subscription"
+                                                "subscription",
+                                                "one_time"
                                               ],
                                               "type": "string"
                                             },
@@ -45247,7 +45283,8 @@
                                         },
                                         "mode": {
                                           "enum": [
-                                            "subscription"
+                                            "subscription",
+                                            "one_time"
                                           ],
                                           "type": "string"
                                         },
@@ -46487,6 +46524,40 @@
         "parameters": [
           {
             "in": "query",
+            "name": "capability",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "materials",
+                    "community",
+                    "reviews",
+                    "support"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "pattern": "^guide:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "mode",
+            "required": false,
+            "schema": {
+              "enum": [
+                "subscription",
+                "one_time"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
@@ -46638,7 +46709,8 @@
                               },
                               "mode": {
                                 "enum": [
-                                  "subscription"
+                                  "subscription",
+                                  "one_time"
                                 ],
                                 "type": "string"
                               },
@@ -46826,7 +46898,7 @@
             "description": ""
           }
         },
-        "summary": "Read active options and public first-payment prices",
+        "summary": "Read active options and public first-payment prices, filtered by sale mode and access capability",
         "tags": [
           "Billing"
         ]

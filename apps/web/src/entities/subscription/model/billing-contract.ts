@@ -31,11 +31,13 @@ export const offerSchema = z.object({
   /** Обратимый признак продажи. В прежних сохранённых снимках может отсутствовать. */
   published: z.boolean().optional(),
 });
+/** Как продаётся вариант: по расписанию или один раз. Старый снимок без режима — подписка. */
+export const paymentModeSchema = z.enum(["subscription", "one_time"]);
 export const paymentOptionSchema = z.object({
   id: z.uuid(),
   revision: z.number().int().positive(),
   offerId: z.uuid(),
-  mode: z.literal("subscription").optional(),
+  mode: paymentModeSchema.optional(),
   months: z.number().int().positive(),
   priceKopecks: z.number().int().positive(),
   archived: z.boolean(),
@@ -67,7 +69,7 @@ export const verifiedContactSchema = z.object({
   verifiedAt: z.iso.datetime(),
 });
 
-export const attemptKindSchema = z.enum(["initial", "renewal", "upgrade"]);
+export const attemptKindSchema = z.enum(["initial", "one_time", "renewal", "upgrade"]);
 export const attemptStateSchema = z.enum([
   "prepared", "sent", "unknown", "pending", "authorized", "confirmed", "failed",
 ]);
@@ -209,6 +211,8 @@ export const billingFailureSchema = z.object({
   code: billingFailureCodeSchema,
 });
 
+export type PaymentMode = z.infer<typeof paymentModeSchema>;
+export type AttemptKind = z.infer<typeof attemptKindSchema>;
 export type AccessCapability = z.infer<typeof accessCapabilitySchema>;
 export type BillingOffer = z.infer<typeof offerSchema>;
 export type BillingPaymentOption = z.infer<typeof paymentOptionSchema>;
@@ -231,10 +235,23 @@ export type ChangeResult = z.infer<typeof changeResultSchema>;
 export type BillingFailureCode = z.infer<typeof billingFailureCodeSchema>;
 export type BillingFailure = z.infer<typeof billingFailureSchema>;
 
+/** Право на конкретное руководство: строка права собирается и читается одним владельцем. */
+export function guideCapability(guideId: string): AccessCapability {
+  return `guide:${guideId}`;
+}
+export function isGuideCapability(capability: AccessCapability): boolean {
+  return capability.startsWith("guide:");
+}
+
+/** Способ продажи снимка: у старых снимков его нет, и это подписка. */
+export function paymentMode(snapshot: PriceSnapshot): PaymentMode {
+  return snapshot.paymentOption.mode ?? "subscription";
+}
+
 /**
- * Отдельное право на руководство выдаётся контролируемо, поэтому публичной продажи у него нет.
- * Снятые с продажи позиции тоже не выводятся. Остальной состав каталога страница не выбирает:
- * две карточки не зашиты как единственная модель.
+ * Витрина подписки показывает только то, что продаётся по расписанию. Разовая продажа
+ * руководства живёт на его собственной странице, а снятые с продажи позиции не выводятся.
+ * Остальной состав каталога страница не выбирает: две карточки не зашиты как единственная модель.
  */
 export function publicSubscriptionOffers(
   offers: readonly PriceSnapshot[],
@@ -243,9 +260,35 @@ export function publicSubscriptionOffers(
     (snapshot) =>
       !snapshot.offer.archived &&
       !snapshot.paymentOption.archived &&
-      !snapshot.offer.benefits.every((capability) =>
-        capability.startsWith("guide:"),
-      ),
+      paymentMode(snapshot) === "subscription" &&
+      !snapshot.offer.benefits.every(isGuideCapability),
+  );
+}
+
+/**
+ * Разовое предложение конкретного руководства. Руководство продаётся, только когда владелец
+ * завёл ему цену, поэтому отсутствие предложения — это «не продаётся», а не ошибка. Подходящее
+ * предложение обычно одно; при совпадении берётся самое дешёвое, а равные цены разводит
+ * стабильный идентификатор, чтобы выбор не зависел от порядка ответа.
+ */
+export function guidePurchaseOffer(
+  offers: readonly PriceSnapshot[],
+  guideId: string,
+): PriceSnapshot | null {
+  const capability = guideCapability(guideId);
+  const matching = offers.filter(
+    (snapshot) =>
+      !snapshot.offer.archived &&
+      !snapshot.paymentOption.archived &&
+      paymentMode(snapshot) === "one_time" &&
+      snapshot.offer.benefits.includes(capability),
+  );
+  return (
+    [...matching].sort(
+      (left, right) =>
+        left.firstPriceKopecks - right.firstPriceKopecks ||
+        left.paymentOption.id.localeCompare(right.paymentOption.id),
+    )[0] ?? null
   );
 }
 export type VerifiedContact = z.infer<typeof verifiedContactSchema>;

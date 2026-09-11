@@ -25,8 +25,12 @@ const bankRefundSchema = z.object({
   OriginalAmount: z.int().nonnegative().optional(), NewAmount: z.int().nonnegative().optional(),
 }).transform(({ PaymentId, Success, ...value }) => ({ ...value, PaymentId: String(PaymentId), Success: Success === true || Success === "true" }));
 export type BankRefund = z.infer<typeof bankRefundSchema>;
-/** Инициатива операции: первая CIT-привязка, покупатель по сохранённому средству, merchant recurring. */
-export type PaymentInitiator = "1" | "2" | "R";
+/**
+ * `OperationInitiatorType` банка: `0` — разовая оплата покупателем без сохранения карты,
+ * `1` — оплата покупателем с сохранением привязки, `2` — оплата сохранённой картой по его
+ * действию, `R` — списание по расписанию продавца.
+ */
+export type PaymentInitiator = "0" | "1" | "2" | "R";
 const notificationSchema = z.record(z.string(), z.unknown());
 
 export function tbankToken(payload: Readonly<Record<string, unknown>>, password: string): string {

@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
 
 import type { LibraryDiscoveryResult } from "@/features/library-discovery";
+import { guideOnlyOffer } from "@/workshop/billing.fixtures";
 import type { MaterialPreview } from "@/entities/material";
 import {
   ApplicationShell,
@@ -191,6 +192,75 @@ export const SeriesDesktop: Story = {
       canvasElement.querySelector(
         '[data-content-cover-id="02000000-0000-4000-8000-000000000063"]',
       ),
+    ).toBeInTheDocument();
+  },
+};
+
+/**
+ * У руководства есть своя цена: покупка руководства — главный путь, подписка остаётся вторым.
+ * Без цены остаётся прежний CTA на тарифы, поэтому оба состояния показаны рядом.
+ */
+export const SeriesForSaleDesktop: Story = {
+  args: { result: seriesResult, guideOffer: guideOnlyOffer },
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
+  name: "Series · guide for sale desktop",
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("link", { name: /Купить за/u }),
+    ).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("link", { name: "Посмотреть подписку" }),
+    ).toBeInTheDocument();
+    await expect(canvas.getByText(/навсегда/u)).toBeInTheDocument();
+  },
+};
+
+export const SeriesForSaleMobile: Story = {
+  args: { result: seriesResult, guideOffer: guideOnlyOffer },
+  globals: { viewport: { isRotated: false, value: "mobile360" } },
+  name: "Series · guide for sale mobile",
+  play: async ({ canvasElement }) => {
+    await expectNoHorizontalOverflow(canvasElement);
+  },
+};
+
+/** Всё уже открыто: цена есть, но звать к оплате нечего. */
+export const SeriesForSaleAlreadyOpen: Story = {
+  args: {
+    result: {
+      ...seriesResult,
+      items: seriesResult.items.map((item) => ({
+        ...item,
+        availability: "available" as const,
+      })),
+    },
+    guideOffer: guideOnlyOffer,
+  },
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
+  name: "Series · guide for sale, nothing locked",
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.queryByRole("link", { name: /Купить за/u }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("link", { name: "Посмотреть тарифы" }),
+    ).not.toBeInTheDocument();
+  },
+};
+
+export const SeriesNotForSale: Story = {
+  args: { result: seriesResult },
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
+  name: "Series · guide not for sale",
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.queryByRole("link", { name: /Купить за/u }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.getByRole("link", { name: "Посмотреть тарифы" }),
     ).toBeInTheDocument();
   },
 };

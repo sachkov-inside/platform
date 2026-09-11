@@ -3,8 +3,8 @@ import {
   attemptStateLabel,
   formatBillingDate,
   formatKopecks,
-  formatMonths,
   noticeLabel,
+  paymentSubjectLabel,
   type NoticeView,
   type OwnPayment,
 } from "@/entities/subscription";
@@ -41,7 +41,7 @@ export function BillingHistory({ notices, payments }: BillingHistoryProps) {
             >
               <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                 <span className="min-w-0 font-medium [overflow-wrap:anywhere]">
-                  {payment.offerName} · {formatMonths(payment.months)}
+                  {payment.offerName} · {paymentSubjectLabel(payment)}
                 </span>
                 <span className="font-mono text-xs tabular-nums">
                   {formatKopecks(payment.amountKopecks)}

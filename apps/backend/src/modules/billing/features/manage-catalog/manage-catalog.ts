@@ -67,7 +67,11 @@ async function changeCatalog(tx: BillingPrisma, command: ManageCatalogCommand): 
     case "paymentOptions.save": {
       const offer = await tx.billingOffer.findUnique({ where: { id: command.value.offerId } });
       if (!offer || offer.archived) return failure("not_found");
-      const data = { ...command.value, mode: command.value.mode ?? "subscription", revision, archived: false };
+      const mode = command.value.mode ?? "subscription";
+      // Способ оплаты входит в принятые условия покупки, поэтому у существующего варианта он
+      // не переписывается: подписку не превращают в разовую продажу задним числом.
+      if (current && "mode" in current && current.mode !== mode) return failure("invalid_request");
+      const data = { ...command.value, mode, revision, archived: false };
       await tx.billingPaymentOption.upsert({ where: { id }, create: data, update: data });
       break;
     }

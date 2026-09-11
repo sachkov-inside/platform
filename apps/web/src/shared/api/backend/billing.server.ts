@@ -13,7 +13,7 @@ type BillingRequest<Method extends Exclude<keyof BillingService, "httpRequest">>
 const bankCommandTimeoutMs = 30_000;
 
 export function requestBillingOffers(
-  query: { readonly cursor?: string; readonly limit?: number },
+  query: BillingRequest<"billingOffers">,
   accessToken?: string,
 ) {
   return executeGeneratedRequest(

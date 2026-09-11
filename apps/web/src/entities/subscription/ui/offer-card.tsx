@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { cn } from "@/shared/lib/utils";
 
 import type { PriceSnapshot } from "../model/billing-contract";
+import { paymentMode } from "../model/billing-contract";
 import {
   benefitLines,
   formatKopecks,
@@ -32,8 +33,10 @@ export function OfferCard({
 }: OfferCardProps) {
   const Heading = headingLevel;
   const promotion = promotionLabel(snapshot);
-  const lines = benefitLines(snapshot.offer, snapshot.paymentOption.months);
+  const mode = paymentMode(snapshot);
+  const lines = benefitLines(snapshot);
   const renewalDiffers =
+    mode === "subscription" &&
     snapshot.renewalPriceKopecks !== snapshot.firstPriceKopecks;
   return (
     <article
@@ -58,7 +61,9 @@ export function OfferCard({
             {formatKopecks(snapshot.firstPriceKopecks)}
           </span>
           <span className="text-sm text-muted-foreground">
-            за {formatMonths(snapshot.paymentOption.months)}
+            {mode === "one_time"
+              ? "разовая покупка"
+              : `за ${formatMonths(snapshot.paymentOption.months)}`}
           </span>
         </p>
         {promotion === undefined ? null : (
@@ -72,8 +77,7 @@ export function OfferCard({
         ) : null}
         {snapshot.offer.archived || snapshot.paymentOption.archived ? (
           <p className="mt-2 text-sm font-medium text-muted-foreground">
-            Предложение снято с продажи; действующие подписки продолжают
-            работать.
+            Предложение снято с продажи; выданные права продолжают работать.
           </p>
         ) : null}
       </header>

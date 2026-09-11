@@ -5,7 +5,8 @@ import {
 } from "../../membership-entitlements/index.js";
 import { manageCatalogSchema, catalogOutcomeSchema } from "../features/manage-catalog/manage-catalog.contract.js";
 import { idSchema, moneySchema, priceSnapshotSchema, revisionSchema } from "./pricing.js";
-import { attemptKindSchema, attemptStateSchema, subscriptionViewSchema } from "./subscription-change.js";
+import { attemptKindSchema, attemptStateSchema } from "./payment-attempt.js";
+import { subscriptionViewSchema } from "./subscription-change.js";
 import type { PaymentFailureCode } from "../features/purchase-subscription/purchase-subscription.contract.js";
 
 export const reasonSchema = z.string().trim().min(1).max(1000);

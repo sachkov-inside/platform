@@ -4,7 +4,7 @@ import { z } from "zod";
 import type { BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { BillingContact } from "../../../accounts/index.js";
 import type { AccessGrants } from "../../../membership-entitlements/index.js";
-import { priceSnapshotSchema } from "../../domain/pricing.js";
+import { paymentMode, priceSnapshotSchema } from "../../domain/pricing.js";
 import { subscriptionPeriodEnd } from "../../domain/subscription-period.js";
 import { lockPricing, lockSubscription } from "../../infrastructure/postgres/catalog-lock.js";
 import { bankTimeoutMs, type Tbank, validatedPaymentUrl, type BankPayment, type PaymentInitiator } from "../../infrastructure/tbank/tbank.js";
@@ -13,7 +13,7 @@ import { paymentFailure, purchaseSubscriptionSchema, purchaseStatusSchema, type 
 import { ownPaymentSchema, type OwnPayment } from "../../features/manage-subscription/manage-subscription.contract.js";
 import { paidPeriodCommandSchema } from "../../../membership-entitlements/index.js";
 import { endLapsedSubscriptions, endSubscription, inFlightStates, settleConfirmedAttempt } from "../../shared/subscription-outcome.js";
-import { attemptKindSchema, type AttemptKind } from "../../domain/subscription-change.js";
+import { attemptKindSchema, isQuotedPurchase, type AttemptKind } from "../../domain/payment-attempt.js";
 import { renewalPriceSnapshot } from "../../domain/subscription-change.js";
 import { verifyRecurringConsent } from "../../shared/recurring-consent.js";
 import { attemptSourceRef, lifecycleWindow } from "../../domain/notice.js";
@@ -26,7 +26,8 @@ const ownPaymentHistoryLimit = 50;
 const inFlightAnswerBudgetMilliseconds = bankTimeoutMs + 2_000;
 const inFlightAnswerPollMilliseconds = 200;
 // Первая покупка сохраняет привязку, повышение инициирует покупатель, продление — merchant recurring.
-const paymentInitiators: Record<AttemptKind, PaymentInitiator> = { initial: "1", upgrade: "2", renewal: "R" };
+// Разовая покупка не просит банк сохранять привязку: инициатор без card-on-file.
+const paymentInitiators: Record<AttemptKind, PaymentInitiator> = { initial: "1", one_time: "0", upgrade: "2", renewal: "R" };
 
 interface Dependencies {
   readonly prisma: BillingPrismaClient;
@@ -51,20 +52,32 @@ export class BillingPayments {
     try {
       const replay = await this.dependencies.prisma.billingPurchaseCommand.findUnique({ where: { accountId_operationId: { accountId, operationId: command.operationId } } });
       if (replay) return replay.fingerprint === fingerprint ? await this.status(accountId, replay.purchaseRef) : paymentFailure("operation_conflict");
+      // Режим приходит из сохранённого расчёта: он решает, нужно ли согласие на списания и
+      // появляется ли вообще подписка. Пропавший расчёт отсекается здесь тем же ответом,
+      // что и в резерве цены.
+      const quote = await this.dependencies.prisma.billingPriceQuote.findFirst({ where: { id: command.quoteRef, accountId } });
+      if (!quote) return paymentFailure("not_found");
+      const mode = paymentMode(priceSnapshotSchema.parse(quote.snapshot).paymentOption);
+      const recurring = mode === "subscription";
       const [contact, legacy, capabilities] = await Promise.all([
         this.dependencies.contact.read(accountId), this.dependencies.grants.readLegacyClassification(accountId), this.dependencies.grants.resolveCapabilities(accountId),
       ]);
       if (!contact.ok || !legacy.ok || !capabilities.ok) return paymentFailure("dependency_unavailable");
       if (!contact.contact || contact.contact.revision !== command.contactRevision) return paymentFailure("contact_required");
-      if (!legacy.recurringAllowed) return paymentFailure("legacy_review_required");
+      // Классификация старой подписки ограничивает только регулярные списания: разовая покупка
+      // ничего не возобновляет и поэтому её не ждёт.
+      if (recurring && !legacy.recurringAllowed) return paymentFailure("legacy_review_required");
       const verifiedContact = contact.contact;
       const consents = await Promise.all(command.consentEvidenceRefs.map(ref => this.dependencies.contact.readConsent(accountId, ref)));
       if (consents.some(result => !result.ok)) return paymentFailure("consent_required");
       const evidence = consents.flatMap(result => result.ok ? [result.evidence] : []);
+      const requiredConsents = recurring ? ["terms", "recurring"] : ["terms"];
       if (new Set(evidence.map(value => value.document.kind)).size !== evidence.length ||
         evidence.some(value => value.contextRef !== command.quoteRef || !contact.documents.some(document =>
           document.kind === value.document.kind && document.documentId === value.document.documentId && document.version === value.document.version && document.digest === value.document.digest)) ||
-        !["terms", "recurring"].every(kind => evidence.some(value => value.document.kind === kind))) return paymentFailure("consent_required");
+        // Разовая покупка не принимает согласие на списания даже добровольно: списаний не будет.
+        (!recurring && evidence.some(value => value.document.kind === "recurring")) ||
+        !requiredConsents.every(kind => evidence.some(value => value.document.kind === kind))) return paymentFailure("consent_required");
       const prepared = await this.dependencies.prisma.$transaction(async (tx): Promise<PaymentResult<string>> => {
         await lockPricing(tx);
         const key = { accountId, operationId: command.operationId };
@@ -73,11 +86,13 @@ export class BillingPayments {
         const now = this.clock();
         // A completed lifecycle remains in history; only a later new purchase can reserve another slot.
         await endLapsedSubscriptions(tx, accountId, now);
-        const current = await tx.billingPurchase.findFirst({ where: { accountId, kind: "initial", lifecycleActive: true, state: { not: "failed" } } });
-        if (current) {
-          if (current.state === "confirmed") return paymentFailure("payment_in_progress");
-          await tx.billingPurchaseCommand.create({ data: { ...key, fingerprint, purchaseRef: current.id } });
-          return { ok: true, value: current.id };
+        if (recurring) {
+          const current = await tx.billingPurchase.findFirst({ where: { accountId, kind: "initial", lifecycleActive: true, state: { not: "failed" } } });
+          if (current) {
+            if (current.state === "confirmed") return paymentFailure("payment_in_progress");
+            await tx.billingPurchaseCommand.create({ data: { ...key, fingerprint, purchaseRef: current.id } });
+            return { ok: true, value: current.id };
+          }
         }
         const purchaseRef = randomUUID();
         const reservation = await reservePurchaseInTransaction(tx, { accountId, purchaseRef, quoteRef: command.quoteRef,
@@ -90,6 +105,8 @@ export class BillingPayments {
         }
         await tx.billingPurchase.create({ data: {
           id: purchaseRef, accountId, quoteRef: command.quoteRef, state: "prepared", environment: bank.config.environment,
+          // Разовая покупка не занимает место подписки: она ничем не продлевается и заканчивается собой.
+          ...(recurring ? {} : { kind: "one_time", lifecycleActive: false }),
           terminalRef: bank.config.terminalKey, amountKopecks: reservation.value.firstPriceKopecks,
           snapshot: reservation.value, acceptance: { command, evidence }, contact: { revision: verifiedContact.revision, verifiedAt: verifiedContact.verifiedAt, emailCiphertext: bank.sealBinding(`${purchaseRef}:contact`, verifiedContact.email) },
           fiscalization: "pending", createdAt: now, updatedAt: now,
@@ -151,6 +168,7 @@ export class BillingPayments {
     try {
       const row = await prisma.billingPurchase.findUnique({ where: { id: purchaseRef } });
       if (!row) return paymentFailure("not_found");
+      const kind = attemptKindSchema.parse(row.kind);
       if (row.environment !== bank.config.environment || row.terminalRef !== bank.config.terminalKey) return paymentFailure("method_unavailable");
       if (row.state === "prepared") { await this.dispatch(row.id); return { ok: true, value: true }; }
       if (row.state === "confirmed" || row.state === "failed") return { ok: true, value: true };
@@ -165,7 +183,7 @@ export class BillingPayments {
       if (payment.OrderId !== row.id || payment.PaymentId !== paymentId) return paymentFailure("invalid_notification");
       const accepted = await this.accept(payment);
       // Init прошёл, Charge ещё не вызывался: только доказанное NEW разрешает завершить ту же попытку.
-      if (accepted.ok && row.kind !== "initial" && !row.chargeCalled && payment.Status === "NEW") await this.chargeSaved(row.id, paymentId);
+      if (accepted.ok && !isQuotedPurchase(kind) && !row.chargeCalled && payment.Status === "NEW") await this.chargeSaved(row.id, paymentId);
       return accepted;
     } catch { return paymentFailure("provider_unavailable"); }
   }
@@ -242,16 +260,17 @@ export class BillingPayments {
   async dispatch(attemptRef: string): Promise<void> {
     const { prisma, bank } = this.dependencies;
     if (!bank) return;
-    const row = await prisma.$transaction(async tx => {
+    const prepared = await prisma.$transaction(async tx => {
       await lockPricing(tx);
       const row = await tx.billingPurchase.findUnique({ where: { id: attemptRef } });
       if (!row || row.state !== "prepared" || row.terminalRef !== bank.config.terminalKey || row.environment !== bank.config.environment) return undefined;
+      const kind = attemptKindSchema.parse(row.kind);
       const now = this.clock();
       if (row.subscriptionRef) {
         await lockSubscription(tx, row.subscriptionRef);
         const subscription = await tx.billingSubscription.findUnique({ where: { id: row.subscriptionRef } });
         // Отмена останавливает только продление; принятое повышение оплачивает действующий срок.
-        const schedulable = row.kind === "renewal" ? subscription?.state === "active" : subscription?.state !== "ended";
+        const schedulable = kind === "renewal" ? subscription?.state === "active" : subscription?.state !== "ended";
         if (!subscription || !schedulable || !subscription.bindingCiphertext || subscription.bindingRevokedAt !== null) {
           // Отмена или отзыв привязки до отправки: внешнего эффекта нет, попытка закрывается.
           await tx.billingPurchase.update({ where: { id: attemptRef }, data: { state: "failed", updatedAt: now } });
@@ -259,24 +278,24 @@ export class BillingPayments {
         }
       }
       await tx.billingPurchase.update({ where: { id: attemptRef }, data: { state: "sent", updatedAt: now } });
-      if (row.kind === "initial") await tx.billingPromoReservation.update({ where: { purchaseRef: attemptRef }, data: { state: "sent" } });
-      return row;
+      if (isQuotedPurchase(kind)) await tx.billingPromoReservation.update({ where: { purchaseRef: attemptRef }, data: { state: "sent" } });
+      return { row, kind };
     });
-    if (!row) return;
+    if (!prepared) return;
+    const { row, kind } = prepared;
     try {
       const snapshot = priceSnapshotSchema.parse(row.snapshot);
       const contact = z.object({ emailCiphertext: z.string() }).parse(row.contact);
       const email = z.email().parse(bank.openBinding(`${row.id}:contact`, contact.emailCiphertext));
-      const initiator = paymentInitiators[attemptKindSchema.parse(row.kind)];
-      const payment = await bank.init({ orderId: row.id, accountId: row.accountId, amount: Number(row.amountKopecks), name: snapshot.offer.name, email, initiator });
-      const accepted = await this.accept(payment, row.kind === "initial" ? payment.PaymentURL : undefined);
+      const payment = await bank.init({ orderId: row.id, accountId: row.accountId, amount: Number(row.amountKopecks), name: snapshot.offer.name, email, initiator: paymentInitiators[kind] });
+      const accepted = await this.accept(payment, isQuotedPurchase(kind) ? payment.PaymentURL : undefined);
       if (!accepted.ok) throw new Error("Bank initialization fact rejected");
-      if (row.kind !== "initial" && !await this.chargeSaved(row.id, payment.PaymentId)) throw new Error("Saved method charge is unresolved");
+      if (!isQuotedPurchase(kind) && !await this.chargeSaved(row.id, payment.PaymentId)) throw new Error("Saved method charge is unresolved");
     } catch {
       await prisma.$transaction(async tx => {
         await lockPricing(tx);
         const changed = await tx.billingPurchase.updateMany({ where: { id: row.id, state: { in: ["sent", "pending"] } }, data: { state: "unknown", updatedAt: this.clock() } });
-        if (changed.count && row.kind === "initial") await tx.billingPromoReservation.update({ where: { purchaseRef: attemptRef }, data: { state: "unknown" } });
+        if (changed.count && isQuotedPurchase(kind)) await tx.billingPromoReservation.update({ where: { purchaseRef: attemptRef }, data: { state: "unknown" } });
       });
     }
   }
@@ -347,6 +366,7 @@ export class BillingPayments {
         if (!row || row.environment !== bank.config.environment || row.terminalRef !== payment.TerminalKey || row.terminalRef !== bank.config.terminalKey ||
           Number(row.amountKopecks) !== payment.Amount || (row.paymentId !== null && row.paymentId !== payment.PaymentId) || row.state === "prepared") return paymentFailure("invalid_notification");
         const now = this.clock();
+        const kind = attemptKindSchema.parse(row.kind);
         if (row.subscriptionRef) await lockSubscription(tx, row.subscriptionRef);
         if (payment.Status === "RECEIPT") {
           const fiscalization = payment.Success && payment.ErrorCode === "0" ? "confirmed" : "failed";
@@ -384,17 +404,22 @@ export class BillingPayments {
           const eventRef = randomUUID();
           const period = await settleConfirmedAttempt(tx, { ...row, bindingCiphertext: common.bindingCiphertext ?? row.bindingCiphertext }, paidAt);
           const snapshot = period.snapshot;
-          await tx.billingPurchase.update({ where: { id: row.id }, data: { ...common, state: "confirmed", confirmedAt: paidAt, periodEndsAt: period.endsAt, paymentUrl: null } });
-          if (row.kind === "initial") await tx.billingPromoReservation.update({ where: { purchaseRef: row.id }, data: { state: "confirmed" } });
-          await tx.billingPaymentEvent.create({ data: { id: eventRef, purchaseRef: row.id, kind: "payment_confirmed", payload: { accountId: row.accountId, amountKopecks: payment.Amount, periodRef: row.id, startsAt: period.startsAt.toISOString(), endsAt: period.endsAt.toISOString(), snapshot }, occurredAt: paidAt, recordedAt: now } });
+          // Оплаченный срок принадлежит подписке. У разовой покупки его нет: её права живут
+          // своими сроками, и обещать дату окончания самой покупки было бы неправдой.
+          const paidUntil = period.endsAt;
+          await tx.billingPurchase.update({ where: { id: row.id }, data: { ...common, state: "confirmed", confirmedAt: paidAt, periodEndsAt: paidUntil, paymentUrl: null } });
+          if (isQuotedPurchase(kind)) await tx.billingPromoReservation.update({ where: { purchaseRef: row.id }, data: { state: "confirmed" } });
+          await tx.billingPaymentEvent.create({ data: { id: eventRef, purchaseRef: row.id, kind: "payment_confirmed", payload: { accountId: row.accountId, amountKopecks: payment.Amount, periodRef: row.id, startsAt: period.startsAt.toISOString(), endsAt: paidUntil?.toISOString() ?? null, snapshot }, occurredAt: paidAt, recordedAt: now } });
           // Подтверждённая оплата — повод сообщения; имя и сумма берутся из снимка самой операции.
           await recordBillingNotice(tx, { kind: "payment_succeeded", accountId: row.accountId, sourceRef: attemptSourceRef(row.id),
-            subscriptionRef: period.subscriptionRef, attemptRef: row.id, title: snapshot.offer.name,
-            amountKopecks: payment.Amount, dueAt: period.endsAt, ...lifecycleWindow(paidAt) }, now);
+            ...(period.subscriptionRef === null || paidUntil === null ? {} : { subscriptionRef: period.subscriptionRef, dueAt: paidUntil }),
+            attemptRef: row.id, title: snapshot.offer.name,
+            amountKopecks: payment.Amount, ...lifecycleWindow(paidAt) }, now);
           for (const capability of snapshot.offer.benefits) {
             const term = snapshot.offer.benefitPeriods?.find(value => value.capability === capability);
-            // Право без собственного срока действует ровно оплаченный период; собственный срок считается от его начала.
-            const validUntil = term === undefined ? period.endsAt.toISOString()
+            // Право без собственного срока действует ровно оплаченный период подписки; разовая
+            // покупка оплаченного срока не имеет и открывает такое право бессрочно.
+            const validUntil = term === undefined ? paidUntil?.toISOString() ?? null
               : term.months === null ? null : subscriptionPeriodEnd(period.startsAt, term.months).toISOString();
             const grantEventRef = randomUUID();
             const command = { eventRef: grantEventRef, periodRef: `${row.id}:${capability}`, accountId: row.accountId, revision: 1, revoked: false,
@@ -403,9 +428,9 @@ export class BillingPayments {
           }
         } else if (["REJECTED", "AUTH_FAIL", "CANCELED", "DEADLINE_EXPIRED", "REVERSED"].includes(payment.Status)) {
           await tx.billingPurchase.update({ where: { id: row.id }, data: { ...common, state: "failed", lifecycleActive: false, paymentUrl: null } });
-          if (row.kind === "initial") await tx.billingPromoReservation.update({ where: { purchaseRef: row.id }, data: { state: "failed" } });
+          if (isQuotedPurchase(kind)) await tx.billingPromoReservation.update({ where: { purchaseRef: row.id }, data: { state: "failed" } });
           // Однозначный отказ по расписанию завершает продление без automatic retry и без неоплаченного grace.
-          if (row.kind === "renewal" && row.subscriptionRef) {
+          if (kind === "renewal" && row.subscriptionRef) {
             // О списании без покупателя сообщаем: отказ по расписанию он иначе не увидит.
             await recordBillingNotice(tx, { kind: "payment_failed", accountId: row.accountId, sourceRef: attemptSourceRef(row.id),
               subscriptionRef: row.subscriptionRef, attemptRef: row.id, title: priceSnapshotSchema.parse(row.snapshot).offer.name,

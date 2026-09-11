@@ -7,7 +7,7 @@ export async function SubscriptionPage({
 }: {
   readonly target: SubscriptionRouteTarget;
 }) {
-  const result = await loadBillingOffers();
+  const result = await loadBillingOffers({ mode: "subscription" });
   return (
     <SubscriptionStorefront
       offers={result.kind === "ready" ? result.offers : []}

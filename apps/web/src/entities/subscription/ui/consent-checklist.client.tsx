@@ -1,7 +1,6 @@
 "use client";
 import {
   legalDocumentLabel,
-  requiredConsentKinds,
   type LegalDocument,
   type LegalDocumentKind,
 } from "../model/legal-documents";
@@ -11,6 +10,8 @@ export interface ConsentChecklistProps {
   readonly accepted: readonly LegalDocumentKind[];
   readonly legend: string;
   readonly namePrefix: string;
+  /** Какие согласия обязательны здесь: у подписки и разовой покупки они разные. */
+  readonly required: readonly LegalDocumentKind[];
   readonly disabled?: boolean;
   /** Отмечать необязательные согласия отдельно нужно только в оформлении покупки. */
   readonly markOptional?: boolean;
@@ -25,6 +26,7 @@ export function ConsentChecklist({
   accepted,
   legend,
   namePrefix,
+  required,
   disabled = false,
   markOptional = false,
   onToggle,
@@ -56,7 +58,7 @@ export function ConsentChecklist({
                 >
                   {legalDocumentLabel(document.kind)}
                 </a>
-                {markOptional && !requiredConsentKinds.includes(document.kind) ? (
+                {markOptional && !required.includes(document.kind) ? (
                   <span className="text-muted-foreground"> · по желанию</span>
                 ) : null}
               </span>

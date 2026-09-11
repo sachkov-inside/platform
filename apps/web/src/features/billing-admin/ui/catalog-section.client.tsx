@@ -15,9 +15,12 @@ import type {
   SavePaymentOptionInput,
   SavePromotionInput,
 } from "../model/admin-operations";
+import { paymentModeSchema } from "@/entities/subscription";
+
 import {
   AdminField,
   AdminSection,
+  AdminSelect,
   AdminTextArea,
   capabilityHint,
   formText,
@@ -199,7 +202,7 @@ export function CatalogSection({
       </AdminSection>
 
       <AdminSection
-        description="Вариант оплаты хранит длительность и цену в копейках. Архивирование не меняет действующие подписки."
+        description="Вариант оплаты хранит способ продажи, длительность и цену в копейках. Одно предложение продаётся одним способом, и у сохранённого варианта способ не меняется. Архивирование не отзывает выданные права."
         title="Вариант оплаты"
       >
         <form
@@ -213,7 +216,9 @@ export function CatalogSection({
                 offerId: formText(form.get("optionOfferId")),
                 months: Number(formText(form.get("optionMonths"))),
                 priceKopecks: Number(formText(form.get("optionPrice"))),
-                mode: "subscription",
+                mode: paymentModeSchema
+                  .catch("subscription")
+                  .parse(formText(form.get("optionMode"))),
               },
             });
           })}
@@ -224,7 +229,16 @@ export function CatalogSection({
             name="optionOfferId"
             required
           />
+          <AdminSelect
+            label="Способ продажи"
+            name="optionMode"
+            options={[
+              { value: "subscription", label: "Подписка: списания по расписанию" },
+              { value: "one_time", label: "Разовая покупка: без списаний" },
+            ]}
+          />
           <AdminField
+            hint="У подписки это период списания. У разовой покупки месяцы ни на что не влияют: срок права задаётся в составе предложения, а без него право бессрочно."
             inputMode="numeric"
             label="Месяцев"
             name="optionMonths"
