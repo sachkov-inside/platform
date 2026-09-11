@@ -26,7 +26,7 @@ export interface PurchasesSectionViewProps {
   readonly pending?: boolean;
   readonly error?: string | undefined;
   readonly sessionExpired?: boolean;
-  readonly storefrontHref: Route;
+  readonly storefrontHref?: Route | undefined;
   readonly onChangeMethod: () => void;
   readonly onRevokeMethod: () => void;
 }

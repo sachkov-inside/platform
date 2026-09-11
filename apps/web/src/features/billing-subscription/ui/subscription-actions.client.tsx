@@ -26,7 +26,8 @@ export interface SubscriptionActionsProps {
   readonly resumeDocuments: readonly LegalDocument[];
   readonly resumeAccepted: readonly LegalDocumentKind[];
   readonly pending: boolean;
-  readonly storefrontHref: Route;
+  /** Адрес витрины даётся, только когда подписку продают: иначе звать туда не с чем. */
+  readonly storefrontHref?: Route | undefined;
   readonly onCancelRenewal: () => void;
   readonly onResumeRenewal: () => void;
   readonly onToggleResumeDocument: (kind: LegalDocumentKind) => void;
@@ -118,14 +119,20 @@ export function SubscriptionActions({
           </div>
         ) : (
           <p className="mt-4 text-sm leading-6 text-muted-foreground">
-            Подписка завершена. Новый срок начинается новой покупкой на{" "}
-            <Link
-              className="text-action underline underline-offset-4"
-              href={storefrontHref}
-            >
-              витрине
-            </Link>
-            .
+            {storefrontHref === undefined ? (
+              "Подписка завершена. Сейчас её не продают, поэтому начать новый срок нельзя."
+            ) : (
+              <>
+                Подписка завершена. Новый срок начинается новой покупкой на{" "}
+                <Link
+                  className="text-action underline underline-offset-4"
+                  href={storefrontHref}
+                >
+                  витрине
+                </Link>
+                .
+              </>
+            )}
           </p>
         )}
 
