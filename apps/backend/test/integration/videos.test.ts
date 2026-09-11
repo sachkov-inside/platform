@@ -267,12 +267,14 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
     });
   });
 
-  test("offers the newest unfinished upload of a Material for recovery", async () => {
+  test("offers an unsettled upload of a Material and stops once its outcome is known", async () => {
     const remote = new Map<string, ProviderVideo>();
+    const started: string[] = [];
     const provider: VideoProvider = {
       delete: unusedDelete,
       initUpload(input) {
         const id = randomUUID();
+        started.push(id);
         remote.set(id, {
           embedLocator: null,
           id,
@@ -300,14 +302,15 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
       materialId,
       title: "Interrupted lesson",
     };
+    const unselected = () => videos.loadUnselectedUpload({ materialId, selectedVideoId: null });
 
-    await expect(videos.loadLatestUpload(materialId)).resolves.toEqual({ ok: true, value: null });
+    await expect(unselected()).resolves.toEqual({ ok: true, value: null });
 
     const first = await videos.initUpload({ ...upload, idempotencyKey: "first-interrupted-upload" });
     if (!first.ok) throw new Error(first.error.code);
 
     // The browser tab is gone: the Material never stored this Video, but the author must find it.
-    await expect(videos.loadLatestUpload(materialId)).resolves.toEqual({
+    await expect(unselected()).resolves.toEqual({
       ok: true,
       value: {
         origin: "platform_upload",
@@ -323,14 +326,39 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
       title: "Second attempt",
     });
     if (!second.ok) throw new Error(second.error.code);
-    await expect(videos.loadLatestUpload(materialId)).resolves.toMatchObject({
+    await expect(unselected()).resolves.toMatchObject({
       ok: true,
       value: { title: "Second attempt", videoId: second.value.video.videoId },
     });
 
+    await expect(videos.loadUnselectedUpload({
+      materialId,
+      selectedVideoId: second.value.video.videoId,
+    })).resolves.toMatchObject({
+      ok: true,
+      value: { videoId: first.value.video.videoId },
+    });
+
+    // A settled upload was already shown to its author; recovery must not undo their decision.
+    const secondProviderVideoId = started[1] ?? "";
+    remote.set(secondProviderVideoId, {
+      embedLocator: "https://kinescope.io/embed/second",
+      id: secondProviderVideoId,
+      projectId: "public-project",
+      status: "done",
+      title: "Second attempt",
+    });
+    await expect(videos.reconcile({
+      actor,
+      videoId: second.value.video.videoId,
+    })).resolves.toMatchObject({ ok: true, value: { state: "ready" } });
+    await expect(unselected()).resolves.toMatchObject({
+      ok: true,
+      value: { videoId: first.value.video.videoId },
+    });
   });
 
-  test("never offers an External Attachment as an interrupted upload", async () => {
+  test("never offers an External Attachment as a recoverable upload", async () => {
     const providerVideoId = randomUUID();
     const videos = assembleVideos({
       canManage: () => Promise.resolve(true),
@@ -357,7 +385,10 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
       providerVideoId,
     })).resolves.toMatchObject({ ok: true, value: { origin: "external_attachment" } });
 
-    await expect(videos.loadLatestUpload(materialId)).resolves.toEqual({ ok: true, value: null });
+    await expect(videos.loadUnselectedUpload({
+      materialId,
+      selectedVideoId: null,
+    })).resolves.toEqual({ ok: true, value: null });
   });
 
   test("keeps an early webhook pending and reconciles it after the local Video exists", async () => {

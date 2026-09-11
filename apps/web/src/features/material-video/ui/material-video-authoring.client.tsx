@@ -79,8 +79,7 @@ export function MaterialVideoAuthoring({
   );
   const [providerVideoId, setProviderVideoId] = useState("");
   const initial = resolveInitialVideoAuthoring({ primaryVideo, unselectedUpload });
-  const recoveredVideoId = useRef(initial.recoveredVideoId);
-  const recoveryRequested = useRef(false);
+  const [recoveredVideoId, setRecoveredVideoId] = useState(initial.recoveredVideoId);
   const [video, setVideo] = useState<MaterialAuthoringVideo | null>(initial.video);
   const [deletionVideo, setDeletionVideo] =
     useState<MaterialAuthoringVideo | null>(latestVideoDeletion);
@@ -116,29 +115,26 @@ export function MaterialVideoAuthoring({
         return;
       }
       setVideo(result.value);
-      const next = phaseForReconciledVideo(result.value, recoveredVideoId.current);
+      const next = phaseForReconciledVideo(result.value, recoveredVideoId);
       if (next === "ready") {
         if (uploadAttempt.current?.videoId === result.value.videoId) {
           clearBrowserVideoUploadAttempt(uploadAttempt.current);
           uploadAttempt.current = null;
         }
         uploadTransfer.current = null;
-        recoveredVideoId.current = null;
+        setRecoveredVideoId(null);
         onChange(result.value, deleteVideoId);
       }
       setPhase(next);
     },
-    [deleteVideoId, onChange],
+    [deleteVideoId, onChange, recoveredVideoId],
   );
 
   const reconcile = useCallback(
     async (videoId: string) => {
       const revision = operation.current;
       const targetIsDeletion = deletionVideo?.videoId === videoId;
-      if (!targetIsDeletion)
-        setPhase((current) =>
-          current === "interrupted" ? current : "processing",
-        );
+      if (!targetIsDeletion) setPhase("processing");
       const result = await reconcileVideo({ videoId });
       if (revision !== operation.current) return;
       if (targetIsDeletion) {
@@ -170,13 +166,6 @@ export function MaterialVideoAuthoring({
   }, [materialId, phase, reconcile, video]);
 
   useEffect(() => {
-    if (phase !== "interrupted" || video === null || recoveryRequested.current)
-      return;
-    recoveryRequested.current = true;
-    void reconcile(video.videoId);
-  }, [phase, reconcile, video]);
-
-  useEffect(() => {
     if (
       deletionVideo === null ||
       (deletionVideo.state !== "deletion_requested" &&
@@ -203,6 +192,7 @@ export function MaterialVideoAuthoring({
   const upload = async (file: File) => {
     const revision = ++operation.current;
     setPhase("uploading");
+    setRecoveredVideoId(null);
     setProgress(0);
     const browserAttempt = await getOrCreateBrowserVideoUploadAttempt(
       materialId,
@@ -290,6 +280,7 @@ export function MaterialVideoAuthoring({
           primaryVideo?.videoId === activeVideo.videoId ? null : primaryVideo;
         setDeletionVideo(activeVideo);
         setVideo(retainedVideo);
+        setRecoveredVideoId(null);
         setPhase(phaseForVideo(retainedVideo));
         onChange(retainedVideo, activeVideo.videoId);
       }}
@@ -300,6 +291,7 @@ export function MaterialVideoAuthoring({
         });
       }}
       onProviderVideoIdChange={setProviderVideoId}
+      recovered={activeVideo !== null && activeVideo.videoId === recoveredVideoId}
       onReconcile={() => {
         if (activeVideo !== null) void reconcile(activeVideo.videoId);
       }}
@@ -314,6 +306,7 @@ export function MaterialVideoAuthoring({
           clearBrowserVideoUploadAttempt(uploadAttempt.current);
         uploadAttempt.current = null;
         setVideo(null);
+        setRecoveredVideoId(null);
         setPhase("idle");
         onChange(null, null);
       }}
@@ -346,6 +339,7 @@ export interface MaterialVideoAuthoringViewProps {
   readonly phase: MaterialVideoAuthoringPhase;
   readonly progress: number;
   readonly providerVideoId: string;
+  readonly recovered: boolean;
 }
 
 /** Production presentation boundary shared with Storybook state fixtures. */
@@ -365,6 +359,7 @@ export function MaterialVideoAuthoringView({
   phase,
   progress,
   providerVideoId,
+  recovered,
 }: MaterialVideoAuthoringViewProps) {
   const fileInput = useRef<HTMLInputElement>(null);
   const deleteDialog = useRef<HTMLDialogElement>(null);
@@ -443,7 +438,9 @@ export function MaterialVideoAuthoringView({
             <Upload aria-hidden="true" />
             Загрузить
           </Button>
-          {activeVideo === null || phase === "ready" ? null : (
+          {activeVideo === null ||
+          phase === "ready" ||
+          phase === "interrupted_unusable" ? null : (
             <Button
               disabled={busy}
               onClick={onReconcile}
@@ -485,7 +482,11 @@ export function MaterialVideoAuthoringView({
         video={deletionVideo}
         onRetry={onRetryDeletion}
       />
-      <InterruptedUploadStatus phase={phase} video={activeVideo} />
+      <InterruptedUploadStatus
+        phase={phase}
+        recovered={recovered}
+        video={activeVideo}
+      />
       <details>
         <summary className="cursor-pointer text-xs text-muted-foreground">
           Выбрать существующее видео Kinescope
@@ -619,26 +620,29 @@ function DeletionStatus({
 
 function InterruptedUploadStatus({
   phase,
+  recovered,
   video,
 }: {
   readonly phase: MaterialVideoAuthoringPhase;
+  readonly recovered: boolean;
   readonly video: MaterialAuthoringVideo | null;
 }) {
-  if (
-    video === null ||
-    (phase !== "interrupted" && phase !== "interrupted_incomplete")
-  )
-    return null;
+  if (!recovered || video === null) return null;
+  const text =
+    phase === "processing"
+      ? `Видео «${video.title}» осталось от незавершённой загрузки и пока не привязано к материалу. Проверяем его состояние в Kinescope.`
+      : phase !== "interrupted_unusable"
+        ? null
+        : video.state === "failed"
+          ? `Kinescope не смог обработать файл «${video.title}». Загрузите видео заново или удалите незавершённую запись.`
+          : `Kinescope получил файл «${video.title}» не полностью, поэтому видео не готово. Загрузите файл заново или удалите незавершённую запись.`;
+  if (text === null) return null;
   return (
     <div
       className="rounded-xl border border-border bg-background px-4 py-3 text-sm leading-6"
       role="status"
     >
-      <p>
-        {phase === "interrupted"
-          ? `Видео «${video.title}» осталось от незавершённой загрузки и пока не привязано к материалу. Проверяем его состояние в Kinescope.`
-          : `Kinescope получил файл «${video.title}» не полностью, поэтому видео не готово. Загрузите файл заново или удалите незавершённую запись.`}
-      </p>
+      <p>{text}</p>
     </div>
   );
 }
@@ -653,8 +657,7 @@ function phaseLabel(
     return "Kinescope отклонил загрузку. Нужно исправить права доступа к сервису.";
   if (phase === "upload_outcome_unknown")
     return "Результат загрузки не подтверждён. Нужна проверка в Kinescope перед повтором.";
-  if (phase === "interrupted") return "Проверяем незавершённую загрузку";
-  if (phase === "interrupted_incomplete") return "Загрузка не завершена";
+  if (phase === "interrupted_unusable") return "Загрузка не завершена";
   if (phase === "error") return "Нужна повторная попытка";
   if (phase === "ready") return "Видео готово";
   return "Перетащите видео или вставьте из буфера";

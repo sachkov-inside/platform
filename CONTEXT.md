@@ -116,8 +116,9 @@ A local identity for one Kinescope object owned by exactly one Material. A Mater
 most one ready Video through nullable `primaryVideoId` outside MaterialBody; provider IDs, embed
 locators, status and errors remain Video facts and never enter the document. Its immutable origin
 distinguishes a Platform Upload, which an author may explicitly delete, from an External
-Attachment, which Platform may only detach. A Platform Upload its Material has not selected stays
-that Material's unselected upload and remains offered to the author until it is selected or deleted.
+Attachment, which Platform may only detach. A Platform Upload its Material has not selected, and
+whose outcome Platform has not settled, stays that Material's unselected upload and returns to its
+author; a settled outcome the author already saw is their own decision.
 _Avoid_: Inline video node, iframe block, provider URL as Material content
 
 **VideoDeletion**:

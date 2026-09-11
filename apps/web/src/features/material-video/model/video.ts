@@ -32,8 +32,7 @@ export type MaterialVideoAuthoringPhase =
   | "processing"
   | "ready"
   | "error"
-  | "interrupted"
-  | "interrupted_incomplete"
+  | "interrupted_unusable"
   | "upload_not_authorized"
   | "upload_outcome_unknown";
 
@@ -46,7 +45,8 @@ export interface InitialVideoAuthoring {
 /**
  * A Material stores its primary Video only once that Video is ready, so an editor tab closed
  * during upload or processing leaves a real Kinescope Video with nothing pointing at it. The
- * editor adopts that unselected upload instead of opening as if no video existed.
+ * editor adopts that unselected upload instead of opening as if no video existed, and hands it
+ * straight to the ordinary reconciliation poll: only the provider knows how the transfer ended.
  */
 export function resolveInitialVideoAuthoring(input: {
   readonly primaryVideo: MaterialAuthoringVideo | null;
@@ -59,7 +59,7 @@ export function resolveInitialVideoAuthoring(input: {
         recoveredVideoId: null,
         video: input.primaryVideo,
       }
-    : { phase: "interrupted", recoveredVideoId: recovered.videoId, video: recovered };
+    : { phase: "processing", recoveredVideoId: recovered.videoId, video: recovered };
 }
 
 export function phaseForVideo(
@@ -72,19 +72,19 @@ export function phaseForVideo(
 }
 
 /**
- * An adopted upload has no browser transfer left to finish it: when the provider still reports
- * `uploading`, waiting or checking again cannot change that, so the author is told to upload the
- * file again rather than to retry.
+ * An adopted upload has no browser transfer left to finish it. Once the provider reports that the
+ * file never arrived in full, or that it could not be processed, neither waiting nor checking
+ * again can change the outcome, so the author is told to upload the file again instead.
  */
 export function phaseForReconciledVideo(
   video: MaterialAuthoringVideo,
   recoveredVideoId: string | null,
 ): MaterialVideoAuthoringPhase {
   if (video.state === "ready") return "ready";
-  if (video.state === "failed") return "error";
-  return recoveredVideoId === video.videoId && video.state === "uploading"
-    ? "interrupted_incomplete"
-    : "processing";
+  if (recoveredVideoId === video.videoId && video.state !== "processing") {
+    return "interrupted_unusable";
+  }
+  return video.state === "failed" ? "error" : "processing";
 }
 
 export interface VideoPlaybackProgress {

@@ -23,14 +23,14 @@ const otherVideo: MaterialAuthoringVideo = {
 };
 
 describe("Interrupted upload recovery", () => {
-  it("adopts an upload the Material never selected", () => {
+  it("hands an upload the Material never selected to the reconciliation poll", () => {
     expect(
       resolveInitialVideoAuthoring({
         primaryVideo: null,
         unselectedUpload: uploadedVideo("processing"),
       }),
     ).toEqual({
-      phase: "interrupted",
+      phase: "processing",
       recoveredVideoId: uploadedVideo("processing").videoId,
       video: uploadedVideo("processing"),
     });
@@ -54,7 +54,7 @@ describe("Interrupted upload recovery", () => {
   it("names an adopted upload the provider never received in full", () => {
     const video = uploadedVideo("uploading");
     expect(phaseForReconciledVideo(video, video.videoId)).toBe(
-      "interrupted_incomplete",
+      "interrupted_unusable",
     );
   });
 
@@ -63,7 +63,7 @@ describe("Interrupted upload recovery", () => {
     expect(phaseForReconciledVideo(video, video.videoId)).toBe("processing");
   });
 
-  it("never calls a live transfer of this tab an interrupted upload", () => {
+  it("never calls a live transfer of this tab an adopted upload", () => {
     const video = uploadedVideo("uploading");
     expect(phaseForReconciledVideo(video, null)).toBe("processing");
   });
@@ -73,8 +73,14 @@ describe("Interrupted upload recovery", () => {
     expect(phaseForReconciledVideo(video, video.videoId)).toBe("ready");
   });
 
-  it("does not offer a generic retry for a Video the provider failed", () => {
+  it("does not offer a generic retry for an adopted upload the provider failed", () => {
     const video = uploadedVideo("failed");
-    expect(phaseForReconciledVideo(video, video.videoId)).toBe("error");
+    expect(phaseForReconciledVideo(video, video.videoId)).toBe(
+      "interrupted_unusable",
+    );
+  });
+
+  it("keeps the ordinary failure state for a Video of this session", () => {
+    expect(phaseForReconciledVideo(uploadedVideo("failed"), null)).toBe("error");
   });
 });

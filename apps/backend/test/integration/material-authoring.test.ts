@@ -587,7 +587,7 @@ describe("MaterialAuthoring", () => {
       ok: true as const,
       value: null,
     }));
-    const loadLatestUpload = vi.fn(() => Promise.resolve({
+    const loadUnselectedUpload = vi.fn(() => Promise.resolve({
       ok: true as const,
       value: null,
     }));
@@ -595,14 +595,14 @@ describe("MaterialAuthoring", () => {
       inspectPrimaryReference,
       loadAuthoringPresentation,
       loadLatestDeletion,
-      loadLatestUpload,
+      loadUnselectedUpload,
       loadPresentation,
     } satisfies Pick<
       Videos,
       | "inspectPrimaryReference"
       | "loadAuthoringPresentation"
       | "loadLatestDeletion"
-      | "loadLatestUpload"
+      | "loadUnselectedUpload"
       | "loadPresentation"
     >;
     const withVideos = assembleMaterials({
@@ -1117,24 +1117,24 @@ describe("MaterialAuthoring", () => {
     await expect(materials.authoring.saveMaterial({
       actor,
       body,
-      deleteVideoId: started.value.video.videoId,
       expectedContentVersion: 2,
-      idempotencyKey: "delete-recovered-upload",
+      idempotencyKey: "detach-recovered-upload",
       materialId: created.value.materialId,
       metadata,
       primaryVideoId: null,
       publicationState: "draft",
     })).resolves.toMatchObject({ ok: true, value: { contentVersion: 3 } });
 
-    // A Video on its way out is never offered back as a recoverable upload.
+    // «Убрать» keeps the Kinescope object but is still the author's decision: recovery must not
+    // hand the Video back and let autosave re-attach it on the next visit.
     await expect(materials.authoring.loadMaterial({
       actor,
       materialId: created.value.materialId,
     })).resolves.toMatchObject({
       ok: true,
       value: {
-        latestVideoDeletion: { state: "deletion_requested" },
         primaryVideo: null,
+        primaryVideoId: null,
         unselectedVideoUpload: null,
       },
     });

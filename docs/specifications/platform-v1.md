@@ -632,10 +632,11 @@ redirect и cache policy остаются за backend.
    Tus transfer без API token. Attach-existing всегда делает server lookup в фиксированном public
    или membership project. Material ссылается на Video только после `ready`, поэтому закрытая или
    перезагруженная вкладка оставляет Platform Upload без ссылки. Редактор получает последнюю такую
-   unselected загрузку Material, сверяет её с provider сам и объясняет исход: `ready` привязывается
-   обычным Save, продолжающаяся обработка ждёт, а всё ещё `uploading` без transfer означает
-   неполный файл и требует новой загрузки, а не повтора проверки. Video в состоянии удаления и
-   `external_attachment` кандидатами не являются.
+   загрузку Material, пока её исход не установлен, и сверяет её обычной reconciliation: `ready`
+   привязывается обычным Save, продолжающаяся обработка ждёт, а `uploading` без transfer или
+   `failed` означают, что файл нужно загрузить заново, и повтор проверки не предлагается.
+   Установленный исход, Video в состоянии удаления и `external_attachment` кандидатами не
+   являются: показанный автору результат остаётся его решением.
 9. Webhook — durable hint: duplicate и out-of-order deliveries попадают в inbox, после чего Platform
    повторно читает provider state. Только `done` с безопасным returned embed locator становится
    `ready`; unknown status становится видимым failed state, а provider outage оставляет event для

@@ -21,6 +21,6 @@ export interface MaterialAuthoringDependencies {
     | "inspectPrimaryReference"
     | "loadAuthoringPresentation"
     | "loadLatestDeletion"
-    | "loadLatestUpload"
+    | "loadUnselectedUpload"
   >;
 }
