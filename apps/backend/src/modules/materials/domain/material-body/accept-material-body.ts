@@ -1,3 +1,11 @@
+import {
+  addressableMaterialBlockTypes,
+  isJsonArray,
+  isJsonObject,
+  isUnknownRecord,
+  materialBlockByType,
+  stringAttribute,
+} from "@inside/material-blocks";
 import { z } from "zod";
 
 import type {
@@ -9,13 +17,11 @@ import type {
 } from "./material-body.js";
 import { assignMissingNodeIds } from "./assign-missing-node-ids.js";
 import { DOCUMENT_LIMITS } from "./document-limits.js";
-import { addressableBlockTypes } from "./document-rules.js";
-import { isJsonArray, isJsonObject, isUnknownRecord } from "./json-guards.js";
 import { restoreStoredMaterialBodyV1 } from "./stored-material-body-v1.js";
 import { validationIssuePath } from "./validation-issue-path.js";
 import { isUuid } from "../uuid.js";
 
-const addressableBlockTypeSet = new Set<string>(addressableBlockTypes);
+const addressableBlockTypeSet = new Set<string>(addressableMaterialBlockTypes);
 
 const envelopeSchema = z
   .object({
@@ -40,15 +46,6 @@ function invalid(
         .slice(0, DOCUMENT_LIMITS.issues),
     },
   };
-}
-
-function stringAttribute(node: JsonObject, name: string): string | undefined {
-  const attributes = node.attrs;
-  if (!isJsonObject(attributes)) {
-    return undefined;
-  }
-  const value = attributes[name];
-  return typeof value === "string" ? value : undefined;
 }
 
 function validateUrl(url: string): boolean {
@@ -128,60 +125,12 @@ function validateTree(doc: JsonObject): readonly ValidationIssue[] {
         }
       }
 
-      if (
-        type === "callout" &&
-        !["note", "tip", "warning"].includes(
-          stringAttribute(value, "kind") ?? "",
-        )
-      ) {
+      materialBlockByType(type)?.issues?.(value, (code, attribute) => {
         issues.push({
-          code: "invalid_callout_kind",
-          path: validationIssuePath([...path, "attrs", "kind"]),
+          code,
+          path: validationIssuePath([...path, "attrs", attribute]),
         });
-      }
-      if (type === "assetImage") {
-        const size = isJsonObject(value.attrs)
-          ? value.attrs.displayWidthPercent
-          : undefined;
-        if (
-          size !== undefined && size !== null &&
-          (typeof size !== "number" || !Number.isInteger(size) || size < 25 || size > 100)
-        ) {
-          issues.push({
-            code: "invalid_image_size",
-            path: validationIssuePath([...path, "attrs", "displayWidthPercent"]),
-          });
-        }
-      }
-      if (type === "assetImage" || type === "assetFile") {
-        const assetId = stringAttribute(value, "assetId");
-        if (assetId === undefined || !isUuid(assetId)) {
-          issues.push({
-            code: "invalid_asset_id",
-            path: validationIssuePath([...path, "attrs", "assetId"]),
-          });
-        }
-        const label = stringAttribute(
-          value,
-          type === "assetImage" ? "alt" : "label",
-        );
-        if (
-          label === undefined ||
-          (type === "assetFile" && label.trim().length === 0)
-        ) {
-          issues.push({
-            code:
-              type === "assetImage"
-                ? "missing_image_alt"
-                : "missing_file_label",
-            path: validationIssuePath([
-              ...path,
-              "attrs",
-              type === "assetImage" ? "alt" : "label",
-            ]),
-          });
-        }
-      }
+      });
     }
 
     const marks = value.marks;

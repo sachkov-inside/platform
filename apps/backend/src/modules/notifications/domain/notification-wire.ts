@@ -70,4 +70,3 @@ export function commandWindow(issuedAt: Date, deadline: Date) {
   return { issuedAt: issuedAt.toISOString(), notAfter: new Date(Math.min(deadline.getTime(), issuedAt.getTime() + COMMAND_LIFETIME_MS)).toISOString() };
 }
 export const PERMIT_LIFETIME_MS = 5_000;
-export const MATERIAL_LIFETIME_MS = 24 * 60 * 60 * 1_000;

@@ -160,6 +160,12 @@ function violationsFor(source, specifier) {
     violations.push("a capability internal module was imported from outside its owner");
   }
 
+  if (specifier.startsWith("@tiptap/")) {
+    violations.push(
+      "material document blocks belong to the shared block registry; import the document schema from @inside/material-blocks",
+    );
+  }
+
   const importsKysely = specifier === "kysely" || specifier.startsWith("kysely/");
   if (importsKysely) {
     violations.push("Kysely is forbidden; Prisma is the only application ORM");

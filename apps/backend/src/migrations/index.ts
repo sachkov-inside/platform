@@ -1,3 +1,4 @@
+import { name as materialAnnouncementsName, statement as materialAnnouncementsStatement } from "../modules/materials/infrastructure/postgres/migrations/0060-material-announcements.js";
 import { name as oneTimePurchaseName, statement as oneTimePurchaseStatement } from "../modules/billing/infrastructure/postgres/migrations/0059-one-time-purchase.js";
 import { name as guideIntroductionName, statement as guideIntroductionStatement } from "../modules/materials/infrastructure/postgres/migrations/0057-guide-introduction.js";
 import { name as offerForSaleName, statement as offerForSaleStatement } from "../modules/billing/infrastructure/postgres/migrations/0058-offer-for-sale.js";
@@ -329,6 +330,7 @@ export const platformMigrations = [
   { name: guideIntroductionName, statement: guideIntroductionStatement },
   { name: offerForSaleName, statement: offerForSaleStatement },
   { name: oneTimePurchaseName, statement: oneTimePurchaseStatement },
+  { name: materialAnnouncementsName, statement: materialAnnouncementsStatement },
 ] as const;
 
 export function migrateToLatest(

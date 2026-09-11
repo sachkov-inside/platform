@@ -19,6 +19,8 @@ COPY --chown=node:node apps/backend/prisma.config.ts ./apps/backend/prisma.confi
 COPY --chown=node:node apps/backend/prisma ./apps/backend/prisma
 COPY --chown=node:node apps/web/package.json ./apps/web/package.json
 COPY --chown=node:node packages/runtime-identity/package.json ./packages/runtime-identity/package.json
+# The block registry compiles during install, so its sources join the dependency stage.
+COPY --chown=node:node packages/material-blocks ./packages/material-blocks
 RUN --mount=type=cache,id=inside-platform-pnpm,target=/pnpm/store,uid=1000,gid=1000 \
     pnpm install --frozen-lockfile --store-dir=/pnpm/store --package-import-method=copy
 

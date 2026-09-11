@@ -22,6 +22,12 @@ The current structured content owned by a Material. In Russian product language:
 материала».
 _Avoid_: MaterialDocumentV1, HTML blob, editor state
 
+**Material Block Registry**:
+The single description of every block a MaterialBody may contain: node type, fields, field rules,
+rendered shape, search text and headings. It lives in `@inside/material-blocks`; the server, the
+editor and the reading client all read the same entry instead of keeping their own copy.
+_Avoid_: Block schema copy, editor extension list, ContentSchema capability
+
 **Public Material Projection**:
 The indexable body-free view of a Published Material: title, description, cover, author, taxonomy
 and publication date. A membership Material remains discoverable through this projection while its
@@ -391,3 +397,10 @@ _Avoid_: Событие продукта, рассылка, попытка от�
 Доставка одного Notification по выбранному каналу подтверждённому получателю. Результат одного
 канала не определяет результат другого и не означает прочтения.
 _Avoid_: Notification, broker acknowledgement, прочтение
+
+**Publication Announcement**:
+Повод сообщить читателям о материале: он возникает один раз, когда Material публикуется впервые,
+и принадлежит самому материалу, а не его месту в руководстве. Повторная публикация,
+переименование, перестановка и включение в другое руководство его не создают. В русском языке
+продукта: «анонс первой публикации».
+_Avoid_: Publication event, рассылка, повторный анонс

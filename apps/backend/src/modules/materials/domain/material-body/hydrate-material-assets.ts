@@ -1,3 +1,5 @@
+import { mapMaterialBlockChildren } from "@inside/material-blocks";
+
 import type { MaterialAssetPresentation } from "../../../assets/index.js";
 import type { RenderedBlock, RenderedMaterialBody } from "./material-body.js";
 
@@ -16,40 +18,22 @@ function hydrateBlock(
   block: RenderedBlock,
   byId: ReadonlyMap<string, MaterialAssetPresentation>,
 ): RenderedBlock {
-  switch (block.kind) {
-    case "image": {
-      const asset = byId.get(block.assetId);
-      return asset?.kind === "image"
-        ? { ...block, height: asset.height, variants: asset.variants, width: asset.width }
-        : block;
-    }
-    case "file": {
-      const asset = byId.get(block.assetId);
-      return asset?.kind === "file"
-        ? { ...block, contentType: asset.contentType, filename: asset.filename, size: asset.size }
-        : block;
-    }
-    case "blockquote":
-    case "callout":
-      return { ...block, content: block.content.map((child) => hydrateBlock(child, byId)) };
-    case "bullet_list":
-    case "ordered_list":
-      return { ...block, items: block.items.map((item) => item.map((child) => hydrateBlock(child, byId))) };
-    case "table":
-      return {
-        ...block,
-        rows: block.rows.map((row) => ({
-          ...row,
-          cells: row.cells.map((cell) => ({
-            ...cell,
-            content: cell.content.map((child) => hydrateBlock(child, byId)),
-          })),
-        })),
-      };
-    case "code_block":
-    case "heading":
-    case "horizontal_rule":
-    case "paragraph":
-      return block;
+  const hydrated = mapMaterialBlockChildren(block, (child) =>
+    hydrateBlock(child, byId),
+  );
+  // Only asset blocks carry presentation the registry cannot know; every other block is
+  // already complete once its nested blocks are hydrated.
+  if (hydrated.kind === "image") {
+    const asset = byId.get(hydrated.assetId);
+    return asset?.kind === "image"
+      ? { ...hydrated, height: asset.height, variants: asset.variants, width: asset.width }
+      : hydrated;
   }
+  if (hydrated.kind === "file") {
+    const asset = byId.get(hydrated.assetId);
+    return asset?.kind === "file"
+      ? { ...hydrated, contentType: asset.contentType, filename: asset.filename, size: asset.size }
+      : hydrated;
+  }
+  return hydrated;
 }

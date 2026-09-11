@@ -1,7 +1,8 @@
 import type { JSONContent } from "@tiptap/core";
 import { z } from "zod";
 
-export const materialDocumentSchema = z.custom<JSONContent>(
+/** Guards the document a form or transport payload carries, before Tiptap ever sees it. */
+export const materialDocumentContentSchema = z.custom<JSONContent>(
   (value) => isJsonContent(value) && value.type === "doc",
 );
 

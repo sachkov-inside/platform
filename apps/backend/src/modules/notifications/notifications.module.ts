@@ -4,8 +4,10 @@ import { PrismaModule, PrismaClientProvider } from '../../infrastructure/prisma/
 import { AccountsModule, ACCOUNTS, NotificationAccounts, accountId, type Accounts } from '../accounts/index.js';
 import { BillingModule, BillingNotices } from '../billing/index.js';
 import { TelegramAccountLinksModule, TelegramAccountLinks } from '../telegram-membership/index.js';
-import { MaterialsModule, materialId } from '../materials/index.js';
+import { MaterialAnnouncements, MaterialsModule, materialId } from '../materials/index.js';
 import { CONTENT_ACCESS, type ContentAccess } from '../content-access/index.js';
+import type { NotificationEvent } from './domain/notification-wire.js';
+import type { NotificationSource } from './ports/notification-sources.js';
 import { Notifications } from './facets/notifications/notifications.js';
 import { NotificationPreferencesController, NotificationOperationsController } from './features/read-deliveries/notifications.controller.js';
 import { NotificationDispatchController } from './features/authorize-dispatch/notification-dispatch.controller.js';
@@ -13,13 +15,18 @@ import { NotificationDispatchController } from './features/authorize-dispatch/no
 @Module({
   imports: [PrismaModule, AccountsModule, TelegramAccountLinksModule, MaterialsModule, BillingModule],
   controllers: [NotificationPreferencesController, NotificationOperationsController, NotificationDispatchController],
-  providers: [{ provide: Notifications, inject: [PrismaClientProvider, ACCOUNTS, NotificationAccounts, TelegramAccountLinks, CONTENT_ACCESS, PLATFORM_CONFIG, BillingNotices],
-    useFactory: (prisma: PrismaClientProvider, accounts: Accounts, contacts: NotificationAccounts, telegram: TelegramAccountLinks, access: ContentAccess, config: PlatformConfig, notices: BillingNotices) => new Notifications({
+  providers: [{ provide: Notifications, inject: [PrismaClientProvider, ACCOUNTS, NotificationAccounts, TelegramAccountLinks, CONTENT_ACCESS, PLATFORM_CONFIG, BillingNotices, MaterialAnnouncements],
+    useFactory: (prisma: PrismaClientProvider, accounts: Accounts, contacts: NotificationAccounts, telegram: TelegramAccountLinks, access: ContentAccess, config: PlatformConfig, notices: BillingNotices, announcements: MaterialAnnouncements) => new Notifications({
       prisma, now: () => new Date(), origin: config.notificationDelivery?.origin ?? '',
       sources: {
-        // Billing подтверждает повод собственными фактами; первая публикация Materials подключается
-        // в #437, и до этого её события остаются durable pending до собственного срока.
-        resolve: event => event.eventType === 'billing.notice-ready' ? notices.resolveNotice(event) : Promise.resolve({ status: 'unavailable' }),
+        // Каждый источник подтверждает свой повод собственными фактами: Billing — поводом оплаты,
+        // Materials — анонсом первой публикации. Данные брокера сами по себе отправку не разрешают.
+        // Таблица закрыта типом события: следующий источник обязан назвать здесь своего владельца,
+        // иначе его события молча спрашивали бы чужой повод.
+        resolve: event => ({
+          'billing.notice-ready': () => notices.resolveNotice(event),
+          'material.published': () => announcements.resolveAnnouncement(event),
+        } satisfies Record<NotificationEvent['eventType'], () => Promise<NotificationSource>>)[event.eventType](),
         canRead: async (account, sourceRef) => {
           const decision = await access.authorize({ subject: { kind: 'account', accountId: accountId(account) },
             resource: { kind: 'material', materialId: materialId(sourceRef) }, action: 'read', enforcementPoint: 'published_material_read', correlationId: 'notifications' });
