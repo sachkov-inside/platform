@@ -78,20 +78,18 @@ test("возврат из банка не выдаётся за подтверж
   ).toBeVisible();
 });
 
-test("кабинет просит войти без действующей сессии", async ({ page }) => {
+test("раздел подписки просит войти без действующей сессии", async ({ page }) => {
   await stubBilling(page, { ok: false, code: "unauthorized" }, 401);
   const response = await page.goto("/account/subscription");
 
   expect(response?.status()).toBe(200);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "Платёжный кабинет",
-  );
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Подписка");
   await expect(
     page.locator("#content").getByRole("button", { name: "Войти" }).first(),
   ).toBeVisible();
 });
 
-test("кабинет показывает оплаченный срок и следующее списание", async ({
+test("раздел подписки показывает оплаченный срок и следующее списание", async ({
   page,
 }) => {
   await stubBilling(page, {
@@ -136,9 +134,13 @@ test("кабинет показывает оплаченный срок и сл�
   await page.goto("/account/subscription");
 
   await expect(page.getByText("Действует")).toBeVisible();
-  await expect(page.getByText("Оплаченная подписка")).toBeVisible();
   await expect(page.getByText("1 октября 2026 г.").first()).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Отменить продление" }),
   ).toBeEnabled();
+  // Основания доступа и способ оплаты — задача раздела «Покупки».
+  await expect(page.getByText("Оплаченная подписка")).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { name: "Способ оплаты" }),
+  ).toHaveCount(0);
 });

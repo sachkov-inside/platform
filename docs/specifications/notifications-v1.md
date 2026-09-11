@@ -91,7 +91,10 @@ Community entitlement и его permit остаются в telegram-membership �
 - #410 (поставлено): Billing events/reminders через общий модуль; `NotificationSources.resolve`
   отвечает подтверждёнными фактами Billing, а `billing.notice-ready` проходит оба канала.
   Границы поводов описаны в [billing v1](subscription-billing-v1.md#текущая-поставка-410).
-- #437: first publication и settings UI, desktop/mobile/accessibility и no-backfill proof.
+- #494 (поставлено): раздел «Уведомления» личного кабинета даёт собственные opt-in переключатели
+  каналов «Новые материалы» поверх уже поставленных `readPreferences`/`changePreferences`.
+- #437: first publication event, аудитория и реальная отправка, desktop/mobile/accessibility и
+  no-backfill proof; собственные настройки каналов там уже не переизобретаются.
 - Telegram #56: real consumer/inbox/effect ledger, shared bot limits и result relay.
 - #438: реальные PostgreSQL/RabbitMQ и обе стороны при synthetic provider; отдельное разрешённое
   credentialed доказательство обоих каналов. #413 использует его для billing DEMO.

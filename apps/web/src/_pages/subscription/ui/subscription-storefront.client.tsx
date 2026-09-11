@@ -37,7 +37,7 @@ export function SubscriptionStorefront({
   returnTo,
   originHref,
   cabinetHref = "/account/subscription",
-  contactHref = "/account/email",
+  contactHref = "/account/purchases",
 }: SubscriptionStorefrontProps) {
   const offers = publicSubscriptionOffers(catalog);
   const [selectedId, setSelectedId] = useState<string | null>(

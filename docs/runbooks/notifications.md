@@ -38,6 +38,10 @@ API предоставляет настройки без необходимос�
 | --- | --- | --- |
 | Прочитать настройки | `GET /accounts/current/notifications/preferences` | revision и email/Telegram opt-in новых материалов; по умолчанию оба false |
 | Изменить настройки | `POST /accounts/current/notifications/preferences` | operationId, expectedRevision, email, telegram; replay возвращает исходный ответ, stale revision даёт 409 |
+
+Раздел «Уведомления» личного кабинета (`/account/notifications`) читает и меняет эти настройки
+через собственные маршруты BFF `GET /api/account/notifications/preferences` и
+`POST /api/account/notifications/preferences/change`.
 | Свои доставки | `GET /accounts/current/notifications/deliveries?after=<uuid>` | До 50 безопасных summaries с keyset cursor |
 | Операторский просмотр | `GET /operations/notifications/accounts/:accountId/deliveries?after=<uuid>` | Только текущий `platform:admin`; без адресов, текста и provider payload |
 | Пропустить unknown | `POST /operations/notifications/unknown/resolve` | operationId, deliveryRef, action=`skip`; текущий admin, durable audit |

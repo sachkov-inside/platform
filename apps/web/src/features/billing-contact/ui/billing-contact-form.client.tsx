@@ -9,10 +9,14 @@ import {
   type LegalDocument,
 } from "@/entities/subscription";
 
+import type { Route } from "next";
+
 import type { BillingContact } from "../model/billing-contact";
 
 export interface BillingContactFormProps {
   readonly contact: BillingContact | null;
+  /** Куда вернуть после входа: форма живёт и в кабинете, и в оформлении подписки. */
+  readonly returnTo?: Route;
   /** Применимые документы приходят с сервера; до их публикации список пуст. */
   readonly documents?: readonly LegalDocument[];
   readonly loading?: boolean;
@@ -43,6 +47,7 @@ const fieldClassName =
  */
 export function BillingContactForm({
   contact,
+  returnTo = "/account/purchases",
   documents = [],
   loading,
   pending,
@@ -86,7 +91,7 @@ export function BillingContactForm({
         <div className="mt-5 rounded-xl border border-destructive/30 bg-destructive/6 p-4 text-sm" role="alert">
           <p className="font-semibold">Сессия завершилась.</p>
           <form action="/auth/sign-in" className="mt-3" method="post">
-            <input name="returnTo" type="hidden" value="/account/email" />
+            <input name="returnTo" type="hidden" value={returnTo} />
             <Button className={billingActionClass} type="submit">
               Войти снова
             </Button>

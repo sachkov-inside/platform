@@ -1,11 +1,9 @@
+export { currentBillingQueryOptions } from "./model/current-billing";
 export {
-  BillingCabinetPanel,
-  currentBillingQueryKey,
-  currentBillingQueryOptions,
-  type BillingCabinetPanelProps,
-} from "./ui/billing-cabinet-panel.client";
+  PurchasesPanel,
+  type PurchasesPanelProps,
+} from "./ui/purchases-panel.client";
 export {
-  BillingCabinetView,
-  type BillingCabinetViewProps,
-} from "./ui/billing-cabinet-view.client";
-export { readCurrentBilling } from "./api/billing-subscription.browser";
+  SubscriptionPanel,
+  type SubscriptionPanelProps,
+} from "./ui/subscription-panel.client";

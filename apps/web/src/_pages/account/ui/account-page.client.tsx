@@ -1,6 +1,4 @@
 "use client";
-import Link from "next/link";
-
 import { Check, Copy, RotateCcw } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { useId, useState } from "react";
@@ -12,10 +10,6 @@ import {
   memberProfileTextLength,
   type PrivateMemberProfile,
 } from "@/entities/member-profile";
-import {
-  AccountMembershipPanel,
-  type AccountTelegramMembership,
-} from "@/features/account-access";
 import { Button } from "@/shared/ui/button";
 
 import { createMemberProfile } from "../api/create-member-profile.browser";
@@ -26,15 +20,11 @@ import { ProfileAvatarEditor } from "./profile-avatar-editor.client";
 
 interface AccountPageClientProps {
   readonly initialProfile: PrivateMemberProfile | null;
-  readonly initialTelegramMembership: AccountTelegramMembership;
-  readonly onTelegramMembershipRefresh?: () => Promise<void>;
   readonly onProfileChange?: (profile: PrivateMemberProfile) => void;
 }
 
 export function AccountPageClient({
   initialProfile,
-  initialTelegramMembership,
-  onTelegramMembershipRefresh = () => Promise.resolve(),
   onProfileChange,
 }: AccountPageClientProps) {
   const [profile, setProfile] = useState(initialProfile);
@@ -96,26 +86,15 @@ export function AccountPageClient({
     emptyToNull(bio) !== profile.bio;
 
   return (
-    <div className="mx-auto max-w-6xl">
-      <header className="mb-8 flex flex-col gap-5 border-b border-border pb-7 sm:flex-row sm:items-end sm:justify-between">
+    <div>
+      <header className="mb-8 border-b border-border pb-7">
         <h1 className="text-balance text-4xl font-bold tracking-[-0.04em] sm:text-5xl">
-          Ваш профиль
+          Профиль
         </h1>
-        <form action="/auth/sign-out" method="post">
-          <Button className="min-h-11 px-4" type="submit" variant="outline">
-            Выйти из аккаунта
-          </Button>
-        </form>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+          Имя, описание и аватар, которые видят участники по вашей ссылке.
+        </p>
       </header>
-
-      <p className="mb-6 flex flex-wrap gap-x-6 gap-y-2">
-        <Link className="underline underline-offset-4" href="/account/subscription">Платёжный кабинет</Link>
-        <Link className="underline underline-offset-4" href="/account/email">Email для чеков и уведомлений</Link>
-      </p>
-      <AccountMembershipPanel
-        onRefresh={onTelegramMembershipRefresh}
-        presentation={initialTelegramMembership}
-      />
 
       <form
         className="grid gap-8 lg:grid-cols-2 lg:gap-12"

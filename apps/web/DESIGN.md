@@ -243,13 +243,26 @@ not define a second layout or terminology.
 
 ### Account and Member Profile
 
-- **Status:** accepted production pattern from issue #189 after owner desktop/mobile visual GO.
+- **Status:** accepted production pattern from issue #189 after owner desktop/mobile visual GO;
+  issue #494 moved it into the cabinet section «Профиль» without changing its composition.
 - **Composition:** private Account presents one bounded editor and the exact member projection as two
   balanced desktop columns; mobile preserves editor → projection order without a decorative seam.
 - **Actions:** Profile create/edit and the opaque member link are the complete self-service surface;
   complaint, export and delete controls are absent.
 - **Copy:** `Профиль участника` names the projection directly; supporting copy explains only privacy,
   validation or current visibility state.
+
+### Account Cabinet Sections
+
+- **Status:** production-owned navigation from issue #494; owner visual GO is not yet recorded.
+- **Composition:** `/account` разделён на разделы «Профиль», «Аккаунт», «Покупки», «Подписка» и
+  «Уведомления». Один и тот же список разделов живёт внутри принятой платформенной оболочки: на
+  десктопе — постоянная боковая колонка слева от содержания, на телефоне — раскрывающийся список
+  над ним. Второй оболочки не появляется, нижняя навигация не меняется.
+- **State:** «Подписка» показывается, когда подписка продаётся или когда она уже есть; текущий
+  раздел помечен `aria-current` и тем же сдержанным orange, что и остальная навигация.
+- **Copy:** каждый раздел назван одним словом задачи и объясняет её одной строкой. Ни один раздел
+  не показывает задачи другого: продающий блок и ссылки на чужие задачи из кабинета убраны.
 
 ### Subscription, Checkout and Billing Cabinet
 

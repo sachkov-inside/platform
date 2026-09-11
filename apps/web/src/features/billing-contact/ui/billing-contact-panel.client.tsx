@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { useBillingOperations } from "@/entities/subscription";
+import { useRepeatableOperations } from "@/shared/lib/repeatable-operations.client";
 
 import {
   confirmBillingContact,
@@ -41,7 +41,7 @@ export function BillingContactPanel({
 }: BillingContactPanelProps) {
   const queryClient = useQueryClient();
   const query = useQuery(billingContactQueryOptions());
-  const { operationId, completeOperation } = useBillingOperations();
+  const { operationId, completeOperation } = useRepeatableOperations();
   const [challenge, setChallenge] = useState<{
     challengeRef: string;
     email: string;

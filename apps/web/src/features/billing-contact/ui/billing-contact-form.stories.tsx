@@ -44,7 +44,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "Производственная форма контакта #411. Один presentation interface обслуживает маршрут /account/email и оформление подписки.",
+          "Производственная форма контакта #411. Один presentation interface обслуживает раздел «Покупки» и оформление подписки.",
       },
     },
   },

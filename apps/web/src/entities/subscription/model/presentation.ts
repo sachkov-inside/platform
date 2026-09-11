@@ -186,7 +186,7 @@ export function billingErrorMessage(code: BillingFailureCode): string {
     case "quote_changed":
       return "Цена или состав изменились. Проверьте новые условия перед оплатой.";
     case "payment_in_progress":
-      return "Оплата по этой подписке уже прошла или ещё выполняется. Откройте платёжный кабинет — новую покупку начинать не нужно.";
+      return "Оплата по этой подписке уже прошла или ещё выполняется. Откройте в кабинете раздел «Подписка» — новую покупку начинать не нужно.";
     case "refund_in_progress":
       return "Возврат по этому платежу ещё выполняется.";
     case "revision_conflict":

@@ -30,5 +30,6 @@ export * from "./reading-activity.server";
 export { requestContinueMaterials, requestRecordMaterialOpen, requestLearningHome, requestSeriesContinuation } from "./personal-home.server";
 
 export * from "./billing-contact.server";
+export * from "./notifications.server";
 export * from "./bookmarks.server";
 export * from "./billing.server";
