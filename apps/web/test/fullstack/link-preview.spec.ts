@@ -10,10 +10,12 @@ test("главная отдаёт карточку ссылки с назван�
 }) => {
   await page.goto("/");
 
+  /** Next сводит канонический адрес главной к origin без завершающего слэша. */
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
     "href",
-    `${String(baseURL)}/`,
+    String(baseURL),
   );
+  expect(await metaContent(page, "og:url")).toBe(String(baseURL));
   expect(await metaContent(page, "og:site_name")).toBe("Sachkov Inside");
   expect(await metaContent(page, "og:locale")).toBe("ru_RU");
   expect(await metaContent(page, "og:image")).toBe(`${String(baseURL)}/social-card`);
@@ -65,6 +67,8 @@ test("закрытый материал отдаёт карточку назва
     /index/u,
   );
   await expect(page.getByRole("heading", { name: "Продолжение для участников" })).toBeVisible();
+  await expect(page.locator("[data-reader-body]")).toHaveCount(0);
+  await expect(page.locator('[data-material-reader-state="available"]')).toHaveCount(0);
 });
 
 test("карта сайта перечисляет опубликованные руководства, темы и материалы", async ({

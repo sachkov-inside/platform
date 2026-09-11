@@ -23,9 +23,11 @@ export type PublicSiteIndex =
     }
   | { readonly kind: "unavailable" };
 
-/** Обход каталога ограничен: одна ошибка в курсоре не должна превратиться в бесконечный запрос. */
+/** Сто страниц каталога: испорченный курсор не должен превратиться в бесконечный обход. */
 const MAX_CATALOG_PAGES = 100;
-const MAX_MATERIALS = 10_000;
+
+/** Предел формата карты сайта. Сторожит случай, когда страница каталога станет крупнее. */
+const MAX_MATERIALS = 50_000;
 
 const collectionFacetSchema = z.object({ slug: z.string().min(1) });
 const catalogPageSchema = z.object({

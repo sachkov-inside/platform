@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { materialSocialCard } from "@/_pages/material-reader";
 import { loadMaterialReader } from "@/_pages/material-reader.server";
 import { socialCardResponse } from "@/shared/link-preview/index.server";
 
@@ -16,5 +17,5 @@ export async function GET(
   if (result.kind === "not-found" || result.kind === "unavailable") {
     notFound();
   }
-  return socialCardResponse({ eyebrow: "Материал", title: result.material.title });
+  return socialCardResponse(materialSocialCard(result.material));
 }

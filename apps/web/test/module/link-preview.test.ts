@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { guideLinkPreview, topicLinkPreview } from "@/_pages/library-discovery";
-import { materialLinkPreview } from "@/_pages/material-reader";
+import {
+  guideLinkPreview,
+  guideSocialCard,
+  topicLinkPreview,
+  topicSocialCard,
+} from "@/_pages/library-discovery";
+import { materialLinkPreview, materialSocialCard } from "@/_pages/material-reader";
 import type { MaterialReaderMetadata } from "@/_pages/material-reader";
 import { coverLinkPreviewImage } from "@/entities/material.model";
 import type { LibraryDiscoveryReference } from "@/features/library-discovery";
@@ -102,6 +107,27 @@ describe("Карточка публичной ссылки", () => {
     expect(metadata).toEqual({
       robots: { follow: false, index: false },
       title: "Материал не найден",
+    });
+  });
+});
+
+describe("Содержимое сгенерированной карточки", () => {
+  it("называет вид страницы одним словом и в заголовке, и на карточке", () => {
+    expect(guideLinkPreview(guide).title).toBe("Создание Platform Inside — руководство");
+    expect(guideSocialCard(guide)).toEqual({
+      eyebrow: "Руководство",
+      title: "Создание Platform Inside",
+    });
+
+    const topic = { ...guide, name: "Platform", slug: "platform" };
+    expect(topicLinkPreview(topic).title).toBe("Platform — тема");
+    expect(topicSocialCard(topic)).toEqual({ eyebrow: "Тема", title: "Platform" });
+  });
+
+  it("оставляет материалу его собственное название", () => {
+    expect(materialSocialCard(material)).toEqual({
+      eyebrow: "Материал",
+      title: "Как устроен Inside",
     });
   });
 });

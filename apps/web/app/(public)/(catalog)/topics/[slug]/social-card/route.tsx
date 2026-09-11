@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { topicSocialCard } from "@/_pages/library-discovery";
 import { loadPublishedTopic } from "@/features/library-discovery.server";
 import { socialCardResponse } from "@/shared/link-preview/index.server";
 
@@ -13,5 +14,5 @@ export async function GET(
   if (result.kind === "not-found" || result.kind === "unavailable") {
     notFound();
   }
-  return socialCardResponse({ eyebrow: "Тема", title: result.reference.name });
+  return socialCardResponse(topicSocialCard(result.reference));
 }

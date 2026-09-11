@@ -1,4 +1,7 @@
-export { materialLinkPreview } from "./model/material-link-preview";
+export {
+  materialLinkPreview,
+  materialSocialCard,
+} from "./model/material-link-preview";
 export type {
   MaterialReaderMetadata,
   MaterialReaderResult,
