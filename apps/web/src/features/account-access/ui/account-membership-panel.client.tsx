@@ -46,11 +46,13 @@ export function AccountMembershipPanel({
         Telegram и доступ к Sachkov Inside
       </h2>
       <TelegramConnection state={presentation.link} {...flow} />
-      <InsideAccessCard
-        pending={flow.pending}
-        refresh={flow.refresh}
-        state={presentation.membership}
-      />
+      {presentation.membership.kind === "notOffered" ? null : (
+        <InsideAccessCard
+          pending={flow.pending}
+          refresh={flow.refresh}
+          state={presentation.membership}
+        />
+      )}
       <MutationNotice result={flow.mutationResult} />
     </section>
   );
@@ -334,6 +336,13 @@ function accessView(
         ),
         description:
           "Все материалы Inside остаются здесь. Обновите статус, чтобы увидеть возможности вашей подписки.",
+        label: "Подписка Inside",
+      };
+    // Подписка не продаётся: карточка не показывается, поэтому эта ветка не рендерится.
+    case "notOffered":
+      return {
+        action: null,
+        description: "",
         label: "Подписка Inside",
       };
   }

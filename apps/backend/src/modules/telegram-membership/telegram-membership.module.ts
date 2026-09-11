@@ -12,6 +12,7 @@ import {
   PrismaModule,
 } from "../../infrastructure/prisma/index.js";
 import { AccountsModule, ACCOUNTS, type Accounts } from "../accounts/index.js";
+import { BillingModule, BillingPricing } from "../billing/index.js";
 import {
   MEMBERSHIP_ENTITLEMENTS,
   MembershipEntitlementsModule,
@@ -30,7 +31,7 @@ import {
 } from "./telegram-membership.tokens.js";
 
 @Module({
-  imports: [AccountsModule, MembershipEntitlementsModule, PrismaModule],
+  imports: [AccountsModule, MembershipEntitlementsModule, PrismaModule, BillingModule],
   controllers: [
     TelegramAccountSignInController,
     AccountTelegramMembershipController,
@@ -62,18 +63,21 @@ import {
         MEMBERSHIP_ENTITLEMENTS,
         TELEGRAM_LINK_PROVIDER,
         PLATFORM_CONFIG,
+        BillingPricing,
       ],
       useFactory: (
         prisma: PrismaClientProvider,
         membershipEntitlements: MembershipEntitlements,
         provider: TelegramLinkProvider,
         config: PlatformConfig,
+        pricing: BillingPricing,
       ): TelegramMembership =>
         assembleTelegramMembership({
           botStartUrl: config.telegramMembership.botStartUrl,
           linkLifetimeMs: config.telegramMembership.linkLifetimeMs,
           membershipAcquisitionUrl:
             config.contentAccess.membershipAcquisitionUrl,
+          subscriptionForSale: () => pricing.hasOffersForSale(),
           membershipEntitlements,
           ...(config.telegramMembership.supportUrl === undefined
             ? {}

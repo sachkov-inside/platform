@@ -41,6 +41,7 @@ export interface TelegramMembershipDependencies {
   readonly linkLifetimeMs: number;
   readonly membershipAcquisitionUrl: string;
   readonly membershipEntitlements: MembershipEntitlements;
+  readonly subscriptionForSale?: () => Promise<boolean>;
   readonly membershipSupportUrl?: string;
   readonly prisma: TelegramMembershipPrismaClient;
   readonly provider: TelegramLinkProvider;
@@ -210,6 +211,10 @@ async function readAccountPresentation(
       orderBy: [{ updatedAt: "desc" }, { linkRef: "desc" }],
     }),
   ]);
+  const subscriptionForSale =
+    dependencies.subscriptionForSale === undefined
+      ? true
+      : await dependencies.subscriptionForSale();
 
   return {
     ok: true,
@@ -222,6 +227,7 @@ async function readAccountPresentation(
       membership: accountMembershipState(
         access,
         dependencies.membershipAcquisitionUrl,
+        subscriptionForSale,
       ),
     },
   };
@@ -292,13 +298,16 @@ function accountLinkState(
 function accountMembershipState(
   state: Awaited<ReturnType<MembershipEntitlements["resolveForAccess"]>>,
   acquisitionUrl: string,
+  subscriptionForSale: boolean,
 ): AccountMembershipState {
   switch (state.kind) {
     case "active":
       return { kind: "active" };
     case "expired":
     case "required":
-      return { acquisitionUrl, kind: "inactive" };
+      return subscriptionForSale
+        ? { acquisitionUrl, kind: "inactive" }
+        : { kind: "notOffered" };
     case "stale":
       return { kind: "stale" };
     case "unavailable":

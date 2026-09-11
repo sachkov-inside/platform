@@ -41,6 +41,8 @@ export async function reservePurchaseInTransaction(tx: BillingPrisma, command: R
       ] } })) return failure("reservation_conflict");
       if (now >= quote.expiresAt) return failure("quote_expired");
       const snapshot = priceSnapshotSchema.parse(quote.snapshot);
+      // Предложение могли выключить из продажи после выписки quote: заказ не подтверждается.
+      if (snapshot.offer.published !== true) return failure("not_found");
       const current = await selectPrice(tx, snapshot.paymentOption.id, now, quote.promoCode ?? undefined);
       if (!current.ok || JSON.stringify(current.value) !== JSON.stringify(snapshot)) return failure("quote_changed");
       const limits = command.amountLimits;

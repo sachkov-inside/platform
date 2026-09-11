@@ -1,17 +1,24 @@
 import "server-only";
+import { randomUUID } from "node:crypto";
 import type { z } from "zod";
 
 import { executeBillingCommand } from "@/entities/subscription.server";
+import type { PriceSnapshot } from "@/entities/subscription";
 import {
   requestManageBilling,
   type ManageBillingCommand,
 } from "@/shared/api/backend/index.server";
-import { handleAuthenticatedMutation } from "@/shared/auth/index.server";
+import {
+  getPlatformAccessToken,
+  handleAuthenticatedMutation,
+  readLogtoBffConfig,
+} from "@/shared/auth/index.server";
 
 import {
   applyBatchInputSchema,
   archiveInputSchema,
   cancelSubscriptionInputSchema,
+  catalogOffersOutcomeSchema,
   catalogOutcomeSchema,
   decideRefundInputSchema,
   executeRefundInputSchema,
@@ -20,6 +27,7 @@ import {
   grantOutcomeSchema,
   grantPreviewOutcomeSchema,
   grantsOutcomeSchema,
+  listOffersInputSchema,
   listPaymentsInputSchema,
   paymentOutcomeSchema,
   paymentsOutcomeSchema,
@@ -80,6 +88,38 @@ export function handleArchiveOffer(request: Request): Promise<Response> {
     archiveInputSchema,
     catalogOutcomeSchema,
     (input) => ({ ...input, operation: "offers.archive" }),
+  );
+}
+
+export function handlePublishOffer(request: Request): Promise<Response> {
+  return ownerCommand(
+    request,
+    archiveInputSchema,
+    catalogOutcomeSchema,
+    (input) => ({ ...input, operation: "offers.publish" }),
+  );
+}
+
+export function handleUnpublishOffer(request: Request): Promise<Response> {
+  return ownerCommand(
+    request,
+    archiveInputSchema,
+    catalogOutcomeSchema,
+    (input) => ({ ...input, operation: "offers.unpublish" }),
+  );
+}
+
+export function handleListOffers(request: Request): Promise<Response> {
+  return ownerCommand(
+    request,
+    listOffersInputSchema,
+    catalogOffersOutcomeSchema,
+    (input) => ({
+      operation: "offers.list",
+      operationId: input.operationId,
+      limit: input.limit,
+      ...(input.cursor === undefined ? {} : { cursor: input.cursor }),
+    }),
   );
 }
 
@@ -277,4 +317,24 @@ export function handleRevokeGrant(request: Request): Promise<Response> {
     grantOutcomeSchema,
     (input) => ({ ...input, operation: "grants.revoke" }),
   );
+}
+
+/**
+ * Владельческий каталог для серверного рендера `/authoring/billing`: он видит и выключенные
+ * из продажи предложения, поэтому не может опираться на публичную витрину.
+ */
+export async function loadBillingOffersForOwner(): Promise<readonly PriceSnapshot[]> {
+  try {
+    const accessToken = await getPlatformAccessToken(readLogtoBffConfig());
+    const result = await requestManageBilling(
+      { operation: "offers.list", operationId: randomUUID(), limit: 100 },
+      accessToken,
+    );
+    if (!result.ok) return [];
+    const parsed = catalogOffersOutcomeSchema.safeParse(result.body);
+    if (!parsed.success || parsed.data.result.outcome !== "catalogOffers") return [];
+    return parsed.data.result.items;
+  } catch {
+    return [];
+  }
 }

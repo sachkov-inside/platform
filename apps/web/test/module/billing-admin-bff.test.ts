@@ -16,8 +16,11 @@ import {
   handleApplyGrantBatch,
   handleDecideRefund,
   handleExecuteRefund,
+  handleListOffers,
   handleListPayments,
+  handlePublishOffer,
   handleSaveOffer,
+  handleUnpublishOffer,
 } from "@/features/billing-admin.server";
 
 const origin = "https://inside.example.test";
@@ -162,6 +165,60 @@ it("применяет только подтверждённые строки т
       expectedRevision: 1,
       confirmedRows: ["row-1"],
     },
+    "owner-token",
+    {},
+  );
+});
+
+it("включает и выключает продажу варианта отдельной обратимой командой", async () => {
+  fakes.manage.mockResolvedValue(
+    ok({
+      operationRef: operationId,
+      result: {
+        outcome: "catalog",
+        value: { id: offerId, revision: 3, archived: false, published: true },
+      },
+    }),
+  );
+  await handlePublishOffer(
+    command("/api/authoring/billing/offers/publish", {
+      operationId,
+      id: offerId,
+      expectedRevision: 2,
+    }),
+  );
+  expect(fakes.manage).toHaveBeenCalledWith(
+    { operation: "offers.publish", operationId, id: offerId, expectedRevision: 2 },
+    "owner-token",
+    {},
+  );
+  await handleUnpublishOffer(
+    command("/api/authoring/billing/offers/unpublish", {
+      operationId,
+      id: offerId,
+      expectedRevision: 3,
+    }),
+  );
+  expect(fakes.manage).toHaveBeenCalledWith(
+    { operation: "offers.unpublish", operationId, id: offerId, expectedRevision: 3 },
+    "owner-token",
+    {},
+  );
+});
+
+it("читает владельческий каталог, где остаются и выключенные из продажи варианты", async () => {
+  fakes.manage.mockResolvedValue(
+    ok({
+      operationRef: operationId,
+      result: { outcome: "catalogOffers", items: [], nextCursor: null },
+    }),
+  );
+  const response = await handleListOffers(
+    command("/api/authoring/billing/offers/list", { operationId, limit: 50 }),
+  );
+  expect(await response.json()).toMatchObject({ ok: true });
+  expect(fakes.manage).toHaveBeenCalledWith(
+    { operation: "offers.list", operationId, limit: 50 },
     "owner-token",
     {},
   );

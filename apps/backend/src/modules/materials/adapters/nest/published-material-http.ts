@@ -61,7 +61,8 @@ export const publishedMaterialReadHttpSchema = z.discriminatedUnion("kind", [
               label: z.literal("Получить доступ"),
               url: z.url(),
             })
-            .strict(),
+            .strict()
+            .nullable(),
         })
         .strict(),
     })

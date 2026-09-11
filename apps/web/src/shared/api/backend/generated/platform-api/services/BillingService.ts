@@ -65,6 +65,7 @@ export class BillingService {
             benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
             id: string;
             name: string;
+            published?: boolean;
             revision: number;
           };
           paymentOption: {
@@ -105,6 +106,7 @@ export class BillingService {
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           id: string;
           name: string;
+          published?: boolean;
           revision: number;
         };
         paymentOption: {
@@ -192,6 +194,7 @@ export class BillingService {
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           id: string;
           name: string;
+          published?: boolean;
           revision: number;
         };
         paymentOption: {
@@ -232,6 +235,7 @@ export class BillingService {
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
         id: string;
         name: string;
+        published?: boolean;
         revision: number;
       };
       paymentOption: {
@@ -290,6 +294,7 @@ export class BillingService {
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
         id: string;
         name: string;
+        published?: boolean;
         revision: number;
       };
       paymentOption: {
@@ -347,6 +352,7 @@ export class BillingService {
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
         id: string;
         name: string;
+        published?: boolean;
         revision: number;
       };
       paymentOption: {
@@ -407,6 +413,7 @@ export class BillingService {
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
         id: string;
         name: string;
+        published?: boolean;
         revision: number;
       };
       paymentOption: {
@@ -473,6 +480,7 @@ export class BillingService {
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           id: string;
           name: string;
+          published?: boolean;
           revision: number;
         };
         paymentOption: {
@@ -513,6 +521,7 @@ export class BillingService {
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
         id: string;
         name: string;
+        published?: boolean;
         revision: number;
       };
       paymentOption: {
@@ -570,6 +579,7 @@ export class BillingService {
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           id: string;
           name: string;
+          published?: boolean;
           revision: number;
         };
         paymentOption: {
@@ -618,6 +628,7 @@ export class BillingService {
             benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
             id: string;
             name: string;
+            published?: boolean;
             revision: number;
           };
           paymentOption: {
@@ -658,6 +669,7 @@ export class BillingService {
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           id: string;
           name: string;
+          published?: boolean;
           revision: number;
         };
         paymentOption: {
@@ -721,6 +733,7 @@ export class BillingService {
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           id: string;
           name: string;
+          published?: boolean;
           revision: number;
         };
         paymentOption: {
@@ -761,6 +774,7 @@ export class BillingService {
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
         id: string;
         name: string;
+        published?: boolean;
         revision: number;
       };
       paymentOption: {
@@ -817,6 +831,7 @@ export class BillingService {
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           id: string;
           name: string;
+          published?: boolean;
           revision: number;
         };
         paymentOption: {
@@ -854,6 +869,7 @@ export class BillingService {
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           id: string;
           name: string;
+          published?: boolean;
           revision: number;
         };
         paymentOption: {
@@ -922,6 +938,7 @@ export class BillingService {
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           id: string;
           name: string;
+          published?: boolean;
           revision: number;
         };
         paymentOption: {
@@ -962,6 +979,7 @@ export class BillingService {
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
         id: string;
         name: string;
+        published?: boolean;
         revision: number;
       };
       paymentOption: {
@@ -1013,6 +1031,16 @@ export class BillingService {
       operation: 'offers.archive';
       operationId: string;
     } | {
+      expectedRevision: number;
+      id: string;
+      operation: 'offers.publish';
+      operationId: string;
+    } | {
+      expectedRevision: number;
+      id: string;
+      operation: 'offers.unpublish';
+      operationId: string;
+    } | {
       expectedRevision?: number;
       operation: 'paymentOptions.save';
       operationId: string;
@@ -1047,6 +1075,11 @@ export class BillingService {
       expectedRevision: number;
       id: string;
       operation: 'promotions.archive';
+      operationId: string;
+    } | {
+      cursor?: string;
+      limit: number;
+      operation: 'offers.list';
       operationId: string;
     } | {
       accountId?: string;
@@ -1133,8 +1166,45 @@ export class BillingService {
       value: {
         archived: boolean;
         id: string;
+        published?: boolean;
         revision: number;
       };
+    } | {
+      items: Array<{
+        currency: 'RUB';
+        firstPriceKopecks: number;
+        offer: {
+          archived: boolean;
+          benefitPeriods?: Array<{
+            capability: ('materials' | 'community' | 'reviews' | 'support' | string);
+            months: number | null;
+          }>;
+          benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+          id: string;
+          name: string;
+          published?: boolean;
+          revision: number;
+        };
+        paymentOption: {
+          archived: boolean;
+          id: string;
+          mode?: 'subscription';
+          months: number;
+          offerId: string;
+          priceKopecks: number;
+          revision: number;
+        };
+        promotion: {
+          id: string;
+          name: string;
+          percent: number;
+          revision: number;
+        } | null;
+        renewalPriceKopecks: number;
+        timezone: 'Europe/Moscow';
+      }>;
+      nextCursor: string | null;
+      outcome: 'catalogOffers';
     } | {
       items: Array<{
         access: 'awaiting_payment' | 'preparing' | 'ready';
@@ -1163,6 +1233,7 @@ export class BillingService {
             benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
             id: string;
             name: string;
+            published?: boolean;
             revision: number;
           };
           paymentOption: {
@@ -1253,6 +1324,7 @@ export class BillingService {
             benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
             id: string;
             name: string;
+            published?: boolean;
             revision: number;
           };
           paymentOption: {
@@ -1307,6 +1379,7 @@ export class BillingService {
             benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
             id: string;
             name: string;
+            published?: boolean;
             revision: number;
           };
           paymentOption: {
@@ -1360,6 +1433,7 @@ export class BillingService {
               benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
               id: string;
               name: string;
+              published?: boolean;
               revision: number;
             };
             paymentOption: {
@@ -1400,6 +1474,7 @@ export class BillingService {
             benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
             id: string;
             name: string;
+            published?: boolean;
             revision: number;
           };
           paymentOption: {
@@ -1557,6 +1632,7 @@ export class BillingService {
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
         id: string;
         name: string;
+        published?: boolean;
         revision: number;
       };
       paymentOption: {

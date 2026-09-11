@@ -5,6 +5,7 @@ import {
 } from "@/entities/subscription";
 import { requestSameOriginMutation } from "@/shared/api/same-origin-mutation";
 import {
+  catalogOffersOutcomeSchema,
   catalogOutcomeSchema,
   grantBatchOutcomeSchema,
   grantOutcomeSchema,
@@ -17,6 +18,7 @@ import {
   refundsOutcomeSchema,
   subscriptionOutcomeSchema,
   type CatalogOutcome,
+  type CatalogOffersOutcome,
   type GrantBatchOutcome,
   type GrantOutcome,
   type GrantPreviewOutcome,
@@ -33,6 +35,7 @@ import {
   type DecideRefundInput,
   type ExecuteRefundInput,
   type ExtendGrantInput,
+  type ListOffersInput,
   type ListPaymentsInput,
   type PreviewBatchInput,
   type PurchaseCommandInput,
@@ -66,6 +69,45 @@ export async function archiveBillingOffer(
       billingCommandPayload(input),
     ),
     catalogOutcomeSchema,
+  );
+}
+
+export async function publishBillingOffer(
+  input: ArchiveInput,
+): Promise<BillingCommandResult<CatalogOutcome>> {
+  return billingCommandResult(
+    await requestSameOriginMutation(
+      "/api/authoring/billing/offers/publish",
+      "POST",
+      billingCommandPayload(input),
+    ),
+    catalogOutcomeSchema,
+  );
+}
+
+export async function unpublishBillingOffer(
+  input: ArchiveInput,
+): Promise<BillingCommandResult<CatalogOutcome>> {
+  return billingCommandResult(
+    await requestSameOriginMutation(
+      "/api/authoring/billing/offers/unpublish",
+      "POST",
+      billingCommandPayload(input),
+    ),
+    catalogOutcomeSchema,
+  );
+}
+
+export async function listBillingOffers(
+  input: ListOffersInput,
+): Promise<BillingCommandResult<CatalogOffersOutcome>> {
+  return billingCommandResult(
+    await requestSameOriginMutation(
+      "/api/authoring/billing/offers/list",
+      "POST",
+      billingCommandPayload(input),
+    ),
+    catalogOffersOutcomeSchema,
   );
 }
 

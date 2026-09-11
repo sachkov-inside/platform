@@ -175,6 +175,8 @@ export class ContentLibraryService {
       acquisitionUrl: string;
       kind: 'inactive';
     } | {
+      kind: 'notOffered';
+    } | {
       kind: 'unknown';
     });
     notes: Array<{

@@ -1008,6 +1008,7 @@ model BillingOffer {
   benefits String[]
   benefitPeriods Json @default("[]") @map("benefit_periods")
   archived Boolean @default(false)
+  published Boolean @default(false)
   options BillingPaymentOption[]
   @@map("offers")
   @@schema("billing")

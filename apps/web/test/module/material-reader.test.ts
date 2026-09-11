@@ -159,6 +159,25 @@ describe("Material Reader server adapter", () => {
     });
   });
 
+  it("hides the CTA when no subscription variant is on sale", async () => {
+    vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        Response.json({
+          kind: "teaser",
+          cacheScope: "private-no-store",
+          projection: { ...publishedProjection, access: "membership" },
+          access: { availability: "locked", cta: null },
+        }),
+      ),
+    );
+
+    await expect(
+      getMaterialReader("inside-platform-overview"),
+    ).resolves.toMatchObject({ kind: "access", cta: null });
+  });
+
   it("returns a not-found value for the stable API 404", async () => {
     vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
     vi.stubGlobal(

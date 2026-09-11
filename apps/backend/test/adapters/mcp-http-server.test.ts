@@ -86,14 +86,17 @@ describe("MCP Streamable HTTP adapter", () => {
       ]);
       // Владельческие billing-операции доступны тем же делегированным Account, без своей власти.
       expect(names.filter(name => name.startsWith("billing_"))).toEqual([
-        "billing_offers_save", "billing_offers_archive", "billing_paymentOptions_save", "billing_paymentOptions_archive",
-        "billing_promotions_save", "billing_promotions_archive", "billing_payments_list", "billing_payments_read",
+        "billing_offers_save", "billing_offers_archive", "billing_offers_publish", "billing_offers_unpublish",
+        "billing_paymentOptions_save", "billing_paymentOptions_archive",
+        "billing_promotions_save", "billing_promotions_archive", "billing_offers_list", "billing_payments_list", "billing_payments_read",
         "billing_payments_reconcile", "billing_subscriptions_cancel", "billing_refunds_decide", "billing_refunds_execute",
         "billing_refunds_read", "billing_grants_read", "billing_grants_previewBatch", "billing_grants_applyBatch",
         "billing_grants_extend", "billing_grants_revoke",
       ]);
       const refund = tools.find(tool => tool.name === "billing_refunds_execute");
       expect(refund?.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true, openWorldHint: true });
+      expect(tools.find(tool => tool.name === "billing_offers_publish")?.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true });
+      expect(tools.find(tool => tool.name === "billing_offers_list")?.annotations).toMatchObject({ readOnlyHint: true });
       expect(tools.find(tool => tool.name === "billing_payments_read")?.annotations).toMatchObject({ readOnlyHint: true });
     } finally {
       await client.close();

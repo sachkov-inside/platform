@@ -28,6 +28,8 @@ export const offerSchema = z.object({
     )
     .optional(),
   archived: z.boolean(),
+  /** Обратимый признак продажи. В прежних сохранённых снимках может отсутствовать. */
+  published: z.boolean().optional(),
 });
 export const paymentOptionSchema = z.object({
   id: z.uuid(),

@@ -18,6 +18,7 @@ const listBounds = { cursor: idSchema.optional(), limit: z.int().min(1).max(100)
  */
 export const ownerOperationSchema = z.discriminatedUnion("operation", [
   ...manageCatalogSchema.options,
+  z.strictObject({ ...command, operation: z.literal("offers.list"), ...listBounds }),
   z.strictObject({ ...command, operation: z.literal("payments.list"), accountId: idSchema.optional(),
     state: attemptStateSchema.optional(), kind: attemptKindSchema.optional(), ...listBounds }),
   z.strictObject({ ...command, operation: z.literal("payments.read"), purchaseRef: idSchema }),
@@ -37,7 +38,7 @@ export const ownerOperationSchema = z.discriminatedUnion("operation", [
 ]);
 export type OwnerOperation = z.infer<typeof ownerOperationSchema>;
 /** Чтение не меняет состояние: такие операции не пишут receipt и повторяются свободно. */
-export const ownerReadOperations = ["payments.list", "payments.read", "refunds.read", "grants.read"] as const;
+export const ownerReadOperations = ["offers.list", "payments.list", "payments.read", "refunds.read", "grants.read"] as const;
 const readOperations: readonly string[] = ownerReadOperations;
 export function isOwnerReadOperation(operation: string): boolean {
   return readOperations.includes(operation);
@@ -74,6 +75,7 @@ export const auditEntryViewSchema = z.strictObject({
 
 export const ownerSuccessSchema = z.union([
   z.strictObject({ outcome: z.literal("catalog"), value: catalogOutcomeSchema }),
+  z.strictObject({ outcome: z.literal("catalogOffers"), items: z.array(priceSnapshotSchema), nextCursor: idSchema.nullable() }),
   z.strictObject({ outcome: z.literal("payments"), items: z.array(paymentViewSchema), nextCursor: idSchema.nullable() }),
   z.strictObject({ outcome: z.literal("payment"), value: paymentViewSchema, events: z.array(paymentEventViewSchema),
     decisions: z.array(refundDecisionViewSchema), audit: z.array(auditEntryViewSchema) }),

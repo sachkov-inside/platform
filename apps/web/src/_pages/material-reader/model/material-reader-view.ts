@@ -45,10 +45,11 @@ export type MaterialReaderResult =
   | {
       readonly kind: "access";
       readonly material: MaterialReaderMetadata;
+      /** `null`, когда подписка временно не продаётся: платить некуда. */
       readonly cta: {
         readonly label: "Получить доступ";
         readonly url: string;
-      };
+      } | null;
     }
   | { readonly kind: "unavailable" }
   | { readonly kind: "not-found" };

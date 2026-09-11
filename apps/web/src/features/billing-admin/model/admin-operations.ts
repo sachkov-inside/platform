@@ -143,9 +143,22 @@ export const catalogOutcomeSchema = envelope(
       id: z.uuid(),
       revision,
       archived: z.boolean(),
+      published: z.boolean().optional(),
     }),
   }),
 );
+export const catalogOffersOutcomeSchema = envelope(
+  z.object({
+    outcome: z.literal("catalogOffers"),
+    items: z.array(priceSnapshotSchema),
+    nextCursor: z.uuid().nullable(),
+  }),
+);
+export const listOffersInputSchema = z.strictObject({
+  operationId,
+  cursor: z.uuid().optional(),
+  limit: z.number().int().min(1).max(100),
+});
 export const paymentViewSchema = z.object({
   purchaseRef: z.uuid(),
   accountId: z.uuid(),
@@ -318,6 +331,7 @@ export type SaveOfferInput = z.infer<typeof saveOfferInputSchema>;
 export type SavePaymentOptionInput = z.infer<typeof savePaymentOptionInputSchema>;
 export type SavePromotionInput = z.infer<typeof savePromotionInputSchema>;
 export type ArchiveInput = z.infer<typeof archiveInputSchema>;
+export type ListOffersInput = z.infer<typeof listOffersInputSchema>;
 export type ListPaymentsInput = z.infer<typeof listPaymentsInputSchema>;
 export type PurchaseCommandInput = z.infer<typeof purchaseInputSchema>;
 export type CancelSubscriptionInput = z.infer<typeof cancelSubscriptionInputSchema>;
@@ -330,6 +344,7 @@ export type ApplyBatchInput = z.infer<typeof applyBatchInputSchema>;
 export type ExtendGrantInput = z.infer<typeof extendGrantInputSchema>;
 export type RevokeGrantInput = z.infer<typeof revokeGrantInputSchema>;
 export type CatalogOutcome = z.infer<typeof catalogOutcomeSchema>;
+export type CatalogOffersOutcome = z.infer<typeof catalogOffersOutcomeSchema>;
 export type PaymentView = z.infer<typeof paymentViewSchema>;
 export type PaymentsOutcome = z.infer<typeof paymentsOutcomeSchema>;
 export type PaymentOutcome = z.infer<typeof paymentOutcomeSchema>;

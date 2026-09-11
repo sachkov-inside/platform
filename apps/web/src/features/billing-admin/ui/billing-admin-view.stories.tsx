@@ -22,6 +22,8 @@ const meta = {
     batch: null,
     onSaveOffer: fn(),
     onArchiveOffer: fn(),
+    onPublishOffer: fn(),
+    onUnpublishOffer: fn(),
     onSavePaymentOption: fn(),
     onArchivePaymentOption: fn(),
     onSavePromotion: fn(),
@@ -60,6 +62,27 @@ export const Catalog: Story = {
     await expect(
       canvas.getByRole("button", { name: "Сохранить предложение" }),
     ).toBeEnabled();
+    // Оба тарифа включены в продажу отдельным обратимым признаком.
+    await expect(canvas.getAllByText("В продаже")).toHaveLength(2);
+    await expect(
+      canvas.getAllByRole("button", { name: "Снять с продажи" }),
+    ).toHaveLength(2);
+  },
+};
+
+export const CatalogNotOnSale: Story = {
+  args: {
+    offers: billingOffers.map((snapshot) => ({
+      ...snapshot,
+      offer: { ...snapshot.offer, published: false },
+    })),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getAllByText("Не продаётся")).toHaveLength(2);
+    await expect(
+      canvas.getAllByRole("button", { name: "Вернуть в продажу" }),
+    ).toHaveLength(2);
   },
 };
 

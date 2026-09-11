@@ -18,7 +18,7 @@ beforeAll(async () => {
   const pinStart = platformMigrations.findIndex((migration) => migration.name === "0038_home_material_pin");
   expect(platformMigrations[pinStart - 1]?.name).toBe("0045_notifications");
   await runMigrationsToLatest(database.url, platformMigrations.slice(0, pinStart));
-  expect(await migrateToLatest(database.url)).toEqual({ appliedMigrations: ["0038_home_material_pin", "0039_home_series_pin", "0046_scoped_access", "0047_subscription_payments", "0048_subscription_lifecycle", "0050_guide_artifacts", "0051_guide_chapters", "0052_bookmarks", "0053_community_entitlements", "0054_billing_manage_permission", "0055_billing_operations", "0056_billing_notices"] });
+  expect(await migrateToLatest(database.url)).toEqual({ appliedMigrations: ["0038_home_material_pin", "0039_home_series_pin", "0046_scoped_access", "0047_subscription_payments", "0048_subscription_lifecycle", "0050_guide_artifacts", "0051_guide_chapters", "0052_bookmarks", "0053_community_entitlements", "0054_billing_manage_permission", "0055_billing_operations", "0056_billing_notices", "0057_offer_for_sale"] });
   await database.prisma.topic.create({ data: { id: topicId, name: "Home", slug: "home" } });
   materials = assembleMaterials({ prisma: database.prisma, authorPolicy: { canManage: (id) => id === actor } });
 });
@@ -45,7 +45,7 @@ async function change(materialId: string, seriesId: string, publicationState: "p
   if (!result.ok) throw new Error(result.error.code);
 }
 async function home() {
-  const result = await readHomeContent(materials.publishedMaterialReader, materials.contentAccess, emptyCatalogVideos, { resolveForAccess: () => Promise.resolve({ kind: "required" }) }, "https://inside.example.test/join", { kind: "anonymous" });
+  const result = await readHomeContent(materials.publishedMaterialReader, materials.contentAccess, emptyCatalogVideos, { resolveForAccess: () => Promise.resolve({ kind: "required" }) }, "https://inside.example.test/join", true, { kind: "anonymous" });
   if (!result.ok) throw new Error(result.error.code);
   return result.value.pinnedSeries;
 }

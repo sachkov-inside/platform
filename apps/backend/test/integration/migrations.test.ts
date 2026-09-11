@@ -216,10 +216,10 @@ describe("Platform migrations", () => {
           "0054_billing_manage_permission",
           "0055_billing_operations",
           "0056_billing_notices",
+          "0057_offer_for_sale",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
-
     await expectTables(testDatabase, "materials", materialTables);
     await expectTables(testDatabase, "accounts", accountTables);
     await expectTables(testDatabase, "identity_principals", []);
@@ -802,6 +802,7 @@ describe("Platform migrations", () => {
           "0054_billing_manage_permission",
           "0055_billing_operations",
           "0056_billing_notices",
+          "0057_offer_for_sale",
         ],
       });
 

@@ -30,6 +30,7 @@ import {
   publishedMaterialProblemHttpSchema,
   type PublishedMaterialReader,
 } from "../../../materials/index.js";
+import { BillingPricing } from "../../../billing/index.js";
 import { VIDEOS, type Videos } from "../../../videos/index.js";
 import {
   MEMBERSHIP_ENTITLEMENTS,
@@ -59,6 +60,7 @@ const homeContentHttpSchema = z
       z
         .object({ acquisitionUrl: z.url(), kind: z.literal("inactive") })
         .strict(),
+      z.object({ kind: z.literal("notOffered") }).strict(),
       z.object({ kind: z.literal("unknown") }).strict(),
     ]),
   })
@@ -86,6 +88,8 @@ export class ReadHomeContentController {
     >,
     @Inject(PLATFORM_CONFIG)
     private readonly config: PlatformConfig,
+    @Inject(BillingPricing)
+    private readonly pricing: BillingPricing,
   ) {}
 
   @Get("home")
@@ -117,6 +121,7 @@ export class ReadHomeContentController {
       this.videos,
       this.membershipEntitlements,
       this.config.contentAccess.membershipAcquisitionUrl,
+      await this.pricing.hasOffersForSale(),
       account === undefined
         ? anonymousSubject
         : { kind: "account", accountId: accountId(account.accountId) },

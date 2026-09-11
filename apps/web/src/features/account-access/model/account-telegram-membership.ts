@@ -50,6 +50,7 @@ export const accountTelegramMembershipSchema = z
       z
         .object({ acquisitionUrl: httpUrlSchema, kind: z.literal("inactive") })
         .strict(),
+      z.object({ kind: z.literal("notOffered") }).strict(),
       z.object({ kind: z.literal("stale") }).strict(),
       z.object({ kind: z.literal("unavailable") }).strict(),
     ]),
