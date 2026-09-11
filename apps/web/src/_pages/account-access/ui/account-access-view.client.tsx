@@ -9,11 +9,9 @@ import { AccountSectionHeader } from "@/widgets/account-cabinet";
 export interface AccountAccessViewProps {
   readonly link: AccountTelegramMembership["link"] | null;
   readonly loading?: boolean;
-  readonly refreshing?: boolean;
   readonly sessionExpired?: boolean;
   readonly unavailable?: boolean;
   readonly onTelegramRefresh: () => Promise<void>;
-  readonly onReload: () => void;
 }
 
 /**
@@ -23,11 +21,9 @@ export interface AccountAccessViewProps {
 export function AccountAccessView({
   link,
   loading = false,
-  refreshing = false,
   sessionExpired = false,
   unavailable = false,
   onTelegramRefresh,
-  onReload,
 }: AccountAccessViewProps) {
   return (
     <div>
@@ -55,32 +51,12 @@ export function AccountAccessView({
           role="alert"
         >
           <p className="text-sm leading-6">
-            Состояние аккаунта сейчас недоступно. Данные не менялись.
+            Состояние аккаунта сейчас недоступно. Данные не менялись — мы перечитаем их сами.
           </p>
-          <Button
-            className="mt-4 min-h-11 px-4"
-            disabled={refreshing}
-            onClick={onReload}
-            type="button"
-            variant="outline"
-          >
-            Обновить данные
-          </Button>
         </div>
       ) : (
         <div className="grid gap-6">
           <AccountTelegramPanel link={link} onRefresh={onTelegramRefresh} />
-          <div className="flex flex-wrap gap-2">
-            <Button
-              className="min-h-11 px-4"
-              disabled={refreshing}
-              onClick={onReload}
-              type="button"
-              variant="outline"
-            >
-              Обновить данные
-            </Button>
-          </div>
           <section
             aria-labelledby="account-session"
             className="rounded-2xl border border-border bg-card p-6 shadow-card"

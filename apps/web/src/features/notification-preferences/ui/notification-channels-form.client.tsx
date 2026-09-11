@@ -20,7 +20,6 @@ export interface NotificationChannelsFormProps {
   readonly accountHref: Route;
   readonly onChange: (channel: NotificationChannel, value: boolean) => void;
   readonly onSave: () => void;
-  readonly onRefresh: () => void;
 }
 
 /**
@@ -40,7 +39,6 @@ export function NotificationChannelsForm({
   accountHref,
   onChange,
   onSave,
-  onRefresh,
 }: NotificationChannelsFormProps) {
   const headingId = useId();
   return (
@@ -74,17 +72,10 @@ export function NotificationChannelsForm({
           Загружаем настройки…
         </p>
       ) : unavailable ? (
-        <div className="mt-5 space-y-3 text-sm" role="alert">
-          <p>{error ?? "Настройки уведомлений сейчас недоступны."}</p>
-          <Button
-            className="min-h-11 px-4"
-            disabled={pending}
-            onClick={onRefresh}
-            type="button"
-            variant="outline"
-          >
-            Обновить данные
-          </Button>
+        <div className="mt-5 text-sm leading-6" role="alert">
+          <p>
+            {error ?? "Настройки уведомлений сейчас недоступны."} Мы перечитаем их сами.
+          </p>
         </div>
       ) : (
         <form

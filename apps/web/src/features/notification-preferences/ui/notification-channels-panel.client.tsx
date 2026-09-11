@@ -76,10 +76,6 @@ export function NotificationChannelsPanel() {
         setError(undefined);
         setDraft((current) => ({ ...current, [channel]: value }));
       }}
-      onRefresh={() => {
-        setError(undefined);
-        void query.refetch();
-      }}
       onSave={() => {
         if (stored === null) return;
         setError(undefined);

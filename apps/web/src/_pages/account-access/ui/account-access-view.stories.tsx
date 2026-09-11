@@ -6,7 +6,6 @@ import { AccountAccessView } from "./account-access-view.client";
 const meta = {
   args: {
     link: { kind: "linked" },
-    onReload: () => undefined,
     onTelegramRefresh: () => Promise.resolve(),
   },
   component: AccountAccessView,

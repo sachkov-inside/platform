@@ -19,7 +19,6 @@ const meta = {
     payments: ownPayments,
     subscription: activeSubscription,
     storefrontHref: "/subscription",
-    onRefresh: fn(),
     onChangeMethod: fn(),
     onRevokeMethod: fn(),
   },

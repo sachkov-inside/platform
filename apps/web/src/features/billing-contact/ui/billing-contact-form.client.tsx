@@ -35,7 +35,6 @@ export interface BillingContactFormProps {
   readonly onCancelEdit?: () => void;
   readonly onStart: (email: string) => void;
   readonly onConfirm: (code: string) => void;
-  readonly onRefresh: () => void;
 }
 
 const fieldClassName =
@@ -62,7 +61,6 @@ export function BillingContactForm({
   onCancelEdit,
   onStart,
   onConfirm,
-  onRefresh,
 }: BillingContactFormProps) {
   const Heading = headingLevel;
   const [email, setEmail] = useState("");
@@ -102,17 +100,10 @@ export function BillingContactForm({
           Загружаем email…
         </p>
       ) : unavailable === true ? (
-        <div className="mt-5 space-y-3 text-sm" role="alert">
-          <p>{error ?? "Данные контакта сейчас недоступны."}</p>
-          <Button
-            className={billingActionClass}
-            disabled={pending}
-            onClick={onRefresh}
-            type="button"
-            variant="outline"
-          >
-            Обновить данные
-          </Button>
+        <div className="mt-5 text-sm leading-6" role="alert">
+          <p>
+            {error ?? "Данные контакта сейчас недоступны."} Мы перечитаем их сами.
+          </p>
         </div>
       ) : (
         <>
@@ -243,18 +234,9 @@ export function BillingContactForm({
           ) : null}
 
           {error !== undefined ? (
-            <div className="mt-5 space-y-3 rounded-xl border border-destructive/30 bg-destructive/6 p-4 text-sm" role="alert">
-              <p>{error}</p>
-              <Button
-                className={billingActionClass}
-                disabled={pending}
-                onClick={onRefresh}
-                type="button"
-                variant="outline"
-              >
-                Обновить данные
-              </Button>
-            </div>
+            <p className="mt-5 rounded-xl border border-destructive/30 bg-destructive/6 p-4 text-sm leading-6" role="alert">
+              {error}
+            </p>
           ) : null}
         </>
       )}

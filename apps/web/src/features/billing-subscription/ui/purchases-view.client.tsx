@@ -1,5 +1,6 @@
 "use client";
 import type { Route } from "next";
+import type { ReactNode } from "react";
 
 import {
   type AccessGround,
@@ -9,12 +10,14 @@ import {
 } from "@/entities/subscription";
 
 import { BillingHistory } from "./billing-history.client";
-import { BillingSectionFooter } from "./billing-section-footer.client";
+import { BillingSectionError } from "./billing-section-error.client";
 import { BillingSignIn } from "./billing-sign-in";
 import { PaymentMethodCard } from "./payment-method-card.client";
 import { SubscriptionGrounds } from "./subscription-grounds.client";
 
 export interface PurchasesSectionViewProps {
+  /** Подтверждённый email: составляется страницей, потому что это отдельная поверхность. */
+  readonly contactSlot?: ReactNode;
   readonly grounds: readonly AccessGround[];
   readonly payments: readonly OwnPayment[];
   readonly notices: readonly NoticeView[];
@@ -24,7 +27,6 @@ export interface PurchasesSectionViewProps {
   readonly error?: string | undefined;
   readonly sessionExpired?: boolean;
   readonly storefrontHref: Route;
-  readonly onRefresh: () => void;
   readonly onChangeMethod: () => void;
   readonly onRevokeMethod: () => void;
 }
@@ -34,6 +36,7 @@ export interface PurchasesSectionViewProps {
  * какой картой платим. Условия действующей подписки и управление ею живут в своём разделе.
  */
 export function PurchasesSectionView({
+  contactSlot,
   grounds,
   payments,
   notices,
@@ -43,7 +46,6 @@ export function PurchasesSectionView({
   error,
   sessionExpired = false,
   storefrontHref,
-  onRefresh,
   onChangeMethod,
   onRevokeMethod,
 }: PurchasesSectionViewProps) {
@@ -63,6 +65,7 @@ export function PurchasesSectionView({
         loading={loading}
         storefrontHref={storefrontHref}
       />
+      {contactSlot}
       <PaymentMethodCard
         onChangeMethod={onChangeMethod}
         onRevokeMethod={onRevokeMethod}
@@ -70,11 +73,7 @@ export function PurchasesSectionView({
         subscription={subscription}
       />
       <BillingHistory notices={notices} payments={payments} />
-      <BillingSectionFooter
-        disabled={loading || pending}
-        error={error}
-        onRefresh={onRefresh}
-      />
+      <BillingSectionError error={error} />
     </div>
   );
 }

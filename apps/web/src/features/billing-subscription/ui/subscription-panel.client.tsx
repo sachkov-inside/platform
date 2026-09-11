@@ -181,7 +181,6 @@ export function SubscriptionPanel({
           paymentOptionId: selectedOptionId,
         });
       }}
-      onRefresh={cabinet.refresh}
       onResumeRenewal={() => {
         if (subscription === null) return;
         cabinet.setError(undefined);

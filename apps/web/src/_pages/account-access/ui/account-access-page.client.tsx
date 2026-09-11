@@ -15,11 +15,7 @@ export function AccountAccessPage() {
     <AccountAccessView
       link={presentation?.telegramMembership.link ?? null}
       loading={query.isPending}
-      onReload={() => {
-        void query.refetch();
-      }}
       onTelegramRefresh={() => query.refetch().then(() => undefined)}
-      refreshing={query.isFetching}
       sessionExpired={query.data?.kind === "unauthorized"}
       unavailable={query.isError && presentation === null}
     />

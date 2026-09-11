@@ -42,13 +42,16 @@ export const ActiveDesktop: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("heading", { name: "Профиль" })).toBeInTheDocument();
+    // Профиль показан один раз и правится на месте: отдельной проекции рядом нет.
     await expect(canvas.getByLabelText("Имя")).toHaveValue("Кирилл Сачков");
-    await expect(canvas.getAllByText("Кирилл Сачков")).toHaveLength(1);
-    await expect(canvas.getByText("Видят участники")).toBeInTheDocument();
     await expect(
-      canvas.getByRole("heading", { name: "Профиль участника" }),
-    ).toBeInTheDocument();
+      canvas.queryByRole("heading", { name: "Редактирование" }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("heading", { name: "Профиль участника" }),
+    ).not.toBeInTheDocument();
     await expect(canvas.getByRole("button", { name: "Сохранить" })).toBeDisabled();
+    await expect(canvas.getByText("Ссылка для участников")).toBeInTheDocument();
     await expect(canvas.queryByText(/жалоб|скачать|удалить профиль/iu)).not.toBeInTheDocument();
     await expect(canvas.getByRole("heading", { name: "Аватар" })).toBeInTheDocument();
     // Ни один раздел не показывает задачи другого.
@@ -82,9 +85,9 @@ export const ActiveMobile: Story = {
   name: "Active · mobile",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const editor = canvas.getByRole("heading", { name: "Редактирование" });
-    const preview = canvas.getByRole("heading", { name: "Профиль участника" });
-    await expect(editor.compareDocumentPosition(preview) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const name = canvas.getByLabelText("Имя");
+    const about = canvas.getByLabelText("О себе · необязательно");
+    await expect(name.compareDocumentPosition(about) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     await expect(canvasElement.ownerDocument.documentElement.scrollWidth).toBeLessThanOrEqual(
       canvasElement.ownerDocument.documentElement.clientWidth,
     );
@@ -104,7 +107,9 @@ export const Missing: Story = {
   args: { initialProfile: null },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("button", { name: "Создать" })).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("button", { name: "Создать профиль" }),
+    ).toBeInTheDocument();
     await expect(
       canvas.getByText(/получит постоянную ссылку для участников/iu),
     ).toBeInTheDocument();
@@ -120,13 +125,6 @@ export const ProfileConflict: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.type(canvas.getByLabelText("О себе · необязательно"), " Дополнение.");
-    const preview = canvas
-      .getByRole("heading", { name: "Профиль участника" })
-      .closest("section");
-    if (preview === null) throw new Error("Profile preview is missing");
-    await expect(
-      within(preview).getByText(activeProfile.bio),
-    ).toBeInTheDocument();
     await userEvent.click(canvas.getByRole("button", { name: "Сохранить" }));
     await expect(
       canvas.getByText("Профиль уже изменился в другой вкладке."),

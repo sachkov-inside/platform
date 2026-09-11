@@ -113,7 +113,11 @@ test("background Profile failure retains data but lost authorization removes it"
   for (const status of [503, 401]) {
     accountStatus = status;
     const before = requests;
-    await page.getByRole("button", { name: "Обновить данные" }).click();
+    // Платформа перечитывает состояние сама: возврат во вкладку и есть это действие.
+    await page.evaluate(() => {
+      window.dispatchEvent(new Event("visibilitychange"));
+      window.dispatchEvent(new Event("focus"));
+    });
     await expect.poll(() => requests).toBeGreaterThan(before);
     if (status === 503) {
       await expect(page.getByRole("button", { name: "Выйти из аккаунта" })).toBeVisible();

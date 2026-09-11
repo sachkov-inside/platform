@@ -12,7 +12,6 @@ const meta = {
     email: false,
     telegram: false,
     onChange: fn(),
-    onRefresh: fn(),
     onSave: fn(),
   },
   parameters: {

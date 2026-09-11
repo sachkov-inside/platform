@@ -23,6 +23,8 @@ export interface ApplicationNavigationItem {
   readonly href: Route;
   readonly icon: ApplicationNavigationIcon;
   readonly label: string;
+  /** Незакрытое дело за этим пунктом: точка подталкивает открыть его. */
+  readonly badge?: boolean;
 }
 
 export interface ApplicationShellProps {
@@ -197,6 +199,12 @@ function MobileBottomNavigation({
                 aria-hidden="true"
                 className={cn("size-6 shrink-0", current && "text-accent-bright")}
               />
+              {item.badge === true && !current ? (
+                <span
+                  aria-hidden="true"
+                  className="absolute right-3 top-2.5 size-2 rounded-full bg-accent ring-2 ring-white"
+                />
+              ) : null}
             </Link>
           );
         })}

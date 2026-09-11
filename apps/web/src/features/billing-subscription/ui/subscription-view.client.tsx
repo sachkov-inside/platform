@@ -10,7 +10,7 @@ import {
   type SubscriptionView,
 } from "@/entities/subscription";
 
-import { BillingSectionFooter } from "./billing-section-footer.client";
+import { BillingSectionError } from "./billing-section-error.client";
 import { BillingSignIn } from "./billing-sign-in";
 import {
   SubscriptionActions,
@@ -34,7 +34,6 @@ export interface SubscriptionSectionViewProps
   readonly error?: string | undefined;
   readonly sessionExpired?: boolean;
   readonly storefrontHref: Route;
-  readonly onRefresh: () => void;
   readonly onCancelPendingChange: () => void;
 }
 
@@ -54,7 +53,6 @@ export function SubscriptionSectionView({
   error,
   sessionExpired = false,
   storefrontHref,
-  onRefresh,
   onCancelRenewal,
   onResumeRenewal,
   onToggleResumeDocument,
@@ -116,11 +114,7 @@ export function SubscriptionSectionView({
         </>
       )}
 
-      <BillingSectionFooter
-        disabled={loading || pending}
-        error={error}
-        onRefresh={onRefresh}
-      />
+      <BillingSectionError error={error} />
     </div>
   );
 }

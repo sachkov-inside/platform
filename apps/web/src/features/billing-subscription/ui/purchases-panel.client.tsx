@@ -1,5 +1,6 @@
 "use client";
 import type { Route } from "next";
+import type { ReactNode } from "react";
 import { useMutation } from "@tanstack/react-query";
 
 import { useRepeatableOperations } from "@/shared/lib/repeatable-operations.client";
@@ -13,12 +14,14 @@ import { useBillingCabinet } from "../model/use-billing-cabinet.client";
 import { PurchasesSectionView } from "./purchases-view.client";
 
 export interface PurchasesPanelProps {
+  readonly contactSlot?: ReactNode;
   readonly storefrontHref: Route;
   readonly onNavigate?: (url: string) => void;
 }
 
 /** Производственный путь раздела «Покупки»: одно чтение billing и команды способа оплаты. */
 export function PurchasesPanel({
+  contactSlot,
   storefrontHref,
   onNavigate,
 }: PurchasesPanelProps) {
@@ -46,6 +49,7 @@ export function PurchasesPanel({
 
   return (
     <PurchasesSectionView
+      {...(contactSlot === undefined ? {} : { contactSlot })}
       error={cabinet.error}
       grounds={cabinet.billing?.grounds ?? []}
       loading={cabinet.loading}
@@ -60,7 +64,6 @@ export function PurchasesPanel({
           expectedRevision: subscription.revision,
         });
       }}
-      onRefresh={cabinet.refresh}
       onRevokeMethod={() => {
         if (subscription?.paymentMethod == null) return;
         cabinet.setError(undefined);

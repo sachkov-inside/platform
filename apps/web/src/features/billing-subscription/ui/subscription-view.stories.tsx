@@ -25,7 +25,6 @@ const meta = {
     resumeDocuments: legalDocuments,
     resumeAccepted: [],
     storefrontHref: "/subscription",
-    onRefresh: fn(),
     onCancelRenewal: fn(),
     onResumeRenewal: fn(),
     onToggleResumeDocument: fn(),

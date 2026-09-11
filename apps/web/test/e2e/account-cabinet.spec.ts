@@ -52,7 +52,12 @@ async function stubAccount(
   {
     subscription = null,
     grounds = [],
-  }: { subscription?: unknown; grounds?: readonly unknown[] } = {},
+    telegram = "linked",
+  }: {
+    subscription?: unknown;
+    grounds?: readonly unknown[];
+    telegram?: "linked" | "unlinked";
+  } = {},
 ) {
   await page.route("**/auth/status", (route) =>
     route.fulfill({ json: { canManageMaterials: false, state: "authenticated" } }),
@@ -62,7 +67,7 @@ async function stubAccount(
       json: {
         profile: { kind: "missing" },
         telegramMembership: {
-          link: { kind: "linked" },
+          link: { kind: telegram },
           membership: { kind: "active" },
         },
       },
@@ -194,6 +199,48 @@ test("завершённая подписка не возвращает разд
     await page.getByRole("button", { name: /Личный кабинет/u }).click();
   await expect(navigation.getByRole("link", { name: /Покупки/u })).toBeVisible();
   await expect(navigation.getByRole("link", { name: /Подписка/u })).toHaveCount(0);
+});
+
+test("оболочка напоминает о неподключённом Telegram", async ({ page }, testInfo) => {
+  const mode = navigationMode(testInfo.project.name);
+  await stubAccount(page, { telegram: "unlinked" });
+
+  await page.goto(mode === "desktop" ? "/account/purchases" : "/");
+
+  if (mode === "desktop") {
+    const reminder = page.getByRole("button", {
+      name: "Telegram не подключён. Подключить",
+    });
+    await expect(reminder).toBeVisible();
+
+    // Окно открывается поверх текущей страницы: маршрут не меняется.
+    await page.getByRole("button", { name: "Закрыть подключение Telegram" }).click();
+    await reminder.click();
+
+    await expect(
+      page.getByRole("heading", { name: "Подключите Telegram" }),
+    ).toBeVisible();
+    await expect(page).toHaveURL(/\/account\/purchases$/u);
+  } else {
+    await expect(
+      page
+        .getByRole("navigation", { name: "Мобильная навигация" })
+        .getByRole("link", { name: "Профиль" })
+        .locator("span[aria-hidden='true']"),
+    ).toHaveCount(1);
+  }
+});
+
+test("подключённый Telegram не оставляет напоминания", async ({ page }, testInfo) => {
+  test.skip(navigationMode(testInfo.project.name) !== "desktop");
+  await stubAccount(page);
+
+  await page.goto("/account/purchases");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Покупки");
+
+  await expect(
+    page.getByRole("button", { name: "Telegram не подключён. Подключить" }),
+  ).toHaveCount(0);
 });
 
 test("список разделов на телефоне открывается и закрывается сам", async ({

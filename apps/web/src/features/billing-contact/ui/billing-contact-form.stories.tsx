@@ -37,7 +37,6 @@ const meta = {
     onCancelEdit: fn(),
     onConfirm: fn(),
     onEdit: fn(),
-    onRefresh: fn(),
     onStart: fn(),
   },
   parameters: {
