@@ -12,9 +12,11 @@ import { listOffersSchema, offersPageSchema } from "./list-offers.js";
 export class ListOffersController {
   constructor(@Inject(BillingPricing) private readonly pricing: BillingPricing) {}
   @Get()
-  @ApiOperation({ operationId: "billingOffers", summary: "Read active options and public first-payment prices" })
+  @ApiOperation({ operationId: "billingOffers", summary: "Read active options and public first-payment prices, filtered by sale mode and access capability" })
   @ApiQuery({ name: "cursor", required: false, schema: toOpenApiSchema(listOffersSchema.shape.cursor) })
   @ApiQuery({ name: "limit", required: false, schema: toOpenApiSchema(listOffersSchema.shape.limit) })
+  @ApiQuery({ name: "mode", required: false, schema: toOpenApiSchema(listOffersSchema.shape.mode) })
+  @ApiQuery({ name: "capability", required: false, schema: toOpenApiSchema(listOffersSchema.shape.capability) })
   @ApiOkResponse({ schema: toOpenApiSchema(offersPageSchema) })
   @ApiResponse({ status: 400, content: problemDetailsContent(problemDetailsSchema(400, ["invalid_request"])) })
   @ApiResponse({ status: 503, content: problemDetailsContent(problemDetailsSchema(503, ["dependency_unavailable"])) })

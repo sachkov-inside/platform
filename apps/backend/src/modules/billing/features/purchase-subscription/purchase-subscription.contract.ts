@@ -1,10 +1,11 @@
 import { z } from "zod";
 import { idSchema, priceSnapshotSchema } from "../../domain/pricing.js";
-import { attemptStateSchema } from "../../domain/subscription-change.js";
+import { attemptStateSchema } from "../../domain/payment-attempt.js";
 
 export const purchaseSubscriptionSchema = z.strictObject({
   operationId: idSchema, quoteRef: idSchema,
-  contactRevision: z.int().positive(), consentEvidenceRefs: z.array(idSchema).min(2).max(4),
+  // Подписка требует оферты и согласия на списания, разовая покупка — только оферты.
+  contactRevision: z.int().positive(), consentEvidenceRefs: z.array(idSchema).min(1).max(4),
   acknowledgeExistingAccess: z.boolean(),
 });
 export type PurchaseSubscriptionCommand = z.infer<typeof purchaseSubscriptionSchema>;

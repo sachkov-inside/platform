@@ -10,6 +10,7 @@ import {
   billingErrorMessage,
   formatBillingDate,
   formatKopecks,
+  paymentMode,
   type AttemptState,
   type PurchaseStatus,
 } from "@/entities/subscription";
@@ -58,8 +59,8 @@ export function PurchaseReturnView({
         <div className="rounded-2xl border border-border bg-card p-6 text-sm leading-6 shadow-card">
           <p className="font-semibold">Не нашли начатую оплату в этом браузере.</p>
           <p className="mt-1 text-muted-foreground">
-            Откройте платёжный кабинет: там видно действующую подписку и её
-            оплаченный срок.
+            Откройте платёжный кабинет: там видны ваши покупки, действующие права
+            доступа и их сроки.
           </p>
           <Link
             className={`mt-3 inline-flex items-center font-semibold text-action underline underline-offset-4 ${billingActionClass}`}
@@ -77,7 +78,11 @@ export function PurchaseReturnView({
           </p>
           <dl className="mt-4 grid gap-3 text-sm">
             <div className="flex flex-wrap justify-between gap-x-4 gap-y-1">
-              <dt className="text-muted-foreground">Тариф</dt>
+              <dt className="text-muted-foreground">
+                {paymentMode(purchase.snapshot) === "one_time"
+                  ? "Покупка"
+                  : "Тариф"}
+              </dt>
               <dd className="min-w-0 font-semibold [overflow-wrap:anywhere]">
                 {purchase.snapshot.offer.name}
               </dd>

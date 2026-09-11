@@ -106,6 +106,7 @@ export function SubscriptionActions({
                   legend="Согласие на списания"
                   namePrefix="resume-consent"
                   onToggle={onToggleResumeDocument}
+                  required={["recurring"]}
                 />
               </div>
             )}

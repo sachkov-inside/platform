@@ -32,7 +32,7 @@ export class BillingService {
       confirmedAt: string | null;
       createdAt: string;
       fiscalization: 'not_configured' | 'pending' | 'confirmed' | 'failed';
-      kind: 'initial' | 'renewal' | 'upgrade';
+      kind: 'initial' | 'one_time' | 'renewal' | 'upgrade';
       months: number;
       offerName: string;
       periodEndsAt: string | null;
@@ -42,7 +42,7 @@ export class BillingService {
     subscription: {
       inFlightPayment: {
         attemptRef: string;
-        kind: 'initial' | 'renewal' | 'upgrade';
+        kind: 'initial' | 'one_time' | 'renewal' | 'upgrade';
         state: 'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed';
       } | null;
       paidUntil: string;
@@ -70,7 +70,7 @@ export class BillingService {
           paymentOption: {
             archived: boolean;
             id: string;
-            mode?: 'subscription';
+            mode?: 'subscription' | 'one_time';
             months: number;
             offerId: string;
             priceKopecks: number;
@@ -110,7 +110,7 @@ export class BillingService {
         paymentOption: {
           archived: boolean;
           id: string;
-          mode?: 'subscription';
+          mode?: 'subscription' | 'one_time';
           months: number;
           offerId: string;
           priceKopecks: number;
@@ -169,7 +169,7 @@ export class BillingService {
   }): CancelablePromise<{
     inFlightPayment: {
       attemptRef: string;
-      kind: 'initial' | 'renewal' | 'upgrade';
+      kind: 'initial' | 'one_time' | 'renewal' | 'upgrade';
       state: 'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed';
     } | null;
     paidUntil: string;
@@ -197,7 +197,7 @@ export class BillingService {
         paymentOption: {
           archived: boolean;
           id: string;
-          mode?: 'subscription';
+          mode?: 'subscription' | 'one_time';
           months: number;
           offerId: string;
           priceKopecks: number;
@@ -237,7 +237,7 @@ export class BillingService {
       paymentOption: {
         archived: boolean;
         id: string;
-        mode?: 'subscription';
+        mode?: 'subscription' | 'one_time';
         months: number;
         offerId: string;
         priceKopecks: number;
@@ -257,7 +257,7 @@ export class BillingService {
     });
   }
   /**
-   * Start or recover one subscription purchase
+   * Start or recover one subscription or one-time purchase
    * @returns any
    * @throws ApiError
    */
@@ -295,7 +295,7 @@ export class BillingService {
       paymentOption: {
         archived: boolean;
         id: string;
-        mode?: 'subscription';
+        mode?: 'subscription' | 'one_time';
         months: number;
         offerId: string;
         priceKopecks: number;
@@ -352,7 +352,7 @@ export class BillingService {
       paymentOption: {
         archived: boolean;
         id: string;
-        mode?: 'subscription';
+        mode?: 'subscription' | 'one_time';
         months: number;
         offerId: string;
         priceKopecks: number;
@@ -412,7 +412,7 @@ export class BillingService {
       paymentOption: {
         archived: boolean;
         id: string;
-        mode?: 'subscription';
+        mode?: 'subscription' | 'one_time';
         months: number;
         offerId: string;
         priceKopecks: number;
@@ -450,7 +450,7 @@ export class BillingService {
   }): CancelablePromise<{
     inFlightPayment: {
       attemptRef: string;
-      kind: 'initial' | 'renewal' | 'upgrade';
+      kind: 'initial' | 'one_time' | 'renewal' | 'upgrade';
       state: 'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed';
     } | null;
     paidUntil: string;
@@ -478,7 +478,7 @@ export class BillingService {
         paymentOption: {
           archived: boolean;
           id: string;
-          mode?: 'subscription';
+          mode?: 'subscription' | 'one_time';
           months: number;
           offerId: string;
           priceKopecks: number;
@@ -518,7 +518,7 @@ export class BillingService {
       paymentOption: {
         archived: boolean;
         id: string;
-        mode?: 'subscription';
+        mode?: 'subscription' | 'one_time';
         months: number;
         offerId: string;
         priceKopecks: number;
@@ -575,7 +575,7 @@ export class BillingService {
         paymentOption: {
           archived: boolean;
           id: string;
-          mode?: 'subscription';
+          mode?: 'subscription' | 'one_time';
           months: number;
           offerId: string;
           priceKopecks: number;
@@ -595,7 +595,7 @@ export class BillingService {
     subscription: {
       inFlightPayment: {
         attemptRef: string;
-        kind: 'initial' | 'renewal' | 'upgrade';
+        kind: 'initial' | 'one_time' | 'renewal' | 'upgrade';
         state: 'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed';
       } | null;
       paidUntil: string;
@@ -623,7 +623,7 @@ export class BillingService {
           paymentOption: {
             archived: boolean;
             id: string;
-            mode?: 'subscription';
+            mode?: 'subscription' | 'one_time';
             months: number;
             offerId: string;
             priceKopecks: number;
@@ -663,7 +663,7 @@ export class BillingService {
         paymentOption: {
           archived: boolean;
           id: string;
-          mode?: 'subscription';
+          mode?: 'subscription' | 'one_time';
           months: number;
           offerId: string;
           priceKopecks: number;
@@ -698,7 +698,7 @@ export class BillingService {
   }): CancelablePromise<{
     inFlightPayment: {
       attemptRef: string;
-      kind: 'initial' | 'renewal' | 'upgrade';
+      kind: 'initial' | 'one_time' | 'renewal' | 'upgrade';
       state: 'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed';
     } | null;
     paidUntil: string;
@@ -726,7 +726,7 @@ export class BillingService {
         paymentOption: {
           archived: boolean;
           id: string;
-          mode?: 'subscription';
+          mode?: 'subscription' | 'one_time';
           months: number;
           offerId: string;
           priceKopecks: number;
@@ -766,7 +766,7 @@ export class BillingService {
       paymentOption: {
         archived: boolean;
         id: string;
-        mode?: 'subscription';
+        mode?: 'subscription' | 'one_time';
         months: number;
         offerId: string;
         priceKopecks: number;
@@ -822,7 +822,7 @@ export class BillingService {
         paymentOption: {
           archived: boolean;
           id: string;
-          mode?: 'subscription';
+          mode?: 'subscription' | 'one_time';
           months: number;
           offerId: string;
           priceKopecks: number;
@@ -859,7 +859,7 @@ export class BillingService {
         paymentOption: {
           archived: boolean;
           id: string;
-          mode?: 'subscription';
+          mode?: 'subscription' | 'one_time';
           months: number;
           offerId: string;
           priceKopecks: number;
@@ -899,7 +899,7 @@ export class BillingService {
   }): CancelablePromise<{
     inFlightPayment: {
       attemptRef: string;
-      kind: 'initial' | 'renewal' | 'upgrade';
+      kind: 'initial' | 'one_time' | 'renewal' | 'upgrade';
       state: 'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed';
     } | null;
     paidUntil: string;
@@ -927,7 +927,7 @@ export class BillingService {
         paymentOption: {
           archived: boolean;
           id: string;
-          mode?: 'subscription';
+          mode?: 'subscription' | 'one_time';
           months: number;
           offerId: string;
           priceKopecks: number;
@@ -967,7 +967,7 @@ export class BillingService {
       paymentOption: {
         archived: boolean;
         id: string;
-        mode?: 'subscription';
+        mode?: 'subscription' | 'one_time';
         months: number;
         offerId: string;
         priceKopecks: number;
@@ -1018,7 +1018,7 @@ export class BillingService {
       operationId: string;
       value: {
         id: string;
-        mode?: 'subscription';
+        mode?: 'subscription' | 'one_time';
         months: number;
         offerId: string;
         priceKopecks: number;
@@ -1051,7 +1051,7 @@ export class BillingService {
     } | {
       accountId?: string;
       cursor?: string;
-      kind?: 'initial' | 'renewal' | 'upgrade';
+      kind?: 'initial' | 'one_time' | 'renewal' | 'upgrade';
       limit: number;
       operation: 'payments.list';
       operationId: string;
@@ -1144,7 +1144,7 @@ export class BillingService {
         createdAt: string;
         environment: 'demo' | 'production';
         fiscalization: 'not_configured' | 'pending' | 'confirmed' | 'failed';
-        kind: 'initial' | 'renewal' | 'upgrade';
+        kind: 'initial' | 'one_time' | 'renewal' | 'upgrade';
         paymentId: string | null;
         periodEndsAt: string | null;
         periodIndex: number | null;
@@ -1168,7 +1168,7 @@ export class BillingService {
           paymentOption: {
             archived: boolean;
             id: string;
-            mode?: 'subscription';
+            mode?: 'subscription' | 'one_time';
             months: number;
             offerId: string;
             priceKopecks: number;
@@ -1234,7 +1234,7 @@ export class BillingService {
         createdAt: string;
         environment: 'demo' | 'production';
         fiscalization: 'not_configured' | 'pending' | 'confirmed' | 'failed';
-        kind: 'initial' | 'renewal' | 'upgrade';
+        kind: 'initial' | 'one_time' | 'renewal' | 'upgrade';
         paymentId: string | null;
         periodEndsAt: string | null;
         periodIndex: number | null;
@@ -1258,7 +1258,7 @@ export class BillingService {
           paymentOption: {
             archived: boolean;
             id: string;
-            mode?: 'subscription';
+            mode?: 'subscription' | 'one_time';
             months: number;
             offerId: string;
             priceKopecks: number;
@@ -1288,7 +1288,7 @@ export class BillingService {
         createdAt: string;
         environment: 'demo' | 'production';
         fiscalization: 'not_configured' | 'pending' | 'confirmed' | 'failed';
-        kind: 'initial' | 'renewal' | 'upgrade';
+        kind: 'initial' | 'one_time' | 'renewal' | 'upgrade';
         paymentId: string | null;
         periodEndsAt: string | null;
         periodIndex: number | null;
@@ -1312,7 +1312,7 @@ export class BillingService {
           paymentOption: {
             archived: boolean;
             id: string;
-            mode?: 'subscription';
+            mode?: 'subscription' | 'one_time';
             months: number;
             offerId: string;
             priceKopecks: number;
@@ -1337,7 +1337,7 @@ export class BillingService {
       value: {
         inFlightPayment: {
           attemptRef: string;
-          kind: 'initial' | 'renewal' | 'upgrade';
+          kind: 'initial' | 'one_time' | 'renewal' | 'upgrade';
           state: 'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed';
         } | null;
         paidUntil: string;
@@ -1365,7 +1365,7 @@ export class BillingService {
             paymentOption: {
               archived: boolean;
               id: string;
-              mode?: 'subscription';
+              mode?: 'subscription' | 'one_time';
               months: number;
               offerId: string;
               priceKopecks: number;
@@ -1405,7 +1405,7 @@ export class BillingService {
           paymentOption: {
             archived: boolean;
             id: string;
-            mode?: 'subscription';
+            mode?: 'subscription' | 'one_time';
             months: number;
             offerId: string;
             priceKopecks: number;
@@ -1534,14 +1534,18 @@ export class BillingService {
     });
   }
   /**
-   * Read active options and public first-payment prices
+   * Read active options and public first-payment prices, filtered by sale mode and access capability
    * @returns any
    * @throws ApiError
    */
   public billingOffers({
+    capability,
+    mode,
     limit = 50,
     cursor,
   }: {
+    capability?: ('materials' | 'community' | 'reviews' | 'support' | string),
+    mode?: 'subscription' | 'one_time',
     limit?: number,
     cursor?: string,
   }): CancelablePromise<{
@@ -1562,7 +1566,7 @@ export class BillingService {
       paymentOption: {
         archived: boolean;
         id: string;
-        mode?: 'subscription';
+        mode?: 'subscription' | 'one_time';
         months: number;
         offerId: string;
         priceKopecks: number;
@@ -1583,6 +1587,8 @@ export class BillingService {
       method: 'GET',
       url: '/billing/offers',
       query: {
+        'capability': capability,
+        'mode': mode,
         'limit': limit,
         'cursor': cursor,
       },

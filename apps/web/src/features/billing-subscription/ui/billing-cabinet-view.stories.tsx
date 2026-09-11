@@ -119,16 +119,22 @@ export const NoSubscription: Story = {
     ).toBeInTheDocument();
     // Ручная выдача переживает подписку и не называется покупкой.
     await expect(canvas.getByText("Выдано вручную")).toBeInTheDocument();
-    await expect(canvas.getByText("бессрочно")).toBeInTheDocument();
+    // Купленное руководство и ручная выдача остаются бессрочными без подписки.
+    await expect(canvas.getAllByText("бессрочно").length).toBe(2);
+    await expect(canvas.getAllByText("Оплаченный доступ").length).toBe(2);
   },
 };
 export const OwnGroundsAndPayments: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText("Оплаченная подписка")).toBeInTheDocument();
-    await expect(canvas.getByText("Отдельное руководство")).toBeInTheDocument();
-    await expect(canvas.getAllByText(/^операция /u).length).toBe(2);
+    await expect(canvas.getAllByText("Оплаченный доступ").length).toBe(2);
+    await expect(canvas.getAllByText("Отдельное руководство").length).toBe(2);
+    await expect(canvas.getAllByText(/^операция /u).length).toBe(3);
     await expect(canvas.getByText(/Оплата не прошла/u)).toBeInTheDocument();
+    // Разовая покупка названа покупкой: срока варианта оплаты у неё нет.
+    await expect(
+      canvas.getByText(/Руководство «Создание Platform Inside» · разовая покупка/u),
+    ).toBeInTheDocument();
   },
 };
 

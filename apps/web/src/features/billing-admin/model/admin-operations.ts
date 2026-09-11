@@ -37,7 +37,7 @@ export const savePaymentOptionInputSchema = z.strictObject({
   value: z.strictObject({
     id: z.uuid(),
     offerId: z.uuid(),
-    mode: z.literal("subscription").optional(),
+    mode: z.enum(["subscription", "one_time"]).optional(),
     months: z.number().int().positive().max(1200),
     priceKopecks: money,
   }),

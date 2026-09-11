@@ -136,7 +136,7 @@ test("кабинет показывает оплаченный срок и сл�
   await page.goto("/account/subscription");
 
   await expect(page.getByText("Действует")).toBeVisible();
-  await expect(page.getByText("Оплаченная подписка")).toBeVisible();
+  await expect(page.getByText("Оплаченный доступ")).toBeVisible();
   await expect(page.getByText("1 октября 2026 г.").first()).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Отменить продление" }),

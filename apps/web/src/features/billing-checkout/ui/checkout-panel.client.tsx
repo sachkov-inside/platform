@@ -4,12 +4,14 @@ import Link from "next/link";
 import { useId } from "react";
 
 import {
+  applicableConsentDocuments,
   billingActionClass,
   ConsentChecklist,
   attemptStateLabel,
   formatBillingDateTime,
   formatKopecks,
   formatMonths,
+  paymentMode,
   promotionLabel,
   requiredConsentKinds,
   type BillingQuote,
@@ -43,8 +45,9 @@ export interface CheckoutPanelProps {
 }
 
 /**
- * Оформление подписки: сначала точные условия сервера, затем отдельные согласия, и только
+ * Оформление покупки: сначала точные условия сервера, затем отдельные согласия, и только
  * потом оплата. Ни один флажок не отмечен заранее, а возврат из банка не считается успехом.
+ * Разовая покупка идёт тем же путём, но не обещает ни следующего периода, ни списаний.
  */
 export function CheckoutPanel({
   snapshot,
@@ -69,12 +72,16 @@ export function CheckoutPanel({
   const acknowledgeId = useId();
   const conditions = quote?.snapshot ?? snapshot;
   const promotion = promotionLabel(conditions);
-  const missingRequired = requiredConsentKinds.filter(
-    (kind) => !documents.some((document) => document.kind === kind),
+  const recurring = paymentMode(conditions) === "subscription";
+  const required = requiredConsentKinds(paymentMode(conditions));
+  const applicable = applicableConsentDocuments(
+    documents,
+    paymentMode(conditions),
   );
-  const consentsAccepted = requiredConsentKinds.every((kind) =>
-    accepted.includes(kind),
+  const missingRequired = required.filter(
+    (kind) => !applicable.some((document) => document.kind === kind),
   );
+  const consentsAccepted = required.every((kind) => accepted.includes(kind));
   const payable =
     quote !== null &&
     contact !== null &&
@@ -92,34 +99,42 @@ export function CheckoutPanel({
         className="text-2xl font-bold tracking-[-0.035em]"
         id={headingId}
       >
-        Оформление подписки
+        {recurring ? "Оформление подписки" : "Оформление покупки"}
       </h2>
 
       <dl className="mt-5 grid gap-3 text-sm">
         <div className="flex flex-wrap justify-between gap-x-4 gap-y-1">
-          <dt className="text-muted-foreground">Тариф</dt>
+          <dt className="text-muted-foreground">
+            {recurring ? "Тариф" : "Покупка"}
+          </dt>
           <dd className="min-w-0 font-semibold [overflow-wrap:anywhere]">
             {conditions.offer.name}
           </dd>
         </div>
+        {recurring ? (
+          <div className="flex flex-wrap justify-between gap-x-4 gap-y-1">
+            <dt className="text-muted-foreground">Период</dt>
+            <dd className="font-mono tabular-nums">
+              {formatMonths(conditions.paymentOption.months)}
+            </dd>
+          </div>
+        ) : null}
         <div className="flex flex-wrap justify-between gap-x-4 gap-y-1">
-          <dt className="text-muted-foreground">Период</dt>
-          <dd className="font-mono tabular-nums">
-            {formatMonths(conditions.paymentOption.months)}
-          </dd>
-        </div>
-        <div className="flex flex-wrap justify-between gap-x-4 gap-y-1">
-          <dt className="text-muted-foreground">Первый платёж</dt>
+          <dt className="text-muted-foreground">
+            {recurring ? "Первый платёж" : "Стоимость"}
+          </dt>
           <dd className="font-mono tabular-nums font-semibold">
             {formatKopecks(conditions.firstPriceKopecks)}
           </dd>
         </div>
-        <div className="flex flex-wrap justify-between gap-x-4 gap-y-1">
-          <dt className="text-muted-foreground">Дальше каждый период</dt>
-          <dd className="font-mono tabular-nums">
-            {formatKopecks(conditions.renewalPriceKopecks)}
-          </dd>
-        </div>
+        {recurring ? (
+          <div className="flex flex-wrap justify-between gap-x-4 gap-y-1">
+            <dt className="text-muted-foreground">Дальше каждый период</dt>
+            <dd className="font-mono tabular-nums">
+              {formatKopecks(conditions.renewalPriceKopecks)}
+            </dd>
+          </div>
+        ) : null}
         {promotion === undefined ? null : (
           <div className="flex flex-wrap justify-between gap-x-4 gap-y-1">
             <dt className="text-muted-foreground">Скидка</dt>
@@ -150,16 +165,17 @@ export function CheckoutPanel({
             <span className="font-mono">
               {formatBillingDateTime(quote.expiresAt)}
             </span>
-            . Следующее списание — через{" "}
-            {formatMonths(conditions.paymentOption.months)} после подтверждения
-            оплаты.
+            .{" "}
+            {recurring
+              ? `Следующее списание — через ${formatMonths(conditions.paymentOption.months)} после подтверждения оплаты.`
+              : "Это разовый платёж: подписку он не оформляет и списаний по нему не будет."}
           </p>
 
           {contact === null ? (
             <div className="mt-5 rounded-xl border border-border bg-secondary/50 p-4 text-sm leading-6">
               <p className="font-semibold">Нужен подтверждённый email.</p>
               <p className="mt-1 text-muted-foreground">
-                На него придут чек и служебные сообщения о подписке.
+                На него придёт чек{recurring ? " и служебные сообщения о подписке" : ""}.
               </p>
               <Link
                 className={`mt-3 inline-flex items-center font-semibold text-action underline underline-offset-4 ${billingActionClass}`}
@@ -188,11 +204,12 @@ export function CheckoutPanel({
               <ConsentChecklist
                 accepted={accepted}
                 disabled={pending}
-                documents={documents}
+                documents={applicable}
                 legend="Согласия перед оплатой"
                 markOptional
                 namePrefix="consent"
                 onToggle={onToggleDocument}
+                required={required}
               />
             </div>
           )}
@@ -203,7 +220,9 @@ export function CheckoutPanel({
                 Часть этого состава у вас уже открыта.
               </p>
               <p className="mt-1 text-muted-foreground">
-                Новая подписка не отменяет и не заменяет действующие права.
+                {recurring
+                  ? "Новая подписка не отменяет и не заменяет действующие права."
+                  : "Повторная покупка не удваивает право и не продлевает уже открытое."}
               </p>
               <label className="mt-3 flex items-start gap-3">
                 <input
@@ -214,7 +233,11 @@ export function CheckoutPanel({
                   onChange={onToggleAcknowledge}
                   type="checkbox"
                 />
-                <span>Понимаю и хочу оформить подписку</span>
+                <span>
+                  {recurring
+                    ? "Понимаю и хочу оформить подписку"
+                    : "Понимаю и всё равно хочу оплатить"}
+                </span>
               </label>
             </div>
           ) : null}

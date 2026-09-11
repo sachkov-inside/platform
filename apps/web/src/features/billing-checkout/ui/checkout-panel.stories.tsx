@@ -3,6 +3,8 @@ import { expect, fn, userEvent, within } from "storybook/test";
 
 import {
   confirmedPurchase,
+  guideOnlyOffer,
+  guideQuote,
   legalDocuments,
   pendingPurchase,
   savedQuote,
@@ -140,6 +142,60 @@ export const Confirmed: Story = {
 
 export const Pending: Story = {
   args: { quote: savedQuote, accepted: ["terms", "recurring"], pending: true },
+};
+
+/** Разовая покупка руководства: без согласия на списания, без периода и следующей цены. */
+export const OneTimeGuide: Story = {
+  args: {
+    snapshot: guideOnlyOffer,
+    quote: guideQuote,
+    accepted: ["terms"],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("Оформление покупки")).toBeInTheDocument();
+    await expect(
+      canvas.queryByText("Согласие на регулярные списания"),
+    ).not.toBeInTheDocument();
+    await expect(canvas.queryByText("Дальше каждый период")).not.toBeInTheDocument();
+    await expect(canvas.queryByText("Период")).not.toBeInTheDocument();
+    await expect(
+      canvas.getByText(/Это разовый платёж/u),
+    ).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("button", { name: /Оплатить/u }),
+    ).toBeEnabled();
+  },
+};
+
+/** Повторная покупка того же руководства: честное предупреждение вместо тихого второго права. */
+export const OneTimeExistingAccess: Story = {
+  args: {
+    snapshot: guideOnlyOffer,
+    quote: guideQuote,
+    accepted: ["terms"],
+    existingAccess: true,
+    error: "У вас уже есть доступ к части этого состава.",
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByText(/Повторная покупка не удваивает право/u),
+    ).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("button", { name: /Оплатить/u }),
+    ).toBeDisabled();
+  },
+};
+
+export const OneTimeMobile: Story = {
+  args: { snapshot: guideOnlyOffer, quote: guideQuote, accepted: ["terms"] },
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+};
+
+export const OneTimeDesktop: Story = {
+  args: { snapshot: guideOnlyOffer, quote: guideQuote, accepted: ["terms"] },
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
 };
 
 export const Mobile: Story = {

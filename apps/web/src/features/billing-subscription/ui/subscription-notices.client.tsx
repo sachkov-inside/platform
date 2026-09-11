@@ -6,8 +6,8 @@ import {
   attemptStateLabel,
   formatBillingDate,
   formatKopecks,
-  formatMonths,
   noticeLabel,
+  paymentSubjectLabel,
   type NoticeView,
   type OwnPayment,
 } from "@/entities/subscription";
@@ -35,10 +35,10 @@ export function SubscriptionNotices({
         <h2 className="text-xl font-semibold" id="billing-history">
           История
         </h2>
-        <h3 className="mt-4 text-base font-semibold">Списания</h3>
+        <h3 className="mt-4 text-base font-semibold">Платежи</h3>
         {payments.length === 0 ? (
           <p className="mt-2 text-sm text-muted-foreground">
-            Списаний по этому Account ещё не было.
+            Платежей по этому Account ещё не было.
           </p>
         ) : (
           <ol className="mt-3 grid gap-3">
@@ -49,7 +49,7 @@ export function SubscriptionNotices({
               >
                 <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                   <span className="min-w-0 font-medium [overflow-wrap:anywhere]">
-                    {payment.offerName} · {formatMonths(payment.months)}
+                    {payment.offerName} · {paymentSubjectLabel(payment)}
                   </span>
                   <span className="font-mono text-xs tabular-nums">
                     {formatKopecks(payment.amountKopecks)}

@@ -20,12 +20,19 @@ import {
   ContentCoverImage,
   materialPreviewHasVideo,
 } from "@/entities/material";
-import { billingActionClass } from "@/entities/subscription";
+import {
+  billingActionClass,
+  formatKopecks,
+  type PriceSnapshot,
+} from "@/entities/subscription";
 import { PlaylistCard, formatMaterialCount } from "@/features/library-discovery";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { PublicSectionHeading } from "@/shared/ui/public-section-heading";
-import { subscriptionHrefFrom } from "@/shared/routing/subscription-route";
+import {
+  guidePurchaseHref,
+  subscriptionHrefFrom,
+} from "@/shared/routing/subscription-route";
 import {
   collectionDiscoveryHref,
   libraryMaterialReaderReturnTarget,
@@ -44,11 +51,14 @@ export function LibraryDiscoveryView({
   result,
   returnTarget = libraryMaterialReaderReturnTarget,
   learning,
+  guideOffer = null,
   onRetry,
 }: {
   readonly result: ResolvedDiscoveryResult;
   readonly returnTarget?: MaterialReaderReturnTarget;
   readonly learning?: SeriesLearningView;
+  /** Разовая цена этого руководства, когда владелец её завёл. */
+  readonly guideOffer?: PriceSnapshot | null;
   readonly onRetry?: (() => void) | undefined;
 }) {
   const isSeries = result.discoveryKind === "series";
@@ -75,7 +85,7 @@ export function LibraryDiscoveryView({
 
       {isSeries && result.kind === "ready" &&
       result.items.some((item) => item.availability === "locked") ? (
-        <SubscriptionCallout slug={result.reference.slug} />
+        <LockedMaterialsCallout offer={guideOffer} slug={result.reference.slug} />
       ) : null}
 
       {result.kind === "empty" ? (
@@ -87,20 +97,61 @@ export function LibraryDiscoveryView({
   );
 }
 
-/** Часть руководства закрыта: CTA ведёт на витрину и сохраняет контекст после входа. */
-function SubscriptionCallout({ slug }: { readonly slug: string }) {
+/**
+ * Часть руководства закрыта. Когда у него есть своя цена, покупка руководства — главный путь,
+ * а подписка остаётся вторым. Без цены остаётся прежний CTA на витрину тарифов.
+ */
+function LockedMaterialsCallout({
+  offer,
+  slug,
+}: {
+  readonly offer: PriceSnapshot | null;
+  readonly slug: string;
+}) {
+  const subscriptionHref = subscriptionHrefFrom(
+    materialReaderOriginHref("series", slug),
+  );
+  if (offer === null) {
+    return (
+      <section className="mt-8 rounded-2xl border border-border bg-card p-6 shadow-card">
+        <h2 className="text-xl font-semibold">Часть материалов открыта по подписке</h2>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+          Подписка открывает все опубликованные материалы и руководства. Мы вернём
+          вас сюда после входа.
+        </p>
+        <Button asChild className={`mt-4 ${billingActionClass}`}>
+          <Link href={subscriptionHref}>Посмотреть тарифы</Link>
+        </Button>
+      </section>
+    );
+  }
   return (
-    <section className="mt-8 rounded-2xl border border-border bg-card p-6 shadow-card">
-      <h2 className="text-xl font-semibold">Часть материалов открыта по подписке</h2>
+    <section
+      className="mt-8 rounded-2xl border border-border bg-card p-6 shadow-card"
+      data-guide-offer={offer.paymentOption.id}
+    >
+      <h2 className="text-xl font-semibold">Купите это руководство</h2>
       <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-        Подписка открывает все опубликованные материалы и руководства. Мы вернём
-        вас сюда после входа.
+        Разовая покупка за{" "}
+        <span className="font-semibold text-foreground">
+          {formatKopecks(offer.firstPriceKopecks)}
+        </span>{" "}
+        открывает его целиком и навсегда. Подписку включать не нужно, и списаний
+        по этой покупке не будет.
       </p>
-      <Button asChild className={`mt-4 ${billingActionClass}`}>
-        <Link href={subscriptionHrefFrom(materialReaderOriginHref("series", slug))}>
-          Посмотреть тарифы
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <Button asChild className={billingActionClass}>
+          <Link href={guidePurchaseHref(slug)}>
+            Купить за {formatKopecks(offer.firstPriceKopecks)}
+          </Link>
+        </Button>
+        <Link
+          className="text-sm text-action underline underline-offset-4"
+          href={subscriptionHref}
+        >
+          Посмотреть подписку
         </Link>
-      </Button>
+      </div>
     </section>
   );
 }

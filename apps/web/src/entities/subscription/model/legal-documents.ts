@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import type { PaymentMode } from "./billing-contract";
+
 /**
  * Каталог применимых документов ведёт сервер: согласие принимается только при точном
  * совпадении вида, идентификатора, редакции и SHA-256 текста.
@@ -47,11 +49,28 @@ export function legalDocumentLabel(kind: LegalDocumentKind): string {
   }
 }
 
-/** Покупка требует принятых `terms` и `recurring`; остальные виды независимы. */
-export const requiredConsentKinds: readonly LegalDocumentKind[] = [
-  "terms",
-  "recurring",
-];
+/**
+ * Подписка требует принятых `terms` и `recurring`; разовая покупка — только `terms`.
+ * Остальные виды независимы.
+ */
+export function requiredConsentKinds(
+  mode: PaymentMode,
+): readonly LegalDocumentKind[] {
+  return mode === "one_time" ? ["terms"] : ["terms", "recurring"];
+}
+
+/**
+ * Разовая покупка не показывает согласие на регулярные списания: списаний по ней не будет,
+ * и сервер такое согласие не принимает.
+ */
+export function applicableConsentDocuments(
+  documents: readonly LegalDocument[],
+  mode: PaymentMode,
+): readonly LegalDocument[] {
+  return mode === "one_time"
+    ? documents.filter((document) => document.kind !== "recurring")
+    : documents;
+}
 
 /** Согласие фиксируется одной командой на конкретный контекст будущей операции. */
 export const consentsInputSchema = z.strictObject({

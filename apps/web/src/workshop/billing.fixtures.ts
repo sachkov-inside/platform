@@ -62,7 +62,7 @@ export const supportOffer: PriceSnapshot = {
   renewalPriceKopecks: 350_000,
 };
 
-/** Отдельное право на одно руководство: срок может пережить период списания. */
+/** Руководство, которому владелец завёл цену: покупается один раз и открывается навсегда. */
 export const guideOnlyOffer: PriceSnapshot = {
   offer: {
     id: uuid("103"),
@@ -76,7 +76,7 @@ export const guideOnlyOffer: PriceSnapshot = {
     id: uuid("203"),
     revision: 1,
     offerId: uuid("103"),
-    mode: "subscription",
+    mode: "one_time",
     months: 1,
     priceKopecks: 250_000,
     archived: false,
@@ -131,6 +131,14 @@ export const savedQuote: BillingQuote = {
   createdAt: "2026-09-10T10:00:00.000Z",
   expiresAt: "2026-09-10T10:15:00.000Z",
   snapshot: supportOffer,
+};
+
+/** Расчёт разовой покупки руководства: того же вида, но без следующего периода. */
+export const guideQuote: BillingQuote = {
+  quoteRef: uuid("402"),
+  createdAt: "2026-09-10T10:00:00.000Z",
+  expiresAt: "2026-09-10T10:15:00.000Z",
+  snapshot: guideOnlyOffer,
 };
 
 export const activeSubscription: SubscriptionView = {
@@ -210,9 +218,30 @@ export const accessGrounds: readonly AccessGround[] = [
     validUntil: null,
     active: true,
   },
+  {
+    // Купленное руководство переживает подписку и не зависит от того, включена ли она.
+    source: "paid",
+    capabilities: [`guide:${uuid("f02")}`],
+    startsAt: "2026-08-20T12:00:00.000Z",
+    validUntil: null,
+    active: true,
+  },
 ];
 
 export const ownPayments: readonly OwnPayment[] = [
+  {
+    purchaseRef: uuid("b03"),
+    kind: "one_time",
+    state: "confirmed",
+    amountKopecks: 250_000,
+    offerName: "Руководство «Создание Platform Inside»",
+    months: 1,
+    fiscalization: "confirmed",
+    confirmedAt: "2026-08-20T12:00:00.000Z",
+    // У разовой покупки оплаченного срока нет: право живёт своим сроком.
+    periodEndsAt: null,
+    createdAt: "2026-08-20T11:58:00.000Z",
+  },
   {
     purchaseRef: uuid("b01"),
     kind: "initial",
@@ -282,6 +311,18 @@ export const confirmedPurchase: PurchaseStatus = {
   fiscalization: "confirmed",
   confirmedAt: "2026-09-10T10:05:00.000Z",
   periodEndsAt: "2026-10-10T10:05:00.000Z",
+};
+
+/** Оплаченное руководство: доступ открыт, оплаченного срока у покупки нет. */
+export const confirmedGuidePurchase: PurchaseStatus = {
+  purchaseRef: uuid("b03"),
+  state: "confirmed",
+  paymentUrl: null,
+  snapshot: guideOnlyOffer,
+  access: "ready",
+  fiscalization: "confirmed",
+  confirmedAt: "2026-08-20T12:00:00.000Z",
+  periodEndsAt: null,
 };
 
 export const failedPurchase: PurchaseStatus = {

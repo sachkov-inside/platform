@@ -1,6 +1,8 @@
 import { PersonalSeries } from "./personal-series.server";
 import { notFound } from "next/navigation";
 
+import { loadGuideOffer } from "@/entities/subscription.server";
+
 import type {
   PublishedSeriesResult,
   PublishedTopicResult,
@@ -13,6 +15,7 @@ import {
   LibraryDiscoveryUnavailable,
   LibraryDiscoveryView,
 } from "./library-discovery-view";
+import type { PriceSnapshot } from "@/entities/subscription";
 import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 
 export async function PublishedTopicPage({
@@ -40,11 +43,19 @@ export async function PublishedSeriesPage({
   readonly returnTarget?: MaterialReaderReturnTarget;
   readonly slug: string;
 }) {
+  const result = await loadPublishedSeries(slug, accessToken);
+  const id =
+    result.kind === "ready" || result.kind === "empty"
+      ? result.reference.id
+      : undefined;
+  // Руководство продаётся, только когда владелец завёл ему цену: её отсутствие — обычное состояние.
+  const catalog = id === undefined ? undefined : await loadGuideOffer(id);
   return renderPublishedSeriesResult(
-    await loadPublishedSeries(slug, accessToken),
+    result,
     slug,
     returnTarget,
     accessToken,
+    catalog?.kind === "ready" ? catalog.offer : null,
   );
 }
 
@@ -72,6 +83,7 @@ function renderPublishedSeriesResult(
   slug: string,
   returnTarget?: MaterialReaderReturnTarget,
   accessToken?: string,
+  guideOffer: PriceSnapshot | null = null,
 ) {
   if (result.kind === "not-found") {
     notFound();
@@ -81,6 +93,7 @@ function renderPublishedSeriesResult(
   }
   return (
     <PersonalSeries
+      guideOffer={guideOffer}
       result={result}
       {...(accessToken === undefined ? {} : { accessToken })}
       {...(returnTarget === undefined ? {} : { returnTarget })}

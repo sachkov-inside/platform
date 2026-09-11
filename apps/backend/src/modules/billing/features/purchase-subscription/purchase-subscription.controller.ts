@@ -25,7 +25,7 @@ export class PurchaseSubscriptionController {
   constructor(@Inject(BillingPayments) private readonly payments: BillingPayments) {}
   @Post("purchase")
   @HttpCode(200)
-  @ApiOperation({ operationId: "purchaseBillingSubscription", summary: "Start or recover one subscription purchase" })
+  @ApiOperation({ operationId: "purchaseBillingSubscription", summary: "Start or recover one subscription or one-time purchase" })
   @ApiBody({ schema: toOpenApiSchema(purchaseSubscriptionSchema) })
   @ApiOkResponse({ schema: toOpenApiSchema(purchaseStatusSchema) })
   async purchase(@CurrentAccount() account: AuthenticatedAccount, @Body() input: unknown) {

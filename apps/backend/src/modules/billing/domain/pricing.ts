@@ -13,11 +13,24 @@ export const offerSchema = z.strictObject({
   id: idSchema, revision: revisionSchema, name: z.string().trim().min(1).max(200),
   benefits: benefitsSchema, benefitPeriods: benefitPeriodsSchema.optional(), archived: z.boolean(),
 });
+/**
+ * Как оплачивается вариант. `subscription` списывается по расписанию, `one_time` покупается
+ * один раз. Отсутствующий режим в старом снимке читается как `subscription`.
+ */
+export const paymentModeSchema = z.enum(["subscription", "one_time"]);
+export type PaymentMode = z.infer<typeof paymentModeSchema>;
 export const optionSchema = z.strictObject({
   id: idSchema, revision: revisionSchema, offerId: idSchema,
-  mode: z.literal("subscription").optional(),
+  mode: paymentModeSchema.optional(),
+  /**
+   * Календарные месяцы варианта. У подписки это период списания, у разовой покупки — срок
+   * права, у которого нет собственного срока в составе предложения.
+   */
   months: revisionSchema.max(1200), priceKopecks: moneySchema, archived: z.boolean(),
 });
+export function paymentMode(option: Pick<PaymentOption, "mode">): PaymentMode {
+  return option.mode ?? "subscription";
+}
 export const promotionSchema = z.strictObject({
   id: idSchema, revision: revisionSchema, name: z.string().trim().min(1).max(200),
   percent: z.int().min(1).max(100), code: z.string().trim().min(1).max(100).nullable(),

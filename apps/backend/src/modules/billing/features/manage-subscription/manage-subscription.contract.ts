@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { ownAccessGroundSchema } from "../../../membership-entitlements/index.js";
 import { idSchema, moneySchema, revisionSchema } from "../../domain/pricing.js";
-import { attemptKindSchema, attemptStateSchema } from "../../domain/subscription-change.js";
+import { attemptKindSchema, attemptStateSchema } from "../../domain/payment-attempt.js";
 import { noticeViewSchema } from "../../domain/notice.js";
 import { changePlanSchema, subscriptionViewSchema } from "../../domain/subscription-change.js";
 import { purchaseStatusSchema } from "../purchase-subscription/purchase-subscription.contract.js";

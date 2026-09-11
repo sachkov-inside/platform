@@ -1,10 +1,12 @@
 import type {
   AccessCapability,
   AccessSource,
+  AttemptKind,
   AttemptState,
   BillingFailureCode,
   BillingOffer,
   NoticeKind,
+  PaymentMode,
   PriceSnapshot,
   SubscriptionState,
 } from "./billing-contract";
@@ -78,12 +80,14 @@ export interface BenefitLine {
 }
 
 /**
- * Срок конкретного права может отличаться от периода списания: неуказанный наследует период
- * варианта оплаты, а явный `null` означает бессрочное право.
+ * Срок конкретного права может отличаться от периода списания: у подписки неуказанный срок
+ * наследует период варианта оплаты, у разовой покупки такого периода нет и право бессрочно.
+ * Явный `null` означает бессрочное право в обоих случаях.
  */
 export function benefitLines(
   offer: BillingOffer,
   months: number,
+  mode: PaymentMode = "subscription",
 ): readonly BenefitLine[] {
   return offer.benefits.map((capability) => {
     const period = offer.benefitPeriods?.find(
@@ -91,7 +95,9 @@ export function benefitLines(
     );
     const term =
       period === undefined
-        ? formatMonths(months)
+        ? mode === "one_time"
+          ? "бессрочно"
+          : formatMonths(months)
         : period.months === null
           ? "бессрочно"
           : formatMonths(period.months);
@@ -106,7 +112,8 @@ export function benefitLines(
 export function accessSourceLabel(source: AccessSource): string {
   switch (source) {
     case "paid":
-      return "Оплаченная подписка";
+      // Оплатой открывается и подписка, и отдельно купленное руководство.
+      return "Оплаченный доступ";
     case "manual":
       return "Выдано вручную";
     case "legacy":
@@ -123,6 +130,19 @@ export function subscriptionStateLabel(state: SubscriptionState): string {
     case "ended":
       return "Завершена";
   }
+}
+
+/**
+ * Что именно оплачено. Разовая покупка названа покупкой: периода списания у неё нет, и
+ * показывать срок варианта оплаты было бы неправдой.
+ */
+export function paymentSubjectLabel(payment: {
+  readonly kind: AttemptKind;
+  readonly months: number;
+}): string {
+  return payment.kind === "one_time"
+    ? "разовая покупка"
+    : formatMonths(payment.months);
 }
 
 /** Банковское состояние попытки отделено от готовности доступа. */
@@ -176,7 +196,7 @@ export function billingErrorMessage(code: BillingFailureCode): string {
     case "contact_required":
       return "Сначала подтвердите email для чеков: без него оплату принять нельзя.";
     case "consent_required":
-      return "Отметьте условия и согласие на списание в этой форме — они нужны для оплаты.";
+      return "Отметьте требуемые условия в этой форме — без них оплату принять нельзя.";
     case "existing_access":
       return "У вас уже есть доступ к части этого состава. Подтвердите, что понимаете это, и продолжите.";
     case "legacy_review_required":
@@ -186,7 +206,7 @@ export function billingErrorMessage(code: BillingFailureCode): string {
     case "quote_changed":
       return "Цена или состав изменились. Проверьте новые условия перед оплатой.";
     case "payment_in_progress":
-      return "Оплата по этой подписке уже прошла или ещё выполняется. Откройте платёжный кабинет — новую покупку начинать не нужно.";
+      return "Оплата уже прошла или ещё выполняется. Откройте платёжный кабинет — новую покупку начинать не нужно.";
     case "refund_in_progress":
       return "Возврат по этому платежу ещё выполняется.";
     case "revision_conflict":

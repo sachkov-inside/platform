@@ -42,6 +42,14 @@ export function subscriptionRouteTarget(
 }
 
 /**
+ * Витрина одного руководства: его цена и оформление живут отдельным адресом, потому что
+ * покупают здесь именно руководство, а не тариф подписки.
+ */
+export function guidePurchaseHref(slug: string): Route {
+  return internalRoute(`/guides/${encodeURIComponent(slug)}/buy`);
+}
+
+/**
  * Ссылка на витрину со страницы руководства или темы. Строка отдаётся `Link` как есть:
  * `pathname` объекта URL заэкранировал бы `?` и увёл бы покупателя на несуществующий путь.
  */

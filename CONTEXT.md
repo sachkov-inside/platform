@@ -282,8 +282,14 @@ _Avoid_: Payment, MembershipEvidence, AccessGrant
 
 **Offer**:
 A versioned description of a chosen access composition, independent of a Guide and a payment.
-Its payment option specifies the price, period and sale mode.
+Its payment option specifies the price, period and sale mode: a subscription charged on a schedule,
+or a one-time purchase that is paid once and creates no schedule.
 _Avoid_: Guide, Order, AccessGrant
+
+**OneTimePurchase**:
+A single payment for one Offer that creates no Subscription, no renewal schedule and no recurring
+consent. Its AccessGrants carry their own terms and outlive any Subscription.
+_Avoid_: Subscription, paid period, renewal
 
 **AccessScope**:
 The library, a particular Guide, support or the shared community chat covered by an AccessGrant.

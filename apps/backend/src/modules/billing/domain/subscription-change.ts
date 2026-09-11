@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { idSchema, moneySchema, offerSchema, optionSchema, priceSnapshotSchema, revisionSchema, type PriceSnapshot } from "./pricing.js";
+import { attemptKindSchema, attemptStateSchema } from "./payment-attempt.js";
 
 export const subscriptionStateSchema = z.enum(["active", "canceled", "ended"]);
 export const subscriptionEventKinds = ["subscription_started", "period_renewed", "option_upgraded", "subscription_ended",
@@ -7,9 +8,6 @@ export const subscriptionEventKinds = ["subscription_started", "period_renewed",
 export type SubscriptionEventKind = typeof subscriptionEventKinds[number];
 export const subscriptionEndReasons = ["renewal_declined", "payment_method_unavailable", "canceled_period_ended", "no_usable_payment_method"] as const;
 export type SubscriptionEndReason = typeof subscriptionEndReasons[number];
-export const attemptKindSchema = z.enum(["initial", "renewal", "upgrade"]);
-export const attemptStateSchema = z.enum(["prepared", "sent", "unknown", "pending", "authorized", "confirmed", "failed"]);
-export type AttemptKind = z.infer<typeof attemptKindSchema>;
 export const changePlanSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("upgrade"), snapshot: priceSnapshotSchema, topUpKopecks: moneySchema, effectiveAt: z.iso.datetime() }),
   z.strictObject({ kind: z.literal("scheduled"), snapshot: priceSnapshotSchema, nextPriceKopecks: moneySchema, effectiveAt: z.iso.datetime() }),

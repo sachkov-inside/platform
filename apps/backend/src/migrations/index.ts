@@ -1,3 +1,4 @@
+import { name as oneTimePurchaseName, statement as oneTimePurchaseStatement } from "../modules/billing/infrastructure/postgres/migrations/0057-one-time-purchase.js";
 import { name as billingNoticesName, statement as billingNoticesStatement } from "../modules/billing/infrastructure/postgres/migrations/0056-billing-notices.js";
 import { name as communityEntitlementsName, statement as communityEntitlementsStatement } from "../modules/telegram-membership/infrastructure/postgres/migrations/0053-community-entitlements.js";
 import { name as bookmarksName, statement as bookmarksStatement } from "../modules/bookmarks/infrastructure/postgres/migrations/0052-bookmarks.js";
@@ -323,6 +324,7 @@ export const platformMigrations = [
   { name: billingManagePermissionName, statement: billingManagePermissionStatement },
   { name: billingOperationsName, statement: billingOperationsStatement },
   { name: billingNoticesName, statement: billingNoticesStatement },
+  { name: oneTimePurchaseName, statement: oneTimePurchaseStatement },
 ] as const;
 
 export function migrateToLatest(
