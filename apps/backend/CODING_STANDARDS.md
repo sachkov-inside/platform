@@ -64,8 +64,9 @@ not dependency wiring.
 - Treat raw-query results as `unknown` and validate their row shape. A TypeScript generic is not
   runtime validation.
 - Prisma is the application ORM. `pg` is limited to the migration runner, the dedicated-session
-  worker generation lease, the exact-schema worker health probe and isolated test database
-  administration. The lease and health probe are process lifecycle, not capability data access.
+  worker generation lease, the exact-schema worker health probe, isolated test database
+  administration, and a test double that stands in for another application's own database, where
+  no Prisma schema exists in this repository to describe it. The lease and health probe are process lifecycle, not capability data access.
 - Checked-in migrations are append-only and self-contained. The applied ledger is an exact ordered
   prefix and checksums must match. Change the schema with a new migration; never edit generated
   Prisma client files or commit them.

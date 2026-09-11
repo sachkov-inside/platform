@@ -1,4 +1,4 @@
-import { tbankConfigSchema, parseTbankConfig } from "./tbank-config.js";
+import { tbankRuntimeSchema, parseTbankConfig } from "./tbank-config.js";
 import { notificationsConfigSchema, parseNotificationsConfig } from './notifications-config.js';
 import { z } from "zod";
 
@@ -211,7 +211,7 @@ const platformConfigSchema = z
         port: apiPortSchema,
       })
       .readonly(),
-    tbank: tbankConfigSchema.optional(),
+    tbank: tbankRuntimeSchema.optional(),
     billingContact: z.object({
       encryptionKey: z.string().refine(value => Buffer.from(value, "base64").length === 32, "BILLING_CONTACT_ENCRYPTION_KEY must be 32 base64-encoded bytes"),
       smtpHost: z.string().min(1),
@@ -352,7 +352,7 @@ export function parsePlatformConfig(
     notificationDelivery: environment.NOTIFICATIONS_PLATFORM_ORIGIN || environment.NOTIFICATIONS_TELEGRAM_SECRET
       ? { origin: environment.NOTIFICATIONS_PLATFORM_ORIGIN, telegramSecret: environment.NOTIFICATIONS_TELEGRAM_SECRET } : undefined,
     mode,
-    tbank: parseTbankConfig(environment.TBANK_CONFIG_JSON),
+    tbank: parseTbankConfig(environment.TBANK_CONFIG_JSON, environment.TBANK_CA_FILE),
     billingContact: [environment.BILLING_CONTACT_ENCRYPTION_KEY, environment.BILLING_CONTACT_SMTP_HOST,
       environment.BILLING_CONTACT_SMTP_PORT, environment.BILLING_CONTACT_SMTP_USER, environment.BILLING_CONTACT_SMTP_PASSWORD,
       environment.BILLING_CONTACT_FROM].every(value => value === undefined) ? undefined : {
