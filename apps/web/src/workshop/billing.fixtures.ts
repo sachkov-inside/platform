@@ -103,7 +103,7 @@ export const legalDocuments: readonly LegalDocument[] = [
     documentId: "offer",
     version: "2026-09-01",
     digest: "a".repeat(64),
-    url: "/legal/offer",
+    url: "https://inside.example.test/legal/offer",
     text: "",
   },
   {
@@ -111,7 +111,7 @@ export const legalDocuments: readonly LegalDocument[] = [
     documentId: "recurring",
     version: "2026-09-01",
     digest: "b".repeat(64),
-    url: "/legal/recurring",
+    url: "https://inside.example.test/legal/recurring",
     text: "",
   },
   {
@@ -119,7 +119,7 @@ export const legalDocuments: readonly LegalDocument[] = [
     documentId: "personal-data",
     version: "2026-09-01",
     digest: "c".repeat(64),
-    url: "/legal/personal-data",
+    url: "https://inside.example.test/legal/personal-data",
     text: "",
   },
 ];

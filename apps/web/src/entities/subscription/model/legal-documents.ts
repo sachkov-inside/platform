@@ -11,13 +11,10 @@ export const legalDocumentKindSchema = z.enum([
   "marketing",
 ]);
 /**
- * Адрес документа приходит с сервера и попадает в `href`, поэтому принимается только собственный
- * путь приложения или https-адрес: остальные схемы, включая `javascript:`, отклоняются.
+ * Сервер хранит адрес документа абсолютным. Он попадает в `href`, поэтому схема сужена до
+ * http(s): прочие схемы, включая `javascript:`, отклоняются на границе.
  */
-export const legalDocumentUrlSchema = z.union([
-  z.string().regex(/^\/(?!\/)/u),
-  z.url({ protocol: /^https$/u }),
-]);
+export const legalDocumentUrlSchema = z.url({ protocol: /^https?$/u });
 export const legalDocumentSchema = z.object({
   kind: legalDocumentKindSchema,
   documentId: z.string().min(1),

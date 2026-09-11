@@ -162,7 +162,7 @@ it("keeps the exact document editions the checkout must present", async () => {
       documentId: "recurring",
       version: "2026-09-01",
       digest: "b".repeat(64),
-      url: "/legal/recurring",
+      url: "https://inside.example.test/legal/recurring",
       text: "Текст",
     },
   ];

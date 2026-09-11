@@ -51,7 +51,7 @@ export function CheckoutFlow({
   const [legacyBlocked, setLegacyBlocked] = useState(false);
   const [purchase, setPurchase] = useState<PurchaseStatus | null>(null);
   const [error, setError] = useState<string>();
-  const operationId = useBillingOperations();
+  const { operationId, completeOperation } = useBillingOperations();
 
   const quoteMutation = useMutation({
     mutationFn: createBillingQuote,
@@ -61,6 +61,8 @@ export function CheckoutFlow({
         setError(billingErrorMessage(result.code));
         return;
       }
+      // Расчёт сохранён и однажды истечёт: пересчёт тех же условий — новая операция.
+      completeOperation("quote");
       setError(undefined);
       setQuote(result.value);
       setAccepted([]);

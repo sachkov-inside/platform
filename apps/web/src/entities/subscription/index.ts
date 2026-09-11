@@ -71,7 +71,11 @@ export {
   readBillingEndpoint,
   type BillingCommandResult,
 } from "./api/billing-result.browser";
-export { useBillingOperations } from "./model/use-billing-operations.client";
+export {
+  createBillingOperations,
+  useBillingOperations,
+  type BillingOperations,
+} from "./model/use-billing-operations.client";
 export {
   ConsentChecklist,
   type ConsentChecklistProps,

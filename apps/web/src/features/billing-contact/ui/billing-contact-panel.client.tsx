@@ -41,7 +41,7 @@ export function BillingContactPanel({
 }: BillingContactPanelProps) {
   const queryClient = useQueryClient();
   const query = useQuery(billingContactQueryOptions());
-  const operationId = useBillingOperations();
+  const { operationId, completeOperation } = useBillingOperations();
   const [challenge, setChallenge] = useState<{
     challengeRef: string;
     email: string;
@@ -65,6 +65,8 @@ export function BillingContactPanel({
         setError(contactErrorMessage(result.code));
         return;
       }
+      // Следующее «отправить новый код» должно уйти в банк писем, а не вернуть прежний вызов.
+      completeOperation("contact-start");
       setChallenge({
         challengeRef: result.challengeRef,
         email: input.email,
@@ -81,6 +83,7 @@ export function BillingContactPanel({
         setError(contactErrorMessage(result.code));
         return;
       }
+      completeOperation("contact-confirm");
       setChallenge(null);
       setError(undefined);
       setVerified(true);

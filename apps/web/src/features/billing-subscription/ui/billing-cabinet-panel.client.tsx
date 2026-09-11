@@ -64,7 +64,7 @@ export function BillingCabinetPanel({
     readonly LegalDocumentKind[]
   >([]);
   const [error, setError] = useState<string>();
-  const operationId = useBillingOperations();
+  const { operationId, completeOperation } = useBillingOperations();
 
   const billing = query.data?.ok === true ? query.data.value : null;
   const subscription = billing?.subscription ?? null;
@@ -147,6 +147,7 @@ export function BillingCabinetPanel({
         fail(result.code);
         return;
       }
+      completeOperation("change-quote");
       setError(undefined);
       setChangeQuote(result.value);
     },
@@ -161,6 +162,7 @@ export function BillingCabinetPanel({
         fail(result.code);
         return;
       }
+      completeOperation("change");
       setError(undefined);
       setChangeQuote(null);
       applySubscription(result.value.subscription);

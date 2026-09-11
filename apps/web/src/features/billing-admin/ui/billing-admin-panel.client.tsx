@@ -71,7 +71,7 @@ export function BillingAdminPanel({ offers }: BillingAdminPanelProps) {
   const [batch, setBatch] = useState<GrantBatchOutcome["result"] | null>(null);
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
-  const operationId = useBillingOperations();
+  const { operationId } = useBillingOperations();
 
   const command = useMutation({
     retry: false,

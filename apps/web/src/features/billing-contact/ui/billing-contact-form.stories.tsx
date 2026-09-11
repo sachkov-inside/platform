@@ -15,7 +15,7 @@ const documents: readonly LegalDocument[] = [
     documentId: "offer",
     version: "2026-09-01",
     digest: "a".repeat(64),
-    url: "/legal/offer",
+    url: "https://inside.example.test/legal/offer",
     text: "",
   },
   {
@@ -23,7 +23,7 @@ const documents: readonly LegalDocument[] = [
     documentId: "recurring",
     version: "2026-09-01",
     digest: "b".repeat(64),
-    url: "/legal/recurring",
+    url: "https://inside.example.test/legal/recurring",
     text: "",
   },
 ];
@@ -121,6 +121,6 @@ export const LegalDocuments: Story = {
     const canvas = within(canvasElement);
     await expect(
       canvas.getByRole("link", { name: "Согласие на регулярные списания" }),
-    ).toHaveAttribute("href", "/legal/recurring");
+    ).toHaveAttribute("href", "https://inside.example.test/legal/recurring");
   },
 };
