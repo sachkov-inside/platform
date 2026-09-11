@@ -2,7 +2,18 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
 import { BroadcastList } from "./broadcast-list";
 import { broadcastFixture } from "./broadcasts.fixtures";
+
+import { authoringPageEnvironment } from "@/workshop/story-environment";
+
+import { BroadcastsPageFrame } from "./broadcasts-page-frame";
+
+const environment = authoringPageEnvironment(
+  "/authoring/communications/broadcasts",
+  { frame: BroadcastsPageFrame },
+);
+
 const meta = {
+  ...environment,
   title: "Pages/Communications/Список рассылок",
   component: BroadcastList,
   args: {
@@ -31,13 +42,6 @@ const meta = {
       })),
     },
   },
-  decorators: [
-    (Story) => (
-      <main className="mx-auto max-w-6xl p-4">
-        <Story />
-      </main>
-    ),
-  ],
 } satisfies Meta<typeof BroadcastList>;
 export default meta;
 type Story = StoryObj<typeof meta>;

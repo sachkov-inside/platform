@@ -6,7 +6,8 @@ import { useQuery } from "@tanstack/react-query";
 
 import {
   ApplicationShell,
-  type ApplicationNavigationItem,
+  navigationItemsFor,
+  publicMobileNavigationItems,
 } from "@/widgets/application-shell";
 import { HeaderAuthControl, TelegramReminder } from "@/widgets/auth-control";
 import {
@@ -14,7 +15,6 @@ import {
   AccountTelegramOnboarding,
   openTelegramOnboarding,
 } from "@/features/account-access";
-import { authoringMaterialsRootHref } from "@/shared/routing/authoring";
 import { ReadingProgressProvider } from "@/features/reading-progress";
 import { LibrarySeriesStateProvider } from "@/_pages/library";
 import { useAuthStatus } from "./auth-status-control.client";
@@ -26,31 +26,14 @@ interface AppShellProps {
   readonly children: ReactNode;
 }
 
-const publicNavigationItems = [
-  { href: "/", icon: "home", label: "Главная" },
-  { href: "/library", icon: "library", label: "База знаний" },
-  { href: "/bookmarks", icon: "bookmark", label: "Закладки" },
-] satisfies readonly ApplicationNavigationItem[];
-
-const mobileNavigationItems = [
-  ...publicNavigationItems,
-  { href: "/account", icon: "profile", label: "Профиль" },
-] satisfies readonly ApplicationNavigationItem[];
-
-const authoringNavigationItem = {
-  href: authoringMaterialsRootHref,
-  icon: "pen",
-  label: "Редактор",
-} as const satisfies ApplicationNavigationItem;
-
 /** Connects the accepted application shell to App Router route state. */
 export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
   const authStatus = useAuthStatus();
   const mobileNavigation = useMobileNavigation(pathname, authStatus.accountId, authStatus.resolved && authStatus.state !== "unavailable");
-  const navigationItems = authStatus.canManageMaterials
-    ? [...publicNavigationItems, authoringNavigationItem]
-    : publicNavigationItems;
+  const navigationItems = navigationItemsFor({
+    canManageMaterials: authStatus.canManageMaterials,
+  });
   const presentation = useQuery({
     ...accountPresentationBrowserQueryOptions(),
     enabled: authStatus.resolved && authStatus.state === "authenticated",
@@ -72,7 +55,7 @@ export function AppShell({ children }: AppShellProps) {
         </div>
       }
       navigationItems={navigationItems}
-      mobileNavigationItems={mobileNavigationItems.map((item) =>
+      mobileNavigationItems={publicMobileNavigationItems.map((item) =>
         item.href === "/library"
           ? { ...item, href: mobileNavigation.libraryHref }
           : item.href === "/account" && telegramPending

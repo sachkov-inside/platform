@@ -6,6 +6,7 @@ import {
   ProfileAvatarEditor,
   type ProfileAvatarMutation,
 } from "./profile-avatar-editor.client";
+import { accountSectionEnvironment } from "@/workshop/story-environment";
 
 const profile = {
   avatar: null,
@@ -24,7 +25,10 @@ const pendingMutation = (progress: number): ProfileAvatarMutation =>
     return new Promise(() => undefined);
   };
 
+const environment = accountSectionEnvironment("/account");
+
 const meta = {
+  ...environment,
   args: {
     mutation: pendingMutation(0.42),
     onProfileChange: fn(),
@@ -32,6 +36,7 @@ const meta = {
   },
   component: ProfileAvatarEditor,
   parameters: {
+    ...environment.parameters,
     docs: {
       description: {
         component:

@@ -8,8 +8,12 @@ import {
 } from "@/workshop/billing.fixtures";
 
 import { PurchaseReturnView } from "./purchase-return.client";
+import { publicPageEnvironment } from "@/workshop/story-environment";
+
+const environment = publicPageEnvironment("/subscription/return");
 
 const meta = {
+  ...environment,
   title: "Pages/Subscription/Return",
   component: PurchaseReturnView,
   args: {
@@ -18,6 +22,7 @@ const meta = {
     onRefresh: fn(),
   },
   parameters: {
+    ...environment.parameters,
     docs: {
       description: {
         component:

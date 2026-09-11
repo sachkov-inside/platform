@@ -11,9 +11,8 @@ import { MaterialCard, MaterialReadingContext, type MaterialPreview } from "@/en
 import { ReadingAction, type ReadingActionView } from "@/features/reading-progress";
 import { Button } from "@/shared/ui/button";
 import { parseMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
-import { ApplicationShell, type ApplicationNavigationItem } from "@/widgets/application-shell";
+import { PublicShellFrame } from "./story-environment";
 
-const navigation = [{ href: "/", icon: "home", label: "Главная" }, { href: "/library", icon: "library", label: "База знаний" }] satisfies readonly ApplicationNavigationItem[];
 const materials = [
   { id: "text", slug: "reliable-requests", title: "Почему повтор запроса не должен повторять действие", format: "Текст", resume: { kind: "start" } },
   { id: "video", slug: "video-pro-developer-pipeline", title: "От задачи до релиза: Developer Pipeline", format: "Видео", resume: { kind: "position", positionSeconds: 243 } },
@@ -107,25 +106,22 @@ function ProgressWalkthrough({ initialRead = ["text"], initialSurface = "home", 
     </aside>
     <div onClickCapture={followLink}>
       <MaterialReadingContext value={{ accountId: "storybook-account", resolved: true, states, failed: false, register, refresh }}>
-        <ApplicationShell currentPath={surface === "home" ? "/" : "/library"} navigationItems={navigation} mobileNavigationItems={navigation}>
+        <PublicShellFrame currentPath={surface === "home" ? "/" : "/library"}>
           {surface === "home" ? <HomePage result={{ kind: "ready", value: { ...illustratedHome, videos: illustratedHome.videos.map((item) => item.slug === materials[1].slug ? preview(materials[1]) : item), guides: illustratedHome.guides.map((item) => item.slug === materials[2].slug ? preview(materials[2]) : item), playlists: illustratedHome.playlists.map((item) => item.slug === collection.slug ? collection : item) } }} continuation={continuation} /> : null}
           {surface === "reader" ? <MaterialReaderView body={body} material={metadata} primaryVideo={null} readingAction={action(selected)} returnTarget={returnTarget} seriesContext={seriesContext} /> : null}
           {surface === "series" ? <GuideProgrammeView learning={{ kind: "ready", total: materials.length, read: read.length, continuation: hasHistory && next !== undefined ? { materialSlug: next.slug, label: next.id === "video" && !videoEnded ? "Продолжить с 4:03" : "Продолжить здесь" } : null }} result={{ chapters: [], kind: "ready", discoveryKind: "series", hasNext: false, reference: { name: collection.name, slug: collection.slug, summary: collection.summary ?? "" }, items: materials.map(preview), relatedSeries: [], topics: [] }} /> : null}
-          {surface === "cards" ? <div className="mx-auto max-w-5xl">
-            <h1 className="text-2xl font-semibold">Карточки материалов</h1>
-            <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {materials.map((item) => <MaterialCard key={item.id} material={preview(item)} />)}
-            </div>
+          {surface === "cards" ? <div className="mx-auto grid max-w-5xl gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {materials.map((item) => <MaterialCard key={item.id} material={preview(item)} />)}
           </div> : null}
-        </ApplicationShell>
+        </PublicShellFrame>
       </MaterialReadingContext>
     </div>
   </>;
 }
 
 const meta = {
-  title: "Pages/Progress walkthrough", component: ProgressWalkthrough,
-  parameters: { controls: { disable: true }, docs: { description: { component: "Связанный визуальный сценарий #329–#332. Верхняя панель относится только к Storybook. Ниже используются компоненты Platform: Reader, ReadingAction, MaterialCard, SeriesProgress, HomePage, PlaylistCard и MaterialCard. Начатое руководство и недосмотренное видео стоят первыми в своих секциях без отдельных карточек продолжения. Отметки меняются только в памяти примера. Отметки и их ошибки: Pages/Reading progress. Прежний отдельный блок Pages/Personal Home заменён этим предложением; Реальные Home и Series получают продолжение через private API; этот пример использует только демонстрационные данные." } } },
+  title: "Features/Progress walkthrough", component: ProgressWalkthrough,
+  parameters: { controls: { disable: true }, docs: { description: { component: "Связанный визуальный сценарий #329–#332. Верхняя панель относится только к Storybook. Ниже используются компоненты Platform: Reader, ReadingAction, MaterialCard, SeriesProgress, HomePage, PlaylistCard и MaterialCard. Начатое руководство и недосмотренное видео стоят первыми в своих секциях без отдельных карточек продолжения. Отметки меняются только в памяти примера. Отметки и их ошибки: Features/Reading progress. Реальные Home и Series получают продолжение через private API; этот пример использует только демонстрационные данные." } } },
 } satisfies Meta<typeof ProgressWalkthrough>;
 export default meta;
 type Story = StoryObj<typeof meta>;

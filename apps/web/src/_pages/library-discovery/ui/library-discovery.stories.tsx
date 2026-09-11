@@ -4,10 +4,6 @@ import { expect, within } from "storybook/test";
 
 import type { LibraryDiscoveryResult } from "@/features/library-discovery";
 import type { MaterialPreview } from "@/entities/material";
-import {
-  ApplicationShell,
-  type ApplicationNavigationItem,
-} from "@/widgets/application-shell";
 import { GuideProgrammeView } from "./guide-programme-view.client";
 import {
   LibraryDiscoveryLoading,
@@ -16,6 +12,7 @@ import {
   LibraryDiscoveryUnavailable,
   LibraryDiscoveryView,
 } from "./library-discovery-view";
+import { publicPageEnvironment } from "@/workshop/story-environment";
 
 /**
  * Истории программы живут под общим meta страницы открытия, поэтому её результат сужается здесь
@@ -29,11 +26,6 @@ function programmeResult(
   }
   return result;
 }
-
-const navigationItems = [
-  { href: "/", icon: "home", label: "Главная" },
-  { href: "/library", icon: "library", label: "База знаний" },
-] satisfies readonly ApplicationNavigationItem[];
 
 const materials = [
   {
@@ -131,30 +123,11 @@ const seriesResult = {
   topics: [{ id: "topic-platform", name: "Platform", slug: "platform" }],
 } as const satisfies LibraryDiscoveryResult;
 
-function ProductionShell({ children }: { readonly children: React.ReactNode }) {
-  return (
-    <ApplicationShell
-      currentPath="/topics/platform"
-      navigationItems={navigationItems}
-      mobileNavigationItems={[...navigationItems, { href: "/account", icon: "profile", label: "Профиль" }]}
-    >
-      {children}
-    </ApplicationShell>
-  );
-}
+const environment = publicPageEnvironment("/topics/platform");
 
 const meta = {
+  ...environment,
   component: LibraryDiscoveryView,
-  decorators: [
-    (Story) => (
-      <ProductionShell>
-        <Story />
-      </ProductionShell>
-    ),
-  ],
-  parameters: {
-    nextjs: { appDirectory: true },
-  },
   title: "Pages/Mobile-first Platform/Collections",
 } satisfies Meta<typeof LibraryDiscoveryView>;
 
@@ -303,7 +276,6 @@ export const UnexpectedError: Story = {
   render: () => <LibraryDiscoveryUnexpectedError onRetry={() => undefined} />,
   name: "Unexpected error",
 };
-
 
 async function expectNoHorizontalOverflow(canvasElement: HTMLElement) {
   const storyWindow = canvasElement.ownerDocument.defaultView;

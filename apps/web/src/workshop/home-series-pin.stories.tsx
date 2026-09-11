@@ -1,14 +1,21 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
 import { HomeSeriesPinView } from "@/features/series-order";
+import { SeriesEditorPageFrame } from "@/_pages/content-collections";
+
+import { authoringPageEnvironment } from "./story-environment";
 
 const seriesId = "72000000-0000-4000-8000-000000000298";
+const environment = authoringPageEnvironment(
+  `/authoring/playlists/${seriesId}`,
+  { frame: SeriesEditorPageFrame },
+);
 const onChange = fn();
 const meta = {
+  ...environment,
   component: HomeSeriesPinView,
   title: "Features/Series/Home pin",
   args: { seriesId, controls: { pin: { seriesId: null, version: 2 }, pending: false, onChange }, message: "Закрепите это руководство: оно появится первым на главной с изображением автора." },
-  decorators: [(Story) => <div className="mx-auto max-w-4xl p-4"><Story /></div>],
   tags: ["autodocs"],
 } satisfies Meta<typeof HomeSeriesPinView>;
 export default meta;

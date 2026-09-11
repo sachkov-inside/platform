@@ -6,7 +6,18 @@ import {
   statisticsFixture,
 } from "./broadcasts.fixtures";
 import { AnalyticsPanel, EntryHistory } from "./analytics-panel";
+
+import { authoringPageEnvironment } from "@/workshop/story-environment";
+
+import { BroadcastsPageFrame } from "./broadcasts-page-frame";
+
+const environment = authoringPageEnvironment(
+  "/authoring/communications/broadcasts",
+  { frame: BroadcastsPageFrame },
+);
+
 const meta = {
+  ...environment,
   title: "Pages/Communications/Аналитика",
   component: AnalyticsPanel,
   args: {
@@ -17,15 +28,6 @@ const meta = {
     deliveries: { kind: "ready", deliveries: [], nextCursor: null },
     result: statisticsFixture,
   },
-  decorators: [
-    (Story) => (
-      <main className="mx-auto max-w-6xl bg-background p-4 text-foreground">
-        <h1 className="text-2xl">Коммуникации</h1>
-        <h2 className="text-xl">Аналитика</h2>
-        <Story />
-      </main>
-    ),
-  ],
 } satisfies Meta<typeof AnalyticsPanel>;
 export default meta;
 type Story = StoryObj<typeof meta>;

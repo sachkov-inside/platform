@@ -5,6 +5,7 @@ export {
   type AccountSectionId,
 } from "./model/account-sections";
 export {
+  AccountCabinet,
   useSubscriptionOffered,
   useSubscriptionOptions,
 } from "./ui/account-cabinet.client";

@@ -5,6 +5,7 @@ import { expect, userEvent, within } from "storybook/test";
 import { withMutationFetch } from "@/workshop/mutation-mock";
 import { ContentCollectionsPageClient } from "./content-collections-page.client";
 import { SeriesEditorPageClient } from "./series-editor-page.client";
+import { authoringPageEnvironment } from "@/workshop/story-environment";
 
 const collection = {
   archived: false,
@@ -75,7 +76,13 @@ function Fixture({
   });
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
+
+const environment = authoringPageEnvironment(
+  "/authoring/playlists/95000000-0000-4000-8000-000000000010",
+);
+
 const meta = {
+  ...environment,
   component: SeriesEditorPageClient,
   args: { initialCollection: collection },
   decorators: [
@@ -89,8 +96,8 @@ const meta = {
         Response.json({ kind: "saved", orderVersion: "b".repeat(64) }),
       ),
     ),
+    ...environment.decorators,
   ],
-  parameters: { nextjs: { appDirectory: true } },
   title: "Pages/Authoring/Редактор руководства",
 } satisfies Meta<typeof SeriesEditorPageClient>;
 export default meta;

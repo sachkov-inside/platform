@@ -9,6 +9,7 @@ import {
 import { fetchBeforeRender } from "@/workshop/mutation-mock";
 
 import { SubscriptionStorefront } from "./subscription-storefront.client";
+import { publicPageEnvironment } from "@/workshop/story-environment";
 
 const signedOut = fetchBeforeRender(() =>
   Promise.resolve(new Response(null, { status: 401 })),
@@ -21,14 +22,20 @@ const subscribed = fetchBeforeRender(() =>
 const desktop = { viewport: { isRotated: false, value: "desktop1440" } };
 const mobile = { viewport: { isRotated: false, value: "mobile390" } };
 
+const environment = publicPageEnvironment("/subscription");
+
 const meta = {
+  ...environment,
   title: "Pages/Subscription/Storefront",
   component: SubscriptionStorefront,
   args: { offers: billingOffers, returnTo: "/subscription" },
-  beforeEach: signedOut,
+  beforeEach: () => {
+    environment.beforeEach();
+    return signedOut();
+  },
   globals: desktop,
   parameters: {
-    nextjs: { appDirectory: true },
+    ...environment.parameters,
     docs: {
       description: {
         component:

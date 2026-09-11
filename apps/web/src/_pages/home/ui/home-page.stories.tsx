@@ -2,10 +2,10 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
 
 import type { MaterialPreview } from "@/entities/material";
-import { ApplicationShell } from "@/widgets/application-shell";
 import type { HomeView } from "../model/home-view";
 import { HomePage } from "./home-page";
 import { illustratedHome } from "./illustrated-home.fixture";
+import { publicPageEnvironment } from "@/workshop/story-environment";
 
 const video = material({
   format: "Видео",
@@ -62,27 +62,11 @@ const home = {
   ],
 } as const satisfies HomeView;
 
+const environment = publicPageEnvironment("/");
+
 const meta = {
+  ...environment,
   component: HomePage,
-  decorators: [
-    (Story) => (
-      <ApplicationShell
-        currentPath="/"
-        mobileNavigationItems={[
-          { href: "/", icon: "home", label: "Главная" },
-          { href: "/library", icon: "library", label: "База знаний" },
-          { href: "/account", icon: "profile", label: "Профиль" },
-        ]}
-        navigationItems={[
-          { href: "/", icon: "home", label: "Главная" },
-          { href: "/library", icon: "library", label: "База знаний" },
-        ]}
-      >
-        <Story />
-      </ApplicationShell>
-    ),
-  ],
-  parameters: { layout: "fullscreen" },
   tags: ["autodocs"],
   title: "Pages/Mobile-first Platform/Home",
 } satisfies Meta<typeof HomePage>;
