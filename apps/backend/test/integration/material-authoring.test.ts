@@ -78,6 +78,7 @@ describe("MaterialAuthoring", () => {
         primaryVideoId: null,
         primaryVideo: null,
         latestVideoDeletion: null,
+        unselectedVideoUpload: null,
         metadata: {
           title: null,
           summary: null,
@@ -586,16 +587,22 @@ describe("MaterialAuthoring", () => {
       ok: true as const,
       value: null,
     }));
+    const loadLatestUpload = vi.fn(() => Promise.resolve({
+      ok: true as const,
+      value: null,
+    }));
     const videos = {
       inspectPrimaryReference,
       loadAuthoringPresentation,
       loadLatestDeletion,
+      loadLatestUpload,
       loadPresentation,
     } satisfies Pick<
       Videos,
       | "inspectPrimaryReference"
       | "loadAuthoringPresentation"
       | "loadLatestDeletion"
+      | "loadLatestUpload"
       | "loadPresentation"
     >;
     const withVideos = assembleMaterials({
@@ -992,6 +999,145 @@ describe("MaterialAuthoring", () => {
     await expect(testDatabase.prisma.videoDeletionOperation.findUniqueOrThrow({
       where: { videoId: initialized.value.video.videoId },
     })).resolves.toMatchObject({ state: "deletion_requested" });
+  });
+
+  test("reports an upload the Material never saved and stops once it becomes the primary Video", async () => {
+    const remote = new Map<string, ProviderVideo>();
+    let providerVideoId = "";
+    const provider: VideoProvider = {
+      delete: () => Promise.reject(new Error("unused")),
+      find: (input) => Promise.resolve(remote.get(input.id) ?? null),
+      initUpload(input) {
+        providerVideoId = crypto.randomUUID();
+        remote.set(providerVideoId, {
+          embedLocator: null,
+          id: providerVideoId,
+          projectId: input.projectId,
+          status: "uploading",
+          title: input.title,
+        });
+        return Promise.resolve({
+          id: providerVideoId,
+          uploadEndpoint: `https://uploads.example.test/${providerVideoId}`,
+        });
+      },
+    };
+    const videos = assembleVideos({
+      canManage: () => Promise.resolve(true),
+      prisma: testDatabase.prisma,
+      projects: { free: "public-project", membership: "member-project" },
+      provider,
+    });
+    const materials = assembleMaterials({
+      authorPolicy: { canManage: () => Promise.resolve(true) },
+      prisma: testDatabase.prisma,
+      videos,
+    });
+    const metadata = {
+      access: "free" as const,
+      formatId: null,
+      seriesIds: [],
+      summary: null,
+      tagIds: [],
+      title: "Interrupted upload recovery",
+      topicId: null,
+    };
+    const body = representativeDocument("The author closed the tab mid upload.");
+    const created = await materials.authoring.createDraft({
+      actor,
+      body,
+      idempotencyKey: "create-interrupted-upload-recovery",
+      metadata,
+    });
+    if (!created.ok) throw new Error(created.error.code);
+
+    const started = await videos.initUpload({
+      access: "free",
+      actor,
+      byteSize: 4_096,
+      filename: "lesson.mp4",
+      idempotencyKey: "interrupted-upload-recovery",
+      materialId: created.value.materialId,
+      title: "Recovered lesson",
+    });
+    if (!started.ok) throw new Error(started.error.code);
+
+    await expect(materials.authoring.loadMaterial({
+      actor,
+      materialId: created.value.materialId,
+    })).resolves.toMatchObject({
+      ok: true,
+      value: {
+        primaryVideo: null,
+        primaryVideoId: null,
+        unselectedVideoUpload: {
+          origin: "platform_upload",
+          state: "uploading",
+          title: "Recovered lesson",
+          videoId: started.value.video.videoId,
+        },
+      },
+    });
+
+    remote.set(providerVideoId, {
+      embedLocator: "https://kinescope.io/embed/recovered",
+      id: providerVideoId,
+      projectId: "public-project",
+      status: "done",
+      title: "Recovered lesson",
+    });
+    await expect(videos.reconcile({
+      actor,
+      videoId: started.value.video.videoId,
+    })).resolves.toMatchObject({ ok: true, value: { state: "ready" } });
+
+    await expect(materials.authoring.saveMaterial({
+      actor,
+      body,
+      expectedContentVersion: 1,
+      idempotencyKey: "save-recovered-upload",
+      materialId: created.value.materialId,
+      metadata,
+      primaryVideoId: started.value.video.videoId,
+      publicationState: "draft",
+    })).resolves.toMatchObject({ ok: true, value: { contentVersion: 2 } });
+
+    await expect(materials.authoring.loadMaterial({
+      actor,
+      materialId: created.value.materialId,
+    })).resolves.toMatchObject({
+      ok: true,
+      value: {
+        primaryVideoId: started.value.video.videoId,
+        primaryVideo: { state: "ready" },
+        unselectedVideoUpload: null,
+      },
+    });
+
+    await expect(materials.authoring.saveMaterial({
+      actor,
+      body,
+      deleteVideoId: started.value.video.videoId,
+      expectedContentVersion: 2,
+      idempotencyKey: "delete-recovered-upload",
+      materialId: created.value.materialId,
+      metadata,
+      primaryVideoId: null,
+      publicationState: "draft",
+    })).resolves.toMatchObject({ ok: true, value: { contentVersion: 3 } });
+
+    // A Video on its way out is never offered back as a recoverable upload.
+    await expect(materials.authoring.loadMaterial({
+      actor,
+      materialId: created.value.materialId,
+    })).resolves.toMatchObject({
+      ok: true,
+      value: {
+        latestVideoDeletion: { state: "deletion_requested" },
+        primaryVideo: null,
+        unselectedVideoUpload: null,
+      },
+    });
   });
 
   test("rejects deletion of an externally attached Video without detaching it", async () => {

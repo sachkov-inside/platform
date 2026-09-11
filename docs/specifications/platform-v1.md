@@ -630,7 +630,12 @@ redirect и cache policy остаются за backend.
    provider I/O; один unresolved attempt на Material+actor блокирует новый key после ambiguous
    timeout, поэтому browser retry не создаёт второй provider object. Browser выполняет resumable
    Tus transfer без API token. Attach-existing всегда делает server lookup в фиксированном public
-   или membership project.
+   или membership project. Material ссылается на Video только после `ready`, поэтому закрытая или
+   перезагруженная вкладка оставляет Platform Upload без ссылки. Редактор получает последнюю такую
+   unselected загрузку Material, сверяет её с provider сам и объясняет исход: `ready` привязывается
+   обычным Save, продолжающаяся обработка ждёт, а всё ещё `uploading` без transfer означает
+   неполный файл и требует новой загрузки, а не повтора проверки. Video в состоянии удаления и
+   `external_attachment` кандидатами не являются.
 9. Webhook — durable hint: duplicate и out-of-order deliveries попадают в inbox, после чего Platform
    повторно читает provider state. Только `done` с безопасным returned embed locator становится
    `ready`; unknown status становится видимым failed state, а provider outage оставляет event для

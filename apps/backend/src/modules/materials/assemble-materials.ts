@@ -41,6 +41,7 @@ export function assembleMaterials(dependencies: {
     | "inspectPrimaryReference"
     | "loadAuthoringPresentation"
     | "loadLatestDeletion"
+    | "loadLatestUpload"
     | "loadPresentation"
   >;
 }): Materials {

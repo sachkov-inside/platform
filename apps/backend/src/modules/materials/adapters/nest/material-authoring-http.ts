@@ -63,6 +63,7 @@ export const materialSchema = z
     primaryVideoId: z.uuid().nullable(),
     primaryVideo: videoAuthoringPresentationSchema.nullable(),
     latestVideoDeletion: videoAuthoringPresentationSchema.nullable(),
+    unselectedVideoUpload: videoAuthoringPresentationSchema.nullable(),
     cover: contentCoverProjectionHttpSchema.nullable(),
     firstPublishedAt: z.iso.datetime({ offset: true }).nullable(),
     publishedAt: z.iso.datetime({ offset: true }).nullable(),

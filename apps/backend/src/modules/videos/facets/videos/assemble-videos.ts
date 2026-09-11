@@ -470,6 +470,27 @@ export function assembleVideos(dependencies: {
       }
     },
 
+    async loadLatestUpload(materialId) {
+      const parsed = videoMaterialIdSchema.safeParse(materialId);
+      if (!parsed.success) return invalidRequest();
+      try {
+        const video = await dependencies.prisma.video.findFirst({
+          orderBy: { createdAt: "desc" },
+          where: {
+            materialId: parsed.data,
+            origin: "platform_upload",
+            state: { in: ["uploading", "processing", "ready", "failed"] },
+          },
+        });
+        return {
+          ok: true,
+          value: video === null ? null : toAuthoringPresentation(video),
+        };
+      } catch {
+        return dependencyUnavailable();
+      }
+    },
+
     async loadAccessFacts(videoIds) {
       const parsed = z.array(videoIdSchema).safeParse(videoIds);
       if (!parsed.success) return invalidRequest();

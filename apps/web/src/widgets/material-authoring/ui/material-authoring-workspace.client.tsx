@@ -143,6 +143,7 @@ export function MaterialAuthoringWorkspace({
             latestVideoDeletion={presentation.draft.latestVideoDeletion}
             key={`${presentation.draft.materialId ?? "new"}:${presentation.draft.access}`}
             primaryVideo={presentation.draft.primaryVideo}
+            unselectedUpload={presentation.draft.unselectedVideoUpload}
           />
           <MaterialDocumentEditor
             saveState={presentation.save}

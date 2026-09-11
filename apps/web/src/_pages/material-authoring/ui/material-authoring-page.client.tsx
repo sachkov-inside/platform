@@ -313,12 +313,19 @@ export function MaterialAuthoringPageClient({
         draftRef.current.primaryVideo?.videoId === deleteVideoId
           ? draftRef.current.primaryVideo
           : draftRef.current.latestVideoDeletion;
+      const unselectedUpload = draftRef.current.unselectedVideoUpload;
       markDirty({
         ...draftRef.current,
         deleteVideoId,
         latestVideoDeletion: deletionCandidate,
         primaryVideo,
         primaryVideoId: primaryVideo?.videoId ?? null,
+        unselectedVideoUpload:
+          unselectedUpload === null ||
+          unselectedUpload.videoId === primaryVideo?.videoId ||
+          unselectedUpload.videoId === deleteVideoId
+            ? null
+            : unselectedUpload,
       });
     },
     onRetry: () => {

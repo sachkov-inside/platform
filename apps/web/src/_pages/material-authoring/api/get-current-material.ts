@@ -47,6 +47,7 @@ const currentMaterialSchema = z
     primaryVideoId: z.uuid().nullable(),
     primaryVideo: authoringVideoSchema.nullable(),
     publishedAt: z.iso.datetime({ offset: true }).nullable(),
+    unselectedVideoUpload: authoringVideoSchema.nullable(),
   })
   .strict();
 const problemSchema = z.object({ code: z.string(), correlationId: z.string().optional() }).loose();
@@ -152,6 +153,7 @@ export async function getCurrentMaterial(
       tagIds: parsed.data.metadata.tagIds,
       title: parsed.data.metadata.title ?? "",
       topicId: parsed.data.metadata.topicId ?? "unassigned",
+      unselectedVideoUpload: parsed.data.unselectedVideoUpload,
     },
     kind: "ready",
     references,

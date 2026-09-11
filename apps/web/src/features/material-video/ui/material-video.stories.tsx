@@ -17,6 +17,8 @@ type VideoStoryMode =
   | "authoring-error"
   | "authoring-external-ready"
   | "authoring-idle"
+  | "authoring-interrupted"
+  | "authoring-interrupted_incomplete"
   | "authoring-processing"
   | "authoring-ready"
   | "authoring-uploading"
@@ -85,7 +87,11 @@ function MaterialVideoStateBoard({ mode }: { readonly mode: VideoStoryMode }) {
         ? "idle"
         : (mode.replace("authoring-", "") as MaterialVideoAuthoringPhase);
   const hasVideo =
-    phase === "processing" || phase === "ready" || phase === "error";
+    phase === "processing" ||
+    phase === "ready" ||
+    phase === "error" ||
+    phase === "interrupted" ||
+    phase === "interrupted_incomplete";
   return (
     <div className="mx-auto max-w-4xl p-5 sm:p-8">
       <MaterialVideoAuthoringView
@@ -102,7 +108,10 @@ function MaterialVideoStateBoard({ mode }: { readonly mode: VideoStoryMode }) {
                     ? "ready"
                     : phase === "error"
                       ? "failed"
-                      : "processing",
+                      : phase === "interrupted" ||
+                          phase === "interrupted_incomplete"
+                        ? "uploading"
+                        : "processing",
                 title: "Разбор проверки skill contract",
                 videoId: "03000000-0000-4000-8000-000000000001",
               }
@@ -173,6 +182,38 @@ export const AuthoringUploading: Story = {
     await expect(
       canvas.getByRole("button", { name: "Загрузить" }),
     ).toBeDisabled();
+  },
+};
+
+export const AuthoringInterrupted: Story = {
+  args: { mode: "authoring-interrupted" },
+  name: "Authoring · interrupted upload recovered",
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByText("Проверяем незавершённую загрузку"),
+    ).toBeVisible();
+    await expect(
+      canvas.getByText(/осталось от незавершённой загрузки/u),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: "Удалить…" }),
+    ).toBeEnabled();
+  },
+};
+
+export const AuthoringInterruptedIncomplete: Story = {
+  args: { mode: "authoring-interrupted_incomplete" },
+  name: "Authoring · interrupted upload never finished",
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("Загрузка не завершена")).toBeVisible();
+    await expect(
+      canvas.getByText(/Загрузите файл заново или удалите незавершённую запись/u),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: "Загрузить" }),
+    ).toBeEnabled();
   },
 };
 

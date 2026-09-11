@@ -18,6 +18,9 @@ export interface MaterialAuthoringDependencies {
   >;
   readonly videos?: Pick<
     Videos,
-    "inspectPrimaryReference" | "loadAuthoringPresentation" | "loadLatestDeletion"
+    | "inspectPrimaryReference"
+    | "loadAuthoringPresentation"
+    | "loadLatestDeletion"
+    | "loadLatestUpload"
   >;
 }

@@ -133,6 +133,7 @@ export function toMaterialDto(
   videos: {
     readonly latestVideoDeletion: VideoAuthoringPresentation | null;
     readonly primaryVideo: VideoAuthoringPresentation | null;
+    readonly unselectedVideoUpload: VideoAuthoringPresentation | null;
   },
 ): MaterialDto {
   return {
@@ -145,6 +146,7 @@ export function toMaterialDto(
     primaryVideoId: material.primaryVideoId,
     primaryVideo: videos.primaryVideo,
     latestVideoDeletion: videos.latestVideoDeletion,
+    unselectedVideoUpload: videos.unselectedVideoUpload,
     cover: material.cover,
     metadata: material.metadata.toValues(),
     body: material.body,

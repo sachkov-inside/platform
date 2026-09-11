@@ -196,6 +196,7 @@ describe("Material Authoring action workflow", () => {
           },
           publicationState: "published",
           latestVideoDeletion: null,
+          unselectedVideoUpload: null,
           primaryVideo: null,
           primaryVideoId: null,
           publishedAt: "2026-08-30T08:00:00.000Z",

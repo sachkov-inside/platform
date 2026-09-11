@@ -26,6 +26,67 @@ export const videoSchema = authoringVideoSchema.extend({
 export type MaterialAuthoringVideo = z.infer<typeof authoringVideoSchema>;
 export type MaterialVideo = z.infer<typeof videoSchema>;
 
+export type MaterialVideoAuthoringPhase =
+  | "idle"
+  | "uploading"
+  | "processing"
+  | "ready"
+  | "error"
+  | "interrupted"
+  | "interrupted_incomplete"
+  | "upload_not_authorized"
+  | "upload_outcome_unknown";
+
+export interface InitialVideoAuthoring {
+  readonly phase: MaterialVideoAuthoringPhase;
+  readonly recoveredVideoId: string | null;
+  readonly video: MaterialAuthoringVideo | null;
+}
+
+/**
+ * A Material stores its primary Video only once that Video is ready, so an editor tab closed
+ * during upload or processing leaves a real Kinescope Video with nothing pointing at it. The
+ * editor adopts that unselected upload instead of opening as if no video existed.
+ */
+export function resolveInitialVideoAuthoring(input: {
+  readonly primaryVideo: MaterialAuthoringVideo | null;
+  readonly unselectedUpload: MaterialAuthoringVideo | null;
+}): InitialVideoAuthoring {
+  const recovered = input.primaryVideo === null ? input.unselectedUpload : null;
+  return recovered === null
+    ? {
+        phase: phaseForVideo(input.primaryVideo),
+        recoveredVideoId: null,
+        video: input.primaryVideo,
+      }
+    : { phase: "interrupted", recoveredVideoId: recovered.videoId, video: recovered };
+}
+
+export function phaseForVideo(
+  video: MaterialAuthoringVideo | null,
+): MaterialVideoAuthoringPhase {
+  if (video === null) return "idle";
+  if (video.state === "ready") return "ready";
+  if (video.state === "failed") return "error";
+  return video.state === "uploading" ? "uploading" : "processing";
+}
+
+/**
+ * An adopted upload has no browser transfer left to finish it: when the provider still reports
+ * `uploading`, waiting or checking again cannot change that, so the author is told to upload the
+ * file again rather than to retry.
+ */
+export function phaseForReconciledVideo(
+  video: MaterialAuthoringVideo,
+  recoveredVideoId: string | null,
+): MaterialVideoAuthoringPhase {
+  if (video.state === "ready") return "ready";
+  if (video.state === "failed") return "error";
+  return recoveredVideoId === video.videoId && video.state === "uploading"
+    ? "interrupted_incomplete"
+    : "processing";
+}
+
 export interface VideoPlaybackProgress {
   readonly resumeSeconds: number | null;
   readonly watched: boolean;

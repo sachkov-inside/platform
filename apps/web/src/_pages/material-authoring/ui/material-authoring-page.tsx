@@ -58,6 +58,7 @@ export async function MaterialAuthoringPage({ returnHref }: { readonly returnHre
       formatId: "unassigned",
       materialId: null,
       latestVideoDeletion: null,
+    unselectedVideoUpload: null,
       primaryVideo: null,
       primaryVideoId: null,
       readOnly: false,

@@ -1005,6 +1005,14 @@ export class MaterialAuthoringService {
     primaryVideoId: string | null;
     publicationState: 'draft' | 'published' | 'unpublished';
     publishedAt: string | null;
+    unselectedVideoUpload: {
+      durationSeconds?: number;
+      failureCode?: string;
+      origin: 'external_attachment' | 'platform_upload';
+      state: 'uploading' | 'processing' | 'ready' | 'failed' | 'deletion_requested' | 'deleting' | 'deleted' | 'delete_failed';
+      title: string;
+      videoId: string;
+    } | null;
   }> {
     return this.httpRequest.request({
       method: 'GET',

@@ -267,6 +267,99 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
     });
   });
 
+  test("offers the newest unfinished upload of a Material for recovery", async () => {
+    const remote = new Map<string, ProviderVideo>();
+    const provider: VideoProvider = {
+      delete: unusedDelete,
+      initUpload(input) {
+        const id = randomUUID();
+        remote.set(id, {
+          embedLocator: null,
+          id,
+          projectId: input.projectId,
+          status: "uploading",
+          title: input.title,
+        });
+        return Promise.resolve({ id, uploadEndpoint: `https://uploads.example.test/${id}` });
+      },
+      find: (input) => Promise.resolve(remote.get(input.id) ?? null),
+    };
+    const videos = assembleVideos({
+      canManage: () => Promise.resolve(true),
+      prisma: database.prisma,
+      provider,
+      projects: { free: "public-project", membership: "member-project" },
+    });
+    const actor = randomUUID();
+    const materialId = randomUUID();
+    const upload = {
+      access: "free" as const,
+      actor,
+      byteSize: 8_192,
+      filename: "interrupted.mp4",
+      materialId,
+      title: "Interrupted lesson",
+    };
+
+    await expect(videos.loadLatestUpload(materialId)).resolves.toEqual({ ok: true, value: null });
+
+    const first = await videos.initUpload({ ...upload, idempotencyKey: "first-interrupted-upload" });
+    if (!first.ok) throw new Error(first.error.code);
+
+    // The browser tab is gone: the Material never stored this Video, but the author must find it.
+    await expect(videos.loadLatestUpload(materialId)).resolves.toEqual({
+      ok: true,
+      value: {
+        origin: "platform_upload",
+        state: "uploading",
+        title: "Interrupted lesson",
+        videoId: first.value.video.videoId,
+      },
+    });
+
+    const second = await videos.initUpload({
+      ...upload,
+      idempotencyKey: "second-interrupted-upload",
+      title: "Second attempt",
+    });
+    if (!second.ok) throw new Error(second.error.code);
+    await expect(videos.loadLatestUpload(materialId)).resolves.toMatchObject({
+      ok: true,
+      value: { title: "Second attempt", videoId: second.value.video.videoId },
+    });
+
+  });
+
+  test("never offers an External Attachment as an interrupted upload", async () => {
+    const providerVideoId = randomUUID();
+    const videos = assembleVideos({
+      canManage: () => Promise.resolve(true),
+      prisma: database.prisma,
+      provider: {
+        delete: unusedDelete,
+        initUpload: () => Promise.reject(new Error("unused")),
+        find: () => Promise.resolve({
+          embedLocator: "https://kinescope.io/embed/attached",
+          id: providerVideoId,
+          projectId: "public-project",
+          status: "done",
+          title: "Attached recording",
+        }),
+      },
+      projects: { free: "public-project", membership: "member-project" },
+    });
+    const materialId = randomUUID();
+
+    await expect(videos.attachExisting({
+      access: "free",
+      actor: randomUUID(),
+      materialId,
+      providerVideoId,
+    })).resolves.toMatchObject({ ok: true, value: { origin: "external_attachment" } });
+
+    await expect(videos.loadLatestUpload(materialId)).resolves.toEqual({ ok: true, value: null });
+  });
+
   test("keeps an early webhook pending and reconciles it after the local Video exists", async () => {
     const providerVideoId = `early-${randomUUID()}`;
     const provider: VideoProvider = {
