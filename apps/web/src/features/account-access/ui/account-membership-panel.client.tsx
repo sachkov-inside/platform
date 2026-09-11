@@ -28,6 +28,15 @@ import {
   telegramLinkPresentation,
 } from "./telegram-link-presentation";
 
+/**
+ * Состояние, при котором подписка вообще предлагается: выключенная из продажи ветка не рендерит
+ * карточку, поэтому внутри неё нет.
+ */
+type OfferedMembership = Exclude<
+  AccountTelegramMembership["membership"],
+  { kind: "notOffered" }
+>;
+
 export function AccountMembershipPanel({
   onRefresh,
   presentation,
@@ -46,11 +55,13 @@ export function AccountMembershipPanel({
         Telegram и доступ к Sachkov Inside
       </h2>
       <TelegramConnection state={presentation.link} {...flow} />
-      <InsideAccessCard
-        pending={flow.pending}
-        refresh={flow.refresh}
-        state={presentation.membership}
-      />
+      {presentation.membership.kind === "notOffered" ? null : (
+        <InsideAccessCard
+          pending={flow.pending}
+          refresh={flow.refresh}
+          state={presentation.membership}
+        />
+      )}
       <MutationNotice result={flow.mutationResult} />
     </section>
   );
@@ -101,7 +112,7 @@ function InsideAccessCard({
 }: {
   readonly pending: boolean;
   readonly refresh: () => void;
-  readonly state: AccountTelegramMembership["membership"];
+  readonly state: OfferedMembership;
 }) {
   const view = accessView(state, { pending, refresh });
 
@@ -266,7 +277,7 @@ function TelegramButton({
 }
 
 function accessView(
-  state: AccountTelegramMembership["membership"],
+  state: OfferedMembership,
   actions: { readonly pending: boolean; readonly refresh: () => void },
 ): {
   readonly action: ReactNode;

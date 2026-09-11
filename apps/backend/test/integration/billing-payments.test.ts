@@ -69,6 +69,7 @@ describe("subscription payment recovery (real PostgreSQL and real facets; synthe
     const offerId = randomUUID(), optionId = randomUUID();
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.save", value: { id: offerId, name: "Synthetic subscription", benefits, ...(benefitPeriods ? { benefitPeriods } : {}) } }));
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "paymentOptions.save", value: { id: optionId, offerId, months: 1, priceKopecks: 200_000 } }));
+    value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.publish", expectedRevision: 1, id: offerId }));
     const quote = value(await pricing.quote(buyer, { operationId: randomUUID(), paymentOptionId: optionId, optionRevision: 1 }));
     const consent = await contact.acceptConsents(buyer, { operationId: randomUUID(), contextRef: quote.quoteRef, documents: documents.map(document => ({ kind: document.kind, documentId: document.documentId, version: document.version, digest: document.digest, accepted: true })) });
     if (!consent.ok) throw new Error(consent.error.code);
@@ -210,7 +211,7 @@ describe("subscription payment recovery (real PostgreSQL and real facets; synthe
     const failing = s.runtime({ ...grants, applyPaidPeriod: () => Promise.resolve({ ok: false, error: { code: "unavailable" } }) });
     await failing.recover();
     expect(value(await failing.status(s.buyer, purchase.purchaseRef)).access).toBe("preparing");
-    value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.archive", id: s.offerId, expectedRevision: 1 }));
+    value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.archive", id: s.offerId, expectedRevision: 2 }));
     expect(value(await runtime.status(s.buyer, purchase.purchaseRef)).snapshot).toEqual(s.quote.snapshot);
     await expect(db.prisma.billingPurchase.update({ where: { id: purchase.purchaseRef }, data: { snapshot: {} } })).rejects.toThrow();
     await expect(db.prisma.billingPaymentEvent.deleteMany({ where: { purchaseRef: purchase.purchaseRef } })).rejects.toThrow();

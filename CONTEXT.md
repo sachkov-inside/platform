@@ -290,7 +290,9 @@ _Avoid_: Payment, MembershipEvidence, AccessGrant
 **Offer**:
 A versioned description of a chosen access composition, independent of a Guide and a payment.
 Its payment option specifies the price, period and sale mode: a subscription charged on a schedule,
-or a one-time purchase that is paid once and creates no schedule.
+or a one-time purchase that is paid once and creates no schedule. It carries a reversible `published`
+(for-sale) state, separate from permanent archival; while no offer is published, neither the
+subscription nor a separately sold Guide is offered anywhere.
 _Avoid_: Guide, Order, AccessGrant
 
 **OneTimePurchase**:

@@ -12,20 +12,26 @@ export const listOffersSchema = z.strictObject({
   capability: accessCapabilitySchema.optional(),
 });
 export const offersPageSchema = z.strictObject({ items: z.array(priceSnapshotSchema), nextCursor: idSchema.nullable() });
-export async function listOffers(prisma: BillingPrismaClient, input: unknown, clock: () => Date): Promise<PricingResult<z.infer<typeof offersPageSchema>, "invalid_request" | "dependency_unavailable">> {
+export interface ListOffersOptions {
+  /** Публичная витрина видит только предложения, включённые в продажу; владелец — весь непустой каталог. */
+  readonly publishedOnly?: boolean;
+}
+export async function listOffers(prisma: BillingPrismaClient, input: unknown, clock: () => Date, options: ListOffersOptions = {}): Promise<PricingResult<z.infer<typeof offersPageSchema>, "invalid_request" | "dependency_unavailable">> {
   const parsed = listOffersSchema.safeParse(input);
   if (!parsed.success) return failure("invalid_request");
   try {
     const { cursor, limit, mode, capability } = parsed.data;
     const rows = await prisma.billingPaymentOption.findMany({ where: {
-      archived: false, offer: { archived: false, ...(capability === undefined ? {} : { benefits: { has: capability } }) },
+      archived: false, offer: { archived: false,
+        ...(options.publishedOnly === true ? { published: true } : {}),
+        ...(capability === undefined ? {} : { benefits: { has: capability } }) },
       ...(mode === undefined ? {} : { mode }), ...(cursor ? { id: { gt: cursor } } : {}),
     }, orderBy: { id: "asc" }, take: limit + 1 });
     const page = rows.slice(0, limit);
     const items = [];
     const now = clock();
     for (const row of page) {
-      const price = await selectPrice(prisma, row.id, now);
+      const price = await selectPrice(prisma, row.id, now, undefined, { allowUnpublished: options.publishedOnly !== true });
       if (price.ok) items.push(price.value);
     }
     return { ok: true, value: { items, nextCursor: rows.length > limit ? page.at(-1)?.id ?? null : null } };

@@ -28,6 +28,8 @@ export const offerSchema = z.object({
     )
     .optional(),
   archived: z.boolean(),
+  /** Обратимый признак продажи. В прежних сохранённых снимках может отсутствовать. */
+  published: z.boolean().optional(),
 });
 /** Как продаётся вариант: по расписанию или один раз. Старый снимок без режима — подписка. */
 export const paymentModeSchema = z.enum(["subscription", "one_time"]);

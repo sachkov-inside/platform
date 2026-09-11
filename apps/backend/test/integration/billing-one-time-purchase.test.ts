@@ -62,6 +62,9 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
       benefitPeriods: options.benefitPeriods ?? [{ capability, months: options.term ?? null }] } }));
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "paymentOptions.save", value: {
       id: optionId, offerId, mode: "one_time", months: 1, priceKopecks: guidePrice } }));
+    // Разовая продажа подчиняется тому же тумблеру, что и подписка: пока предложение выключено,
+    // руководство не продаётся.
+    value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.publish", expectedRevision: 1, id: offerId }));
 
     let orderId = "";
     let status = "NEW";
@@ -167,6 +170,19 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
     expect(await db.prisma.billingSubscription.count({ where: { accountId: s.buyer } })).toBe(0);
   });
 
+  test("выключенное предложение не продаёт руководство и не отзывает уже купленное", async () => {
+    const s = await scenario();
+    await s.buy();
+    value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.unpublish", expectedRevision: 2, id: s.offerId }));
+    // Витрина руководства его больше не видит, и новый расчёт по нему не сохраняется.
+    expect(value(await pricing.offers({ mode: "one_time", capability: s.capability })).items).toEqual([]);
+    expect(code(await pricing.quote(s.buyer, { operationId: randomUUID(), paymentOptionId: s.optionId, optionRevision: 1 }))).toBe("not_found");
+    // Уже выданное право выключением продажи не отзывается.
+    const resolved = await grants.resolveCapabilities(s.buyer);
+    if (!resolved.ok) throw new Error("resolve");
+    expect(resolved.capabilities).toContainEqual({ capability: s.capability, validUntil: null });
+  });
+
   test("способ продажи сохранённого варианта не меняется задним числом", async () => {
     const s = await scenario();
     // Способ входит в принятые условия уже совершённых покупок, поэтому подписку из него не делают.
@@ -184,6 +200,7 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
       value: { id: subscriptionOffer, name: "Материалы", benefits: ["materials"] } }));
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "paymentOptions.save",
       value: { id: subscriptionOption, offerId: subscriptionOffer, months: 1, priceKopecks: 100_000 } }));
+    value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.publish", expectedRevision: 1, id: subscriptionOffer }));
     await s.buy();
     expect(await db.prisma.billingSubscription.count({ where: { accountId: s.buyer } })).toBe(0);
 

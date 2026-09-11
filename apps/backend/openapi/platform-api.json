@@ -4238,6 +4238,9 @@
                                       "minLength": 1,
                                       "type": "string"
                                     },
+                                    "published": {
+                                      "type": "boolean"
+                                    },
                                     "revision": {
                                       "exclusiveMinimum": true,
                                       "maximum": 2147483647,
@@ -4498,6 +4501,9 @@
                                   "maxLength": 200,
                                   "minLength": 1,
                                   "type": "string"
+                                },
+                                "published": {
+                                  "type": "boolean"
                                 },
                                 "revision": {
                                   "exclusiveMinimum": true,
@@ -7622,6 +7628,9 @@
                                   "minLength": 1,
                                   "type": "string"
                                 },
+                                "published": {
+                                  "type": "boolean"
+                                },
                                 "revision": {
                                   "exclusiveMinimum": true,
                                   "maximum": 2147483647,
@@ -7882,6 +7891,9 @@
                               "maxLength": 200,
                               "minLength": 1,
                               "type": "string"
+                            },
+                            "published": {
+                              "type": "boolean"
                             },
                             "revision": {
                               "exclusiveMinimum": true,
@@ -8624,6 +8636,9 @@
                               "minLength": 1,
                               "type": "string"
                             },
+                            "published": {
+                              "type": "boolean"
+                            },
                             "revision": {
                               "exclusiveMinimum": true,
                               "maximum": 2147483647,
@@ -9362,6 +9377,9 @@
                               "maxLength": 200,
                               "minLength": 1,
                               "type": "string"
+                            },
+                            "published": {
+                              "type": "boolean"
                             },
                             "revision": {
                               "exclusiveMinimum": true,
@@ -10107,6 +10125,9 @@
                               "minLength": 1,
                               "type": "string"
                             },
+                            "published": {
+                              "type": "boolean"
+                            },
                             "revision": {
                               "exclusiveMinimum": true,
                               "maximum": 2147483647,
@@ -10839,6 +10860,9 @@
                                   "minLength": 1,
                                   "type": "string"
                                 },
+                                "published": {
+                                  "type": "boolean"
+                                },
                                 "revision": {
                                   "exclusiveMinimum": true,
                                   "maximum": 2147483647,
@@ -11099,6 +11123,9 @@
                               "maxLength": 200,
                               "minLength": 1,
                               "type": "string"
+                            },
+                            "published": {
+                              "type": "boolean"
                             },
                             "revision": {
                               "exclusiveMinimum": true,
@@ -11836,6 +11863,9 @@
                                   "minLength": 1,
                                   "type": "string"
                                 },
+                                "published": {
+                                  "type": "boolean"
+                                },
                                 "revision": {
                                   "exclusiveMinimum": true,
                                   "maximum": 2147483647,
@@ -12155,6 +12185,9 @@
                                       "minLength": 1,
                                       "type": "string"
                                     },
+                                    "published": {
+                                      "type": "boolean"
+                                    },
                                     "revision": {
                                       "exclusiveMinimum": true,
                                       "maximum": 2147483647,
@@ -12415,6 +12448,9 @@
                                   "maxLength": 200,
                                   "minLength": 1,
                                   "type": "string"
+                                },
+                                "published": {
+                                  "type": "boolean"
                                 },
                                 "revision": {
                                   "exclusiveMinimum": true,
@@ -13186,6 +13222,9 @@
                                   "minLength": 1,
                                   "type": "string"
                                 },
+                                "published": {
+                                  "type": "boolean"
+                                },
                                 "revision": {
                                   "exclusiveMinimum": true,
                                   "maximum": 2147483647,
@@ -13446,6 +13485,9 @@
                               "maxLength": 200,
                               "minLength": 1,
                               "type": "string"
+                            },
+                            "published": {
+                              "type": "boolean"
                             },
                             "revision": {
                               "exclusiveMinimum": true,
@@ -14172,6 +14214,9 @@
                                       "minLength": 1,
                                       "type": "string"
                                     },
+                                    "published": {
+                                      "type": "boolean"
+                                    },
                                     "revision": {
                                       "exclusiveMinimum": true,
                                       "maximum": 2147483647,
@@ -14421,6 +14466,9 @@
                                       "maxLength": 200,
                                       "minLength": 1,
                                       "type": "string"
+                                    },
+                                    "published": {
+                                      "type": "boolean"
                                     },
                                     "revision": {
                                       "exclusiveMinimum": true,
@@ -15220,6 +15268,9 @@
                                   "minLength": 1,
                                   "type": "string"
                                 },
+                                "published": {
+                                  "type": "boolean"
+                                },
                                 "revision": {
                                   "exclusiveMinimum": true,
                                   "maximum": 2147483647,
@@ -15480,6 +15531,9 @@
                               "maxLength": 200,
                               "minLength": 1,
                               "type": "string"
+                            },
+                            "published": {
+                              "type": "boolean"
                             },
                             "revision": {
                               "exclusiveMinimum": true,
@@ -17335,6 +17389,21 @@
                             "kind": {
                               "enum": [
                                 "stale"
+                              ],
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "kind"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "kind": {
+                              "enum": [
+                                "notOffered"
                               ],
                               "type": "string"
                             }
@@ -42238,6 +42307,74 @@
                         "minimum": 0,
                         "type": "integer"
                       },
+                      "id": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
+                      "operation": {
+                        "enum": [
+                          "offers.publish"
+                        ],
+                        "type": "string"
+                      },
+                      "operationId": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "operationId",
+                      "expectedRevision",
+                      "id",
+                      "operation"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "expectedRevision": {
+                        "exclusiveMinimum": true,
+                        "maximum": 2147483647,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "id": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
+                      "operation": {
+                        "enum": [
+                          "offers.unpublish"
+                        ],
+                        "type": "string"
+                      },
+                      "operationId": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "operationId",
+                      "expectedRevision",
+                      "id",
+                      "operation"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "expectedRevision": {
+                        "exclusiveMinimum": true,
+                        "maximum": 2147483647,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
                       "operation": {
                         "enum": [
                           "paymentOptions.save"
@@ -42464,6 +42601,39 @@
                       "expectedRevision",
                       "id",
                       "operation"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "cursor": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
+                      "limit": {
+                        "default": 50,
+                        "maximum": 100,
+                        "minimum": 1,
+                        "type": "integer"
+                      },
+                      "operation": {
+                        "enum": [
+                          "offers.list"
+                        ],
+                        "type": "string"
+                      },
+                      "operationId": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "operationId",
+                      "operation",
+                      "limit"
                     ],
                     "type": "object"
                   },
@@ -43029,6 +43199,9 @@
                                   "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                                   "type": "string"
                                 },
+                                "published": {
+                                  "type": "boolean"
+                                },
                                 "revision": {
                                   "exclusiveMinimum": true,
                                   "maximum": 2147483647,
@@ -43047,6 +43220,250 @@
                           "required": [
                             "outcome",
                             "value"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "items": {
+                              "items": {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "currency": {
+                                    "enum": [
+                                      "RUB"
+                                    ],
+                                    "type": "string"
+                                  },
+                                  "firstPriceKopecks": {
+                                    "exclusiveMinimum": true,
+                                    "maximum": 9007199254740991,
+                                    "minimum": 0,
+                                    "type": "integer"
+                                  },
+                                  "offer": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "archived": {
+                                        "type": "boolean"
+                                      },
+                                      "benefitPeriods": {
+                                        "items": {
+                                          "additionalProperties": false,
+                                          "properties": {
+                                            "capability": {
+                                              "anyOf": [
+                                                {
+                                                  "enum": [
+                                                    "materials",
+                                                    "community",
+                                                    "reviews",
+                                                    "support"
+                                                  ],
+                                                  "type": "string"
+                                                },
+                                                {
+                                                  "pattern": "^guide:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                                  "type": "string"
+                                                }
+                                              ]
+                                            },
+                                            "months": {
+                                              "exclusiveMinimum": true,
+                                              "maximum": 1200,
+                                              "minimum": 0,
+                                              "nullable": true,
+                                              "type": "integer"
+                                            }
+                                          },
+                                          "required": [
+                                            "capability",
+                                            "months"
+                                          ],
+                                          "type": "object"
+                                        },
+                                        "maxItems": 100,
+                                        "type": "array"
+                                      },
+                                      "benefits": {
+                                        "items": {
+                                          "anyOf": [
+                                            {
+                                              "enum": [
+                                                "materials",
+                                                "community",
+                                                "reviews",
+                                                "support"
+                                              ],
+                                              "type": "string"
+                                            },
+                                            {
+                                              "pattern": "^guide:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                              "type": "string"
+                                            }
+                                          ]
+                                        },
+                                        "maxItems": 100,
+                                        "minItems": 1,
+                                        "type": "array"
+                                      },
+                                      "id": {
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                        "type": "string"
+                                      },
+                                      "name": {
+                                        "maxLength": 200,
+                                        "minLength": 1,
+                                        "type": "string"
+                                      },
+                                      "published": {
+                                        "type": "boolean"
+                                      },
+                                      "revision": {
+                                        "exclusiveMinimum": true,
+                                        "maximum": 2147483647,
+                                        "minimum": 0,
+                                        "type": "integer"
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "revision",
+                                      "name",
+                                      "benefits",
+                                      "archived"
+                                    ],
+                                    "type": "object"
+                                  },
+                                  "paymentOption": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "archived": {
+                                        "type": "boolean"
+                                      },
+                                      "id": {
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                        "type": "string"
+                                      },
+                                      "mode": {
+                                        "enum": [
+                                          "subscription",
+                                          "one_time"
+                                        ],
+                                        "type": "string"
+                                      },
+                                      "months": {
+                                        "exclusiveMinimum": true,
+                                        "maximum": 1200,
+                                        "minimum": 0,
+                                        "type": "integer"
+                                      },
+                                      "offerId": {
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                        "type": "string"
+                                      },
+                                      "priceKopecks": {
+                                        "exclusiveMinimum": true,
+                                        "maximum": 9007199254740991,
+                                        "minimum": 0,
+                                        "type": "integer"
+                                      },
+                                      "revision": {
+                                        "exclusiveMinimum": true,
+                                        "maximum": 2147483647,
+                                        "minimum": 0,
+                                        "type": "integer"
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "revision",
+                                      "offerId",
+                                      "months",
+                                      "priceKopecks",
+                                      "archived"
+                                    ],
+                                    "type": "object"
+                                  },
+                                  "promotion": {
+                                    "additionalProperties": false,
+                                    "nullable": true,
+                                    "properties": {
+                                      "id": {
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                        "type": "string"
+                                      },
+                                      "name": {
+                                        "type": "string"
+                                      },
+                                      "percent": {
+                                        "maximum": 100,
+                                        "minimum": 1,
+                                        "type": "integer"
+                                      },
+                                      "revision": {
+                                        "exclusiveMinimum": true,
+                                        "maximum": 2147483647,
+                                        "minimum": 0,
+                                        "type": "integer"
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "revision",
+                                      "name",
+                                      "percent"
+                                    ],
+                                    "type": "object"
+                                  },
+                                  "renewalPriceKopecks": {
+                                    "exclusiveMinimum": true,
+                                    "maximum": 9007199254740991,
+                                    "minimum": 0,
+                                    "type": "integer"
+                                  },
+                                  "timezone": {
+                                    "enum": [
+                                      "Europe/Moscow"
+                                    ],
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "offer",
+                                  "paymentOption",
+                                  "promotion",
+                                  "currency",
+                                  "timezone",
+                                  "firstPriceKopecks",
+                                  "renewalPriceKopecks"
+                                ],
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "nextCursor": {
+                              "format": "uuid",
+                              "nullable": true,
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                              "type": "string"
+                            },
+                            "outcome": {
+                              "enum": [
+                                "catalogOffers"
+                              ],
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "outcome",
+                            "items",
+                            "nextCursor"
                           ],
                           "type": "object"
                         },
@@ -43234,6 +43651,9 @@
                                             "maxLength": 200,
                                             "minLength": 1,
                                             "type": "string"
+                                          },
+                                          "published": {
+                                            "type": "boolean"
                                           },
                                           "revision": {
                                             "exclusiveMinimum": true,
@@ -43827,6 +44247,9 @@
                                           "minLength": 1,
                                           "type": "string"
                                         },
+                                        "published": {
+                                          "type": "boolean"
+                                        },
                                         "revision": {
                                           "exclusiveMinimum": true,
                                           "maximum": 2147483647,
@@ -44201,6 +44624,9 @@
                                           "minLength": 1,
                                           "type": "string"
                                         },
+                                        "published": {
+                                          "type": "boolean"
+                                        },
                                         "revision": {
                                           "exclusiveMinimum": true,
                                           "maximum": 2147483647,
@@ -44561,6 +44987,9 @@
                                               "minLength": 1,
                                               "type": "string"
                                             },
+                                            "published": {
+                                              "type": "boolean"
+                                            },
                                             "revision": {
                                               "exclusiveMinimum": true,
                                               "maximum": 2147483647,
@@ -44821,6 +45250,9 @@
                                           "maxLength": 200,
                                           "minLength": 1,
                                           "type": "string"
+                                        },
+                                        "published": {
+                                          "type": "boolean"
                                         },
                                         "revision": {
                                           "exclusiveMinimum": true,
@@ -46244,6 +46676,9 @@
                                 "maxLength": 200,
                                 "minLength": 1,
                                 "type": "string"
+                              },
+                              "published": {
+                                "type": "boolean"
                               },
                               "revision": {
                                 "exclusiveMinimum": true,
@@ -78481,6 +78916,21 @@
                           "properties": {
                             "kind": {
                               "enum": [
+                                "notOffered"
+                              ],
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "kind"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "kind": {
+                              "enum": [
                                 "unknown"
                               ],
                               "type": "string"
@@ -85771,6 +86221,7 @@
                             },
                             "cta": {
                               "additionalProperties": false,
+                              "nullable": true,
                               "properties": {
                                 "label": {
                                   "enum": [

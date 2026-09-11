@@ -144,7 +144,15 @@ export const catalogOutcomeSchema = envelope(
       id: z.uuid(),
       revision,
       archived: z.boolean(),
+      published: z.boolean().optional(),
     }),
+  }),
+);
+export const catalogOffersOutcomeSchema = envelope(
+  z.object({
+    outcome: z.literal("catalogOffers"),
+    items: z.array(priceSnapshotSchema),
+    nextCursor: z.uuid().nullable(),
   }),
 );
 export const paymentViewSchema = z.object({

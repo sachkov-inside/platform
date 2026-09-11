@@ -19,7 +19,7 @@ import type { BillingSubscriptions } from "../billing-subscriptions/billing-subs
 interface Dependencies {
   readonly prisma: BillingPrismaClient;
   readonly accounts: Pick<Accounts, "checkPermission">;
-  readonly pricing: Pick<BillingPricing, "manage">;
+  readonly pricing: Pick<BillingPricing, "manage" | "ownerCatalog">;
   readonly payments: Pick<BillingPayments, "reconcile">;
   readonly subscriptions: Pick<BillingSubscriptions, "cancel">;
   readonly grants: Pick<AccessGrants, "previewBatch" | "applyBatch" | "changeGrant" | "listGrants">;
@@ -87,11 +87,18 @@ export class BillingOperations {
     const { prisma, grants } = this.dependencies;
     const operationRef = command.operationId;
     switch (command.operation) {
-      case "offers.save": case "offers.archive": case "paymentOptions.save": case "paymentOptions.archive":
+      case "offers.save": case "offers.archive": case "offers.publish": case "offers.unpublish":
+      case "paymentOptions.save": case "paymentOptions.archive":
       case "promotions.save": case "promotions.archive": {
         const result = await this.dependencies.pricing.manage(actorId, command);
         return result.ok
           ? { ok: true, operationRef, result: { outcome: "catalog", value: result.value } } : ownerFailure(result.error.code);
+      }
+      case "offers.list": {
+        const result = await this.dependencies.pricing.ownerCatalog({ cursor: command.cursor, limit: command.limit });
+        return result.ok
+          ? { ok: true, operationRef, result: { outcome: "catalogOffers", items: [...result.value.items], nextCursor: result.value.nextCursor } }
+          : ownerFailure(result.error.code);
       }
       case "payments.list": return await listPayments(prisma, command);
       case "payments.read": {
@@ -184,7 +191,8 @@ function storedResult(operationRef: string, stored: unknown): OwnerResult {
 function targetOf(command: OwnerOperation, outcome: OwnerOutcome): string {
   switch (command.operation) {
     case "offers.save": case "paymentOptions.save": case "promotions.save": return command.value.id;
-    case "offers.archive": case "paymentOptions.archive": case "promotions.archive": return command.id;
+    case "offers.archive": case "offers.publish": case "offers.unpublish": case "paymentOptions.archive": case "promotions.archive": return command.id;
+    case "offers.list": return command.operationId;
     case "payments.list": return command.accountId ?? command.operationId;
     case "payments.read": case "payments.reconcile": case "refunds.decide": case "refunds.read": return command.purchaseRef;
     // Исполнение возврата ведёт к платежу своего решения.

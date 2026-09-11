@@ -29,6 +29,10 @@ function asCatalog(result: OwnerResult) {
   const value = success(result);
   if (value.outcome !== "catalog") throw unexpected(value); return value;
 }
+function asCatalogOffers(result: OwnerResult) {
+  const value = success(result);
+  if (value.outcome !== "catalogOffers") throw unexpected(value); return value;
+}
 function asPayments(result: OwnerResult) {
   const value = success(result);
   if (value.outcome !== "payments") throw unexpected(value); return value;
@@ -179,6 +183,7 @@ describe("владельческие операции billing: платежи, �
       value: { id: offerId, name: "Материалы и сопровождение", benefits: [...options.benefits ?? ["materials", "support"]] } }));
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "paymentOptions.save",
       value: { id: optionId, offerId, months: 1, priceKopecks: options.priceKopecks ?? 100_000 } }));
+    value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.publish", expectedRevision: 1, id: offerId }));
     const bank = new BankFixture();
     const client = bank.client();
     const payments = new BillingPayments({ prisma: db.prisma, bank: client, contact, grants, clock: () => now });
@@ -484,19 +489,36 @@ describe("владельческие операции billing: платежи, �
     const offerId = randomUUID();
     const saved = asCatalog(await s.operations.execute(owner, { operation: "offers.save", operationId: randomUUID(),
       value: { id: offerId, name: "Материалы", benefits: ["materials"] } }));
-    expect(saved.value).toEqual({ id: offerId, revision: 1, archived: false });
+    expect(saved.value).toEqual({ id: offerId, revision: 1, archived: false, published: false });
     expect(failure(await s.operations.execute(owner, { operation: "offers.archive", operationId: randomUUID(),
       id: offerId, expectedRevision: 99 }))).toBe("revision_conflict");
     const archived = asCatalog(await s.operations.execute(owner, { operation: "offers.archive", operationId: randomUUID(),
       id: offerId, expectedRevision: 1 }));
-    expect(archived.value).toEqual({ id: offerId, revision: 2, archived: true });
+    expect(archived.value).toEqual({ id: offerId, revision: 2, archived: true, published: false });
+    // Неизвестный вариант не выдумывается: включение несуществующего предложения — not_found.
+    expect(failure(await s.operations.execute(owner, { operation: "offers.publish", operationId: randomUUID(),
+      id: randomUUID(), expectedRevision: 1 }))).toBe("not_found");
     // Архивирование продаваемого предложения не переписывает оплаченные условия и историю.
     const purchaseRef = await s.buy();
+    // Выключение обратимо: предложение и его состав не пересоздаются, повторное включение возвращает продажу.
+    const offSale = asCatalog(await s.operations.execute(owner, { operation: "offers.unpublish", operationId: randomUUID(),
+      id: s.offerId, expectedRevision: 2 }));
+    expect(offSale.value).toEqual({ id: s.offerId, revision: 3, archived: false, published: false });
+    expect(value(await s.subscriptions.read(s.buyer)).subscription).toMatchObject({ state: "active", snapshot: { offer: { id: s.offerId, revision: 2, archived: false } } });
+    const ownerList = asCatalogOffers(await s.operations.execute(owner, { operation: "offers.list", operationId: randomUUID(), limit: 100 }));
+    expect(ownerList.items.some((item) => item.offer.id === s.offerId)).toBe(true);
+    const publicList = value(await pricing.offers({ limit: 100 }));
+    expect(publicList.items.some((item) => item.offer.id === s.offerId)).toBe(false);
+    expect(await pricing.quote(randomUUID(), { operationId: randomUUID(), paymentOptionId: s.optionId, optionRevision: 1 }))
+      .toMatchObject({ error: { code: "not_found" } });
+    const restored = asCatalog(await s.operations.execute(owner, { operation: "offers.publish", operationId: randomUUID(),
+      id: s.offerId, expectedRevision: 3 }));
+    expect(restored.value).toEqual({ id: s.offerId, revision: 4, archived: false, published: true });
     const withdrawn = asCatalog(await s.operations.execute(owner, { operation: "offers.archive", operationId: randomUUID(),
-      id: s.offerId, expectedRevision: 1 }));
-    expect(withdrawn.value).toEqual({ id: s.offerId, revision: 2, archived: true });
+      id: s.offerId, expectedRevision: 4 }));
+    expect(withdrawn.value).toEqual({ id: s.offerId, revision: 5, archived: true, published: true });
     const detail = asPayment(await s.operations.execute(owner, { operation: "payments.read", operationId: randomUUID(), purchaseRef }));
-    expect(detail.value.snapshot.offer).toMatchObject({ id: s.offerId, revision: 1, archived: false });
-    expect(value(await s.subscriptions.read(s.buyer)).subscription).toMatchObject({ state: "active", snapshot: { offer: { revision: 1, archived: false } } });
+    expect(detail.value.snapshot.offer).toMatchObject({ id: s.offerId, revision: 2, archived: false });
+    expect(value(await s.subscriptions.read(s.buyer)).subscription).toMatchObject({ state: "active", snapshot: { offer: { revision: 2, archived: false } } });
   });
 });

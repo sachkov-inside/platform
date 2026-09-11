@@ -9,6 +9,7 @@ describe("Home membership presentation", () => {
   it.each([
     { kind: "active" },
     { kind: "inactive", acquisitionUrl: "https://t.me/tribute/app?startapp=inside" },
+    { kind: "notOffered" },
     { kind: "unknown" },
   ])("preserves $kind from the authoritative content response", async (membership) => {
     vi.stubEnv("BACKEND_BASE_URL", "https://api.example.test");

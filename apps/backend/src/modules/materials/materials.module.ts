@@ -32,6 +32,7 @@ import {
   type ObjectStorage,
 } from "../../infrastructure/object-storage/index.js";
 import { VIDEOS, VideosModule, type Videos } from "../videos/index.js";
+import { BillingModule, BillingPricing } from "../billing/index.js";
 import { assembleMaterialResourceFacts } from "./adapters/content-access/material-resource-facts.js";
 import { assembleAssetResourceFacts } from "./adapters/content-access/asset-resource-facts.js";
 import { assembleGuideArtifactResourceFacts } from "./adapters/content-access/guide-artifact-resource-facts.js";
@@ -99,6 +100,7 @@ import {
     MembershipEntitlementsModule,
     VideosModule,
     WorkshopModule,
+    BillingModule,
   ],
   providers: [
     {
@@ -260,6 +262,7 @@ import {
         PLATFORM_CONFIG,
         MATERIAL_ASSETS,
         VIDEOS,
+        BillingPricing,
       ],
       useFactory: (
         prisma: PrismaClientProvider,
@@ -268,6 +271,7 @@ import {
         config: PlatformConfig,
         materialAssets: MaterialAssets,
         videos: Videos,
+        pricing: BillingPricing,
       ): PublishedMaterialReader =>
         assemblePublishedMaterialReader({
           prisma,
@@ -276,6 +280,7 @@ import {
           materialBodyOperations,
           materialAssets,
           videos,
+          subscriptionForSale: () => pricing.hasOffersForSale(),
           membershipAcquisitionUrl:
             config.contentAccess.membershipAcquisitionUrl,
         }),
