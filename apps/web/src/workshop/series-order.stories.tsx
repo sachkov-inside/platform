@@ -8,6 +8,9 @@ import {
   type SeriesOrderMaterialSearchResult,
 } from "@/features/series-order";
 import { withMutationFetch } from "./mutation-mock";
+import { SeriesEditorPageFrame } from "@/_pages/content-collections";
+
+import { authoringPageEnvironment } from "./story-environment";
 
 const loadMaterialsSpy = fn(
   (_input: {
@@ -47,8 +50,16 @@ const failedOrderSpy = fn((_input: RequestInfo | URL, _init?: RequestInit) =>
   ),
 );
 
+const environment = authoringPageEnvironment(
+  "/authoring/playlists/95000000-0000-4000-8000-000000000010",
+  { frame: SeriesEditorPageFrame },
+);
+
 const meta = {
+  ...environment,
   args: {
+    // На маршруте состав руководства встроен в страницу редактора: свой `main` он не рисует.
+    embedded: true,
     createMaterialSearchQueryOptions,
     onBack: fn(),
     onRefresh: fn(),
@@ -85,7 +96,6 @@ const meta = {
     },
   },
   component: SeriesOrderManager,
-  parameters: { nextjs: { appDirectory: true } },
   title: "Pages/Authoring/Руководства",
 } satisfies Meta<typeof SeriesOrderManager>;
 

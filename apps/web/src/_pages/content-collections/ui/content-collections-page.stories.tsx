@@ -4,6 +4,7 @@ import { expect, within } from "storybook/test";
 import { withMutationFetch } from "@/workshop/mutation-mock";
 
 import { ContentCollectionsPageClient } from "./content-collections-page.client";
+import { authoringPageEnvironment } from "@/workshop/story-environment";
 
 const collections = [
   {
@@ -30,7 +31,10 @@ const collections = [
   },
 ] as const;
 
+const environment = authoringPageEnvironment("/authoring/topics");
+
 const meta = {
+  ...environment,
   args: { initialCollections: collections, kind: "topic" },
   component: ContentCollectionsPageClient,
   decorators: [
@@ -39,8 +43,8 @@ const meta = {
         Response.json({ kind: "saved", collection: collections[0] }),
       ),
     ),
+    ...environment.decorators,
   ],
-  parameters: { nextjs: { appDirectory: true } },
   title: "Pages/Authoring/Коллекции",
 } satisfies Meta<typeof ContentCollectionsPageClient>;
 

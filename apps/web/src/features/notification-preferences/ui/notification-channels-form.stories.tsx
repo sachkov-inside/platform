@@ -2,8 +2,12 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, within } from "storybook/test";
 
 import { NotificationChannelsForm } from "./notification-channels-form.client";
+import { accountSectionEnvironment } from "@/workshop/story-environment";
+
+const environment = accountSectionEnvironment("/account/notifications");
 
 const meta = {
+  ...environment,
   title: "Pages/Account/Notifications",
   component: NotificationChannelsForm,
   args: {
@@ -15,13 +19,13 @@ const meta = {
     onSave: fn(),
   },
   parameters: {
+    ...environment.parameters,
     docs: {
       description: {
         component:
           "Каналы сообщений о новых материалах. По умолчанию оба канала выключены; чеки и служебные сообщения об оплате приходят на подтверждённый email независимо от этого выбора.",
       },
     },
-    nextjs: { appDirectory: true },
   },
 } satisfies Meta<typeof NotificationChannelsForm>;
 export default meta;

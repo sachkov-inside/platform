@@ -8,13 +8,9 @@ import { illustratedHome } from "./illustrated-home.fixture";
 import { HeaderAuthControl } from "@/widgets/auth-control";
 import {
   ApplicationShell,
-  type ApplicationNavigationItem,
+  publicMobileNavigationItems,
+  publicNavigationItems,
 } from "@/widgets/application-shell";
-
-const navigationItems = [
-  { href: "/", icon: "home", label: "Главная" },
-  { href: "/library", icon: "library", label: "База знаний" },
-] satisfies readonly ApplicationNavigationItem[];
 
 const home: HomeView = {
   ...illustratedHome,
@@ -38,8 +34,8 @@ const home: HomeView = {
 const meta = {
   args: {
     currentPath: "/",
-    navigationItems,
-    mobileNavigationItems: [...navigationItems, { href: "/account", icon: "profile", label: "Профиль" }],
+    navigationItems: publicNavigationItems,
+    mobileNavigationItems: publicMobileNavigationItems,
     children: null,
     accountSlot: <HeaderAuthControl state="guest" />,
   },
@@ -139,7 +135,9 @@ export const MobileBottomNavigation: Story = {
     const navigation = canvas.getByRole("navigation", {
       name: "Мобильная навигация",
     });
-    await expect(within(navigation).getAllByRole("link")).toHaveLength(3);
+    await expect(within(navigation).getAllByRole("link")).toHaveLength(
+      publicMobileNavigationItems.length,
+    );
     await expect(
       within(navigation).getByRole("link", { name: "База знаний" }),
     ).toHaveAttribute("aria-current", "page");

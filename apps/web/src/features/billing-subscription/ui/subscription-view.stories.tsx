@@ -13,8 +13,12 @@ import {
 } from "@/workshop/billing.fixtures";
 
 import { SubscriptionSectionView } from "./subscription-view.client";
+import { accountSectionEnvironment } from "@/workshop/story-environment";
+
+const environment = accountSectionEnvironment("/account/subscription");
 
 const meta = {
+  ...environment,
   title: "Pages/Account/Subscription",
   component: SubscriptionSectionView,
   args: {
@@ -33,6 +37,7 @@ const meta = {
     onCancelPendingChange: fn(),
   },
   parameters: {
+    ...environment.parameters,
     docs: {
       description: {
         component:
