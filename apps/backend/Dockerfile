@@ -79,7 +79,9 @@ ENV NODE_ENV=production \
 WORKDIR /app
 
 # Корень для соединений с банком: владелец root, приложению доступен только на чтение.
-COPY --chown=root:root infra/tls/russian-trusted-root-ca.pem ./infra/tls/russian-trusted-root-ca.pem
+# Каталог создаётся заранее: --chmod у COPY распространился бы и на него, закрыв вход внутрь.
+RUN mkdir -p ./infra/tls
+COPY --chown=root:root --chmod=0444 infra/tls/russian-trusted-root-ca.pem ./infra/tls/russian-trusted-root-ca.pem
 
 COPY --from=release-identity --chown=root:root --chmod=0444 /workspace/release-identity.json ./release-identity.json
 COPY --from=production-build --chown=node:node /workspace/.production/backend/package.json ./package.json

@@ -170,6 +170,12 @@ object storage, Telegram, broker — gains that trust, and certificate and hostn
 on. A host or runtime that calls the bank outside these images sets the same variable. Without it
 bank calls fail on certificate verification rather than falling back to an unverified connection.
 
+The bank client trusts this root and nothing else: the configured file replaces the default store
+for that client instead of extending it. Bank calls therefore stop if the bank moves to a chain this
+root does not sign, which is the intended failure — replace the pinned file rather than widen trust.
+`billing-bank-contract.test.ts` asserts the fingerprint below against the committed file, so
+replacing the root without updating this runbook fails the build.
+
 The pinned root was compared with the chain the bank serves and matches: SHA-256
 `D2:6D:2D:02:31:B7:C3:9F:92:CC:73:85:12:BA:54:10:35:19:E4:40:5D:68:B5:BD:70:3E:97:88:CA:8E:CF:31`.
 Verified terminal and cash-register capabilities are recorded in

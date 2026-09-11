@@ -1,4 +1,4 @@
-import { tbankConfigSchema, parseTbankConfig } from "./tbank-config.js";
+import { tbankRuntimeSchema, parseTbankConfig } from "./tbank-config.js";
 import { notificationsConfigSchema, parseNotificationsConfig } from './notifications-config.js';
 import { z } from "zod";
 
@@ -211,7 +211,7 @@ const platformConfigSchema = z
         port: apiPortSchema,
       })
       .readonly(),
-    tbank: tbankConfigSchema.optional(),
+    tbank: tbankRuntimeSchema.optional(),
     billingContact: z.object({
       encryptionKey: z.string().refine(value => Buffer.from(value, "base64").length === 32, "BILLING_CONTACT_ENCRYPTION_KEY must be 32 base64-encoded bytes"),
       smtpHost: z.string().min(1),
