@@ -3,6 +3,7 @@ import { BillingContact } from "../accounts/index.js";
 import { ACCESS_GRANTS, MembershipEntitlementsModule, type AccessGrants } from "../membership-entitlements/index.js";
 import { BillingPayments } from "./facets/billing-payments/billing-payments.js";
 import { Tbank } from "./infrastructure/tbank/tbank.js";
+import { bankRequest } from "./infrastructure/tbank/bank-request.js";
 import { PurchaseSubscriptionController } from "./features/purchase-subscription/purchase-subscription.controller.js";
 import { BillingSubscriptions } from "./facets/billing-subscriptions/billing-subscriptions.js";
 import { ManageSubscriptionController } from "./features/manage-subscription/manage-subscription.controller.js";
@@ -27,7 +28,7 @@ const BILLING_BANK = Symbol("BillingBank");
   controllers: [PurchaseSubscriptionController, ManageSubscriptionController, ChangePaymentMethodController, AcceptTbankNotificationController, ManageBillingController, QuotePurchaseController, ListOffersController],
   providers: [
     { provide: BILLING_BANK, inject: [PLATFORM_CONFIG],
-      useFactory: (config: PlatformConfig) => config.tbank ? new Tbank(config.tbank) : undefined },
+      useFactory: (config: PlatformConfig) => config.tbank ? new Tbank(config.tbank, bankRequest(config.tbank.caFile)) : undefined },
     { provide: BillingPayments, inject: [PrismaClientProvider, BillingContact, ACCESS_GRANTS, BILLING_BANK],
       useFactory: (prisma: PrismaClientProvider, contact: BillingContact, grants: AccessGrants, bank: Tbank | undefined) =>
         new BillingPayments({ prisma, contact, grants, bank }) },
