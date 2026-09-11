@@ -4,7 +4,6 @@ import { MaterialCurrentPreviewPage } from "@/_pages/material-authoring.server";
 import { parseAuthoringReturnHref } from "@/shared/routing/authoring";
 
 export const metadata: Metadata = {
-  robots: { follow: false, index: false },
   title: "Preview черновика",
 };
 

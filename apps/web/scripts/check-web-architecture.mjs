@@ -147,6 +147,22 @@ function layerFinding(importer, dependency) {
   return undefined;
 }
 
+function readsPublicSiteOrigin(program) {
+  let found = false;
+  new Visitor({
+    MemberExpression(node) {
+      if (
+        memberPropertyName(node) === "baseUrl" &&
+        node.object.type === "MemberExpression" &&
+        memberPropertyName(node.object) === "identity"
+      ) {
+        found = true;
+      }
+    },
+  }).visit(program);
+  return found;
+}
+
 function readsBackendEndpointEnvironment(program) {
   return readsProcessEnvironment(program, isBackendEndpointName);
 }
@@ -381,6 +397,9 @@ const findings = [...parsedFiles].flatMap(([file, program]) => {
   const insideApplicationRouting =
     sourcePath.startsWith("src/shared/routing/") ||
     sourcePath.startsWith("src/widgets/authoring-shell/");
+  const ownsPublicSiteOrigin =
+    sourcePath.startsWith("src/shared/link-preview/") ||
+    sourcePath.startsWith("src/shared/auth/");
   const isBrowserCode = browserFiles.has(file);
   const specifiers = moduleSpecifiers(program);
   const findingsForFile = specifiers.flatMap((specifier) => {
@@ -434,6 +453,15 @@ const findings = [...parsedFiles].flatMap(([file, program]) => {
   if (callsSameOriginMutationDynamically(program)) {
     findingsForFile.push(
       `${sourcePath}: each browser mutation must declare a literal same-origin route and HTTP method`,
+    );
+  }
+  if (
+    !ownsPublicSiteOrigin &&
+    !insideRuntimeConfiguration &&
+    readsPublicSiteOrigin(program)
+  ) {
+    findingsForFile.push(
+      `${sourcePath}: the public site origin belongs to the link preview module; read it there so it stays a request-time value`,
     );
   }
   if (

@@ -1,7 +1,14 @@
 import type { Metadata } from "next";
 
+import { materialLinkPreview } from "@/_pages/material-reader";
 import { loadMaterialReader, MaterialReaderPage } from "@/_pages/material-reader.server";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/optional-platform-access-token.server";
+import {
+  hiddenPageMetadata,
+  publicPageMetadata,
+  unavailablePageMetadata,
+} from "@/shared/link-preview";
+import { readPublicSiteOrigin } from "@/shared/link-preview/index.server";
 import { parseMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 
 interface MaterialPageProps {
@@ -20,15 +27,16 @@ export async function generateMetadata({
     await getOptionalPlatformAccessToken(),
   );
   if (result.kind === "not-found") {
-    return { title: "Материал не найден" };
+    return hiddenPageMetadata("Материал не найден");
   }
   if (result.kind === "unavailable") {
-    return { title: "Материал временно недоступен" };
+    return unavailablePageMetadata("Материал временно недоступен");
   }
-  return {
-    title: result.material.title,
-    description: result.material.summary,
-  };
+  return publicPageMetadata(
+    await readPublicSiteOrigin(),
+    "article",
+    materialLinkPreview(result.material),
+  );
 }
 
 export default async function MaterialRoute({ params, searchParams }: MaterialPageProps) {
