@@ -206,8 +206,10 @@ export const validationIssueSchema = z
 
 /**
  * The wire shape of one extracted resource. The registry publishes no schema for it, so the
- * annotation is what keeps this description and `MaterialBodyResourceSummary` in step: a resource
- * kind added on one side stops compiling on the other.
+ * annotation is what keeps this description from outgrowing `MaterialBodyResourceSummary`: a
+ * variant the domain type does not describe stops compiling, which is the direction this boundary
+ * drifted before. A resource kind added to the domain type does not fail here, because the
+ * annotation is covariant in its output; the block registry has no such gap.
  */
 const extractedResourceSchema: z.ZodType<MaterialBodyResourceSummary> = z.discriminatedUnion(
   "kind",

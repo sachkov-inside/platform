@@ -52,3 +52,22 @@ declare const resolveBillingNotice: () => Promise<NotificationSource>;
   NotificationEvent["eventType"],
   () => Promise<NotificationSource>
 >;
+
+// Описание ресурса на транспортной границе не может обещать вариант, которого доменный тип
+// извлечения не знает: такое расхождение обязано ломать сборку, а не уезжать в описание API.
+import { z } from "zod";
+import type { MaterialBodyResourceSummary } from "@inside/material-blocks";
+const driftedResourceSchema: z.ZodType<MaterialBodyResourceSummary> = z.discriminatedUnion(
+  "kind",
+  [
+    z.object({
+      alt: z.string(),
+      assetId: z.uuid(),
+      caption: z.string().optional(),
+      kind: z.literal("image"),
+    }),
+    z.object({ assetId: z.uuid(), kind: z.literal("file"), label: z.string() }),
+    z.object({ caption: z.string().optional(), kind: z.literal("video") }),
+  ],
+);
+describe("drifted material resource", () => driftedResourceSchema);
