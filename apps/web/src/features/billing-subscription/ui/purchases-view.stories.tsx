@@ -18,7 +18,6 @@ const meta = {
     notices: billingNotices,
     payments: ownPayments,
     subscription: activeSubscription,
-    storefrontHref: "/subscription",
     onChangeMethod: fn(),
     onRevokeMethod: fn(),
   },
@@ -67,8 +66,15 @@ export const NoSubscription: Story = {
   },
 };
 
+const withoutGrounds = {
+  grounds: [],
+  notices: [],
+  payments: [],
+  subscription: null,
+} as const;
+
 export const NoGrounds: Story = {
-  args: { grounds: [], notices: [], payments: [], subscription: null },
+  args: { ...withoutGrounds, storefrontHref: "/subscription" },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
@@ -77,6 +83,23 @@ export const NoGrounds: Story = {
     await expect(
       canvas.getByRole("link", { name: "Посмотреть тарифы" }),
     ).toBeInTheDocument();
+  },
+};
+
+/**
+ * Подписку не продают: кабинет объясняет, что открытого доступа нет, но не зовёт на витрину,
+ * с которой нечего купить.
+ */
+export const NoGroundsNotOffered: Story = {
+  args: withoutGrounds,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByText("Действующих оснований доступа нет."),
+    ).toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("link", { name: "Посмотреть тарифы" }),
+    ).not.toBeInTheDocument();
   },
 };
 

@@ -24,7 +24,6 @@ const meta = {
     changeQuote: null,
     resumeDocuments: legalDocuments,
     resumeAccepted: [],
-    storefrontHref: "/subscription",
     onCancelRenewal: fn(),
     onResumeRenewal: fn(),
     onToggleResumeDocument: fn(),
@@ -103,12 +102,32 @@ export const ScheduledChangeQuote: Story = {
 };
 
 export const NoSubscription: Story = {
+  args: { subscription: null, storefrontHref: "/subscription" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByText("Действующей подписки нет"),
+    ).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("link", { name: "Посмотреть тарифы" }),
+    ).toBeInTheDocument();
+  },
+};
+
+/**
+ * Раздел открыт по прямому адресу, а подписку не продают: он объясняет, что подписки нет, но
+ * не зовёт на витрину, с которой нечего купить.
+ */
+export const NoSubscriptionNotOffered: Story = {
   args: { subscription: null },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
       canvas.getByText("Действующей подписки нет"),
     ).toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("link", { name: "Посмотреть тарифы" }),
+    ).not.toBeInTheDocument();
   },
 };
 

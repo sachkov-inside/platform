@@ -15,7 +15,8 @@ import { PurchasesSectionView } from "./purchases-view.client";
 
 export interface PurchasesPanelProps {
   readonly contactSlot?: ReactNode;
-  readonly storefrontHref: Route;
+  /** Адрес витрины даётся, только когда подписку продают: иначе звать туда не с чем. */
+  readonly storefrontHref?: Route | undefined;
   readonly onNavigate?: (url: string) => void;
 }
 

@@ -33,7 +33,7 @@ export interface SubscriptionSectionViewProps
   readonly pending?: boolean;
   readonly error?: string | undefined;
   readonly sessionExpired?: boolean;
-  readonly storefrontHref: Route;
+  readonly storefrontHref?: Route | undefined;
   readonly onCancelPendingChange: () => void;
 }
 
@@ -81,12 +81,14 @@ export function SubscriptionSectionView({
             Ранее выданные права остаются в силе на своих условиях: подписка их
             не заменяет.
           </p>
-          <Link
-            className="mt-4 inline-flex min-h-11 items-center font-semibold text-action underline underline-offset-4"
-            href={storefrontHref}
-          >
-            Посмотреть тарифы
-          </Link>
+          {storefrontHref === undefined ? null : (
+            <Link
+              className="mt-4 inline-flex min-h-11 items-center font-semibold text-action underline underline-offset-4"
+              href={storefrontHref}
+            >
+              Посмотреть тарифы
+            </Link>
+          )}
         </section>
       ) : (
         <>
