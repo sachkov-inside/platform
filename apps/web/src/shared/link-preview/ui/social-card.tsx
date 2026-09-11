@@ -1,3 +1,5 @@
+import "server-only";
+
 import { ImageResponse } from "next/og";
 
 import { SITE_NAME } from "../model/public-page-preview";

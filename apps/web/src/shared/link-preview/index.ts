@@ -2,14 +2,15 @@
 export {
   hiddenPageMetadata,
   publicPageMetadata,
-  SITE_DESCRIPTION,
   SITE_NAME,
   SITE_TAGLINE,
   siteLinkPreview,
+  unavailablePageMetadata,
   type LinkPreviewImage,
   type PublicPageKind,
   type PublicPagePreview,
 } from "./model/public-page-preview";
+export { CLOSED_SECTIONS, OPEN_SECTIONS } from "./model/indexing-rules";
 export {
   socialCardTitle,
   socialCardTitleFontSize,

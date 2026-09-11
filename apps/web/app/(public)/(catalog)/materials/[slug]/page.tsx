@@ -3,7 +3,11 @@ import type { Metadata } from "next";
 import { materialLinkPreview } from "@/_pages/material-reader";
 import { loadMaterialReader, MaterialReaderPage } from "@/_pages/material-reader.server";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/optional-platform-access-token.server";
-import { hiddenPageMetadata, publicPageMetadata } from "@/shared/link-preview";
+import {
+  hiddenPageMetadata,
+  publicPageMetadata,
+  unavailablePageMetadata,
+} from "@/shared/link-preview";
 import { readPublicSiteOrigin } from "@/shared/link-preview/index.server";
 import { parseMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 
@@ -26,7 +30,7 @@ export async function generateMetadata({
     return hiddenPageMetadata("Материал не найден");
   }
   if (result.kind === "unavailable") {
-    return hiddenPageMetadata("Материал временно недоступен");
+    return unavailablePageMetadata("Материал временно недоступен");
   }
   return publicPageMetadata(
     await readPublicSiteOrigin(),

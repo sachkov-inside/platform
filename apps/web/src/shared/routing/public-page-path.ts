@@ -8,6 +8,7 @@ import { internalRoute } from "./internal-route";
  */
 export const HOME_PATH = internalRoute("/");
 export const LIBRARY_PATH = internalRoute("/library");
+export const MAP_PATH = internalRoute("/map");
 
 export function materialPath(slug: string): Route {
   return internalRoute(`/materials/${encodeURIComponent(slug)}`);

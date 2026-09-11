@@ -11,7 +11,7 @@ export const SITE_NAME = "Sachkov Inside";
 export const SITE_TAGLINE = "Материалы, темы и руководства";
 
 /** Описание главной: то же обещание вместе с названием площадки. */
-export const SITE_DESCRIPTION = `${SITE_TAGLINE} ${SITE_NAME}`;
+const SITE_DESCRIPTION = `${SITE_TAGLINE} ${SITE_NAME}`;
 
 const OPEN_GRAPH_LOCALE = "ru_RU";
 
@@ -111,9 +111,18 @@ export function siteLinkPreview(): PublicPagePreview {
 }
 
 /**
- * Страница, которой нечего показать: ненайденное, снятое с публикации или временно недоступное.
+ * Страница, которой нечего показать навсегда: ненайденное или снятое с публикации.
  * Карточка не строится, адрес не объявляется каноническим, индексация закрыта.
  */
 export function hiddenPageMetadata(title: string): Metadata {
   return { robots: { follow: false, index: false }, title };
+}
+
+/**
+ * Страница, которая сейчас не отвечает из-за зависимости. Карточка не строится: нечем её
+ * наполнить. `noindex` при этом не ставится — временный сбой не должен выбивать живой адрес
+ * из поиска, а снять индексацию проще, чем вернуть её.
+ */
+export function unavailablePageMetadata(title: string): Metadata {
+  return { title };
 }

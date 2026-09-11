@@ -6,6 +6,7 @@ import {
   guidePath,
   HOME_PATH,
   LIBRARY_PATH,
+  MAP_PATH,
   materialPath,
   topicPath,
 } from "@/shared/routing/public-page-path";
@@ -16,7 +17,7 @@ import {
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const origin = await readPublicSiteOrigin();
-  const alwaysPublic = [HOME_PATH, LIBRARY_PATH].map((path) => ({
+  const alwaysPublic = [HOME_PATH, LIBRARY_PATH, MAP_PATH].map((path) => ({
     url: publicPageUrl(origin, path),
   }));
   const index = await getPublicSiteIndex();

@@ -4,7 +4,11 @@ import { guideLinkPreview } from "@/_pages/library-discovery";
 import { loadPublishedSeries } from "@/features/library-discovery.server";
 import { PublishedSeriesPage } from "@/_pages/library-discovery.server";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/optional-platform-access-token.server";
-import { hiddenPageMetadata, publicPageMetadata } from "@/shared/link-preview";
+import {
+  hiddenPageMetadata,
+  publicPageMetadata,
+  unavailablePageMetadata,
+} from "@/shared/link-preview";
 import { readPublicSiteOrigin } from "@/shared/link-preview/index.server";
 import { parseMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 
@@ -25,7 +29,7 @@ export async function generateMetadata({
     return hiddenPageMetadata("Руководство не найдено");
   }
   if (result.kind === "unavailable") {
-    return hiddenPageMetadata("Руководство недоступно");
+    return unavailablePageMetadata("Руководство недоступно");
   }
   return publicPageMetadata(
     await readPublicSiteOrigin(),

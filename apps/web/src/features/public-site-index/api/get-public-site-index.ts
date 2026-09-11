@@ -23,10 +23,7 @@ export type PublicSiteIndex =
     }
   | { readonly kind: "unavailable" };
 
-/**
- * Карта сайта перечисляет только опубликованное, поэтому каталог запрашивается без подтверждения
- * доступа: гостевая выдача и есть публичный указатель.
- */
+/** Обход каталога ограничен: одна ошибка в курсоре не должна превратиться в бесконечный запрос. */
 const MAX_CATALOG_PAGES = 100;
 const MAX_MATERIALS = 10_000;
 
@@ -45,16 +42,22 @@ const catalogPageSchema = z.object({
   nextCursor: z.string().min(1).max(512).nullable(),
 });
 
-export async function getPublicSiteIndex(
-  signal?: AbortSignal,
-): Promise<PublicSiteIndex> {
+/**
+ * Карта сайта перечисляет только опубликованное, поэтому каталог запрашивается без подтверждения
+ * доступа: гостевая выдача и есть публичный указатель.
+ *
+ * Руководства и темы приходят фасетами каталога материалов, то есть указатель видит только те,
+ * у которых есть хотя бы один опубликованный материал. Пустое руководство остаётся доступным по
+ * своему адресу, но в карту сайта не попадает: отдельного перечисления коллекций в контракте нет.
+ */
+export async function getPublicSiteIndex(): Promise<PublicSiteIndex> {
   const materials: PublicSiteIndexMaterial[] = [];
   let guideSlugs: readonly string[] = [];
   let topicSlugs: readonly string[] = [];
   let after: string | undefined;
 
   for (let page = 0; page < MAX_CATALOG_PAGES; page += 1) {
-    const catalogPage = await readCatalogPage(after, signal);
+    const catalogPage = await readCatalogPage(after);
     if (catalogPage === undefined) {
       return { kind: "unavailable" };
     }
@@ -79,14 +82,13 @@ export async function getPublicSiteIndex(
 
 async function readCatalogPage(
   after: string | undefined,
-  signal: AbortSignal | undefined,
 ): Promise<z.infer<typeof catalogPageSchema> | undefined> {
   let result: Awaited<ReturnType<typeof requestPublishedMaterialCatalog>>;
   try {
-    result = await requestPublishedMaterialCatalog(
-      { sort: "newest", ...(after === undefined ? {} : { after }) },
-      signal === undefined ? {} : { signal },
-    );
+    result = await requestPublishedMaterialCatalog({
+      sort: "newest",
+      ...(after === undefined ? {} : { after }),
+    });
   } catch (error) {
     if (error instanceof BackendConnectionError && error.code === "unavailable") {
       return undefined;

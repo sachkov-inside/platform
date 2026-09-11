@@ -1,16 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-const CLOSED_SECTIONS = [
-  "/_health/",
-  "/account",
-  "/api/",
-  "/auth/",
-  "/authoring",
-  "/bookmarks",
-  "/callback",
-  "/communications/visit",
-  "/subscription/return",
-];
+import { CLOSED_SECTIONS, OPEN_SECTIONS } from "@/shared/link-preview";
 
 test("robots.txt закрывает служебные разделы и называет карту сайта", async ({
   baseURL,
@@ -22,6 +12,9 @@ test("robots.txt закрывает служебные разделы и наз�
   const body = await response.text();
   for (const section of CLOSED_SECTIONS) {
     expect(body).toContain(`Disallow: ${section}`);
+  }
+  for (const section of OPEN_SECTIONS) {
+    expect(body).toContain(`Allow: ${section}`);
   }
   expect(body).toContain("Allow: /");
   expect(body).toContain(`Sitemap: ${String(baseURL)}/sitemap.xml`);
@@ -52,14 +45,12 @@ test.describe("Закрытые от индексации разделы", () =>
   }
 });
 
-test("недоступная страница материала не зовёт поиск на пустую карточку", async ({
+test("недоступный каталог не обещает карточку и не убирает страницу из поиска", async ({
   page,
 }) => {
   await page.goto("/materials/kak-ustroen-inside-platform");
 
-  await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
-    "content",
-    /noindex/u,
-  );
   await expect(page.locator('link[rel="canonical"]')).toHaveCount(0);
+  await expect(page.locator('meta[property="og:image"]')).toHaveCount(0);
+  await expect(page.locator('meta[name="robots"]')).toHaveCount(0);
 });
