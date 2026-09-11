@@ -18,6 +18,7 @@ export interface MaterialReaderReturnTarget {
     | "Назад в профиль"
     | "Назад на Главную"
     | "Назад к руководству"
+    | "Назад к программе"
     | "Назад к теме";
   readonly seriesSlug?: string;
 }
@@ -115,12 +116,16 @@ function readReturnTarget(
     };
   }
 
-  const match = /^\/(guides|series|topics)\/([^/]+)$/u.exec(url.pathname);
-  if (match === null || match[2] === undefined || !slugPattern.test(match[2])) {
-    return undefined;
-  }
-
-  const routeKind = match[1];
+  // Программа руководства — такой же возврат, как и само руководство: читатель уходит в материал
+  // именно оттуда и возвращается на ту же страницу и страницу списка.
+  // Программа есть только у руководства, поэтому шаблон её темой и не допускает.
+  const match = /^\/(?:(guides|series)\/([^/]+)(\/programme)?|(topics)\/([^/]+))$/u.exec(
+    url.pathname,
+  );
+  if (match === null) return undefined;
+  const slug = match[2] ?? match[5];
+  if (slug === undefined || !slugPattern.test(slug)) return undefined;
+  const routeKind = match[3] === undefined ? match[1] ?? match[4] : "guides";
   if (url.search.length > 0) {
     const from = singleSearchValue(url.searchParams, "from");
     const page = singleSearchValue(url.searchParams, "page");
@@ -138,12 +143,12 @@ function readReturnTarget(
   }
 
   const href = internalRoute(`${url.pathname}${url.search}`);
-  if ((routeKind === "series" || routeKind === "guides")) {
+  if (routeKind === "series" || routeKind === "guides") {
     return {
       href,
       kind: "series",
-      label: "Назад к руководству",
-      seriesSlug: match[2],
+      label: match[3] === undefined ? "Назад к руководству" : "Назад к программе",
+      seriesSlug: slug,
     };
   }
   if (routeKind === "topics") {

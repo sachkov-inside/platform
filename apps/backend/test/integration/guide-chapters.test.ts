@@ -570,13 +570,13 @@ describe("Guide chapters", () => {
       first: null,
     });
     if (!programme.ok) throw new Error(programme.error.code);
+    // Описание главы объясняет читателю программу на странице продукта, поэтому каталог его несёт.
+    // Черновик при этом остаётся невидимым: состав главы содержит только опубликованное.
     expect(programme.value.chapters).toEqual([
-      { id: visible, materialIds: [published], name: "Готовая глава" },
-      { id: empty, materialIds: [], name: "Пустая глава" },
+      { id: visible, materialIds: [published], name: "Готовая глава", summary: chapterSummary },
+      { id: empty, materialIds: [], name: "Пустая глава", summary: "" },
     ]);
     expect(programme.value.items.map(({ materialId }) => materialId)).toEqual([published]);
-    // The chapter description stays authoring-only; the public catalogue never carries it.
-    expect(JSON.stringify(programme.value)).not.toContain(chapterSummary.slice(0, 40));
   });
 
   test("leaves a flat Guide and every other discovery kind without chapters", async () => {

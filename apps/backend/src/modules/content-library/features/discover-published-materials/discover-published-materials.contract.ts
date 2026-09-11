@@ -18,6 +18,8 @@ export interface PublishedMaterialDiscoveryDto {
     readonly id: string;
     readonly materialIds: readonly string[];
     readonly name: string;
+    /** Авторское описание главы: на странице продукта оно объясняет, что внутри. */
+    readonly summary: string;
   }[];
   readonly hasNext: boolean;
   readonly items: readonly PublishedMaterialCatalogItemDto[];

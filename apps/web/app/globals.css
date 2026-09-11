@@ -323,6 +323,42 @@ body:has([data-public-shell]) {
   filter: blur(1.25rem);
 }
 
+/*
+ * Приглашение к оплате: по чёрной кнопке слева направо проходит мягкий блик. Он привлекает
+ * внимание, не меняя цвет кнопки и не двигая её саму, поэтому соседние элементы не смещаются.
+ */
+@keyframes billing-invite-sheen {
+  from {
+    transform: translateX(-140%);
+  }
+
+  to {
+    transform: translateX(140%);
+  }
+}
+
+.billing-invite {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.billing-invite::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inline-size: 45%;
+  background: linear-gradient(
+    100deg,
+    transparent,
+    color-mix(in oklab, white 38%, transparent),
+    transparent
+  );
+  animation: billing-invite-sheen 2.6s var(--motion-ease-out) 1.2s infinite;
+  pointer-events: none;
+  z-index: -1;
+}
+
 ::selection {
   color: var(--accent-foreground);
   background: var(--accent);
@@ -349,6 +385,12 @@ body:has([data-public-shell]) {
   [data-slot="tooltip-content"] {
     animation-duration: 0s !important;
     transition-duration: 0s !important;
+  }
+
+  /* Блик — украшение, а не сообщение: без движения кнопка остаётся полностью читаемой. */
+  .billing-invite::after {
+    animation: none;
+    opacity: 0;
   }
 }
 

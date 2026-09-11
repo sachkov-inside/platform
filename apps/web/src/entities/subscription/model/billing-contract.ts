@@ -266,29 +266,31 @@ export function publicSubscriptionOffers(
 }
 
 /**
- * Разовое предложение конкретного руководства. Руководство продаётся, только когда владелец
- * завёл ему цену, поэтому отсутствие предложения — это «не продаётся», а не ошибка. Подходящее
- * предложение обычно одно; при совпадении берётся самое дешёвое, а равные цены разводит
- * стабильный идентификатор, чтобы выбор не зависел от порядка ответа.
+ * Как сегодня продаётся руководство: его разовые варианты, от дешёвого к дорогому — например,
+ * руководство отдельно и руководство с сопровождением. Это единственное место, которое отвечает
+ * на вопрос, поэтому программа и страница оплаты не могут разойтись и завести читателя в тупик.
+ * Руководство продаётся, только когда владелец завёл ему цену, поэтому пустой список — это
+ * «не продаётся», а не ошибка. Равные цены разводит стабильный идентификатор, чтобы порядок
+ * не зависел от ответа сервера.
  */
-export function guidePurchaseOffer(
+export function guidePurchaseOffers(
   offers: readonly PriceSnapshot[],
   guideId: string,
-): PriceSnapshot | null {
+): readonly PriceSnapshot[] {
   const capability = guideCapability(guideId);
-  const matching = offers.filter(
-    (snapshot) =>
-      !snapshot.offer.archived &&
-      !snapshot.paymentOption.archived &&
-      paymentMode(snapshot) === "one_time" &&
-      snapshot.offer.benefits.includes(capability),
-  );
-  return (
-    [...matching].sort(
+  return [...offers]
+    .filter(
+      (snapshot) =>
+        !snapshot.offer.archived &&
+        !snapshot.paymentOption.archived &&
+        paymentMode(snapshot) === "one_time" &&
+        snapshot.offer.benefits.includes(capability),
+    )
+    .sort(
       (left, right) =>
         left.firstPriceKopecks - right.firstPriceKopecks ||
         left.paymentOption.id.localeCompare(right.paymentOption.id),
-    )[0] ?? null
-  );
+    );
 }
+
 export type VerifiedContact = z.infer<typeof verifiedContactSchema>;
