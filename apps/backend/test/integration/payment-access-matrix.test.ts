@@ -265,7 +265,8 @@ describe("оплата, выдача прав и доступ к материа�
       .toMatchObject({ ok: false, error: { code: "access_denied" } });
     expect(await artifacts.deliver({ artifactId: guideResources.artifactId, guideId: guideA, preview: false, subject: reader(account), version: 1 }))
       .toMatchObject({ ok: false, error: { code: "artifact_not_found" } });
-    const chapters = [{ id: chapterId, materialIds: [guideMaterial, sharedMaterial], name: "Первая глава" }];
+    // Описание главы доходит до читателя вместе с программой; у этой главы его просто нет.
+    const chapters = [{ id: chapterId, materialIds: [guideMaterial, sharedMaterial], name: "Первая глава", summary: "" }];
     const before = await guideProgramme(reader(account));
     expect(before.chapters).toEqual(chapters);
     expect(before.items.map(item => item.availability)).toEqual(["locked", "locked"]);

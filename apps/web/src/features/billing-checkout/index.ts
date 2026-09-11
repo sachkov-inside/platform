@@ -1,6 +1,7 @@
 export {
   CheckoutFlow,
   type CheckoutFlowProps,
+  type CheckoutInclusion,
 } from "./ui/checkout-flow.client";
 export {
   CheckoutPanel,

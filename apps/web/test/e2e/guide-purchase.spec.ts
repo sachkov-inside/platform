@@ -19,12 +19,13 @@ test("витрина руководства отвечает и объясняе
   );
 });
 
-test("витрина руководства возвращает к самому руководству", async ({ page }) => {
+test("страница оплаты возвращает в программу", async ({ page }) => {
   await page.goto(purchase);
 
-  await expect(
-    page.getByRole("link", { name: "Вернуться к руководству" }),
-  ).toHaveAttribute("href", guide);
+  await expect(page.getByRole("link", { name: "Программа" })).toHaveAttribute(
+    "href",
+    `${guide}/programme`,
+  );
 });
 
 test("оба адреса руководства ведут на одну витрину покупки", async ({

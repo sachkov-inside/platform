@@ -37,6 +37,8 @@ export interface GuideChapter {
   readonly id: string;
   readonly materialIds: readonly string[];
   readonly name: string;
+  /** Авторское описание главы: на странице продукта оно объясняет, что внутри. */
+  readonly summary: string;
 }
 
 export interface DiscoveryTopic {

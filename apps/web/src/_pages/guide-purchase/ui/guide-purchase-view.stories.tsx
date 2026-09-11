@@ -43,10 +43,12 @@ export const ForSale: Story = {
     await expect(canvas.getByRole("heading", { level: 1 })).toHaveTextContent(
       guide.name,
     );
-    // Цена и состав приходят с сервера, а не из разметки страницы.
-    await expect(canvas.getByText("2 500 ₽")).toBeInTheDocument();
-    await expect(canvas.getByText("разовая покупка")).toBeInTheDocument();
-    await expect(canvas.getByText("бессрочно")).toBeInTheDocument();
+    // Страница оплаты ведёт обратно в программу: там читатель видел бесплатные уроки.
+    await expect(
+      canvas.getByRole("link", { name: "Программа" }),
+    ).toBeInTheDocument();
+    // Само оформление собирает клиентская обвязка: здесь она заменена заглушкой.
+    await expect(canvas.getByText("Оформление покупки")).toBeInTheDocument();
   },
 };
 
@@ -58,7 +60,7 @@ export const NotForSale: Story = {
       "не продаётся отдельно",
     );
     await expect(
-      canvas.getByRole("link", { name: "Вернуться к руководству" }),
+      canvas.getByRole("link", { name: "Программа" }),
     ).toBeInTheDocument();
   },
 };
@@ -79,7 +81,12 @@ export const SignedOut: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("button", { name: "Войти" })).toBeEnabled();
-    await expect(canvas.getByText(/2 500 ₽/u)).toBeInTheDocument();
+    // Цена в приглашении войти приходит из снимка сервера, а не из разметки.
+    await expect(
+      canvas.getByText((_, node) => node?.textContent?.includes("2\u00a0500") === true, {
+        selector: "p",
+      }),
+    ).toBeInTheDocument();
   },
 };
 

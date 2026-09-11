@@ -1,12 +1,10 @@
 import {
   ArrowLeft,
   LibraryBig,
-  ListVideo,
   RefreshCw,
   SearchX,
   ShieldAlert,
   Tags,
-  type LucideIcon,
 } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
@@ -18,56 +16,56 @@ import type {
 } from "@/features/library-discovery";
 import {
   ContentCoverImage,
-  materialPreviewHasVideo,
 } from "@/entities/material";
-import {
-  billingActionClass,
-  formatKopecks,
-  type PriceSnapshot,
-} from "@/entities/subscription";
 import { PlaylistCard, formatMaterialCount } from "@/features/library-discovery";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { PublicSectionHeading } from "@/shared/ui/public-section-heading";
-import {
-  guidePurchaseHref,
-  subscriptionHrefFrom,
-} from "@/shared/routing/subscription-route";
+import { guideProgrammeHref } from "@/shared/routing/subscription-route";
 import {
   collectionDiscoveryHref,
   libraryMaterialReaderReturnTarget,
-  materialReaderOriginHref,
   type MaterialReaderReturnTarget,
 } from "@/shared/routing/material-reader";
 import type { ReaderGuideArtifactsResult } from "@/features/guide-artifacts.reader";
-import { GuideIntroductionSection } from "./guide-introduction";
-import { SeriesJourney, type SeriesLearningView } from "./series-journey.client";
+import { GuideProductView } from "./guide-product-view";
 import { TopicMaterialCatalog } from "./topic-material-catalog.client";
 
 type ResolvedDiscoveryResult = Exclude<
   PublishedSeriesResult | PublishedTopicResult,
   { readonly kind: "not-found" | "unavailable" }
 >;
+type PublishedTopicResultResolved = Exclude<
+  PublishedTopicResult,
+  { readonly kind: "not-found" | "unavailable" }
+>;
 
+/**
+ * Развилка двух разных страниц. Руководство уходит на свою страницу продукта: она рассказывает —
+ * обложка, авторские ответы на четыре вопроса, программа обзором и артефакты как обещание
+ * результата, — а материалы, состояния доступа и приглашение к оплате живут в программе.
+ * Тема остаётся прежней страницей со своим заголовком и списком материалов.
+ */
 export function LibraryDiscoveryView({
-  artifacts,
+  artifacts = { kind: "ready", artifacts: [] },
   result,
   returnTarget = libraryMaterialReaderReturnTarget,
-  learning,
-  guideOffer = null,
-  onRetry,
 }: {
   readonly artifacts?: ReaderGuideArtifactsResult;
   readonly result: ResolvedDiscoveryResult;
   readonly returnTarget?: MaterialReaderReturnTarget;
-  readonly learning?: SeriesLearningView;
-  /** Разовая цена этого руководства, когда владелец её завёл. */
-  readonly guideOffer?: PriceSnapshot | null;
-  readonly onRetry?: (() => void) | undefined;
 }) {
-  const isSeries = result.discoveryKind === "series";
-  const introduction = result.reference.introduction ?? null;
-  const Icon = isSeries ? ListVideo : Tags;
+  if (result.discoveryKind === "series") {
+    const entry = freeEntryHref(result);
+    return (
+      <GuideProductView
+        artifacts={artifacts}
+        result={result}
+        returnTarget={returnTarget}
+        {...(entry === undefined ? {} : { freeEntryHref: entry })}
+      />
+    );
+  }
   const currentHref = collectionDiscoveryHref(
     result.discoveryKind,
     result.reference.slug,
@@ -76,7 +74,7 @@ export function LibraryDiscoveryView({
 
   return (
     <div
-      className={cn("@container/discovery min-w-0", isSeries && "mx-auto w-full max-w-[65rem]")}
+      className="@container/discovery min-w-0"
       data-discovery-kind={result.discoveryKind}
       data-discovery-state={result.kind}
     >
@@ -85,177 +83,51 @@ export function LibraryDiscoveryView({
         name={result.reference.name}
         returnTarget={returnTarget}
       />
-      <DiscoveryHero Icon={Icon} isSeries={isSeries} result={result} />
-      {isSeries && introduction !== null ? <GuideIntroductionSection introduction={introduction} /> : null}
-      {isSeries ? <SeriesJourney {...(artifacts === undefined ? {} : { artifacts })} currentHref={currentHref} result={{ ...result, discoveryKind: "series" }} {...(learning === undefined ? {} : { learning })} onRetry={onRetry} /> : null}
-
-      {isSeries && result.kind === "ready" &&
-      result.items.some((item) => item.availability === "locked") ? (
-        <LockedMaterialsCallout offer={guideOffer} slug={result.reference.slug} />
-      ) : null}
+      <DiscoveryHero result={result} />
 
       {result.kind === "empty" ? (
         <DiscoveryEmpty kind={result.discoveryKind} />
-      ) : isSeries ? null : (
+      ) : (
         <TopicMaterials currentHref={currentHref} result={result} />
       )}
     </div>
   );
 }
 
-/**
- * Часть руководства закрыта. Когда у него есть своя цена, покупка руководства — главный путь,
- * а подписка остаётся вторым. Без цены остаётся прежний CTA на витрину тарифов.
- *
- * Предложение разрешает продажу, но само по себе не повод звать к оплате: у кого руководство
- * уже открыто, тому предлагать покупку нечего. Поэтому блок показывается там, где читателю
- * действительно чего-то не хватает, и он же служит входом на витрину руководства. Витрина
- * доступна и по прямому адресу, но ссылки на неё со страницы в этом состоянии нет.
- */
-function LockedMaterialsCallout({
-  offer,
-  slug,
-}: {
-  readonly offer: PriceSnapshot | null;
-  readonly slug: string;
-}) {
-  const subscriptionHref = subscriptionHrefFrom(
-    materialReaderOriginHref("series", slug),
-  );
-  if (offer === null) {
-    return (
-      <section className="mt-8 rounded-2xl border border-border bg-card p-6 shadow-card">
-        <h2 className="text-xl font-semibold">Часть материалов открыта по подписке</h2>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-          Подписка открывает все опубликованные материалы и руководства. Мы вернём
-          вас сюда после входа.
-        </p>
-        <Button asChild className={`mt-4 ${billingActionClass}`}>
-          <Link href={subscriptionHref}>Посмотреть тарифы</Link>
-        </Button>
-      </section>
-    );
-  }
-  return (
-    <section className="mt-8 rounded-2xl border border-border bg-card p-6 shadow-card">
-      <h2 className="text-xl font-semibold">Купите это руководство</h2>
-      <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-        Разовая покупка за{" "}
-        <span className="font-semibold text-foreground">
-          {formatKopecks(offer.firstPriceKopecks)}
-        </span>{" "}
-        открывает его целиком и навсегда. Подписку включать не нужно, и списаний
-        по этой покупке не будет.
-      </p>
-      <div className="mt-4 flex flex-wrap items-center gap-3">
-        <Button asChild className={billingActionClass}>
-          <Link href={guidePurchaseHref(slug)}>
-            Купить за {formatKopecks(offer.firstPriceKopecks)}
-          </Link>
-        </Button>
-        <Link
-          className="text-sm text-action underline underline-offset-4"
-          href={subscriptionHref}
-        >
-          Посмотреть подписку
-        </Link>
-      </div>
-    </section>
-  );
-}
-
-function DiscoveryHero({
-  Icon,
-  isSeries,
-  result,
-}: {
-  readonly Icon: LucideIcon;
-  readonly isSeries: boolean;
-  readonly result: ResolvedDiscoveryResult;
-}) {
+/** Заголовок темы: руководство сюда не попадает — у него своя страница продукта. */
+function DiscoveryHero({ result }: { readonly result: PublishedTopicResultResolved }) {
   return (
     <header
       className={cn(
         "mt-5 overflow-hidden rounded-[2rem] p-6 md:p-10",
-        isSeries
-          ? "bg-primary text-white"
-          : cn(discoveryToneClass(result.reference.slug), "text-foreground"),
+        discoveryToneClass(result.reference.slug),
+        "text-foreground",
       )}
     >
       <div className="flex flex-col justify-between gap-6 md:flex-row md:items-center">
         <div className="min-w-0">
-          <p
-            className={cn(
-              "text-xs font-bold uppercase tracking-[0.14em]",
-              isSeries ? "text-white/65" : "text-body-muted",
-            )}
-          >
-            {isSeries ? (
-              <>
-                Руководство ·{" "}
-                {formatMaterialCount(
-                  result.kind === "ready" ? result.items.length : 0,
-                )}
-              </>
-            ) : (
-              "Тема"
-            )}
-          </p>
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-body-muted">Тема</p>
           <h1 className="mt-3 max-w-3xl break-words text-[1.75rem] font-semibold leading-[1.15] tracking-[-0.035em] md:text-4xl">
             {result.reference.name}
           </h1>
           {result.reference.summary ? (
-            <p
-              className={cn(
-                "mt-4 max-w-2xl text-base leading-7 md:text-lg",
-                isSeries ? "text-white/65" : "text-body-muted",
-              )}
-            >
+            <p className="mt-4 max-w-2xl text-base leading-7 text-body-muted md:text-lg">
               {result.reference.summary}
             </p>
           ) : null}
         </div>
-        {isSeries && result.kind === "ready" ? (
-          <div className="grid w-full max-w-xl shrink-0 grid-cols-3 gap-2 md:w-[18rem]">
-            {result.items.slice(0, 3).map((material, index) => {
-              const collectionCover = index === 0
-                ? result.reference.cover ?? null
-                : null;
-              return (
-                <ContentCoverImage
-                  alt=""
-                  className="aspect-[4/3] min-h-0 rounded-2xl"
-                  cover={collectionCover ?? material.cover ?? null}
-                  fallbackKind={
-                    collectionCover !== null
-                      ? "playlist"
-                      : materialPreviewHasVideo(material)
-                      ? "video"
-                      : "material"
-                  }
-                  fallbackSeed={
-                    collectionCover === null
-                      ? material.slug
-                      : result.reference.slug
-                  }
-                  key={material.slug}
-                  sizes="10rem"
-                />
-              );
-            })}
-          </div>
-        ) : result.reference.cover !== null && result.reference.cover !== undefined ? (
+        {result.reference.cover !== null && result.reference.cover !== undefined ? (
           <ContentCoverImage
             alt=""
             className="size-24 shrink-0 rotate-[-5deg] rounded-[1.6rem] shadow-xl md:size-32"
             cover={result.reference.cover}
-            fallbackKind={isSeries ? "playlist" : "topic"}
+            fallbackKind="topic"
             fallbackSeed={result.reference.slug}
             sizes="8rem"
           />
         ) : (
           <span className="grid size-24 shrink-0 rotate-[-5deg] place-items-center rounded-[1.6rem] border border-white/45 bg-white/75 text-foreground shadow-xl backdrop-blur-sm md:size-32">
-            <Icon aria-hidden="true" className="size-12 md:size-16" strokeWidth={1.6} />
+            <Tags aria-hidden="true" className="size-12 md:size-16" strokeWidth={1.6} />
           </span>
         )}
       </div>
@@ -508,4 +380,16 @@ function DiscoveryStatus({
       </div>
     </section>
   );
+}
+
+
+/**
+ * Бесплатный вход из обложки ведёт в программу: там читатель сразу видит открытые уроки и то,
+ * что за ними. Кнопка появляется, только когда открытый материал действительно есть.
+ */
+function freeEntryHref(result: ResolvedDiscoveryResult): Route | undefined {
+  if (result.kind !== "ready") return undefined;
+  return result.items.some((item) => item.availability === "available")
+    ? guideProgrammeHref(result.reference.slug)
+    : undefined;
 }
