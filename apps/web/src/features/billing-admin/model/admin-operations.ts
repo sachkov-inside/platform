@@ -338,7 +338,6 @@ export type ApplyBatchInput = z.infer<typeof applyBatchInputSchema>;
 export type ExtendGrantInput = z.infer<typeof extendGrantInputSchema>;
 export type RevokeGrantInput = z.infer<typeof revokeGrantInputSchema>;
 export type CatalogOutcome = z.infer<typeof catalogOutcomeSchema>;
-export type CatalogOffersOutcome = z.infer<typeof catalogOffersOutcomeSchema>;
 export type PaymentView = z.infer<typeof paymentViewSchema>;
 export type PaymentsOutcome = z.infer<typeof paymentsOutcomeSchema>;
 export type PaymentOutcome = z.infer<typeof paymentOutcomeSchema>;

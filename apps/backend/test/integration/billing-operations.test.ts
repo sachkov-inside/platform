@@ -495,6 +495,9 @@ describe("владельческие операции billing: платежи, �
     const archived = asCatalog(await s.operations.execute(owner, { operation: "offers.archive", operationId: randomUUID(),
       id: offerId, expectedRevision: 1 }));
     expect(archived.value).toEqual({ id: offerId, revision: 2, archived: true, published: false });
+    // Неизвестный вариант не выдумывается: включение несуществующего предложения — not_found.
+    expect(failure(await s.operations.execute(owner, { operation: "offers.publish", operationId: randomUUID(),
+      id: randomUUID(), expectedRevision: 1 }))).toBe("not_found");
     // Архивирование продаваемого предложения не переписывает оплаченные условия и историю.
     const purchaseRef = await s.buy();
     // Выключение обратимо: предложение и его состав не пересоздаются, повторное включение возвращает продажу.
