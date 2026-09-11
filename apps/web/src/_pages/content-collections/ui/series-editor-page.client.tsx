@@ -12,6 +12,8 @@ import {
   type ContentCollection,
   type GuideIntroductionDraft,
 } from "../model/content-collections";
+import { useCollectionDraft } from "../model/use-collection-draft.client";
+import { MutationNotice } from "./collection-mutation-notice";
 
 /** Reader-facing wording; the field names follow the Inside Content `guide.yaml`. */
 const INTRODUCTION_FIELDS: readonly {
@@ -40,8 +42,6 @@ const INTRODUCTION_FIELDS: readonly {
     placeholder: "Что входит в руководство, а что нет и что ещё готовится?",
   },
 ];
-import { useCollectionDraft } from "../model/use-collection-draft.client";
-import { MutationNotice } from "./collection-mutation-notice";
 
 export function SeriesEditorPageClient({
   initialCollection,

@@ -12,9 +12,13 @@ import {
 } from "../model/reader-guide-artifacts";
 
 /**
- * Reads the artifact section for one Guide as the current viewer. A Guide the
- * catalog already resolved always exists here, so an absent section and a
- * failing dependency are the same thing to the page: it renders without it.
+ * Reads the artifact section for one Guide as the current viewer.
+ *
+ * Both a failing dependency and an absent Guide degrade to `unavailable`. The
+ * second is a contract inconsistency — the catalog just resolved this Guide by
+ * id — but the reader gains nothing from losing the whole page over a section,
+ * so the page keeps its programme and says the section is not opening. The
+ * inconsistency stays visible in the backend request log, not in this adapter.
  */
 export async function readReaderGuideArtifacts(
   guideId: string,

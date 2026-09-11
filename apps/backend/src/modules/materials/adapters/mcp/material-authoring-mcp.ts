@@ -8,6 +8,7 @@ import {
   guideChapterDraftsSchema,
 } from "../../shared/guide-chapters.js";
 import { seriesStepGroupsSchema } from "../../shared/series-step-groups.js";
+import { GUIDE_INTRODUCTION_FIELD_MAX } from "../../facets/material-authoring/content-collection.contract.js";
 
 import type { MaterialAuthoring } from "../../facets/material-authoring/material-authoring.js";
 import {
@@ -30,12 +31,13 @@ const applicationResult = z.discriminatedUnion("ok", [
 ]);
 
 const collectionKindSchema = z.enum(["guide", "series", "topic"]);
+const introductionField = z.string().max(GUIDE_INTRODUCTION_FIELD_MAX);
 const guideIntroductionSchema = z
   .object({
-    audience: z.string(),
-    outcome: z.string(),
-    prerequisites: z.string(),
-    scope: z.string(),
+    audience: introductionField,
+    outcome: introductionField,
+    prerequisites: introductionField,
+    scope: introductionField,
   })
   .strict();
 const collectionIdSchema = z.uuid();

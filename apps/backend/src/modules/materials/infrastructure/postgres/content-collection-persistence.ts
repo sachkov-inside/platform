@@ -26,8 +26,6 @@ interface ContentCollectionPersistence {
     readonly slug: string;
     readonly summary: string;
   }) => Promise<ContentCollectionDto>;
-  /** Absent for a Topic, which has no introduction to write. */
-  readonly supportsIntroduction: boolean;
   readonly list: () => Promise<readonly ContentCollectionDto[]>;
   readonly load: (id: string) => Promise<ContentCollectionDto | undefined>;
   readonly setArchive: (input: {
@@ -123,7 +121,6 @@ function topicPersistence(prisma: MaterialsPrisma): ContentCollectionPersistence
         })
       ).count,
     slugConstraint: "topics_slug_unique",
-    supportsIntroduction: false,
     updateMetadata: async ({ expectedVersion, id, name, summary }) =>
       (
         await prisma.topic.updateMany({
@@ -205,7 +202,6 @@ function guidePersistence(prisma: MaterialsPrisma, kind: "guide" | "series"): Co
         })
       ).count,
     slugConstraint: "series_slug_unique",
-    supportsIntroduction: true,
     updateMetadata: async ({ expectedVersion, id, introduction, name, summary }) =>
       (
         await prisma.guide.updateMany({

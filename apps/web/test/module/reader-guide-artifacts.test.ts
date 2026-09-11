@@ -52,6 +52,9 @@ describe("Guide artifact section reader adapter", () => {
     );
   });
 
+  // 503 is the expected outage. 404 is a contract inconsistency for a Guide the
+  // catalog just resolved; it degrades the same way on purpose, so one section
+  // never costs the reader the whole page.
   it.each([
     [
       404,
@@ -73,7 +76,7 @@ describe("Guide artifact section reader adapter", () => {
       },
     ],
   ])(
-    "reports %i as an unavailable section instead of failing the Guide page",
+    "degrades %i to an unavailable section instead of failing the Guide page",
     async (status, problem) => {
       vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
       vi.stubGlobal(

@@ -6,6 +6,9 @@ export type ContentCollectionKind = "guide" | "series" | "topic";
  * names follow the Inside Content authoring `guide.yaml`, so an import carries
  * the authored text without translation. A Topic has no introduction.
  */
+/** One introduction field holds an authored paragraph, not a headline. */
+export const GUIDE_INTRODUCTION_FIELD_MAX = 4000;
+
 export interface GuideIntroductionDto {
   readonly audience: string;
   readonly outcome: string;

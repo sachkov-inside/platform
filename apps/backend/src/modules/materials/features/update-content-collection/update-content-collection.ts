@@ -14,14 +14,14 @@ import {
 } from "../../shared/command-validation.js";
 import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
 import { contentCollectionPersistence } from "../../infrastructure/postgres/content-collection-persistence.js";
-import type { GuideIntroductionDto } from "../../facets/material-authoring/content-collection.contract.js";
+import {
+  GUIDE_INTRODUCTION_FIELD_MAX,
+  type GuideIntroductionDto,
+} from "../../facets/material-authoring/content-collection.contract.js";
 import type {
   UpdateContentCollectionError,
   UpdateContentCollectionOperation,
 } from "./update-content-collection.contract.js";
-
-/** One introduction field holds an authored paragraph, not a headline. */
-const GUIDE_INTRODUCTION_FIELD_MAX = 4000;
 
 const introductionField = z.string().trim().max(GUIDE_INTRODUCTION_FIELD_MAX);
 

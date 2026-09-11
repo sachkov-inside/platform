@@ -39,7 +39,11 @@ export function SeriesJourney({ artifacts = { kind: "ready", artifacts: [] }, re
   const routeRef = useRef<HTMLElement>(null);
   const items = result.kind === "ready" ? result.items : [];
   const chapterOf = chapterLookup(result.chapters);
-  const guideArtifacts = artifacts.kind === "ready" ? artifacts.artifacts : [];
+  // An artifact part exists only for a Guide the catalog resolved by id, so the
+  // download address it builds is never a guess.
+  const guideId = result.reference.id;
+  const guideArtifacts =
+    artifacts.kind === "ready" && guideId !== undefined ? artifacts.artifacts : [];
   // Chapters are the Guide programme; anything the author has not placed in one is supplementary.
   // Each part carries the chapters that apply to it, so no part identifier decides presentation.
   const materialParts: readonly GuidePart[] = result.chapters.length === 0
@@ -49,9 +53,9 @@ export function SeriesJourney({ artifacts = { kind: "ready", artifacts: [] }, re
         { id: "supplementary", kind: "materials", label: "Дополнительные материалы", chapters: [], items: items.filter((item) => chapterOf(item) === null) },
       ] satisfies readonly GuidePart[]).filter((entry, index) => index === 0 || entry.items.length > 0);
   // Artifacts are a takeaway result, not a step of the route, so they are their own part.
-  const parts: readonly GuidePart[] = guideArtifacts.length === 0
+  const parts: readonly GuidePart[] = guideArtifacts.length === 0 || guideId === undefined
     ? materialParts
-    : [...materialParts, { artifacts: guideArtifacts, id: "artifacts", kind: "artifacts", label: "Артефакты" }];
+    : [...materialParts, { artifacts: guideArtifacts, guideId, id: "artifacts", kind: "artifacts", label: "Артефакты" }];
   const [selection, setSelection] = useState(() => ({
     id: (parts.find((entry) => partItems(entry).some((item) => item.slug === requestedMaterial)) ?? parts[0])?.id ?? "programme",
     // An explicit switch abandons the page in the address, which belongs to the previous part.
@@ -164,7 +168,7 @@ export function SeriesJourney({ artifacts = { kind: "ready", artifacts: [] }, re
       </div> : null}
       {parts.length > 1 ? <p aria-live="polite" className="sr-only">{part?.label}: {part?.kind === "artifacts" ? artifactsInWords(part.artifacts.length) : formatMaterialCount(visible.length)}</p> : null}
       <div aria-labelledby={part === undefined ? undefined : `series-part-${part.id}`} id={`series-part-panel-${part?.id ?? "programme"}`} role={parts.length > 1 ? "tabpanel" : undefined} tabIndex={parts.length > 1 ? 0 : undefined} className="focus-visible:outline-2 focus-visible:outline-ring">
-        {part?.kind === "artifacts" ? <div className="mt-6"><ReaderGuideArtifacts artifacts={part.artifacts} guideId={result.reference.id ?? ""} /></div> : <>
+        {part?.kind === "artifacts" ? <div className="mt-6"><ReaderGuideArtifacts artifacts={part.artifacts} guideId={part.guideId} /></div> : <>
         {page.count > 1 ? <p aria-live="polite" className="mt-6 text-sm tabular-nums text-muted-foreground">Материалы {page.offset + 1}–{page.offset + page.items.length} из {visible.length}</p> : null}
         {items.some((item) => item.availability === "unavailable") ? <Button className="mt-4 h-auto min-h-11 max-w-full whitespace-normal" onClick={() => { router.refresh(); }} variant="outline"><RefreshCw aria-hidden="true" />Повторить проверку доступа</Button> : null}
         <div className="mt-6 grid gap-10">
@@ -239,6 +243,7 @@ type GuidePart =
     }
   | {
       readonly artifacts: readonly ReaderGuideArtifact[];
+      readonly guideId: string;
       readonly id: "artifacts";
       readonly kind: "artifacts";
       readonly label: string;

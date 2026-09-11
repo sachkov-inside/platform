@@ -43,11 +43,16 @@ export async function PublishedSeriesPage({
   readonly slug: string;
 }) {
   const result = await loadPublishedSeries(slug, accessToken);
-  // The artifact section is addressed by Guide id, which only a resolved Guide has.
-  const artifacts =
+  // The artifact section is addressed by Guide id, which only a resolved Guide
+  // carries. A not-found or unavailable result never reaches the section at all.
+  const guideId =
     result.kind === "ready" || result.kind === "empty"
-      ? await readReaderGuideArtifacts(result.reference.id ?? "", accessToken)
-      : ({ artifacts: [], kind: "ready" } as const);
+      ? result.reference.id
+      : undefined;
+  const artifacts: ReaderGuideArtifactsResult =
+    guideId === undefined
+      ? { artifacts: [], kind: "ready" }
+      : await readReaderGuideArtifacts(guideId, accessToken);
   return renderPublishedSeriesResult(
     result,
     artifacts,
