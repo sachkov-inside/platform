@@ -217,6 +217,7 @@ describe("Platform migrations", () => {
           "0055_billing_operations",
           "0056_billing_notices",
           "0057_guide_introduction",
+          "0058_one_time_purchase",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -804,6 +805,7 @@ describe("Platform migrations", () => {
           "0055_billing_operations",
           "0056_billing_notices",
           "0057_guide_introduction",
+          "0058_one_time_purchase",
         ],
       });
 
