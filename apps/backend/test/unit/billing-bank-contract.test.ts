@@ -1,5 +1,8 @@
+import { fileURLToPath } from "node:url";
+
 import { describe, expect, test } from "vitest";
 import { Tbank, tbankToken, validatedPaymentUrl } from "../../src/modules/billing/infrastructure/tbank/tbank.js";
+import { bankRequest } from "../../src/modules/billing/infrastructure/tbank/bank-request.js";
 import { tbankConfigSchema } from "../../src/config/tbank-config.js";
 import { subscriptionPeriodEnd } from "../../src/modules/billing/domain/subscription-period.js";
 
@@ -30,6 +33,14 @@ describe("concrete bank boundary", () => {
     expect(() => new Tbank({ ...config, environment: "production" }).openBinding("order-a", ciphertext)).toThrow();
     expect(() => new Tbank({ ...config, terminalKey: "another" }).openBinding("order-a", ciphertext)).toThrow();
     expect(() => new Tbank({ ...config, bindingEncryptionKey: Buffer.alloc(32, 1).toString("base64") }).openBinding("order-a", ciphertext)).toThrow();
+  });
+  test("bank root is attached to the bank client only, and a missing file fails loudly", () => {
+    // Без собственного корня клиент остаётся встроенным: доверие приложения не меняется.
+    expect(bankRequest(undefined)).toBe(globalThis.fetch);
+    const root = fileURLToPath(new URL("../../../../infra/tls/russian-trusted-root-ca.pem", import.meta.url));
+    expect(bankRequest(root)).not.toBe(globalThis.fetch);
+    // Отсутствующий корень — отказ, а не молчаливое соединение без проверки сертификата.
+    expect(() => bankRequest(`${root}.missing`)).toThrow();
   });
   test("months clamp the Moscow local date while preserving the original anchor", () => {
     const anchor = new Date("2032-01-30T22:15:12.345Z"); // Jan 31 in Moscow, leap year.

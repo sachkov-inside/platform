@@ -12,14 +12,16 @@ export const tbankConfigSchema = z.strictObject({
   returnUrl: httpsUrl, notificationUrl: httpsUrl,
   // Смена карты требует отдельно подтверждённой проверки: CheckType=NO не возвращает RebillId.
   cardBinding: z.strictObject({ confirmed: z.literal(true), checkType: z.enum(["3DS", "3DSHOLD", "HOLD"]) }).optional(),
+  // Путь к корневому сертификату для соединений с банком; подключается только к ним.
+  caFile: z.string().min(1).optional(),
   receipt: z.strictObject({
     taxation: z.enum(["osn", "usn_income", "usn_income_outcome", "esn", "patent"]),
     tax: z.enum(["none", "vat0", "vat5", "vat7", "vat10", "vat22", "vat105", "vat107", "vat110", "vat122"]),
   }),
 }).refine(value => value.minimumKopecks <= value.maximumKopecks);
 export type TbankConfig = z.infer<typeof tbankConfigSchema>;
-export function parseTbankConfig(value: string | undefined): TbankConfig | undefined {
+export function parseTbankConfig(value: string | undefined, caFile?: string): TbankConfig | undefined {
   if (value === undefined) return undefined;
-  try { return tbankConfigSchema.parse(JSON.parse(value)); }
+  try { return tbankConfigSchema.parse({ ...JSON.parse(value), ...(caFile === undefined ? {} : { caFile }) }); }
   catch { throw new Error("Invalid TBANK_CONFIG_JSON; check the terminal capability and receipt configuration"); }
 }

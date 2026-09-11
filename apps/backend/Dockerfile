@@ -25,8 +25,7 @@ FROM dependencies AS development
 
 COPY --chown=node:node . .
 
-# Т-Банк предъявляет цепочку до корня УЦ Минцифры, которого нет во встроенном хранилище Node.
-ENV NODE_EXTRA_CA_CERTS=/workspace/infra/tls/russian-trusted-root-ca.pem
+ENV TBANK_CA_FILE=/workspace/infra/tls/russian-trusted-root-ca.pem
 
 FROM dependencies AS release-identity
 
@@ -76,11 +75,11 @@ FROM node:24.19.0-alpine3.23 AS backend-production
 ENV NODE_ENV=production \
     API_HOST=0.0.0.0 \
     API_PORT=3001 \
-    NODE_EXTRA_CA_CERTS=/app/russian-trusted-root-ca.pem
+    TBANK_CA_FILE=/app/infra/tls/russian-trusted-root-ca.pem
 WORKDIR /app
 
-# Т-Банк предъявляет цепочку до корня УЦ Минцифры, которого нет во встроенном хранилище Node.
-COPY --chown=root:root --chmod=0444 infra/tls/russian-trusted-root-ca.pem ./russian-trusted-root-ca.pem
+# Корень для соединений с банком: владелец root, приложению доступен только на чтение.
+COPY --chown=root:root infra/tls/russian-trusted-root-ca.pem ./infra/tls/russian-trusted-root-ca.pem
 
 COPY --from=release-identity --chown=root:root --chmod=0444 /workspace/release-identity.json ./release-identity.json
 COPY --from=production-build --chown=node:node /workspace/.production/backend/package.json ./package.json

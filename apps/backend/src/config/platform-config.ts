@@ -352,7 +352,7 @@ export function parsePlatformConfig(
     notificationDelivery: environment.NOTIFICATIONS_PLATFORM_ORIGIN || environment.NOTIFICATIONS_TELEGRAM_SECRET
       ? { origin: environment.NOTIFICATIONS_PLATFORM_ORIGIN, telegramSecret: environment.NOTIFICATIONS_TELEGRAM_SECRET } : undefined,
     mode,
-    tbank: parseTbankConfig(environment.TBANK_CONFIG_JSON),
+    tbank: parseTbankConfig(environment.TBANK_CONFIG_JSON, environment.TBANK_CA_FILE),
     billingContact: [environment.BILLING_CONTACT_ENCRYPTION_KEY, environment.BILLING_CONTACT_SMTP_HOST,
       environment.BILLING_CONTACT_SMTP_PORT, environment.BILLING_CONTACT_SMTP_USER, environment.BILLING_CONTACT_SMTP_PASSWORD,
       environment.BILLING_CONTACT_FROM].every(value => value === undefined) ? undefined : {
