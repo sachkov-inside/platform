@@ -1,5 +1,6 @@
 import type { SetHomePinError } from "../../features/set-home-pin/set-home-pin.contract.js";
 import { HttpException } from "@nestjs/common";
+import type { MaterialBodyResourceSummary } from "@inside/material-blocks";
 import { headingLevelSchema, renderedMaterialBodySchema } from "@inside/material-blocks";
 import { z } from "zod";
 import {
@@ -203,6 +204,24 @@ export const validationIssueSchema = z
   .object({ code: z.string(), path: z.string() })
   .strict();
 
+/**
+ * The wire shape of one extracted resource. The registry publishes no schema for it, so the
+ * annotation is what keeps this description and `MaterialBodyResourceSummary` in step: a resource
+ * kind added on one side stops compiling on the other.
+ */
+const extractedResourceSchema: z.ZodType<MaterialBodyResourceSummary> = z.discriminatedUnion(
+  "kind",
+  [
+    z.object({
+      kind: z.literal("image"),
+      assetId: z.uuid(),
+      alt: z.string(),
+      caption: z.string().optional(),
+    }),
+    z.object({ assetId: z.uuid(), kind: z.literal("file"), label: z.string() }),
+  ],
+);
+
 export const validatedMaterialSchema = z
   .object({
     materialId: materialIdSchema,
@@ -212,17 +231,7 @@ export const validatedMaterialSchema = z
       .object({
         plainText: z.string(),
         headings: z.array(z.object({ level: headingLevelSchema, text: z.string() })),
-        resources: z.array(
-          z.discriminatedUnion("kind", [
-            z.object({
-              kind: z.literal("image"),
-              assetId: z.uuid(),
-              alt: z.string(),
-              caption: z.string().optional(),
-            }),
-            z.object({ assetId: z.uuid(), kind: z.literal("file"), label: z.string() }),
-          ]),
-        ),
+        resources: z.array(extractedResourceSchema),
       })
       .strict(),
   })

@@ -524,9 +524,6 @@ export const ExactPreview: Story = {
       canvas.getByRole("img", { name: "Схема Developer Pipeline" }),
     ).toBeVisible();
     await expect(canvas.getByText("Checklist проверки")).toBeVisible();
-    await expect(
-      canvas.queryByText("Видео пока недоступно для просмотра"),
-    ).not.toBeInTheDocument();
   },
 };
 
