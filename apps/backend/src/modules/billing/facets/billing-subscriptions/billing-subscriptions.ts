@@ -9,6 +9,7 @@ import {
   subscriptionSnapshotSchema, subscriptionViewSchema, type ChangePlan, type SubscriptionView,
 } from "../../domain/subscription-change.js";
 import {
+  type CurrentBilling,
   cancelChangeSchema, cancelRenewalSchema, changeOptionSchema, changeQuoteResultSchema,
   quoteChangeSchema, resumeRenewalSchema, type ChangeQuoteResult, type ChangeResult,
 } from "../../features/manage-subscription/manage-subscription.contract.js";
@@ -16,7 +17,7 @@ import { changeMethodSchema, methodFlowSchema, revokeMethodSchema, type MethodFl
 import { paymentFailure, type PaymentResult } from "../../features/purchase-subscription/purchase-subscription.contract.js";
 import { lockPricing, lockSubscription } from "../../infrastructure/postgres/catalog-lock.js";
 import type { Tbank } from "../../infrastructure/tbank/tbank.js";
-import { lifecycleWindow, renewalCancelledSourceRef, type NoticeView } from "../../domain/notice.js";
+import { lifecycleWindow, renewalCancelledSourceRef } from "../../domain/notice.js";
 import { recordBillingNotice, supersedeRenewalReminders } from "../../shared/record-notice.js";
 import type { BillingNotices } from "../billing-notices/billing-notices.js";
 import { commandFingerprint } from "../../shared/command-fingerprint.js";
@@ -31,8 +32,8 @@ type SubscriptionRow = Awaited<ReturnType<BillingPrisma["billingSubscription"]["
 interface Dependencies {
   readonly prisma: BillingPrismaClient;
   readonly contact: Pick<BillingContact, "read" | "readConsent">;
-  readonly grants: Pick<AccessGrants, "readLegacyClassification">;
-  readonly payments: Pick<BillingPayments, "dispatch" | "status">;
+  readonly grants: Pick<AccessGrants, "readLegacyClassification" | "readOwnAccess">;
+  readonly payments: Pick<BillingPayments, "dispatch" | "status" | "history">;
   readonly notices: Pick<BillingNotices, "readNotices">;
   readonly bank: Tbank | undefined;
   readonly clock?: () => Date;
@@ -46,12 +47,22 @@ export class BillingSubscriptions {
   private readonly clock: () => Date;
   constructor(private readonly dependencies: Dependencies) { this.clock = dependencies.clock ?? (() => new Date()); }
 
-  /** Кабинет: действующая подписка и история служебных сообщений о её оплате и доступе. */
-  async read(accountId: string): Promise<PaymentResult<{ subscription: SubscriptionView | null; notices: NoticeView[] }>> {
+  /**
+   * Кабинет: действующая подписка, собственные основания доступа, история списаний и служебные
+   * поводы. Основания и история отвечают на вопрос «что доступно, по какому основанию и до
+   * какого срока» отдельно от расписания списаний.
+   */
+  async read(accountId: string): Promise<PaymentResult<CurrentBilling>> {
     if (!z.uuid().safeParse(accountId).success) return paymentFailure("forbidden");
     try {
-      return { ok: true, value: { subscription: await this.currentSubscription(accountId),
-        notices: await this.dependencies.notices.readNotices(accountId) } };
+      const [subscription, notices, access, payments] = await Promise.all([
+        this.currentSubscription(accountId),
+        this.dependencies.notices.readNotices(accountId),
+        this.dependencies.grants.readOwnAccess(accountId),
+        this.dependencies.payments.history(accountId),
+      ]);
+      if (!access.ok || !payments.ok) return paymentFailure("dependency_unavailable");
+      return { ok: true, value: { subscription, notices, grounds: access.value.grounds, payments: payments.value } };
     } catch { return paymentFailure("dependency_unavailable"); }
   }
 

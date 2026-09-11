@@ -31,6 +31,7 @@ import {
   listAccessGrants,
   type ListAccessGrantsCommand,
 } from "../../features/list-access-grants/list-access-grants.js";
+import { readOwnAccess } from "../../features/read-own-access/read-own-access.js";
 
 export interface AccessGrantsDependencies {
   readonly prisma: MembershipEntitlementsPrismaClient;
@@ -89,6 +90,14 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       manage(actorId, "platform:admin", () =>
         classifyLegacyAccount(prisma, accounts, actorId, command, clock()),
       ),
+    /** Собственные основания Account: без полномочия владельца и без операторских полей. */
+    async readOwnAccess(targetAccountId: string) {
+      try {
+        return await readOwnAccess(prisma, targetAccountId, clock());
+      } catch {
+        return accessFailure("unavailable");
+      }
+    },
     async resolveCapabilities(targetAccountId: string) {
       if (!z.uuid().safeParse(targetAccountId).success)
         return accessFailure("invalid_input");

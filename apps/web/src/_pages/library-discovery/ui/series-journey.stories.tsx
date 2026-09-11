@@ -71,6 +71,24 @@ export const Guest: Story = {
     await expect(canvas.getByRole("link", { name: "Модель предметной области" })).toBeVisible();
   },
 };
+export const LockedSeriesOffersSubscription: Story = {
+  args: { result: lockedResult, learning: { kind: "guest" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    // Контекст руководства сохраняется в ссылке, иначе после входа покупатель теряет место.
+    await expect(canvas.getByRole("link", { name: "Посмотреть тарифы" })).toHaveAttribute(
+      "href",
+      "/subscription?from=%2Fguides%2Fplatform-inside",
+    );
+  },
+};
+export const OpenSeriesHidesSubscription: Story = {
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).queryByRole("link", { name: "Посмотреть тарифы" }),
+    ).not.toBeInTheDocument();
+  },
+};
 export const FreeAccount: Story = { args: { result: lockedResult, learning: { kind: "ready", read: 2, total: 24, continuation: { materialSlug: "series-material-3", label: "Продолжить здесь" } } } };
 export const ExpiredMembership: Story = { args: { result: lockedResult, learning: { kind: "ready", read: 8, total: 24, continuation: null } } };
 export const Completed: Story = { args: { learning: { kind: "ready", read: 24, total: 24, continuation: null } } };

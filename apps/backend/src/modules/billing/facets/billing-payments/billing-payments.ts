@@ -10,6 +10,7 @@ import { lockPricing, lockSubscription } from "../../infrastructure/postgres/cat
 import { bankTimeoutMs, type Tbank, validatedPaymentUrl, type BankPayment, type PaymentInitiator } from "../../infrastructure/tbank/tbank.js";
 import { reservePurchaseInTransaction } from "../../features/reserve-purchase/reserve-purchase.js";
 import { paymentFailure, purchaseSubscriptionSchema, purchaseStatusSchema, type PaymentResult, type PurchaseStatus } from "../../features/purchase-subscription/purchase-subscription.contract.js";
+import { ownPaymentSchema, type OwnPayment } from "../../features/manage-subscription/manage-subscription.contract.js";
 import { paidPeriodCommandSchema } from "../../../membership-entitlements/index.js";
 import { endLapsedSubscriptions, endSubscription, inFlightStates, settleConfirmedAttempt } from "../../shared/subscription-outcome.js";
 import { attemptKindSchema, type AttemptKind } from "../../domain/subscription-change.js";
@@ -19,6 +20,8 @@ import { attemptSourceRef, lifecycleWindow } from "../../domain/notice.js";
 import { recordBillingNotice } from "../../shared/record-notice.js";
 
 const fulfillmentRetryDelayMilliseconds = 60_000;
+// Кабинет показывает обозримую историю; полный журнал платежей остаётся владельческой операцией.
+const ownPaymentHistoryLimit = 50;
 // Derived from the bank's own timeout, so a caller outlives exactly one honest round-trip.
 const inFlightAnswerBudgetMilliseconds = bankTimeoutMs + 2_000;
 const inFlightAnswerPollMilliseconds = 200;
@@ -114,6 +117,24 @@ export class BillingPayments {
         purchaseRef, state: row.state, paymentUrl: row.state === "pending" ? row.paymentUrl : null,
         snapshot: row.snapshot, access: row.state !== "confirmed" ? "awaiting_payment" : waiting ? "preparing" : "ready",
         fiscalization: row.fiscalization, confirmedAt: row.confirmedAt?.toISOString() ?? null, periodEndsAt: row.periodEndsAt?.toISOString() ?? null,
+      }) };
+    } catch { return paymentFailure("dependency_unavailable"); }
+  }
+
+  /** История списаний Account: последние попытки, новые сверху, без данных провайдера. */
+  async history(accountId: string): Promise<PaymentResult<OwnPayment[]>> {
+    if (!z.uuid().safeParse(accountId).success) return paymentFailure("forbidden");
+    try {
+      const rows = await this.dependencies.prisma.billingPurchase.findMany({
+        where: { accountId }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: ownPaymentHistoryLimit });
+      return { ok: true, value: rows.map(row => {
+        const snapshot = priceSnapshotSchema.parse(row.snapshot);
+        return ownPaymentSchema.parse({
+          purchaseRef: row.id, kind: row.kind, state: row.state, amountKopecks: Number(row.amountKopecks),
+          offerName: snapshot.offer.name, months: snapshot.paymentOption.months, fiscalization: row.fiscalization,
+          confirmedAt: row.confirmedAt?.toISOString() ?? null, periodEndsAt: row.periodEndsAt?.toISOString() ?? null,
+          createdAt: row.createdAt.toISOString(),
+        });
       }) };
     } catch { return paymentFailure("dependency_unavailable"); }
   }
