@@ -63,6 +63,12 @@ export function requestContentCollectionUpdate(
   input: {
     readonly collectionId: string;
     readonly expectedVersion: number;
+    readonly introduction?: {
+      readonly audience: string;
+      readonly outcome: string;
+      readonly prerequisites: string;
+      readonly scope: string;
+    };
     readonly kind: ContentCollectionKind;
     readonly name: string;
     readonly summary: string;
@@ -75,6 +81,9 @@ export function requestContentCollectionUpdate(
         collectionId: input.collectionId,
         requestBody: {
           expectedVersion: input.expectedVersion,
+          ...(input.introduction === undefined
+            ? {}
+            : { introduction: input.introduction }),
           kind: input.kind,
           name: input.name,
           summary: input.summary,

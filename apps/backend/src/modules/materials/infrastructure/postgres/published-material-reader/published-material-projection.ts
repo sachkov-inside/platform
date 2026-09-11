@@ -9,6 +9,7 @@ import { materialFormatSchema } from "../../../domain/material-format.js";
 
 import type { PublishedMaterialProjectionDto } from "../../../facets/published-material-reader/published-material.contract.js";
 import type { ContentCoverProjection } from "../../../facets/content-covers/content-covers.js";
+import type { GuideIntroductionDto } from "../../../facets/material-authoring/content-collection.contract.js";
 import { loadContentCoverProjections } from "../content-cover-projections.js";
 import type {
   PublishedMaterialProjectionCursor,
@@ -36,6 +37,8 @@ export interface PublishedMaterialDiscoveryPage {
   }[];
   readonly reference: {
     readonly id: string;
+    /** Author-written Guide introduction; null for every other discovery kind. */
+    readonly introduction: GuideIntroductionDto | null;
     readonly name: string;
     readonly slug: string;
     readonly summary: string;
@@ -717,6 +720,7 @@ export async function selectPublishedMaterialProjectionsByTopic(
     chapters: [],
     reference: {
       id: reference.id,
+      introduction: null,
       name: reference.name,
       slug: reference.slug,
       summary: reference.summary,
@@ -749,7 +753,17 @@ export async function selectPublishedMaterialProjectionsBySeries(
   const [reference, rawRows, rawTopics, rawChapters] = await Promise.all([
     prisma.guide.findUnique({
       where: { slug },
-      select: { coverId: true, id: true, name: true, slug: true, summary: true },
+      select: {
+        audience: true,
+        coverId: true,
+        id: true,
+        name: true,
+        outcome: true,
+        prerequisites: true,
+        scope: true,
+        slug: true,
+        summary: true,
+      },
     }),
     prisma.$queryRaw(
       projectionQuery({
@@ -829,6 +843,12 @@ export async function selectPublishedMaterialProjectionsBySeries(
     })),
     reference: {
       id: reference.id,
+      introduction: {
+        audience: reference.audience,
+        outcome: reference.outcome,
+        prerequisites: reference.prerequisites,
+        scope: reference.scope,
+      },
       name: reference.name,
       slug: reference.slug,
       summary: reference.summary,
@@ -924,6 +944,7 @@ export async function selectRelatedPublishedMaterialProjections(
     chapters: [],
     reference: {
       id: source.materialId,
+      introduction: null,
       name: source.title,
       slug: source.slug,
       summary: source.summary,

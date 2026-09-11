@@ -7,6 +7,7 @@ import type {
   PublishedSeriesResult,
   PublishedTopicResult,
 } from "@/features/library-discovery";
+import { readReaderGuideArtifacts } from "@/features/guide-artifacts.server";
 import {
   loadPublishedSeries,
   loadPublishedTopic,
@@ -16,6 +17,7 @@ import {
   LibraryDiscoveryView,
 } from "./library-discovery-view";
 import type { PriceSnapshot } from "@/entities/subscription";
+import type { ReaderGuideArtifactsResult } from "@/features/guide-artifacts.reader";
 import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 
 export async function PublishedTopicPage({
@@ -44,15 +46,23 @@ export async function PublishedSeriesPage({
   readonly slug: string;
 }) {
   const result = await loadPublishedSeries(slug, accessToken);
-  const id =
+  // The artifact section and the guide price are both addressed by Guide id, which only a
+  // resolved Guide carries. A not-found or unavailable result never reaches either at all.
+  const guideId =
     result.kind === "ready" || result.kind === "empty"
       ? result.reference.id
       : undefined;
   // Руководство продаётся, только когда владелец завёл ему цену: её отсутствие — обычное состояние.
-  const catalog = id === undefined ? undefined : await loadGuideOffer(id);
+  const [artifacts, catalog] = await Promise.all([
+    guideId === undefined
+      ? Promise.resolve<ReaderGuideArtifactsResult>({ artifacts: [], kind: "ready" })
+      : readReaderGuideArtifacts(guideId, accessToken),
+    guideId === undefined ? Promise.resolve(undefined) : loadGuideOffer(guideId),
+  ]);
   return renderPublishedSeriesResult(result, slug, {
     ...(returnTarget === undefined ? {} : { returnTarget }),
     ...(accessToken === undefined ? {} : { accessToken }),
+    artifacts,
     guideOffer: catalog?.kind === "ready" ? catalog.offer : null,
   });
 }
@@ -79,6 +89,7 @@ function renderPublishedTopicResult(
 interface SeriesRenderConditions {
   readonly returnTarget?: MaterialReaderReturnTarget;
   readonly accessToken?: string;
+  readonly artifacts: ReaderGuideArtifactsResult;
   /** Разовая цена руководства, когда владелец её завёл. */
   readonly guideOffer?: PriceSnapshot | null;
 }
@@ -96,6 +107,7 @@ function renderPublishedSeriesResult(
   }
   return (
     <PersonalSeries
+      artifacts={conditions.artifacts}
       guideOffer={conditions.guideOffer ?? null}
       result={result}
       {...(conditions.accessToken === undefined

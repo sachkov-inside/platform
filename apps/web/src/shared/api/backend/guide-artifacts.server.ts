@@ -1,5 +1,6 @@
 import "server-only";
 
+import { GuideArtifactsService } from "./generated/platform-api/services/GuideArtifactsService";
 import { MaterialAuthoringService } from "./generated/platform-api/services/MaterialAuthoringService";
 import {
   executeGeneratedRequest,
@@ -13,6 +14,43 @@ export interface GuideArtifactMetadataInput {
   readonly access: "free" | "membership";
   readonly purpose: string;
   readonly title: string;
+}
+
+/** The reader section of one Guide, already narrowed by the viewer's access. */
+export function requestReaderGuideArtifacts(
+  guideId: string,
+  options: { readonly accessToken?: string; readonly signal?: AbortSignal } = {},
+): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) => new GuideArtifactsService(request).readGuideArtifacts({ guideId }),
+    200,
+    options,
+  );
+}
+
+/** Binary or redirect delivery cannot pass through the generated JSON client. */
+export function requestReaderGuideArtifactFile(input: {
+  readonly accessToken?: string;
+  readonly artifactId: string;
+  readonly guideId: string;
+  readonly preview: boolean;
+  readonly signal: AbortSignal;
+  readonly version: number;
+}): Promise<Response> {
+  const url = new URL(
+    `${readBackendBaseUrl()}/guides/${encodeURIComponent(input.guideId)}/artifacts/${encodeURIComponent(input.artifactId)}/file`,
+  );
+  url.searchParams.set("version", String(input.version));
+  if (input.preview) url.searchParams.set("preview", "true");
+  return fetch(url, {
+    cache: "no-store",
+    headers:
+      input.accessToken === undefined
+        ? {}
+        : { authorization: `Bearer ${input.accessToken}` },
+    redirect: "manual",
+    signal: AbortSignal.any([input.signal, AbortSignal.timeout(10_000)]),
+  });
 }
 
 export function requestGuideArtifactsForGuide(

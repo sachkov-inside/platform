@@ -4,11 +4,26 @@ import { contentCoverSchema } from "@/entities/material.model";
 
 export type ContentCollectionKind = "series" | "topic";
 
+/** One introduction field holds an authored paragraph, not a headline. */
+export const GUIDE_INTRODUCTION_FIELD_MAX = 4000;
+
+export const guideIntroductionSchema = z
+  .object({
+    audience: z.string().max(GUIDE_INTRODUCTION_FIELD_MAX),
+    outcome: z.string().max(GUIDE_INTRODUCTION_FIELD_MAX),
+    prerequisites: z.string().max(GUIDE_INTRODUCTION_FIELD_MAX),
+    scope: z.string().max(GUIDE_INTRODUCTION_FIELD_MAX),
+  })
+  .strict();
+
+export type GuideIntroductionDraft = z.infer<typeof guideIntroductionSchema>;
+
 export const contentCollectionSchema = z
   .object({
     archived: z.boolean(),
     cover: contentCoverSchema.nullable().optional(),
     id: z.uuid(),
+    introduction: guideIntroductionSchema.nullable().default(null),
     kind: z.enum(["series", "topic"]),
     materialCount: z.number().int().nonnegative(),
     name: z.string(),
@@ -30,6 +45,8 @@ export interface CreateContentCollectionInput {
 export interface UpdateContentCollectionInput {
   readonly collectionId: string;
   readonly expectedVersion: number;
+  /** Omitted keeps the stored introduction; supplied replaces all four fields. */
+  readonly introduction?: GuideIntroductionDraft;
   readonly kind: ContentCollectionKind;
   readonly name: string;
   readonly summary: string;

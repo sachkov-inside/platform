@@ -323,15 +323,19 @@ model Tag {
 }
 
 model Guide {
-  id         String    @id @db.Uuid
-  slug       String    @unique(map: "series_slug_unique")
-  name       String
-  summary    String    @default("")
-  archivedAt DateTime? @map("archived_at") @db.Timestamptz
-  version    Int       @default(1)
-  coverId    String?   @map("cover_id") @db.Uuid
-  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt  DateTime  @default(now()) @map("updated_at") @db.Timestamptz
+  id            String    @id @db.Uuid
+  slug          String    @unique(map: "series_slug_unique")
+  name          String
+  summary       String    @default("")
+  audience      String    @default("")
+  outcome       String    @default("")
+  prerequisites String    @default("")
+  scope         String    @default("")
+  archivedAt    DateTime? @map("archived_at") @db.Timestamptz
+  version       Int       @default(1)
+  coverId       String?   @map("cover_id") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime  @default(now()) @map("updated_at") @db.Timestamptz
 
   @@map("series")
   @@schema("materials")

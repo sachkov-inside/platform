@@ -4,6 +4,7 @@ export type {
   LibraryDiscoveryResult,
   DiscoveryTopic,
   GuideChapter,
+  GuideIntroduction,
   RelatedPlaylist,
   PublishedSeriesResult,
   PublishedTopicResult,

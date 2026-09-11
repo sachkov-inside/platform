@@ -30,10 +30,18 @@ export async function createContentCollection(
 export async function updateContentCollection(
   input: UpdateContentCollectionInput,
 ): Promise<UpdateContentCollectionResult> {
+  const { introduction, ...metadata } = input;
+  // The introduction travels as its four flat fields; absent fields preserve it.
+  const body = toFormData(metadata);
+  if (introduction !== undefined) {
+    for (const [field, value] of Object.entries(introduction)) {
+      body.set(field, value);
+    }
+  }
   const response = await requestSameOriginMutation(
     "/api/authoring/collections/metadata",
     "PUT",
-    toFormData(input),
+    body,
   );
   if (!response.ok) return mapFailedResult(response);
   const parsed = updateContentCollectionResultSchema.safeParse(response.body);

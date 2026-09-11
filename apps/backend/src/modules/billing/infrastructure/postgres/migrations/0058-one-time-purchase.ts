@@ -1,4 +1,4 @@
-export const name = "0057_one_time_purchase";
+export const name = "0058_one_time_purchase";
 export const statement = `
 ALTER TABLE billing.payment_options DROP CONSTRAINT payment_options_mode_check;
 ALTER TABLE billing.payment_options ADD CONSTRAINT payment_options_mode CHECK (mode IN ('subscription','one_time'));

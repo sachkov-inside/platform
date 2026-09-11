@@ -22,6 +22,7 @@ export type {
 export type {
   ContentCollectionDto,
   ContentCollectionKind,
+  GuideIntroductionDto,
 } from "./facets/material-authoring/content-collection.contract.js";
 export type {
   CreateDraftCommand,

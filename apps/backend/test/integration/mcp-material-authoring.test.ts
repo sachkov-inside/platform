@@ -353,9 +353,16 @@ describe("delegated Material authoring over MCP", () => {
       },
     });
 
+    const introduction = {
+      audience: "Инженеры, которые ведут свою продуктовую поверхность целиком.",
+      outcome: "Собрать срез платформы в осознанном порядке.",
+      prerequisites: "Уверенный Git и запущенный локальный стек.",
+      scope: "Одна продуктовая поверхность; эксплуатация остаётся за границами.",
+    };
     const updated = await callTool("content_collection_update", {
       collectionId: playlist.id,
       expectedVersion: playlist.version,
+      introduction,
       kind: "series",
       name: "MCP Platform journey",
       summary: "A refined ordered path.",
@@ -363,8 +370,25 @@ describe("delegated Material authoring over MCP", () => {
     expect(updated).toMatchObject({
       structuredContent: {
         ok: true,
-        value: { name: "MCP Platform journey", slug: "mcp-platform-path", version: 2 },
+        value: {
+          introduction,
+          name: "MCP Platform journey",
+          slug: "mcp-platform-path",
+          version: 2,
+        },
       },
+    });
+    // An MCP edit without the object keeps the authored text.
+    expect(
+      await callTool("content_collection_update", {
+        collectionId: playlist.id,
+        expectedVersion: 2,
+        kind: "series",
+        name: "MCP Platform journey",
+        summary: "A refined ordered path.",
+      }),
+    ).toMatchObject({
+      structuredContent: { ok: true, value: { introduction, version: 3 } },
     });
     expect(
       await callTool("content_collection_update", {
@@ -378,7 +402,7 @@ describe("delegated Material authoring over MCP", () => {
       isError: true,
       structuredContent: {
         ok: false,
-        error: { code: "stale_content_collection_version", currentVersion: 2 },
+        error: { code: "stale_content_collection_version", currentVersion: 3 },
       },
     });
 
@@ -386,13 +410,13 @@ describe("delegated Material authoring over MCP", () => {
       await callTool("content_collection_set_archive", {
         archived: true,
         collectionId: playlist.id,
-        expectedVersion: 2,
+        expectedVersion: 3,
         kind: "series",
       }),
     ).toMatchObject({
       structuredContent: {
         ok: true,
-        value: { archived: true, version: 3 },
+        value: { archived: true, version: 4 },
       },
     });
     expect(await callTool("content_collection_list", { kind: "series" })).toMatchObject({

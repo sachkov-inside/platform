@@ -127,7 +127,7 @@ export const PartiallyGrouped: Story = {
     const programme = canvas.getByRole("tab", { name: /Программа/u });
     await expect(programme).toHaveAttribute("aria-selected", "true");
     await expect(canvas.queryByRole("list", { name: "Материалы руководства" })).not.toBeInTheDocument();
-    await userEvent.click(canvas.getByRole("tab", { name: /Другие материалы/u }));
+    await userEvent.click(canvas.getByRole("tab", { name: /Дополнительные материалы/u }));
     const other = canvas.getByRole("list", { name: "Материалы руководства" });
     await expect(within(other).getAllByRole("listitem")).toHaveLength(1);
     await expect(canvas.queryByRole("heading", { level: 3, name: "Основа продукта" })).not.toBeInTheDocument();
@@ -147,7 +147,7 @@ export const PartSwitchStartsAtFirstPage: Story = {
     const canvas = within(canvasElement);
     await userEvent.click(canvas.getByRole("button", { name: /^Страница 2/u }));
     await expect(canvas.getByText("Материалы 13–23 из 23")).toBeVisible();
-    await userEvent.click(canvas.getByRole("tab", { name: /Другие материалы/u }));
+    await userEvent.click(canvas.getByRole("tab", { name: /Дополнительные материалы/u }));
     await expect(canvas.queryByRole("navigation", { name: "Страницы маршрута" })).not.toBeInTheDocument();
     await expect(within(canvas.getByRole("list", { name: "Материалы руководства" })).getAllByRole("listitem")).toHaveLength(1);
     await userEvent.click(canvas.getByRole("tab", { name: /Программа/u }));
@@ -291,5 +291,140 @@ export const CompactMobileEnlargedText: Story = {
       await expect(canvasElement.querySelector('[data-access-cover="locked"]')).toBeVisible();
       await expect(canvasElement.querySelector("[data-series-duration]")).toBeVisible();
     } finally { root.style.fontSize = fontSize; }
+  },
+};
+
+const guideId = "97000000-0000-4000-8000-000000000101";
+const introduction = {
+  audience:
+    "Разработчики из России и СНГ с базовым знанием Git, которые хотят запускать и обслуживать своё приложение.",
+  outcome:
+    "Различать CI, релиз и деплой; настроить путь своего проекта от проверок до подтверждённого обновления A → B в тестовом окружении.",
+  prerequisites:
+    "Базовый Git, умение открыть папку проекта и выполнить команду в терминале. Docker и серверные понятия объясняются по ходу.",
+  scope:
+    "Один проект и один тестовый сервер. Наблюдение за работой приложения и регулярное обслуживание продакшена пока находятся в плане.",
+};
+const artifacts = [
+  {
+    artifactId: "97000000-0000-4000-8000-000000000201",
+    availability: "available" as const,
+    content: {
+      contentType: "application/x-yaml",
+      filename: "compose.production.yaml",
+      kind: "file" as const,
+      size: 4096,
+    },
+    purpose: "Готовый Compose для проверки опубликованного релиза на своём сервере.",
+    title: "Пример продакшен-Compose",
+    updatedAt: "2026-09-01T10:00:00.000Z",
+    version: 3,
+  },
+  {
+    artifactId: "97000000-0000-4000-8000-000000000202",
+    availability: "locked" as const,
+    content: { externalUrl: null, kind: "link" as const },
+    purpose: "Таблица решений: где размещать приложение и во что это обходится.",
+    title: "Матрица выбора инфраструктуры",
+    updatedAt: "2026-08-20T10:00:00.000Z",
+    version: 1,
+  },
+];
+const guideResult = {
+  ...result,
+  chapters,
+  reference: { ...result.reference, id: guideId, introduction },
+} satisfies PublishedSeriesResult;
+
+export const GuidePage: Story = {
+  args: {
+    artifacts: { artifacts, kind: "ready" },
+    learning: { kind: "guest" },
+    result: guideResult,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText(introduction.outcome)).toBeVisible();
+    await expect(canvas.getByText(introduction.audience)).toBeVisible();
+    await expect(canvas.getByText(introduction.prerequisites)).toBeVisible();
+    await expect(canvas.getByText(introduction.scope)).toBeVisible();
+    await userEvent.click(canvas.getByRole("tab", { name: /Артефакты/u }));
+    const section = within(canvas.getByRole("list", { name: "Артефакты руководства" }));
+    await expect(
+      section.getByRole("link", { name: "Скачать" }),
+    ).toHaveAttribute(
+      "href",
+      `/api/guides/${guideId}/artifacts/${artifacts[0]?.artifactId ?? ""}/file?version=3`,
+    );
+    await expect(section.getByText("compose.production.yaml · 4.0 КБ")).toBeVisible();
+    await expect(section.getByText("Откроется с доступом")).toBeVisible();
+    await expect(section.queryByRole("link", { name: "Открыть" })).not.toBeInTheDocument();
+    await expect(canvas.queryByRole("navigation", { name: "Страницы маршрута" })).not.toBeInTheDocument();
+  },
+};
+
+export const GuidePageMobile: Story = {
+  ...GuidePage,
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+};
+
+export const PartlyWrittenIntroduction: Story = {
+  args: {
+    learning: { kind: "guest" },
+    result: {
+      ...guideResult,
+      reference: {
+        ...guideResult.reference,
+        introduction: { ...introduction, prerequisites: "", scope: "" },
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("Что вы сможете")).toBeVisible();
+    await expect(canvas.queryByText("Что нужно знать заранее")).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByText("Что разбираем и что остаётся за границами"),
+    ).not.toBeInTheDocument();
+  },
+};
+
+export const ArtifactSectionUnavailable: Story = {
+  args: {
+    artifacts: { kind: "unavailable" },
+    learning: { kind: "guest" },
+    result: guideResult,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByText("Раздел артефактов сейчас не открывается. Материалы руководства это не затрагивает."),
+    ).toBeVisible();
+    await expect(canvas.queryByRole("tab", { name: /Артефакты/u })).not.toBeInTheDocument();
+    await expect(canvas.getByRole("heading", { level: 3, name: "Основа продукта" })).toBeVisible();
+  },
+};
+
+export const GuidePageEnlargedText: Story = {
+  ...GuidePage,
+  globals: { viewport: { isRotated: false, value: "mobile320" } },
+  play: async ({ canvasElement }) => {
+    const root = canvasElement.ownerDocument.documentElement;
+    const fontSize = root.style.fontSize;
+    try {
+      root.style.fontSize = "200%";
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => {
+          resolve();
+        });
+      });
+      await expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth);
+      // The part tabs are the widest new control; a long label wraps inside its pill.
+      for (const tab of canvasElement.querySelectorAll<HTMLElement>('[role="tab"]')) {
+        await expect(tab.getBoundingClientRect().right).toBeLessThanOrEqual(root.clientWidth);
+      }
+    } finally {
+      root.style.fontSize = fontSize;
+    }
   },
 };
