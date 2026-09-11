@@ -1,5 +1,8 @@
 export { assembleMembershipEntitlements } from "./facets/membership-entitlements/assemble-membership-entitlements.js";
-export { MEMBERSHIP_ENTITLEMENTS } from "./membership-entitlements.token.js";
+export {
+  ACCESS_GRANTS,
+  MEMBERSHIP_ENTITLEMENTS,
+} from "./membership-entitlements.tokens.js";
 export { MembershipEntitlementsModule } from "./membership-entitlements.module.js";
 export { membershipEvidenceSchema } from "./features/accept-evidence/validate-membership-evidence.js";
 export type {
