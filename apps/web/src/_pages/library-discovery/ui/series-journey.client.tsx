@@ -137,6 +137,9 @@ export function SeriesJourney({ artifacts = { kind: "ready", artifacts: [] }, re
     {result.kind === "ready" || result.chapters.length > 0 || parts.length > materialParts.length || artifacts.kind === "unavailable" ? <section aria-labelledby="series-materials" className="mt-10 scroll-mt-6 focus:outline-none" ref={routeRef} tabIndex={-1}>
       <h2 className="sr-only" id="series-materials">Материалы руководства</h2>
       {artifacts.kind === "unavailable" ? <p className="mb-4 rounded-2xl bg-muted px-5 py-4 text-sm leading-6 text-muted-foreground">Раздел артефактов сейчас не открывается. Материалы руководства это не затрагивает.</p> : null}
+      {/* A third part made the tab row overflow at 320 px with 200% text, so a long
+          label now wraps inside its pill instead of pushing the page sideways.
+          `GuidePageEnlargedText` in the stories is the check that keeps it true. */}
       {parts.length > 1 ? <div className="flex max-w-full flex-wrap items-center gap-1 rounded-3xl bg-muted p-1" role="tablist" aria-label="Разделы руководства">
         {parts.map((entry) => <button
           aria-controls={`series-part-panel-${entry.id}`}
