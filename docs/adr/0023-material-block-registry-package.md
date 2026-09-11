@@ -40,9 +40,10 @@ The registry describes blocks; it does not accept or store documents.
   `check-web-architecture` fail on a Tiptap block declaration inside an application, and
   `check-material-blocks-boundary` fails when the registry entry point reaches Tiptap, which is
   what keeps the editor bundle out of the reading and lightweight authoring routes.
-- The published transport contract still enumerates the inline `video` block the document schema
-  stopped accepting. It is declared once, at the wire boundary, as a legacy variant; removing it
-  is a separate contract change.
+- The published transport contract enumerated the inline `video` block the document schema stopped
+  accepting, declared once at the wire boundary as a legacy variant. That separate contract change
+  landed in [#517](https://github.com/sachkov-inside/platform/issues/517): the wire boundary keeps
+  no hand-written variant, so the published enumeration follows the registry without exception.
 - Markdown writing per block, named in ADR 0004 and in the outcome of
   [#501](https://github.com/sachkov-inside/platform/issues/501), is not part of the registry yet:
   no block has a Markdown form today, so there is nothing to gather, and inventing one would be new

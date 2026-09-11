@@ -1,8 +1,9 @@
 import { z } from "zod";
 
+import { renderedBlockSchema } from "@inside/material-blocks";
+
 import { materialFormatSchema } from "../../domain/material-format.js";
 
-import { renderedBlockSchema } from "./material-authoring-http.js";
 import { contentCoverProjectionHttpSchema } from "./content-cover-http.js";
 
 export { contentCoverProjectionHttpSchema } from "./content-cover-http.js";

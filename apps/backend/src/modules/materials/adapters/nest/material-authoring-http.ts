@@ -1,6 +1,6 @@
 import type { SetHomePinError } from "../../features/set-home-pin/set-home-pin.contract.js";
 import { HttpException } from "@nestjs/common";
-import { extendedRenderedBlockSchema } from "@inside/material-blocks";
+import { renderedBlockSchema } from "@inside/material-blocks";
 import { z } from "zod";
 import {
   GUIDE_CHAPTER_NAME_MAX,
@@ -236,19 +236,6 @@ export const validatedMaterialSchema = z
       .strict(),
   })
   .strict();
-
-/**
- * The wire contract still publishes the inline `video` block the document schema stopped
- * accepting; it is enumerated here so the description keeps its shape, while every block the
- * platform renders comes from the registry.
- */
-const legacyVideoBlockSchema = z
-  .object({ caption: z.string().optional(), kind: z.literal("video"), videoId: z.uuid() })
-  .strict();
-
-export const renderedBlockSchema: z.ZodType = extendedRenderedBlockSchema([
-  legacyVideoBlockSchema,
-]);
 
 export const previewMaterialSchema = z
   .object({
