@@ -7,7 +7,6 @@ import { ContentCollectionsPageClient } from "./content-collections-page.client"
 import { SeriesEditorPageClient } from "./series-editor-page.client";
 import { authoringPageEnvironment } from "@/workshop/story-environment";
 
-
 const collection = {
   archived: false,
   id: "97000000-0000-4000-8000-000000000003",
@@ -78,11 +77,13 @@ function Fixture({
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
 
-const environment = authoringPageEnvironment("/authoring/playlists/95000000-0000-4000-8000-000000000010");
+const environment = authoringPageEnvironment(
+  "/authoring/playlists/95000000-0000-4000-8000-000000000010",
+);
 
 const meta = {
-  component: SeriesEditorPageClient,
   ...environment,
+  component: SeriesEditorPageClient,
   args: { initialCollection: collection },
   decorators: [
     (Story) => (

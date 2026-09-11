@@ -11,11 +11,7 @@ import { MaterialCard, MaterialReadingContext, type MaterialPreview } from "@/en
 import { ReadingAction, type ReadingActionView } from "@/features/reading-progress";
 import { Button } from "@/shared/ui/button";
 import { parseMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
-import {
-  ApplicationShell,
-  publicMobileNavigationItems,
-  publicNavigationItems,
-} from "@/widgets/application-shell";
+import { PublicShellFrame } from "./story-environment";
 
 const materials = [
   { id: "text", slug: "reliable-requests", title: "Почему повтор запроса не должен повторять действие", format: "Текст", resume: { kind: "start" } },
@@ -110,7 +106,7 @@ function ProgressWalkthrough({ initialRead = ["text"], initialSurface = "home", 
     </aside>
     <div onClickCapture={followLink}>
       <MaterialReadingContext value={{ accountId: "storybook-account", resolved: true, states, failed: false, register, refresh }}>
-        <ApplicationShell currentPath={surface === "home" ? "/" : "/library"} navigationItems={publicNavigationItems} mobileNavigationItems={publicMobileNavigationItems}>
+        <PublicShellFrame currentPath={surface === "home" ? "/" : "/library"}>
           {surface === "home" ? <HomePage result={{ kind: "ready", value: { ...illustratedHome, videos: illustratedHome.videos.map((item) => item.slug === materials[1].slug ? preview(materials[1]) : item), guides: illustratedHome.guides.map((item) => item.slug === materials[2].slug ? preview(materials[2]) : item), playlists: illustratedHome.playlists.map((item) => item.slug === collection.slug ? collection : item) } }} continuation={continuation} /> : null}
           {surface === "reader" ? <MaterialReaderView body={body} material={metadata} primaryVideo={null} readingAction={action(selected)} returnTarget={returnTarget} seriesContext={seriesContext} /> : null}
           {surface === "series" ? <GuideProgrammeView learning={{ kind: "ready", total: materials.length, read: read.length, continuation: hasHistory && next !== undefined ? { materialSlug: next.slug, label: next.id === "video" && !videoEnded ? "Продолжить с 4:03" : "Продолжить здесь" } : null }} result={{ chapters: [], kind: "ready", discoveryKind: "series", hasNext: false, reference: { name: collection.name, slug: collection.slug, summary: collection.summary ?? "" }, items: materials.map(preview), relatedSeries: [], topics: [] }} /> : null}
@@ -120,7 +116,7 @@ function ProgressWalkthrough({ initialRead = ["text"], initialSurface = "home", 
               {materials.map((item) => <MaterialCard key={item.id} material={preview(item)} />)}
             </div>
           </div> : null}
-        </ApplicationShell>
+        </PublicShellFrame>
       </MaterialReadingContext>
     </div>
   </>;

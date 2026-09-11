@@ -7,9 +7,9 @@ import { HeaderAuthControl } from "./auth-control.client";
 const environment = publicHeaderEnvironment();
 
 const meta = {
+  ...environment,
   args: { state: "guest" },
   component: HeaderAuthControl,
-  ...environment,
   parameters: {
     ...environment.parameters,
     docs: {

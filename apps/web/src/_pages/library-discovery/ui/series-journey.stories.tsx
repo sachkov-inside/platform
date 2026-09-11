@@ -29,9 +29,9 @@ const register = () => () => undefined;
 const refresh = () => Promise.resolve();
 const environment = publicPageEnvironment("/guides/platform-inside/programme");
 const meta = {
+  ...environment,
   component: GuideProgrammeView,
   title: "Pages/Guide/Programme",
-  ...environment,
   parameters: { ...environment.parameters, docs: { description: { component: "Страница программы руководства. Учебный состав из 24 материалов проверяет прогресс, страницы, продолжение и состояния доступа; редакционных и провайдерских утверждений в нём нет." } } },
   args: { result, learning: { kind: "ready", read: 8, total: 24, continuation: resume } },
   decorators: [(Story, context) => {
@@ -317,7 +317,6 @@ export const DesktopRouteDetails: Story = {
     await expect(canvasElement.querySelector("[data-guide-programme]")?.getBoundingClientRect().width).toBeLessThanOrEqual(1040);
   },
 };
-
 
 export const CompactMobileEnlargedText: Story = {
   ...CompactMobileRoute,

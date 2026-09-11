@@ -7,12 +7,17 @@ import {
 } from "./broadcasts.fixtures";
 import { AnalyticsPanel, EntryHistory } from "./analytics-panel";
 
+import { authoringPageEnvironment } from "@/workshop/story-environment";
 
-import { broadcastsPageEnvironment } from "@/workshop/broadcasts-story-environment";
+import { BroadcastsPageFrame } from "./broadcasts-page-frame";
 
-const environment = broadcastsPageEnvironment();
+const environment = authoringPageEnvironment(
+  "/authoring/communications/broadcasts",
+  BroadcastsPageFrame,
+);
 
 const meta = {
+  ...environment,
   title: "Pages/Communications/Аналитика",
   component: AnalyticsPanel,
   args: {
@@ -23,7 +28,6 @@ const meta = {
     deliveries: { kind: "ready", deliveries: [], nextCursor: null },
     result: statisticsFixture,
   },
-  ...environment,
 } satisfies Meta<typeof AnalyticsPanel>;
 export default meta;
 type Story = StoryObj<typeof meta>;

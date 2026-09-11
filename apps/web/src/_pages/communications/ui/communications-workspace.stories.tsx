@@ -203,10 +203,10 @@ function QueryFixture({ children }: { children: React.ReactNode }) {
 }
 const environment = authoringPageEnvironment("/authoring/communications");
 const meta = {
+  ...environment,
   title: "Pages/Authoring/Воронки Telegram",
   component: CommunicationsWorkspace,
   args: { actions },
-  ...environment,
   decorators: [
     (Story) => (
       <QueryFixture>

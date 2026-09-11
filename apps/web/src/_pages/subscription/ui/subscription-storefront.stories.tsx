@@ -11,7 +11,6 @@ import { fetchBeforeRender } from "@/workshop/mutation-mock";
 import { SubscriptionStorefront } from "./subscription-storefront.client";
 import { publicPageEnvironment } from "@/workshop/story-environment";
 
-
 const signedOut = fetchBeforeRender(() =>
   Promise.resolve(new Response(null, { status: 401 })),
 );

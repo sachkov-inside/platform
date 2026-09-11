@@ -254,9 +254,9 @@ function CachedCatalogNavigationHarness() {
 const environment = publicPageEnvironment("/library");
 
 const meta = {
+  ...environment,
   args: { onQueryChange: () => undefined, query: defaultQuery },
   component: LibraryPage,
-  ...environment,
   parameters: {
     ...environment.parameters,
     docs: {

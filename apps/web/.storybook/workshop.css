@@ -23,11 +23,13 @@
  * Прокрутка предпросмотра для компонентных story. С 48rem `globals.css` отдаёт прокрутку оболочке
  * приложения, поэтому `html` и `body` её не имеют. Отдельный компонент — не маршрут, оболочки у
  * него нет, и без этого правила на десктопе виден только первый экран. Story страницы сюда не
- * попадает: она живёт в своей оболочке и прокручивается ровно так же, как её маршрут.
+ * попадает: она живёт в своей оболочке и прокручивается ровно так же, как её маршрут. Оболочку
+ * узнаём по её собственному маркеру: `data-public-shell` задаёт светлую палитру и стоит ещё и на
+ * выпадающих меню в портале.
  */
 @media (width >= 48rem) {
-  html:not(:has([data-public-shell], [data-authoring-shell])),
-  body:not(:has([data-public-shell], [data-authoring-shell])) {
+  html:not(:has([data-application-shell], [data-authoring-shell])),
+  body:not(:has([data-application-shell], [data-authoring-shell])) {
     block-size: auto;
     overflow: visible;
   }

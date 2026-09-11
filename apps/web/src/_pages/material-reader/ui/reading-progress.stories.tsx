@@ -54,8 +54,8 @@ function ReadingProof({ initial = { kind: "ready", isRead: false, canMark: true 
 }
 const environment = publicPageEnvironment("/library");
 const meta = {
-  title: "Features/Reading progress", component: ReadingProof,
   ...environment,
+  title: "Features/Reading progress", component: ReadingProof,
   parameters: { ...environment.parameters, docs: { description: { component: "Отметка «Изучено» в тех же продакшен-модулях, что и на маршрутах: читалка, карточки материала и счётчик руководства. Сохранение и транспорт живут в приложении; здесь проверяются только состояния и их ошибки." } } },
 } satisfies Meta<typeof ReadingProof>;
 export default meta;

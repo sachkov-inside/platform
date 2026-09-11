@@ -2,8 +2,12 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
 
 import { MemberProfileProjection } from "./member-profile-projection";
+import { publicPageEnvironment } from "@/workshop/story-environment";
+
+const environment = publicPageEnvironment("/members/5d34da22-548e-4b02-b6e8-9c918ad536ef");
 
 const meta = {
+  ...environment,
   args: {
     fields: {
       avatar: null,
@@ -15,6 +19,7 @@ const meta = {
   },
   component: MemberProfileProjection,
   parameters: {
+    ...environment.parameters,
     docs: {
       description: {
         component:

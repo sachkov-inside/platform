@@ -144,12 +144,12 @@ function MaterialAuthoringFixture({
 const environment = authoringPageEnvironment("/authoring/materials/96000000-0000-4000-8000-000000000001");
 
 const meta = {
+  ...environment,
   args: {
     actions: noopActions,
     presentation: materialAuthoringPresentation,
   },
   component: MaterialAuthoringWorkspace,
-  ...environment,
   parameters: {
     ...environment.parameters,
     controls: {

@@ -299,8 +299,8 @@ function MaterialReaderState({ mode }: { readonly mode: ReaderStoryMode }) {
 
 const environment = publicPageEnvironment(`/materials/${material.slug}`);
 const meta = {
-  component: MaterialReaderBoard,
   ...environment,
+  component: MaterialReaderBoard,
   parameters: {
     ...environment.parameters,
     docs: {

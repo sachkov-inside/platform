@@ -3,12 +3,17 @@ import { expect, fn, userEvent, within } from "storybook/test";
 import { BroadcastList } from "./broadcast-list";
 import { broadcastFixture } from "./broadcasts.fixtures";
 
+import { authoringPageEnvironment } from "@/workshop/story-environment";
 
-import { broadcastsPageEnvironment } from "@/workshop/broadcasts-story-environment";
+import { BroadcastsPageFrame } from "./broadcasts-page-frame";
 
-const environment = broadcastsPageEnvironment();
+const environment = authoringPageEnvironment(
+  "/authoring/communications/broadcasts",
+  BroadcastsPageFrame,
+);
 
 const meta = {
+  ...environment,
   title: "Pages/Communications/Список рассылок",
   component: BroadcastList,
   args: {
@@ -37,7 +42,6 @@ const meta = {
       })),
     },
   },
-  ...environment,
 } satisfies Meta<typeof BroadcastList>;
 export default meta;
 type Story = StoryObj<typeof meta>;

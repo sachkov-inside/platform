@@ -3,7 +3,6 @@ export {
   type ApplicationNavigationItem,
 } from "./ui/application-shell.client";
 export {
-  authoringNavigationItem,
   navigationItemsFor,
   publicMobileNavigationItems,
   publicNavigationItems,

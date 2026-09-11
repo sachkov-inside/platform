@@ -3,12 +3,17 @@ import { expect, userEvent, within } from "storybook/test";
 
 import { accountSections, visibleAccountSections } from "../model/account-sections";
 import { AccountSectionNav } from "./account-section-nav.client";
+import { publicPageEnvironment } from "@/workshop/story-environment";
+
+const environment = publicPageEnvironment("/account");
 
 const meta = {
+  ...environment,
   title: "Components/Account/Section navigation",
   component: AccountSectionNav,
   args: { currentHref: "/account", sections: accountSections },
   parameters: {
+    ...environment.parameters,
     docs: {
       description: {
         component:

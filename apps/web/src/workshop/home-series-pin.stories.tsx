@@ -1,10 +1,15 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
 import { HomeSeriesPinView } from "@/features/series-order";
-import { seriesEditorPageEnvironment } from "./series-editor-story-environment";
+import { SeriesEditorPageFrame } from "@/_pages/content-collections";
+
+import { authoringPageEnvironment } from "./story-environment";
 
 const seriesId = "72000000-0000-4000-8000-000000000298";
-const environment = seriesEditorPageEnvironment(seriesId);
+const environment = authoringPageEnvironment(
+  `/authoring/playlists/${seriesId}`,
+  SeriesEditorPageFrame,
+);
 const onChange = fn();
 const meta = {
   ...environment,

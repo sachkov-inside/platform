@@ -2,7 +2,9 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
 import { PostLibrary, type PostLibraryProps } from "./post-library.client";
 import { broadcastFixture } from "./broadcasts.fixtures";
-import { broadcastsPageEnvironment } from "@/workshop/broadcasts-story-environment";
+import { authoringPageEnvironment } from "@/workshop/story-environment";
+
+import { BroadcastsPageFrame } from "./broadcasts-page-frame";
 
 const firstContent = broadcastFixture.parts[0]?.content;
 if (!firstContent) throw new Error("Missing post fixture");
@@ -23,10 +25,13 @@ const post = {
   },
 };
 
-
-const environment = broadcastsPageEnvironment();
+const environment = authoringPageEnvironment(
+  "/authoring/communications/broadcasts",
+  BroadcastsPageFrame,
+);
 
 const meta = {
+  ...environment,
   title: "Pages/Communications/Посты из Telegram",
   component: PostLibrary,
   args: {
@@ -42,7 +47,6 @@ const meta = {
     ),
     onSample: fn<PostLibraryProps["onSample"]>(() => Promise.resolve(true)),
   },
-  ...environment,
 } satisfies Meta<typeof PostLibrary>;
 export default meta;
 type Story = StoryObj<typeof meta>;

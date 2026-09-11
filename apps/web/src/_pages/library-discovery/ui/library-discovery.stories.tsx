@@ -275,7 +275,6 @@ export const UnexpectedError: Story = {
   name: "Unexpected error",
 };
 
-
 async function expectNoHorizontalOverflow(canvasElement: HTMLElement) {
   const storyWindow = canvasElement.ownerDocument.defaultView;
   if (storyWindow === null) throw new Error("Story window is unavailable");

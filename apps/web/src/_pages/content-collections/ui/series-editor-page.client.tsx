@@ -78,145 +78,145 @@ export function SeriesEditorPageClient({
   };
   return (
     <SeriesEditorPageFrame>
-        <nav
-          aria-label="Навигация руководства"
-          className="flex flex-wrap items-center justify-between gap-3 border-b border-border py-4"
-        >
-          <Button onClick={back} type="button" variant="ghost">
-            <ArrowLeft aria-hidden="true" />
-            Все руководства
-          </Button>
-          <div className="flex items-center gap-3">
-            <span
-              className="max-w-36 text-xs text-muted-foreground"
-              role="status"
-            >
-              {autosave.pending
-                ? "Сохраняем настройки…"
-                : autosave.dirty
-                  ? "Настройки не сохранены"
-                  : "Настройки сохранены"}
-            </span>
-            <Button
-              disabled={archive.isPending}
-              onClick={() => {
-                setArchived(!collection.archived);
-              }}
-              type="button"
-              variant="ghost"
-            >
-              {collection.archived ? (
-                <RotateCcw aria-hidden="true" />
-              ) : (
-                <Archive aria-hidden="true" />
-              )}
-              {collection.archived ? "Вернуть из архива" : "В архив"}
-            </Button>
-          </div>
-        </nav>
-        <header className="py-8 sm:py-10">
-          <h1 className="sr-only">Редактирование руководства: {name}</h1>
-          <h2 className="sr-only">Настройки руководства</h2>
-          <form
-            aria-label="Настройки руководства"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void autosave.retry();
-            }}
+      <nav
+        aria-label="Навигация руководства"
+        className="flex flex-wrap items-center justify-between gap-3 border-b border-border py-4"
+      >
+        <Button onClick={back} type="button" variant="ghost">
+          <ArrowLeft aria-hidden="true" />
+          Все руководства
+        </Button>
+        <div className="flex items-center gap-3">
+          <span
+            className="max-w-36 text-xs text-muted-foreground"
+            role="status"
           >
+            {autosave.pending
+              ? "Сохраняем настройки…"
+              : autosave.dirty
+                ? "Настройки не сохранены"
+                : "Настройки сохранены"}
+          </span>
+          <Button
+            disabled={archive.isPending}
+            onClick={() => {
+              setArchived(!collection.archived);
+            }}
+            type="button"
+            variant="ghost"
+          >
+            {collection.archived ? (
+              <RotateCcw aria-hidden="true" />
+            ) : (
+              <Archive aria-hidden="true" />
+            )}
+            {collection.archived ? "Вернуть из архива" : "В архив"}
+          </Button>
+        </div>
+      </nav>
+      <header className="py-8 sm:py-10">
+        <h1 className="sr-only">Редактирование руководства: {name}</h1>
+        <h2 className="sr-only">Настройки руководства</h2>
+        <form
+          aria-label="Настройки руководства"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void autosave.retry();
+          }}
+        >
+          <label className="block">
+            <span className="text-sm text-muted-foreground">
+              Название руководства
+            </span>
+            <textarea
+              name="name"
+              rows={2}
+              className="mt-2 block w-full [field-sizing:content] resize-y rounded-md border border-transparent bg-transparent px-0 py-1 text-3xl font-semibold leading-tight tracking-tight outline-none hover:border-input focus:border-ring focus:ring-2 focus:ring-ring/30 sm:text-4xl"
+              required
+              maxLength={120}
+              value={name}
+              onChange={(event) => {
+                setName(event.currentTarget.value);
+              }}
+            />
+          </label>
+          <div className="mt-4 grid items-start gap-6 md:grid-cols-[minmax(0,1fr)_20rem]">
             <label className="block">
               <span className="text-sm text-muted-foreground">
-                Название руководства
+                Краткое описание
               </span>
               <textarea
-                name="name"
-                rows={2}
-                className="mt-2 block w-full [field-sizing:content] resize-y rounded-md border border-transparent bg-transparent px-0 py-1 text-3xl font-semibold leading-tight tracking-tight outline-none hover:border-input focus:border-ring focus:ring-2 focus:ring-ring/30 sm:text-4xl"
-                required
-                maxLength={120}
-                value={name}
+                name="summary"
+                rows={3}
+                className="mt-2 block min-h-24 w-full resize-y rounded-md border border-transparent bg-transparent px-0 py-1 text-base leading-relaxed outline-none hover:border-input focus:border-ring focus:ring-2 focus:ring-ring/30"
+                maxLength={500}
+                placeholder="Какую задачу помогает решить это руководство?"
+                value={summary}
                 onChange={(event) => {
-                  setName(event.currentTarget.value);
+                  setSummary(event.currentTarget.value);
                 }}
               />
+              <span className="mt-2 block break-all text-xs text-muted-foreground">
+                Адрес: /guides/{collection.slug}
+              </span>
             </label>
-            <div className="mt-4 grid items-start gap-6 md:grid-cols-[minmax(0,1fr)_20rem]">
-              <label className="block">
-                <span className="text-sm text-muted-foreground">
-                  Краткое описание
-                </span>
+            <ContentCoverEditor
+              initialCover={cover}
+              onChange={setCover}
+              ownerId={collection.id}
+              ownerKind="series"
+              ownerLabel={name}
+            />
+          </div>
+          <fieldset className="mt-8 grid gap-6 border-0 p-0 sm:grid-cols-2">
+            <legend className="mb-4 block text-sm font-semibold">
+              О руководстве для читателя
+            </legend>
+            {INTRODUCTION_FIELDS.map(({ field, label, placeholder }) => (
+              <label className="block" key={field}>
+                <span className="text-sm text-muted-foreground">{label}</span>
                 <textarea
-                  name="summary"
-                  rows={3}
-                  className="mt-2 block min-h-24 w-full resize-y rounded-md border border-transparent bg-transparent px-0 py-1 text-base leading-relaxed outline-none hover:border-input focus:border-ring focus:ring-2 focus:ring-ring/30"
-                  maxLength={500}
-                  placeholder="Какую задачу помогает решить это руководство?"
-                  value={summary}
+                  className="mt-2 block min-h-28 w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm leading-relaxed outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
+                  maxLength={GUIDE_INTRODUCTION_FIELD_MAX}
+                  name={field}
                   onChange={(event) => {
-                    setSummary(event.currentTarget.value);
+                    editIntroduction(field, event.currentTarget.value);
                   }}
+                  placeholder={placeholder}
+                  rows={4}
+                  value={introduction[field]}
                 />
-                <span className="mt-2 block break-all text-xs text-muted-foreground">
-                  Адрес: /guides/{collection.slug}
-                </span>
               </label>
-              <ContentCoverEditor
-                initialCover={cover}
-                onChange={setCover}
-                ownerId={collection.id}
-                ownerKind="series"
-                ownerLabel={name}
-              />
-            </div>
-            <fieldset className="mt-8 grid gap-6 border-0 p-0 sm:grid-cols-2">
-              <legend className="mb-4 block text-sm font-semibold">
-                О руководстве для читателя
-              </legend>
-              {INTRODUCTION_FIELDS.map(({ field, label, placeholder }) => (
-                <label className="block" key={field}>
-                  <span className="text-sm text-muted-foreground">{label}</span>
-                  <textarea
-                    className="mt-2 block min-h-28 w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm leading-relaxed outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
-                    maxLength={GUIDE_INTRODUCTION_FIELD_MAX}
-                    name={field}
-                    onChange={(event) => {
-                      editIntroduction(field, event.currentTarget.value);
-                    }}
-                    placeholder={placeholder}
-                    rows={4}
-                    value={introduction[field]}
-                  />
-                </label>
-              ))}
-            </fieldset>
-            {autosave.error ? (
-              <Button className="mt-4" type="submit" variant="outline">
-                Повторить сохранение
-              </Button>
-            ) : null}
-          </form>
-          <MutationNotice
-            onRefresh={() => {
-              window.location.reload();
-            }}
-            result={
-              autosave.error
-                ? (update.data ?? null)
-                : archive.data?.kind === "saved"
-                  ? null
-                  : (archive.data ?? null)
-            }
-          />
-        </header>
-        <HomeSeriesPin seriesId={collection.id} archived={collection.archived} />
-        <SeriesOrderPanel
-          seriesId={collection.id}
-          archived={collection.archived}
+            ))}
+          </fieldset>
+          {autosave.error ? (
+            <Button className="mt-4" type="submit" variant="outline">
+              Повторить сохранение
+            </Button>
+          ) : null}
+        </form>
+        <MutationNotice
+          onRefresh={() => {
+            window.location.reload();
+          }}
+          result={
+            autosave.error
+              ? (update.data ?? null)
+              : archive.data?.kind === "saved"
+                ? null
+                : (archive.data ?? null)
+          }
         />
-        <GuideArtifactsPanel
-          archived={collection.archived}
-          guideId={collection.id}
-        />
+      </header>
+      <HomeSeriesPin seriesId={collection.id} archived={collection.archived} />
+      <SeriesOrderPanel
+        seriesId={collection.id}
+        archived={collection.archived}
+      />
+      <GuideArtifactsPanel
+        archived={collection.archived}
+        guideId={collection.id}
+      />
     </SeriesEditorPageFrame>
   );
 }

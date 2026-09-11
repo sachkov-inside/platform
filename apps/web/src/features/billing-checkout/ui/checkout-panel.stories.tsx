@@ -13,8 +13,12 @@ import {
 } from "@/workshop/billing.fixtures";
 
 import { CheckoutPanel } from "./checkout-panel.client";
+import { publicPageEnvironment } from "@/workshop/story-environment";
+
+const environment = publicPageEnvironment("/subscription");
 
 const meta = {
+  ...environment,
   title: "Pages/Subscription/Checkout",
   component: CheckoutPanel,
   args: {
@@ -33,6 +37,7 @@ const meta = {
     onRefreshStatus: fn(),
   },
   parameters: {
+    ...environment.parameters,
     docs: {
       description: {
         component:

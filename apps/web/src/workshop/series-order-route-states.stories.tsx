@@ -7,9 +7,9 @@ import { authoringPageEnvironment } from "./story-environment";
 const environment = authoringPageEnvironment("/authoring/playlists");
 
 const meta = {
+  ...environment,
   args: { state: { kind: "empty" } },
   component: SeriesOrderRouteState,
-  ...environment,
   title: "Pages/Authoring/Состояния руководств",
 } satisfies Meta<typeof SeriesOrderRouteState>;
 

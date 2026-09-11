@@ -6,7 +6,6 @@ import { withMutationFetch } from "@/workshop/mutation-mock";
 import { ContentCollectionsPageClient } from "./content-collections-page.client";
 import { authoringPageEnvironment } from "@/workshop/story-environment";
 
-
 const collections = [
   {
     archived: false,
@@ -35,9 +34,9 @@ const collections = [
 const environment = authoringPageEnvironment("/authoring/topics");
 
 const meta = {
+  ...environment,
   args: { initialCollections: collections, kind: "topic" },
   component: ContentCollectionsPageClient,
-  ...environment,
   decorators: [
     withMutationFetch(() =>
       Promise.resolve(

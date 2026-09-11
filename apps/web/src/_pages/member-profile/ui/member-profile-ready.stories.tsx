@@ -4,7 +4,6 @@ import { expect, within } from "storybook/test";
 import { MemberProfileReady } from "./member-profile-ready";
 import { publicPageEnvironment } from "@/workshop/story-environment";
 
-
 const profile = {
   avatar: null,
   bio: "Развиваю инженерные команды и изучаю agent-first delivery.",
@@ -15,9 +14,9 @@ const profile = {
 const environment = publicPageEnvironment(`/members/${profile.publicProfileId}`);
 
 const meta = {
+  ...environment,
   args: { profile },
   component: MemberProfileReady,
-  ...environment,
   parameters: {
     ...environment.parameters,
     docs: {

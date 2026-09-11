@@ -7,12 +7,12 @@ import { accountSectionEnvironment } from "@/workshop/story-environment";
 const environment = accountSectionEnvironment("/account/access");
 
 const meta = {
+  ...environment,
   args: {
     link: { kind: "linked" },
     onTelegramRefresh: () => Promise.resolve(),
   },
   component: AccountAccessView,
-  ...environment,
   parameters: {
     ...environment.parameters,
     docs: {

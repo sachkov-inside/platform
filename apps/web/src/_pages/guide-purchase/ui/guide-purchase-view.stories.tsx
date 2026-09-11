@@ -15,6 +15,7 @@ const guide = {
 const environment = publicPageEnvironment("/guides/platform-inside/buy");
 
 const meta = {
+  ...environment,
   title: "Pages/Guide/Purchase",
   component: GuidePurchaseView,
   args: {
@@ -28,7 +29,6 @@ const meta = {
       </p>
     ),
   },
-  ...environment,
   parameters: {
     ...environment.parameters,
     docs: {

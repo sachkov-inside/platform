@@ -58,6 +58,7 @@ export function ApplicationShell({
   return (
     <div
       className="flex min-h-svh flex-col bg-background text-foreground lg:h-svh lg:overflow-hidden"
+      data-application-shell
       data-public-shell
     >
       <a

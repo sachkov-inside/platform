@@ -9,10 +9,14 @@ import {
   funnelFixture,
   mediaFixture,
 } from "./broadcasts.fixtures";
-import { broadcastsPageEnvironment } from "@/workshop/broadcasts-story-environment";
+import { authoringPageEnvironment } from "@/workshop/story-environment";
 
+import { BroadcastsPageFrame } from "./broadcasts-page-frame";
 
-const environment = broadcastsPageEnvironment();
+const environment = authoringPageEnvironment(
+  "/authoring/communications/broadcasts",
+  BroadcastsPageFrame,
+);
 
 const meta = {
   ...environment,
