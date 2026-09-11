@@ -5,6 +5,9 @@ import { z } from 'zod';
 import { notificationSchema } from './schema.generated.js';
 
 export const NOTIFICATION_MESSAGE_MAX_BYTES = 16 * 1024;
+// Протокол материалов: notAfter события первой публикации — ровно сутки от самой публикации.
+// Producer и consumer сверяют одно и то же число, поэтому оно живёт рядом с описанием lanes.
+export const MATERIAL_LIFETIME_MS = 24 * 60 * 60 * 1_000;
 export const lanes = {
   billing: { exchange: 'inside.events.billing.v1', key: 'billing.notice-ready', queue: 'platform.notifications.billing.v1', publisher: 'billing', consumer: 'notifications', version: 'inside.notification-event.v1' },
   materials: { exchange: 'inside.events.materials.v1', key: 'material.published', queue: 'platform.notifications.materials.v1', publisher: 'materials', consumer: 'notifications', version: 'inside.notification-event.v1' },

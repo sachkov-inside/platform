@@ -35,6 +35,8 @@ import { mapPostgresError } from "../../shared/postgres-error-mapping.js";
 import { requireReferenceIntegrity } from "../../shared/reference-integrity.js";
 import { toDatabaseJson } from "../../infrastructure/postgres/database-json.js";
 import { requestVideoDeletion } from "../../../videos/index.js";
+import { materialReaderPath } from "../../domain/announcement.js";
+import { recordMaterialAnnouncement } from "../../facets/material-announcements/record-announcement.js";
 import { lockMaterialForLifecycleChange } from "../../infrastructure/postgres/material-locks.js";
 import { allocateMaterialSlug } from "../../infrastructure/postgres/material-slug.js";
 import { replaceCurrentRelations } from "../../infrastructure/postgres/current-material.js";
@@ -290,12 +292,29 @@ export function assembleSaveMaterial(
                 materialId: command.materialId,
                 contentVersion: next.value.contentVersion,
                 metadata: publishable.value,
-                publishedAt: requireDate(next.value.publishedAt),
+                publishedAt: requireDate(next.value.publishedAt, "publishedAt"),
                 publishedBy,
                 plainText: extraction.value.plainText,
                 primaryVideoId: command.primaryVideoId,
                 coverId: locked.coverId,
               });
+              // Первая публикация обещает уведомление в той же транзакции, что и сам факт.
+              await recordMaterialAnnouncement(
+                transaction,
+                {
+                  occurrence: {
+                    materialId: command.materialId,
+                    firstPublishedAt: requireDate(
+                      next.value.firstPublishedAt,
+                      "firstPublishedAt",
+                    ),
+                    title: publishable.value.title,
+                    readerPath: materialReaderPath(publishable.value.slug),
+                  },
+                  firstPublication: locked.lifecycle.firstPublishedAt === null,
+                },
+                savedAt,
+              );
             } else {
               await transaction.publishedMaterial.deleteMany({
                 where: { materialId: command.materialId },
@@ -440,9 +459,9 @@ async function replacePublishedProjections(
   });
 }
 
-function requireDate(value: Date | null): Date {
+function requireDate(value: Date | null, field: string): Date {
   if (value === null) {
-    throw new TypeError("Published Material requires publishedAt");
+    throw new TypeError(`Published Material requires ${field}`);
   }
   return value;
 }

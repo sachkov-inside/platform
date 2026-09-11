@@ -2,7 +2,8 @@ import { stageDeliveryCommand } from '../../infrastructure/stage-delivery-comman
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { NotificationsPrismaClient } from '../../../../infrastructure/prisma/index.js';
-import { eventSchema, deliverySchema, parseWire, commandWindow, MATERIAL_LIFETIME_MS, fingerprint, type NotificationEvent, type Channel } from '../../domain/notification-wire.js';
+import { MATERIAL_LIFETIME_MS } from '../../../../infrastructure/notification-transport/wire.js';
+import { eventSchema, deliverySchema, parseWire, commandWindow, fingerprint, type NotificationEvent, type Channel } from '../../domain/notification-wire.js';
 import { renderNotification } from '../../domain/templates.js';
 import type { NotificationRecipients, NotificationSources, NotificationSource } from '../../ports/notification-sources.js';
 import { optedIn } from '../change-preferences/change-preferences.js';

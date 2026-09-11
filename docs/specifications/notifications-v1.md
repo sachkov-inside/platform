@@ -93,8 +93,13 @@ Community entitlement и его permit остаются в telegram-membership �
   Границы поводов описаны в [billing v1](subscription-billing-v1.md#текущая-поставка-410).
 - #494 (поставлено): раздел «Уведомления» личного кабинета даёт собственные opt-in переключатели
   каналов «Новые материалы» поверх уже поставленных `readPreferences`/`changePreferences`.
-- #437: first publication и settings UI, desktop/mobile/accessibility и no-backfill proof;
-  часть про собственные настройки каналов уже поставлена в #494.
+- #437 (поставлено): Materials записывает анонс первой публикации, его revision и строку outbox в
+  той же транзакции, что и саму публикацию, и отвечает на `material.published` фасетом
+  `resolveAnnouncement`. Анонс принадлежит Material, а не месту в руководстве: повторная
+  публикация, переименование, перестановка и включение в другое руководство второго анонса не
+  создают, а материал, впервые опубликованный до этой поставки, анонса не получает. Изменившийся
+  заголовок живого анонса выпускает следующую revision, снятие с публикации закрывает повод.
+  Собственные настройки каналов поставлены в #494.
 - Telegram #56: real consumer/inbox/effect ledger, shared bot limits и result relay.
 - #438: реальные PostgreSQL/RabbitMQ и обе стороны при synthetic provider; отдельное разрешённое
   credentialed доказательство обоих каналов. #413 использует его для billing DEMO.
