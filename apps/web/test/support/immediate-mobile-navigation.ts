@@ -11,7 +11,7 @@ export async function expectImmediateMobileNavigation(page: Page) {
   await expect(page.getByRole("searchbox")).toBeVisible();
   try {
     await page.getByRole("navigation", { name: "Мобильная навигация" }).getByRole("link", { name: "Профиль" }).click();
-    await expect(page.getByRole("heading", { name: "Ваш профиль" })).toBeVisible({ timeout: 500 });
+    await expect(page.getByRole("heading", { name: "Профиль", exact: true })).toBeVisible({ timeout: 500 });
     await expect(page.getByRole("navigation", { name: "Мобильная навигация" }).getByRole("link", { name: "Профиль" })).toHaveAttribute("aria-current", "page");
     await expect(page.getByRole("searchbox")).not.toBeVisible();
   } finally {

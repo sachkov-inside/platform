@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 
-import { BillingAccountPage } from "@/_pages/billing-account.server";
+import { AccountSubscriptionPage } from "@/_pages/account-subscription";
 
 export const metadata: Metadata = {
-  title: "Платёжный кабинет",
+  title: "Подписка",
   robots: { follow: false, index: false },
 };
 
-export default function BillingAccountRoute() {
-  return <BillingAccountPage />;
+export default function AccountSubscriptionRoute() {
+  return <AccountSubscriptionPage />;
 }

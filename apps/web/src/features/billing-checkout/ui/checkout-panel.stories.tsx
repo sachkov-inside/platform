@@ -21,7 +21,7 @@ const meta = {
     documents: legalDocuments,
     accepted: [],
     contact: verifiedContact,
-    contactHref: "/account/email",
+    contactHref: "/account/purchases",
     acknowledgeExistingAccess: false,
     purchase: null,
     onQuote: fn(),

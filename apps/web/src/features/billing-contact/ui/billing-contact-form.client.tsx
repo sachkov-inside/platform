@@ -9,10 +9,14 @@ import {
   type LegalDocument,
 } from "@/entities/subscription";
 
+import type { Route } from "next";
+
 import type { BillingContact } from "../model/billing-contact";
 
 export interface BillingContactFormProps {
   readonly contact: BillingContact | null;
+  /** Куда вернуть после входа: форма живёт и в кабинете, и в оформлении подписки. */
+  readonly returnTo?: Route;
   /** Применимые документы приходят с сервера; до их публикации список пуст. */
   readonly documents?: readonly LegalDocument[];
   readonly loading?: boolean;
@@ -31,7 +35,6 @@ export interface BillingContactFormProps {
   readonly onCancelEdit?: () => void;
   readonly onStart: (email: string) => void;
   readonly onConfirm: (code: string) => void;
-  readonly onRefresh: () => void;
 }
 
 const fieldClassName =
@@ -43,6 +46,7 @@ const fieldClassName =
  */
 export function BillingContactForm({
   contact,
+  returnTo = "/account/purchases",
   documents = [],
   loading,
   pending,
@@ -57,7 +61,6 @@ export function BillingContactForm({
   onCancelEdit,
   onStart,
   onConfirm,
-  onRefresh,
 }: BillingContactFormProps) {
   const Heading = headingLevel;
   const [email, setEmail] = useState("");
@@ -86,7 +89,7 @@ export function BillingContactForm({
         <div className="mt-5 rounded-xl border border-destructive/30 bg-destructive/6 p-4 text-sm" role="alert">
           <p className="font-semibold">Сессия завершилась.</p>
           <form action="/auth/sign-in" className="mt-3" method="post">
-            <input name="returnTo" type="hidden" value="/account/email" />
+            <input name="returnTo" type="hidden" value={returnTo} />
             <Button className={billingActionClass} type="submit">
               Войти снова
             </Button>
@@ -97,17 +100,10 @@ export function BillingContactForm({
           Загружаем email…
         </p>
       ) : unavailable === true ? (
-        <div className="mt-5 space-y-3 text-sm" role="alert">
-          <p>{error ?? "Данные контакта сейчас недоступны."}</p>
-          <Button
-            className={billingActionClass}
-            disabled={pending}
-            onClick={onRefresh}
-            type="button"
-            variant="outline"
-          >
-            Обновить данные
-          </Button>
+        <div className="mt-5 text-sm leading-6" role="alert">
+          <p>
+            {error ?? "Данные контакта сейчас недоступны."} Мы перечитаем их сами.
+          </p>
         </div>
       ) : (
         <>
@@ -238,18 +234,9 @@ export function BillingContactForm({
           ) : null}
 
           {error !== undefined ? (
-            <div className="mt-5 space-y-3 rounded-xl border border-destructive/30 bg-destructive/6 p-4 text-sm" role="alert">
-              <p>{error}</p>
-              <Button
-                className={billingActionClass}
-                disabled={pending}
-                onClick={onRefresh}
-                type="button"
-                variant="outline"
-              >
-                Обновить данные
-              </Button>
-            </div>
+            <p className="mt-5 rounded-xl border border-destructive/30 bg-destructive/6 p-4 text-sm leading-6" role="alert">
+              {error}
+            </p>
           ) : null}
         </>
       )}

@@ -1,5 +1,7 @@
 import { queryOptions } from "@tanstack/react-query";
 
+import { selfRefreshingRead } from "@/shared/api/self-refreshing-query";
+
 import type { AccountPresentationResult } from "./account-presentation";
 
 export function accountPresentationQueryKey() {
@@ -18,12 +20,12 @@ export function createAccountPresentationQueryOptions(
   loadPresentation: LoadAccountPresentation,
 ) {
   return queryOptions({
+    ...selfRefreshingRead,
     queryKey: accountPresentationQueryKey(),
     queryFn: async ({ signal }) => {
       const result = await loadPresentation({ signal });
       if (result.kind === "unavailable") throw new Error(result.reference);
       return result;
     },
-    retry: false,
   });
 }

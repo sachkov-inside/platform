@@ -36,7 +36,7 @@ export function telegramLinkPresentation(
         action: { context: "initial", kind: "begin" },
         onboarding: {
           description:
-            "Свяжите аккаунт с ботом Inside. Это займёт меньше минуты.",
+            "Бот Inside присылает сообщения о новых материалах и открывает общий чат тем, у кого он входит в доступ. Подключение займёт меньше минуты.",
           title: "Подключите Telegram",
           tone: "pending",
         },

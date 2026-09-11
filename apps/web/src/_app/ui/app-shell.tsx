@@ -2,13 +2,18 @@
 
 import { usePathname } from "next/navigation";
 import { Suspense, type ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
 
 import {
   ApplicationShell,
   type ApplicationNavigationItem,
 } from "@/widgets/application-shell";
-import { HeaderAuthControl } from "@/widgets/auth-control";
-import { AccountTelegramOnboarding } from "@/features/account-access";
+import { HeaderAuthControl, TelegramReminder } from "@/widgets/auth-control";
+import {
+  accountPresentationBrowserQueryOptions,
+  AccountTelegramOnboarding,
+  openTelegramOnboarding,
+} from "@/features/account-access";
 import { authoringMaterialsRootHref } from "@/shared/routing/authoring";
 import { ReadingProgressProvider } from "@/features/reading-progress";
 import { LibrarySeriesStateProvider } from "@/_pages/library";
@@ -46,13 +51,34 @@ export function AppShell({ children }: AppShellProps) {
   const navigationItems = authStatus.canManageMaterials
     ? [...publicNavigationItems, authoringNavigationItem]
     : publicNavigationItems;
+  const presentation = useQuery({
+    ...accountPresentationBrowserQueryOptions(),
+    enabled: authStatus.resolved && authStatus.state === "authenticated",
+  });
+  // Пока Telegram не подключён, напоминание висит в оболочке, а не только в кабинете.
+  const telegramPending =
+    presentation.data?.kind === "ready" &&
+    presentation.data.presentation.telegramMembership.link.kind !== "linked";
 
   return (
     <ApplicationShell
       currentPath={mobileNavigation.pendingHref?.split("?")[0] ?? pathname}
-      accountSlot={<HeaderAuthControl state={authStatus.state} />}
+      accountSlot={
+        <div className="flex items-center gap-1">
+          {telegramPending ? (
+            <TelegramReminder onOpen={openTelegramOnboarding} />
+          ) : null}
+          <HeaderAuthControl state={authStatus.state} />
+        </div>
+      }
       navigationItems={navigationItems}
-      mobileNavigationItems={mobileNavigationItems.map((item) => item.href === "/library" ? { ...item, href: mobileNavigation.libraryHref } : item)}
+      mobileNavigationItems={mobileNavigationItems.map((item) =>
+        item.href === "/library"
+          ? { ...item, href: mobileNavigation.libraryHref }
+          : item.href === "/account" && telegramPending
+            ? { ...item, badge: true }
+            : item,
+      )}
       onMobileNavigate={mobileNavigation.onNavigate}
     >
       <Suspense fallback={null}>

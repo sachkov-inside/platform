@@ -135,7 +135,7 @@ test("creates or edits the Account Profile and preserves the member projection",
   } else {
     expect(profileKind).toBe("profile");
   }
-  await expect(page.getByRole("heading", { name: "Ваш профиль" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Профиль", exact: true })).toBeVisible();
   const displayName = await nameInput.inputValue();
 
   await page.getByLabel("Выбрать изображение для аватара").setInputFiles({

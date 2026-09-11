@@ -33,8 +33,6 @@ export function AccountPageQuery() {
           ? query.data.presentation.profile.profile
           : null
       }
-      initialTelegramMembership={query.data.presentation.telegramMembership}
-      onTelegramMembershipRefresh={() => query.refetch().then(() => undefined)}
       onProfileChange={(profile) => {
         queryClient.setQueryData<AccountPresentationResult>(
           accountPresentationQueryKey(),

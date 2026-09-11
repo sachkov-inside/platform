@@ -114,7 +114,7 @@ describe("состояния и ошибки", () => {
       "новую покупку начинать не нужно",
     );
     expect(billingErrorMessage("payment_in_progress")).toContain(
-      "платёжный кабинет",
+      "раздел «Подписка»",
     );
     expect(billingErrorMessage("existing_access")).toContain("уже есть доступ");
   });
