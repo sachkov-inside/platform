@@ -1,8 +1,7 @@
-import type {
-  JsonObject,
-} from "../../domain/material-body/material-body.js";
-import { isJsonObject } from "../../domain/material-body/json-guards.js";
-import { materialDocumentSchemaV1 } from "./schema-v1.js";
+import { isJsonObject } from "@inside/material-blocks";
+import { materialDocumentSchemaV1 } from "@inside/material-blocks/schema";
+
+import type { JsonObject } from "../../domain/material-body/material-body.js";
 
 export function roundTripTiptapDocument(document: JsonObject): JsonObject {
   const parsed = materialDocumentSchemaV1.nodeFromJSON(document);

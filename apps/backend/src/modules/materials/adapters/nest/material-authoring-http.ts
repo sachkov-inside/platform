@@ -1,5 +1,6 @@
 import type { SetHomePinError } from "../../features/set-home-pin/set-home-pin.contract.js";
 import { HttpException } from "@nestjs/common";
+import { extendedRenderedBlockSchema } from "@inside/material-blocks";
 import { z } from "zod";
 import {
   GUIDE_CHAPTER_NAME_MAX,
@@ -236,60 +237,18 @@ export const validatedMaterialSchema = z
   })
   .strict();
 
-const renderedMarkSchema = z.union([
-  z.object({ kind: z.enum(["bold", "code", "italic", "strike"]) }).strict(),
-  z.object({ href: z.string(), kind: z.literal("link") }).strict(),
-]);
-
-const renderedTextSchema = z
-  .object({
-    kind: z.literal("text"),
-    marks: z.array(renderedMarkSchema),
-    text: z.string(),
-  })
+/**
+ * The wire contract still publishes the inline `video` block the document schema stopped
+ * accepting; it is enumerated here so the description keeps its shape, while every block the
+ * platform renders comes from the registry.
+ */
+const legacyVideoBlockSchema = z
+  .object({ caption: z.string().optional(), kind: z.literal("video"), videoId: z.uuid() })
   .strict();
 
-export const renderedBlockSchema: z.ZodType = z.lazy(() =>
-  z.discriminatedUnion("kind", [
-    z.object({ content: z.array(renderedTextSchema), kind: z.literal("paragraph") }).strict(),
-    z.object({ content: z.array(renderedTextSchema), kind: z.literal("heading"), level: z.union([z.literal(2), z.literal(3), z.literal(4)]) }).strict(),
-    z.object({ items: z.array(z.array(renderedBlockSchema)), kind: z.literal("bullet_list") }).strict(),
-    z.object({ items: z.array(z.array(renderedBlockSchema)), kind: z.literal("ordered_list") }).strict(),
-    z.object({ content: z.array(renderedBlockSchema), kind: z.literal("blockquote") }).strict(),
-    z.object({ kind: z.literal("code_block"), text: z.string() }).strict(),
-    z.object({ kind: z.literal("horizontal_rule") }).strict(),
-    z.object({ kind: z.literal("table"), rows: z.array(z.object({ cells: z.array(z.object({ content: z.array(renderedBlockSchema), header: z.boolean() }).strict()) }).strict()) }).strict(),
-    z.object({ content: z.array(renderedBlockSchema), kind: z.literal("callout"), tone: z.enum(["note", "tip", "warning"]) }).strict(),
-    z.object({
-      alt: z.string(),
-      assetId: z.uuid(),
-      caption: z.string().optional(),
-      displayWidthPercent: z.number().int().min(25).max(100).optional(),
-      height: z.number().int().positive().optional(),
-      kind: z.literal("image"),
-      variants: z
-        .array(
-          z
-            .object({
-              height: z.number().int().positive(),
-              width: z.number().int().positive(),
-            })
-            .strict(),
-        )
-        .optional(),
-      width: z.number().int().positive().optional(),
-    }).strict(),
-    z.object({
-      assetId: z.uuid(),
-      contentType: z.string().optional(),
-      filename: z.string().optional(),
-      kind: z.literal("file"),
-      label: z.string(),
-      size: z.number().int().nonnegative().optional(),
-    }).strict(),
-    z.object({ caption: z.string().optional(), kind: z.literal("video"), videoId: z.uuid() }).strict(),
-  ]),
-);
+export const renderedBlockSchema: z.ZodType = extendedRenderedBlockSchema([
+  legacyVideoBlockSchema,
+]);
 
 export const previewMaterialSchema = z
   .object({

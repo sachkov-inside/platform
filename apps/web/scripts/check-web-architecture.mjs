@@ -32,6 +32,22 @@ const backendOperationPathPatterns = [...backendOperationPaths].map(
       "u",
     ),
 );
+/**
+ * Kits that declare the material document block set. `@inside/material-blocks` owns them, so an
+ * application that imports one is declaring blocks a second time.
+ */
+const documentBlockKitSpecifiers = new Set([
+  "@tiptap/extension-table",
+  "@tiptap/extension-unique-id",
+  "@tiptap/starter-kit",
+]);
+/** Entry points that must stay free of the editor bundle. */
+const editorFreeRouteEntries = [
+  "app/(public)/(catalog)/materials/[slug]/page.tsx",
+  "app/authoring/materials/page.tsx",
+  "app/authoring/playlists/page.tsx",
+  "app/authoring/playlists/[seriesId]/page.tsx",
+];
 const runtimeConfigurationNames = new Set([
   "BACKEND_BASE_URL",
   "LOGTO_ENDPOINT",
@@ -145,6 +161,41 @@ function layerFinding(importer, dependency) {
     return `${scannedPath(importer)}: ${source.layer} slices cannot import each other (${source.slice} -> ${target.slice})`;
   }
   return undefined;
+}
+
+function declaresDocumentNode(program) {
+  const nodeBindings = new Set();
+  for (const statement of program.body) {
+    if (
+      statement.type !== "ImportDeclaration" ||
+      statement.source.value !== "@tiptap/core"
+    ) {
+      continue;
+    }
+    for (const specifier of statement.specifiers) {
+      if (
+        specifier.type === "ImportSpecifier" &&
+        (specifier.imported.name ?? specifier.imported.value) === "Node"
+      ) {
+        nodeBindings.add(specifier.local.name);
+      }
+    }
+  }
+
+  let found = false;
+  new Visitor({
+    CallExpression(node) {
+      if (
+        node.callee.type === "MemberExpression" &&
+        node.callee.object.type === "Identifier" &&
+        nodeBindings.has(node.callee.object.name) &&
+        memberPropertyName(node.callee) === "create"
+      ) {
+        found = true;
+      }
+    },
+  }).visit(program);
+  return found;
 }
 
 function readsPublicSiteOrigin(program) {
@@ -407,6 +458,11 @@ const findings = [...parsedFiles].flatMap(([file, program]) => {
     const boundaryFinding =
       dependency === undefined ? undefined : layerFinding(file, dependency);
     if (boundaryFinding !== undefined) return [boundaryFinding];
+    if (documentBlockKitSpecifiers.has(specifier)) {
+      return [
+        `${sourcePath}: material document blocks belong to the shared block registry; import them from @inside/material-blocks`,
+      ];
+    }
     if (!insideBackendTransport && specifier === "openapi-typescript-codegen") {
       return [`${sourcePath}: codegen runtime belongs to the backend transport module`];
     }
@@ -424,6 +480,12 @@ const findings = [...parsedFiles].flatMap(([file, program]) => {
     }
     return [];
   });
+
+  if (declaresDocumentNode(program)) {
+    findingsForFile.push(
+      `${sourcePath}: material document blocks belong to the shared block registry; add the block there instead of declaring a node here`,
+    );
+  }
 
   if (hasDirective(program, "use server")) {
     findingsForFile.push(
@@ -476,11 +538,7 @@ const findings = [...parsedFiles].flatMap(([file, program]) => {
 });
 
 for (const entry of [...parsedFiles.keys()].filter((file) =>
-  [
-    "app/authoring/materials/page.tsx",
-    "app/authoring/playlists/page.tsx",
-    "app/authoring/playlists/[seriesId]/page.tsx",
-  ].some((suffix) => scannedPath(file).endsWith(suffix)),
+  editorFreeRouteEntries.some((suffix) => scannedPath(file).endsWith(suffix)),
 )) {
   const visited = new Set();
   const pending = [entry];
@@ -491,9 +549,12 @@ for (const entry of [...parsedFiles.keys()].filter((file) =>
     const program = parsedFiles.get(file);
     if (program === undefined) continue;
     for (const specifier of moduleSpecifiers(program)) {
-      if (specifier.startsWith("@tiptap/")) {
+      if (
+        specifier.startsWith("@tiptap/") ||
+        specifier === "@inside/material-blocks/schema"
+      ) {
         findings.push(
-          `${scannedPath(entry)}: lightweight authoring routes cannot reach the Tiptap editor bundle (via ${scannedPath(file)})`,
+          `${scannedPath(entry)}: reading and lightweight authoring routes cannot reach the Tiptap editor bundle (via ${scannedPath(file)})`,
         );
       }
       const dependency = resolveLocalModule(file, specifier, parsedFiles);

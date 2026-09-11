@@ -22,6 +22,12 @@ The current structured content owned by a Material. In Russian product language:
 материала».
 _Avoid_: MaterialDocumentV1, HTML blob, editor state
 
+**Material Block Registry**:
+The single description of every block a MaterialBody may contain: node type, fields, field rules,
+rendered shape, search text and headings. It lives in `@inside/material-blocks`; the server, the
+editor and the reading client all read the same entry instead of keeping their own copy.
+_Avoid_: Block schema copy, editor extension list, ContentSchema capability
+
 **Public Material Projection**:
 The indexable body-free view of a Published Material: title, description, cover, author, taxonomy
 and publication date. A membership Material remains discoverable through this projection while its

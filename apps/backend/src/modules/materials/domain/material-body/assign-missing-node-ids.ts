@@ -1,9 +1,12 @@
 import { randomUUID } from "node:crypto";
 
-import { addressableBlockTypes } from "./document-rules.js";
-import { isUnknownArray, isUnknownRecord } from "./json-guards.js";
+import {
+  addressableMaterialBlockTypes,
+  isUnknownArray,
+  isUnknownRecord,
+} from "@inside/material-blocks";
 
-const addressableBlockTypeSet = new Set<string>(addressableBlockTypes);
+const addressableBlockTypeSet = new Set<string>(addressableMaterialBlockTypes);
 
 export function assignMissingNodeIds(value: unknown, stableRootNodeId?: string): void {
   function visit(candidate: unknown, root: boolean): void {

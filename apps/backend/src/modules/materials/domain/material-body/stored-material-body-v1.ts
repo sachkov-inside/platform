@@ -4,7 +4,7 @@ import type {
   MaterialBody,
   MaterialBodySnapshot,
 } from "./material-body.js";
-import { isJsonArray } from "./json-guards.js";
+import { isJsonArray } from "@inside/material-blocks";
 
 function freezeJson(value: JsonValue): JsonValue {
   if (isJsonArray(value)) {

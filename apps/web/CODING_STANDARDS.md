@@ -29,6 +29,11 @@ mutations.
 
 - Nest owns the wire contract. Change controller schemas, regenerate deterministic OpenAPI and the
   Web client, and use `pnpm api:check` for drift. Do not hand-edit generated artifacts.
+- `@inside/material-blocks` owns the material block set. Take the rendered block type and its
+  schema from its registry entry point, and build the editor from its document-schema entry point;
+  a page slice adds a block's appearance, never its node, block list or rendered shape. Reading and
+  lightweight authoring routes stay on the registry entry point so the editor bundle cannot reach
+  them.
 - `src/shared/config` owns server-only environment parsing. `src/shared/api/backend` owns generated
   transport, the private Nest URL, HTTP adapter, and timeouts. Other modules import those
   interfaces and do not read application env or duplicate backend URLs.

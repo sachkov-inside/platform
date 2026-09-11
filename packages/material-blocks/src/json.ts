@@ -1,4 +1,13 @@
-import type { JsonObject, JsonValue } from "./material-body.js";
+export type JsonPrimitive = boolean | null | number | string;
+
+export type JsonValue =
+  | JsonPrimitive
+  | readonly JsonValue[]
+  | { readonly [key: string]: JsonValue };
+
+export interface JsonObject {
+  readonly [key: string]: JsonValue;
+}
 
 export function isJsonValue(value: unknown): value is JsonValue {
   if (value === null || typeof value === "boolean" || typeof value === "string") {
@@ -27,4 +36,14 @@ export function isUnknownArray(value: unknown): value is unknown[] {
 
 export function isUnknownRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && !Array.isArray(value) && typeof value === "object";
+}
+
+/** Reads a string attribute of a document node without asserting the whole node shape. */
+export function stringAttribute(node: JsonObject, name: string): string | undefined {
+  const attributes = node.attrs;
+  if (!isJsonObject(attributes)) {
+    return undefined;
+  }
+  const value = attributes[name];
+  return typeof value === "string" ? value : undefined;
 }

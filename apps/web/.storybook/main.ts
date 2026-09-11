@@ -25,7 +25,7 @@ const config: StorybookConfig = {
   viteFinal: (viteConfig) =>
     mergeConfig(viteConfig, {
       optimizeDeps: {
-        include: ["@tiptap/core", "@tiptap/react", "@tiptap/starter-kit"],
+        include: ["@tiptap/core", "@tiptap/react", "@inside/material-blocks/schema"],
       },
       resolve: {
         alias: {
