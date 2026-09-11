@@ -23,7 +23,6 @@ export interface ShowcaseArtifact {
 export interface ShowcaseGuide {
   readonly artifacts: readonly ShowcaseArtifact[];
   readonly chapters: readonly ShowcaseChapter[];
-  readonly freeMaterials: number;
   readonly materials: number;
   readonly meta: string;
   readonly name: string;
@@ -53,7 +52,6 @@ export const infrastructureGuide: ShowcaseGuide = {
     "Подготовим инфраструктуру твоего приложения: окружения, сервер, секреты, базу данных и внешние сервисы. Настроим проверки, релизы, деплой, резервное копирование и восстановление.",
   meta: "30 материалов · 7 глав · артефакты",
   materials: 30,
-  freeMaterials: 4,
   segments: [
     {
       title: "Тем, кто пишет свой сервис",

@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  ArrowRight,
   Boxes,
   Check,
   FileDown,
@@ -193,18 +192,15 @@ function Showcase({
           Below lg the shell floats its own navigation dock at the bottom, so the
           bar rests above it instead of hiding behind it. */}
       <div className="sticky bottom-[calc(5rem+env(safe-area-inset-bottom))] z-10 rounded-2xl border border-border bg-background/95 shadow-card backdrop-blur lg:bottom-0 lg:rounded-none lg:border-x-0 lg:border-b-0 lg:shadow-none">
-        <div className="mx-auto flex w-full max-w-[46rem] items-center gap-3 px-4 py-3 sm:px-6">
+        <div className="mx-auto flex w-full max-w-[46rem] items-center gap-3 px-3 py-2.5 sm:px-6">
           <button
-            className="min-h-12 flex-1 rounded-2xl bg-foreground px-6 text-base font-semibold text-background focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            className="min-h-11 flex-1 rounded-xl bg-foreground px-5 text-sm font-semibold text-background focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             onClick={onOpen}
             type="button"
           >
             Открыть программу
           </button>
         </div>
-        <p className="mx-auto w-full max-w-[46rem] px-4 pb-3 text-center text-xs text-muted-foreground sm:px-6">
-          {guide.freeMaterials} материала открыты без подписки
-        </p>
       </div>
     </>
   );
@@ -231,8 +227,8 @@ function Hero({
           onClick={onOpen}
           type="button"
         >
-          Открыть
-          <ArrowRight aria-hidden="true" className="size-4" />
+          <Play aria-hidden="true" className="size-4 shrink-0" />
+          Попробовать бесплатно
         </button>
       </div>
     </section>
