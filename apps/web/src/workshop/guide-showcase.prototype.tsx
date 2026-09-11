@@ -82,16 +82,18 @@ function Showcase({
         </Section>
 
         <Section title="Что получается">
-          {/* A horizontally scrollable region has to be reachable by keyboard. */}
+          {/* A rail is a narrow-screen affordance. Once the cards fit, they lay out
+              as a grid: nothing to drag sideways and every card readable at once.
+              While it scrolls it must also be reachable by keyboard. */}
           <ul
             aria-label="Что получается после прохождения"
-            className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:grid sm:grid-cols-2 sm:gap-4 sm:overflow-x-visible sm:pb-0 lg:grid-cols-4"
             tabIndex={0}
           >
             {guide.results.map((result) => (
               <li
                 // Enlarged text must not make one card wider than the screen.
-                className="flex min-h-44 w-[min(13.5rem,72vw)] shrink-0 snap-start flex-col justify-end rounded-2xl bg-gradient-to-br from-primary to-primary/70 p-4 text-white"
+                className="flex min-h-44 w-[min(13.5rem,72vw)] shrink-0 snap-start flex-col justify-end rounded-2xl bg-gradient-to-br from-primary to-primary/70 p-4 text-white sm:min-h-40 sm:w-auto"
                 key={result}
               >
                 <Boxes aria-hidden="true" className="mb-auto size-6 opacity-70" />
