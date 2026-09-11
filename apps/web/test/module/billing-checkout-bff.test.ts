@@ -42,8 +42,10 @@ import { loadBillingOffers } from "@/entities/subscription.server";
 import { handleBillingConsents } from "@/entities/subscription.server";
 import { handleCancelRenewal, handleCurrentBilling } from "@/features/billing-subscription.server";
 import {
+  accessGrounds,
   activeSubscription,
   materialsOffer,
+  ownPayments,
   pendingPurchase,
   savedQuote,
   supportOffer,
@@ -220,15 +222,16 @@ it("отвечает 401 на собственный read без действу�
   expect(fakes.current).not.toHaveBeenCalled();
 });
 
-it("возвращает подписку и её поводы одним конвертом", async () => {
-  fakes.current.mockResolvedValue(
-    ok({ subscription: activeSubscription, notices: [] }),
-  );
+it("возвращает подписку, основания доступа, списания и поводы одним конвертом", async () => {
+  const envelope = {
+    subscription: activeSubscription,
+    notices: [],
+    grounds: accessGrounds,
+    payments: ownPayments,
+  };
+  fakes.current.mockResolvedValue(ok(envelope));
   const response = await handleCurrentBilling();
-  expect(await response.json()).toEqual({
-    ok: true,
-    value: { subscription: activeSubscription, notices: [] },
-  });
+  expect(await response.json()).toEqual({ ok: true, value: envelope });
 });
 
 it("требует ожидаемую редакцию для отмены продления", async () => {

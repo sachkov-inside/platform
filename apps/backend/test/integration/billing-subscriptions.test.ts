@@ -14,7 +14,7 @@ function value<T>(result: { ok: true; value: T } | { ok: false; error: { code: s
 const config = tbankConfigSchema.parse({ environment: "demo", terminalKey: "SYNTHETICLIFECYCLE", password: "synthetic-test-password",
   bindingEncryptionKey: Buffer.alloc(32, 51).toString("base64"), recurringCardConfirmed: true, cardOnlyHostedConfirmed: true,
   cardBinding: { confirmed: true, checkType: "3DS" },
-  minimumKopecks: 100, maximumKopecks: 10_000_000, returnUrl: "https://inside.example.test/account",
+  minimumKopecks: 100, maximumKopecks: 10_000_000, returnUrl: "https://inside.example.test/subscription/return",
   notificationUrl: "https://inside.example.test/billing/tbank/notification", receipt: { taxation: "usn_income", tax: "none" } });
 const documents = (["terms", "recurring"] as const).map(kind => { const text = `Synthetic ${kind}, not legal terms`;
   return { kind, documentId: kind, version: "test-v1", text, digest: createHash("sha256").update(text).digest("hex"), url: `https://example.test/${kind}` }; });
@@ -91,6 +91,63 @@ describe("подписка: продление, отмена, смена вар�
     const view = async () => value(await subscriptions.read(buyer)).subscription;
     return { buyer, offerId, optionId, bank, payments, subscriptions, buy, offer, view, consentFor };
   }
+
+  test("кабинет показывает собственные основания доступа и историю списаний без операторских полей", async () => {
+    const s = await scenario();
+    const empty = value(await s.subscriptions.read(s.buyer));
+    expect(empty).toMatchObject({ subscription: null, grounds: [], payments: [] });
+
+    const purchaseRef = await s.buy();
+    const cabinet = value(await s.subscriptions.read(s.buyer));
+    expect(cabinet.grounds).toEqual([
+      { source: "paid", capabilities: ["materials"], startsAt: "2030-01-31T10:00:00.000Z",
+        validUntil: "2030-02-28T10:00:00.000Z", active: true },
+    ]);
+    expect(cabinet.payments).toEqual([
+      { purchaseRef, kind: "initial", state: "confirmed", amountKopecks: 100_000, offerName: "Материалы",
+        months: 1, fiscalization: "pending", confirmedAt: "2030-01-31T10:00:00.000Z",
+        periodEndsAt: "2030-02-28T10:00:00.000Z", createdAt: "2030-01-31T10:00:00.000Z" },
+    ]);
+    // Данные провайдера и операторские поля остаются владельческими.
+    const [payment] = cabinet.payments;
+    expect(payment).not.toHaveProperty("terminalRef");
+    expect(payment).not.toHaveProperty("environment");
+    expect(payment).not.toHaveProperty("paymentId");
+    const [ground] = cabinet.grounds;
+    expect(ground).not.toHaveProperty("reason");
+    expect(ground).not.toHaveProperty("sourceRef");
+    expect(ground).not.toHaveProperty("grantRef");
+  });
+
+  test("отозванное основание пропадает из кабинета, а независимое остаётся", async () => {
+    const s = await scenario();
+    await s.buy();
+    const row = { rowKey: "row-1", accountId: s.buyer, source: "manual" as const, sourceRef: randomUUID(),
+      terms: { capabilities: ["materials" as const], startsAt: "2030-01-01T00:00:00.000Z", validUntil: null,
+        reason: "Ручная выдача для проверки" } };
+    const preview = await grants.previewBatch(owner, { operationId: randomUUID(), rows: [row] });
+    if (!preview.ok) throw new Error(preview.error.code);
+    const applied = await grants.applyBatch(owner, { operationId: randomUUID(), previewRef: preview.previewRef,
+      expectedRevision: preview.revision, confirmedRows: ["row-1"] });
+    if (!applied.ok) throw new Error(applied.error.code);
+    const withManual = value(await s.subscriptions.read(s.buyer));
+    expect(withManual.grounds.map(ground => ground.source).sort()).toEqual(["manual", "paid"]);
+
+    // Оплаченное основание отзывается только подтверждённым возвратом, поэтому владелец
+    // отзывает ручное: независимость оснований видна в допустимом направлении.
+    const paid = await db.prisma.accessGrant.findFirstOrThrow({ where: { accountId: s.buyer, source: "paid" } });
+    expect(await grants.changeGrant(owner, { operationId: randomUUID(), action: "revoke", grantRef: paid.id,
+      expectedRevision: paid.revision, reason: "Проверка отзыва" })).toMatchObject({ ok: false, error: { code: "forbidden" } });
+
+    const manual = await db.prisma.accessGrant.findFirstOrThrow({ where: { accountId: s.buyer, source: "manual" } });
+    const revoked = await grants.changeGrant(owner, { operationId: randomUUID(), action: "revoke", grantRef: manual.id,
+      expectedRevision: manual.revision, reason: "Проверка отзыва" });
+    if (!revoked.ok) throw new Error(revoked.error.code);
+    expect(value(await s.subscriptions.read(s.buyer)).grounds).toEqual([
+      { source: "paid", capabilities: ["materials"], startsAt: "2030-01-31T10:00:00.000Z",
+        validUntil: "2030-02-28T10:00:00.000Z", active: true },
+    ]);
+  });
 
   test("продление считает срок от исходного anchor и продолжает права без перерыва", async () => {
     const s = await scenario();

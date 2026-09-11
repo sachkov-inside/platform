@@ -1,5 +1,6 @@
 import type {
   AccessCapability,
+  AccessSource,
   AttemptState,
   BillingFailureCode,
   BillingOffer,
@@ -96,6 +97,21 @@ export function benefitLines(
           : formatMonths(period.months);
     return { capability, label: capabilityLabel(capability), term };
   });
+}
+
+/**
+ * Чем открыто основание. Ручная выдача названа выдачей: покупкой она не является, даже когда
+ * открывает тот же состав.
+ */
+export function accessSourceLabel(source: AccessSource): string {
+  switch (source) {
+    case "paid":
+      return "Оплаченная подписка";
+    case "manual":
+      return "Выдано вручную";
+    case "legacy":
+      return "Прежняя подписка";
+  }
 }
 
 export function subscriptionStateLabel(state: SubscriptionState): string {

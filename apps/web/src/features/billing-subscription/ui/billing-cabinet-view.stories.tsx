@@ -2,11 +2,13 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, within } from "storybook/test";
 
 import {
+  accessGrounds,
   activeSubscription,
   materialsOffer,
   billingNotices,
   billingOffers,
   canceledSubscription,
+  ownPayments,
   legalDocuments,
   scheduledChangeQuote,
   subscriptionWithPendingChange,
@@ -21,6 +23,8 @@ const meta = {
   args: {
     subscription: activeSubscription,
     notices: billingNotices,
+    grounds: accessGrounds,
+    payments: ownPayments,
     options: billingOffers,
     selectedOptionId: null,
     changeQuote: null,
@@ -107,17 +111,38 @@ export const ScheduledChangeQuote: Story = {
 };
 
 export const NoSubscription: Story = {
-  args: { subscription: null, notices: [] },
+  args: { subscription: null, notices: [], payments: [] },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
       canvas.getByText("Действующей подписки нет"),
     ).toBeInTheDocument();
+    // Ручная выдача переживает подписку и не называется покупкой.
+    await expect(canvas.getByText("Выдано вручную")).toBeInTheDocument();
+    await expect(canvas.getByText("бессрочно")).toBeInTheDocument();
+  },
+};
+export const OwnGroundsAndPayments: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("Оплаченная подписка")).toBeInTheDocument();
+    await expect(canvas.getByText("Отдельное руководство")).toBeInTheDocument();
+    await expect(canvas.getAllByText(/^операция /u).length).toBe(2);
+    await expect(canvas.getByText(/Оплата не прошла/u)).toBeInTheDocument();
   },
 };
 
 export const MaterialsWithoutTelegram: Story = {
   args: {
+    grounds: [
+      {
+        source: "paid",
+        capabilities: ["materials"],
+        startsAt: "2026-09-01T00:00:00.000Z",
+        validUntil: "2026-10-01T00:00:00.000Z",
+        active: true,
+      },
+    ],
     subscription: {
       ...activeSubscription,
       snapshot: {
@@ -132,8 +157,8 @@ export const MaterialsWithoutTelegram: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.getByText("Все опубликованные материалы и руководства"),
-    ).toBeInTheDocument();
+      canvas.getAllByText("Все опубликованные материалы и руководства").length,
+    ).toBeGreaterThan(0);
     await expect(canvas.queryByText("Общий чат")).not.toBeInTheDocument();
   },
 };

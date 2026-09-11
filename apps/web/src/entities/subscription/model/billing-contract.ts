@@ -117,9 +117,36 @@ export const noticeViewSchema = z.object({
   amountKopecks: z.number().int().positive().nullable(),
   dueAt: z.iso.datetime().nullable(),
 });
+/**
+ * Собственное основание доступа: состав, срок и то, чем оно выдано. Ручная выдача остаётся
+ * выдачей и не называется покупкой.
+ */
+export const accessSourceSchema = z.enum(["paid", "manual", "legacy"]);
+export const accessGroundSchema = z.object({
+  source: accessSourceSchema,
+  capabilities: z.array(accessCapabilitySchema),
+  startsAt: z.iso.datetime(),
+  validUntil: z.iso.datetime().nullable(),
+  active: z.boolean(),
+});
+/** Собственная история списаний: без терминала, окружения и идентификатора платежа. */
+export const ownPaymentSchema = z.object({
+  purchaseRef: z.uuid(),
+  kind: attemptKindSchema,
+  state: attemptStateSchema,
+  amountKopecks: z.number().int().positive(),
+  offerName: z.string().min(1),
+  months: z.number().int().positive(),
+  fiscalization: z.enum(["not_configured", "pending", "confirmed", "failed"]),
+  confirmedAt: z.iso.datetime().nullable(),
+  periodEndsAt: z.iso.datetime().nullable(),
+  createdAt: z.iso.datetime(),
+});
 export const currentBillingSchema = z.object({
   subscription: subscriptionViewSchema.nullable(),
   notices: z.array(noticeViewSchema),
+  grounds: z.array(accessGroundSchema),
+  payments: z.array(ownPaymentSchema),
 });
 
 export const purchaseStatusSchema = z.object({
@@ -191,6 +218,9 @@ export type AttemptState = z.infer<typeof attemptStateSchema>;
 export type NoticeView = z.infer<typeof noticeViewSchema>;
 export type NoticeKind = z.infer<typeof noticeKindSchema>;
 export type CurrentBilling = z.infer<typeof currentBillingSchema>;
+export type AccessGround = z.infer<typeof accessGroundSchema>;
+export type AccessSource = z.infer<typeof accessSourceSchema>;
+export type OwnPayment = z.infer<typeof ownPaymentSchema>;
 export type PurchaseStatus = z.infer<typeof purchaseStatusSchema>;
 export type BillingQuote = z.infer<typeof quoteSchema>;
 export type ChangeQuote = z.infer<typeof changeQuoteSchema>;

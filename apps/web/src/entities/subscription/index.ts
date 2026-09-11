@@ -4,7 +4,9 @@ export {
   billingFailureCodeSchema,
   changeQuoteSchema,
   changeResultSchema,
+  accessGroundSchema,
   currentBillingSchema,
+  ownPaymentSchema,
   noticeViewSchema,
   offerSchema,
   offersPageSchema,
@@ -25,7 +27,10 @@ export {
   type ChangePlan,
   type ChangeQuote,
   type ChangeResult,
+  type AccessGround,
+  type AccessSource,
   type CurrentBilling,
+  type OwnPayment,
   type NoticeKind,
   type NoticeView,
   type OffersPage,
@@ -36,6 +41,7 @@ export {
   type VerifiedContact,
 } from "./model/billing-contract";
 export {
+  accessSourceLabel,
   attemptStateLabel,
   benefitLines,
   billingErrorMessage,

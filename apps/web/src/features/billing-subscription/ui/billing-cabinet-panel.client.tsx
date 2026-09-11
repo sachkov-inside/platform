@@ -230,7 +230,9 @@ export function BillingCabinetPanel({
           : undefined)
       }
       loading={query.isPending || query.isFetching}
+      grounds={billing?.grounds ?? []}
       notices={billing?.notices ?? []}
+      payments={billing?.payments ?? []}
       onCancelPendingChange={() => {
         if (subscription === null) return;
         setError(undefined);

@@ -121,11 +121,22 @@ test("кабинет показывает оплаченный срок и сл�
         inFlightPayment: null,
       },
       notices: [],
+      grounds: [
+        {
+          source: "paid",
+          capabilities: ["materials"],
+          startsAt: "2026-09-01T00:00:00.000Z",
+          validUntil: "2026-10-01T00:00:00.000Z",
+          active: true,
+        },
+      ],
+      payments: [],
     },
   });
   await page.goto("/account/subscription");
 
   await expect(page.getByText("Действует")).toBeVisible();
+  await expect(page.getByText("Оплаченная подписка")).toBeVisible();
   await expect(page.getByText("1 октября 2026 г.").first()).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Отменить продление" }),

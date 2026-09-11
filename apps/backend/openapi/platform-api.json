@@ -3861,6 +3861,64 @@
                 "schema": {
                   "additionalProperties": false,
                   "properties": {
+                    "grounds": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "active": {
+                            "type": "boolean"
+                          },
+                          "capabilities": {
+                            "items": {
+                              "anyOf": [
+                                {
+                                  "enum": [
+                                    "materials",
+                                    "community",
+                                    "reviews",
+                                    "support"
+                                  ],
+                                  "type": "string"
+                                },
+                                {
+                                  "pattern": "^guide:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                  "type": "string"
+                                }
+                              ]
+                            },
+                            "type": "array"
+                          },
+                          "source": {
+                            "enum": [
+                              "paid",
+                              "manual",
+                              "legacy"
+                            ],
+                            "type": "string"
+                          },
+                          "startsAt": {
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                            "type": "string"
+                          },
+                          "validUntil": {
+                            "format": "date-time",
+                            "nullable": true,
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "source",
+                          "capabilities",
+                          "startsAt",
+                          "validUntil",
+                          "active"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "notices": {
                       "items": {
                         "additionalProperties": false,
@@ -3914,6 +3972,95 @@
                           "occurredAt",
                           "amountKopecks",
                           "dueAt"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "payments": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "amountKopecks": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "confirmedAt": {
+                            "format": "date-time",
+                            "nullable": true,
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                            "type": "string"
+                          },
+                          "createdAt": {
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                            "type": "string"
+                          },
+                          "fiscalization": {
+                            "enum": [
+                              "not_configured",
+                              "pending",
+                              "confirmed",
+                              "failed"
+                            ],
+                            "type": "string"
+                          },
+                          "kind": {
+                            "enum": [
+                              "initial",
+                              "renewal",
+                              "upgrade"
+                            ],
+                            "type": "string"
+                          },
+                          "months": {
+                            "exclusiveMinimum": true,
+                            "maximum": 1200,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "offerName": {
+                            "maxLength": 200,
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "periodEndsAt": {
+                            "format": "date-time",
+                            "nullable": true,
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                            "type": "string"
+                          },
+                          "purchaseRef": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "state": {
+                            "enum": [
+                              "prepared",
+                              "sent",
+                              "unknown",
+                              "pending",
+                              "authorized",
+                              "confirmed",
+                              "failed"
+                            ],
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "purchaseRef",
+                          "kind",
+                          "state",
+                          "amountKopecks",
+                          "offerName",
+                          "months",
+                          "fiscalization",
+                          "confirmedAt",
+                          "periodEndsAt",
+                          "createdAt"
                         ],
                         "type": "object"
                       },
@@ -4471,7 +4618,9 @@
                   },
                   "required": [
                     "subscription",
-                    "notices"
+                    "notices",
+                    "grounds",
+                    "payments"
                   ],
                   "type": "object"
                 }

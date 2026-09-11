@@ -1,8 +1,10 @@
 import type {
+  AccessGround,
   BillingQuote,
   ChangeQuote,
   LegalDocument,
   NoticeView,
+  OwnPayment,
   PriceSnapshot,
   PurchaseStatus,
   SubscriptionView,
@@ -189,6 +191,51 @@ export const billingNotices: readonly NoticeView[] = [
     occurredAt: "2026-09-28T09:00:00.000Z",
     amountKopecks: 350_000,
     dueAt: "2026-10-01T00:00:00.000Z",
+  },
+];
+
+/** Оплаченная подписка и независимое бессрочное право на руководство живут рядом. */
+export const accessGrounds: readonly AccessGround[] = [
+  {
+    source: "paid",
+    capabilities: ["materials", "support", "community"],
+    startsAt: "2026-09-01T00:00:00.000Z",
+    validUntil: "2026-10-01T00:00:00.000Z",
+    active: true,
+  },
+  {
+    source: "manual",
+    capabilities: [`guide:${uuid("f01")}`],
+    startsAt: "2026-05-01T00:00:00.000Z",
+    validUntil: null,
+    active: true,
+  },
+];
+
+export const ownPayments: readonly OwnPayment[] = [
+  {
+    purchaseRef: uuid("b01"),
+    kind: "initial",
+    state: "confirmed",
+    amountKopecks: 280_000,
+    offerName: "Материалы + сопровождение",
+    months: 1,
+    fiscalization: "confirmed",
+    confirmedAt: "2026-09-01T09:05:00.000Z",
+    periodEndsAt: "2026-10-01T09:05:00.000Z",
+    createdAt: "2026-09-01T09:00:00.000Z",
+  },
+  {
+    purchaseRef: uuid("b02"),
+    kind: "renewal",
+    state: "failed",
+    amountKopecks: 350_000,
+    offerName: "Материалы + сопровождение",
+    months: 1,
+    fiscalization: "not_configured",
+    confirmedAt: null,
+    periodEndsAt: null,
+    createdAt: "2026-10-01T09:00:00.000Z",
   },
 ];
 

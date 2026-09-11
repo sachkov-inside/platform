@@ -4,10 +4,12 @@ import type { Route } from "next";
 
 import {
   billingActionClass,
+  type AccessGround,
   type ChangeQuote,
   type LegalDocument,
   type LegalDocumentKind,
   type NoticeView,
+  type OwnPayment,
   type PriceSnapshot,
   type SubscriptionView,
 } from "@/entities/subscription";
@@ -17,6 +19,7 @@ import {
   SubscriptionActions,
   type SubscriptionActionsProps,
 } from "./subscription-actions.client";
+import { SubscriptionGrounds } from "./subscription-grounds.client";
 import { SubscriptionNotices } from "./subscription-notices.client";
 import { SubscriptionPlan } from "./subscription-plan.client";
 
@@ -27,6 +30,8 @@ export interface BillingCabinetViewProps
   > {
   readonly subscription: SubscriptionView | null;
   readonly notices: readonly NoticeView[];
+  readonly grounds: readonly AccessGround[];
+  readonly payments: readonly OwnPayment[];
   readonly options: readonly PriceSnapshot[];
   readonly selectedOptionId: string | null;
   readonly changeQuote: ChangeQuote | null;
@@ -50,6 +55,8 @@ export interface BillingCabinetViewProps
 export function BillingCabinetView({
   subscription,
   notices,
+  grounds,
+  payments,
   options,
   selectedOptionId,
   changeQuote,
@@ -102,6 +109,8 @@ export function BillingCabinetView({
         </p>
       </header>
 
+      <SubscriptionGrounds grounds={grounds} />
+
       {loading && subscription === null ? (
         <p role="status">Загружаем подписку…</p>
       ) : subscription === null ? (
@@ -146,7 +155,11 @@ export function BillingCabinetView({
         </>
       )}
 
-      <SubscriptionNotices contactHref={contactHref} notices={notices} />
+      <SubscriptionNotices
+        contactHref={contactHref}
+        notices={notices}
+        payments={payments}
+      />
 
       <div className="flex flex-wrap gap-2">
         <Button
