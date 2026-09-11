@@ -35,7 +35,7 @@ export function GuideShowcasePrototype({
 }) {
   const [opened, setOpened] = useState(owned);
   return (
-    <div className="min-h-svh bg-background text-foreground" data-showcase-state={opened ? "programme" : "showcase"}>
+    <div className="flex min-h-full flex-col bg-background text-foreground" data-showcase-state={opened ? "programme" : "showcase"}>
       {opened ? (
         <ProgrammeStub guide={guide} onBack={() => { setOpened(false); }} />
       ) : (
@@ -54,13 +54,13 @@ function Showcase({
 }) {
   return (
     <>
-      <main className="mx-auto w-full max-w-[46rem] px-4 pb-32 sm:px-6">
+      <main className="mx-auto w-full max-w-[46rem] flex-1 px-4 pb-10 sm:px-6">
         <Hero guide={guide} onOpen={onOpen} />
 
-        <h1 className="mt-7 text-[1.75rem] font-semibold leading-[1.15] tracking-[-0.035em] md:text-4xl">
+        <h1 className="mt-7 break-words text-[1.75rem] font-semibold leading-[1.15] tracking-[-0.035em] md:text-4xl">
           {guide.name}
         </h1>
-        <p className="mt-3 text-base leading-7 text-muted-foreground md:text-lg">{guide.pitch}</p>
+        <p className="mt-3 break-words text-base leading-7 text-muted-foreground md:text-lg">{guide.pitch}</p>
         <p className="mt-3 text-sm text-muted-foreground">{guide.meta}</p>
 
         <Section title="Кому это нужно">
@@ -69,8 +69,8 @@ function Showcase({
               <li className="grid grid-cols-[1.25rem_minmax(0,1fr)] gap-3" key={segment.title}>
                 <Check aria-hidden="true" className="mt-1 size-5 text-accent" />
                 <div className="min-w-0">
-                  <p className="font-semibold leading-6">{segment.title}</p>
-                  <p className="mt-1 text-sm leading-6 text-muted-foreground">{segment.detail}</p>
+                  <p className="break-words font-semibold leading-6">{segment.title}</p>
+                  <p className="mt-1 break-words text-sm leading-6 text-muted-foreground">{segment.detail}</p>
                 </div>
               </li>
             ))}
@@ -78,14 +78,20 @@ function Showcase({
         </Section>
 
         <Section title="Что получается">
-          <ul className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
+          {/* A horizontally scrollable region has to be reachable by keyboard. */}
+          <ul
+            aria-label="Что получается после прохождения"
+            className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            tabIndex={0}
+          >
             {guide.results.map((result) => (
               <li
-                className="flex min-h-44 w-[13.5rem] shrink-0 snap-start flex-col justify-end rounded-2xl bg-gradient-to-br from-primary to-primary/70 p-4 text-white"
+                // Enlarged text must not make one card wider than the screen.
+                className="flex min-h-44 w-[min(13.5rem,72vw)] shrink-0 snap-start flex-col justify-end rounded-2xl bg-gradient-to-br from-primary to-primary/70 p-4 text-white"
                 key={result}
               >
                 <Boxes aria-hidden="true" className="mb-auto size-6 opacity-70" />
-                <p className="text-sm font-semibold leading-5">{result}</p>
+                <p className="break-words text-sm font-semibold leading-5">{result}</p>
               </li>
             ))}
           </ul>
@@ -113,8 +119,8 @@ function Showcase({
                   {index + 1}
                 </span>
                 <div className="min-w-0">
-                  <p className="font-semibold leading-6">{chapter.title}</p>
-                  <p className="mt-1 text-sm leading-6 text-muted-foreground">{chapter.summary}</p>
+                  <p className="break-words font-semibold leading-6">{chapter.title}</p>
+                  <p className="mt-1 break-words text-sm leading-6 text-muted-foreground">{chapter.summary}</p>
                 </div>
               </li>
             ))}
@@ -122,14 +128,14 @@ function Showcase({
         </Section>
 
         <Section title="Как это работает">
-          <p className="text-sm leading-6 md:text-base md:leading-7">{guide.workflow}</p>
+          <p className="break-words text-sm leading-6 md:text-base md:leading-7">{guide.workflow}</p>
           <div className="mt-5 rounded-2xl bg-muted p-5">
             <p className="font-semibold">Что понадобится</p>
             <ul className="mt-4 grid gap-4">
               {guide.requirements.map((requirement) => (
                 <li key={requirement.title}>
-                  <p className="text-sm font-semibold leading-5">{requirement.title}</p>
-                  <p className="mt-1 text-sm leading-6 text-muted-foreground">{requirement.detail}</p>
+                  <p className="break-words text-sm font-semibold leading-5">{requirement.title}</p>
+                  <p className="mt-1 break-words text-sm leading-6 text-muted-foreground">{requirement.detail}</p>
                 </li>
               ))}
             </ul>
@@ -145,8 +151,8 @@ function Showcase({
               >
                 <FileDown aria-hidden="true" className="mt-0.5 size-5 text-muted-foreground" />
                 <div className="min-w-0">
-                  <p className="font-semibold leading-6">{artifact.title}</p>
-                  <p className="mt-1 text-sm leading-6 text-muted-foreground">{artifact.detail}</p>
+                  <p className="break-words font-semibold leading-6">{artifact.title}</p>
+                  <p className="mt-1 break-words text-sm leading-6 text-muted-foreground">{artifact.detail}</p>
                 </div>
               </li>
             ))}
@@ -156,10 +162,10 @@ function Showcase({
         <Section title={guide.support.title}>
           <div className="rounded-2xl bg-muted p-5">
             <MessageCircle aria-hidden="true" className="size-6 text-accent" />
-            <p className="mt-3 text-sm leading-6">{guide.support.detail}</p>
+            <p className="mt-3 break-words text-sm leading-6">{guide.support.detail}</p>
             <ul className="mt-4 grid gap-2">
               {guide.support.items.map((item) => (
-                <li className="flex items-start gap-2 text-sm leading-6" key={item}>
+                <li className="flex items-start gap-2 break-words text-sm leading-6" key={item}>
                   <Check aria-hidden="true" className="mt-1 size-4 shrink-0 text-accent" />
                   {item}
                 </li>
@@ -171,12 +177,14 @@ function Showcase({
         <Section title="Что остаётся за границами">
           <div className="grid grid-cols-[1.25rem_minmax(0,1fr)] gap-3 rounded-2xl border border-border p-5">
             <ShieldCheck aria-hidden="true" className="mt-0.5 size-5 text-muted-foreground" />
-            <p className="text-sm leading-6 text-muted-foreground">{guide.outOfScope}</p>
+            <p className="break-words text-sm leading-6 text-muted-foreground">{guide.outOfScope}</p>
           </div>
         </Section>
       </main>
 
-      <div className="fixed inset-x-0 bottom-0 border-t border-border bg-background/95 backdrop-blur">
+      {/* Sticky, not fixed: the bar has to pin to whatever scrolls it — the page,
+          a Storybook viewport frame or a Docs block — and never leave the flow. */}
+      <div className="sticky bottom-0 z-10 border-t border-border bg-background/95 backdrop-blur">
         <div className="mx-auto flex w-full max-w-[46rem] items-center gap-3 px-4 py-3 sm:px-6">
           <button
             className="min-h-12 flex-1 rounded-2xl bg-foreground px-6 text-base font-semibold text-background focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
@@ -208,7 +216,7 @@ function Hero({
         <Play aria-hidden="true" className="size-10 opacity-60" />
         <p className="mt-2 text-xs text-white/60">Здесь будет анимация продукта</p>
       </div>
-      <div className="mt-4 flex items-center justify-between gap-3">
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-white/70 tabular-nums">{guide.materials} материалов</p>
         <button
           className="inline-flex min-h-11 items-center gap-2 rounded-full bg-white/15 px-5 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
@@ -260,14 +268,14 @@ function ProgrammeStub({
                     key={index}
                   >
                     {free ? (
-                      <Play aria-hidden="true" className="size-4 text-accent" />
+                      <Play aria-hidden="true" className="size-4 text-action" />
                     ) : (
                       <Lock aria-hidden="true" className="size-4 text-muted-foreground" />
                     )}
                     <span className={cn("min-w-0 flex-1", free ? "" : "text-muted-foreground")}>
                       Материал {index + 1}
                     </span>
-                    {free ? <span className="text-xs font-semibold text-accent">Открыт</span> : null}
+                    {free ? <span className="text-xs font-semibold text-action">Открыт</span> : null}
                   </li>
                 );
               })}
@@ -288,7 +296,7 @@ function Section({
 }) {
   return (
     <section className="mt-10">
-      <h2 className="text-xl font-semibold tracking-[-0.02em] md:text-2xl">{title}</h2>
+      <h2 className="break-words text-xl font-semibold tracking-[-0.02em] md:text-2xl">{title}</h2>
       <div className="mt-4">{children}</div>
     </section>
   );

@@ -5,6 +5,9 @@ import { GuideShowcasePrototype } from "@/workshop/guide-showcase.prototype";
 
 const meta = {
   component: GuideShowcasePrototype,
+  // A full-page prototype has nothing to show in a Docs block: the block caps its
+  // height and clips the page instead of scrolling it. Review it as a story.
+  tags: ["!autodocs"],
   parameters: {
     layout: "fullscreen",
     docs: {
