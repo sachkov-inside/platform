@@ -49,6 +49,7 @@ export type AccountTelegramLinkState =
 export type AccountMembershipState =
   | Readonly<{ kind: "active" }>
   | Readonly<{ acquisitionUrl: string; kind: "inactive" }>
+  | Readonly<{ kind: "notOffered" }>
   | Readonly<{ kind: "stale" }>
   | Readonly<{ kind: "unavailable" }>;
 

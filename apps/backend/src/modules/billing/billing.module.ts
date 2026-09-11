@@ -40,6 +40,6 @@ const BILLING_BANK = Symbol("BillingBank");
       useFactory: (prisma: PrismaClientProvider, accounts: Accounts, pricing: BillingPricing, payments: BillingPayments,
         subscriptions: BillingSubscriptions, grants: AccessGrants, bank: Tbank | undefined) =>
         new BillingOperations({ prisma, accounts, pricing, payments, subscriptions, grants, bank }) }],
-  exports: [BillingPayments, BillingSubscriptions, BillingOperations, BillingNotices],
+  exports: [BillingPayments, BillingSubscriptions, BillingOperations, BillingNotices, BillingPricing],
 })
 export class BillingModule {}

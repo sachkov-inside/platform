@@ -81,6 +81,7 @@ const accountMembershipStateSchema = z.discriminatedUnion("kind", [
     .object({ acquisitionUrl: z.url(), kind: z.literal("inactive") })
     .strict(),
   z.object({ kind: z.literal("stale") }).strict(),
+  z.object({ kind: z.literal("notOffered") }).strict(),
   z.object({ kind: z.literal("unavailable") }).strict(),
 ]);
 export const accountTelegramMembershipPresentationSchema = z

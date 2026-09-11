@@ -73,6 +73,7 @@ describe("служебные сообщения подписки (реальны
     const offerId = randomUUID(), optionId = randomUUID();
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.save", value: { id: offerId, name: "Материалы", benefits: ["materials"] } }));
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "paymentOptions.save", value: { id: optionId, offerId, months: 1, priceKopecks: 100_000 } }));
+    value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.publish", expectedRevision: 1, id: offerId }));
 
     const bank = new BankFixture(config);
     const client = bank.client();
@@ -164,6 +165,7 @@ describe("служебные сообщения подписки (реальны
       value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.save", value: { id: nextOfferId, name, benefits: [...benefits] } }));
       value(await pricing.manage(owner, { operationId: randomUUID(), operation: "paymentOptions.save",
         value: { id: nextOptionId, offerId: nextOfferId, months, priceKopecks } }));
+      value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.publish", expectedRevision: 1, id: nextOfferId }));
       return nextOptionId;
     }
     const cabinet = async () => value(await subscriptions.read(buyer));

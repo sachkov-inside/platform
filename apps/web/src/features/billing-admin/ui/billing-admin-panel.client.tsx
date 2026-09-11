@@ -21,6 +21,7 @@ import {
   extendAccessGrant,
   listBillingPayments,
   previewAccessGrantBatch,
+  publishBillingOffer,
   readAccessGrants,
   readBillingPayment,
   readBillingRefunds,
@@ -29,6 +30,7 @@ import {
   saveBillingOffer,
   saveBillingPaymentOption,
   saveBillingPromotion,
+  unpublishBillingOffer,
 } from "../api/billing-admin.browser";
 import type {
   GrantBatchOutcome,
@@ -58,6 +60,7 @@ export interface BillingAdminPanelProps {
  * изменилась нагрузка, поэтому повтор читает исходный результат, а не создаёт второй.
  */
 export function BillingAdminPanel({ offers }: BillingAdminPanelProps) {
+  const [catalog, setCatalog] = useState<readonly PriceSnapshot[]>(offers);
   const [payments, setPayments] = useState<readonly PaymentView[]>([]);
   const [paymentsCursor, setPaymentsCursor] = useState<string | null>(null);
   const [payment, setPayment] = useState<PaymentOutcome["result"] | null>(null);
@@ -115,13 +118,27 @@ export function BillingAdminPanel({ offers }: BillingAdminPanelProps) {
     });
   }
 
+  /**
+   * Тумблер продажи обратим и не переписывает каталог: локально обновляем только редакцию и
+   * признак, чтобы следующая команда отправляла актуальную revision без перезагрузки.
+   */
+  function applyOfferSale(offerId: string, revision: number, published: boolean): void {
+    setCatalog((current) =>
+      current.map((snapshot) =>
+        snapshot.offer.id === offerId
+          ? { ...snapshot, offer: { ...snapshot.offer, revision, published } }
+          : snapshot,
+      ),
+    );
+  }
+
   return (
     <BillingAdminView
       batch={batch}
       error={error}
       grants={grants}
       notice={notice}
-      offers={offers}
+      offers={catalog}
       onApplyBatch={(input) => {
         dispatch(
           () =>
@@ -134,6 +151,32 @@ export function BillingAdminPanel({ offers }: BillingAdminPanelProps) {
             setPreview(null);
           },
           "Партия применена.",
+        );
+      }}
+      onPublishOffer={(input) => {
+        dispatch(
+          () =>
+            publishBillingOffer({
+              ...input,
+              operationId: operationId("offers.publish", input),
+            }),
+          (value) => {
+            applyOfferSale(value.result.value.id, value.result.value.revision, true);
+          },
+          "Предложение включено в продажу.",
+        );
+      }}
+      onUnpublishOffer={(input) => {
+        dispatch(
+          () =>
+            unpublishBillingOffer({
+              ...input,
+              operationId: operationId("offers.unpublish", input),
+            }),
+          (value) => {
+            applyOfferSale(value.result.value.id, value.result.value.revision, false);
+          },
+          "Предложение снято с продажи.",
         );
       }}
       onArchiveOffer={(input) => {
@@ -324,6 +367,11 @@ export function BillingAdminPanel({ offers }: BillingAdminPanelProps) {
               operationId: operationId("offers.save", input),
             }),
           (value) => {
+            applyOfferSale(
+              value.result.value.id,
+              value.result.value.revision,
+              value.result.value.published ?? false,
+            );
             setNotice(
               `Предложение сохранено, редакция ${String(value.result.value.revision)}.`,
             );

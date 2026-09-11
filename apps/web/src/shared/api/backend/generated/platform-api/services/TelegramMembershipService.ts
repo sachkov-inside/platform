@@ -98,6 +98,8 @@ export class TelegramMembershipService {
     } | {
       kind: 'stale';
     } | {
+      kind: 'notOffered';
+    } | {
       kind: 'unavailable';
     });
   }> {

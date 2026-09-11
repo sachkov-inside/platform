@@ -79,7 +79,7 @@ export function MaterialReaderAccess({
   readonly cta: {
     readonly label: "Получить доступ";
     readonly url: string;
-  };
+  } | null;
   readonly material: MaterialReaderMetadata;
   readonly returnTarget?: MaterialReaderReturnTarget;
   readonly seriesContext?: SeriesReaderContext | null;
@@ -116,24 +116,28 @@ export function MaterialReaderAccess({
                 Продолжение для участников
               </h2>
               <p className="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
-                Откройте полный материал и весь маршрут по теме.
+                {cta === null
+                  ? "Подписка сейчас не продаётся, но материал останется здесь."
+                  : "Откройте полный материал и весь маршрут по теме."}
               </p>
-              <div className="mt-5 flex flex-wrap gap-3">
-                <Button
-                  asChild
-                  className="h-11 rounded-xl bg-accent px-4 text-white hover:bg-accent-hover"
-                  size="lg"
-                >
-                  <a href={cta.url} rel="noopener noreferrer" target="_blank">
-                    {cta.label}
-                    <ArrowUpRight
-                      aria-hidden="true"
-                      className="text-sidebar-primary transition-transform duration-[var(--motion-duration-fast)] ease-[var(--motion-ease-out)] group-hover/button:-translate-y-0.5 group-hover/button:translate-x-0.5 motion-reduce:transition-none"
-                      data-icon="inline-end"
-                    />
-                  </a>
-                </Button>
-              </div>
+              {cta === null ? null : (
+                <div className="mt-5 flex flex-wrap gap-3">
+                  <Button
+                    asChild
+                    className="h-11 rounded-xl bg-accent px-4 text-white hover:bg-accent-hover"
+                    size="lg"
+                  >
+                    <a href={cta.url} rel="noopener noreferrer" target="_blank">
+                      {cta.label}
+                      <ArrowUpRight
+                        aria-hidden="true"
+                        className="text-sidebar-primary transition-transform duration-[var(--motion-duration-fast)] ease-[var(--motion-ease-out)] group-hover/button:-translate-y-0.5 group-hover/button:translate-x-0.5 motion-reduce:transition-none"
+                        data-icon="inline-end"
+                      />
+                    </a>
+                  </Button>
+                </div>
+              )}
             </div>
           </section>
           {readingAction}

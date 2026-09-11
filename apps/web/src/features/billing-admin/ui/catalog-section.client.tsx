@@ -33,6 +33,8 @@ export interface CatalogSectionProps {
   readonly pending: boolean;
   readonly onSaveOffer: (input: AdminCommand<SaveOfferInput>) => void;
   readonly onArchiveOffer: (input: AdminCommand<ArchiveInput>) => void;
+  readonly onPublishOffer: (input: AdminCommand<ArchiveInput>) => void;
+  readonly onUnpublishOffer: (input: AdminCommand<ArchiveInput>) => void;
   readonly onSavePaymentOption: (
     input: AdminCommand<SavePaymentOptionInput>,
   ) => void;
@@ -46,6 +48,8 @@ export function CatalogSection({
   pending,
   onSaveOffer,
   onArchiveOffer,
+  onPublishOffer,
+  onUnpublishOffer,
   onSavePaymentOption,
   onArchivePaymentOption,
   onSavePromotion,
@@ -55,7 +59,7 @@ export function CatalogSection({
   return (
     <>
       <AdminSection
-        description="Действующие варианты каталога с их редакциями. Архивные позиции здесь не перечисляются: у backend нет операции их чтения."
+        description="Варианты каталога с редакциями. Выключенный вариант не виден покупателю и не покупается, но остаётся здесь: включить его можно без пересоздания предложения. Архивные позиции не перечисляются."
         title="Действующий каталог"
       >
         {offers.length === 0 ? (
@@ -64,22 +68,56 @@ export function CatalogSection({
           </p>
         ) : (
           <ul className="grid gap-3 text-sm">
-            {offers.map((snapshot) => (
-              <li
-                className="grid gap-1 border-b border-border pb-3 last:border-b-0 last:pb-0"
-                key={snapshot.paymentOption.id}
-              >
-                <span className="font-semibold [overflow-wrap:anywhere]">
-                  {snapshot.offer.name} ·{" "}
-                  {formatMonths(snapshot.paymentOption.months)} ·{" "}
-                  {formatKopecks(snapshot.paymentOption.priceKopecks)}
-                </span>
-                <span className="font-mono text-xs text-muted-foreground [overflow-wrap:anywhere]">
-                  offer {snapshot.offer.id} r{snapshot.offer.revision} · option{" "}
-                  {snapshot.paymentOption.id} r{snapshot.paymentOption.revision}
-                </span>
-              </li>
-            ))}
+            {catalogOffers(offers).map(({ offer, options }) => {
+              const published = offer.published === true;
+              return (
+                <li
+                  className="grid gap-2 border-b border-border pb-3 last:border-b-0 last:pb-0"
+                  key={offer.id}
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-semibold [overflow-wrap:anywhere]">
+                      {offer.name}
+                    </span>
+                    <span
+                      className={
+                        published
+                          ? "rounded-full bg-accent/15 px-2 py-0.5 text-xs font-medium text-accent-hover"
+                          : "rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
+                      }
+                    >
+                      {published ? "В продаже" : "Не продаётся"}
+                    </span>
+                  </div>
+                  <span className="font-mono text-xs text-muted-foreground [overflow-wrap:anywhere]">
+                    offer {offer.id} r{offer.revision} ·{" "}
+                    {options
+                      .map(
+                        (snapshot) =>
+                          `option ${snapshot.paymentOption.id} r${String(snapshot.paymentOption.revision)} · ${formatMonths(snapshot.paymentOption.months)} · ${formatKopecks(snapshot.paymentOption.priceKopecks)}`,
+                      )
+                      .join(" · ")}
+                  </span>
+                  <form
+                    onSubmit={onAdminSubmit(() => {
+                      const toggle = published ? onUnpublishOffer : onPublishOffer;
+                      toggle({ id: offer.id, expectedRevision: offer.revision });
+                    })}
+                  >
+                    <p>
+                      <Button
+                        className={billingActionClass}
+                        disabled={pending}
+                        type="submit"
+                        variant="outline"
+                      >
+                        {published ? "Снять с продажи" : "Вернуть в продажу"}
+                      </Button>
+                    </p>
+                  </form>
+                </li>
+              );
+            })}
           </ul>
         )}
       </AdminSection>
@@ -371,4 +409,29 @@ export function splitIds(value: string): string[] {
     .split(/[\s,]+/u)
     .map((entry) => entry.trim())
     .filter((entry) => entry.length > 0);
+}
+
+/** Тумблер продажи относится к предложению, а не к отдельному сроку: группируем его варианты. */
+function catalogOffers(
+  offers: readonly PriceSnapshot[],
+): readonly {
+  readonly offer: PriceSnapshot["offer"];
+  readonly options: readonly PriceSnapshot[];
+}[] {
+  const byOffer = new Map<
+    string,
+    { offer: PriceSnapshot["offer"]; options: PriceSnapshot[] }
+  >();
+  for (const snapshot of offers) {
+    const entry = byOffer.get(snapshot.offer.id);
+    if (entry === undefined) {
+      byOffer.set(snapshot.offer.id, {
+        offer: snapshot.offer,
+        options: [snapshot],
+      });
+    } else {
+      entry.options.push(snapshot);
+    }
+  }
+  return [...byOffer.values()];
 }

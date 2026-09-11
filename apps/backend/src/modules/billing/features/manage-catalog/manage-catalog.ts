@@ -4,7 +4,7 @@ import { failure, idSchema, type PricingResult } from "../../domain/pricing.js";
 import { lockPricing } from "../../infrastructure/postgres/catalog-lock.js";
 import { catalogOutcomeSchema, manageCatalogSchema, type ManageCatalogCommand } from "./manage-catalog.contract.js";
 
-type Outcome = { id: string; revision: number; archived: boolean };
+type Outcome = { id: string; revision: number; archived: boolean; published?: boolean | undefined };
 type ManageCatalogResult = PricingResult<Outcome,
   "invalid_request" | "forbidden" | "not_found" | "revision_conflict" | "operation_conflict" | "reservation_conflict" | "dependency_unavailable"
 >;
@@ -40,8 +40,9 @@ async function changeCatalog(tx: BillingPrisma, command: ManageCatalogCommand): 
   const current = command.operation.startsWith("offers.") ? await tx.billingOffer.findUnique({ where: { id } })
     : command.operation.startsWith("paymentOptions.") ? await tx.billingPaymentOption.findUnique({ where: { id } })
     : await tx.billingPromotion.findUnique({ where: { id } });
-  if ((current?.revision) !== command.expectedRevision) return failure("revision_conflict");
   if (!current && !('value' in command)) return failure("not_found");
+  if ((current?.revision) !== command.expectedRevision) return failure("revision_conflict");
+  const currentPublished = current !== null && "published" in current ? current.published : false;
   const revision = (current?.revision ?? 0) + 1;
   const archived = !('value' in command);
   switch (command.operation) {
@@ -50,9 +51,19 @@ async function changeCatalog(tx: BillingPrisma, command: ManageCatalogCommand): 
       if (new Set(periods.map(value => value.capability)).size !== periods.length || periods.some(value => !command.value.benefits.includes(value.capability))) return failure("invalid_request");
       const data = { ...command.value, benefitPeriods: periods, revision, archived: false };
       await tx.billingOffer.upsert({ where: { id }, create: data, update: data });
-      break;
+      return { ok: true, value: { id, revision, archived: false, published: currentPublished } };
     }
-    case "offers.archive": await tx.billingOffer.update({ where: { id }, data: { revision, archived } }); break;
+    case "offers.archive": {
+      // Архив — окончательное снятие; обратимый признак продажи при этом сохраняется как был.
+      await tx.billingOffer.update({ where: { id }, data: { revision, archived } });
+      return { ok: true, value: { id, revision, archived, published: currentPublished } };
+    }
+    case "offers.publish": case "offers.unpublish": {
+      if (current === null || current.archived) return failure("not_found");
+      const published = command.operation === "offers.publish";
+      await tx.billingOffer.update({ where: { id }, data: { revision, published } });
+      return { ok: true, value: { id, revision, archived: false, published } };
+    }
     case "paymentOptions.save": {
       const offer = await tx.billingOffer.findUnique({ where: { id: command.value.offerId } });
       if (!offer || offer.archived) return failure("not_found");

@@ -110,10 +110,8 @@ describe("Telegram Membership API", () => {
     );
     expect(initialPresentation.json()).toEqual({
       link: { kind: "unlinked" },
-      membership: {
-        acquisitionUrl: "https://t.me/tribute/inside",
-        kind: "inactive",
-      },
+      // По умолчанию ни один вариант подписки не продаётся, поэтому продающего предложения нет.
+      membership: { kind: "notOffered" },
     });
 
     const unauthenticated = await app.getHttpAdapter().getInstance().inject({
@@ -141,7 +139,7 @@ describe("Telegram Membership API", () => {
     );
     expect(linkingPresentation.json()).toMatchObject({
       link: { kind: "linking", linkRef: pending.linkRef },
-      membership: { kind: "inactive" },
+      membership: { kind: "notOffered" },
     });
     expect(provider.registrations[0]?.authorization).toBe(
       `Bearer ${linkingSecret}`,

@@ -43,6 +43,7 @@ export async function readPublishedMaterial(
     readonly materialContent: MaterialContent;
     readonly materialBodyOperations: MaterialBodyOperations;
     readonly membershipAcquisitionUrl: string;
+    readonly subscriptionForSale?: () => Promise<boolean>;
     readonly materialAssets?: Pick<MaterialAssets, "loadPresentations">;
     readonly videos?: Pick<Videos, "loadPresentation">;
   },
@@ -93,10 +94,14 @@ export async function readPublishedMaterial(
             projection,
             access: {
               availability: "locked",
-              cta: {
-                label: "Получить доступ",
-                url: dependencies.membershipAcquisitionUrl,
-              },
+              cta:
+                dependencies.subscriptionForSale !== undefined &&
+                !(await dependencies.subscriptionForSale())
+                  ? null
+                  : {
+                      label: "Получить доступ",
+                      url: dependencies.membershipAcquisitionUrl,
+                    },
             },
           },
         };

@@ -334,12 +334,12 @@ export class BillingSubscriptions {
   private async planChange(tx: BillingPrisma, row: SubscriptionRow, paymentOptionId: string, now: Date): Promise<PaymentResult<ChangePlan>> {
     const { bank } = this.dependencies;
     const target = await tx.billingPaymentOption.findUnique({ where: { id: paymentOptionId }, include: { offer: true } });
-    if (!target || target.archived || target.offer.archived) return paymentFailure("not_found");
+    if (!target || target.archived || target.offer.archived || !target.offer.published) return paymentFailure("not_found");
     const current = subscriptionSnapshotSchema.parse(row.snapshot);
     if (target.id === current.paymentOption.id && target.revision === current.paymentOption.revision) return paymentFailure("invalid_request");
     const snapshot: PriceSnapshot = priceSnapshotSchema.parse({
       offer: offerSchema.parse({ id: target.offer.id, name: target.offer.name, revision: target.offer.revision, benefits: target.offer.benefits,
-        archived: target.offer.archived, ...(Array.isArray(target.offer.benefitPeriods) && target.offer.benefitPeriods.length > 0 ? { benefitPeriods: target.offer.benefitPeriods } : {}) }),
+        archived: target.offer.archived, published: target.offer.published, ...(Array.isArray(target.offer.benefitPeriods) && target.offer.benefitPeriods.length > 0 ? { benefitPeriods: target.offer.benefitPeriods } : {}) }),
       paymentOption: optionSchema.parse({ id: target.id, offerId: target.offerId, revision: target.revision, months: target.months, mode: target.mode, priceKopecks: Number(target.priceKopecks), archived: target.archived }),
       // Смена варианта не получает новую публичную скидку: применяется обычная цена.
       promotion: null, currency: current.currency, timezone: current.timezone,

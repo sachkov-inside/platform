@@ -36,6 +36,8 @@ export function BillingAdminView({
   notice,
   onSaveOffer,
   onArchiveOffer,
+  onPublishOffer,
+  onUnpublishOffer,
   onSavePaymentOption,
   onArchivePaymentOption,
   onSavePromotion,
@@ -85,6 +87,8 @@ export function BillingAdminView({
       <CatalogSection
         offers={offers}
         onArchiveOffer={onArchiveOffer}
+        onPublishOffer={onPublishOffer}
+        onUnpublishOffer={onUnpublishOffer}
         onArchivePaymentOption={onArchivePaymentOption}
         onArchivePromotion={onArchivePromotion}
         onSaveOffer={onSaveOffer}

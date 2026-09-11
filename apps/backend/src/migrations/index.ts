@@ -1,4 +1,5 @@
 import { name as guideIntroductionName, statement as guideIntroductionStatement } from "../modules/materials/infrastructure/postgres/migrations/0057-guide-introduction.js";
+import { name as offerForSaleName, statement as offerForSaleStatement } from "../modules/billing/infrastructure/postgres/migrations/0058-offer-for-sale.js";
 import { name as billingNoticesName, statement as billingNoticesStatement } from "../modules/billing/infrastructure/postgres/migrations/0056-billing-notices.js";
 import { name as communityEntitlementsName, statement as communityEntitlementsStatement } from "../modules/telegram-membership/infrastructure/postgres/migrations/0053-community-entitlements.js";
 import { name as bookmarksName, statement as bookmarksStatement } from "../modules/bookmarks/infrastructure/postgres/migrations/0052-bookmarks.js";
@@ -325,6 +326,7 @@ export const platformMigrations = [
   { name: billingOperationsName, statement: billingOperationsStatement },
   { name: billingNoticesName, statement: billingNoticesStatement },
   { name: guideIntroductionName, statement: guideIntroductionStatement },
+  { name: offerForSaleName, statement: offerForSaleStatement },
 ] as const;
 
 export function migrateToLatest(

@@ -20,6 +20,7 @@ export const materialsOffer: PriceSnapshot = {
     name: "Материалы",
     benefits: ["materials"],
     archived: false,
+    published: true,
   },
   paymentOption: {
     id: uuid("201"),
@@ -45,6 +46,7 @@ export const supportOffer: PriceSnapshot = {
     benefits: ["materials", "support", "community"],
     benefitPeriods: [{ capability: "community", months: null }],
     archived: false,
+    published: true,
   },
   paymentOption: {
     id: uuid("202"),
@@ -71,6 +73,7 @@ export const guideOnlyOffer: PriceSnapshot = {
     benefits: [`guide:${uuid("f01")}`],
     benefitPeriods: [{ capability: `guide:${uuid("f01")}`, months: null }],
     archived: false,
+    published: false,
   },
   paymentOption: {
     id: uuid("203"),
