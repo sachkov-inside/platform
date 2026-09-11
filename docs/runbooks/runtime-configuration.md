@@ -156,3 +156,16 @@ Never reset such attempts merely because the browser offers a retry.
 The optional `PlatformConfig.notifications` group belongs to `notifications-worker`. Its URL map,
 CA, prefetch and quarantine limits are defined in the [transport runbook](notification-transport.md).
 The local Compose env file uses disposable scoped principals; production activation remains separate.
+
+## Bank certificate chain
+
+The T-Bank payment API presents a chain that ends at the Ministry of Digital Development root
+"Russian Trusted Root CA". That root is absent from the Node bundle and from the
+`node:24.19.0-alpine3.23` image, so every bank call fails certificate verification without it.
+The repository keeps the root at `infra/tls/russian-trusted-root-ca.pem`, and the backend image
+points `NODE_EXTRA_CA_CERTS` at it. The variable only adds to the built-in store; it never disables
+verification of any other certificate. Any host or runtime that calls the bank outside these images
+needs the same root. The pinned root was compared with the chain the bank serves and matches:
+SHA-256 `D2:6D:2D:02:31:B7:C3:9F:92:CC:73:85:12:BA:54:10:35:19:E4:40:5D:68:B5:BD:70:3E:97:88:CA:8E:CF:31`.
+Verified terminal and cash-register capabilities are recorded in
+[issue-402 terminal capability](../verification/issue-402-tbank-terminal-capability.md).
