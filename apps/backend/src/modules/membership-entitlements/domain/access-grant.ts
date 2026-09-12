@@ -1,24 +1,15 @@
 import { z } from "zod";
 
-export const globalAccessCapabilities = ["materials", "community", "reviews", "support"] as const;
-export const accessCapabilitySchema = z.union([
-  z.enum(globalAccessCapabilities),
-  z.templateLiteral(["guide:", z.uuid()]),
-]);
-export type AccessCapability = z.infer<typeof accessCapabilitySchema>;
-/** Право на одно конкретное руководство, независимое от состава тарифа подписки. */
-function isGuideCapability(capability: AccessCapability): boolean {
-  return capability.startsWith("guide:");
-}
-/**
- * Что открывает одно право на самом деле. Купленное руководство само по себе открывает общий
- * чат сообщества: чат один на всех, и участие в нём живёт ровно сроком права на руководство.
- */
-export function capabilitiesOpenedBy(
-  capability: AccessCapability,
-): readonly AccessCapability[] {
-  return isGuideCapability(capability) ? [capability, "community"] : [capability];
-}
+// Словарь прав и то, что каждое право открывает, живут в `@inside/access-capabilities`: витрина
+// называет состав доступа до покупки тем же выводом, которым сервер его потом выдаёт.
+export {
+  accessCapabilitySchema,
+  capabilitiesOpenedBy,
+  globalAccessCapabilities,
+  isGuideCapability,
+  type AccessCapability,
+} from "@inside/access-capabilities";
+import { accessCapabilitySchema } from "@inside/access-capabilities";
 export const capabilitiesSchema = z
   .array(accessCapabilitySchema)
   .min(1)

@@ -440,6 +440,48 @@ while (pendingBrowserFiles.length > 0) {
   }
 }
 
+/**
+ * Словарь прав доступа и вывод права из него принадлежат `@inside/access-capabilities`: браузер
+ * называет состав доступа до покупки, сервер выдаёт его после, и пока описаний было два,
+ * расхождение между ними ничем не ловилось. Собственная строка `guide:` или собственное
+ * объявление словаря возвращают вторую копию.
+ */
+const accessVocabularyNames = new Set([
+  "globalAccessCapabilities",
+  "accessCapabilitySchema",
+  "capabilitiesOpenedBy",
+  "accessComposition",
+  "isGuideCapability",
+  "guideCapability",
+]);
+
+function accessVocabularyViolations(program) {
+  const violations = [];
+  new Visitor({
+    Literal(node) {
+      if (typeof node.value === "string" && node.value.startsWith("guide:")) {
+        violations.push("a Guide capability is built by @inside/access-capabilities, not by its own string");
+      }
+    },
+    TemplateLiteral(node) {
+      if (node.quasis[0]?.value.cooked?.startsWith("guide:") === true) {
+        violations.push("a Guide capability is built by @inside/access-capabilities, not by its own string");
+      }
+    },
+    VariableDeclarator(node) {
+      if (node.id.type === "Identifier" && accessVocabularyNames.has(node.id.name)) {
+        violations.push(`${node.id.name} belongs to @inside/access-capabilities; import it instead of declaring it again`);
+      }
+    },
+    FunctionDeclaration(node) {
+      if (node.id !== null && accessVocabularyNames.has(node.id.name)) {
+        violations.push(`${node.id.name} belongs to @inside/access-capabilities; import it instead of declaring it again`);
+      }
+    },
+  }).visit(program);
+  return [...new Set(violations)];
+}
+
 const findings = [...parsedFiles].flatMap(([file, program]) => {
   const sourcePath = scannedPath(file);
   const insideBackendTransport = sourcePath.startsWith("src/shared/api/backend/");
@@ -480,6 +522,10 @@ const findings = [...parsedFiles].flatMap(([file, program]) => {
     }
     return [];
   });
+
+  for (const violation of accessVocabularyViolations(program)) {
+    findingsForFile.push(`${sourcePath}: ${violation}`);
+  }
 
   if (declaresDocumentNode(program)) {
     findingsForFile.push(
