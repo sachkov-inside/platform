@@ -114,7 +114,7 @@ function ProgrammePurchase({
     <Button
       asChild
       className={`billing-invite h-auto min-h-11 rounded-full px-6 text-base font-semibold ${billingActionClass}`}
-      {...(offer === null ? {} : { "data-guide-offer": offer.paymentOption.id })}
+      data-guide-offer={offer?.paymentOption.id}
     >
       <Link href={invitation.href}>Оплатить сейчас</Link>
     </Button>

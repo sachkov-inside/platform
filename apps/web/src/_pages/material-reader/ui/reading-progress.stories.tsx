@@ -20,11 +20,10 @@ const preview: MaterialPreview = {
   seriesMemberships: [], tags: [],
 };
 
-function ReadingProof({ initial = { kind: "ready", isRead: false, canMark: true }, format = "text", surface = "reader", total = 6 }: {
+function ReadingProof({ initial = { kind: "ready", isRead: false, canMark: true }, format = "text", surface = "reader" }: {
   readonly initial?: ReadingActionView;
   readonly format?: string;
   readonly surface?: "reader" | "cards" | "series";
-  readonly total?: number;
 }) {
   const [view, setView] = useState(initial);
   const isRead = "isRead" in view && view.isRead;
@@ -41,8 +40,8 @@ function ReadingProof({ initial = { kind: "ready", isRead: false, canMark: true 
       <div className="mx-auto max-w-5xl">
         {surface === "cards" ? <div className="mt-8 grid gap-8 sm:grid-cols-2">
           {(["default", "compact", "row", "feed"] as const).map((variant) => <div key={variant}><MaterialCard material={{ ...preview, format: formatName }} variant={variant} readingStatus={<MaterialReadingStatus format={format} isRead={isRead} />} /></div>)}
-        </div> : <div className="mt-6 grid gap-3">{total > 0 ? <MaterialCard material={preview} variant="row" readingStatus={<MaterialReadingStatus format={format} isRead={isRead} />} /> : <p className="text-muted-foreground">В этом руководстве пока нет опубликованных материалов.</p>}</div>}
-        {total > 0 ? action : null}
+        </div> : <div className="mt-6 grid gap-3"><MaterialCard material={preview} variant="row" readingStatus={<MaterialReadingStatus format={format} isRead={isRead} />} /></div>}
+        {action}
       </div>}
   </>;
 }
@@ -86,10 +85,6 @@ export const CardsMarkAndRemove: Story = { ...Cards, play: async ({ canvasElemen
 } };
 export const Series: Story = { args: { surface: "series" } };
 export const CompleteSeries: Story = { args: { surface: "series", initial: { kind: "ready", isRead: true, canMark: true } } };
-export const EmptySeries: Story = { args: { surface: "series", total: 0 }, play: async ({ canvasElement }) => {
-  const canvas = within(canvasElement);
-  await expect(canvas.getByText("В этом руководстве пока нет опубликованных материалов.")).toBeVisible();
-} };
 export const MarkAndRemove: Story = { play: async ({ canvasElement }) => {
   const canvas = within(canvasElement);
   const button = canvas.getByRole("button", { name: "Прочитано" });

@@ -466,15 +466,23 @@ test("renders a locked teaser whose purchase starts inside the platform and fail
       level: 2,
     }),
   ).toBeVisible();
-  // Следующий шаг ведёт внутрь платформы: оплата выбранного руководства или витрина подписки.
+  // Один следующий шаг — и он внутри платформы. Каталог предложений локального стенда решает,
+  // есть ли что покупать: без включённой продажи материал честно остаётся без призыва.
   const purchase = teaser.getByRole("link", {
     name: /^(Получить доступ|Купить руководство)$/u,
   });
-  await expect(purchase).toHaveAttribute(
-    "href",
-    /^\/(?:subscription(?:\?from=[^"]+)?|guides\/[a-z0-9-]+\/buy)$/u,
-  );
-  expect(await purchase.getAttribute("target")).toBeNull();
+  if (await purchase.count() === 0) {
+    await expect(
+      teaser.getByText("Купить доступ сейчас нельзя, но материал останется здесь."),
+    ).toBeVisible();
+  } else {
+    await expect(purchase).toHaveAttribute(
+      "href",
+      /^\/(?:subscription(?:\?from=[^"]+)?|guides\/[a-z0-9-]+\/buy)$/u,
+    );
+    expect(await purchase.getAttribute("target")).toBeNull();
+  }
+  await expect(teaser.locator('a[href^="http"], a[target="_blank"]')).toHaveCount(0);
   await expect(page.getByText("Закрытое содержимое для участников")).toHaveCount(0);
 
   await expect(page.locator("[data-related-state]")).toHaveCount(0);

@@ -70,6 +70,28 @@ export function MaterialReaderNotFound({
 }
 
 /**
+ * Слова отказа собраны рядом: заголовок, объяснение и действие меняются вместе, потому что они
+ * рассказывают одну историю. Разложенные по трём условиям, они разъезжаются при первой правке.
+ */
+const accessCopy = {
+  guide: {
+    title: "Продолжение входит в руководство",
+    explanation: "Купите руководство — и весь его маршрут откроется целиком.",
+    action: "Купить руководство",
+  },
+  subscription: {
+    title: "Продолжение для участников",
+    explanation: "Откройте полный материал и весь маршрут по теме.",
+    action: "Получить доступ",
+  },
+  none: {
+    title: "Продолжение для участников",
+    explanation: "Купить доступ сейчас нельзя, но материал останется здесь.",
+    action: "",
+  },
+} as const;
+
+/**
  * Закрытый материал: отказ объяснён словами и даёт ровно один следующий шаг внутри платформы —
  * оплату выбранного руководства или витрину подписки. Когда покупать нечего, обещания нет.
  */
@@ -86,6 +108,7 @@ export function MaterialReaderAccess({
   readonly returnTarget?: MaterialReaderReturnTarget;
   readonly seriesContext?: SeriesReaderContext | null;
 }) {
+  const copy = accessCopy[invitation?.kind ?? "none"];
   return (
     <div data-material-reader-state="access-required">
       <ReaderReturnNavigation repeatAtBottom={seriesContext === null} target={returnTarget}>
@@ -115,16 +138,10 @@ export function MaterialReaderAccess({
                 className="mt-4 text-balance text-2xl font-semibold tracking-[-0.04em]"
                 id="access-heading"
               >
-                {invitation?.kind === "guide"
-                  ? "Продолжение входит в руководство"
-                  : "Продолжение для участников"}
+                {copy.title}
               </h2>
               <p className="mt-2 max-w-sm text-pretty text-sm leading-6 text-muted-foreground">
-                {invitation === null
-                  ? "Купить доступ сейчас нельзя, но материал останется здесь."
-                  : invitation.kind === "guide"
-                    ? "Купите руководство — и весь его маршрут откроется целиком."
-                    : "Откройте полный материал и весь маршрут по теме."}
+                {copy.explanation}
               </p>
               {invitation === null ? null : (
                 <div className="mt-5 flex flex-wrap justify-center gap-3">
@@ -134,9 +151,7 @@ export function MaterialReaderAccess({
                     size="lg"
                   >
                     <Link href={invitation.href}>
-                      {invitation.kind === "guide"
-                        ? "Купить руководство"
-                        : "Получить доступ"}
+                      {copy.action}
                       <ArrowRight
                         aria-hidden="true"
                         className="shrink-0 text-sidebar-primary transition-transform duration-[var(--motion-duration-fast)] ease-[var(--motion-ease-out)] group-hover/button:translate-x-0.5 motion-reduce:transition-none"

@@ -63,13 +63,14 @@ test("personal Home opens the real series, persists marks and reconciles a lost 
   await page.goto("/");
   const resumeSeries = page.getByRole("link", { name: "Продолжить руководство Demo · Прогресс обучения" });
   await expect(resumeSeries).toContainText("изучено 1 из 3");
-  await expect(resumeSeries).toHaveAttribute("href", `/series/${seriesSlug}?from=%2F`);
+  await expect(resumeSeries).toHaveAttribute("href", `/guides/${seriesSlug}/programme`);
   await expect(page.getByRole("region", { name: "Продолжить изучение" })).toHaveCount(0);
   expect((await new AxeBuilder({ page }).include("main").analyze()).violations).toEqual([]);
   await screenshot(page, testInfo.project.name, "home");
   await resumeSeries.click();
-  await expect(page).toHaveURL(new RegExp(`/series/${seriesSlug}`));
-  await expect(page.getByRole("main").locator("[data-series-progress]")).toContainText("Изучено 1 из 3");
+  await expect(page).toHaveURL(new RegExp(`/guides/${seriesSlug}/programme`));
+  // Сводки прогресса над маршрутом нет: изученное видно галочкой на строке материала.
+  await expect(page.getByRole("main").locator("[data-series-progress]")).toHaveCount(0);
   await expect(page.getByRole("main").locator('[data-series-marker-read="true"]')).toHaveCount(1);
   const current = page.getByRole("main").locator('[aria-current="step"]');
   await expect(current.locator("[data-material-slug]")).toHaveAttribute("data-material-slug", "video-pro-developer-pipeline");
@@ -79,18 +80,19 @@ test("personal Home opens the real series, persists marks and reconciles a lost 
   const rowBefore = await nextRow.boundingBox();
   await page.route("**/api/reading-progress/series-continuation", async (route) => { await route.fulfill({ status: 503 }); });
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-  await expect(page.getByRole("main").locator("[data-series-progress]")).toContainText("Прогресс пока недоступен");
+  // Недоступное продолжение не выдумывает выделенную строку и не двигает маршрут.
   await expect(current).toHaveCount(0); expect(await nextRow.boundingBox()).toEqual(rowBefore);
   await page.unroute("**/api/reading-progress/series-continuation"); await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await expect(current.locator("[data-material-slug]")).toHaveAttribute("data-material-slug", "video-pro-developer-pipeline");
   await current.locator('a[href^="/materials/video-pro-developer-pipeline"]').click();
   await expect(page.getByText("Материал 2 из 3", { exact: true })).toBeVisible();
   const videoMark = await unmark(page, "Просмотрено"); await videoMark.click(); await expect(videoMark).toHaveAttribute("aria-pressed", "true");
-  await page.goto(`/series/${seriesSlug}`); await expect(current).toContainText("Гайд для проверки прогресса");
-  await page.reload(); await expect(page.getByRole("main").locator("[data-series-progress]")).toContainText("Изучено 2 из 3");
+  await page.goto(`/guides/${seriesSlug}/programme`); await expect(current).toContainText("Гайд для проверки прогресса");
+  await page.reload(); await expect(page.getByRole("main").locator('[data-series-marker-read="true"]')).toHaveCount(2);
   await current.getByRole("link", { name: "Гайд для проверки прогресса", exact: true }).click();
   const guideMark = await unmark(page, "Изучено"); await guideMark.click(); await expect(guideMark).toHaveAttribute("aria-pressed", "true");
-  await page.goto(`/series/${seriesSlug}`); await expect(current).toHaveCount(0); await expect(page.getByRole("main").getByText("Все материалы изучены", { exact: true })).toBeVisible();
+  await page.goto(`/guides/${seriesSlug}/programme`); await expect(current).toHaveCount(0);
+  await expect(page.getByRole("main").locator('[data-series-marker-read="true"]')).toHaveCount(3);
   await page.goto("/"); await expect(resumeSeries).toHaveCount(0);
   await page.goto(`/materials/${materialSlugs[0]}`); await unmark(page, "Прочитано");
   await page.goto("/"); await expect(resumeSeries).toContainText("изучено 2 из 3");

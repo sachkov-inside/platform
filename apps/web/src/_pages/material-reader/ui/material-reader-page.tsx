@@ -49,10 +49,15 @@ export async function MaterialReaderPage({
   if (result.kind === "access") {
     // Руководство, которым человек занят, важнее тарифов: если у него есть своя цена, дальше
     // идёт его оплата. Иначе человек попадает на витрину и возвращается к этому же материалу.
+    // Материал может входить в несколько руководств, поэтому без пути захода продаётся только
+    // единственное: наугад выбранное руководство открыло бы человеку не то, за чем он пришёл.
+    const memberships = result.material.seriesMemberships;
     const guideSlug =
       returnTarget.kind === "series"
         ? returnTarget.seriesSlug
-        : result.material.seriesMemberships[0]?.series.slug;
+        : memberships.length === 1
+          ? memberships[0]?.series.slug
+          : undefined;
     const invitation = purchaseInvitation({
       ...(guideSlug === undefined
         ? {}
