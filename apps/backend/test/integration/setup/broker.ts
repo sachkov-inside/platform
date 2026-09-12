@@ -12,6 +12,7 @@ export function brokerAdmin(broker: StartedTestContainer) {
 }
 
 const queues = z.array(z.object({ name: z.string(), messages: z.number() }));
+const attached = z.array(z.object({ name: z.string(), consumers: z.number() }));
 /**
  * `rabbitmqctl` печатает аргументы очереди списком троек `[имя, тип, значение]`, а не объектом.
  * Разбираем ровно эту форму: подставленный объект прошёл бы молча и вернул бы `undefined`.
@@ -48,4 +49,19 @@ export async function queueLimit(
   const declared = queueArguments.parse(JSON.parse(listed)).find((row) => row.name === queue);
   const limit = declared?.arguments.find(([name]) => name === "x-max-length")?.[2];
   return typeof limit === "number" ? limit : undefined;
+}
+
+/**
+ * Сколько потребителей брокер всё ещё держит на очереди. Убитый процесс не отписывается сам:
+ * брокер замечает его смерть по пропущенным heartbeat и только тогда снимает подписку. До этого
+ * момента он продолжает отдавать сообщения мёртвому потребителю, и очередь ведёт себя не так, как
+ * ожидает следующий сценарий: она не наполняется и не отдаёт сообщения живым.
+ */
+export async function queueConsumers(
+  admin: (args: string[]) => Promise<string>,
+  vhost: string,
+  queue: string,
+): Promise<number> {
+  const listed = await admin(["list_queues", "-p", vhost, "name", "consumers", "--formatter", "json"]);
+  return attached.parse(JSON.parse(listed)).find((row) => row.name === queue)?.consumers ?? 0;
 }
