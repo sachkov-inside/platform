@@ -154,6 +154,7 @@ export const TopicDesktop: Story = {
         canvasElement.querySelector(`[data-content-cover-id="${coverId}"]`),
       ).toBeInTheDocument();
     }
+    await heroOpensAtTheSamePlace({ canvasElement });
   },
 };
 
@@ -161,6 +162,7 @@ export const TopicMobile: Story = {
   args: { result: topicResult },
   globals: { viewport: { isRotated: false, value: "mobile360" } },
   name: "Topic · mobile",
+  play: heroOpensAtTheSamePlace,
 };
 
 export const TopicLongTitle: Story = {
@@ -264,7 +266,30 @@ export const Loading: Story = {
   args: { result: topicResult },
   render: () => <LibraryDiscoveryLoading />,
   name: "Loading",
+  play: heroOpensAtTheSamePlace,
 };
+export const LoadingMobile: Story = {
+  ...Loading,
+  globals: { viewport: { isRotated: false, value: "mobile360" } },
+  name: "Loading · mobile",
+};
+
+/**
+ * Первый экран подборки стоит на месте: оболочка одна и та же, ряд хлебных крошек занимает свою
+ * высоту, а шапка начинается на свой отступ под ним. Скелет, который снова опишет оболочку сам,
+ * теряет её имя и размер, и проверка это показывает.
+ */
+async function heroOpensAtTheSamePlace({ canvasElement }: { canvasElement: HTMLElement }) {
+  const frame = canvasElement.querySelector("[data-discovery-frame]");
+  if (frame === null) throw new Error("Каркас подборки не отрисован");
+  await expect(getComputedStyle(frame).containerName).toBe("discovery");
+  const [breadcrumb, hero] = frame.children;
+  if (breadcrumb === undefined || hero === undefined) throw new Error("Первый экран подборки неполон");
+  const breadcrumbBox = breadcrumb.getBoundingClientRect();
+  await expect(Math.round(breadcrumbBox.top - frame.getBoundingClientRect().top)).toBe(28);
+  await expect(Math.round(breadcrumbBox.height)).toBe(40);
+  await expect(Math.round(hero.getBoundingClientRect().top - breadcrumbBox.bottom)).toBe(20);
+}
 
 export const NotFound: Story = {
   args: { result: topicResult },

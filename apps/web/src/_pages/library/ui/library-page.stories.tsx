@@ -601,7 +601,75 @@ export const ReusesCachedCatalog: Story = {
 export const Loading: Story = {
   args: { result: { kind: "empty" } },
   render: () => <LibraryLoading />,
+  play: async (context) => {
+    await firstScreenTopMatches(context);
+    await materialsHeadingBelongsToTheReadyPage(context, "none");
+  },
 };
+export const LoadingMobile: Story = {
+  ...Loading,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
+/**
+ * Каталог без руководств: между поиском и материалами ничего не стоит, поэтому здесь видно то же
+ * начало первого экрана, что и в состоянии загрузки. Рукописная копия каркаса роняет проверку.
+ */
+export const ReadyWithoutSeries: Story = {
+  args: {
+    result: {
+      facets: { ...catalogFacets, series: [] },
+      items: catalogItems,
+      kind: "ready",
+      nextCursor: null,
+      totalCount: catalogItems.length,
+    },
+  },
+  play: async (context) => {
+    await firstScreenTopMatches(context);
+    await materialsHeadingBelongsToTheReadyPage(context, "one");
+  },
+};
+export const ReadyWithoutSeriesMobile: Story = {
+  ...ReadyWithoutSeries,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
+/**
+ * Верх первого экрана Базы знаний одинаков в загрузке и на готовой странице: оболочка обрезает
+ * горизонтальный вынос, а место поиска идёт сразу за шапкой, на свой отступ, и занимает высоту
+ * настоящего поля. Скелет, который снова опишет каркас сам, теряет либо обрезку, либо место
+ * поиска, и проверка это показывает.
+ *
+ * Ниже места поиска сравнивать нечего: готовая страница ставит там секцию руководств, размер
+ * которой зависит от данных, а состояние загрузки их ещё не знает.
+ */
+async function firstScreenTopMatches({ canvasElement }: { canvasElement: HTMLElement }) {
+  const frame = canvasElement.querySelector("[data-library-frame]");
+  if (frame === null) throw new Error("Каркас Базы знаний не отрисован");
+  await expect(getComputedStyle(frame).overflowX).toBe("clip");
+  const search = frame.querySelector("[data-library-search]");
+  if (search === null) throw new Error("Место поиска не отведено");
+  const header = frame.querySelector("header");
+  if (header === null) throw new Error("Шапка Базы знаний не отрисована");
+  const box = search.getBoundingClientRect();
+  await expect(Math.round(box.top - header.getBoundingClientRect().bottom)).toBe(28);
+  await expect(Math.round(box.height)).toBe(56);
+}
+
+/**
+ * Заголовок «Материалы» принадлежит готовой странице. Пока она грузится, его нет вовсе: место
+ * заголовка зависит от секции руководств, размера которой загрузка не знает, а копия на неверном
+ * месте увела бы поиск по имени на себя.
+ */
+async function materialsHeadingBelongsToTheReadyPage(
+  { canvasElement }: { canvasElement: HTMLElement },
+  expected: "none" | "one",
+) {
+  const canvas = within(canvasElement);
+  const headings = canvas.queryAllByRole("heading", { name: "Материалы" });
+  await expect(headings).toHaveLength(expected === "one" ? 1 : 0);
+}
 
 export const Empty: Story = {
   args: { result: { kind: "empty" } },
