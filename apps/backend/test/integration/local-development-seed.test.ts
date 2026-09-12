@@ -6,6 +6,7 @@ import {
   listPublishedMaterials,
 } from "../../src/modules/content-library/index.js";
 import { anonymousSubject } from "../../src/modules/content-access/index.js";
+import { BillingPricing } from "../../src/modules/billing/index.js";
 import { emptyCatalogVideos } from "../support/catalog-videos.js";
 import {
   assembleMaterials,
@@ -14,6 +15,9 @@ import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
+
+/** Серия, которую продаёт разовое предложение локального каталога. */
+const seedGuideId = "72000000-0000-4000-8000-000000000007";
 
 describe("local development seed", () => {
   let testDatabase: TestDatabase;
@@ -147,5 +151,93 @@ describe("local development seed", () => {
         slug: "demo-295-samostoyatelnaya-zametka",
       }),
     );
+  });
+
+  test("puts two subscriptions and one guide purchase on sale without a second set", async () => {
+    const seed = await seedLocalDevelopment(testDatabase.prisma);
+    await seedLocalDevelopment(testDatabase.prisma);
+
+    const storefront = new BillingPricing({
+      prisma: testDatabase.prisma,
+      accounts: {
+        checkPermission: () => Promise.resolve({ ok: true, allowed: false }),
+      },
+    });
+    const forSale = await storefront.offers({ limit: 100 });
+    if (!forSale.ok) throw new Error(forSale.error.code);
+    expect(
+      forSale.value.items.map((snapshot) => ({
+        benefits: snapshot.offer.benefits,
+        firstPriceKopecks: snapshot.firstPriceKopecks,
+        mode: snapshot.paymentOption.mode,
+        name: snapshot.offer.name,
+        published: snapshot.offer.published,
+      })),
+    ).toEqual([
+      {
+        benefits: ["materials"],
+        firstPriceKopecks: 1_000,
+        mode: "subscription",
+        name: "Материалы",
+        published: true,
+      },
+      {
+        benefits: ["materials", "support"],
+        firstPriceKopecks: 2_000,
+        mode: "subscription",
+        name: "Материалы + сопровождение",
+        published: true,
+      },
+      {
+        benefits: [`guide:${seedGuideId}`],
+        firstPriceKopecks: 3_000,
+        mode: "one_time",
+        name: "Руководство «Создание Platform Inside»",
+        published: true,
+      },
+    ]);
+    expect(seed.slug).toBe("kak-ustroen-inside-platform");
+    // Повторный seed использует receipt уже применённых владельческих команд, поэтому второго
+    // набора предложений и вариантов оплаты не появляется.
+    await expect(testDatabase.prisma.billingOffer.count()).resolves.toBe(3);
+    await expect(
+      testDatabase.prisma.billingPaymentOption.count(),
+    ).resolves.toBe(3);
+  });
+
+  test("keeps an offer the owner took off sale off the storefront", async () => {
+    await seedLocalDevelopment(testDatabase.prisma);
+    const owner = "72000000-0000-4000-8000-000000000590";
+    const admin = new BillingPricing({
+      prisma: testDatabase.prisma,
+      accounts: {
+        checkPermission: () => Promise.resolve({ ok: true, allowed: true }),
+      },
+    });
+    const seeded = await testDatabase.prisma.billingOffer.findFirstOrThrow({
+      orderBy: { id: "asc" },
+      select: { id: true, revision: true },
+    });
+    const unpublished = await admin.manage(owner, {
+      expectedRevision: seeded.revision,
+      id: seeded.id,
+      operation: "offers.unpublish",
+      operationId: "72000000-0000-4000-8000-000000000591",
+    });
+    expect(unpublished.ok).toBe(true);
+
+    await seedLocalDevelopment(testDatabase.prisma);
+
+    const forSale = await admin.offers({ limit: 100 });
+    if (!forSale.ok) throw new Error(forSale.error.code);
+    expect(forSale.value.items.map((snapshot) => snapshot.offer.id)).not.toContain(
+      seeded.id,
+    );
+    await expect(
+      testDatabase.prisma.billingOffer.findUniqueOrThrow({
+        select: { published: true },
+        where: { id: seeded.id },
+      }),
+    ).resolves.toEqual({ published: false });
   });
 });

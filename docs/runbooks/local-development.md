@@ -117,8 +117,9 @@ bash scripts/compose-stack-smoke.sh
 
 The smoke proves the live web server adapter can reach API and PostgreSQL, MCP reported
 database-backed readiness, one stable free `kak-ustroen-inside-platform` Material with current
-stored content and one safe closed catalog Material. Repeating `docker compose down` and the
-detached startup preserves the database volume and proves the development seed remains stable.
+stored content, one safe closed catalog Material, and the three seeded offers on the public
+storefront. Repeating `docker compose down` and the detached startup preserves the database volume
+and proves the development seed remains stable.
 
 Stop without deleting data:
 
@@ -455,6 +456,25 @@ before the bank call and its own identifier travels as `ExternalRequestId`, whic
 the same request, so reconciliation repeats that identifier instead of sending a second refund. A
 lost response keeps the attempt `unknown` and visible to the owner; only a terminal refunded or
 reversed status settles it, and only then are the recorded access and renewal decisions applied.
+
+## Seeded offer catalog
+
+The development seed leaves a catalog that can be bought immediately, so a local purchase check
+needs no manual setup: subscription «Материалы», subscription «Материалы + сопровождение», and a
+one-time purchase of the seeded `platform-inside` Series. Its prices are deliberately not product
+prices — ten, twenty and thirty roubles — and they are collected in one place at the top of
+`apps/backend/src/development/seed-local-offer-catalog.ts`.
+
+The seed issues the same catalog commands the owner issues in `/authoring/billing`
+(`offers.save`, `paymentOptions.save`, `offers.publish`), so permissions, revision checks and
+replay receipts are the real ones. A saved offer is never on sale by default; the seed turns sale
+on with its own explicit `offers.publish` command. Repeating the seed replays those receipts
+instead of writing a second set, and an offer the owner later took off sale or edited by hand
+stays as the owner left it.
+
+This is the local stand only. The production catalog and real prices remain an owner decision in
+the admin surface, and no demonstration data is seeded there: `seed-local.ts` refuses to run
+outside `NODE_ENV=development`, and no production Compose service runs it.
 
 ## Owner billing operations
 

@@ -26,6 +26,14 @@ if [[ "$catalog_response" == *"Закрытое содержимое для уч
   exit 1
 fi
 
+offers_response="$(curl --fail --silent --show-error "$api_base_url/billing/offers")"
+for offer_name in '"name":"Материалы"' '"name":"Материалы + сопровождение"' '"mode":"one_time"'; do
+  if [[ "$offers_response" != *"$offer_name"* ]]; then
+    echo "Seeded offer catalog is missing $offer_name on the public storefront" >&2
+    exit 1
+  fi
+done
+
 curl --fail --silent --show-error --output /dev/null "$web_base_url"
 curl --fail --silent --show-error --output /dev/null "$web_base_url/library"
 docker compose exec -T web pnpm --filter @inside/web smoke:backend
@@ -71,4 +79,17 @@ if [[ "$seed_snapshot" != "1:2:published" ]]; then
   exit 1
 fi
 
-echo "Compose stack smoke passed: Library/Reader web -> API -> PostgreSQL, MCP metadata/auth boundary ready, seed $seed_snapshot"
+catalog_snapshot="$(
+  docker compose exec -T postgres psql \
+    --username "${POSTGRES_USER:-inside}" \
+    --dbname "${POSTGRES_DB:-inside}" \
+    --tuples-only \
+    --no-align \
+    --command "select count(*) filter (where published) || ':' || (select count(*) from billing.payment_options where not archived) from billing.offers where not archived;"
+)"
+if [[ "$catalog_snapshot" != "3:3" ]]; then
+  echo "Expected three offers for sale with one payment option each, received $catalog_snapshot" >&2
+  exit 1
+fi
+
+echo "Compose stack smoke passed: Library/Reader web -> API -> PostgreSQL, MCP metadata/auth boundary ready, seed $seed_snapshot, offer catalog $catalog_snapshot"
