@@ -1,3 +1,5 @@
+import { guideCapability } from "@inside/access-capabilities";
+
 import type {
   AccessGround,
   BillingQuote,
@@ -71,8 +73,8 @@ export const guideOnlyOffer: PriceSnapshot = {
     id: uuid("103"),
     revision: 1,
     name: "Руководство «Создание Platform Inside»",
-    benefits: [`guide:${uuid("f01")}`],
-    benefitPeriods: [{ capability: `guide:${uuid("f01")}`, months: null }],
+    benefits: [guideCapability(uuid("f01"))],
+    benefitPeriods: [{ capability: guideCapability(uuid("f01")), months: null }],
     archived: false,
     published: false,
   },
@@ -98,9 +100,9 @@ export const guideWithSupportOffer: PriceSnapshot = {
     id: uuid("104"),
     revision: 1,
     name: "Руководство «Создание Platform Inside» с сопровождением",
-    benefits: [`guide:${uuid("f01")}`, "support"],
+    benefits: [guideCapability(uuid("f01")), "support"],
     benefitPeriods: [
-      { capability: `guide:${uuid("f01")}`, months: null },
+      { capability: guideCapability(uuid("f01")), months: null },
       { capability: "support", months: 3 },
     ],
     archived: false,
@@ -272,7 +274,7 @@ export const accessGrounds: readonly AccessGround[] = [
   },
   {
     source: "manual",
-    capabilities: [`guide:${uuid("f01")}`],
+    capabilities: [guideCapability(uuid("f01"))],
     startsAt: "2026-05-01T00:00:00.000Z",
     validUntil: null,
     active: true,
@@ -280,7 +282,7 @@ export const accessGrounds: readonly AccessGround[] = [
   {
     // Купленное руководство переживает подписку и не зависит от того, включена ли она.
     source: "paid",
-    capabilities: [`guide:${uuid("f02")}`],
+    capabilities: [guideCapability(uuid("f02"))],
     startsAt: "2026-08-20T12:00:00.000Z",
     validUntil: null,
     active: true,

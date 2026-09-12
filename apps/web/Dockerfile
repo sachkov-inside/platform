@@ -23,6 +23,8 @@ COPY --chown=node:node packages/runtime-identity/package.json ./packages/runtime
 COPY --chown=node:node packages/material-blocks ./packages/material-blocks
 # Published legal editions compile the same way and the API serves their consent catalogue.
 COPY --chown=node:node packages/legal ./packages/legal
+# Словарь прав доступа тоже компилируется на установке: оба приложения читают его вывод.
+COPY --chown=node:node packages/access-capabilities ./packages/access-capabilities
 RUN --mount=type=cache,id=inside-platform-pnpm,target=/pnpm/store,uid=1000,gid=1000 \
     pnpm install --frozen-lockfile --store-dir=/pnpm/store --package-import-method=copy
 

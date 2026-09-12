@@ -4,6 +4,7 @@ import { validateTargets } from "../../features/validate-targets/validate-target
 import type { Accounts } from "../../../accounts/index.js";
 import type { TelegramAccountLinks } from "../../../telegram-membership/index.js";
 import {
+  COMMUNICATIONS_PERMISSION_DENIED,
   communicationsFailure,
   managementRequestSchema,
   type CommunicationsResult,
@@ -35,7 +36,7 @@ export class Communications {
     if (!permission.ok && permission.error.code === "internal_error")
       return communicationsFailure("authorization_unavailable");
     if (!permission.ok || !permission.allowed)
-      return communicationsFailure("forbidden");
+      return communicationsFailure(COMMUNICATIONS_PERMISSION_DENIED);
     const parsed = managementRequestSchema.safeParse(input);
     if (!parsed.success) return communicationsFailure("invalid_input");
     const request = parsed.data;

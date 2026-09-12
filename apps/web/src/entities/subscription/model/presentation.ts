@@ -1,3 +1,4 @@
+import { capabilitiesOpening } from "@inside/access-capabilities";
 import { accessComposition, isGuideCapability } from "./billing-contract";
 import type {
   AccessCapability,
@@ -114,12 +115,9 @@ export function benefitLines(conditions: {
     if (period !== undefined) return period.months;
     return paymentOption.mode === "one_time" ? null : paymentOption.months;
   };
-  // Чат держится всем, что его открывает: объявленным сроком участия и каждым правом на
-  // руководство. Состав уже решил, есть ли такая строка, поэтому набор здесь непустой.
-  const communityTerms = [
-    ...(offer.benefits.includes("community") ? [months("community")] : []),
-    ...offer.benefits.filter(isGuideCapability).map(months),
-  ];
+  // Чат держится всем, что его открывает. Какие именно права это делают, отвечает владелец
+  // правила: иначе второй способ открыть чат пришлось бы дописывать и здесь.
+  const communityTerms = capabilitiesOpening("community", offer.benefits).map(months);
   return accessComposition(offer.benefits).map((capability) => {
     const term =
       capability === "community" ? longestTerm(communityTerms) : months(capability);
