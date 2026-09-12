@@ -360,9 +360,10 @@ async function writeRuntimeEnvironment(applicationId, applicationSecret) {
   // Тот же генератор описывает вход и для контейнеров стенда: адрес базы и бэкенда у них свой,
   // поэтому сюда попадают только значения входа. Файл принадлежит стенду и появляется только на
   // его запуске: одноразовые окружения настраивают другой Logto, и их значения стенду вредны.
+  // Пишется он целиком, а не поверх прежнего: остаток от предыдущего арендатора здесь и был бы
+  // той самой ловушкой.
   const standPath = resolve(root, ".identity-proof/stand.env");
-  const standCurrent = await readFile(standPath, "utf8").catch(() => "");
-  await writeEnvFile(standPath, mergeEnv(standCurrent, {
+  await writeEnvFile(standPath, mergeEnv("", {
     ...Object.fromEntries(standEnvironmentKeys.map((key) => [key, updates[key]])),
     // Корень стенда подписывает сертификат Logto; доверие ограничено этим файлом.
     NODE_EXTRA_CA_CERTS: "/identity-tls/certificate.pem",

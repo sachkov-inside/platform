@@ -215,9 +215,11 @@ id of the tenant that is gone. Run `pnpm local:stand` again: it drops the genera
 the bootstrap recreates the tenant, so the stand always holds the tenant it just configured.
 
 The generated `.identity-proof/stand.env` outlives `docker compose --profile identity down`, and
-`api` and `web` keep reading it. That changes nothing for the default stack: without the file those
-services already fall back to the same sign-in address, and sign-in answers only while the stand
-runs either way.
+`api` and `web` keep reading it. The default stack still starts and still points at the same
+sign-in address, because that address is also its built-in local default and nothing answers there
+without the stand either way. What the file does carry beyond the defaults are the stand's own
+application id, secrets and email fingerprint key, so an Account created on the stand is not the
+same Account for a stack running on the fallback values. Start the stand again to get its own back.
 
 ## Optional Storybook profile
 

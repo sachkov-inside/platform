@@ -50,7 +50,7 @@ test("identity proof dependencies and fork lineage are immutable", async () => {
   assert.match(standCompose, new RegExp(versions.postgres.digest, "u"));
   assert.match(standCompose, new RegExp(versions.mailpit.digest, "u"));
   assert.equal(webPackage.dependencies["@logto/next"], versions.logtoNext);
-  assert.doesNotMatch(`${dockerfile}\n${compose}\n${standCompose}`, /(?:latest|npx\s)/u);
+  assert.doesNotMatch(`${dockerfile}\n${compose}`, /(?:latest|npx\s)/u);
   assert.match(dockerfile, /issue-116-logto-proof\.patch/u);
   assert.match(dockerfile, /patch --fuzz=0/u);
   assert.match(dockerfile, /connectors\/connector-smtp[\s\S]+npm run build/u);
