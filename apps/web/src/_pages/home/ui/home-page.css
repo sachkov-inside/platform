@@ -37,7 +37,7 @@
 .home-page .home-access-strip strong { font-size: var(--type-card); line-height: 1.4; font-weight: 600; }
 .home-page .home-access-strip p { font-size: var(--type-summary); line-height: 1.5; }
 .home-page .home-section-heading { flex-wrap: wrap; gap: .5rem .75rem; margin-top: var(--space-section); }
-.home-page section[aria-labelledby=home-series] > .home-section-heading { margin-top: 0; }
+.home-page .home-series-section > .home-section-heading { margin-top: 0; }
 .home-page h2[id^=home-] { max-width: 100%; overflow-wrap: normal; }
 
 /* Cards keep their production markup. Their visual roles follow the same scale. */

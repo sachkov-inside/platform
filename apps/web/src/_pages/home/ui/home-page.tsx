@@ -1,5 +1,4 @@
 import { ArrowRight, DatabaseZap, FileText } from "lucide-react";
-import type { Route } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -11,9 +10,9 @@ import {
 import { libraryRouteHref } from "@/shared/routing/library-route";
 import { purchaseInvitation } from "@/shared/routing/subscription-route";
 import { Button } from "@/shared/ui/button";
-import { PublicSectionHeading } from "@/shared/ui/public-section-heading";
 import type { HomeContinuation, HomeResult, HomeView } from "../model/home-view";
 import { FeaturedSeries, HomeAccessInvitation, HomeMembershipBenefits } from "./guest-home";
+import { HomeFrame, HomeSectionHeading, HomeSeriesSection } from "./home-frame";
 import "./home-page.css";
 
 export function HomePage({ result, personal, continuation }: { readonly result: HomeResult; readonly personal?: ReactNode; readonly continuation?: HomeContinuation }) {
@@ -32,8 +31,7 @@ function HomeReady({ home, personal, continuation }: { readonly home: HomeView; 
   const playlists = series === undefined ? home.playlists : [series.collection, ...home.playlists.filter((item) => item.slug !== series.collection.slug)];
   const videos = video === undefined ? home.videos : [video.material, ...home.videos.filter((item) => item.slug !== video.material.slug)];
   return (
-    <div className="home-page @container/home min-w-0" data-home-membership={home.membership.kind}>
-      <h1 className="sr-only">Главная</h1>
+    <HomeFrame membership={home.membership.kind}>
       {home.pinnedSeries && <FeaturedSeries series={home.pinnedSeries} />}
       {personal}
       <PlaylistSection playlists={playlists} continuation={series} />
@@ -55,7 +53,7 @@ function HomeReady({ home, personal, continuation }: { readonly home: HomeView; 
       />
       <NoteFeed items={home.notes} />
       {offer ? <HomeMembershipBenefits href={offer.href} /> : <CatalogInvitation />}
-    </div>
+    </HomeFrame>
   );
 }
 
@@ -103,7 +101,7 @@ function MaterialSection({
 }) {
   return (
     <section aria-labelledby={id}>
-      <SectionHeading
+      <HomeSectionHeading
         action={formatSlug === "video" ? "Все видео" : "Все гайды"}
         href={`/library?format=${formatSlug}`}
         id={id}
@@ -146,14 +144,7 @@ function PlaylistSection({
   readonly continuation: HomeContinuation["series"];
 }) {
   return (
-    <section aria-labelledby="home-series">
-      <SectionHeading
-        action="Все руководства"
-        className="mt-2"
-        href="/library#series-heading"
-        id="home-series"
-        title="Руководства"
-      />
+    <HomeSeriesSection headingId="home-series">
       {playlists.length === 0 ? (
         <EmptyCollection label="Руководств пока нет." />
       ) : (
@@ -176,7 +167,7 @@ function PlaylistSection({
           ))}
         </div>
       )}
-    </section>
+    </HomeSeriesSection>
   );
 }
 
@@ -209,37 +200,6 @@ function AllNotesLink() {
     <FileText aria-hidden="true" className="size-5 shrink-0 text-muted-foreground" />
     <span className="whitespace-nowrap">Все заметки</span>
   </Link>;
-}
-
-function SectionHeading({
-  action,
-  className = "mt-10 md:mt-12",
-  href,
-  id,
-  title,
-}: {
-  readonly action: string;
-  readonly className?: string;
-  readonly href: Route;
-  readonly id: string;
-  readonly title: string;
-}) {
-  return (
-    <PublicSectionHeading
-      aside={
-        <Link
-          aria-label={action}
-          className="shrink-0 text-sm font-semibold text-action no-underline"
-          href={href}
-        >
-          {action}
-        </Link>
-      }
-      className={`home-section-heading ${className}`}
-      id={id}
-      title={title}
-    />
-  );
 }
 
 function CatalogInvitation() {
