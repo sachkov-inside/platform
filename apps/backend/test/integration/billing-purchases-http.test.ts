@@ -4,7 +4,6 @@ import { createServer, type Server } from "node:http";
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
 import { exportJWK, generateKeyPair, SignJWT, type CryptoKey } from "jose";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import { z } from "zod";
 
 import { parsePlatformConfig } from "../../src/config/platform-config.js";
 import { createApiApplication } from "../../src/entrypoints/api/create-api-application.js";
@@ -13,16 +12,17 @@ import { assembleAccounts, BillingContact } from "../../src/modules/accounts/ind
 import { billingContactProtection } from "../../src/modules/accounts/infrastructure/billing-contact-protection.js";
 import { assembleAccessGrants } from "../../src/modules/membership-entitlements/index.js";
 import { BillingPayments, BillingPricing } from "../../src/modules/billing/index.js";
-import { Tbank } from "../../src/modules/billing/infrastructure/tbank/tbank.js";
 import { syntheticTbankConfig } from "../support/bank-terminal.js";
 import { declaredServer, type DeclaredServer } from "../support/declared-api.js";
+import { BankFixture } from "./setup/bank.js";
 import { syntheticConsentDocuments } from "./setup/consent-documents.js";
 import { createTestDatabase, type TestDatabase } from "./setup/test-database.js";
 
 const issuer = "https://identity.example.test/oidc";
 const audience = "https://api.example.test";
-const bank = syntheticTbankConfig({
-  environment: "demo", terminalKey: "SYNTHETICDEMO", password: "synthetic-test-password",
+const emailFingerprintKey = "billing-purchases-test-email-fingerprint-key";
+const terminal = syntheticTbankConfig({
+  environment: "demo", terminalKey: "SYNTHETICPURCHASES", password: "synthetic-test-password",
   bindingEncryptionKey: Buffer.alloc(32, 43).toString("base64"),
   recurringCardConfirmed: true, cardOnlyHostedConfirmed: true,
   minimumKopecks: 100, maximumKopecks: 1_000_000,
@@ -66,7 +66,7 @@ describe("Billing purchases HTTP", () => {
         LOGTO_ISSUER: issuer,
         LOGTO_AUDIENCE: audience,
         LOGTO_JWKS_URL: `http://127.0.0.1:${String(address.port)}/jwks`,
-        IDENTITY_EMAIL_FINGERPRINT_KEY: "billing-purchases-test-email-fingerprint-key",
+        IDENTITY_EMAIL_FINGERPRINT_KEY: emailFingerprintKey,
       }),
       { logger: false },
     );
@@ -90,13 +90,18 @@ describe("Billing purchases HTTP", () => {
     const strangerHeaders = { authorization: `Bearer ${strangerToken}` };
     expect((await server.inject({ method: "POST", url: "/accounts", headers })).statusCode).toBe(201);
     expect((await server.inject({ method: "POST", url: "/accounts", headers: strangerHeaders })).statusCode).toBe(201);
+    const ownerToken = await signToken("purchase-owner-001", "owner@example.test");
+    expect((await server.inject({ method: "POST", url: "/accounts", headers: { authorization: `Bearer ${ownerToken}` } })).statusCode).toBe(201);
     const buyer = await accountIdOf("purchase-buyer-001");
-    const purchaseRef = await startedPurchase(buyer);
+    const owner = await accountIdOf("purchase-owner-001");
+    await database.prisma.accountPermission.create({ data: { accountId: owner, permission: "platform:admin" } });
+    const purchaseRef = await startedPurchase(buyer, owner);
 
     const read = await server.inject({ method: "GET", url: `/accounts/current/billing/purchases/${purchaseRef}`, headers });
     expect(read.statusCode).toBe(200);
     expect(read.headers["cache-control"]).toBe("private, no-store");
-    expect(read.json()).toMatchObject({
+    const body = read.json<{ readonly paymentUrl: string | null }>();
+    expect(body).toMatchObject({
       purchaseRef,
       state: "pending",
       access: "awaiting_payment",
@@ -105,22 +110,23 @@ describe("Billing purchases HTTP", () => {
       periodEndsAt: null,
       snapshot: { firstPriceKopecks: 200_000, paymentOption: { months: 1 } },
     });
-    expect(read.json<{ paymentUrl: string | null }>().paymentUrl).toBe("https://securepay.tinkoff.ru/test");
+    expect(body.paymentUrl).toBe("https://securepay.tinkoff.ru/test");
 
-    // Платёж принадлежит своему покупателю: чужому он не отличается от несуществующего.
-    expect((await server.inject({ method: "GET", url: `/accounts/current/billing/purchases/${purchaseRef}`, headers: strangerHeaders })).statusCode).toBe(404);
-    expect((await server.inject({ method: "GET", url: `/accounts/current/billing/purchases/${randomUUID()}`, headers })).statusCode).toBe(404);
+    // Платёж принадлежит своему покупателю: чужому он не отличается от несуществующего — ни
+    // состоянием, ни телом, иначе отказ сам подтверждал бы, что такой платёж есть.
+    const stranger = await server.inject({ method: "GET", url: `/accounts/current/billing/purchases/${purchaseRef}`, headers: strangerHeaders });
+    const unknown = await server.inject({ method: "GET", url: `/accounts/current/billing/purchases/${randomUUID()}`, headers });
+    expect(stranger.statusCode).toBe(404);
+    expect(unknown.statusCode).toBe(404);
+    expect(stranger.json()).toEqual(unknown.json());
     expect((await server.inject({ method: "GET", url: `/accounts/current/billing/purchases/not-a-uuid`, headers })).statusCode).toBe(404);
     expect((await server.inject({ method: "GET", url: `/accounts/current/billing/purchases/${purchaseRef}` })).statusCode).toBe(401);
   });
 
   /** Настоящая покупка: те же грани, что в приложении, и синтетический банк вместо настоящего. */
-  async function startedPurchase(buyer: string): Promise<string> {
+  async function startedPurchase(buyer: string, owner: string): Promise<string> {
     const now = new Date("2030-01-31T10:00:00Z");
-    const owner = randomUUID();
-    await database.prisma.account.create({ data: { id: owner, logtoIssuer: issuer, logtoSubject: owner } });
-    await database.prisma.accountPermission.create({ data: { accountId: owner, permission: "platform:admin" } });
-    const accounts = assembleAccounts({ prisma: database.prisma, emailFingerprintKey: "billing-purchases-test-email-fingerprint-key" });
+    const accounts = assembleAccounts({ prisma: database.prisma, emailFingerprintKey });
     const grants = assembleAccessGrants({ prisma: database.prisma, accounts, clock: () => now });
     const pricing = new BillingPricing({ prisma: database.prisma, accounts, clock: () => now });
     const codes = new Map<string, string>();
@@ -146,23 +152,10 @@ describe("Billing purchases HTTP", () => {
     const consent = await contact.acceptConsents(buyer, { operationId: randomUUID(), contextRef: quote.quoteRef,
       documents: syntheticConsentDocuments.map((document) => ({ kind: document.kind, documentId: document.documentId, version: document.version, digest: document.digest, accepted: true })) });
     if (!consent.ok) throw new Error(consent.error.code);
-    const payments = new BillingPayments({ prisma: database.prisma, bank: syntheticBank(), contact, grants, clock: () => now });
+    const payments = new BillingPayments({ prisma: database.prisma, bank: new BankFixture(terminal).client(), contact, grants, clock: () => now });
     const started = value(await payments.purchase(buyer, { operationId: randomUUID(), quoteRef: quote.quoteRef,
       contactRevision: 1, consentEvidenceRefs: consent.evidenceRefs, acknowledgeExistingAccess: false }));
     return started.purchaseRef;
-  }
-
-  /** Банк отвечает принятием платежа и адресом формы; дальше эта проверка не идёт. */
-  function syntheticBank(): Tbank {
-    return new Tbank(bank, (url, init) => {
-      if (typeof url !== "string" || typeof init?.body !== "string") throw new Error("Unexpected bank request");
-      const body = z.object({ OrderId: z.string().optional() }).loose().parse(JSON.parse(init.body));
-      return Promise.resolve(Response.json({
-        TerminalKey: bank.terminalKey, OrderId: body.OrderId, PaymentId: "1000000001",
-        Amount: 200_000, Status: "NEW", Success: true, ErrorCode: "0",
-        PaymentURL: "https://securepay.tinkoff.ru/test",
-      }));
-    });
   }
 
   function accountIdOf(subject: string): Promise<string> {
