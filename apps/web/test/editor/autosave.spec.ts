@@ -629,12 +629,10 @@ test("responsive image preview loads real pixels, reports a failed delivery and 
   await page
     .getByLabel("Подпись изображения", { exact: true })
     .fill("Подпись под изображением");
-  await page.getByText("Описание", { exact: true }).click();
-  await page
-    .getByLabel("Описание изображения", { exact: true })
-    .fill("Синий фон с белым текстом");
-  await page.setViewportSize({ width: 320, height: 800 });
+  // The description is a field of the attachment form, reached like any other.
   const description = page.getByLabel("Описание изображения", { exact: true });
+  await description.fill("Синий фон с белым текстом");
+  await page.setViewportSize({ width: 320, height: 800 });
   await description.scrollIntoViewIfNeeded();
   const panel = await description.boundingBox();
   if (!panel) throw new Error("Image description must be visible");
@@ -680,7 +678,7 @@ test("responsive image preview loads real pixels, reports a failed delivery and 
   await expect(picture).toHaveAttribute("alt", "Синий фон с белым текстом");
 });
 
-test("image block selection keeps controls readable while resizing and opening the description", async ({
+test("image block selection keeps its description and size controls readable while resizing", async ({
   page,
 }) => {
   await createDraft(page, "выделение изображения");
@@ -700,14 +698,13 @@ test("image block selection keeps controls readable while resizing and opening t
         .getByLabel("Размер изображения", { exact: true })
         .fill(String(size));
       await saved(page);
-      await page.getByText("Описание", { exact: true }).click();
       await picture.click();
       await expect(page.locator(".ProseMirror")).toHaveClass(
         /ProseMirror-hideselection/u,
       );
       const colors = await page
         .locator(
-          ".ProseMirror label, .ProseMirror summary, .ProseMirror output",
+          ".ProseMirror label, .ProseMirror output, [data-node-view-wrapper] p",
         )
         .evaluateAll((elements) =>
           elements.map((element) => ({

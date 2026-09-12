@@ -21,6 +21,7 @@ import {
 import {
   emptyLessonBlocks,
   emptyMaterialAuthoringPresentation,
+  imageAttachmentPresentation,
   longLessonBlocks,
   materialAuthoringPresentation,
   savedAfterEditingPresentation,
@@ -868,6 +869,40 @@ export const SearchableSeries: Story = {
     await expect(page.getAllByText("Руководства", { exact: true })).toHaveLength(1);
   },
 };
+
+export const ImageAttachment: Story = {
+  name: "Вложенное изображение · форма вложения",
+  args: { presentation: imageAttachmentPresentation },
+  play: async ({ canvasElement }) => {
+    const form = within(imageAttachment(canvasElement));
+    // The description is a field of the attachment form: visible and writable as it stands.
+    const description = form.getByLabelText("Описание изображения");
+    await expect(description).toBeVisible();
+    await userEvent.type(description, "Путь задачи от issue до owner GO");
+    await expect(description).toHaveValue("Путь задачи от issue до owner GO");
+    await expect(form.getByLabelText("Подпись изображения")).toBeVisible();
+    await expect(form.getByLabelText("Размер изображения")).toBeVisible();
+  },
+};
+
+export const ImageAttachmentMobile: Story = {
+  args: { presentation: imageAttachmentPresentation },
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+  name: "Вложенное изображение · мобильный",
+  play: async ({ canvasElement }) => {
+    const form = within(imageAttachment(canvasElement));
+    await expect(form.getByLabelText("Описание изображения")).toBeVisible();
+    await expectNoHorizontalOverflow(canvasElement);
+  },
+};
+
+function imageAttachment(canvasElement: HTMLElement): HTMLElement {
+  const attachment = canvasElement.querySelector("[data-node-view-wrapper]");
+  if (!(attachment instanceof HTMLElement)) {
+    throw new Error("The article has no attachment block");
+  }
+  return attachment;
+}
 
 async function expectNoHorizontalOverflow(canvasElement: HTMLElement) {
   const storyWindow = canvasElement.ownerDocument.defaultView;
