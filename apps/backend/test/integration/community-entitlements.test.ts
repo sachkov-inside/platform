@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 
 import { Module } from "@nestjs/common";
 import { NestFactory, Reflector } from "@nestjs/core";
@@ -42,6 +42,7 @@ import { parsePlatformConfig, PLATFORM_CONFIG } from "../../src/config/platform-
 import { Prisma } from "../../src/infrastructure/prisma/index.js";
 import { HttpCachePolicyInterceptor } from "../../src/infrastructure/http/http-cache-policy.js";
 import { CommunityDispatchController } from "../../src/modules/telegram-membership/adapters/nest/community-dispatch.controller.js";
+import { linkTelegramAccount } from "./setup/telegram-link.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -189,26 +190,8 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
   }
 
   /** Records a confirmed link exactly as the linking protocol does: one linked row. */
-  async function link(accountId: string, identityRef: string): Promise<string> {
-    const principalRef = randomUUID();
-    await database.prisma.telegramLinkTransaction.create({
-      data: {
-        accountId,
-        createdAt: now,
-        expiresAt: new Date(now.getTime() + 300_000),
-        linkRef: randomUUID(),
-        principalRef,
-        providerIdentityRef: identityRef,
-        providerTransactionRef: randomUUID(),
-        returnCorrelation: randomUUID(),
-        status: "linked",
-        tokenDigest: createHash("sha256")
-          .update(principalRef)
-          .digest("base64url"),
-        updatedAt: now,
-      },
-    });
-    return principalRef;
+  function link(accountId: string, identityRef: string): Promise<string> {
+    return linkTelegramAccount(database.prisma, { accountId, identityRef, now });
   }
 
   async function unlink(accountId: string): Promise<void> {
@@ -247,7 +230,8 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
       confirmedRows: ["community"],
     });
     const row = applied.ok ? applied.rows[0]?.result : undefined;
-    if (row === undefined || !row.ok) throw new Error(JSON.stringify(applied));
+    if (row === undefined || !row.ok || !("grantRef" in row))
+      throw new Error(JSON.stringify(applied));
     return { grantRef: row.grantRef, revision: row.revision };
   }
 

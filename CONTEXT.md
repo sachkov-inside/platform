@@ -363,8 +363,8 @@ _Avoid_: Telegram presence, single global paid flag
 
 **CommunityEntitlement**:
 An Account's effective right to participate in the Inside community, distinct from its actual
-presence in the Telegram chat. Any live AccessGrant reason opens it, a bought Guide included, and
-it lasts exactly as long as the reason that opens it.
+presence in the Telegram chat. A live AccessGrant covering the shared chat opens it, and so does
+one covering any Guide; it lasts as long as the longest such grant.
 _Avoid_: ChatMember, membership observation, tier name as the rule
 
 **CommunityDelivery**:
@@ -387,6 +387,12 @@ One occurrence in a Subscription's paid life that is worth a service message: an
 confirmed or declined payment, a cancelled renewal, an ended access term or a resolved refund. It is
 a Billing fact with its own revisions, not the message, the channel or the delivery.
 _Avoid_: Notification, Delivery, email, reminder job
+
+**BuyerClassification**:
+The owner's recorded decision about who an Account is for billing: a confirmed new buyer, a
+confirmed prior buyer, or still undecided. Only a recorded decision allows recurring charges, and
+only a confirmed prior buyer carries the Tribute transition facts.
+_Avoid_: AccessGrant, MembershipEvidence, guessed status
 
 **LegacyCohort**:
 The separately established set of prior Inside participants whose existing access must be accounted

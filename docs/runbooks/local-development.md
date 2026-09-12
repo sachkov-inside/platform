@@ -117,8 +117,9 @@ bash scripts/compose-stack-smoke.sh
 
 The smoke proves the live web server adapter can reach API and PostgreSQL, MCP reported
 database-backed readiness, one stable free `kak-ustroen-inside-platform` Material with current
-stored content and one safe closed catalog Material. Repeating `docker compose down` and the
-detached startup preserves the database volume and proves the development seed remains stable.
+stored content, one safe closed catalog Material, and the three seeded offers on the public
+storefront. Repeating `docker compose down` and the detached startup preserves the database volume
+and proves the development seed remains stable.
 
 Stop without deleting data:
 
@@ -456,6 +457,33 @@ the same request, so reconciliation repeats that identifier instead of sending a
 lost response keeps the attempt `unknown` and visible to the owner; only a terminal refunded or
 reversed status settles it, and only then are the recorded access and renewal decisions applied.
 
+## Seeded offer catalog
+
+The development seed leaves a catalog that can be bought immediately, so a local purchase check
+needs no manual setup: subscription «Материалы», subscription «Материалы + сопровождение», and a
+one-time purchase of the seeded `platform-inside` Guide. Its prices are deliberately not product
+prices, and they live in one place at the top of
+`apps/backend/src/development/seed-local-offer-catalog.ts`.
+
+The seed issues the same catalog commands the owner issues in `/authoring/billing`
+(`offers.save`, `paymentOptions.save`, `offers.publish`), so command parsing, revision checks and
+the catalog's own rules are the real ones. Only the permission decision is the stand's own: the
+owner Account is bootstrapped after the seed, so there is nobody to ask yet. A saved offer is
+never on sale by default; the seed turns sale on with its own explicit `offers.publish` command.
+
+Each run brings those three offers back to the definition in that file and sends no command at all
+when they already match, so repeating the seed never writes a second set. Edit a price there and
+the next run applies it — no volume wipe. That cuts both ways: the file owns the name, benefits and
+price of its three offers, so renaming or repricing one of them in the admin surface is restored on
+the next run. Two things the seed does not touch: an offer the owner created themselves, and the
+sale switch of an offer that already exists — turning a seeded variant off to test keeps it off
+across runs. When a catalog row cannot be reconciled at all, the seed names it on the console and
+moves on rather than failing, because a failed seed stops `api` and `web` from starting.
+
+This is the local stand only. The production catalog and real prices remain an owner decision in
+the admin surface, and no demonstration data is seeded there: `seed-local.ts` refuses to run
+outside `NODE_ENV=development`, and no production Compose service runs it.
+
 ## Owner billing operations
 
 `POST /billing/admin` and the MCP tools named `billing_<operation>` are the same operations behind
@@ -465,7 +493,14 @@ through the [owner release bootstrap](#owner-account-release-bootstrap) with `OW
 
 Reading and previewing repeat freely. Every changing command stores an audit row with the actor,
 operation, reason and result, which also acts as its replay receipt: the same payload returns the
-original result and a changed payload conflicts. Refund execution is a real external money
+original result and a changed payload conflicts.
+
+A local subscription purchase starts only after the owner records who the buyer is. An Account with
+no recorded decision reports `unknown`, refuses recurring charges and answers the purchase with
+`legacy_review_required`. Read it with `grants.readClassification`, record the decision with
+`grants.classify` and its `expectedRevision` (`0` for an Account with no decision yet), or classify
+a set through the same `grants.previewBatch` and `grants.applyBatch`. The owner page
+`/authoring/billing` performs the same operations under «Кто этот покупатель». Refund execution is a real external money
 operation and requires `TBANK_CONFIG_JSON`; without it the operation reports `method_unavailable`.
 Automated tests use synthetic bank adapters only and perform no real refunds or grants.
 

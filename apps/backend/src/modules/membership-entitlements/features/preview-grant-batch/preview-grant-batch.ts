@@ -5,37 +5,82 @@ import type { MembershipEntitlementsPrismaClient } from "../../infrastructure/pr
 import { lockAccess } from "../../infrastructure/access-lock.js";
 import {
   accessFailure,
+  classificationTermsAgree,
+  classificationTermsShape,
   grantTermsSchema,
   sourceRefSchema,
   type AccessFailure,
 } from "../../domain/access-grant.js";
 import { accessFingerprint } from "../../shared/access-receipts.js";
 
-const rowSchema = z
+const rowTarget = { rowKey: z.string().min(1).max(100), accountId: z.uuid() };
+const grantRowSchema = z
   .object({
-    rowKey: z.string().min(1).max(100),
-    accountId: z.uuid(),
+    ...rowTarget,
     source: z.enum(["manual", "legacy"]),
     sourceRef: sourceRefSchema,
     terms: grantTermsSchema,
   })
   .strict();
+/**
+ * Строка классификации проходит тот же предпросмотр, что и выдача: набор аккаунтов виден
+ * владельцу до записи. Своего механизма у массовой классификации нет.
+ */
+const classificationRowSchema = z
+  .object({
+    ...rowTarget,
+    expectedRevision: z.number().int().nonnegative(),
+    ...classificationTermsShape,
+  })
+  .strict();
+const rowSchema = z.union([grantRowSchema, classificationRowSchema]);
+type BatchRow = z.infer<typeof rowSchema>;
+/** Строка выдаёт основание или классифицирует Account; условия выдачи отличают одно от другого. */
+export function isGrantRow<Row extends BatchRow | PreviewRow>(
+  row: Row,
+): row is Extract<Row, { readonly terms: unknown }> {
+  return "terms" in row;
+}
+/** Отрицание предиката не сужает тип в `filter`, поэтому у выборки строк свой предикат. */
+export function isClassificationRow<Row extends BatchRow | PreviewRow>(
+  row: Row,
+): row is Exclude<Row, { readonly terms: unknown }> {
+  return !("terms" in row);
+}
+function unique(values: readonly string[]): boolean {
+  return new Set(values).size === values.length;
+}
 export const previewCommandSchema = z
   .object({ operationId: z.uuid(), rows: z.array(rowSchema).min(1).max(100) })
   .strict()
-  .refine(
-    (value) =>
-      new Set(value.rows.map((row) => row.rowKey)).size === value.rows.length,
+  .refine((value) => unique(value.rows.map((row) => row.rowKey)))
+  .refine((value) =>
+    unique(
+      value.rows
+        .filter(isGrantRow)
+        .map((row) => `${row.source}:${row.sourceRef}`),
+    ),
   )
-  .refine(
-    (value) =>
-      new Set(value.rows.map((row) => `${row.source}:${row.sourceRef}`))
-        .size === value.rows.length,
+  // Один Account классифицируется в наборе один раз: иначе порядок строк решал бы исход.
+  .refine((value) =>
+    unique(
+      value.rows.filter(isClassificationRow).map((row) => row.accountId),
+    ),
+  )
+  .refine((value) =>
+    value.rows.every((row) => isGrantRow(row) || classificationTermsAgree(row)),
   );
 export type PreviewGrantBatchCommand = z.input<typeof previewCommandSchema>;
+const confirmedIdentity = {
+  identityFingerprint: z.string().length(64).nullable(),
+};
 export const previewRowsSchema = z.array(
-  rowSchema.extend({ identityFingerprint: z.string().length(64).nullable() }),
+  z.union([
+    grantRowSchema.extend(confirmedIdentity),
+    classificationRowSchema.extend(confirmedIdentity),
+  ]),
 );
+export type PreviewRow = z.infer<typeof previewRowsSchema>[number];
 export type PreviewGrantBatchResult =
   | AccessFailure<"invalid_input" | "operation_conflict">
   | {
