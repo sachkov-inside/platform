@@ -1,9 +1,12 @@
+/**
+ * Страницы стенда и их ответы: здесь только то, что видит и нажимает человек. Решения банка
+ * принимает соседний модуль, поэтому разметка ничего не меняет — ни в заказе, ни в журнале.
+ */
 import {
   bindingOutcomes, chargeOutcomes, paymentOutcomes, refundOutcomes,
   type BindingRecord, type ChargeOutcome, type OrderRecord, type RefundOutcome,
 } from "./bank-double-state.js";
 
-/** Страницы стенда: их читает человек, поэтому здесь только разметка и никакой логики банка. */
 interface StandView {
   readonly terminalKey: string;
   readonly notificationUrl: string;

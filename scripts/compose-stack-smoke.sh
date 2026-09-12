@@ -96,15 +96,5 @@ if [[ "$mail_capture_inbox" != *'"messages"'* ]]; then
   exit 1
 fi
 
-# Контур приложения живым ответом не проверить: ни один открытый endpoint его не называет, а
-# покупка требует входа. Поэтому здесь проверяется конфигурация запущенных контейнеров — без неё
-# покупка на стенде молча ответит «способ оплаты недоступен».
-for service in api billing-worker; do
-  service_contour="$(docker compose exec -T "$service" printenv TBANK_PROVIDER_MODE)"
-  if [[ "$service_contour" != "test" ]]; then
-    echo "Expected $service on the local bank double contour, received '$service_contour'" >&2
-    exit 1
-  fi
-done
 
 echo "Compose stack smoke passed: Library/Reader web -> API -> PostgreSQL, MCP metadata/auth boundary ready, seed $seed_snapshot, seeded offers on sale, bank double and mail capture ready"

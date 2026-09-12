@@ -31,8 +31,8 @@ export type ChargeOutcome = typeof chargeOutcomes[number];
 export const refundOutcomes = { accepted: "Банк возвращает", declined: "Банк отказывает" } as const;
 export type RefundOutcome = keyof typeof refundOutcomes;
 
-/** Банк не знает незнакомого платежа: `7` — его собственный код «операция не найдена». */
-export const unknownPaymentOutcome: BankOutcome = { status: "UNKNOWN", success: false, errorCode: "7" };
+/** Банк не знает незнакомой операции: `7` — его собственный код «операция не найдена». */
+export const unknownOperationOutcome: BankOutcome = { status: "UNKNOWN", success: false, errorCode: "7" };
 export const declinedBindingOutcome: BankOutcome = { status: "REJECTED", success: false, errorCode: "3005" };
 
 export const isKnownOutcome = <T extends object>(table: T, value: string): value is Extract<keyof T, string> =>
@@ -46,19 +46,18 @@ export const bankReference = (digits: number): string => {
   return `${Math.floor(Math.random() * lowest * 9) + lowest}`;
 };
 
-const refundSchema = z.object({
-  status: z.string(), success: z.boolean(), errorCode: z.string(), newAmount: z.int().nonnegative(),
-});
+// Исход записан в журнал той же тройкой, какой он приходит в ответе банка.
+const outcomeShape = { status: z.string(), success: z.boolean(), errorCode: z.string() };
+const refundSchema = z.object({ ...outcomeShape, newAmount: z.int().nonnegative() });
 const orderSchema = z.object({
+  ...outcomeShape,
   orderId: z.string(), paymentId: z.string(), amount: z.int().nonnegative(), description: z.string(),
   email: z.string(), recurrent: z.boolean(), notificationUrl: z.string(),
-  status: z.string(), success: z.boolean(), errorCode: z.string(),
   rebillId: z.string().optional(), refundedKopecks: z.int().nonnegative(),
   refunds: z.array(z.tuple([z.string(), refundSchema])),
 });
 const bindingSchema = z.object({
-  requestKey: z.string(), customerKey: z.string(), status: z.string(), success: z.boolean(),
-  errorCode: z.string(), rebillId: z.string().optional(),
+  ...outcomeShape, requestKey: z.string(), customerKey: z.string(), rebillId: z.string().optional(),
 });
 const ledgerSchema = z.object({
   orders: z.array(orderSchema), bindings: z.array(bindingSchema),

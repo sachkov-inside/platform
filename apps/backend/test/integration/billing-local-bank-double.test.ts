@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import { localTbankConfig } from "../../src/config/tbank-config.js";
@@ -9,6 +9,7 @@ import { assembleAccessGrants } from "../../src/modules/membership-entitlements/
 import { BillingNotices, BillingOperations, BillingPayments, BillingPricing, BillingSubscriptions } from "../../src/modules/billing/index.js";
 import type { OwnerResult } from "../../src/modules/billing/domain/owner-operations.js";
 import { Tbank, type BankRequest } from "../../src/modules/billing/infrastructure/tbank/tbank.js";
+import { syntheticConsentDocuments } from "./setup/consent-documents.js";
 import { createMigratedTestDatabase, type TestDatabase } from "./setup/test-database.js";
 
 function value<T>(result: { ok: true; value: T } | { ok: false; error: { code: string } }): T {
@@ -32,8 +33,7 @@ function standUrl(value: string | null | undefined): string {
 
 const config = localTbankConfig({});
 const formOrigin = config.endpoints.formOrigins[0] ?? "";
-const documents = (["terms", "recurring"] as const).map(kind => { const text = `Synthetic ${kind}, not legal terms`;
-  return { kind, documentId: kind, version: "test-v1", text, digest: createHash("sha256").update(text).digest("hex"), url: `https://example.test/${kind}` }; });
+const documents = syntheticConsentDocuments;
 
 /**
  * Стенд целиком: настоящие facets и PostgreSQL против двойника банка, который живёт в локальном
@@ -64,7 +64,7 @@ describe("локальная продажа через двойника банк
   });
   afterAll(async () => db.dispose());
 
-  async function scenario(options: { readonly priceKopecks?: number } = {}) {
+  async function scenario() {
     now = new Date("2030-01-31T10:00:00Z");
     for (const stale of await db.prisma.billingSubscription.findMany({ where: { state: { not: "ended" } } }))
       await db.prisma.billingSubscription.update({ where: { id: stale.id }, data: { state: "ended", revision: stale.revision + 1, updatedAt: now } });
@@ -78,7 +78,7 @@ describe("локальная продажа через двойника банк
     const offerId = randomUUID(), optionId = randomUUID();
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.save", value: { id: offerId, name: "Материалы", benefits: ["materials"] } }));
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "paymentOptions.save",
-      value: { id: optionId, offerId, months: 1, priceKopecks: options.priceKopecks ?? 100_000 } }));
+      value: { id: optionId, offerId, months: 1, priceKopecks: 100_000 } }));
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.publish", expectedRevision: 1, id: offerId }));
 
     // Нотификация двойника входит в приложение ровно там же, где банковская: через BillingPayments.
@@ -108,6 +108,25 @@ describe("локальная продажа через двойника банк
     const control = async (values: Record<string, string>) =>
       double.handle(new Request(`${formOrigin}/control`, { method: "POST", body: new URLSearchParams(values) }));
 
+    /** Разовая продажа руководства: тот же контур, но карту банк сохранять не просят. */
+    async function beginGuidePurchase(): Promise<{ purchaseRef: string; paymentUrl: string; capability: string }> {
+      const guideOffer = randomUUID(), guideOption = randomUUID(), capability = `guide:${randomUUID()}`;
+      value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.save",
+        value: { id: guideOffer, name: "Руководство «Стенд»", benefits: [capability], benefitPeriods: [{ capability, months: null }] } }));
+      value(await pricing.manage(owner, { operationId: randomUUID(), operation: "paymentOptions.save",
+        value: { id: guideOption, offerId: guideOffer, mode: "one_time", months: 1, priceKopecks: 290_000 } }));
+      value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.publish", expectedRevision: 1, id: guideOffer }));
+      const quote = value(await pricing.quote(buyer, { operationId: randomUUID(), paymentOptionId: guideOption, optionRevision: 1 }));
+      // Разовая покупка не принимает согласие на списания: принимается только оферта.
+      const consent = await contact.acceptConsents(buyer, { operationId: randomUUID(), contextRef: quote.quoteRef,
+        documents: documents.filter(document => document.kind === "terms")
+          .map(document => ({ kind: document.kind, documentId: document.documentId, version: document.version, digest: document.digest, accepted: true })) });
+      if (!consent.ok) throw new Error(consent.error.code);
+      const purchase = value(await payments.purchase(buyer, { operationId: randomUUID(), quoteRef: quote.quoteRef,
+        contactRevision: 1, consentEvidenceRefs: consent.evidenceRefs, acknowledgeExistingAccess: false }));
+      return { purchaseRef: purchase.purchaseRef, paymentUrl: standUrl(purchase.paymentUrl), capability };
+    }
+
     async function beginPurchase(): Promise<{ purchaseRef: string; paymentUrl: string }> {
       const quote = value(await pricing.quote(buyer, { operationId: randomUUID(), paymentOptionId: optionId, optionRevision: 1 }));
       const consent = await contact.acceptConsents(buyer, { operationId: randomUUID(), contextRef: quote.quoteRef,
@@ -124,7 +143,7 @@ describe("локальная продажа через двойника банк
       return resolved.capabilities.map(item => item.capability).sort();
     };
     const purchaseRow = (purchaseRef: string) => db.prisma.billingPurchase.findUniqueOrThrow({ where: { id: purchaseRef } });
-    return { buyer, payments, subscriptions, operations, delivered, choose, control, beginPurchase, capabilities, purchaseRow };
+    return { buyer, payments, subscriptions, operations, delivered, choose, control, beginPurchase, beginGuidePurchase, capabilities, purchaseRow };
   }
 
   test("оплата на форме стенда выдаёт права, сохраняет привязку и не удваивает выдачу", async () => {
@@ -149,6 +168,22 @@ describe("локальная продажа через двойника банк
     expect(s.delivered).toEqual([{ status: "CONFIRMED", accepted: true }, { status: "CONFIRMED", accepted: true }]);
     expect(await db.prisma.accessGrant.count({ where: { accountId: s.buyer, revokedAt: null } })).toBe(1);
     expect(await db.prisma.billingPurchase.count({ where: { accountId: s.buyer, state: "confirmed" } })).toBe(1);
+  });
+
+  test("руководство продаётся тем же контуром и не просит сохранить карту", async () => {
+    const s = await scenario();
+    const guide = await s.beginGuidePurchase();
+    expect(guide.paymentUrl.startsWith(`${formOrigin}/pay/`)).toBe(true);
+    await s.choose(guide.paymentUrl, "confirmed");
+    value(await s.payments.recover());
+
+    // Купленное руководство открывает и сообщество: стенд воспроизводит тот же состав прав.
+    expect(await s.capabilities()).toEqual(["community", guide.capability]);
+    const row = await s.purchaseRow(guide.purchaseRef);
+    expect(row).toMatchObject({ kind: "one_time", state: "confirmed", environment: "local", subscriptionRef: null });
+    // Банк не выдал привязку: разовая покупка её не просила, и продлевать тут нечего.
+    expect(row.bindingCiphertext).toBeNull();
+    expect(await db.prisma.billingSubscription.count({ where: { accountId: s.buyer } })).toBe(0);
   });
 
   test("каждый исход формы оставляет попытку в своём состоянии и не открывает доступ", async () => {

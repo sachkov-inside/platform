@@ -6,7 +6,7 @@ import { tbankToken } from "../../modules/billing/index.js";
 import { bindingPage, html, indexPage, missingPage, paymentPage } from "./bank-double-pages.js";
 import {
   bankReference, bindingOutcomes, declinedBindingOutcome, isChargeOutcome, isKnownOutcome,
-  loadBankLedger, paymentOutcomes, refundOutcomes, saveBankLedger, unknownPaymentOutcome,
+  loadBankLedger, paymentOutcomes, refundOutcomes, saveBankLedger, unknownOperationOutcome,
   type BankLedger, type BankOutcome, type BindingRecord, type ChargeOutcome, type OrderRecord,
   type PaymentOutcome, type RefundOutcome, type RefundRecord,
 } from "./bank-double-state.js";
@@ -107,7 +107,9 @@ export function createLocalBankDouble(dependencies: Dependencies): LocalBankDoub
     await notify(order.notificationUrl, { ...body, Token: tbankToken(body, config.password) });
   }
 
-  function api(method: string, body: z.infer<typeof requestSchema>): Response {
+  async function api(method: string, body: z.infer<typeof requestSchema>): Promise<Response> {
+    if (method === "Charge") return await charge(body);
+    if (method === "Cancel") return await cancel(body);
     if (method === "Init") {
       const input = initSchema.parse(body);
       const known = orders.get(input.OrderId);
@@ -125,8 +127,9 @@ export function createLocalBankDouble(dependencies: Dependencies): LocalBankDoub
       return Response.json({ ...event(order), PaymentURL: paymentForm(order) });
     }
     if (method === "GetState") {
-      const known = orderByPayment(paymentReferenceSchema.parse(body).PaymentId);
-      return Response.json(known ? event(known) : notFound(paymentReferenceSchema.parse(body).PaymentId));
+      const paymentId = paymentReferenceSchema.parse(body).PaymentId;
+      const known = orderByPayment(paymentId);
+      return Response.json(known ? event(known) : notFound(paymentId));
     }
     if (method === "CheckOrder") {
       const orderId = orderReferenceSchema.parse(body).OrderId;
@@ -149,7 +152,10 @@ export function createLocalBankDouble(dependencies: Dependencies): LocalBankDoub
     if (method === "GetAddCardState") {
       const requestKey = requestKeySchema.parse(body).RequestKey;
       const session = bindings.get(requestKey);
-      if (!session) return Response.json({ Success: false, ErrorCode: "7", Message: "Unknown binding session" });
+      if (!session) return Response.json({
+        Success: unknownOperationOutcome.success, ErrorCode: unknownOperationOutcome.errorCode,
+        Message: "Binding session is unknown to the stand",
+      });
       return Response.json({
         TerminalKey: config.terminalKey, RequestKey: session.requestKey, Status: session.status,
         Success: session.success, ErrorCode: session.errorCode,
@@ -208,8 +214,8 @@ export function createLocalBankDouble(dependencies: Dependencies): LocalBankDoub
   }
 
   const notFound = (paymentId: string | number): Record<string, unknown> => ({
-    TerminalKey: config.terminalKey, PaymentId: String(paymentId), Status: unknownPaymentOutcome.status,
-    Success: unknownPaymentOutcome.success, ErrorCode: unknownPaymentOutcome.errorCode,
+    TerminalKey: config.terminalKey, PaymentId: String(paymentId), Status: unknownOperationOutcome.status,
+    Success: unknownOperationOutcome.success, ErrorCode: unknownOperationOutcome.errorCode,
     Message: "Payment is unknown to the stand",
   });
   const orderByPayment = (paymentId: string | number): OrderRecord | undefined =>
@@ -225,10 +231,7 @@ export function createLocalBankDouble(dependencies: Dependencies): LocalBankDoub
       const body = requestSchema.parse(await request.json());
       if (tbankToken(body, config.password) !== body.Token)
         return Response.json({ Success: false, ErrorCode: "9999", Message: "Invalid token" });
-      const method = path.slice("/v2/".length);
-      if (method === "Charge") return await charge(body);
-      if (method === "Cancel") return await cancel(body);
-      return api(method, body);
+      return await api(path.slice("/v2/".length), body);
     }
     if (request.method === "GET" && path === "/") return html(indexPage({
       terminalKey: config.terminalKey, notificationUrl: config.notificationUrl, returnUrl: config.returnUrl,
@@ -236,10 +239,10 @@ export function createLocalBankDouble(dependencies: Dependencies): LocalBankDoub
     }));
     if (request.method === "POST" && path === "/control") {
       const form = new URLSearchParams(await request.text());
-      const charge = form.get("chargeOutcome") ?? "";
-      const refund = form.get("refundOutcome") ?? "";
-      if (isChargeOutcome(charge)) chargeOutcome = charge;
-      if (isKnownOutcome(refundOutcomes, refund)) refundOutcome = refund;
+      const chosenCharge = form.get("chargeOutcome") ?? "";
+      const chosenRefund = form.get("refundOutcome") ?? "";
+      if (isChargeOutcome(chosenCharge)) chargeOutcome = chosenCharge;
+      if (isKnownOutcome(refundOutcomes, chosenRefund)) refundOutcome = chosenRefund;
       persist();
       return redirect("/");
     }

@@ -209,6 +209,25 @@ describe("supported toolchain contract", () => {
     }
   });
 
+  it("keeps the local sale on the stand contour", () => {
+    // Контур приложения не виден живым ответом: открытых endpoint с ним нет, а покупка требует
+    // входа. Поэтому его держит конфигурация, и она проверяется здесь, а не смоуком стенда.
+    for (const path of [
+      "config/compose/local/api.env",
+      "config/compose/local/billing-worker.env",
+    ]) {
+      const contents = read(path);
+      assert.match(contents, /^TBANK_PROVIDER_MODE=test$/mu);
+      assert.doesNotMatch(contents, /^TBANK_CONFIG_JSON=/mu);
+      assert.match(contents, /^TBANK_TEST_API_BASE_URL=http:\/\/bank-double:8090\/v2$/mu);
+      assert.match(contents, /^BILLING_CONTACT_SMTP_HOST=mailpit$/mu);
+      assert.match(contents, /^BILLING_CONTACT_SMTP_LOCAL_CAPTURE=true$/mu);
+    }
+    assert.match(read("config/compose/local/bank-double.env"), /^TBANK_PROVIDER_MODE=test$/mu);
+    // Перехватчик писем никуда их не пересылает: отправляющий узел ему не настроен.
+    assert.doesNotMatch(read("config/compose/local/mailpit.env"), /MP_SMTP_RELAY/u);
+  });
+
   it("keeps production native dependencies and excludes development scripts", () => {
     assert.match(
       read("apps/backend/Dockerfile"),

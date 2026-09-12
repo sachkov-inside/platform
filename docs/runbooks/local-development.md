@@ -460,9 +460,11 @@ Pass the purchase in this order:
 6. Cancelling recurring charges asks the bank nothing: the schedule closes locally, the paid period
    stays, and the next renewal is simply never sent.
 
-Every published offer passes the same way. A guide and each subscription tariff differ only in what
-the purchase asks the bank for: a one-time guide never saves a card, the first subscription payment
-does, and renewals charge the saved one. Seeded local offers come from the development seed.
+Pass the guide and both subscription tariffs the same way: the double receives the same request for
+each published offer, and only what the purchase asks the bank for differs — a one-time guide never
+saves a card, the first subscription payment does, and renewals charge the saved one. The tariffs
+themselves differ in term and price, which the bank never sees. Seeded local offers come from the
+development seed.
 
 The double keeps a ledger in its own volume, so restarting it keeps the orders the application may
 still have to reconcile; a bank that forgot a payment would strand an unfinished attempt forever.
