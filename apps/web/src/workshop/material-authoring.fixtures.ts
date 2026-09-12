@@ -276,6 +276,37 @@ export const savedAfterEditingPresentation = {
   validation: { headingCount: 1, kind: "valid", plainTextLength: 214 },
 } as const satisfies MaterialAuthoringPresentation;
 
+/**
+ * An image attachment in the article. The catalog cannot deliver protected bytes, so the block
+ * shows its saved-without-preview state; the attachment form around it is the production one.
+ */
+export const imageAttachmentPresentation = {
+  ...materialAuthoringPresentation,
+  draft: {
+    ...materialAuthoringPresentation.draft,
+    document: {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            { type: "text", text: "Схема ниже показывает путь задачи." },
+          ],
+        },
+        {
+          type: "assetImage",
+          attrs: {
+            alt: "",
+            assetId: "94000000-0000-4000-8000-000000000051",
+            caption: null,
+          },
+        },
+        { type: "paragraph" },
+      ],
+    },
+  },
+} as const satisfies MaterialAuthoringPresentation;
+
 export const emptyMaterialAuthoringPresentation = {
   ...materialAuthoringPresentation,
   draft: {
