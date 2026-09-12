@@ -26,6 +26,16 @@ if [[ "$catalog_response" == *"Закрытое содержимое для уч
   exit 1
 fi
 
+# Публичная витрина отдаёт только включённое в продажу, поэтому один ответ доказывает и то, что
+# каталог засеян, и то, что продажа включена. Лишние предложения владельца проверке не мешают.
+offers_response="$(curl --fail --silent --show-error "$api_base_url/billing/offers")"
+for seeded_offer in '"name":"Материалы"' '"name":"Материалы + сопровождение"' '"name":"Руководство «Создание Platform Inside»"' '"mode":"one_time"'; do
+  if [[ "$offers_response" != *"$seeded_offer"* ]]; then
+    echo "Seeded offer catalog is missing $seeded_offer on the public storefront" >&2
+    exit 1
+  fi
+done
+
 curl --fail --silent --show-error --output /dev/null "$web_base_url"
 curl --fail --silent --show-error --output /dev/null "$web_base_url/library"
 docker compose exec -T web pnpm --filter @inside/web smoke:backend
@@ -71,4 +81,4 @@ if [[ "$seed_snapshot" != "1:2:published" ]]; then
   exit 1
 fi
 
-echo "Compose stack smoke passed: Library/Reader web -> API -> PostgreSQL, MCP metadata/auth boundary ready, seed $seed_snapshot"
+echo "Compose stack smoke passed: Library/Reader web -> API -> PostgreSQL, MCP metadata/auth boundary ready, seed $seed_snapshot, seeded offers on sale"

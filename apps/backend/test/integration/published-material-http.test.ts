@@ -10,6 +10,7 @@ import {
   PrismaClientProvider,
   type PlatformPrisma,
 } from "../../src/infrastructure/prisma/index.js";
+import { stringMatching } from "../support/matchers.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -54,10 +55,11 @@ describe("published Material HTTP contract", () => {
         title: "Developer Pipeline без потери контекста",
         access: "membership",
       },
+      // Локальный seed включает каталог в продажу, поэтому у закрытого материала есть приглашение.
+      // Проверяется его состав, а не адрес: куда оно ведёт — отдельное продуктовое решение.
       access: {
         availability: "locked",
-        // По умолчанию ни один вариант подписки не продаётся: CTA не показывается.
-        cta: null,
+        cta: { label: stringMatching(/./u), url: stringMatching(/./u) },
       },
     });
     expect(response.body).not.toContain("schemaVersion");
@@ -200,8 +202,12 @@ describe("published Material HTTP contract", () => {
       }[];
     }>();
     expect(home.topics.map(({ slug }) => slug)).toContain("platform");
-    // Ни один вариант подписки не включён, поэтому подписка не предлагается вовсе.
-    expect(home.membership).toEqual({ kind: "notOffered" });
+    // Локальный seed включает каталог в продажу, поэтому подписка предлагается. Проверяется
+    // состояние, а не маршрут покупателя: он остаётся отдельным продуктовым решением.
+    expect(home.membership).toEqual({
+      acquisitionUrl: stringMatching(/./u),
+      kind: "inactive",
+    });
     expect(home.playlists).toHaveLength(4);
     expect(home.playlists.map(({ slug }) => slug)).toContain("demo-progress-series");
     expect(home.playlists[0]?.previewItems).toBeInstanceOf(Array);
@@ -462,7 +468,19 @@ describe("published Material HTTP contract", () => {
     }
   });
 
-  test("shows the subscription CTA and inactive membership while a variant is on sale", async () => {
+  test("hides the subscription without a variant on sale and shows the CTA with one", async () => {
+    // Витрина следует каталогу, поэтому проверка начинается со снятого с продажи каталога seed.
+    // Сценарий возвращает продажу в конце: состояние каталога принадлежит ему, а не порядку тестов.
+    const seeded = await testDatabase.prisma.billingOffer.findMany({ select: { id: true }, where: { published: true } });
+    const onSale = { id: { in: seeded.map(({ id }) => id) } };
+    await testDatabase.prisma.billingOffer.updateMany({ data: { published: false }, where: onSale });
+    try {
+      const withoutSale = (await app.getHttpAdapter().getInstance().inject({ method: "GET", url: "/library/home" })).json<{ membership: unknown }>();
+      expect(withoutSale.membership).toEqual({ kind: "notOffered" });
+    } finally {
+      await testDatabase.prisma.billingOffer.updateMany({ data: { published: true }, where: onSale });
+    }
+
     const offerId = randomUUID();
     const optionId = randomUUID();
     await testDatabase.prisma.billingOffer.create({
