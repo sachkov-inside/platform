@@ -101,7 +101,7 @@ export function CheckoutFlow({
           accepted: input.accepted,
         }),
         contextRef: input.quote.quoteRef,
-        documents: acceptedPurchaseDocuments(documents, paymentMode(snapshot), input.accepted),
+        documents: acceptedPurchaseDocuments(documents, input.quote, input.accepted),
       });
       if (!consents.ok) return consents;
       const evidenceRefs = consents.value.evidenceRefs;

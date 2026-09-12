@@ -1,11 +1,12 @@
 import { z } from "zod";
 
 import {
+  paymentMode,
   purchaseConsentPolicy,
   type AcceptedDocument,
+  type BillingQuote,
   type LegalDocument,
   type LegalDocumentKind,
-  type PaymentMode,
 } from "@/entities/subscription";
 
 /**
@@ -16,10 +17,12 @@ import {
  */
 export function acceptedPurchaseDocuments(
   documents: readonly LegalDocument[],
-  mode: PaymentMode,
+  quote: BillingQuote,
   accepted: readonly LegalDocumentKind[],
 ): AcceptedDocument[] {
-  return purchaseConsentPolicy(documents, mode)
+  // Режим приходит из расчёта, а не из снимка витрины: по расчёту решают и панель, и приложение,
+  // поэтому передать сюда устаревший снимок больше нечем.
+  return purchaseConsentPolicy(documents, paymentMode(quote.snapshot))
     .applicable.filter((document) => accepted.includes(document.kind))
     .map((document) => ({
       kind: document.kind,
