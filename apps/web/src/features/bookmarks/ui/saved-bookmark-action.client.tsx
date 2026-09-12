@@ -6,12 +6,17 @@ import { getBookmarkStates, setBookmark } from "../api/bookmarks.browser";
 import type { BookmarkActionView } from "../model/bookmark-action-view";
 import { BookmarkAction } from "./bookmark-action.client";
 
-export function SavedBookmarkAction({ materialId }: { readonly materialId: string }) {
+/**
+ * Личные закладки спрашивает только вошедший читатель. Страница материала уже разрешила сессию,
+ * поэтому гость отвечает из этого же ответа и не получает отказ в консоли.
+ */
+export function SavedBookmarkAction({ materialId, signedIn }: { readonly materialId: string; readonly signedIn: boolean }) {
   const queryClient = useQueryClient();
   const [notice, setNotice] = useState<"error" | "denied" | null>(null);
   const state = useQuery({
     queryKey: ["bookmarks", "states", materialId],
     queryFn: () => getBookmarkStates([materialId]),
+    enabled: signedIn,
     retry: false,
     staleTime: 0,
   });
@@ -28,7 +33,8 @@ export function SavedBookmarkAction({ materialId }: { readonly materialId: strin
   const data = state.data;
   const bookmarked = data?.kind === "ready" && data.states[0]?.bookmarked === true;
   let view: BookmarkActionView;
-  if (state.isPending) view = { kind: "loading" };
+  if (!signedIn) view = { kind: "anonymous", loginHref: "/account" };
+  else if (state.isPending) view = { kind: "loading" };
   else if (data === undefined) view = { kind: "error", bookmarked, desired: !bookmarked };
   else if (data.kind === "unauthorized") view = { kind: "anonymous", loginHref: "/account" };
   else if (data.kind !== "ready") view = { kind: "error", bookmarked, desired: !bookmarked };
