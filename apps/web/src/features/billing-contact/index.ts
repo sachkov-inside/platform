@@ -4,10 +4,9 @@ export {
 } from "./ui/billing-contact-form.client";
 export {
   BillingContactPanel,
-  billingContactQueryKey,
-  billingContactQueryOptions,
   type BillingContactPanelProps,
 } from "./ui/billing-contact-panel.client";
+export { useBillingContact } from "./model/use-billing-contact.client";
 export {
   contactErrorMessage,
   readContactSchema,

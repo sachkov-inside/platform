@@ -290,8 +290,10 @@ composition versions and the Git `step_groups` handoff, follow the
 For editorial originals and publication ownership, follow the
 [content boundary](../product/platform-mvp-brief.md#контент).
 
-NestJS loads the optional repository `.env` through `@nestjs/config`, validates it with Zod, and
-injects one immutable `PlatformConfig`. Next.js validates one server-only `WebRuntimeConfig` during
+NestJS loads the optional repository `.env` through `@nestjs/config` outside test mode, validates
+it with Zod, and injects one immutable `PlatformConfig`. Checks therefore see the declared
+environment and not your local ports; see the
+[runtime configuration contract](runtime-configuration.md#sources-and-precedence). Next.js validates one server-only `WebRuntimeConfig` during
 Node.js server startup. `NODE_ENV=development` enables checked-in local defaults; absent
 `NODE_ENV` is production, where all runtime values are required.
 
@@ -320,7 +322,10 @@ The API health response is:
 starts the API and a production-built web process, verifies the published Reader on desktop and
 mobile through Playwright, exercises the server-only adapter against the live API, and uses a
 signed delegated owner token to create/reload, publish, Preview and unpublish one stable Material
-through the live MCP process.
+through the live MCP process. The refusal of a communications tool is proved with a second
+delegated Account that the launcher grants exactly `materials:manage`: the owner Account of a
+working machine may already carry `communications:manage`, and that step must read authority
+rather than the history of the local database.
 
 The identity fixture of that launcher serves a JWKS, a discovery document and a refresh-token grant
 on loopback, so a signed-in session can outlive the five minutes of one access token and last the
@@ -368,6 +373,32 @@ does not run on every pull request. Pull requests into `main` run the four-job a
 Docker Compose gate on clean GitHub-hosted runners; see
 [Continuous integration](continuous-integration.md) for its job and failure-diagnostics contract.
 
+### Snapshots as issue evidence
+
+A run takes screenshots for every scenario it walks, not only for the issue you are working on. By
+default they go to `ci-artifacts/evidence/<issue folder>/`, which Git ignores, so an ordinary local
+run leaves `git status` clean and never overwrites the evidence another issue committed.
+
+Update the evidence of your own issue explicitly:
+
+```bash
+UPDATE_EVIDENCE=issue-529 pnpm smoke:fullstack
+```
+
+Only `docs/evidence/issue-529` is written; snapshots of every other scenario in the same run still
+go to the artifacts directory. Review the result and commit it with the work it belongs to. A
+misspelled folder fails the run instead of quietly writing nowhere you would look.
+
+`UPDATE_EVIDENCE` chooses the destination, not whether a snapshot is taken. Some suites still take
+theirs only behind their own switch: `CAPTURE_EVIDENCE=1` for the authoring walkthroughs,
+`CAPTURE_TELEGRAM_EVIDENCE=1` for the Telegram sign-in states, and the per-issue
+`CAPTURE_ISSUE_NNN_EVIDENCE=1` used by the Reader scenarios. Set both when you want a fresh
+snapshot committed.
+
+`scripts/evidence-path.mjs` owns this rule, and `scripts/evidence-path.test.mjs` keeps it honest.
+Evidence that a run reads rather than writes stays in the tree: the Storybook cover fixtures come
+from `docs/evidence/issue-271/covers`.
+
 Run only the real-PostgreSQL backend suite with:
 
 ```bash
@@ -410,10 +441,18 @@ fixtures cover catalog pagination, Home formats and one explicit Series-reading 
 `demo-series-review` orders the same shared guide before a video and note, and
 `demo-295-samostoyatelnaya-zametka` belongs to no Series. Their titles and summaries identify them
 as development examples rather than editorial content. Repeating the seed keeps the same Materials
-and upgrades the representative fixture without resetting the named volume. Materials are created
-and published through the Materials application interface; only fixed local Topic/Format/Tag/Series
-prerequisites use Prisma model operations because Platform has no product taxonomy-authoring
-capability yet.
+and brings each one back to its definition in `seed-local-development.ts` without resetting the
+named volume: a body, `difficulty` or `outcomes` edited in that file after the volume was seeded
+still reaches the existing Material, and a Material that already matches its definition receives no
+change command at all. Editing a *title* is the exception, and it splits by how the Material is
+recognised: most definitions name the slug they own and are renamed in place, but the eleven
+demo-Series lessons are recognised by title alone, and renaming one of those on an already seeded
+volume fails the seed with `idempotency_key_reused` — the old Material is no longer found and
+creation meets its own stable key. Rename such a lesson on a fresh volume, or remove the old
+Material by hand first. Materials are created and published through the Materials application
+interface; the seed uses Prisma model operations to find what an earlier run created, to pin the
+related Material, and to write the fixed local Topic/Format/Tag/Series prerequisites, because
+Platform has no product taxonomy-authoring capability yet.
 
 ## Migration and Prisma schema checks
 

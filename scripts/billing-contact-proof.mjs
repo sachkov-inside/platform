@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 import { parseEnv } from "node:util";
 import { startFullStackIdentity } from "./full-stack-identity.mjs";
 import { signalProcessGroup } from "./process-group-signal.mjs";
+import { evidenceDirectory } from "./evidence-path.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const backendRequire = createRequire(
@@ -25,7 +26,7 @@ const apiPort = 6406;
 const webPort = 6407;
 const apiBaseUrl = `http://127.0.0.1:${apiPort}`;
 const webBaseUrl = `http://127.0.0.1:${webPort}`;
-const evidence = resolve(root, "docs/evidence/issue-406");
+const evidence = evidenceDirectory("issue-406");
 const messages = [];
 const sockets = new Set();
 const smtp = createServer((socket) => {
@@ -146,7 +147,15 @@ try {
       "--port",
       String(webPort),
     ],
-    { ...env, NODE_ENV: "development", WATCHPACK_POLLING: "true" },
+    // Снимки-свидетельства делаются на 390 и целой страницей, поэтому индикатор режима
+    // разработки в них попадать не должен. Переменную читает `next.config.ts` из #594: до его
+    // мержа строка ничего не меняет.
+    {
+      ...env,
+      NODE_ENV: "development",
+      WATCHPACK_POLLING: "true",
+      HIDE_DEV_INDICATOR: "true",
+    },
   );
   await waitReady(`${webBaseUrl}/account/purchases`, (body) =>
     body.includes("Email"),
@@ -211,8 +220,17 @@ try {
       path: resolve(evidence, `contact-code-${name}.png`),
       fullPage: true,
     });
+    // Раздел находится по своему заголовку: связь `aria-labelledby` даёт `useId`, поэтому
+    // постоянного идентификатора у него нет и вписать его сюда нельзя.
+    const contactSection = page.locator("section").filter({
+      has: page.getByRole("heading", { name: "Email для чеков и сообщений" }),
+    });
+    const contactHeadingId = await contactSection
+      .first()
+      .getAttribute("aria-labelledby");
+    assert(contactHeadingId, "Contact section must label itself by its heading");
     const a11y = await new AxeBuilder({ page })
-      .include("section[aria-labelledby='billing-contact-heading']")
+      .include(`section[aria-labelledby='${contactHeadingId}']`)
       .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
       .analyze();
     assert.deepEqual(a11y.violations, []);
