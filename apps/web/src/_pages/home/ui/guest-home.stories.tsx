@@ -50,8 +50,11 @@ export const Empty: Story = { args: { result: { kind: "ready", value: { ...home,
   await expect(canvas.queryByRole("link", { name: "Открыть руководство" })).not.toBeInTheDocument();
   await expect(canvas.getByText("Руководств пока нет.")).toBeVisible();
 } };
+export const EmptyMobile: Story = { ...Empty, globals: { viewport: { value: "mobile390", isRotated: false } } };
 export const Unavailable: Story = { args: { result: { kind: "unavailable" } }, play: noAcquisition };
+export const UnavailableMobile: Story = { ...Unavailable, globals: { viewport: { value: "mobile390", isRotated: false } } };
 export const Loading: Story = { args: { result: { kind: "unavailable" } }, render: () => <HomeLoading /> };
+export const LoadingMobile: Story = { ...Loading, globals: { viewport: { value: "mobile390", isRotated: false } } };
 export const LongSeries: Story = { args: { result: { kind: "ready", value: { ...home, pinnedSeries: home.pinnedSeries === null ? null : { ...home.pinnedSeries, name: "Проектируем и развиваем приложение: от первой идеи до надёжного релиза с искусственным интеллектом", summary: "" } } } } };
 
 async function noAcquisition({ canvasElement }: { canvasElement: HTMLElement }) {

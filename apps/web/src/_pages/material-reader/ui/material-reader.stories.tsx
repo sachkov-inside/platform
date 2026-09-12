@@ -534,6 +534,12 @@ export const AccessRequired: Story = {
   },
 };
 
+/** Тот же отказ на телефоне: заголовок, объяснение и одно действие остаются читаемыми. */
+export const AccessRequiredMobile: Story = {
+  ...AccessRequired,
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+};
+
 /** Закрытый материал руководства со своей ценой: дальше идёт оплата именно этого руководства. */
 export const AccessGuidePurchase: Story = {
   args: { mode: "access-guide" },

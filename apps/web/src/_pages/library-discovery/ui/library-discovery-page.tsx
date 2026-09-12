@@ -18,6 +18,8 @@ import {
   LibraryDiscoveryView,
 } from "./library-discovery-view";
 import type { ReaderGuideArtifactsResult } from "@/features/guide-artifacts.reader";
+import { guidePath, topicPath } from "@/shared/routing/public-page-path";
+import { guideProgrammeHref } from "@/shared/routing/subscription-route";
 import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 
 export async function PublishedTopicPage({
@@ -77,7 +79,7 @@ export async function GuideProgrammePage({
     notFound();
   }
   if (result.kind === "unavailable") {
-    return <LibraryDiscoveryUnavailable kind="series" slug={slug} />;
+    return <LibraryDiscoveryUnavailable retryHref={guideProgrammeHref(slug)} />;
   }
   const guideId = result.reference.id;
   // Публичный каталог отдаёт только включённое в продажу, поэтому один запрос отвечает сразу на
@@ -114,7 +116,7 @@ function renderPublishedTopicResult(
     notFound();
   }
   if (result.kind === "unavailable") {
-    return <LibraryDiscoveryUnavailable kind="topic" slug={slug} />;
+    return <LibraryDiscoveryUnavailable retryHref={topicPath(slug)} />;
   }
   return (
     <LibraryDiscoveryView
@@ -138,7 +140,7 @@ function renderPublishedSeriesResult(
     notFound();
   }
   if (result.kind === "unavailable") {
-    return <LibraryDiscoveryUnavailable kind="series" slug={slug} />;
+    return <LibraryDiscoveryUnavailable retryHref={guidePath(slug)} />;
   }
   return (
     <LibraryDiscoveryView
