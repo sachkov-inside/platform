@@ -82,7 +82,7 @@ function ProgressWalkthrough({ initialRead = ["text"], initialSurface = "home", 
     }
   };
   const metadata: MaterialReaderMetadata = {
-    materialId: selected.id, contentVersion: 1, access: "free", cover: null,
+    materialId: selected.id, contentVersion: 1, access: "free", cover: null, difficulty: null, outcomes: [],
     format: { name: selected.format, slug: selected.id }, publishedAt: "2026-09-07T09:00:00.000Z",
     slug: selected.slug, title: selected.title, summary: "Разберём на примере, как сохранить результат, даже если ответ сервера потерялся.",
     tags: [], topic: { name: "Архитектура", slug: "platform" }, seriesMemberships: [],

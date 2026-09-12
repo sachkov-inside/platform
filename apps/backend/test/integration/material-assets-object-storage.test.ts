@@ -293,6 +293,8 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
     const metadata = {
       access: "free" as const,
       formatId: null,
+      difficulty: null,
+      outcomes: [],
       seriesIds: [],
       summary: null,
       tagIds: [],

@@ -47,7 +47,7 @@ describe("independent guide, library, support and shared chat rights", () => {
     return row;
   }
   async function material(seriesIds: string[], publicationState: "draft" | "published" = "published") {
-    const id = randomUUID(); const metadata = { title: id, summary: "Controlled guide access", access: "membership" as const, topicId, formatId: "guide", tagIds: [], seriesIds };
+    const id = randomUUID(); const metadata = { title: id, summary: "Controlled guide access", access: "membership" as const, topicId, formatId: "guide", tagIds: [], difficulty: null, outcomes: [], seriesIds };
     const created = await materials.authoring.createDraft({ actor: owner, idempotencyKey: randomUUID(), metadata, body: representativeDocument("Protected content") });
     if (!created.ok) throw new Error(created.error.code);
     if (publicationState === "published") {

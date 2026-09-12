@@ -1,5 +1,6 @@
 import "server-only";
 
+import { materialDifficultySchema } from "@/shared/api/material-lesson-facts";
 import { materialFormatSchema } from "@/shared/api/material-format";
 
 
@@ -34,7 +35,9 @@ const currentMaterialSchema = z
     metadata: z
       .object({
         access: z.enum(["free", "membership"]),
+        difficulty: materialDifficultySchema.nullable(),
         formatId: materialFormatSchema.nullable(),
+        outcomes: z.array(z.string()),
         seriesMemberships: z.array(seriesMembershipSchema),
         slug: z.string().nullable(),
         summary: z.string().nullable(),
@@ -139,8 +142,10 @@ export async function getCurrentMaterial(
         parsed.data.firstPublishedAt === null,
       contentVersion: parsed.data.contentVersion,
       cover: parsed.data.cover,
+      difficulty: parsed.data.metadata.difficulty ?? "unassigned",
       document: parsed.data.body.doc,
       formatId: parsed.data.metadata.formatId ?? "unassigned",
+      outcomes: parsed.data.metadata.outcomes,
       materialId: parsed.data.materialId,
       deleteVideoId: null,
       latestVideoDeletion: parsed.data.latestVideoDeletion,

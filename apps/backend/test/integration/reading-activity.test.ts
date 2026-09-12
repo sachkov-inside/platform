@@ -58,7 +58,7 @@ describe("ReadingActivity on PostgreSQL", () => {
   async function material(seriesIds: string[] = [], access: "free" | "membership" = "free") {
     const created = await materials.authoring.createDraft({
       actor, idempotencyKey: randomUUID(),
-      metadata: { title: `Material ${randomUUID()}`, summary: "Reading test", topicId, formatId, access, tagIds: [], seriesIds },
+      metadata: { title: `Material ${randomUUID()}`, summary: "Reading test", topicId, formatId, access, tagIds: [], difficulty: null, outcomes: [], seriesIds },
       body: representativeDocument("Read me."),
     });
     if (!created.ok) throw new Error(created.error.code);
@@ -257,7 +257,7 @@ describe("ReadingActivity on PostgreSQL", () => {
     const saved = await materials.authoring.saveMaterial({
       actor, materialId: shared, idempotencyKey: randomUUID(), expectedContentVersion: loaded.value.contentVersion,
       publicationState: "published", body: representativeDocument("Edited text does not reset marks."),
-      metadata: { title: "Edited title", summary: "Changed", access: "free", topicId, formatId, tagIds: [], seriesIds: [b] },
+      metadata: { title: "Edited title", summary: "Changed", access: "free", topicId, formatId, tagIds: [], difficulty: null, outcomes: [], seriesIds: [b] },
     });
     expect(saved).toMatchObject({ ok: true });
     expect(await reading.getSeriesProgress({ accountId, seriesId: a })).toMatchObject({ ok: true, value: { read: 0, total: 1 } });

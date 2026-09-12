@@ -5,7 +5,7 @@ import UniqueID from "@tiptap/extension-unique-id";
 import type { Schema } from "@tiptap/pm/model";
 import StarterKit from "@tiptap/starter-kit";
 
-import type { MaterialBlockNodeDescription } from "./block-definition.js";
+import type { MaterialBlockChildNodeDescription } from "./block-definition.js";
 import {
   addressableMaterialBlockTypes,
   materialBlockDefinitions,
@@ -36,10 +36,15 @@ function decodeAttribute(value: string | null): unknown {
   }
 }
 
+/**
+ * `group` is what separates a block from the child nodes a block builds its content from: an
+ * ungrouped node appears only where a content expression names it.
+ */
 function materialBlockNode(
   name: string,
-  description: MaterialBlockNodeDescription,
+  description: MaterialBlockChildNodeDescription,
   nodeView: (() => NodeViewRenderer) | undefined,
+  group?: "block",
 ): Node {
   return Node.create({
     ...(description.atom === true ? { atom: true } : {}),
@@ -75,7 +80,7 @@ function materialBlockNode(
         }),
       );
     },
-    group: description.group,
+    ...(group === undefined ? {} : { group }),
     name,
     parseHTML() {
       return description.parseHTML.map((tag) => ({
@@ -113,17 +118,22 @@ export function materialDocumentExtensions(
       attributeName: "nodeId",
       types: [...addressableMaterialBlockTypes],
     }),
-    ...materialBlockDefinitions.flatMap((definition) =>
-      definition.node === undefined
+    ...materialBlockDefinitions.flatMap((definition) => {
+      const declaration = definition.node;
+      return declaration === undefined
         ? []
         : [
             materialBlockNode(
               definition.type,
-              definition.node,
+              declaration,
               options.nodeViews?.[definition.type],
+              "block",
             ),
-          ],
-    ),
+            ...Object.entries(declaration.childNodes ?? {}).map(([name, child]) =>
+              materialBlockNode(name, child, options.nodeViews?.[name]),
+            ),
+          ];
+    }),
   ];
 }
 

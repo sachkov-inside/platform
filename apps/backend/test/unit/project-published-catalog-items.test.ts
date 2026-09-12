@@ -78,6 +78,8 @@ function projection(ordinal: number): PublishedMaterialProjectionDto {
     access: "free",
     cover: null,
     contentVersion: 1,
+    difficulty: null,
+    outcomes: [],
     format: {
       id: "71000000-0000-4000-8000-000000000001",
       name: "Гайд",

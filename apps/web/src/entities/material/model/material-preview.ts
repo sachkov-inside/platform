@@ -1,3 +1,5 @@
+import type { MaterialDifficulty } from "@/shared/api/material-lesson-facts";
+
 import type { ContentCover } from "./content-cover";
 
 export interface MaterialPreview {
@@ -5,6 +7,9 @@ export interface MaterialPreview {
   readonly access: "free" | "membership" | "workshop";
   readonly availability: "available" | "locked" | "unavailable";
   readonly cover?: ContentCover | null | undefined;
+  /** Сложность шага и что он обещает: их печатает и программа руководства, и сам урок. */
+  readonly difficulty?: MaterialDifficulty | null | undefined;
+  readonly outcomes?: readonly string[] | undefined;
   readonly format: string;
   readonly formatSlug?: string | undefined;
   readonly publishedAt?: string | undefined;

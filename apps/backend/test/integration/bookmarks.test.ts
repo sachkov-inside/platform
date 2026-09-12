@@ -51,7 +51,7 @@ describe("Bookmarks on PostgreSQL", () => {
   async function material(access: "free" | "membership" = "free") {
     const created = await materials.authoring.createDraft({
       actor, idempotencyKey: randomUUID(),
-      metadata: { title: `Material ${randomUUID()}`, summary: "Bookmark test", topicId, formatId, access, tagIds: [], seriesIds: [] },
+      metadata: { title: `Material ${randomUUID()}`, summary: "Bookmark test", topicId, formatId, access, tagIds: [], difficulty: null, outcomes: [], seriesIds: [] },
       body: representativeDocument("Bookmark me."),
     });
     if (!created.ok) throw new Error(created.error.code);

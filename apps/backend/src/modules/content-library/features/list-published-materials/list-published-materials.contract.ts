@@ -1,3 +1,4 @@
+import type { MaterialDifficulty } from "../../../materials/index.js";
 import type { Subject } from "../../../content-access/index.js";
 import type { ContentCoverProjection } from "../../../materials/index.js";
 
@@ -7,6 +8,9 @@ export interface PublishedMaterialCatalogItemDto {
   readonly slug: string;
   readonly title: string;
   readonly summary: string;
+  /** Сложность урока и что он обещает: их печатает программа руководства рядом с шагом. */
+  readonly difficulty: MaterialDifficulty | null;
+  readonly outcomes: readonly string[];
   readonly access: "free" | "membership" | "workshop";
   readonly availability: "available" | "locked" | "unavailable";
   readonly publishedAt: string;

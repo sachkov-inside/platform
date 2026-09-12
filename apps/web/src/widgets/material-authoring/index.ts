@@ -13,6 +13,7 @@ export {
 } from "./model/presentation";
 export { materialDocumentContentSchema } from "./model/material-document-content-schema";
 export { materialEditorExtensions } from "./model/material-editor-extensions";
+export { variantUnderCursor } from "./model/variant-branch";
 export { MaterialAuthoringWorkspace } from "./ui/material-authoring-workspace.client";
 export { MaterialCurrentPreview } from "./ui/material-current-preview";
 export {

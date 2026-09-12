@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { materialDifficultySchema } from "@/shared/api/material-lesson-facts";
+
 import type { MaterialPreview } from "./material-preview";
 import { contentCoverSchema } from "./content-cover";
 
@@ -9,6 +11,8 @@ export const materialPreviewSchema: z.ZodType<MaterialPreview> = z
     access: z.enum(["free", "membership", "workshop"]),
     availability: z.enum(["available", "locked", "unavailable"]),
     cover: contentCoverSchema.nullable().optional(),
+    difficulty: materialDifficultySchema.nullable().optional(),
+    outcomes: z.array(z.string()).optional(),
     format: z.string(),
     formatSlug: z.string().optional(),
     publishedAt: z.iso.datetime({ offset: true }).optional(),
@@ -38,6 +42,8 @@ export const publishedMaterialProjectionSchema = z
     availability: z.enum(["available", "locked", "unavailable"]),
     contentVersion: z.number().int().positive(),
     cover: contentCoverSchema.nullable(),
+    difficulty: materialDifficultySchema.nullable().default(null),
+    outcomes: z.array(z.string()).default([]),
     format: z
       .object({ id: z.string(), name: z.string(), slug: z.string() })
       .strict(),
@@ -75,6 +81,8 @@ export function toMaterialPreview(
     access: projection.access,
     availability: projection.availability,
     cover: projection.cover,
+    difficulty: projection.difficulty,
+    outcomes: projection.outcomes,
     format: projection.format.name,
     formatSlug: projection.format.slug,
     ...(projection.primaryVideoDurationSeconds === undefined

@@ -5,6 +5,7 @@ import { useMutation } from "@tanstack/react-query";
 
 import {
   acceptBillingConsents,
+  purchaseConsentPolicy,
   type ChangeQuote,
   type LegalDocument,
   type LegalDocumentKind,
@@ -67,8 +68,11 @@ export function SubscriptionPanel({
         expectedRevision: input.expectedRevision,
         accepted: input.accepted,
       });
-      const selected = resumeDocuments.filter((document) =>
-        input.accepted.includes(document.kind),
+      // Возобновление списаний — действие подписки, поэтому документы сужаются её областью
+      // применения: вид не различает оферты разовой покупки и подписки, и без этого в команду
+      // ушли бы обе сразу.
+      const selected = purchaseConsentPolicy(resumeDocuments, "subscription").applicable.filter(
+        (document) => input.accepted.includes(document.kind),
       );
       const consents = await acceptBillingConsents({
         operationId: operationId("resume-consents", { commandId }),

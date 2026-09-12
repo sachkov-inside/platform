@@ -1,12 +1,12 @@
 "use client";
 
 import type { MaterialLabeledRow } from "@/entities/material";
-import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
+import { NodeViewContent, NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
 import { GripVertical, Plus, X } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { Button } from "@/shared/ui/button";
-import { isUnknownArray, isUnknownRecord } from "@inside/material-blocks";
+import { guideModeLabels, isGuideMode, isUnknownArray, isUnknownRecord } from "@inside/material-blocks";
 
 /**
  * Поля стоят там же, где у читателя стоит текст, и набраны тем же размером: автор видит блок,
@@ -216,5 +216,30 @@ export function MaterialLabeledListNodeView({
         Добавить строку
       </Button>
     </BlockForm>
+  );
+}
+
+/**
+ * Одна ветка вариантного блока. Название режима берётся из реестра, а не из стиля: его же печатает
+ * читатель, и второй список названий разъехался бы с первым. Текст внутри автор набирает как
+ * обычно, поэтому содержимое остаётся содержимым узла, а не полем формы.
+ */
+export function MaterialVariantOptionNodeView({ node }: NodeViewProps) {
+  const mode: unknown = node.attrs.mode;
+  const label = isGuideMode(mode) ? guideModeLabels[mode] : "Режим не выбран";
+
+  return (
+    <NodeViewWrapper
+      className="my-3 rounded-xl border border-border bg-card/60 px-4 py-3"
+      data-material-variant-option={isGuideMode(mode) ? mode : "unknown"}
+    >
+      <p
+        className="font-mono text-[0.6875rem] uppercase tracking-[0.12em] text-muted-foreground"
+        contentEditable={false}
+      >
+        {label}
+      </p>
+      <NodeViewContent className="mt-1" />
+    </NodeViewWrapper>
   );
 }

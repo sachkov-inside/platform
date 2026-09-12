@@ -1,6 +1,6 @@
 import { ArrowLeft, ArrowRight, List } from "lucide-react";
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 
 import type {
   MaterialReaderMetadata,
@@ -10,7 +10,11 @@ import type {
   PrimaryVideoPresentation,
 } from "@/_pages/material-reader/model/material-reader-view";
 import type { SeriesReaderContext } from "@/_pages/material-reader/model/series-reader-context";
-import { materialTaxonomyLabel, MaterialLessonBlock } from "@/entities/material";
+import {
+  materialDifficultyLabel,
+  materialTaxonomyLabel,
+  MaterialLessonBlock,
+} from "@/entities/material";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { MaterialAssetFile, MaterialAssetImage } from "@/features/material-assets";
@@ -30,6 +34,13 @@ export interface MaterialReaderViewProps {
   readonly seriesContext?: SeriesReaderContext | null;
   readonly readingAction?: ReactNode;
   readonly bookmarkAction?: ReactNode;
+  /**
+   * Подсказка о двух режимах и место, куда она встаёт: перед шагом с этим номером. Место выбирает
+   * страница, потому что подсказка должна стоять у шага, который читатель действительно видит.
+   */
+  readonly modeHint?: { readonly at: number; readonly node: ReactNode };
+  /** Переключатель режима прохождения; у руководства без вариантных шагов его нет. */
+  readonly modeSwitch?: ReactNode;
 }
 
 interface OutlineItem {
@@ -47,6 +58,8 @@ export function MaterialReaderView({
   seriesContext = null,
   readingAction,
   bookmarkAction,
+  modeHint,
+  modeSwitch,
 }: MaterialReaderViewProps) {
   const outline = collectOutline(body);
 
@@ -59,6 +72,7 @@ export function MaterialReaderView({
       <ReaderReturnNavigation repeatAtBottom={seriesContext === null} target={returnTarget}>
         <div className="mx-auto min-w-0 max-w-[43rem]">
           <MaterialReaderHeader material={material} />
+          {modeSwitch}
           {primaryVideo === null ? null : (
             <MaterialPrimaryVideo
               className="max-w-none"
@@ -78,6 +92,9 @@ export function MaterialReaderView({
               contentVersion={material.contentVersion}
               materialId={material.materialId}
               path={[]}
+              {...(modeHint === undefined
+                ? {}
+                : { hint: modeHint.node, hintAt: modeHint.at })}
             />
           </article>
           {bookmarkAction === undefined && readingAction === undefined ? null : (
@@ -166,6 +183,40 @@ export function MaterialReaderHeader({
       <p className="mt-4 text-pretty text-[1.0625rem] leading-7 text-body-muted">
         {material.summary}
       </p>
+      {material.difficulty === null ? null : (
+        <p className="mt-4">
+          <span
+            className="inline-flex min-h-8 items-center rounded-full bg-muted px-3 text-sm font-medium text-muted-foreground"
+            data-material-difficulty={material.difficulty}
+          >
+            Сложность: {materialDifficultyLabel(material.difficulty)}
+          </span>
+        </p>
+      )}
+      {material.outcomes.length === 0 ? null : (
+        <section
+          aria-labelledby="material-outcomes-heading"
+          className="mt-5 rounded-xl border border-border bg-muted/40 px-5 py-4"
+          data-material-outcomes
+        >
+          <h2
+            className="text-sm font-semibold text-foreground"
+            id="material-outcomes-heading"
+          >
+            Чему научишься
+          </h2>
+          <ul className="mt-2 grid gap-2 text-[0.9375rem] leading-6 text-body-muted" role="list">
+            {material.outcomes.map((outcome) => (
+              <li className="flex gap-2" key={outcome}>
+                <span aria-hidden="true" className="text-accent">
+                  •
+                </span>
+                <span className="min-w-0">{outcome}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </header>
   );
 }
@@ -229,17 +280,28 @@ function ReaderOutline({ items }: { readonly items: readonly OutlineItem[] }) {
 function ReaderBlocks({
   blocks,
   contentVersion,
+  hint,
+  hintAt,
   materialId,
   path,
 }: {
   readonly blocks: readonly ReaderBlock[];
   readonly contentVersion: number;
+  readonly hint?: ReactNode;
+  readonly hintAt?: number;
   readonly materialId: string;
   readonly path: readonly number[];
 }) {
   return blocks.map((block, index) => {
     const blockPath = [...path, index];
-    return <ReaderBlockView block={block} contentVersion={contentVersion} key={blockPath.join("-")} materialId={materialId} path={blockPath} />;
+    const view = <ReaderBlockView block={block} contentVersion={contentVersion} key={blockPath.join("-")} materialId={materialId} path={blockPath} />;
+    if (index !== hintAt) return view;
+    return (
+      <Fragment key={`hint-${blockPath.join("-")}`}>
+        {hint}
+        {view}
+      </Fragment>
+    );
   });
 }
 
@@ -321,6 +383,7 @@ function ReaderBlockView({
     case "labeled_list":
     case "resource_card":
     case "takeaways":
+    case "variant":
       return (
         <MaterialLessonBlock
           block={block}
@@ -334,8 +397,8 @@ function ReaderBlockView({
                 path={[...path, index]}
               />
             ),
-            renderBlocks: (blocks) => (
-              <ReaderBlocks blocks={blocks} contentVersion={contentVersion} materialId={materialId} path={path} />
+            renderBlocks: (blocks, branch) => (
+              <ReaderBlocks blocks={blocks} contentVersion={contentVersion} materialId={materialId} path={branch === undefined ? path : [...path, branch]} />
             ),
             renderInline: (content) => <ReaderInline content={content} />,
           }}

@@ -26,6 +26,7 @@ import {
   materialAuthoringPresentation,
   savedAfterEditingPresentation,
   savedContentVersion,
+  variantStepAuthoringPresentation,
 } from "./material-authoring.fixtures";
 import { authoringPageEnvironment, routeContent } from "./story-environment";
 
@@ -36,6 +37,7 @@ const noopActions = {
   onDelete: fn(),
   onFieldChange: fn(),
   onOpenPreview: fn(),
+  onOutcomesChange: fn(),
   onPrimaryVideoChange: fn(),
   onRetry: fn(),
   onReturnToEditor: fn(),
@@ -97,6 +99,10 @@ function MaterialAuthoringFixture({
         primaryVideo,
         primaryVideoId: primaryVideo?.videoId ?? null,
       });
+    },
+    onOutcomesChange: (outcomes) => {
+      noopActions.onOutcomesChange(outcomes);
+      markDirty({ ...presentation.draft, outcomes });
     },
     onRetry: () => {
       noopActions.onRetry();
@@ -913,3 +919,54 @@ async function expectNoHorizontalOverflow(canvasElement: HTMLElement) {
     canvasElement.ownerDocument.documentElement.scrollWidth,
   ).toBeLessThanOrEqual(storyWindow.innerWidth + 1);
 }
+
+export const VariantStepEditor: Story = {
+  args: { presentation: variantStepAuthoringPresentation },
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
+  name: "Вариантный шаг · редактор",
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    // Имя режима автор читает на самой ветке: иначе две ветки неразличимы.
+    await expect(canvas.getByText("Учебный проект")).toBeVisible();
+    await expect(canvas.getByText("Свой проект")).toBeVisible();
+    await expect(
+      canvas.getByText("Учебный проект: пройдите шаг на подготовленном репозитории."),
+    ).toBeVisible();
+    // Сложность и обещание урока автор заполняет там же, где остальные параметры.
+    await expect(canvas.getByText("Сложность")).toBeVisible();
+    await expect(canvas.getByText("Чему научишься")).toBeVisible();
+    await expect(canvas.getByLabelText("Пункт 1")).toBeVisible();
+  },
+};
+
+export const VariantStepEditorMobile: Story = {
+  args: { presentation: variantStepAuthoringPresentation },
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+  name: "Вариантный шаг · мобильный",
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("Свой проект")).toBeVisible();
+    await expectNoHorizontalOverflow(canvasElement);
+  },
+};
+
+export const VariantStepPreview: Story = {
+  args: {
+    presentation: { ...materialAuthoringPresentation, mode: "preview" },
+  },
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
+  name: "Вариантный шаг · предпросмотр",
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    // Предпросмотр показывает то же, что читатель: ветку режима по умолчанию.
+    await expect(
+      canvas.getByText("Учебный проект: пройдите шаг на подготовленном репозитории."),
+    ).toBeVisible();
+    await expect(
+      canvas.getByText("Свой проект: примените шаг к своему репозиторию."),
+    ).not.toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: 'Показать вариант «Свой проект»' }),
+    ).toBeVisible();
+  },
+};

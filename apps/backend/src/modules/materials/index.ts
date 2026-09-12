@@ -116,6 +116,7 @@ export type {
   PublishedMaterialDiscoveryPageDto,
   PublishedMaterialDiscoveryResult,
 } from "./features/discover-published-material-projections/discover-published-material-projections.contract.js";
+export type { MaterialDifficulty } from "./domain/material-metadata.js";
 export type { PublishedMaterialProjectionDto } from "./facets/published-material-reader/published-material.contract.js";
 export type {
   LockedMaterialAccessDto,

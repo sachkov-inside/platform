@@ -14,6 +14,7 @@ interface SeriesContextSource {
   readonly items: readonly SeriesContextMaterial[];
   readonly kind: "ready";
   readonly reference: {
+    readonly hasModeVariants?: boolean | undefined;
     readonly name: string;
     readonly slug: string;
   };
@@ -29,6 +30,8 @@ export interface SeriesReaderContext {
   readonly next: SeriesReaderContextItem | null;
   readonly previous: SeriesReaderContextItem | null;
   readonly series: {
+    /** Переключатель режима принадлежит руководству, а не отдельному уроку. */
+    readonly hasModeVariants: boolean;
     readonly href: Route;
     readonly name: string;
   };
@@ -62,6 +65,7 @@ export function resolveSeriesReaderContext({
     next: toContextItem(series.items[currentIndex + 1], returnTarget.href),
     previous: toContextItem(series.items[currentIndex - 1], returnTarget.href),
     series: {
+      hasModeVariants: series.reference.hasModeVariants ?? false,
       href: returnTarget.href,
       name: series.reference.name,
     },

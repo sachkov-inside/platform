@@ -1,3 +1,5 @@
+import { name as readerGuideModeName, statement as readerGuideModeStatement } from "../modules/reading-activity/infrastructure/postgres/migrations/0062-reader-guide-mode.js";
+import { name as lessonDifficultyAndOutcomesName, statement as lessonDifficultyAndOutcomesStatement } from "../modules/materials/infrastructure/postgres/migrations/0061-lesson-difficulty-and-outcomes.js";
 import { name as materialAnnouncementsName, statement as materialAnnouncementsStatement } from "../modules/materials/infrastructure/postgres/migrations/0060-material-announcements.js";
 import { name as oneTimePurchaseName, statement as oneTimePurchaseStatement } from "../modules/billing/infrastructure/postgres/migrations/0059-one-time-purchase.js";
 import { name as guideIntroductionName, statement as guideIntroductionStatement } from "../modules/materials/infrastructure/postgres/migrations/0057-guide-introduction.js";
@@ -331,6 +333,11 @@ export const platformMigrations = [
   { name: offerForSaleName, statement: offerForSaleStatement },
   { name: oneTimePurchaseName, statement: oneTimePurchaseStatement },
   { name: materialAnnouncementsName, statement: materialAnnouncementsStatement },
+  {
+    name: lessonDifficultyAndOutcomesName,
+    statement: lessonDifficultyAndOutcomesStatement,
+  },
+  { name: readerGuideModeName, statement: readerGuideModeStatement },
 ] as const;
 
 export function migrateToLatest(

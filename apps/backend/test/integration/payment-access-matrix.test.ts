@@ -160,7 +160,7 @@ describe("оплата, выдача прав и доступ к материа�
   async function material(guideIds: readonly string[], accessClass: "free" | "membership" = "membership"): Promise<MaterialId> {
     const title = `Материал ${randomUUID()}`;
     const metadata = { title, summary: "Синтетическое описание матрицы доступа", access: accessClass, topicId,
-      formatId: "guide", tagIds: [], seriesIds: [...guideIds] };
+      formatId: "guide", tagIds: [], difficulty: null, outcomes: [], seriesIds: [...guideIds] };
     const created = await materials.authoring.createDraft({ actor: owner, idempotencyKey: randomUUID(), metadata, body: representativeDocument(title) });
     if (!created.ok) throw new Error(created.error.code);
     const published = await materials.authoring.saveMaterial({ actor: owner, idempotencyKey: randomUUID(), materialId: created.value.materialId,

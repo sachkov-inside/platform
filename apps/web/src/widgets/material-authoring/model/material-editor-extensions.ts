@@ -6,6 +6,7 @@ import { MaterialAssetNodeView } from "../ui/material-asset-node-view.client";
 import {
   MaterialLabeledListNodeView,
   MaterialResourceCardNodeView,
+  MaterialVariantOptionNodeView,
 } from "../ui/material-block-node-views.client";
 
 // Leave the whole top-level block, including nested table/list content.
@@ -54,6 +55,8 @@ export const materialEditorExtensions = [
       // Блоки-формы: их поля нельзя набрать текстом, поэтому автор правит их здесь же.
       labeledList: () => ReactNodeViewRenderer(MaterialLabeledListNodeView),
       resourceCard: () => ReactNodeViewRenderer(MaterialResourceCardNodeView),
+      // Ветка вариантного блока: её содержимое автор набирает, а имя режима — читает.
+      variantOption: () => ReactNodeViewRenderer(MaterialVariantOptionNodeView),
     },
   }),
   ExitMaterialBlock,

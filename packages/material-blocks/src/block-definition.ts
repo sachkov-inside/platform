@@ -18,9 +18,10 @@ export type RenderedBlockVariantSchema<Block extends RenderedBlock = RenderedBlo
 
 /**
  * ProseMirror node declaration as plain data. The registry stays free of Tiptap; the document
- * schema entry point turns these descriptions into Tiptap nodes.
+ * schema entry point turns these descriptions into Tiptap nodes. A block and the child nodes it
+ * builds its own content from are declared the same way; only a block carries a group.
  */
-export interface MaterialBlockNodeDescription {
+export interface MaterialBlockChildNodeDescription {
   readonly atom?: boolean;
   /** Attribute name to its default value. */
   readonly attributes: Readonly<Record<string, JsonValue>>;
@@ -35,7 +36,6 @@ export interface MaterialBlockNodeDescription {
    */
   readonly domAttributes?: Readonly<Record<string, string>>;
   readonly draggable?: boolean;
-  readonly group: "block";
   /** Accepted inline marks; an empty string keeps the content plain. */
   readonly marks?: string;
   /** Selector of the element holding the content when `renderHTML` also writes a field. */
@@ -46,6 +46,18 @@ export interface MaterialBlockNodeDescription {
   readonly renderHTML: (
     attributes: Readonly<Record<string, unknown>>,
   ) => [string, ...unknown[]];
+}
+
+/** One block of the registry, plus the child nodes its own content is made of. */
+export interface MaterialBlockNodeDescription extends MaterialBlockChildNodeDescription {
+  /**
+   * Nodes this block builds its content from, by node type. They carry no group, so nothing but
+   * this block can contain them — the shape Tiptap already gives `listItem` and `tableRow`. A
+   * child node has no registry entry of its own and is therefore never addressed by progress or
+   * bookmarks; the block that contains it is.
+   */
+  readonly childNodes?: Readonly<Record<string, MaterialBlockChildNodeDescription>>;
+  readonly group: "block";
 }
 
 /** Reports one field rule failure. `attribute` names the offending `attrs` entry. */

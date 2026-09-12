@@ -13,6 +13,7 @@ export {
   publishedMaterialProjectionSchema,
   toMaterialPreview,
 } from "./material/model/material-preview-schema";
+export { materialDifficultyLabel } from "./material/model/material-difficulty-label";
 export { materialTaxonomyLabel } from "./material/model/material-taxonomy-label";
 export {
   calloutTones,

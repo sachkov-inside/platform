@@ -6,7 +6,9 @@ import { problemDetailsContent, problemDetailsOneOfContent, problemDetailsSchema
 import { AccountGuard, AccountProblemDetailsFilter, CurrentAccount, accountProblemSchema, type AuthenticatedAccount } from "../../../accounts/index.js";
 import { readingStateSchema, readingOutcomeSchema } from "../../domain/reading-state.js";
 import { ReadingActivity } from "../../facets/reading-activity/reading-activity.js";
+import { readerGuideModeSchema, type GetReaderGuideModeResult } from "../../features/get-reader-guide-mode/get-reader-guide-mode.js";
 import { getReadingStatesSchema, type GetReadingStatesResult } from "../../features/get-reading-states/get-reading-states.js";
+import { setReaderGuideModeSchema, type SetReaderGuideModeResult } from "../../features/set-reader-guide-mode/set-reader-guide-mode.js";
 import { seriesProgressSchema, type GetSeriesProgressResult } from "../../features/get-series-progress/get-series-progress.js";
 import { setReadingStateSchema, type SetReadingStateError } from "../../features/set-reading-state/set-reading-state.contract.js";
 
@@ -69,6 +71,28 @@ export class ReadingActivityController {
     return result.value;
   }
 
+  @Get("guide-mode")
+  @ApiOperation({ operationId: "getReaderGuideMode", summary: "Read the mode the current Account goes through guides in" })
+  @ApiOkResponse({ schema: toOpenApiSchema(readerGuideModeSchema) })
+  async guideMode(@CurrentAccount() current: AuthenticatedAccount) {
+    const result = await this.reading.getReaderGuideMode({ accountId: current.accountId });
+    if (!result.ok) throwReadingError(result.error);
+    return result.value;
+  }
+
+  @Put("guide-mode")
+  @HttpCode(200)
+  @ApiOperation({ operationId: "setReaderGuideMode", summary: "Set the mode the current Account goes through guides in" })
+  @ApiBody({ schema: toOpenApiSchema(setReaderGuideModeSchema) })
+  @ApiOkResponse({ schema: toOpenApiSchema(readerGuideModeSchema) })
+  async setGuideMode(@CurrentAccount() current: AuthenticatedAccount, @Body() input: unknown) {
+    const parsed = setReaderGuideModeSchema.safeParse(input);
+    if (!parsed.success) throw readingException(400, { code: "invalid_request" });
+    const result = await this.reading.setReaderGuideMode({ ...parsed.data, accountId: current.accountId });
+    if (!result.ok) throwReadingError(result.error);
+    return result.value;
+  }
+
   @Get("series/:seriesId")
   @ApiOperation({ operationId: "getSeriesReadingProgress", deprecated: true, summary: "Read progress over the current published Series composition" })
   @ApiParam({ name: "seriesId", schema: toOpenApiSchema(z.uuid()) })
@@ -84,7 +108,10 @@ export class ReadingActivityController {
 }
 
 type ReadingError = SetReadingStateError |
-  Extract<GetReadingStatesResult | GetSeriesProgressResult, { readonly ok: false }>["error"];
+  Extract<
+    GetReadingStatesResult | GetSeriesProgressResult | GetReaderGuideModeResult | SetReaderGuideModeResult,
+    { readonly ok: false }
+  >["error"];
 
 function throwReadingError(error: ReadingError): never {
   switch (error.code) {

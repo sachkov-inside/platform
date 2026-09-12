@@ -11,6 +11,7 @@ import {
   materialPreviewHasVideo,
   type MaterialPreview,
 } from "../model/material-preview";
+import { materialDifficultyLabel } from "../model/material-difficulty-label";
 import { materialTaxonomyLabel } from "../model/material-taxonomy-label";
 import { ContentCoverImage } from "./content-cover-image.client";
 
@@ -294,10 +295,38 @@ function SeriesMaterialRow({ headingLevel: Heading, material, readerHref, curren
           <Link className="no-underline after:absolute after:inset-0 after:rounded-2xl focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring" href={readerHref} prefetch={false}>{material.title}</Link>
         </Heading>
         {material.summary.length === 0 ? null : <span className="mt-2 hidden text-sm leading-5 text-body-muted @min-[40rem]/series-entry:line-clamp-1">{material.summary}</span>}
+        <LessonFacts material={material} />
       </span>
       <span className="hidden whitespace-nowrap rounded-md bg-background px-2 py-1 text-xs font-medium text-muted-foreground @min-[40rem]/series-entry:inline-flex">{materialTaxonomyLabel(material.format)}</span>
       <ChevronRight aria-hidden="true" className="size-4 text-muted-foreground @max-[13rem]/series-entry:hidden" />
     </article>
+  );
+}
+
+/**
+ * Сложность шага и что он обещает — рядом с названием, чтобы читатель выбирал шаг, не открывая
+ * его. Шаг без этих значений выглядит как прежде.
+ */
+function LessonFacts({ material }: { readonly material: MaterialPreview }) {
+  const outcomes = material.outcomes ?? [];
+  if (material.difficulty == null && outcomes.length === 0) return null;
+
+  return (
+    <span className="mt-2 block" data-series-lesson-facts>
+      {material.difficulty == null ? null : (
+        <span
+          className="inline-flex min-h-6 items-center rounded-md bg-background px-2 text-xs font-medium text-muted-foreground"
+          data-material-difficulty={material.difficulty}
+        >
+          {materialDifficultyLabel(material.difficulty)}
+        </span>
+      )}
+      {outcomes.length === 0 ? null : (
+        <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+          Научишься: {outcomes.join(" · ")}
+        </span>
+      )}
+    </span>
   );
 }
 
