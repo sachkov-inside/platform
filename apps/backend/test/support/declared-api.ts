@@ -74,12 +74,12 @@ export function declaredServer<Response extends DeclaredResponseParts>(server: I
  */
 export function compileDeclaredResponses(): number {
   let compiled = 0;
-  for (const [path, item] of Object.entries(document.paths)) {
-    for (const [method, operation] of Object.entries(item)) {
-      for (const [status, declared] of Object.entries(operation.responses ?? {})) {
+  for (const item of Object.values(document.paths)) {
+    for (const operation of Object.values(item)) {
+      for (const declared of Object.values(operation.responses ?? {})) {
         const schema = declared.content?.["application/json"]?.schema;
         if (schema === null || typeof schema !== "object") continue;
-        compiledValidator(`${method.toUpperCase()} ${path} ${status}`, schema);
+        compiledValidator(schema);
         compiled += 1;
       }
     }
@@ -94,10 +94,21 @@ export function assertDeclaredResponse(response: {
   readonly status: number;
   readonly body: () => unknown;
 }): void {
+  const succeeded = response.status >= 200 && response.status < 300;
   const operation = declaredOperation(response.method, response.url);
+  if (operation === undefined) {
+    // Отказ по адресу, которого в документе нет, документу не противоречит: API и правда его не
+    // знает, и проверка отсутствия — законный сценарий. Успех по такому адресу — противоречит.
+    if (succeeded) {
+      throw new Error(
+        `${address(response)} answered ${String(response.status)}, but the API declares no such address.`,
+      );
+    }
+    return;
+  }
   const declared = operation[String(response.status)];
   if (declared === undefined) {
-    if (response.status >= 200 && response.status < 300) {
+    if (succeeded) {
       throw new Error(
         `${address(response)} answered ${String(response.status)}, which its OpenAPI operation does not declare.`,
       );
@@ -106,7 +117,7 @@ export function assertDeclaredResponse(response: {
   }
   const schema = declared.content?.["application/json"]?.schema;
   if (schema === null || typeof schema !== "object") return;
-  const validate = compiledValidator(`${response.method} ${response.url} ${String(response.status)}`, schema);
+  const validate = compiledValidator(schema);
   if (validate(response.body())) return;
   throw new Error(
     `${address(response)} answered ${String(response.status)} with a body its own description rejects:\n${
@@ -129,7 +140,9 @@ function address(response: { readonly method: string; readonly url: string }): s
   return `${response.method} ${response.url}`;
 }
 
-function compiledValidator(key: string, schema: object): ValidateFunction {
+/** Один и тот же вид тела описан у разных адресов: компилируется он один раз на вид, а не на адрес. */
+function compiledValidator(schema: object): ValidateFunction {
+  const key = JSON.stringify(schema);
   const existing = validators.get(key);
   if (existing !== undefined) return existing;
   const validate = ajv.compile(translatedSchema(schema));
@@ -144,7 +157,7 @@ function requestAddress(options: InjectOptions): { method: string; url: string }
 }
 
 /** Адрес приводится к объявленному шаблону: точное совпадение важнее параметризованного. */
-function declaredOperation(method: string, url: string): OperationResponses {
+function declaredOperation(method: string, url: string): OperationResponses | undefined {
   const path = url.split("?")[0] ?? url;
   const exact = document.paths[path]?.[method.toLowerCase()];
   if (exact !== undefined) return exact.responses ?? {};
@@ -153,7 +166,7 @@ function declaredOperation(method: string, url: string): OperationResponses {
     if (operation === undefined || !pathTemplate(declaredPath).test(path)) continue;
     return operation.responses ?? {};
   }
-  throw new Error(`The API declares no ${method} ${path}; a test address the document does not know cannot be checked.`);
+  return undefined;
 }
 
 const templates = new Map<string, RegExp>();

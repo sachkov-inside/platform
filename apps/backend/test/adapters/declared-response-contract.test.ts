@@ -48,7 +48,13 @@ describe("declared response contract", () => {
     expect(() => { assertDeclaredResponse({ ...learningHome(continuation), status: 299 }); })
       .toThrow(/does not declare/u);
     expect(() => { assertDeclaredResponse({ ...learningHome(continuation), url: "/reading-activity/series-continuation" }); })
-      .toThrow(/declares no GET/u);
+      .toThrow(/declares no such address/u);
+  });
+
+  test("leaves a refusal from an address the document never declared alone", () => {
+    expect(() => {
+      assertDeclaredResponse({ ...learningHome(continuation), url: "/reading-activity/series-continuation", status: 404 });
+    }).not.toThrow();
   });
 
   test("leaves a status the document answers without a body alone", () => {
@@ -69,7 +75,10 @@ describe("declared response contract", () => {
       .rejects.toThrow(/introduction/u);
   });
 
+  // Эта проверка считает, а не ждёт: её отказ — исключение компиляции, а не истечение срока.
+  // Явный бюджет снимает только зависший прогон и поэтому заведомо больше любой честной работы;
+  // умолчание в пять секунд измеряло бы загруженность машины, а не перевод описания.
   test("every declared JSON response is a contract the check can run", () => {
     expect(compileDeclaredResponses()).toBeGreaterThan(0);
-  });
+  }, 60_000);
 });
