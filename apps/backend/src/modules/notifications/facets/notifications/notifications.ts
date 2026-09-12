@@ -1,15 +1,16 @@
 import { z } from 'zod';
 import type { Accounts } from '../../../accounts/index.js';
-import type { NotificationEnvelope } from '../../../../infrastructure/notification-transport/wire.js';
+import { loggableFailure, type NotificationEnvelope, type NotificationLane } from '../../../../infrastructure/notification-transport/wire.js';
 import { assembleNotificationTransport } from '../notification-transport/notification-transport.js';
 import { authorizeDispatch } from '../../features/authorize-dispatch/authorize-dispatch.js';
 import { changePreferences, readPreferences } from '../../features/change-preferences/change-preferences.js';
-import { expandAudience, type AudienceObservation, type NotificationDependencies } from '../../features/expand-audience/expand-audience.js';
+import { expandAudience, type NotificationDependencies } from '../../features/expand-audience/expand-audience.js';
+import { asCheckpoint, recordRowFailure, UnprocessableRow, type SweepObservation } from '../../features/expand-audience/row-fate.js';
 import { refreshDeliveries } from '../../features/expand-audience/refresh-deliveries.js';
 import { acceptEmailCommand, dispatchEmail } from '../../features/dispatch-email/dispatch-email.js';
 import { acceptDeliveryResult } from '../../features/project-result/project-result.js';
 import { readDeliveries, resolveUnknown } from '../../features/read-deliveries/read-deliveries.js';
-import type { SendNotificationEmail } from '../../ports/notification-sources.js';
+import type { QuarantineNotification, SendNotificationEmail } from '../../ports/notification-sources.js';
 import type { Channel } from '../../domain/notification-wire.js';
 
 export class Notifications {
@@ -38,28 +39,47 @@ export class Notifications {
     return { ok: true as const, deliveries: await this.readDeliveries(accountId, after) };
   }
   resolveUnknown(actorId: string, input: unknown) { return resolveUnknown(this.deps.prisma, this.accounts, actorId, input, this.deps.now); }
-  async sweep(send?: SendNotificationEmail) {
+  /**
+   * Круг разбора входящих. Ни одна его часть не имеет права отменить остальные: отказ строки — это
+   * её судьба, отказ дорожки — наблюдение, а письма всё равно уходят на этом же круге.
+   */
+  async sweep(send?: SendNotificationEmail): Promise<readonly SweepObservation[]> {
+    const observations: SweepObservation[] = [];
+    const quarantine: QuarantineNotification = this.transport.quarantine;
+    const fate = (lane: NotificationLane, failure: UnprocessableRow) =>
+      recordRowFailure({ prisma: this.deps.prisma, now: this.deps.now, lane, quarantine, failure });
     // Each lane makes bounded progress independently; a saturated subscription lane cannot starve materials/results.
     for (const channel of ['email', 'telegram'] as const) {
       const lane = channel === 'email' ? 'emailResult' : 'telegramResult';
       const rows = await this.deps.prisma.notificationInbox.findMany({ where: { lane, completedAt: null, nextAttemptAt: { lte: this.deps.now() } }, orderBy: [{ nextAttemptAt: 'asc' }, { receivedAt: 'asc' }], take: 25 });
       for (const row of rows) {
-        const outcome = await this.acceptDeliveryResult(channel, JSON.parse(row.payload));
-        if (outcome === 'deferred') {
-          await this.deps.prisma.notificationInbox.update({ where: { scope_messageId: { scope: row.scope, messageId: row.messageId } }, data: { nextAttemptAt: new Date(this.deps.now().getTime() + 5_000) } });
-          continue;
+        try {
+          const outcome = await this.acceptDeliveryResult(channel, JSON.parse(row.payload));
+          if (outcome === 'deferred') {
+            await this.deps.prisma.notificationInbox.update({ where: { scope_messageId: { scope: row.scope, messageId: row.messageId } }, data: { nextAttemptAt: new Date(this.deps.now().getTime() + 5_000) } });
+            continue;
+          }
+          if (!['accepted', 'duplicate', 'stale'].includes(outcome)) await this.transport.quarantine(lane, Buffer.from(row.payload), outcome);
+          await this.deps.prisma.notificationInbox.update({ where: { scope_messageId: { scope: row.scope, messageId: row.messageId } }, data: { completedAt: this.deps.now() } });
+        } catch (error) {
+          observations.push(await fate(lane, new UnprocessableRow(row, asCheckpoint(row.checkpoint), error)));
         }
-        if (!['accepted', 'duplicate', 'stale'].includes(outcome)) await this.transport.quarantine(lane, Buffer.from(row.payload), outcome);
-        await this.deps.prisma.notificationInbox.update({ where: { scope_messageId: { scope: row.scope, messageId: row.messageId } }, data: { completedAt: this.deps.now() } });
       }
     }
-    const observations: AudienceObservation[] = [];
     for (const lane of ['billing', 'materials'] as const) {
-      const expansion = await expandAudience(this.deps, lane, (target, bytes, reason) => this.transport.quarantine(target, bytes, reason));
-      if (expansion.observation) observations.push(expansion.observation);
+      try {
+        const expansion = await expandAudience(this.deps, lane, quarantine);
+        if (expansion.observation) observations.push(expansion.observation);
+      } catch (error) { observations.push({ lane, reason: 'lane_failed', error: loggableFailure(error) }); }
     }
-    await refreshDeliveries(this.deps);
-    if (send) for (const category of ['subscription', 'material'] as const) await dispatchEmail(this.deps, send, category);
+    try { await refreshDeliveries(this.deps); }
+    catch (error) { observations.push({ lane: 'sweep', reason: 'delivery_refresh_failed', error: loggableFailure(error) }); }
+    if (send) {
+      for (const category of ['subscription', 'material'] as const) {
+        try { await dispatchEmail(this.deps, send, category); }
+        catch (error) { observations.push({ lane: 'sweep', reason: 'email_dispatch_failed', error: loggableFailure(error) }); }
+      }
+    }
     return observations;
   }
 }

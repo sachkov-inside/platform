@@ -7,7 +7,7 @@ const subjects = {
 /** Петля не выходит наружу, поэтому стенд читается по http; любой другой узел обязан быть под TLS. */
 function readerLinkAllowed(base: URL): boolean {
   return base.protocol === 'https:' ||
-    (base.protocol === 'http:' && ['127.0.0.1', '::1', 'localhost'].includes(base.hostname));
+    (base.protocol === 'http:' && ['127.0.0.1', '[::1]', 'localhost'].includes(base.hostname));
 }
 export function renderNotification(source: Extract<NotificationSource, { status: 'current' }>, origin: string) {
   const base = new URL(origin);

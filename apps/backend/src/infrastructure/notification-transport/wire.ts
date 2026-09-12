@@ -66,3 +66,12 @@ export function encodeNotification(lane: NotificationLane, input: unknown): Noti
   if (!messageId) throw new Error('missing_message_id');
   return { lane, messageId: messageId.toLowerCase(), version: route.version, payload, digest: digestNotificationPayload(payload) };
 }
+
+const FAILURE_TEXT_LIMIT = 300;
+/**
+ * Причина отказа для журнала: имя и текст ошибки, укороченные до предела. Полезная нагрузка в
+ * журнал не попадает никогда, а текст ошибки разбора умеет процитировать её кусок.
+ */
+export function loggableFailure(error: unknown): string {
+  return (error instanceof Error ? `${error.name}: ${error.message}` : String(error)).slice(0, FAILURE_TEXT_LIMIT);
+}

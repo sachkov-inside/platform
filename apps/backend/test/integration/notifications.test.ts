@@ -15,7 +15,8 @@ import { NotificationAccounts, assembleAccounts } from '../../src/modules/accoun
 import { BillingContact } from '../../src/modules/accounts/facets/billing-contact/billing-contact.js';
 import { billingContactProtection } from '../../src/modules/accounts/infrastructure/billing-contact-protection.js';
 import { encodeNotification } from '../../src/infrastructure/notification-transport/wire.js';
-import { expandAudience, type QuarantineNotification } from '../../src/modules/notifications/features/expand-audience/expand-audience.js';
+import { expandAudience } from '../../src/modules/notifications/features/expand-audience/expand-audience.js';
+import type { QuarantineNotification } from '../../src/modules/notifications/ports/notification-sources.js';
 import { dispatchEmail, acceptEmailCommand } from '../../src/modules/notifications/features/dispatch-email/dispatch-email.js';
 import { refreshDeliveries } from '../../src/modules/notifications/features/expand-audience/refresh-deliveries.js';
 import { deliverySchema, resultSchema, COMMAND_LIFETIME_MS, type NotificationEvent, type DeliveryCommand, type AuthorizeRequest } from '../../src/modules/notifications/domain/notification-wire.js';
@@ -366,6 +367,30 @@ describe('Notifications persistence and delivery (real PostgreSQL; synthetic sou
     expect((await expandAudience(s.deps, 'billing', record)).progressed).toBe(true);
     const healthy = await database.prisma.notificationInbox.findUniqueOrThrow({ where: { scope_messageId: { scope: 'billing', messageId: next.messageId } } });
     expect(healthy.completedAt).not.toBeNull();
+  });
+  test('переполненный карантин отводит строку в сторону, а круг разбора доходит до писем', async () => {
+    const s = await scenario();
+    const key = { scope_messageId: { scope: 'billing', messageId: s.event.messageId } };
+    await database.prisma.notificationInbox.deleteMany({ where: { lane: 'billing', completedAt: null } });
+    s.source({ ...s.fact, readerPath: 'http://evil.example/path' });
+    s.advance(10_000);
+    await s.app.acceptEvent(encodeNotification('billing', s.event));
+    await database.prisma.notificationInbox.update({ where: key, data: { nextAttemptAt: s.deps.now() } });
+    const refused: QuarantineNotification = () => Promise.reject(new Error('notification_quarantine_full'));
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      if (attempt > 1) s.advance(30_000);
+      const expansion = await expandAudience(s.deps, 'billing', refused);
+      expect(expansion.observation?.reason).toBe(attempt < 3 ? 'row_retry' : 'quarantine_unavailable');
+    }
+    // Строка не завершена и не осталась горячей: иначе она возвращалась бы каждую секунду и дорожка
+    // не доходила бы до отправки писем вообще.
+    const stalled = await database.prisma.notificationInbox.findUniqueOrThrow({ where: key });
+    expect(stalled.completedAt).toBeNull();
+    expect(stalled.nextAttemptAt.getTime()).toBeGreaterThan(s.deps.now().getTime());
+    // Круг разбора переживает и это: он возвращает наблюдения, а не бросает.
+    await database.prisma.notificationInbox.update({ where: key, data: { nextAttemptAt: s.deps.now() } });
+    const observations = await s.app.sweep();
+    expect(observations.some(observation => observation.lane === 'billing')).toBe(true);
   });
   test('unavailable and invalid source facts never authorize an event, template links stay on Platform', async () => {
     const s = await scenario(); s.source({ status: 'unavailable' }); await s.publish(); expect(await s.commands()).toHaveLength(0);

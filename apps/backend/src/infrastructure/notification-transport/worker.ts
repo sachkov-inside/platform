@@ -1,21 +1,16 @@
 import { setTimeout as delay } from 'node:timers/promises';
 import type { ChannelModel } from 'amqplib';
 import type { NotificationsConfig } from '../../config/notifications-config.js';
-import type { NotificationTransport } from '../../modules/notifications/index.js';
+import type { NotificationTransport, SweepObservation } from '../../modules/notifications/index.js';
 import type { NotificationOutbox } from './outbox.js';
-import { notificationLaneSchema, lanes, type NotificationLane, type NotificationPrincipal } from './wire.js';
+import { loggableFailure, notificationLaneSchema, lanes, type NotificationLane, type NotificationPrincipal } from './wire.js';
 import { connectNotificationBroker, consumeNotificationLane, publishNotification } from './rabbitmq.js';
 
 const RELAY_SWEEP_MS = 1_000;
-const FAILURE_TEXT_LIMIT = 300;
-/** Причина отказа без полезной нагрузки: в журнал уходит имя и текст ошибки, но не само сообщение. */
-function describe(error: unknown): string {
-  return (error instanceof Error ? `${error.name}: ${error.message}` : String(error)).slice(0, FAILURE_TEXT_LIMIT);
-}
 const OBSERVATION_INTERVAL_MS = 60_000;
 const BACKLOG_ALERT_MS = 5 * 60 * 1_000;
 export function assembleNotificationWorker(input: {
-  processInbox?: () => Promise<readonly Record<string, unknown>[]>;
+  processInbox?: () => Promise<readonly SweepObservation[]>;
   config: NotificationsConfig; transport: NotificationTransport;
   billing: NotificationOutbox; materials: NotificationOutbox;
   report: (event: Record<string, unknown>) => void;
@@ -53,7 +48,12 @@ export function assembleNotificationWorker(input: {
           if (consumer) {
             const handle = await consumeNotificationLane(consumer, lane, input.transport, input.config.prefetch);
             consumers.push(handle);
-            void handle.failed.catch(() => fail(new Error('notification_consumer_stopped')));
+            void handle.failed.catch((error: unknown) => {
+              // Причина остановки потребителя называется здесь: подмена именем оставляла журнал
+              // без объяснения ровно там, где объяснение и нужно.
+              input.report({ status: 'operator_attention', reason: 'notification_consumer_stopped', lane, error: loggableFailure(error) });
+              fail(error instanceof Error ? error : new Error('notification_consumer_stopped'));
+            });
           }
         }
         if (input.processInbox) tasks.push((async () => {
@@ -62,7 +62,7 @@ export function assembleNotificationWorker(input: {
             // остальные. Причина называется здесь, потому что дальше её уже никто не увидит.
             try {
               for (const observation of (await input.processInbox?.()) ?? []) input.report({ status: 'operator_attention', ...observation });
-            } catch (error) { input.report({ status: 'operator_attention', reason: 'inbox_sweep_failed', error: describe(error) }); }
+            } catch (error) { input.report({ status: 'operator_attention', reason: 'inbox_sweep_failed', error: loggableFailure(error) }); }
             await delay(RELAY_SWEEP_MS, undefined, { signal: abort.signal }).catch(() => undefined);
           }
         })());
@@ -73,18 +73,19 @@ export function assembleNotificationWorker(input: {
             try {
               const observation = await input.transport.observe();
               input.report({ status: observation.oldest && Date.now() - observation.oldest.getTime() > BACKLOG_ALERT_MS ? 'operator_attention' : 'transport_observation', ...observation });
-            } catch (error) { input.report({ status: 'operator_attention', reason: 'observation_failed', error: describe(error) }); }
+            } catch (error) { input.report({ status: 'operator_attention', reason: 'observation_failed', error: loggableFailure(error) }); }
             await delay(OBSERVATION_INTERVAL_MS, undefined, { signal: abort.signal }).catch(() => undefined);
           }
         })());
         // Причина отказа задачи сохраняется: подмена на общее имя оставляла журнал без объяснения.
         for (const task of tasks) void task.catch((error: unknown) => {
-          input.report({ status: 'operator_attention', reason: 'notification_worker_failed', error: describe(error) });
+          input.report({ status: 'operator_attention', reason: 'notification_worker_failed', error: loggableFailure(error) });
           fail(error instanceof Error ? error : new Error('notification_worker_failed'));
         });
-      } catch {
+      } catch (error) {
         await this.stop();
-        throw new Error('notification_worker_start_failed');
+        input.report({ status: 'operator_attention', reason: 'notification_worker_start_failed', error: loggableFailure(error) });
+        throw new Error('notification_worker_start_failed', { cause: error });
       }
     },
     async stop(options: { timeout: number } = { timeout: 10_000 }) {

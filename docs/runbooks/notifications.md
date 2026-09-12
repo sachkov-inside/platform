@@ -8,7 +8,7 @@
 
 API предоставляет настройки без необходимости оплаченного доступа. `notifications-worker`
 обрабатывает сохранённые events/results и отдельный email inbox. Для внешнего email требуются
-`NOTIFICATIONS_PLATFORM_ORIGIN` (HTTPS origin приложения), отдельный
+`NOTIFICATIONS_PLATFORM_ORIGIN` (origin приложения; HTTPS везде, кроме петли стенда), отдельный
 `NOTIFICATIONS_TELEGRAM_SECRET` (не менее 32 символов) и существующая конфигурация
 `BILLING_CONTACT_*`: подтверждённый отправитель, SMTP и ключ шифрования контактов Accounts.
 Одинаковая конфигурация origin/dispatch secret задаётся API и worker. RabbitMQ остаётся

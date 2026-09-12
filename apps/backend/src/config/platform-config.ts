@@ -199,8 +199,8 @@ const platformConfigSchema = z
   .object({
     notifications: notificationsConfigSchema.optional(),
     notificationDelivery: z.object({
-      // Адрес читателя проверяется тем же правилом, что публичный адрес сайта: HTTPS обязателен
-      // в production и требуется отдельной проверкой ниже, а стенд живёт на петле без сертификата.
+      // Адрес читателя разбирается как голый origin, а HTTPS требует отдельная проверка ниже:
+      // стенд живёт на петле без сертификата, а письмо наружу обязано вести только под TLS.
       origin: publicOriginSchema("NOTIFICATIONS_PLATFORM_ORIGIN"),
       telegramSecret: z.string().min(32),
     }).optional(),

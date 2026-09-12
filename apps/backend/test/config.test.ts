@@ -446,7 +446,18 @@ describe("bank payment contour", () => {
     });
   });
 
-  it("принимает петлевой адрес уведомлений на стенде и требует HTTPS в production", () => {
+  it("refuses the double in production and refuses a terminal beside it", () => {
+    expect(() => parsePlatformProcessConfig({ ...productionWorker, TBANK_PROVIDER_MODE: "test" }, "billing-worker"))
+      .toThrow("TBANK_PROVIDER_MODE must be real in production mode");
+    expect(parsePlatformProcessConfig(productionWorker, "billing-worker").tbank).toBeUndefined();
+    expect(() => parsePlatformConfig({ ...stand, TBANK_PROVIDER_MODE: "test", TBANK_CONFIG_JSON: JSON.stringify(demoTerminal) }))
+      .toThrow("TBANK_PROVIDER_MODE=test replaces TBANK_CONFIG_JSON; remove one of them");
+  });
+});
+
+describe("notification delivery contour", () => {
+  const stand = { NODE_ENV: "development" };
+  it("accepts the stand loopback reader origin and requires HTTPS in production", () => {
     const delivery = { NOTIFICATIONS_PLATFORM_ORIGIN: "http://127.0.0.1:3000", NOTIFICATIONS_TELEGRAM_SECRET: "inside-local-notification-dispatch-secret" };
     expect(parsePlatformConfig({ ...stand, ...delivery }).notificationDelivery).toMatchObject({ origin: "http://127.0.0.1:3000" });
     // Настроенной доставки может не быть вовсе: повод тогда ждёт, а не падает.
@@ -458,11 +469,4 @@ describe("bank payment contour", () => {
       .toMatchObject({ origin: "https://inside.example.test" });
   });
 
-  it("refuses the double in production and refuses a terminal beside it", () => {
-    expect(() => parsePlatformProcessConfig({ ...productionWorker, TBANK_PROVIDER_MODE: "test" }, "billing-worker"))
-      .toThrow("TBANK_PROVIDER_MODE must be real in production mode");
-    expect(parsePlatformProcessConfig(productionWorker, "billing-worker").tbank).toBeUndefined();
-    expect(() => parsePlatformConfig({ ...stand, TBANK_PROVIDER_MODE: "test", TBANK_CONFIG_JSON: JSON.stringify(demoTerminal) }))
-      .toThrow("TBANK_PROVIDER_MODE=test replaces TBANK_CONFIG_JSON; remove one of them");
-  });
 });
