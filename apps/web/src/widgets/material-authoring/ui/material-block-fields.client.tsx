@@ -3,7 +3,7 @@
 import type { Editor } from "@tiptap/react";
 
 import {
-  calloutToneOrder,
+  calloutTones,
   calloutTonePresentation,
   type CalloutTone,
 } from "@/entities/material";
@@ -13,11 +13,11 @@ const titleFieldClass =
   "min-h-9 w-40 min-w-0 rounded-lg border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-56";
 
 function activeTone(editor: Editor): CalloutTone | undefined {
-  return calloutToneOrder.find((tone) => editor.isActive("callout", { kind: tone }));
+  return calloutTones.find((tone) => editor.isActive("callout", { kind: tone }));
 }
 
-function attributeText(editor: Editor, type: string, name: string): string {
-  const value: unknown = editor.getAttributes(type)[name];
+function blockTitle(editor: Editor, type: string): string {
+  const value: unknown = editor.getAttributes(type).title;
   return typeof value === "string" ? value : "";
 }
 
@@ -49,7 +49,7 @@ function BlockTitleField({
         });
       }}
       placeholder={placeholder}
-      value={attributeText(editor, type, "title")}
+      value={blockTitle(editor, type)}
     />
   );
 }
@@ -74,7 +74,7 @@ export function MaterialBlockFields({
         className="mr-auto flex min-w-0 flex-wrap items-center gap-1"
         role="toolbar"
       >
-        {calloutToneOrder.map((option) => {
+        {calloutTones.map((option) => {
           const presentation = calloutTonePresentation(option);
           return (
             <Button

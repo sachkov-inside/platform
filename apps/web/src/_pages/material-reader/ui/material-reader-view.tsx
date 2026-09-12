@@ -10,15 +10,7 @@ import type {
   PrimaryVideoPresentation,
 } from "@/_pages/material-reader/model/material-reader-view";
 import type { SeriesReaderContext } from "@/_pages/material-reader/model/series-reader-context";
-import {
-  materialTaxonomyLabel,
-  MaterialAgentPrompt,
-  MaterialCallout,
-  MaterialKeyPoint,
-  MaterialLabeledList,
-  MaterialResourceCard,
-  MaterialTakeaways,
-} from "@/entities/material";
+import { materialTaxonomyLabel, MaterialLessonBlock } from "@/entities/material";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { MaterialAssetFile, MaterialAssetImage } from "@/features/material-assets";
@@ -323,44 +315,31 @@ function ReaderBlockView({
       return <hr className="my-12 border-border" />;
     case "table":
       return <ReaderTable block={block} contentVersion={contentVersion} materialId={materialId} path={path} />;
-    case "callout":
-      return (
-        <MaterialCallout title={block.title} tone={block.tone}>
-          <ReaderBlocks blocks={block.content} contentVersion={contentVersion} materialId={materialId} path={path} />
-        </MaterialCallout>
-      );
-    case "resource_card":
-      return (
-        <MaterialResourceCard
-          description={block.description}
-          title={block.title}
-          url={block.url}
-        />
-      );
     case "agent_prompt":
-      return <MaterialAgentPrompt text={block.text} title={block.title} />;
+    case "callout":
+    case "key_point":
+    case "labeled_list":
+    case "resource_card":
     case "takeaways":
       return (
-        <MaterialTakeaways
-          items={block.content.map((item, index) => (
-            <ReaderBlockView
-              block={item}
-              contentVersion={contentVersion}
-              key={[...path, index].join("-")}
-              materialId={materialId}
-              path={[...path, index]}
-            />
-          ))}
-          title={block.title}
+        <MaterialLessonBlock
+          block={block}
+          rendering={{
+            renderBlock: (child, index) => (
+              <ReaderBlockView
+                block={child}
+                contentVersion={contentVersion}
+                key={[...path, index].join("-")}
+                materialId={materialId}
+                path={[...path, index]}
+              />
+            ),
+            renderBlocks: (blocks) => (
+              <ReaderBlocks blocks={blocks} contentVersion={contentVersion} materialId={materialId} path={path} />
+            ),
+            renderInline: (content) => <ReaderInline content={content} />,
+          }}
         />
-      );
-    case "labeled_list":
-      return <MaterialLabeledList rows={block.rows} />;
-    case "key_point":
-      return (
-        <MaterialKeyPoint>
-          <ReaderInline content={block.content} />
-        </MaterialKeyPoint>
       );
     case "image":
       return (

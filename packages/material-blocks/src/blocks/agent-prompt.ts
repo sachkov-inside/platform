@@ -3,7 +3,7 @@ import { z } from "zod";
 import { defineMaterialBlock } from "../block-definition.js";
 import { nodeAttributes, optionalText } from "../document-node.js";
 import { inlineText } from "../rendered-block.js";
-import { optionalTitleIssue, titleAttributeSchema } from "./block-fields.js";
+import { attributeText, optionalTextIssue, titleAttributeSchema } from "./block-fields.js";
 
 /**
  * A prompt the reader copies and runs. The body is verbatim text like a code block: newlines are
@@ -11,7 +11,7 @@ import { optionalTitleIssue, titleAttributeSchema } from "./block-fields.js";
  */
 export const agentPromptBlock = defineMaterialBlock<"agent_prompt">({
   issues: (node, report) => {
-    optionalTitleIssue(node, report, "invalid_agent_prompt_title");
+    optionalTextIssue(node, report, "invalid_agent_prompt_title");
   },
   kind: "agent_prompt",
   node: {
@@ -19,14 +19,21 @@ export const agentPromptBlock = defineMaterialBlock<"agent_prompt">({
     code: true,
     content: "text*",
     defining: true,
+    domAttributes: { title: "data-agent-prompt-title" },
     group: "block",
     marks: "",
     parseContent: "[data-agent-prompt-body]",
     parseHTML: ['div[data-material-block="agentPrompt"]'],
-    renderHTML: ({ title, ...attributes }) => [
+    // The prompt is what the reader pastes, so its line breaks survive the DOM round trip.
+    preserveWhitespace: "full",
+    renderHTML: (attributes) => [
       "div",
       { ...attributes, "data-material-block": "agentPrompt" },
-      ["p", { "data-agent-prompt-title": "" }, typeof title === "string" ? title : ""],
+      [
+        "p",
+        { "data-agent-prompt-name": "" },
+        attributeText(attributes["data-agent-prompt-title"]),
+      ],
       ["pre", { "data-agent-prompt-body": "" }, ["code", {}, 0]],
     ],
   },

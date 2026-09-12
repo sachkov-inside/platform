@@ -8,8 +8,12 @@ import type { ReactNode } from "react";
 import { Button } from "@/shared/ui/button";
 import { isUnknownArray, isUnknownRecord } from "@inside/material-blocks";
 
+/**
+ * Поля стоят там же, где у читателя стоит текст, и набраны тем же размером: автор видит блок,
+ * а не форму рядом с ним. Рамка поля появляется только под курсором и в фокусе.
+ */
 const fieldClass =
-  "w-full min-w-0 rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  "w-full min-w-0 rounded-lg border border-transparent bg-transparent px-2 py-1 text-foreground outline-none hover:border-input focus:border-input focus-visible:ring-2 focus-visible:ring-ring";
 
 /** Рамка блока-формы: те же поля, что увидит читатель, и те же действия, что у вложения. */
 function BlockForm({
@@ -27,7 +31,7 @@ function BlockForm({
 }) {
   return (
     <NodeViewWrapper
-      className="group relative my-6 rounded-xl border border-border bg-card p-4"
+      className="group relative my-8 rounded-xl border border-border bg-card px-5 py-5 sm:px-6"
       contentEditable={false}
       data-material-block-form={kind}
     >
@@ -46,7 +50,7 @@ function BlockForm({
         </button>
       </div>
       <p className="font-mono text-[0.6875rem] text-muted-foreground">{label}</p>
-      <div className="mt-3 grid gap-2">{children}</div>
+      <div className="mt-2 grid gap-1">{children}</div>
     </NodeViewWrapper>
   );
 }
@@ -68,7 +72,7 @@ export function MaterialResourceCardNodeView({
     <BlockForm deleteNode={deleteNode} editable={editable} kind="resourceCard" label="Ресурс">
       <input
         aria-label="Название ресурса"
-        className={fieldClass}
+        className={`${fieldClass} text-base font-semibold`}
         disabled={!editable}
         onChange={(event) => {
           updateAttributes({ title: event.currentTarget.value });
@@ -76,9 +80,19 @@ export function MaterialResourceCardNodeView({
         placeholder="Название"
         value={attributeText(node.attrs.title)}
       />
+      <textarea
+        aria-label="Описание ресурса"
+        className={`${fieldClass} min-h-14 resize-y text-[0.9375rem] leading-7 text-body-muted`}
+        disabled={!editable}
+        onChange={(event) => {
+          updateAttributes({ description: event.currentTarget.value || null });
+        }}
+        placeholder="Зачем читателю открывать ссылку"
+        value={attributeText(node.attrs.description)}
+      />
       <input
         aria-label="Адрес ресурса"
-        className={fieldClass}
+        className={`${fieldClass} font-mono text-[0.6875rem] text-muted-foreground`}
         disabled={!editable}
         onChange={(event) => {
           updateAttributes({ url: event.currentTarget.value });
@@ -86,16 +100,6 @@ export function MaterialResourceCardNodeView({
         placeholder="https://…"
         type="url"
         value={attributeText(node.attrs.url)}
-      />
-      <textarea
-        aria-label="Описание ресурса"
-        className={`${fieldClass} min-h-16 resize-y`}
-        disabled={!editable}
-        onChange={(event) => {
-          updateAttributes({ description: event.currentTarget.value || null });
-        }}
-        placeholder="Зачем читателю открывать ссылку"
-        value={attributeText(node.attrs.description)}
       />
     </BlockForm>
   );
@@ -131,12 +135,12 @@ export function MaterialLabeledListNodeView({
     <BlockForm deleteNode={deleteNode} editable={editable} kind="labeledList" label="Термины">
       {rows.map((row, index) => (
         <div
-          className="grid gap-2 rounded-lg bg-muted/40 p-2 sm:grid-cols-[minmax(6rem,9rem)_1fr_auto]"
+          className="grid items-start gap-x-4 gap-y-1 border-t border-border py-3 first:border-t-0 sm:grid-cols-[minmax(6rem,10rem)_1fr_auto]"
           key={index}
         >
           <input
             aria-label={`Метка строки ${String(index + 1)}`}
-            className={fieldClass}
+            className={`${fieldClass} mt-1 justify-self-start rounded-md bg-muted font-mono text-[0.6875rem] text-muted-foreground`}
             disabled={!editable}
             onChange={(event) => {
               writeRows(
@@ -150,10 +154,10 @@ export function MaterialLabeledListNodeView({
             placeholder="Метка"
             value={row.label}
           />
-          <div className="grid gap-2">
+          <div className="grid gap-1">
             <input
               aria-label={`Название строки ${String(index + 1)}`}
-              className={fieldClass}
+              className={`${fieldClass} font-semibold`}
               disabled={!editable}
               onChange={(event) => {
                 writeRows(
@@ -169,7 +173,7 @@ export function MaterialLabeledListNodeView({
             />
             <input
               aria-label={`Пояснение строки ${String(index + 1)}`}
-              className={fieldClass}
+              className={`${fieldClass} text-[0.9375rem] leading-7 text-body-muted`}
               disabled={!editable}
               onChange={(event) => {
                 const description = event.currentTarget.value;

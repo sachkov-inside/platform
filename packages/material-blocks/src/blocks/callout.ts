@@ -1,10 +1,11 @@
 import { z } from "zod";
 
 import { defineMaterialBlock } from "../block-definition.js";
+import { attributeText } from "./block-fields.js";
 import { nodeAttributes, optionalText } from "../document-node.js";
 import { stringAttribute } from "../json.js";
 import type { RenderedBlock } from "../rendered-block.js";
-import { optionalTitleIssue, titleAttributeSchema } from "./block-fields.js";
+import { optionalTextIssue, titleAttributeSchema } from "./block-fields.js";
 import { nestedBlocks } from "./nested-blocks.js";
 
 /**
@@ -51,21 +52,22 @@ export const calloutBlock = defineMaterialBlock<"callout">({
     if (!isCalloutTone(stringAttribute(node, "kind"))) {
       report("invalid_callout_kind", "kind");
     }
-    optionalTitleIssue(node, report, "invalid_callout_title");
+    optionalTextIssue(node, report, "invalid_callout_title");
   },
   kind: "callout",
   node: {
     attributes: { kind: "note", title: null },
     content: "block+",
     defining: true,
+    // A plain `title` would turn the whole callout into a native tooltip, so the name travels
+    // through its own DOM attribute and comes back from it on paste.
+    domAttributes: { title: "data-callout-title" },
     group: "block",
     parseContent: "[data-callout-body]",
     // One DOM contract for both applications: the server's, which writes the real kind. The
     // editor's copy hardcoded `note`, which only ever reached the clipboard.
     parseHTML: ["aside[data-callout]"],
-    // The name stays out of the element attributes: an HTML `title` would turn the whole callout
-    // into a tooltip. Both surfaces read it from its own element instead.
-    renderHTML: ({ title, ...attributes }) => [
+    renderHTML: (attributes) => [
       "aside",
       { ...attributes, "data-callout": attributes.kind },
       [
@@ -73,7 +75,7 @@ export const calloutBlock = defineMaterialBlock<"callout">({
         { "data-callout-kind": "" },
         calloutToneLabels[isCalloutTone(attributes.kind) ? attributes.kind : "note"],
       ],
-      ["p", { "data-callout-title": "" }, typeof title === "string" ? title : ""],
+      ["p", { "data-callout-name": "" }, attributeText(attributes["data-callout-title"])],
       ["div", { "data-callout-body": "" }, 0],
     ],
   },

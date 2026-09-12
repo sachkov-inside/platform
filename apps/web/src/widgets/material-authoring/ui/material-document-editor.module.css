@@ -24,15 +24,15 @@
   color: var(--callout-ink);
 }
 
-.content :global(.ProseMirror [data-callout-title]),
-.content :global(.ProseMirror [data-takeaways-title]),
-.content :global(.ProseMirror [data-agent-prompt-title]) {
+.content :global(.ProseMirror [data-callout-name]),
+.content :global(.ProseMirror [data-takeaways-name]),
+.content :global(.ProseMirror [data-agent-prompt-name]) {
   margin: 0.25rem 0 0;
   font-weight: 600;
 }
 
-.content :global(.ProseMirror [data-callout-title]:empty),
-.content :global(.ProseMirror [data-agent-prompt-title]:empty) {
+.content :global(.ProseMirror [data-callout-name]:empty),
+.content :global(.ProseMirror [data-agent-prompt-name]:empty) {
   display: none;
 }
 

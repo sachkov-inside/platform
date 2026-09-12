@@ -7,6 +7,11 @@ import { isJsonObject } from "../json.js";
 /** Rendered shape of a field the author may leave unset. */
 export const titleAttributeSchema = z.string().optional();
 
+/** Text a rendered DOM attribute carries; anything else is printed as nothing. */
+export function attributeText(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
 function attributeValue(node: JsonObject, name: string): unknown {
   const attributes = node.attrs;
   return isJsonObject(attributes) ? attributes[name] : undefined;
@@ -16,7 +21,7 @@ function attributeValue(node: JsonObject, name: string): unknown {
  * An optional text field is absent, `null` or a string. Anything else is a defect in the writing
  * client rather than an authoring mistake, so it fails closed with the block's own code.
  */
-export function optionalTitleIssue(
+export function optionalTextIssue(
   node: JsonObject,
   report: MaterialBlockIssueReport,
   code: string,

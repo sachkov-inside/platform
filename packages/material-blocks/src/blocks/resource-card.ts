@@ -3,7 +3,7 @@ import { z } from "zod";
 import { defineMaterialBlock } from "../block-definition.js";
 import { expectString, nodeAttributes, optionalText } from "../document-node.js";
 import { isJsonObject } from "../json.js";
-import { optionalTitleIssue, requiredTextIssue } from "./block-fields.js";
+import { attributeText, optionalTextIssue, requiredTextIssue } from "./block-fields.js";
 
 /** The address a reader may open from a lesson: an absolute https link and nothing else. */
 const resourceUrlSchema = z.url({ protocol: /^https$/u });
@@ -22,25 +22,24 @@ export const resourceCardBlock = defineMaterialBlock<"resource_card">({
     if (urlIssue(attributes?.url)) {
       report("invalid_resource_url", "url");
     }
-    optionalTitleIssue(node, report, "invalid_resource_description", "description");
+    optionalTextIssue(node, report, "invalid_resource_description", "description");
   },
   kind: "resource_card",
   node: {
     atom: true,
     attributes: { description: null, title: "", url: "" },
+    // `title` is a real HTML attribute; the other two travel under their own names, as the asset
+    // blocks already do, so a copied card comes back whole.
+    domAttributes: { title: "data-resource-title" },
     draggable: true,
     group: "block",
     parseHTML: ['[data-material-block="resourceCard"]'],
-    renderHTML: ({ description, title, url, ...attributes }) => [
+    renderHTML: (attributes) => [
       "div",
       { ...attributes, "data-material-block": "resourceCard" },
-      ["p", { "data-resource-title": "" }, typeof title === "string" ? title : ""],
-      [
-        "p",
-        { "data-resource-description": "" },
-        typeof description === "string" ? description : "",
-      ],
-      ["a", { href: typeof url === "string" ? url : "" }, "Открыть"],
+      ["p", {}, attributeText(attributes["data-resource-title"])],
+      ["p", {}, attributeText(attributes.description)],
+      ["a", { href: attributeText(attributes.url) }, "Открыть"],
     ],
   },
   render: (node) => {

@@ -9,6 +9,7 @@ export {
   publishedMaterialProjectionSchema,
   toMaterialPreview,
   materialTaxonomyLabel,
+  calloutTones,
   type CalloutTone,
   type MaterialLabeledRow,
   renderedBlockSchema,
@@ -22,11 +23,13 @@ export {
 } from "../material.model";
 export { MaterialCard, type MaterialCardProps } from "./ui/material-card";
 export {
-  calloutToneOrder,
   calloutTonePresentation,
   MaterialAgentPrompt,
   MaterialCallout,
   MaterialKeyPoint,
+  MaterialLessonBlock,
+  type LessonBlock,
+  type LessonBlockRendering,
   MaterialLabeledList,
   MaterialResourceCard,
   MaterialTakeaways,

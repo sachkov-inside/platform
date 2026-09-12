@@ -5,6 +5,7 @@ import type {
   MaterialReaderMetadata,
   ReaderBlock,
 } from "@/_pages/material-reader/model/material-reader-view";
+import { calloutTones } from "@/entities/material";
 import {
   materialReaderHref,
   parseMaterialReaderReturnTarget,
@@ -184,16 +185,6 @@ const body = [
     label: "Чек-лист проверки repository-owned skill",
   },
 ] as const satisfies readonly ReaderBlock[];
-
-const calloutTones = [
-  "note",
-  "tip",
-  "warning",
-  "example",
-  "good",
-  "bad",
-  "definition",
-] as const;
 
 /** Урок из блоков: по одному блоку каждого вида в обычном состоянии. */
 const lessonBody = [

@@ -29,13 +29,3 @@ export function calloutTonePresentation(tone: CalloutTone): {
   return { icon: icons[tone], label: calloutToneLabels[tone] };
 }
 
-/** Порядок видов для меню вставки и переключателя: сначала прежние три, затем новые. */
-export const calloutToneOrder: readonly CalloutTone[] = [
-  "note",
-  "tip",
-  "warning",
-  "example",
-  "good",
-  "bad",
-  "definition",
-];

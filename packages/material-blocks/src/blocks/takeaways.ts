@@ -3,7 +3,7 @@ import { z } from "zod";
 import { defineMaterialBlock } from "../block-definition.js";
 import { expectString, nodeAttributes } from "../document-node.js";
 import type { RenderedBlock } from "../rendered-block.js";
-import { requiredTextIssue } from "./block-fields.js";
+import { attributeText, requiredTextIssue } from "./block-fields.js";
 import { nestedBlocks } from "./nested-blocks.js";
 
 const nested = nestedBlocks<Extract<RenderedBlock, { kind: "takeaways" }>>();
@@ -20,13 +20,14 @@ export const takeawaysBlock = defineMaterialBlock<"takeaways">({
     attributes: { title: "" },
     content: "paragraph+",
     defining: true,
+    domAttributes: { title: "data-takeaways-title" },
     group: "block",
     parseContent: "[data-takeaways-body]",
     parseHTML: ['section[data-material-block="takeaways"]'],
-    renderHTML: ({ title, ...attributes }) => [
+    renderHTML: (attributes) => [
       "section",
       { ...attributes, "data-material-block": "takeaways" },
-      ["p", { "data-takeaways-title": "" }, typeof title === "string" ? title : ""],
+      ["p", { "data-takeaways-name": "" }, attributeText(attributes["data-takeaways-title"])],
       ["div", { "data-takeaways-body": "" }, 0],
     ],
   },

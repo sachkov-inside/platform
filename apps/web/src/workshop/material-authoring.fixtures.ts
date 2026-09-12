@@ -15,6 +15,48 @@ const paragraph = (value: string): MaterialPreviewBlock => ({
   kind: "paragraph",
 });
 
+const longFixtureText =
+  "Длинный текст без переносов проверяет перенос строк и горизонтальную прокрутку: " +
+  "решение фиксируется один раз, а проверка повторяется на каждом изменении, поэтому " +
+  "формулировка остаётся длинной и подробной даже на узком экране.";
+
+/** Блоки урока с длинным содержимым: проверка переноса на самой узкой ширине. */
+export const longLessonBlocks: readonly MaterialPreviewBlock[] = [
+  { content: [text(longFixtureText)], kind: "key_point" },
+  {
+    content: [paragraph(longFixtureText)],
+    kind: "callout",
+    title: longFixtureText,
+    tone: "warning",
+  },
+  {
+    description: longFixtureText,
+    kind: "resource_card",
+    title: longFixtureText,
+    url: "https://example.com/очень/длинный/адрес/страницы/с/разделами",
+  },
+  {
+    kind: "agent_prompt",
+    text: `${longFixtureText}\n${longFixtureText}`,
+    title: longFixtureText,
+  },
+  { content: [paragraph(longFixtureText)], kind: "takeaways", title: longFixtureText },
+  {
+    kind: "labeled_list",
+    rows: [{ description: longFixtureText, label: "Длинная метка", name: longFixtureText }],
+  },
+];
+
+/** Незаполненные блоки урока: автор вставил блок и ещё не написал содержимое. */
+export const emptyLessonBlocks: readonly MaterialPreviewBlock[] = [
+  { content: [], kind: "key_point" },
+  { content: [], kind: "callout", tone: "note" },
+  { kind: "resource_card", title: "", url: "" },
+  { kind: "agent_prompt", text: "" },
+  { content: [], kind: "takeaways", title: "" },
+  { kind: "labeled_list", rows: [] },
+];
+
 const contentVersion = 3;
 export const savedContentVersion = 4;
 

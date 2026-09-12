@@ -246,20 +246,19 @@ describe("MaterialBodyOperations", () => {
   });
 
   test("reports the field rule of every lesson block and keeps stored callouts valid", () => {
-    const documentOperations = materialBodyOperations;
-
     for (const [fixture, code] of [
       ["invalid-callout-kind", "invalid_callout_kind"],
       ["invalid-callout-title", "invalid_callout_title"],
       ["missing-resource-title", "missing_resource_title"],
       ["invalid-resource-url", "invalid_resource_url"],
+      ["invalid-resource-description", "invalid_resource_description"],
       ["invalid-agent-prompt-title", "invalid_agent_prompt_title"],
       ["missing-takeaways-title", "missing_takeaways_title"],
       ["invalid-labeled-rows", "invalid_labeled_rows"],
       // A key point holds inline text only, so a nested block never reaches a field rule.
       ["invalid-key-point-content", "invalid_prosemirror_document"],
     ] as const) {
-      expect([fixture, documentOperations.accept(invalidFixture(fixture))]).toMatchObject([
+      expect([fixture, materialBodyOperations.accept(invalidFixture(fixture))]).toMatchObject([
         fixture,
         { ok: false, error: { issues: [{ code }] } },
       ]);
@@ -285,26 +284,21 @@ describe("MaterialBodyOperations", () => {
         ],
       },
     } as const;
-    const accepted = documentOperations.accept(stored);
+    const accepted = materialBodyOperations.accept(stored);
     expect(accepted).toEqual({ ok: true, value: stored });
     if (!accepted.ok) throw new Error("Stored callout must stay valid");
-    expect(documentOperations.render(accepted.value)).toMatchObject({
-      ok: true,
-      value: {
-        blocks: [
-          {
-            content: [
-              { content: [{ kind: "text", marks: [], text: "Старая врезка" }], kind: "paragraph" },
-            ],
-            kind: "callout",
-            tone: "note",
-          },
-        ],
-      },
-    });
-    const rendered = documentOperations.render(accepted.value);
+    const rendered = materialBodyOperations.render(accepted.value);
     if (!rendered.ok) throw new Error("Stored callout must render");
-    expect(Object.hasOwn(rendered.value.blocks[0] ?? {}, "title")).toBe(false);
+    // A callout the author never named carries no name at all, not an empty one.
+    expect(rendered.value.blocks).toEqual([
+      {
+        content: [
+          { content: [{ kind: "text", marks: [], text: "Старая врезка" }], kind: "paragraph" },
+        ],
+        kind: "callout",
+        tone: "note",
+      },
+    ]);
   });
 
   test("rejects the removed legacy inline Video node", () => {

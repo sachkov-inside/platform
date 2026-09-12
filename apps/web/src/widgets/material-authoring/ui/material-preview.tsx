@@ -1,15 +1,7 @@
 import type { ReactNode } from "react";
 
 import { MaterialAssetFile, MaterialAssetImage } from "@/features/material-assets";
-import {
-  materialTaxonomyLabel,
-  MaterialAgentPrompt,
-  MaterialCallout,
-  MaterialKeyPoint,
-  MaterialLabeledList,
-  MaterialResourceCard,
-  MaterialTakeaways,
-} from "@/entities/material";
+import { materialTaxonomyLabel, MaterialLessonBlock } from "@/entities/material";
 
 import type {
   MaterialPreviewBlock,
@@ -109,35 +101,30 @@ function PreviewBlock({ block, contentVersion, materialId }: {
       return <hr className="my-10 border-border" />;
     case "table":
       return <PreviewTable block={block} contentVersion={contentVersion} materialId={materialId} />;
-    case "callout":
-      return (
-        <MaterialCallout title={block.title} tone={block.tone}>
-          <div className="mt-2 space-y-3">
-            {block.content.map((child, index) => (
-              <PreviewBlock block={child} contentVersion={contentVersion} key={`${child.kind}-${String(index)}`} materialId={materialId} />
-            ))}
-          </div>
-        </MaterialCallout>
-      );
-    case "resource_card":
-      return (
-        <MaterialResourceCard description={block.description} title={block.title} url={block.url} />
-      );
     case "agent_prompt":
-      return <MaterialAgentPrompt text={block.text} title={block.title} />;
+    case "callout":
+    case "key_point":
+    case "labeled_list":
+    case "resource_card":
     case "takeaways":
       return (
-        <MaterialTakeaways
-          items={block.content.map((child, index) => (
-            <PreviewBlock block={child} contentVersion={contentVersion} key={`${child.kind}-${String(index)}`} materialId={materialId} />
-          ))}
-          title={block.title}
+        <MaterialLessonBlock
+          block={block}
+          rendering={{
+            renderBlock: (child, index) => (
+              <PreviewBlock block={child} contentVersion={contentVersion} key={`${child.kind}-${String(index)}`} materialId={materialId} />
+            ),
+            renderBlocks: (blocks) => (
+              <div className="mt-2 space-y-3">
+                {blocks.map((child, index) => (
+                  <PreviewBlock block={child} contentVersion={contentVersion} key={`${child.kind}-${String(index)}`} materialId={materialId} />
+                ))}
+              </div>
+            ),
+            renderInline: (content) => renderInline(content),
+          }}
         />
       );
-    case "labeled_list":
-      return <MaterialLabeledList rows={block.rows} />;
-    case "key_point":
-      return <MaterialKeyPoint>{renderInline(block.content)}</MaterialKeyPoint>;
     case "image":
       return (
         <MaterialAssetImage

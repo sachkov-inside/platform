@@ -43,7 +43,7 @@ import {
 
 import { EditorAssetContext } from "./material-asset-node-view.client";
 import { MaterialBlockFields } from "./material-block-fields.client";
-import { calloutToneOrder, calloutTonePresentation } from "@/entities/material";
+import { calloutTones, calloutTonePresentation } from "@/entities/material";
 import { Button } from "@/shared/ui/button";
 import { cn } from "@/shared/lib/utils";
 import styles from "./material-document-editor.module.css";
@@ -195,12 +195,14 @@ export function MaterialDocumentEditor({
     );
   }
 
-  const blocks: readonly {
+  interface BlockOption {
     name: string;
     icon: LucideIcon;
     run: () => unknown;
     deferInsertion?: boolean;
-  }[] = [
+  }
+  // Текстовые блоки стоят до вложений, остальные после: порядок групп, а не индекс среза.
+  const textBlocks: readonly BlockOption[] = [
     {
       name: "Текст",
       icon: Type,
@@ -221,6 +223,8 @@ export function MaterialDocumentEditor({
       icon: Heading4,
       run: () => editor.chain().focus().toggleHeading({ level: 4 }).run(),
     },
+  ];
+  const richBlocks: readonly BlockOption[] = [
     {
       name: "Список",
       icon: List,
@@ -257,7 +261,7 @@ export function MaterialDocumentEditor({
           .run(),
     },
     // Каждый вид врезки вставляется своим пунктом: иначе `tip` и остальные виды недостижимы.
-    ...calloutToneOrder.map((tone) => ({
+    ...calloutTones.map((tone) => ({
       name: calloutTonePresentation(tone).label,
       icon: calloutTonePresentation(tone).icon,
       run: () =>
@@ -325,7 +329,7 @@ export function MaterialDocumentEditor({
       },
     },
   ];
-  const blockOptions = (options: typeof blocks) =>
+  const blockOptions = (options: readonly BlockOption[]) =>
     options
       .filter((block) =>
         block.name
@@ -490,7 +494,7 @@ export function MaterialDocumentEditor({
             placeholder="Найти блок…"
             value={menuSearch}
           />
-          {blockOptions(blocks.slice(0, 4))}
+          {blockOptions(textBlocks)}
           <MaterialAssetUploadButtons
             controller={assetUploads}
             disabled={disabled || materialId === null}
@@ -500,7 +504,7 @@ export function MaterialDocumentEditor({
             }}
             search={menuSearch}
           />
-          {blockOptions(blocks.slice(4))}
+          {blockOptions(richBlocks)}
         </div>
         {selection && !menuOpen ? (
           <div
