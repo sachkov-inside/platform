@@ -8,12 +8,12 @@ export const repositoryEnvPath = fileURLToPath(
 );
 
 /**
- * Личный `.env` описывает обстановку одной машины: порты, которые разработчик занял под свой стенд.
- * Тестовый процесс — не развёрнутое окружение, и собирать из этого файла нечего: проверка иначе
- * подтверждает не поведение кода, а содержимое чужого файла и краснеет у человека со своим стендом.
- * Файл остаётся источником для локального запуска, где он и нужен.
+ * Какой env-файл берёт композиция Nest, когда собирает конфигурацию сама. У тестового режима такого
+ * файла нет: личный `.env` описывает обстановку одной машины, и собранная из него проверка
+ * подтверждала бы содержимое чужого диска. Скрипт, которому личное окружение нужно, просит его сам
+ * через `loadRepositoryEnvironment`. Правило описано в `docs/runbooks/runtime-configuration.md`.
  */
-export function repositoryEnvFilePath(
+export function composedEnvFilePath(
   environment: NodeJS.ProcessEnv = process.env,
 ): string | undefined {
   return parsePlatformMode(environment.NODE_ENV) === "test"
@@ -28,9 +28,8 @@ export function loadRepositoryEnvironment(): void {
     return;
   }
 
-  const path = repositoryEnvFilePath();
-  if (path !== undefined && existsSync(path)) {
-    process.loadEnvFile(path);
+  if (existsSync(repositoryEnvPath)) {
+    process.loadEnvFile(repositoryEnvPath);
   }
 
   loaded = true;

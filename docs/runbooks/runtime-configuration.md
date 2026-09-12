@@ -6,8 +6,9 @@ same application; it does not become another application environment.
 
 Both applications expose one typed, immutable configuration object to application code:
 
-- NestJS loads the optional repository `.env` through `@nestjs/config`, validates the complete
-  process environment with Zod, and provides one `PlatformConfig` through dependency injection.
+- NestJS loads the optional repository `.env` through `@nestjs/config` outside test mode, validates
+  the complete process environment with Zod, and provides one `PlatformConfig` through dependency
+  injection. A script that needs the developer's environment loads that file explicitly instead.
 - Next.js reads server-side runtime variables, validates one `WebRuntimeConfig` during Node.js
   server startup, and derives backend transport and Logto BFF configuration from it.
 
@@ -21,15 +22,19 @@ An already exported process or container variable wins over a value from an env 
 defaults apply only when `NODE_ENV` is `development` or `test`. Missing `NODE_ENV` is treated as
 `production`, so a production process cannot silently start with local credentials or endpoints.
 
-A test-mode process reads no env file at all. The repository `.env` holds the settings of one
-machine, so a check that loaded it would confirm what a developer keeps on disk instead of what the
-code does, and would turn red for anyone running an isolated stack on their own ports. Tests declare
-the environment they rely on.
+When NestJS composes the configuration itself, a test-mode process takes no env file. The
+repository `.env` holds the settings of one machine, so a check assembled from it would confirm what
+a developer keeps on disk instead of what the code does, and would turn red for anyone running an
+isolated stack on their own ports. Tests declare the environment they rely on.
 
-`NODE_ENV` is the only thing that separates the two: exactly `test` drops the env file, and every
-other value — including an absent one, which is production — keeps it. So a local run reads `.env`
-as before, and starting an application with `NODE_ENV=test` deliberately gives it local defaults
-and no env file.
+`NODE_ENV` is the only thing that separates the two, and the decision reads the exported process
+environment before any file is loaded: exactly `test` takes no file, and every other value —
+including an absent one, which is production — takes the repository `.env`. So a local run reads it
+as before, and a `.env` that sets `NODE_ENV` still selects the mode it always did.
+
+This governs the composed configuration only. A seed, migration, release or smoke script that wants
+the developer's own stack asks for that file itself and keeps it in every mode, because it is the
+one asking.
 
 | Source | Tracked | Contains | Consumer |
 | --- | --- | --- | --- |
