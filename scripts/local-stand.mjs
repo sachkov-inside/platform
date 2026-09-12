@@ -1,6 +1,7 @@
 // Один стенд: приложение целиком плюс вход. Одна команда доводит его до состояния, в котором
 // владелец входит по коду из письма и покупает, не переключая окружения.
 import { spawn } from "node:child_process";
+import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
@@ -45,7 +46,11 @@ try {
       "The Platform Compose stack is already running and belongs to another session. Use that owner's handoff, or stop the stand with docker compose --profile identity down before pnpm local:stand.",
     );
   }
+  await runPnpm(["platform:doctor"]);
   await runPnpm(["identity:proof:certs"]);
+  // Значения входа принадлежат тому арендатору, которого настроит этот запуск: оставшийся файл
+  // описывал бы прежнего, а его на стенде уже нет.
+  await rm(resolve(repositoryRoot, ".identity-proof/stand.env"), { force: true });
   shouldCleanupCompose = true;
   // Сначала поднимается вход: bootstrap настраивает уже работающий Logto, а не наоборот.
   await compose(["up", "--detach", "--build", "--wait", "logto-postgres", "logto"]);
@@ -99,6 +104,9 @@ async function run(command, arguments_, { capture = false, extraEnvironment = {}
     stdio: capture ? ["ignore", "pipe", "pipe"] : "inherit",
   });
   activeProcesses.add(child);
+  const failedToStart = new Promise((_, rejectStart) => {
+    child.once("error", rejectStart);
+  });
   let output = "";
   if (capture) {
     child.stdout?.on("data", (chunk) => {
@@ -108,9 +116,12 @@ async function run(command, arguments_, { capture = false, extraEnvironment = {}
       output += chunk.toString();
     });
   }
-  const exitCode = await new Promise((resolveExit) => {
-    child.once("exit", (code) => resolveExit(code));
-  });
+  const exitCode = await Promise.race([
+    new Promise((resolveExit) => {
+      child.once("exit", (code) => resolveExit(code));
+    }),
+    failedToStart,
+  ]);
   activeProcesses.delete(child);
   if (exitCode !== 0) {
     throw new Error(

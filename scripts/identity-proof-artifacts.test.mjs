@@ -45,11 +45,12 @@ test("identity proof dependencies and fork lineage are immutable", async () => {
   assert.match(compose, new RegExp(versions.mailpit.digest, "u"));
   // Вход стенда живёт в основном Compose и должен быть тем же образом, что у одноразового
   // окружения: два стенда с разными Logto расходятся молча.
-  assert.match(standCompose, new RegExp(`inside/logto-proof:${versions.logto.version}-${versions.logto.forkRevision}`, "u"));
+  const standImage = `inside/logto-proof:${versions.logto.version}-${versions.logto.forkRevision}`;
+  assert.match(standCompose, new RegExp(standImage.replaceAll(".", "\\."), "u"));
   assert.match(standCompose, new RegExp(versions.postgres.digest, "u"));
   assert.match(standCompose, new RegExp(versions.mailpit.digest, "u"));
   assert.equal(webPackage.dependencies["@logto/next"], versions.logtoNext);
-  assert.doesNotMatch(`${dockerfile}\n${compose}`, /(?:latest|npx\s)/u);
+  assert.doesNotMatch(`${dockerfile}\n${compose}\n${standCompose}`, /(?:latest|npx\s)/u);
   assert.match(dockerfile, /issue-116-logto-proof\.patch/u);
   assert.match(dockerfile, /patch --fuzz=0/u);
   assert.match(dockerfile, /connectors\/connector-smtp[\s\S]+npm run build/u);

@@ -193,9 +193,10 @@ no manual setup is needed before buying. See [Seeded offer catalog](#seeded-offe
 
 8. Classify the account as a new buyer before subscribing. Open `/authoring/billing`, find «Кто
    этот покупатель», paste the Account id from the same row into «Определить Account», set
-   «Ожидаемая редакция» to `0` for an account with no decision yet, choose «Новый покупатель»,
-   fill «Источник» and «Основание», then press «Записать решение». Without that decision the
-   subscription refuses, and the refusal looks like a broken payment although it is a sales rule.
+   «Ожидаемая редакция» to `0` for an account with no decision yet, pick «Новый покупатель» in
+   «Состояние», fill «Источник» and «Основание», then press «Записать решение». Without that
+   decision the subscription refuses, and the refusal looks like a broken payment although it is
+   a sales rule.
 9. Subscribe on the storefront. When the guide is already bought, the larger plan asks to confirm
    the overlap with a checkbox — that is intended.
 
@@ -210,8 +211,13 @@ database already applied. Rebuild the stand and **do not wipe the data volume** 
 corrupted database and is cured by a rebuild.
 
 Wiping `logto-postgres-data` resets the sign-in tenant, and the application keeps the application
-id of the tenant that is gone. Run `pnpm local:stand` again: the bootstrap recreates the tenant and
-rewrites the generated values.
+id of the tenant that is gone. Run `pnpm local:stand` again: it drops the generated values before
+the bootstrap recreates the tenant, so the stand always holds the tenant it just configured.
+
+The generated `.identity-proof/stand.env` outlives `docker compose --profile identity down`, and
+`api` and `web` keep reading it. That changes nothing for the default stack: without the file those
+services already fall back to the same sign-in address, and sign-in answers only while the stand
+runs either way.
 
 ## Optional Storybook profile
 
