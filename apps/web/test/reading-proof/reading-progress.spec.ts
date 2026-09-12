@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
-import { resolve } from "node:path";
+import { evidencePath } from "../../../../scripts/evidence-path.mjs";
 
 for (const scenario of ["text", "member", "video", "cards", "complete-series", "empty-series", "failure", "conflict"] as const) {
   test(`${scenario}: responsive proof and accessibility`, async ({ page }, testInfo) => {
@@ -23,7 +23,7 @@ for (const scenario of ["text", "member", "video", "cards", "complete-series", "
     }
     const readingAction = page.locator("[data-reading-action-state]");
     if (await readingAction.count() > 0) await readingAction.scrollIntoViewIfNeeded();
-    await page.screenshot({ fullPage: true, animations: "disabled", path: resolve(`../../docs/evidence/issue-328/${scenario}-${testInfo.project.name}.png`) });
+    await page.screenshot({ fullPage: true, animations: "disabled", path: evidencePath("issue-328", `${scenario}-${testInfo.project.name}.png`) });
   });
 }
 

@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
-import { resolve } from "node:path";
+import { evidencePath } from "../../../../scripts/evidence-path.mjs";
 for (const scenario of ["anonymous", "signed-in-empty", "free-non-member", "member", "expired", "text-without-position", "partial-video", "reached-end-unmarked", "completed-exclusion", "partial-data", "loading", "unavailable"]) {
   test(`${scenario}: responsive personal Home`, async ({ page }, testInfo) => {
     await page.goto(`/iframe.html?id=pages-personal-home--${scenario}&viewMode=story`);
@@ -15,7 +15,7 @@ for (const scenario of ["anonymous", "signed-in-empty", "free-non-member", "memb
       await expect(link).toBeFocused();
       await expect(link).toHaveAttribute("href", /\/materials\/video-pro-developer-pipeline\?from=%2F/u);
     }
-    await page.screenshot({ fullPage: true, animations: "disabled", path: resolve(`../../docs/evidence/issue-331/${scenario}-${testInfo.project.name}.png`) });
+    await page.screenshot({ fullPage: true, animations: "disabled", path: evidencePath("issue-331", `${scenario}-${testInfo.project.name}.png`) });
   });
 }
 
