@@ -69,6 +69,10 @@ function asGrant(result: OwnerResult) {
   const value = success(result);
   if (value.outcome !== "grant") throw unexpected(value); return value;
 }
+function asClassification(result: OwnerResult) {
+  const value = success(result);
+  if (value.outcome !== "classification") throw unexpected(value); return value;
+}
 
 const config = syntheticTbankConfig({ environment: "demo", terminalKey: "SYNTHETICOWNER", password: "synthetic-test-password",
   bindingEncryptionKey: Buffer.alloc(32, 61).toString("base64"), recurringCardConfirmed: true, cardOnlyHostedConfirmed: true,
@@ -168,13 +172,23 @@ describe("владельческие операции billing: платежи, �
   const paymentIdOf = async (purchaseRef: string) =>
     (await db.prisma.billingPurchase.findUniqueOrThrow({ where: { id: purchaseRef } })).paymentId;
 
+  /** Аккаунт без истории: до решения владельца он остаётся неопределённым покупателем. */
+  async function account(): Promise<string> {
+    const id = randomUUID();
+    await db.prisma.account.create({ data: { id, logtoIssuer: "https://identity.example.test", logtoSubject: id } });
+    return id;
+  }
+  const classifyNew = (accountId: string, expectedRevision = 0) => ({ operation: "grants.classify" as const,
+    operationId: randomUUID(), accountId, expectedRevision, classification: "confirmed_new" as const,
+    sourceRef: `enrolment-${accountId}`, reason: "Заявка нового покупателя подтверждена", bridgeEnabled: false, tributeStopped: false });
+  const readClassification = (accountId: string) => ({ operation: "grants.readClassification" as const,
+    operationId: randomUUID(), accountId });
+
   async function scenario(options: { readonly benefits?: readonly string[]; readonly priceKopecks?: number } = {}) {
     now = new Date("2030-03-31T10:00:00Z");
     const buyer = randomUUID();
     const guideId = randomUUID();
     await db.prisma.account.create({ data: { id: buyer, logtoIssuer: "https://identity.example.test", logtoSubject: buyer } });
-    expect(await grants.classifyLegacy(administrator, { operationId: randomUUID(), accountId: buyer, expectedRevision: 0,
-      classification: "confirmed_new", sourceRef: buyer, reason: "Synthetic new buyer", bridgeEnabled: false, tributeStopped: false })).toMatchObject({ ok: true });
     const start = await contact.start(buyer, { operationId: randomUUID(), email: `${buyer}@example.test`, expectedRevision: 0 });
     if (!start.ok) throw new Error(start.error.code);
     expect(await contact.confirm(buyer, { operationId: randomUUID(), challengeRef: start.challengeRef, code: codes.get(start.challengeRef) })).toMatchObject({ ok: true });
@@ -190,6 +204,9 @@ describe("владельческие операции billing: платежи, �
     const notices = new BillingNotices({ prisma: db.prisma, clock: () => now });
     const subscriptions = new BillingSubscriptions({ prisma: db.prisma, bank: client, contact, grants, payments, notices, clock: () => now });
     const operations = new BillingOperations({ prisma: db.prisma, accounts, pricing, payments, subscriptions, grants, bank: client, clock: () => now });
+    // Покупателя определяет та же владельческая операция, что и в админке: иначе подписка не начнётся.
+    expect(asClassification(await operations.execute(owner, classifyNew(buyer))).value)
+      .toMatchObject({ classification: "confirmed_new", revision: 1, recurringAllowed: true });
 
     async function consentFor(contextRef: string) {
       const accepted = await contact.acceptConsents(buyer, { operationId: randomUUID(), contextRef,
@@ -218,7 +235,7 @@ describe("владельческие операции billing: платежи, �
       const applied = asGrantBatch(await operations.execute(owner, { operation: "grants.applyBatch", operationId: randomUUID(),
         previewRef: preview.previewRef, expectedRevision: preview.revision, confirmedRows: ["guide"] }));
       const row = applied.rows[0];
-      if (row === undefined || !row.result.ok) throw new Error("Manual guide grant was not applied");
+      if (row === undefined || !row.result.ok || !("grantRef" in row.result)) throw new Error("Manual guide grant was not applied");
       return row.result.grantRef;
     }
     const capabilities = async () => {
@@ -228,6 +245,76 @@ describe("владельческие операции billing: платежи, �
     };
     return { buyer, guideId, offerId, optionId, bank, payments, subscriptions, operations, buy, reserve, lifetimeGuideGrant, capabilities };
   }
+
+  test("владелец определяет покупателя: повтор не пишет второй раз, конфликт редакции не пишет вовсе", async () => {
+    const s = await scenario();
+    const target = await account();
+    // Аккаунт без решения владельца остаётся неопределённым, и автосписания ему запрещены.
+    expect(asClassification(await s.operations.execute(owner, readClassification(target))).value)
+      .toEqual({ accountId: target, classification: "unknown", revision: 0, recurringAllowed: false });
+
+    const decision = classifyNew(target);
+    expect(asClassification(await s.operations.execute(owner, decision)).value)
+      .toEqual({ accountId: target, classification: "confirmed_new", revision: 1, recurringAllowed: true });
+    // Тот же operationId возвращает сохранённый результат и не создаёт вторую запись изменения.
+    expect(asClassification(await s.operations.execute(owner, decision)).value)
+      .toEqual({ accountId: target, classification: "confirmed_new", revision: 1, recurringAllowed: true });
+    expect(await db.prisma.accessChange.count({ where: { accountId: target, kind: "legacy_classified" } })).toBe(1);
+    // Изменённая нагрузка под тем же operationId конфликтует, а не переписывает решение.
+    expect(failure(await s.operations.execute(owner, { ...decision, reason: "Другое основание того же решения" }))).toBe("operation_conflict");
+
+    // Устаревшая редакция отклоняется без записи; состояние остаётся прежним.
+    expect(failure(await s.operations.execute(owner, { ...classifyNew(target), classification: "unknown" }))).toBe("revision_conflict");
+    expect(asClassification(await s.operations.execute(owner, readClassification(target))).value)
+      .toEqual({ accountId: target, classification: "confirmed_new", revision: 1, recurringAllowed: true });
+
+    // Старый покупатель без подтверждённой остановки Tribute автосписания не получает.
+    const legacy = await account();
+    expect(asClassification(await s.operations.execute(owner, { operation: "grants.classify", operationId: randomUUID(),
+      accountId: legacy, expectedRevision: 0, classification: "confirmed_legacy", sourceRef: `tribute-${legacy}`,
+      reason: "Выгрузка старой группы", bridgeEnabled: true, tributeStopped: false })).value)
+      .toEqual({ accountId: legacy, classification: "confirmed_legacy", revision: 1, recurringAllowed: false });
+    // Полномочие то же, что у остального набора: чужой актор не читает и не меняет состояние.
+    for (const actor of [outsider, s.buyer]) {
+      expect(failure(await s.operations.execute(actor, readClassification(target)))).toBe("forbidden");
+      expect(failure(await s.operations.execute(actor, classifyNew(await account())))).toBe("forbidden");
+    }
+    expect(failure(await s.operations.execute(owner, classifyNew(randomUUID())))).toBe("not_found");
+  });
+
+  test("набор классифицируется через тот же предпросмотр и применение, что и ручная выдача", async () => {
+    const s = await scenario();
+    const [first, second] = [await account(), await account()];
+    const rows = [first, second].map((accountId, index) => ({ rowKey: `row-${String(index + 1)}`, accountId,
+      expectedRevision: 0, classification: "confirmed_new" as const, sourceRef: `cohort-${accountId}`,
+      reason: "Перенос подтверждённого участника", bridgeEnabled: false, tributeStopped: false }));
+    const preview = asGrantPreview(await s.operations.execute(owner, { operation: "grants.previewBatch",
+      operationId: randomUUID(), rows }));
+    expect(preview.rows).toEqual([{ rowKey: "row-1", accountId: first, status: "confirmed" },
+      { rowKey: "row-2", accountId: second, status: "confirmed" }]);
+    // Предпросмотр ничего не записал: состояние обоих аккаунтов не изменилось.
+    expect(await db.prisma.legacyClassification.count({ where: { accountId: { in: [first, second] } } })).toBe(0);
+
+    const applied = asGrantBatch(await s.operations.execute(owner, { operation: "grants.applyBatch", operationId: randomUUID(),
+      previewRef: preview.previewRef, expectedRevision: preview.revision, confirmedRows: ["row-1", "row-2"] }));
+    expect(applied.rows).toEqual([{ rowKey: "row-1", result: { ok: true, classification: "confirmed_new", revision: 1 } },
+      { rowKey: "row-2", result: { ok: true, classification: "confirmed_new", revision: 1 } }]);
+    for (const accountId of [first, second])
+      expect(asClassification(await s.operations.execute(owner, readClassification(accountId))).value)
+        .toMatchObject({ classification: "confirmed_new", revision: 1, recurringAllowed: true });
+
+    // Одна устаревшая строка отменяет весь набор: соседний аккаунт остаётся неопределённым.
+    const [third, fourth] = [await account(), await account()];
+    const stale = asGrantPreview(await s.operations.execute(owner, { operation: "grants.previewBatch", operationId: randomUUID(),
+      rows: [third, fourth].map((accountId, index) => ({ rowKey: `stale-${String(index + 1)}`, accountId, expectedRevision: 0,
+        classification: "confirmed_new" as const, sourceRef: `cohort-${accountId}`, reason: "Перенос подтверждённого участника",
+        bridgeEnabled: false, tributeStopped: false })) }));
+    expect(asClassification(await s.operations.execute(owner, classifyNew(third))).value).toMatchObject({ revision: 1 });
+    expect(failure(await s.operations.execute(owner, { operation: "grants.applyBatch", operationId: randomUUID(),
+      previewRef: stale.previewRef, expectedRevision: stale.revision, confirmedRows: ["stale-1", "stale-2"] }))).toBe("revision_conflict");
+    expect(asClassification(await s.operations.execute(owner, readClassification(fourth))).value)
+      .toMatchObject({ classification: "unknown", revision: 0 });
+  });
 
   test("владелец читает платежи, условия и остаток к возврату без банковских секретов", async () => {
     const s = await scenario();

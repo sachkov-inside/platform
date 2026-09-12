@@ -22,6 +22,7 @@ const meta = {
     payment: null,
     refunds: null,
     grants: null,
+    classification: null,
     preview: null,
     batch: null,
     onSaveOffer: fn(),
@@ -40,6 +41,8 @@ const meta = {
     onExecuteRefund: fn(),
     onReadRefunds: fn(),
     onReadGrants: fn(),
+    onReadClassification: fn(),
+    onClassifyAccount: fn(),
     onExtendGrant: fn(),
     onRevokeGrant: fn(),
     onPreviewBatch: fn(),
@@ -156,6 +159,47 @@ export const GrantPreview: Story = {
   },
 };
 
+/** Нераспознанный покупатель: подписка ему недоступна, пока владелец не примет решение. */
+export const ClassificationUnknown: Story = {
+  args: {
+    classification: {
+      accountId,
+      classification: "unknown",
+      revision: 0,
+      recurringAllowed: false,
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("heading", { name: "Кто этот покупатель" }),
+    ).toBeInTheDocument();
+    await expect(
+      canvas.getByText("неизвестно · автосписания запрещены"),
+    ).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("button", { name: "Записать решение" }),
+    ).toBeEnabled();
+  },
+};
+
+export const ClassificationConfirmedNew: Story = {
+  args: {
+    classification: {
+      accountId,
+      classification: "confirmed_new",
+      revision: 1,
+      recurringAllowed: true,
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByText("новый покупатель · автосписания разрешены"),
+    ).toBeInTheDocument();
+  },
+};
+
 export const Failure: Story = {
   args: { error: "Сумма вне подтверждённых границ терминала." },
 };
@@ -167,6 +211,9 @@ export const Mobile: Story = {
     await expect(
       canvas.getAllByRole("button", { name: "Снять с продажи" }),
     ).toHaveLength(2);
+    await expect(
+      canvas.getByRole("heading", { name: "Кто этот покупатель" }),
+    ).toBeInTheDocument();
   },
 };
 export const Desktop: Story = {
@@ -176,5 +223,8 @@ export const Desktop: Story = {
     await expect(
       canvas.getAllByRole("button", { name: "Снять с продажи" }),
     ).toHaveLength(2);
+    await expect(
+      canvas.getByRole("heading", { name: "Кто этот покупатель" }),
+    ).toBeInTheDocument();
   },
 };

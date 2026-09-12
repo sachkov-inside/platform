@@ -7,13 +7,22 @@ import { lockAccess } from "../../infrastructure/access-lock.js";
 import {
   accessFailure,
   accessFailureSchema,
+  classificationSchema,
   grantSuccessSchema,
 } from "../../domain/access-grant.js";
-import { previewRowsSchema } from "../preview-grant-batch/preview-grant-batch.js";
+import {
+  isClassificationRow,
+  isGrantRow,
+  previewRowsSchema,
+} from "../preview-grant-batch/preview-grant-batch.js";
 import {
   accessFingerprint,
   readAccessReceipt,
 } from "../../shared/access-receipts.js";
+import {
+  readClassificationRevision,
+  writeClassification,
+} from "../../shared/write-classification.js";
 
 export const applyGrantBatchCommandSchema = z
   .object({
@@ -29,6 +38,12 @@ export const applyGrantBatchCommandSchema = z
   })
   .strict();
 export type ApplyGrantBatchCommand = z.input<typeof applyGrantBatchCommandSchema>;
+/** Классифицированная строка отчитывается состоянием Account, выданная — своим основанием. */
+const classificationSuccessSchema = z.object({
+  ok: z.literal(true),
+  classification: classificationSchema,
+  revision: z.number().int().positive(),
+});
 const batchResultSchema = z.union([
   accessFailureSchema([
     "invalid_input",
@@ -45,6 +60,7 @@ const batchResultSchema = z.union([
         rowKey: z.string(),
         result: z.union([
           grantSuccessSchema,
+          classificationSuccessSchema,
           accessFailureSchema(["operation_conflict"]),
         ]),
       }),
@@ -103,13 +119,43 @@ export async function applyGrantBatch(
       await lockAccountEntitlementChanges(transaction, accountId);
     }
     // Stable source order avoids deadlocks between overlapping previews.
-    for (const row of [...rows].sort((a, b) =>
+    for (const row of [...rows].filter(isGrantRow).sort((a, b) =>
       `${a.source}:${a.sourceRef}`.localeCompare(`${b.source}:${b.sourceRef}`),
     )) {
       await lockAccess(transaction, `${row.source}:${row.sourceRef}`);
     }
+    const classified = rows.filter(isClassificationRow);
+    for (const row of [...classified].sort((a, b) =>
+      a.accountId.localeCompare(b.accountId),
+    )) {
+      await lockAccess(transaction, `classification:${row.accountId}`);
+    }
+    // Набор классифицируется целиком: устаревшая revision любой строки отменяет всю запись.
+    for (const row of classified) {
+      const revisionNow = await readClassificationRevision(
+        transaction,
+        row.accountId,
+      );
+      if (revisionNow !== row.expectedRevision)
+        return accessFailure("revision_conflict");
+    }
     const results: Extract<ApplyGrantBatchResult, { ok: true }>["rows"] = [];
     for (const row of rows) {
+      if (!isGrantRow(row)) {
+        const revision = await writeClassification(transaction, {
+          accountId: row.accountId,
+          actorId,
+          operationId: command.operationId,
+          expectedRevision: row.expectedRevision,
+          terms: row,
+          now,
+        });
+        results.push({
+          rowKey: row.rowKey,
+          result: { ok: true, classification: row.classification, revision },
+        });
+        continue;
+      }
       const existing = await transaction.accessGrant.findUnique({
         where: {
           source_sourceRef: { source: row.source, sourceRef: row.sourceRef },

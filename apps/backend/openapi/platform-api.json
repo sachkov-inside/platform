@@ -42871,6 +42871,95 @@
                   {
                     "additionalProperties": false,
                     "properties": {
+                      "accountId": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
+                      "operation": {
+                        "enum": [
+                          "grants.readClassification"
+                        ],
+                        "type": "string"
+                      },
+                      "operationId": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "operationId",
+                      "operation",
+                      "accountId"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "accountId": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
+                      "bridgeEnabled": {
+                        "type": "boolean"
+                      },
+                      "classification": {
+                        "enum": [
+                          "confirmed_legacy",
+                          "confirmed_new",
+                          "unknown"
+                        ],
+                        "type": "string"
+                      },
+                      "expectedRevision": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "operation": {
+                        "enum": [
+                          "grants.classify"
+                        ],
+                        "type": "string"
+                      },
+                      "operationId": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
+                      "reason": {
+                        "maxLength": 1000,
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "sourceRef": {
+                        "maxLength": 256,
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "tributeStopped": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "operationId",
+                      "accountId",
+                      "expectedRevision",
+                      "classification",
+                      "sourceRef",
+                      "reason",
+                      "bridgeEnabled",
+                      "tributeStopped",
+                      "operation"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
                       "operation": {
                         "enum": [
                           "grants.previewBatch"
@@ -42884,82 +42973,141 @@
                       },
                       "rows": {
                         "items": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "accountId": {
-                              "format": "uuid",
-                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                              "type": "string"
-                            },
-                            "rowKey": {
-                              "maxLength": 100,
-                              "minLength": 1,
-                              "type": "string"
-                            },
-                            "source": {
-                              "enum": [
-                                "manual",
-                                "legacy"
-                              ],
-                              "type": "string"
-                            },
-                            "sourceRef": {
-                              "maxLength": 256,
-                              "minLength": 1,
-                              "type": "string"
-                            },
-                            "terms": {
+                          "anyOf": [
+                            {
                               "additionalProperties": false,
                               "properties": {
-                                "capabilities": {
-                                  "items": {
-                                    "anyOf": [
-                                      {
-                                        "enum": [
-                                          "materials",
-                                          "community",
-                                          "reviews",
-                                          "support"
-                                        ],
-                                        "type": "string"
+                                "accountId": {
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                  "type": "string"
+                                },
+                                "rowKey": {
+                                  "maxLength": 100,
+                                  "minLength": 1,
+                                  "type": "string"
+                                },
+                                "source": {
+                                  "enum": [
+                                    "manual",
+                                    "legacy"
+                                  ],
+                                  "type": "string"
+                                },
+                                "sourceRef": {
+                                  "maxLength": 256,
+                                  "minLength": 1,
+                                  "type": "string"
+                                },
+                                "terms": {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "capabilities": {
+                                      "items": {
+                                        "anyOf": [
+                                          {
+                                            "enum": [
+                                              "materials",
+                                              "community",
+                                              "reviews",
+                                              "support"
+                                            ],
+                                            "type": "string"
+                                          },
+                                          {
+                                            "pattern": "^guide:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                            "type": "string"
+                                          }
+                                        ]
                                       },
-                                      {
-                                        "pattern": "^guide:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                                        "type": "string"
-                                      }
-                                    ]
+                                      "maxItems": 100,
+                                      "minItems": 1,
+                                      "type": "array"
+                                    },
+                                    "reason": {
+                                      "maxLength": 1000,
+                                      "minLength": 1,
+                                      "type": "string"
+                                    },
+                                    "startsAt": {},
+                                    "validUntil": {
+                                      "nullable": true
+                                    }
                                   },
-                                  "maxItems": 100,
-                                  "minItems": 1,
-                                  "type": "array"
+                                  "required": [
+                                    "capabilities",
+                                    "startsAt",
+                                    "validUntil",
+                                    "reason"
+                                  ],
+                                  "type": "object"
+                                }
+                              },
+                              "required": [
+                                "rowKey",
+                                "accountId",
+                                "source",
+                                "sourceRef",
+                                "terms"
+                              ],
+                              "type": "object"
+                            },
+                            {
+                              "additionalProperties": false,
+                              "properties": {
+                                "accountId": {
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                  "type": "string"
+                                },
+                                "bridgeEnabled": {
+                                  "type": "boolean"
+                                },
+                                "classification": {
+                                  "enum": [
+                                    "confirmed_legacy",
+                                    "confirmed_new",
+                                    "unknown"
+                                  ],
+                                  "type": "string"
+                                },
+                                "expectedRevision": {
+                                  "maximum": 9007199254740991,
+                                  "minimum": 0,
+                                  "type": "integer"
                                 },
                                 "reason": {
                                   "maxLength": 1000,
                                   "minLength": 1,
                                   "type": "string"
                                 },
-                                "startsAt": {},
-                                "validUntil": {
-                                  "nullable": true
+                                "rowKey": {
+                                  "maxLength": 100,
+                                  "minLength": 1,
+                                  "type": "string"
+                                },
+                                "sourceRef": {
+                                  "maxLength": 256,
+                                  "minLength": 1,
+                                  "type": "string"
+                                },
+                                "tributeStopped": {
+                                  "type": "boolean"
                                 }
                               },
                               "required": [
-                                "capabilities",
-                                "startsAt",
-                                "validUntil",
-                                "reason"
+                                "rowKey",
+                                "accountId",
+                                "expectedRevision",
+                                "classification",
+                                "sourceRef",
+                                "reason",
+                                "bridgeEnabled",
+                                "tributeStopped"
                               ],
                               "type": "object"
                             }
-                          },
-                          "required": [
-                            "rowKey",
-                            "accountId",
-                            "source",
-                            "sourceRef",
-                            "terms"
-                          ],
-                          "type": "object"
+                          ]
                         },
                         "maxItems": 100,
                         "minItems": 1,
@@ -45821,6 +45969,55 @@
                         {
                           "additionalProperties": false,
                           "properties": {
+                            "outcome": {
+                              "enum": [
+                                "classification"
+                              ],
+                              "type": "string"
+                            },
+                            "value": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "accountId": {
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                  "type": "string"
+                                },
+                                "classification": {
+                                  "enum": [
+                                    "confirmed_legacy",
+                                    "confirmed_new",
+                                    "unknown"
+                                  ],
+                                  "type": "string"
+                                },
+                                "recurringAllowed": {
+                                  "type": "boolean"
+                                },
+                                "revision": {
+                                  "maximum": 9007199254740991,
+                                  "minimum": 0,
+                                  "type": "integer"
+                                }
+                              },
+                              "required": [
+                                "accountId",
+                                "classification",
+                                "revision",
+                                "recurringAllowed"
+                              ],
+                              "type": "object"
+                            }
+                          },
+                          "required": [
+                            "outcome",
+                            "value"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
                             "expiresAt": {
                               "format": "date-time",
                               "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
@@ -45921,6 +46118,37 @@
                                         "required": [
                                           "ok",
                                           "grantRef",
+                                          "revision"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "classification": {
+                                            "enum": [
+                                              "confirmed_legacy",
+                                              "confirmed_new",
+                                              "unknown"
+                                            ],
+                                            "type": "string"
+                                          },
+                                          "ok": {
+                                            "enum": [
+                                              true
+                                            ],
+                                            "type": "boolean"
+                                          },
+                                          "revision": {
+                                            "exclusiveMinimum": true,
+                                            "maximum": 2147483647,
+                                            "minimum": 0,
+                                            "type": "integer"
+                                          }
+                                        },
+                                        "required": [
+                                          "ok",
+                                          "classification",
                                           "revision"
                                         ],
                                         "type": "object"

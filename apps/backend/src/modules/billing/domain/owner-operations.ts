@@ -1,7 +1,7 @@
 import { z } from "zod";
 import {
   applyGrantBatchCommandSchema, changeAccessGrantCommandSchema, previewGrantBatchCommandSchema,
-  accessGrantsViewSchema,
+  accessGrantsViewSchema, classifyLegacyAccountCommandSchema, legacyClassificationViewSchema,
 } from "../../membership-entitlements/index.js";
 import { manageCatalogSchema, catalogOutcomeSchema } from "../features/manage-catalog/manage-catalog.contract.js";
 import { idSchema, moneySchema, priceSnapshotSchema, revisionSchema } from "./pricing.js";
@@ -31,7 +31,9 @@ export const ownerOperationSchema = z.discriminatedUnion("operation", [
   z.strictObject({ ...command, operation: z.literal("refunds.execute"), decisionRef: idSchema, expectedRevision: revisionSchema }),
   z.strictObject({ ...command, operation: z.literal("refunds.read"), purchaseRef: idSchema }),
   z.strictObject({ ...command, operation: z.literal("grants.read"), accountId: idSchema }),
-  // Кросс-полевые правила строк остаются за владеющим use case: он повторно разбирает команду.
+  z.strictObject({ ...command, operation: z.literal("grants.readClassification"), accountId: idSchema }),
+  // Кросс-полевые правила команды и её строк остаются за владеющим use case: он повторно разбирает команду.
+  z.strictObject({ ...classifyLegacyAccountCommandSchema.shape, operation: z.literal("grants.classify") }),
   z.strictObject({ ...previewGrantBatchCommandSchema.shape, operation: z.literal("grants.previewBatch") }),
   z.strictObject({ ...applyGrantBatchCommandSchema.shape, operation: z.literal("grants.applyBatch") }),
   z.strictObject({ ...changeAccessGrantCommandSchema.options[0].omit({ action: true }).shape, operation: z.literal("grants.extend") }),
@@ -39,7 +41,8 @@ export const ownerOperationSchema = z.discriminatedUnion("operation", [
 ]);
 export type OwnerOperation = z.infer<typeof ownerOperationSchema>;
 /** Чтение не меняет состояние: такие операции не пишут receipt и повторяются свободно. */
-export const ownerReadOperations = ["offers.list", "payments.list", "payments.read", "refunds.read", "grants.read"] as const;
+export const ownerReadOperations = ["offers.list", "payments.list", "payments.read", "refunds.read", "grants.read",
+  "grants.readClassification"] as const;
 const readOperations: readonly string[] = ownerReadOperations;
 export function isOwnerReadOperation(operation: string): boolean {
   return readOperations.includes(operation);
@@ -86,11 +89,13 @@ export const ownerSuccessSchema = z.union([
   z.strictObject({ outcome: z.literal("refunds"), purchaseRef: idSchema, refundedKopecks: z.int().nonnegative(),
     refundableKopecks: z.int().nonnegative(), decisions: z.array(refundDecisionViewSchema) }),
   z.strictObject({ outcome: z.literal("grants"), value: accessGrantsViewSchema }),
+  z.strictObject({ outcome: z.literal("classification"), value: legacyClassificationViewSchema }),
   z.strictObject({ outcome: z.literal("grantPreview"), previewRef: idSchema, revision: revisionSchema,
     expiresAt: z.iso.datetime(), rows: z.array(z.strictObject({ rowKey: z.string(), accountId: idSchema,
       status: z.enum(["confirmed", "not_found"]) })) }),
   z.strictObject({ outcome: z.literal("grantBatch"), rows: z.array(z.strictObject({ rowKey: z.string(),
     result: z.union([z.strictObject({ ok: z.literal(true), grantRef: idSchema, revision: revisionSchema }),
+      z.strictObject({ ok: z.literal(true), classification: legacyClassificationViewSchema.shape.classification, revision: revisionSchema }),
       z.strictObject({ ok: z.literal(false), error: z.strictObject({ code: z.literal("operation_conflict") }) })]) })) }),
   z.strictObject({ outcome: z.literal("grant"), grantRef: idSchema, revision: revisionSchema }),
 ]);

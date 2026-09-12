@@ -92,6 +92,30 @@ export function AdminTextArea({
   );
 }
 
+/** Признак решения: он присутствует в форме только когда владелец его отметил. */
+export function AdminCheckbox({
+  label,
+  name,
+}: {
+  readonly label: string;
+  readonly name: string;
+}) {
+  const id = `admin-${name}`;
+  return (
+    <p className="flex items-center gap-2">
+      <input
+        className="size-4 rounded border-input focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        id={id}
+        name={name}
+        type="checkbox"
+      />
+      <label className="text-sm font-semibold" htmlFor={id}>
+        {label}
+      </label>
+    </p>
+  );
+}
+
 export function AdminSelect({
   label,
   name,

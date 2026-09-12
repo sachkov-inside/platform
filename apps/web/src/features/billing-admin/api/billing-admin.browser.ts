@@ -6,6 +6,7 @@ import {
 import { requestSameOriginMutation } from "@/shared/api/same-origin-mutation";
 import {
   catalogOutcomeSchema,
+  classificationOutcomeSchema,
   grantBatchOutcomeSchema,
   grantOutcomeSchema,
   grantPreviewOutcomeSchema,
@@ -17,6 +18,7 @@ import {
   refundsOutcomeSchema,
   subscriptionOutcomeSchema,
   type CatalogOutcome,
+  type ClassificationOutcome,
   type GrantBatchOutcome,
   type GrantOutcome,
   type GrantPreviewOutcome,
@@ -30,12 +32,14 @@ import {
   type ApplyBatchInput,
   type ArchiveInput,
   type CancelSubscriptionInput,
+  type ClassifyAccountInput,
   type DecideRefundInput,
   type ExecuteRefundInput,
   type ExtendGrantInput,
   type ListPaymentsInput,
   type PreviewBatchInput,
   type PurchaseCommandInput,
+  type ReadClassificationInput,
   type ReadGrantsInput,
   type RevokeGrantInput,
   type SaveOfferInput,
@@ -248,6 +252,32 @@ export async function readAccessGrants(
       billingCommandPayload(input),
     ),
     grantsOutcomeSchema,
+  );
+}
+
+export async function readAccountClassification(
+  input: ReadClassificationInput,
+): Promise<BillingCommandResult<ClassificationOutcome>> {
+  return billingCommandResult(
+    await requestSameOriginMutation(
+      "/api/authoring/billing/grants/read-classification",
+      "POST",
+      billingCommandPayload(input),
+    ),
+    classificationOutcomeSchema,
+  );
+}
+
+export async function classifyAccount(
+  input: ClassifyAccountInput,
+): Promise<BillingCommandResult<ClassificationOutcome>> {
+  return billingCommandResult(
+    await requestSameOriginMutation(
+      "/api/authoring/billing/grants/classify",
+      "POST",
+      billingCommandPayload(input),
+    ),
+    classificationOutcomeSchema,
   );
 }
 

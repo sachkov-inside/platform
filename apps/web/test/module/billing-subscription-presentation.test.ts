@@ -44,6 +44,10 @@ describe("суммы и сроки", () => {
   });
 });
 
+/** Право на руководство из витринной фикстуры: его сроки и разбирают проверки состава. */
+const guideBenefit = guideOnlyOffer.offer.benefits[0];
+if (guideBenefit === undefined) throw new Error("Ожидалось право на руководство");
+
 describe("состав доступа", () => {
   it("называет известные права и не выдумывает неизвестные", () => {
     expect(capabilityLabel("materials")).toBe(
@@ -84,25 +88,54 @@ describe("состав доступа", () => {
   });
 
   it("даёт выведенному чату срок самого долгого руководства предложения", () => {
-    const guide = guideOnlyOffer.offer.benefits[0];
-    if (guide === undefined) throw new Error("Ожидалось право на руководство");
     const lines = benefitLines({
       offer: {
         ...guideOnlyOffer.offer,
-        benefitPeriods: [{ capability: guide, months: 6 }],
+        benefitPeriods: [{ capability: guideBenefit, months: 6 }],
       },
       paymentOption: guideOnlyOffer.paymentOption,
     });
     expect(lines.map((line) => line.term)).toEqual(["6 месяцев", "6 месяцев"]);
   });
 
-  it("не удваивает чат, когда он уже объявлен составом предложения", () => {
+  it("не удваивает объявленный чат и держит его дольше короткого срока состава", () => {
+    const offer = {
+      ...guideOnlyOffer.offer,
+      benefits: [guideBenefit, "community" as const],
+      benefitPeriods: [
+        { capability: guideBenefit, months: null },
+        { capability: "community" as const, months: 3 },
+      ],
+    };
+    expect(accessComposition(offer.benefits)).toEqual([guideBenefit, "community"]);
+    // Сервер объединяет основания в пользу самого долгого срока; состав называет тот же срок.
     expect(
-      accessComposition(supportOffer.offer.benefits).filter(
-        (capability) => capability === "community",
-      ),
-    ).toHaveLength(1);
-    expect(benefitLines(supportOffer)).toHaveLength(3);
+      benefitLines({
+        offer,
+        paymentOption: guideOnlyOffer.paymentOption,
+      }).map((line) => [line.label, line.term]),
+    ).toEqual([
+      ["Отдельное руководство", "бессрочно"],
+      ["Общий чат", "бессрочно"],
+    ]);
+  });
+
+  it("держит чат по самому долгому сроку, когда оба основания срочные", () => {
+    const lines = benefitLines({
+      offer: {
+        ...guideOnlyOffer.offer,
+        benefits: [guideBenefit, "community" as const],
+        benefitPeriods: [
+          { capability: guideBenefit, months: 6 },
+          { capability: "community" as const, months: 3 },
+        ],
+      },
+      paymentOption: guideOnlyOffer.paymentOption,
+    });
+    expect(lines.map((line) => [line.label, line.term])).toEqual([
+      ["Отдельное руководство", "6 месяцев"],
+      ["Общий чат", "6 месяцев"],
+    ]);
   });
 
   it("не обещает чат там, где руководство не продаётся", () => {
