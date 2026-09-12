@@ -172,7 +172,7 @@ Owner billing tools `billing_<operation>` are described in
 
 The complete exposed tool set is the generated snapshot `apps/backend/mcp/tool-surface.json`;
 `pnpm mcp:check` fails when the registered tools and that snapshot disagree, and `pnpm mcp:generate`
-rewrites it. Materials authoring exposes the `material_*`, `content_collection_*` and
+rewrites it. Materials authoring exposes the `material_*`, `content_collection_*`, `guide_*` and
 `playlist_*` tools; the Video tools use the same Videos facet as the editor and its current
 `materials:manage` check.
 `material_save` requires an explicit `primaryVideoId`: preserve the value from `material_load`,

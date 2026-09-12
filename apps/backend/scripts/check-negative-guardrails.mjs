@@ -1,4 +1,7 @@
 import { spawnSync } from "node:child_process";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import process from "node:process";
 import { URL, fileURLToPath } from "node:url";
 
@@ -103,19 +106,28 @@ expectFailure(
 );
 
 // Инструмент, добавленный без `pnpm mcp:generate`, обязан ронять проверку и называть себя.
+// Устаревший слепок выводится из текущего: перечня имён руками здесь нет.
+const committedSurface = JSON.parse(
+  readFileSync(path.join(backendRoot, "mcp/tool-surface.json"), "utf8"),
+);
+const appearedTool = committedSurface[0];
+const disappearedTool = "inside_tool_surface_probe";
+const staleSurfacePath = path.join(
+  mkdtempSync(path.join(tmpdir(), "inside-mcp-tool-surface-")),
+  "tool-surface.json",
+);
+writeFileSync(
+  staleSurfacePath,
+  `${JSON.stringify([...committedSurface.filter((name) => name !== appearedTool), disappearedTool].sort(), undefined, 2)}\n`,
+);
+
 expectFailure(
   "pnpm",
-  [
-    "exec",
-    "tsx",
-    "scripts/mcp-tool-surface.ts",
-    "--check",
-    "--surface",
-    "test/guardrails/fixtures/mcp/stale-tool-surface.json",
-  ],
+  ["exec", "tsx", "scripts/mcp-tool-surface.ts", "--check", "--surface", staleSurfacePath],
   [
     "MCP tool surface drift detected",
-    "Появились: billing_grants_classify, video_reconcile",
+    `Appeared: ${appearedTool}`,
+    `Disappeared: ${disappearedTool}`,
     "pnpm mcp:generate",
   ],
 );

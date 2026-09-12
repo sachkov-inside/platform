@@ -1,8 +1,4 @@
-import { readFileSync } from "node:fs";
-import { URL } from "node:url";
-
 import { exportJWK, generateKeyPair, SignJWT, type CryptoKey } from "jose";
-import { z } from "zod";
 import {
   Client,
   StreamableHTTPClientTransport,
@@ -13,7 +9,8 @@ import { createMcpHttpServer, type McpHttpServer } from "../../src/entrypoints/m
 import type { OperationalReadiness } from "../../src/infrastructure/operational-readiness.js";
 import type { Accounts } from "../../src/modules/accounts/index.js";
 import { createLogtoAccessTokenVerifier } from "../../src/modules/accounts/infrastructure/idp/logto/logto-access-token-verifier.js";
-import { stubMaterialAuthoring } from "../fixtures/material-authoring.js";
+import { readCommittedToolSurface } from "../../scripts/mcp-tool-surface-file.js";
+import { refusingMcpToolDependencies } from "../fixtures/inside-mcp-dependencies.js";
 
 const issuer = "https://identity.example.test/oidc";
 const audience = "https://api.example.test";
@@ -34,14 +31,7 @@ describe("MCP Streamable HTTP adapter", () => {
     };
     server = createMcpHttpServer({
       accounts: fakeAccounts(),
-      authoring: stubMaterialAuthoring(),
-      videos: {
-        attachExisting: () => Promise.resolve({ ok: false, error: { code: "forbidden" } }),
-        initUpload: () => Promise.resolve({ ok: false, error: { code: "forbidden" } }),
-        reconcile: () => Promise.resolve({ ok: false, error: { code: "forbidden" } }),
-      },
-      communications: { execute: () => Promise.resolve({ ok: false, error: { code: "forbidden" } }) },
-      billing: { execute: () => Promise.resolve({ ok: false, error: { code: "forbidden" } }) },
+      ...refusingMcpToolDependencies(),
       config: {
         host: "127.0.0.1",
         port: 0,
@@ -71,7 +61,7 @@ describe("MCP Streamable HTTP adapter", () => {
       await client.connect(transport);
       const { tools } = await client.listTools();
       // Состав набора живёт в сгенерированном слепке; здесь доказывается, что вход отдаёт ровно его.
-      expect(tools.map(({ name }) => name).sort()).toEqual(committedToolSurface());
+      expect(tools.map(({ name }) => name).sort()).toEqual(readCommittedToolSurface());
       // Владельческие billing-операции доступны тем же делегированным Account, без своей власти.
       const refund = tools.find(tool => tool.name === "billing_refunds_execute");
       expect(refund?.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true, openWorldHint: true });
@@ -200,12 +190,4 @@ function fakeReadiness(): Pick<OperationalReadiness, "check" | "live"> {
 
 function currentTime(): number {
   return Math.floor(Date.now() / 1_000);
-}
-
-/** Тот же слепок, который проверяет `pnpm mcp:check`: одно ожидание на обе проверки. */
-function committedToolSurface(): string[] {
-  const value: unknown = JSON.parse(
-    readFileSync(new URL("../../mcp/tool-surface.json", import.meta.url), "utf8"),
-  );
-  return z.array(z.string().min(1)).parse(value);
 }

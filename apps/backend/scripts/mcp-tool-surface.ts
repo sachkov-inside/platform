@@ -4,18 +4,20 @@ import process from "node:process";
 
 import { Client } from "@modelcontextprotocol/client";
 import { InMemoryTransport } from "@modelcontextprotocol/server";
-import { z } from "zod";
 
 import { assembleInsideMcpServer } from "../src/entrypoints/mcp/inside-mcp-server.js";
-import { stubMaterialAuthoring } from "../test/fixtures/material-authoring.js";
+import { refusingMcpToolDependencies } from "../test/fixtures/inside-mcp-dependencies.js";
+import {
+  committedToolSurfacePath,
+  formatToolSurface,
+  parseToolSurface,
+} from "./mcp-tool-surface-file.js";
 
-const toolSurfaceSchema = z.array(z.string().min(1));
-const defaultSurfacePath = path.resolve("mcp/tool-surface.json");
 const checkOnly = process.argv.includes("--check");
-const surfacePath = readOption("--surface") ?? defaultSurfacePath;
+const surfacePath = readOption("--surface") ?? committedToolSurfacePath;
 
 const registered = await registeredToolNames();
-const generated = `${JSON.stringify(registered, undefined, 2)}\n`;
+const generated = formatToolSurface(registered);
 
 if (checkOnly) {
   const committed = await readFile(surfacePath, "utf8").catch(() => undefined);
@@ -23,7 +25,7 @@ if (checkOnly) {
     throw new Error(`MCP tool surface is missing at ${surfacePath}. Run \`pnpm mcp:generate\`.`);
   }
   if (committed !== generated) {
-    throw new Error(drift(parseSurface(committed, surfacePath), registered));
+    throw new Error(drift(parseToolSurface(committed, surfacePath), registered));
   }
   process.stdout.write(`MCP tool surface is up to date: ${String(registered.length)} tools.\n`);
 } else {
@@ -34,14 +36,9 @@ if (checkOnly) {
 
 /** Имена инструментов ровно того сервера, который собирает HTTP-вход MCP. */
 async function registeredToolNames(): Promise<string[]> {
-  // Состав набора не зависит от поведения зависимостей: инструменты обращаются к ним только в вызове.
-  const refuse = () => Promise.resolve({ ok: false as const, error: { code: "forbidden" as const } });
   const server = assembleInsideMcpServer({
     accountId: "00000000-0000-4000-8000-000000000000",
-    authoring: stubMaterialAuthoring(),
-    billing: { execute: refuse },
-    communications: { execute: refuse },
-    videos: { attachExisting: refuse, initUpload: refuse, reconcile: refuse },
+    ...refusingMcpToolDependencies(),
   });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   const client = new Client({ name: "inside-mcp-tool-surface", version: "1.0.0" });
@@ -59,30 +56,15 @@ async function registeredToolNames(): Promise<string[]> {
 function drift(committed: readonly string[], actual: readonly string[]): string {
   const appeared = actual.filter((name) => !committed.includes(name));
   const disappeared = committed.filter((name) => !actual.includes(name));
-  const lines = [
+  return [
     `MCP tool surface drift detected in ${surfacePath}.`,
-    ...(appeared.length === 0 ? [] : [`Появились: ${appeared.join(", ")}`]),
-    ...(disappeared.length === 0 ? [] : [`Исчезли: ${disappeared.join(", ")}`]),
+    ...(appeared.length === 0 ? [] : [`Appeared: ${appeared.join(", ")}`]),
+    ...(disappeared.length === 0 ? [] : [`Disappeared: ${disappeared.join(", ")}`]),
     ...(appeared.length === 0 && disappeared.length === 0
-      ? ["Набор совпал по именам, но файл отличается порядком или форматированием."]
+      ? ["The names match; the committed file differs in order or formatting."]
       : []),
     "Run `pnpm mcp:generate` from the repository root and commit the result.",
-  ];
-  return lines.join("\n");
-}
-
-function parseSurface(content: string, source: string): string[] {
-  let value: unknown;
-  try {
-    value = JSON.parse(content);
-  } catch {
-    throw new Error(`MCP tool surface at ${source} is not valid JSON. Run \`pnpm mcp:generate\`.`);
-  }
-  const parsed = toolSurfaceSchema.safeParse(value);
-  if (!parsed.success) {
-    throw new Error(`MCP tool surface at ${source} is not a list of tool names.`);
-  }
-  return parsed.data;
+  ].join("\n");
 }
 
 function readOption(flag: string): string | undefined {
