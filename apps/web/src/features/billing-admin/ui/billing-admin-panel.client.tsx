@@ -16,6 +16,7 @@ import {
   archiveBillingPaymentOption,
   archiveBillingPromotion,
   cancelOwnerSubscription,
+  classifyAccount,
   decideBillingRefund,
   executeBillingRefund,
   extendAccessGrant,
@@ -23,6 +24,7 @@ import {
   previewAccessGrantBatch,
   publishBillingOffer,
   readAccessGrants,
+  readAccountClassification,
   readBillingPayment,
   readBillingRefunds,
   reconcileBillingPayment,
@@ -33,6 +35,7 @@ import {
   unpublishBillingOffer,
 } from "../api/billing-admin.browser";
 import type {
+  ClassificationOutcome,
   GrantBatchOutcome,
   GrantPreviewOutcome,
   GrantsOutcome,
@@ -72,6 +75,9 @@ export function BillingAdminPanel({ offers }: BillingAdminPanelProps) {
     GrantPreviewOutcome["result"] | null
   >(null);
   const [batch, setBatch] = useState<GrantBatchOutcome["result"] | null>(null);
+  const [classification, setClassification] = useState<
+    ClassificationOutcome["result"]["value"] | null
+  >(null);
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
   const { operationId } = useRepeatableOperations();
@@ -135,6 +141,7 @@ export function BillingAdminPanel({ offers }: BillingAdminPanelProps) {
   return (
     <BillingAdminView
       batch={batch}
+      classification={classification}
       error={error}
       grants={grants}
       notice={notice}
@@ -290,6 +297,32 @@ export function BillingAdminPanel({ offers }: BillingAdminPanelProps) {
             setBatch(null);
           },
           "Предпросмотр собран; права ещё не выданы.",
+        );
+      }}
+      onReadClassification={(input) => {
+        dispatch(
+          () =>
+            readAccountClassification({
+              ...input,
+              operationId: operationId("grants.readClassification", input),
+            }),
+          (value) => {
+            setClassification(value.result.value);
+          },
+          "Состояние покупателя прочитано.",
+        );
+      }}
+      onClassifyAccount={(input) => {
+        dispatch(
+          () =>
+            classifyAccount({
+              ...input,
+              operationId: operationId("grants.classify", input),
+            }),
+          (value) => {
+            setClassification(value.result.value);
+          },
+          "Решение о покупателе записано.",
         );
       }}
       onReadGrants={(input) => {

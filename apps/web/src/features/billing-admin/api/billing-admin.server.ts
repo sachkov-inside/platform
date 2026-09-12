@@ -20,6 +20,8 @@ import {
   cancelSubscriptionInputSchema,
   catalogOffersOutcomeSchema,
   catalogOutcomeSchema,
+  classificationOutcomeSchema,
+  classifyAccountInputSchema,
   decideRefundInputSchema,
   executeRefundInputSchema,
   extendGrantInputSchema,
@@ -32,6 +34,7 @@ import {
   paymentsOutcomeSchema,
   previewBatchInputSchema,
   purchaseInputSchema,
+  readClassificationInputSchema,
   readGrantsInputSchema,
   reconciledOutcomeSchema,
   refundDecisionOutcomeSchema,
@@ -252,6 +255,26 @@ export function handleReadGrants(request: Request): Promise<Response> {
   );
 }
 
+export function handleReadAccountClassification(
+  request: Request,
+): Promise<Response> {
+  return ownerCommand(
+    request,
+    readClassificationInputSchema,
+    classificationOutcomeSchema,
+    (input) => ({ ...input, operation: "grants.readClassification" }),
+  );
+}
+
+export function handleClassifyAccount(request: Request): Promise<Response> {
+  return ownerCommand(
+    request,
+    classifyAccountInputSchema,
+    classificationOutcomeSchema,
+    (input) => ({ ...input, operation: "grants.classify" }),
+  );
+}
+
 export function handlePreviewGrantBatch(request: Request): Promise<Response> {
   return ownerCommand(
     request,
@@ -259,14 +282,19 @@ export function handlePreviewGrantBatch(request: Request): Promise<Response> {
     grantPreviewOutcomeSchema,
     (input) => ({
       operation: "grants.previewBatch",
+      // Строка выдачи несёт условия права, строка классификации — решение о покупателе.
+      rows: input.rows.map((row) =>
+        "terms" in row
+          ? {
+              ...row,
+              terms: {
+                ...row.terms,
+                capabilities: [...row.terms.capabilities],
+              },
+            }
+          : { ...row },
+      ),
       operationId: input.operationId,
-      rows: input.rows.map((row) => ({
-        ...row,
-        terms: {
-          ...row.terms,
-          capabilities: [...row.terms.capabilities],
-        },
-      })),
     }),
   );
 }

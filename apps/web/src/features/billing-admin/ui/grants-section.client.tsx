@@ -8,6 +8,7 @@ import {
 } from "@/entities/subscription";
 import { Button } from "@/shared/ui/button";
 
+import { accountClassificationSchema } from "../model/admin-operations";
 import type {
   AccessGrantView,
   ApplyBatchInput,
@@ -171,18 +172,18 @@ export function GrantsSection({
       </AdminSection>
 
       <AdminSection
-        description="Предпросмотр ничего не выдаёт: он только сопоставляет строки с Account. Применяются только подтверждённые строки того же предпросмотра."
-        title="Массовая выдача"
+        description="Предпросмотр ничего не выдаёт и никого не определяет: он только сопоставляет строки с Account. Применяются только подтверждённые строки того же предпросмотра."
+        title="Массовая выдача и классификация"
       >
         <form
           className="grid gap-4"
           onSubmit={onAdminSubmit((form) => {
-            const parsed = parseGrantRows(formText(form.get("batchRows")));
+            const parsed = parseBatchRows(formText(form.get("batchRows")));
             if (parsed.invalid.length > 0 || parsed.rows.length === 0) {
               setRowsError(
                 parsed.rows.length === 0 && parsed.invalid.length === 0
                   ? "Не удалось разобрать ни одной строки."
-                  : `Строки с неизвестным правом или неполные: ${parsed.invalid.join("; ")}. ${capabilityHint}`,
+                  : `Неполные строки, неизвестное право или редакция: ${parsed.invalid.join("; ")}. ${capabilityHint}`,
               );
               return;
             }
@@ -191,7 +192,7 @@ export function GrantsSection({
           })}
         >
           <AdminTextArea
-            hint={`Строка: rowKey | accountId | manual|legacy | sourceRef | права через запятую | startsAt | validUntil или null | основание. ${capabilityHint}`}
+            hint={`Выдача: rowKey | accountId | manual|legacy | sourceRef | права через запятую | startsAt | validUntil или null | основание. Классификация: rowKey | accountId | confirmed_new|confirmed_legacy|unknown | sourceRef | ожидаемая редакция | переход да|нет | Tribute остановлен да|нет | основание. ${capabilityHint}`}
             label="Строки"
             name="batchRows"
             required
@@ -253,10 +254,7 @@ export function GrantsSection({
           <ul className="grid gap-1 border-t border-border pt-5 text-sm">
             {batch.rows.map((row) => (
               <li key={row.rowKey}>
-                {row.rowKey} ·{" "}
-                {row.result.ok
-                  ? `выдано, r${String(row.result.revision)}`
-                  : "конфликт операции"}
+                {row.rowKey} · {batchRowOutcome(row.result)}
               </li>
             ))}
           </ul>
@@ -286,8 +284,24 @@ function GrantRow({ grant }: { readonly grant: AccessGrantView }) {
   );
 }
 
-/** Одна строка партии описывает ровно одно основание одного Account. */
-export function parseGrantRows(value: string): {
+/** Исход строки набора: выданное основание или новое состояние покупателя. */
+function batchRowOutcome(result: GrantBatchOutcome["result"]["rows"][number]["result"]): string {
+  if (!result.ok) return "конфликт операции";
+  return "classification" in result
+    ? `определён, r${String(result.revision)}`
+    : `выдано, r${String(result.revision)}`;
+}
+
+/** Отмеченный признак записывается словом: пустая ячейка остаётся выключенной. */
+function flag(cell: string): boolean {
+  return cell === "да";
+}
+
+/**
+ * Одна строка набора описывает ровно один Account: либо его основание, либо его классификацию.
+ * Вид строки читается по третьей ячейке, поэтому владелец ведёт оба списка в одном месте.
+ */
+export function parseBatchRows(value: string): {
   readonly rows: PreviewBatchInput["rows"];
   readonly invalid: readonly string[];
 } {
@@ -296,9 +310,35 @@ export function parseGrantRows(value: string): {
   for (const line of value.split("\n")) {
     if (line.trim().length === 0) continue;
     const cells = line.split("|").map((cell) => cell.trim());
+    const rowKey = cells[0] ?? line.trim();
+    if (cells.length < 8) {
+      invalid.push(rowKey);
+      continue;
+    }
+    const classification = accountClassificationSchema.safeParse(cells[2] ?? "");
+    if (classification.success) {
+      // Пустая ячейка редакции — не ноль: иначе набор молча ушёл бы на конфликт при применении.
+      const cell = cells[4] ?? "";
+      const expectedRevision = cell.length === 0 ? Number.NaN : Number(cell);
+      if (!Number.isInteger(expectedRevision) || expectedRevision < 0) {
+        invalid.push(rowKey);
+        continue;
+      }
+      rows.push({
+        rowKey: cells[0] ?? "",
+        accountId: cells[1] ?? "",
+        classification: classification.data,
+        sourceRef: cells[3] ?? "",
+        expectedRevision,
+        bridgeEnabled: flag(cells[5] ?? ""),
+        tributeStopped: flag(cells[6] ?? ""),
+        reason: cells[7] ?? "",
+      });
+      continue;
+    }
     const capabilities = parseCapabilities(cells[4] ?? "");
-    if (cells.length < 8 || capabilities.invalid.length > 0 || capabilities.capabilities.length === 0) {
-      invalid.push(cells[0] ?? line.trim());
+    if (capabilities.invalid.length > 0 || capabilities.capabilities.length === 0) {
+      invalid.push(rowKey);
       continue;
     }
     rows.push({

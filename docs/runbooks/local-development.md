@@ -465,7 +465,14 @@ through the [owner release bootstrap](#owner-account-release-bootstrap) with `OW
 
 Reading and previewing repeat freely. Every changing command stores an audit row with the actor,
 operation, reason and result, which also acts as its replay receipt: the same payload returns the
-original result and a changed payload conflicts. Refund execution is a real external money
+original result and a changed payload conflicts.
+
+A local subscription purchase starts only after the owner records who the buyer is. An Account with
+no recorded decision reports `unknown`, refuses recurring charges and answers the purchase with
+`legacy_review_required`. Read it with `grants.readClassification`, record the decision with
+`grants.classify` and its `expectedRevision` (`0` for an Account with no decision yet), or classify
+a set through the same `grants.previewBatch` and `grants.applyBatch`. The owner page
+`/authoring/billing` performs the same operations under «Кто этот покупатель». Refund execution is a real external money
 operation and requires `TBANK_CONFIG_JSON`; without it the operation reports `method_unavailable`.
 Automated tests use synthetic bank adapters only and perform no real refunds or grants.
 
