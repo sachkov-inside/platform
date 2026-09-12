@@ -121,21 +121,21 @@ test("reading progress counts a shared material in both real Series", async ({ p
   await expect(button).toHaveAttribute("aria-pressed", "true");
   const directory = resolve(process.cwd(), "../../docs/evidence/issue-329");
   await mkdir(directory, { recursive: true });
+  // Отметка живёт у материала, поэтому её видно в программе каждого руководства, где он опубликован.
   for (const slug of ["demo-series-release", "demo-series-release-shared"]) {
-    await page.goto(`/series/${slug}`);
-    await expect(page.getByRole("main").locator("[data-series-progress]")).toContainText(/Изучено [1-9]/u);
-    const card = page.getByRole("article").filter({ has: page.getByRole("link", { name: "Demo · Подготовка приложения к релизу", exact: true }) });
-    await expect(card.locator("[data-material-reading-status]")).toHaveText("Изучено");
+    await page.goto(`/guides/${slug}/programme`);
+    // В маршруте изученное показывает не подпись на карточке, а галочка вместо номера строки.
+    const row = page.locator('[data-route-material="demo-podgotovka-prilozheniya-k-relizu"]:visible');
+    await expect(row.locator('[data-series-marker-read="true"]')).toHaveCount(1);
+    await expect(page.getByRole("main").locator('[data-series-marker-read="true"]')).toHaveCount(1);
     if (slug.endsWith("shared")) {
-      await expect(page.getByRole("main").locator("[data-series-progress]")).toContainText("Все материалы изучены");
       await page.screenshot({ path: resolve(directory, `${testInfo.project.name}-series.png`) });
     }
   }
   await openReader(page, "demo-podgotovka-prilozheniya-k-relizu");
   await button.click(); await expect(button).toHaveAttribute("aria-pressed", "false");
-  await page.goto("/series/demo-series-release-shared");
-  await expect(page.getByRole("main").locator("[data-series-progress]")).toContainText("Изучено 0 из 1");
-  await expect(page.getByRole("main").getByText("Все материалы изучены")).toHaveCount(0);
+  await page.goto("/guides/demo-series-release-shared/programme");
+  await expect(page.getByRole("main").locator('[data-series-marker-read="true"]')).toHaveCount(0);
 });
 
 
