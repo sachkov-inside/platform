@@ -214,7 +214,7 @@ export const Editing: Story = {
     await expect(canvas.queryByRole("spinbutton")).not.toBeInTheDocument();
     const title = canvas.getByLabelText("Название");
     await userEvent.clear(title);
-    await userEvent.type(title, "Новая версия Developer Pipeline");
+    await userEvent.type(title, "Новая версия Developer Pipeline", { delay: null });
     await expect(canvas.getAllByText(/Не сохранено/u).length).toBeGreaterThan(
       0,
     );
@@ -252,6 +252,16 @@ export const LessonBlocksEditing: Story = {
       await userEvent.click(canvas.getByRole("button", { name: "Добавить блок" }));
       return canvas.getByRole("dialog", { name: "Добавить блок" });
     };
+    /**
+     * Узел редактора по его разметке. Отсутствие узла — это «блок не появился», и падение обязано
+     * сказать именно это: сравнение `null` с матчером сообщает лишь, что получено не HTMLElement,
+     * и разбор такого падения начинается с чтения истории вместо чтения причины.
+     */
+    const blockNode = (selector: string, missing: string) => {
+      const node = canvasElement.querySelector(selector);
+      if (node === null) throw new Error(missing);
+      return node;
+    };
 
     let menu = await openMenu();
     for (const name of [
@@ -272,33 +282,37 @@ export const LessonBlocksEditing: Story = {
     }
 
     await userEvent.click(within(menu).getByRole("button", { name: "Совет" }));
-    await expect(canvasElement.querySelector('aside[data-callout="tip"]')).toBeVisible();
+    await expect(blockNode('aside[data-callout="tip"]', 'Врезка «Совет» не появилась в редакторе')).toBeVisible();
 
     const tip = canvas.getByRole("button", { name: "Вид врезки: Совет" });
     await expect(tip).toHaveAttribute("aria-pressed", "true");
     await userEvent.click(canvas.getByRole("button", { name: "Вид врезки: Важно" }));
-    const warning = canvasElement.querySelector('aside[data-callout="warning"]');
+    const warning = blockNode('aside[data-callout="warning"]', 'Врезка не сменила вид на «Важно»');
     await expect(warning).toBeVisible();
     await expect(warning).toHaveTextContent("Важно");
 
-    await userEvent.type(canvas.getByLabelText("Название врезки"), "Не забудьте");
-    await expect(canvasElement.querySelector('aside[data-callout="warning"]')).toHaveTextContent(
+    // Ввод здесь без паузы между нажатиями: она ждёт по времени, а не по факту, и в этой истории
+    // сорока семи знаков стоила больше половины её длительности. Сами нажатия и их обработчики
+    // остаются прежними — короче становится только ожидание между ними.
+    await userEvent.type(canvas.getByLabelText("Название врезки"), "Не забудьте", { delay: null });
+    await expect(blockNode('aside[data-callout="warning"]', 'Врезка «Важно» исчезла после ввода названия')).toHaveTextContent(
       "Не забудьте",
     );
 
     menu = await openMenu();
     await userEvent.click(within(menu).getByRole("button", { name: "Итоги" }));
     await expect(
-      canvasElement.querySelector('section[data-material-block="takeaways"]'),
+      blockNode('section[data-material-block="takeaways"]', 'Блок «Итоги» не появился в редакторе'),
     ).toBeVisible();
     await expect(canvas.getByLabelText("Заголовок итогов")).toHaveValue("Итоги урока");
 
     menu = await openMenu();
     await userEvent.click(within(menu).getByRole("button", { name: "Ресурс" }));
-    await userEvent.type(canvas.getByLabelText("Название ресурса"), "Спецификация");
+    await userEvent.type(canvas.getByLabelText("Название ресурса"), "Спецификация", { delay: null });
     await userEvent.type(
       canvas.getByLabelText("Адрес ресурса"),
       "https://example.com/spec",
+      { delay: null },
     );
     await expect(canvas.getByLabelText("Адрес ресурса")).toHaveValue(
       "https://example.com/spec",
@@ -306,24 +320,23 @@ export const LessonBlocksEditing: Story = {
 
     menu = await openMenu();
     await userEvent.click(within(menu).getByRole("button", { name: "Термины" }));
-    await userEvent.type(canvas.getByLabelText("Метка строки 1"), "ADR");
+    await userEvent.type(canvas.getByLabelText("Метка строки 1"), "ADR", { delay: null });
     await userEvent.click(canvas.getByRole("button", { name: "Добавить строку" }));
     await expect(canvas.getByLabelText("Метка строки 2")).toHaveValue("");
 
     // Буфер обмена восстанавливает узел из разметки, поэтому название обязано быть в
     // DOM-атрибуте, а не только в тексте. Карточка ресурса и термины показывают в редакторе
     // собственную форму, поэтому их разметку проверяет не эта story, а схема документа.
-    await expect(canvasElement.querySelector("aside[data-callout]")).toHaveAttribute(
+    await expect(blockNode("aside[data-callout]", 'Врезка пропала из документа к концу истории')).toHaveAttribute(
       "data-callout-title",
       "Не забудьте",
     );
     await expect(
-      canvasElement.querySelector('section[data-material-block="takeaways"]'),
+      blockNode('section[data-material-block="takeaways"]', 'Блок «Итоги» пропал из документа к концу истории'),
     ).toHaveAttribute("data-takeaways-title", "Итоги урока");
 
     // Панель блока принадлежит текущей врезке: вернувшись в неё, автор снова меняет её вид.
-    const callout = canvasElement.querySelector("aside[data-callout] [data-callout-body] p");
-    if (callout === null) throw new Error("Врезка не найдена");
+    const callout = blockNode("aside[data-callout] [data-callout-body] p", 'Тело врезки не найдено: панель блока не к чему вернуть');
     await userEvent.click(callout);
     await expect(canvas.getByRole("button", { name: "Вид врезки: Важно" })).toHaveAttribute(
       "aria-pressed",
@@ -867,7 +880,7 @@ export const SearchableSeries: Story = {
     more.focus();
     await userEvent.keyboard("{Enter}");
     await expect(series.getAllByRole("checkbox").length).toBeGreaterThan(20);
-    await userEvent.type(canvas.getByLabelText("Поиск руководств"), "Руководство 45");
+    await userEvent.type(canvas.getByLabelText("Поиск руководств"), "Руководство 45", { delay: null });
     await expect(series.getAllByRole("checkbox")).toHaveLength(1);
     await expect(series.getByRole("checkbox", { name: "Руководство 45" })).toBeVisible();
     const page = routeContent(canvasElement);
@@ -884,7 +897,7 @@ export const ImageAttachment: Story = {
     // The description is a field of the attachment form: visible and writable as it stands.
     const description = form.getByLabelText("Описание изображения");
     await expect(description).toBeVisible();
-    await userEvent.type(description, "Путь задачи от issue до owner GO");
+    await userEvent.type(description, "Путь задачи от issue до owner GO", { delay: null });
     await expect(description).toHaveValue("Путь задачи от issue до owner GO");
     await expect(form.getByLabelText("Подпись изображения")).toBeVisible();
     await expect(form.getByLabelText("Размер изображения")).toBeVisible();
