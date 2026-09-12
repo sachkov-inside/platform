@@ -4,6 +4,7 @@ import {
   assembleVideos,
   type VideoProvider,
 } from "../modules/videos/index.js";
+import { seedLocalOfferCatalog } from "./seed-local-offer-catalog.js";
 
 const actor = "72000000-0000-4000-8000-000000000001";
 const topicId = "72000000-0000-4000-8000-000000000002";
@@ -299,6 +300,8 @@ export async function seedLocalDevelopment(
 
   await ensureMembershipCatalogMaterial(prisma, authoring);
   await ensureRelatedPin(prisma, materialIdValue);
+  // Каталог заводится последним: разовое предложение продаёт уже засеянное руководство.
+  await seedLocalOfferCatalog(prisma, { actor, guideId: seriesId });
 
   return Object.freeze({ materialId: materialIdValue, contentVersion, slug });
 }
