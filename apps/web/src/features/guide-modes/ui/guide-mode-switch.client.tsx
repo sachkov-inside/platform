@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation } from "@tanstack/react-query";
-import { useState } from "react";
+import { useId, useState } from "react";
 
 import { cn } from "@/shared/lib/utils";
 import {
@@ -21,6 +21,7 @@ import { saveReaderGuideMode } from "../api/guide-mode.browser";
 export function GuideModeSwitch({ signedIn }: { readonly signedIn: boolean }) {
   const { mode, select } = useGuideMode();
   const [failed, setFailed] = useState(false);
+  const labelId = useId();
   const save = useMutation({
     mutationFn: saveReaderGuideMode,
     onSuccess: (result) => {
@@ -33,9 +34,15 @@ export function GuideModeSwitch({ signedIn }: { readonly signedIn: boolean }) {
 
   return (
     <div className="mt-4" data-guide-mode-switch>
+      {/* Подпись обязательна из-за соседства: без неё переключатель, стоящий под списком «Чему
+          научишься», читается как продолжение этого списка, а это другой смысл. Видимая подпись
+          она же и доступное имя группы — одно название, а не два. */}
+      <p className="text-sm font-medium text-muted-foreground" id={labelId}>
+        Способ прохождения
+      </p>
       <div
-        aria-label="Режим прохождения руководства"
-        className="inline-flex max-w-full flex-wrap items-center gap-1 rounded-3xl bg-muted p-1"
+        aria-labelledby={labelId}
+        className="mt-2 inline-flex max-w-full flex-wrap items-center gap-1 rounded-3xl bg-muted p-1"
         role="group"
       >
         {guideModes.map((option) => (

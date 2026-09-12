@@ -979,9 +979,10 @@ export const GuideModes: Story = {
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    // Подпись переключателя и есть его доступное имя: одно название, а не два.
     await expect(
-      canvas.getByRole("group", { name: "Режим прохождения руководства" }),
-    ).toBeInTheDocument();
+      canvas.getByRole("group", { name: "Способ прохождения" }),
+    ).toBeVisible();
     // Виден вариант активного режима; вариант чужого режима в разметке скрыт.
     await expect(
       canvas.getByText(/Склонируйте учебный репозиторий/u),
@@ -1074,7 +1075,7 @@ export const GuideWithoutModes: Story = {
     const canvas = within(canvasElement);
     // У руководства без вариантных шагов переключателя нет; шаги читаются в режиме по умолчанию.
     await expect(
-      canvas.queryByRole("group", { name: "Режим прохождения руководства" }),
+      canvas.queryByRole("group", { name: "Способ прохождения" }),
     ).not.toBeInTheDocument();
     await expect(canvas.getByText(/Склонируйте учебный репозиторий/u)).toBeVisible();
   },
