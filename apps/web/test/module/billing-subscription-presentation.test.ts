@@ -96,13 +96,28 @@ describe("состав доступа", () => {
     expect(lines.map((line) => line.term)).toEqual(["6 месяцев", "6 месяцев"]);
   });
 
-  it("не удваивает чат, когда он уже объявлен составом предложения", () => {
+  it("не удваивает объявленный чат и держит его дольше короткого срока состава", () => {
+    const guide = guideOnlyOffer.offer.benefits[0];
+    if (guide === undefined) throw new Error("Ожидалось право на руководство");
+    const offer = {
+      ...guideOnlyOffer.offer,
+      benefits: [guide, "community" as const],
+      benefitPeriods: [
+        { capability: guide, months: null },
+        { capability: "community" as const, months: 3 },
+      ],
+    };
+    expect(accessComposition(offer.benefits)).toEqual([guide, "community"]);
+    // Сервер объединяет основания в пользу самого долгого срока; состав называет тот же срок.
     expect(
-      accessComposition(supportOffer.offer.benefits).filter(
-        (capability) => capability === "community",
-      ),
-    ).toHaveLength(1);
-    expect(benefitLines(supportOffer)).toHaveLength(3);
+      benefitLines({
+        offer,
+        paymentOption: guideOnlyOffer.paymentOption,
+      }).map((line) => [line.label, line.term]),
+    ).toEqual([
+      ["Отдельное руководство", "бессрочно"],
+      ["Общий чат", "бессрочно"],
+    ]);
   });
 
   it("не обещает чат там, где руководство не продаётся", () => {

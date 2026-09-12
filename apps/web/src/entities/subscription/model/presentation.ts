@@ -1,4 +1,8 @@
-import { accessComposition, isGuideCapability } from "./billing-contract";
+import {
+  accessComposition,
+  guidesOpenCommunity,
+  isGuideCapability,
+} from "./billing-contract";
 import type {
   AccessCapability,
   AccessSource,
@@ -80,11 +84,17 @@ export interface BenefitLine {
   readonly term: string;
 }
 
-/** Самый долгий из сроков. Неуказанный срок означает бессрочное право и побеждает любой другой. */
-function longestTerm(terms: readonly (number | null)[]): number | null {
-  let longest = 0;
-  for (const term of terms) {
-    if (term === null) return null;
+/**
+ * Самый долгий из нескольких сроков одного права: неуказанный срок означает бессрочное право и
+ * побеждает любой другой. Так же объединяет основания сервер, когда их несколько.
+ */
+function longestTerm(
+  first: number | null,
+  rest: readonly (number | null)[],
+): number | null {
+  let longest = first;
+  for (const term of rest) {
+    if (longest === null || term === null) return null;
     longest = Math.max(longest, term);
   }
   return longest;
@@ -94,7 +104,8 @@ function longestTerm(terms: readonly (number | null)[]): number | null {
  * Срок конкретного права может отличаться от периода списания: у подписки неуказанный срок
  * наследует период варианта оплаты, у разовой покупки такого периода нет и право бессрочно.
  * Явный `null` означает бессрочное право в обоих случаях. Общий чат, который открывают сами
- * руководства предложения, живёт их сроком, а не периодом списания.
+ * руководства предложения, живёт их сроком: даже когда чат объявлен составом отдельно и на более
+ * короткий срок, участие держится дольше — ровно так его и выдаёт сервер.
  */
 export function benefitLines(conditions: {
   readonly offer: BillingOffer;
@@ -108,16 +119,30 @@ export function benefitLines(conditions: {
     if (period !== undefined) return period.months;
     return paymentOption.mode === "one_time" ? null : paymentOption.months;
   };
-  return accessComposition(offer.benefits).map((capability) => {
-    const term = offer.benefits.includes(capability)
-      ? months(capability)
-      : longestTerm(offer.benefits.filter(isGuideCapability).map(months));
-    return {
-      capability,
-      label: capabilityLabel(capability),
-      term: term === null ? "бессрочно" : formatMonths(term),
-    };
+  const guideTerms = offer.benefits.filter(isGuideCapability).map(months);
+  const line = (capability: AccessCapability, term: number | null) => ({
+    capability,
+    label: capabilityLabel(capability),
+    term: term === null ? "бессрочно" : formatMonths(term),
   });
+  const declared = offer.benefits.map((capability) =>
+    line(
+      capability,
+      capability === "community" && guidesOpenCommunity(offer.benefits)
+        ? longestTerm(months(capability), guideTerms)
+        : months(capability),
+    ),
+  );
+  if (
+    offer.benefits.includes("community") ||
+    !guidesOpenCommunity(offer.benefits)
+  ) {
+    return declared;
+  }
+  const [first, ...rest] = guideTerms;
+  return first === undefined
+    ? declared
+    : [...declared, line("community", longestTerm(first, rest))];
 }
 
 /**
