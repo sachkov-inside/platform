@@ -79,7 +79,9 @@ async function expandRow(
   const invalid = occurredAt >= deadline || occurredAt > issuedAt || (lane === 'materials' && deadline.getTime() - occurredAt.getTime() !== MATERIAL_EVENT_LIFETIME_MS);
   const deliveryWindow = invalid ? null : commandWindow(issuedAt, deadline);
   if (!deliveryWindow) {
-    await transaction.notificationInbox.update({ where: key, data: { completedAt: now(), checkpoint: { ...checkpoint, reason: invalid ? 'invalid_event_time' : 'expired' } } });
+    // Приговор по времени и конфликт источника несут только повод: попыток доставки на них не было
+    // и аудиторию не считали, поэтому счётчики здесь утверждали бы то, чего не происходило.
+    await transaction.notificationInbox.update({ where: key, data: { completedAt: now(), checkpoint: { reason: invalid ? 'invalid_event_time' : 'expired' } } });
     return { progressed: true };
   }
   // Адрес читателя — часть настройки доставки, а не свойство события: пока его нет, повод ждёт.
@@ -95,7 +97,7 @@ async function expandRow(
     return { progressed: false };
   }
   if (!validSource(event, source)) {
-    await transaction.notificationInbox.update({ where: key, data: { completedAt: now(), checkpoint: { ...checkpoint, reason: 'source_conflict' } } });
+    await transaction.notificationInbox.update({ where: key, data: { completedAt: now(), checkpoint: { reason: 'source_conflict' } } });
     return { progressed: true };
   }
   const accounts = source.accountId === null
