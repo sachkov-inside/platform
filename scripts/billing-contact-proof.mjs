@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 import { parseEnv } from "node:util";
 import { startFullStackIdentity } from "./full-stack-identity.mjs";
 import { signalProcessGroup } from "./process-group-signal.mjs";
+import { evidenceDirectory } from "./evidence-path.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const backendRequire = createRequire(
@@ -25,7 +26,7 @@ const apiPort = 6406;
 const webPort = 6407;
 const apiBaseUrl = `http://127.0.0.1:${apiPort}`;
 const webBaseUrl = `http://127.0.0.1:${webPort}`;
-const evidence = resolve(root, "docs/evidence/issue-406");
+const evidence = evidenceDirectory("issue-406");
 const messages = [];
 const sockets = new Set();
 const smtp = createServer((socket) => {

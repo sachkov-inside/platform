@@ -1,8 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { resolve } from "node:path";
-import { mkdir } from "node:fs/promises";
 import { signInFullStack } from "../support/full-stack-session";
+import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 
 async function dismissOnboarding(page: Page) {
   const dismiss = page.getByRole("button", { name: "Закрыть подключение Telegram" });
@@ -30,7 +30,7 @@ async function personal(page: Page) {
   return response;
 }
 async function screenshot(page: Page, project: string, surface: string) {
-  const directory = resolve("../../docs/evidence/issue-332"); await mkdir(directory, { recursive: true });
+  const directory = await prepareEvidenceDirectory("issue-332");
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.evaluate(async () => { await document.fonts.ready; await Promise.all([...document.images].map((image) => image.decode().catch(() => undefined))); });
   const captureViewport = project.startsWith("mobile") && surface !== "home";

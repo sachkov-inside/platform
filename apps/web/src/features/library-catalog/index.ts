@@ -28,6 +28,7 @@ export { formatFoundMaterialCount } from "./model/format-material-count";
 export {
   CatalogControls,
   LibrarySearchControl,
+  LibrarySearchPlaceholder,
   MaterialCatalogControls,
 } from "./ui/catalog-controls.client";
 export {
