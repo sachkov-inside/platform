@@ -148,18 +148,19 @@ describe("ReadingActivity HTTP", () => {
     // an account its progress as if there were none.
     const started = { read: 0, total: 1, continuation: { materialSlug: loaded.value.metadata.slug } };
     const unstarted = { read: 0, total: 1, continuation: null };
-    for (const personalHome of [
+    for (const endpoint of [
       { url: "/reading-activity/learning-home", declared: learningHomeHttpSchema, own: { video: null, series: started }, other: { video: null, series: null } },
       { url: "/reading-activity/series-continuation/series", declared: seriesContinuationHttpSchema, own: started, other: unstarted },
       { url: "/reading-activity/guide-continuation/series", declared: seriesContinuationHttpSchema, own: started, other: unstarted },
     ]) {
-      expect((await server.inject({ method: "GET", url: personalHome.url })).statusCode).toBe(401);
-      const own = await server.inject({ method: "GET", url: personalHome.url, headers });
+      expect((await server.inject({ method: "GET", url: endpoint.url })).statusCode).toBe(401);
+      const own = await server.inject({ method: "GET", url: endpoint.url, headers });
       expect(own.statusCode).toBe(200); expect(own.headers["cache-control"]).toBe("private, no-store");
-      expect(own.json()).toMatchObject(personalHome.own);
-      const other = await server.inject({ method: "GET", url: personalHome.url, headers: { authorization: `Bearer ${token2}` } });
-      expect(other.json()).toMatchObject(personalHome.other);
-      for (const body of [own.json(), other.json()] as unknown[]) expect(personalHome.declared.safeParse(body).error?.issues ?? []).toEqual([]);
+      const other = await server.inject({ method: "GET", url: endpoint.url, headers: { authorization: `Bearer ${token2}` } });
+      const bodies: readonly unknown[] = [own.json(), other.json()];
+      expect(bodies[0]).toMatchObject(endpoint.own);
+      expect(bodies[1]).toMatchObject(endpoint.other);
+      for (const body of bodies) expect(endpoint.declared.safeParse(body).error?.issues ?? []).toEqual([]);
     }
     expect((await server.inject({ method: "GET", url: "/reading-activity/series-continuation/missing", headers })).statusCode).toBe(404);
 
