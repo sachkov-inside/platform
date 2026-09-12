@@ -281,7 +281,7 @@ export const LessonBlocksEditing: Story = {
     await expect(warning).toBeVisible();
     await expect(warning).toHaveTextContent("Важно");
 
-    await userEvent.type(canvas.getByLabelText("Название врезки"), "Не забудьте");
+    await userEvent.type(canvas.getByLabelText("Название врезки"), "Не забудьте", { delay: null });
     await expect(canvasElement.querySelector('aside[data-callout="warning"]')).toHaveTextContent(
       "Не забудьте",
     );
@@ -295,10 +295,11 @@ export const LessonBlocksEditing: Story = {
 
     menu = await openMenu();
     await userEvent.click(within(menu).getByRole("button", { name: "Ресурс" }));
-    await userEvent.type(canvas.getByLabelText("Название ресурса"), "Спецификация");
+    await userEvent.type(canvas.getByLabelText("Название ресурса"), "Спецификация", { delay: null });
     await userEvent.type(
       canvas.getByLabelText("Адрес ресурса"),
       "https://example.com/spec",
+      { delay: null },
     );
     await expect(canvas.getByLabelText("Адрес ресурса")).toHaveValue(
       "https://example.com/spec",
@@ -306,7 +307,7 @@ export const LessonBlocksEditing: Story = {
 
     menu = await openMenu();
     await userEvent.click(within(menu).getByRole("button", { name: "Термины" }));
-    await userEvent.type(canvas.getByLabelText("Метка строки 1"), "ADR");
+    await userEvent.type(canvas.getByLabelText("Метка строки 1"), "ADR", { delay: null });
     await userEvent.click(canvas.getByRole("button", { name: "Добавить строку" }));
     await expect(canvas.getByLabelText("Метка строки 2")).toHaveValue("");
 
