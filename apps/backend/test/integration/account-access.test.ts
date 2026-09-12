@@ -104,9 +104,11 @@ describe("independent Account access", () => {
       confirmedRows: ["course"],
     };
     const applied = await grants.applyBatch(owner, command);
-    if (!applied.ok || !applied.rows[0]?.result.ok)
+    const result = applied.ok ? applied.rows[0]?.result : undefined;
+    // Строка ручной выдачи отчитывается основанием; классифицированная строка — состоянием Account.
+    if (result === undefined || !result.ok || !("grantRef" in result))
       throw new Error(JSON.stringify(applied));
-    return { ...applied.rows[0].result, command, applied };
+    return { ...result, command, applied };
   }
   test("paid inbox replays after projector crash, conflicts on changed payload and serializes concurrent delivery", async () => {
     now = new Date(start);

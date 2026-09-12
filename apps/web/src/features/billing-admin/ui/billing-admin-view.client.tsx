@@ -2,6 +2,10 @@
 import type { PriceSnapshot } from "@/entities/subscription";
 
 import { CatalogSection, type CatalogSectionProps } from "./catalog-section.client";
+import {
+  ClassificationSection,
+  type ClassificationSectionProps,
+} from "./classification-section.client";
 import { GrantsSection, type GrantsSectionProps } from "./grants-section.client";
 import {
   PaymentsSection,
@@ -11,7 +15,8 @@ import {
 export interface BillingAdminViewProps
   extends Omit<CatalogSectionProps, "offers" | "pending">,
     Omit<PaymentsSectionProps, "pending">,
-    Omit<GrantsSectionProps, "pending"> {
+    Omit<GrantsSectionProps, "pending">,
+    Omit<ClassificationSectionProps, "pending"> {
   readonly offers: readonly PriceSnapshot[];
   readonly pending?: boolean;
   readonly error?: string | undefined;
@@ -29,6 +34,7 @@ export function BillingAdminView({
   payment,
   refunds,
   grants,
+  classification,
   preview,
   batch,
   pending = false,
@@ -50,6 +56,8 @@ export function BillingAdminView({
   onExecuteRefund,
   onCancelSubscription,
   onReadGrants,
+  onReadClassification,
+  onClassifyAccount,
   onExtendGrant,
   onRevokeGrant,
   onPreviewBatch,
@@ -109,6 +117,12 @@ export function BillingAdminView({
         paymentsCursor={paymentsCursor}
         pending={pending}
         refunds={refunds}
+      />
+      <ClassificationSection
+        classification={classification}
+        onClassifyAccount={onClassifyAccount}
+        onReadClassification={onReadClassification}
+        pending={pending}
       />
       <GrantsSection
         batch={batch}

@@ -50,10 +50,14 @@ function description(operation: string): string {
       return "Stop future charges for one Account's subscription with expectedRevision. The paid term is preserved and an already sent charge is reconciled separately.";
     case "grants.read":
       return "Read one Account's access grants with source, term and change history. Sends nothing.";
+    case "grants.readClassification":
+      return "Read whether one Account is a confirmed new buyer, a confirmed legacy buyer or still unknown, with its revision and whether recurring charges are allowed. Sends nothing.";
+    case "grants.classify":
+      return "Record the owner's decision about one Account with expectedRevision: a confirmed new buyer may subscribe, unknown keeps recurring charges refused. Only a confirmed legacy buyer carries the Tribute bridge and stop flags. Reuse operationId on retry.";
     case "grants.previewBatch":
-      return "Check a manual grant batch against confirmed identities before granting anything. Grants no access.";
+      return "Check a batch of manual grants and account classifications against confirmed identities before writing anything. Grants no access and classifies nobody.";
     case "grants.applyBatch":
-      return "Apply the confirmed rows of a previously previewed batch with previewRef and expectedRevision. Changed identity mapping makes the preview stale instead of guessing.";
+      return "Apply the confirmed rows of a previously previewed batch with previewRef and expectedRevision. A classification row whose Account moved to another revision cancels the whole batch; changed identity mapping makes the preview stale instead of guessing.";
     case "grants.extend":
       return "Extend one manual or legacy grant to a later end or explicit lifetime with expectedRevision. Paid periods belong to billing and are not editable here.";
     case "grants.revoke":
