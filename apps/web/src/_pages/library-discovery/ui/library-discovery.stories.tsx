@@ -270,7 +270,7 @@ export const Loading: Story = {
 };
 export const LoadingMobile: Story = {
   ...Loading,
-  globals: { viewport: { isRotated: false, value: "mobile360" } },
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
   name: "Loading · mobile",
 };
 
@@ -283,6 +283,8 @@ async function heroOpensAtTheSamePlace({ canvasElement }: { canvasElement: HTMLE
   const frame = canvasElement.querySelector("[data-discovery-frame]");
   if (frame === null) throw new Error("Каркас подборки не отрисован");
   await expect(getComputedStyle(frame).containerName).toBe("discovery");
+  // Прежний скелет обрезал себя до max-w-[58rem]: ширина и была поломкой, не только имя контейнера.
+  await expect(getComputedStyle(frame).maxWidth).toBe("none");
   const [breadcrumb, hero] = frame.children;
   if (breadcrumb === undefined || hero === undefined) throw new Error("Первый экран подборки неполон");
   const breadcrumbBox = breadcrumb.getBoundingClientRect();

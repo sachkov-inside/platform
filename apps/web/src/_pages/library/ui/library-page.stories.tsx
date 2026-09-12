@@ -609,11 +609,13 @@ export const Loading: Story = {
 export const LoadingMobile: Story = {
   ...Loading,
   globals: { viewport: { value: "mobile390", isRotated: false } },
+  name: "Loading · mobile",
 };
 
 /**
- * Каталог без руководств: между поиском и материалами ничего не стоит, поэтому здесь видно то же
- * начало первого экрана, что и в состоянии загрузки. Рукописная копия каркаса роняет проверку.
+ * Каталог без руководств. Секция руководств всё равно рисуется — с пустым состоянием, — поэтому
+ * заголовок «Материалы» и здесь стоит ниже, чем мог бы угадать скелет. Сверяется верх первого
+ * экрана: оболочка, шапка и место поиска, то есть всё, что скелет обязан повторить.
  */
 export const ReadyWithoutSeries: Story = {
   args: {
@@ -625,6 +627,7 @@ export const ReadyWithoutSeries: Story = {
       totalCount: catalogItems.length,
     },
   },
+  name: "Ready · without series",
   play: async (context) => {
     await firstScreenTopMatches(context);
     await materialsHeadingBelongsToTheReadyPage(context, "one");
@@ -633,6 +636,7 @@ export const ReadyWithoutSeries: Story = {
 export const ReadyWithoutSeriesMobile: Story = {
   ...ReadyWithoutSeries,
   globals: { viewport: { value: "mobile390", isRotated: false } },
+  name: "Ready · without series · mobile",
 };
 
 /**
@@ -647,6 +651,7 @@ export const ReadyWithoutSeriesMobile: Story = {
 async function firstScreenTopMatches({ canvasElement }: { canvasElement: HTMLElement }) {
   const frame = canvasElement.querySelector("[data-library-frame]");
   if (frame === null) throw new Error("Каркас Базы знаний не отрисован");
+  await expect(getComputedStyle(frame).containerName).toBe("library");
   await expect(getComputedStyle(frame).overflowX).toBe("clip");
   const search = frame.querySelector("[data-library-search]");
   if (search === null) throw new Error("Место поиска не отведено");
@@ -669,6 +674,14 @@ async function materialsHeadingBelongsToTheReadyPage(
   const canvas = within(canvasElement);
   const headings = canvas.queryAllByRole("heading", { name: "Материалы" });
   await expect(headings).toHaveLength(expected === "one" ? 1 : 0);
+  if (expected === "none") return;
+  // Заголовок называет свою секцию: вынесенный из неё, он оставил бы секцию без имени.
+  const heading = headings[0];
+  if (heading === undefined) throw new Error("Заголовок материалов не найден");
+  await expect(heading.closest("section")).toHaveAttribute(
+    "aria-labelledby",
+    heading.id,
+  );
 }
 
 export const Empty: Story = {

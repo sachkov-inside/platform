@@ -50,47 +50,47 @@ export function LibraryPage({
           query={query}
         />
       </LibrarySearchArea>
-        {result.kind === "ready" ? (
-          <LibrarySeries
-            q={query.q}
-            returnHref={effectiveReturnHref}
-            series={result.facets.series}
-          />
-        ) : null}
-        {result.kind === "ready" ? (
-          <LibraryMaterials
-            controls={
-              <MaterialCatalogControls
-                facets={result.facets}
-                isRefreshing={isRefreshing}
-                onQueryChange={onQueryChange}
-                query={query}
-                resetQuery={materialResetQuery(query)}
-                totalCount={result.totalCount}
-              />
-            }
-            totalCount={result.totalCount}
-          >
-            {result.totalCount === 0 ? (
-              <LibraryNoResults
-                hasMaterialFilters={hasMaterialFilters(query)}
-                onClearFilters={() => {
-                  onQueryChange(materialResetQuery(query));
-                }}
-                onClearSearch={() => {
-                  onQueryChange(changeLibraryQuery(query, { q: "" }));
-                }}
-                q={query.q}
-              />
-            ) : catalog ?? (
-              <LibraryCatalog
-                items={result.items}
-                returnHref={effectiveReturnHref}
-              />
-            )}
-          </LibraryMaterials>
-        ) : null}
-        {result.kind === "empty" ? <LibraryEmpty /> : null}
+      {result.kind === "ready" ? (
+        <LibrarySeries
+          q={query.q}
+          returnHref={effectiveReturnHref}
+          series={result.facets.series}
+        />
+      ) : null}
+      {result.kind === "ready" ? (
+        <LibraryMaterials
+          controls={
+            <MaterialCatalogControls
+              facets={result.facets}
+              isRefreshing={isRefreshing}
+              onQueryChange={onQueryChange}
+              query={query}
+              resetQuery={materialResetQuery(query)}
+              totalCount={result.totalCount}
+            />
+          }
+          totalCount={result.totalCount}
+        >
+          {result.totalCount === 0 ? (
+            <LibraryNoResults
+              hasMaterialFilters={hasMaterialFilters(query)}
+              onClearFilters={() => {
+                onQueryChange(materialResetQuery(query));
+              }}
+              onClearSearch={() => {
+                onQueryChange(changeLibraryQuery(query, { q: "" }));
+              }}
+              q={query.q}
+            />
+          ) : catalog ?? (
+            <LibraryCatalog
+              items={result.items}
+              returnHref={effectiveReturnHref}
+            />
+          )}
+        </LibraryMaterials>
+      ) : null}
+      {result.kind === "empty" ? <LibraryEmpty /> : null}
       {result.kind === "unavailable" ? (
         <LibraryUnavailable
           {...(onRetry === undefined ? {} : { onRetry })}
@@ -140,17 +140,17 @@ export function LibraryUnexpectedError({
   return (
     <LibraryFrame>
       <LibraryStatus
-          action={
-            <div className="flex flex-wrap gap-3">
-              <Button onClick={onRetry} size="lg">
-                <RefreshCw aria-hidden="true" />
-                Повторить
-              </Button>
-              <Button asChild size="lg" variant="outline">
-                <Link href="/library">Открыть первую страницу</Link>
-              </Button>
-            </div>
-          }
+        action={
+          <div className="flex flex-wrap gap-3">
+            <Button onClick={onRetry} size="lg">
+              <RefreshCw aria-hidden="true" />
+              Повторить
+            </Button>
+            <Button asChild size="lg" variant="outline">
+              <Link href="/library">Открыть первую страницу</Link>
+            </Button>
+          </div>
+        }
         message="Не удалось загрузить каталог. Попробуйте ещё раз."
         state="unexpected-error"
         title="База знаний сейчас недоступна"
@@ -172,11 +172,11 @@ function LibraryFrame({
   readonly busy?: boolean;
   readonly children: React.ReactNode;
   readonly label?: string;
-  readonly state?: string;
+  readonly state?: "loading";
 }) {
   return (
     <div
-      aria-busy={busy}
+      aria-busy={busy || undefined}
       aria-label={label}
       className="@container/library min-w-0 overflow-x-clip"
       data-library-frame

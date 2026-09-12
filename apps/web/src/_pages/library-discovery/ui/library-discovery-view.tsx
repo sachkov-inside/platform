@@ -106,11 +106,11 @@ function DiscoveryFrame({
   readonly children: React.ReactNode;
   readonly kind?: LibraryDiscoveryKind;
   readonly label?: string;
-  readonly state: string;
+  readonly state: PublishedTopicResultResolved["kind"] | "loading";
 }) {
   return (
     <div
-      aria-busy={busy}
+      aria-busy={busy || undefined}
       aria-label={label}
       className="@container/discovery min-w-0"
       data-discovery-frame
@@ -127,7 +127,7 @@ function DiscoveryHero({ result }: { readonly result: PublishedTopicResultResolv
   return (
     <header
       className={cn(
-        `${heroTop} overflow-hidden rounded-[2rem] p-6 md:p-10`,
+        `${heroTopMargin} overflow-hidden rounded-[2rem] p-6 md:p-10`,
         discoveryToneClass(result.reference.slug),
         "text-foreground",
       )}
@@ -224,13 +224,14 @@ function DiscoveryEmpty({ kind }: { readonly kind: LibraryDiscoveryKind }) {
 }
 
 /** Ряд хлебных крошек и верхний отступ шапки: их же занимает состояние загрузки. */
-const breadcrumbRow = "mt-7 min-h-10";
-const heroTop = "mt-5";
+const breadcrumbRow = "mt-7";
+const breadcrumbRowHeight = "min-h-10";
+const heroTopMargin = "mt-5";
 
 /** Место хлебных крошек, пока данных нет: тот же ряд, только без ссылки. */
 function DiscoveryBreadcrumbPlaceholder() {
   return (
-    <div aria-hidden="true" className={breadcrumbRow}>
+    <div aria-hidden="true" className={`${breadcrumbRow} ${breadcrumbRowHeight}`}>
       <div className="h-10 w-64 animate-pulse rounded-lg bg-muted motion-reduce:animate-none" />
     </div>
   );
@@ -247,7 +248,7 @@ function DiscoveryBreadcrumb({
 }) {
   return (
     <nav aria-label="Хлебные крошки" className={breadcrumbRow}>
-      <ol className="flex min-h-10 flex-wrap items-center gap-2 text-sm text-muted-foreground">
+      <ol className={`flex ${breadcrumbRowHeight} flex-wrap items-center gap-2 text-sm text-muted-foreground`}>
         <li>
           <Link
             className="inline-flex min-h-10 items-center gap-2 rounded-full bg-muted px-4 font-semibold no-underline hover:text-foreground focus-visible:outline-ring"
@@ -308,7 +309,7 @@ export function LibraryDiscoveryLoading() {
   return (
     <DiscoveryFrame busy label="Подборка загружается" state="loading">
       <DiscoveryBreadcrumbPlaceholder />
-      <div className={`${heroTop} animate-pulse rounded-2xl bg-secondary px-6 py-8 motion-reduce:animate-none sm:px-8`}>
+      <div className={`${heroTopMargin} animate-pulse rounded-2xl bg-secondary px-6 py-8 motion-reduce:animate-none sm:px-8`}>
         <div className="size-11 rounded-xl bg-muted" />
         <div className="mt-6 h-10 w-3/4 rounded-xl bg-muted" />
         <div className="mt-4 h-5 w-full max-w-xl rounded-lg bg-muted/80" />
