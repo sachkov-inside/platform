@@ -1,16 +1,20 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (path) => readFileSync(resolve(repositoryRoot, path), "utf8");
+const productionTemplates = readdirSync(resolve(repositoryRoot, "config/compose/production"))
+  .map((name) => read(`config/compose/production/${name}`))
+  .join("\n");
 
 const runtime = {
   caddy: read("infra/production/runtime/platform.caddy"),
   compose: read("compose.production.yaml"),
   composeEnvironment: read("config/compose/production/compose.env.example"),
+  productionTemplates,
   releaseWorkflow: read(".github/workflows/release.yml"),
 };
 
@@ -30,6 +34,28 @@ describe("production runtime architecture contract", () => {
       }),
       /must not build application source/u,
     );
+  });
+
+  it("rejects the local bank double and mail interceptor in the production runtime", () => {
+    for (const service of ["bank-double", "mailpit"]) {
+      assert.throws(
+        () => assertRuntimeContract({
+          ...runtime,
+          compose: runtime.compose.replace("\n  web:\n", `\n  ${service}:\n    image: example\n\n  web:\n`),
+        }),
+        /must not accept the local bank double or mail interceptor/u,
+      );
+    }
+    for (const declaration of ["TBANK_PROVIDER_MODE=test", "TBANK_TEST_API_BASE_URL=http://bank.invalid/v2",
+      "BILLING_CONTACT_SMTP_LOCAL_CAPTURE=true"]) {
+      assert.throws(
+        () => assertRuntimeContract({
+          ...runtime,
+          productionTemplates: `${runtime.productionTemplates}\n${declaration}\n`,
+        }),
+        /must not accept the local bank double or mail interceptor/u,
+      );
+    }
   });
 
   it("rejects a broad integration proxy that exposes unknown callbacks", () => {
@@ -59,6 +85,14 @@ describe("production runtime architecture contract", () => {
 function assertRuntimeContract(files) {
   if (/^\s+build:/mu.test(files.compose)) {
     throw new Error("production runtime must not build application source");
+  }
+  // Двойник банка и перехватчик писем принадлежат стенду: production не запускает их и не
+  // объявляет их адреса даже в шаблонах.
+  const standOnly = /bank-double|mailpit|TBANK_PROVIDER_MODE\s*[:=]\s*["']?test|TBANK_TEST_|BILLING_CONTACT_SMTP_LOCAL_CAPTURE/u;
+  for (const [name, contents] of [["runtime Compose", files.compose], ["environment templates", files.productionTemplates]]) {
+    if (standOnly.test(contents)) {
+      throw new Error(`production ${name} must not accept the local bank double or mail interceptor`);
+    }
   }
   const services = [
     "migrations",

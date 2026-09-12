@@ -39,9 +39,10 @@ export function tbankToken(payload: Readonly<Record<string, unknown>>, password:
     (typeof values[key] === "string" || typeof values[key] === "number" || typeof values[key] === "boolean"))
     .sort().map(key => String(values[key])).join("")).digest("hex");
 }
-export function validatedPaymentUrl(value: unknown): string {
+/** Форма оплаты открывается в браузере, поэтому её origin сверяется с контуром терминала. */
+export function validatedPaymentUrl(value: unknown, origins: readonly string[]): string {
   const url = new URL(z.url().parse(value));
-  if (url.protocol !== "https:" || !["securepay.tinkoff.ru", "pay.tbank.ru"].includes(url.hostname) || url.port || url.username || url.password || url.hash)
+  if (!origins.includes(url.origin) || url.username || url.password || url.hash)
     throw new Error("Invalid bank payment URL");
   return url.toString();
 }
@@ -74,7 +75,7 @@ export class Tbank {
           PaymentMethod: "full_payment", PaymentObject: "service", Tax: this.config.receipt.tax }] },
     });
     const payment = bankPaymentSchema.parse(result);
-    return { ...payment, PaymentURL: validatedPaymentUrl(notificationSchema.parse(result).PaymentURL) };
+    return { ...payment, PaymentURL: validatedPaymentUrl(notificationSchema.parse(result).PaymentURL, this.config.endpoints.formOrigins) };
   }
   /** Списание по сохранённой привязке. RebillId нельзя заменить CustomerKey или CardId. */
   async charge(input: { paymentId: string; rebillId: string }): Promise<BankPayment> {
@@ -89,7 +90,7 @@ export class Tbank {
       PaymentURL: z.unknown(),
     }).parse(await this.call("AddCard", { CustomerKey: accountId, CheckType: binding.checkType }));
     if (result.TerminalKey !== this.config.terminalKey) throw new Error("Bank binding terminal mismatch");
-    return { requestKey: result.RequestKey, formUrl: validatedPaymentUrl(result.PaymentURL) };
+    return { requestKey: result.RequestKey, formUrl: validatedPaymentUrl(result.PaymentURL, this.config.endpoints.formOrigins) };
   }
   /** Серверная сверка сессии привязки; token признаётся только вместе с успешным результатом. */
   async addCardState(requestKey: string): Promise<{ status: string; success: boolean; errorCode: string; rebillId?: string }> {
@@ -152,7 +153,7 @@ export class Tbank {
   }
   private async call(method: "Init" | "GetState" | "CheckOrder" | "Charge" | "Cancel" | "AddCard" | "GetAddCardState", values: Readonly<Record<string, unknown>>): Promise<unknown> {
     const body = { ...values, TerminalKey: this.config.terminalKey };
-    const response = await this.request(`https://securepay.tinkoff.ru/v2/${method}`, {
+    const response = await this.request(`${this.config.endpoints.apiBaseUrl}/${method}`, {
       method: "POST", headers: { "content-type": "application/json" },
       body: JSON.stringify({ ...body, Token: tbankToken(body, this.config.password) }),
       signal: AbortSignal.timeout(bankTimeoutMs), redirect: "error",

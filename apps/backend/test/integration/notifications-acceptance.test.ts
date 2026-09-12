@@ -3,7 +3,7 @@ import { Pool } from "pg";
 import { GenericContainer, Wait } from "testcontainers";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
-import { tbankConfigSchema } from "../../src/config/tbank-config.js";
+import { syntheticTbankConfig } from "../support/bank-terminal.js";
 import {
   localNotificationTopology,
   NOTIFICATION_BROKER_IMAGE,
@@ -57,7 +57,7 @@ import { providerStand, type ProviderStand } from "./setup/telegram-provider-sta
 // Каждое ожидание заканчивается на зафиксированном факте; бюджет только ограничивает зависший прогон.
 const barrierBudgetMs = 45_000;
 const origin = "https://inside.example.test";
-const config = tbankConfigSchema.parse({
+const config = syntheticTbankConfig({
   environment: "demo", terminalKey: "SYNTHETICACCEPT", password: "synthetic-test-password",
   bindingEncryptionKey: Buffer.alloc(32, 65).toString("base64"), recurringCardConfirmed: true,
   cardOnlyHostedConfirmed: true, cardBinding: { confirmed: true, checkType: "3DS" },

@@ -25,6 +25,7 @@
     "release:bootstrap-owner": "tsx src/release/bootstrap-owner-account.ts",
     "release:moderate-profiles": "tsx src/release/moderate-member-profiles.ts",
     "db:seed": "tsx src/development/seed-local.ts",
+    "dev:bank-double": "tsx watch src/development/bank-double.ts",
     "smoke:set-full-stack-membership": "tsx src/development/set-full-stack-membership.ts",
     "smoke:grant-full-stack-membership": "tsx src/development/grant-full-stack-membership.ts",
     "db:schema:check": "pnpm prisma:validate && pnpm prisma:generate",

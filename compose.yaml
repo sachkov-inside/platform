@@ -113,6 +113,8 @@ services:
         condition: service_completed_successfully
       object-storage:
         condition: service_healthy
+      mailpit:
+        condition: service_healthy
     ports:
       - "127.0.0.1:${API_HOST_PORT:-3001}:3001"
     healthcheck:
@@ -220,8 +222,52 @@ services:
         condition: service_healthy
       seed:
         condition: service_completed_successfully
+      bank-double:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
     init: true
     stop_grace_period: 10s
+
+  bank-double:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+      target: bank-double
+    env_file:
+      - ./config/compose/local/bank-double.env
+    ports:
+      - "127.0.0.1:${BANK_DOUBLE_HOST_PORT:-8090}:8090"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8090/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    init: true
+    stop_grace_period: 10s
+
+  # Перехватчик писем стенда: общий для всех отправителей, наружу не отправляет ничего.
+  mailpit:
+    image: ghcr.io/axllent/mailpit:v1.30.6@sha256:7f33095f80e901f6ad08028f06ca284aa58fe84942be5496008d041d3b9f4d4d
+    environment:
+      MP_DATABASE: /data/mailpit.db
+      MP_MAX_MESSAGES: "200"
+    ports:
+      - "127.0.0.1:${MAIL_CAPTURE_SMTP_HOST_PORT:-1025}:1025"
+      - "127.0.0.1:${MAIL_CAPTURE_HOST_PORT:-8025}:8025"
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    volumes:
+      - mail-capture-data:/data
 
   web:
     build:
@@ -274,6 +320,7 @@ services:
     stop_grace_period: 10s
 
 volumes:
+  mail-capture-data:
   object-storage-data:
   postgres-data:
   notification-broker-data:

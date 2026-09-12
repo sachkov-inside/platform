@@ -6,7 +6,7 @@ import { billingContactProtection } from "../../src/modules/accounts/infrastruct
 import { assembleAccessGrants } from "../../src/modules/membership-entitlements/index.js";
 import { BillingPayments, BillingPricing } from "../../src/modules/billing/index.js";
 import { Tbank, tbankToken } from "../../src/modules/billing/infrastructure/tbank/tbank.js";
-import { tbankConfigSchema } from "../../src/config/tbank-config.js";
+import { syntheticTbankConfig } from "../support/bank-terminal.js";
 import { createMigratedTestDatabase, type TestDatabase } from "./setup/test-database.js";
 
 function value<T>(result: { ok: true; value: T } | { ok: false; error: { code: string } }): T {
@@ -15,7 +15,7 @@ function value<T>(result: { ok: true; value: T } | { ok: false; error: { code: s
 function code(result: { ok: true } | { ok: false; error: { code: string } }): string {
   if (result.ok) throw new Error("Expected a refusal"); return result.error.code;
 }
-const config = tbankConfigSchema.parse({ environment: "demo", terminalKey: "SYNTHETICDEMO", password: "synthetic-test-password",
+const config = syntheticTbankConfig({ environment: "demo", terminalKey: "SYNTHETICDEMO", password: "synthetic-test-password",
   bindingEncryptionKey: Buffer.alloc(32, 43).toString("base64"), recurringCardConfirmed: true, cardOnlyHostedConfirmed: true,
   minimumKopecks: 100, maximumKopecks: 1_000_000, returnUrl: "https://inside.example.test/account", notificationUrl: "https://inside.example.test/billing/tbank/notification",
   receipt: { taxation: "usn_income", tax: "none" } });

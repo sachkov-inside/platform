@@ -374,5 +374,64 @@ describe("billing contact configuration", () => {
   it("allows plaintext only for a local synthetic SMTP capture", () => {
     expect(parsePlatformConfig(config).billingContact).toMatchObject({ localInsecure: true, smtpPort: 587 });
     expect(parsePlatformConfig({ ...config, BILLING_CONTACT_SMTP_HOST: "smtp.example.test" }).billingContact).toMatchObject({ localInsecure: false });
+    // Перехватчик писем стенда живёт под своим именем в сети Compose и объявляется явно.
+    expect(parsePlatformConfig({ ...config, BILLING_CONTACT_SMTP_HOST: "mailpit", BILLING_CONTACT_SMTP_LOCAL_CAPTURE: "true" })
+      .billingContact).toMatchObject({ localInsecure: true });
+    expect(() => parsePlatformProcessConfig({ ...productionWorker, BILLING_CONTACT_SMTP_LOCAL_CAPTURE: "true" }, "billing-worker"))
+      .toThrow("BILLING_CONTACT_SMTP_LOCAL_CAPTURE is not a production mail transport");
+  });
+});
+
+const productionWorker = {
+  NODE_ENV: "production",
+  DATABASE_URL: "postgresql://platform:secret@postgres:5432/inside",
+};
+const demoTerminal = {
+  environment: "demo", terminalKey: "SYNTHETICDEMO", password: "synthetic-password",
+  bindingEncryptionKey: Buffer.alloc(32, 42).toString("base64"),
+  recurringCardConfirmed: true, cardOnlyHostedConfirmed: true,
+  minimumKopecks: 100, maximumKopecks: 1_000_000,
+  returnUrl: "https://inside.example.test/subscription/return",
+  notificationUrl: "https://inside.example.test/billing/tbank/notification",
+  receipt: { taxation: "usn_income", tax: "none" },
+};
+
+describe("bank payment contour", () => {
+  const stand = { NODE_ENV: "development" };
+  it("keeps the real bank by default and refuses an unknown provider mode", () => {
+    expect(parsePlatformConfig(stand).tbank).toBeUndefined();
+    expect(parsePlatformConfig({ ...stand, TBANK_CONFIG_JSON: JSON.stringify(demoTerminal) }).tbank).toMatchObject({
+      environment: "demo",
+      endpoints: { apiBaseUrl: "https://securepay.tinkoff.ru/v2", formOrigins: ["https://securepay.tinkoff.ru", "https://pay.tbank.ru"] },
+    });
+    expect(() => parsePlatformConfig({ ...stand, TBANK_PROVIDER_MODE: "double" }))
+      .toThrow("TBANK_PROVIDER_MODE must be real or test");
+    // Контур настоящего терминала остаётся закрытым: адрес без HTTPS не принимается.
+    expect(() => parsePlatformConfig({ ...stand,
+      TBANK_CONFIG_JSON: JSON.stringify({ ...demoTerminal, returnUrl: "http://inside.example.test/subscription/return" }) }))
+      .toThrow("Invalid TBANK_CONFIG_JSON; check the terminal capability and receipt configuration");
+  });
+
+  it("builds the local double contour from the stand addresses", () => {
+    expect(parsePlatformConfig({ ...stand, TBANK_PROVIDER_MODE: "test" }).tbank).toMatchObject({
+      environment: "local", cardBinding: { confirmed: true, checkType: "3DS" },
+      notificationUrl: "http://127.0.0.1:3001/billing/tbank/notification",
+      returnUrl: "http://127.0.0.1:3000/subscription/return",
+      endpoints: { apiBaseUrl: "http://127.0.0.1:8090/v2", formOrigins: ["http://127.0.0.1:8090"] },
+    });
+    expect(parsePlatformConfig({ ...stand, TBANK_PROVIDER_MODE: "test",
+      TBANK_TEST_API_BASE_URL: "http://bank-double:8090/v2",
+      TBANK_TEST_NOTIFICATION_URL: "http://api:3001/billing/tbank/notification" }).tbank).toMatchObject({
+      notificationUrl: "http://api:3001/billing/tbank/notification",
+      endpoints: { apiBaseUrl: "http://bank-double:8090/v2" },
+    });
+  });
+
+  it("refuses the double in production and refuses a terminal beside it", () => {
+    expect(() => parsePlatformProcessConfig({ ...productionWorker, TBANK_PROVIDER_MODE: "test" }, "billing-worker"))
+      .toThrow("TBANK_PROVIDER_MODE must be real in production mode");
+    expect(parsePlatformProcessConfig(productionWorker, "billing-worker").tbank).toBeUndefined();
+    expect(() => parsePlatformConfig({ ...stand, TBANK_PROVIDER_MODE: "test", TBANK_CONFIG_JSON: JSON.stringify(demoTerminal) }))
+      .toThrow("TBANK_PROVIDER_MODE=test replaces TBANK_CONFIG_JSON; remove one of them");
   });
 });

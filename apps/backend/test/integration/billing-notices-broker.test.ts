@@ -11,7 +11,7 @@ import { Notifications } from "../../src/modules/notifications/index.js";
 import { assembleNotificationWorker } from "../../src/infrastructure/notification-transport/worker.js";
 import { localNotificationTopology, NOTIFICATION_BROKER_IMAGE } from "../../src/infrastructure/notification-transport/topology.js";
 import { lanes } from "../../src/infrastructure/notification-transport/wire.js";
-import { tbankConfigSchema } from "../../src/config/tbank-config.js";
+import { syntheticTbankConfig } from "../support/bank-terminal.js";
 import { BankFixture } from "./setup/bank.js";
 import { brokerAdmin, queueDepth } from "./setup/broker.js";
 import { distinctClock } from "./setup/distinct-clock.js";
@@ -24,7 +24,7 @@ function value<T>(result: { ok: true; value: T } | { ok: false; error: { code: s
 // Каждое ожидание заканчивается на зафиксированном факте; бюджет только ограничивает зависший прогон.
 const barrierBudgetMs = 30_000;
 const origin = "https://inside.example.test";
-const config = tbankConfigSchema.parse({ environment: "demo", terminalKey: "SYNTHETICBROKER", password: "synthetic-test-password",
+const config = syntheticTbankConfig({ environment: "demo", terminalKey: "SYNTHETICBROKER", password: "synthetic-test-password",
   bindingEncryptionKey: Buffer.alloc(32, 63).toString("base64"), recurringCardConfirmed: true, cardOnlyHostedConfirmed: true,
   minimumKopecks: 100, maximumKopecks: 10_000_000, returnUrl: `${origin}/account`,
   notificationUrl: `${origin}/billing/tbank/notification`, receipt: { taxation: "usn_income", tax: "none" } });

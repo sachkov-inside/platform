@@ -66,6 +66,10 @@ CMD ["pnpm", "--filter", "@inside/backend", "dev:billing-worker"]
 FROM development AS notifications-worker
 CMD ["pnpm", "--filter", "@inside/backend", "dev:notifications-worker"]
 
+# Двойник банка существует только для стенда: цели production ниже его не собирают и не запускают.
+FROM development AS bank-double
+CMD ["pnpm", "--filter", "@inside/backend", "dev:bank-double"]
+
 FROM development AS production-build
 
 RUN pnpm --filter @inside/backend build:production \
