@@ -92,15 +92,12 @@ describe("supported toolchain contract", () => {
   });
 
   it("hides the development indicator where the mobile dock is used", () => {
-    // Индикатор режима разработки разворачивается внизу слева в плашку шире мобильного дока и
-    // перехватывает нажатие по его левому пункту на ширине 390. Стенд и браузерные проверки
-    // поднимают `next dev`, поэтому обе стороны гасят индикатор одной переменной. Проверка держит
-    // проводку: убери любое из трёх звеньев — и перекрытие вернётся молча, одними лишь
-    // плавающими промахами по доку. Геометрию она не измеряет, это делают замеры в задаче #567.
+    // Сторожит три звена проводки: убери любое — и перекрытие дока индикатором вернётся молча,
+    // одними лишь плавающими промахами. Причину и выбор держит `apps/web/next.config.ts`.
     const nextConfig = read("apps/web/next.config.ts");
 
     assert.match(nextConfig, /process\.env\.HIDE_DEV_INDICATOR === "true"/u);
-    assert.match(nextConfig, /devIndicators: false as const/u);
+    assert.match(nextConfig, /devIndicators: false/u);
     assert.match(read("apps/web/playwright.config.ts"), /HIDE_DEV_INDICATOR: "true"/u);
     assert.match(read("config/compose/local/web.env"), /^HIDE_DEV_INDICATOR=true$/mu);
   });
