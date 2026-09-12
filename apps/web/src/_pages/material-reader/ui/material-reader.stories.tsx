@@ -5,6 +5,7 @@ import type {
   MaterialReaderMetadata,
   ReaderBlock,
 } from "@/_pages/material-reader/model/material-reader-view";
+import { calloutTones } from "@/entities/material";
 import {
   materialReaderHref,
   parseMaterialReaderReturnTarget,
@@ -185,11 +186,132 @@ const body = [
   },
 ] as const satisfies readonly ReaderBlock[];
 
+/** Урок из блоков: по одному блоку каждого вида в обычном состоянии. */
+const lessonBody = [
+  {
+    kind: "key_point",
+    content: [
+      { kind: "text", text: "Issue хранит intent, pull request хранит evidence.", marks: [] },
+    ],
+  },
+  ...calloutTones.map((tone) => ({
+    kind: "callout" as const,
+    tone,
+    content: [
+      {
+        kind: "paragraph" as const,
+        content: [
+          { kind: "text" as const, text: `Врезка вида ${tone} в обычном состоянии.`, marks: [] },
+        ],
+      },
+    ],
+  })),
+  {
+    kind: "callout",
+    tone: "definition",
+    title: "Правило одного источника",
+    content: [
+      {
+        kind: "paragraph",
+        content: [{ kind: "text", text: "Один authority на каждый факт.", marks: [] }],
+      },
+    ],
+  },
+  {
+    kind: "resource_card",
+    title: "Спецификация Platform",
+    description: "Что обещает контракт доставки.",
+    url: "https://example.com/spec",
+  },
+  {
+    kind: "agent_prompt",
+    title: "Промпт для разбора",
+    text: "Разбери материал и предложи три правки.",
+  },
+  {
+    kind: "takeaways",
+    title: "Итоги урока",
+    content: [
+      {
+        kind: "paragraph",
+        content: [{ kind: "text", text: "Review закрыт", marks: [] }],
+      },
+      {
+        kind: "paragraph",
+        content: [{ kind: "text", text: "Owner дал merge GO", marks: [] }],
+      },
+    ],
+  },
+  {
+    kind: "labeled_list",
+    rows: [
+      { label: "ADR", name: "Решение", description: "Фиксирует необратимый выбор" },
+      { label: "Gate", name: "Проверка" },
+    ],
+  },
+] as const satisfies readonly ReaderBlock[];
+
+const longText =
+  "Длинный текст без переносов проверяет перенос строк и горизонтальную прокрутку: " +
+  "решение фиксируется один раз, а проверка повторяется на каждом изменении, поэтому " +
+  "формулировка остаётся длинной и подробной даже на узком экране.";
+
+/** Те же блоки с длинным содержимым: проверка переноса и ширины на телефоне. */
+const longLessonBody = [
+  {
+    kind: "key_point",
+    content: [{ kind: "text", text: longText, marks: [] }],
+  },
+  {
+    kind: "callout",
+    tone: "warning",
+    title: longText,
+    content: [
+      { kind: "paragraph", content: [{ kind: "text", text: longText, marks: [] }] },
+    ],
+  },
+  {
+    kind: "resource_card",
+    title: longText,
+    description: longText,
+    url: "https://example.com/очень/длинный/адрес/страницы/с/разделами",
+  },
+  {
+    kind: "agent_prompt",
+    title: longText,
+    text: `${longText}\n${longText}`,
+  },
+  {
+    kind: "takeaways",
+    title: longText,
+    content: [
+      { kind: "paragraph", content: [{ kind: "text", text: longText, marks: [] }] },
+    ],
+  },
+  {
+    kind: "labeled_list",
+    rows: [{ label: "Длинная метка", name: longText, description: longText }],
+  },
+] as const satisfies readonly ReaderBlock[];
+
+/** Незаполненные блоки: автор вставил блок и ещё не написал содержимое. */
+const emptyLessonBody = [
+  { kind: "key_point", content: [] },
+  { kind: "callout", tone: "note", content: [] },
+  { kind: "resource_card", title: "", url: "" },
+  { kind: "agent_prompt", text: "" },
+  { kind: "takeaways", title: "", content: [] },
+  { kind: "labeled_list", rows: [] },
+] as const satisfies readonly ReaderBlock[];
+
 type ReaderStoryMode =
   | "access-required"
   | "access-unavailable"
   | "desktop"
   | "error"
+  | "lesson-blocks"
+  | "lesson-blocks-empty"
+  | "lesson-blocks-long"
   | "loading"
   | "mobile"
   | "short"
@@ -253,6 +375,30 @@ function MaterialReaderState({ mode }: { readonly mode: ReaderStoryMode }) {
         />
       );
     }
+    case "lesson-blocks":
+      return (
+        <MaterialReaderView
+          body={lessonBody}
+          material={{ ...material, title: "Урок из готовых блоков" }}
+          primaryVideo={null}
+        />
+      );
+    case "lesson-blocks-long":
+      return (
+        <MaterialReaderView
+          body={longLessonBody}
+          material={{ ...material, title: "Урок с длинным содержимым" }}
+          primaryVideo={null}
+        />
+      );
+    case "lesson-blocks-empty":
+      return (
+        <MaterialReaderView
+          body={emptyLessonBody}
+          material={{ ...material, title: "Урок с незаполненными блоками" }}
+          primaryVideo={null}
+        />
+      );
     case "loading":
       return <MaterialReaderLoading />;
     case "video-processing":
@@ -556,5 +702,69 @@ export const ShortMaterial: Story = {
     await expect(
       body?.getBoundingClientRect().bottom ?? Number.POSITIVE_INFINITY,
     ).toBeLessThanOrEqual(window.innerHeight);
+  },
+};
+
+export const LessonBlocks: Story = {
+  args: { mode: "lesson-blocks" },
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    for (const label of [
+      "Примечание",
+      "Совет",
+      "Важно",
+      "Пример",
+      "Хорошо",
+      "Плохо",
+      "Определение",
+    ]) {
+      await expect(canvas.getAllByLabelText(new RegExp(`^${label}`, "u")).length).toBeGreaterThan(0);
+    }
+    await expect(
+      canvas.getByLabelText("Определение: Правило одного источника"),
+    ).toBeInTheDocument();
+    const resource = canvas.getByRole("link", { name: /Открыть/u });
+    await expect(resource).toHaveAttribute("href", "https://example.com/spec");
+    await expect(canvas.getByRole("button", { name: /Копировать/u })).toBeInTheDocument();
+    await expect(canvas.getByRole("region", { name: "Итоги урока" })).toBeInTheDocument();
+    await expect(canvas.getByText("Фиксирует необратимый выбор")).toBeInTheDocument();
+    await expect(
+      canvas.getByText("Issue хранит intent, pull request хранит evidence."),
+    ).toBeInTheDocument();
+  },
+};
+
+export const LessonBlocksMobile: Story = {
+  args: { mode: "lesson-blocks" },
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole("region", { name: "Итоги урока" })).toBeInTheDocument();
+    const page = canvasElement.ownerDocument.documentElement;
+    await expect(page.scrollWidth).toBeLessThanOrEqual(page.clientWidth);
+  },
+};
+
+export const LessonBlocksLong: Story = {
+  args: { mode: "lesson-blocks-long" },
+  globals: { viewport: { isRotated: false, value: "mobile320" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole("button", { name: /Копировать/u })).toBeInTheDocument();
+    const page = canvasElement.ownerDocument.documentElement;
+    await expect(page.scrollWidth).toBeLessThanOrEqual(page.clientWidth);
+  },
+};
+
+export const LessonBlocksEmpty: Story = {
+  args: { mode: "lesson-blocks-empty" },
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    // Пустая карточка ресурса не предлагает открыть адрес, которого нет.
+    await expect(canvas.queryByRole("link", { name: /Открыть/u })).not.toBeInTheDocument();
+    await expect(canvas.getByLabelText("Примечание")).toBeInTheDocument();
+    await expect(canvas.getByRole("region", { name: "Итоги" })).toBeInTheDocument();
   },
 };

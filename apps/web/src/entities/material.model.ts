@@ -15,10 +15,13 @@ export {
 } from "./material/model/material-preview-schema";
 export { materialTaxonomyLabel } from "./material/model/material-taxonomy-label";
 export {
+  calloutTones,
   renderedBlockSchema,
   renderedMarkSchema,
   renderedMaterialBodySchema,
   renderedTextSchema,
+  type CalloutTone,
+  type MaterialLabeledRow,
   type RenderedBlock,
   type RenderedMark,
   type RenderedMaterialBody,
