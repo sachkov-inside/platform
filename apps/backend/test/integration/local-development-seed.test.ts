@@ -425,6 +425,88 @@ describe("local development seed after a demo content change", () => {
     ).resolves.toBe(1);
   });
 
+  /**
+   * Один отрицательный набор на все места засева. Он краснеет, как только любое из них перестаёт
+   * сравнивать тело перед Save: изменённое определение тихо не доедет до уже засеянной базы, и
+   * стенд покажет прежний контент, выглядя исправным.
+   */
+  test("returns every seeded Material to its body after the stored body is changed", async () => {
+    const titles = [
+      "Архитектурная заметка 01",
+      "Границы хорошего модуля",
+      "Как устроен Inside Platform",
+      "Demo · Подготовка приложения к релизу",
+      "Developer Pipeline без потери контекста",
+    ];
+    const { authoring } = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: { canManage: (accountId) => accountId === seedActor },
+    });
+    const seededBodies = new Map<string, unknown>();
+    for (const title of titles) {
+      const material = await testDatabase.prisma.material.findFirstOrThrow({
+        select: { body: true, id: true },
+        where: { title },
+      });
+      seededBodies.set(title, material.body);
+      const loaded = await authoring.loadMaterial({
+        actor: seedActor,
+        materialId: material.id,
+      });
+      if (!loaded.ok) throw new Error(`${title}: ${loaded.error.code}`);
+      const changed = await authoring.saveMaterial({
+        actor: seedActor,
+        body: {
+          schemaVersion: 1,
+          doc: {
+            content: [
+              {
+                attrs: { nodeId: "70000000-0000-4000-8000-000000000001" },
+                content: [{ type: "text", text: "Тело изменено мимо засева." }],
+                type: "paragraph",
+              },
+            ],
+            type: "doc",
+          },
+        },
+        expectedContentVersion: loaded.value.contentVersion,
+        idempotencyKey: `changed-body-${randomUUID()}`,
+        materialId: material.id,
+        metadata: {
+          access: loaded.value.metadata.access,
+          difficulty: loaded.value.metadata.difficulty,
+          formatId: loaded.value.metadata.formatId,
+          outcomes: loaded.value.metadata.outcomes,
+          seriesIds: loaded.value.metadata.seriesMemberships.map(
+            ({ seriesId }) => seriesId,
+          ),
+          summary: loaded.value.metadata.summary,
+          tagIds: loaded.value.metadata.tagIds,
+          title: loaded.value.metadata.title,
+          topicId: loaded.value.metadata.topicId,
+        },
+        primaryVideoId: loaded.value.primaryVideoId,
+        publicationState: "published",
+      });
+      if (!changed.ok) throw new Error(`${title}: ${changed.error.code}`);
+    }
+
+    await seedLocalDevelopment(testDatabase.prisma);
+
+    // Сравниваются все места сразу, чтобы падение называло каждое отставшее, а не только первое.
+    const restored = [];
+    for (const title of titles) {
+      const material = await testDatabase.prisma.material.findFirstOrThrow({
+        select: { body: true },
+        where: { title },
+      });
+      restored.push({ body: material.body, title });
+    }
+    expect(restored).toEqual(
+      titles.map((title) => ({ body: seededBodies.get(title), title })),
+    );
+  });
+
   test("sends no change command when the definition already matches", async () => {
     await seedLocalDevelopment(testDatabase.prisma);
     const materials = await materialSnapshot();

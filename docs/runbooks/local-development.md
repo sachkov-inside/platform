@@ -318,9 +318,9 @@ fixtures cover catalog pagination, Home formats and one explicit Series-reading 
 `demo-295-samostoyatelnaya-zametka` belongs to no Series. Their titles and summaries identify them
 as development examples rather than editorial content. Repeating the seed keeps the same Materials
 and brings each one back to its definition in `seed-local-development.ts` without resetting the
-named volume, including a demo step whose body, `difficulty` or `outcomes` changed after that
-volume was seeded; a Material that already matches its definition receives no change command at
-all. Materials are created and published through the Materials application interface; only fixed
+named volume: a body, `difficulty` or `outcomes` edited in that file after the volume was seeded
+still reaches the existing Material, and a Material that already matches its definition receives no
+change command at all. Materials are created and published through the Materials application interface; only fixed
 local Topic/Format/Tag/Series prerequisites use Prisma model operations because Platform has no
 product taxonomy-authoring capability yet.
 

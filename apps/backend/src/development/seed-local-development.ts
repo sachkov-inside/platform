@@ -1,5 +1,8 @@
 import type { PlatformPrisma } from "../infrastructure/prisma/index.js";
-import { assembleMaterials } from "../modules/materials/index.js";
+import {
+  assembleMaterials,
+  type MaterialDifficulty,
+} from "../modules/materials/index.js";
 import {
   assembleVideos,
   type VideoProvider,
@@ -75,7 +78,7 @@ export async function seedLocalDevelopment(
     },
     videos,
   });
-  await ensureCatalogContinuationMaterials(prisma, authoring);
+  await ensureCatalogContinuationMaterials(prisma, authoring, videos);
   await ensureHomeMaterials(prisma, authoring, videos);
   await ensureSeriesReaderScenario(prisma, authoring, videos);
   const representativeMaterial = {
@@ -258,54 +261,23 @@ export async function seedLocalDevelopment(
       },
     },
   } as const;
-  const existing = await prisma.material.findUnique({
-    where: { slug },
-    select: { id: true },
+  const overview = await ensureSeededMaterial(prisma, authoring, videos, {
+    ...representativeMaterial,
+    createIdempotencyKey,
+    saveIdempotencyKeyPrefix: "local-overview-save",
+    slug,
   });
-  let materialIdValue = existing?.id;
-  if (materialIdValue === undefined) {
-    const created = await authoring.createDraft({
-      actor,
-      idempotencyKey: createIdempotencyKey,
-      ...representativeMaterial,
-    });
-    if (!created.ok) {
-      throw new Error(`Local Material draft failed: ${created.error.code}`);
-    }
-    materialIdValue = created.value.materialId;
-  }
-  const loaded = await authoring.loadMaterial({
-    actor,
-    materialId: materialIdValue,
-  });
-  if (!loaded.ok) {
-    throw new Error(`Local Material load failed: ${loaded.error.code}`);
-  }
-  let contentVersion = loaded.value.contentVersion;
-  if (
-    loaded.value.publicationState !== "published" ||
-    !loaded.value.metadata.tagIds.includes(tagId)
-  ) {
-    const saved = await authoring.saveMaterial({
-      actor,
-      idempotencyKey: `local-overview-save-${String(contentVersion)}`,
-      materialId: materialIdValue,
-      expectedContentVersion: contentVersion,
-      publicationState: "published",
-      ...representativeMaterial,
-    });
-    if (!saved.ok) {
-      throw new Error(`Local Material Save failed: ${saved.error.code}`);
-    }
-    contentVersion = saved.value.contentVersion;
-  }
 
-  await ensureMembershipCatalogMaterial(prisma, authoring);
-  await ensureRelatedPin(prisma, materialIdValue);
+  await ensureMembershipCatalogMaterial(prisma, authoring, videos);
+  await ensureRelatedPin(prisma, overview.materialId);
   // Каталог заводится последним: разовое предложение продаёт уже засеянное руководство.
   await seedLocalOfferCatalog(prisma, { actor, guideId: seriesId });
 
-  return Object.freeze({ materialId: materialIdValue, contentVersion, slug });
+  return Object.freeze({
+    materialId: overview.materialId,
+    contentVersion: overview.contentVersion,
+    slug,
+  });
 }
 
 /**
@@ -443,74 +415,19 @@ async function ensureSeriesReaderScenario(
         ],
       },
     } as const;
-    // Slug материала выдаёт модуль Материалов по заголовку, поэтому засеянный материал ищется по
-    // заголовку. Создание не зависит от текущего тела: создавать заново с постоянным ключом
-    // идемпотентности после смены определения — это idempotency_key_reused и несобранный стенд.
-    const existing = await prisma.material.findFirst({
-      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-      select: { id: true },
-      where: { title: definition.title },
+    // Определения серии о релизе не несут хранимого slug: его выдаёт модуль Материалов из
+    // заголовка при публикации, а `key` здесь — локальный ключ порядка. Поэтому материал ищется
+    // по заголовку.
+    const seeded = await ensureSeededMaterial(prisma, authoring, videos, {
+      body,
+      createIdempotencyKey: `local-series-demo-create-${String(index + 1)}`,
+      metadata,
+      saveIdempotencyKeyPrefix: `local-series-demo-save-${String(index + 1)}`,
+      ...("providerVideoId" in definition
+        ? { providerVideoId: definition.providerVideoId }
+        : {}),
     });
-    let materialIdValue = existing?.id;
-    if (materialIdValue === undefined) {
-      const created = await authoring.createDraft({
-        actor,
-        body,
-        idempotencyKey: `local-series-demo-create-${String(index + 1)}`,
-        metadata,
-      });
-      if (!created.ok) {
-        throw new Error(`Local Series demo draft failed: ${created.error.code}`);
-      }
-      materialIdValue = created.value.materialId;
-    }
-    const loaded = await authoring.loadMaterial({ actor, materialId: materialIdValue });
-    if (!loaded.ok) {
-      throw new Error(`Local Series demo load failed: ${loaded.error.code}`);
-    }
-    let primaryVideoId: string | null = null;
-    if ("providerVideoId" in definition) {
-      const attached = await videos.attachExisting({
-        access: "free",
-        actor,
-        materialId: materialIdValue,
-        providerVideoId: definition.providerVideoId,
-      });
-      if (!attached.ok) {
-        throw new Error(`Local Series demo video failed: ${attached.error.code}`);
-      }
-      primaryVideoId = attached.value.videoId;
-    }
-    const actualSeriesIds = loaded.value.metadata.seriesMemberships.map(
-      ({ seriesId }) => seriesId,
-    );
-    // Тело, сложность и «Чему научишься» входят в сравнение: без них изменённое определение не
-    // доедет до уже засеянной базы и стенд молча покажет прежний демо-контент.
-    if (
-      loaded.value.publicationState !== "published" ||
-      loaded.value.primaryVideoId !== primaryVideoId ||
-      loaded.value.metadata.summary !== metadata.summary ||
-      loaded.value.metadata.difficulty !== metadata.difficulty ||
-      !sameJsonValue(loaded.value.metadata.outcomes, metadata.outcomes) ||
-      !sameJsonValue(loaded.value.body, body) ||
-      actualSeriesIds.length !== definition.seriesIds.length ||
-      definition.seriesIds.some((seriesIdValue) => !actualSeriesIds.includes(seriesIdValue))
-    ) {
-      const saved = await authoring.saveMaterial({
-        actor,
-        body,
-        expectedContentVersion: loaded.value.contentVersion,
-        idempotencyKey: `local-series-demo-save-${String(index + 1)}-${String(loaded.value.contentVersion)}`,
-        materialId: materialIdValue,
-        metadata,
-        primaryVideoId,
-        publicationState: "published",
-      });
-      if (!saved.ok) {
-        throw new Error(`Local Series demo Save failed: ${saved.error.code}`);
-      }
-    }
-    materialIds.set(definition.key, materialIdValue);
+    materialIds.set(definition.key, seeded.materialId);
   }
 
   const releaseKeys = ["demo-298-release-overview", "demo-298-prepare", "demo-298-docker", "demo-298-secrets", "demo-298-environment", "demo-298-deploy"];
@@ -528,6 +445,127 @@ async function ensureSeriesReaderScenario(
     requiredMaterialId(materialIds, "demo-295-video-razbor"),
     requiredMaterialId(materialIds, "demo-295-itogovaya-zametka"),
   ]);
+}
+
+interface SeededMaterialDefinition {
+  readonly body: { readonly schemaVersion: 1; readonly doc: unknown };
+  readonly createIdempotencyKey: string;
+  readonly metadata: {
+    readonly access: "free" | "membership" | "workshop";
+    readonly difficulty: MaterialDifficulty | null;
+    readonly formatId: string;
+    readonly outcomes: readonly string[];
+    readonly seriesIds: readonly string[];
+    readonly summary: string;
+    readonly tagIds: readonly string[];
+    readonly title: string;
+    readonly topicId: string;
+  };
+  readonly providerVideoId?: string;
+  readonly saveIdempotencyKeyPrefix: string;
+  /** Хранимый slug, когда определение им владеет; иначе материал опознаётся заголовком. */
+  readonly slug?: string;
+}
+
+/**
+ * Один материал стенда: он существует, он опубликован и он равен своему определению.
+ *
+ * Каждый засеянный материал проходит здесь, и сравнение перед Save одно на всех. Обе половины
+ * важны, и обе уже ломались. Создание не должно зависеть от текущего тела: постоянный ключ
+ * идемпотентности, встретивший изменившееся тело, — это `idempotency_key_reused`, на котором
+ * стенд не поднимается вовсе. А поле, выпавшее из сравнения, тихо не доедет до уже засеянной
+ * базы: стенд покажет прежний контент и будет выглядеть исправным.
+ */
+async function ensureSeededMaterial(
+  prisma: PlatformPrisma,
+  authoring: ReturnType<typeof assembleMaterials>["authoring"],
+  videos: ReturnType<typeof assembleVideos>,
+  definition: SeededMaterialDefinition,
+): Promise<{ readonly contentVersion: number; readonly materialId: string }> {
+  const metadata = definition.metadata;
+  const title = metadata.title;
+  const existing = await prisma.material.findFirst({
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    select: { id: true },
+    where: definition.slug === undefined
+      ? { title }
+      : { OR: [{ slug: definition.slug }, { title }] },
+  });
+  let materialId = existing?.id;
+  if (materialId === undefined) {
+    const created = await authoring.createDraft({
+      actor,
+      body: definition.body,
+      idempotencyKey: definition.createIdempotencyKey,
+      metadata,
+    });
+    if (!created.ok) {
+      throw new Error(`Local seed draft failed for ${title}: ${created.error.code}`);
+    }
+    materialId = created.value.materialId;
+  }
+  let primaryVideoId: string | null = null;
+  if (definition.providerVideoId !== undefined) {
+    const attached = await videos.attachExisting({
+      access: "free",
+      actor,
+      materialId,
+      providerVideoId: definition.providerVideoId,
+    });
+    if (!attached.ok) {
+      throw new Error(`Local seed video failed for ${title}: ${attached.error.code}`);
+    }
+    primaryVideoId = attached.value.videoId;
+  }
+  const loaded = await authoring.loadMaterial({ actor, materialId });
+  if (!loaded.ok) {
+    throw new Error(`Local seed load failed for ${title}: ${loaded.error.code}`);
+  }
+  const current = loaded.value.metadata;
+  const matchesDefinition =
+    loaded.value.publicationState === "published" &&
+    loaded.value.primaryVideoId === primaryVideoId &&
+    current.access === metadata.access &&
+    current.difficulty === metadata.difficulty &&
+    current.formatId === metadata.formatId &&
+    current.summary === metadata.summary &&
+    current.title === title &&
+    current.topicId === metadata.topicId &&
+    sameJsonValue(current.outcomes, metadata.outcomes) &&
+    sameIdentifierSet(current.tagIds, metadata.tagIds) &&
+    sameIdentifierSet(
+      current.seriesMemberships.map(({ seriesId: value }) => value),
+      metadata.seriesIds,
+    ) &&
+    sameJsonValue(loaded.value.body, definition.body);
+  if (matchesDefinition) {
+    return { contentVersion: loaded.value.contentVersion, materialId };
+  }
+  const saved = await authoring.saveMaterial({
+    actor,
+    body: definition.body,
+    expectedContentVersion: loaded.value.contentVersion,
+    idempotencyKey: `${definition.saveIdempotencyKeyPrefix}-${String(loaded.value.contentVersion)}`,
+    materialId,
+    metadata,
+    primaryVideoId,
+    publicationState: "published",
+  });
+  if (!saved.ok) {
+    throw new Error(`Local seed Save failed for ${title}: ${saved.error.code}`);
+  }
+  return { contentVersion: saved.value.contentVersion, materialId };
+}
+
+/** Теги и серии хранятся упорядоченными по идентификатору, а определение их не сортирует. */
+function sameIdentifierSet(
+  current: readonly string[],
+  expected: readonly string[],
+): boolean {
+  return (
+    current.length === expected.length &&
+    expected.every((value) => current.includes(value))
+  );
 }
 
 /**
@@ -595,6 +633,7 @@ function requiredMaterialId(
 async function ensureCatalogContinuationMaterials(
   prisma: PlatformPrisma,
   authoring: ReturnType<typeof assembleMaterials>["authoring"],
+  videos: ReturnType<typeof assembleVideos>,
 ): Promise<void> {
   for (let index = 1; index <= 11; index += 1) {
     const sequence = String(index).padStart(2, "0");
@@ -623,42 +662,13 @@ async function ensureCatalogContinuationMaterials(
           ],
         },
       } as const;
-    const existing = await prisma.material.findUnique({
-      where: { slug: `arkhitekturnaya-zametka-${sequence}` },
-      select: { id: true, contentVersion: true, publicationState: true },
+    await ensureSeededMaterial(prisma, authoring, videos, {
+      body,
+      createIdempotencyKey: `local-catalog-create-${sequence}`,
+      metadata,
+      saveIdempotencyKeyPrefix: `local-catalog-publish-${sequence}`,
+      slug: `arkhitekturnaya-zametka-${sequence}`,
     });
-    let material = existing;
-    if (material === null) {
-      const created = await authoring.createDraft({
-        actor,
-        idempotencyKey: `local-catalog-create-${sequence}`,
-        metadata,
-        body,
-      });
-      if (!created.ok) {
-        throw new Error(`Local catalog draft failed: ${created.error.code}`);
-      }
-      material = {
-        id: created.value.materialId,
-        contentVersion: BigInt(created.value.contentVersion),
-        publicationState: created.value.publicationState,
-      };
-    }
-    if (material.publicationState !== "published") {
-      const expectedContentVersion = Number(material.contentVersion);
-      const published = await authoring.saveMaterial({
-        actor,
-        idempotencyKey: `local-catalog-publish-${sequence}-${String(expectedContentVersion)}`,
-        materialId: material.id,
-        expectedContentVersion,
-        publicationState: "published",
-        metadata,
-        body,
-      });
-      if (!published.ok) {
-        throw new Error(`Local catalog publish failed: ${published.error.code}`);
-      }
-    }
   }
 }
 
@@ -734,68 +744,17 @@ async function ensureHomeMaterials(
         ],
       },
     } as const;
-    const existing = await prisma.material.findFirst({
-      where: {
-        OR: [
-          { slug: materialDefinition.slug },
-          { title: materialDefinition.title },
-        ],
-      },
-      select: { contentVersion: true, id: true, primaryVideoId: true, publicationState: true },
+    const seeded = await ensureSeededMaterial(prisma, authoring, videos, {
+      body,
+      createIdempotencyKey: `local-home-create-${String(index + 1)}`,
+      metadata,
+      saveIdempotencyKeyPrefix: `local-home-publish-v3-${String(index + 1)}`,
+      slug: materialDefinition.slug,
+      ...("providerVideoId" in materialDefinition
+        ? { providerVideoId: materialDefinition.providerVideoId }
+        : {}),
     });
-    let material = existing;
-    if (material === null) {
-      const created = await authoring.createDraft({
-        actor,
-        body,
-        idempotencyKey: `local-home-create-${String(index + 1)}`,
-        metadata,
-      });
-      if (!created.ok) {
-        throw new Error(`Local Home draft failed: ${created.error.code}`);
-      }
-      material = {
-        contentVersion: BigInt(created.value.contentVersion),
-        id: created.value.materialId,
-        primaryVideoId: null,
-        publicationState: created.value.publicationState,
-      };
-    }
-    let primaryVideoId: string | null = null;
-    if ("providerVideoId" in materialDefinition) {
-      const attached = await videos.attachExisting({
-        access: "free",
-        actor,
-        materialId: material.id,
-        providerVideoId: materialDefinition.providerVideoId,
-      });
-      if (!attached.ok) {
-        throw new Error(`Local Home video failed: ${attached.error.code}`);
-      }
-      primaryVideoId = attached.value.videoId;
-    }
-    const progressMembership = metadata.seriesIds.length === 0 ? true : await prisma.guideMembership.findFirst({ where: { materialId: material.id, seriesId: progressSeriesId }, select: { materialId: true } });
-    progressIds.set(materialDefinition.slug, material.id);
-    if (
-      progressMembership === null ||
-      material.publicationState !== "published" ||
-      material.primaryVideoId !== primaryVideoId
-    ) {
-      const expectedContentVersion = Number(material.contentVersion);
-      const published = await authoring.saveMaterial({
-        actor,
-        body,
-        expectedContentVersion,
-        idempotencyKey: `local-home-publish-v3-${String(index + 1)}-${String(expectedContentVersion)}`,
-        materialId: material.id,
-        metadata,
-        primaryVideoId,
-        publicationState: "published",
-      });
-      if (!published.ok) {
-        throw new Error(`Local Home publish failed: ${published.error.code}`);
-      }
-    }
+    progressIds.set(materialDefinition.slug, seeded.materialId);
   }
   await ensureDevelopmentSeriesOrder(authoring, progressSeriesId, progressSlugs.map((slug) => requiredMaterialId(progressIds, slug)));
 }
@@ -824,6 +783,7 @@ const localDevelopmentVideoProvider: VideoProvider = {
 async function ensureMembershipCatalogMaterial(
   prisma: PlatformPrisma,
   authoring: ReturnType<typeof assembleMaterials>["authoring"],
+  videos: ReturnType<typeof assembleVideos>,
 ): Promise<void> {
   const metadata = {
       title: "Developer Pipeline без потери контекста",
@@ -849,49 +809,13 @@ async function ensureMembershipCatalogMaterial(
         ],
       },
     } as const;
-  const existing = await prisma.material.findUnique({
-    where: { slug: membershipSlug },
-    select: { id: true, contentVersion: true, publicationState: true },
+  await ensureSeededMaterial(prisma, authoring, videos, {
+    body,
+    createIdempotencyKey: membershipCreateIdempotencyKey,
+    metadata,
+    saveIdempotencyKeyPrefix: "local-membership-publish",
+    slug: membershipSlug,
   });
-  let material = existing;
-  if (material === null) {
-    const created = await authoring.createDraft({
-      actor,
-      idempotencyKey: membershipCreateIdempotencyKey,
-      metadata,
-      body,
-    });
-    if (!created.ok) {
-      throw new Error(`Local Membership Material draft failed: ${created.error.code}`);
-    }
-    material = {
-      id: created.value.materialId,
-      contentVersion: BigInt(created.value.contentVersion),
-      publicationState: created.value.publicationState,
-    };
-  }
-  const selectedSeries = await prisma.guideMembership.findFirst({
-    where: { materialId: material.id, seriesId },
-    select: { materialId: true },
-  });
-  if (
-    material.publicationState !== "published" ||
-    selectedSeries === null
-  ) {
-    const expectedContentVersion = Number(material.contentVersion);
-    const published = await authoring.saveMaterial({
-      actor,
-      idempotencyKey: `local-membership-publish-${String(expectedContentVersion)}`,
-      materialId: material.id,
-      expectedContentVersion,
-      publicationState: "published",
-      metadata,
-      body,
-    });
-    if (!published.ok) {
-      throw new Error(`Local Membership Material publish failed: ${published.error.code}`);
-    }
-  }
 }
 
 async function ensureRelatedPin(
