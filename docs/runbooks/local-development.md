@@ -317,10 +317,12 @@ fixtures cover catalog pagination, Home formats and one explicit Series-reading 
 `demo-series-review` orders the same shared guide before a video and note, and
 `demo-295-samostoyatelnaya-zametka` belongs to no Series. Their titles and summaries identify them
 as development examples rather than editorial content. Repeating the seed keeps the same Materials
-and upgrades the representative fixture without resetting the named volume. Materials are created
-and published through the Materials application interface; only fixed local Topic/Format/Tag/Series
-prerequisites use Prisma model operations because Platform has no product taxonomy-authoring
-capability yet.
+and brings each one back to its definition in `seed-local-development.ts` without resetting the
+named volume, including a demo step whose body, `difficulty` or `outcomes` changed after that
+volume was seeded; a Material that already matches its definition receives no change command at
+all. Materials are created and published through the Materials application interface; only fixed
+local Topic/Format/Tag/Series prerequisites use Prisma model operations because Platform has no
+product taxonomy-authoring capability yet.
 
 ## Migration and Prisma schema checks
 

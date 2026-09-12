@@ -77,7 +77,7 @@ export async function seedLocalDevelopment(
   });
   await ensureCatalogContinuationMaterials(prisma, authoring);
   await ensureHomeMaterials(prisma, authoring, videos);
-  await ensureSeriesReaderScenario(authoring, videos);
+  await ensureSeriesReaderScenario(prisma, authoring, videos);
   const representativeMaterial = {
     metadata: {
       title: "Как устроен Inside Platform",
@@ -354,6 +354,7 @@ function modeVariantBlock(step: string, title: string) {
 }
 
 async function ensureSeriesReaderScenario(
+  prisma: PlatformPrisma,
   authoring: ReturnType<typeof assembleMaterials>["authoring"],
   videos: ReturnType<typeof assembleVideos>,
 ): Promise<void> {
@@ -362,14 +363,14 @@ async function ensureSeriesReaderScenario(
       bodyText: "Development-образец общей точки для проверки разных контекстов Серий.",
       formatId,
       seriesIds: [demoHarnessSeriesId, demoReviewSeriesId],
-      slug: "demo-295-obshchiy-gayd",
+      key: "demo-295-obshchiy-gayd",
       title: "Demo #295 · Общий гайд",
     },
     {
       bodyText: "Development-образец завершения основной Серии.",
       formatId,
       seriesIds: [demoHarnessSeriesId],
-      slug: "demo-295-finalnyy-gayd",
+      key: "demo-295-finalnyy-gayd",
       title: "Demo #295 · Финальный гайд",
     },
     {
@@ -377,36 +378,36 @@ async function ensureSeriesReaderScenario(
       formatId: videoFormatId,
       providerVideoId: "local-series-review-video",
       seriesIds: [demoReviewSeriesId],
-      slug: "demo-295-video-razbor",
+      key: "demo-295-video-razbor",
       title: "Demo #295 · Видео-разбор",
     },
     {
       bodyText: "Development-образец заметки внутри смешанной Серии.",
       formatId: noteFormatId,
       seriesIds: [demoReviewSeriesId],
-      slug: "demo-295-itogovaya-zametka",
+      key: "demo-295-itogovaya-zametka",
       title: "Demo #295 · Итоговая заметка",
     },
     {
       bodyText: "Development standalone #295: материал открывается без случайного контекста Серии.",
       formatId: noteFormatId,
       seriesIds: [],
-      slug: "demo-295-samostoyatelnaya-zametka",
+      key: "demo-295-samostoyatelnaya-zametka",
       title: "Demo #295 · Самостоятельная заметка",
     },
     ...[
-      { slug: "demo-298-release-overview", title: "Как устроен релиз моего проекта", formatId: videoFormatId, providerVideoId: "local-series-release-overview", summary: "Разбираем путь от коммита до работающего сервиса: сборку, публикацию и откат релиза.", difficulty: "basic" as const, outcomes: ["Видеть весь путь релиза целиком", "Называть шаги, на которых релиз ломается чаще всего"] },
+      { key: "demo-298-release-overview", title: "Как устроен релиз моего проекта", formatId: videoFormatId, providerVideoId: "local-series-release-overview", summary: "Разбираем путь от коммита до работающего сервиса: сборку, публикацию и откат релиза.", difficulty: "basic" as const, outcomes: ["Видеть весь путь релиза целиком", "Называть шаги, на которых релиз ломается чаще всего"] },
       // Два шага написаны для обоих режимов прохождения: на них виден переключатель.
-      { slug: "demo-298-prepare", title: "Подготовка приложения к релизу", formatId, difficulty: "basic" as const, outcomes: ["Собрать приложение под релиз", "Проверить сборку до публикации"], modes: true },
-      { slug: "demo-298-docker", title: "Разбираем Docker на реальном примере", formatId: videoFormatId, providerVideoId: "local-series-release-docker", summary: "Разбираем сеть, переменные окружения и тома Docker Compose на примере запуска приложения.", difficulty: "intermediate" as const, outcomes: ["Запустить приложение в Compose", "Прочитать логи упавшего контейнера", "Разложить переменные окружения по слоям"] },
-      { slug: "demo-298-secrets", title: "Что проверить перед передачей секретов", formatId: noteFormatId, difficulty: "intermediate" as const },
-      { slug: "demo-298-environment", title: "Настройка окружения", formatId, difficulty: "intermediate" as const, modes: true },
-      { slug: "demo-298-deploy", title: "Первый деплой и проверка результата", formatId, difficulty: "advanced" as const, outcomes: ["Выкатить первую версию", "Убедиться, что она отвечает", "Откатиться, когда она не отвечает"] },
+      { key: "demo-298-prepare", title: "Подготовка приложения к релизу", formatId, difficulty: "basic" as const, outcomes: ["Собрать приложение под релиз", "Проверить сборку до публикации"], modes: true },
+      { key: "demo-298-docker", title: "Разбираем Docker на реальном примере", formatId: videoFormatId, providerVideoId: "local-series-release-docker", summary: "Разбираем сеть, переменные окружения и тома Docker Compose на примере запуска приложения.", difficulty: "intermediate" as const, outcomes: ["Запустить приложение в Compose", "Прочитать логи упавшего контейнера", "Разложить переменные окружения по слоям"] },
+      { key: "demo-298-secrets", title: "Что проверить перед передачей секретов", formatId: noteFormatId, difficulty: "intermediate" as const },
+      { key: "demo-298-environment", title: "Настройка окружения", formatId, difficulty: "intermediate" as const, modes: true },
+      { key: "demo-298-deploy", title: "Первый деплой и проверка результата", formatId, difficulty: "advanced" as const, outcomes: ["Выкатить первую версию", "Убедиться, что она отвечает", "Откатиться, когда она не отвечает"] },
     ].map((definition) => ({
       ...definition,
       title: `Demo · ${definition.title}`,
       bodyText: "Тестовый материал серии о релизе. Демонстрирует общий порядок видео, заметок и связанных шагов инструкции.",
-      seriesIds: definition.slug === "demo-298-prepare" ? [demoStepsSeriesId, demoStepsSharedSeriesId] : [demoStepsSeriesId],
+      seriesIds: definition.key === "demo-298-prepare" ? [demoStepsSeriesId, demoStepsSharedSeriesId] : [demoStepsSeriesId],
     })),
   ] as const;
 
@@ -442,17 +443,27 @@ async function ensureSeriesReaderScenario(
         ],
       },
     } as const;
-    const created = await authoring.createDraft({
-      actor,
-      body,
-      idempotencyKey: `local-series-demo-create-${String(index + 1)}`,
-      // Keep the original creation receipt stable; current demo copy is applied by Save below.
-      metadata: { ...metadata, summary: `${definition.bodyText} Не является контентом Кирилла.` },
+    // Slug материала выдаёт модуль Материалов по заголовку, поэтому засеянный материал ищется по
+    // заголовку. Создание не зависит от текущего тела: создавать заново с постоянным ключом
+    // идемпотентности после смены определения — это idempotency_key_reused и несобранный стенд.
+    const existing = await prisma.material.findFirst({
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      select: { id: true },
+      where: { title: definition.title },
     });
-    if (!created.ok) {
-      throw new Error(`Local Series demo draft failed: ${created.error.code}`);
+    let materialIdValue = existing?.id;
+    if (materialIdValue === undefined) {
+      const created = await authoring.createDraft({
+        actor,
+        body,
+        idempotencyKey: `local-series-demo-create-${String(index + 1)}`,
+        metadata,
+      });
+      if (!created.ok) {
+        throw new Error(`Local Series demo draft failed: ${created.error.code}`);
+      }
+      materialIdValue = created.value.materialId;
     }
-    const materialIdValue = created.value.materialId;
     const loaded = await authoring.loadMaterial({ actor, materialId: materialIdValue });
     if (!loaded.ok) {
       throw new Error(`Local Series demo load failed: ${loaded.error.code}`);
@@ -473,10 +484,15 @@ async function ensureSeriesReaderScenario(
     const actualSeriesIds = loaded.value.metadata.seriesMemberships.map(
       ({ seriesId }) => seriesId,
     );
+    // Тело, сложность и «Чему научишься» входят в сравнение: без них изменённое определение не
+    // доедет до уже засеянной базы и стенд молча покажет прежний демо-контент.
     if (
       loaded.value.publicationState !== "published" ||
       loaded.value.primaryVideoId !== primaryVideoId ||
       loaded.value.metadata.summary !== metadata.summary ||
+      loaded.value.metadata.difficulty !== metadata.difficulty ||
+      !sameJsonValue(loaded.value.metadata.outcomes, metadata.outcomes) ||
+      !sameJsonValue(loaded.value.body, body) ||
       actualSeriesIds.length !== definition.seriesIds.length ||
       definition.seriesIds.some((seriesIdValue) => !actualSeriesIds.includes(seriesIdValue))
     ) {
@@ -494,12 +510,12 @@ async function ensureSeriesReaderScenario(
         throw new Error(`Local Series demo Save failed: ${saved.error.code}`);
       }
     }
-    materialIds.set(definition.slug, materialIdValue);
+    materialIds.set(definition.key, materialIdValue);
   }
 
-  const releaseSlugs = ["demo-298-release-overview", "demo-298-prepare", "demo-298-docker", "demo-298-secrets", "demo-298-environment", "demo-298-deploy"];
+  const releaseKeys = ["demo-298-release-overview", "demo-298-prepare", "demo-298-docker", "demo-298-secrets", "demo-298-environment", "demo-298-deploy"];
   await ensureDevelopmentSeriesOrder(authoring, demoStepsSeriesId,
-    releaseSlugs.map((value) => requiredMaterialId(materialIds, value)),
+    releaseKeys.map((value) => requiredMaterialId(materialIds, value)),
     Object.fromEntries(["demo-298-prepare", "demo-298-environment", "demo-298-deploy"].map((value) => [requiredMaterialId(materialIds, value), "От проекта до релиза"])),
   );
   await ensureDevelopmentSeriesOrder(authoring, demoStepsSharedSeriesId, [requiredMaterialId(materialIds, "demo-298-prepare")], {});
@@ -512,6 +528,31 @@ async function ensureSeriesReaderScenario(
     requiredMaterialId(materialIds, "demo-295-video-razbor"),
     requiredMaterialId(materialIds, "demo-295-itogovaya-zametka"),
   ]);
+}
+
+/**
+ * Сравнивает сохранённое значение с определением стенда. Порядок ключей в сохранённом документе
+ * задаёт хранилище, поэтому сравнение идёт по значению, а не по тексту JSON.
+ */
+function sameJsonValue(left: unknown, right: unknown): boolean {
+  if (Array.isArray(left) && Array.isArray(right)) {
+    return (
+      left.length === right.length &&
+      left.every((value, index) => sameJsonValue(value, right[index]))
+    );
+  }
+  if (isJsonRecord(left) && isJsonRecord(right)) {
+    const keys = Object.keys(left);
+    return (
+      keys.length === Object.keys(right).length &&
+      keys.every((key) => key in right && sameJsonValue(left[key], right[key]))
+    );
+  }
+  return left === right;
+}
+
+function isJsonRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 async function ensureDevelopmentSeriesOrder(

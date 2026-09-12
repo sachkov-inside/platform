@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { z } from "zod";
 
 import { seedLocalDevelopment } from "../../src/development/seed-local-development.js";
 import {
@@ -314,5 +315,126 @@ describe("local development offer catalog", () => {
     );
     expect(restored?.firstPriceKopecks).toBe(seeded.firstPriceKopecks);
     await expect(testDatabase.prisma.billingPaymentOption.count()).resolves.toBe(3);
+  });
+});
+
+/**
+ * Смена демо-контента на уже засеянной базе. Владелец забирает новый main и поднимает стенд
+ * поверх существующего тома, поэтому засев обязан довести демо-материалы до текущего определения,
+ * а не отказать и не оставить прежнюю копию.
+ */
+describe("local development seed after a demo content change", () => {
+  const seedActor = "72000000-0000-4000-8000-000000000001";
+  const stepTitle = "Demo · Подготовка приложения к релизу";
+  let testDatabase: TestDatabase;
+
+  beforeAll(async () => {
+    testDatabase = await createMigratedTestDatabase();
+    await seedLocalDevelopment(testDatabase.prisma);
+  });
+
+  afterAll(async () => {
+    await testDatabase.dispose();
+  });
+
+  function demoStep() {
+    return testDatabase.prisma.material.findFirstOrThrow({
+      select: { body: true, difficulty: true, id: true, outcomes: true },
+      where: { title: stepTitle },
+    });
+  }
+
+  function blocks(document: unknown) {
+    return z
+      .object({ content: z.array(z.looseObject({ type: z.string() })) })
+      .parse(document).content;
+  }
+
+  function materialSnapshot() {
+    return testDatabase.prisma.material.findMany({
+      orderBy: { id: "asc" },
+      select: { contentVersion: true, id: true, updatedAt: true },
+    });
+  }
+
+  test("brings a step seeded before the change to the current definition", async () => {
+    const seeded = await demoStep();
+    const { authoring } = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: { canManage: (accountId) => accountId === seedActor },
+    });
+    const loaded = await authoring.loadMaterial({
+      actor: seedActor,
+      materialId: seeded.id,
+    });
+    if (!loaded.ok) throw new Error(loaded.error.code);
+    // Тот же шаг в том виде, в каком его оставило прежнее определение: без вариантного блока,
+    // без сложности и без «Чему научишься».
+    const earlier = await authoring.saveMaterial({
+      actor: seedActor,
+      body: {
+        schemaVersion: 1,
+        doc: {
+          ...loaded.value.body.doc,
+          content: blocks(loaded.value.body.doc).filter(
+            ({ type }) => type !== "variant",
+          ),
+        },
+      },
+      expectedContentVersion: loaded.value.contentVersion,
+      idempotencyKey: `earlier-demo-definition-${randomUUID()}`,
+      materialId: seeded.id,
+      metadata: {
+        access: loaded.value.metadata.access,
+        difficulty: null,
+        formatId: loaded.value.metadata.formatId,
+        outcomes: [],
+        seriesIds: loaded.value.metadata.seriesMemberships.map(
+          ({ seriesId }) => seriesId,
+        ),
+        summary: loaded.value.metadata.summary,
+        tagIds: loaded.value.metadata.tagIds,
+        title: loaded.value.metadata.title,
+        topicId: loaded.value.metadata.topicId,
+      },
+      publicationState: "published",
+    });
+    if (!earlier.ok) throw new Error(earlier.error.code);
+    // Прежнее определение оставило свой отпечаток на постоянном ключе создания. Именно на нём
+    // повторный засев падал с idempotency_key_reused и не давал подняться api и web.
+    await testDatabase.prisma.authoringIdempotency.updateMany({
+      data: { requestFingerprint: "0".repeat(64) },
+      where: {
+        idempotencyKey: { startsWith: "local-series-demo-create-" },
+        operation: "create_draft",
+      },
+    });
+
+    await seedLocalDevelopment(testDatabase.prisma);
+
+    const current = await demoStep();
+    expect(blocks(current.body).map(({ type }) => type)).toContain("variant");
+    expect(current.difficulty).toBe("basic");
+    expect(current.outcomes).toEqual([
+      "Собрать приложение под релиз",
+      "Проверить сборку до публикации",
+    ]);
+    // Второго демо-материала не появилось: обновляется тот же шаг, а не его копия.
+    await expect(
+      testDatabase.prisma.material.count({ where: { title: stepTitle } }),
+    ).resolves.toBe(1);
+  });
+
+  test("sends no change command when the definition already matches", async () => {
+    await seedLocalDevelopment(testDatabase.prisma);
+    const materials = await materialSnapshot();
+    const receipts = await testDatabase.prisma.authoringIdempotency.count();
+
+    await seedLocalDevelopment(testDatabase.prisma);
+
+    await expect(materialSnapshot()).resolves.toEqual(materials);
+    await expect(
+      testDatabase.prisma.authoringIdempotency.count(),
+    ).resolves.toBe(receipts);
   });
 });
