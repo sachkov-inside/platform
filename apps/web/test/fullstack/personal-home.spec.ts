@@ -1,12 +1,9 @@
-import { expect, test, type BrowserContext, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { resolve } from "node:path";
 import { mkdir } from "node:fs/promises";
-async function signIn(context: BrowserContext, persona = "NON_MEMBER") {
-  const name = process.env.FULLSTACK_LOGTO_COOKIE_NAME; const value = process.env[`FULLSTACK_LOGTO_${persona}_SESSION`];
-  if (name === undefined || value === undefined) throw new Error("Missing local identity fixture");
-  await context.addCookies([{ name, value, url: process.env.FULLSTACK_WEB_BASE_URL ?? "http://127.0.0.1:3000", httpOnly: true, sameSite: "Lax" }]);
-}
+import { signInFullStack } from "../support/full-stack-session";
+
 async function dismissOnboarding(page: Page) {
   const dismiss = page.getByRole("button", { name: "Закрыть подключение Telegram" });
   await page.addLocatorHandler(dismiss, async () => { await dismiss.click(); });
@@ -41,10 +38,10 @@ async function screenshot(page: Page, project: string, surface: string) {
   await page.screenshot({ path: resolve(directory, `${project}-inline-${surface}.png`), fullPage: !captureViewport });
 }
 test("personal Home opens the real series, persists marks and reconciles a lost visible open", async ({ page, context }, testInfo) => {
-  await signIn(context, "EXPIRED_MEMBER"); await dismissOnboarding(page); await resetSeries(page);
+  await signInFullStack(context, "EXPIRED_MEMBER"); await dismissOnboarding(page); await resetSeries(page);
   await page.goto(`/materials/${materialSlugs[0]}`); const otherMark = await unmark(page, "Прочитано");
   await otherMark.click(); await expect(otherMark).toHaveAttribute("aria-pressed", "true");
-  await signIn(context); await resetSeries(page);
+  await signInFullStack(context); await resetSeries(page);
   // Dispose the previous Reader before intercepting the new visible open.
   await page.goto("about:blank");
   const commands: string[] = []; let lost = true;
@@ -96,13 +93,13 @@ test("personal Home opens the real series, persists marks and reconciles a lost 
   await page.goto(`/materials/${materialSlugs[0]}`); await unmark(page, "Прочитано");
   await page.goto("/"); await expect(resumeSeries).toContainText("изучено 2 из 3");
   await context.clearCookies(); await page.goto("/"); await expect(resumeSeries).toHaveCount(0);
-  await signIn(context); await page.reload(); await expect(resumeSeries).toContainText("изучено 2 из 3");
-  await signIn(context, "EXPIRED_MEMBER"); await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await signInFullStack(context); await page.reload(); await expect(resumeSeries).toContainText("изучено 2 из 3");
+  await signInFullStack(context, "EXPIRED_MEMBER"); await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await expect(resumeSeries).toContainText("изучено 1 из 3"); await personal(page);
 });
 
 test("personal Home resumes real Video progress in the normal video section and excludes playback end", async ({ page, context }, testInfo) => {
-  await signIn(context, "MEMBER"); await dismissOnboarding(page);
+  await signInFullStack(context, "MEMBER"); await dismissOnboarding(page);
   // The iframe SDK is the only double; playback sessions and progress use the API and PostgreSQL.
   await page.route("https://kinescope.io/**", async (route) => { await route.fulfill({ contentType: "text/html", body: "<title>Local video provider</title>" }); });
   await page.addInitScript(() => {
@@ -135,7 +132,7 @@ test("personal Home resumes real Video progress in the normal video section and 
 });
 
 test("personal Home preserves the public hub through errors and excludes denied, prefetched and SSR opens", async ({ page, context }) => {
-  await signIn(context); await dismissOnboarding(page);
+  await signInFullStack(context); await dismissOnboarding(page);
   const opens: string[] = [];
   page.on("request", (request) => { if (request.url().endsWith("/api/reading-progress/open")) opens.push(request.url()); });
   await page.goto("/");
@@ -157,7 +154,7 @@ test("personal Home preserves the public hub through errors and excludes denied,
 });
 
 test("personal Home preserves SSR geometry through authenticated hydration", async ({ page, context }) => {
-  await signIn(context); await dismissOnboarding(page);
+  await signInFullStack(context); await dismissOnboarding(page);
   const { promise, resolve: release } = Promise.withResolvers<undefined>();
   await page.route("**/*.js*", async (route) => { await promise; await route.continue(); });
   await page.goto("/", { waitUntil: "commit" });
@@ -168,7 +165,7 @@ test("personal Home preserves SSR geometry through authenticated hydration", asy
 });
 
 test("personal Home waits for document visibility before recording an available Reader", async ({ page, context }) => {
-  await signIn(context); await dismissOnboarding(page);
+  await signInFullStack(context); await dismissOnboarding(page);
   await page.addInitScript(() => {
     let hidden = true;
     Object.defineProperty(document, "visibilityState", { configurable: true, get: () => hidden ? "hidden" : "visible" });
@@ -187,7 +184,7 @@ test("personal Home waits for document visibility before recording an available 
 });
 
 test("personal Home retries an already visible open with the same command after the tab is hidden", async ({ page, context }) => {
-  await signIn(context); await dismissOnboarding(page);
+  await signInFullStack(context); await dismissOnboarding(page);
   const commands: string[] = [];
   await page.route("**/api/reading-progress/open", async (route) => {
     commands.push(route.request().postData() ?? "");

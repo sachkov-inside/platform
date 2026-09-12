@@ -163,6 +163,12 @@ try {
       staleMemberAccessToken,
     ),
     FULLSTACK_LOGTO_SESSION: fullStackSession,
+    // Сессии для проверки самого срока: у первой доступ уже истёк и продлевается, у второй
+    // продлить его нечем. Ожидание пяти минут для этого не нужно.
+    FULLSTACK_LOGTO_SESSION_PAST_EXPIRY:
+      await fullStackIdentity.createSessionPastExpiry(),
+    FULLSTACK_LOGTO_SESSION_WITHOUT_RENEWAL:
+      await fullStackIdentity.createSessionWithoutRenewal(),
     FULLSTACK_WEB_BASE_URL: webBaseUrl,
   });
 

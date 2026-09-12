@@ -1,19 +1,15 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type BrowserContext } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import { signInFullStack } from "../support/full-stack-session";
 
-async function session(context: BrowserContext, name: "FULLSTACK_LOGTO_SESSION" | "FULLSTACK_LOGTO_MEMBER_SESSION") {
-  const value = process.env[name];
-  const cookieName = process.env.FULLSTACK_LOGTO_COOKIE_NAME;
-  if (value === undefined || cookieName === undefined) throw new Error("Full-stack identity fixture is missing");
-  await context.addCookies([{ name: cookieName, value, url: process.env.FULLSTACK_WEB_BASE_URL ?? "http://127.0.0.1:3000", httpOnly: true, sameSite: "Lax" }]);
-}
+
 
 test("author Home pin persists for guests and members, replaces and removes through the real BFF", async ({ page, context, browser, baseURL }, testInfo) => {
-  await session(context, "FULLSTACK_LOGTO_SESSION");
+  await signInFullStack(context, "OWNER");
   const guest = await browser.newContext({ baseURL: baseURL ?? "http://127.0.0.1:3000", viewport: page.viewportSize() });
   const guestPage = await guest.newPage();
   const member = await browser.newContext({ baseURL: baseURL ?? "http://127.0.0.1:3000" });
-  await session(member, "FULLSTACK_LOGTO_MEMBER_SESSION");
+  await signInFullStack(member, "MEMBER");
   const memberPage = await member.newPage();
   try {
     await page.goto("/authoring/materials");

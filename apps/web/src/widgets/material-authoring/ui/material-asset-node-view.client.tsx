@@ -2,7 +2,7 @@
 "use client";
 
 import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
-import { createContext, useContext } from "react";
+import { createContext, useContext, useId } from "react";
 import { FileText, GripVertical, X } from "lucide-react";
 import type { RenderedBlock } from "@/entities/material";
 import {
@@ -47,6 +47,7 @@ export function MaterialAssetNodeView({
 }: NodeViewProps) {
   const { materialId, contentVersion, blocks, localImages } =
     useContext(EditorAssetContext);
+  const altFieldId = useId();
   const assetId = String(node.attrs.assetId ?? "");
   const isImage = node.type.name === "assetImage";
   const image = imageBlock(blocks, assetId);
@@ -125,7 +126,26 @@ export function MaterialAssetNodeView({
               value={String(node.attrs.caption ?? "")}
             />
           </div>
-          <div className="relative flex flex-wrap items-center justify-center gap-x-4 gap-y-2 py-1 text-xs text-muted-foreground">
+          {/* The description belongs to the attachment itself: a reader hears it instead of the image. */}
+          <div className="grid gap-1 px-4 py-2 text-xs text-muted-foreground">
+            {/* The label stays beside the field: its own text must not absorb the typed value. */}
+            <label htmlFor={`${altFieldId}-value`}>Описание изображения</label>
+            <textarea
+              aria-describedby={`${altFieldId}-hint`}
+              className="min-h-16 w-full resize-y rounded-lg border border-input bg-transparent p-2 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              disabled={!editor.isEditable}
+              id={`${altFieldId}-value`}
+              onChange={(event) => {
+                updateAttributes({ alt: event.currentTarget.value });
+              }}
+              placeholder="Что изображено?"
+              value={alt}
+            />
+            <p id={`${altFieldId}-hint`}>
+              Его читают с экрана вместо изображения и по нему находят материал.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 pb-2 text-xs text-muted-foreground">
             <label className="flex items-center gap-2">
               Размер
               <input
@@ -147,24 +167,6 @@ export function MaterialAssetNodeView({
                 {displayWidthPercent}%
               </output>
             </label>
-            <details>
-              <summary className="cursor-pointer rounded px-1 py-1 hover:bg-muted">
-                Описание
-              </summary>
-              <label className="absolute left-1/2 top-full z-20 grid w-64 max-w-full -translate-x-1/2 gap-2 rounded-xl border border-border bg-card p-3 shadow-lg">
-                Описание для чтения с экрана
-                <textarea
-                  aria-label="Описание изображения"
-                  className="min-h-20 w-full resize-y rounded-lg border border-input bg-transparent p-2 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  disabled={!editor.isEditable}
-                  onChange={(event) => {
-                    updateAttributes({ alt: event.currentTarget.value });
-                  }}
-                  placeholder="Что изображено?"
-                  value={alt}
-                />
-              </label>
-            </details>
           </div>
         </>
       ) : (
