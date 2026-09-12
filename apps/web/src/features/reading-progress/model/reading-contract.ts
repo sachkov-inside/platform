@@ -12,7 +12,3 @@ export const readingStatesResultSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("ready"), states: z.array(readingStateSchema).max(100) }).strict(),
   z.object({ kind: z.enum(["unavailable", "unauthorized", "invalid_input"]) }).strict(),
 ]);
-export const seriesProgressResultSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("ready"), read: z.number().int().nonnegative(), total: z.number().int().nonnegative() }).strict(),
-  z.object({ kind: z.enum(["unavailable", "unauthorized", "invalid_input"]) }).strict(),
-]);

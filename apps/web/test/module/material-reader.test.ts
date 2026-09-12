@@ -124,7 +124,7 @@ describe("Material Reader server adapter", () => {
     expect(fetch).toHaveBeenCalledOnce();
   });
 
-  it("returns an expected access state without protected body bytes", async () => {
+  it("returns an expected access state without the external purchase address", async () => {
     vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
     vi.stubGlobal(
       "fetch",
@@ -146,20 +146,35 @@ describe("Material Reader server adapter", () => {
 
     await expect(
       getMaterialReader("inside-platform-overview"),
-    ).resolves.toMatchObject({
+    ).resolves.toEqual({
       kind: "access",
-      cta: {
-        label: "Получить доступ",
-        url: "https://t.me/tribute/app?startapp=inside",
-      },
+      subscriptionOffered: true,
       material: {
+        materialId: "72000000-0000-4000-8000-000000000020",
+        contentVersion: 3,
+        slug: "inside-platform-overview",
         title: "Как устроен Inside Platform",
+        summary: "Один реальный published Material.",
         access: "membership",
+        cover: {
+          coverId: "72000000-0000-4000-8000-000000000022",
+          renditions: [{ height: 540, width: 960 }],
+        },
+        publishedAt: "2026-08-25T05:00:00.000Z",
+        topic: { name: "Platform", slug: "platform" },
+        format: { name: "Гайд", slug: "guide" },
+        tags: [{ name: "Architecture" }],
+        seriesMemberships: [
+          {
+            ordinal: 3,
+            series: { name: "Создание Platform Inside", slug: "platform-inside" },
+          },
+        ],
       },
     });
   });
 
-  it("hides the CTA when no subscription variant is on sale", async () => {
+  it("reports no subscription on sale when the locked Material carries no call to action", async () => {
     vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
     vi.stubGlobal(
       "fetch",
@@ -175,7 +190,7 @@ describe("Material Reader server adapter", () => {
 
     await expect(
       getMaterialReader("inside-platform-overview"),
-    ).resolves.toMatchObject({ kind: "access", cta: null });
+    ).resolves.toMatchObject({ kind: "access", subscriptionOffered: false });
   });
 
   it("returns a not-found value for the stable API 404", async () => {

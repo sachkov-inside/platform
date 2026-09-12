@@ -1,4 +1,5 @@
 import { ArrowRight, BookOpen, Code2, GitBranch, Layers, MessageCircle, Terminal, Users } from "lucide-react";
+import type { Route } from "next";
 import Link from "next/link";
 import { formatMaterialCount } from "@/features/library-discovery";
 
@@ -32,11 +33,11 @@ export function FeaturedSeries({ series }: { readonly series: HomeCollection }) 
   </section>;
 }
 
-export function HomeAccessInvitation({ acquisitionUrl }: { readonly acquisitionUrl: string }) {
+export function HomeAccessInvitation({ href }: { readonly href: Route }) {
   return <section className="home-access-strip" aria-label="Подписка Inside">
     <BookOpen aria-hidden="true" />
     <div><strong>Гайды, руководства и общение с автором</strong><p>Подписка открывает все материалы, обсуждение со мной и сообщество.</p></div>
-    <AccessLink href={acquisitionUrl} label="Полный доступ" />
+    <AccessLink href={href} label="Полный доступ" />
   </section>;
 }
 
@@ -47,7 +48,7 @@ const benefits = [
   { Icon: Users, title: "Сообщество разработчиков", text: "Сравнивай подходы, делись опытом и разбирайся вместе с участниками." },
 ] as const;
 
-export function HomeMembershipBenefits({ acquisitionUrl }: { readonly acquisitionUrl: string }) {
+export function HomeMembershipBenefits({ href }: { readonly href: Route }) {
   return <>
     <section className="home-membership-benefits" aria-labelledby="home-benefits">
       <h2 id="home-benefits">Что даёт подписка</h2>
@@ -57,11 +58,12 @@ export function HomeMembershipBenefits({ acquisitionUrl }: { readonly acquisitio
     </section>
     <section className="home-invitation" aria-labelledby="home-full-access">
       <div><p className="home-eyebrow">Полный доступ к Inside</p><h2 id="home-full-access">Изучай. Применяй. Обсуждай.</h2><p>Все материалы и руководства, вопросы автору и сообщество разработчиков — в одной подписке.</p></div>
-      <AccessLink href={acquisitionUrl} label="Получить полный доступ" />
+      <AccessLink href={href} label="Получить полный доступ" />
     </section>
   </>;
 }
 
-function AccessLink({ href, label }: { readonly href: string; readonly label: string }) {
-  return <a className="home-access-link" href={href}>{label}<ArrowRight aria-hidden="true" /></a>;
+/** Покупка начинается внутри платформы: это внутренний переход, а не уход на сторонний сервис. */
+function AccessLink({ href, label }: { readonly href: Route; readonly label: string }) {
+  return <Link className="home-access-link" href={href}>{label}<ArrowRight aria-hidden="true" /></Link>;
 }

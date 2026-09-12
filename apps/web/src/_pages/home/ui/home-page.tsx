@@ -9,6 +9,7 @@ import {
   formatMaterialCount,
 } from "@/features/library-discovery";
 import { libraryRouteHref } from "@/shared/routing/library-route";
+import { purchaseInvitation } from "@/shared/routing/subscription-route";
 import { Button } from "@/shared/ui/button";
 import { PublicSectionHeading } from "@/shared/ui/public-section-heading";
 import type { HomeContinuation, HomeResult, HomeView } from "../model/home-view";
@@ -23,7 +24,9 @@ export function HomePage({ result, personal, continuation }: { readonly result: 
 }
 
 function HomeReady({ home, personal, continuation }: { readonly home: HomeView; readonly personal: ReactNode; readonly continuation: HomeContinuation | undefined }) {
-  const offer = home.membership.kind === "inactive" ? home.membership : null;
+  // Подписку предлагает только включённая продажа: её состояние приходит с главной,
+  // а адрес витрины принадлежит платформе, а не внешнему сервису.
+  const offer = purchaseInvitation({ subscriptionOffered: home.membership.kind === "inactive" });
   const series = continuation?.series;
   const video = continuation?.video;
   const playlists = series === undefined ? home.playlists : [series.collection, ...home.playlists.filter((item) => item.slug !== series.collection.slug)];
@@ -35,7 +38,7 @@ function HomeReady({ home, personal, continuation }: { readonly home: HomeView; 
       {personal}
       <PlaylistSection playlists={playlists} continuation={series} />
       <TopicSection topics={home.topics} />
-      {offer && <HomeAccessInvitation acquisitionUrl={offer.acquisitionUrl} />}
+      {offer && <HomeAccessInvitation href={offer.href} />}
       <MaterialSection
         formatSlug="video"
         id="home-videos"
@@ -51,7 +54,7 @@ function HomeReady({ home, personal, continuation }: { readonly home: HomeView; 
         title="Свежие гайды"
       />
       <NoteFeed items={home.notes} />
-      {offer ? <HomeMembershipBenefits acquisitionUrl={offer.acquisitionUrl} /> : <CatalogInvitation />}
+      {offer ? <HomeMembershipBenefits href={offer.href} /> : <CatalogInvitation />}
     </div>
   );
 }

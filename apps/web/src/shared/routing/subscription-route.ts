@@ -1,6 +1,7 @@
 import type { Route } from "next";
 
 import { internalRoute, isInternalRoute } from "./internal-route";
+import { guidePath } from "./public-page-path";
 
 /**
  * CTA страницы руководства ведёт на витрину и сохраняет контекст: после входа покупатель
@@ -41,10 +42,11 @@ export function subscriptionRouteTarget(
     : { returnTo: subscriptionHrefFrom(origin), originHref: origin };
 }
 
-/** Страница продукта руководства: она рассказывает и никогда не называет цену. */
-export function guideProductHref(slug: string): Route {
-  return internalRoute(`/guides/${encodeURIComponent(slug)}`);
-}
+/**
+ * Страница продукта руководства: она рассказывает и никогда не называет цену. Её адрес —
+ * канонический адрес руководства, поэтому он остаётся у одного владельца, `public-page-path`.
+ */
+export const guideProductHref = guidePath;
 
 /**
  * Программа руководства: материалы по главам живут отдельным адресом, потому что страница
@@ -70,4 +72,37 @@ export function subscriptionHrefFrom(origin: string): Route {
   return publicOrigin(origin) === undefined
     ? internalRoute("/subscription")
     : internalRoute(`/subscription?from=${encodeURIComponent(origin)}`);
+}
+
+/** Куда ведёт призыв к покупке: оплата выбранного руководства или витрина подписки. */
+export type PurchaseInvitation =
+  | { readonly kind: "guide"; readonly href: Route }
+  | { readonly kind: "subscription"; readonly href: Route };
+
+/**
+ * Один призыв к покупке для всех поверхностей: главной, закрытого материала и программы
+ * руководства. Своя цена руководства важнее тарифов — человек уже выбрал, что берёт. Выключенная
+ * продажа молчит: звать туда, где купить нечего, нельзя. Правило живёт здесь, поэтому поверхности
+ * не могут разойтись и увести человека в тупик, а покупка начинается внутри платформы.
+ */
+export function purchaseInvitation({
+  guide,
+  subscriptionOffered,
+  from,
+}: {
+  /** Руководство, которое человек сейчас смотрит, и продаётся ли оно отдельно. */
+  readonly guide?: { readonly slug: string; readonly sold: boolean } | undefined;
+  /** Продаётся ли сейчас хоть один тариф подписки. */
+  readonly subscriptionOffered: boolean;
+  /** Откуда человек пришёл: витрина вернёт его сюда после входа. */
+  readonly from?: string | undefined;
+}): PurchaseInvitation | null {
+  if (guide?.sold === true) {
+    return { kind: "guide", href: guidePurchaseHref(guide.slug) };
+  }
+  if (!subscriptionOffered) return null;
+  return {
+    kind: "subscription",
+    href: from === undefined ? internalRoute("/subscription") : subscriptionHrefFrom(from),
+  };
 }
