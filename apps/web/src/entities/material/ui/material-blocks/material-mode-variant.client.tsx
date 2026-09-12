@@ -32,7 +32,8 @@ export function MaterialModeVariant({
 
   return (
     <div className="mt-8" data-material-block="variant" data-variant-mode={mode}>
-      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+      {/* Тот же служебный заголовок, каким в маршруте подписана глава: это подпись, не врезка. */}
+      <p className="font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-muted-foreground">
         {guideModeLabels[active.mode]}
       </p>
       <div className="mt-2" data-variant-branch={active.mode}>
