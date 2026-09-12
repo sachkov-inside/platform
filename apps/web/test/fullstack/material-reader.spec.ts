@@ -3,6 +3,8 @@ import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 
+import { signInFullStack } from "../support/full-stack-session";
+
 for (const width of [320, 390, 1440]) {
   test(`Home series lift stays visible at ${String(width)}px`, async ({ page }, testInfo) => {
     // Narrow desktop pointer reproduces hovering a phone-sized Storybook preview.
@@ -507,20 +509,7 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
   context,
   page,
 }, testInfo) => {
-  const cookieName = process.env.FULLSTACK_LOGTO_COOKIE_NAME;
-  const session = process.env.FULLSTACK_LOGTO_SESSION;
-  if (cookieName === undefined || session === undefined) {
-    throw new Error("Full-stack Logto session fixture is missing");
-  }
-  await context.addCookies([
-    {
-      name: cookieName,
-      value: session,
-      url: process.env.FULLSTACK_WEB_BASE_URL ?? "http://127.0.0.1:3000",
-      httpOnly: true,
-      sameSite: "Lax",
-    },
-  ]);
+  await signInFullStack(context, "OWNER");
 
   await page.goto("/materials/produkt-i-inzhenernyy-kontekst");
   const onboardingDismiss = page.getByRole("button", {

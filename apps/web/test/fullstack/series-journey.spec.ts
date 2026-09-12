@@ -1,22 +1,20 @@
 import { z } from "zod";
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type BrowserContext } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 
+import {
+  fullStackBaseUrl,
+  signInFullStack,
+} from "../support/full-stack-session";
+
 // Руководство разделено на продукт, программу и оплату (#509). Место чтения возвращает карточка
 // материала в программе и `at=` в адресе: сводки прогресса, полосы и кнопки «Продолжить» здесь нет.
-async function signInNonMember(context: BrowserContext) {
-  const name = process.env.FULLSTACK_LOGTO_COOKIE_NAME;
-  const value = process.env.FULLSTACK_LOGTO_NON_MEMBER_SESSION;
-  if (name === undefined || value === undefined) throw new Error("Missing local identity fixture");
-  await context.addCookies([{ name, value, url: process.env.FULLSTACK_WEB_BASE_URL ?? "http://127.0.0.1:3000", httpOnly: true, sameSite: "Lax" }]);
-}
-
 const evidenceDirectory = resolve(process.cwd(), "../../docs/evidence/issue-529");
 
 test("guide product leads to the programme and the programme keeps the Reader return position", async ({ page, context }, testInfo) => {
-  await signInNonMember(context);
+  await signInFullStack(context, "NON_MEMBER");
   await page.addLocatorHandler(page.getByRole("button", { name: "Закрыть подключение Telegram" }), async (button) => { await button.click(); });
 
   // Страница продукта рассказывает о руководстве и ведёт в программу одним действием.
@@ -57,7 +55,7 @@ test("guide product leads to the programme and the programme keeps the Reader re
 });
 
 test("guide programme marks the last opened material as the place to continue", async ({ page, context }) => {
-  await signInNonMember(context);
+  await signInFullStack(context, "NON_MEMBER");
   await page.addLocatorHandler(page.getByRole("button", { name: "Закрыть подключение Telegram" }), async (button) => { await button.click(); });
   for (const slug of ["demo-295-obshchiy-gayd", "demo-295-finalnyy-gayd"]) {
     const opened = page.waitForResponse((response) => response.url().endsWith("/api/reading-progress/open") && response.request().method() === "POST");
@@ -77,11 +75,8 @@ test("guide programme marks the last opened material as the place to continue", 
 
 
 test("guide programme paginates a real composition and returns from Reader to page two", async ({ page, context }, testInfo) => {
-  const name = process.env.FULLSTACK_LOGTO_COOKIE_NAME;
-  const value = process.env.FULLSTACK_LOGTO_SESSION;
-  const origin = process.env.FULLSTACK_WEB_BASE_URL ?? "http://127.0.0.1:3000";
-  if (name === undefined || value === undefined) throw new Error("Missing local owner fixture");
-  await context.addCookies([{ name, value, url: origin, httpOnly: true, sameSite: "Lax" }]);
+  const origin = fullStackBaseUrl();
+  await signInFullStack(context, "OWNER");
   await page.addLocatorHandler(page.getByRole("button", { name: "Закрыть подключение Telegram" }), async (button) => { await button.click(); });
   const slug = `series-journey-${String(Date.now())}`;
   const created = await page.request.post("/api/authoring/collections", { headers: { origin }, multipart: { kind: "series", name: "Demo #426 · Длинный маршрут", slug, summary: "Локальная проверка прохождения руководства." } });

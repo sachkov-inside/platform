@@ -2,13 +2,9 @@ import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 
 import AxeBuilder from "@axe-core/playwright";
-import {
-  expect,
-  test,
-  type BrowserContext,
-  type Page,
-  type TestInfo,
-} from "@playwright/test";
+import { expect, test, type Page, type TestInfo } from "@playwright/test";
+
+import { signInFullStack } from "../support/full-stack-session";
 
 const currentMaterialEditorUrl =
   /\/authoring\/materials\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?:\?.*)?$/u;
@@ -23,7 +19,7 @@ for (const access of ["public", "membership"] as const) {
     const suffix = String(Date.now());
     const title = `Media acceptance ${access} ${suffix}`;
     const slug = `media-acceptance-${access}-${suffix}`;
-    await addFullStackSession(context);
+    await signInFullStack(context, "OWNER");
     await installPlaybackProviderDouble(page);
     await page.addLocatorHandler(
       page.getByRole("dialog", { name: "Подключите Telegram" }),
@@ -87,7 +83,7 @@ for (const access of ["public", "membership"] as const) {
     ).toBeVisible({ timeout: 15_000 });
 
     // The ordinary member has no author permission; exercise the same live resource after switching Subject.
-    await addFullStackMemberSession(context);
+    await signInFullStack(context, "MEMBER");
     await page.goto(`/materials/${slug}`);
     const image = page.getByRole("img", { name: "Изображение общей приёмки" });
     await expect(image).toBeVisible();
@@ -173,7 +169,7 @@ for (const access of ["public", "membership"] as const) {
         baseURL: new URL(page.url()).origin,
       });
       try {
-        await addFullStackMemberSession(cacheContext);
+        await signInFullStack(cacheContext, "MEMBER");
         const cachePage = await cacheContext.newPage();
         const allowed = await cachePage.goto(protectedImageSource);
         expect(allowed?.status()).toBe(200);
@@ -218,12 +214,12 @@ for (const access of ["public", "membership"] as const) {
         fullPage: true,
         path: resolve(evidenceDirectory, `denied-${viewport}.png`),
       });
-      for (const sessionName of [
-        "FULLSTACK_LOGTO_NON_MEMBER_SESSION",
-        "FULLSTACK_LOGTO_EXPIRED_MEMBER_SESSION",
-        "FULLSTACK_LOGTO_STALE_MEMBER_SESSION",
+      for (const role of [
+        "NON_MEMBER",
+        "EXPIRED_MEMBER",
+        "STALE_MEMBER",
       ] as const) {
-        await addSessionCookie(context, sessionName);
+        await signInFullStack(context, role);
         protectedRequests.length = 0;
         await page.reload();
         await expect(
@@ -263,7 +259,7 @@ for (const access of ["public", "membership"] as const) {
         page.locator("[data-video-player-mount] iframe"),
       ).toBeVisible();
     }
-    await addFullStackSession(context);
+    await signInFullStack(context, "OWNER");
     await page.goto(`/authoring/materials?search=${encodeURIComponent(title)}`);
     const row = page.getByRole("listitem").filter({ hasText: title });
     await row.getByRole("button", { name: "Снять с публикации" }).click();
@@ -295,7 +291,7 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
         .click();
     },
   );
-  await addFullStackSession(context);
+  await signInFullStack(context, "OWNER");
   await page.goto("/authoring/materials/new");
   await completeProfileOnboardingIfPresent(page);
   await fillPublishableDraft(page, title);
@@ -555,7 +551,7 @@ test("explicitly requests deletion of a Platform-uploaded Video through autosave
 }, testInfo) => {
   const suffix = String(Date.now());
   const title = `Safe Video deletion ${suffix}`;
-  await addFullStackSession(context);
+  await signInFullStack(context, "OWNER");
   await page.goto("/authoring/materials/new");
   await completeProfileOnboardingIfPresent(page);
   await fillPublishableDraft(page, title);
@@ -613,7 +609,7 @@ test("member primary Video denies anonymous playback and issues a DRM proof to a
   const suffix = String(Date.now());
   const title = `Member Video ${suffix}`;
   const slug = `member-video-${suffix}`;
-  await addFullStackSession(context);
+  await signInFullStack(context, "OWNER");
   await page.goto("/authoring/materials/new");
   await completeProfileOnboardingIfPresent(page);
   await fillPublishableDraft(page, title);
@@ -658,7 +654,7 @@ test("member primary Video denies anonymous playback and issues a DRM proof to a
     },
   );
   expect(anonymousSession.status()).toBe(403);
-  await addFullStackMemberSession(context);
+  await signInFullStack(context, "MEMBER");
   const memberSession = await page.request.post(
     "/api/material-video-playback-sessions",
     {
@@ -675,7 +671,7 @@ test("member primary Video denies anonymous playback and issues a DRM proof to a
   expect(memberBody).toMatchObject({ progressScope: "account", videoId });
   expect(memberBody.drmAuthToken).toEqual(expect.any(String));
 
-  await addFullStackSession(context);
+  await signInFullStack(context, "OWNER");
   await page.goto(`/authoring/materials?search=${encodeURIComponent(title)}`);
   const row = page.getByRole("listitem").filter({ hasText: title });
   await row.getByRole("button", { name: "Снять с публикации" }).click();
@@ -692,7 +688,7 @@ test("trusted author uploads chooser, paste and drop assets through Preview and 
   const suffix = String(Date.now());
   const title = `Asset flow ${suffix}`;
   const slug = `asset-flow-${suffix}`;
-  await addFullStackSession(context);
+  await signInFullStack(context, "OWNER");
   await page.goto("/authoring/materials/new");
   await completeProfileOnboardingIfPresent(page);
   await fillPublishableDraft(page, title);
@@ -806,7 +802,7 @@ test("member Material hides bytes from anonymous access and issues only a protec
   const suffix = String(Date.now());
   const title = `Member asset ${suffix}`;
   const slug = `member-asset-${suffix}`;
-  await addFullStackSession(context);
+  await signInFullStack(context, "OWNER");
   await page.goto("/authoring/materials/new");
   await completeProfileOnboardingIfPresent(page);
   await fillPublishableDraft(page, title);
@@ -863,7 +859,7 @@ test("trusted author creates a PostgreSQL draft and opens its current Preview", 
   context,
   page,
 }) => {
-  await addFullStackSession(context);
+  await signInFullStack(context, "OWNER");
 
   const response = await page.goto("/authoring/materials/new");
   expect(response?.status()).toBe(200);
@@ -950,7 +946,7 @@ test("trusted author finds every Material and returns from Editor to the same li
   context,
   page,
 }) => {
-  await addFullStackSession(context);
+  await signInFullStack(context, "OWNER");
 
   const listUrl =
     "/authoring/materials?search=%D0%9A%D0%B0%D0%BA+%D1%83%D1%81%D1%82%D1%80%D0%BE%D0%B5%D0%BD&state=published";
@@ -1056,7 +1052,7 @@ test("full-state Save is live and a stale editor preserves local input through l
   const initialTitle = `Mutable Material ${uniqueSuffix}`;
   const winnerTitle = `Mutable Material winner ${uniqueSuffix}`;
   const slug = `mutable-material-winner-${uniqueSuffix}`;
-  await addFullStackSession(context);
+  await signInFullStack(context, "OWNER");
   await page.goto("/authoring/materials/new");
   await completeProfileOnboardingIfPresent(page);
   await fillPublishableDraft(page, initialTitle);
@@ -1153,7 +1149,7 @@ test("trusted author publishes and unpublishes the same full state from the Mate
   page,
 }, testInfo) => {
   const title = `Lifecycle из списка ${String(Date.now())}`;
-  await addFullStackSession(context);
+  await signInFullStack(context, "OWNER");
   await page.goto("/authoring/materials/new");
   await completeProfileOnboardingIfPresent(page);
   await fillPublishableDraft(page, title);
@@ -1205,7 +1201,7 @@ test("trusted author cancels and confirms deletion of a never-published draft", 
   page,
 }) => {
   const title = `Удаляемый черновик ${String(Date.now())}`;
-  await addFullStackSession(context);
+  await signInFullStack(context, "OWNER");
   await page.goto("/authoring/materials/new");
   await completeProfileOnboardingIfPresent(page);
   await fillPublishableDraft(page, title);
@@ -1244,7 +1240,7 @@ test("trusted author sees a typed not-found state for a missing current Preview"
   context,
   page,
 }) => {
-  await addFullStackSession(context);
+  await signInFullStack(context, "OWNER");
 
   const response = await page.goto(
     "/authoring/materials/94000000-0000-4000-8000-000000000099/preview",
@@ -1262,7 +1258,7 @@ test("trusted author sees a typed not-found state for a missing current Preview"
 });
 
 test("author edits series metadata on a dedicated page and returns to the list after autosave", async ({ context, page }) => {
-  await addFullStackSession(context);
+  await signInFullStack(context, "OWNER");
   const title = `Full-stack series ${String(Date.now())}`;
   await page.goto("/authoring/guides");
   await page.getByRole("button", { name: "Создать руководство" }).click();
@@ -1318,7 +1314,7 @@ test("trusted author reorders a PostgreSQL series with keyboard controls", async
   context,
   page,
 }) => {
-  await addFullStackSession(context);
+  await signInFullStack(context, "OWNER");
 
   const response = await page.goto("/authoring/guides");
   expect(response?.status()).toBe(200);
@@ -1435,39 +1431,6 @@ test("guest cannot reach the production playlist manager", async ({ page }) => {
     page.getByRole("button", { name: "Сохранить", exact: true }),
   ).toHaveCount(0);
 });
-
-async function addFullStackSession(context: BrowserContext) {
-  await addSessionCookie(context, "FULLSTACK_LOGTO_SESSION");
-}
-
-async function addFullStackMemberSession(context: BrowserContext) {
-  await addSessionCookie(context, "FULLSTACK_LOGTO_MEMBER_SESSION");
-}
-
-async function addSessionCookie(
-  context: BrowserContext,
-  environmentName:
-    | "FULLSTACK_LOGTO_MEMBER_SESSION"
-    | "FULLSTACK_LOGTO_SESSION"
-    | "FULLSTACK_LOGTO_NON_MEMBER_SESSION"
-    | "FULLSTACK_LOGTO_EXPIRED_MEMBER_SESSION"
-    | "FULLSTACK_LOGTO_STALE_MEMBER_SESSION",
-) {
-  const cookieName = process.env.FULLSTACK_LOGTO_COOKIE_NAME;
-  const session = process.env[environmentName];
-  if (cookieName === undefined || session === undefined) {
-    throw new Error("Full-stack Logto session fixture is missing");
-  }
-  await context.addCookies([
-    {
-      httpOnly: true,
-      name: cookieName,
-      sameSite: "Lax",
-      url: process.env.FULLSTACK_WEB_BASE_URL ?? "http://127.0.0.1:3000",
-      value: session,
-    },
-  ]);
-}
 
 async function completeProfileOnboardingIfPresent(page: Page): Promise<void> {
   const dialog = page.getByRole("dialog", { name: "Как к вам обращаться?" });
