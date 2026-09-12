@@ -3,7 +3,13 @@ import { SavedBookmarkAction } from "@/features/bookmarks";
 import { notFound } from "next/navigation";
 
 import { loadGuideOffers } from "@/entities/subscription.catalog.server";
+import { GuideModeHint, GuideModeSwitch } from "@/features/guide-modes";
+import {
+  loadReaderGuideMode,
+  readerHasSeenGuideModeHint,
+} from "@/features/guide-modes.reader.server";
 import { loadPublishedSeries } from "@/features/library-discovery.server";
+import { GuideModeProvider, defaultGuideMode } from "@/shared/guide-mode";
 import { loadMaterialReader } from "../api/load-material-reader";
 import { resolveSeriesReaderContext } from "../model/series-reader-context";
 import {
@@ -24,11 +30,20 @@ export async function MaterialReaderPage({
   readonly returnTarget: MaterialReaderReturnTarget;
   readonly slug: string;
 }) {
-  const [result, seriesResult] = await Promise.all([
+  // Режим нужен только внутри руководства, поэтому вне его за ним никто не ходит.
+  const guideSlug =
+    returnTarget.kind === "series" ? returnTarget.seriesSlug : undefined;
+  const [result, seriesResult, guideMode, hintSeen] = await Promise.all([
     loadMaterialReader(slug, accessToken),
-    returnTarget.kind === "series" && returnTarget.seriesSlug !== undefined
-      ? loadPublishedSeries(returnTarget.seriesSlug, accessToken)
-      : Promise.resolve(null),
+    guideSlug === undefined
+      ? Promise.resolve(null)
+      : loadPublishedSeries(guideSlug, accessToken),
+    guideSlug === undefined
+      ? Promise.resolve(defaultGuideMode)
+      : loadReaderGuideMode(accessToken),
+    guideSlug === undefined
+      ? Promise.resolve(true)
+      : readerHasSeenGuideModeHint(),
   ]);
   if (result.kind === "not-found") {
     notFound();
@@ -85,17 +100,35 @@ export async function MaterialReaderPage({
       />
     );
   }
+  const showsModes = seriesContext?.series.hasModeVariants === true;
+  // Подсказка объясняет устройство руководства у шага, который читатель видит. Шаг, написанный
+  // для другого способа, в его режиме не рисуется, и подсказка стояла бы рядом с пустотой.
+  const hintAt = result.body.findIndex(
+    (block) =>
+      block.kind === "variant" &&
+      block.options.some((option) => option.mode === guideMode),
+  );
   return (
     <VisibleMaterialOpen key={`${result.material.materialId}:${String(result.material.contentVersion)}`} materialId={result.material.materialId} contentVersion={result.material.contentVersion}>
+    <GuideModeProvider initialMode={guideMode}>
     <MaterialReaderView
       readingAction={<SavedReadingAction key={result.material.materialId} materialId={result.material.materialId} format={result.material.format.slug} />}
       bookmarkAction={<SavedBookmarkAction materialId={result.material.materialId} />}
       body={result.body}
       material={result.material}
+      {...(showsModes
+        ? {
+            ...(hintSeen || hintAt < 0
+              ? {}
+              : { modeHint: { at: hintAt, node: <GuideModeHint /> } }),
+            modeSwitch: <GuideModeSwitch signedIn={accessToken !== undefined} />,
+          }
+        : {})}
       primaryVideo={result.primaryVideo}
       returnTarget={effectiveReturnTarget}
       seriesContext={seriesContext}
     />
+    </GuideModeProvider>
     </VisibleMaterialOpen>
   );
 }

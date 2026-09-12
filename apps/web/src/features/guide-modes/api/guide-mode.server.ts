@@ -1,0 +1,49 @@
+import "server-only";
+
+import { cookies } from "next/headers";
+import { z } from "zod";
+
+import { requestReaderGuideMode } from "@/shared/api/backend/index.server";
+import {
+  defaultGuideMode,
+  guideModeSchema,
+  readGuideMode,
+  GUEST_GUIDE_MODE_COOKIE,
+  GUIDE_MODE_HINT_COOKIE,
+  type GuideMode,
+} from "@/shared/guide-mode";
+
+const readerGuideModeSchema = z.object({ guideMode: guideModeSchema }).strict();
+
+/**
+ * Режим, в котором читатель проходит руководства. У вошедшего он хранится за аккаунтом, у гостя —
+ * в cookie этого браузера. Значение нужно до отрисовки урока: вариант шага выбирает сервер, иначе
+ * читатель увидит чужой вариант и подмену сразу после загрузки.
+ *
+ * Недоступность этого запроса не ломает урок: режим по умолчанию показывает связный текст.
+ */
+export async function loadReaderGuideMode(
+  accessToken?: string,
+): Promise<GuideMode> {
+  if (accessToken === undefined) {
+    const store = await cookies();
+    return readGuideMode(store.get(GUEST_GUIDE_MODE_COOKIE)?.value);
+  }
+  try {
+    const result = await requestReaderGuideMode(accessToken);
+    if (!result.ok) return defaultGuideMode;
+    const parsed = readerGuideModeSchema.safeParse(result.body);
+    return parsed.success ? parsed.data.guideMode : defaultGuideMode;
+  } catch {
+    return defaultGuideMode;
+  }
+}
+
+/**
+ * Видел ли этот браузер подсказку о двух режимах. Ответ нужен серверу до отрисовки урока: иначе
+ * подсказка появилась бы после гидратации и сдвинула текст под собой.
+ */
+export async function readerHasSeenGuideModeHint(): Promise<boolean> {
+  const store = await cookies();
+  return store.get(GUIDE_MODE_HINT_COOKIE)?.value === "seen";
+}

@@ -88,7 +88,7 @@ describe("ContentCovers", () => {
       body: representativeDocument("Disposable cover owner."),
       metadata: {
         title: "Disposable cover owner", summary: null, access: "free",
-        topicId: null, formatId: null, tagIds: [], seriesIds: [],
+        topicId: null, formatId: null, tagIds: [], difficulty: null, outcomes: [], seriesIds: [],
       },
     });
     if (!created.ok) throw new Error(created.error.code);

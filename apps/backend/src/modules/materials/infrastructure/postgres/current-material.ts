@@ -64,6 +64,8 @@ export async function loadCurrentMaterial(
     summary: row.summary,
     slug: row.slug,
     access: row.access,
+    difficulty: row.difficulty,
+    outcomes: row.outcomes,
     topicId: row.topicId,
     formatId: row.formatId,
     tagIds: tags.map(({ tagId }) => tagId),

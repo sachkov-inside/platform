@@ -342,7 +342,7 @@ describe("приёмка обоих источников Notifications (реал
   /** Первая публикация материала нужного состава через настоящий путь авторской работы. */
   async function publish(title: string, guideIds: readonly string[] = []): Promise<MaterialId> {
     const metadata = { title, summary: "Материал приёмки уведомлений", access: "membership" as const,
-      topicId, formatId: "guide", tagIds: [], seriesIds: [...guideIds] };
+      topicId, formatId: "guide", tagIds: [], difficulty: null, outcomes: [], seriesIds: [...guideIds] };
     const created = value(await materials.authoring.createDraft({
       actor: owner, idempotencyKey: randomUUID(), metadata, body: representativeDocument(title),
     }));

@@ -36,7 +36,7 @@ describe("Personal Home on PostgreSQL", () => {
   afterAll(async () => { await database.dispose(); });
   function makeHome(videoPort = videos) { return new PersonalHome({ composition: new PublishedSeriesComposition(database.prisma), reader: materials.publishedMaterialReader, prisma: database.prisma, materialContent: materials.materialContent, selection: new PublishedMaterialSelection(database.prisma), contentAccess, videos: videoPort }); }
   async function material(access: "free" | "membership" = "free", withVideo = false, seriesIds: string[] = []) {
-    const metadata = { title: `Home ${randomUUID()}`, summary: "Continue test", topicId, formatId: withVideo ? videoFormatId : formatId, access, tagIds: [], seriesIds };
+    const metadata = { title: `Home ${randomUUID()}`, summary: "Continue test", topicId, formatId: withVideo ? videoFormatId : formatId, access, tagIds: [], difficulty: null, outcomes: [], seriesIds };
     const body = representativeDocument("Personal Home text.");
     const draft = await materials.authoring.createDraft({ actor, idempotencyKey: randomUUID(), metadata, body });
     if (!draft.ok) throw new Error(draft.error.code);

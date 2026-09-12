@@ -23,6 +23,8 @@ const material: MaterialReaderMetadata = {
   access: "membership",
   contentVersion: 3,
   cover: null,
+  difficulty: null,
+  outcomes: [],
   format: { name: "Гайд", slug: "guide" },
   materialId: "72000000-0000-4000-8000-000000000020",
   publishedAt: "2026-08-25T05:00:00.000Z",

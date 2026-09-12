@@ -3,7 +3,10 @@ import {
   isUnknownRecord,
   materialBlockDefinitions,
 } from "@inside/material-blocks";
-import type { JsonValue } from "@inside/material-blocks";
+import type {
+  JsonValue,
+  MaterialBlockChildNodeDescription,
+} from "@inside/material-blocks";
 import { materialDocumentSchemaV1 } from "@inside/material-blocks/schema";
 import { getSchema } from "@tiptap/core";
 import type { Schema } from "@tiptap/pm/model";
@@ -40,6 +43,27 @@ function sampleField(defaultValue: JsonValue): JsonValue {
     : "Значение поля";
 }
 
+/**
+ * Каждый объявленный реестром узел: сам блок и дочерние узлы, из которых он собирает своё
+ * содержимое. Дочерний узел проходит через буфер обмена тем же путём и теряет поле так же.
+ */
+function declaredNodes(): readonly {
+  readonly declaration: MaterialBlockChildNodeDescription;
+  readonly type: string;
+}[] {
+  return materialBlockDefinitions.flatMap((definition) => {
+    const declaration = definition.node;
+    return declaration === undefined
+      ? []
+      : [
+          { declaration, type: definition.type },
+          ...Object.entries(declaration.childNodes ?? {}).map(
+            ([type, child]) => ({ declaration: child, type }),
+          ),
+        ];
+  });
+}
+
 /** Атрибуты, которые `toDOM` записал на сам элемент. */
 function renderedAttributes(rendered: unknown): Record<string, unknown> {
   if (!Array.isArray(rendered)) {
@@ -51,38 +75,73 @@ function renderedAttributes(rendered: unknown): Record<string, unknown> {
 
 describe("Material document DOM contract", () => {
   it("returns every field a block writes to its own DOM attribute", () => {
-    const withDomFields = materialBlockDefinitions.filter(
-      (definition) => definition.node?.domAttributes !== undefined,
+    const withDomFields = declaredNodes().filter(
+      ({ declaration }) => declaration.domAttributes !== undefined,
     );
     expect(withDomFields.length).toBeGreaterThan(0);
 
-    for (const definition of withDomFields) {
-      const declaration = definition.node;
-      if (declaration?.domAttributes === undefined) continue;
-      const type = materialDocumentSchemaV1.nodes[definition.type];
-      if (type === undefined) throw new TypeError(`Missing node ${definition.type}`);
+    for (const { declaration, type: name } of withDomFields) {
+      if (declaration.domAttributes === undefined) continue;
+      const type = materialDocumentSchemaV1.nodes[name];
+      if (type === undefined) throw new TypeError(`Missing node ${name}`);
 
       const fields = Object.fromEntries(
-        Object.keys(declaration.domAttributes).map((name) => [
-          name,
-          sampleField(declaration.attributes[name] ?? null),
+        Object.keys(declaration.domAttributes).map((field) => [
+          field,
+          sampleField(declaration.attributes[field] ?? null),
         ]),
       );
       const node = type.createAndFill(fields);
-      if (node === null) throw new TypeError(`Cannot build ${definition.type}`);
+      if (node === null) throw new TypeError(`Cannot build ${name}`);
 
       const attributes = renderedAttributes(type.spec.toDOM?.(node));
       // Буфер обмена собирает узел заново из разметки, поэтому поле обязано пройти оба конца.
       // Правило разбора читает только `getAttribute`, поэтому элемент здесь — этот один метод.
       const element = {
-        getAttribute: (name: string) =>
-          typeof attributes[name] === "string" ? attributes[name] : null,
+        getAttribute: (attribute: string) =>
+          typeof attributes[attribute] === "string" ? attributes[attribute] : null,
       } as unknown as HTMLElement;
       const parsed = type.spec.parseDOM?.[0]?.getAttrs?.(element);
 
-      expect([definition.type, parsed]).toEqual([
-        definition.type,
-        expect.objectContaining(fields),
+      expect([name, parsed]).toEqual([name, expect.objectContaining(fields)]);
+    }
+  });
+});
+
+describe("Material block child nodes", () => {
+  const childNodeTypes = materialBlockDefinitions.flatMap((definition) =>
+    Object.keys(definition.node?.childNodes ?? {}),
+  );
+
+  it("declares a child node the document schema knows", () => {
+    expect(childNodeTypes.length).toBeGreaterThan(0);
+    for (const name of childNodeTypes) {
+      expect([name, materialDocumentSchemaV1.nodes[name]?.name]).toEqual([
+        name,
+        name,
+      ]);
+    }
+  });
+
+  it("keeps a child node out of the block group, so only its own block contains it", () => {
+    for (const name of childNodeTypes) {
+      const type = materialDocumentSchemaV1.nodes[name];
+      if (type === undefined) throw new TypeError(`Missing node ${name}`);
+      expect([name, type.spec.group]).toEqual([name, undefined]);
+      // Негативная проверка правила: узел без группы не может стоять в документе сам по себе.
+      const child = type.createAndFill();
+      if (child === null) throw new TypeError(`Cannot build ${name}`);
+      expect(() =>
+        materialDocumentSchemaV1.nodes.doc?.createChecked(null, child),
+      ).toThrow();
+    }
+  });
+
+  it("leaves a child node unaddressed: progress and bookmarks hold the block around it", () => {
+    for (const name of childNodeTypes) {
+      expect([name, addressableMaterialBlockTypes.includes(name)]).toEqual([
+        name,
+        false,
       ]);
     }
   });

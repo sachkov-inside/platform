@@ -584,6 +584,48 @@
           {
             "additionalProperties": false,
             "properties": {
+              "kind": {
+                "enum": [
+                  "variant"
+                ],
+                "type": "string"
+              },
+              "options": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "content": {
+                      "items": {
+                        "$ref": "#/components/schemas/RecursiveSchema0schema0"
+                      },
+                      "type": "array"
+                    },
+                    "mode": {
+                      "enum": [
+                        "example",
+                        "own"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "content",
+                    "mode"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "kind",
+              "options"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
               "alt": {
                 "type": "string"
               },
@@ -1266,6 +1308,48 @@
             "required": [
               "content",
               "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "enum": [
+                  "variant"
+                ],
+                "type": "string"
+              },
+              "options": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "content": {
+                      "items": {
+                        "$ref": "#/components/schemas/RecursiveSchema1schema0"
+                      },
+                      "type": "array"
+                    },
+                    "mode": {
+                      "enum": [
+                        "example",
+                        "own"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "content",
+                    "mode"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "kind",
+              "options"
             ],
             "type": "object"
           },
@@ -31999,6 +32083,15 @@
                         ],
                         "type": "string"
                       },
+                      "difficulty": {
+                        "enum": [
+                          "basic",
+                          "intermediate",
+                          "advanced"
+                        ],
+                        "nullable": true,
+                        "type": "string"
+                      },
                       "formatId": {
                         "enum": [
                           "video",
@@ -32007,6 +32100,15 @@
                         ],
                         "nullable": true,
                         "type": "string"
+                      },
+                      "outcomes": {
+                        "items": {
+                          "maxLength": 200,
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "maxItems": 4,
+                        "type": "array"
                       },
                       "seriesIds": {
                         "items": {
@@ -32049,6 +32151,8 @@
                       "title",
                       "summary",
                       "access",
+                      "difficulty",
+                      "outcomes",
                       "topicId",
                       "formatId",
                       "tagIds",
@@ -33722,6 +33826,15 @@
                           ],
                           "type": "string"
                         },
+                        "difficulty": {
+                          "enum": [
+                            "basic",
+                            "intermediate",
+                            "advanced"
+                          ],
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "formatId": {
                           "enum": [
                             "video",
@@ -33730,6 +33843,15 @@
                           ],
                           "nullable": true,
                           "type": "string"
+                        },
+                        "outcomes": {
+                          "items": {
+                            "maxLength": 200,
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "maxItems": 4,
+                          "type": "array"
                         },
                         "seriesMemberships": {
                           "items": {
@@ -33794,6 +33916,8 @@
                         "title",
                         "summary",
                         "access",
+                        "difficulty",
+                        "outcomes",
                         "topicId",
                         "formatId",
                         "tagIds",
@@ -34658,6 +34782,15 @@
                         ],
                         "type": "string"
                       },
+                      "difficulty": {
+                        "enum": [
+                          "basic",
+                          "intermediate",
+                          "advanced"
+                        ],
+                        "nullable": true,
+                        "type": "string"
+                      },
                       "formatId": {
                         "enum": [
                           "video",
@@ -34666,6 +34799,15 @@
                         ],
                         "nullable": true,
                         "type": "string"
+                      },
+                      "outcomes": {
+                        "items": {
+                          "maxLength": 200,
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "maxItems": 4,
+                        "type": "array"
                       },
                       "seriesIds": {
                         "items": {
@@ -34708,6 +34850,8 @@
                       "title",
                       "summary",
                       "access",
+                      "difficulty",
+                      "outcomes",
                       "topicId",
                       "formatId",
                       "tagIds",
@@ -36103,6 +36247,15 @@
                           ],
                           "type": "string"
                         },
+                        "difficulty": {
+                          "enum": [
+                            "basic",
+                            "intermediate",
+                            "advanced"
+                          ],
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "formatId": {
                           "enum": [
                             "video",
@@ -36111,6 +36264,15 @@
                           ],
                           "nullable": true,
                           "type": "string"
+                        },
+                        "outcomes": {
+                          "items": {
+                            "maxLength": 200,
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "maxItems": 4,
+                          "type": "array"
                         },
                         "seriesMemberships": {
                           "items": {
@@ -36175,6 +36337,8 @@
                         "title",
                         "summary",
                         "access",
+                        "difficulty",
+                        "outcomes",
                         "topicId",
                         "formatId",
                         "tagIds",
@@ -37722,6 +37886,9 @@
                     "extraction": {
                       "additionalProperties": false,
                       "properties": {
+                        "hasModeVariants": {
+                          "type": "boolean"
+                        },
                         "headings": {
                           "items": {
                             "additionalProperties": false,
@@ -37825,6 +37992,7 @@
                         }
                       },
                       "required": [
+                        "hasModeVariants",
                         "plainText",
                         "headings",
                         "resources"
@@ -48766,6 +48934,15 @@
                             ],
                             "type": "object"
                           },
+                          "difficulty": {
+                            "enum": [
+                              "basic",
+                              "intermediate",
+                              "advanced"
+                            ],
+                            "nullable": true,
+                            "type": "string"
+                          },
                           "format": {
                             "additionalProperties": false,
                             "properties": {
@@ -48798,6 +48975,12 @@
                           },
                           "materialId": {
                             "type": "string"
+                          },
+                          "outcomes": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
                           },
                           "primaryVideoDurationSeconds": {
                             "exclusiveMinimum": true,
@@ -48914,6 +49097,8 @@
                           "slug",
                           "title",
                           "summary",
+                          "difficulty",
+                          "outcomes",
                           "access",
                           "publishedAt",
                           "primaryVideoId",
@@ -78558,6 +78743,15 @@
                             ],
                             "type": "object"
                           },
+                          "difficulty": {
+                            "enum": [
+                              "basic",
+                              "intermediate",
+                              "advanced"
+                            ],
+                            "nullable": true,
+                            "type": "string"
+                          },
                           "format": {
                             "additionalProperties": false,
                             "properties": {
@@ -78590,6 +78784,12 @@
                           },
                           "materialId": {
                             "type": "string"
+                          },
+                          "outcomes": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
                           },
                           "primaryVideoDurationSeconds": {
                             "exclusiveMinimum": true,
@@ -78706,6 +78906,8 @@
                           "slug",
                           "title",
                           "summary",
+                          "difficulty",
+                          "outcomes",
                           "access",
                           "publishedAt",
                           "primaryVideoId",
@@ -78770,6 +78972,9 @@
                           ],
                           "type": "object"
                         },
+                        "hasModeVariants": {
+                          "type": "boolean"
+                        },
                         "id": {
                           "format": "uuid",
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
@@ -78811,6 +79016,7 @@
                         }
                       },
                       "required": [
+                        "hasModeVariants",
                         "id",
                         "introduction",
                         "name",
@@ -79347,6 +79553,15 @@
                             ],
                             "type": "object"
                           },
+                          "difficulty": {
+                            "enum": [
+                              "basic",
+                              "intermediate",
+                              "advanced"
+                            ],
+                            "nullable": true,
+                            "type": "string"
+                          },
                           "format": {
                             "additionalProperties": false,
                             "properties": {
@@ -79379,6 +79594,12 @@
                           },
                           "materialId": {
                             "type": "string"
+                          },
+                          "outcomes": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
                           },
                           "primaryVideoDurationSeconds": {
                             "exclusiveMinimum": true,
@@ -79495,6 +79716,8 @@
                           "slug",
                           "title",
                           "summary",
+                          "difficulty",
+                          "outcomes",
                           "access",
                           "publishedAt",
                           "primaryVideoId",
@@ -79645,6 +79868,15 @@
                             ],
                             "type": "object"
                           },
+                          "difficulty": {
+                            "enum": [
+                              "basic",
+                              "intermediate",
+                              "advanced"
+                            ],
+                            "nullable": true,
+                            "type": "string"
+                          },
                           "format": {
                             "additionalProperties": false,
                             "properties": {
@@ -79677,6 +79909,12 @@
                           },
                           "materialId": {
                             "type": "string"
+                          },
+                          "outcomes": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
                           },
                           "primaryVideoDurationSeconds": {
                             "exclusiveMinimum": true,
@@ -79793,6 +80031,8 @@
                           "slug",
                           "title",
                           "summary",
+                          "difficulty",
+                          "outcomes",
                           "access",
                           "publishedAt",
                           "primaryVideoId",
@@ -79932,6 +80172,15 @@
                                 ],
                                 "type": "object"
                               },
+                              "difficulty": {
+                                "enum": [
+                                  "basic",
+                                  "intermediate",
+                                  "advanced"
+                                ],
+                                "nullable": true,
+                                "type": "string"
+                              },
                               "format": {
                                 "additionalProperties": false,
                                 "properties": {
@@ -79964,6 +80213,12 @@
                               },
                               "materialId": {
                                 "type": "string"
+                              },
+                              "outcomes": {
+                                "items": {
+                                  "type": "string"
+                                },
+                                "type": "array"
                               },
                               "primaryVideoDurationSeconds": {
                                 "exclusiveMinimum": true,
@@ -80080,6 +80335,8 @@
                               "slug",
                               "title",
                               "summary",
+                              "difficulty",
+                              "outcomes",
                               "access",
                               "publishedAt",
                               "primaryVideoId",
@@ -80240,6 +80497,15 @@
                                   ],
                                   "type": "object"
                                 },
+                                "difficulty": {
+                                  "enum": [
+                                    "basic",
+                                    "intermediate",
+                                    "advanced"
+                                  ],
+                                  "nullable": true,
+                                  "type": "string"
+                                },
                                 "format": {
                                   "additionalProperties": false,
                                   "properties": {
@@ -80272,6 +80538,12 @@
                                 },
                                 "materialId": {
                                   "type": "string"
+                                },
+                                "outcomes": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
                                 },
                                 "primaryVideoDurationSeconds": {
                                   "exclusiveMinimum": true,
@@ -80388,6 +80660,8 @@
                                 "slug",
                                 "title",
                                 "summary",
+                                "difficulty",
+                                "outcomes",
                                 "access",
                                 "publishedAt",
                                 "primaryVideoId",
@@ -80550,6 +80824,15 @@
                                   ],
                                   "type": "object"
                                 },
+                                "difficulty": {
+                                  "enum": [
+                                    "basic",
+                                    "intermediate",
+                                    "advanced"
+                                  ],
+                                  "nullable": true,
+                                  "type": "string"
+                                },
                                 "format": {
                                   "additionalProperties": false,
                                   "properties": {
@@ -80582,6 +80865,12 @@
                                 },
                                 "materialId": {
                                   "type": "string"
+                                },
+                                "outcomes": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
                                 },
                                 "primaryVideoDurationSeconds": {
                                   "exclusiveMinimum": true,
@@ -80698,6 +80987,8 @@
                                 "slug",
                                 "title",
                                 "summary",
+                                "difficulty",
+                                "outcomes",
                                 "access",
                                 "publishedAt",
                                 "primaryVideoId",
@@ -80802,6 +81093,15 @@
                             ],
                             "type": "object"
                           },
+                          "difficulty": {
+                            "enum": [
+                              "basic",
+                              "intermediate",
+                              "advanced"
+                            ],
+                            "nullable": true,
+                            "type": "string"
+                          },
                           "format": {
                             "additionalProperties": false,
                             "properties": {
@@ -80834,6 +81134,12 @@
                           },
                           "materialId": {
                             "type": "string"
+                          },
+                          "outcomes": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
                           },
                           "primaryVideoDurationSeconds": {
                             "exclusiveMinimum": true,
@@ -80950,6 +81256,8 @@
                           "slug",
                           "title",
                           "summary",
+                          "difficulty",
+                          "outcomes",
                           "access",
                           "publishedAt",
                           "primaryVideoId",
@@ -81414,6 +81722,15 @@
                                       ],
                                       "type": "object"
                                     },
+                                    "difficulty": {
+                                      "enum": [
+                                        "basic",
+                                        "intermediate",
+                                        "advanced"
+                                      ],
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
                                     "format": {
                                       "additionalProperties": false,
                                       "properties": {
@@ -81446,6 +81763,12 @@
                                     },
                                     "materialId": {
                                       "type": "string"
+                                    },
+                                    "outcomes": {
+                                      "items": {
+                                        "type": "string"
+                                      },
+                                      "type": "array"
                                     },
                                     "primaryVideoDurationSeconds": {
                                       "exclusiveMinimum": true,
@@ -81562,6 +81885,8 @@
                                     "slug",
                                     "title",
                                     "summary",
+                                    "difficulty",
+                                    "outcomes",
                                     "access",
                                     "publishedAt",
                                     "primaryVideoId",
@@ -81727,6 +82052,15 @@
                                       ],
                                       "type": "object"
                                     },
+                                    "difficulty": {
+                                      "enum": [
+                                        "basic",
+                                        "intermediate",
+                                        "advanced"
+                                      ],
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
                                     "format": {
                                       "additionalProperties": false,
                                       "properties": {
@@ -81759,6 +82093,12 @@
                                     },
                                     "materialId": {
                                       "type": "string"
+                                    },
+                                    "outcomes": {
+                                      "items": {
+                                        "type": "string"
+                                      },
+                                      "type": "array"
                                     },
                                     "primaryVideoDurationSeconds": {
                                       "exclusiveMinimum": true,
@@ -81875,6 +82215,8 @@
                                     "slug",
                                     "title",
                                     "summary",
+                                    "difficulty",
+                                    "outcomes",
                                     "access",
                                     "publishedAt",
                                     "primaryVideoId",
@@ -82037,6 +82379,15 @@
                                       ],
                                       "type": "object"
                                     },
+                                    "difficulty": {
+                                      "enum": [
+                                        "basic",
+                                        "intermediate",
+                                        "advanced"
+                                      ],
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
                                     "format": {
                                       "additionalProperties": false,
                                       "properties": {
@@ -82069,6 +82420,12 @@
                                     },
                                     "materialId": {
                                       "type": "string"
+                                    },
+                                    "outcomes": {
+                                      "items": {
+                                        "type": "string"
+                                      },
+                                      "type": "array"
                                     },
                                     "primaryVideoDurationSeconds": {
                                       "exclusiveMinimum": true,
@@ -82185,6 +82542,8 @@
                                     "slug",
                                     "title",
                                     "summary",
+                                    "difficulty",
+                                    "outcomes",
                                     "access",
                                     "publishedAt",
                                     "primaryVideoId",
@@ -82297,6 +82656,15 @@
                             ],
                             "type": "object"
                           },
+                          "difficulty": {
+                            "enum": [
+                              "basic",
+                              "intermediate",
+                              "advanced"
+                            ],
+                            "nullable": true,
+                            "type": "string"
+                          },
                           "format": {
                             "additionalProperties": false,
                             "properties": {
@@ -82329,6 +82697,12 @@
                           },
                           "materialId": {
                             "type": "string"
+                          },
+                          "outcomes": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
                           },
                           "primaryVideoDurationSeconds": {
                             "exclusiveMinimum": true,
@@ -82445,6 +82819,8 @@
                           "slug",
                           "title",
                           "summary",
+                          "difficulty",
+                          "outcomes",
                           "access",
                           "publishedAt",
                           "primaryVideoId",
@@ -82853,6 +83229,15 @@
                             ],
                             "type": "object"
                           },
+                          "difficulty": {
+                            "enum": [
+                              "basic",
+                              "intermediate",
+                              "advanced"
+                            ],
+                            "nullable": true,
+                            "type": "string"
+                          },
                           "format": {
                             "additionalProperties": false,
                             "properties": {
@@ -82885,6 +83270,12 @@
                           },
                           "materialId": {
                             "type": "string"
+                          },
+                          "outcomes": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
                           },
                           "primaryVideoDurationSeconds": {
                             "exclusiveMinimum": true,
@@ -83001,6 +83392,8 @@
                           "slug",
                           "title",
                           "summary",
+                          "difficulty",
+                          "outcomes",
                           "access",
                           "publishedAt",
                           "primaryVideoId",
@@ -83065,6 +83458,9 @@
                           ],
                           "type": "object"
                         },
+                        "hasModeVariants": {
+                          "type": "boolean"
+                        },
                         "id": {
                           "format": "uuid",
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
@@ -83106,6 +83502,7 @@
                         }
                       },
                       "required": [
+                        "hasModeVariants",
                         "id",
                         "introduction",
                         "name",
@@ -83691,6 +84088,15 @@
                             ],
                             "type": "object"
                           },
+                          "difficulty": {
+                            "enum": [
+                              "basic",
+                              "intermediate",
+                              "advanced"
+                            ],
+                            "nullable": true,
+                            "type": "string"
+                          },
                           "format": {
                             "additionalProperties": false,
                             "properties": {
@@ -83723,6 +84129,12 @@
                           },
                           "materialId": {
                             "type": "string"
+                          },
+                          "outcomes": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
                           },
                           "primaryVideoDurationSeconds": {
                             "exclusiveMinimum": true,
@@ -83839,6 +84251,8 @@
                           "slug",
                           "title",
                           "summary",
+                          "difficulty",
+                          "outcomes",
                           "access",
                           "publishedAt",
                           "primaryVideoId",
@@ -83903,6 +84317,9 @@
                           ],
                           "type": "object"
                         },
+                        "hasModeVariants": {
+                          "type": "boolean"
+                        },
                         "id": {
                           "format": "uuid",
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
@@ -83944,6 +84361,7 @@
                         }
                       },
                       "required": [
+                        "hasModeVariants",
                         "id",
                         "introduction",
                         "name",
@@ -84528,6 +84946,15 @@
                             ],
                             "type": "object"
                           },
+                          "difficulty": {
+                            "enum": [
+                              "basic",
+                              "intermediate",
+                              "advanced"
+                            ],
+                            "nullable": true,
+                            "type": "string"
+                          },
                           "format": {
                             "additionalProperties": false,
                             "properties": {
@@ -84560,6 +84987,12 @@
                           },
                           "materialId": {
                             "type": "string"
+                          },
+                          "outcomes": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
                           },
                           "primaryVideoDurationSeconds": {
                             "exclusiveMinimum": true,
@@ -84676,6 +85109,8 @@
                           "slug",
                           "title",
                           "summary",
+                          "difficulty",
+                          "outcomes",
                           "access",
                           "publishedAt",
                           "primaryVideoId",
@@ -84740,6 +85175,9 @@
                           ],
                           "type": "object"
                         },
+                        "hasModeVariants": {
+                          "type": "boolean"
+                        },
                         "id": {
                           "format": "uuid",
                           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
@@ -84781,6 +85219,7 @@
                         }
                       },
                       "required": [
+                        "hasModeVariants",
                         "id",
                         "introduction",
                         "name",
@@ -86691,6 +87130,15 @@
                               ],
                               "type": "object"
                             },
+                            "difficulty": {
+                              "enum": [
+                                "basic",
+                                "intermediate",
+                                "advanced"
+                              ],
+                              "nullable": true,
+                              "type": "string"
+                            },
                             "format": {
                               "additionalProperties": false,
                               "properties": {
@@ -86723,6 +87171,12 @@
                             },
                             "materialId": {
                               "type": "string"
+                            },
+                            "outcomes": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
                             },
                             "primaryVideoId": {
                               "format": "uuid",
@@ -86833,6 +87287,8 @@
                             "slug",
                             "title",
                             "summary",
+                            "difficulty",
+                            "outcomes",
                             "access",
                             "publishedAt",
                             "primaryVideoId",
@@ -86965,6 +87421,15 @@
                               ],
                               "type": "object"
                             },
+                            "difficulty": {
+                              "enum": [
+                                "basic",
+                                "intermediate",
+                                "advanced"
+                              ],
+                              "nullable": true,
+                              "type": "string"
+                            },
                             "format": {
                               "additionalProperties": false,
                               "properties": {
@@ -86997,6 +87462,12 @@
                             },
                             "materialId": {
                               "type": "string"
+                            },
+                            "outcomes": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
                             },
                             "primaryVideoId": {
                               "format": "uuid",
@@ -87107,6 +87578,8 @@
                             "slug",
                             "title",
                             "summary",
+                            "difficulty",
+                            "outcomes",
                             "access",
                             "publishedAt",
                             "primaryVideoId",
@@ -88760,6 +89233,15 @@
                             ],
                             "type": "object"
                           },
+                          "difficulty": {
+                            "enum": [
+                              "basic",
+                              "intermediate",
+                              "advanced"
+                            ],
+                            "nullable": true,
+                            "type": "string"
+                          },
                           "format": {
                             "additionalProperties": false,
                             "properties": {
@@ -88792,6 +89274,12 @@
                           },
                           "materialId": {
                             "type": "string"
+                          },
+                          "outcomes": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
                           },
                           "primaryVideoDurationSeconds": {
                             "exclusiveMinimum": true,
@@ -88908,6 +89396,8 @@
                           "slug",
                           "title",
                           "summary",
+                          "difficulty",
+                          "outcomes",
                           "access",
                           "publishedAt",
                           "primaryVideoId",
@@ -89303,6 +89793,15 @@
                                 ],
                                 "type": "object"
                               },
+                              "difficulty": {
+                                "enum": [
+                                  "basic",
+                                  "intermediate",
+                                  "advanced"
+                                ],
+                                "nullable": true,
+                                "type": "string"
+                              },
                               "format": {
                                 "additionalProperties": false,
                                 "properties": {
@@ -89335,6 +89834,12 @@
                               },
                               "materialId": {
                                 "type": "string"
+                              },
+                              "outcomes": {
+                                "items": {
+                                  "type": "string"
+                                },
+                                "type": "array"
                               },
                               "primaryVideoDurationSeconds": {
                                 "exclusiveMinimum": true,
@@ -89451,6 +89956,8 @@
                               "slug",
                               "title",
                               "summary",
+                              "difficulty",
+                              "outcomes",
                               "access",
                               "publishedAt",
                               "primaryVideoId",
@@ -89779,6 +90286,563 @@
         "summary": "Read saved progress and the next accessible Material in a published Guide",
         "tags": [
           "Personal home"
+        ]
+      }
+    },
+    "/reading-activity/guide-mode": {
+      "get": {
+        "operationId": "getReaderGuideMode",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "guideMode": {
+                      "enum": [
+                        "example",
+                        "own"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "guideMode"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "additionalProperties": {},
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid_request"
+                          ],
+                          "type": "string"
+                        },
+                        "status": {
+                          "enum": [
+                            400
+                          ],
+                          "type": "number"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "status",
+                        "title",
+                        "type"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "correlationId": {
+                          "type": "string"
+                        },
+                        "detail": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "maximum": 9007199254740991,
+                          "minimum": -9007199254740991,
+                          "type": "integer"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "title",
+                        "status",
+                        "detail",
+                        "code"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "additionalProperties": {},
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "dependency_unavailable"
+                          ],
+                          "type": "string"
+                        },
+                        "status": {
+                          "enum": [
+                            503
+                          ],
+                          "type": "number"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "status",
+                        "title",
+                        "type"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "correlationId": {
+                          "type": "string"
+                        },
+                        "detail": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "maximum": 9007199254740991,
+                          "minimum": -9007199254740991,
+                          "type": "integer"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "title",
+                        "status",
+                        "detail",
+                        "code"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "logto": []
+          }
+        ],
+        "summary": "Read the mode the current Account goes through guides in",
+        "tags": [
+          "Reading activity"
+        ]
+      },
+      "put": {
+        "operationId": "setReaderGuideMode",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "guideMode": {
+                    "enum": [
+                      "example",
+                      "own"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "guideMode"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "guideMode": {
+                      "enum": [
+                        "example",
+                        "own"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "guideMode"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "additionalProperties": {},
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "invalid_request"
+                          ],
+                          "type": "string"
+                        },
+                        "status": {
+                          "enum": [
+                            400
+                          ],
+                          "type": "number"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "status",
+                        "title",
+                        "type"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "correlationId": {
+                          "type": "string"
+                        },
+                        "detail": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "maximum": 9007199254740991,
+                          "minimum": -9007199254740991,
+                          "type": "integer"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "title",
+                        "status",
+                        "detail",
+                        "code"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "additionalProperties": {},
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "dependency_unavailable"
+                          ],
+                          "type": "string"
+                        },
+                        "status": {
+                          "enum": [
+                            503
+                          ],
+                          "type": "number"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "status",
+                        "title",
+                        "type"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "correlationId": {
+                          "type": "string"
+                        },
+                        "detail": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "maximum": 9007199254740991,
+                          "minimum": -9007199254740991,
+                          "type": "integer"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "title",
+                        "status",
+                        "detail",
+                        "code"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "logto": []
+          }
+        ],
+        "summary": "Set the mode the current Account goes through guides in",
+        "tags": [
+          "Reading activity"
         ]
       }
     },
@@ -90328,6 +91392,15 @@
                                     ],
                                     "type": "object"
                                   },
+                                  "difficulty": {
+                                    "enum": [
+                                      "basic",
+                                      "intermediate",
+                                      "advanced"
+                                    ],
+                                    "nullable": true,
+                                    "type": "string"
+                                  },
                                   "format": {
                                     "additionalProperties": false,
                                     "properties": {
@@ -90360,6 +91433,12 @@
                                   },
                                   "materialId": {
                                     "type": "string"
+                                  },
+                                  "outcomes": {
+                                    "items": {
+                                      "type": "string"
+                                    },
+                                    "type": "array"
                                   },
                                   "primaryVideoDurationSeconds": {
                                     "exclusiveMinimum": true,
@@ -90476,6 +91555,8 @@
                                   "slug",
                                   "title",
                                   "summary",
+                                  "difficulty",
+                                  "outcomes",
                                   "access",
                                   "publishedAt",
                                   "primaryVideoId",
@@ -90675,6 +91756,15 @@
                               ],
                               "type": "object"
                             },
+                            "difficulty": {
+                              "enum": [
+                                "basic",
+                                "intermediate",
+                                "advanced"
+                              ],
+                              "nullable": true,
+                              "type": "string"
+                            },
                             "format": {
                               "additionalProperties": false,
                               "properties": {
@@ -90707,6 +91797,12 @@
                             },
                             "materialId": {
                               "type": "string"
+                            },
+                            "outcomes": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
                             },
                             "primaryVideoDurationSeconds": {
                               "exclusiveMinimum": true,
@@ -90823,6 +91919,8 @@
                             "slug",
                             "title",
                             "summary",
+                            "difficulty",
+                            "outcomes",
                             "access",
                             "publishedAt",
                             "primaryVideoId",
@@ -92417,6 +93515,15 @@
                                 ],
                                 "type": "object"
                               },
+                              "difficulty": {
+                                "enum": [
+                                  "basic",
+                                  "intermediate",
+                                  "advanced"
+                                ],
+                                "nullable": true,
+                                "type": "string"
+                              },
                               "format": {
                                 "additionalProperties": false,
                                 "properties": {
@@ -92449,6 +93556,12 @@
                               },
                               "materialId": {
                                 "type": "string"
+                              },
+                              "outcomes": {
+                                "items": {
+                                  "type": "string"
+                                },
+                                "type": "array"
                               },
                               "primaryVideoDurationSeconds": {
                                 "exclusiveMinimum": true,
@@ -92565,6 +93678,8 @@
                               "slug",
                               "title",
                               "summary",
+                              "difficulty",
+                              "outcomes",
                               "access",
                               "publishedAt",
                               "primaryVideoId",

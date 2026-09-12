@@ -15,6 +15,7 @@ import type { MaterialAuthoringDependencies } from "../../facets/material-author
 import type { MaterialMutationReceiptDto } from "../../facets/material-authoring/material-authoring.contract.js";
 import {
   MaterialMetadataSelection,
+  type MaterialDifficulty,
   type MaterialMetadata,
 } from "../../domain/material-metadata.js";
 import { authorizeManager } from "../../ports/author-policy.js";
@@ -261,6 +262,8 @@ export function assembleSaveMaterial(
                 slug: materializedMetadata.slug,
                 title: materializedMetadata.title,
                 summary: materializedMetadata.summary,
+                difficulty: materializedMetadata.difficulty,
+                outcomes: [...materializedMetadata.outcomes],
                 topicId: materializedMetadata.topicId,
                 formatId: materializedMetadata.formatId,
                 schemaVersion: body.value.schemaVersion,
@@ -294,6 +297,7 @@ export function assembleSaveMaterial(
                 metadata: publishable.value,
                 publishedAt: requireDate(next.value.publishedAt, "publishedAt"),
                 publishedBy,
+                hasModeVariants: extraction.value.hasModeVariants,
                 plainText: extraction.value.plainText,
                 primaryVideoId: command.primaryVideoId,
                 coverId: locked.coverId,
@@ -366,9 +370,12 @@ async function replacePublishedProjections(
   values: {
     readonly materialId: string;
     readonly contentVersion: number;
+    readonly hasModeVariants: boolean;
     readonly metadata: {
       readonly access: "free" | "membership" | "workshop";
+      readonly difficulty: MaterialDifficulty | null;
       readonly formatId: string;
+      readonly outcomes: readonly string[];
       readonly seriesMemberships: readonly {
         readonly seriesId: string;
         readonly ordinal: number;
@@ -395,6 +402,9 @@ async function replacePublishedProjections(
       title: values.metadata.title,
       summary: values.metadata.summary,
       access: values.metadata.access,
+      difficulty: values.metadata.difficulty,
+      hasModeVariants: values.hasModeVariants,
+      outcomes: [...values.metadata.outcomes],
       topicId: values.metadata.topicId,
       formatId: values.metadata.formatId,
       publicSearchText: "",
@@ -409,6 +419,9 @@ async function replacePublishedProjections(
       title: values.metadata.title,
       summary: values.metadata.summary,
       access: values.metadata.access,
+      difficulty: values.metadata.difficulty,
+      hasModeVariants: values.hasModeVariants,
+      outcomes: [...values.metadata.outcomes],
       topicId: values.metadata.topicId,
       formatId: values.metadata.formatId,
       publicSearchText: "",

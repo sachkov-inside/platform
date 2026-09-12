@@ -14,7 +14,9 @@ export async function saveMaterial(
   formData.set("deleteVideoId", input.deleteVideoId ?? "none");
   formData.set("document", JSON.stringify(input.document));
   formData.set("expectedContentVersion", String(input.expectedContentVersion));
+  formData.set("difficulty", input.difficulty);
   formData.set("formatId", input.formatId);
+  for (const outcome of input.outcomes) formData.append("outcome", outcome);
   formData.set("materialId", input.materialId);
   formData.set("publicationState", input.publicationState);
   formData.set("primaryVideoId", input.primaryVideoId ?? "none");

@@ -45,6 +45,8 @@ describe("Guide chapters", () => {
     const metadata = {
       access: "free" as const,
       formatId,
+      difficulty: null,
+      outcomes: [],
       seriesIds: [...guideIds],
       summary: `${title} summary.`,
       tagIds: [],
@@ -279,6 +281,8 @@ describe("Guide chapters", () => {
       metadata: {
         access: "free" as const,
         formatId,
+        difficulty: null,
+        outcomes: [],
         seriesIds: [guideId],
         summary: "Первый summary.",
         tagIds: [],

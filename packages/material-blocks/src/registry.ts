@@ -13,6 +13,7 @@ import { paragraphBlock } from "./blocks/paragraph.js";
 import { resourceCardBlock } from "./blocks/resource-card.js";
 import { tableBlock } from "./blocks/table.js";
 import { takeawaysBlock } from "./blocks/takeaways.js";
+import { variantBlock } from "./blocks/variant.js";
 import type { RenderedBlockKind } from "./rendered-block.js";
 
 /**
@@ -37,6 +38,7 @@ export const materialBlockDefinitions: readonly [
   takeawaysBlock,
   labeledListBlock,
   keyPointBlock,
+  variantBlock,
   assetImageBlock,
   assetFileBlock,
 ];
@@ -52,7 +54,8 @@ const definitionsByKind = new Map(
 /**
  * Every block the registry describes carries a stable `nodeId`: reading progress and bookmarks
  * address blocks, and the container nodes that do not appear here — list items, table rows and
- * cells — are never addressed on their own.
+ * cells, and the branches of a variant block — are never addressed on their own. A branch address
+ * would break at the moment the reader switches mode, which is exactly when it has to hold.
  */
 export const addressableMaterialBlockTypes: readonly string[] =
   materialBlockDefinitions.map((definition) => definition.type);

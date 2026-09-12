@@ -3,6 +3,7 @@ import { z } from "zod";
 import { renderedMaterialBodySchema } from "@inside/material-blocks";
 
 import { materialFormatSchema } from "../../domain/material-format.js";
+import { materialDifficultySchema } from "../../domain/material-metadata.js";
 
 import { contentCoverProjectionHttpSchema } from "./content-cover-http.js";
 
@@ -19,6 +20,8 @@ export const publishedMaterialProjectionHttpSchema = z
     slug: z.string(),
     title: z.string(),
     summary: z.string(),
+    difficulty: materialDifficultySchema.nullable(),
+    outcomes: z.array(z.string()),
     access: z.enum(["free", "membership", "workshop"]),
     publishedAt: z.iso.datetime({ offset: true }),
     primaryVideoId: z.uuid().nullable(),

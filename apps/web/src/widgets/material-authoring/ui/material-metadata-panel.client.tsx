@@ -1,9 +1,15 @@
 "use client";
 
+import { Plus, X } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
-import { materialTaxonomyLabel } from "@/entities/material";
+import { materialDifficultyLabel, materialTaxonomyLabel } from "@/entities/material";
 import { MaterialDeleteDialog } from "@/features/material-lifecycle";
+import {
+  MATERIAL_OUTCOMES,
+  materialDifficulties,
+} from "@/shared/api/material-lesson-facts";
+import { Button } from "@/shared/ui/button";
 import { cn } from "@/shared/lib/utils";
 import {
   Select,
@@ -97,6 +103,45 @@ export function MaterialMetadataPanel({
           value={presentation.draft.formatId}
           onChange={actions.onFieldChange}
         />
+        <Field label="Сложность" targetId="material-difficulty">
+          <Select
+            disabled={disabled}
+            name="difficulty"
+            onValueChange={(value) => {
+              actions.onFieldChange("difficulty", value);
+            }}
+            value={presentation.draft.difficulty}
+          >
+            <SelectTrigger
+              className={authoringSelectTriggerClassName}
+              id="material-difficulty"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem
+                className={authoringSelectItemClassName}
+                value="unassigned"
+              >
+                Не указана
+              </SelectItem>
+              {materialDifficulties.map((difficulty) => (
+                <SelectItem
+                  className={authoringSelectItemClassName}
+                  key={difficulty}
+                  value={difficulty}
+                >
+                  {materialDifficultyLabel(difficulty)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+        <OutcomesEditor
+          actions={actions}
+          disabled={disabled}
+          presentation={presentation}
+        />
         <TagSelector
           actions={actions}
           disabled={disabled}
@@ -159,6 +204,82 @@ export function MaterialMetadataPanel({
         </details>
       ) : null}
     </section>
+  );
+}
+
+/**
+ * «Чему научишься»: до четырёх пунктов. Пустой список — это урок, который ничего не обещает, и
+ * публикация его принимает; один пункт публикация отклонит, поэтому подпись говорит об этом сразу.
+ */
+function OutcomesEditor({
+  actions,
+  disabled,
+  presentation,
+}: {
+  readonly actions: MaterialAuthoringActions;
+  readonly disabled: boolean;
+  readonly presentation: MaterialAuthoringPresentation;
+}) {
+  const outcomes = presentation.draft.outcomes;
+  const write = (next: readonly string[]) => {
+    actions.onOutcomesChange(next);
+  };
+
+  return (
+    <fieldset className="min-w-0 sm:col-span-2" data-material-outcomes>
+      <legend className="text-sm font-medium">Чему научишься</legend>
+      <p className="mt-1 text-xs text-muted-foreground">
+        {MATERIAL_OUTCOMES.minPublishedCount}–{MATERIAL_OUTCOMES.maxCount} пункта или ни одного.
+      </p>
+      <div className="mt-3 grid gap-2">
+        {outcomes.map((outcome, index) => (
+          <div className="flex min-w-0 items-center gap-2" key={index}>
+            <input
+              aria-label={`Пункт ${String(index + 1)}`}
+              autoComplete="off"
+              className={fieldClassName}
+              disabled={disabled}
+              maxLength={MATERIAL_OUTCOMES.maxLength}
+              onChange={(event) => {
+                const value = event.currentTarget.value;
+                write(
+                  outcomes.map((current, position) =>
+                    position === index ? value : current,
+                  ),
+                );
+              }}
+              value={outcome}
+            />
+            <Button
+              aria-label={`Убрать пункт ${String(index + 1)}`}
+              disabled={disabled}
+              onClick={() => {
+                write(outcomes.filter((_, position) => position !== index));
+              }}
+              size="icon"
+              type="button"
+              variant="ghost"
+            >
+              <X aria-hidden="true" />
+            </Button>
+          </div>
+        ))}
+      </div>
+      {outcomes.length >= MATERIAL_OUTCOMES.maxCount ? null : (
+        <Button
+          className="mt-2"
+          disabled={disabled}
+          onClick={() => {
+            write([...outcomes, ""]);
+          }}
+          type="button"
+          variant="secondary"
+        >
+          <Plus aria-hidden="true" />
+          Добавить пункт
+        </Button>
+      )}
+    </fieldset>
   );
 }
 

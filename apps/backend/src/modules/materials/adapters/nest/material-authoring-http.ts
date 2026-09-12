@@ -232,6 +232,8 @@ export const validatedMaterialSchema = z
     projectionDigest: z.string(),
     extraction: z
       .object({
+        /** Есть ли в теле шаг, написанный для обоих способов пройти руководство. */
+        hasModeVariants: z.boolean(),
         plainText: z.string(),
         headings: z.array(z.object({ level: headingLevelSchema, text: z.string() })),
         resources: z.array(extractedResourceSchema),

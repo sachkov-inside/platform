@@ -80,7 +80,7 @@ describe("ReadingActivity HTTP", () => {
     await database.prisma.guide.create({ data: { id: seriesId, name: "Series", slug: "series" } });
     const materials = assembleMaterials({ prisma: database.prisma, authorPolicy: { canManage: () => true } });
     const created = await materials.authoring.createDraft({ actor, idempotencyKey: randomUUID(),
-      metadata: { title: "Personal progress", summary: "HTTP test", access: "free", topicId, formatId, tagIds: [], seriesIds: [seriesId] },
+      metadata: { title: "Personal progress", summary: "HTTP test", access: "free", topicId, formatId, tagIds: [], difficulty: null, outcomes: [], seriesIds: [seriesId] },
       body: representativeDocument("Public content stays public."),
     });
     if (!created.ok) throw new Error(created.error.code);
