@@ -225,6 +225,17 @@ mobile through Playwright, exercises the server-only adapter against the live AP
 signed delegated owner token to create/reload, publish, Preview and unpublish one stable Material
 through the live MCP process.
 
+The identity fixture of that launcher serves a real JWKS, a real discovery document and a real
+refresh-token grant on loopback, so a signed-in session lives as long as the run instead of the
+five minutes of one access token. The five-minute lifetime itself is unchanged and the API still
+verifies it; the web BFF renews the token exactly as it does in production. The suite therefore no
+longer has to finish inside that window, and a test signed in at the end behaves like the same test
+at the start. `signInFullStack` in `apps/web/test/support/full-stack-session.ts` checks
+`/auth/status` right after setting the cookie, so a session that cannot be renewed fails as an
+expired session instead of a missing element. `session-lifetime.spec.ts` covers both outcomes on a
+session whose token has already run out, and `scripts/full-stack-identity.test.mjs` covers the
+grant itself without starting the stack.
+
 The full-stack launcher also establishes separate active-member, non-member, expired-member and stale-member
 Accounts. Confirmed loss of Membership resolves as `expired`; a formerly valid observation accepted
 through the normal facet with a historical fixture clock resolves as `stale` at the real clock. The media convergence scenarios exercise one

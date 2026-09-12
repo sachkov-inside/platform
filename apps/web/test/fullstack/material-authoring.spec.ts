@@ -10,6 +10,8 @@ import {
   type TestInfo,
 } from "@playwright/test";
 
+import { signInFullStack } from "../support/full-stack-session";
+
 const currentMaterialEditorUrl =
   /\/authoring\/materials\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?:\?.*)?$/u;
 
@@ -223,7 +225,7 @@ for (const access of ["public", "membership"] as const) {
         "FULLSTACK_LOGTO_EXPIRED_MEMBER_SESSION",
         "FULLSTACK_LOGTO_STALE_MEMBER_SESSION",
       ] as const) {
-        await addSessionCookie(context, sessionName);
+        await signInFullStack(context, sessionName);
         protectedRequests.length = 0;
         await page.reload();
         await expect(
@@ -1436,36 +1438,11 @@ test("guest cannot reach the production playlist manager", async ({ page }) => {
 });
 
 async function addFullStackSession(context: BrowserContext) {
-  await addSessionCookie(context, "FULLSTACK_LOGTO_SESSION");
+  await signInFullStack(context, "FULLSTACK_LOGTO_SESSION");
 }
 
 async function addFullStackMemberSession(context: BrowserContext) {
-  await addSessionCookie(context, "FULLSTACK_LOGTO_MEMBER_SESSION");
-}
-
-async function addSessionCookie(
-  context: BrowserContext,
-  environmentName:
-    | "FULLSTACK_LOGTO_MEMBER_SESSION"
-    | "FULLSTACK_LOGTO_SESSION"
-    | "FULLSTACK_LOGTO_NON_MEMBER_SESSION"
-    | "FULLSTACK_LOGTO_EXPIRED_MEMBER_SESSION"
-    | "FULLSTACK_LOGTO_STALE_MEMBER_SESSION",
-) {
-  const cookieName = process.env.FULLSTACK_LOGTO_COOKIE_NAME;
-  const session = process.env[environmentName];
-  if (cookieName === undefined || session === undefined) {
-    throw new Error("Full-stack Logto session fixture is missing");
-  }
-  await context.addCookies([
-    {
-      httpOnly: true,
-      name: cookieName,
-      sameSite: "Lax",
-      url: process.env.FULLSTACK_WEB_BASE_URL ?? "http://127.0.0.1:3000",
-      value: session,
-    },
-  ]);
+  await signInFullStack(context, "FULLSTACK_LOGTO_MEMBER_SESSION");
 }
 
 async function completeProfileOnboardingIfPresent(page: Page): Promise<void> {

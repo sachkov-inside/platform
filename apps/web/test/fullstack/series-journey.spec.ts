@@ -4,11 +4,13 @@ import { expect, test } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 
+import {
+  fullStackBaseUrl,
+  signInFullStack,
+} from "../support/full-stack-session";
+
 test("series journey resumes the last opened guide and preserves the Reader return position", async ({ page, context }, testInfo) => {
-  const name = process.env.FULLSTACK_LOGTO_COOKIE_NAME;
-  const value = process.env.FULLSTACK_LOGTO_NON_MEMBER_SESSION;
-  if (name === undefined || value === undefined) throw new Error("Missing local identity fixture");
-  await context.addCookies([{ name, value, url: process.env.FULLSTACK_WEB_BASE_URL ?? "http://127.0.0.1:3000", httpOnly: true, sameSite: "Lax" }]);
+  await signInFullStack(context, "FULLSTACK_LOGTO_NON_MEMBER_SESSION");
   await page.addLocatorHandler(page.getByRole("button", { name: "Закрыть подключение Telegram" }), async (button) => { await button.click(); });
   for (const slug of ["demo-295-obshchiy-gayd", "demo-295-finalnyy-gayd"]) {
     const opened = page.waitForResponse((response) => response.url().endsWith("/api/reading-progress/open") && response.request().method() === "POST");
@@ -49,11 +51,8 @@ test("series journey resumes the last opened guide and preserves the Reader retu
 
 
 test("series journey paginates a real composition and returns from Reader to page two", async ({ page, context }, testInfo) => {
-  const name = process.env.FULLSTACK_LOGTO_COOKIE_NAME;
-  const value = process.env.FULLSTACK_LOGTO_SESSION;
-  const origin = process.env.FULLSTACK_WEB_BASE_URL ?? "http://127.0.0.1:3000";
-  if (name === undefined || value === undefined) throw new Error("Missing local owner fixture");
-  await context.addCookies([{ name, value, url: origin, httpOnly: true, sameSite: "Lax" }]);
+  const origin = fullStackBaseUrl();
+  await signInFullStack(context, "FULLSTACK_LOGTO_SESSION");
   await page.addLocatorHandler(page.getByRole("button", { name: "Закрыть подключение Telegram" }), async (button) => { await button.click(); });
   const slug = `series-journey-${String(Date.now())}`;
   const created = await page.request.post("/api/authoring/collections", { headers: { origin }, multipart: { kind: "series", name: "Demo #426 · Длинный маршрут", slug, summary: "Локальная проверка прохождения руководства." } });

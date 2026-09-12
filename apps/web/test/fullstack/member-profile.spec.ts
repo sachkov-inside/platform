@@ -3,13 +3,15 @@ import { resolve } from "node:path";
 import { deflateSync } from "node:zlib";
 
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type BrowserContext } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+
+import { signInFullStack } from "../support/full-stack-session";
 
 test("shows private Account Telegram and Membership presentation without disclosure", async ({
   context,
   page,
 }, testInfo) => {
-  await addFullStackSession(context, "FULLSTACK_LOGTO_SESSION");
+  await signInFullStack(context, "FULLSTACK_LOGTO_SESSION");
 
   const accountStateResponse = await page.request.get("/api/account");
   expect(accountStateResponse.status()).toBe(200);
@@ -107,7 +109,7 @@ test("creates or edits the Account Profile and preserves the member projection",
   context,
   page,
 }, testInfo) => {
-  await addFullStackSession(context, "FULLSTACK_LOGTO_MEMBER_SESSION");
+  await signInFullStack(context, "FULLSTACK_LOGTO_MEMBER_SESSION");
 
   const home = await page.goto("/");
   expect(home?.status()).toBe(200);
@@ -250,25 +252,6 @@ test("creates or edits the Account Profile and preserves the member projection",
 
 });
 
-async function addFullStackSession(
-  context: BrowserContext,
-  sessionName: "FULLSTACK_LOGTO_MEMBER_SESSION" | "FULLSTACK_LOGTO_SESSION",
-) {
-  const cookieName = process.env.FULLSTACK_LOGTO_COOKIE_NAME;
-  const session = process.env[sessionName];
-  if (cookieName === undefined || session === undefined) {
-    throw new Error(`Full-stack Logto session fixture ${sessionName} is missing`);
-  }
-  await context.addCookies([
-    {
-      httpOnly: true,
-      name: cookieName,
-      sameSite: "Lax",
-      url: process.env.FULLSTACK_WEB_BASE_URL ?? "http://127.0.0.1:3000",
-      value: session,
-    },
-  ]);
-}
 
 function profileAvatarPng(): Buffer {
   const width = 480;
