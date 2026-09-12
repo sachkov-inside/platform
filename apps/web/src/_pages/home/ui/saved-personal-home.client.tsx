@@ -13,6 +13,9 @@ export function SavedPersonalHome({ initialAccountId, result }: { readonly initi
 }
 function SavedAccountHome({ accountId, resolved, result }: { readonly accountId: string; readonly resolved: boolean; readonly result: HomeResult }) {
   const query = useQuery({ queryKey: personalHomeQueryKey(accountId), queryFn: loadPersonalHome, enabled: resolved, staleTime: 0, retry: false });
-  const view = query.data ?? (query.isError ? { kind: "unavailable" as const } : undefined);
+  // Сорвавшееся обновление важнее прежнего ответа: показывать продолжение, которого мы уже не
+  // подтверждаем, значит звать человека туда, где его может не быть. Публичная главная при этом
+  // остаётся на месте. Так же поступает программа руководства.
+  const view = query.isError ? { kind: "unavailable" as const } : query.data;
   return <div data-personal-home-state={view?.kind ?? "loading"}><HomePage result={result} {...(view?.kind === "ready" ? { continuation: view.continuation } : {})} /></div>;
 }
