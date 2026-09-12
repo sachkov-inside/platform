@@ -244,22 +244,17 @@ export function isGuideCapability(capability: AccessCapability): boolean {
 }
 
 /**
- * Открывает ли этот набор прав общий чат самим правом на руководство. Купленное руководство даёт
- * участие в сообществе по решению владельца, а не по составу предложения. Право участия выдаёт
- * сервер по тому же правилу: здесь оно нужно только чтобы назвать доступ до покупки и после неё
- * одинаково честно.
+ * Состав доступа, который эти права открывают на самом деле. Купленное руководство само по себе
+ * даёт участие в сообществе — по решению владельца, а не по составу предложения, — поэтому чат
+ * назван и там, где отдельного права участия в составе нет. Уже названный чат не повторяется.
+ * Право участия выдаёт сервер по тому же правилу: здесь оно нужно только чтобы назвать доступ до
+ * покупки и после неё одинаково честно.
  */
-function guidesOpenCommunity(
-  capabilities: readonly AccessCapability[],
-): boolean {
-  return capabilities.some(isGuideCapability);
-}
-
-/** Состав доступа, который эти права открывают на самом деле, без повтора уже названного чата. */
 export function accessComposition(
   capabilities: readonly AccessCapability[],
 ): readonly AccessCapability[] {
-  return capabilities.includes("community") || !guidesOpenCommunity(capabilities)
+  return capabilities.includes("community") ||
+    !capabilities.some(isGuideCapability)
     ? capabilities
     : [...capabilities, "community"];
 }
