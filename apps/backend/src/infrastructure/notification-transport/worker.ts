@@ -83,8 +83,10 @@ export function assembleNotificationWorker(input: {
           fail(error instanceof Error ? error : new Error('notification_worker_failed'));
         });
       } catch (error) {
-        await this.stop();
+        // Причина называется до остановки: свой отказ у остановки тоже бывает, и он не должен
+        // заменить собой то, из-за чего запуск не состоялся.
         input.report({ status: 'operator_attention', reason: 'notification_worker_start_failed', error: loggableFailure(error) });
+        await this.stop();
         throw new Error('notification_worker_start_failed', { cause: error });
       }
     },

@@ -80,12 +80,23 @@ reason and deduplication receipts remain. Base64 is encoding, not encryption: Po
 and operator access must protect this data. Export only the exact incident rows using restricted
 DB access to an access-controlled artifact; never paste payloads into logs, issues or chat.
 
-A row the application cannot process shares that fate without stopping anything else. Audience
-expansion isolates one inbox row: a failure defers it for 30 seconds and counts the attempt in its
-checkpoint, and the third failed attempt quarantines the payload under reason
-`unprocessable_notification` and completes the row. The worker names the cause in its own log
-(`row_retry`, `row_quarantined`, `inbox_sweep_failed`) and keeps running: before this, one such row
+A row the application cannot process shares that fate without stopping anything else. Every inbox
+lane isolates one row — audience expansion for `billing`/`materials` and result projection for
+`emailResult`/`telegramResult`: a failure defers the row for 30 seconds and counts the attempt in
+its checkpoint, and the third failed attempt quarantines the payload under reason
+`unprocessable_notification` and completes the row. A refused quarantine (capacity, storage) defers
+the row instead of leaving it hot, so the lane still reaches command refresh and email dispatch on
+the same cycle.
+
+The worker names what happened and keeps running: `row_retry`, `row_quarantined`,
+`quarantine_unavailable` (both the row's own cause and the quarantine error), `delivery_not_configured`
+when no reader origin is configured yet, `lane_failed`, `delivery_refresh_failed`,
+`email_dispatch_failed` and `inbox_sweep_failed` for a whole sweep. Before this, one unprocessable row
 stopped every notification and kept stopping the process after each restart.
+
+A quarantined row is recoverable, not lost: the payload is retained for seven days and an authorized
+redrive republishes it with its original message ID, which is the remedy when a transient fault
+quarantined a healthy message.
 
 On quarantine exhaustion, stop the affected worker, export/inspect the bounded incident, resolve
 its cause and expire retained payloads only after the approved retention/recovery decision. A replay

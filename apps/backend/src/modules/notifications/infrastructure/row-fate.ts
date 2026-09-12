@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import type { NotificationsPrismaClient } from '../../../../infrastructure/prisma/index.js';
-import { loggableFailure, type NotificationLane } from '../../../../infrastructure/notification-transport/wire.js';
-import type { QuarantineNotification } from '../../ports/notification-sources.js';
+import type { NotificationsPrismaClient } from '../../../infrastructure/prisma/index.js';
+import { loggableFailure, type NotificationLane } from '../../../infrastructure/notification-transport/wire.js';
+import type { QuarantineNotification } from '../ports/notification-sources.js';
 
 /** Строка входящих в том виде, в каком решается её судьба: ключ выводится из неё, а не носится рядом. */
 export type InboxRow = { readonly scope: string; readonly messageId: string; readonly payload: string };
@@ -14,6 +14,7 @@ export type SweepObservation = {
     | 'lane_failed' | 'delivery_refresh_failed' | 'email_dispatch_failed';
   readonly attempts?: number;
   readonly error?: string;
+  readonly quarantineError?: string;
 };
 /** Ошибка одной строки: она несёт строку, поэтому судьбу пишет вызывающий, а транзакция откатывается. */
 export class UnprocessableRow extends Error {
@@ -48,7 +49,8 @@ export async function recordRowFailure(input: {
 }): Promise<SweepObservation> {
   const { prisma, now, lane, quarantine, failure } = input;
   const where = inboxKey(failure.row);
-  const attempts = rowAttempts(failure.checkpoint) + 1;
+  // Счётчик не растёт за предел: после него он больше ничего не решает, а строка может ждать долго.
+  const attempts = Math.min(rowAttempts(failure.checkpoint) + 1, ROW_RETRY_LIMIT);
   const checkpoint = { ...failure.checkpoint, attempts, reason: ROW_FAILURE_REASON };
   const observed = { lane, messageId: failure.row.messageId, attempts, error: loggableFailure(failure.cause) };
   const defer = async (reason: SweepObservation['reason']): Promise<SweepObservation> => {
@@ -60,7 +62,9 @@ export async function recordRowFailure(input: {
   try {
     await quarantine(lane, Buffer.from(failure.row.payload), ROW_FAILURE_REASON);
   } catch (error) {
-    return { ...(await defer('quarantine_unavailable')), error: loggableFailure(error) };
+    // Причина самой строки остаётся на месте: иначе оператор увидел бы только переполненный
+    // карантин и не узнал бы, почему строка неисправна.
+    return { ...(await defer('quarantine_unavailable')), quarantineError: loggableFailure(error) };
   }
   await prisma.notificationInbox.update({ where, data: { checkpoint, completedAt: now() } });
   return { ...observed, reason: 'row_quarantined' };

@@ -8,7 +8,7 @@ import { renderNotification } from '../../domain/templates.js';
 import type { NotificationRecipients, NotificationSources, NotificationSource, QuarantineNotification } from '../../ports/notification-sources.js';
 import { optedIn } from '../change-preferences/change-preferences.js';
 import { lockNotification } from '../../infrastructure/locks.js';
-import { inboxKey, recordRowFailure, UnprocessableRow, type InboxRow, type SweepObservation } from './row-fate.js';
+import { inboxKey, recordRowFailure, UnprocessableRow, type InboxRow, type SweepObservation } from '../../infrastructure/row-fate.js';
 
 export interface NotificationDependencies {
   prisma: NotificationsPrismaClient; sources: NotificationSources; recipients: NotificationRecipients;
@@ -79,7 +79,7 @@ async function expandRow(
   const invalid = occurredAt >= deadline || occurredAt > issuedAt || (lane === 'materials' && deadline.getTime() - occurredAt.getTime() !== MATERIAL_EVENT_LIFETIME_MS);
   const deliveryWindow = invalid ? null : commandWindow(issuedAt, deadline);
   if (!deliveryWindow) {
-    await transaction.notificationInbox.update({ where: key, data: { completedAt: now(), checkpoint: { reason: invalid ? 'invalid_event_time' : 'expired' } } });
+    await transaction.notificationInbox.update({ where: key, data: { completedAt: now(), checkpoint: { ...checkpoint, reason: invalid ? 'invalid_event_time' : 'expired' } } });
     return { progressed: true };
   }
   // Адрес читателя — часть настройки доставки, а не свойство события: пока его нет, повод ждёт.
@@ -95,7 +95,7 @@ async function expandRow(
     return { progressed: false };
   }
   if (!validSource(event, source)) {
-    await transaction.notificationInbox.update({ where: key, data: { completedAt: now(), checkpoint: { reason: 'source_conflict' } } });
+    await transaction.notificationInbox.update({ where: key, data: { completedAt: now(), checkpoint: { ...checkpoint, reason: 'source_conflict' } } });
     return { progressed: true };
   }
   const accounts = source.accountId === null

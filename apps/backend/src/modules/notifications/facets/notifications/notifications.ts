@@ -5,7 +5,7 @@ import { assembleNotificationTransport } from '../notification-transport/notific
 import { authorizeDispatch } from '../../features/authorize-dispatch/authorize-dispatch.js';
 import { changePreferences, readPreferences } from '../../features/change-preferences/change-preferences.js';
 import { expandAudience, type NotificationDependencies } from '../../features/expand-audience/expand-audience.js';
-import { asCheckpoint, recordRowFailure, UnprocessableRow, type SweepObservation } from '../../features/expand-audience/row-fate.js';
+import { asCheckpoint, recordRowFailure, UnprocessableRow, type SweepObservation } from '../../infrastructure/row-fate.js';
 import { refreshDeliveries } from '../../features/expand-audience/refresh-deliveries.js';
 import { acceptEmailCommand, dispatchEmail } from '../../features/dispatch-email/dispatch-email.js';
 import { acceptDeliveryResult } from '../../features/project-result/project-result.js';
@@ -51,20 +51,23 @@ export class Notifications {
     // Each lane makes bounded progress independently; a saturated subscription lane cannot starve materials/results.
     for (const channel of ['email', 'telegram'] as const) {
       const lane = channel === 'email' ? 'emailResult' : 'telegramResult';
-      const rows = await this.deps.prisma.notificationInbox.findMany({ where: { lane, completedAt: null, nextAttemptAt: { lte: this.deps.now() } }, orderBy: [{ nextAttemptAt: 'asc' }, { receivedAt: 'asc' }], take: 25 });
-      for (const row of rows) {
-        try {
-          const outcome = await this.acceptDeliveryResult(channel, JSON.parse(row.payload));
-          if (outcome === 'deferred') {
-            await this.deps.prisma.notificationInbox.update({ where: { scope_messageId: { scope: row.scope, messageId: row.messageId } }, data: { nextAttemptAt: new Date(this.deps.now().getTime() + 5_000) } });
-            continue;
+      // Отказ самой записи судьбы тоже не имеет права отменить круг: письма уходят на нём же.
+      try {
+        const rows = await this.deps.prisma.notificationInbox.findMany({ where: { lane, completedAt: null, nextAttemptAt: { lte: this.deps.now() } }, orderBy: [{ nextAttemptAt: 'asc' }, { receivedAt: 'asc' }], take: 25 });
+        for (const row of rows) {
+          try {
+            const outcome = await this.acceptDeliveryResult(channel, JSON.parse(row.payload));
+            if (outcome === 'deferred') {
+              await this.deps.prisma.notificationInbox.update({ where: { scope_messageId: { scope: row.scope, messageId: row.messageId } }, data: { nextAttemptAt: new Date(this.deps.now().getTime() + 5_000) } });
+              continue;
+            }
+            if (!['accepted', 'duplicate', 'stale'].includes(outcome)) await this.transport.quarantine(lane, Buffer.from(row.payload), outcome);
+            await this.deps.prisma.notificationInbox.update({ where: { scope_messageId: { scope: row.scope, messageId: row.messageId } }, data: { completedAt: this.deps.now() } });
+          } catch (error) {
+            observations.push(await fate(lane, new UnprocessableRow(row, asCheckpoint(row.checkpoint), error)));
           }
-          if (!['accepted', 'duplicate', 'stale'].includes(outcome)) await this.transport.quarantine(lane, Buffer.from(row.payload), outcome);
-          await this.deps.prisma.notificationInbox.update({ where: { scope_messageId: { scope: row.scope, messageId: row.messageId } }, data: { completedAt: this.deps.now() } });
-        } catch (error) {
-          observations.push(await fate(lane, new UnprocessableRow(row, asCheckpoint(row.checkpoint), error)));
         }
-      }
+      } catch (error) { observations.push({ lane, reason: 'lane_failed', error: loggableFailure(error) }); }
     }
     for (const lane of ['billing', 'materials'] as const) {
       try {
