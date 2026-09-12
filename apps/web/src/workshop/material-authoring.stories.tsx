@@ -248,13 +248,6 @@ export const LessonBlocksEditing: Story = {
   name: "Редактор · блоки урока",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    /**
-     * Самая тяжёлая история набора, и потолок задания у неё общий с остальными. Длительность
-     * печатается в каждом прогоне: на раннере она втрое-вчетверо больше, чем на машине
-     * разработчика, и приближение к потолку видно заранее, а не в виде красного Quality в чужом
-     * pull request.
-     */
-    const storyStarted = performance.now();
     const openMenu = async () => {
       await userEvent.click(canvas.getByRole("button", { name: "Добавить блок" }));
       return canvas.getByRole("dialog", { name: "Добавить блок" });
@@ -298,7 +291,7 @@ export const LessonBlocksEditing: Story = {
     await expect(warning).toBeVisible();
     await expect(warning).toHaveTextContent("Важно");
 
-    await paste(canvas.getByLabelText("Название врезки"), "Не забудьте");
+    await fillByPaste(inputField(canvasElement, "Название врезки"), "Не забудьте");
     await expect(blockNode('aside[data-callout="warning"]', 'Врезка «Важно» исчезла после ввода названия')).toHaveTextContent(
       "Не забудьте",
     );
@@ -312,15 +305,18 @@ export const LessonBlocksEditing: Story = {
 
     menu = await openMenu();
     await userEvent.click(within(menu).getByRole("button", { name: "Ресурс" }));
-    await paste(canvas.getByLabelText("Название ресурса"), "Спецификация");
-    await paste(canvas.getByLabelText("Адрес ресурса"), "https://example.com/spec");
+    await fillByPaste(inputField(canvasElement, "Название ресурса"), "Спецификация");
+    await fillByPaste(inputField(canvasElement, "Адрес ресурса"), "https://example.com/spec");
     await expect(canvas.getByLabelText("Адрес ресурса")).toHaveValue(
       "https://example.com/spec",
     );
 
     menu = await openMenu();
     await userEvent.click(within(menu).getByRole("button", { name: "Термины" }));
+    // Единственный набор по знаку в этой истории, и он нарочно остаётся: три подряд идущие
+    // транзакции проверяют, что поле формы не теряет фокус после первого же знака.
     await userEvent.type(canvas.getByLabelText("Метка строки 1"), "ADR", { delay: null });
+    await expect(canvas.getByLabelText("Метка строки 1")).toHaveValue("ADR");
     await userEvent.click(canvas.getByRole("button", { name: "Добавить строку" }));
     await expect(canvas.getByLabelText("Метка строки 2")).toHaveValue("");
 
@@ -343,11 +339,6 @@ export const LessonBlocksEditing: Story = {
       "true",
     );
     await expect(canvas.getByLabelText("Название врезки")).toHaveValue("Не забудьте");
-    // Прогон историй пропускает наружу только этот канал, поэтому строка идёт через него.
-    // Это не отказ: она печатается и в зелёном прогоне.
-    console.error(
-      `Длительность истории «Редактор · блоки урока»: ${String(Math.round(performance.now() - storyStarted))} мс при потолке задания 15000 мс`,
-    );
   },
 };
 
@@ -931,17 +922,42 @@ function imageAttachment(canvasElement: HTMLElement): HTMLElement {
 /**
  * Длинное значение попадает в поле одной вставкой, а не набором по знаку.
  *
- * Каждое нажатие в редакторе — это транзакция, а редактор пересобирается на каждой транзакции и
- * заново считает положение своих контролов по геометрии страницы. На машине разработчика знак
- * стоит около 7 мс, на раннере — около 140 мс, потому что браузерные воркеры делят четыре ядра.
- * Сорок семь знаков превращались там в шесть с лишним секунд при потолке задания в пятнадцать.
+ * Каждое нажатие в редакторе — это транзакция, редактор пересобирается на каждой транзакции
+ * (`material-document-editor.client.tsx`, `shouldRerenderOnTransaction`) и заново считает
+ * положение своих контролов через `getBoundingClientRect` и `coordsAtPos`
+ * (`use-material-block-controls.ts`). На машине разработчика знак стоит около 7 мс, на раннере —
+ * около 140 мс: там браузерные воркеры делят ядра, и в измеренном прогоне 263,75 с тестового
+ * времени уложились в 90,79 с.
  *
- * Вставка — настоящее действие автора и тот же путь обработчика, только событие одно. Набор по
- * знаку остаётся там, где он дёшев и проверяет саму механику ввода.
+ * Вставка — настоящее действие автора и тот же путь обработчика: оба события заканчиваются одним
+ * `input`. Набор по знаку остаётся на короткой метке строки, где он дёшев и где проверяется, что
+ * поле переживает подряд идущие транзакции.
  */
-async function paste(field: HTMLElement, value: string) {
+async function fillByPaste(
+  field: HTMLInputElement | HTMLTextAreaElement,
+  value: string,
+) {
   await userEvent.click(field);
   await userEvent.paste(value);
+  // Вставка — это действие, а не присваивание: если значение не дошло, падение обязано сказать
+  // именно это, а не показывать разницу двух строк без объяснения.
+  if (field.value !== value) {
+    throw new Error(
+      `Поле «${field.getAttribute("aria-label") ?? ""}» не приняло вставленное значение «${value}»: в нём осталось «${field.value}»`,
+    );
+  }
+}
+
+/** Поле ввода по его подписи. Отсутствие поля — это «поля нет», а не «получен не тот элемент». */
+function inputField(canvasElement: HTMLElement, label: string) {
+  const field = within(canvasElement).getByLabelText(label);
+  if (
+    !(field instanceof HTMLInputElement) &&
+    !(field instanceof HTMLTextAreaElement)
+  ) {
+    throw new Error(`Элемент с подписью «${label}» не является полем ввода`);
+  }
+  return field;
 }
 
 async function expectNoHorizontalOverflow(canvasElement: HTMLElement) {
