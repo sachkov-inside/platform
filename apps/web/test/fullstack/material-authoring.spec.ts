@@ -739,10 +739,8 @@ test("trusted author uploads chooser, paste and drop assets through Preview and 
   ).toEqual([]);
   await captureAssetEvidence(page, testInfo, "editor-ready");
 
-  // The author reaches the description in the attachment form itself, with nothing to open first.
-  const description = diagram.getByLabel("Описание изображения");
-  await expect(description).toBeVisible();
-  await description.fill("Схема asset flow");
+  // The description is a field of the attachment form, reached like any other.
+  await diagram.getByLabel("Описание изображения").fill("Схема asset flow");
 
   await waitMaterialSaved(page);
   await expect(

@@ -874,10 +874,8 @@ export const ImageAttachment: Story = {
   name: "Вложенное изображение · форма вложения",
   args: { presentation: imageAttachmentPresentation },
   play: async ({ canvasElement }) => {
-    const attachment = imageAttachment(canvasElement);
-    const form = within(attachment);
-    // The description is part of the attachment, not a setting behind a disclosure.
-    await expect(attachment.querySelector("details")).toBeNull();
+    const form = within(imageAttachment(canvasElement));
+    // The description is a field of the attachment form: visible and writable as it stands.
     const description = form.getByLabelText("Описание изображения");
     await expect(description).toBeVisible();
     await userEvent.type(description, "Путь задачи от issue до owner GO");

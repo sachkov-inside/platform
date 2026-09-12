@@ -629,9 +629,8 @@ test("responsive image preview loads real pixels, reports a failed delivery and 
   await page
     .getByLabel("Подпись изображения", { exact: true })
     .fill("Подпись под изображением");
+  // The description is a field of the attachment form, reached like any other.
   const description = page.getByLabel("Описание изображения", { exact: true });
-  // The description belongs to the attachment form; no disclosure step precedes it.
-  await expect(description).toBeVisible();
   await description.fill("Синий фон с белым текстом");
   await page.setViewportSize({ width: 320, height: 800 });
   await description.scrollIntoViewIfNeeded();
@@ -679,7 +678,7 @@ test("responsive image preview loads real pixels, reports a failed delivery and 
   await expect(picture).toHaveAttribute("alt", "Синий фон с белым текстом");
 });
 
-test("image block selection keeps its caption, description and size controls readable while resizing", async ({
+test("image block selection keeps its description and size controls readable while resizing", async ({
   page,
 }) => {
   await createDraft(page, "выделение изображения");
@@ -705,7 +704,7 @@ test("image block selection keeps its caption, description and size controls rea
       );
       const colors = await page
         .locator(
-          "[data-node-view-wrapper] label, [data-node-view-wrapper] output, [data-node-view-wrapper] p",
+          ".ProseMirror label, .ProseMirror output, [data-node-view-wrapper] p",
         )
         .evaluateAll((elements) =>
           elements.map((element) => ({

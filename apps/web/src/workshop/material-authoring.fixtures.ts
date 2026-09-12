@@ -277,22 +277,18 @@ export const savedAfterEditingPresentation = {
 } as const satisfies MaterialAuthoringPresentation;
 
 /**
- * An image attachment in the article. The catalog cannot deliver protected bytes, so the block
- * shows its saved-without-preview state; the attachment form around it is the production one.
+ * The same article with its image attachment in the editor. The catalog cannot deliver protected
+ * bytes, so the block shows its saved-without-preview state; the form around it is the production
+ * one. The asset is the image the preview already carries, so both sides describe one Material.
  */
 export const imageAttachmentPresentation = {
   ...materialAuthoringPresentation,
   draft: {
     ...materialAuthoringPresentation.draft,
     document: {
-      type: "doc",
+      ...materialAuthoringPresentation.draft.document,
       content: [
-        {
-          type: "paragraph",
-          content: [
-            { type: "text", text: "Схема ниже показывает путь задачи." },
-          ],
-        },
+        ...materialAuthoringPresentation.draft.document.content,
         {
           type: "assetImage",
           attrs: {
