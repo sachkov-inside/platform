@@ -13,6 +13,7 @@ import {
   type MaterialDraftField,
 } from "@/widgets/material-authoring/editor";
 import { deleteMaterialDraft } from "@/features/material-lifecycle";
+import { retainUnselectedUpload } from "@/features/material-video";
 import {
   flushPendingEdits,
   useAutosave,
@@ -319,6 +320,11 @@ export function MaterialAuthoringPageClient({
         latestVideoDeletion: deletionCandidate,
         primaryVideo,
         primaryVideoId: primaryVideo?.videoId ?? null,
+        unselectedVideoUpload: retainUnselectedUpload({
+          deleteVideoId,
+          primaryVideoId: primaryVideo?.videoId ?? null,
+          unselectedUpload: draftRef.current.unselectedVideoUpload,
+        }),
       });
     },
     onRetry: () => {

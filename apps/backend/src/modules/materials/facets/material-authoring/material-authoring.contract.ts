@@ -40,6 +40,7 @@ export interface MaterialDto {
   readonly primaryVideoId: string | null;
   readonly primaryVideo: VideoAuthoringPresentation | null;
   readonly latestVideoDeletion: VideoAuthoringPresentation | null;
+  readonly unselectedVideoUpload: VideoAuthoringPresentation | null;
   readonly cover: ContentCoverProjection | null;
   readonly metadata: MaterialMetadataDto;
   readonly body: MaterialBodySnapshot;

@@ -1,3 +1,5 @@
+import { queryOptions } from "@tanstack/react-query";
+
 import { requestSameOriginMutation } from "@/shared/api/same-origin-mutation";
 import {
   bookmarkListPageSchema,
@@ -20,6 +22,20 @@ export async function getBookmarkStates(materialIds: readonly string[]) {
     : parsed.data.kind === "unauthorized"
       ? { kind: "unauthorized" as const }
       : { kind: "unavailable" as const };
+}
+
+/** Состояния закладок личные, поэтому у гостя запрос выключен, а не отбит отказом 401. */
+export function bookmarkStatesQueryOptions(input: {
+  readonly materialId: string;
+  readonly signedIn: boolean;
+}) {
+  return queryOptions({
+    queryKey: ["bookmarks", "states", input.materialId],
+    queryFn: () => getBookmarkStates([input.materialId]),
+    enabled: input.signedIn,
+    retry: false,
+    staleTime: 0,
+  });
 }
 
 export async function setBookmark(input: BookmarkCommand) {

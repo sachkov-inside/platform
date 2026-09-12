@@ -88,6 +88,7 @@ export const materialAuthoringPresentation = {
     canDelete: true,
     deleteVideoId: null,
     latestVideoDeletion: null,
+    unselectedVideoUpload: null,
     primaryVideo: null,
     primaryVideoId: null,
     document: {
@@ -274,6 +275,33 @@ export const savedAfterEditingPresentation = {
   },
   save: { kind: "saved", savedAtLabel: "12:41" },
   validation: { headingCount: 1, kind: "valid", plainTextLength: 214 },
+} as const satisfies MaterialAuthoringPresentation;
+
+/**
+ * The same article with its image attachment in the editor. The catalog cannot deliver protected
+ * bytes, so the block shows its saved-without-preview state; the form around it is the production
+ * one. The asset is the image the preview already carries, so both sides describe one Material.
+ */
+export const imageAttachmentPresentation = {
+  ...materialAuthoringPresentation,
+  draft: {
+    ...materialAuthoringPresentation.draft,
+    document: {
+      ...materialAuthoringPresentation.draft.document,
+      content: [
+        ...materialAuthoringPresentation.draft.document.content,
+        {
+          type: "assetImage",
+          attrs: {
+            alt: "",
+            assetId: "94000000-0000-4000-8000-000000000051",
+            caption: null,
+          },
+        },
+        { type: "paragraph" },
+      ],
+    },
+  },
 } as const satisfies MaterialAuthoringPresentation;
 
 export const emptyMaterialAuthoringPresentation = {

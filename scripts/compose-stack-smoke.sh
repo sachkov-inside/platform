@@ -7,6 +7,8 @@ cd "$repository_root"
 api_base_url="${API_BASE_URL:-http://127.0.0.1:3001}"
 web_base_url="${WEB_BASE_URL:-http://127.0.0.1:3000}"
 mcp_server_url="${MCP_SERVER_URL:-http://127.0.0.1:${MCP_HOST_PORT:-3002}/mcp}"
+bank_double_url="http://127.0.0.1:${BANK_DOUBLE_HOST_PORT:-8090}"
+mail_capture_url="http://127.0.0.1:${MAIL_CAPTURE_HOST_PORT:-8025}"
 
 api_health="$(curl --fail --silent --show-error "$api_base_url/health/ready")"
 if [[ "$api_health" != *'"process":"api"'* || "$api_health" != *'"status":"ready"'* || "$api_health" != *'"database":"reachable"'* || "$api_health" != *'"identity":"sha256:'* || "$api_health" != *'"migrationCount":'* ]]; then
@@ -81,4 +83,17 @@ if [[ "$seed_snapshot" != "1:2:published" ]]; then
   exit 1
 fi
 
-echo "Compose stack smoke passed: Library/Reader web -> API -> PostgreSQL, MCP metadata/auth boundary ready, seed $seed_snapshot, seeded offers on sale"
+# Продажу на стенде можно пройти только когда двойник банка и перехватчик писем отвечают сами.
+bank_double_health="$(curl --fail --silent --show-error "$bank_double_url/health")"
+if [[ "$bank_double_health" != *'"process":"bank-double"'* || "$bank_double_health" != *'"status":"ready"'* ]]; then
+  echo "Unexpected bank double health response: $bank_double_health" >&2
+  exit 1
+fi
+
+mail_capture_inbox="$(curl --fail --silent --show-error "$mail_capture_url/api/v1/messages")"
+if [[ "$mail_capture_inbox" != *'"messages"'* ]]; then
+  echo "Unexpected mail capture inbox response: $mail_capture_inbox" >&2
+  exit 1
+fi
+
+echo "Compose stack smoke passed: Library/Reader web -> API -> PostgreSQL, MCP metadata/auth boundary ready, seed $seed_snapshot, seeded offers on sale, bank double and mail capture ready"

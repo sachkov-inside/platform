@@ -10,6 +10,7 @@ import {
   type ProviderVideo,
   type VideoProvider,
 } from "../../src/modules/videos/index.js";
+import { distinctClock } from "./setup/distinct-clock.js";
 import { createMigratedTestDatabase, type TestDatabase } from "./setup/test-database.js";
 
 const unusedDelete: VideoProvider["delete"] = () =>
@@ -265,6 +266,131 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
       uploadEndpoint: null,
       videoId: null,
     });
+  });
+
+  test("offers an unsettled upload of a Material and stops once its outcome is known", async () => {
+    const remote = new Map<string, ProviderVideo>();
+    const started: string[] = [];
+    const provider: VideoProvider = {
+      delete: unusedDelete,
+      initUpload(input) {
+        const id = randomUUID();
+        started.push(id);
+        remote.set(id, {
+          embedLocator: null,
+          id,
+          projectId: input.projectId,
+          status: "uploading",
+          title: input.title,
+        });
+        return Promise.resolve({ id, uploadEndpoint: `https://uploads.example.test/${id}` });
+      },
+      find: (input) => Promise.resolve(remote.get(input.id) ?? null),
+    };
+    const videos = assembleVideos({
+      canManage: () => Promise.resolve(true),
+      // Two attempts of one Material are ordered by when they started, so their timestamps must
+      // not land in the same millisecond.
+      clock: distinctClock(),
+      prisma: database.prisma,
+      provider,
+      projects: { free: "public-project", membership: "member-project" },
+    });
+    const actor = randomUUID();
+    const materialId = randomUUID();
+    const upload = {
+      access: "free" as const,
+      actor,
+      byteSize: 8_192,
+      filename: "interrupted.mp4",
+      materialId,
+      title: "Interrupted lesson",
+    };
+    const unselected = () => videos.loadUnselectedUpload({ materialId, selectedVideoId: null });
+
+    await expect(unselected()).resolves.toEqual({ ok: true, value: null });
+
+    const first = await videos.initUpload({ ...upload, idempotencyKey: "first-interrupted-upload" });
+    if (!first.ok) throw new Error(first.error.code);
+
+    // The browser tab is gone: the Material never stored this Video, but the author must find it.
+    await expect(unselected()).resolves.toEqual({
+      ok: true,
+      value: {
+        origin: "platform_upload",
+        state: "uploading",
+        title: "Interrupted lesson",
+        videoId: first.value.video.videoId,
+      },
+    });
+
+    const second = await videos.initUpload({
+      ...upload,
+      idempotencyKey: "second-interrupted-upload",
+      title: "Second attempt",
+    });
+    if (!second.ok) throw new Error(second.error.code);
+    await expect(unselected()).resolves.toMatchObject({
+      ok: true,
+      value: { title: "Second attempt", videoId: second.value.video.videoId },
+    });
+
+    // Once the Material holds a Video, the author already has what an upload would restore.
+    await expect(videos.loadUnselectedUpload({
+      materialId,
+      selectedVideoId: second.value.video.videoId,
+    })).resolves.toEqual({ ok: true, value: null });
+
+    // A settled upload was already shown to its author; recovery must not undo their decision.
+    const secondProviderVideoId = started[1] ?? "";
+    remote.set(secondProviderVideoId, {
+      embedLocator: "https://kinescope.io/embed/second",
+      id: secondProviderVideoId,
+      projectId: "public-project",
+      status: "done",
+      title: "Second attempt",
+    });
+    await expect(videos.reconcile({
+      actor,
+      videoId: second.value.video.videoId,
+    })).resolves.toMatchObject({ ok: true, value: { state: "ready" } });
+    await expect(unselected()).resolves.toMatchObject({
+      ok: true,
+      value: { videoId: first.value.video.videoId },
+    });
+  });
+
+  test("never offers an External Attachment as a recoverable upload", async () => {
+    const providerVideoId = randomUUID();
+    const videos = assembleVideos({
+      canManage: () => Promise.resolve(true),
+      prisma: database.prisma,
+      provider: {
+        delete: unusedDelete,
+        initUpload: () => Promise.reject(new Error("unused")),
+        find: () => Promise.resolve({
+          embedLocator: "https://kinescope.io/embed/attached",
+          id: providerVideoId,
+          projectId: "public-project",
+          status: "done",
+          title: "Attached recording",
+        }),
+      },
+      projects: { free: "public-project", membership: "member-project" },
+    });
+    const materialId = randomUUID();
+
+    await expect(videos.attachExisting({
+      access: "free",
+      actor: randomUUID(),
+      materialId,
+      providerVideoId,
+    })).resolves.toMatchObject({ ok: true, value: { origin: "external_attachment" } });
+
+    await expect(videos.loadUnselectedUpload({
+      materialId,
+      selectedVideoId: null,
+    })).resolves.toEqual({ ok: true, value: null });
   });
 
   test("keeps an early webhook pending and reconciles it after the local Video exists", async () => {

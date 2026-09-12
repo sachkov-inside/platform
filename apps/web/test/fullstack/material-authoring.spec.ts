@@ -735,6 +735,7 @@ test("trusted author uploads chooser, paste and drop assets through Preview and 
   ).toEqual([]);
   await captureAssetEvidence(page, testInfo, "editor-ready");
 
+  // The description is a field of the attachment form, reached like any other.
   await diagram.getByLabel("Описание изображения").fill("Схема asset flow");
 
   await waitMaterialSaved(page);

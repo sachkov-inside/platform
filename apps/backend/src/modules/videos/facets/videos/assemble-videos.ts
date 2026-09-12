@@ -59,6 +59,10 @@ const primaryReferenceInput = z.object({
   materialId: videoMaterialIdSchema,
   videoId: videoIdSchema,
 }).strict();
+const unselectedUploadInput = z.object({
+  materialId: videoMaterialIdSchema,
+  selectedVideoId: videoIdSchema.nullable(),
+}).strict();
 const presentationInput = z.object({
   materialId: videoMaterialIdSchema,
   videoId: videoIdSchema,
@@ -459,6 +463,32 @@ export function assembleVideos(dependencies: {
             state: {
               in: ["deletion_requested", "deleting", "deleted", "delete_failed"],
             },
+          },
+        });
+        return {
+          ok: true,
+          value: video === null ? null : toAuthoringPresentation(video),
+        };
+      } catch {
+        return dependencyUnavailable();
+      }
+    },
+
+    async loadUnselectedUpload(input) {
+      const parsed = unselectedUploadInput.safeParse(input);
+      if (!parsed.success) return invalidRequest();
+      // A Material that already selected a Video has nothing to recover.
+      if (parsed.data.selectedVideoId !== null) return { ok: true, value: null };
+      try {
+        const video = await dependencies.prisma.video.findFirst({
+          // Attempts are ordered by when the author started them; a provider sync moves updatedAt.
+          orderBy: { createdAt: "desc" },
+          where: {
+            materialId: parsed.data.materialId,
+            origin: "platform_upload",
+            // A resolved upload was already shown to its author, who may have detached it on
+            // purpose. Only an outcome Platform never settled is still waiting to be recovered.
+            state: { in: ["uploading", "processing"] },
           },
         });
         return {

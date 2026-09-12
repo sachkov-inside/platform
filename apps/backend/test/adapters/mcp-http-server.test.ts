@@ -9,7 +9,8 @@ import { createMcpHttpServer, type McpHttpServer } from "../../src/entrypoints/m
 import type { OperationalReadiness } from "../../src/infrastructure/operational-readiness.js";
 import type { Accounts } from "../../src/modules/accounts/index.js";
 import { createLogtoAccessTokenVerifier } from "../../src/modules/accounts/infrastructure/idp/logto/logto-access-token-verifier.js";
-import { stubMaterialAuthoring } from "../fixtures/material-authoring.js";
+import { readCommittedToolSurface } from "../../scripts/mcp-tool-surface-file.js";
+import { refusingMcpToolDependencies } from "../fixtures/inside-mcp-dependencies.js";
 
 const issuer = "https://identity.example.test/oidc";
 const audience = "https://api.example.test";
@@ -30,14 +31,7 @@ describe("MCP Streamable HTTP adapter", () => {
     };
     server = createMcpHttpServer({
       accounts: fakeAccounts(),
-      authoring: stubMaterialAuthoring(),
-      videos: {
-        attachExisting: () => Promise.resolve({ ok: false, error: { code: "forbidden" } }),
-        initUpload: () => Promise.resolve({ ok: false, error: { code: "forbidden" } }),
-        reconcile: () => Promise.resolve({ ok: false, error: { code: "forbidden" } }),
-      },
-      communications: { execute: () => Promise.resolve({ ok: false, error: { code: "forbidden" } }) },
-      billing: { execute: () => Promise.resolve({ ok: false, error: { code: "forbidden" } }) },
+      ...refusingMcpToolDependencies(),
       config: {
         host: "127.0.0.1",
         port: 0,
@@ -66,34 +60,9 @@ describe("MCP Streamable HTTP adapter", () => {
     try {
       await client.connect(transport);
       const { tools } = await client.listTools();
-      const names = tools.map(({ name }) => name);
-      expect(names.filter(name => !name.startsWith("communications_") && !name.startsWith("billing_"))).toEqual([
-        "material_create_draft",
-        "material_load",
-        "material_save",
-        "material_preview",
-        "content_collection_list",
-        "content_collection_create",
-        "content_collection_update",
-        "content_collection_set_archive",
-        "playlist_load_composition",
-        "playlist_save_composition",
-        "guide_load_composition",
-        "guide_save_composition",
-        "video_attach_existing",
-        "video_init_upload",
-        "video_reconcile",
-      ]);
+      // Состав набора живёт в сгенерированном слепке; здесь доказывается, что вход отдаёт ровно его.
+      expect(tools.map(({ name }) => name).sort()).toEqual(readCommittedToolSurface());
       // Владельческие billing-операции доступны тем же делегированным Account, без своей власти.
-      expect(names.filter(name => name.startsWith("billing_"))).toEqual([
-        "billing_offers_save", "billing_offers_archive", "billing_offers_publish", "billing_offers_unpublish",
-        "billing_paymentOptions_save", "billing_paymentOptions_archive",
-        "billing_promotions_save", "billing_promotions_archive", "billing_offers_list", "billing_payments_list", "billing_payments_read",
-        "billing_payments_reconcile", "billing_subscriptions_cancel", "billing_refunds_decide", "billing_refunds_execute",
-        "billing_refunds_read", "billing_grants_read", "billing_grants_readClassification", "billing_grants_classify",
-        "billing_grants_previewBatch", "billing_grants_applyBatch",
-        "billing_grants_extend", "billing_grants_revoke",
-      ]);
       const refund = tools.find(tool => tool.name === "billing_refunds_execute");
       expect(refund?.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true, openWorldHint: true });
       expect(tools.find(tool => tool.name === "billing_offers_publish")?.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true });

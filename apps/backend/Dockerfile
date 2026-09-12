@@ -68,6 +68,17 @@ CMD ["pnpm", "--filter", "@inside/backend", "dev:billing-worker"]
 FROM development AS notifications-worker
 CMD ["pnpm", "--filter", "@inside/backend", "dev:notifications-worker"]
 
+# Двойник банка существует только для стенда: цели production ниже его не собирают и не запускают.
+FROM development AS bank-double
+
+# Журнал двойника принадлежит процессу приложения, поэтому каталог тома создаётся с его владельцем:
+# пустой именованный том наследует владельца каталога образа.
+USER root
+RUN mkdir -p /data && chown node:node /data
+USER node
+
+CMD ["pnpm", "--filter", "@inside/backend", "dev:bank-double"]
+
 FROM development AS production-build
 
 RUN pnpm --filter @inside/backend build:production \

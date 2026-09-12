@@ -11,7 +11,7 @@ import { Notifications, type SendNotificationEmail } from "../../src/modules/not
 import { subscriptionConsentSchema, subscriptionSnapshotSchema } from "../../src/modules/billing/domain/subscription-change.js";
 import { deliverySchema } from "../../src/modules/notifications/domain/notification-wire.js";
 import { encodeNotification } from "../../src/infrastructure/notification-transport/wire.js";
-import { tbankConfigSchema } from "../../src/config/tbank-config.js";
+import { syntheticTbankConfig } from "../support/bank-terminal.js";
 import { BankFixture } from "./setup/bank.js";
 import { createMigratedTestDatabase, type TestDatabase } from "./setup/test-database.js";
 import { syntheticConsentDocuments } from "./setup/consent-documents.js";
@@ -20,7 +20,7 @@ function value<T>(result: { ok: true; value: T } | { ok: false; error: { code: s
   if (!result.ok) throw new Error(result.error.code); return result.value;
 }
 const origin = "https://inside.example.test";
-const config = tbankConfigSchema.parse({ environment: "demo", terminalKey: "SYNTHETICNOTICES", password: "synthetic-test-password",
+const config = syntheticTbankConfig({ environment: "demo", terminalKey: "SYNTHETICNOTICES", password: "synthetic-test-password",
   bindingEncryptionKey: Buffer.alloc(32, 61).toString("base64"), recurringCardConfirmed: true, cardOnlyHostedConfirmed: true,
   minimumKopecks: 100, maximumKopecks: 10_000_000, returnUrl: `${origin}/account`,
   notificationUrl: `${origin}/billing/tbank/notification`, receipt: { taxation: "usn_income", tax: "none" } });

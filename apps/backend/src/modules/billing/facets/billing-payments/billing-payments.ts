@@ -443,7 +443,7 @@ export class BillingPayments {
         } else {
           const authorized = row.state === "authorized" || payment.Status === "AUTHORIZED";
           await tx.billingPurchase.update({ where: { id: row.id }, data: { ...common, state: authorized ? "authorized" : "pending",
-            ...(paymentUrl && !authorized ? { paymentUrl: validatedPaymentUrl(paymentUrl) } : {}) } });
+            ...(paymentUrl && !authorized ? { paymentUrl: validatedPaymentUrl(paymentUrl, bank.config.endpoints.formOrigins) } : {}) } });
         }
         return { ok: true, value: true };
       });
