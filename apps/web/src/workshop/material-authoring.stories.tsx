@@ -248,17 +248,13 @@ export const LessonBlocksEditing: Story = {
   name: "Редактор · блоки урока",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    // ВРЕМЕННО для #586: замер шагов в CI. Снимается вместе с постановкой причины.
+    /**
+     * Самая тяжёлая история набора, и потолок задания у неё общий с остальными. Длительность
+     * печатается в каждом прогоне: на раннере она втрое-вчетверо больше, чем на машине
+     * разработчика, и приближение к потолку видно заранее, а не в виде красного Quality в чужом
+     * pull request.
+     */
     const storyStarted = performance.now();
-    let stepStarted = storyStarted;
-    const mark = (step: string) => {
-      const now = performance.now();
-      console.error(
-        `[586] ${step}: ${String(Math.round(now - stepStarted))}ms, всего ${String(Math.round(now - storyStarted))}ms`,
-      );
-      stepStarted = now;
-    };
-    mark("старт play");
     const openMenu = async () => {
       await userEvent.click(canvas.getByRole("button", { name: "Добавить блок" }));
       return canvas.getByRole("dialog", { name: "Добавить блок" });
@@ -275,7 +271,6 @@ export const LessonBlocksEditing: Story = {
     };
 
     let menu = await openMenu();
-    mark("меню открыто 1");
     for (const name of [
       "Заголовок H4",
       "Ключевая мысль",
@@ -292,12 +287,10 @@ export const LessonBlocksEditing: Story = {
     ]) {
       await expect(within(menu).getByRole("button", { name })).toBeVisible();
     }
-    mark("12 пунктов меню проверены");
 
     await userEvent.click(within(menu).getByRole("button", { name: "Совет" }));
     await expect(blockNode('aside[data-callout="tip"]', 'Врезка «Совет» не появилась в редакторе')).toBeVisible();
 
-    mark("врезка «Совет» вставлена");
     const tip = canvas.getByRole("button", { name: "Вид врезки: Совет" });
     await expect(tip).toHaveAttribute("aria-pressed", "true");
     await userEvent.click(canvas.getByRole("button", { name: "Вид врезки: Важно" }));
@@ -305,16 +298,11 @@ export const LessonBlocksEditing: Story = {
     await expect(warning).toBeVisible();
     await expect(warning).toHaveTextContent("Важно");
 
-    mark("вид переключён на «Важно»");
-    // Ввод здесь без паузы между нажатиями: она ждёт по времени, а не по факту, и в этой истории
-    // сорока семи знаков стоила больше половины её длительности. Сами нажатия и их обработчики
-    // остаются прежними — короче становится только ожидание между ними.
-    await userEvent.type(canvas.getByLabelText("Название врезки"), "Не забудьте", { delay: null });
+    await paste(canvas.getByLabelText("Название врезки"), "Не забудьте");
     await expect(blockNode('aside[data-callout="warning"]', 'Врезка «Важно» исчезла после ввода названия')).toHaveTextContent(
       "Не забудьте",
     );
 
-    mark("название врезки введено, 11 знаков");
     menu = await openMenu();
     await userEvent.click(within(menu).getByRole("button", { name: "Итоги" }));
     await expect(
@@ -322,27 +310,20 @@ export const LessonBlocksEditing: Story = {
     ).toBeVisible();
     await expect(canvas.getByLabelText("Заголовок итогов")).toHaveValue("Итоги урока");
 
-    mark("блок «Итоги» вставлен");
     menu = await openMenu();
     await userEvent.click(within(menu).getByRole("button", { name: "Ресурс" }));
-    await userEvent.type(canvas.getByLabelText("Название ресурса"), "Спецификация", { delay: null });
-    await userEvent.type(
-      canvas.getByLabelText("Адрес ресурса"),
-      "https://example.com/spec",
-      { delay: null },
-    );
+    await paste(canvas.getByLabelText("Название ресурса"), "Спецификация");
+    await paste(canvas.getByLabelText("Адрес ресурса"), "https://example.com/spec");
     await expect(canvas.getByLabelText("Адрес ресурса")).toHaveValue(
       "https://example.com/spec",
     );
 
-    mark("карточка ресурса вставлена и заполнена, 36 знаков");
     menu = await openMenu();
     await userEvent.click(within(menu).getByRole("button", { name: "Термины" }));
     await userEvent.type(canvas.getByLabelText("Метка строки 1"), "ADR", { delay: null });
     await userEvent.click(canvas.getByRole("button", { name: "Добавить строку" }));
     await expect(canvas.getByLabelText("Метка строки 2")).toHaveValue("");
 
-    mark("термины вставлены и заполнены");
     // Буфер обмена восстанавливает узел из разметки, поэтому название обязано быть в
     // DOM-атрибуте, а не только в тексте. Карточка ресурса и термины показывают в редакторе
     // собственную форму, поэтому их разметку проверяет не эта story, а схема документа.
@@ -354,7 +335,6 @@ export const LessonBlocksEditing: Story = {
       blockNode('section[data-material-block="takeaways"]', 'Блок «Итоги» пропал из документа к концу истории'),
     ).toHaveAttribute("data-takeaways-title", "Итоги урока");
 
-    mark("DOM-атрибуты проверены");
     // Панель блока принадлежит текущей врезке: вернувшись в неё, автор снова меняет её вид.
     const callout = blockNode("aside[data-callout] [data-callout-body] p", 'Тело врезки не найдено: панель блока не к чему вернуть');
     await userEvent.click(callout);
@@ -363,7 +343,11 @@ export const LessonBlocksEditing: Story = {
       "true",
     );
     await expect(canvas.getByLabelText("Название врезки")).toHaveValue("Не забудьте");
-    mark("возврат в врезку, конец истории");
+    // Прогон историй пропускает наружу только этот канал, поэтому строка идёт через него.
+    // Это не отказ: она печатается и в зелёном прогоне.
+    console.error(
+      `Длительность истории «Редактор · блоки урока»: ${String(Math.round(performance.now() - storyStarted))} мс при потолке задания 15000 мс`,
+    );
   },
 };
 
@@ -942,6 +926,22 @@ function imageAttachment(canvasElement: HTMLElement): HTMLElement {
     throw new Error("The article has no attachment block");
   }
   return attachment;
+}
+
+/**
+ * Длинное значение попадает в поле одной вставкой, а не набором по знаку.
+ *
+ * Каждое нажатие в редакторе — это транзакция, а редактор пересобирается на каждой транзакции и
+ * заново считает положение своих контролов по геометрии страницы. На машине разработчика знак
+ * стоит около 7 мс, на раннере — около 140 мс, потому что браузерные воркеры делят четыре ядра.
+ * Сорок семь знаков превращались там в шесть с лишним секунд при потолке задания в пятнадцать.
+ *
+ * Вставка — настоящее действие автора и тот же путь обработчика, только событие одно. Набор по
+ * знаку остаётся там, где он дёшев и проверяет саму механику ввода.
+ */
+async function paste(field: HTMLElement, value: string) {
+  await userEvent.click(field);
+  await userEvent.paste(value);
 }
 
 async function expectNoHorizontalOverflow(canvasElement: HTMLElement) {
