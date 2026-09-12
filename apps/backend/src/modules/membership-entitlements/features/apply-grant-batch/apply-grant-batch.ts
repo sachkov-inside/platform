@@ -19,7 +19,10 @@ import {
   accessFingerprint,
   readAccessReceipt,
 } from "../../shared/access-receipts.js";
-import { writeClassification } from "../../shared/write-classification.js";
+import {
+  readClassificationRevision,
+  writeClassification,
+} from "../../shared/write-classification.js";
 
 export const applyGrantBatchCommandSchema = z
   .object({
@@ -129,10 +132,11 @@ export async function applyGrantBatch(
     }
     // Набор классифицируется целиком: устаревшая revision любой строки отменяет всю запись.
     for (const row of classified) {
-      const existing = await transaction.legacyClassification.findUnique({
-        where: { accountId: row.accountId },
-      });
-      if ((existing?.revision ?? 0) !== row.expectedRevision)
+      const revisionNow = await readClassificationRevision(
+        transaction,
+        row.accountId,
+      );
+      if (revisionNow !== row.expectedRevision)
         return accessFailure("revision_conflict");
     }
     const results: Extract<ApplyGrantBatchResult, { ok: true }>["rows"] = [];

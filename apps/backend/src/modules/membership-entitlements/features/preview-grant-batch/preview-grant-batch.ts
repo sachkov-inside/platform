@@ -41,6 +41,7 @@ export function isGrantRow<Row extends BatchRow | PreviewRow>(
 ): row is Extract<Row, { readonly terms: unknown }> {
   return "terms" in row;
 }
+/** Отрицание предиката не сужает тип в `filter`, поэтому у выборки строк свой предикат. */
 export function isClassificationRow<Row extends BatchRow | PreviewRow>(
   row: Row,
 ): row is Exclude<Row, { readonly terms: unknown }> {
@@ -70,11 +71,13 @@ export const previewCommandSchema = z
     value.rows.every((row) => isGrantRow(row) || classificationTermsAgree(row)),
   );
 export type PreviewGrantBatchCommand = z.input<typeof previewCommandSchema>;
-const identity = { identityFingerprint: z.string().length(64).nullable() };
+const confirmedIdentity = {
+  identityFingerprint: z.string().length(64).nullable(),
+};
 export const previewRowsSchema = z.array(
   z.union([
-    grantRowSchema.extend(identity),
-    classificationRowSchema.extend(identity),
+    grantRowSchema.extend(confirmedIdentity),
+    classificationRowSchema.extend(confirmedIdentity),
   ]),
 );
 export type PreviewRow = z.infer<typeof previewRowsSchema>[number];

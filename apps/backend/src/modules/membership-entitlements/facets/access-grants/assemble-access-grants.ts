@@ -119,6 +119,7 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       manage(actorId, "billing:manage", () =>
         classifyLegacyAccount(prisma, accounts, actorId, command, clock()),
       ),
+    /** Владельческое чтение: та же проверка `billing:manage`, что у остальных операций набора. */
     readClassification: (actorId: string, targetAccountId: string) =>
       manage(actorId, "billing:manage", () =>
         readClassificationOf(targetAccountId),
@@ -181,7 +182,10 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
         return accessFailure("unavailable");
       }
     },
-    /** Внутреннее чтение billing: покупка проверяет legacy gate своего же Account. */
+    /**
+     * Внутреннее чтение billing без полномочия владельца: покупка проверяет legacy gate
+     * своего же Account. Владельческий путь — `readClassification` выше.
+     */
     readLegacyClassification: (targetAccountId: string) =>
       readClassificationOf(targetAccountId),
   });

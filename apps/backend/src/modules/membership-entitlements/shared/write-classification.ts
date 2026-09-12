@@ -1,6 +1,17 @@
 import type { ClassificationTerms } from "../domain/access-grant.js";
 import type { MembershipEntitlementsPrisma } from "../infrastructure/prisma.js";
 
+/** Отсутствующая запись — это «неизвестно» с нулевой редакцией, а не ошибка чтения. */
+export async function readClassificationRevision(
+  transaction: MembershipEntitlementsPrisma,
+  accountId: string,
+): Promise<number> {
+  const existing = await transaction.legacyClassification.findUnique({
+    where: { accountId },
+  });
+  return existing?.revision ?? 0;
+}
+
 /**
  * Единственная запись классификации: состояние Account, его новая revision и запись изменения.
  * Одиночная операция и строка набора пишут одно и то же, каждая под своим receipt и замком.

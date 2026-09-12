@@ -8,9 +8,9 @@ import {
 } from "@/entities/subscription";
 import { Button } from "@/shared/ui/button";
 
+import { accountClassificationSchema } from "../model/admin-operations";
 import type {
   AccessGrantView,
-  AccountClassification,
   ApplyBatchInput,
   ExtendGrantInput,
   GrantBatchOutcome,
@@ -287,19 +287,11 @@ function GrantRow({ grant }: { readonly grant: AccessGrantView }) {
 /** Исход строки набора: выданное основание или новое состояние покупателя. */
 function batchRowOutcome(result: GrantBatchOutcome["result"]["rows"][number]["result"]): string {
   if (!result.ok) return "конфликт операции";
-  return "grantRef" in result
-    ? `выдано, r${String(result.revision)}`
-    : `определён, r${String(result.revision)}`;
+  return "classification" in result
+    ? `определён, r${String(result.revision)}`
+    : `выдано, r${String(result.revision)}`;
 }
 
-const classifications: readonly AccountClassification[] = [
-  "confirmed_new",
-  "confirmed_legacy",
-  "unknown",
-];
-function classificationOf(cell: string): AccountClassification | undefined {
-  return classifications.find((value) => value === cell);
-}
 /** Отмеченный признак записывается словом: пустая ячейка остаётся выключенной. */
 function flag(cell: string): boolean {
   return cell === "да";
@@ -323,9 +315,11 @@ export function parseBatchRows(value: string): {
       invalid.push(rowKey);
       continue;
     }
-    const classification = classificationOf(cells[2] ?? "");
-    if (classification !== undefined) {
-      const expectedRevision = Number(cells[4]);
+    const classification = accountClassificationSchema.safeParse(cells[2] ?? "");
+    if (classification.success) {
+      // Пустая ячейка редакции — не ноль: иначе набор молча ушёл бы на конфликт при применении.
+      const cell = cells[4] ?? "";
+      const expectedRevision = cell.length === 0 ? Number.NaN : Number(cell);
       if (!Number.isInteger(expectedRevision) || expectedRevision < 0) {
         invalid.push(rowKey);
         continue;
@@ -333,7 +327,7 @@ export function parseBatchRows(value: string): {
       rows.push({
         rowKey: cells[0] ?? "",
         accountId: cells[1] ?? "",
-        classification,
+        classification: classification.data,
         sourceRef: cells[3] ?? "",
         expectedRevision,
         bridgeEnabled: flag(cells[5] ?? ""),

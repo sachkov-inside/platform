@@ -65,8 +65,9 @@ it("не отправляет строку классификации без р�
       `bad | ${accountId} | confirmed_new | cohort-2 | позже | нет | нет | Перенос участника`,
       `negative | ${accountId} | confirmed_new | cohort-3 | -1 | нет | нет | Перенос участника`,
       `short | ${accountId} | confirmed_new | cohort-4 | 0`,
+      `empty | ${accountId} | confirmed_new | cohort-5 |  | нет | нет | Перенос участника`,
     ].join("\n"),
   );
   expect(parsed.rows).toEqual([]);
-  expect(parsed.invalid).toEqual(["bad", "negative", "short"]);
+  expect(parsed.invalid).toEqual(["bad", "negative", "short", "empty"]);
 });

@@ -13,7 +13,10 @@ import {
   accessFingerprint,
   readAccessReceipt,
 } from "../../shared/access-receipts.js";
-import { writeClassification } from "../../shared/write-classification.js";
+import {
+  readClassificationRevision,
+  writeClassification,
+} from "../../shared/write-classification.js";
 export const classifyLegacyAccountCommandSchema = z
   .object({
     operationId: z.uuid(),
@@ -62,10 +65,11 @@ export async function classifyLegacyAccount(
         : accessFailure("operation_conflict");
     await lockAccountEntitlementChanges(transaction, command.accountId);
     await lockAccess(transaction, `classification:${command.accountId}`);
-    const existing = await transaction.legacyClassification.findUnique({
-      where: { accountId: command.accountId },
-    });
-    if ((existing?.revision ?? 0) !== command.expectedRevision)
+    const revisionNow = await readClassificationRevision(
+      transaction,
+      command.accountId,
+    );
+    if (revisionNow !== command.expectedRevision)
       return accessFailure("revision_conflict");
     const revision = await writeClassification(transaction, {
       accountId: command.accountId,

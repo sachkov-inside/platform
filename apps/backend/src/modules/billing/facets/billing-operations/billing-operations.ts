@@ -140,17 +140,17 @@ export class BillingOperations {
       case "grants.readClassification": {
         const result = await grants.readClassification(actorId, command.accountId);
         return result.ok
-          ? { ok: true, operationRef, result: { outcome: "classification", value: { accountId: command.accountId,
-            classification: result.classification, revision: result.revision, recurringAllowed: result.recurringAllowed } } }
+          ? classificationOutcome(operationRef, command.accountId, result)
           : ownerAccessFailure(result.error.code);
       }
       case "grants.classify": {
-        // Вывод о списаниях принадлежит правам: владелец видит его тем же ответом, что и состояние.
+        // Ответ собирается из применённой команды: повтор проходит только при совпадении
+        // fingerprint, поэтому команда и есть записанное решение.
         const { operation: _operation, ...rest } = command;
         const result = await grants.classifyLegacy(actorId, rest);
         return result.ok
-          ? { ok: true, operationRef, result: { outcome: "classification", value: { accountId: command.accountId,
-            classification: command.classification, revision: result.revision, recurringAllowed: recurringAllowedFor(command) } } }
+          ? classificationOutcome(operationRef, command.accountId,
+            { classification: command.classification, revision: result.revision, recurringAllowed: recurringAllowedFor(command) })
           : ownerAccessFailure(result.error.code);
       }
       case "grants.previewBatch": {
@@ -184,6 +184,13 @@ export class BillingOperations {
       default: { const exhaustive: never = command; throw new Error(`Unknown billing operation ${JSON.stringify(exhaustive)}`); }
     }
   }
+}
+
+/** Состояние покупателя одной формой: чтение и записанное решение отвечают одинаково. */
+function classificationOutcome(operationRef: string, accountId: string,
+  state: { readonly classification: "confirmed_legacy" | "confirmed_new" | "unknown";
+    readonly revision: number; readonly recurringAllowed: boolean }): OwnerResult {
+  return { ok: true, operationRef, result: { outcome: "classification", value: { accountId, ...state } } };
 }
 
 /**

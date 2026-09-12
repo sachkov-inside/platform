@@ -2,11 +2,12 @@
 import { billingActionClass } from "@/entities/subscription";
 import { Button } from "@/shared/ui/button";
 
-import type {
-  AccountClassification,
-  ClassificationOutcome,
-  ClassifyAccountInput,
-  ReadClassificationInput,
+import {
+  accountClassificationSchema,
+  type AccountClassification,
+  type ClassificationOutcome,
+  type ClassifyAccountInput,
+  type ReadClassificationInput,
 } from "../model/admin-operations";
 import type { AdminCommand } from "./admin-command";
 import {
@@ -89,7 +90,7 @@ export function ClassificationSection({
           onClassifyAccount({
             accountId: formText(form.get("classifyAccount")),
             expectedRevision: Number(formText(form.get("classifyRevision"))),
-            classification: classificationOf(form.get("classifyState")),
+            classification: selectedClassification(form.get("classifyState")),
             sourceRef: formText(form.get("classifySource")),
             reason: formText(form.get("classifyReason")),
             bridgeEnabled: form.get("classifyBridge") !== null,
@@ -148,10 +149,10 @@ export function ClassificationSection({
   );
 }
 
-/** Значение приходит из собственного списка формы; незнакомое остаётся «неизвестно». */
-function classificationOf(value: FormDataEntryValue | null): AccountClassification {
-  const entry = formText(value);
-  return entry === "confirmed_new" || entry === "confirmed_legacy"
-    ? entry
-    : "unknown";
+/** Значение приходит из собственного списка формы и проверяется той же схемой, что команда. */
+function selectedClassification(
+  value: FormDataEntryValue | null,
+): AccountClassification {
+  const parsed = accountClassificationSchema.safeParse(formText(value));
+  return parsed.success ? parsed.data : "unknown";
 }
