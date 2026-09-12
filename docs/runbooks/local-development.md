@@ -436,10 +436,18 @@ fixtures cover catalog pagination, Home formats and one explicit Series-reading 
 `demo-series-review` orders the same shared guide before a video and note, and
 `demo-295-samostoyatelnaya-zametka` belongs to no Series. Their titles and summaries identify them
 as development examples rather than editorial content. Repeating the seed keeps the same Materials
-and upgrades the representative fixture without resetting the named volume. Materials are created
-and published through the Materials application interface; only fixed local Topic/Format/Tag/Series
-prerequisites use Prisma model operations because Platform has no product taxonomy-authoring
-capability yet.
+and brings each one back to its definition in `seed-local-development.ts` without resetting the
+named volume: a body, `difficulty` or `outcomes` edited in that file after the volume was seeded
+still reaches the existing Material, and a Material that already matches its definition receives no
+change command at all. Editing a *title* is the exception, and it splits by how the Material is
+recognised: most definitions name the slug they own and are renamed in place, but the eleven
+demo-Series lessons are recognised by title alone, and renaming one of those on an already seeded
+volume fails the seed with `idempotency_key_reused` — the old Material is no longer found and
+creation meets its own stable key. Rename such a lesson on a fresh volume, or remove the old
+Material by hand first. Materials are created and published through the Materials application
+interface; the seed uses Prisma model operations to find what an earlier run created, to pin the
+related Material, and to write the fixed local Topic/Format/Tag/Series prerequisites, because
+Platform has no product taxonomy-authoring capability yet.
 
 ## Migration and Prisma schema checks
 
