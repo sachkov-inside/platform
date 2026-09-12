@@ -12,10 +12,8 @@ import {
   contactErrorMessage,
   type BillingContactState,
 } from "../model/billing-contact";
-import {
-  announceBillingContactVerified,
-  billingContactQueryKey,
-} from "../model/billing-contact-query";
+import { resetBillingContact } from "../model/billing-contact-query";
+import { announceBillingContactVerified } from "../model/billing-contact-verified-channel";
 import { useBillingContact } from "../model/use-billing-contact.client";
 import { BillingContactForm } from "./billing-contact-form.client";
 
@@ -81,10 +79,12 @@ export function BillingContactPanel({
       setError(undefined);
       setVerified(true);
       setEditing(false);
-      await queryClient.invalidateQueries({ queryKey: billingContactQueryKey });
-      // Кабинет и витрина могут быть открыты одновременно: подтверждение сбрасывает запомненный
-      // ответ и там, где его не подтверждали.
+      // Объявление уходит раньше ожидания: соседние поверхности не должны зависеть от того,
+      // сколько длится перечитывание здесь и остался ли покупатель на этой странице. Свой ответ
+      // сбрасывается прямо тут, до показа подтверждённого адреса, и этот путь работает и там,
+      // где объявления недоступны.
       announceBillingContactVerified();
+      await resetBillingContact(queryClient);
     },
   });
 

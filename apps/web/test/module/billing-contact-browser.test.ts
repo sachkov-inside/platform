@@ -3,45 +3,54 @@ import { expect, it } from "vitest";
 import {
   announceBillingContactVerified,
   subscribeBillingContactVerified,
-} from "@/features/billing-contact/model/billing-contact-query";
+} from "@/features/billing-contact/model/billing-contact-verified-channel";
 
-/** Ждёт одно объявление или сдаётся: молчание не должно висеть до таймаута набора. */
-function nextAnnouncement(timeoutMs = 1_000): {
-  readonly received: Promise<boolean>;
+/**
+ * Поверхность, слушающая объявления. Её первое получение — тот факт, на котором заканчивается
+ * ожидание: пауза по длительности мерила бы машину, а не доставку.
+ */
+function listeningSurface(): {
+  readonly received: Promise<void>;
+  readonly deliveries: () => number;
   readonly stop: () => void;
 } {
-  let unsubscribe: (() => void) | undefined;
-  const received = new Promise<boolean>((resolve) => {
-    const timer = setTimeout(() => {
-      resolve(false);
-    }, timeoutMs);
-    unsubscribe = subscribeBillingContactVerified(() => {
-      clearTimeout(timer);
-      resolve(true);
-    });
+  let deliveries = 0;
+  let deliver: (() => void) | undefined;
+  const received = new Promise<void>((resolve) => {
+    deliver = resolve;
+  });
+  const unsubscribe = subscribeBillingContactVerified(() => {
+    deliveries += 1;
+    deliver?.();
   });
   return {
     received,
+    deliveries: () => deliveries,
     stop: () => {
-      unsubscribe?.();
+      unsubscribe();
     },
   };
 }
 
 it("подтверждение доходит до поверхности, которая его не совершала", async () => {
-  const listener = nextAnnouncement();
+  const surface = listeningSurface();
 
   announceBillingContactVerified();
 
-  await expect(listener.received).resolves.toBe(true);
-  listener.stop();
+  await surface.received;
+  expect(surface.deliveries()).toBe(1);
+  surface.stop();
 });
 
 it("отписанная поверхность больше не получает объявлений", async () => {
-  const listener = nextAnnouncement(150);
-  listener.stop();
+  const stopped = listeningSurface();
+  const listening = listeningSurface();
+  stopped.stop();
 
   announceBillingContactVerified();
 
-  await expect(listener.received).resolves.toBe(false);
+  // Доставка состоялась: это видно по слушающей поверхности, а не по выжданному сроку.
+  await listening.received;
+  expect(stopped.deliveries()).toBe(0);
+  listening.stop();
 });

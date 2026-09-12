@@ -285,26 +285,26 @@ test("кабинет не имеет серьёзных нарушений до�
   ).toEqual([]);
 });
 
-test("подтверждение обновляет кабинет, открытый второй поверхностью", async ({
-  page,
-  context,
-}) => {
-  const verifiedContact = {
-    email: "buyer@example.test",
-    revision: 1,
-    verifiedAt: "2026-09-12T10:00:00.000Z",
+const verifiedContact = {
+  email: "buyer@example.test",
+  revision: 1,
+  verifiedAt: "2026-09-12T10:00:00.000Z",
+};
+
+/** Состояние контакта на весь сценарий: подтверждение меняет ответ для всех поверхностей. */
+function contactState() {
+  const state = { verified: false };
+  return {
+    read: () => (state.verified ? verifiedContact : null),
+    confirm: () => {
+      state.verified = true;
+    },
   };
-  let verified = false;
-  const readContact = () => (verified ? verifiedContact : null);
-  await stubAccount(page, { contact: readContact });
+}
 
-  // Кабинет открыт заранее и остаётся открытым: подтверждение произойдёт не в нём.
-  await page.goto("/account/purchases");
-  await expect(page.getByText("Email пока не подтверждён.")).toBeVisible();
-
-  const other = await context.newPage();
-  await stubAccount(other, { contact: readContact });
-  await other.route("**/api/account/billing/contact/start", (route) =>
+/** Поверхность, где подтверждают адрес: письмо и код заменены закрытыми ответами BFF. */
+async function confirmContactOn(page: Page, state: ReturnType<typeof contactState>) {
+  await page.route("**/api/account/billing/contact/start", (route) =>
     route.fulfill({
       json: {
         ok: true,
@@ -314,22 +314,82 @@ test("подтверждение обновляет кабинет, открыт
       },
     }),
   );
-  await other.route("**/api/account/billing/contact/confirm", (route) => {
-    verified = true;
+  await page.route("**/api/account/billing/contact/confirm", (route) => {
+    state.confirm();
     void route.fulfill({ json: { ok: true, revision: verifiedContact.revision } });
   });
-  await other.goto("/account/purchases");
-  await other.getByLabel("Email", { exact: true }).fill(verifiedContact.email);
-  await other.getByRole("button", { name: "Получить код", exact: true }).click();
-  await other.getByLabel("Код из письма").fill("123456");
-  await other
+  await page.goto("/account/purchases");
+  await page.getByLabel("Email", { exact: true }).fill(verifiedContact.email);
+  await page.getByRole("button", { name: "Получить код", exact: true }).click();
+  await page.getByLabel("Код из письма").fill("123456");
+  await page
     .getByRole("button", { name: "Подтвердить email", exact: true })
     .click();
-  await expect(
-    other.getByText("Email подтверждён.", { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByText("Email подтверждён.", { exact: true })).toBeVisible();
+}
+
+test("подтверждение обновляет кабинет, открытый второй поверхностью", async ({
+  page,
+  context,
+}) => {
+  const state = contactState();
+  await stubAccount(page, { contact: state.read });
+
+  // Кабинет открыт заранее и остаётся открытым: подтверждение произойдёт не в нём.
+  await page.goto("/account/purchases");
+  await expect(page.getByText("Email пока не подтверждён.")).toBeVisible();
+
+  const other = await context.newPage();
+  await stubAccount(other, { contact: state.read });
+  await confirmContactOn(other, state);
 
   // Первый экран после письма не должен спорить с только что подтверждённым адресом.
+  await expect(page.getByText(verifiedContact.email, { exact: true })).toBeVisible();
+  await expect(page.getByText("Email пока не подтверждён.")).toHaveCount(0);
+});
+
+test("подтверждение перечитывает контакт на витрине и в разделе подписки", async ({
+  context,
+}) => {
+  const state = contactState();
+  const reads = { buy: 0, subscription: 0 };
+  const listening = async (route: "buy" | "subscription", path: string) => {
+    const page = await context.newPage();
+    await stubAccount(page, {
+      contact: () => {
+        reads[route] += 1;
+        return state.read();
+      },
+    });
+    await page.goto(path);
+    // Первое чтение состоялось: дальше считаем только перечитывание.
+    await expect.poll(() => reads[route]).toBe(1);
+    return page;
+  };
+
+  // Витрина руководства читает контакт для оформления, раздел подписки — редакции документов.
+  await listening("buy", "/guides/platform-inside/buy");
+  await listening("subscription", "/account/subscription");
+
+  const cabinet = await context.newPage();
+  await stubAccount(cabinet, { contact: state.read });
+  await confirmContactOn(cabinet, state);
+
+  await expect.poll(() => reads.buy).toBe(2);
+  await expect.poll(() => reads.subscription).toBe(2);
+});
+
+test("без объявлений подтвердившая поверхность обновляется сама", async ({ page }) => {
+  const state = contactState();
+  await stubAccount(page, { contact: state.read });
+  // Браузер без BroadcastChannel: соседние поверхности такое подтверждение не услышат, но та,
+  // где его совершили, обязана показать адрес и здесь.
+  await page.addInitScript(() => {
+    Reflect.deleteProperty(globalThis, "BroadcastChannel");
+  });
+
+  await confirmContactOn(page, state);
+
   await expect(page.getByText(verifiedContact.email, { exact: true })).toBeVisible();
   await expect(page.getByText("Email пока не подтверждён.")).toHaveCount(0);
 });

@@ -3,10 +3,10 @@ import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
-  billingContactQueryKey,
   billingContactQueryOptions,
-  subscribeBillingContactVerified,
+  resetBillingContact,
 } from "./billing-contact-query";
+import { subscribeBillingContactVerified } from "./billing-contact-verified-channel";
 
 /**
  * Чтение подтверждённого контакта для любой поверхности. Кроме самого чтения оно слушает
@@ -20,7 +20,7 @@ export function useBillingContact() {
   useEffect(
     () =>
       subscribeBillingContactVerified(() => {
-        void queryClient.invalidateQueries({ queryKey: billingContactQueryKey });
+        void resetBillingContact(queryClient);
       }),
     [queryClient],
   );

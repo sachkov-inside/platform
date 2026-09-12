@@ -1,43 +1,14 @@
+import type { QueryClient } from "@tanstack/react-query";
+
 import {
   selfRefreshingRead,
   unavailableRetryIntervalMs,
 } from "@/shared/api/self-refreshing-query";
 
 import { readBillingContact } from "../api/billing-contact.browser";
+import type { ReadContactResult } from "./billing-contact";
 
 export const billingContactQueryKey = ["account", "billing-contact"] as const;
-
-/**
- * Подтверждение адреса объявляется всем открытым поверхностям. Поверхность, где оно произошло,
- * сбрасывает свой ответ сама; остальным сбрасывать нечем: удачное чтение не перечитывается по
- * сроку, а два одновременно видимых окна не дают браузеру повода сообщить о возврате внимания.
- * Без объявления рядом с подтверждённым адресом остаётся запомненный ответ.
- */
-const contactVerifiedChannelName = "inside.billing-contact.verified";
-
-/** Сообщает другим открытым поверхностям, что контакт только что подтверждён. */
-export function announceBillingContactVerified(): void {
-  if (typeof BroadcastChannel === "undefined") return;
-  const channel = new BroadcastChannel(contactVerifiedChannelName);
-  channel.postMessage("verified");
-  channel.close();
-}
-
-/** Подписка на подтверждение, случившееся на другой поверхности. Возвращает отписку. */
-export function subscribeBillingContactVerified(
-  onVerified: () => void,
-): () => void {
-  const channel =
-    typeof BroadcastChannel === "undefined"
-      ? null
-      : new BroadcastChannel(contactVerifiedChannelName);
-  channel?.addEventListener("message", () => {
-    onVerified();
-  });
-  return () => {
-    channel?.close();
-  };
-}
 
 /**
  * Один владелец чтения контакта в браузере: разделы кабинета, витрина и форма читают тот же
@@ -51,12 +22,15 @@ export function billingContactQueryOptions() {
     refetchInterval: ({
       state,
     }: {
-      readonly state: {
-        readonly data: { readonly ok: boolean; readonly code?: string } | undefined;
-      };
+      readonly state: { readonly data: ReadContactResult | undefined };
     }) =>
       state.data !== undefined && !state.data.ok && state.data.code !== "unauthorized"
         ? unavailableRetryIntervalMs
         : (false as const),
   };
+}
+
+/** Забыть прежний ответ о контакте и перечитать его. Один жест для всех причин сброса. */
+export function resetBillingContact(client: QueryClient): Promise<void> {
+  return client.invalidateQueries({ queryKey: billingContactQueryKey });
 }
