@@ -108,7 +108,21 @@ describe("локальная продажа через двойника банк
     const control = async (values: Record<string, string>) =>
       double.handle(new Request(`${formOrigin}/control`, { method: "POST", body: new URLSearchParams(values) }));
 
-    /** Разовая продажа руководства: тот же контур, но карту банк сохранять не просят. */
+    /** Один путь покупки для обоих продуктов: различаются только вариант оплаты и согласия. */
+    async function beginPurchase(option = optionId, accepted: readonly string[] = documents.map(document => document.kind)):
+      Promise<{ purchaseRef: string; paymentUrl: string }> {
+      const quote = value(await pricing.quote(buyer, { operationId: randomUUID(), paymentOptionId: option, optionRevision: 1 }));
+      const consent = await contact.acceptConsents(buyer, { operationId: randomUUID(), contextRef: quote.quoteRef,
+        documents: documents.filter(document => accepted.includes(document.kind))
+          .map(document => ({ kind: document.kind, documentId: document.documentId, version: document.version, digest: document.digest, accepted: true })) });
+      if (!consent.ok) throw new Error(consent.error.code);
+      const purchase = value(await payments.purchase(buyer, { operationId: randomUUID(), quoteRef: quote.quoteRef,
+        contactRevision: 1, consentEvidenceRefs: consent.evidenceRefs, acknowledgeExistingAccess: false }));
+      expect(purchase.state).toBe("pending");
+      return { purchaseRef: purchase.purchaseRef, paymentUrl: standUrl(purchase.paymentUrl) };
+    }
+
+    /** Разовая продажа руководства: тот же путь, но согласие на списания она не принимает. */
     async function beginGuidePurchase(): Promise<{ purchaseRef: string; paymentUrl: string; capability: string }> {
       const guideOffer = randomUUID(), guideOption = randomUUID(), capability = `guide:${randomUUID()}`;
       value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.save",
@@ -116,26 +130,7 @@ describe("локальная продажа через двойника банк
       value(await pricing.manage(owner, { operationId: randomUUID(), operation: "paymentOptions.save",
         value: { id: guideOption, offerId: guideOffer, mode: "one_time", months: 1, priceKopecks: 290_000 } }));
       value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.publish", expectedRevision: 1, id: guideOffer }));
-      const quote = value(await pricing.quote(buyer, { operationId: randomUUID(), paymentOptionId: guideOption, optionRevision: 1 }));
-      // Разовая покупка не принимает согласие на списания: принимается только оферта.
-      const consent = await contact.acceptConsents(buyer, { operationId: randomUUID(), contextRef: quote.quoteRef,
-        documents: documents.filter(document => document.kind === "terms")
-          .map(document => ({ kind: document.kind, documentId: document.documentId, version: document.version, digest: document.digest, accepted: true })) });
-      if (!consent.ok) throw new Error(consent.error.code);
-      const purchase = value(await payments.purchase(buyer, { operationId: randomUUID(), quoteRef: quote.quoteRef,
-        contactRevision: 1, consentEvidenceRefs: consent.evidenceRefs, acknowledgeExistingAccess: false }));
-      return { purchaseRef: purchase.purchaseRef, paymentUrl: standUrl(purchase.paymentUrl), capability };
-    }
-
-    async function beginPurchase(): Promise<{ purchaseRef: string; paymentUrl: string }> {
-      const quote = value(await pricing.quote(buyer, { operationId: randomUUID(), paymentOptionId: optionId, optionRevision: 1 }));
-      const consent = await contact.acceptConsents(buyer, { operationId: randomUUID(), contextRef: quote.quoteRef,
-        documents: documents.map(document => ({ kind: document.kind, documentId: document.documentId, version: document.version, digest: document.digest, accepted: true })) });
-      if (!consent.ok) throw new Error(consent.error.code);
-      const purchase = value(await payments.purchase(buyer, { operationId: randomUUID(), quoteRef: quote.quoteRef,
-        contactRevision: 1, consentEvidenceRefs: consent.evidenceRefs, acknowledgeExistingAccess: false }));
-      expect(purchase.state).toBe("pending");
-      return { purchaseRef: purchase.purchaseRef, paymentUrl: standUrl(purchase.paymentUrl) };
+      return { ...await beginPurchase(guideOption, ["terms"]), capability };
     }
     const capabilities = async () => {
       const resolved = await grants.resolveCapabilities(buyer);

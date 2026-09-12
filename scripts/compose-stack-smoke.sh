@@ -96,5 +96,4 @@ if [[ "$mail_capture_inbox" != *'"messages"'* ]]; then
   exit 1
 fi
 
-
 echo "Compose stack smoke passed: Library/Reader web -> API -> PostgreSQL, MCP metadata/auth boundary ready, seed $seed_snapshot, seeded offers on sale, bank double and mail capture ready"

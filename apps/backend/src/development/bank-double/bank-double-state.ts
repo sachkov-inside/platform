@@ -31,8 +31,8 @@ export type ChargeOutcome = typeof chargeOutcomes[number];
 export const refundOutcomes = { accepted: "Банк возвращает", declined: "Банк отказывает" } as const;
 export type RefundOutcome = keyof typeof refundOutcomes;
 
-/** Банк не знает незнакомой операции: `7` — его собственный код «операция не найдена». */
-export const unknownOperationOutcome: BankOutcome = { status: "UNKNOWN", success: false, errorCode: "7" };
+/** Платёж или сессия привязки банку неизвестны: `7` — его собственный код «не найдено». */
+export const operationNotFoundOutcome: BankOutcome = { status: "UNKNOWN", success: false, errorCode: "7" };
 export const declinedBindingOutcome: BankOutcome = { status: "REJECTED", success: false, errorCode: "3005" };
 
 export const isKnownOutcome = <T extends object>(table: T, value: string): value is Extract<keyof T, string> =>

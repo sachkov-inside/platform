@@ -6,7 +6,7 @@ import { tbankToken } from "../../modules/billing/index.js";
 import { bindingPage, html, indexPage, missingPage, paymentPage } from "./bank-double-pages.js";
 import {
   bankReference, bindingOutcomes, declinedBindingOutcome, isChargeOutcome, isKnownOutcome,
-  loadBankLedger, paymentOutcomes, refundOutcomes, saveBankLedger, unknownOperationOutcome,
+  loadBankLedger, paymentOutcomes, refundOutcomes, saveBankLedger, operationNotFoundOutcome,
   type BankLedger, type BankOutcome, type BindingRecord, type ChargeOutcome, type OrderRecord,
   type PaymentOutcome, type RefundOutcome, type RefundRecord,
 } from "./bank-double-state.js";
@@ -153,7 +153,7 @@ export function createLocalBankDouble(dependencies: Dependencies): LocalBankDoub
       const requestKey = requestKeySchema.parse(body).RequestKey;
       const session = bindings.get(requestKey);
       if (!session) return Response.json({
-        Success: unknownOperationOutcome.success, ErrorCode: unknownOperationOutcome.errorCode,
+        Success: operationNotFoundOutcome.success, ErrorCode: operationNotFoundOutcome.errorCode,
         Message: "Binding session is unknown to the stand",
       });
       return Response.json({
@@ -214,8 +214,8 @@ export function createLocalBankDouble(dependencies: Dependencies): LocalBankDoub
   }
 
   const notFound = (paymentId: string | number): Record<string, unknown> => ({
-    TerminalKey: config.terminalKey, PaymentId: String(paymentId), Status: unknownOperationOutcome.status,
-    Success: unknownOperationOutcome.success, ErrorCode: unknownOperationOutcome.errorCode,
+    TerminalKey: config.terminalKey, PaymentId: String(paymentId), Status: operationNotFoundOutcome.status,
+    Success: operationNotFoundOutcome.success, ErrorCode: operationNotFoundOutcome.errorCode,
     Message: "Payment is unknown to the stand",
   });
   const orderByPayment = (paymentId: string | number): OrderRecord | undefined =>
