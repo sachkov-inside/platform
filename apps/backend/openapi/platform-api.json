@@ -484,30 +484,6 @@
               "label"
             ],
             "type": "object"
-          },
-          {
-            "additionalProperties": false,
-            "properties": {
-              "caption": {
-                "type": "string"
-              },
-              "kind": {
-                "enum": [
-                  "video"
-                ],
-                "type": "string"
-              },
-              "videoId": {
-                "format": "uuid",
-                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                "type": "string"
-              }
-            },
-            "required": [
-              "kind",
-              "videoId"
-            ],
-            "type": "object"
           }
         ]
       },
@@ -992,30 +968,6 @@
               "assetId",
               "kind",
               "label"
-            ],
-            "type": "object"
-          },
-          {
-            "additionalProperties": false,
-            "properties": {
-              "caption": {
-                "type": "string"
-              },
-              "kind": {
-                "enum": [
-                  "video"
-                ],
-                "type": "string"
-              },
-              "videoId": {
-                "format": "uuid",
-                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                "type": "string"
-              }
-            },
-            "required": [
-              "kind",
-              "videoId"
             ],
             "type": "object"
           }
@@ -35663,8 +35615,8 @@
                         }
                       },
                       "required": [
-                        "schemaVersion",
-                        "blocks"
+                        "blocks",
+                        "schemaVersion"
                       ],
                       "type": "object"
                     },
@@ -37409,24 +37361,6 @@
                                   "assetId",
                                   "kind",
                                   "label"
-                                ],
-                                "type": "object"
-                              },
-                              {
-                                "additionalProperties": false,
-                                "properties": {
-                                  "caption": {
-                                    "type": "string"
-                                  },
-                                  "kind": {
-                                    "enum": [
-                                      "video"
-                                    ],
-                                    "type": "string"
-                                  }
-                                },
-                                "required": [
-                                  "kind"
                                 ],
                                 "type": "object"
                               }
@@ -85966,8 +85900,8 @@
                             }
                           },
                           "required": [
-                            "schemaVersion",
-                            "blocks"
+                            "blocks",
+                            "schemaVersion"
                           ],
                           "type": "object"
                         },

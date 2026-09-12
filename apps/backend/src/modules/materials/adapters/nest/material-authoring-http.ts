@@ -1,6 +1,7 @@
 import type { SetHomePinError } from "../../features/set-home-pin/set-home-pin.contract.js";
 import { HttpException } from "@nestjs/common";
-import { extendedRenderedBlockSchema } from "@inside/material-blocks";
+import type { MaterialBodyResourceSummary } from "@inside/material-blocks";
+import { headingLevelSchema, renderedMaterialBodySchema } from "@inside/material-blocks";
 import { z } from "zod";
 import {
   GUIDE_CHAPTER_NAME_MAX,
@@ -203,6 +204,26 @@ export const validationIssueSchema = z
   .object({ code: z.string(), path: z.string() })
   .strict();
 
+/**
+ * The wire shape of one extracted resource. The registry publishes no schema for it, so the
+ * annotation is what keeps this description from outgrowing `MaterialBodyResourceSummary`: a
+ * variant the domain type does not describe stops compiling, which is the direction this boundary
+ * drifted before. A resource kind added to the domain type does not fail here, because the
+ * annotation is covariant in its output; the block registry has no such gap.
+ */
+const extractedResourceSchema: z.ZodType<MaterialBodyResourceSummary> = z.discriminatedUnion(
+  "kind",
+  [
+    z.object({
+      kind: z.literal("image"),
+      assetId: z.uuid(),
+      alt: z.string(),
+      caption: z.string().optional(),
+    }),
+    z.object({ assetId: z.uuid(), kind: z.literal("file"), label: z.string() }),
+  ],
+);
+
 export const validatedMaterialSchema = z
   .object({
     materialId: materialIdSchema,
@@ -211,44 +232,12 @@ export const validatedMaterialSchema = z
     extraction: z
       .object({
         plainText: z.string(),
-        headings: z.array(
-          z.object({
-            level: z.union([z.literal(2), z.literal(3), z.literal(4)]),
-            text: z.string(),
-          }),
-        ),
-        resources: z.array(
-          z.discriminatedUnion("kind", [
-            z.object({
-              kind: z.literal("image"),
-              assetId: z.uuid(),
-              alt: z.string(),
-              caption: z.string().optional(),
-            }),
-            z.object({ assetId: z.uuid(), kind: z.literal("file"), label: z.string() }),
-            z.object({
-              kind: z.literal("video"),
-              caption: z.string().optional(),
-            }),
-          ]),
-        ),
+        headings: z.array(z.object({ level: headingLevelSchema, text: z.string() })),
+        resources: z.array(extractedResourceSchema),
       })
       .strict(),
   })
   .strict();
-
-/**
- * The wire contract still publishes the inline `video` block the document schema stopped
- * accepting; it is enumerated here so the description keeps its shape, while every block the
- * platform renders comes from the registry.
- */
-const legacyVideoBlockSchema = z
-  .object({ caption: z.string().optional(), kind: z.literal("video"), videoId: z.uuid() })
-  .strict();
-
-export const renderedBlockSchema: z.ZodType = extendedRenderedBlockSchema([
-  legacyVideoBlockSchema,
-]);
 
 export const previewMaterialSchema = z
   .object({
@@ -257,12 +246,7 @@ export const previewMaterialSchema = z
     publicationState: publicationStateWireSchema,
     metadata: materialMetadataSchema,
     cacheScope: z.literal("private-no-store"),
-    body: z
-      .object({
-        schemaVersion: z.literal(1),
-        blocks: z.array(renderedBlockSchema),
-      })
-      .strict(),
+    body: renderedMaterialBodySchema,
   })
   .strict();
 

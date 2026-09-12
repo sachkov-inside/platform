@@ -38,7 +38,7 @@ let database: TestDatabase;
 
 beforeAll(async () => {
   [minio, database] = await Promise.all([
-    new MinioContainer("minio/minio:RELEASE.2025-09-07T16-13-09Z")
+    new MinioContainer("quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z")
       .withUsername(credentials.accessKeyId)
       .withPassword(credentials.secretAccessKey)
       .start(),

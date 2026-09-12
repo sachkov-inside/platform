@@ -394,7 +394,7 @@ Start dedicated containers, separate from the singleton Compose stack:
 
 ```bash
 docker run -d --name platform-396-postgres -e POSTGRES_USER=inside -e POSTGRES_PASSWORD=inside -e POSTGRES_DB=inside -p 127.0.0.1:54396:5432 postgres:18.4-alpine3.23
-docker run -d --name platform-396-storage -e MINIO_ROOT_USER=inside-local-access-key -e MINIO_ROOT_PASSWORD=inside-local-secret-key -p 127.0.0.1:9036:9000 minio/minio:RELEASE.2025-09-07T16-13-09Z server /data
+docker run -d --name platform-396-storage -e MINIO_ROOT_USER=inside-local-access-key -e MINIO_ROOT_PASSWORD=inside-local-secret-key -p 127.0.0.1:9036:9000 quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z server /data
 pnpm editor:local
 ```
 

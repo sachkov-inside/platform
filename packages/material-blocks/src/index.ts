@@ -47,7 +47,6 @@ export {
   renderedTextSchema,
 } from "./rendered-block.js";
 export {
-  extendedRenderedBlockSchema,
   renderedBlockSchema,
   renderedMaterialBodySchema,
 } from "./rendered-block-schema.js";

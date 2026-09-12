@@ -50,6 +50,8 @@ expectFailure(
     "notificationEmailAttempt",
     "telegramCommunityOperation",
     "material.published",
+    "TS2375",
+    "MaterialBodyResourceSummary",
     "Cannot find name 'describe'",
   ],
 );
