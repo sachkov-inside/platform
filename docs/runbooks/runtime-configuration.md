@@ -104,6 +104,13 @@ tests, relevant Compose service and tracked example. Do not make an unrelated wo
 group. Put the real production value only in the server-owned environment file; deployment consumes
 that file in place and never transports it through GitHub.
 
+That rule covers runtime variables, the ones application code reads through a typed config. A
+variable a tool reads while starting itself has no runtime owner and stays out of the typed config:
+`PLAYWRIGHT_PORT` and `CAPTURE_EVIDENCE` configure the browser-check harness, and
+`HIDE_DEV_INDICATOR` configures the Next.js dev server through `apps/web/next.config.ts`. Write it
+down where it is set — a Compose service file, a package script — and keep it out of
+`.env.example` unless host processes are meant to set it.
+
 Kinescope defaults to the deterministic `test` adapter only in development/test. Production
 requires `KINESCOPE_PROVIDER_MODE=real`, distinct public and membership project IDs, a server-only
 delete-capable API

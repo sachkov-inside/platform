@@ -32,6 +32,13 @@ The default stack contains:
   see [Notifications transport](notification-transport.md) for recovery and the production boundary;
 - Next.js web on <http://127.0.0.1:3000>.
 
+The stand runs web in development mode with the Next.js development indicator hidden:
+`config/compose/local/web.env` sets `HIDE_DEV_INDICATOR=true`, and `pnpm test:e2e` sets the same
+variable for its own server. The indicator would otherwise take taps meant for the mobile dock on a
+narrow screen, and no corner it can move to is free; `apps/web/next.config.ts` owns that reasoning.
+The host `pnpm dev` fallback sets no such variable, so it keeps both the indicator and that
+overlap — on a narrow screen prefer the stand when checking the dock or the authoring navigation.
+
 The optional Logto email-code proof is a separate, disposable Compose project with isolated ports
 and volumes. Its pinned build, automated Management API bootstrap and Mailpit capture are
 documented in [`infra/identity/logto/README.md`](../../infra/identity/logto/README.md). Run
