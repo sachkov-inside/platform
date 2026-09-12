@@ -135,19 +135,6 @@ test("loads the safe PostgreSQL catalog through the client-owned Library query",
   await expect(topicFilters.getByRole("radio", { name: /^Platform/u })).toBeVisible();
   await expect(page.locator("[data-topic-card]")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Руководства", level: 2 })).toBeVisible();
-  // Каталог показывает первые руководства и раскрывается по требованию, поэтому нужное
-  // руководство ищется после раскрытия, а не в первой тройке.
-  await page.getByRole("button", { name: "Показать все" }).click();
-  await expect(
-    page.locator("[data-playlist-card]").filter({
-      hasText: "Создание Platform Inside",
-    }),
-  ).toBeVisible();
-  // Раскрытие оставляет фокус на кнопке, а клавиатурная проверка ниже начинается с начала
-  // документа: без этого первый Tab уводит не на ссылку «Перейти к содержанию».
-  await page.evaluate(() => {
-    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
-  });
   await expect(
     page.getByRole("link", { exact: true, name: "Developer Pipeline без потери контекста" }),
   ).toHaveAttribute(
@@ -196,6 +183,16 @@ test("loads the safe PostgreSQL catalog through the client-owned Library query",
     scrollWidth: element.scrollWidth,
   }));
   expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
+
+  // Каталог показывает первые руководства и раскрывается по требованию, поэтому нужное
+  // руководство ищется после раскрытия, а не в первой тройке. Раскрытие идёт после клавиатурной
+  // проверки: оно оставляет фокус на кнопке, а та проверка начинается с начала документа.
+  await page.getByRole("button", { name: "Показать все" }).click();
+  await expect(
+    page.locator("[data-playlist-card]").filter({
+      hasText: "Создание Platform Inside",
+    }),
+  ).toBeVisible();
 
   const search = page.getByRole("searchbox", { name: "Поиск по Базе знаний" });
   await search.fill("Developer Pipeline без потери контекста");
@@ -700,12 +697,15 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   // Материалы, состояния доступа и порядок живут в программе; страница продукта рассказывает.
   await page.getByRole("link", { name: "Открыть программу", exact: true }).click();
   await expect(page).toHaveURL(/\/guides\/platform-inside\/programme/u);
+  await expect(page.locator("[data-guide-programme]:visible")).toBeVisible();
+  await expect(page.locator("[data-series-order] [data-series-ordinal]")).toHaveCount(2);
   await expect(
     page.locator("[data-series-order] [data-series-ordinal]").evaluateAll((items) =>
       items.map((item) => item.getAttribute("data-series-ordinal")),
     ),
   ).resolves.toEqual(["1", "2"]);
-  await expect(page.getByRole("list", { name: "Материалы руководства" }).getByText("Как устроен Inside Platform")).toBeVisible();
+  // У руководства с главами каждый список назван своей главой, поэтому материал ищется в маршруте.
+  await expect(page.locator("[data-series-order]").getByText("Как устроен Inside Platform").first()).toBeVisible();
   await expect(page.getByText("Developer Pipeline без потери контекста")).toBeVisible();
   const representativeSeriesItem = page
     .locator("[data-series-order] [data-series-ordinal]")

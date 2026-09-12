@@ -1,16 +1,63 @@
 import { z } from "zod";
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
+import { expect, test, type BrowserContext } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 
 // Руководство разделено на продукт, программу и оплату (#509). Место чтения возвращает карточка
 // материала в программе и `at=` в адресе: сводки прогресса, полосы и кнопки «Продолжить» здесь нет.
-test("guide programme marks the last opened material and preserves the Reader return position", async ({ page, context }, testInfo) => {
+async function signInNonMember(context: BrowserContext) {
   const name = process.env.FULLSTACK_LOGTO_COOKIE_NAME;
   const value = process.env.FULLSTACK_LOGTO_NON_MEMBER_SESSION;
   if (name === undefined || value === undefined) throw new Error("Missing local identity fixture");
   await context.addCookies([{ name, value, url: process.env.FULLSTACK_WEB_BASE_URL ?? "http://127.0.0.1:3000", httpOnly: true, sameSite: "Lax" }]);
+}
+
+const evidenceDirectory = resolve(process.cwd(), "../../docs/evidence/issue-529");
+
+test("guide product leads to the programme and the programme keeps the Reader return position", async ({ page, context }, testInfo) => {
+  await signInNonMember(context);
+  await page.addLocatorHandler(page.getByRole("button", { name: "Закрыть подключение Telegram" }), async (button) => { await button.click(); });
+
+  // Страница продукта рассказывает о руководстве и ведёт в программу одним действием.
+  await page.goto("/guides/demo-series-harness");
+  await expect(page.locator('[data-guide-product="demo-series-harness"]:visible')).toBeVisible();
+  await expect(page.getByRole("progressbar")).toHaveCount(0);
+  await page.getByRole("link", { name: "Открыть программу", exact: true }).click();
+  await expect(page).toHaveURL(/\/guides\/demo-series-harness\/programme/u);
+
+  // Сводки прогресса, полосы и отдельной кнопки продолжения в программе нет: решение 12.09.2026.
+  await expect(page.locator('[data-guide-programme="demo-series-harness"]:visible')).toBeVisible();
+  await expect(page.getByRole("progressbar")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Продолжить", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Показать в маршруте" })).toHaveCount(0);
+
+  // Возврат из читалки приводит на ту же страницу программы и подсвечивает строку материала.
+  await page.locator('[data-route-material="demo-295-finalnyy-gayd"]:visible').getByRole("link", { name: "Demo #295 · Финальный гайд", exact: true }).click();
+  await expect(page.locator("[data-reader-body]:visible")).toBeVisible();
+  await page.getByRole("link", { name: "Назад к программе", exact: true }).first().click();
+  await expect(page).toHaveURL(/at=demo-295-finalnyy-gayd/u);
+  await expect(page.locator('[data-route-material="demo-295-finalnyy-gayd"]:visible')).toBeInViewport();
+  await page.reload();
+  await expect(page.locator('[data-route-material="demo-295-finalnyy-gayd"]:visible')).toBeInViewport();
+  await expect(page.getByRole("navigation", { name: "Страницы маршрута" })).toHaveCount(0);
+  const accessibility = await new AxeBuilder({ page }).include('[data-guide-programme="demo-series-harness"]').analyze();
+  expect(accessibility.violations).toEqual([]);
+  await mkdir(evidenceDirectory, { recursive: true });
+  await page.evaluate(() => { window.scrollTo(0, 0); });
+  await page.screenshot({ path: resolve(evidenceDirectory, `programme-${testInfo.project.name}.png`), fullPage: true });
+
+  // Гость видит состав и замки, но не получает ни прогресса, ни обещания чужого продолжения.
+  await context.clearCookies();
+  await page.goto("/guides/platform-inside/programme");
+  await expect(page.getByRole("main").getByText("Для участников", { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole("progressbar")).toHaveCount(0);
+  await expect(page.locator('[aria-current="step"]')).toHaveCount(0);
+  await page.screenshot({ path: resolve(evidenceDirectory, `programme-guest-${testInfo.project.name}.png`), fullPage: true });
+});
+
+test("guide programme marks the last opened material as the place to continue", async ({ page, context }) => {
+  await signInNonMember(context);
   await page.addLocatorHandler(page.getByRole("button", { name: "Закрыть подключение Telegram" }), async (button) => { await button.click(); });
   for (const slug of ["demo-295-obshchiy-gayd", "demo-295-finalnyy-gayd"]) {
     const opened = page.waitForResponse((response) => response.url().endsWith("/api/reading-progress/open") && response.request().method() === "POST");
@@ -21,44 +68,10 @@ test("guide programme marks the last opened material and preserves the Reader re
     if (await button.getAttribute("aria-pressed") === "true") { await button.click(); await expect(button).toHaveAttribute("aria-pressed", "false"); }
   }
 
-  // Страница продукта рассказывает о руководстве и ведёт в программу одним действием.
-  await page.goto("/guides/demo-series-harness");
-  await expect(page.locator('[data-guide-product="demo-series-harness"]:visible')).toBeVisible();
-  await expect(page.getByRole("progressbar")).toHaveCount(0);
-  await page.getByRole("link", { name: "Открыть программу", exact: true }).click();
-  await expect(page).toHaveURL(/\/guides\/demo-series-harness\/programme/u);
-
-  const programme = page.locator('[data-guide-programme="demo-series-harness"]:visible');
-  await expect(programme).toBeVisible();
-  await expect(page.getByRole("progressbar")).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Продолжить", exact: true })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Показать в маршруте" })).toHaveCount(0);
+  await page.goto("/guides/demo-series-harness/programme");
   const current = page.locator('[aria-current="step"]:visible');
   await expect(current).toHaveAttribute("data-route-material", "demo-295-finalnyy-gayd");
   await expect(current.getByText("Продолжить здесь", { exact: true })).toBeVisible();
-
-  await current.getByRole("link", { name: "Demo #295 · Финальный гайд", exact: true }).click();
-  await expect(page.locator("[data-reader-body]:visible")).toBeVisible();
-  await page.getByRole("link", { name: "Назад к программе", exact: true }).first().click();
-  await expect(page).toHaveURL(/at=demo-295-finalnyy-gayd/u);
-  await expect(page.locator('[data-route-material="demo-295-finalnyy-gayd"]:visible')).toBeInViewport();
-  await page.reload();
-  await expect(page.locator('[aria-current="step"]:visible')).toHaveAttribute("data-route-material", "demo-295-finalnyy-gayd");
-  await expect(page.getByRole("navigation", { name: "Страницы маршрута" })).toHaveCount(0);
-  const accessibility = await new AxeBuilder({ page }).include('[data-guide-programme="demo-series-harness"]').analyze();
-  expect(accessibility.violations).toEqual([]);
-  const directory = resolve(process.cwd(), "../../docs/evidence/issue-529");
-  await mkdir(directory, { recursive: true });
-  await page.evaluate(() => { window.scrollTo(0, 0); });
-  await page.screenshot({ path: resolve(directory, `programme-${testInfo.project.name}.png`), fullPage: true });
-
-  // Гость видит состав и замки, но не получает ни прогресса, ни обещания чужого продолжения.
-  await context.clearCookies();
-  await page.goto("/guides/platform-inside/programme");
-  await expect(page.getByRole("main").getByText("Для участников", { exact: true }).first()).toBeVisible();
-  await expect(page.getByRole("progressbar")).toHaveCount(0);
-  await expect(page.locator('[aria-current="step"]')).toHaveCount(0);
-  await page.screenshot({ path: resolve(directory, `programme-guest-${testInfo.project.name}.png`), fullPage: true });
 });
 
 
@@ -113,9 +126,8 @@ test("guide programme paginates a real composition and returns from Reader to pa
     await expect(page).toHaveURL(/page=1$/u);
     await expect(page.locator("[data-series-ordinal]:visible")).toHaveCount(12);
     await page.getByRole("button", { name: "Страница 2, продолжение", exact: true }).click();
-    const directory = resolve(process.cwd(), "../../docs/evidence/issue-529");
-    await mkdir(directory, { recursive: true });
-    await page.screenshot({ path: resolve(directory, `programme-page-two-${testInfo.project.name}.png`), fullPage: true });
+    await mkdir(evidenceDirectory, { recursive: true });
+    await page.screenshot({ path: resolve(evidenceDirectory, `programme-page-two-${testInfo.project.name}.png`), fullPage: true });
   } finally {
     const archived = await page.request.put("/api/authoring/collections/archive", { headers: { origin }, multipart: { kind: "series", collectionId: collection.id, expectedVersion: String(collection.version), archived: "true" } });
     expect(await archived.json()).toMatchObject({ kind: "saved" });
