@@ -1,6 +1,7 @@
 "use client";
 import { useId, useState } from "react";
 
+import { LegalDocumentLinks } from "@/entities/legal-document";
 import { Button } from "@/shared/ui/button";
 
 import {
@@ -240,6 +241,12 @@ export function BillingContactForm({
           ) : null}
         </>
       )}
+
+      <LegalDocumentLinks
+        className="mt-6 border-t border-border pt-5"
+        label="Как обрабатываются эти данные:"
+        keys={["privacy"]}
+      />
 
       {documents.length === 0 ? null : (
         <ul className="mt-6 flex flex-wrap gap-x-5 gap-y-2 border-t border-border pt-5 text-sm">

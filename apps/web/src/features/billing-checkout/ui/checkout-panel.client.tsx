@@ -3,6 +3,7 @@ import type { Route } from "next";
 import Link from "next/link";
 import { useId } from "react";
 
+import { LegalDocumentLinks } from "@/entities/legal-document";
 import {
   billingActionClass,
   ConsentChecklist,
@@ -209,6 +210,12 @@ export function CheckoutPanel({
               />
             </div>
           )}
+
+          <LegalDocumentLinks
+            className="mt-5"
+            label="Документы этой покупки:"
+            keys={["subscription", "recurring-consent", "privacy"]}
+          />
 
           {existingAccess ? (
             <div className="mt-5 rounded-xl border border-accent/35 bg-accent/6 p-4 text-sm leading-6">

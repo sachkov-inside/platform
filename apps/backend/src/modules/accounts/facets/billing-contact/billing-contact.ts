@@ -1,4 +1,5 @@
 import { createHash, randomInt, randomUUID } from "node:crypto";
+import { paymentModes } from "@inside/legal";
 import { z } from "zod";
 import type { AccountsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { acquireAccountLocks } from "../../infrastructure/postgres/advisory-locks.js";
@@ -9,6 +10,7 @@ import {
   confirmContactSchema,
   confirmContactResultSchema,
   contactFailure,
+  acceptedLegalDocumentSchema,
   legalDocumentSchema,
   startContactSchema,
   type ReadConsentResult,
@@ -53,11 +55,13 @@ export class BillingContact {
       )
         throw new Error("Legal document digest mismatch");
     }
-    if (
-      new Set(this.documents.map((document) => document.kind)).size !==
-      this.documents.length
-    )
-      throw new Error("Duplicate legal document kind");
+    for (const mode of paymentModes) {
+      const kinds = this.documents
+        .filter((document) => document.appliesTo.includes(mode))
+        .map((document) => document.kind);
+      if (new Set(kinds).size !== kinds.length)
+        throw new Error(`Duplicate legal document kind for ${mode}`);
+    }
   }
 
   async read(accountId: string): Promise<ReadContactResult> {
@@ -107,7 +111,7 @@ export class BillingContact {
           evidenceRef: row.id,
           contextRef: row.contextRef,
           acceptedAt: row.acceptedAt.toISOString(),
-          document: legalDocumentSchema.parse({
+          document: acceptedLegalDocumentSchema.parse({
             kind: row.kind,
             documentId: row.documentId,
             version: row.documentVersion,

@@ -5854,6 +5854,19 @@
                           "items": {
                             "additionalProperties": false,
                             "properties": {
+                              "appliesTo": {
+                                "items": {
+                                  "enum": [
+                                    "one_time",
+                                    "subscription"
+                                  ],
+                                  "type": "string"
+                                },
+                                "maxItems": 2,
+                                "minItems": 1,
+                                "readOnly": true,
+                                "type": "array"
+                              },
                               "digest": {
                                 "maxLength": 64,
                                 "minLength": 64,
@@ -5890,6 +5903,7 @@
                             },
                             "required": [
                               "kind",
+                              "appliesTo",
                               "documentId",
                               "version",
                               "text",

@@ -3,6 +3,7 @@ import { Check, Copy, RotateCcw } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { useId, useState } from "react";
 
+import { LegalDocumentLinks } from "@/entities/legal-document";
 import {
   bioLengthIsValid,
   displayNameLengthIsValid,
@@ -238,6 +239,12 @@ export function AccountPageClient({
             </Button>
             <MutationNotice result={saveResult} />
           </div>
+
+          <LegalDocumentLinks
+            className="mt-7 border-t border-border pt-7"
+            label="Как обрабатываются данные профиля:"
+            keys={["privacy", "terms"]}
+          />
         </section>
       </form>
     </div>
