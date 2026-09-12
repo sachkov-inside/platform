@@ -8,7 +8,7 @@ import {
   offerCompositionLabel,
   type PriceSnapshot,
 } from "@/entities/subscription";
-import { billingContactQueryOptions } from "@/features/billing-contact";
+import { useBillingContact } from "@/features/billing-contact";
 import { CheckoutFlow, type CheckoutInclusion } from "@/features/billing-checkout";
 import { currentBillingQueryOptions } from "@/features/billing-subscription";
 import { internalRoute } from "@/shared/routing/internal-route";
@@ -39,7 +39,7 @@ export function GuidePurchase({
   const billing = useQuery(currentBillingQueryOptions());
   // Подтверждённый контакт и редакции документов нужны самому оформлению, поэтому страница
   // читает их прямо, а не через форму подтверждения: формы здесь больше нет.
-  const contact = useQuery(billingContactQueryOptions());
+  const contact = useBillingContact();
   const contactState = contact.data?.ok === true ? contact.data : null;
   const signedOut =
     billing.data?.ok === false && billing.data.code === "unauthorized";

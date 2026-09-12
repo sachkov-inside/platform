@@ -1,43 +1,23 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-import {
-  selfRefreshingRead,
-  unavailableRetryIntervalMs,
-} from "@/shared/api/self-refreshing-query";
 import { useRepeatableOperations } from "@/shared/lib/repeatable-operations.client";
 
 import {
   confirmBillingContact,
-  readBillingContact,
   startBillingContact,
 } from "../api/billing-contact.browser";
 import {
   contactErrorMessage,
   type BillingContactState,
 } from "../model/billing-contact";
+import {
+  announceBillingContactVerified,
+  billingContactQueryKey,
+} from "../model/billing-contact-query";
+import { useBillingContact } from "../model/use-billing-contact.client";
 import { BillingContactForm } from "./billing-contact-form.client";
-
-export const billingContactQueryKey = ["account", "billing-contact"] as const;
-
-export function billingContactQueryOptions() {
-  return {
-    ...selfRefreshingRead,
-    queryKey: billingContactQueryKey,
-    queryFn: readBillingContact,
-    refetchInterval: ({
-      state,
-    }: {
-      readonly state: {
-        readonly data: { readonly ok: boolean; readonly code?: string } | undefined;
-      };
-    }) =>
-      state.data !== undefined && !state.data.ok && state.data.code !== "unauthorized"
-        ? unavailableRetryIntervalMs
-        : (false as const),
-  };
-}
 
 export interface BillingContactPanelProps {
   readonly headingLevel?: "h1" | "h2";
@@ -53,7 +33,7 @@ export function BillingContactPanel({
   onStateChange,
 }: BillingContactPanelProps) {
   const queryClient = useQueryClient();
-  const query = useQuery(billingContactQueryOptions());
+  const query = useBillingContact();
   const { operationId, completeOperation } = useRepeatableOperations();
   const [challenge, setChallenge] = useState<{
     challengeRef: string;
@@ -102,6 +82,9 @@ export function BillingContactPanel({
       setVerified(true);
       setEditing(false);
       await queryClient.invalidateQueries({ queryKey: billingContactQueryKey });
+      // Кабинет и витрина могут быть открыты одновременно: подтверждение сбрасывает запомненный
+      // ответ и там, где его не подтверждали.
+      announceBillingContactVerified();
     },
   });
 

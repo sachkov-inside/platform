@@ -71,6 +71,10 @@ mutations.
   request-isolated `QueryClient`, prefetch, dehydration, and `HydrationBoundary`.
 - Server-render-only data calls its server adapter directly. Query `staleTime` is browser-cache
   policy; HTTP cache policy belongs to the BFF/backend boundary.
+- A browser-owned fact shown by several surfaces is reset on every open surface at the moment a
+  write changes it, not only on the surface that performed the write. A successful read has no
+  refresh interval and two visible windows raise no focus event, so an unannounced change leaves
+  the remaining surfaces on a remembered answer until they are opened again.
 - Interactive writes use `useMutation` → browser adapter → same-origin capability Route Handler →
   generated Nest transport. The shared BFF boundary owns Origin, session, private no-store, timeout,
   and the default 2 MiB limit; a larger limit requires a named narrow override and boundary tests.

@@ -53,10 +53,13 @@ async function stubAccount(
     subscription = null,
     grounds = [],
     telegram = "linked",
+    contact = () => null,
   }: {
     subscription?: unknown;
     grounds?: readonly unknown[];
     telegram?: "linked" | "unlinked";
+    /** Контакт читается на каждый запрос: подтверждение меняет ответ, а не только первый снимок. */
+    contact?: () => unknown;
   } = {},
 ) {
   await page.route("**/auth/status", (route) =>
@@ -79,7 +82,7 @@ async function stubAccount(
     }),
   );
   await page.route("**/api/account/billing/contact", (route) =>
-    route.fulfill({ json: { ok: true, contact: null, documents: [] } }),
+    route.fulfill({ json: { ok: true, contact: contact(), documents: [] } }),
   );
   await page.route("**/api/account/notifications/preferences", (route) =>
     route.fulfill({
@@ -280,4 +283,53 @@ test("кабинет не имеет серьёзных нарушений до�
         violation.impact === "serious" || violation.impact === "critical",
     ),
   ).toEqual([]);
+});
+
+test("подтверждение обновляет кабинет, открытый второй поверхностью", async ({
+  page,
+  context,
+}) => {
+  const verifiedContact = {
+    email: "buyer@example.test",
+    revision: 1,
+    verifiedAt: "2026-09-12T10:00:00.000Z",
+  };
+  let verified = false;
+  const readContact = () => (verified ? verifiedContact : null);
+  await stubAccount(page, { contact: readContact });
+
+  // Кабинет открыт заранее и остаётся открытым: подтверждение произойдёт не в нём.
+  await page.goto("/account/purchases");
+  await expect(page.getByText("Email пока не подтверждён.")).toBeVisible();
+
+  const other = await context.newPage();
+  await stubAccount(other, { contact: readContact });
+  await other.route("**/api/account/billing/contact/start", (route) =>
+    route.fulfill({
+      json: {
+        ok: true,
+        challengeRef: "00000000-0000-4000-8000-000000000901",
+        expiresAt: "2026-09-12T11:00:00.000Z",
+        delivery: "sent",
+      },
+    }),
+  );
+  await other.route("**/api/account/billing/contact/confirm", (route) => {
+    verified = true;
+    void route.fulfill({ json: { ok: true, revision: verifiedContact.revision } });
+  });
+  await other.goto("/account/purchases");
+  await other.getByLabel("Email", { exact: true }).fill(verifiedContact.email);
+  await other.getByRole("button", { name: "Получить код", exact: true }).click();
+  await other.getByLabel("Код из письма").fill("123456");
+  await other
+    .getByRole("button", { name: "Подтвердить email", exact: true })
+    .click();
+  await expect(
+    other.getByText("Email подтверждён.", { exact: true }),
+  ).toBeVisible();
+
+  // Первый экран после письма не должен спорить с только что подтверждённым адресом.
+  await expect(page.getByText(verifiedContact.email, { exact: true })).toBeVisible();
+  await expect(page.getByText("Email пока не подтверждён.")).toHaveCount(0);
 });
