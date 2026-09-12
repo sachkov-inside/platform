@@ -57,10 +57,7 @@ test.each(["video", "guide", "note", "text"])("migrates legacy %s references wit
     const formatId = "38900000-0000-4000-8000-000000000001";
     const materialId = "38900000-0000-4000-8000-000000000002";
     await legacy.prisma.$executeRaw(Prisma.sql`insert into materials.formats (id, slug, name) values (${formatId}::uuid, ${legacySlug}, 'Legacy format')`);
-    await legacy.prisma.material.create({ data: {
-      id: materialId, formatId, schemaVersion: 1, body: { type: "doc", content: [] },
-      createdBy: actor, access: "free", publicationState: "draft", contentVersion: 1n,
-    } });
+    await insertLegacyMaterial(legacy, materialId, formatId);
     await migrateToLatest(legacy.url);
     expect(await legacy.prisma.material.findUnique({ where: { id: materialId } })).toMatchObject({
       formatId: legacySlug === "text" ? "note" : legacySlug,
@@ -79,12 +76,30 @@ test("refuses unknown referenced legacy formats and preserves the database for e
     const formatId = "38900000-0000-4000-8000-000000000003";
     const materialId = "38900000-0000-4000-8000-000000000004";
     await legacy.prisma.$executeRaw(Prisma.sql`insert into materials.formats (id, slug, name) values (${formatId}::uuid, 'podcast', 'Podcast')`);
-    await legacy.prisma.material.create({ data: {
-      id: materialId, formatId, schemaVersion: 1, body: { type: "doc", content: [] },
-      createdBy: actor, access: "free", publicationState: "draft", contentVersion: 1n,
-    } });
+    await insertLegacyMaterial(legacy, materialId, formatId);
     await expect(migrateToLatest(legacy.url)).rejects.toThrow("Unsupported legacy material format");
-    expect(await legacy.prisma.material.findUnique({ where: { id: materialId } })).toMatchObject({ formatId });
+    // Схема осталась дореформенной, поэтому строка читается её же колонками.
+    expect(await legacy.prisma.$queryRaw(Prisma.sql`select format_id::text as "formatId" from materials.materials where id = ${materialId}::uuid`)).toEqual([{ formatId }]);
     expect(await legacy.prisma.$queryRaw(Prisma.sql`select slug from materials.formats`)).toEqual([{ slug: "podcast" }]);
   } finally { await legacy.dispose(); }
 });
+
+/**
+ * Строка пишется прямо в SQL той схемы, которая тогда существовала. Через Prisma сюда приезжают
+ * все нынешние колонки Material сразу, поэтому любая новая колонка ломала бы проверку миграции,
+ * к которой она не относится.
+ */
+async function insertLegacyMaterial(
+  legacy: TestDatabase,
+  materialId: string,
+  formatId: string,
+): Promise<void> {
+  await legacy.prisma.$executeRaw(Prisma.sql`
+    insert into materials.materials
+      (id, format_id, schema_version, body, created_by, access, publication_state, content_version)
+    values (
+      ${materialId}::uuid, ${formatId}::uuid, 1, ${'{"type":"doc","content":[]}'}::jsonb,
+      ${actor}::uuid, 'free', 'draft', 1
+    )
+  `);
+}

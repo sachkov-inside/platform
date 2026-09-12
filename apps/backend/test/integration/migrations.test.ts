@@ -222,6 +222,8 @@ describe("Platform migrations", () => {
           "0058_offer_for_sale",
           "0059_one_time_purchase",
           "0060_material_announcements",
+        "0061_lesson_difficulty_and_outcomes",
+        "0062_reader_guide_mode",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -239,7 +241,7 @@ describe("Platform migrations", () => {
       "telegram_membership",
       telegramMembershipTables,
     );
-    await expectTables(testDatabase, "reading_activity", ["commands", "events", "material_states", "material_visits"]);
+    await expectTables(testDatabase, "reading_activity", ["commands", "events", "material_states", "material_visits", "reader_preferences"]);
     await expectTables(testDatabase, "bookmarks", ["bookmarked_materials"]);
     await expectTables(testDatabase, "assets", assetTables);
     await expectTables(testDatabase, "videos", videoTables);
@@ -811,6 +813,8 @@ describe("Platform migrations", () => {
           "0058_offer_for_sale",
           "0059_one_time_purchase",
           "0060_material_announcements",
+        "0061_lesson_difficulty_and_outcomes",
+        "0062_reader_guide_mode",
         ],
       });
 

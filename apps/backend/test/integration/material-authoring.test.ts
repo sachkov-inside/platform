@@ -86,6 +86,8 @@ describe("MaterialAuthoring", () => {
           summary: null,
           slug: null,
           access: "free",
+          difficulty: null,
+          outcomes: [],
           topicId: null,
           formatId: null,
           tagIds: [],
@@ -1058,6 +1060,8 @@ describe("MaterialAuthoring", () => {
     const metadata = {
       access: "free" as const,
       formatId: null,
+      difficulty: null,
+      outcomes: [],
       seriesIds: [],
       summary: null,
       tagIds: [],

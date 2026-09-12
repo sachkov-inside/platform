@@ -108,6 +108,8 @@ function toCatalogItem(
     slug: projection.slug,
     title: projection.title,
     summary: projection.summary,
+    difficulty: projection.difficulty,
+    outcomes: projection.outcomes,
     access: projection.access,
     availability,
     publishedAt: projection.publishedAt,

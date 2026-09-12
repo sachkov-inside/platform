@@ -285,14 +285,12 @@ describe("Guide modes and lesson facts", () => {
       metadata,
       publicationState: "published",
     });
-    expect(published).toMatchObject({
-      ok: false,
-      error: {
-        code: "invalid_content",
-        issues: expect.arrayContaining([
-          { code: "outcomes_too_few", path: "/metadata/outcomes" },
-        ]),
-      },
+    expect(published).toMatchObject({ ok: false, error: { code: "invalid_content" } });
+    const issues =
+      published.ok || !("issues" in published.error) ? [] : published.error.issues;
+    expect(issues).toContainEqual({
+      code: "outcomes_too_few",
+      path: "/metadata/outcomes",
     });
 
     const withoutPromise = await materials.authoring.saveMaterial({
