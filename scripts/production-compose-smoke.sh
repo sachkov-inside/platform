@@ -115,6 +115,7 @@ LOGTO_AUDIENCE=https://api.production-smoke.invalid
 LOGTO_JWKS_URL=https://identity.production-smoke.invalid/oidc/jwks
 IDENTITY_EMAIL_FINGERPRINT_KEY=inside-production-smoke-email-fingerprint-key
 MEMBERSHIP_ACQUISITION_URL=https://membership.production-smoke.invalid
+PUBLIC_SITE_ORIGIN=https://inside.production-smoke.invalid
 TELEGRAM_BOT_START_URL=https://t.me/inside_production_smoke_bot
 TELEGRAM_LINKING_ENDPOINT=https://telegram.production-smoke.invalid/integrations/platform/v1/identity-links
 TELEGRAM_LINKING_SECRET=inside-production-smoke-linking-secret

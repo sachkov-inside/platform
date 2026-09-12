@@ -1,3 +1,8 @@
+import {
+  legalDocumentPath as legalDocumentHref,
+  legalEditionPath as legalEditionHref,
+  type LegalDocumentKey,
+} from "@inside/legal/document";
 import type { Route } from "next";
 
 import { internalRoute } from "./internal-route";
@@ -9,6 +14,21 @@ import { internalRoute } from "./internal-route";
 export const HOME_PATH = internalRoute("/");
 export const LIBRARY_PATH = internalRoute("/library");
 export const MAP_PATH = internalRoute("/map");
+export const LEGAL_PATH = internalRoute("/legal");
+
+/**
+ * Адреса юридических документов задаёт `@inside/legal`: тот же адрес сохраняется вместе с
+ * согласием покупателя, поэтому приложение не сочиняет его во второй раз, а только объявляет
+ * внутренним маршрутом.
+ */
+export function legalDocumentPath(key: LegalDocumentKey): Route {
+  return internalRoute(legalDocumentHref(key));
+}
+
+/** Адрес конкретной редакции: принятый когда-то текст остаётся доступен по своему адресу. */
+export function legalEditionPath(key: LegalDocumentKey, version: number): Route {
+  return internalRoute(legalEditionHref(key, version));
+}
 
 export function materialPath(slug: string): Route {
   return internalRoute(`/materials/${encodeURIComponent(slug)}`);

@@ -13,6 +13,7 @@ const contact = {
 const documents: readonly LegalDocument[] = [
   {
     kind: "terms",
+    appliesTo: ["one_time", "subscription"],
     documentId: "offer",
     version: "2026-09-01",
     digest: "a".repeat(64),
@@ -21,6 +22,7 @@ const documents: readonly LegalDocument[] = [
   },
   {
     kind: "recurring",
+    appliesTo: ["subscription"],
     documentId: "recurring",
     version: "2026-09-01",
     digest: "b".repeat(64),
