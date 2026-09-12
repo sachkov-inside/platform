@@ -408,12 +408,15 @@ as development examples rather than editorial content. Repeating the seed keeps 
 and brings each one back to its definition in `seed-local-development.ts` without resetting the
 named volume: a body, `difficulty` or `outcomes` edited in that file after the volume was seeded
 still reaches the existing Material, and a Material that already matches its definition receives no
-change command at all. A seeded Material is recognised by its title, so editing a title in that
-file seeds a second Material beside the old one instead of renaming it; an existing volume needs
-the previous Material removed by hand after such an edit. Materials are created and published
-through the Materials application interface, and the seed reads them with Prisma only to find what
-an earlier run already created. Fixed local Topic/Format/Tag/Series prerequisites are written with
-Prisma model operations because Platform has no product taxonomy-authoring capability yet.
+change command at all. Editing a *title* is the exception, and it splits by how the Material is
+recognised: most definitions name the slug they own and are renamed in place, but the eleven
+demo-Series lessons are recognised by title alone, and renaming one of those on an already seeded
+volume fails the seed with `idempotency_key_reused` — the old Material is no longer found and
+creation meets its own stable key. Rename such a lesson on a fresh volume, or remove the old
+Material by hand first. Materials are created and published through the Materials application
+interface; the seed uses Prisma model operations to find what an earlier run created, to pin the
+related Material, and to write the fixed local Topic/Format/Tag/Series prerequisites, because
+Platform has no product taxonomy-authoring capability yet.
 
 ## Migration and Prisma schema checks
 

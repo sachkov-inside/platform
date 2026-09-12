@@ -431,6 +431,34 @@ describe("local development seed after a demo content change", () => {
       where: { operation: "create_draft" },
     });
     expect(armed.count).toBeGreaterThan(0);
+    // Проверка опирается на чужое поведение: ключ создания с другим отпечатком отвергается, а не
+    // воспроизводится. Оно проверяется здесь же, иначе эта проверка однажды пройдёт вхолостую,
+    // ничего не доказав про засев.
+    const poisoned = await testDatabase.prisma.authoringIdempotency.findFirstOrThrow({
+      orderBy: { idempotencyKey: "asc" },
+      select: { idempotencyKey: true },
+      where: { operation: "create_draft" },
+    });
+    await expect(
+      authoring.createDraft({
+        actor: seedActor,
+        body: {
+          schemaVersion: 1,
+          doc: {
+            content: [
+              {
+                attrs: { nodeId: "70000000-0000-4000-8000-000000000002" },
+                content: [{ type: "text", text: "Проверка занятого ключа." }],
+                type: "paragraph",
+              },
+            ],
+            type: "doc",
+          },
+        },
+        idempotencyKey: poisoned.idempotencyKey,
+        metadata: definitionOf(loaded.value.metadata),
+      }),
+    ).resolves.toMatchObject({ ok: false, error: { code: "idempotency_key_reused" } });
 
     await seedLocalDevelopment(testDatabase.prisma);
 
@@ -519,7 +547,9 @@ describe("local development seed after a demo content change", () => {
     );
   });
 
-  test("sends no change command when the definition already matches", async () => {
+  // Название узкое намеренно: засев всё ещё отправляет по одной команде переупорядочивания на
+  // серию со ступенями, и она ничего не пишет. Проверяется отсутствие записи, а не команды.
+  test("writes nothing when the definition already matches", async () => {
     await seedLocalDevelopment(testDatabase.prisma);
     const written = await writtenState();
     const receipts = await testDatabase.prisma.authoringIdempotency.count();

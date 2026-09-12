@@ -418,8 +418,10 @@ async function ensureSeriesReaderScenario(seed: SeedContext): Promise<void> {
     } as const;
     // Определения серии о релизе не несут хранимого slug: его выдаёт модуль Материалов из
     // заголовка при публикации, а `orderKey` здесь — локальный ключ порядка внутри серии.
-    // Поэтому материал опознаётся заголовком; переименование заголовка здесь заведёт новый
-    // материал вместо обновления прежнего.
+    // Поэтому материал опознаётся заголовком, и смена заголовка здесь на уже засеянном томе
+    // уронит засев тем же idempotency_key_reused: поиск не найдёт прежний материал, а создание
+    // придёт на постоянный ключ с другим отпечатком. Материалы со своим slug переименовываются
+    // на месте, потому что их поиск держится за slug.
     const seeded = await ensureSeededMaterial(seed, {
       body,
       createIdempotencyKey: `local-series-demo-create-${String(index + 1)}`,
@@ -520,22 +522,15 @@ async function ensureSeededMaterial(
   if (!loaded.ok) {
     throw new Error(`Local seed load failed for ${title}: ${loaded.error.code}`);
   }
-  const current = loaded.value.metadata;
+  const { seriesMemberships, slug: _slug, ...currentMetadata } = loaded.value.metadata;
+  const current: MaterialMetadataSelectionInput = {
+    ...currentMetadata,
+    seriesIds: seriesMemberships.map(({ seriesId: value }) => value),
+  };
   const matchesDefinition =
     loaded.value.publicationState === "published" &&
     loaded.value.primaryVideoId === primaryVideoId &&
-    current.access === metadata.access &&
-    current.difficulty === metadata.difficulty &&
-    current.formatId === metadata.formatId &&
-    current.summary === metadata.summary &&
-    current.title === title &&
-    current.topicId === metadata.topicId &&
-    isDeepStrictEqual(current.outcomes, metadata.outcomes) &&
-    sameIdentifierSet(current.tagIds, metadata.tagIds) &&
-    sameIdentifierSet(
-      current.seriesMemberships.map(({ seriesId: value }) => value),
-      metadata.seriesIds,
-    ) &&
+    isDeepStrictEqual(comparableMetadata(current), comparableMetadata(metadata)) &&
     isDeepStrictEqual(loaded.value.body, definition.body);
   if (matchesDefinition) {
     return { contentVersion: loaded.value.contentVersion, materialId };
@@ -557,15 +552,28 @@ async function ensureSeededMaterial(
   return { contentVersion: saved.value.contentVersion, materialId };
 }
 
-/** Теги и серии хранятся упорядоченными по идентификатору, а определение их не сортирует. */
-function sameIdentifierSet(
-  current: readonly string[],
-  expected: readonly string[],
-): boolean {
-  return (
-    current.length === expected.length &&
-    expected.every((value) => current.includes(value))
-  );
+/**
+ * Метаданные в виде, пригодном для сравнения: теги и серии хранятся упорядоченными по
+ * идентификатору, а определение их не сортирует.
+ *
+ * Тип возвращаемого значения перечисляет поля контракта поимённо намеренно: поле, добавленное в
+ * `MaterialMetadataSelectionInput` и забытое здесь, — это поле, которое тихо не доедет до уже
+ * засеянной базы. Пусть это будет ошибкой компиляции, а не молчаливым расхождением.
+ */
+function comparableMetadata(
+  metadata: MaterialMetadataSelectionInput,
+): Record<keyof MaterialMetadataSelectionInput, unknown> {
+  return {
+    access: metadata.access,
+    difficulty: metadata.difficulty,
+    formatId: metadata.formatId,
+    outcomes: [...metadata.outcomes],
+    seriesIds: [...metadata.seriesIds].sort(),
+    summary: metadata.summary,
+    tagIds: [...metadata.tagIds].sort(),
+    title: metadata.title,
+    topicId: metadata.topicId,
+  };
 }
 
 async function ensureDevelopmentSeriesOrder(
@@ -598,10 +606,10 @@ async function ensureDevelopmentSeriesOrder(
 
 function requiredMaterialId(
   materialIds: ReadonlyMap<string, string>,
-  slugValue: string,
+  definitionKey: string,
 ): string {
-  const value = materialIds.get(slugValue);
-  if (value === undefined) throw new Error(`Local Series demo Material ${slugValue} is missing`);
+  const value = materialIds.get(definitionKey);
+  if (value === undefined) throw new Error(`Local seed Material ${definitionKey} is missing`);
   return value;
 }
 
