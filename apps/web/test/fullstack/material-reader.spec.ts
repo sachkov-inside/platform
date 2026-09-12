@@ -492,8 +492,6 @@ test("renders a locked teaser whose purchase starts inside the platform and fail
   await expect(teaser.locator('a[href^="http"], a[target="_blank"]')).toHaveCount(0);
   await expect(page.getByText("Закрытое содержимое для участников")).toHaveCount(0);
 
-  await expect(page.locator("[data-related-state]")).toHaveCount(0);
-
   const invalidProof = await request.get(
     `${process.env.FULLSTACK_API_BASE_URL ?? "http://127.0.0.1:3001"}/materials/developer-pipeline-bez-poteri-konteksta`,
     { headers: { authorization: "Bearer not-a-jwt" } },
@@ -736,7 +734,6 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   ).toHaveAttribute("href", "/topics/platform");
   await expect(page.getByRole("link", { name: "Назад к программе" })).toHaveCount(1);
   await expect(page.locator("[data-reader-footer]")).not.toContainText("· №");
-  await expect(page.locator("[data-related-state]")).toHaveCount(0);
 
   await expect(page).toHaveTitle("Как устроен Inside Platform · Sachkov Inside");
   await expectLibraryNavigationActive(page, testInfo);

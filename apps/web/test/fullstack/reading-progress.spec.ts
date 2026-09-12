@@ -147,8 +147,11 @@ test("reading progress supports Note and lets an expired member remove a protect
   if (await protectedAction.getAttribute("aria-pressed") === "true") await protectedAction.click();
   await expect(protectedAction).toHaveAttribute("aria-pressed", "false");
   await expect(protectedAction).toHaveAttribute("aria-disabled", "true");
-  // Выход живёт в разделе «Аккаунт» кабинета; на «Профиле» этой кнопки нет.
+  // Выход живёт в разделе «Аккаунт» кабинета; на «Профиле» этой кнопки нет. Кнопка есть только
+  // в дочитанном состоянии раздела, поэтому оно проверяется отдельно: иначе таймаут на кнопке
+  // назвал бы не ту причину.
   await page.goto("/account/access");
+  await expect(page.getByRole("region", { exact: true, name: "Telegram" })).toBeVisible();
   const signedOut = page.waitForResponse((response) => response.url().endsWith("/auth/sign-out") && response.request().method() === "POST");
   await page.getByRole("button", { name: "Выйти из аккаунта", exact: true }).click();
   expect((await signedOut).status()).toBe(200);
