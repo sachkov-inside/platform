@@ -587,12 +587,19 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
   await expect(page).toHaveURL(/\/authoring\/materials$/u);
   await page.getByRole("link", { name: "Темы", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Темы", level: 1 })).toBeVisible();
-  await expect(page.locator('input[value="Platform"]')).toBeVisible();
+  // Тема раскрывается кнопкой: её название, адрес и число материалов складываются в доступное имя.
+  await expect(
+    page.getByRole("button", { name: /^Platform \/platform · \d+ материал/u }),
+  ).toBeVisible();
   await captureIssue195Evidence(page, testInfo, "admin-topics");
 
   await page.getByRole("link", { name: "Руководства", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Руководства", level: 1 })).toBeVisible();
-  await expect(page.locator('input[value="Создание Platform Inside"]')).toBeVisible();
+  const platformGuide = page.getByRole("link", {
+    name: /^Создание Platform Inside \d+ материал/u,
+  });
+  await expect(platformGuide).toBeVisible();
+  await expect(platformGuide).toHaveAttribute("href", /^\/authoring\/guides\//u);
   await captureIssue195Evidence(page, testInfo, "admin-playlists");
 });
 

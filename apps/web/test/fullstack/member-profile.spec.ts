@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { deflateSync } from "node:zlib";
 
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 
 import { signInFullStack } from "../support/full-stack-session";
 
@@ -59,7 +59,7 @@ test("shows private Account Telegram and Membership presentation without disclos
   });
 
   const onboardingAccessibility = await new AxeBuilder({ page })
-    .include("dialog[aria-labelledby='telegram-onboarding-heading']")
+    .include(await labelledScopeSelector(onboarding))
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
     .analyze();
   expect(
@@ -79,9 +79,14 @@ test("shows private Account Telegram and Membership presentation without disclos
     .getByRole("button", { name: "Закрыть подключение Telegram" })
     .click();
   await expect(onboarding).toHaveCount(0);
-  const accessPanel = page.locator(
-    "section[aria-labelledby='inside-access-heading']",
-  );
+  // Связь с Telegram живёт в разделе «Аккаунт» кабинета: проверка идёт туда, где она есть.
+  const accessSection = await page.goto("/account/access");
+  expect(accessSection?.status()).toBe(200);
+  await expect(
+    page.getByRole("heading", { exact: true, level: 1, name: "Аккаунт" }),
+  ).toBeVisible();
+  const accessPanel = page.getByRole("region", { exact: true, name: "Telegram" });
+  await expect(accessPanel).toBeVisible();
   await accessPanel.screenshot({
     path: resolve(evidenceDirectory, `account-unlinked-${viewportName}.png`),
   });
@@ -90,7 +95,7 @@ test("shows private Account Telegram and Membership presentation without disclos
   });
 
   const accessibility = await new AxeBuilder({ page })
-    .include("section[aria-labelledby='inside-access-heading']")
+    .include(await labelledScopeSelector(accessPanel))
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
     .analyze();
   expect(
@@ -190,8 +195,7 @@ test("creates or edits the Account Profile and preserves the member projection",
   await bioInput.fill(bio);
   await page.getByRole("button", { name: /Создать|Сохранить/u }).click();
   await expect(page.getByText("Профиль сохранён.")).toBeVisible();
-  await expect(page.getByRole("article").getByText(bio)).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Профиль участника" })).toBeVisible();
+  await expect(bioInput).toHaveValue(bio);
   await expect(page.getByRole("button", { name: /Удалить профиль/u })).toHaveCount(0);
   await expect(page.getByRole("link", { name: /Скачать JSON/u })).toHaveCount(0);
   await expect(page.getByText("Граница", { exact: true })).toHaveCount(0);
@@ -242,7 +246,14 @@ test("creates or edits the Account Profile and preserves the member projection",
   if (publicPath === null) throw new Error("Profile projection path is missing");
   const memberPage = await page.goto(publicPath);
   expect(memberPage?.status()).toBe(200);
-  await expect(page.getByRole("heading", { name: displayName })).toBeVisible();
+  // Проекция участника осталась только здесь: раздел «Профиль» кабинета её больше не повторяет.
+  const projection = page
+    .getByRole("article")
+    .filter({ hasText: "Участник сообщества" });
+  await expect(
+    projection.getByRole("heading", { level: 1, name: displayName }),
+  ).toBeVisible();
+  await expect(projection.getByText(bio)).toBeVisible();
   await expect(page.getByAltText(`Аватар: ${displayName}`)).toHaveCount(0);
   await expect(page.getByRole("img", { name: `Аватар: ${displayName}` })).toBeVisible();
   await expect(page.locator('head meta[name="robots"]').first()).toHaveAttribute(
@@ -251,6 +262,21 @@ test("creates or edits the Account Profile and preserves the member projection",
   );
 
 });
+
+/**
+ * Axe принимает только CSS, поэтому область берётся у элемента, уже найденного по роли и
+ * доступному имени: устаревший селектор тогда не может тихо превратить проверку в пустую.
+ */
+async function labelledScopeSelector(locator: Locator): Promise<string> {
+  const scope = await locator.evaluate((element) => ({
+    labelledBy: element.getAttribute("aria-labelledby"),
+    tagName: element.tagName.toLowerCase(),
+  }));
+  if (scope.labelledBy === null) {
+    throw new Error(`<${scope.tagName}> has no aria-labelledby to scope axe with`);
+  }
+  return `${scope.tagName}[aria-labelledby="${scope.labelledBy}"]`;
+}
 
 
 function profileAvatarPng(): Buffer {

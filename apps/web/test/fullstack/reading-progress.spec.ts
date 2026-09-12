@@ -147,7 +147,8 @@ test("reading progress supports Note and lets an expired member remove a protect
   if (await protectedAction.getAttribute("aria-pressed") === "true") await protectedAction.click();
   await expect(protectedAction).toHaveAttribute("aria-pressed", "false");
   await expect(protectedAction).toHaveAttribute("aria-disabled", "true");
-  await page.goto("/account");
+  // Выход живёт в разделе «Аккаунт» кабинета; на «Профиле» этой кнопки нет.
+  await page.goto("/account/access");
   const signedOut = page.waitForResponse((response) => response.url().endsWith("/auth/sign-out") && response.request().method() === "POST");
   await page.getByRole("button", { name: "Выйти из аккаунта", exact: true }).click();
   expect((await signedOut).status()).toBe(200);
