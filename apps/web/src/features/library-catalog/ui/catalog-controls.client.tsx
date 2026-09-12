@@ -52,6 +52,17 @@ export function CatalogControls({
   );
 }
 
+/** Высота поля поиска. Её же занимает место поиска, пока данных ещё нет. */
+const searchFieldHeight = "min-h-14";
+
+/**
+ * Место поиска в состоянии загрузки: высота та же, что у настоящего поля, но собственного
+ * элемента здесь нет. Неактивное поле выглядело бы работающим и звало бы нажать впустую.
+ */
+export function LibrarySearchPlaceholder() {
+  return <div aria-hidden="true" className={searchFieldHeight} />;
+}
+
 export function LibrarySearchControl({
   onQueryChange,
   query,
@@ -70,7 +81,7 @@ export function LibrarySearchControl({
         <label className="sr-only" htmlFor="library-search">
           Поиск по Базе знаний
         </label>
-        <div className="relative flex min-h-14 items-center gap-3 rounded-2xl bg-muted px-4">
+        <div className={`relative flex ${searchFieldHeight} items-center gap-3 rounded-2xl bg-muted px-4`}>
           <Search
             aria-hidden="true"
             className="size-5 shrink-0 text-muted-foreground"

@@ -6,6 +6,7 @@ import Link from "next/link";
 
 import {
   LibrarySearchControl,
+  LibrarySearchPlaceholder,
   MaterialCatalogControls,
   MaterialCatalogGrid,
   changeLibraryQuery,
@@ -42,96 +43,92 @@ export function LibraryPage({
 }) {
   const effectiveReturnHref = returnHref ?? libraryHref(query);
   return (
-    <div
-      aria-busy={isRefreshing}
-      className="@container/library min-w-0 overflow-x-clip"
-    >
-      <LibraryHeader />
-      <div>
-        <div className="mt-7">
-          <LibrarySearchControl
-            onQueryChange={onQueryChange}
-            query={query}
-          />
-        </div>
-        {result.kind === "ready" ? (
-          <LibrarySeries
-            q={query.q}
-            returnHref={effectiveReturnHref}
-            series={result.facets.series}
-          />
-        ) : null}
-        {result.kind === "ready" ? (
-          <LibraryMaterials
-            controls={
-              <MaterialCatalogControls
-                facets={result.facets}
-                isRefreshing={isRefreshing}
-                onQueryChange={onQueryChange}
-                query={query}
-                resetQuery={materialResetQuery(query)}
-                totalCount={result.totalCount}
-              />
-            }
-            totalCount={result.totalCount}
-          >
-            {result.totalCount === 0 ? (
-              <LibraryNoResults
-                hasMaterialFilters={hasMaterialFilters(query)}
-                onClearFilters={() => {
-                  onQueryChange(materialResetQuery(query));
-                }}
-                onClearSearch={() => {
-                  onQueryChange(changeLibraryQuery(query, { q: "" }));
-                }}
-                q={query.q}
-              />
-            ) : catalog ?? (
-              <LibraryCatalog
-                items={result.items}
-                returnHref={effectiveReturnHref}
-              />
-            )}
-          </LibraryMaterials>
-        ) : null}
-        {result.kind === "empty" ? <LibraryEmpty /> : null}
-        {result.kind === "unavailable" ? (
-          <LibraryUnavailable
-            {...(onRetry === undefined ? {} : { onRetry })}
-          />
-        ) : null}
-      </div>
-    </div>
+    <LibraryFrame busy={isRefreshing}>
+      <LibrarySearchArea>
+        <LibrarySearchControl
+          onQueryChange={onQueryChange}
+          query={query}
+        />
+      </LibrarySearchArea>
+      {result.kind === "ready" ? (
+        <LibrarySeries
+          q={query.q}
+          returnHref={effectiveReturnHref}
+          series={result.facets.series}
+        />
+      ) : null}
+      {result.kind === "ready" ? (
+        <LibraryMaterials
+          controls={
+            <MaterialCatalogControls
+              facets={result.facets}
+              isRefreshing={isRefreshing}
+              onQueryChange={onQueryChange}
+              query={query}
+              resetQuery={materialResetQuery(query)}
+              totalCount={result.totalCount}
+            />
+          }
+          totalCount={result.totalCount}
+        >
+          {result.totalCount === 0 ? (
+            <LibraryNoResults
+              hasMaterialFilters={hasMaterialFilters(query)}
+              onClearFilters={() => {
+                onQueryChange(materialResetQuery(query));
+              }}
+              onClearSearch={() => {
+                onQueryChange(changeLibraryQuery(query, { q: "" }));
+              }}
+              q={query.q}
+            />
+          ) : catalog ?? (
+            <LibraryCatalog
+              items={result.items}
+              returnHref={effectiveReturnHref}
+            />
+          )}
+        </LibraryMaterials>
+      ) : null}
+      {result.kind === "empty" ? <LibraryEmpty /> : null}
+      {result.kind === "unavailable" ? (
+        <LibraryUnavailable
+          {...(onRetry === undefined ? {} : { onRetry })}
+        />
+      ) : null}
+    </LibraryFrame>
   );
 }
 
+/**
+ * Первый экран Базы знаний, пока данные ещё идут. Оболочку, шапку и место поиска состояние берёт
+ * оттуда же, откуда готовая страница, поэтому верх экрана не переезжает, когда страница оживает.
+ *
+ * Заголовка «Материалы» здесь намеренно нет. Готовая страница ставит между поиском и материалами
+ * секцию руководств, а её высота зависит от данных, которых сейчас ещё нет: угадать место
+ * заголовка невозможно. Собственный заголовок на неверном месте — такой же выдуманный элемент,
+ * как неактивное поле поиска, и он же превращает поиск по имени заголовка в ловушку: проверка
+ * замерила бы сначала копию, потом настоящий элемент. Поэтому здесь только серые блоки.
+ */
 export function LibraryLoading() {
   return (
-    <div
-      aria-busy="true"
-      aria-label="База знаний загружается"
-      className="@container/library min-w-0"
-      data-library-state="loading"
-    >
-      <LibraryHeader />
-      <div>
-        <section aria-labelledby="library-loading-heading" className="mt-11">
-          <PublicSectionHeading id="library-loading-heading" title="Материалы" />
-          <ul
-            aria-hidden="true"
-            className="mt-4 grid grid-cols-1 items-start gap-3 @min-[44rem]/library:grid-cols-2"
-            role="list"
-          >
-            {[0, 1, 2].map((item) => (
-              <li className="w-full" key={item}>
-                <div className="h-28 animate-pulse rounded-2xl bg-muted motion-reduce:animate-none" />
-              </li>
-            ))}
-          </ul>
-          <p className="sr-only">Загружаем опубликованные материалы</p>
-        </section>
+    <LibraryFrame busy label="База знаний загружается" state="loading">
+      <LibrarySearchArea />
+      <div className="mt-11">
+        <ul
+          aria-hidden="true"
+          className="grid grid-cols-1 items-start gap-3 @min-[44rem]/library:grid-cols-2"
+          role="list"
+        >
+          {[0, 1, 2].map((item) => (
+            <li className="w-full" key={item}>
+              <div className="h-28 animate-pulse rounded-2xl bg-muted motion-reduce:animate-none" />
+            </li>
+          ))}
+        </ul>
+        <p className="sr-only">Загружаем опубликованные материалы</p>
       </div>
-    </div>
+    </LibraryFrame>
   );
 }
 
@@ -141,28 +138,59 @@ export function LibraryUnexpectedError({
   readonly onRetry: () => void;
 }) {
   return (
-    <div className="@container/library min-w-0">
+    <LibraryFrame>
+      <LibraryStatus
+        action={
+          <div className="flex flex-wrap gap-3">
+            <Button onClick={onRetry} size="lg">
+              <RefreshCw aria-hidden="true" />
+              Повторить
+            </Button>
+            <Button asChild size="lg" variant="outline">
+              <Link href="/library">Открыть первую страницу</Link>
+            </Button>
+          </div>
+        }
+        message="Не удалось загрузить каталог. Попробуйте ещё раз."
+        state="unexpected-error"
+        title="База знаний сейчас недоступна"
+      />
+    </LibraryFrame>
+  );
+}
+
+/**
+ * Каркас Базы знаний. Все состояния страницы берут оболочку и шапку отсюда: пока это делал каждый
+ * сам, у загрузки не оказалось `overflow-x-clip`, и во время загрузки страница могла поехать вбок.
+ */
+function LibraryFrame({
+  busy = false,
+  children,
+  label,
+  state,
+}: {
+  readonly busy?: boolean;
+  readonly children: React.ReactNode;
+  readonly label?: string;
+  readonly state?: "loading";
+}) {
+  return (
+    <div
+      aria-busy={busy || undefined}
+      aria-label={label}
+      className="@container/library min-w-0 overflow-x-clip"
+      data-library-frame
+      data-library-state={state}
+    >
       <LibraryHeader />
-      <div>
-        <LibraryStatus
-          action={
-            <div className="flex flex-wrap gap-3">
-              <Button onClick={onRetry} size="lg">
-                <RefreshCw aria-hidden="true" />
-                Повторить
-              </Button>
-              <Button asChild size="lg" variant="outline">
-                <Link href="/library">Открыть первую страницу</Link>
-              </Button>
-            </div>
-          }
-          message="Не удалось загрузить каталог. Попробуйте ещё раз."
-          state="unexpected-error"
-          title="База знаний сейчас недоступна"
-        />
-      </div>
+      <div>{children}</div>
     </div>
   );
+}
+
+/** Место поиска над каталогом: одинаковое у готовой страницы и у загрузки. */
+function LibrarySearchArea({ children }: { readonly children?: React.ReactNode }) {
+  return <div className="mt-7" data-library-search>{children ?? <LibrarySearchPlaceholder />}</div>;
 }
 
 function LibraryHeader() {
