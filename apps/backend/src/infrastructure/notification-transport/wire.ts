@@ -70,14 +70,16 @@ export function encodeNotification(lane: NotificationLane, input: unknown): Noti
 const FAILURE_TEXT_LIMIT = 300;
 const providerErrorSchema = z.object({ name: z.string(), code: z.string().optional() });
 /**
- * Причина отказа для журнала. Своя ошибка называется текстом, а ошибка драйвера базы — только
- * именем и кодом: её текст пересказывает переданный объект, то есть саму полезную нагрузку и
- * адрес получателя. Укорочение здесь — предел, а не защита.
+ * Причина отказа для журнала. Своя ошибка называется текстом, а ошибка драйвера базы и отказ
+ * разбора JSON — только именем: их текст пересказывает переданный объект или сам разбираемый
+ * payload, то есть адрес получателя и содержимое сообщения. Укорочение здесь — предел, а не защита.
  */
 export function loggableFailure(error: unknown): string {
   const provider = providerErrorSchema.safeParse(error);
   if (provider.success && provider.data.name.startsWith('Prisma')) {
     return `${provider.data.name}${provider.data.code === undefined ? '' : `: ${provider.data.code}`}`;
   }
+  // Отказ разбора JSON цитирует кусок разбираемого текста, поэтому у него остаётся только имя.
+  if (error instanceof SyntaxError) return error.name;
   return (error instanceof Error ? `${error.name}: ${error.message}` : String(error)).slice(0, FAILURE_TEXT_LIMIT);
 }
