@@ -1,6 +1,6 @@
 import "server-only";
 
-import { type MaterialDifficulty } from "@/shared/api/material-difficulty";
+import { type MaterialDifficulty } from "@/shared/api/material-lesson-facts";
 import { type MaterialFormat } from "@/shared/api/material-format";
 
 import { MaterialAuthoringService } from "./generated/platform-api";

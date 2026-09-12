@@ -1,11 +1,8 @@
-import { defaultGuideMode, guideModes, isGuideMode } from "@inside/material-blocks";
+import { defaultGuideMode, guideModeSchema, isGuideMode } from "@inside/material-blocks";
 import type { GuideMode } from "@inside/material-blocks";
 import { z } from "zod";
 
 import type { ReadingActivityPrismaClient } from "../../../../infrastructure/prisma/index.js";
-
-/** The registry owns the mode names, so the wire contract enumerates them from it. */
-export const guideModeSchema = z.enum(guideModes);
 
 export const readerGuideModeSchema = z
   .object({ guideMode: guideModeSchema })

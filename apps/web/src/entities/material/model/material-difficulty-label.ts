@@ -1,4 +1,4 @@
-import type { MaterialDifficulty } from "@/shared/api/material-difficulty";
+import type { MaterialDifficulty } from "@/shared/api/material-lesson-facts";
 
 /** Как сложность урока называется читателю: одно слово на уровень, в уроке и в программе. */
 const labels: Readonly<Record<MaterialDifficulty, string>> = {

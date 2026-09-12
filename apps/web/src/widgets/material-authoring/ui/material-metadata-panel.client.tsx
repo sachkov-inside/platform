@@ -8,7 +8,7 @@ import { MaterialDeleteDialog } from "@/features/material-lifecycle";
 import {
   MATERIAL_OUTCOMES,
   materialDifficulties,
-} from "@/shared/api/material-difficulty";
+} from "@/shared/api/material-lesson-facts";
 import { Button } from "@/shared/ui/button";
 import { cn } from "@/shared/lib/utils";
 import {

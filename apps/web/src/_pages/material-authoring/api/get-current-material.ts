@@ -1,6 +1,6 @@
 import "server-only";
 
-import { materialDifficultySchema } from "@/shared/api/material-difficulty";
+import { materialDifficultySchema } from "@/shared/api/material-lesson-facts";
 import { materialFormatSchema } from "@/shared/api/material-format";
 
 

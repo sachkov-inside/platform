@@ -4,7 +4,7 @@ import {
   MATERIAL_OUTCOMES,
   materialDifficultySchema,
   type MaterialDifficulty,
-} from "@/shared/api/material-difficulty";
+} from "@/shared/api/material-lesson-facts";
 import {
   materialFormatSchema,
   type MaterialFormat,

@@ -1,4 +1,4 @@
-import type { MaterialDifficulty } from "@/shared/api/material-difficulty";
+import type { MaterialDifficulty } from "@/shared/api/material-lesson-facts";
 
 import type { ContentCover } from "./content-cover";
 

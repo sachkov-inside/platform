@@ -9,6 +9,7 @@ import {
   guideModeSchema,
   readGuideMode,
   GUEST_GUIDE_MODE_COOKIE,
+  GUIDE_MODE_HINT_COOKIE,
   type GuideMode,
 } from "@/shared/guide-mode";
 
@@ -36,4 +37,13 @@ export async function loadReaderGuideMode(
   } catch {
     return defaultGuideMode;
   }
+}
+
+/**
+ * Видел ли этот браузер подсказку о двух режимах. Ответ нужен серверу до отрисовки урока: иначе
+ * подсказка появилась бы после гидратации и сдвинула текст под собой.
+ */
+export async function readerHasSeenGuideModeHint(): Promise<boolean> {
+  const store = await cookies();
+  return store.get(GUIDE_MODE_HINT_COOKIE)?.value === "seen";
 }

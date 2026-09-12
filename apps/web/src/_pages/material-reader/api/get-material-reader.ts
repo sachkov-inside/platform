@@ -14,7 +14,7 @@ import {
   contentCoverSchema,
   renderedMaterialBodySchema,
 } from "@/entities/material.model";
-import { materialDifficultySchema } from "@/shared/api/material-difficulty";
+import { materialDifficultySchema } from "@/shared/api/material-lesson-facts";
 import { dependencyUnavailableProblemSchema } from "@/shared/api/problem-details";
 
 const projectionSchema = z.object({

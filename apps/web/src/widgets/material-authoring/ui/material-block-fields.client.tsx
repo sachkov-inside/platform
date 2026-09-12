@@ -7,12 +7,7 @@ import {
   calloutTonePresentation,
   type CalloutTone,
 } from "@/entities/material";
-import {
-  guideModeLabels,
-  guideModes,
-  isGuideMode,
-  type GuideMode,
-} from "@/shared/guide-mode";
+import { guideModeLabels, guideModes, type GuideMode } from "@/shared/guide-mode";
 import { Button } from "@/shared/ui/button";
 
 const titleFieldClass =
@@ -69,7 +64,6 @@ function variantUnderCursor(
   editor: Editor,
 ):
   | {
-      readonly branches: number;
       readonly end: number;
       /** Позиция каждой ветки в документе, в порядке веток. */
       readonly branchPositions: readonly number[];
@@ -85,11 +79,7 @@ function variantUnderCursor(
       positions.push(position);
       position += child.nodeSize;
     });
-    return {
-      branchPositions: positions,
-      branches: node.childCount,
-      end: $from.end(depth),
-    };
+    return { branchPositions: positions, end: $from.end(depth) };
   }
   return undefined;
 }
@@ -104,21 +94,20 @@ function selectBranchMode(
   mode: GuideMode,
   currentMode: GuideMode,
 ): void {
-  const variant = variantUnderCursor(editor);
-  const current = editor.state.selection.$from;
-  const branchPosition = variant?.branchPositions.find((position) => {
-    const size = editor.state.doc.nodeAt(position)?.nodeSize;
-    return size !== undefined && position <= current.pos && current.pos <= position + size;
-  });
-  const occupied =
-    variant === undefined || branchPosition === undefined
-      ? undefined
-      : variant.branchPositions.find(
-          (position) =>
-            position !== branchPosition &&
-              isGuideMode(editor.state.doc.nodeAt(position)?.attrs.mode) &&
-            editor.state.doc.nodeAt(position)?.attrs.mode === mode,
-        );
+  const cursor = editor.state.selection.$from.pos;
+  const branches = (variantUnderCursor(editor)?.branchPositions ?? []).map(
+    (position) => {
+      const node = editor.state.doc.nodeAt(position);
+      const mode: unknown = node?.attrs.mode;
+      return { mode, position, size: node?.nodeSize ?? 0 };
+    },
+  );
+  const branchPosition = branches.find(
+    (branch) => branch.position <= cursor && cursor <= branch.position + branch.size,
+  )?.position;
+  const occupied = branches.find(
+    (branch) => branch.position !== branchPosition && branch.mode === mode,
+  )?.position;
   if (branchPosition === undefined || occupied === undefined) {
     editor.commands.updateAttributes("variantOption", { mode });
     return;
@@ -146,7 +135,7 @@ function VariantFields({
   readonly editor: Editor;
 }) {
   const variant = variantUnderCursor(editor);
-  const branches = variant?.branches ?? 0;
+  const branches = variant?.branchPositions.length ?? 0;
   const missing = guideModes.find((mode) => mode !== branchMode);
 
   return (

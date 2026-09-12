@@ -1,8 +1,8 @@
+import { guideModeSchema } from "@inside/material-blocks";
 import type { GuideMode } from "@inside/material-blocks";
 import { z } from "zod";
 
 import type { ReadingActivityPrismaClient } from "../../../../infrastructure/prisma/index.js";
-import { guideModeSchema } from "../get-reader-guide-mode/get-reader-guide-mode.js";
 
 export const setReaderGuideModeSchema = z
   .object({ guideMode: guideModeSchema })

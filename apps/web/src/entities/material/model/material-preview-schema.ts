@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { materialDifficultySchema } from "@/shared/api/material-difficulty";
+import { materialDifficultySchema } from "@/shared/api/material-lesson-facts";
 
 import type { MaterialPreview } from "./material-preview";
 import { contentCoverSchema } from "./content-cover";

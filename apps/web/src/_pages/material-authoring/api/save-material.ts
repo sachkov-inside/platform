@@ -3,7 +3,7 @@ import "server-only";
 import {
   MATERIAL_OUTCOMES,
   materialDifficultySchema,
-} from "@/shared/api/material-difficulty";
+} from "@/shared/api/material-lesson-facts";
 import { materialFormatSchema } from "@/shared/api/material-format";
 
 

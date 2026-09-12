@@ -4,7 +4,7 @@ import type {
   RenderedMark,
   RenderedText,
 } from "@/entities/material.model";
-import type { MaterialDifficulty } from "@/shared/api/material-difficulty";
+import type { MaterialDifficulty } from "@/shared/api/material-lesson-facts";
 
 export type ReaderMark = RenderedMark;
 export type ReaderText = RenderedText;

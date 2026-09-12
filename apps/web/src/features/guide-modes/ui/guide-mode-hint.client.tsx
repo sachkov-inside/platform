@@ -1,59 +1,32 @@
 "use client";
 
 import { X } from "lucide-react";
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/shared/ui/button";
-import { guideModeLabels, useGuideMode } from "@/shared/guide-mode";
-
-const HINT_STORAGE_KEY = "inside.guide-mode-hint.v1";
-
-function subscribeSeen(onStoreChange: () => void): () => void {
-  window.addEventListener("storage", onStoreChange);
-  return () => {
-    window.removeEventListener("storage", onStoreChange);
-  };
-}
-
-function readSeen(): boolean {
-  try {
-    return localStorage.getItem(HINT_STORAGE_KEY) === "seen";
-  } catch {
-    return false;
-  }
-}
-
-function remember(): void {
-  try {
-    localStorage.setItem(HINT_STORAGE_KEY, "seen");
-  } catch {
-    // Недоступное хранилище означает, что подсказка появится ещё раз, а не что урок сломался.
-  }
-}
+import {
+  guideModeLabels,
+  rememberGuideModeHintSeen,
+  useGuideMode,
+} from "@/shared/guide-mode";
 
 /**
  * Подсказка о двух режимах у первого вариантного шага. Показывается один раз на браузер: она
  * объясняет устройство руководства, и повторять это на каждом уроке незачем.
  *
- * Ответ сервера одинаков для всех, а «видел ли читатель подсказку» знает только его браузер,
- * поэтому на сервере она считается уже показанной и появляется после гидратации.
+ * Показывать её или нет, решает сервер по cookie, поэтому подсказка приходит вместе со страницей
+ * и ничего под собой не сдвигает. Засчитывается она показанной сразу, а не по кнопке: читатель,
+ * который её просто пролистал, иначе встречал бы её на каждом уроке.
  */
 export function GuideModeHint() {
   const { mode } = useGuideMode();
   const [dismissed, setDismissed] = useState(false);
-  const seen = useSyncExternalStore(
-    subscribeSeen,
-    readSeen,
-    useCallback(() => true, []),
-  );
 
-  // Подсказка засчитывается показанной сразу, а не по кнопке: иначе читатель, который просто
-  // пролистал её, встречал бы её снова на каждом уроке руководства.
   useEffect(() => {
-    if (!seen) remember();
-  }, [seen]);
+    rememberGuideModeHintSeen();
+  }, []);
 
-  if (seen || dismissed) return null;
+  if (dismissed) return null;
 
   return (
     <aside
@@ -68,7 +41,6 @@ export function GuideModeHint() {
       <Button
         aria-label="Понятно, скрыть подсказку"
         onClick={() => {
-          remember();
           setDismissed(true);
         }}
         size="icon"

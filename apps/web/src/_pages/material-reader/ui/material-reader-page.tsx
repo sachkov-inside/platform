@@ -4,7 +4,10 @@ import { notFound } from "next/navigation";
 
 import { loadGuideOffers } from "@/entities/subscription.catalog.server";
 import { GuideModeHint, GuideModeSwitch } from "@/features/guide-modes";
-import { loadReaderGuideMode } from "@/features/guide-modes.reader.server";
+import {
+  loadReaderGuideMode,
+  readerHasSeenGuideModeHint,
+} from "@/features/guide-modes.reader.server";
 import { loadPublishedSeries } from "@/features/library-discovery.server";
 import { GuideModeProvider, defaultGuideMode } from "@/shared/guide-mode";
 import { loadMaterialReader } from "../api/load-material-reader";
@@ -30,7 +33,7 @@ export async function MaterialReaderPage({
   // Режим нужен только внутри руководства, поэтому вне его за ним никто не ходит.
   const guideSlug =
     returnTarget.kind === "series" ? returnTarget.seriesSlug : undefined;
-  const [result, seriesResult, guideMode] = await Promise.all([
+  const [result, seriesResult, guideMode, hintSeen] = await Promise.all([
     loadMaterialReader(slug, accessToken),
     guideSlug === undefined
       ? Promise.resolve(null)
@@ -38,6 +41,9 @@ export async function MaterialReaderPage({
     guideSlug === undefined
       ? Promise.resolve(defaultGuideMode)
       : loadReaderGuideMode(accessToken),
+    guideSlug === undefined
+      ? Promise.resolve(true)
+      : readerHasSeenGuideModeHint(),
   ]);
   if (result.kind === "not-found") {
     notFound();
@@ -105,7 +111,7 @@ export async function MaterialReaderPage({
       material={result.material}
       {...(showsModes
         ? {
-            modeHint: <GuideModeHint />,
+            ...(hintSeen ? {} : { modeHint: <GuideModeHint /> }),
             modeSwitch: <GuideModeSwitch signedIn={accessToken !== undefined} />,
           }
         : {})}
