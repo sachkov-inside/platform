@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import { GenericContainer, Wait } from "testcontainers";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
@@ -53,6 +53,7 @@ import {
   type TestDatabase,
 } from "./setup/test-database.js";
 import { providerStand, type ProviderStand } from "./setup/telegram-provider-stand.js";
+import { syntheticConsentDocuments } from "./setup/consent-documents.js";
 
 // Каждое ожидание заканчивается на зафиксированном факте; бюджет только ограничивает зависший прогон.
 const barrierBudgetMs = 45_000;
@@ -64,11 +65,7 @@ const config = tbankConfigSchema.parse({
   minimumKopecks: 100, maximumKopecks: 10_000_000, returnUrl: `${origin}/account`,
   notificationUrl: `${origin}/billing/tbank/notification`, receipt: { taxation: "usn_income", tax: "none" },
 });
-const documents = (["terms", "recurring"] as const).map((kind) => {
-  const text = `Synthetic ${kind}, not legal terms`;
-  return { kind, documentId: kind, version: "test-v1", text,
-    digest: createHash("sha256").update(text).digest("hex"), url: `https://example.test/${kind}` };
-});
+const documents = syntheticConsentDocuments;
 
 function value<T>(
   result: { ok: true; value: T } | { ok: false; error: { code: string } },

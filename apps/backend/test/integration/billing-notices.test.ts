@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { assembleAccounts, BillingContact, NotificationAccounts } from "../../src/modules/accounts/index.js";
 import { billingContactProtection } from "../../src/modules/accounts/infrastructure/billing-contact-protection.js";
@@ -14,6 +14,7 @@ import { encodeNotification } from "../../src/infrastructure/notification-transp
 import { tbankConfigSchema } from "../../src/config/tbank-config.js";
 import { BankFixture } from "./setup/bank.js";
 import { createMigratedTestDatabase, type TestDatabase } from "./setup/test-database.js";
+import { syntheticConsentDocuments } from "./setup/consent-documents.js";
 
 function value<T>(result: { ok: true; value: T } | { ok: false; error: { code: string } }): T {
   if (!result.ok) throw new Error(result.error.code); return result.value;
@@ -23,8 +24,7 @@ const config = tbankConfigSchema.parse({ environment: "demo", terminalKey: "SYNT
   bindingEncryptionKey: Buffer.alloc(32, 61).toString("base64"), recurringCardConfirmed: true, cardOnlyHostedConfirmed: true,
   minimumKopecks: 100, maximumKopecks: 10_000_000, returnUrl: `${origin}/account`,
   notificationUrl: `${origin}/billing/tbank/notification`, receipt: { taxation: "usn_income", tax: "none" } });
-const documents = (["terms", "recurring"] as const).map(kind => { const text = `Synthetic ${kind}, not legal terms`;
-  return { kind, documentId: kind, version: "test-v1", text, digest: createHash("sha256").update(text).digest("hex"), url: `https://example.test/${kind}` }; });
+const documents = syntheticConsentDocuments;
 
 /**
  * Оба конца одного пути на реальном PostgreSQL: подтверждённые факты Billing становятся поводами,
