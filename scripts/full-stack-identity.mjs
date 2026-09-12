@@ -61,6 +61,20 @@ export async function startFullStackIdentity({ apiBaseUrl, webBaseUrl }) {
     refreshTokens.set(refreshToken, tokenSubject);
     return refreshToken;
   };
+  /**
+   * Сессия, доступ которой уже истёк. Продление обязано случиться на первом же запросе, поэтому
+   * проверять его можно за секунды, а не ожиданием пяти минут в каждом следующем прогоне.
+   */
+  const sessionCookiePastExpiry = async (tokenSubject, refreshToken) => {
+    const issuedAt =
+      Math.floor(Date.now() / 1_000) - fullStackAccessTokenTtlSeconds * 2;
+    const stale = await mintAccessToken(tokenSubject, issuedAt);
+    return sessionCookie({
+      token: stale.token,
+      expiresAt: stale.expiresAt,
+      refreshToken,
+    });
+  };
   const server = createServer((request, response) => {
     void route(request, response);
   });
@@ -79,13 +93,12 @@ export async function startFullStackIdentity({ apiBaseUrl, webBaseUrl }) {
       return;
     }
     if (request.url === "/oidc/.well-known/openid-configuration") {
+      // Объявляется только то, что здесь действительно есть. Вход и выход в наборе идут через
+      // готовые cookie, а не через браузерный поток, поэтому обещать несуществующие адреса нельзя:
+      // это увело бы разбор очередного падения к «эндпоинту», которого никто не реализовывал.
       sendJson(response, 200, {
         issuer,
-        authorization_endpoint: `${origin}/oidc/auth`,
         token_endpoint: `${origin}/oidc/token`,
-        userinfo_endpoint: `${origin}/oidc/me`,
-        end_session_endpoint: `${origin}/oidc/session/end`,
-        revocation_endpoint: `${origin}/oidc/token/revocation`,
         jwks_uri: `${origin}/jwks`,
       });
       return;
@@ -100,22 +113,28 @@ export async function startFullStackIdentity({ apiBaseUrl, webBaseUrl }) {
   /**
    * Продление сессии по refresh-токену. Выдаётся такой же пятиминутный токен, что и на старте:
    * прогон живёт дольше, но приложение и API продолжают работать с коротким сроком и проверять его.
+   *
+   * Отказ отдаётся в том же виде, в каком его отдаёт Logto: `code` и `message` рядом с `error`.
+   * Клиент Logto разбирает ошибку только по этой паре, иначе отказ станет для приложения
+   * «неожиданным ответом», и непродлеваемая сессия покажется недоступностью сервиса.
    */
   async function issueRenewedToken(request, response) {
     const parameters = new URLSearchParams(await readBody(request));
     if (parameters.get("grant_type") !== "refresh_token") {
-      sendJson(response, 400, { error: "unsupported_grant_type" });
+      sendJson(response, 400, grantFailure("unsupported_grant_type", "Only the refresh_token grant is served here"));
       return;
     }
     const presented = parameters.get("refresh_token") ?? "";
     const tokenSubject = refreshTokens.get(presented);
     if (tokenSubject === undefined) {
-      sendJson(response, 400, { error: "invalid_grant" });
+      sendJson(response, 400, grantFailure("invalid_grant", "Unknown refresh token"));
       return;
     }
+    // Токен выпускается ровно на свою аудиторию. Без этой проверки чужой resource молча получил
+    // бы рабочий токен, и ошибка в настройке аудитории проходила бы в наборе, но не в продакшене.
     const resource = parameters.get("resource");
     if (resource !== null && resource !== audience) {
-      sendJson(response, 400, { error: "invalid_target" });
+      sendJson(response, 400, grantFailure("invalid_target", "Requested resource is not this audience"));
       return;
     }
     const renewed = await createAccessToken(tokenSubject);
@@ -131,6 +150,8 @@ export async function startFullStackIdentity({ apiBaseUrl, webBaseUrl }) {
   return {
     cookieName: `logto_${appId}`,
     memberSubject,
+    /** Срок доступа: он остаётся коротким, и это значение — его единственный владелец. */
+    accessTokenTtlSeconds: fullStackAccessTokenTtlSeconds,
     createAccessToken,
     /**
      * Cookie сессии. Вместе с первым токеном в неё кладётся refresh-токен, поэтому истёкший
@@ -142,36 +163,18 @@ export async function startFullStackIdentity({ apiBaseUrl, webBaseUrl }) {
         expiresAt,
         refreshToken: issueRefreshToken(tokenSubject),
       }),
-    /**
-     * Сессия, у которой доступ уже истёк. Так продление проверяется за секунды, а не ожиданием
-     * пяти минут: первый же запрос обязан пройти через token endpoint.
-     */
-    createSessionPastExpiry: async (tokenSubject = subject) => {
-      const stale = await mintAccessToken(
-        tokenSubject,
-        Math.floor(Date.now() / 1_000) - fullStackAccessTokenTtlSeconds * 2,
-      );
-      return sessionCookie({
-        token: stale.token,
-        expiresAt: stale.expiresAt,
-        refreshToken: issueRefreshToken(tokenSubject),
-      });
-    },
+    /** Истёкшая сессия, которую есть чем продлить. */
+    createSessionPastExpiry: (tokenSubject = subject) =>
+      sessionCookiePastExpiry(tokenSubject, issueRefreshToken(tokenSubject)),
     /**
      * Та же истёкшая сессия, но продлить её нечем: refresh-токен неизвестен этому серверу.
      * Ею проверяется, что истечение видно как истечение, а не как пустая или сломанная страница.
      */
-    createSessionWithoutRenewal: async (tokenSubject = subject) => {
-      const stale = await mintAccessToken(
+    createSessionWithoutRenewal: (tokenSubject = subject) =>
+      sessionCookiePastExpiry(
         tokenSubject,
-        Math.floor(Date.now() / 1_000) - fullStackAccessTokenTtlSeconds * 2,
-      );
-      return sessionCookie({
-        token: stale.token,
-        expiresAt: stale.expiresAt,
-        refreshToken: `fullstack-refresh-unknown-${randomUUID()}`,
-      });
-    },
+        `fullstack-refresh-unknown-${randomUUID()}`,
+      ),
     environment: {
       LOGTO_APP_ID: appId,
       LOGTO_APP_SECRET: "inside-fullstack-app-secret",
@@ -191,6 +194,11 @@ export async function startFullStackIdentity({ apiBaseUrl, webBaseUrl }) {
         );
       }),
   };
+}
+
+/** Отказ в выдаче токена: `error` — это OIDC, `code` и `message` — то, что читает клиент Logto. */
+function grantFailure(code, message) {
+  return { error: code, code, message };
 }
 
 function sendJson(response, status, body) {

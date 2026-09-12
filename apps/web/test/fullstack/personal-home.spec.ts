@@ -38,7 +38,7 @@ async function screenshot(page: Page, project: string, surface: string) {
   await page.screenshot({ path: resolve(directory, `${project}-inline-${surface}.png`), fullPage: !captureViewport });
 }
 test("personal Home opens the real series, persists marks and reconciles a lost visible open", async ({ page, context }, testInfo) => {
-  await signInFullStack(context, "FULLSTACK_LOGTO_EXPIRED_MEMBER_SESSION"); await dismissOnboarding(page); await resetSeries(page);
+  await signInFullStack(context, "EXPIRED_MEMBER"); await dismissOnboarding(page); await resetSeries(page);
   await page.goto(`/materials/${materialSlugs[0]}`); const otherMark = await unmark(page, "Прочитано");
   await otherMark.click(); await expect(otherMark).toHaveAttribute("aria-pressed", "true");
   await signInFullStack(context); await resetSeries(page);
@@ -93,12 +93,12 @@ test("personal Home opens the real series, persists marks and reconciles a lost 
   await page.goto("/"); await expect(resumeSeries).toContainText("изучено 2 из 3");
   await context.clearCookies(); await page.goto("/"); await expect(resumeSeries).toHaveCount(0);
   await signInFullStack(context); await page.reload(); await expect(resumeSeries).toContainText("изучено 2 из 3");
-  await signInFullStack(context, "FULLSTACK_LOGTO_EXPIRED_MEMBER_SESSION"); await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await signInFullStack(context, "EXPIRED_MEMBER"); await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await expect(resumeSeries).toContainText("изучено 1 из 3"); await personal(page);
 });
 
 test("personal Home resumes real Video progress in the normal video section and excludes playback end", async ({ page, context }, testInfo) => {
-  await signInFullStack(context, "FULLSTACK_LOGTO_MEMBER_SESSION"); await dismissOnboarding(page);
+  await signInFullStack(context, "MEMBER"); await dismissOnboarding(page);
   // The iframe SDK is the only double; playback sessions and progress use the API and PostgreSQL.
   await page.route("https://kinescope.io/**", async (route) => { await route.fulfill({ contentType: "text/html", body: "<title>Local video provider</title>" }); });
   await page.addInitScript(() => {

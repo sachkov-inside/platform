@@ -491,7 +491,7 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
   context,
   page,
 }, testInfo) => {
-  await signInFullStack(context, "FULLSTACK_LOGTO_SESSION");
+  await signInFullStack(context, "OWNER");
 
   await page.goto("/materials/produkt-i-inzhenernyy-kontekst");
   const onboardingDismiss = page.getByRole("button", {

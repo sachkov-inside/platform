@@ -15,6 +15,10 @@ describe("full-stack identity", () => {
   const apiBaseUrl = "http://127.0.0.1:65001";
   let identity;
   let tokenEndpoint;
+  /** Всё, чем описана сессия, объявляет сама фикстура: тест не заводит второй копии этих фактов. */
+  let clientId;
+  let cookieSecret;
+  let ownerSubject;
 
   before(async () => {
     identity = await startFullStackIdentity({
@@ -29,6 +33,9 @@ describe("full-stack identity", () => {
     assert.equal(document.issuer, identity.environment.LOGTO_ISSUER);
     assert.equal(document.jwks_uri, identity.environment.LOGTO_JWKS_URL);
     tokenEndpoint = document.token_endpoint;
+    clientId = identity.environment.LOGTO_APP_ID;
+    cookieSecret = identity.environment.LOGTO_COOKIE_SECRET;
+    ownerSubject = identity.environment.OWNER_LOGTO_SUBJECT;
   });
 
   after(async () => {
@@ -43,30 +50,30 @@ describe("full-stack identity", () => {
       grant_type: "refresh_token",
       refresh_token: await refreshTokenOf(cookie),
       resource: apiBaseUrl,
-      client_id: "inside-web-fullstack",
+      client_id: clientId,
     });
 
     assert.equal(renewed.status, 200);
     const body = await renewed.json();
-    assert.equal(body.expires_in, 300);
+    assert.equal(body.expires_in, identity.accessTokenTtlSeconds);
     assert.equal(typeof body.access_token, "string");
-    assert.equal(claimsOf(body.access_token).sub, "fullstack-owner");
-    // Новый доступ живёт свои пять минут от выдачи: короткий срок остаётся коротким.
-    assert.ok(
-      claimsOf(body.access_token).exp - Math.floor(Date.now() / 1_000) > 240,
-    );
+    const claims = claimsOf(body.access_token);
+    assert.equal(claims.sub, ownerSubject);
+    assert.equal(claims.aud, apiBaseUrl);
+    // Продлённый доступ живёт ровно тот же короткий срок: продление не удлиняет его.
+    assert.equal(claims.exp - claims.iat, identity.accessTokenTtlSeconds);
   });
 
-  it("keeps the five-minute access token short in a session past its expiry", async () => {
+  it("renews a session whose access has already run out", async () => {
     const cookie = await identity.createSessionPastExpiry();
-    const stale = JSON.parse((await sessionOf(cookie)).accessToken)[`@${apiBaseUrl}`];
+    const stale = claimsOf(accessTokenOf(await sessionOf(cookie), apiBaseUrl));
 
-    assert.ok(stale.expiresAt < Math.floor(Date.now() / 1_000));
+    assert.ok(stale.exp < Math.floor(Date.now() / 1_000));
     const renewed = await grant({
       grant_type: "refresh_token",
       refresh_token: await refreshTokenOf(cookie),
       resource: apiBaseUrl,
-      client_id: "inside-web-fullstack",
+      client_id: clientId,
     });
     assert.equal(renewed.status, 200);
   });
@@ -78,11 +85,17 @@ describe("full-stack identity", () => {
       grant_type: "refresh_token",
       refresh_token: await refreshTokenOf(cookie),
       resource: apiBaseUrl,
-      client_id: "inside-web-fullstack",
+      client_id: clientId,
     });
 
     assert.equal(refused.status, 400);
-    assert.deepEqual(await refused.json(), { error: "invalid_grant" });
+    // Клиент Logto считает ошибкой сервера только тело с code и message. Без них отказ станет
+    // «неожиданным ответом», и непродлеваемая сессия покажется приложению недоступностью.
+    const body = await refused.json();
+    assert.equal(body.error, "invalid_grant");
+    assert.equal(body.code, "invalid_grant");
+    assert.equal(typeof body.message, "string");
+    assert.ok(body.message.length > 0);
   });
 
   it("refuses a renewal aimed at another audience", async () => {
@@ -94,11 +107,15 @@ describe("full-stack identity", () => {
       grant_type: "refresh_token",
       refresh_token: await refreshTokenOf(cookie),
       resource: "http://127.0.0.1:65999",
-      client_id: "inside-web-fullstack",
+      client_id: clientId,
     });
 
     assert.equal(refused.status, 400);
-    assert.deepEqual(await refused.json(), { error: "invalid_target" });
+    assert.deepEqual(await refused.json(), {
+      error: "invalid_target",
+      code: "invalid_target",
+      message: "Requested resource is not this audience",
+    });
   });
 
   function grant(parameters) {
@@ -109,15 +126,19 @@ describe("full-stack identity", () => {
     });
   }
 
+  /** Cookie зашифрован секретом, который объявила фикстура; тест читает его тем же способом. */
+  function sessionOf(cookie) {
+    return unwrapSession(cookie, cookieSecret);
+  }
+
+  async function refreshTokenOf(cookie) {
+    return (await sessionOf(cookie)).refreshToken;
+  }
 });
 
-/** Cookie сессии зашифрован тем же секретом, что и в приложении; тест читает его тем же способом. */
-function sessionOf(cookie) {
-  return unwrapSession(cookie, "inside-fullstack-cookie-secret-key");
-}
-
-async function refreshTokenOf(cookie) {
-  return (await sessionOf(cookie)).refreshToken;
+/** Доступ, сохранённый в сессии для своей аудитории. */
+function accessTokenOf(session, audience) {
+  return JSON.parse(session.accessToken)[`@${audience}`].token;
 }
 
 function claimsOf(accessToken) {

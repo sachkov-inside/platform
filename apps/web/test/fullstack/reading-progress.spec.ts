@@ -79,7 +79,7 @@ test("reading progress reconciles stale windows and account changes without relo
     await expect(button).toHaveAttribute("aria-pressed", "true");
     await page.getByRole("button", { name: "Обновить статус" }).click();
     // Another authenticated identity, in the SAME page and QueryClient.
-    await signInFullStack(context, "FULLSTACK_LOGTO_EXPIRED_MEMBER_SESSION");
+    await signInFullStack(context, "EXPIRED_MEMBER");
     await page.evaluate(() => window.dispatchEvent(new Event("focus")));
     await expect(page.locator("[data-reading-action-state]:visible")).toHaveAttribute("data-reading-action-state", "ready");
     if (await button.getAttribute("aria-pressed") === "true") { await button.click(); await expect(button).toHaveAttribute("aria-pressed", "false"); }
@@ -93,7 +93,7 @@ test("reading progress reconciles stale windows and account changes without relo
 });
 
 test("reading progress appears on Home and Topic for video and other formats", async ({ page, context }) => {
-  await signInFullStack(context, "FULLSTACK_LOGTO_MEMBER_SESSION");
+  await signInFullStack(context, "MEMBER");
   for (const material of [
     { slug: "video-pro-developer-pipeline", label: "Просмотрено", title: "Видео про Developer Pipeline" },
     { slug: "demo-chto-proverit-pered-peredachey-sekretov", label: "Прочитано", title: "Demo · Что проверить перед передачей секретов" },
@@ -111,7 +111,7 @@ test("reading progress appears on Home and Topic for video and other formats", a
 });
 
 test("reading progress counts a shared material in both real Series", async ({ page, context }, testInfo) => {
-  await signInFullStack(context, "FULLSTACK_LOGTO_EXPIRED_MEMBER_SESSION");
+  await signInFullStack(context, "EXPIRED_MEMBER");
   const button = await openReader(page, "demo-podgotovka-prilozheniya-k-relizu");
   if (await button.getAttribute("aria-pressed") !== "true") await button.click();
   await expect(button).toHaveAttribute("aria-pressed", "true");
@@ -136,7 +136,7 @@ test("reading progress counts a shared material in both real Series", async ({ p
 
 
 test("reading progress supports Note and lets an expired member remove a protected mark", async ({ page, context }) => {
-  await signInFullStack(context, "FULLSTACK_LOGTO_EXPIRED_MEMBER_SESSION");
+  await signInFullStack(context, "EXPIRED_MEMBER");
   const text = await openReader(page, "tekst-dlya-proverki-progressa", "Прочитано");
   if (await text.getAttribute("aria-pressed") !== "true") await text.click();
   await expect(text).toHaveAttribute("aria-pressed", "true");

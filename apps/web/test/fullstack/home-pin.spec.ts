@@ -5,11 +5,11 @@ import { signInFullStack } from "../support/full-stack-session";
 
 
 test("author Home pin persists for guests and members, replaces and removes through the real BFF", async ({ page, context, browser, baseURL }, testInfo) => {
-  await signInFullStack(context, "FULLSTACK_LOGTO_SESSION");
+  await signInFullStack(context, "OWNER");
   const guest = await browser.newContext({ baseURL: baseURL ?? "http://127.0.0.1:3000", viewport: page.viewportSize() });
   const guestPage = await guest.newPage();
   const member = await browser.newContext({ baseURL: baseURL ?? "http://127.0.0.1:3000" });
-  await signInFullStack(member, "FULLSTACK_LOGTO_MEMBER_SESSION");
+  await signInFullStack(member, "MEMBER");
   const memberPage = await member.newPage();
   try {
     await page.goto("/authoring/materials");

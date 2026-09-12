@@ -11,7 +11,7 @@ test("shows private Account Telegram and Membership presentation without disclos
   context,
   page,
 }, testInfo) => {
-  await signInFullStack(context, "FULLSTACK_LOGTO_SESSION");
+  await signInFullStack(context, "OWNER");
 
   const accountStateResponse = await page.request.get("/api/account");
   expect(accountStateResponse.status()).toBe(200);
@@ -109,7 +109,7 @@ test("creates or edits the Account Profile and preserves the member projection",
   context,
   page,
 }, testInfo) => {
-  await signInFullStack(context, "FULLSTACK_LOGTO_MEMBER_SESSION");
+  await signInFullStack(context, "MEMBER");
 
   const home = await page.goto("/");
   expect(home?.status()).toBe(200);
