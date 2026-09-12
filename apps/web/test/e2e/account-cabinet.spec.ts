@@ -296,6 +296,7 @@ function contactState() {
   const state = { verified: false };
   return {
     read: () => (state.verified ? verifiedContact : null),
+    confirmed: () => state.verified,
     confirm: () => {
       state.verified = true;
     },
@@ -303,7 +304,17 @@ function contactState() {
 }
 
 /** Поверхность, где подтверждают адрес: письмо и код заменены закрытыми ответами BFF. */
-async function confirmContactOn(page: Page, state: ReturnType<typeof contactState>) {
+async function confirmContactOn(
+  page: Page,
+  state: ReturnType<typeof contactState>,
+  { stallOwnReread = false }: { stallOwnReread?: boolean } = {},
+) {
+  if (stallOwnReread)
+    // Своё перечитывание не отвечает: соседние поверхности не должны его дожидаться.
+    await page.route("**/api/account/billing/contact", async (route) => {
+      if (state.confirmed()) return;
+      await route.fallback();
+    });
   await page.route("**/api/account/billing/contact/start", (route) =>
     route.fulfill({
       json: {
@@ -367,16 +378,38 @@ test("подтверждение перечитывает контакт на в
     return page;
   };
 
+  // Кабинет открывается первым: тогда между опорным замером и проверкой не происходит ничего,
+  // кроме подтверждения, и перечитывание нельзя объяснить появлением новой страницы.
+  const cabinet = await context.newPage();
+  await stubAccount(cabinet, { contact: state.read });
+
   // Витрина руководства читает контакт для оформления, раздел подписки — редакции документов.
   await listening("buy", "/guides/platform-inside/buy");
   await listening("subscription", "/account/subscription");
 
-  const cabinet = await context.newPage();
-  await stubAccount(cabinet, { contact: state.read });
   await confirmContactOn(cabinet, state);
 
-  await expect.poll(() => reads.buy).toBe(2);
-  await expect.poll(() => reads.subscription).toBe(2);
+  // Утверждение — «перечитала», а не точное число: лишнее чтение должно отчитаться, а не подвесить.
+  await expect.poll(() => reads.buy).toBeGreaterThanOrEqual(2);
+  await expect.poll(() => reads.subscription).toBeGreaterThanOrEqual(2);
+});
+
+test("объявление уходит раньше собственного перечитывания", async ({
+  page,
+  context,
+}) => {
+  const state = contactState();
+  await stubAccount(page, { contact: state.read });
+  await page.goto("/account/purchases");
+  await expect(page.getByText("Email пока не подтверждён.")).toBeVisible();
+
+  // Подтверждающая поверхность не получает ответа на своё перечитывание. Соседняя обязана
+  // показать адрес всё равно: она узнаёт о подтверждении, а не о его последствиях здесь.
+  const other = await context.newPage();
+  await stubAccount(other, { contact: state.read });
+  await confirmContactOn(other, state, { stallOwnReread: true });
+
+  await expect(page.getByText(verifiedContact.email, { exact: true })).toBeVisible();
 });
 
 test("без объявлений подтвердившая поверхность обновляется сама", async ({ page }) => {

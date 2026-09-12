@@ -30,7 +30,17 @@ export function billingContactQueryOptions() {
   };
 }
 
-/** Забыть прежний ответ о контакте и перечитать его. Один жест для всех причин сброса. */
+/**
+ * Забыть прежний ответ о контакте и перечитать его. Один жест для всех причин сброса.
+ *
+ * Причин две, и в обычном браузере они приходят вместе: поверхность подтвердила адрес сама и она
+ * же слышит своё объявление. Начатое перечитывание не отменяется, поэтому второй сброс
+ * присоединяется к нему, а не начинает новый запрос: сколько бы поверхностей ни слушало, чтение
+ * одно.
+ */
 export function resetBillingContact(client: QueryClient): Promise<void> {
-  return client.invalidateQueries({ queryKey: billingContactQueryKey });
+  return client.invalidateQueries(
+    { queryKey: billingContactQueryKey },
+    { cancelRefetch: false },
+  );
 }

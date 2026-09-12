@@ -10,10 +10,17 @@
  */
 const contactVerifiedChannelName = "inside.billing-contact.verified";
 
+/** Канал этого документа или ничего там, где браузер его не даёт. */
+function openContactChannel(): BroadcastChannel | null {
+  return typeof BroadcastChannel === "undefined"
+    ? null
+    : new BroadcastChannel(contactVerifiedChannelName);
+}
+
 /** Сообщает другим открытым поверхностям, что контакт только что подтверждён. */
 export function announceBillingContactVerified(): void {
-  if (typeof BroadcastChannel === "undefined") return;
-  const channel = new BroadcastChannel(contactVerifiedChannelName);
+  const channel = openContactChannel();
+  if (channel === null) return;
   channel.postMessage("verified");
   channel.close();
 }
@@ -22,10 +29,7 @@ export function announceBillingContactVerified(): void {
 export function subscribeBillingContactVerified(
   onVerified: () => void,
 ): () => void {
-  const channel =
-    typeof BroadcastChannel === "undefined"
-      ? null
-      : new BroadcastChannel(contactVerifiedChannelName);
+  const channel = openContactChannel();
   channel?.addEventListener("message", () => {
     onVerified();
   });
