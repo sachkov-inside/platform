@@ -285,8 +285,10 @@ composition versions and the Git `step_groups` handoff, follow the
 For editorial originals and publication ownership, follow the
 [content boundary](../product/platform-mvp-brief.md#контент).
 
-NestJS loads the optional repository `.env` through `@nestjs/config`, validates it with Zod, and
-injects one immutable `PlatformConfig`. Next.js validates one server-only `WebRuntimeConfig` during
+NestJS loads the optional repository `.env` through `@nestjs/config` outside test mode, validates
+it with Zod, and injects one immutable `PlatformConfig`. Checks therefore see the declared
+environment and not your local ports; see the
+[runtime configuration contract](runtime-configuration.md#sources-and-precedence). Next.js validates one server-only `WebRuntimeConfig` during
 Node.js server startup. `NODE_ENV=development` enables checked-in local defaults; absent
 `NODE_ENV` is production, where all runtime values are required.
 
