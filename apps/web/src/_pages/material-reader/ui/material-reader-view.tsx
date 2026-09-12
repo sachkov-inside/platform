@@ -10,7 +10,15 @@ import type {
   PrimaryVideoPresentation,
 } from "@/_pages/material-reader/model/material-reader-view";
 import type { SeriesReaderContext } from "@/_pages/material-reader/model/series-reader-context";
-import { materialTaxonomyLabel } from "@/entities/material";
+import {
+  materialTaxonomyLabel,
+  MaterialAgentPrompt,
+  MaterialCallout,
+  MaterialKeyPoint,
+  MaterialLabeledList,
+  MaterialResourceCard,
+  MaterialTakeaways,
+} from "@/entities/material";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { MaterialAssetFile, MaterialAssetImage } from "@/features/material-assets";
@@ -317,13 +325,42 @@ function ReaderBlockView({
       return <ReaderTable block={block} contentVersion={contentVersion} materialId={materialId} path={path} />;
     case "callout":
       return (
-        <aside
-          aria-label={calloutLabel(block.tone)}
-          className="mt-8 rounded-xl bg-secondary px-5 py-5 text-[0.9375rem] leading-7 text-secondary-foreground sm:px-6"
-        >
-          <p className="font-semibold">{calloutLabel(block.tone)}</p>
+        <MaterialCallout title={block.title} tone={block.tone}>
           <ReaderBlocks blocks={block.content} contentVersion={contentVersion} materialId={materialId} path={path} />
-        </aside>
+        </MaterialCallout>
+      );
+    case "resource_card":
+      return (
+        <MaterialResourceCard
+          description={block.description}
+          title={block.title}
+          url={block.url}
+        />
+      );
+    case "agent_prompt":
+      return <MaterialAgentPrompt text={block.text} title={block.title} />;
+    case "takeaways":
+      return (
+        <MaterialTakeaways
+          items={block.content.map((item, index) => (
+            <ReaderBlockView
+              block={item}
+              contentVersion={contentVersion}
+              key={[...path, index].join("-")}
+              materialId={materialId}
+              path={[...path, index]}
+            />
+          ))}
+          title={block.title}
+        />
+      );
+    case "labeled_list":
+      return <MaterialLabeledList rows={block.rows} />;
+    case "key_point":
+      return (
+        <MaterialKeyPoint>
+          <ReaderInline content={block.content} />
+        </MaterialKeyPoint>
       );
     case "image":
       return (
@@ -469,6 +506,3 @@ function textContent(content: readonly ReaderText[]): string {
   return content.map(({ text }) => text).join("");
 }
 
-function calloutLabel(tone: "note" | "tip" | "warning"): string {
-  return tone === "tip" ? "Совет" : tone === "warning" ? "Важно" : "Примечание";
-}

@@ -1,7 +1,15 @@
 import type { ReactNode } from "react";
 
 import { MaterialAssetFile, MaterialAssetImage } from "@/features/material-assets";
-import { materialTaxonomyLabel } from "@/entities/material";
+import {
+  materialTaxonomyLabel,
+  MaterialAgentPrompt,
+  MaterialCallout,
+  MaterialKeyPoint,
+  MaterialLabeledList,
+  MaterialResourceCard,
+  MaterialTakeaways,
+} from "@/entities/material";
 
 import type {
   MaterialPreviewBlock,
@@ -103,17 +111,33 @@ function PreviewBlock({ block, contentVersion, materialId }: {
       return <PreviewTable block={block} contentVersion={contentVersion} materialId={materialId} />;
     case "callout":
       return (
-        <aside className="rounded-xl bg-secondary px-5 py-5 text-secondary-foreground">
-          <div className="font-semibold">
-            {block.tone === "warning" ? "Обратите внимание" : block.tone === "tip" ? "Практика" : "Контекст"}
-          </div>
+        <MaterialCallout title={block.title} tone={block.tone}>
           <div className="mt-2 space-y-3">
             {block.content.map((child, index) => (
               <PreviewBlock block={child} contentVersion={contentVersion} key={`${child.kind}-${String(index)}`} materialId={materialId} />
             ))}
           </div>
-        </aside>
+        </MaterialCallout>
       );
+    case "resource_card":
+      return (
+        <MaterialResourceCard description={block.description} title={block.title} url={block.url} />
+      );
+    case "agent_prompt":
+      return <MaterialAgentPrompt text={block.text} title={block.title} />;
+    case "takeaways":
+      return (
+        <MaterialTakeaways
+          items={block.content.map((child, index) => (
+            <PreviewBlock block={child} contentVersion={contentVersion} key={`${child.kind}-${String(index)}`} materialId={materialId} />
+          ))}
+          title={block.title}
+        />
+      );
+    case "labeled_list":
+      return <MaterialLabeledList rows={block.rows} />;
+    case "key_point":
+      return <MaterialKeyPoint>{renderInline(block.content)}</MaterialKeyPoint>;
     case "image":
       return (
         <MaterialAssetImage

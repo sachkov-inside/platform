@@ -139,6 +139,36 @@ export const materialAuthoringPresentation = {
         tone: "note",
       },
       {
+        content: [paragraph("Один authority на каждый факт.")],
+        kind: "callout",
+        title: "Правило одного источника",
+        tone: "definition",
+      },
+      { content: [text("Issue хранит intent, PR хранит evidence.")], kind: "key_point" },
+      {
+        content: [paragraph("Review закрыт"), paragraph("Owner дал merge GO")],
+        kind: "takeaways",
+        title: "Итоги урока",
+      },
+      {
+        kind: "labeled_list",
+        rows: [
+          { description: "Фиксирует необратимый выбор", label: "ADR", name: "Решение" },
+          { label: "Gate", name: "Проверка" },
+        ],
+      },
+      {
+        description: "Что обещает контракт доставки",
+        kind: "resource_card",
+        title: "Спецификация Platform",
+        url: "https://example.com/spec",
+      },
+      {
+        kind: "agent_prompt",
+        text: "Разбери материал и предложи три правки.",
+        title: "Промпт для разбора",
+      },
+      {
         kind: "code_block",
         text: "issue -> branch -> evidence -> review -> owner GO",
       },

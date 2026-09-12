@@ -184,7 +184,7 @@ describe("MaterialBodyOperations", () => {
       ok: true,
       value: {
         plainText:
-          "Developer Pipeline\n\nIssue хранит intent и evidence.\n\nDecision\n\nIssue\n\nOwner gate.\n\npnpm check\n\nStage\tEvidence\nReview\tChecks\n\nPublish requires owner GO.\n\nDelivery stages\nOne retained path\n\nPipeline checklist",
+          "Developer Pipeline\n\nIssue хранит intent и evidence.\n\nDecision\n\nIssue\n\nOwner gate.\n\npnpm check\n\nStage\tEvidence\nReview\tChecks\n\nPublish requires owner GO.\n\nПример\n\nКороткий разбор одного шага.\n\nСпецификация Platform\nЧто обещает контракт\nhttps://example.com/spec\n\nПромпт для разбора\n\nРазбери материал и предложи три правки.\n\nИтоги урока\n\nОдин authority\n\nОдна проверка\n\nADR — Решение — Фиксирует необратимый выбор\nGate — Проверка\n\nВид блока задаёт платформа, а не вёрстка урока.\n\nDelivery stages\nOne retained path\n\nPipeline checklist",
         headings: [{ level: 2, text: "Developer Pipeline" }],
         resources: [
           {
@@ -243,6 +243,68 @@ describe("MaterialBodyOperations", () => {
 
     // A rejected document reports why; `document_would_be_normalized` is the drift this guards.
     expect(accepted.ok ? [] : accepted.error.issues).toEqual([]);
+  });
+
+  test("reports the field rule of every lesson block and keeps stored callouts valid", () => {
+    const documentOperations = materialBodyOperations;
+
+    for (const [fixture, code] of [
+      ["invalid-callout-kind", "invalid_callout_kind"],
+      ["invalid-callout-title", "invalid_callout_title"],
+      ["missing-resource-title", "missing_resource_title"],
+      ["invalid-resource-url", "invalid_resource_url"],
+      ["invalid-agent-prompt-title", "invalid_agent_prompt_title"],
+      ["missing-takeaways-title", "missing_takeaways_title"],
+      ["invalid-labeled-rows", "invalid_labeled_rows"],
+      // A key point holds inline text only, so a nested block never reaches a field rule.
+      ["invalid-key-point-content", "invalid_prosemirror_document"],
+    ] as const) {
+      expect([fixture, documentOperations.accept(invalidFixture(fixture))]).toMatchObject([
+        fixture,
+        { ok: false, error: { issues: [{ code }] } },
+      ]);
+    }
+
+    // A callout stored before the lesson kinds existed carries no name and no new kind.
+    const stored = {
+      schemaVersion: 1,
+      doc: {
+        type: "doc",
+        content: [
+          {
+            type: "callout",
+            attrs: { kind: "note", nodeId: testNodeId(30) },
+            content: [
+              {
+                type: "paragraph",
+                attrs: { nodeId: testNodeId(31) },
+                content: [{ type: "text", text: "Старая врезка" }],
+              },
+            ],
+          },
+        ],
+      },
+    } as const;
+    const accepted = documentOperations.accept(stored);
+    expect(accepted).toEqual({ ok: true, value: stored });
+    if (!accepted.ok) throw new Error("Stored callout must stay valid");
+    expect(documentOperations.render(accepted.value)).toMatchObject({
+      ok: true,
+      value: {
+        blocks: [
+          {
+            content: [
+              { content: [{ kind: "text", marks: [], text: "Старая врезка" }], kind: "paragraph" },
+            ],
+            kind: "callout",
+            tone: "note",
+          },
+        ],
+      },
+    });
+    const rendered = documentOperations.render(accepted.value);
+    if (!rendered.ok) throw new Error("Stored callout must render");
+    expect(Object.hasOwn(rendered.value.blocks[0] ?? {}, "title")).toBe(false);
   });
 
   test("rejects the removed legacy inline Video node", () => {

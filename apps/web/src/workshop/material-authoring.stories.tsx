@@ -230,6 +230,79 @@ export const Editing: Story = {
   },
 };
 
+/**
+ * Блоки урока в редакторе: их видно в меню вставки, вид врезки переключается, а название врезки
+ * автор задаёт на месте. До #505 меню вставляло только `note` и сменить вид было нечем.
+ */
+export const LessonBlocksEditing: Story = {
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
+  name: "Редактор · блоки урока",
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const openMenu = async () => {
+      await userEvent.click(canvas.getByRole("button", { name: "Добавить блок" }));
+      return canvas.getByRole("dialog", { name: "Добавить блок" });
+    };
+
+    let menu = await openMenu();
+    for (const name of [
+      "Заголовок H4",
+      "Ключевая мысль",
+      "Итоги",
+      "Промпт",
+      "Ресурс",
+      "Термины",
+      "Совет",
+      "Важно",
+      "Пример",
+      "Хорошо",
+      "Плохо",
+      "Определение",
+    ]) {
+      await expect(within(menu).getByRole("button", { name })).toBeVisible();
+    }
+
+    await userEvent.click(within(menu).getByRole("button", { name: "Совет" }));
+    await expect(canvasElement.querySelector('aside[data-callout="tip"]')).toBeVisible();
+
+    const tip = canvas.getByRole("button", { name: "Вид врезки: Совет" });
+    await expect(tip).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(canvas.getByRole("button", { name: "Вид врезки: Важно" }));
+    const warning = canvasElement.querySelector('aside[data-callout="warning"]');
+    await expect(warning).toBeVisible();
+    await expect(warning).toHaveTextContent("Важно");
+
+    await userEvent.type(canvas.getByLabelText("Название врезки"), "Не забудьте");
+    await expect(canvasElement.querySelector('aside[data-callout="warning"]')).toHaveTextContent(
+      "Не забудьте",
+    );
+
+    menu = await openMenu();
+    await userEvent.click(within(menu).getByRole("button", { name: "Итоги" }));
+    await expect(
+      canvasElement.querySelector('section[data-material-block="takeaways"]'),
+    ).toBeVisible();
+    await expect(canvas.getByLabelText("Заголовок итогов")).toHaveValue("Итоги урока");
+
+    menu = await openMenu();
+    await userEvent.click(within(menu).getByRole("button", { name: "Ресурс" }));
+    await userEvent.type(canvas.getByLabelText("Название ресурса"), "Спецификация");
+    await userEvent.type(
+      canvas.getByLabelText("Адрес ресурса"),
+      "https://example.com/spec",
+    );
+    await expect(canvas.getByLabelText("Адрес ресурса")).toHaveValue(
+      "https://example.com/spec",
+    );
+
+    menu = await openMenu();
+    await userEvent.click(within(menu).getByRole("button", { name: "Термины" }));
+    await userEvent.type(canvas.getByLabelText("Метка строки 1"), "ADR");
+    await userEvent.click(canvas.getByRole("button", { name: "Добавить строку" }));
+    await expect(canvas.getByLabelText("Метка строки 2")).toHaveValue("");
+  },
+};
+
 export const DeleteDraftConfirmation: Story = {
   name: "Удаление безопасного черновика",
   play: async ({ canvasElement }) => {
@@ -545,6 +618,33 @@ export const ExactPreviewMobile: Story = {
     await expect(
       canvas.queryByText("v3", { exact: true }),
     ).not.toBeInTheDocument();
+    await expectNoHorizontalOverflow(canvasElement);
+  },
+};
+
+/**
+ * Блоки урока в тёмной теме. Читательский маршрут всегда светлый, а авторская оболочка тему
+ * уважает, поэтому тёмное состояние блоков проверяется здесь.
+ */
+export const ExactPreviewDark: Story = {
+  args: {
+    presentation: { ...materialAuthoringPresentation, mode: "preview" },
+  },
+  globals: { theme: "dark", viewport: { isRotated: false, value: "mobile390" } },
+  name: "Предпросмотр · тёмная тема",
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const definition = canvas.getByLabelText("Определение: Правило одного источника");
+    await expect(definition).toBeVisible();
+    // Вид врезки берёт свой токен, и в тёмной теме это тёмное значение, а не светлое.
+    const styles = getComputedStyle(definition);
+    await expect(styles.getPropertyValue("--callout-ink").trim()).toBe(
+      styles.getPropertyValue("--callout-definition").trim(),
+    );
+    await expect(canvas.getByRole("region", { name: "Итоги урока" })).toBeVisible();
+    await expect(canvas.getByRole("button", { name: /Копировать/u })).toBeVisible();
+    await expect(canvas.getByRole("link", { name: /Открыть/u })).toBeVisible();
+    await expect(canvas.getByText("Фиксирует необратимый выбор")).toBeVisible();
     await expectNoHorizontalOverflow(canvasElement);
   },
 };

@@ -24,9 +24,11 @@ function materialBlockNode(
 ): Node {
   return Node.create({
     ...(description.atom === true ? { atom: true } : {}),
+    ...(description.code === true ? { code: true } : {}),
     ...(description.content === undefined ? {} : { content: description.content }),
     ...(description.defining === true ? { defining: true } : {}),
     ...(description.draggable === true ? { draggable: true } : {}),
+    ...(description.marks === undefined ? {} : { marks: description.marks }),
     ...(nodeView === undefined ? {} : { addNodeView: nodeView }),
     addAttributes() {
       return Object.fromEntries(
@@ -39,7 +41,12 @@ function materialBlockNode(
     group: description.group,
     name,
     parseHTML() {
-      return description.parseHTML.map((tag) => ({ tag }));
+      return description.parseHTML.map((tag) => ({
+        tag,
+        ...(description.parseContent === undefined
+          ? {}
+          : { contentElement: description.parseContent }),
+      }));
     },
     renderHTML({ HTMLAttributes }) {
       return description.renderHTML(HTMLAttributes);

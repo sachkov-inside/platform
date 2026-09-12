@@ -19,6 +19,8 @@ export {
   renderedMarkSchema,
   renderedMaterialBodySchema,
   renderedTextSchema,
+  type CalloutTone,
+  type MaterialLabeledRow,
   type RenderedBlock,
   type RenderedMark,
   type RenderedMaterialBody,

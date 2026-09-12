@@ -363,11 +363,18 @@
                 ],
                 "type": "string"
               },
+              "title": {
+                "type": "string"
+              },
               "tone": {
                 "enum": [
                   "note",
                   "tip",
-                  "warning"
+                  "warning",
+                  "example",
+                  "good",
+                  "bad",
+                  "definition"
                 ],
                 "type": "string"
               }
@@ -376,6 +383,201 @@
               "content",
               "kind",
               "tone"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "description": {
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "resource_card"
+                ],
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "title",
+              "url"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "enum": [
+                  "agent_prompt"
+                ],
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "text"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "content": {
+                "items": {
+                  "$ref": "#/components/schemas/RecursiveSchema0schema0"
+                },
+                "type": "array"
+              },
+              "kind": {
+                "enum": [
+                  "takeaways"
+                ],
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "content",
+              "kind",
+              "title"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "enum": [
+                  "labeled_list"
+                ],
+                "type": "string"
+              },
+              "rows": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "description": {
+                      "type": "string"
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "label",
+                    "name"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "kind",
+              "rows"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "content": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "kind": {
+                      "enum": [
+                        "text"
+                      ],
+                      "type": "string"
+                    },
+                    "marks": {
+                      "items": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "kind": {
+                                "enum": [
+                                  "bold",
+                                  "code",
+                                  "italic",
+                                  "strike"
+                                ],
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "kind"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "href": {
+                                "type": "string"
+                              },
+                              "kind": {
+                                "enum": [
+                                  "link"
+                                ],
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "href",
+                              "kind"
+                            ],
+                            "type": "object"
+                          }
+                        ]
+                      },
+                      "type": "array"
+                    },
+                    "text": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "marks",
+                    "text"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "kind": {
+                "enum": [
+                  "key_point"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "content",
+              "kind"
             ],
             "type": "object"
           },
@@ -849,11 +1051,18 @@
                 ],
                 "type": "string"
               },
+              "title": {
+                "type": "string"
+              },
               "tone": {
                 "enum": [
                   "note",
                   "tip",
-                  "warning"
+                  "warning",
+                  "example",
+                  "good",
+                  "bad",
+                  "definition"
                 ],
                 "type": "string"
               }
@@ -862,6 +1071,201 @@
               "content",
               "kind",
               "tone"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "description": {
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "resource_card"
+                ],
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "title",
+              "url"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "enum": [
+                  "agent_prompt"
+                ],
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "text"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "content": {
+                "items": {
+                  "$ref": "#/components/schemas/RecursiveSchema1schema0"
+                },
+                "type": "array"
+              },
+              "kind": {
+                "enum": [
+                  "takeaways"
+                ],
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "content",
+              "kind",
+              "title"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "enum": [
+                  "labeled_list"
+                ],
+                "type": "string"
+              },
+              "rows": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "description": {
+                      "type": "string"
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "label",
+                    "name"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "kind",
+              "rows"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "content": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "kind": {
+                      "enum": [
+                        "text"
+                      ],
+                      "type": "string"
+                    },
+                    "marks": {
+                      "items": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "kind": {
+                                "enum": [
+                                  "bold",
+                                  "code",
+                                  "italic",
+                                  "strike"
+                                ],
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "kind"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "href": {
+                                "type": "string"
+                              },
+                              "kind": {
+                                "enum": [
+                                  "link"
+                                ],
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "href",
+                              "kind"
+                            ],
+                            "type": "object"
+                          }
+                        ]
+                      },
+                      "type": "array"
+                    },
+                    "text": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "marks",
+                    "text"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "kind": {
+                "enum": [
+                  "key_point"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "content",
+              "kind"
             ],
             "type": "object"
           },

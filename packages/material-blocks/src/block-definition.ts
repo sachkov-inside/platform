@@ -24,10 +24,16 @@ export interface MaterialBlockNodeDescription {
   readonly atom?: boolean;
   /** Attribute name to its default value. */
   readonly attributes: Readonly<Record<string, JsonValue>>;
+  /** Verbatim text content: newlines survive and input rules stay out. */
+  readonly code?: boolean;
   readonly content?: string;
   readonly defining?: boolean;
   readonly draggable?: boolean;
   readonly group: "block";
+  /** Accepted inline marks; an empty string keeps the content plain. */
+  readonly marks?: string;
+  /** Selector of the element holding the content when `renderHTML` also writes a field. */
+  readonly parseContent?: string;
   readonly parseHTML: readonly string[];
   readonly renderHTML: (
     attributes: Readonly<Record<string, unknown>>,
