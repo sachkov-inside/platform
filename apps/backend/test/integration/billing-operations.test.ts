@@ -271,7 +271,7 @@ describe("владельческие операции billing: платежи, �
     expect(sent[0]?.paymentId).toBe(await paymentIdOf(purchaseRef));
     // Возврат денег не отзывает доступ: это отдельное решение владельца.
     value(await s.payments.recover());
-    expect(await s.capabilities()).toEqual([`guide:${s.guideId}`, "materials", "support"]);
+    expect(await s.capabilities()).toEqual(["community", `guide:${s.guideId}`, "materials", "support"]);
     expect(await db.prisma.accessGrant.findUniqueOrThrow({ where: { id: guideGrant } })).toMatchObject({ revokedAt: null, validUntil: null });
     expect(value(await s.subscriptions.read(s.buyer)).subscription).toMatchObject({ state: "canceled", paidUntil: "2030-04-30T10:00:00.000Z" });
     const totals = asRefunds(await s.operations.execute(owner, { operation: "refunds.read", operationId: randomUUID(), purchaseRef }));
@@ -371,7 +371,7 @@ describe("владельческие операции billing: платежи, �
     // Неуспешный возврат не показывается исполненным и ничего не отзывает.
     expect(rejected).toMatchObject({ state: "failed", attempt: { state: "failed", observedStatus: "REJECTED", errorCode: "3007" } });
     value(await s.payments.recover());
-    expect(await s.capabilities()).toEqual([`guide:${s.guideId}`, "materials", "support"]);
+    expect(await s.capabilities()).toEqual(["community", `guide:${s.guideId}`, "materials", "support"]);
     expect(asRefunds(await s.operations.execute(owner, { operation: "refunds.read", operationId: randomUUID(), purchaseRef })))
       .toMatchObject({ refundedKopecks: 0, refundableKopecks: 100_000 });
     s.bank.cancelSucceeds = true;
@@ -382,7 +382,7 @@ describe("владельческие операции billing: платежи, �
       decisionRef: second.decisionRef, expectedRevision: 1 })).value).toMatchObject({ state: "executed" });
     value(await s.payments.recover());
     // Отзывается ровно оплаченное основание этой покупки; независимое бессрочное право остаётся.
-    expect(await s.capabilities()).toEqual([`guide:${s.guideId}`]);
+    expect(await s.capabilities()).toEqual(["community", `guide:${s.guideId}`]);
     const paid = await db.prisma.accessGrant.findMany({ where: { accountId: s.buyer, source: "paid" } });
     expect(paid.length).toBeGreaterThan(0);
     expect(paid.every(grant => grant.revokedAt !== null && grant.revision === 2)).toBe(true);
@@ -455,11 +455,11 @@ describe("владельческие операции billing: платежи, �
         terms: { capabilities: ["materials"], startsAt: "2030-03-01T00:00:00Z", validUntil: null, reason: "Неизвестный Account" } }] }));
     expect(preview.rows.map(row => row.status)).toEqual(["confirmed", "not_found"]);
     // Предпросмотр ничего не выдаёт.
-    expect(await s.capabilities()).toEqual([`guide:${s.guideId}`]);
+    expect(await s.capabilities()).toEqual(["community", `guide:${s.guideId}`]);
     const applied = asGrantBatch(await s.operations.execute(owner, { operation: "grants.applyBatch", operationId: randomUUID(),
       previewRef: preview.previewRef, expectedRevision: preview.revision, confirmedRows: ["support"] }));
     expect(applied.rows).toHaveLength(1);
-    expect(await s.capabilities()).toEqual([`guide:${s.guideId}`, "support"]);
+    expect(await s.capabilities()).toEqual(["community", `guide:${s.guideId}`, "support"]);
     const support = asGrants(await s.operations.execute(owner, { operation: "grants.read", operationId: randomUUID(), accountId: s.buyer })).value
       .grants.find(grant => grant.sourceRef === supportRef);
     if (support === undefined) throw new Error("Manual support grant is missing");
@@ -473,7 +473,7 @@ describe("владельческие операции billing: платежи, �
       grantRef: support.grantRef, expectedRevision: 2, reason: "Отзыв одного основания" }));
     expect(revoked.revision).toBe(3);
     // Отзыв одного основания сохраняет независимое бессрочное право.
-    expect(await s.capabilities()).toEqual([`guide:${s.guideId}`]);
+    expect(await s.capabilities()).toEqual(["community", `guide:${s.guideId}`]);
     expect(await db.prisma.accessGrant.findUniqueOrThrow({ where: { id: guideGrant } })).toMatchObject({ revokedAt: null });
     await s.buy();
     value(await s.payments.recover());

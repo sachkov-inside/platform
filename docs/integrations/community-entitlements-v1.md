@@ -23,10 +23,11 @@ notification contract version sent here is denied `effect_conflict`.
 ## Desired state
 
 `CommunityEntitlements.project` reads two public facets and writes neither. Access comes from
-`assembleAccessGrants.resolveCapabilities`, which unions every live paid, manual and legacy reason;
-the verified link comes from `TelegramAccountLinks.readBinding`. A missing community capability is
-`denied`, an unbounded one is `lifetime`, a bounded one is `finite` with its exact end. The tier
-name, the price, the presence of a payment and Telegram membership itself are never the rule.
+`assembleAccessGrants.resolveCapabilities`, which unions every live paid, manual and legacy reason,
+including a live `guide:<id>` right, which opens the shared chat on its own term; the verified link
+comes from `TelegramAccountLinks.readBinding`. A missing community capability is `denied`, an
+unbounded one is `lifetime`, a bounded one is `finite` with its exact end. The tier name, the price,
+the presence of a payment and Telegram membership itself are never the rule.
 
 One row per Account holds that desired state with a monotone `entitlementRevision`. The revision
 also increases when the verified link moves, not only when access changes. A stale read never moves

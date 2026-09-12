@@ -47,7 +47,9 @@ export const GuideOnly: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByText("Отдельное руководство")).toBeInTheDocument();
-    await expect(canvas.getByText("бессрочно")).toBeInTheDocument();
+    // Купленное руководство само открывает общий чат, и оба права бессрочны.
+    await expect(canvas.getByText("Общий чат")).toBeInTheDocument();
+    await expect(canvas.getAllByText("бессрочно").length).toBe(2);
     // Разовая покупка не обещает ни периода, ни следующей цены.
     await expect(canvas.getByText("разовая покупка")).toBeInTheDocument();
     await expect(canvas.queryByText(/Дальше —/u)).not.toBeInTheDocument();

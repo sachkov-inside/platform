@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  accessComposition,
   attemptStateLabel,
   publicSubscriptionOffers,
   benefitLines,
@@ -72,6 +73,47 @@ describe("состав доступа", () => {
     expect(line?.term).toBe("бессрочно");
   });
 
+  it("называет общий чат, который открывает само купленное руководство", () => {
+    expect(
+      benefitLines(guideWithSupportOffer).map((line) => [line.label, line.term]),
+    ).toEqual([
+      ["Отдельное руководство", "бессрочно"],
+      ["Вопросы автору и эфиры", "3 месяца"],
+      ["Общий чат", "бессрочно"],
+    ]);
+  });
+
+  it("даёт выведенному чату срок самого долгого руководства предложения", () => {
+    const guide = guideOnlyOffer.offer.benefits[0];
+    if (guide === undefined) throw new Error("Ожидалось право на руководство");
+    const lines = benefitLines({
+      offer: {
+        ...guideOnlyOffer.offer,
+        benefitPeriods: [{ capability: guide, months: 6 }],
+      },
+      paymentOption: guideOnlyOffer.paymentOption,
+    });
+    expect(lines.map((line) => line.term)).toEqual(["6 месяцев", "6 месяцев"]);
+  });
+
+  it("не удваивает чат, когда он уже объявлен составом предложения", () => {
+    expect(
+      accessComposition(supportOffer.offer.benefits).filter(
+        (capability) => capability === "community",
+      ),
+    ).toHaveLength(1);
+    expect(benefitLines(supportOffer)).toHaveLength(3);
+  });
+
+  it("не обещает чат там, где руководство не продаётся", () => {
+    expect(accessComposition(materialsOffer.offer.benefits)).toEqual([
+      "materials",
+    ]);
+    expect(benefitLines(materialsOffer).map((line) => line.label)).toEqual([
+      "Все опубликованные материалы и руководства",
+    ]);
+  });
+
   it("разовая покупка открывает право без объявленного срока бессрочно", () => {
     const [line] = benefitLines({
       offer: { ...guideOnlyOffer.offer, benefitPeriods: [] },
@@ -139,12 +181,18 @@ describe("состояния и ошибки", () => {
 describe("состав предложения", () => {
   it("называет руководство с сопровождением по-русски", () => {
     expect(offerCompositionLabel(guideWithSupportOffer.offer)).toBe(
-      "Руководство с сопровождением",
+      "Руководство с сопровождением и общим чатом",
     );
   });
 
   it("одну часть называет ею самой", () => {
-    expect(offerCompositionLabel(guideOnlyOffer.offer)).toBe("Руководство");
+    expect(offerCompositionLabel(materialsOffer.offer)).toBe("Все материалы");
+  });
+
+  it("называет чат и тогда, когда его открывает само руководство", () => {
+    expect(offerCompositionLabel(guideOnlyOffer.offer)).toBe(
+      "Руководство с общим чатом",
+    );
   });
 
   it("перечисление разделяет запятой, а союз ставит только перед последним", () => {
@@ -159,7 +207,7 @@ describe("состав предложения", () => {
       benefits: [...guideWithSupportOffer.offer.benefits, "materials" as const],
     };
     expect(offerCompositionLabel(offer)).toBe(
-      "Руководство со всеми материалами и сопровождением",
+      "Руководство со всеми материалами, сопровождением и общим чатом",
     );
   });
 
