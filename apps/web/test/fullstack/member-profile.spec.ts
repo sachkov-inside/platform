@@ -79,9 +79,14 @@ test("shows private Account Telegram and Membership presentation without disclos
     .getByRole("button", { name: "Закрыть подключение Telegram" })
     .click();
   await expect(onboarding).toHaveCount(0);
-  const accessPanel = page.locator(
-    "section[aria-labelledby='inside-access-heading']",
-  );
+  // Связь с Telegram живёт в разделе «Аккаунт» кабинета: проверка идёт туда, где она есть.
+  const accessPage = await page.goto("/account/access");
+  expect(accessPage?.status()).toBe(200);
+  await expect(
+    page.getByRole("heading", { exact: true, level: 1, name: "Аккаунт" }),
+  ).toBeVisible();
+  const accessPanel = page.getByRole("region", { exact: true, name: "Telegram" });
+  await expect(accessPanel).toBeVisible();
   await accessPanel.screenshot({
     path: resolve(evidenceDirectory, `account-unlinked-${viewportName}.png`),
   });
@@ -89,8 +94,10 @@ test("shows private Account Telegram and Membership presentation without disclos
     path: resolve(reviewDirectory, `issue-122-account-unlinked-${viewportName}.png`),
   });
 
+  // Раздел «Аккаунт» решает две задачи — связь с Telegram и выход, — и обе входят в проверку.
   const accessibility = await new AxeBuilder({ page })
-    .include("section[aria-labelledby='inside-access-heading']")
+    .include("section[aria-labelledby='telegram-connection-heading']")
+    .include("section[aria-labelledby='account-session']")
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
     .analyze();
   expect(
@@ -190,8 +197,6 @@ test("creates or edits the Account Profile and preserves the member projection",
   await bioInput.fill(bio);
   await page.getByRole("button", { name: /Создать|Сохранить/u }).click();
   await expect(page.getByText("Профиль сохранён.")).toBeVisible();
-  await expect(page.getByRole("article").getByText(bio)).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Профиль участника" })).toBeVisible();
   await expect(page.getByRole("button", { name: /Удалить профиль/u })).toHaveCount(0);
   await expect(page.getByRole("link", { name: /Скачать JSON/u })).toHaveCount(0);
   await expect(page.getByText("Граница", { exact: true })).toHaveCount(0);
@@ -242,7 +247,14 @@ test("creates or edits the Account Profile and preserves the member projection",
   if (publicPath === null) throw new Error("Profile projection path is missing");
   const memberPage = await page.goto(publicPath);
   expect(memberPage?.status()).toBe(200);
-  await expect(page.getByRole("heading", { name: displayName })).toBeVisible();
+  // Проекция участника осталась только здесь: раздел «Профиль» кабинета её больше не повторяет.
+  const projection = page
+    .getByRole("article")
+    .filter({ hasText: "Участник сообщества" });
+  await expect(
+    projection.getByRole("heading", { level: 1, name: displayName }),
+  ).toBeVisible();
+  await expect(projection.getByText(bio)).toBeVisible();
   await expect(page.getByAltText(`Аватар: ${displayName}`)).toHaveCount(0);
   await expect(page.getByRole("img", { name: `Аватар: ${displayName}` })).toBeVisible();
   await expect(page.locator('head meta[name="robots"]').first()).toHaveAttribute(
@@ -251,7 +263,6 @@ test("creates or edits the Account Profile and preserves the member projection",
   );
 
 });
-
 
 function profileAvatarPng(): Buffer {
   const width = 480;
