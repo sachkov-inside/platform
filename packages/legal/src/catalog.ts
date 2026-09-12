@@ -112,12 +112,17 @@ const consentDefinitions: readonly ConsentDefinition[] = [
   { kind: "recurring", appliesTo: ["subscription"], edition: recurringConsentV1 },
 ];
 
-/** A bare public origin: the catalogue appends a page path and never a second slash. */
-const originPattern = /^https?:\/\/[^/?#\s]+$/u;
+/**
+ * A bare public origin: the catalogue appends a page path, so credentials, a path, a query or a
+ * fragment would produce a wrong address stored with consent evidence. The runtime configuration
+ * validates the same value with its own schema; this check keeps the package honest wherever it
+ * is used, and it stays a plain pattern because the package carries no schema library.
+ */
+const BARE_ORIGIN = /^https?:\/\/[a-z0-9.-]+(?::[0-9]{1,5})?$/iu;
 
 /** Consent catalogue with addresses resolved against the public site origin. */
 export function consentDocuments(origin: string): readonly ConsentDocument[] {
-  if (!originPattern.test(origin))
+  if (!BARE_ORIGIN.test(origin))
     throw new Error(
       `Legal consent catalogue needs a bare public origin, received: ${origin}`,
     );

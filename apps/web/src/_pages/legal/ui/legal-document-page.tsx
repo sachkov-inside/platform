@@ -1,12 +1,14 @@
 import type { LegalBlock, LegalEdition } from "@inside/legal";
 import Link from "next/link";
 
-import { LegalDocumentView, legalEffectiveNote } from "@/entities/legal-document";
+import { legalEffectiveDate } from "@/entities/legal-document";
 import {
   LEGAL_PATH,
   legalDocumentPath,
   legalEditionPath,
 } from "@/shared/routing/public-page-path";
+
+import { LegalDocumentView } from "./legal-document-view";
 
 /**
  * Страница документа. По своему адресу показывает действующую редакцию; по адресу редакции —
@@ -52,7 +54,7 @@ export function LegalDocumentPage({
           <div className="flex flex-wrap gap-x-2">
             <dt className="font-medium">Номер:</dt>
             <dd>
-              {edition.version} · {legalEffectiveNote(edition.effectiveFrom).toLowerCase()}
+              {edition.version} · действует с {legalEffectiveDate(edition.effectiveFrom)}
             </dd>
           </div>
           <div className="flex flex-wrap gap-x-2">
@@ -81,7 +83,7 @@ export function LegalDocumentPage({
                     className="underline underline-offset-2"
                     href={legalEditionPath(item.key, item.version)}
                   >
-                    Редакция {item.version} · {legalEffectiveNote(item.effectiveFrom).toLowerCase()}
+                    Редакция {item.version} · действует с {legalEffectiveDate(item.effectiveFrom)}
                   </Link>
                 </li>
               ))}

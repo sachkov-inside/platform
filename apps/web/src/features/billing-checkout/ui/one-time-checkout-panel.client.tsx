@@ -4,10 +4,11 @@ import type { Route } from "next";
 import Link from "next/link";
 import { useId } from "react";
 
-import { LegalDocumentLinks } from "@/entities/legal-document";
+import { LegalDocumentLinks, legalNavigationEntry } from "@/entities/legal-document";
 import {
   billingActionClass,
   ConsentChecklist,
+  legalDocumentLabel,
   attemptStateLabel,
   formatKopecks,
   paymentMode,
@@ -50,6 +51,12 @@ export interface OneTimeCheckoutPanelProps {
  * Цена показывается сразу — расчёт сервер сохраняет сам, поэтому отдельного шага «рассчитать»
  * здесь нет. Возврат из банка успехом не считается: состояние приходит от сервера.
  */
+
+/** Название принимаемого документа: оферты покупки и подписки называются по документу. */
+function documentLabel(document: LegalDocument): string {
+  return legalNavigationEntry(document.documentId)?.navLabel ?? legalDocumentLabel(document.kind);
+}
+
 export function OneTimeCheckoutPanel({
   snapshot,
   quote,
@@ -187,6 +194,7 @@ export function OneTimeCheckoutPanel({
             accepted={accepted}
             disabled={pending}
             documents={applicable}
+            labelFor={documentLabel}
             legend="Перед оплатой"
             markOptional
             namePrefix="one-time-consent"

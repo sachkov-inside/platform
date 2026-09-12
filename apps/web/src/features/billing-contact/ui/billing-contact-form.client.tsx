@@ -1,7 +1,9 @@
 "use client";
+import Link from "next/link";
 import { useId, useState } from "react";
 
-import { LegalDocumentLinks, legalNavigationEntry } from "@/entities/legal-document";
+import { legalNavigationEntry } from "@/entities/legal-document";
+import { legalDocumentPath } from "@/shared/routing/public-page-path";
 import { Button } from "@/shared/ui/button";
 
 import {
@@ -37,6 +39,8 @@ export interface BillingContactFormProps {
   readonly onStart: (email: string) => void;
   readonly onConfirm: (code: string) => void;
 }
+
+const privacyHref = legalDocumentPath("privacy");
 
 const fieldClassName =
   "mt-2 min-h-12 w-full rounded-xl border border-input bg-background px-4 text-base shadow-sm transition-colors placeholder:text-muted-foreground/65 focus:border-ring focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
@@ -242,14 +246,14 @@ export function BillingContactForm({
         </>
       )}
 
-      <LegalDocumentLinks
-        className="mt-6 border-t border-border pt-5"
-        label="Как обрабатываются эти данные:"
-        keys={["privacy"]}
-      />
-
-      {documents.length === 0 ? null : (
-        <ul className="mt-6 flex flex-wrap gap-x-5 gap-y-2 border-t border-border pt-5 text-sm">
+      <div className="mt-6 border-t border-border pt-5">
+        <p className="text-sm text-muted-foreground">Документы к этим данным:</p>
+        <ul className="mt-2 flex flex-wrap gap-x-5 gap-y-2 text-sm">
+          <li>
+            <Link className="text-action underline underline-offset-4" href={privacyHref}>
+              Политика данных
+            </Link>
+          </li>
           {documents.map((document) => (
             <li key={`${document.kind}:${document.documentId}`}>
               <a
@@ -266,7 +270,7 @@ export function BillingContactForm({
             </li>
           ))}
         </ul>
-      )}
+      </div>
     </section>
   );
 }
