@@ -5,7 +5,10 @@ import { useState, type ReactNode } from "react";
 
 import { materialDifficultyLabel, materialTaxonomyLabel } from "@/entities/material";
 import { MaterialDeleteDialog } from "@/features/material-lifecycle";
-import { materialDifficulties } from "@/shared/api/material-difficulty";
+import {
+  MATERIAL_OUTCOMES,
+  materialDifficulties,
+} from "@/shared/api/material-difficulty";
 import { Button } from "@/shared/ui/button";
 import { cn } from "@/shared/lib/utils";
 import {
@@ -226,7 +229,7 @@ function OutcomesEditor({
     <fieldset className="min-w-0 sm:col-span-2" data-material-outcomes>
       <legend className="text-sm font-medium">Чему научишься</legend>
       <p className="mt-1 text-xs text-muted-foreground">
-        Два–четыре пункта или ни одного.
+        {MATERIAL_OUTCOMES.minPublishedCount}–{MATERIAL_OUTCOMES.maxCount} пункта или ни одного.
       </p>
       <div className="mt-3 grid gap-2">
         {outcomes.map((outcome, index) => (
@@ -236,7 +239,7 @@ function OutcomesEditor({
               autoComplete="off"
               className={fieldClassName}
               disabled={disabled}
-              maxLength={200}
+              maxLength={MATERIAL_OUTCOMES.maxLength}
               onChange={(event) => {
                 const value = event.currentTarget.value;
                 write(
@@ -262,7 +265,7 @@ function OutcomesEditor({
           </div>
         ))}
       </div>
-      {outcomes.length >= 4 ? null : (
+      {outcomes.length >= MATERIAL_OUTCOMES.maxCount ? null : (
         <Button
           className="mt-2"
           disabled={disabled}

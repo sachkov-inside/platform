@@ -19,23 +19,12 @@ const GuideModeContext = createContext<GuideModeState | null>(null);
 export function GuideModeProvider({
   children,
   initialMode,
-  onSelect,
 }: {
   readonly children: ReactNode;
   readonly initialMode: GuideMode;
-  readonly onSelect?: (mode: GuideMode) => void;
 }) {
   const [mode, setMode] = useState(initialMode);
-  const value = useMemo<GuideModeState>(
-    () => ({
-      mode,
-      select: (next) => {
-        setMode(next);
-        onSelect?.(next);
-      },
-    }),
-    [mode, onSelect],
-  );
+  const value = useMemo<GuideModeState>(() => ({ mode, select: setMode }), [mode]);
   return <GuideModeContext.Provider value={value}>{children}</GuideModeContext.Provider>;
 }
 

@@ -28,16 +28,16 @@ export async function MaterialReaderPage({
   readonly slug: string;
 }) {
   // Режим нужен только внутри руководства, поэтому вне его за ним никто не ходит.
-  const insideGuide =
-    returnTarget.kind === "series" && returnTarget.seriesSlug !== undefined;
+  const guideSlug =
+    returnTarget.kind === "series" ? returnTarget.seriesSlug : undefined;
   const [result, seriesResult, guideMode] = await Promise.all([
     loadMaterialReader(slug, accessToken),
-    insideGuide && returnTarget.seriesSlug !== undefined
-      ? loadPublishedSeries(returnTarget.seriesSlug, accessToken)
-      : Promise.resolve(null),
-    insideGuide
-      ? loadReaderGuideMode(accessToken)
-      : Promise.resolve(defaultGuideMode),
+    guideSlug === undefined
+      ? Promise.resolve(null)
+      : loadPublishedSeries(guideSlug, accessToken),
+    guideSlug === undefined
+      ? Promise.resolve(defaultGuideMode)
+      : loadReaderGuideMode(accessToken),
   ]);
   if (result.kind === "not-found") {
     notFound();

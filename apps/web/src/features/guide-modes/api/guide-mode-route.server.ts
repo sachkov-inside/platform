@@ -1,11 +1,8 @@
 import "server-only";
 
-import { z } from "zod";
-
 import { requestSetReaderGuideMode } from "@/shared/api/backend/index.server";
 import { handleAuthenticatedMutation } from "@/shared/auth/index.server";
-
-const guideModeSchema = z.enum(["example", "own"]);
+import { guideModeSchema } from "@/shared/guide-mode";
 
 /** Сохраняет режим вошедшего читателя. Гость держит своё значение в cookie и сюда не приходит. */
 export function handleSetReaderGuideMode(request: Request) {
@@ -17,7 +14,7 @@ export function handleSetReaderGuideMode(request: Request) {
       if (!result.ok) {
         return { kind: result.response.status === 401 ? "unauthorized" : "unavailable" };
       }
-      return { kind: "saved", guideMode: parsed.data };
+      return { kind: "saved" };
     } catch {
       return { kind: "unavailable" };
     }

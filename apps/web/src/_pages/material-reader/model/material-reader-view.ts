@@ -4,7 +4,6 @@ import type {
   RenderedMark,
   RenderedText,
 } from "@/entities/material.model";
-import type { GuideMode } from "@/shared/guide-mode";
 import type { MaterialDifficulty } from "@/shared/api/material-difficulty";
 
 export type ReaderMark = RenderedMark;
@@ -39,8 +38,6 @@ export interface PrimaryVideoPresentation {
   readonly title: string;
   readonly videoId: string;
 }
-
-export type { GuideMode };
 
 export type MaterialReaderResult =
   | {

@@ -1,6 +1,9 @@
 import "server-only";
 
-import { materialDifficultySchema } from "@/shared/api/material-difficulty";
+import {
+  MATERIAL_OUTCOMES,
+  materialDifficultySchema,
+} from "@/shared/api/material-difficulty";
 import { materialFormatSchema } from "@/shared/api/material-format";
 
 
@@ -21,7 +24,9 @@ const formSchema = z.object({
   access: z.enum(["free", "membership"]),
   deleteVideoId: z.union([z.uuid(), z.literal("none")]).default("none"),
   difficulty: materialDifficultySchema.or(z.literal("unassigned")),
-  outcomes: z.array(z.string().trim().max(200)).max(4),
+  outcomes: z
+    .array(z.string().trim().max(MATERIAL_OUTCOMES.maxLength))
+    .max(MATERIAL_OUTCOMES.maxCount),
   document: z.string().min(1).max(1_048_576),
   expectedContentVersion: z.coerce.number().int().positive(),
   formatId: materialFormatSchema.or(z.literal("unassigned")),

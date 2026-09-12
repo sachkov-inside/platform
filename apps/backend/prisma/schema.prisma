@@ -791,7 +791,7 @@ model ReadingMaterialState {
   @@schema("reading_activity")
 }
 
-model ReadingPreferences {
+model ReaderPreferences {
   accountId String @id @map("account_id") @db.Uuid
   guideMode String @map("guide_mode")
   updatedAt DateTime @map("updated_at") @db.Timestamptz

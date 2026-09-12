@@ -6,12 +6,13 @@ import { z } from "zod";
 import { requestReaderGuideMode } from "@/shared/api/backend/index.server";
 import {
   defaultGuideMode,
+  guideModeSchema,
   readGuideMode,
   GUEST_GUIDE_MODE_COOKIE,
   type GuideMode,
 } from "@/shared/guide-mode";
 
-const guideModeSchema = z.object({ guideMode: z.enum(["example", "own"]) }).strict();
+const readerGuideModeSchema = z.object({ guideMode: guideModeSchema }).strict();
 
 /**
  * Режим, в котором читатель проходит руководства. У вошедшего он хранится за аккаунтом, у гостя —
@@ -30,7 +31,7 @@ export async function loadReaderGuideMode(
   try {
     const result = await requestReaderGuideMode(accessToken);
     if (!result.ok) return defaultGuideMode;
-    const parsed = guideModeSchema.safeParse(result.body);
+    const parsed = readerGuideModeSchema.safeParse(result.body);
     return parsed.success ? parsed.data.guideMode : defaultGuideMode;
   } catch {
     return defaultGuideMode;

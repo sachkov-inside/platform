@@ -332,6 +332,11 @@ const guideModeBody = [
         mode: "example",
         content: [
           {
+            kind: "heading",
+            level: 3,
+            content: [{ kind: "text", marks: [], text: "Проверка на образце" }],
+          },
+          {
             kind: "paragraph",
             content: [
               {
@@ -346,6 +351,11 @@ const guideModeBody = [
       {
         mode: "own",
         content: [
+          {
+            kind: "heading",
+            level: 3,
+            content: [{ kind: "text", marks: [], text: "Проверка у себя" }],
+          },
           {
             kind: "paragraph",
             content: [
@@ -989,6 +999,22 @@ export const GuideModes: Story = {
     await expect(
       canvas.getByRole("heading", { name: "Чему научишься" }),
     ).toBeVisible();
+    // Ветка чужого режима скрыта и от вспомогательных технологий тоже.
+    await expect(
+      canvas.queryByRole("heading", { name: "Проверка у себя" }),
+    ).not.toBeInTheDocument();
+    // У заголовков разных веток разные якоря: иначе ссылка вела бы в скрытую ветку.
+    const anchors = [
+      ...canvasElement.querySelectorAll("[data-variant-branch] h3"),
+    ].map((heading) => heading.id);
+    await expect(anchors).toHaveLength(2);
+    await expect(new Set(anchors).size).toBe(2);
+    await expect(anchors.every(Boolean)).toBe(true);
+    // Оглавление в вариантные шаги не заходит: набор заголовков не должен меняться от режима,
+    // а ссылка в скрытую ветку никуда не ведёт. Других заголовков в уроке нет, поэтому его нет.
+    await expect(
+      canvasElement.querySelector('nav[aria-label="В этом материале"]'),
+    ).toBeNull();
   },
 };
 

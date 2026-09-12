@@ -30,7 +30,15 @@ export type LessonBlock = Extract<
  */
 export interface LessonBlockRendering {
   readonly renderBlock: (block: RenderedBlock, index: number) => ReactNode;
-  readonly renderBlocks: (blocks: readonly RenderedBlock[]) => ReactNode;
+  /**
+   * `branch` разводит несколько вложенных последовательностей одного блока по разным адресам.
+   * Без него две ветки вариантного шага дали бы своим заголовкам один и тот же якорь, и ссылка
+   * из оглавления вела бы в скрытую ветку.
+   */
+  readonly renderBlocks: (
+    blocks: readonly RenderedBlock[],
+    branch?: number,
+  ) => ReactNode;
   readonly renderInline: (content: readonly RenderedText[]) => ReactNode;
 }
 
@@ -75,8 +83,8 @@ export function MaterialLessonBlock({
       // обходу документа, а сама ветка должна приехать в разметку, чтобы переключение было мгновенным.
       return (
         <MaterialModeVariant
-          branches={block.options.map((option) => ({
-            content: rendering.renderBlocks(option.content),
+          branches={block.options.map((option, index) => ({
+            content: rendering.renderBlocks(option.content, index),
             mode: option.mode,
           }))}
         />

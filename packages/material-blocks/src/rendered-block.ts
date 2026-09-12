@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import type { GuideMode } from "./guide-mode.js";
+
 export type RenderedMark =
   | { readonly kind: "bold" | "code" | "italic" | "strike" }
   | { readonly href: string; readonly kind: "link" };
@@ -86,7 +88,7 @@ export type RenderedBlock =
       readonly kind: "variant";
       readonly options: readonly {
         readonly content: readonly RenderedBlock[];
-        readonly mode: "example" | "own";
+        readonly mode: GuideMode;
       }[];
     }
   | {

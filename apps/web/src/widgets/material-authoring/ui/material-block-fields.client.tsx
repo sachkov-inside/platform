@@ -7,7 +7,12 @@ import {
   calloutTonePresentation,
   type CalloutTone,
 } from "@/entities/material";
-import { guideModeLabels, guideModes, type GuideMode } from "@/shared/guide-mode";
+import {
+  guideModeLabels,
+  guideModes,
+  isGuideMode,
+  type GuideMode,
+} from "@/shared/guide-mode";
 import { Button } from "@/shared/ui/button";
 
 const titleFieldClass =
@@ -59,14 +64,72 @@ function activeVariantMode(editor: Editor): GuideMode | undefined {
   return guideModes.find((mode) => editor.isActive("variantOption", { mode }));
 }
 
-/** Сколько веток сейчас в вариантном блоке под курсором. */
-function variantBranchCount(editor: Editor): number {
+/** Вариантный блок под курсором: сколько в нём веток и где он кончается. */
+function variantUnderCursor(
+  editor: Editor,
+):
+  | {
+      readonly branches: number;
+      readonly end: number;
+      /** Позиция каждой ветки в документе, в порядке веток. */
+      readonly branchPositions: readonly number[];
+    }
+  | undefined {
   const { $from } = editor.state.selection;
   for (let depth = $from.depth; depth > 0; depth -= 1) {
     const node = $from.node(depth);
-    if (node.type.name === "variant") return node.childCount;
+    if (node.type.name !== "variant") continue;
+    const positions: number[] = [];
+    let position = $from.start(depth);
+    node.forEach((child) => {
+      positions.push(position);
+      position += child.nodeSize;
+    });
+    return {
+      branchPositions: positions,
+      branches: node.childCount,
+      end: $from.end(depth),
+    };
   }
-  return 0;
+  return undefined;
+}
+
+/**
+ * Назначает ветке режим. Когда этот режим уже занят соседней веткой, ветки меняются режимами:
+ * две ветки одного режима — документ, который отвергло бы каждое автосохранение, и автор не
+ * должен уметь завести его одним нажатием.
+ */
+function selectBranchMode(
+  editor: Editor,
+  mode: GuideMode,
+  currentMode: GuideMode,
+): void {
+  const variant = variantUnderCursor(editor);
+  const current = editor.state.selection.$from;
+  const branchPosition = variant?.branchPositions.find((position) => {
+    const size = editor.state.doc.nodeAt(position)?.nodeSize;
+    return size !== undefined && position <= current.pos && current.pos <= position + size;
+  });
+  const occupied =
+    variant === undefined || branchPosition === undefined
+      ? undefined
+      : variant.branchPositions.find(
+          (position) =>
+            position !== branchPosition &&
+              isGuideMode(editor.state.doc.nodeAt(position)?.attrs.mode) &&
+            editor.state.doc.nodeAt(position)?.attrs.mode === mode,
+        );
+  if (branchPosition === undefined || occupied === undefined) {
+    editor.commands.updateAttributes("variantOption", { mode });
+    return;
+  }
+  editor.commands.command(({ dispatch, tr }) => {
+    if (dispatch) {
+      tr.setNodeAttribute(occupied, "mode", currentMode);
+      tr.setNodeAttribute(branchPosition, "mode", mode);
+    }
+    return true;
+  });
 }
 
 /**
@@ -82,7 +145,8 @@ function VariantFields({
   readonly disabled: boolean;
   readonly editor: Editor;
 }) {
-  const branches = variantBranchCount(editor);
+  const variant = variantUnderCursor(editor);
+  const branches = variant?.branches ?? 0;
   const missing = guideModes.find((mode) => mode !== branchMode);
 
   return (
@@ -98,7 +162,8 @@ function VariantFields({
           disabled={disabled}
           key={mode}
           onClick={() => {
-            editor.commands.updateAttributes("variantOption", { mode });
+            if (mode === branchMode) return;
+            selectBranchMode(editor, mode, branchMode);
           }}
           onMouseDown={(event) => {
             event.preventDefault();
@@ -113,12 +178,11 @@ function VariantFields({
         <Button
           disabled={disabled}
           onClick={() => {
-            const position = variantEnd(editor);
-            if (position === undefined) return;
+            if (variant === undefined) return;
             editor
               .chain()
               .focus()
-              .insertContentAt(position, {
+              .insertContentAt(variant.end, {
                 type: "variantOption",
                 attrs: { mode: missing },
                 content: [{ type: "paragraph" }],
@@ -145,15 +209,6 @@ function VariantFields({
       )}
     </div>
   );
-}
-
-/** Конец вариантного блока под курсором: туда встаёт вторая ветка. */
-function variantEnd(editor: Editor): number | undefined {
-  const { $from } = editor.state.selection;
-  for (let depth = $from.depth; depth > 0; depth -= 1) {
-    if ($from.node(depth).type.name === "variant") return $from.end(depth);
-  }
-  return undefined;
 }
 
 /**

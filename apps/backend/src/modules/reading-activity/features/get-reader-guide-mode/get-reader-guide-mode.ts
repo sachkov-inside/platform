@@ -32,7 +32,7 @@ export async function getReaderGuideMode(
   const accountId = z.uuid().safeParse(query.accountId);
   if (!accountId.success) return { ok: false, error: { code: "invalid_request" } };
   try {
-    const row = await prisma.readingPreferences.findUnique({
+    const row = await prisma.readerPreferences.findUnique({
       where: { accountId: accountId.data.toLowerCase() },
     });
     const stored = row?.guideMode;

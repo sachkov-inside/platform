@@ -397,8 +397,8 @@ function ReaderBlockView({
                 path={[...path, index]}
               />
             ),
-            renderBlocks: (blocks) => (
-              <ReaderBlocks blocks={blocks} contentVersion={contentVersion} materialId={materialId} path={path} />
+            renderBlocks: (blocks, branch) => (
+              <ReaderBlocks blocks={blocks} contentVersion={contentVersion} materialId={materialId} path={branch === undefined ? path : [...path, branch]} />
             ),
             renderInline: (content) => <ReaderInline content={content} />,
           }}

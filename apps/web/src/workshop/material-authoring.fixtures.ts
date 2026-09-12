@@ -194,6 +194,19 @@ export const materialAuthoringPresentation = {
       },
       { content: [text("Issue хранит intent, PR хранит evidence.")], kind: "key_point" },
       {
+        kind: "variant",
+        options: [
+          {
+            content: [paragraph("Учебный проект: пройдите шаг на подготовленном репозитории.")],
+            mode: "example",
+          },
+          {
+            content: [paragraph("Свой проект: примените шаг к своему репозиторию.")],
+            mode: "own",
+          },
+        ],
+      },
+      {
         content: [paragraph("Review закрыт"), paragraph("Owner дал merge GO")],
         kind: "takeaways",
         title: "Итоги урока",
@@ -265,6 +278,59 @@ export const materialAuthoringPresentation = {
   save: { kind: "clean" },
   submissionId: "94000000-0000-4000-8000-000000000001",
   validation: { kind: "idle" },
+} as const satisfies MaterialAuthoringPresentation;
+
+/**
+ * Урок с шагом для обоих режимов. Он живёт отдельной постановкой, потому что общий документ
+ * редактора держит проверки вложения, и вставка шага сдвинула бы их.
+ */
+export const variantStepAuthoringPresentation = {
+  ...materialAuthoringPresentation,
+  draft: {
+    ...materialAuthoringPresentation.draft,
+    document: {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            { type: "text", text: "Шаг написан для обоих способов пройти руководство." },
+          ],
+        },
+        {
+          type: "variant",
+          content: [
+            {
+              type: "variantOption",
+              attrs: { mode: "example" },
+              content: [
+                {
+                  type: "paragraph",
+                  content: [
+                    { type: "text", text: "Учебный проект: пройдите шаг на подготовленном репозитории." },
+                  ],
+                },
+              ],
+            },
+            {
+              type: "variantOption",
+              attrs: { mode: "own" },
+              content: [
+                {
+                  type: "paragraph",
+                  content: [
+                    { type: "text", text: "Свой проект: примените шаг к своему репозиторию." },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+        { type: "paragraph" },
+      ],
+    },
+    title: "Шаг для обоих режимов",
+  },
 } as const satisfies MaterialAuthoringPresentation;
 
 export const savedAfterEditingPresentation = {

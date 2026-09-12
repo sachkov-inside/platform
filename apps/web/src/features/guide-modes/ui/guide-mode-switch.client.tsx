@@ -7,23 +7,11 @@ import { cn } from "@/shared/lib/utils";
 import {
   guideModeLabels,
   guideModes,
+  rememberGuestGuideMode,
   useGuideMode,
-  GUEST_GUIDE_MODE_COOKIE,
-  GUEST_GUIDE_MODE_COOKIE_MAX_AGE,
-  type GuideMode,
 } from "@/shared/guide-mode";
 
 import { saveReaderGuideMode } from "../api/guide-mode.browser";
-
-function rememberGuestGuideMode(mode: GuideMode): void {
-  try {
-    // На площадке cookie не должна уходить по открытому протоколу; на локальном http его нет.
-    const secure = window.location.protocol === "https:" ? "; secure" : "";
-    document.cookie = `${GUEST_GUIDE_MODE_COOKIE}=${mode}; path=/; max-age=${String(GUEST_GUIDE_MODE_COOKIE_MAX_AGE)}; samesite=lax${secure}`;
-  } catch {
-    // Запрет на запись cookie меняет только память между входами, а не текущий урок.
-  }
-}
 
 /**
  * Выбор режима прохождения. Он стоит в шапке каждого урока руководства, у которого есть шаги для

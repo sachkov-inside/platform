@@ -3,14 +3,15 @@ export {
   calloutTones,
   type CalloutTone,
 } from "./blocks/callout.js";
+export { variantOptionType } from "./blocks/variant.js";
 export {
   defaultGuideMode,
   guideModeLabels,
   guideModes,
+  guideModeSchema,
   isGuideMode,
-  variantOptionType,
   type GuideMode,
-} from "./blocks/variant.js";
+} from "./guide-mode.js";
 export type {
   MaterialBlockChildNodeDescription,
   MaterialBlockDefinition,

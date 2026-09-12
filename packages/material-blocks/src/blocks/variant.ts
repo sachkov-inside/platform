@@ -2,35 +2,9 @@ import { z } from "zod";
 
 import { defineMaterialBlock } from "../block-definition.js";
 import { expectArray, expectObject, nodeAttributes } from "../document-node.js";
+import { defaultGuideMode, guideModeSchema, isGuideMode } from "../guide-mode.js";
 import type { JsonObject } from "../json.js";
 import { isJsonArray, isJsonObject } from "../json.js";
-
-/**
- * How a reader goes through a guide. The names match the authoring base, whose variant callouts
- * are `variant-example` and `variant-own`, so an imported step keeps its own branch names and
- * needs no translation table.
- */
-export const guideModes = ["example", "own"] as const;
-
-const guideModeSchema = z.enum(guideModes);
-
-export type GuideMode = z.infer<typeof guideModeSchema>;
-
-/**
- * The name each mode carries for a reader. It lives with the block because the switch, the hint
- * and the editor all print the same words.
- */
-export const guideModeLabels: Readonly<Record<GuideMode, string>> = {
-  example: "Учебный проект",
-  own: "Свой проект",
-};
-
-/** A reader who has never chosen follows the worked example. */
-export const defaultGuideMode: GuideMode = "example";
-
-export function isGuideMode(value: unknown): value is GuideMode {
-  return guideModeSchema.safeParse(value).success;
-}
 
 /** The child node one branch of a variant block is written into. */
 export const variantOptionType = "variantOption";

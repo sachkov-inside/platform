@@ -32,7 +32,7 @@ export async function setReaderGuideMode(
   const accountId = parsed.data.accountId.toLowerCase();
   const now = new Date();
   try {
-    await prisma.readingPreferences.upsert({
+    await prisma.readerPreferences.upsert({
       where: { accountId },
       create: { accountId, guideMode: parsed.data.guideMode, updatedAt: now },
       update: { guideMode: parsed.data.guideMode, updatedAt: now },

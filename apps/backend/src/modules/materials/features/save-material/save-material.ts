@@ -15,6 +15,7 @@ import type { MaterialAuthoringDependencies } from "../../facets/material-author
 import type { MaterialMutationReceiptDto } from "../../facets/material-authoring/material-authoring.contract.js";
 import {
   MaterialMetadataSelection,
+  type MaterialDifficulty,
   type MaterialMetadata,
 } from "../../domain/material-metadata.js";
 import { authorizeManager } from "../../ports/author-policy.js";
@@ -372,7 +373,7 @@ async function replacePublishedProjections(
     readonly hasModeVariants: boolean;
     readonly metadata: {
       readonly access: "free" | "membership" | "workshop";
-      readonly difficulty: "basic" | "intermediate" | "advanced" | null;
+      readonly difficulty: MaterialDifficulty | null;
       readonly formatId: string;
       readonly outcomes: readonly string[];
       readonly seriesMemberships: readonly {

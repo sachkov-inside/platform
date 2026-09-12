@@ -1,6 +1,7 @@
 import "server-only";
 
 import {
+  MATERIAL_OUTCOMES,
   materialDifficultySchema,
   type MaterialDifficulty,
 } from "@/shared/api/material-difficulty";
@@ -27,7 +28,9 @@ import { parseMaterialDocumentFields } from "./parse-material-document-fields";
 const formSchema = z.object({
   access: z.enum(["free", "membership"]),
   difficulty: materialDifficultySchema.or(z.literal("unassigned")),
-  outcomes: z.array(z.string().trim().max(200)).max(4),
+  outcomes: z
+    .array(z.string().trim().max(MATERIAL_OUTCOMES.maxLength))
+    .max(MATERIAL_OUTCOMES.maxCount),
   document: z.string().min(1).max(1_048_576),
   formatId: materialFormatSchema.or(z.literal("unassigned")),
   submissionId: z.uuid(),

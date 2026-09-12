@@ -1,7 +1,7 @@
 "use client";
 
 import { X } from "lucide-react";
-import { useCallback, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 
 import { Button } from "@/shared/ui/button";
 import { guideModeLabels, useGuideMode } from "@/shared/guide-mode";
@@ -46,6 +46,12 @@ export function GuideModeHint() {
     readSeen,
     useCallback(() => true, []),
   );
+
+  // Подсказка засчитывается показанной сразу, а не по кнопке: иначе читатель, который просто
+  // пролистал её, встречал бы её снова на каждом уроке руководства.
+  useEffect(() => {
+    if (!seen) remember();
+  }, [seen]);
 
   if (seen || dismissed) return null;
 
