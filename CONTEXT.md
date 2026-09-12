@@ -370,8 +370,8 @@ _Avoid_: Telegram presence, single global paid flag
 
 **CommunityEntitlement**:
 An Account's effective right to participate in the Inside community, distinct from its actual
-presence in the Telegram chat. Any live AccessGrant reason opens it, a bought Guide included, and
-it lasts exactly as long as the reason that opens it.
+presence in the Telegram chat. A live AccessGrant covering the shared chat opens it, and so does
+one covering any Guide; it lasts as long as the longest such grant.
 _Avoid_: ChatMember, membership observation, tier name as the rule
 
 **CommunityDelivery**:
