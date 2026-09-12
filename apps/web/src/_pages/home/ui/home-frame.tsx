@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { PublicSectionHeading } from "@/shared/ui/public-section-heading";
+import type { HomeView } from "../model/home-view";
 import "./home-page.css";
 
 /**
@@ -15,7 +16,7 @@ export function HomeFrame({
   membership,
 }: {
   readonly children: ReactNode;
-  readonly membership?: string;
+  readonly membership?: HomeView["membership"]["kind"];
 }) {
   return (
     <div className="home-page @container/home min-w-0" data-home-membership={membership}>
@@ -27,17 +28,21 @@ export function HomeFrame({
 
 /**
  * Руководства открывают первый экран, поэтому секция и её заголовок неразделимы: верхний отступ
- * снимает правило `.home-page section[aria-labelledby=home-series] > .home-section-heading`, и оно
- * находит заголовок только внутри этой секции.
+ * снимает правило `.home-page .home-series-section > .home-section-heading`, и оно находит
+ * заголовок только внутри этой секции.
+ *
+ * Заголовок называет секцию, поэтому его номер задаёт вызывающий: готовая главная и её состояние
+ * загрузки могут оказаться в документе одновременно — оболочка держит прежнюю страницу
+ * незаметной, пока открывается следующая, — а двух одинаковых номеров в документе быть не должно.
  */
-export function HomeSeriesSection({ children }: { readonly children: ReactNode }) {
+export function HomeSeriesSection({ children, headingId }: { readonly children: ReactNode; readonly headingId: string }) {
   return (
-    <section aria-labelledby="home-series">
+    <section aria-labelledby={headingId} className="home-series-section">
       <HomeSectionHeading
         action="Все руководства"
         className="mt-2"
         href="/library#series-heading"
-        id="home-series"
+        id={headingId}
         title="Руководства"
       />
       {children}

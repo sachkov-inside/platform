@@ -7,7 +7,7 @@ import { HomeFrame, HomeSeriesSection } from "./home-frame";
 export function HomeLoading() {
   return <HomeFrame>
     <div aria-busy="true" aria-label="Главная загружается">
-      <HomeSeriesSection>
+      <HomeSeriesSection headingId="home-series-loading">
         <div aria-hidden="true" className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
           {[0, 1].map((item) => <div key={item} className="h-64 animate-pulse rounded-[1.5rem] bg-muted motion-reduce:animate-none" />)}
         </div>

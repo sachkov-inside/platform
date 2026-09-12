@@ -13,6 +13,7 @@ import { Button } from "@/shared/ui/button";
 import type { HomeContinuation, HomeResult, HomeView } from "../model/home-view";
 import { FeaturedSeries, HomeAccessInvitation, HomeMembershipBenefits } from "./guest-home";
 import { HomeFrame, HomeSectionHeading, HomeSeriesSection } from "./home-frame";
+import "./home-page.css";
 
 export function HomePage({ result, personal, continuation }: { readonly result: HomeResult; readonly personal?: ReactNode; readonly continuation?: HomeContinuation }) {
   if (result.kind === "unavailable") {
@@ -143,7 +144,7 @@ function PlaylistSection({
   readonly continuation: HomeContinuation["series"];
 }) {
   return (
-    <HomeSeriesSection>
+    <HomeSeriesSection headingId="home-series">
       {playlists.length === 0 ? (
         <EmptyCollection label="Руководств пока нет." />
       ) : (

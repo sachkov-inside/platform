@@ -73,12 +73,12 @@ export const NoPinMobile: Story = { ...NoPin, globals: { viewport: { value: "mob
 /**
  * Первый экран не имеет права переехать между загрузкой и готовой главной. Заголовок руководств
  * открывает каркас вплотную к его верху в обоих состояниях: рукописная копия заголовка мимо секции
- * `home-series` теряет правило из `home-page.css` и роняет эту проверку.
+ * руководств теряет правило из `home-page.css` и роняет эту проверку.
  */
 async function seriesHeadingOpensTheFrame({ canvasElement }: { canvasElement: HTMLElement }) {
   const frame = canvasElement.querySelector(".home-page");
   if (frame === null) throw new Error("Каркас главной не отрисован");
   const heading = within(canvasElement).getByRole("heading", { name: "Руководства" });
-  await expect(heading.closest("section")).toHaveAttribute("aria-labelledby", "home-series");
+  await expect(heading.closest("section")).toHaveClass("home-series-section");
   await expect(heading.getBoundingClientRect().top).toBe(frame.getBoundingClientRect().top);
 }
