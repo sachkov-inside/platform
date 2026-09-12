@@ -195,6 +195,8 @@ describe("local bank double", () => {
     expect((await double.handle(new Request(`${origin}/pay/unknown`))).status).toBe(404);
   });
 
+  // Ожидание заканчивается фактом — выходом процесса; бюджет нужен только чтобы остановить
+  // застрявший запуск: первый холодный запуск компилирует конфигурацию целиком.
   test("вне стенда двойник не запускается и говорит об этом", async () => {
     const child = fork(new URL("../../src/development/bank-double.ts", import.meta.url), [], {
       execArgv: ["--import", "tsx"], stdio: ["ignore", "ignore", "pipe", "ipc"],
@@ -202,10 +204,12 @@ describe("local bank double", () => {
     });
     let reported = "";
     child.stderr?.on("data", (chunk: Buffer) => { reported += chunk.toString("utf8"); });
-    const code = await new Promise<number | null>(resolve => child.once("exit", resolve));
-    expect(code).toBe(1);
-    expect(reported).toContain("The local bank double runs only with NODE_ENV=development");
-  });
+    try {
+      const code = await new Promise<number | null>(resolve => child.once("exit", resolve));
+      expect(code).toBe(1);
+      expect(reported).toContain("The local bank double runs only with NODE_ENV=development");
+    } finally { if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL"); }
+  }, 30_000);
 
   test("сетевая оболочка отвечает тем же двойником", async () => {
     const running = await startLocalBankDouble({ config, host: "127.0.0.1", port: 0 });
