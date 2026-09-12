@@ -9,10 +9,21 @@ import {
   funnelFixture,
   mediaFixture,
 } from "./broadcasts.fixtures";
+import { authoringPageEnvironment } from "@/workshop/story-environment";
+
+import { BroadcastsPageFrame } from "./broadcasts-page-frame";
+
+const environment = authoringPageEnvironment(
+  "/authoring/communications/broadcasts",
+  { frame: BroadcastsPageFrame },
+);
+
 const meta = {
+  ...environment,
   title: "Pages/Communications/Рассылка",
   component: BroadcastEditor,
   parameters: {
+    ...environment.parameters,
     docs: {
       description: {
         component:
@@ -35,13 +46,6 @@ const meta = {
       Promise.resolve(null),
     ),
   },
-  decorators: [
-    (Story) => (
-      <main className="mx-auto max-w-6xl p-4">
-        <Story />
-      </main>
-    ),
-  ],
 } satisfies Meta<typeof BroadcastEditor>;
 export default meta;
 type Story = StoryObj<typeof meta>;

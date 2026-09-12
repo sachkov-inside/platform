@@ -2,11 +2,10 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, test } from "vitest";
 
+import { isUnknownArray, isUnknownRecord } from "@inside/material-blocks";
+import { materialDocumentSchemaV1 } from "@inside/material-blocks/schema";
+
 import { materialBodyOperations } from "../../src/modules/materials/infrastructure/tiptap/index.js";
-import {
-  isUnknownArray,
-  isUnknownRecord,
-} from "../../src/modules/materials/domain/material-body/json-guards.js";
 import {
   fullRepresentativeDocument,
   representativeDocument,
@@ -27,6 +26,20 @@ function invalidFixture(name: string): unknown {
 
 function testNodeId(index: number): string {
   return `92000000-0000-4000-8000-${String(index).padStart(12, "0")}`;
+}
+
+// The editor serializes exactly what this schema builds, so the test assembles a document the
+// same way instead of hand-writing JSON. Node and attribute types come from the schema itself:
+// the backend depends on the block registry, not on Tiptap.
+type DocumentNode = ReturnType<typeof materialDocumentSchemaV1.text>;
+type DocumentAttributes = Parameters<typeof materialDocumentSchemaV1.node>[1];
+
+function documentNode(
+  name: string,
+  attrs: DocumentAttributes,
+  content?: readonly DocumentNode[],
+): DocumentNode {
+  return materialDocumentSchemaV1.node(name, attrs, content);
 }
 
 describe("MaterialBodyOperations", () => {
@@ -188,6 +201,48 @@ describe("MaterialBodyOperations", () => {
         ],
       },
     });
+  });
+
+  test("accepts a document the editor assembled through the shared document schema", () => {
+    const text = (value: string) => materialDocumentSchemaV1.text(value);
+    const paragraph = (index: number, value: string) =>
+      documentNode("paragraph", { nodeId: testNodeId(index) }, [text(value)]);
+    const cell = (name: "tableCell" | "tableHeader", index: number, value: string) =>
+      documentNode(name, null, [paragraph(index, value)]);
+
+    const document = documentNode("doc", null, [
+      documentNode("heading", { level: 2, nodeId: testNodeId(1) }, [text("Заголовок")]),
+      paragraph(2, "Обычный абзац."),
+      documentNode("bulletList", { nodeId: testNodeId(3) }, [
+        documentNode("listItem", null, [paragraph(4, "Пункт")]),
+      ]),
+      documentNode("blockquote", { nodeId: testNodeId(5) }, [paragraph(6, "Цитата")]),
+      documentNode("codeBlock", { nodeId: testNodeId(7) }, [text("const a = 1;")]),
+      documentNode("horizontalRule", { nodeId: testNodeId(8) }),
+      documentNode("table", { nodeId: testNodeId(9) }, [
+        documentNode("tableRow", null, [
+          cell("tableHeader", 10, "Ключ"),
+          cell("tableCell", 11, "Значение"),
+        ]),
+      ]),
+      documentNode("callout", { kind: "tip", nodeId: testNodeId(12) }, [paragraph(13, "Совет")]),
+      documentNode("assetImage", {
+        alt: "Схема",
+        assetId: testNodeId(14),
+        nodeId: testNodeId(15),
+      }),
+      documentNode("assetFile", {
+        assetId: testNodeId(16),
+        label: "Отчёт",
+        nodeId: testNodeId(17),
+      }),
+    ]);
+
+    const serialized: unknown = document.toJSON();
+    const accepted = materialBodyOperations.accept({ schemaVersion: 1, doc: serialized });
+
+    // A rejected document reports why; `document_would_be_normalized` is the drift this guards.
+    expect(accepted.ok ? [] : accepted.error.issues).toEqual([]);
   });
 
   test("rejects the removed legacy inline Video node", () => {

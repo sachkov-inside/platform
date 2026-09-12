@@ -42,3 +42,32 @@ accountsPrisma.notificationEmailAttempt.findMany();
 declare const telegramCommunityPrisma: import("../../../../src/infrastructure/prisma/index.js").TelegramMembershipPrisma;
 telegramCommunityPrisma.accessGrant.count();
 entitlementsPrisma.telegramCommunityOperation.count();
+
+// Каждый источник Notifications обязан назвать своего владельца: пропущенный тип события
+// должен ломать сборку, а не молча спрашивать чужой повод.
+import type { NotificationEvent } from "../../../../src/modules/notifications/domain/notification-wire.js";
+import type { NotificationSource } from "../../../../src/modules/notifications/ports/notification-sources.js";
+declare const resolveBillingNotice: () => Promise<NotificationSource>;
+({ "billing.notice-ready": resolveBillingNotice }) satisfies Record<
+  NotificationEvent["eventType"],
+  () => Promise<NotificationSource>
+>;
+
+// Описание ресурса на транспортной границе не может обещать вариант, которого доменный тип
+// извлечения не знает: такое расхождение обязано ломать сборку, а не уезжать в описание API.
+import { z } from "zod";
+import type { MaterialBodyResourceSummary } from "@inside/material-blocks";
+const driftedResourceSchema: z.ZodType<MaterialBodyResourceSummary> = z.discriminatedUnion(
+  "kind",
+  [
+    z.object({
+      alt: z.string(),
+      assetId: z.uuid(),
+      caption: z.string().optional(),
+      kind: z.literal("image"),
+    }),
+    z.object({ assetId: z.uuid(), kind: z.literal("file"), label: z.string() }),
+    z.object({ caption: z.string().optional(), kind: z.literal("video") }),
+  ],
+);
+describe("drifted material resource", () => driftedResourceSchema);

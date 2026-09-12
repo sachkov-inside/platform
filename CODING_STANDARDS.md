@@ -5,7 +5,11 @@ This file routes repository-wide rules. Apply the standard nearest to the code b
 - backend modules, Nest, Prisma, REST, migrations, and backend tests:
   [`apps/backend/CODING_STANDARDS.md`](apps/backend/CODING_STANDARDS.md);
 - Next.js, feature slices, transport adapters, server state, mutations, UI, and browser tests:
-  [`apps/web/CODING_STANDARDS.md`](apps/web/CODING_STANDARDS.md).
+  [`apps/web/CODING_STANDARDS.md`](apps/web/CODING_STANDARDS.md);
+- shared workspace packages under `packages/`: these repository-wide rules plus the backend
+  standard, because both applications compile that code with the same strict TypeScript and
+  type-aware lint configuration. A package keeps no framework, transport or persistence
+  dependency of its own.
 
 ADRs explain durable trade-offs; these standards describe the current implementation rules. The
 nearest `AGENTS.md` owns task routing and verification commands.

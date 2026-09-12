@@ -16,15 +16,7 @@ import {
 } from "@/_pages/library/ui/library-page";
 import { LibraryCatalogQueryView } from "@/_pages/library/ui/library-page-query.client";
 import type { MaterialPreview } from "@/entities/material";
-import {
-  ApplicationShell,
-  type ApplicationNavigationItem,
-} from "@/widgets/application-shell";
-
-const navigationItems = [
-  { href: "/", icon: "home", label: "Главная" },
-  { href: "/library", icon: "library", label: "База знаний" },
-] satisfies readonly ApplicationNavigationItem[];
+import { publicPageEnvironment } from "@/workshop/story-environment";
 
 const catalogItems = [
   {
@@ -259,36 +251,20 @@ function CachedCatalogNavigationHarness() {
   );
 }
 
-function ProductionShell({ children }: { readonly children: React.ReactNode }) {
-  return (
-    <ApplicationShell
-      currentPath="/library"
-      navigationItems={navigationItems}
-      mobileNavigationItems={[...navigationItems, { href: "/account", icon: "profile", label: "Профиль" }]}
-    >
-      {children}
-    </ApplicationShell>
-  );
-}
+const environment = publicPageEnvironment("/library");
 
 const meta = {
+  ...environment,
   args: { onQueryChange: () => undefined, query: defaultQuery },
   component: LibraryPage,
-  decorators: [
-    (Story) => (
-      <ProductionShell>
-        <Story />
-      </ProductionShell>
-    ),
-  ],
   parameters: {
+    ...environment.parameters,
     docs: {
       description: {
         component:
           "Production-owned Library with one global search, independent Series results, and material-only Topic, Format, and sort filters.",
       },
     },
-    nextjs: { appDirectory: true },
   },
   title: "Pages/Mobile-first Platform/Knowledge Base",
 } satisfies Meta<typeof LibraryPage>;

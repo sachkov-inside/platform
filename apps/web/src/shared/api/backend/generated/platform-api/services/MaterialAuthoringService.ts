@@ -1220,9 +1220,6 @@ export class MaterialAuthoringService {
         assetId: string;
         kind: 'file';
         label: string;
-      } | {
-        caption?: string;
-        kind: 'video';
       })>;
     };
     materialId: string;

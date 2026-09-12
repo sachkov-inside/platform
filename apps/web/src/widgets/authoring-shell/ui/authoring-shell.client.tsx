@@ -34,9 +34,12 @@ export function AuthoringShell({ children }: { readonly children: ReactNode }) {
             : undefined;
 
   return (
-    <div className="min-h-svh bg-background text-foreground md:flex md:h-svh md:min-h-0 md:overflow-hidden">
+    <div
+      className="min-h-svh bg-background text-foreground md:flex md:h-svh md:min-h-0 md:overflow-hidden"
+      data-authoring-shell
+    >
       <a
-        className="fixed left-4 top-4 z-[100] -translate-y-24 rounded-lg bg-accent px-4 py-3 text-sm font-semibold text-accent-foreground transition-transform focus:translate-y-0 motion-reduce:transition-none"
+        className="fixed left-4 top-4 z-[100] max-w-[calc(100vw-2rem)] -translate-y-24 rounded-lg bg-accent px-4 py-3 text-sm font-semibold text-accent-foreground transition-transform focus:translate-y-0 motion-reduce:transition-none"
         href="#authoring-content"
       >
         Перейти к содержанию

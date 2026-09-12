@@ -18,12 +18,16 @@ COPY --chown=node:node apps/backend/prisma.config.ts ./apps/backend/prisma.confi
 COPY --chown=node:node apps/backend/prisma ./apps/backend/prisma
 COPY --chown=node:node apps/web/package.json ./apps/web/package.json
 COPY --chown=node:node packages/runtime-identity/package.json ./packages/runtime-identity/package.json
+# The block registry compiles during install, so its sources join the dependency stage.
+COPY --chown=node:node packages/material-blocks ./packages/material-blocks
 RUN --mount=type=cache,id=inside-platform-pnpm,target=/pnpm/store,uid=1000,gid=1000 \
     pnpm install --frozen-lockfile --store-dir=/pnpm/store --package-import-method=copy
 
 FROM dependencies AS development
 
 COPY --chown=node:node . .
+
+ENV TBANK_CA_FILE=/workspace/infra/tls/russian-trusted-root-ca.pem
 
 FROM dependencies AS release-identity
 
@@ -72,8 +76,14 @@ FROM node:24.19.0-alpine3.23 AS backend-production
 
 ENV NODE_ENV=production \
     API_HOST=0.0.0.0 \
-    API_PORT=3001
+    API_PORT=3001 \
+    TBANK_CA_FILE=/app/infra/tls/russian-trusted-root-ca.pem
 WORKDIR /app
+
+# Корень для соединений с банком: владелец root, приложению доступен только на чтение.
+# Каталог создаётся заранее: --chmod у COPY распространился бы и на него, закрыв вход внутрь.
+RUN mkdir -p ./infra/tls
+COPY --chown=root:root --chmod=0444 infra/tls/russian-trusted-root-ca.pem ./infra/tls/russian-trusted-root-ca.pem
 
 COPY --from=release-identity --chown=root:root --chmod=0444 /workspace/release-identity.json ./release-identity.json
 COPY --from=production-build --chown=node:node /workspace/.production/backend/package.json ./package.json

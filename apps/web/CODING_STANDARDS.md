@@ -25,10 +25,32 @@ mutations.
   for the interactive boundary. Client-reachable code imports no server-only interface.
 - Storybook proofs and fixtures remain outside the production graph.
 
+## Storybook catalog
+
+- A story renders the production module in its production environment. A page-level story wraps the
+  module in the shell its route uses; a component story uses the containers its real page gives it.
+  A story never re-creates page markup, a shell, or navigation of its own.
+- `src/workshop/story-environment` owns those wrappers and `@/widgets/application-shell` owns the
+  navigation items. A story that copies navigation or rebuilds a header drifts from the application
+  as soon as either changes; extract the real frame into a module both sides import instead.
+- Scrolling in a story matches the product: the document scrolls below 48rem, and above it the
+  shell owns scrolling. A page-level story that cannot scroll on desktop is a defect, not a fixture.
+- The application is the reference. When a story and its route disagree on tokens, spacing,
+  typography, or states, the story changes.
+- A retired proof leaves the catalog. Git history and the issue keep the decision; the catalog keeps
+  only what the product still shows.
+- Owner decision 2026-09-11: these rules stay prose and are checked in review. Do not add a
+  Storybook-specific automated check for them.
+
 ## Transport and validation
 
 - Nest owns the wire contract. Change controller schemas, regenerate deterministic OpenAPI and the
   Web client, and use `pnpm api:check` for drift. Do not hand-edit generated artifacts.
+- `@inside/material-blocks` owns the material block set. Take the rendered block type and its
+  schema from its registry entry point, and build the editor from its document-schema entry point;
+  a page slice adds a block's appearance, never its node, block list or rendered shape. Reading and
+  lightweight authoring routes stay on the registry entry point so the editor bundle cannot reach
+  them.
 - `src/shared/config` owns server-only environment parsing. `src/shared/api/backend` owns generated
   transport, the private Nest URL, HTTP adapter, and timeouts. Other modules import those
   interfaces and do not read application env or duplicate backend URLs.

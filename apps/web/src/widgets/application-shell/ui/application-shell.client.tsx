@@ -58,11 +58,12 @@ export function ApplicationShell({
   return (
     <div
       className="flex min-h-svh flex-col bg-background text-foreground lg:h-svh lg:overflow-hidden"
+      data-application-shell
       data-public-shell
     >
       <a
         href="#content"
-        className="fixed left-4 top-4 z-[100] -translate-y-24 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground focus:translate-y-0"
+        className="fixed left-4 top-4 z-[100] max-w-[calc(100vw-2rem)] -translate-y-24 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground focus:translate-y-0"
       >
         Перейти к содержанию
       </a>

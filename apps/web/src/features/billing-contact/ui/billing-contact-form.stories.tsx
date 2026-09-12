@@ -3,6 +3,7 @@ import { expect, fn, userEvent, within } from "storybook/test";
 
 import type { LegalDocument } from "@/entities/subscription";
 import { BillingContactForm } from "./billing-contact-form.client";
+import { accountSectionEnvironment } from "@/workshop/story-environment";
 
 const contact = {
   email: "buyer@example.test",
@@ -28,7 +29,10 @@ const documents: readonly LegalDocument[] = [
   },
 ];
 
+const environment = accountSectionEnvironment("/account/purchases");
+
 const meta = {
+  ...environment,
   title: "Pages/Account/Billing contact",
   component: BillingContactForm,
   args: {
@@ -40,6 +44,7 @@ const meta = {
     onStart: fn(),
   },
   parameters: {
+    ...environment.parameters,
     docs: {
       description: {
         component:

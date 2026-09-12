@@ -3,11 +3,10 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, within } from "storybook/test";
 import { MaterialReadingContext, type MaterialPreview } from "@/entities/material";
 import type { PublishedSeriesResult } from "@/features/library-discovery";
-import { ApplicationShell, type ApplicationNavigationItem } from "@/widgets/application-shell";
 import { guideOnlyOffer } from "@/workshop/billing.fixtures";
 import { GuideProgrammeView } from "./guide-programme-view.client";
+import { publicPageEnvironment } from "@/workshop/story-environment";
 
-const navigation = [{ href: "/", icon: "home", label: "Главная" }, { href: "/library", icon: "library", label: "База знаний" }] satisfies readonly ApplicationNavigationItem[];
 const titles = ["От идеи к первой версии", "Границы продукта", "Сценарии пользователя", "Модель предметной области", "Выбор технической основы", "Первый вертикальный срез", "Хранение данных", "Миграции без потери данных", "Вход и сессии", "Права доступа", "Контракты API", "Проверки приложения", "Настройка CI", "Сборка образа", "Секреты и конфигурация", "Подготовка сервера", "Первый деплой", "Обновление приложения", "Логи и диагностика", "Метрики и оповещения", "Резервное копирование", "Восстановление после сбоя", "Проверка под нагрузкой", "Что улучшать дальше"];
 const materials = titles.map((title, index): MaterialPreview => ({
   materialId: `series-material-${String(index + 1)}`, slug: `series-material-${String(index + 1)}`, title,
@@ -28,17 +27,19 @@ const chapteredResult = { ...result, chapters } satisfies PublishedSeriesResult;
 const resume = { materialSlug: "series-material-13", label: "Продолжить с 12:40" };
 const register = () => () => undefined;
 const refresh = () => Promise.resolve();
+const environment = publicPageEnvironment("/guides/platform-inside/programme");
 const meta = {
+  ...environment,
   component: GuideProgrammeView,
   title: "Pages/Guide/Programme",
-  parameters: { layout: "fullscreen", docs: { description: { component: "Страница программы руководства. Учебный состав из 24 материалов проверяет прогресс, страницы, продолжение и состояния доступа; редакционных и провайдерских утверждений в нём нет." } } },
+  parameters: { ...environment.parameters, docs: { description: { component: "Страница программы руководства. Учебный состав из 24 материалов проверяет прогресс, страницы, продолжение и состояния доступа; редакционных и провайдерских утверждений в нём нет." } } },
   args: { result, learning: { kind: "ready", read: 8, total: 24, continuation: resume } },
   decorators: [(Story, context) => {
     const view = context.args.learning;
     const read = view?.kind === "ready" ? view.read : 0;
     const states = new Map(materials.slice(0, read).map((item) => [item.materialId ?? "", { isRead: true, version: 1 }]));
-    return <MaterialReadingContext value={{ accountId: view?.kind === "guest" ? null : "story-account", resolved: true, states, register, refresh, failed: false }}><ApplicationShell currentPath="/guides/platform-inside/programme" navigationItems={navigation} mobileNavigationItems={[...navigation, { href: "/account", icon: "profile", label: "Профиль" }]}><Story /></ApplicationShell></MaterialReadingContext>;
-  }],
+    return <MaterialReadingContext value={{ accountId: view?.kind === "guest" ? null : "story-account", resolved: true, states, register, refresh, failed: false }}><Story /></MaterialReadingContext>;
+  }, ...environment.decorators],
 } satisfies Meta<typeof GuideProgrammeView>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -316,7 +317,6 @@ export const DesktopRouteDetails: Story = {
     await expect(canvasElement.querySelector("[data-guide-programme]")?.getBoundingClientRect().width).toBeLessThanOrEqual(1040);
   },
 };
-
 
 export const CompactMobileEnlargedText: Story = {
   ...CompactMobileRoute,

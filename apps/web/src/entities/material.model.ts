@@ -23,4 +23,4 @@ export {
   type RenderedMark,
   type RenderedMaterialBody,
   type RenderedText,
-} from "./material/model/rendered-material-body";
+} from "@inside/material-blocks";

@@ -2,21 +2,25 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
 
 import { AccountAccessView } from "./account-access-view.client";
+import { accountSectionEnvironment } from "@/workshop/story-environment";
+
+const environment = accountSectionEnvironment("/account/access");
 
 const meta = {
+  ...environment,
   args: {
     link: { kind: "linked" },
     onTelegramRefresh: () => Promise.resolve(),
   },
   component: AccountAccessView,
   parameters: {
+    ...environment.parameters,
     docs: {
       description: {
         component:
           "Раздел «Аккаунт»: связь с Telegram и выход. Права доступа и их сроки объясняет раздел «Покупки».",
       },
     },
-    nextjs: { appDirectory: true },
   },
   title: "Pages/Account/Access",
 } satisfies Meta<typeof AccountAccessView>;
@@ -32,8 +36,12 @@ export const Linked: Story = {
     await expect(
       canvas.getByRole("button", { name: "Выйти из аккаунта" }),
     ).toBeEnabled();
-    // Ни один раздел не показывает задачи другого.
-    await expect(canvas.queryByText(/чек|списани/iu)).not.toBeInTheDocument();
+    // Ни один раздел не показывает задачи другого; список разделов кабинета — не раздел.
+    await expect(
+      canvas.queryByText(/чек|списани/iu, {
+        ignore: "script, style, [data-account-section-nav] *",
+      }),
+    ).not.toBeInTheDocument();
   },
 };
 

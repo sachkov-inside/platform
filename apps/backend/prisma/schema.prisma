@@ -1156,6 +1156,33 @@ model BillingNotificationOutbox {
   @@schema("billing")
 }
 
+model MaterialAnnouncement {
+  id           String   @id @db.Uuid
+  materialId   String   @unique @map("material_id") @db.Uuid
+  revision     Int
+  occurredAt   DateTime @map("occurred_at") @db.Timestamptz
+  notAfter     DateTime @map("not_after") @db.Timestamptz
+  title        String
+  readerPath   String   @map("reader_path")
+  createdAt    DateTime @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @map("updated_at") @db.Timestamptz
+
+  @@map("publication_announcements")
+  @@schema("materials")
+}
+
+model MaterialAnnouncementRevision {
+  announcementRef String   @map("announcement_ref") @db.Uuid
+  revision        Int
+  messageId       String   @unique @map("message_id") @db.Uuid
+  payload         Json
+  createdAt       DateTime @map("created_at") @db.Timestamptz
+
+  @@id([announcementRef, revision])
+  @@map("publication_announcement_revisions")
+  @@schema("materials")
+}
+
 model MaterialNotificationOutbox {
   scope String
   messageId String @map("message_id") @db.Uuid

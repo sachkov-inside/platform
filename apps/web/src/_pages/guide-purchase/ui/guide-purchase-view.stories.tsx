@@ -5,12 +5,17 @@ import { guideOnlyOffer } from "@/workshop/billing.fixtures";
 
 import { GuidePurchaseView } from "./guide-purchase-view";
 
+import { publicPageEnvironment, routeContent } from "@/workshop/story-environment";
+
 const guide = {
   name: "Создание Platform Inside",
   summary: "Как устроен продукт: архитектура, границы и порядок поставки.",
 };
 
+const environment = publicPageEnvironment("/guides/platform-inside/buy");
+
 const meta = {
+  ...environment,
   title: "Pages/Guide/Purchase",
   component: GuidePurchaseView,
   args: {
@@ -25,7 +30,7 @@ const meta = {
     ),
   },
   parameters: {
-    nextjs: { appDirectory: true },
+    ...environment.parameters,
     docs: {
       description: {
         component:
@@ -79,7 +84,8 @@ export const PriceUnavailable: Story = {
 export const SignedOut: Story = {
   args: { viewer: "guest" },
   play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
+    // Вход есть и в шапке оболочки: проверяем приглашение самой страницы.
+    const canvas = routeContent(canvasElement);
     await expect(canvas.getByRole("button", { name: "Войти" })).toBeEnabled();
     // Цена в приглашении войти приходит из снимка сервера, а не из разметки.
     await expect(

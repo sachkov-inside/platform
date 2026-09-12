@@ -156,3 +156,27 @@ Never reset such attempts merely because the browser offers a retry.
 The optional `PlatformConfig.notifications` group belongs to `notifications-worker`. Its URL map,
 CA, prefetch and quarantine limits are defined in the [transport runbook](notification-transport.md).
 The local Compose env file uses disposable scoped principals; production activation remains separate.
+
+## Bank certificate chain
+
+The T-Bank payment API presents a chain that ends at the Ministry of Digital Development root
+"Russian Trusted Root CA". That root is absent from the Node bundle and from the
+`node:24.19.0-alpine3.23` image, so every bank call fails certificate verification without it.
+
+The repository keeps the root at `infra/tls/russian-trusted-root-ca.pem`. `TBANK_CA_FILE` names the
+file to trust and is parsed into `PlatformConfig.tbank.caFile`; the backend images set it to their
+own copy. The root is attached to the bank client alone, so no other outbound connection — mail,
+object storage, Telegram, broker — gains that trust, and certificate and hostname verification stay
+on. A host or runtime that calls the bank outside these images sets the same variable. Without it
+bank calls fail on certificate verification rather than falling back to an unverified connection.
+
+The bank client trusts this root and nothing else: the configured file replaces the default store
+for that client instead of extending it. Bank calls therefore stop if the bank moves to a chain this
+root does not sign, which is the intended failure — replace the pinned file rather than widen trust.
+`billing-bank-contract.test.ts` asserts the fingerprint below against the committed file, so
+replacing the root without updating this runbook fails the build.
+
+The pinned root was compared with the chain the bank serves and matches: SHA-256
+`D2:6D:2D:02:31:B7:C3:9F:92:CC:73:85:12:BA:54:10:35:19:E4:40:5D:68:B5:BD:70:3E:97:88:CA:8E:CF:31`.
+Verified terminal and cash-register capabilities are recorded in
+[issue-402 terminal capability](../verification/issue-402-tbank-terminal-capability.md).

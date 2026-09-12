@@ -12,5 +12,5 @@ export {
   type MaterialValidationIssue,
   type MaterialValidationState,
 } from "./model/presentation";
-export { materialDocumentSchema } from "./model/material-document-schema";
+export { materialDocumentContentSchema } from "./model/material-document-content-schema";
 export { withMaterialNodeIds } from "./model/material-document-identifiers";

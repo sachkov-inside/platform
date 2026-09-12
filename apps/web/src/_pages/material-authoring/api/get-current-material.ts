@@ -6,7 +6,7 @@ import { materialFormatSchema } from "@/shared/api/material-format";
 import { z } from "zod";
 
 import {
-  materialDocumentSchema,
+  materialDocumentContentSchema,
   type MaterialDraftPresentation,
 } from "@/widgets/material-authoring/model";
 import {
@@ -25,7 +25,7 @@ const seriesMembershipSchema = z
   .strict();
 const currentMaterialSchema = z
   .object({
-    body: z.object({ doc: materialDocumentSchema, schemaVersion: z.literal(1) }).strict(),
+    body: z.object({ doc: materialDocumentContentSchema, schemaVersion: z.literal(1) }).strict(),
     contentVersion: z.number().int().positive(),
     cover: contentCoverSchema.nullable(),
     firstPublishedAt: z.iso.datetime({ offset: true }).nullable(),

@@ -1,13 +1,23 @@
-export type JsonPrimitive = boolean | null | number | string;
+import type {
+  JsonObject,
+  MaterialBodyHeading,
+  MaterialBodyResourceSummary,
+  RenderedMaterialBody,
+} from "@inside/material-blocks";
 
-export type JsonValue =
-  | JsonPrimitive
-  | readonly JsonValue[]
-  | { readonly [key: string]: JsonValue };
+import type { Result } from "../../result.js";
 
-export interface JsonObject {
-  readonly [key: string]: JsonValue;
-}
+export type {
+  JsonObject,
+  JsonPrimitive,
+  JsonValue,
+  MaterialBodyHeading,
+  MaterialBodyResourceSummary,
+  RenderedBlock,
+  RenderedMark,
+  RenderedMaterialBody,
+  RenderedText,
+} from "@inside/material-blocks";
 
 export interface MaterialBodySnapshot {
   readonly schemaVersion: 1;
@@ -25,86 +35,9 @@ export interface ValidationIssue {
   readonly path: string;
 }
 
-export type RenderedMark =
-  | { readonly kind: "bold" | "code" | "italic" | "strike" }
-  | { readonly kind: "link"; readonly href: string };
-
-export interface RenderedText {
-  readonly kind: "text";
-  readonly text: string;
-  readonly marks: readonly RenderedMark[];
-}
-
-export type RenderedBlock =
-  | {
-      readonly kind: "paragraph";
-      readonly content: readonly RenderedText[];
-    }
-  | {
-      readonly kind: "heading";
-      readonly level: 2 | 3 | 4;
-      readonly content: readonly RenderedText[];
-    }
-  | {
-      readonly kind: "bullet_list" | "ordered_list";
-      readonly items: readonly (readonly RenderedBlock[])[];
-    }
-  | { readonly kind: "blockquote"; readonly content: readonly RenderedBlock[] }
-  | { readonly kind: "code_block"; readonly text: string }
-  | { readonly kind: "horizontal_rule" }
-  | {
-      readonly kind: "table";
-      readonly rows: readonly {
-        readonly cells: readonly {
-          readonly header: boolean;
-          readonly content: readonly RenderedBlock[];
-        }[];
-      }[];
-    }
-  | {
-      readonly kind: "callout";
-      readonly tone: "note" | "tip" | "warning";
-      readonly content: readonly RenderedBlock[];
-    }
-  | {
-      readonly kind: "image";
-      readonly assetId: string;
-      readonly alt: string;
-      readonly caption?: string;
-      readonly displayWidthPercent?: number;
-      readonly height?: number;
-      readonly variants?: readonly { readonly height: number; readonly width: number }[];
-      readonly width?: number;
-    }
-  | {
-      readonly kind: "file";
-      readonly assetId: string;
-      readonly contentType?: string;
-      readonly filename?: string;
-      readonly label: string;
-      readonly size?: number;
-    };
-
-export interface RenderedMaterialBody {
-  readonly schemaVersion: 1;
-  readonly blocks: readonly RenderedBlock[];
-}
-
-export type MaterialBodyResourceSummary =
-  | {
-      readonly kind: "image";
-      readonly assetId: string;
-      readonly alt: string;
-      readonly caption?: string;
-    }
-  | { readonly kind: "file"; readonly assetId: string; readonly label: string };
-
 export interface MaterialBodyExtraction {
   readonly plainText: string;
-  readonly headings: readonly {
-    readonly level: 2 | 3 | 4;
-    readonly text: string;
-  }[];
+  readonly headings: readonly MaterialBodyHeading[];
   readonly resources: readonly MaterialBodyResourceSummary[];
 }
 
@@ -152,4 +85,3 @@ export interface MaterialBodyOperations {
     document: MaterialBodySnapshot,
   ): MaterialBodyResult<MaterialBodyExtraction>;
 }
-import type { Result } from "../../result.js";

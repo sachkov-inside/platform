@@ -6,22 +6,6 @@
 }
 
 @media (max-width: 47.999rem) {
-  #content > div:has(
-    > :is(
-      [data-prototype="library-responsive"],
-      [data-prototype="knowledge-base-responsive"],
-      [data-prototype="material-reader-responsive"]
-    )
-  ) {
-    margin: 0;
-    inline-size: 100%;
-    max-inline-size: none;
-    padding-block-start: 0;
-    border: 0;
-    border-radius: 0;
-    background: var(--background);
-  }
-
   .library-topic-rail {
     scrollbar-width: none;
   }
@@ -32,5 +16,21 @@
 
   .platform-agentation {
     bottom: calc(4rem + env(safe-area-inset-bottom)) !important;
+  }
+}
+
+/*
+ * Прокрутка предпросмотра для компонентных story. С 48rem `globals.css` отдаёт прокрутку оболочке
+ * приложения, поэтому `html` и `body` её не имеют. Отдельный компонент — не маршрут, оболочки у
+ * него нет, и без этого правила на десктопе виден только первый экран. Story страницы сюда не
+ * попадает: она живёт в своей оболочке и прокручивается ровно так же, как её маршрут. Оболочку
+ * узнаём по `data-application-shell` и `data-authoring-shell`: они принадлежат только ей, тогда
+ * как `data-public-shell` задаёт светлую палитру и стоит ещё и на выпадающих меню в портале.
+ */
+@media (width >= 48rem) {
+  html:not(:has([data-application-shell], [data-authoring-shell])),
+  body:not(:has([data-application-shell], [data-authoring-shell])) {
+    block-size: auto;
+    overflow: visible;
   }
 }
