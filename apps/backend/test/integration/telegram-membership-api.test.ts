@@ -91,13 +91,10 @@ describe("Telegram Membership API", () => {
     );
 
     await enrollLegacyCohortFixture(database.prisma, ownerAccountId);
-    const unauthenticatedPresentation = await app
-      .getHttpAdapter()
-      .getInstance()
-      .inject({
-        method: "GET",
-        url: "/accounts/current/telegram-membership",
-      });
+    const unauthenticatedPresentation = await declaredServer(app.getHttpAdapter().getInstance()).inject({
+      method: "GET",
+      url: "/accounts/current/telegram-membership",
+    });
     expect(unauthenticatedPresentation.statusCode).toBe(401);
 
     const initialPresentation = await authenticated(

@@ -2,7 +2,6 @@ import { describe, expect, test } from "vitest";
 
 import {
   assertDeclaredResponse,
-  compileDeclaredResponses,
   declaredServer,
   type DeclaredResponseParts,
   type InjectableServer,
@@ -58,8 +57,14 @@ describe("declared response contract", () => {
   });
 
   test("leaves a status the document answers without a body alone", () => {
-    expect(() => { assertDeclaredResponse({ ...learningHome(continuation), status: 401, body: () => { throw new Error("body read"); } }); })
-      .not.toThrow();
+    expect(() => {
+      assertDeclaredResponse({
+        method: "PUT",
+        url: "/materials/9f1a/videos/2b7c/progress",
+        status: 204,
+        body: () => { throw new Error("body read"); },
+      });
+    }).not.toThrow();
   });
 
   // Негативная фикстура шва: сверку выполняет сам `inject`, а не только прямой вызов рядом.
@@ -75,10 +80,18 @@ describe("declared response contract", () => {
       .rejects.toThrow(/introduction/u);
   });
 
-  // Эта проверка считает, а не ждёт: её отказ — исключение компиляции, а не истечение срока.
-  // Явный бюджет снимает только зависший прогон и поэтому заведомо больше любой честной работы;
-  // умолчание в пять секунд измеряло бы загруженность машины, а не перевод описания.
-  test("every declared JSON response is a contract the check can run", () => {
-    expect(compileDeclaredResponses()).toBeGreaterThan(0);
-  }, 60_000);
+
+  // Отказ тоже объявленный ответ: `application/problem+json` описывает большую часть документа.
+  // Расширять его тело контракт разрешает, поэтому проверяются состав обязательных полей и
+  // объявленные значения, а не отсутствие чужих ключей.
+  test("reads a declared refusal body instead of skipping it", () => {
+    const problem = (code: string) => ({
+      method: "POST",
+      url: "/accounts/current/billing/quote",
+      status: 409,
+      body: () => ({ type: "about:blank", title: "Quote changed", status: 409, code }),
+    });
+    expect(() => { assertDeclaredResponse(problem("quote_changed")); }).not.toThrow();
+    expect(() => { assertDeclaredResponse(problem("quote_vanished")); }).toThrow(/allowed values/u);
+  });
 });

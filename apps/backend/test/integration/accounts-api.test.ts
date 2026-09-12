@@ -430,10 +430,7 @@ describe("Accounts API", () => {
     const deleted = await declaredServer(app.getHttpAdapter().getInstance()).inject(deleteRequest);
     expect(deleted.statusCode).toBe(200);
     expect(deleted.json()).toEqual({ materialId: deletableReceipt.materialId });
-    const duplicateDelete = await app
-      .getHttpAdapter()
-      .getInstance()
-      .inject(deleteRequest);
+    const duplicateDelete = await declaredServer(app.getHttpAdapter().getInstance()).inject(deleteRequest);
     expect(duplicateDelete.statusCode).toBe(200);
     expect(duplicateDelete.json()).toEqual({
       materialId: deletableReceipt.materialId,

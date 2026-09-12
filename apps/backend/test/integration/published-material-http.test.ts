@@ -439,7 +439,7 @@ describe("published Material HTTP contract", () => {
       { logger: false },
     );
     await unavailableApp.init();
-    await unavailableApp.getHttpAdapter().getInstance().ready();
+    await declaredServer(unavailableApp.getHttpAdapter().getInstance()).ready();
 
     try {
       for (const url of [
@@ -449,7 +449,7 @@ describe("published Material HTTP contract", () => {
         "/library/materials/kak-ustroen-inside-platform/related",
         "/materials/kak-ustroen-inside-platform",
       ]) {
-        const response = await unavailableApp.getHttpAdapter().getInstance().inject({
+        const response = await declaredServer(unavailableApp.getHttpAdapter().getInstance()).inject({
           method: "GET",
           url,
         });

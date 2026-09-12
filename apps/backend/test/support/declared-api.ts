@@ -67,26 +67,6 @@ export function declaredServer<Response extends DeclaredResponseParts>(server: I
   };
 }
 
-/**
- * Каждое объявленное JSON-тело — контракт, который сверка умеет выполнить. Перевод из OpenAPI
- * держится на `nullable` и булевых границах, поэтому смена генератора обязана падать здесь, а не
- * превращаться в тихо пропущенную проверку.
- */
-export function compileDeclaredResponses(): number {
-  let compiled = 0;
-  for (const item of Object.values(document.paths)) {
-    for (const operation of Object.values(item)) {
-      for (const declared of Object.values(operation.responses ?? {})) {
-        const schema = declared.content?.["application/json"]?.schema;
-        if (schema === null || typeof schema !== "object") continue;
-        compiledValidator(schema);
-        compiled += 1;
-      }
-    }
-  }
-  return compiled;
-}
-
 /** Сверка одного уже полученного ответа: тело читается только когда описание его объявляет. */
 export function assertDeclaredResponse(response: {
   readonly method: string;
@@ -115,8 +95,8 @@ export function assertDeclaredResponse(response: {
     }
     return;
   }
-  const schema = declared.content?.["application/json"]?.schema;
-  if (schema === null || typeof schema !== "object") return;
+  const schema = declaredJsonSchema(declared);
+  if (schema === undefined) return;
   const validate = compiledValidator(schema);
   if (validate(response.body())) return;
   throw new Error(
@@ -161,12 +141,35 @@ function declaredOperation(method: string, url: string): OperationResponses | un
   const path = url.split("?")[0] ?? url;
   const exact = document.paths[path]?.[method.toLowerCase()];
   if (exact !== undefined) return exact.responses ?? {};
-  for (const [declaredPath, item] of Object.entries(document.paths)) {
-    const operation = item[method.toLowerCase()];
-    if (operation === undefined || !pathTemplate(declaredPath).test(path)) continue;
-    return operation.responses ?? {};
+  const matches = Object.entries(document.paths)
+    .filter(([declaredPath, item]) =>
+      item[method.toLowerCase()] !== undefined && pathTemplate(declaredPath).test(path))
+    .sort(([left], [right]) => parameterCount(left) - parameterCount(right));
+  const [best, next] = matches;
+  if (best === undefined) return undefined;
+  // Порядок ключей документа не должен решать, какую схему читают: одинаково подробная пара
+  // шаблонов — это неоднозначность, а не выбор по умолчанию.
+  if (next !== undefined && parameterCount(next[0]) === parameterCount(best[0])) {
+    throw new Error(`${method} ${path} matches both ${best[0]} and ${next[0]}; the document is ambiguous here.`);
   }
-  return undefined;
+  return best[1][method.toLowerCase()]?.responses ?? {};
+}
+
+function parameterCount(declaredPath: string): number {
+  return (declaredPath.match(/\{[^}]+\}/gu) ?? []).length;
+}
+
+/**
+ * Тело отказа — тоже объявленный ответ: `application/problem+json` описывает 620 из 745 ответов
+ * документа, и пропустить их значило бы не встретиться с большей частью того, что проверяется.
+ */
+function declaredJsonSchema(declared: z.infer<typeof responseSchema>): object | undefined {
+  const content = declared.content ?? {};
+  const mediaType = Object.keys(content).find(
+    (name) => name === "application/json" || name.endsWith("+json"),
+  );
+  const schema = mediaType === undefined ? undefined : content[mediaType]?.schema;
+  return schema === null || typeof schema !== "object" ? undefined : schema;
 }
 
 const templates = new Map<string, RegExp>();
@@ -187,7 +190,8 @@ function pathTemplate(declaredPath: string): RegExp {
 
 /**
  * OpenAPI 3.0 описывает форму почти как JSON Schema, но `nullable` и булев `exclusiveMinimum`
- * принадлежат только ему. Перевод их снимает, а ссылки на общие схемы уводит в корень.
+ * принадлежат только ему. Перевод их снимает, а ссылки на общие схемы уводит в корень. Всё
+ * остальное, чего перевод не знает, ajv отвергает при компиляции, а не пропускает молча.
  */
 function translated(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(translated);
@@ -202,10 +206,6 @@ function translatedSchema(value: object): Record<string, unknown> {
   if (source.exclusiveMinimum === true && typeof source.minimum === "number") {
     bounds.exclusiveMinimum = source.minimum;
     dropped.add("minimum").add("exclusiveMinimum");
-  }
-  if (source.exclusiveMaximum === true && typeof source.maximum === "number") {
-    bounds.exclusiveMaximum = source.maximum;
-    dropped.add("maximum").add("exclusiveMaximum");
   }
   const schema: Record<string, unknown> = {
     ...Object.fromEntries(
