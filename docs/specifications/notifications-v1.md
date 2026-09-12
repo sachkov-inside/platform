@@ -55,7 +55,8 @@ republication после cutover не становится ложной перв
 
 Шаблоны первой версии versioned и принадлежат Notifications. Закрытые категории/kinds выбираются
 по authoritative source, не caller text. Они формируют plain text и email subject из нормализованных
-данных; ссылки только на configured HTTPS Platform origin. Изменённый материал требует обновить
+данных; ссылки только на configured Platform origin, и он обязан быть HTTPS везде, кроме
+петлевого адреса стенда, у которого сертификата нет. Изменённый материал требует обновить
 ещё не начатую command по protocol revision rules, если заголовок/ссылка стали неактуальны.
 Нельзя просто подменить payload ранее поставленной команды или послать новый ID после unknown.
 

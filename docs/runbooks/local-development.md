@@ -32,6 +32,13 @@ The default stack contains:
   see [Notifications transport](notification-transport.md) for recovery and the production boundary;
 - Next.js web on <http://127.0.0.1:3000>.
 
+The stand runs web in development mode with the Next.js development indicator hidden:
+`config/compose/local/web.env` sets `HIDE_DEV_INDICATOR=true`, and `pnpm test:e2e` sets the same
+variable for its own server. The indicator would otherwise take taps meant for the mobile dock on a
+narrow screen, and no corner it can move to is free; `apps/web/next.config.ts` owns that reasoning.
+The host `pnpm dev` fallback sets no such variable, so it keeps both the indicator and that
+overlap — on a narrow screen prefer the stand when checking the dock or the authoring navigation.
+
 The optional Logto email-code proof is a separate, disposable Compose project with isolated ports
 and volumes. Its pinned build, automated Management API bootstrap and Mailpit capture are
 documented in [`infra/identity/logto/README.md`](../../infra/identity/logto/README.md). Run
@@ -204,6 +211,11 @@ no manual setup is needed before buying. See [Seeded offer catalog](#seeded-offe
 
 Nothing leaves the machine: the interceptor only receives mail and has no sending node configured.
 The bank double moves no money and remembers its orders across restarts.
+
+A purchase also produces a notification: `notifications-worker` expands the audience, stages the
+command and sends the letter to the same inbox, because the stand configures
+`NOTIFICATIONS_PLATFORM_ORIGIN` and `NOTIFICATIONS_TELEGRAM_SECRET` next to `BILLING_CONTACT_*`.
+The reader link points at the stand itself on <http://127.0.0.1:3000>.
 
 The stand must not run on previously built images. When migrations or MCP fail with
 `Migration ledger is not an exact registry prefix`, the image holds one migration fewer than the

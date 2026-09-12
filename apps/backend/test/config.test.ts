@@ -454,3 +454,19 @@ describe("bank payment contour", () => {
       .toThrow("TBANK_PROVIDER_MODE=test replaces TBANK_CONFIG_JSON; remove one of them");
   });
 });
+
+describe("notification delivery contour", () => {
+  const stand = { NODE_ENV: "development" };
+  it("accepts the stand loopback reader origin and requires HTTPS in production", () => {
+    const delivery = { NOTIFICATIONS_PLATFORM_ORIGIN: "http://127.0.0.1:3000", NOTIFICATIONS_TELEGRAM_SECRET: "inside-local-notification-dispatch-secret" };
+    expect(parsePlatformConfig({ ...stand, ...delivery }).notificationDelivery).toMatchObject({ origin: "http://127.0.0.1:3000" });
+    // Настроенной доставки может не быть вовсе: повод тогда ждёт, а не падает.
+    expect(parsePlatformConfig(stand).notificationDelivery).toBeUndefined();
+    expect(() => parsePlatformProcessConfig({ ...productionWorker, ...delivery }, "notifications-worker"))
+      .toThrow("NOTIFICATIONS_PLATFORM_ORIGIN must use HTTPS in production mode");
+    expect(parsePlatformProcessConfig({ ...productionWorker, ...delivery,
+      NOTIFICATIONS_PLATFORM_ORIGIN: "https://inside.example.test" }, "notifications-worker").notificationDelivery)
+      .toMatchObject({ origin: "https://inside.example.test" });
+  });
+
+});

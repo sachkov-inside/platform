@@ -324,6 +324,30 @@ describe('Notifications real PostgreSQL / RabbitMQ transport', () => {
     }, barrierBudgetMs);
     await billingReceiver.stop();
   }, 45_000);
+  test('отказ разбора входящих не останавливает воркер и называет причину', async () => {
+    await migrateRuntimeDatabase(database.url);
+    const transport = assembleNotificationTransport(database.prisma, 100);
+    const observed: Record<string, unknown>[] = [];
+    let sweeps = 0;
+    // Одна необрабатываемая строка раньше гасила весь процесс: задача разбора не была защищена,
+    // а причина подменялась общим именем. Здесь отказ повторяется на каждом круге.
+    const worker = assembleNotificationWorker({
+      config: { urls: { billing: config('billing').url, materials: config('materials').url, notifications: config('notifications').url, email: config('email').url }, caFile, prefetch: 1, quarantineCapacity: 100 },
+      transport, billing: assembleNotificationOutbox(database.prisma.billingNotificationOutbox, ['billing']),
+      materials: assembleNotificationOutbox(database.prisma.materialNotificationOutbox, ['materials']), report: event => observed.push(event),
+      processInbox: () => { sweeps += 1; return Promise.reject(new Error('поддельный отказ разбора')); },
+    });
+    void worker.failed.catch(() => undefined);
+    await worker.start();
+    try {
+      await eventually(async () => {
+        expect(sweeps).toBeGreaterThan(1);
+        expect(observed.some(event => event.reason === 'inbox_sweep_failed' && String(event.error).includes('поддельный отказ разбора'))).toBe(true);
+        return Promise.resolve();
+      }, barrierBudgetMs);
+      expect(await Promise.race([worker.failed.then(() => 'stopped'), Promise.resolve('running')])).toBe('running');
+    } finally { await worker.stop(); }
+  }, 45_000);
   test('composed worker relays both sources and email/results, drains and reports broker failure', async () => {
     await migrateRuntimeDatabase(database.url);
     const transport = assembleNotificationTransport(database.prisma, 100);

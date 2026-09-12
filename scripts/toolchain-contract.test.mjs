@@ -91,6 +91,17 @@ describe("supported toolchain contract", () => {
     assert.match(nextConfig, /tsconfigPath: "tsconfig\.next\.json"/u);
   });
 
+  it("hides the development indicator where the mobile dock is used", () => {
+    // Сторожит три звена проводки: убери любое — и перекрытие дока индикатором вернётся молча,
+    // одними лишь плавающими промахами. Причину и выбор держит `apps/web/next.config.ts`.
+    const nextConfig = read("apps/web/next.config.ts");
+
+    assert.match(nextConfig, /process\.env\.HIDE_DEV_INDICATOR === "true"/u);
+    assert.match(nextConfig, /devIndicators: false/u);
+    assert.match(read("apps/web/playwright.config.ts"), /HIDE_DEV_INDICATOR: "true"/u);
+    assert.match(read("config/compose/local/web.env"), /^HIDE_DEV_INDICATOR=true$/mu);
+  });
+
   it("allows local previews and protected image delivery through the Web CSP", () => {
     const nextConfig = read("apps/web/next.config.ts");
 
