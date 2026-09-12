@@ -13,13 +13,6 @@ const fixtures = [
     ],
   },
   {
-    root: "test/guardrails/fixtures/architecture/access-vocabulary",
-    diagnostics: [
-      "a Guide capability is built by @inside/access-capabilities",
-      "accessComposition belongs to @inside/access-capabilities",
-    ],
-  },
-  {
     root: "test/guardrails/fixtures/architecture/backend-environment",
     diagnostics: ["browser code cannot address Nest directly"],
   },

@@ -4,6 +4,7 @@ import {
   accessCapabilitySchema,
   accessComposition,
   capabilitiesOpenedBy,
+  capabilitiesOpening,
   globalAccessCapabilities,
   guideCapability,
   isGuideCapability,
@@ -51,5 +52,15 @@ describe("access capabilities", () => {
   test("the composition never repeats a capability the set already names", () => {
     const second = "guide:5a1c6f10-0b33-4e2f-9a8c-7d4e12b0f002" as const;
     expect(accessComposition([guide, second])).toEqual([guide, second, "community"]);
+  });
+
+  // Срок участия в чате держится всем, что чат открывает: и объявленным правом участия, и каждым
+  // правом на руководство. Спрашивать об этом надо у вывода, иначе правило распадается на копии.
+  test("names every capability that opens the one asked about", () => {
+    const second = "guide:5a1c6f10-0b33-4e2f-9a8c-7d4e12b0f002" as const;
+    expect(capabilitiesOpening("community", [guide, "materials", second])).toEqual([guide, second]);
+    expect(capabilitiesOpening("community", ["community", guide])).toEqual(["community", guide]);
+    expect(capabilitiesOpening("community", ["materials"])).toEqual([]);
+    expect(capabilitiesOpening("materials", [guide, "materials"])).toEqual(["materials"]);
   });
 });

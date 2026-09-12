@@ -38,6 +38,17 @@ export function capabilitiesOpenedBy(
 }
 
 /**
+ * Какие из этих прав открывают названное право. Срок такого права держится каждым из них, поэтому
+ * спрашивать надо у вывода, а не перечислять открывающие права заново на своей стороне.
+ */
+export function capabilitiesOpening(
+  opened: AccessCapability,
+  capabilities: readonly AccessCapability[],
+): readonly AccessCapability[] {
+  return capabilities.filter((capability) => capabilitiesOpenedBy(capability).includes(opened));
+}
+
+/**
  * Состав доступа, который открывает набор прав: то же правило, применённое к каждому праву. Набор
  * сохраняет свой порядок, а право, которое открылось попутно, дописывается в конец — так состав
  * читается как «что купили, и что к этому прилагается». Уже названное право не повторяется.

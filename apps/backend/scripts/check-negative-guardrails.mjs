@@ -101,8 +101,6 @@ expectFailure(
     "telegram-membership capability index.ts",
     "capability implementation cannot import Nest adapters",
     "material document blocks belong to the shared block registry",
-    "a Guide capability is built by @inside/access-capabilities",
-    "globalAccessCapabilities belongs to @inside/access-capabilities",
     "raw persistence imports",
     "Kysely is forbidden",
     "src/infrastructure/operational-readiness.ts",

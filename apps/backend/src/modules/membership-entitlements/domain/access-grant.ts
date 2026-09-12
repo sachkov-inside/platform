@@ -6,7 +6,6 @@ export {
   accessCapabilitySchema,
   capabilitiesOpenedBy,
   globalAccessCapabilities,
-  isGuideCapability,
   type AccessCapability,
 } from "@inside/access-capabilities";
 import { accessCapabilitySchema } from "@inside/access-capabilities";

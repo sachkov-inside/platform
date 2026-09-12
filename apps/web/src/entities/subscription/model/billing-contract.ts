@@ -4,7 +4,6 @@ import { z } from "zod";
 export {
   accessCapabilitySchema,
   accessComposition,
-  globalAccessCapabilities,
   guideCapability,
   isGuideCapability,
   type AccessCapability,
