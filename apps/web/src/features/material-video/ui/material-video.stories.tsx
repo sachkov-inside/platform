@@ -5,6 +5,7 @@ import { expect, fn, userEvent, within } from "storybook/test";
 import {
   MaterialVideoAuthoringView,
   MaterialVideoPlayerView,
+  type MaterialAuthoringVideo,
   type MaterialVideoAuthoringPhase,
 } from "@/features/material-video";
 
@@ -18,12 +19,30 @@ type VideoStoryMode =
   | "authoring-external-ready"
   | "authoring-idle"
   | "authoring-processing"
+  | "authoring-recovered-checking"
+  | "authoring-recovered-failed"
+  | "authoring-recovered-incomplete"
   | "authoring-ready"
   | "authoring-uploading"
   | "authoring-upload_not_authorized"
   | "authoring-upload_outcome_unknown"
   | "player-error"
   | "player-ready";
+
+/** The three states an upload adopted from an interrupted session can be shown in. */
+const recoveredUploadModes: Partial<
+  Record<
+    VideoStoryMode,
+    {
+      readonly phase: MaterialVideoAuthoringPhase;
+      readonly state: MaterialAuthoringVideo["state"];
+    }
+  >
+> = {
+  "authoring-recovered-checking": { phase: "processing", state: "processing" },
+  "authoring-recovered-failed": { phase: "interrupted_unusable", state: "failed" },
+  "authoring-recovered-incomplete": { phase: "interrupted_unusable", state: "uploading" },
+};
 
 const actions = {
   onAttach: fn(),
@@ -78,14 +97,19 @@ function MaterialVideoStateBoard({ mode }: { readonly mode: VideoStoryMode }) {
           : mode === "authoring-delete-failed"
             ? ("delete_failed" as const)
             : null;
+  const recovery = recoveredUploadModes[mode] ?? null;
   const phase =
-    mode === "authoring-external-ready"
+    recovery?.phase ??
+    (mode === "authoring-external-ready"
       ? "ready"
       : mode.includes("deletion") || mode === "authoring-delete-failed"
         ? "idle"
-        : (mode.replace("authoring-", "") as MaterialVideoAuthoringPhase);
+        : (mode.replace("authoring-", "") as MaterialVideoAuthoringPhase));
   const hasVideo =
-    phase === "processing" || phase === "ready" || phase === "error";
+    recovery !== null ||
+    phase === "processing" ||
+    phase === "ready" ||
+    phase === "error";
   return (
     <div className="mx-auto max-w-4xl p-5 sm:p-8">
       <MaterialVideoAuthoringView
@@ -98,11 +122,12 @@ function MaterialVideoStateBoard({ mode }: { readonly mode: VideoStoryMode }) {
                     ? "external_attachment"
                     : "platform_upload",
                 state:
-                  phase === "ready"
+                  recovery?.state ??
+                  (phase === "ready"
                     ? "ready"
                     : phase === "error"
                       ? "failed"
-                      : "processing",
+                      : "processing"),
                 title: "Разбор проверки skill contract",
                 videoId: "03000000-0000-4000-8000-000000000001",
               }
@@ -129,6 +154,7 @@ function MaterialVideoStateBoard({ mode }: { readonly mode: VideoStoryMode }) {
         onRetryDeletion={actions.onRetryDeletion}
         phase={phase}
         progress={47}
+        recovered={recovery !== null}
         providerVideoId=""
       />
     </div>
@@ -173,6 +199,55 @@ export const AuthoringUploading: Story = {
     await expect(
       canvas.getByRole("button", { name: "Загрузить" }),
     ).toBeDisabled();
+  },
+};
+
+export const AuthoringRecoveredChecking: Story = {
+  args: { mode: "authoring-recovered-checking" },
+  name: "Authoring · adopted upload is being checked",
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByText(/осталось от незавершённой загрузки/u),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: "Удалить…" }),
+    ).toBeEnabled();
+  },
+};
+
+export const AuthoringRecoveredIncomplete: Story = {
+  args: { mode: "authoring-recovered-incomplete" },
+  name: "Authoring · adopted upload never finished",
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("Загрузка не завершена")).toBeVisible();
+    await expect(
+      canvas.getByText(/получил файл .* не полностью/u),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: "Загрузить" }),
+    ).toBeEnabled();
+    // Another tab may still be sending the same file, so re-checking stays available.
+    await expect(canvas.getByRole("button", { name: "Проверить" })).toBeEnabled();
+  },
+};
+
+export const AuthoringRecoveredFailed: Story = {
+  args: { mode: "authoring-recovered-failed" },
+  name: "Authoring · adopted upload Kinescope could not process",
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByText(/не смог обработать файл/u),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByText("Нужна повторная попытка"),
+    ).not.toBeInTheDocument();
+    // A terminal provider failure cannot be checked away.
+    await expect(
+      canvas.queryByRole("button", { name: "Проверить" }),
+    ).not.toBeInTheDocument();
   },
 };
 

@@ -4,7 +4,7 @@ import { assembleAccounts, BillingContact } from "../../src/modules/accounts/ind
 import { billingContactProtection } from "../../src/modules/accounts/infrastructure/billing-contact-protection.js";
 import { assembleAccessGrants } from "../../src/modules/membership-entitlements/index.js";
 import { BillingNotices, BillingPayments, BillingPricing, BillingSubscriptions } from "../../src/modules/billing/index.js";
-import { tbankConfigSchema } from "../../src/config/tbank-config.js";
+import { syntheticTbankConfig } from "../support/bank-terminal.js";
 import { BankFixture } from "./setup/bank.js";
 import { createMigratedTestDatabase, type TestDatabase } from "./setup/test-database.js";
 import { syntheticConsentDocuments } from "./setup/consent-documents.js";
@@ -12,7 +12,7 @@ import { syntheticConsentDocuments } from "./setup/consent-documents.js";
 function value<T>(result: { ok: true; value: T } | { ok: false; error: { code: string } }): T {
   if (!result.ok) throw new Error(result.error.code); return result.value;
 }
-const config = tbankConfigSchema.parse({ environment: "demo", terminalKey: "SYNTHETICLIFECYCLE", password: "synthetic-test-password",
+const config = syntheticTbankConfig({ environment: "demo", terminalKey: "SYNTHETICLIFECYCLE", password: "synthetic-test-password",
   bindingEncryptionKey: Buffer.alloc(32, 51).toString("base64"), recurringCardConfirmed: true, cardOnlyHostedConfirmed: true,
   cardBinding: { confirmed: true, checkType: "3DS" },
   minimumKopecks: 100, maximumKopecks: 10_000_000, returnUrl: "https://inside.example.test/subscription/return",

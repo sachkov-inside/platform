@@ -2,19 +2,21 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { getBookmarkStates, setBookmark } from "../api/bookmarks.browser";
+import { useMaterialReading } from "@/entities/material";
+import { bookmarkStatesQueryOptions, setBookmark } from "../api/bookmarks.browser";
 import type { BookmarkActionView } from "../model/bookmark-action-view";
 import { BookmarkAction } from "./bookmark-action.client";
 
+/**
+ * Личные закладки спрашивает только вошедший читатель. Аккаунт посетителя оболочка разрешает один
+ * раз на страницу и публикует здесь же, откуда его берут отметка о прочтении и сигнал открытия
+ * материала, поэтому гость не получает отказ 401 в консоли.
+ */
 export function SavedBookmarkAction({ materialId }: { readonly materialId: string }) {
+  const { accountId, resolved } = useMaterialReading();
   const queryClient = useQueryClient();
   const [notice, setNotice] = useState<"error" | "denied" | null>(null);
-  const state = useQuery({
-    queryKey: ["bookmarks", "states", materialId],
-    queryFn: () => getBookmarkStates([materialId]),
-    retry: false,
-    staleTime: 0,
-  });
+  const state = useQuery(bookmarkStatesQueryOptions({ materialId, signedIn: resolved && accountId !== null }));
   const mutation = useMutation({
     mutationFn: setBookmark,
     onSuccess: async (result) => {
@@ -28,7 +30,9 @@ export function SavedBookmarkAction({ materialId }: { readonly materialId: strin
   const data = state.data;
   const bookmarked = data?.kind === "ready" && data.states[0]?.bookmarked === true;
   let view: BookmarkActionView;
-  if (state.isPending) view = { kind: "loading" };
+  if (!resolved) view = { kind: "loading" };
+  else if (accountId === null) view = { kind: "anonymous", loginHref: "/account" };
+  else if (state.isPending) view = { kind: "loading" };
   else if (data === undefined) view = { kind: "error", bookmarked, desired: !bookmarked };
   else if (data.kind === "unauthorized") view = { kind: "anonymous", loginHref: "/account" };
   else if (data.kind !== "ready") view = { kind: "error", bookmarked, desired: !bookmarked };

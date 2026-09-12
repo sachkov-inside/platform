@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { getBookmarkStates, listBookmarkPage, setBookmark } from "@/features/bookmarks";
+import { bookmarkStatesQueryOptions } from "@/features/bookmarks/api/bookmarks.browser";
 
 const materialId = "10000000-0000-4000-8000-000000000001";
 const state = { materialId, bookmarked: true, bookmarkedAt: "2026-09-10T00:00:00.000Z" };
@@ -8,6 +9,11 @@ const state = { materialId, bookmarked: true, bookmarkedAt: "2026-09-10T00:00:00
 describe("Bookmarks browser contract", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it("asks for bookmark states only with an account", () => {
+    expect(bookmarkStatesQueryOptions({ materialId, signedIn: false }).enabled).toBe(false);
+    expect(bookmarkStatesQueryOptions({ materialId, signedIn: true }).enabled).toBe(true);
   });
 
   it("reads the ready states wrapper instead of treating the bookmark as unavailable", async () => {

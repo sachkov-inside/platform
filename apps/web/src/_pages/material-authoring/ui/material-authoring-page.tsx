@@ -67,6 +67,7 @@ export async function MaterialAuthoringPage({ returnHref }: { readonly returnHre
       tagIds: [],
       title: "",
       topicId: "unassigned",
+      unselectedVideoUpload: null,
     },
     mode: "editor",
     noticeRevision: 0,

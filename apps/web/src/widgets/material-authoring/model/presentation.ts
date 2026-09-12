@@ -44,6 +44,7 @@ export interface MaterialDraftPresentation {
   readonly tagIds: readonly string[];
   readonly title: string;
   readonly topicId: string;
+  readonly unselectedVideoUpload: MaterialAuthoringVideo | null;
 }
 
 export type MaterialPreviewMark = RenderedMark;

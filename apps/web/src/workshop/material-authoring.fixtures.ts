@@ -88,6 +88,7 @@ export const materialAuthoringPresentation = {
     canDelete: true,
     deleteVideoId: null,
     latestVideoDeletion: null,
+    unselectedVideoUpload: null,
     primaryVideo: null,
     primaryVideoId: null,
     document: {

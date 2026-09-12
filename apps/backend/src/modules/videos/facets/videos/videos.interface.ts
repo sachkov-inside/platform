@@ -174,6 +174,12 @@ export interface Videos {
   loadLatestDeletion(materialId: string): Promise<
     OperationResult<VideoAuthoringPresentation | null, "dependency_unavailable" | "invalid_request">
   >;
+  loadUnselectedUpload(input: {
+    readonly materialId: string;
+    readonly selectedVideoId: string | null;
+  }): Promise<
+    OperationResult<VideoAuthoringPresentation | null, "dependency_unavailable" | "invalid_request">
+  >;
   loadAccessFacts(videoIds: readonly string[]): Promise<
     OperationResult<readonly VideoAccessFacts[], "dependency_unavailable" | "invalid_request">
   >;

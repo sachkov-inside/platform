@@ -7,12 +7,13 @@ export {
 export {
   MaterialVideoAuthoring,
   MaterialVideoAuthoringView,
-  type MaterialVideoAuthoringPhase,
   type MaterialVideoAuthoringViewProps,
 } from "./ui/material-video-authoring.client";
 export {
   isVideoWatchedPosition,
   resolveVideoPlaybackProgress,
+  retainUnselectedUpload,
   type MaterialAuthoringVideo,
+  type MaterialVideoAuthoringPhase,
   type VideoPlaybackProgress,
 } from "./model/video";

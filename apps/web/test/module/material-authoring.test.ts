@@ -196,6 +196,12 @@ describe("Material Authoring action workflow", () => {
           },
           publicationState: "published",
           latestVideoDeletion: null,
+          unselectedVideoUpload: {
+            origin: "platform_upload",
+            state: "processing",
+            title: "Незавершённая загрузка",
+            videoId: "70000000-0000-4000-8000-000000000001",
+          },
           primaryVideo: null,
           primaryVideoId: null,
           publishedAt: "2026-08-30T08:00:00.000Z",
@@ -216,6 +222,10 @@ describe("Material Authoring action workflow", () => {
         seriesIds: [seriesId],
         status: "published",
         title: "Saved Material",
+        unselectedVideoUpload: {
+          state: "processing",
+          videoId: "70000000-0000-4000-8000-000000000001",
+        },
       },
       kind: "ready",
       references: { references: { series: [{ label: "Build", value: seriesId }] } },

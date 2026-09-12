@@ -5,10 +5,10 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 import { Tbank, tbankToken, validatedPaymentUrl } from "../../src/modules/billing/infrastructure/tbank/tbank.js";
 import { bankRequest } from "../../src/modules/billing/infrastructure/tbank/bank-request.js";
-import { tbankConfigSchema } from "../../src/config/tbank-config.js";
+import { syntheticTbankConfig } from "../support/bank-terminal.js";
 import { subscriptionPeriodEnd } from "../../src/modules/billing/domain/subscription-period.js";
 
-const config = tbankConfigSchema.parse({ environment: "demo", terminalKey: "SYNTHETIC", password: "synthetic-password",
+const config = syntheticTbankConfig({ environment: "demo", terminalKey: "SYNTHETIC", password: "synthetic-password",
   bindingEncryptionKey: Buffer.alloc(32, 42).toString("base64"), recurringCardConfirmed: true, cardOnlyHostedConfirmed: true,
   minimumKopecks: 100, maximumKopecks: 1000000, returnUrl: "https://example.test/account", notificationUrl: "https://example.test/billing/tbank/notification",
   receipt: { taxation: "usn_income", tax: "none" } });
@@ -25,10 +25,14 @@ describe("concrete bank boundary", () => {
     expect(token).not.toBe(tbankToken({ ...payload, Success: false }, "password"));
   });
   test("hosted redirects reject hostile hosts, credentials, fragments and non-HTTPS", () => {
-    expect(validatedPaymentUrl("https://pay.tbank.ru/new/test")).toBe("https://pay.tbank.ru/new/test");
-    expect(validatedPaymentUrl("https://securepay.tinkoff.ru/order/test")).toBe("https://securepay.tinkoff.ru/order/test");
+    const origins = config.endpoints.formOrigins;
+    expect(origins).toEqual(["https://securepay.tinkoff.ru", "https://pay.tbank.ru"]);
+    expect(validatedPaymentUrl("https://pay.tbank.ru/new/test", origins)).toBe("https://pay.tbank.ru/new/test");
+    expect(validatedPaymentUrl("https://securepay.tinkoff.ru/order/test", origins)).toBe("https://securepay.tinkoff.ru/order/test");
     for (const url of ["https://securepay.tinkoff.ru.evil.test/a", "https://evil.test/", "http://securepay.tinkoff.ru/", "https://user@securepay.tinkoff.ru/", "https://securepay.tinkoff.ru/#fake", "https://securepay.tinkoff.ru:8443/"])
-      expect(() => validatedPaymentUrl(url)).toThrow();
+      expect(() => validatedPaymentUrl(url, origins)).toThrow();
+    // Контур двойника принимает только свой origin: боевая форма остаётся у боевого терминала.
+    expect(() => validatedPaymentUrl("https://securepay.tinkoff.ru/order/test", ["http://127.0.0.1:8090"])).toThrow();
   });
   test("binding ciphertext is scoped to its order, environment, terminal and key", () => {
     const bank = new Tbank(config);

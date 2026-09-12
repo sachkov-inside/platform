@@ -5,8 +5,8 @@ import { billingContactProtection } from "../../../src/modules/accounts/infrastr
 import { assembleAccessGrants } from "../../../src/modules/membership-entitlements/index.js";
 import { BillingPayments } from "../../../src/modules/billing/index.js";
 import { Tbank } from "../../../src/modules/billing/infrastructure/tbank/tbank.js";
-import { tbankConfigSchema } from "../../../src/config/tbank-config.js";
-const input = z.object({ databaseUrl: z.string(), config: tbankConfigSchema, buyer: z.uuid(), command: z.unknown(), now: z.string(), notification: z.unknown().optional(),
+import { tbankRuntimeSchema } from "../../../src/config/tbank-config.js";
+const input = z.object({ databaseUrl: z.string(), config: tbankRuntimeSchema, buyer: z.uuid(), command: z.unknown(), now: z.string(), notification: z.unknown().optional(),
   documents: z.array(z.object({ kind: z.enum(["terms", "recurring"]), appliesTo: z.array(z.enum(["one_time", "subscription"])).readonly(), documentId: z.string(), version: z.string(), text: z.string(), digest: z.string(), url: z.string() }))
 }).parse(JSON.parse(process.env.BILLING_CRASH_FIXTURE ?? "null"));
 const prisma = createPrismaClient(input.databaseUrl);

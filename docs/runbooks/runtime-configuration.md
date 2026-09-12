@@ -76,6 +76,7 @@ during the image build. The web process reads server-only values when its contai
 | --- | --- | --- |
 | Release identity | `PLATFORM_RELEASE_VERSION`, `PLATFORM_SOURCE_SHA` | generated manifest environment and process startup validation |
 | API | `DATABASE_URL`, Logto verifier, Telegram, Object Storage and Kinescope values | `PlatformConfig` |
+| Payment contour | `TBANK_PROVIDER_MODE`, `TBANK_CONFIG_JSON`, `TBANK_CA_FILE`, stand-only `TBANK_TEST_*` | `PlatformConfig.tbank` |
 | MCP | database, MCP endpoint, Logto verifier, content access, Object Storage and Kinescope values | `PlatformConfig` and `McpConfig` |
 | Material/Profile workers | database and Object Storage values | per-process `PlatformConfig` validation |
 | Video deletion worker | database and Kinescope values | per-process `PlatformConfig` validation |
@@ -96,6 +97,15 @@ these values in `NEXT_PUBLIC_*`, Material JSON, screenshots, issue text or clien
 integration routes are `/integrations/kinescope/v1/webhook` and
 `/integrations/kinescope/v1/authorize`; expose them only through the approved HTTPS domain and copy
 their exact provider-side settings during the credentialed acceptance run.
+
+The bank contour follows the same shape. `TBANK_PROVIDER_MODE` is `real` by default everywhere and
+selects the terminal from `TBANK_CONFIG_JSON`; `test` replaces it with the local stand double
+described in the [local development runbook](local-development.md#local-sale-bank-double-and-mail-capture)
+and refuses to read a terminal beside it. Only the `local` contour accepts addresses without HTTPS,
+production mode rejects that contour outright, and
+`scripts/production-runtime-contract.test.mjs` keeps the stand services and their variables out of
+the production Compose and its environment templates. `BILLING_CONTACT_SMTP_LOCAL_CAPTURE=true`
+declares the stand's mail interceptor in the same way and is rejected in production mode.
 
 `PUBLIC_SITE_ORIGIN` is the bare origin where the published legal editions are readable, such as
 `https://inside.sachkov.dev`. The consent catalogue appends `/legal/<document>` to it and stores the
@@ -169,8 +179,9 @@ The T-Bank payment API presents a chain that ends at the Ministry of Digital Dev
 "Russian Trusted Root CA". That root is absent from the Node bundle and from the
 `node:24.19.0-alpine3.23` image, so every bank call fails certificate verification without it.
 
-The repository keeps the root at `infra/tls/russian-trusted-root-ca.pem`. `TBANK_CA_FILE` names the
-file to trust and is parsed into `PlatformConfig.tbank.caFile`; the backend images set it to their
+That chain belongs to the real contour only; the local double speaks plain HTTP inside the stand and
+needs no root. The repository keeps the root at `infra/tls/russian-trusted-root-ca.pem`.
+`TBANK_CA_FILE` names the file to trust and is parsed into `PlatformConfig.tbank.caFile`; the backend images set it to their
 own copy. The root is attached to the bank client alone, so no other outbound connection — mail,
 object storage, Telegram, broker — gains that trust, and certificate and hostname verification stay
 on. A host or runtime that calls the bank outside these images sets the same variable. Without it

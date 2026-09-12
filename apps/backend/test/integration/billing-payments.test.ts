@@ -16,7 +16,7 @@ import { assembleAccessGrants, assembleMembershipEntitlements } from "../../src/
 import { assembleWorkshopEntitlements } from "../../src/modules/workshop/index.js";
 import { BillingPayments, BillingPricing } from "../../src/modules/billing/index.js";
 import { Tbank, tbankToken } from "../../src/modules/billing/infrastructure/tbank/tbank.js";
-import { tbankConfigSchema } from "../../src/config/tbank-config.js";
+import { syntheticTbankConfig } from "../support/bank-terminal.js";
 import { createMigratedTestDatabase, type TestDatabase } from "./setup/test-database.js";
 import { eventually } from "./setup/eventually.js";
 import { syntheticConsentDocuments } from "./setup/consent-documents.js";
@@ -29,7 +29,7 @@ const prematureAnswerGraceMs = 50;
 function value<T>(result: { ok: true; value: T } | { ok: false; error: { code: string } }): T {
   if (!result.ok) throw new Error(result.error.code); return result.value;
 }
-const config = tbankConfigSchema.parse({ environment: "demo", terminalKey: "SYNTHETICDEMO", password: "synthetic-test-password",
+const config = syntheticTbankConfig({ environment: "demo", terminalKey: "SYNTHETICDEMO", password: "synthetic-test-password",
   bindingEncryptionKey: Buffer.alloc(32, 43).toString("base64"), recurringCardConfirmed: true, cardOnlyHostedConfirmed: true,
   minimumKopecks: 100, maximumKopecks: 1_000_000, returnUrl: "https://inside.example.test/account", notificationUrl: "https://inside.example.test/billing/tbank/notification",
   receipt: { taxation: "usn_income", tax: "none" } });

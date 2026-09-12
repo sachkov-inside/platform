@@ -44,7 +44,7 @@ export function assembleLoadMaterial(
         return failure<never, LoadMaterialError>({ code: "material_not_found" });
       }
       if (!material.ok) return material;
-      const [primaryVideo, latestVideoDeletion] = await Promise.all([
+      const [primaryVideo, latestVideoDeletion, unselectedVideoUpload] = await Promise.all([
         material.value.primaryVideoId === null || dependencies.videos === undefined
           ? Promise.resolve({ ok: true as const, value: null })
           : dependencies.videos.loadAuthoringPresentation({
@@ -54,8 +54,14 @@ export function assembleLoadMaterial(
         dependencies.videos === undefined
           ? Promise.resolve({ ok: true as const, value: null })
           : dependencies.videos.loadLatestDeletion(parsed.value.materialId),
+        dependencies.videos === undefined
+          ? Promise.resolve({ ok: true as const, value: null })
+          : dependencies.videos.loadUnselectedUpload({
+              materialId: parsed.value.materialId,
+              selectedVideoId: material.value.primaryVideoId,
+            }),
       ]);
-      if (!primaryVideo.ok || !latestVideoDeletion.ok) {
+      if (!primaryVideo.ok || !latestVideoDeletion.ok || !unselectedVideoUpload.ok) {
         return failure<never, LoadMaterialError>({
           code: "dependency_unavailable",
           retryable: true,
@@ -66,6 +72,7 @@ export function assembleLoadMaterial(
         value: toMaterialDto(material.value, {
           primaryVideo: primaryVideo.value,
           latestVideoDeletion: latestVideoDeletion.value,
+          unselectedVideoUpload: unselectedVideoUpload.value,
         }),
       };
     } catch (error) {
