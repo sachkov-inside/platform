@@ -1,9 +1,8 @@
 "use client";
 import type { Route } from "next";
-import { useQuery } from "@tanstack/react-query";
 
 import { LegalDocumentLinks } from "@/entities/legal-document";
-import { billingContactQueryOptions } from "@/features/billing-contact";
+import { useBillingContact } from "@/features/billing-contact";
 import { SubscriptionPanel } from "@/features/billing-subscription";
 import {
   AccountSectionHeader,
@@ -21,7 +20,7 @@ export function AccountSubscriptionPage() {
   const options = useSubscriptionOptions();
   // Раздел открывается и по прямому адресу, поэтому выключенную продажу он проверяет сам.
   const subscriptionOffered = useSubscriptionOffered();
-  const contact = useQuery(billingContactQueryOptions());
+  const contact = useBillingContact();
   const resumeDocuments =
     contact.data?.ok === true ? contact.data.documents : [];
 

@@ -1,43 +1,21 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-import {
-  selfRefreshingRead,
-  unavailableRetryIntervalMs,
-} from "@/shared/api/self-refreshing-query";
 import { useRepeatableOperations } from "@/shared/lib/repeatable-operations.client";
 
 import {
   confirmBillingContact,
-  readBillingContact,
   startBillingContact,
 } from "../api/billing-contact.browser";
 import {
   contactErrorMessage,
   type BillingContactState,
 } from "../model/billing-contact";
+import { resetBillingContact } from "../model/billing-contact-query";
+import { announceBillingContactVerified } from "../model/billing-contact-verified-channel";
+import { useBillingContact } from "../model/use-billing-contact.client";
 import { BillingContactForm } from "./billing-contact-form.client";
-
-export const billingContactQueryKey = ["account", "billing-contact"] as const;
-
-export function billingContactQueryOptions() {
-  return {
-    ...selfRefreshingRead,
-    queryKey: billingContactQueryKey,
-    queryFn: readBillingContact,
-    refetchInterval: ({
-      state,
-    }: {
-      readonly state: {
-        readonly data: { readonly ok: boolean; readonly code?: string } | undefined;
-      };
-    }) =>
-      state.data !== undefined && !state.data.ok && state.data.code !== "unauthorized"
-        ? unavailableRetryIntervalMs
-        : (false as const),
-  };
-}
 
 export interface BillingContactPanelProps {
   readonly headingLevel?: "h1" | "h2";
@@ -53,7 +31,7 @@ export function BillingContactPanel({
   onStateChange,
 }: BillingContactPanelProps) {
   const queryClient = useQueryClient();
-  const query = useQuery(billingContactQueryOptions());
+  const query = useBillingContact();
   const { operationId, completeOperation } = useRepeatableOperations();
   const [challenge, setChallenge] = useState<{
     challengeRef: string;
@@ -101,7 +79,12 @@ export function BillingContactPanel({
       setError(undefined);
       setVerified(true);
       setEditing(false);
-      await queryClient.invalidateQueries({ queryKey: billingContactQueryKey });
+      // Объявление уходит раньше ожидания: соседние поверхности не должны зависеть от того,
+      // сколько длится перечитывание здесь и остался ли покупатель на этой странице. Свой ответ
+      // сбрасывается прямо тут, до показа подтверждённого адреса, и этот путь работает и там,
+      // где объявления недоступны.
+      announceBillingContactVerified();
+      await resetBillingContact(queryClient);
     },
   });
 
