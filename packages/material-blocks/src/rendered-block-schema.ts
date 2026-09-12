@@ -22,24 +22,3 @@ export const renderedBlockSchema: z.ZodType<RenderedBlock> = z.lazy(() =>
 export const renderedMaterialBodySchema: z.ZodType<RenderedMaterialBody> = z
   .object({ blocks: z.array(renderedBlockSchema), schemaVersion: z.literal(1) })
   .strict();
-
-/**
- * The same recursive union with variants a published transport contract still enumerates but
- * the registry no longer produces. Only a wire boundary needs this; the reading client and the
- * domain use `renderedBlockSchema`.
- */
-export function extendedRenderedBlockSchema(
-  additionalVariants: readonly z.core.$ZodTypeDiscriminable<"kind">[],
-): z.ZodType {
-  const schema: z.ZodType<RenderedBlock> = z.lazy(() => {
-    const union = z.discriminatedUnion("kind", [
-      ...registryVariants(schema),
-      ...additionalVariants,
-    ]);
-    // Only the published enumeration is wider: the recursive reference keeps the registry's
-    // block type, because nothing in the platform produces the extra variants.
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-    return union as unknown as z.ZodType<RenderedBlock>;
-  });
-  return schema;
-}

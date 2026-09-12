@@ -1,4 +1,4 @@
-import { FileText, Image as ImageIcon, Play } from "lucide-react";
+import { FileText, Image as ImageIcon } from "lucide-react";
 
 import { cn } from "@/shared/lib/utils";
 
@@ -15,12 +15,6 @@ type MaterialResourcePlaceholderProps =
       readonly id?: string;
       readonly kind: "file";
       readonly label: string;
-    }
-  | {
-      readonly caption?: string | undefined;
-      readonly className?: string;
-      readonly id?: string;
-      readonly kind: "video";
     };
 
 /** Presentation-neutral unavailable-resource proof shared by Reader and exact Preview. */
@@ -68,22 +62,6 @@ export function MaterialResourcePlaceholder(
             </span>
           </span>
         </div>
-      );
-    case "video":
-      return (
-        <figure className={props.className} id={props.id}>
-          <div className="grid aspect-video place-items-center rounded-xl bg-sidebar text-sidebar-foreground">
-            <span className="text-center">
-              <Play aria-hidden="true" className="mx-auto mb-3 size-7 text-sidebar-primary" />
-              <span className="block text-sm">Видео пока недоступно для просмотра</span>
-            </span>
-          </div>
-          {props.caption === undefined ? null : (
-            <figcaption className="mt-3 text-sm text-muted-foreground">
-              {props.caption}
-            </figcaption>
-          )}
-        </figure>
       );
   }
 }

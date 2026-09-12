@@ -72,8 +72,4 @@ export type RecursiveSchema1schema0 = ({
   kind: 'file';
   label: string;
   size?: number;
-} | {
-  caption?: string;
-  kind: 'video';
-  videoId: string;
 });
