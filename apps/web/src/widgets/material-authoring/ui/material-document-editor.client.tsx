@@ -6,10 +6,13 @@ import { withMaterialNodeIds } from "../model/material-document-identifiers";
 import { EditorContent, useEditor } from "@tiptap/react";
 import {
   Bold,
+  ExternalLink,
   Heading2,
   Heading3,
+  Heading4,
   Italic,
   List,
+  ListChecks,
   ListOrdered,
   Maximize2,
   Minimize2,
@@ -17,9 +20,11 @@ import {
   Quote,
   Code2,
   Minus,
+  Sparkles,
+  Tags,
+  Terminal,
   Type,
   Table2,
-  Info,
   Link2,
   Rows3,
   Columns3,
@@ -37,6 +42,8 @@ import {
 } from "react";
 
 import { EditorAssetContext } from "./material-asset-node-view.client";
+import { MaterialBlockFields } from "./material-block-fields.client";
+import { calloutTones, calloutTonePresentation } from "@/entities/material";
 import { Button } from "@/shared/ui/button";
 import { cn } from "@/shared/lib/utils";
 import styles from "./material-document-editor.module.css";
@@ -188,12 +195,14 @@ export function MaterialDocumentEditor({
     );
   }
 
-  const blocks: readonly {
+  interface BlockOption {
     name: string;
     icon: LucideIcon;
     run: () => unknown;
     deferInsertion?: boolean;
-  }[] = [
+  }
+  // Текстовые блоки стоят до вложений, остальные после: порядок групп, а не индекс среза.
+  const textBlocks: readonly BlockOption[] = [
     {
       name: "Текст",
       icon: Type,
@@ -209,6 +218,13 @@ export function MaterialDocumentEditor({
       icon: Heading3,
       run: () => editor.chain().focus().toggleHeading({ level: 3 }).run(),
     },
+    {
+      name: "Заголовок H4",
+      icon: Heading4,
+      run: () => editor.chain().focus().toggleHeading({ level: 4 }).run(),
+    },
+  ];
+  const richBlocks: readonly BlockOption[] = [
     {
       name: "Список",
       icon: List,
@@ -244,17 +260,60 @@ export function MaterialDocumentEditor({
           .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
           .run(),
     },
-    {
-      name: "Примечание",
-      icon: Info,
+    // Каждый вид врезки вставляется своим пунктом: иначе `tip` и остальные виды недостижимы.
+    ...calloutTones.map((tone) => ({
+      name: calloutTonePresentation(tone).label,
+      icon: calloutTonePresentation(tone).icon,
       run: () =>
         editor
           .chain()
           .focus()
           .insertContent({
             type: "callout",
-            attrs: { kind: "note" },
+            attrs: { kind: tone },
             content: [{ type: "paragraph" }],
+          })
+          .run(),
+    })),
+    {
+      name: "Ключевая мысль",
+      icon: Sparkles,
+      run: () => editor.chain().focus().insertContent({ type: "keyPoint" }).run(),
+    },
+    {
+      name: "Итоги",
+      icon: ListChecks,
+      run: () =>
+        editor
+          .chain()
+          .focus()
+          .insertContent({
+            type: "takeaways",
+            attrs: { title: "Итоги урока" },
+            content: [{ type: "paragraph" }],
+          })
+          .run(),
+    },
+    {
+      name: "Промпт",
+      icon: Terminal,
+      run: () => editor.chain().focus().insertContent({ type: "agentPrompt" }).run(),
+    },
+    {
+      name: "Ресурс",
+      icon: ExternalLink,
+      run: () => editor.chain().focus().insertContent({ type: "resourceCard" }).run(),
+    },
+    {
+      name: "Термины",
+      icon: Tags,
+      run: () =>
+        editor
+          .chain()
+          .focus()
+          .insertContent({
+            type: "labeledList",
+            attrs: { rows: [{ label: "", name: "" }] },
           })
           .run(),
     },
@@ -270,7 +329,7 @@ export function MaterialDocumentEditor({
       },
     },
   ];
-  const blockOptions = (options: typeof blocks) =>
+  const blockOptions = (options: readonly BlockOption[]) =>
     options
       .filter((block) =>
         block.name
@@ -323,54 +382,57 @@ export function MaterialDocumentEditor({
           : "relative m-0 mt-5 block w-full min-w-0 max-w-none overflow-visible rounded-2xl border border-border bg-card p-0 text-foreground"
       }
     >
-      <div className="sticky top-0 z-30 flex h-12 items-center justify-end rounded-t-2xl bg-card/95 px-3">
-        {editor.isActive("table") ? (
-          <div
-            className="mr-auto flex gap-1"
-            role="toolbar"
-            aria-label="Таблица"
-          >
-            <Button
-              aria-label="Добавить строку"
-              title="Добавить строку"
-              disabled={disabled}
-              onClick={() => {
-                editor.chain().focus().addRowAfter().run();
-              }}
-              type="button"
-              size="icon"
-              variant="ghost"
+      <div className="sticky top-0 z-30 flex min-h-12 flex-wrap items-center justify-end gap-1 rounded-t-2xl bg-card/95 px-3 py-1">
+        <div className="mr-auto flex min-w-0 flex-wrap items-center gap-1">
+          {editor.isActive("table") ? (
+            <div
+              className="flex gap-1"
+              role="toolbar"
+              aria-label="Таблица"
             >
-              <Rows3 />
-            </Button>
-            <Button
-              aria-label="Добавить столбец"
-              title="Добавить столбец"
-              disabled={disabled}
-              onClick={() => {
-                editor.chain().focus().addColumnAfter().run();
-              }}
-              type="button"
-              size="icon"
-              variant="ghost"
-            >
-              <Columns3 />
-            </Button>
-            <Button
-              aria-label="Убрать таблицу"
-              title="Убрать таблицу"
-              disabled={disabled}
-              onClick={() => {
-                editor.chain().focus().deleteTable().run();
-              }}
-              type="button"
-              size="icon"
-              variant="ghost"
-            >
-              <Trash2 />
-            </Button>
-          </div>
-        ) : null}
+              <Button
+                aria-label="Добавить строку"
+                title="Добавить строку"
+                disabled={disabled}
+                onClick={() => {
+                  editor.chain().focus().addRowAfter().run();
+                }}
+                type="button"
+                size="icon"
+                variant="ghost"
+              >
+                <Rows3 />
+              </Button>
+              <Button
+                aria-label="Добавить столбец"
+                title="Добавить столбец"
+                disabled={disabled}
+                onClick={() => {
+                  editor.chain().focus().addColumnAfter().run();
+                }}
+                type="button"
+                size="icon"
+                variant="ghost"
+              >
+                <Columns3 />
+              </Button>
+              <Button
+                aria-label="Убрать таблицу"
+                title="Убрать таблицу"
+                disabled={disabled}
+                onClick={() => {
+                  editor.chain().focus().deleteTable().run();
+                }}
+                type="button"
+                size="icon"
+                variant="ghost"
+              >
+                <Trash2 />
+              </Button>
+            </div>
+          ) : null}
+          <MaterialBlockFields disabled={disabled} editor={editor} />
+        </div>
         <Button
           aria-label={expanded ? "Свернуть редактор" : "На весь экран"}
           title={expanded ? "Свернуть редактор" : "На весь экран"}
@@ -432,7 +494,7 @@ export function MaterialDocumentEditor({
             placeholder="Найти блок…"
             value={menuSearch}
           />
-          {blockOptions(blocks.slice(0, 3))}
+          {blockOptions(textBlocks)}
           <MaterialAssetUploadButtons
             controller={assetUploads}
             disabled={disabled || materialId === null}
@@ -442,7 +504,7 @@ export function MaterialDocumentEditor({
             }}
             search={menuSearch}
           />
-          {blockOptions(blocks.slice(3))}
+          {blockOptions(richBlocks)}
         </div>
         {selection && !menuOpen ? (
           <div
@@ -562,7 +624,7 @@ export function MaterialDocumentEditor({
             }}
             className={cn(
               styles.content,
-              "[&_.ProseMirror>*+*]:mt-6 [&_.ProseMirror>p]:min-h-7 [&_.ProseMirror_table]:w-full [&_.ProseMirror_table]:table-fixed [&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-border [&_.ProseMirror_td]:p-2 [&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-border [&_.ProseMirror_th]:bg-muted [&_.ProseMirror_th]:p-2 [&_.ProseMirror_aside]:rounded-xl [&_.ProseMirror_aside]:bg-muted [&_.ProseMirror_aside]:px-4 [&_.ProseMirror_aside]:py-2 [&_.ProseMirror]:mx-auto [&_.ProseMirror]:min-h-[28rem] [&_.ProseMirror_blockquote]:border-l-2 [&_.ProseMirror_blockquote]:border-accent [&_.ProseMirror_blockquote]:pl-5 [&_.ProseMirror_pre]:rounded-xl [&_.ProseMirror_pre]:bg-muted [&_.ProseMirror_pre]:p-4 [&_.ProseMirror_hr]:my-8 [&_.ProseMirror_hr]:border-border [&_.ProseMirror_h3]:mt-6 [&_.ProseMirror_h3]:text-xl [&_.ProseMirror_h3]:font-semibold [&_.ProseMirror]:py-2 [&_.ProseMirror]:text-[1rem] [&_.ProseMirror]:leading-[1.75] [&_.ProseMirror]:outline-none [&_.ProseMirror_h2]:mb-3 [&_.ProseMirror_h2]:mt-8 [&_.ProseMirror_h2]:text-2xl [&_.ProseMirror_h2]:font-semibold [&_.ProseMirror_h2]:tracking-[-0.025em] [&_.ProseMirror_li]:my-1 [&_.ProseMirror_ol]:ml-6 [&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_p]:my-4 [&_.ProseMirror_ul]:ml-6 [&_.ProseMirror_ul]:list-disc [&_.material-asset-node]:my-5 [&_.material-asset-node]:grid [&_.material-asset-node]:gap-1 [&_.material-asset-node]:rounded-xl [&_.material-asset-node]:border [&_.material-asset-node]:border-border [&_.material-asset-node]:bg-muted/50 [&_.material-asset-node]:p-4 [&_.material-asset-node__kind]:font-mono [&_.material-asset-node__kind]:text-xs [&_.material-asset-node__kind]:text-muted-foreground [&_.material-asset-node__label]:font-semibold [&_.ProseMirror_p:empty]:min-h-7 [&_.ProseMirror_p:empty]:before:pointer-events-none [&_.ProseMirror_p:empty]:before:float-left [&_.ProseMirror_p:empty]:before:text-muted-foreground/60 [&_.ProseMirror_p:empty]:before:content-['Напишите_текст…']",
+              "[&_.ProseMirror>*+*]:mt-6 [&_.ProseMirror>p]:min-h-7 [&_.ProseMirror_table]:w-full [&_.ProseMirror_table]:table-fixed [&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-border [&_.ProseMirror_td]:p-2 [&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-border [&_.ProseMirror_th]:bg-muted [&_.ProseMirror_th]:p-2 [&_.ProseMirror]:mx-auto [&_.ProseMirror]:min-h-[28rem] [&_.ProseMirror_blockquote]:border-l-2 [&_.ProseMirror_blockquote]:border-accent [&_.ProseMirror_blockquote]:pl-5 [&_.ProseMirror_pre]:rounded-xl [&_.ProseMirror_pre]:bg-muted [&_.ProseMirror_pre]:p-4 [&_.ProseMirror_hr]:my-8 [&_.ProseMirror_hr]:border-border [&_.ProseMirror_h3]:mt-6 [&_.ProseMirror_h3]:text-xl [&_.ProseMirror_h3]:font-semibold [&_.ProseMirror]:py-2 [&_.ProseMirror]:text-[1rem] [&_.ProseMirror]:leading-[1.75] [&_.ProseMirror]:outline-none [&_.ProseMirror_h2]:mb-3 [&_.ProseMirror_h2]:mt-8 [&_.ProseMirror_h2]:text-2xl [&_.ProseMirror_h2]:font-semibold [&_.ProseMirror_h2]:tracking-[-0.025em] [&_.ProseMirror_li]:my-1 [&_.ProseMirror_ol]:ml-6 [&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_p]:my-4 [&_.ProseMirror_ul]:ml-6 [&_.ProseMirror_ul]:list-disc [&_.material-asset-node]:my-5 [&_.material-asset-node]:grid [&_.material-asset-node]:gap-1 [&_.material-asset-node]:rounded-xl [&_.material-asset-node]:border [&_.material-asset-node]:border-border [&_.material-asset-node]:bg-muted/50 [&_.material-asset-node]:p-4 [&_.material-asset-node__kind]:font-mono [&_.material-asset-node__kind]:text-xs [&_.material-asset-node__kind]:text-muted-foreground [&_.material-asset-node__label]:font-semibold [&_.ProseMirror_p:empty]:min-h-7 [&_.ProseMirror_p:empty]:before:pointer-events-none [&_.ProseMirror_p:empty]:before:float-left [&_.ProseMirror_p:empty]:before:text-muted-foreground/60 [&_.ProseMirror_p:empty]:before:content-['Напишите_текст…']",
             )}
             editor={editor}
             onDropCapture={(event: DragEvent<HTMLDivElement>) => {

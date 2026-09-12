@@ -2,6 +2,7 @@
 import type { Route } from "next";
 import { useQuery } from "@tanstack/react-query";
 
+import { LegalDocumentLinks } from "@/entities/legal-document";
 import { billingContactQueryOptions } from "@/features/billing-contact";
 import { SubscriptionPanel } from "@/features/billing-subscription";
 import {
@@ -31,6 +32,11 @@ export function AccountSubscriptionPage() {
         options={options}
         resumeDocuments={resumeDocuments}
         storefrontHref={subscriptionOffered ? storefrontHref : undefined}
+      />
+      <LegalDocumentLinks
+        className="mt-6"
+        label="Условия подписки и порядок обращений:"
+        keys={["subscription", "recurring-consent", "contacts"]}
       />
     </div>
   );

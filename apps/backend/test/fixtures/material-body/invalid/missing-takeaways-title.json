@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "doc": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "takeaways",
+        "attrs": {
+          "nodeId": "94000000-0000-4000-8000-000000000008",
+          "title": null
+        },
+        "content": [
+          {
+            "type": "paragraph",
+            "attrs": {
+              "nodeId": "94000000-0000-4000-8000-000000000009"
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": "Пункт"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,3 +1,4 @@
+import { paymentModes } from "@inside/legal";
 import { z } from "zod";
 export const billingEmailSchema = z
   .string()
@@ -25,8 +26,19 @@ export const consentKindSchema = z.enum([
   "personal_data",
   "marketing",
 ]);
+/**
+ * A one-time guide purchase and a subscription are separate offers, so the applicable document of
+ * one kind differs between them. The catalogue says which payment modes a document belongs to;
+ * the buyer's own mode selects it.
+ */
+export const consentPaymentModeSchema = z.enum(paymentModes);
 export const legalDocumentSchema = z.strictObject({
   kind: consentKindSchema,
+  appliesTo: z
+    .array(consentPaymentModeSchema)
+    .min(1)
+    .max(paymentModes.length)
+    .readonly(),
   documentId: z.string().min(1).max(100),
   version: z.string().min(1).max(100),
   text: z.string().min(1).max(100_000),
@@ -107,11 +119,20 @@ export const contactFailure = (
   code: ContactError["error"]["code"],
 ): ContactError => ({ ok: false, error: { code } });
 
+/**
+ * Документ в сохранённом доказательстве: ровно то, что человек принял. К каким продажам документ
+ * предлагается сегодня, доказательством не является, хранится только в каталоге и поэтому здесь
+ * отсутствует: иначе прежнее доказательство переставало бы читаться при изменении каталога.
+ */
+export const acceptedLegalDocumentSchema = legalDocumentSchema.omit({
+  appliesTo: true,
+});
+export type AcceptedLegalDocument = z.infer<typeof acceptedLegalDocumentSchema>;
 export const consentEvidenceSchema = z.object({
   evidenceRef: z.uuid(),
   contextRef: z.uuid(),
   acceptedAt: z.iso.datetime(),
-  document: legalDocumentSchema,
+  document: acceptedLegalDocumentSchema,
 });
 export const readConsentResultSchema = z.union([
   z.object({ ok: z.literal(true), evidence: consentEvidenceSchema }),

@@ -97,6 +97,12 @@ integration routes are `/integrations/kinescope/v1/webhook` and
 `/integrations/kinescope/v1/authorize`; expose them only through the approved HTTPS domain and copy
 their exact provider-side settings during the credentialed acceptance run.
 
+`PUBLIC_SITE_ORIGIN` is the bare origin where the published legal editions are readable, such as
+`https://inside.sachkov.dev`. The consent catalogue appends `/legal/<document>` to it and stores the
+resulting address with every accepted consent, so a trailing path, query, fragment or credentials
+fail startup. It is required in production; local runs default to `http://127.0.0.1:3000`. Changing
+it does not rewrite the addresses already stored with earlier consents.
+
 `MEMBERSHIP_SUPPORT_URL` is an optional backend-owned HTTP(S) destination for Account conflict and
 unsafe Telegram-link recovery. Leave it empty when no approved support channel exists: Account then
 shows owner-handoff copy without rendering a broken link. It is presentation configuration only;

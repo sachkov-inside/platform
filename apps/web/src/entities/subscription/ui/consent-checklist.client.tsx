@@ -15,6 +15,11 @@ export interface ConsentChecklistProps {
   readonly disabled?: boolean;
   /** Отмечать необязательные согласия отдельно нужно только в оформлении покупки. */
   readonly markOptional?: boolean;
+  /**
+   * Как назвать принимаемый документ. По умолчанию — вид согласия; оферт две, покупки и
+   * подписки, поэтому оформление передаёт название самого документа.
+   */
+  readonly labelFor?: (document: LegalDocument) => string;
   readonly onToggle: (kind: LegalDocumentKind) => void;
 }
 
@@ -29,6 +34,7 @@ export function ConsentChecklist({
   required,
   disabled = false,
   markOptional = false,
+  labelFor,
   onToggle,
 }: ConsentChecklistProps) {
   return (
@@ -56,7 +62,7 @@ export function ConsentChecklist({
                   rel="noreferrer"
                   target="_blank"
                 >
-                  {legalDocumentLabel(document.kind)}
+                  {labelFor?.(document) ?? legalDocumentLabel(document.kind)}
                 </a>
                 {markOptional && !required.includes(document.kind) ? (
                   <span className="text-muted-foreground"> · по желанию</span>

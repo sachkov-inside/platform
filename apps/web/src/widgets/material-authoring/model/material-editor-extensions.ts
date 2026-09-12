@@ -3,6 +3,10 @@ import { TextSelection } from "@tiptap/pm/state";
 import { ReactNodeViewRenderer } from "@tiptap/react";
 import { materialDocumentExtensions } from "@inside/material-blocks/schema";
 import { MaterialAssetNodeView } from "../ui/material-asset-node-view.client";
+import {
+  MaterialLabeledListNodeView,
+  MaterialResourceCardNodeView,
+} from "../ui/material-block-node-views.client";
 
 // Leave the whole top-level block, including nested table/list content.
 const ExitMaterialBlock = Extension.create({
@@ -44,7 +48,13 @@ const assetNodeView = () => ReactNodeViewRenderer(MaterialAssetNodeView);
 
 export const materialEditorExtensions = [
   ...materialDocumentExtensions({
-    nodeViews: { assetFile: assetNodeView, assetImage: assetNodeView },
+    nodeViews: {
+      assetFile: assetNodeView,
+      assetImage: assetNodeView,
+      // Блоки-формы: их поля нельзя набрать текстом, поэтому автор правит их здесь же.
+      labeledList: () => ReactNodeViewRenderer(MaterialLabeledListNodeView),
+      resourceCard: () => ReactNodeViewRenderer(MaterialResourceCardNodeView),
+    },
   }),
   ExitMaterialBlock,
 ];
