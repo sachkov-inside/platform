@@ -37886,6 +37886,9 @@
                     "extraction": {
                       "additionalProperties": false,
                       "properties": {
+                        "hasModeVariants": {
+                          "type": "boolean"
+                        },
                         "headings": {
                           "items": {
                             "additionalProperties": false,
@@ -37989,6 +37992,7 @@
                         }
                       },
                       "required": [
+                        "hasModeVariants",
                         "plainText",
                         "headings",
                         "resources"
