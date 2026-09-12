@@ -893,7 +893,9 @@ export class MaterialAuthoringService {
       };
       metadata: {
         access: 'free' | 'membership' | 'workshop';
+        difficulty: 'basic' | 'intermediate' | 'advanced' | null;
         formatId: 'video' | 'guide' | 'note' | null;
+        outcomes: Array<string>;
         seriesIds: Array<string>;
         summary: string | null;
         tagIds: Array<string>;
@@ -983,7 +985,9 @@ export class MaterialAuthoringService {
     materialId: string;
     metadata: {
       access: 'free' | 'membership' | 'workshop';
+      difficulty: 'basic' | 'intermediate' | 'advanced' | null;
       formatId: 'video' | 'guide' | 'note' | null;
+      outcomes: Array<string>;
       seriesMemberships: Array<{
         ordinal: number;
         seriesId: string;
@@ -1043,7 +1047,9 @@ export class MaterialAuthoringService {
       expectedContentVersion: number;
       metadata: {
         access: 'free' | 'membership' | 'workshop';
+        difficulty: 'basic' | 'intermediate' | 'advanced' | null;
         formatId: 'video' | 'guide' | 'note' | null;
+        outcomes: Array<string>;
         seriesIds: Array<string>;
         summary: string | null;
         tagIds: Array<string>;
@@ -1136,7 +1142,9 @@ export class MaterialAuthoringService {
     materialId: string;
     metadata: {
       access: 'free' | 'membership' | 'workshop';
+      difficulty: 'basic' | 'intermediate' | 'advanced' | null;
       formatId: 'video' | 'guide' | 'note' | null;
+      outcomes: Array<string>;
       seriesMemberships: Array<{
         ordinal: number;
         seriesId: string;

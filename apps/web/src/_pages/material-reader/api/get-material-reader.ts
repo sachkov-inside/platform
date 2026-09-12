@@ -14,6 +14,7 @@ import {
   contentCoverSchema,
   renderedMaterialBodySchema,
 } from "@/entities/material.model";
+import { materialDifficultySchema } from "@/shared/api/material-difficulty";
 import { dependencyUnavailableProblemSchema } from "@/shared/api/problem-details";
 
 const projectionSchema = z.object({
@@ -22,6 +23,8 @@ const projectionSchema = z.object({
   slug: z.string(),
   title: z.string(),
   summary: z.string(),
+  difficulty: materialDifficultySchema.nullable(),
+  outcomes: z.array(z.string()),
   access: z.enum(["free", "membership", "workshop"]),
   cover: contentCoverSchema.nullable(),
   publishedAt: z.iso.datetime({ offset: true }),
@@ -144,6 +147,8 @@ function toMaterialMetadata(
     slug: projection.slug,
     title: projection.title,
     summary: projection.summary,
+    difficulty: projection.difficulty,
+    outcomes: projection.outcomes,
     access: projection.access,
     cover: projection.cover,
     publishedAt: projection.publishedAt,

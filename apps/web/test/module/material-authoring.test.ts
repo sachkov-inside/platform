@@ -186,6 +186,8 @@ describe("Material Authoring action workflow", () => {
           materialId,
           metadata: {
             access: "membership",
+            difficulty: "intermediate",
+            outcomes: ["Провести задачу до мержа", "Назвать место, где она застревает"],
             formatId,
             seriesMemberships: [{ ordinal: 4, seriesId }],
             slug: "saved-material",
@@ -244,6 +246,8 @@ describe("Material Authoring action workflow", () => {
           materialId,
           metadata: {
             access: "free",
+            difficulty: null,
+            outcomes: [],
             formatId: null,
             seriesMemberships: [],
             slug: null,
@@ -340,12 +344,17 @@ describe("Material Authoring action workflow", () => {
       {
         access: "membership",
         deleteVideoId: null,
+        difficulty: "basic",
         document: {
           content: [{ content: [{ text: "Local full state", type: "text" }], type: "paragraph" }],
           type: "doc",
         },
         expectedContentVersion: 3,
         formatId,
+        outcomes: [
+          "Собрать один production path",
+          "Проверить его одним прогоном",
+        ],
         idempotencyKey: `web-save-${submissionId}`,
         materialId,
         publicationState: "published",
@@ -456,6 +465,9 @@ function validFormData(): FormData {
       ],
     }),
   );
+  formData.set("difficulty", "basic");
+  formData.append("outcome", "Собрать один production path");
+  formData.append("outcome", "Проверить его одним прогоном");
   formData.set("formatId", formatId);
   formData.set("submissionId", submissionId);
   formData.set("seriesIds", JSON.stringify([seriesId]));
@@ -542,6 +554,9 @@ function validSaveFormData(): FormData {
     }),
   );
   formData.set("expectedContentVersion", "3");
+  formData.set("difficulty", "basic");
+  formData.append("outcome", "Собрать один production path");
+  formData.append("outcome", "Проверить его одним прогоном");
   formData.set("formatId", formatId);
   formData.set("materialId", materialId);
   formData.set("publicationState", "published");

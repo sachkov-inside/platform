@@ -1,11 +1,15 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, waitFor, within } from "storybook/test";
+import { expect, userEvent, waitFor, within } from "storybook/test";
 
 import type {
   MaterialReaderMetadata,
   ReaderBlock,
 } from "@/_pages/material-reader/model/material-reader-view";
 import { calloutTones } from "@/entities/material";
+import { GuideModeHint, GuideModeSwitch } from "@/features/guide-modes";
+import { GuideModeProvider, type GuideMode } from "@/shared/guide-mode";
 import {
   materialReaderHref,
   parseMaterialReaderReturnTarget,
@@ -33,6 +37,11 @@ const material = {
     renditions: [{ height: 540, width: 960 }],
   },
   format: { name: "Гайд", slug: "guide" },
+  difficulty: "intermediate",
+  outcomes: [
+    "Собрать повторяемый skill из готового процесса",
+    "Проверить его на одном реальном прогоне",
+  ],
   publishedAt: "2026-08-25T05:00:00.000Z",
   seriesMemberships: [
     {
@@ -308,6 +317,122 @@ const emptyLessonBody = [
   { kind: "labeled_list", rows: [] },
 ] as const satisfies readonly ReaderBlock[];
 
+/** Шаг руководства, написанный для обоих режимов, и шаг только для своего проекта. */
+const guideModeBody = [
+  {
+    kind: "paragraph",
+    content: [
+      { kind: "text", marks: [], text: "Подготовьте репозиторий к первому прогону." },
+    ],
+  },
+  {
+    kind: "variant",
+    options: [
+      {
+        mode: "example",
+        content: [
+          {
+            kind: "paragraph",
+            content: [
+              {
+                kind: "text",
+                marks: [],
+                text: "Склонируйте учебный репозиторий и запустите проверку на нём.",
+              },
+            ],
+          },
+        ],
+      },
+      {
+        mode: "own",
+        content: [
+          {
+            kind: "paragraph",
+            content: [
+              {
+                kind: "text",
+                marks: [],
+                text: "Возьмите свой репозиторий и выпишите, чем его проверка отличается.",
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    kind: "variant",
+    options: [
+      {
+        mode: "own",
+        content: [
+          {
+            kind: "paragraph",
+            content: [
+              {
+                kind: "text",
+                marks: [],
+                text: "Согласуйте проверку с тем, кто отвечает за ваш репозиторий.",
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    kind: "paragraph",
+    content: [
+      { kind: "text", marks: [], text: "Дальше шаги одинаковы для обоих способов." },
+    ],
+  },
+] as const satisfies readonly ReaderBlock[];
+
+const guideModeReturnTarget = parseMaterialReaderReturnTarget(
+  "/guides/platform-inside",
+);
+
+function GuideModeReader({
+  initialMode,
+  withModes = true,
+}: {
+  readonly initialMode: GuideMode;
+  readonly withModes?: boolean;
+}) {
+  const [client] = useState(
+    () => new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+  );
+  return (
+    <QueryClientProvider client={client}>
+      <GuideModeProvider initialMode={initialMode}>
+        <MaterialReaderView
+          body={guideModeBody}
+          material={{ ...material, title: "Подготовка к первому прогону" }}
+          {...(withModes
+            ? {
+                modeHint: <GuideModeHint />,
+                modeSwitch: <GuideModeSwitch signedIn={false} />,
+              }
+            : {})}
+          primaryVideo={null}
+          returnTarget={guideModeReturnTarget}
+          seriesContext={{
+            currentPosition: 2,
+            next: null,
+            previous: null,
+            series: {
+              hasModeVariants: withModes,
+              href: guideModeReturnTarget.href,
+              name: "Создание Platform Inside",
+            },
+            totalMaterials: 4,
+          }}
+        />
+      </GuideModeProvider>
+    </QueryClientProvider>
+  );
+}
+
 type ReaderStoryMode =
   | "access-guide"
   | "access-not-offered"
@@ -315,6 +440,9 @@ type ReaderStoryMode =
   | "access-unavailable"
   | "desktop"
   | "error"
+  | "guide-modes"
+  | "guide-modes-own"
+  | "guide-without-modes"
   | "lesson-blocks"
   | "lesson-blocks-empty"
   | "lesson-blocks-long"
@@ -334,7 +462,8 @@ function MaterialReaderBoard({ mode }: { readonly mode: ReaderStoryMode }) {
 function MaterialReaderState({ mode }: { readonly mode: ReaderStoryMode }) {
   switch (mode) {
     case "short":
-      return <MaterialReaderView body={[]} material={{ ...material, title: "Короткая заметка", summary: "Одна небольшая мысль.", tags: [], seriesMemberships: [] }} primaryVideo={null} />;
+      // Короткая заметка ничего не обещает и не объявляет сложность: это не урок руководства.
+      return <MaterialReaderView body={[]} material={{ ...material, title: "Короткая заметка", summary: "Одна небольшая мысль.", difficulty: null, outcomes: [], tags: [], seriesMemberships: [] }} primaryVideo={null} />;
     case "mobile":
       return <MaterialReaderView
         body={body}
@@ -373,6 +502,7 @@ function MaterialReaderState({ mode }: { readonly mode: ReaderStoryMode }) {
               title: "Сначала границы",
             },
             series: {
+              hasModeVariants: false,
               href: returnTarget.href,
               name: "Создание Platform Inside",
             },
@@ -428,6 +558,12 @@ function MaterialReaderState({ mode }: { readonly mode: ReaderStoryMode }) {
           videoId: "03000000-0000-4000-8000-000000000001",
         }}
       />;
+    case "guide-modes":
+      return <GuideModeReader initialMode="example" />;
+    case "guide-modes-own":
+      return <GuideModeReader initialMode="own" />;
+    case "guide-without-modes":
+      return <GuideModeReader initialMode="example" withModes={false} />;
     case "not-found":
       return <MaterialReaderNotFound />;
     case "access-required":
@@ -824,5 +960,95 @@ export const LessonBlocksEmpty: Story = {
     await expect(canvas.queryByRole("link", { name: /Открыть/u })).not.toBeInTheDocument();
     await expect(canvas.getByLabelText("Примечание")).toBeInTheDocument();
     await expect(canvas.getByRole("region", { name: "Итоги" })).toBeInTheDocument();
+  },
+};
+
+export const GuideModes: Story = {
+  args: { mode: "guide-modes" },
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("group", { name: "Режим прохождения руководства" }),
+    ).toBeInTheDocument();
+    // Виден вариант активного режима; вариант чужого режима в разметке скрыт.
+    await expect(
+      canvas.getByText(/Склонируйте учебный репозиторий/u),
+    ).toBeVisible();
+    await expect(
+      canvas.getByText(/Возьмите свой репозиторий/u),
+    ).not.toBeVisible();
+    // Односторонний шаг чужого режима не показывается совсем.
+    await expect(
+      canvas.queryByText(/Согласуйте проверку/u),
+    ).not.toBeInTheDocument();
+    // Подсказка о двух режимах показывается один раз и стоит у первого вариантного шага.
+    await expect(canvas.getByText(/Переключить способ можно в шапке урока/u)).toBeVisible();
+    // Сложность и обещание урока видны до основного текста.
+    await expect(canvas.getByText("Сложность: Средний")).toBeVisible();
+    await expect(
+      canvas.getByRole("heading", { name: "Чему научишься" }),
+    ).toBeVisible();
+  },
+};
+
+export const GuideModesSwitched: Story = {
+  args: { mode: "guide-modes" },
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "Свой проект" }));
+    await waitFor(async () => {
+      await expect(canvas.getByText(/Возьмите свой репозиторий/u)).toBeVisible();
+    });
+    // Односторонний шаг появляется ровно в своём режиме.
+    await expect(canvas.getByText(/Согласуйте проверку/u)).toBeVisible();
+    await expect(
+      canvas.getByText(/Склонируйте учебный репозиторий/u),
+    ).not.toBeVisible();
+  },
+};
+
+export const GuideModesOtherBranch: Story = {
+  args: { mode: "guide-modes" },
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", { name: 'Показать вариант «Свой проект»' }),
+    );
+    await waitFor(async () => {
+      await expect(canvas.getByText(/Возьмите свой репозиторий/u)).toBeVisible();
+    });
+    // Раскрытие второго варианта не меняет выбранный режим.
+    await expect(
+      canvas.getByRole("button", { name: "Учебный проект" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await expect(canvas.getByText(/Склонируйте учебный репозиторий/u)).toBeVisible();
+  },
+};
+
+export const GuideModesMobile: Story = {
+  args: { mode: "guide-modes-own" },
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText(/Возьмите свой репозиторий/u)).toBeVisible();
+    await expect(canvas.getByText(/Согласуйте проверку/u)).toBeVisible();
+    const page = canvasElement.ownerDocument.documentElement;
+    await expect(page.scrollWidth).toBeLessThanOrEqual(page.clientWidth);
+  },
+};
+
+export const GuideWithoutModes: Story = {
+  args: { mode: "guide-without-modes" },
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    // У руководства без вариантных шагов переключателя нет; шаги читаются в режиме по умолчанию.
+    await expect(
+      canvas.queryByRole("group", { name: "Режим прохождения руководства" }),
+    ).not.toBeInTheDocument();
+    await expect(canvas.getByText(/Склонируйте учебный репозиторий/u)).toBeVisible();
   },
 };

@@ -27,6 +27,8 @@ function metadata(title: string) {
     topicId,
     formatId: "guide",
     tagIds: [],
+    difficulty: null,
+    outcomes: [],
     seriesIds: [],
   };
 }

@@ -244,6 +244,34 @@ export function fullRepresentativeDocument(): MaterialBodySnapshot {
           },
         },
         {
+          type: "variant",
+          attrs: { nodeId: "01000000-0000-4000-8000-000000000030" },
+          content: [
+            {
+              type: "variantOption",
+              attrs: { mode: "example" },
+              content: [
+                {
+                  type: "paragraph",
+                  attrs: { nodeId: "01000000-0000-4000-8000-000000000031" },
+                  content: [{ type: "text", text: "Учебный проект: повторите шаг на образце." }],
+                },
+              ],
+            },
+            {
+              type: "variantOption",
+              attrs: { mode: "own" },
+              content: [
+                {
+                  type: "paragraph",
+                  attrs: { nodeId: "01000000-0000-4000-8000-000000000032" },
+                  content: [{ type: "text", text: "Свой проект: примените шаг к своему репозиторию." }],
+                },
+              ],
+            },
+          ],
+        },
+        {
           type: "keyPoint",
           attrs: { nodeId: "01000000-0000-4000-8000-000000000029" },
           content: [

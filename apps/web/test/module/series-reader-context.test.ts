@@ -37,6 +37,7 @@ describe("Series Reader context", () => {
         title: "Сначала границы",
       },
       series: {
+        hasModeVariants: false,
         href: "/series/platform-inside?from=%2F",
         name: "Создание Platform Inside",
       },

@@ -24,12 +24,14 @@ export class PersonalHomeService {
           width: number;
         }>;
       } | null;
+      difficulty: 'basic' | 'intermediate' | 'advanced' | null;
       format: {
         id: 'video' | 'guide' | 'note';
         name: string;
         slug: 'video' | 'guide' | 'note';
       };
       materialId: string;
+      outcomes: Array<string>;
       primaryVideoDurationSeconds?: number;
       primaryVideoId: string | null;
       publishedAt: string;
@@ -101,12 +103,14 @@ export class PersonalHomeService {
             width: number;
           }>;
         } | null;
+        difficulty: 'basic' | 'intermediate' | 'advanced' | null;
         format: {
           id: 'video' | 'guide' | 'note';
           name: string;
           slug: 'video' | 'guide' | 'note';
         };
         materialId: string;
+        outcomes: Array<string>;
         primaryVideoDurationSeconds?: number;
         primaryVideoId: string | null;
         publishedAt: string;
@@ -186,12 +190,14 @@ export class PersonalHomeService {
               width: number;
             }>;
           } | null;
+          difficulty: 'basic' | 'intermediate' | 'advanced' | null;
           format: {
             id: 'video' | 'guide' | 'note';
             name: string;
             slug: 'video' | 'guide' | 'note';
           };
           materialId: string;
+          outcomes: Array<string>;
           primaryVideoDurationSeconds?: number;
           primaryVideoId: string | null;
           publishedAt: string;
@@ -247,12 +253,14 @@ export class PersonalHomeService {
             width: number;
           }>;
         } | null;
+        difficulty: 'basic' | 'intermediate' | 'advanced' | null;
         format: {
           id: 'video' | 'guide' | 'note';
           name: string;
           slug: 'video' | 'guide' | 'note';
         };
         materialId: string;
+        outcomes: Array<string>;
         primaryVideoDurationSeconds?: number;
         primaryVideoId: string | null;
         publishedAt: string;
@@ -350,12 +358,14 @@ export class PersonalHomeService {
             width: number;
           }>;
         } | null;
+        difficulty: 'basic' | 'intermediate' | 'advanced' | null;
         format: {
           id: 'video' | 'guide' | 'note';
           name: string;
           slug: 'video' | 'guide' | 'note';
         };
         materialId: string;
+        outcomes: Array<string>;
         primaryVideoDurationSeconds?: number;
         primaryVideoId: string | null;
         publishedAt: string;

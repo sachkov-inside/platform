@@ -105,6 +105,8 @@ export function assembleCreateDraft(
                 slug: null,
                 title: materializedMetadata.title,
                 summary: materializedMetadata.summary,
+                difficulty: materializedMetadata.difficulty,
+                outcomes: [...materializedMetadata.outcomes],
                 topicId: materializedMetadata.topicId,
                 formatId: materializedMetadata.formatId,
                 schemaVersion: body.value.schemaVersion,

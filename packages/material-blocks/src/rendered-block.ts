@@ -83,6 +83,13 @@ export type RenderedBlock =
     }
   | { readonly content: readonly RenderedText[]; readonly kind: "key_point" }
   | {
+      readonly kind: "variant";
+      readonly options: readonly {
+        readonly content: readonly RenderedBlock[];
+        readonly mode: "example" | "own";
+      }[];
+    }
+  | {
       readonly alt: string;
       readonly assetId: string;
       readonly caption?: string | undefined;

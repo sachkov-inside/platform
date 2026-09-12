@@ -11,6 +11,8 @@ describe("MaterialMetadata", () => {
       access: "workshop",
       topicId: "72000000-0000-4000-8000-000000000002",
       formatId: "guide",
+      difficulty: null,
+      outcomes: [],
       tagIds: [],
       seriesMemberships: [],
     });
@@ -26,6 +28,8 @@ describe("MaterialMetadata", () => {
       access: "free",
       topicId: null,
       formatId: null,
+      difficulty: null,
+      outcomes: [],
       tagIds: [],
       seriesMemberships: [],
     });

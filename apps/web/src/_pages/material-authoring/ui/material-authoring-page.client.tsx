@@ -296,6 +296,9 @@ export function MaterialAuthoringPageClient({
     onDelete: (input) => {
       deletionMutation.mutate(input);
     },
+    onOutcomesChange: (outcomes) => {
+      markDirty({ ...effectiveDraft, outcomes });
+    },
     onOpenPreview: () => {
       void flushPendingEdits().then((ok) => {
         const id = draftRef.current.materialId;

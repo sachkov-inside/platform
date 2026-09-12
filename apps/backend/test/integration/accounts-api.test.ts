@@ -682,6 +682,8 @@ function materialDraftPayload(
       topicId,
       formatId,
       tagIds: [],
+      difficulty: null,
+      outcomes: [],
       seriesIds: [seriesId],
     },
     body: representativeDocument(text),

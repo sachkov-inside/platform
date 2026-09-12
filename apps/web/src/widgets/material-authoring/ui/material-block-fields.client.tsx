@@ -7,6 +7,7 @@ import {
   calloutTonePresentation,
   type CalloutTone,
 } from "@/entities/material";
+import { guideModeLabels, guideModes, type GuideMode } from "@/shared/guide-mode";
 import { Button } from "@/shared/ui/button";
 
 const titleFieldClass =
@@ -52,6 +53,107 @@ function BlockTitleField({
       value={blockTitle(editor, type)}
     />
   );
+}
+
+function activeVariantMode(editor: Editor): GuideMode | undefined {
+  return guideModes.find((mode) => editor.isActive("variantOption", { mode }));
+}
+
+/** Сколько веток сейчас в вариантном блоке под курсором. */
+function variantBranchCount(editor: Editor): number {
+  const { $from } = editor.state.selection;
+  for (let depth = $from.depth; depth > 0; depth -= 1) {
+    const node = $from.node(depth);
+    if (node.type.name === "variant") return node.childCount;
+  }
+  return 0;
+}
+
+/**
+ * Ветка вариантного блока: её режим нельзя набрать текстом, а второй вариант нужно откуда-то
+ * завести. Оба действия стоят здесь же, где автор уже меняет вид врезки.
+ */
+function VariantFields({
+  branchMode,
+  disabled,
+  editor,
+}: {
+  readonly branchMode: GuideMode;
+  readonly disabled: boolean;
+  readonly editor: Editor;
+}) {
+  const branches = variantBranchCount(editor);
+  const missing = guideModes.find((mode) => mode !== branchMode);
+
+  return (
+    <div
+      aria-label="Вариант шага"
+      className="mr-auto flex min-w-0 flex-wrap items-center gap-1"
+      role="toolbar"
+    >
+      {guideModes.map((mode) => (
+        <Button
+          aria-label={`Режим ветки: ${guideModeLabels[mode]}`}
+          aria-pressed={mode === branchMode}
+          disabled={disabled}
+          key={mode}
+          onClick={() => {
+            editor.commands.updateAttributes("variantOption", { mode });
+          }}
+          onMouseDown={(event) => {
+            event.preventDefault();
+          }}
+          type="button"
+          variant={mode === branchMode ? "secondary" : "ghost"}
+        >
+          {guideModeLabels[mode]}
+        </Button>
+      ))}
+      {branches > 1 || missing === undefined ? null : (
+        <Button
+          disabled={disabled}
+          onClick={() => {
+            const position = variantEnd(editor);
+            if (position === undefined) return;
+            editor
+              .chain()
+              .focus()
+              .insertContentAt(position, {
+                type: "variantOption",
+                attrs: { mode: missing },
+                content: [{ type: "paragraph" }],
+              })
+              .run();
+          }}
+          type="button"
+          variant="secondary"
+        >
+          Добавить «{guideModeLabels[missing]}»
+        </Button>
+      )}
+      {branches < 2 ? null : (
+        <Button
+          disabled={disabled}
+          onClick={() => {
+            editor.chain().focus().deleteNode("variantOption").run();
+          }}
+          type="button"
+          variant="ghost"
+        >
+          Убрать эту ветку
+        </Button>
+      )}
+    </div>
+  );
+}
+
+/** Конец вариантного блока под курсором: туда встаёт вторая ветка. */
+function variantEnd(editor: Editor): number | undefined {
+  const { $from } = editor.state.selection;
+  for (let depth = $from.depth; depth > 0; depth -= 1) {
+    if ($from.node(depth).type.name === "variant") return $from.end(depth);
+  }
+  return undefined;
 }
 
 /**
@@ -121,6 +223,13 @@ export function MaterialBlockFields({
           type="takeaways"
         />
       </div>
+    );
+  }
+
+  const branchMode = activeVariantMode(editor);
+  if (branchMode !== undefined) {
+    return (
+      <VariantFields branchMode={branchMode} disabled={disabled} editor={editor} />
     );
   }
 

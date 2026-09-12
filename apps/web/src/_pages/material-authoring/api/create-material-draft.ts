@@ -1,6 +1,10 @@
 import "server-only";
 
 import {
+  materialDifficultySchema,
+  type MaterialDifficulty,
+} from "@/shared/api/material-difficulty";
+import {
   materialFormatSchema,
   type MaterialFormat,
 } from "@/shared/api/material-format";
@@ -22,6 +26,8 @@ import type {
 import { parseMaterialDocumentFields } from "./parse-material-document-fields";
 const formSchema = z.object({
   access: z.enum(["free", "membership"]),
+  difficulty: materialDifficultySchema.or(z.literal("unassigned")),
+  outcomes: z.array(z.string().trim().max(200)).max(4),
   document: z.string().min(1).max(1_048_576),
   formatId: materialFormatSchema.or(z.literal("unassigned")),
   submissionId: z.uuid(),
@@ -54,7 +60,9 @@ const problemSchema = z
 
 interface ParsedDraftForm {
   readonly access: "free" | "membership";
+  readonly difficulty: MaterialDifficulty | null;
   readonly document: JSONContent;
+  readonly outcomes: readonly string[];
   readonly formatId: MaterialFormat | null;
   readonly idempotencyKey: string;
   readonly seriesIds: readonly string[];
@@ -111,6 +119,8 @@ function parseForm(formData: FormData):
     } {
   const parsed = formSchema.safeParse({
     access: formData.get("access"),
+    difficulty: formData.get("difficulty"),
+    outcomes: formData.getAll("outcome"),
     document: formData.get("document"),
     formatId: formData.get("formatId"),
     submissionId: formData.get("submissionId"),
@@ -135,6 +145,8 @@ function parseForm(formData: FormData):
     ok: true,
     value: {
       access: parsed.data.access,
+      difficulty: parsed.data.difficulty === "unassigned" ? null : parsed.data.difficulty,
+      outcomes: parsed.data.outcomes.filter(Boolean),
       document: documentFields.document,
       formatId:
         parsed.data.formatId === "unassigned" ? null : parsed.data.formatId,

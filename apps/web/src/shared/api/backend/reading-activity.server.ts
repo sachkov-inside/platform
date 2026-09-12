@@ -9,3 +9,9 @@ export function requestSetReadingState(input: { materialId: string; commandId: s
   const { materialId, ...requestBody } = input;
   return executeGeneratedRequest((request) => new ReadingActivityService(request).setMaterialReadingState({ materialId, requestBody }), 200, { accessToken });
 }
+export function requestReaderGuideMode(accessToken: string) {
+  return executeGeneratedRequest((request) => new ReadingActivityService(request).getReaderGuideMode(), 200, { accessToken });
+}
+export function requestSetReaderGuideMode(guideMode: "example" | "own", accessToken: string) {
+  return executeGeneratedRequest((request) => new ReadingActivityService(request).setReaderGuideMode({ requestBody: { guideMode } }), 200, { accessToken });
+}

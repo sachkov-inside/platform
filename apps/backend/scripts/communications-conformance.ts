@@ -306,6 +306,8 @@ try {
     title: "Тестовый материал Telegram #310",
     summary: "Synthetic acceptance fixture, not author production content",
     access: "free" as const,
+    difficulty: null,
+    outcomes: [],
     topicId,
     formatId,
     tagIds: [],

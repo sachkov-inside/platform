@@ -4,6 +4,8 @@ import type {
   RenderedMark,
   RenderedText,
 } from "@/entities/material.model";
+import type { GuideMode } from "@/shared/guide-mode";
+import type { MaterialDifficulty } from "@/shared/api/material-difficulty";
 
 export type ReaderMark = RenderedMark;
 export type ReaderText = RenderedText;
@@ -13,6 +15,9 @@ export interface MaterialReaderMetadata {
   readonly access: "free" | "membership" | "workshop";
   readonly contentVersion: number;
   readonly cover: ContentCover | null;
+  /** Сложность урока и что он обещает; урок без этих значений просто их не показывает. */
+  readonly difficulty: MaterialDifficulty | null;
+  readonly outcomes: readonly string[];
   readonly format: { readonly name: string; readonly slug: string };
   readonly materialId: string;
   readonly publishedAt: string;
@@ -34,6 +39,8 @@ export interface PrimaryVideoPresentation {
   readonly title: string;
   readonly videoId: string;
 }
+
+export type { GuideMode };
 
 export type MaterialReaderResult =
   | {

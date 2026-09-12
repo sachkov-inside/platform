@@ -6,6 +6,7 @@ import {
 import { z } from "zod";
 
 import { materialFormatSchema } from "../../../domain/material-format.js";
+import { materialDifficultySchema } from "../../../domain/material-metadata.js";
 
 import type { PublishedMaterialProjectionDto } from "../../../facets/published-material-reader/published-material.contract.js";
 import type { ContentCoverProjection } from "../../../facets/content-covers/content-covers.js";
@@ -38,6 +39,12 @@ export interface PublishedMaterialDiscoveryPage {
     readonly summary: string;
   }[];
   readonly reference: {
+    /**
+     * Whether any lesson of this Guide is written for both ways of going through it. The mode
+     * switch belongs to the Guide, so a Guide without such a lesson shows none; false for every
+     * other discovery kind.
+     */
+    readonly hasModeVariants: boolean;
     readonly id: string;
     /** Author-written Guide introduction; null for every other discovery kind. */
     readonly introduction: GuideIntroductionDto | null;
@@ -86,6 +93,10 @@ const relatedSeriesRowSchema = z
   })
   .strict();
 
+const guideModeRowSchema = z
+  .object({ has_mode_variants: z.boolean() })
+  .strict();
+
 const discoveryTopicRowSchema = z
   .object({
     cover_id: z.uuid().nullable(),
@@ -115,6 +126,8 @@ const publishedMaterialProjectionRowSchema = z.object({
   slug: z.string(),
   title: z.string(),
   summary: z.string(),
+  difficulty: materialDifficultySchema.nullable(),
+  outcomes: z.array(z.string()),
   access: z.enum(["free", "membership", "workshop"]),
   published_at: z.date(),
   primary_video_id: z.uuid().nullable(),
@@ -245,6 +258,8 @@ function searchProjectionQuery(
       publication.slug,
       publication.title,
       publication.summary,
+      publication.difficulty,
+      publication.outcomes,
       publication.access,
       publication.published_at,
       publication.primary_video_id,
@@ -723,6 +738,7 @@ export async function selectPublishedMaterialProjectionsByTopic(
     chapters: [],
     reference: {
       id: reference.id,
+      hasModeVariants: false,
       introduction: null,
       name: reference.name,
       slug: reference.slug,
@@ -753,7 +769,8 @@ export async function selectPublishedMaterialProjectionsBySeries(
   slug: string,
   first: number | null,
 ): Promise<PublishedMaterialDiscoveryPage | undefined> {
-  const [reference, rawRows, rawTopics, rawChapters] = await Promise.all([
+  const [reference, rawRows, rawTopics, rawChapters, rawGuideModes] =
+    await Promise.all([
     prisma.guide.findUnique({
       where: { slug },
       select: {
@@ -826,6 +843,19 @@ export async function selectPublishedMaterialProjectionsBySeries(
       where series.slug = ${slug}
       order by chapter.ordinal, chapter.id
     `),
+    // The route is paginated, so the visible page cannot answer this for the whole Guide.
+    prisma.$queryRaw(Prisma.sql`
+      select exists (
+        select 1
+        from materials.published_material_series_memberships as membership
+        join materials.published_materials as publication
+          on publication.material_id = membership.material_id
+        join materials.series as series on series.id = membership.series_id
+        where series.slug = ${slug}
+          and publication.access <> 'workshop'
+          and publication.has_mode_variants
+      ) as has_mode_variants
+    `),
   ]);
   if (reference === null) {
     return undefined;
@@ -833,6 +863,9 @@ export async function selectPublishedMaterialProjectionsBySeries(
   const rows = publishedMaterialProjectionRowSchema.array().parse(rawRows);
   const topics = discoveryTopicRowSchema.array().parse(rawTopics);
   const chapters = guideChapterRowSchema.array().parse(rawChapters);
+  const guideModes = guideModeRowSchema.array().parse(rawGuideModes)[0] ?? {
+    has_mode_variants: false,
+  };
   const covers = await loadContentCoverProjections(
     prisma,
     [reference.coverId, ...topics.map(({ cover_id }) => cover_id)].flatMap(
@@ -848,6 +881,7 @@ export async function selectPublishedMaterialProjectionsBySeries(
     })),
     reference: {
       id: reference.id,
+      hasModeVariants: guideModes.has_mode_variants,
       introduction: {
         audience: reference.audience,
         outcome: reference.outcome,
@@ -949,6 +983,7 @@ export async function selectRelatedPublishedMaterialProjections(
     chapters: [],
     reference: {
       id: source.materialId,
+      hasModeVariants: false,
       introduction: null,
       name: source.title,
       slug: source.slug,
@@ -980,6 +1015,8 @@ function projectionQuery({
       publication.slug,
       publication.title,
       publication.summary,
+      publication.difficulty,
+      publication.outcomes,
       publication.access,
       publication.published_at,
       publication.primary_video_id,
@@ -1068,6 +1105,8 @@ function toProjection(
     slug: row.slug,
     title: row.title,
     summary: row.summary,
+    difficulty: row.difficulty,
+    outcomes: row.outcomes,
     access: row.access,
     publishedAt: row.published_at.toISOString(),
     primaryVideoId: row.primary_video_id,

@@ -22,7 +22,7 @@ test("a clean production database offers and saves the three domain formats with
   for (const format of references.value.formats) {
     const created = await authoring.createDraft({
       actor, idempotencyKey: `domain-format-${format.id}`,
-      metadata: { title: format.name, summary: null, access: "free", topicId: null, formatId: format.id, tagIds: [], seriesIds: [] },
+      metadata: { title: format.name, summary: null, access: "free", topicId: null, formatId: format.id, tagIds: [], difficulty: null, outcomes: [], seriesIds: [] },
       body: representativeDocument("Содержимое материала"),
     });
     expect(created.ok).toBe(true);
@@ -30,7 +30,7 @@ test("a clean production database offers and saves the three domain formats with
     expect(await authoring.saveMaterial({
       actor, materialId: created.value.materialId, idempotencyKey: `save-format-${format.id}`,
       expectedContentVersion: created.value.contentVersion, publicationState: "draft",
-      metadata: { title: format.name, summary: null, access: "free", topicId: null, formatId: format.id, tagIds: [], seriesIds: [] },
+      metadata: { title: format.name, summary: null, access: "free", topicId: null, formatId: format.id, tagIds: [], difficulty: null, outcomes: [], seriesIds: [] },
       body: representativeDocument("Сохранённое содержимое"),
     })).toMatchObject({ ok: true });
     expect(await authoring.loadMaterial({ actor, materialId: created.value.materialId })).toMatchObject({
@@ -43,7 +43,7 @@ test.each(["podcast", "38900000-0000-4000-8000-000000000001"])("rejects unsuppor
   const { authoring } = assembleMaterials({ prisma: database.prisma, authorPolicy: { canManage: () => true } });
   expect(await authoring.createDraft({
     actor, idempotencyKey: `unsupported-${formatId}`,
-    metadata: { title: "Unsupported", summary: null, access: "free", topicId: null, formatId, tagIds: [], seriesIds: [] },
+    metadata: { title: "Unsupported", summary: null, access: "free", topicId: null, formatId, tagIds: [], difficulty: null, outcomes: [], seriesIds: [] },
     body: representativeDocument("Body"),
   })).toMatchObject({ ok: false, error: { code: "invalid_content", issues: [{ code: "invalid_metadata", path: "/metadata/formatId" }] } });
 });

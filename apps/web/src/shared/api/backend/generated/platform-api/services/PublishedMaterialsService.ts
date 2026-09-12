@@ -39,12 +39,14 @@ export class PublishedMaterialsService {
           width: number;
         }>;
       } | null;
+      difficulty: 'basic' | 'intermediate' | 'advanced' | null;
       format: {
         id: 'video' | 'guide' | 'note';
         name: string;
         slug: 'video' | 'guide' | 'note';
       };
       materialId: string;
+      outcomes: Array<string>;
       primaryVideoId: string | null;
       publishedAt: string;
       seriesMemberships: Array<{
@@ -89,12 +91,14 @@ export class PublishedMaterialsService {
           width: number;
         }>;
       } | null;
+      difficulty: 'basic' | 'intermediate' | 'advanced' | null;
       format: {
         id: 'video' | 'guide' | 'note';
         name: string;
         slug: 'video' | 'guide' | 'note';
       };
       materialId: string;
+      outcomes: Array<string>;
       primaryVideoId: string | null;
       publishedAt: string;
       seriesMemberships: Array<{

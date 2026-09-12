@@ -36,6 +36,7 @@ const noopActions = {
   onDelete: fn(),
   onFieldChange: fn(),
   onOpenPreview: fn(),
+  onOutcomesChange: fn(),
   onPrimaryVideoChange: fn(),
   onRetry: fn(),
   onReturnToEditor: fn(),
@@ -97,6 +98,10 @@ function MaterialAuthoringFixture({
         primaryVideo,
         primaryVideoId: primaryVideo?.videoId ?? null,
       });
+    },
+    onOutcomesChange: (outcomes) => {
+      noopActions.onOutcomesChange(outcomes);
+      markDirty({ ...presentation.draft, outcomes });
     },
     onRetry: () => {
       noopActions.onRetry();

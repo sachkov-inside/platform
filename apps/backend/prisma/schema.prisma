@@ -447,6 +447,8 @@ model Material {
   slug             String?   @unique(map: "materials_slug_unique")
   title            String?
   summary          String?
+  difficulty       String?
+  outcomes         Json      @default("[]")
   topicId          String?   @map("topic_id") @db.Uuid
   formatId         String?   @map("format_id")
   schemaVersion    Int       @map("schema_version") @db.SmallInt
@@ -513,6 +515,9 @@ model PublishedMaterial {
   slug           String   @unique(map: "published_materials_slug_unique")
   title          String
   summary        String
+  difficulty     String?
+  outcomes       Json     @default("[]")
+  hasModeVariants Boolean @default(false) @map("has_mode_variants")
   access         String
   topicId        String   @map("topic_id") @db.Uuid
   formatId       String   @map("format_id")
@@ -783,6 +788,14 @@ model ReadingMaterialState {
   updatedAt DateTime @map("updated_at") @db.Timestamptz
   @@id([accountId, materialId])
   @@map("material_states")
+  @@schema("reading_activity")
+}
+
+model ReadingPreferences {
+  accountId String @id @map("account_id") @db.Uuid
+  guideMode String @map("guide_mode")
+  updatedAt DateTime @map("updated_at") @db.Timestamptz
+  @@map("reader_preferences")
   @@schema("reading_activity")
 }
 

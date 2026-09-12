@@ -32,33 +32,36 @@ export function renderMaterialBody(
   return { schemaVersion: 1, blocks: renderMaterialBlocks(content) };
 }
 
-function collect(
-  block: RenderedBlock,
-  headings: MaterialBodyHeading[],
-  resources: MaterialBodyResourceSummary[],
-): void {
+interface Collected {
+  readonly headings: MaterialBodyHeading[];
+  modeVariants: boolean;
+  readonly resources: MaterialBodyResourceSummary[];
+}
+
+function collect(block: RenderedBlock, into: Collected): void {
   const heading = materialBlockHeading(block);
   if (heading !== undefined) {
-    headings.push(heading);
+    into.headings.push(heading);
   }
   const resource = materialBlockResource(block);
   if (resource !== undefined) {
-    resources.push(resource);
+    into.resources.push(resource);
   }
-  materialBlockChildren(block).forEach((child) =>
-    collect(child, headings, resources),
-  );
+  if (block.kind === "variant") {
+    into.modeVariants = true;
+  }
+  materialBlockChildren(block).forEach((child) => collect(child, into));
 }
 
 export function extractMaterialBody(
   document: RenderedMaterialBody,
 ): MaterialBodyExtraction {
-  const headings: MaterialBodyHeading[] = [];
-  const resources: MaterialBodyResourceSummary[] = [];
-  document.blocks.forEach((block) => collect(block, headings, resources));
+  const collected: Collected = { headings: [], modeVariants: false, resources: [] };
+  document.blocks.forEach((block) => collect(block, collected));
   return {
+    hasModeVariants: collected.modeVariants,
     plainText: document.blocks.map(materialBlockText).filter(Boolean).join("\n\n"),
-    headings,
-    resources,
+    headings: collected.headings,
+    resources: collected.resources,
   };
 }

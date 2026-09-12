@@ -24,7 +24,7 @@ beforeAll(async () => {
 });
 afterAll(async () => { await database.dispose(); });
 
-function metadata(title: string, seriesIds: string[]) { return { title, summary: "Public summary", access: "membership" as const, topicId, formatId: "guide", tagIds: [], seriesIds }; }
+function metadata(title: string, seriesIds: string[]) { return { title, summary: "Public summary", access: "membership" as const, topicId, formatId: "guide", tagIds: [], difficulty: null, outcomes: [], seriesIds }; }
 async function createSeries(title: string) {
   const seriesId = randomUUID();
   await database.prisma.guide.create({ data: { id: seriesId, name: title, slug: `series-${seriesId}`, summary: "Series summary" } });

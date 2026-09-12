@@ -12,7 +12,9 @@ export async function createMaterialDraft(
   const formData = new FormData();
   formData.set("access", input.access);
   formData.set("document", JSON.stringify(input.document));
+  formData.set("difficulty", input.difficulty);
   formData.set("formatId", input.formatId);
+  for (const outcome of input.outcomes) formData.append("outcome", outcome);
   formData.set("seriesIds", JSON.stringify(input.seriesIds));
   formData.set("submissionId", input.submissionId);
   formData.set("summary", input.summary);

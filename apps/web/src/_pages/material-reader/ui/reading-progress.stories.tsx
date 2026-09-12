@@ -7,7 +7,7 @@ import { ReadingAction, type ReadingActionView } from "@/features/reading-progre
 import { publicPageEnvironment } from "@/workshop/story-environment";
 
 const metadata: MaterialReaderMetadata = {
-  materialId: "02000000-0000-4000-8000-000000000010", contentVersion: 1, access: "free", cover: null,
+  materialId: "02000000-0000-4000-8000-000000000010", contentVersion: 1, access: "free", cover: null, difficulty: null, outcomes: [],
   format: { name: "Текст", slug: "text" }, publishedAt: "2026-09-06T12:00:00.000Z", seriesMemberships: [],
   slug: "reliable-requests", title: "Почему повтор запроса не должен повторять действие",
   summary: "Разберём на примере, как сохранить результат, даже если ответ сервера потерялся.",

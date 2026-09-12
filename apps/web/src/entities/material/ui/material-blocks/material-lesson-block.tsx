@@ -5,6 +5,7 @@ import { MaterialAgentPrompt } from "./material-agent-prompt.client";
 import { MaterialCallout } from "./material-callout";
 import { MaterialKeyPoint } from "./material-key-point";
 import { MaterialLabeledList } from "./material-labeled-list";
+import { MaterialModeVariant } from "./material-mode-variant.client";
 import { MaterialResourceCard } from "./material-resource-card";
 import { MaterialTakeaways } from "./material-takeaways";
 
@@ -18,7 +19,8 @@ export type LessonBlock = Extract<
       | "key_point"
       | "labeled_list"
       | "resource_card"
-      | "takeaways";
+      | "takeaways"
+      | "variant";
   }
 >;
 
@@ -68,5 +70,16 @@ export function MaterialLessonBlock({
       return <MaterialLabeledList rows={block.rows} />;
     case "key_point":
       return <MaterialKeyPoint>{rendering.renderInline(block.content)}</MaterialKeyPoint>;
+    case "variant":
+      // Обе ветки рисует вызывающая поверхность и передаёт готовыми: у режима нет доступа к её
+      // обходу документа, а сама ветка должна приехать в разметку, чтобы переключение было мгновенным.
+      return (
+        <MaterialModeVariant
+          branches={block.options.map((option) => ({
+            content: rendering.renderBlocks(option.content),
+            mode: option.mode,
+          }))}
+        />
+      );
   }
 }
