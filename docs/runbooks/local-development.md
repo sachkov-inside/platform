@@ -135,54 +135,83 @@ docker compose down
 
 After shutdown, `docker compose ps --all` should list no application containers.
 
-## Один стенд: вход и покупка
+## One stand: sign-in and purchase
 
-Одна команда поднимает стенд целиком — приложение, воркеры, вход, двойника банка и перехватчик
-писем:
+One command brings up the whole stand — the application, its workers, sign-in, the bank double and
+the mail interceptor:
 
 ```bash
 pnpm local:stand
 ```
 
-Она собирает образы, поднимает вход, настраивает его существующим bootstrap и доводит остальной
-стенд. В конце печатает четыре адреса:
+It builds the images, starts sign-in, configures it with the existing bootstrap and then brings up
+the rest of the stand. It prints four addresses at the end:
 
-- приложение <http://127.0.0.1:3000>;
-- вход <https://identity.inside.localhost:3301>;
-- письма <http://127.0.0.1:8025> — там и коды входа, и коды подтверждения адреса для чека;
-- двойник банка <http://127.0.0.1:8090>.
+- the application on <http://127.0.0.1:3000>;
+- sign-in on <https://identity.inside.localhost:3301>;
+- mail on <http://127.0.0.1:8025>, holding both the sign-in codes and the receipt address codes;
+- the bank double on <http://127.0.0.1:8090>.
 
-Обычный `docker compose up` без профиля входа поднимается как раньше и ничего из этого не требует.
-Остановить стенд: `docker compose --profile identity down`.
+The default `docker compose up` without the profile starts as before and needs none of this. The
+stand claims the same machine-wide lock and the same Compose project as `pnpm local:setup`, so it
+refuses to start while a stack is already running: stop the running one with
+`docker compose --profile identity down` first. Start the stand only through `pnpm local:stand`;
+a bare `docker compose --profile identity up` starts Logto without the bootstrap that configures
+it, and sign-in then fails at the token exchange.
 
-### Порядок владельца
+Sign-in ports are fixed at 3301 and 3302 on purpose. OIDC compares the issuer as an exact string,
+so the address must be the same for the browser and for the application inside the Compose network.
 
-1. Наберите `pnpm local:stand` и дождитесь четырёх адресов.
-2. Откройте <http://127.0.0.1:3000> и нажмите «Войти». Браузер один раз спросит про сертификат:
-   вход работает по HTTPS со своим корнем, это не поломка — примите предупреждение.
-3. Введите любой адрес вида `you@example.test`. Письмо с кодом откройте в
-   <http://127.0.0.1:8025>, код введите на странице входа.
-4. После входа предложат подключить Telegram. Окно можно закрыть — покупке оно не нужно.
-5. Подтвердите адрес для чека: «Личный кабинет» → «Покупки» → введите адрес → «Получить код».
-   Второе письмо придёт в тот же ящик. Без подтверждённого адреса покупка отклоняется.
-6. Купите руководство: откройте страницу руководства, примите оферту, нажмите «Купить». Браузер
-   уйдёт на форму двойника банка, где выберите исход — «Оплата прошла». После возврата право
-   видно в «Покупках».
-7. Прежде чем оформлять подписку, переведите аккаунт в «новый покупатель»: зайдите в админку
-   продаж `/authoring/billing` и сделайте это под «Кто этот покупатель». Без такой отметки
-   подписка откажет, и отказ выглядит как поломка оплаты, хотя это правило продаж.
-8. Оформите подписку на витрине. Если руководство уже куплено, старший тариф попросит
-   подтвердить пересечение состава галочкой — так и задумано.
+### Owner order
 
-### Чего ожидать
+The catalog is already on sale: the development seed publishes the guide and both subscriptions, so
+no manual setup is needed before buying. See [Seeded offer catalog](#seeded-offer-catalog).
 
-Письма никуда не уходят: перехватчик их только принимает, отправляющий узел ему не настроен.
-Двойник банка не двигает деньги и помнит свои заказы между перезапусками.
+1. Run `pnpm local:stand` and wait for the four addresses.
+2. Open <http://127.0.0.1:3000> and press «Войти». The browser asks about the certificate once:
+   sign-in runs over HTTPS with its own root, which is expected — accept the warning.
+3. Enter any address such as `you@example.test`. Open the message in <http://127.0.0.1:8025> and
+   type its code on the sign-in page.
+4. Sign-in offers to connect Telegram. Close that dialog; the purchase does not need it.
+5. Confirm the receipt address: «Личный кабинет» → «Покупки» → enter the address → «Получить код».
+   The second message lands in the same inbox. An unconfirmed contact refuses the purchase.
+6. Buy the guide: open its page, accept the offer, press «Купить». The browser goes to the double's
+   payment form; choose «Оплата прошла». Back in «Покупки» the granted right is visible and the
+   material opens.
+7. Grant yourself the admin surface once. Read the Account identity the sign-in created, then run
+   the [owner release bootstrap](#owner-account-release-bootstrap) against the stand:
 
-Стенд нельзя поднимать на ранее собранных образах. Если миграции или MCP падают с
-`Migration ledger is not an exact registry prefix`, это значит, что в образе на одну миграцию
-меньше, чем уже применено в базе. Пересоберите стенд, **не сбрасывайте том с данными** —
-выглядит как порча базы, а лечится пересборкой.
+   ```bash
+   docker compose exec -T postgres psql -U inside -d inside \
+     -c "select id, logto_subject from accounts.accounts order by created_at desc limit 1"
+   docker compose exec -T \
+     -e OWNER_LOGTO_ISSUER=https://identity.inside.localhost:3301/oidc \
+     -e OWNER_LOGTO_SUBJECT=<logto_subject> \
+     -e OWNER_PERMISSION=billing:manage \
+     api pnpm --filter @inside/backend release:bootstrap-owner
+   ```
+
+8. Classify the account as a new buyer before subscribing. Open `/authoring/billing`, find «Кто
+   этот покупатель», paste the Account id from the same row into «Определить Account», set
+   «Ожидаемая редакция» to `0` for an account with no decision yet, choose «Новый покупатель»,
+   fill «Источник» and «Основание», then press «Записать решение». Without that decision the
+   subscription refuses, and the refusal looks like a broken payment although it is a sales rule.
+9. Subscribe on the storefront. When the guide is already bought, the larger plan asks to confirm
+   the overlap with a checkbox — that is intended.
+
+### What to expect
+
+Nothing leaves the machine: the interceptor only receives mail and has no sending node configured.
+The bank double moves no money and remembers its orders across restarts.
+
+The stand must not run on previously built images. When migrations or MCP fail with
+`Migration ledger is not an exact registry prefix`, the image holds one migration fewer than the
+database already applied. Rebuild the stand and **do not wipe the data volume** — it looks like a
+corrupted database and is cured by a rebuild.
+
+Wiping `logto-postgres-data` resets the sign-in tenant, and the application keeps the application
+id of the tenant that is gone. Run `pnpm local:stand` again: the bootstrap recreates the tenant and
+rewrites the generated values.
 
 ## Optional Storybook profile
 

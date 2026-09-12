@@ -21,13 +21,15 @@ const root = new URL("../", import.meta.url);
 const proofRoot = new URL("infra/identity/logto/", root);
 
 test("identity proof dependencies and fork lineage are immutable", async () => {
-  const [versionsSource, dockerfile, compose, packageSource, hardeningPatch] = await Promise.all([
-    readFile(new URL("versions.json", proofRoot), "utf8"),
-    readFile(new URL("Dockerfile", proofRoot), "utf8"),
-    readFile(new URL("compose.yaml", proofRoot), "utf8"),
-    readFile(new URL("apps/web/package.json", root), "utf8"),
-    readFile(new URL("patches/issue-116-logto-proof.patch", proofRoot), "utf8"),
-  ]);
+  const [versionsSource, dockerfile, compose, standCompose, packageSource, hardeningPatch] =
+    await Promise.all([
+      readFile(new URL("versions.json", proofRoot), "utf8"),
+      readFile(new URL("Dockerfile", proofRoot), "utf8"),
+      readFile(new URL("compose.yaml", proofRoot), "utf8"),
+      readFile(new URL("compose.yaml", root), "utf8"),
+      readFile(new URL("apps/web/package.json", root), "utf8"),
+      readFile(new URL("patches/issue-116-logto-proof.patch", proofRoot), "utf8"),
+    ]);
   const versions = JSON.parse(versionsSource);
   const webPackage = JSON.parse(packageSource);
 
@@ -41,6 +43,11 @@ test("identity proof dependencies and fork lineage are immutable", async () => {
   assert.match(compose, new RegExp(versions.logto.forkRevision, "u"));
   assert.match(compose, new RegExp(versions.postgres.digest, "u"));
   assert.match(compose, new RegExp(versions.mailpit.digest, "u"));
+  // Вход стенда живёт в основном Compose и должен быть тем же образом, что у одноразового
+  // окружения: два стенда с разными Logto расходятся молча.
+  assert.match(standCompose, new RegExp(`inside/logto-proof:${versions.logto.version}-${versions.logto.forkRevision}`, "u"));
+  assert.match(standCompose, new RegExp(versions.postgres.digest, "u"));
+  assert.match(standCompose, new RegExp(versions.mailpit.digest, "u"));
   assert.equal(webPackage.dependencies["@logto/next"], versions.logtoNext);
   assert.doesNotMatch(`${dockerfile}\n${compose}`, /(?:latest|npx\s)/u);
   assert.match(dockerfile, /issue-116-logto-proof\.patch/u);

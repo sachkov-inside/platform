@@ -20,7 +20,7 @@ check() {
 check "Docker CLI" docker --version
 check "Docker Compose" docker compose version
 check "Docker daemon" docker info --format '{{.ServerVersion}}'
-check "Compose contract" docker compose --profile storybook config --quiet
+check "Compose contract" docker compose --profile storybook --profile identity config --quiet
 
 if ((failures > 0)); then
   printf 'Platform requires only a working Docker daemon with Compose v2 for the primary startup path.\n' >&2

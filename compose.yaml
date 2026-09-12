@@ -256,6 +256,8 @@ services:
 
   # Вход стенда. Профиль `identity` включает его по требованию: обычный стек поднимается без него,
   # как раньше. Псевдоним сети даёт приложению тот же адрес входа, который открывает браузер.
+  # Образ тот же, что у одноразового окружения `infra/identity/logto/compose.yaml`: один тег на
+  # оба стенда, и `scripts/identity-proof-artifacts.test.mjs` держит их версии вместе.
   logto:
     profiles: [identity]
     build:
@@ -277,9 +279,11 @@ services:
       default:
         aliases:
           - identity.inside.localhost
+    # Порт входа не выбирается: OIDC сверяет issuer точным совпадением строки, поэтому снаружи и
+    # внутри сети адрес должен быть один и тот же.
     ports:
-      - "127.0.0.1:${LOGTO_HOST_PORT:-3301}:3301"
-      - "127.0.0.1:${LOGTO_ADMIN_HOST_PORT:-3302}:3302"
+      - "127.0.0.1:3301:3301"
+      - "127.0.0.1:3302:3302"
     healthcheck:
       # Сертификат стенда самоподписанный, и проверять его здесь нечем: проба обращается к самому
       # себе по петле. Ослабление живёт внутри одной команды проверки и не касается приложения.
@@ -304,7 +308,11 @@ services:
     env_file:
       - ./config/compose/local/logto-postgres.env
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U logto -d logto"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}",
+        ]
       interval: 2s
       timeout: 3s
       retries: 20
