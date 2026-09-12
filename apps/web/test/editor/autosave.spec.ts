@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 const image = {
   name: "diagram.png",
   mimeType: "image/png",
@@ -183,8 +183,13 @@ test("cover drop and paste persist immediately; article paste inserts an image",
 }) => {
   await createDraft(page, "буфер");
   const cover = page.getByRole("region", { name: /^Обложка:/u });
-  async function transfer(selector: string, kind: "drop" | "paste") {
-    await page.locator(selector).evaluate(
+  // Обложку материала показывают два превью одной и той же картинки. Каждое из них само снимает
+  // изображение, если доставка не удалась, поэтому проверяются оба, а не первое попавшееся.
+  const wide = cover.getByRole("img", { name: "Превью 16:9" });
+  const square = cover.getByRole("img", { name: "Квадратное превью" });
+  const body = page.locator("[contenteditable=true]");
+  async function transfer(target: Locator, kind: "drop" | "paste") {
+    await target.evaluate(
       (element, input) => {
         const bytes = Uint8Array.from(atob(input.base64), (value) =>
           value.charCodeAt(0),
@@ -212,21 +217,42 @@ test("cover drop and paste persist immediately; article paste inserts an image",
       { kind, base64: image.buffer.toString("base64") },
     );
   }
-  await transfer('section[aria-label^="Обложка:"]', "drop");
+  async function bothPreviewsShow(source: string) {
+    await expect(wide).toHaveAttribute("src", source);
+    await expect(square).toHaveAttribute("src", source);
+  }
+  /** Отсутствие адреса — это непоказанное превью, а не обложка с пустым адресом. */
+  async function currentCover(): Promise<string> {
+    const source = await wide.getAttribute("src");
+    if (source === null) throw new Error("Превью обложки не показывает изображение");
+    return source;
+  }
+
+  await transfer(cover, "drop");
   await expect(cover.getByText("Обложка обновлена.")).toBeVisible();
-  const firstSource = await cover.locator("img").getAttribute("src");
+  const dropped = await currentCover();
+  await bothPreviewsShow(dropped);
   await page.reload();
-  await expect(cover.locator("img")).toHaveAttribute("src", firstSource ?? "");
-  await transfer('section[aria-label^="Обложка:"]', "paste");
+  await bothPreviewsShow(dropped);
+
+  await transfer(cover, "paste");
   await expect(cover.getByText("Обложка обновлена.")).toBeVisible();
-  await transfer("[contenteditable=true]", "paste");
-  await expect(page.locator("[contenteditable=true] img")).toBeVisible();
+  // Каждая загрузка создаёт свою обложку, поэтому адрес обязан смениться: без этого «сохранилось
+  // сразу» подтверждалось бы обложкой, оставшейся от перетаскивания.
+  await expect(wide).not.toHaveAttribute("src", dropped);
+  const pasted = await currentCover();
+  await bothPreviewsShow(pasted);
+  await page.reload();
+  await bothPreviewsShow(pasted);
+
+  await transfer(body, "paste");
+  await expect(body.locator("img")).toBeVisible();
   await saved(page);
   await page.reload();
   await expect
     .poll(() =>
-      page
-        .locator("[contenteditable=true] img")
+      body
+        .locator("img")
         .evaluate((element) => (element as HTMLImageElement).naturalWidth),
     )
     .toBeGreaterThan(0);
@@ -263,7 +289,9 @@ test("tables, callouts and links survive autosave and reopening", async ({
     .getByRole("button", { name: "Добавить блок", exact: true })
     .click();
   await page.getByRole("button", { name: "Примечание", exact: true }).click();
-  await body.locator("aside p").click();
+  // У врезки теперь три абзаца: вид, название и текст автора. Печатать нужно в тело блока,
+  // границу которого задаёт сам реестр блоков.
+  await body.locator("aside [data-callout-body] p").click();
   await page.keyboard.type("Примечание автора");
   await saved(page);
   await page
@@ -275,7 +303,9 @@ test("tables, callouts and links survive autosave and reopening", async ({
   await saved(page);
   await page.reload();
   await expect(body.locator("table")).toContainText("Столбец");
-  await expect(body.locator("aside")).toContainText("Примечание автора");
+  await expect(body.locator("aside [data-callout-body]")).toContainText(
+    "Примечание автора",
+  );
   await expect(body.locator("a")).toHaveAttribute(
     "href",
     "https://example.com/guide",
