@@ -5,6 +5,7 @@ import type { Route } from "next";
 import {
   billingActionClass,
   ConsentChecklist,
+  purchaseConsentPolicy,
   resumeConsentKinds,
   formatBillingDate,
   formatBillingDateTime,
@@ -100,7 +101,7 @@ export function SubscriptionActions({
                 <ConsentChecklist
                   accepted={resumeAccepted}
                   disabled={pending}
-                  documents={resumeDocuments}
+                  documents={purchaseConsentPolicy(resumeDocuments, "subscription").applicable}
                   legend="Согласие на списания"
                   namePrefix="resume-consent"
                   onToggle={onToggleResumeDocument}
