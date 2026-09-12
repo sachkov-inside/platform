@@ -20,6 +20,7 @@ import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
+import type { PlatformPrisma } from "../../src/infrastructure/prisma/index.js";
 
 describe("local development seed", () => {
   let testDatabase: TestDatabase;
@@ -372,6 +373,29 @@ describe("local development seed after a demo content change", () => {
     };
   }
 
+  /**
+   * Клиент, считающий открытые транзакции. Команды авторского слоя выполняются в транзакции,
+   * а чтения — нет, поэтому счётчик отличает отправленную команду от её отсутствия.
+   */
+  function countingTransactions(client: PlatformPrisma) {
+    let opened = 0;
+    const prisma = new Proxy(client, {
+      get(target, property) {
+        const value: unknown = Reflect.get(target, property);
+        if (typeof value !== "function") {
+          return value;
+        }
+        return (...input: readonly unknown[]): unknown => {
+          if (property === "$transaction") {
+            opened += 1;
+          }
+          return Reflect.apply(value, target, input);
+        };
+      },
+    });
+    return { opened: () => opened, prisma };
+  }
+
   /** Всё, что засев мог бы переписать: материалы, их видео и состав руководств. */
   async function writtenState() {
     return {
@@ -547,15 +571,19 @@ describe("local development seed after a demo content change", () => {
     );
   });
 
-  // Название узкое намеренно: засев всё ещё отправляет по одной команде переупорядочивания на
-  // серию со ступенями, и она ничего не пишет. Проверяется отсутствие записи, а не команды.
-  test("writes nothing when the definition already matches", async () => {
+  test("sends no change command when the definition already matches", async () => {
     await seedLocalDevelopment(testDatabase.prisma);
     const written = await writtenState();
     const receipts = await testDatabase.prisma.authoringIdempotency.count();
 
-    await seedLocalDevelopment(testDatabase.prisma);
+    // Каждая команда авторского слоя — создание, Save, переупорядочивание — открывает свою
+    // транзакцию, в том числе та, что потом коротко замыкается и ничего не пишет. Поэтому
+    // прогон, не открывший ни одной, не отправил ни одной команды: это проверяет обещание
+    // runbook целиком, а не только отсутствие записи.
+    const counted = countingTransactions(testDatabase.prisma);
+    await seedLocalDevelopment(counted.prisma);
 
+    expect(counted.opened()).toBe(0);
     await expect(writtenState()).resolves.toEqual(written);
     await expect(
       testDatabase.prisma.authoringIdempotency.count(),

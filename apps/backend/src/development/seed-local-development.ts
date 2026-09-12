@@ -586,9 +586,21 @@ async function ensureDevelopmentSeriesOrder(
   if (!current.ok) {
     throw new Error(`Local Series demo order load failed: ${current.error.code}`);
   }
+  // Совпавший состав не отправляет команду переупорядочивания. Ступени сравниваются вместе с
+  // порядком: без этого серия со ступенями получала холостую команду на каждом прогоне, а
+  // обещание runbook «не отправляет команд, когда уже совпадает» держалось бы только по
+  // материалам. Отсутствующие `stepGroups` означают «не трогать ступени», а не «убрать их».
+  const currentStepGroups = Object.fromEntries(
+    current.value.items
+      .filter((item) => item.stepGroup !== null)
+      .map(({ materialId, stepGroup }) => [materialId, stepGroup]),
+  );
   if (
-    current.value.items.map(({ materialId }) => materialId).join(",") ===
-    orderedMaterialIds.join(",") && stepGroups === undefined
+    isDeepStrictEqual(
+      current.value.items.map(({ materialId }) => materialId),
+      [...orderedMaterialIds],
+    ) &&
+    (stepGroups === undefined || isDeepStrictEqual(currentStepGroups, { ...stepGroups }))
   ) {
     return;
   }
