@@ -26,6 +26,9 @@ export async function authorizeDispatch(deps: NotificationDependencies, channel:
       const source = await deps.sources.resolve(event);
       if (source.status === 'unavailable') return { ...request, status: 'error', code: 'unavailable' };
       if (!validSource(event, source) || command.sourceEventId !== event.messageId || fingerprint(command.content) !== fingerprint(source.content)) return { ...request, status: 'denied', reason: 'superseded' };
+      // Без адреса читателя текст команды не с чем сравнить: это временное состояние настройки,
+      // а не отказ по существу, поэтому попытка повторится.
+      if (deps.origin === undefined) return { ...request, status: 'error', code: 'unavailable' };
       const template = renderNotification(source, deps.origin);
       if (template.text !== command.text || template.templateRef !== command.templateRef || template.templateRevision !== command.templateRevision || (channel === 'email' && template.subject !== command.subject)) return { ...request, status: 'denied', reason: 'superseded' };
       if (source.content.category === 'material') {

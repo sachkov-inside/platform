@@ -17,7 +17,8 @@ import { NotificationDispatchController } from './features/authorize-dispatch/no
   controllers: [NotificationPreferencesController, NotificationOperationsController, NotificationDispatchController],
   providers: [{ provide: Notifications, inject: [PrismaClientProvider, ACCOUNTS, NotificationAccounts, TelegramAccountLinks, CONTENT_ACCESS, PLATFORM_CONFIG, BillingNotices, MaterialAnnouncements],
     useFactory: (prisma: PrismaClientProvider, accounts: Accounts, contacts: NotificationAccounts, telegram: TelegramAccountLinks, access: ContentAccess, config: PlatformConfig, notices: BillingNotices, announcements: MaterialAnnouncements) => new Notifications({
-      prisma, now: () => new Date(), origin: config.notificationDelivery?.origin ?? '',
+      // Адрес читателя может отсутствовать: без настройки доставки повод ждёт, а не падает.
+      prisma, now: () => new Date(), origin: config.notificationDelivery?.origin,
       sources: {
         // Каждый источник подтверждает свой повод собственными фактами: Billing — поводом оплаты,
         // Materials — анонсом первой публикации. Данные брокера сами по себе отправку не разрешают.

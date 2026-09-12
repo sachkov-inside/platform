@@ -446,6 +446,18 @@ describe("bank payment contour", () => {
     });
   });
 
+  it("принимает петлевой адрес уведомлений на стенде и требует HTTPS в production", () => {
+    const delivery = { NOTIFICATIONS_PLATFORM_ORIGIN: "http://127.0.0.1:3000", NOTIFICATIONS_TELEGRAM_SECRET: "inside-local-notification-dispatch-secret" };
+    expect(parsePlatformConfig({ ...stand, ...delivery }).notificationDelivery).toMatchObject({ origin: "http://127.0.0.1:3000" });
+    // Настроенной доставки может не быть вовсе: повод тогда ждёт, а не падает.
+    expect(parsePlatformConfig(stand).notificationDelivery).toBeUndefined();
+    expect(() => parsePlatformProcessConfig({ ...productionWorker, ...delivery }, "notifications-worker"))
+      .toThrow("NOTIFICATIONS_PLATFORM_ORIGIN must use HTTPS in production mode");
+    expect(parsePlatformProcessConfig({ ...productionWorker, ...delivery,
+      NOTIFICATIONS_PLATFORM_ORIGIN: "https://inside.example.test" }, "notifications-worker").notificationDelivery)
+      .toMatchObject({ origin: "https://inside.example.test" });
+  });
+
   it("refuses the double in production and refuses a terminal beside it", () => {
     expect(() => parsePlatformProcessConfig({ ...productionWorker, TBANK_PROVIDER_MODE: "test" }, "billing-worker"))
       .toThrow("TBANK_PROVIDER_MODE must be real in production mode");

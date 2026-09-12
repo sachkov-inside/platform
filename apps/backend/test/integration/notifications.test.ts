@@ -15,12 +15,15 @@ import { NotificationAccounts, assembleAccounts } from '../../src/modules/accoun
 import { BillingContact } from '../../src/modules/accounts/facets/billing-contact/billing-contact.js';
 import { billingContactProtection } from '../../src/modules/accounts/infrastructure/billing-contact-protection.js';
 import { encodeNotification } from '../../src/infrastructure/notification-transport/wire.js';
-import { expandAudience } from '../../src/modules/notifications/features/expand-audience/expand-audience.js';
+import { expandAudience, type QuarantineNotification } from '../../src/modules/notifications/features/expand-audience/expand-audience.js';
 import { dispatchEmail, acceptEmailCommand } from '../../src/modules/notifications/features/dispatch-email/dispatch-email.js';
 import { refreshDeliveries } from '../../src/modules/notifications/features/expand-audience/refresh-deliveries.js';
 import { deliverySchema, resultSchema, COMMAND_LIFETIME_MS, type NotificationEvent, type DeliveryCommand, type AuthorizeRequest } from '../../src/modules/notifications/domain/notification-wire.js';
 import { renderNotification } from '../../src/modules/notifications/domain/templates.js';
 const protection = billingContactProtection(Buffer.alloc(32, 43).toString('base64'));
+const standOrigin = 'https://inside.example.test';
+/** Карантин здесь никого не ждёт: строки этих сценариев обрабатываются, а не отравляют разбор. */
+const quarantined: QuarantineNotification = () => Promise.resolve();
 
 describe('Notifications persistence and delivery (real PostgreSQL; synthetic source/provider facts)', () => {
   let database: TestDatabase;
@@ -47,13 +50,13 @@ describe('Notifications persistence and delivery (real PostgreSQL; synthetic sou
       accountId: category === 'material' ? null : actor, title: 'Проверяемое сообщение', readerPath: '/materials/example', ...(category === 'subscription' ? { amountMinor: 200000 } : {}) };
     let source: NotificationSource = fact;
     let access: 'allowed' | 'denied' | 'unavailable' = 'allowed';
-    const deps: NotificationDependencies = { prisma: database.prisma, origin: 'https://inside.example.test', now,
+    const deps: NotificationDependencies = { prisma: database.prisma, origin: standOrigin, now,
       sources: { resolve: candidate => Promise.resolve(candidate.occurrenceRef === event.occurrenceRef ? source : { status: 'unavailable' }), canRead: () => Promise.resolve(access) },
       recipients: { exists: id => contacts.exists(id), enumerate: query => contacts.enumerate(query), binding: (id, channel) => channel === 'email' ? contacts.binding(id) : Promise.resolve(null), email: binding => contacts.email(binding) } };
     const accounts = assembleAccounts({ prisma: database.prisma, emailFingerprintKey: 'notification-test-key-long-enough' });
     const app = new Notifications(deps, accounts);
     const advance = (ms: number) => { instant = new Date(instant.getTime() + ms); };
-    const publish = async () => { advance(10_000); await app.acceptEvent(encodeNotification(category === 'material' ? 'materials' : 'billing', event)); await database.prisma.notificationInbox.update({ where: { scope_messageId: { scope: category === 'material' ? 'materials' : 'billing', messageId: event.messageId } }, data: { nextAttemptAt: now() } }); await expandAudience(deps, category === 'material' ? 'materials' : 'billing'); };
+    const publish = async () => { advance(10_000); await app.acceptEvent(encodeNotification(category === 'material' ? 'materials' : 'billing', event)); await database.prisma.notificationInbox.update({ where: { scope_messageId: { scope: category === 'material' ? 'materials' : 'billing', messageId: event.messageId } }, data: { nextAttemptAt: now() } }); await expandAudience(deps, category === 'material' ? 'materials' : 'billing', quarantined); };
     const commands = async () => database.prisma.notificationCommand.findMany({ where: { delivery: { notification: { occurrenceRef: event.occurrenceRef, accountId: actor } } }, orderBy: { revision: 'asc' } });
     const command = async () => { const row = (await commands()).at(-1); if (!row) throw new Error('Missing command'); return { row, value: deliverySchema.parse(JSON.parse(row.payload)) }; };
     const admit = async () => { const { value } = await command(); await app.acceptEvent(encodeNotification(category === 'material' ? 'emailMaterial' : 'emailSubscription', value)); return value; };
@@ -88,7 +91,7 @@ describe('Notifications persistence and delivery (real PostgreSQL; synthetic sou
     await s.publish();
     const envelope = encodeNotification('billing', s.event);
     expect(await Promise.all(Array.from({ length: 8 }, () => s.app.acceptEvent(envelope)))).toEqual(Array(8).fill('duplicate'));
-    await expandAudience(s.deps, 'billing');
+    await expandAudience(s.deps, 'billing', quarantined);
     expect(await s.commands()).toHaveLength(1);
     const c = await s.admit();
     let sends = 0;
@@ -120,7 +123,7 @@ describe('Notifications persistence and delivery (real PostgreSQL; synthetic sou
     const late = await scenario('material');
     await late.publish();
     await late.app.changePreferences(late.actor, { operationId: randomUUID(), expectedRevision: 0, email: true, telegram: false });
-    await expandAudience(late.deps, 'materials');
+    await expandAudience(late.deps, 'materials', quarantined);
     expect(await late.commands()).toHaveLength(0);
   });
   test('authorization binds channel, digest, attempt, source and contact; replay does not extend permit', async () => {
@@ -301,18 +304,73 @@ describe('Notifications persistence and delivery (real PostgreSQL; synthetic sou
     await s.app.changePreferences(late, { operationId: randomUUID(), expectedRevision: 0, email: true, telegram: false });
     await s.publish();
     const restarted = { ...s.deps };
-    for (let batch = 0; batch < 10; batch += 1) if (!await expandAudience(restarted, 'materials')) break;
+    for (let batch = 0; batch < 10; batch += 1) if (!(await expandAudience(restarted, 'materials', quarantined)).progressed) break;
     const audience = await database.prisma.notification.findMany({ where: { occurrenceRef: s.event.occurrenceRef }, select: { accountId: true } });
     expect(existing.every(id => audience.some(row => row.accountId === id))).toBe(true);
     expect(audience.some(row => row.accountId === late)).toBe(false);
     const total = audience.length;
-    await s.app.acceptEvent(encodeNotification('materials', s.event)); await expandAudience(restarted, 'materials');
+    await s.app.acceptEvent(encodeNotification('materials', s.event)); await expandAudience(restarted, 'materials', quarantined);
     expect(await database.prisma.notification.count({ where: { occurrenceRef: s.event.occurrenceRef } })).toBe(total);
+  });
+  test('строка без настроенной доставки ждёт настройки, а не роняет разбор', async () => {
+    const s = await scenario();
+    const key = { scope_messageId: { scope: 'billing', messageId: s.event.messageId } };
+    // Разбор берёт самую раннюю ожидающую строку дорожки, поэтому сценарий остаётся один на дорожке.
+    await database.prisma.notificationInbox.deleteMany({ where: { lane: 'billing', completedAt: null } });
+    s.advance(10_000);
+    await s.app.acceptEvent(encodeNotification('billing', s.event));
+    await database.prisma.notificationInbox.update({ where: key, data: { nextAttemptAt: s.deps.now() } });
+    // Отсутствие адреса читателя — состояние настройки: раньше вместо него подставлялась пустая
+    // строка, и разбор падал на `new URL('')`, унося весь worker.
+    const expansion = await expandAudience({ ...s.deps, origin: undefined }, 'billing', quarantined);
+    expect(expansion.observation).toMatchObject({ lane: 'billing', reason: 'delivery_not_configured' });
+    const row = await database.prisma.notificationInbox.findUniqueOrThrow({ where: key });
+    expect(row.completedAt).toBeNull();
+    expect(row.nextAttemptAt.getTime()).toBeGreaterThan(s.deps.now().getTime());
+    expect(await s.commands()).toHaveLength(0);
+  });
+  test('необрабатываемая строка получает повторные попытки, затем карантин, и разбор продолжается', async () => {
+    const s = await scenario();
+    const key = { scope_messageId: { scope: 'billing', messageId: s.event.messageId } };
+    // Повод, который нельзя превратить в письмо: адрес читателя ведёт наружу Platform.
+    s.source({ ...s.fact, readerPath: 'http://evil.example/path' });
+    // Разбор берёт самую раннюю ожидающую строку дорожки, поэтому сценарий остаётся один на дорожке.
+    await database.prisma.notificationInbox.deleteMany({ where: { lane: 'billing', completedAt: null } });
+    s.advance(10_000);
+    await s.app.acceptEvent(encodeNotification('billing', s.event));
+    await database.prisma.notificationInbox.update({ where: key, data: { nextAttemptAt: s.deps.now() } });
+    const quarantine: { lane: string; reason: string }[] = [];
+    const record: QuarantineNotification = (lane, _bytes, reason) => { quarantine.push({ lane, reason }); return Promise.resolve(); };
+    for (const attempt of [1, 2]) {
+      const expansion = await expandAudience(s.deps, 'billing', record);
+      expect(expansion.observation).toMatchObject({ lane: 'billing', reason: 'row_retry', attempts: attempt });
+      expect(String(expansion.observation?.error)).toContain('notification_link_invalid');
+      const pending = await database.prisma.notificationInbox.findUniqueOrThrow({ where: key });
+      expect(pending.completedAt).toBeNull();
+      expect(pending.nextAttemptAt.getTime()).toBeGreaterThan(s.deps.now().getTime());
+      s.advance(30_000);
+    }
+    expect(quarantine).toHaveLength(0);
+    const final = await expandAudience(s.deps, 'billing', record);
+    expect(final.observation).toMatchObject({ lane: 'billing', reason: 'row_quarantined', attempts: 3 });
+    expect(quarantine).toEqual([{ lane: 'billing', reason: 'unprocessable_notification' }]);
+    const done = await database.prisma.notificationInbox.findUniqueOrThrow({ where: key });
+    expect(done.completedAt).not.toBeNull();
+    // Разбор живёт дальше: следующая строка той же дорожки обрабатывается обычным путём.
+    s.source(s.fact);
+    const next = { ...s.event, messageId: randomUUID() };
+    s.source({ ...s.fact, event: next });
+    s.advance(10_000);
+    await s.app.acceptEvent(encodeNotification('billing', next));
+    await database.prisma.notificationInbox.update({ where: { scope_messageId: { scope: 'billing', messageId: next.messageId } }, data: { nextAttemptAt: s.deps.now() } });
+    expect((await expandAudience(s.deps, 'billing', record)).progressed).toBe(true);
+    const healthy = await database.prisma.notificationInbox.findUniqueOrThrow({ where: { scope_messageId: { scope: 'billing', messageId: next.messageId } } });
+    expect(healthy.completedAt).not.toBeNull();
   });
   test('unavailable and invalid source facts never authorize an event, template links stay on Platform', async () => {
     const s = await scenario(); s.source({ status: 'unavailable' }); await s.publish(); expect(await s.commands()).toHaveLength(0);
     s.source({ ...s.fact, event: { ...s.event, occurrenceRef: randomUUID() } }); s.advance(30_000);
-    await expandAudience(s.deps, 'billing'); expect(await s.commands()).toHaveLength(0);
-    expect(() => renderNotification({ ...s.fact, readerPath: 'https://evil.example/path' }, s.deps.origin)).toThrow('notification_link_invalid');
+    await expandAudience(s.deps, 'billing', quarantined); expect(await s.commands()).toHaveLength(0);
+    expect(() => renderNotification({ ...s.fact, readerPath: 'https://evil.example/path' }, standOrigin)).toThrow('notification_link_invalid');
   });
 });

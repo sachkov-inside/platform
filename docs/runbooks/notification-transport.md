@@ -80,6 +80,13 @@ reason and deduplication receipts remain. Base64 is encoding, not encryption: Po
 and operator access must protect this data. Export only the exact incident rows using restricted
 DB access to an access-controlled artifact; never paste payloads into logs, issues or chat.
 
+A row the application cannot process shares that fate without stopping anything else. Audience
+expansion isolates one inbox row: a failure defers it for 30 seconds and counts the attempt in its
+checkpoint, and the third failed attempt quarantines the payload under reason
+`unprocessable_notification` and completes the row. The worker names the cause in its own log
+(`row_retry`, `row_quarantined`, `inbox_sweep_failed`) and keeps running: before this, one such row
+stopped every notification and kept stopping the process after each restart.
+
 On quarantine exhaustion, stop the affected worker, export/inspect the bounded incident, resolve
 its cause and expire retained payloads only after the approved retention/recovery decision. A replay
 of the same digest reuses its evidence row. After a decoder/policy fix, an authorized redrive must

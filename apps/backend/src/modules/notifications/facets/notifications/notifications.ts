@@ -4,7 +4,7 @@ import type { NotificationEnvelope } from '../../../../infrastructure/notificati
 import { assembleNotificationTransport } from '../notification-transport/notification-transport.js';
 import { authorizeDispatch } from '../../features/authorize-dispatch/authorize-dispatch.js';
 import { changePreferences, readPreferences } from '../../features/change-preferences/change-preferences.js';
-import { expandAudience, type NotificationDependencies } from '../../features/expand-audience/expand-audience.js';
+import { expandAudience, type AudienceObservation, type NotificationDependencies } from '../../features/expand-audience/expand-audience.js';
 import { refreshDeliveries } from '../../features/expand-audience/refresh-deliveries.js';
 import { acceptEmailCommand, dispatchEmail } from '../../features/dispatch-email/dispatch-email.js';
 import { acceptDeliveryResult } from '../../features/project-result/project-result.js';
@@ -53,8 +53,13 @@ export class Notifications {
         await this.deps.prisma.notificationInbox.update({ where: { scope_messageId: { scope: row.scope, messageId: row.messageId } }, data: { completedAt: this.deps.now() } });
       }
     }
-    for (const lane of ['billing', 'materials'] as const) await expandAudience(this.deps, lane);
+    const observations: AudienceObservation[] = [];
+    for (const lane of ['billing', 'materials'] as const) {
+      const expansion = await expandAudience(this.deps, lane, (target, bytes, reason) => this.transport.quarantine(target, bytes, reason));
+      if (expansion.observation) observations.push(expansion.observation);
+    }
     await refreshDeliveries(this.deps);
     if (send) for (const category of ['subscription', 'material'] as const) await dispatchEmail(this.deps, send, category);
+    return observations;
   }
 }
