@@ -13,6 +13,8 @@ import { BillingPricing } from "../../src/modules/billing/index.js";
 import { emptyCatalogVideos } from "../support/catalog-videos.js";
 import {
   assembleMaterials,
+  type MaterialMetadataDto,
+  type MaterialMetadataSelectionInput,
 } from "../../src/modules/materials/index.js";
 import {
   createMigratedTestDatabase,
@@ -328,10 +330,12 @@ describe("local development seed after a demo content change", () => {
   const stepTitle = "Demo · Подготовка приложения к релизу";
   let testDatabase: TestDatabase;
 
+  // Бюджет останавливает зависший прогон, а не измеряет машину: создание базы, миграции и полный
+  // засев не укладываются в десять секунд по умолчанию, когда на машине работает кто-то ещё.
   beforeAll(async () => {
     testDatabase = await createMigratedTestDatabase();
     await seedLocalDevelopment(testDatabase.prisma);
-  });
+  }, 120_000);
 
   afterAll(async () => {
     await testDatabase.dispose();
@@ -339,6 +343,7 @@ describe("local development seed after a demo content change", () => {
 
   function demoStep() {
     return testDatabase.prisma.material.findFirstOrThrow({
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
       select: { body: true, difficulty: true, id: true, outcomes: true },
       where: { title: stepTitle },
     });
@@ -350,11 +355,39 @@ describe("local development seed after a demo content change", () => {
       .parse(document).content;
   }
 
-  function materialSnapshot() {
-    return testDatabase.prisma.material.findMany({
-      orderBy: { id: "asc" },
-      select: { contentVersion: true, id: true, updatedAt: true },
-    });
+  /** Определение материала в том виде, в каком его принимает Save: без slug и с плоскими сериями. */
+  function definitionOf(
+    metadata: MaterialMetadataDto,
+  ): MaterialMetadataSelectionInput {
+    return {
+      access: metadata.access,
+      difficulty: metadata.difficulty,
+      formatId: metadata.formatId,
+      outcomes: metadata.outcomes,
+      seriesIds: metadata.seriesMemberships.map(({ seriesId }) => seriesId),
+      summary: metadata.summary,
+      tagIds: metadata.tagIds,
+      title: metadata.title,
+      topicId: metadata.topicId,
+    };
+  }
+
+  /** Всё, что засев мог бы переписать: материалы, их видео и состав руководств. */
+  async function writtenState() {
+    return {
+      guideMemberships: await testDatabase.prisma.guideMembership.findMany({
+        orderBy: [{ seriesId: "asc" }, { materialId: "asc" }],
+        select: { materialId: true, ordinal: true, seriesId: true, stepGroup: true },
+      }),
+      materials: await testDatabase.prisma.material.findMany({
+        orderBy: { id: "asc" },
+        select: { contentVersion: true, id: true, updatedAt: true },
+      }),
+      videos: await testDatabase.prisma.video.findMany({
+        orderBy: { id: "asc" },
+        select: { id: true, materialId: true, state: true, updatedAt: true },
+      }),
+    };
   }
 
   test("brings a step seeded before the change to the current definition", async () => {
@@ -384,31 +417,20 @@ describe("local development seed after a demo content change", () => {
       expectedContentVersion: loaded.value.contentVersion,
       idempotencyKey: `earlier-demo-definition-${randomUUID()}`,
       materialId: seeded.id,
-      metadata: {
-        access: loaded.value.metadata.access,
-        difficulty: null,
-        formatId: loaded.value.metadata.formatId,
-        outcomes: [],
-        seriesIds: loaded.value.metadata.seriesMemberships.map(
-          ({ seriesId }) => seriesId,
-        ),
-        summary: loaded.value.metadata.summary,
-        tagIds: loaded.value.metadata.tagIds,
-        title: loaded.value.metadata.title,
-        topicId: loaded.value.metadata.topicId,
-      },
+      metadata: { ...definitionOf(loaded.value.metadata), difficulty: null, outcomes: [] },
       publicationState: "published",
     });
     if (!earlier.ok) throw new Error(earlier.error.code);
-    // Прежнее определение оставило свой отпечаток на постоянном ключе создания. Именно на нём
-    // повторный засев падал с idempotency_key_reused и не давал подняться api и web.
-    await testDatabase.prisma.authoringIdempotency.updateMany({
+    // Прежнее определение оставило свой отпечаток на постоянных ключах создания. Именно на нём
+    // повторный засев падал с idempotency_key_reused и не давал подняться api и web. Отпечаток
+    // портится у всех ключей создания, а не только у демо-серии: безусловное создание в любом
+    // месте засева должно ронять эту проверку. Совпавших записей должно быть сколько-то —
+    // иначе проверка прошла бы вхолостую, не проверив ничего.
+    const armed = await testDatabase.prisma.authoringIdempotency.updateMany({
       data: { requestFingerprint: "0".repeat(64) },
-      where: {
-        idempotencyKey: { startsWith: "local-series-demo-create-" },
-        operation: "create_draft",
-      },
+      where: { operation: "create_draft" },
     });
+    expect(armed.count).toBeGreaterThan(0);
 
     await seedLocalDevelopment(testDatabase.prisma);
 
@@ -445,6 +467,7 @@ describe("local development seed after a demo content change", () => {
     const seededBodies = new Map<string, unknown>();
     for (const title of titles) {
       const material = await testDatabase.prisma.material.findFirstOrThrow({
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
         select: { body: true, id: true },
         where: { title },
       });
@@ -472,19 +495,7 @@ describe("local development seed after a demo content change", () => {
         expectedContentVersion: loaded.value.contentVersion,
         idempotencyKey: `changed-body-${randomUUID()}`,
         materialId: material.id,
-        metadata: {
-          access: loaded.value.metadata.access,
-          difficulty: loaded.value.metadata.difficulty,
-          formatId: loaded.value.metadata.formatId,
-          outcomes: loaded.value.metadata.outcomes,
-          seriesIds: loaded.value.metadata.seriesMemberships.map(
-            ({ seriesId }) => seriesId,
-          ),
-          summary: loaded.value.metadata.summary,
-          tagIds: loaded.value.metadata.tagIds,
-          title: loaded.value.metadata.title,
-          topicId: loaded.value.metadata.topicId,
-        },
+        metadata: definitionOf(loaded.value.metadata),
         primaryVideoId: loaded.value.primaryVideoId,
         publicationState: "published",
       });
@@ -497,6 +508,7 @@ describe("local development seed after a demo content change", () => {
     const restored = [];
     for (const title of titles) {
       const material = await testDatabase.prisma.material.findFirstOrThrow({
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
         select: { body: true },
         where: { title },
       });
@@ -509,12 +521,12 @@ describe("local development seed after a demo content change", () => {
 
   test("sends no change command when the definition already matches", async () => {
     await seedLocalDevelopment(testDatabase.prisma);
-    const materials = await materialSnapshot();
+    const written = await writtenState();
     const receipts = await testDatabase.prisma.authoringIdempotency.count();
 
     await seedLocalDevelopment(testDatabase.prisma);
 
-    await expect(materialSnapshot()).resolves.toEqual(materials);
+    await expect(writtenState()).resolves.toEqual(written);
     await expect(
       testDatabase.prisma.authoringIdempotency.count(),
     ).resolves.toBe(receipts);

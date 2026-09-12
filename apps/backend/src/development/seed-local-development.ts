@@ -1,7 +1,10 @@
+import { isDeepStrictEqual } from "node:util";
+
 import type { PlatformPrisma } from "../infrastructure/prisma/index.js";
 import {
   assembleMaterials,
-  type MaterialDifficulty,
+  type MaterialBodySnapshot,
+  type MaterialMetadataSelectionInput,
 } from "../modules/materials/index.js";
 import {
   assembleVideos,
@@ -78,9 +81,10 @@ export async function seedLocalDevelopment(
     },
     videos,
   });
-  await ensureCatalogContinuationMaterials(prisma, authoring, videos);
-  await ensureHomeMaterials(prisma, authoring, videos);
-  await ensureSeriesReaderScenario(prisma, authoring, videos);
+  const seed: SeedContext = { authoring, prisma, videos };
+  await ensureCatalogContinuationMaterials(seed);
+  await ensureHomeMaterials(seed);
+  await ensureSeriesReaderScenario(seed);
   const representativeMaterial = {
     metadata: {
       title: "Как устроен Inside Platform",
@@ -261,14 +265,14 @@ export async function seedLocalDevelopment(
       },
     },
   } as const;
-  const overview = await ensureSeededMaterial(prisma, authoring, videos, {
+  const overview = await ensureSeededMaterial(seed, {
     ...representativeMaterial,
     createIdempotencyKey,
     saveIdempotencyKeyPrefix: "local-overview-save",
     slug,
   });
 
-  await ensureMembershipCatalogMaterial(prisma, authoring, videos);
+  await ensureMembershipCatalogMaterial(seed);
   await ensureRelatedPin(prisma, overview.materialId);
   // Каталог заводится последним: разовое предложение продаёт уже засеянное руководство.
   await seedLocalOfferCatalog(prisma, { actor, guideId: seriesId });
@@ -325,24 +329,21 @@ function modeVariantBlock(step: string, title: string) {
   } as const;
 }
 
-async function ensureSeriesReaderScenario(
-  prisma: PlatformPrisma,
-  authoring: ReturnType<typeof assembleMaterials>["authoring"],
-  videos: ReturnType<typeof assembleVideos>,
-): Promise<void> {
+async function ensureSeriesReaderScenario(seed: SeedContext): Promise<void> {
+  const { authoring } = seed;
   const definitions = [
     {
       bodyText: "Development-образец общей точки для проверки разных контекстов Серий.",
       formatId,
       seriesIds: [demoHarnessSeriesId, demoReviewSeriesId],
-      key: "demo-295-obshchiy-gayd",
+      orderKey: "demo-295-obshchiy-gayd",
       title: "Demo #295 · Общий гайд",
     },
     {
       bodyText: "Development-образец завершения основной Серии.",
       formatId,
       seriesIds: [demoHarnessSeriesId],
-      key: "demo-295-finalnyy-gayd",
+      orderKey: "demo-295-finalnyy-gayd",
       title: "Demo #295 · Финальный гайд",
     },
     {
@@ -350,36 +351,36 @@ async function ensureSeriesReaderScenario(
       formatId: videoFormatId,
       providerVideoId: "local-series-review-video",
       seriesIds: [demoReviewSeriesId],
-      key: "demo-295-video-razbor",
+      orderKey: "demo-295-video-razbor",
       title: "Demo #295 · Видео-разбор",
     },
     {
       bodyText: "Development-образец заметки внутри смешанной Серии.",
       formatId: noteFormatId,
       seriesIds: [demoReviewSeriesId],
-      key: "demo-295-itogovaya-zametka",
+      orderKey: "demo-295-itogovaya-zametka",
       title: "Demo #295 · Итоговая заметка",
     },
     {
       bodyText: "Development standalone #295: материал открывается без случайного контекста Серии.",
       formatId: noteFormatId,
       seriesIds: [],
-      key: "demo-295-samostoyatelnaya-zametka",
+      orderKey: "demo-295-samostoyatelnaya-zametka",
       title: "Demo #295 · Самостоятельная заметка",
     },
     ...[
-      { key: "demo-298-release-overview", title: "Как устроен релиз моего проекта", formatId: videoFormatId, providerVideoId: "local-series-release-overview", summary: "Разбираем путь от коммита до работающего сервиса: сборку, публикацию и откат релиза.", difficulty: "basic" as const, outcomes: ["Видеть весь путь релиза целиком", "Называть шаги, на которых релиз ломается чаще всего"] },
+      { orderKey: "demo-298-release-overview", title: "Как устроен релиз моего проекта", formatId: videoFormatId, providerVideoId: "local-series-release-overview", summary: "Разбираем путь от коммита до работающего сервиса: сборку, публикацию и откат релиза.", difficulty: "basic" as const, outcomes: ["Видеть весь путь релиза целиком", "Называть шаги, на которых релиз ломается чаще всего"] },
       // Два шага написаны для обоих режимов прохождения: на них виден переключатель.
-      { key: "demo-298-prepare", title: "Подготовка приложения к релизу", formatId, difficulty: "basic" as const, outcomes: ["Собрать приложение под релиз", "Проверить сборку до публикации"], modes: true },
-      { key: "demo-298-docker", title: "Разбираем Docker на реальном примере", formatId: videoFormatId, providerVideoId: "local-series-release-docker", summary: "Разбираем сеть, переменные окружения и тома Docker Compose на примере запуска приложения.", difficulty: "intermediate" as const, outcomes: ["Запустить приложение в Compose", "Прочитать логи упавшего контейнера", "Разложить переменные окружения по слоям"] },
-      { key: "demo-298-secrets", title: "Что проверить перед передачей секретов", formatId: noteFormatId, difficulty: "intermediate" as const },
-      { key: "demo-298-environment", title: "Настройка окружения", formatId, difficulty: "intermediate" as const, modes: true },
-      { key: "demo-298-deploy", title: "Первый деплой и проверка результата", formatId, difficulty: "advanced" as const, outcomes: ["Выкатить первую версию", "Убедиться, что она отвечает", "Откатиться, когда она не отвечает"] },
+      { orderKey: "demo-298-prepare", title: "Подготовка приложения к релизу", formatId, difficulty: "basic" as const, outcomes: ["Собрать приложение под релиз", "Проверить сборку до публикации"], modes: true },
+      { orderKey: "demo-298-docker", title: "Разбираем Docker на реальном примере", formatId: videoFormatId, providerVideoId: "local-series-release-docker", summary: "Разбираем сеть, переменные окружения и тома Docker Compose на примере запуска приложения.", difficulty: "intermediate" as const, outcomes: ["Запустить приложение в Compose", "Прочитать логи упавшего контейнера", "Разложить переменные окружения по слоям"] },
+      { orderKey: "demo-298-secrets", title: "Что проверить перед передачей секретов", formatId: noteFormatId, difficulty: "intermediate" as const },
+      { orderKey: "demo-298-environment", title: "Настройка окружения", formatId, difficulty: "intermediate" as const, modes: true },
+      { orderKey: "demo-298-deploy", title: "Первый деплой и проверка результата", formatId, difficulty: "advanced" as const, outcomes: ["Выкатить первую версию", "Убедиться, что она отвечает", "Откатиться, когда она не отвечает"] },
     ].map((definition) => ({
       ...definition,
       title: `Demo · ${definition.title}`,
       bodyText: "Тестовый материал серии о релизе. Демонстрирует общий порядок видео, заметок и связанных шагов инструкции.",
-      seriesIds: definition.key === "demo-298-prepare" ? [demoStepsSeriesId, demoStepsSharedSeriesId] : [demoStepsSeriesId],
+      seriesIds: definition.orderKey === "demo-298-prepare" ? [demoStepsSeriesId, demoStepsSharedSeriesId] : [demoStepsSeriesId],
     })),
   ] as const;
 
@@ -416,9 +417,10 @@ async function ensureSeriesReaderScenario(
       },
     } as const;
     // Определения серии о релизе не несут хранимого slug: его выдаёт модуль Материалов из
-    // заголовка при публикации, а `key` здесь — локальный ключ порядка. Поэтому материал ищется
-    // по заголовку.
-    const seeded = await ensureSeededMaterial(prisma, authoring, videos, {
+    // заголовка при публикации, а `orderKey` здесь — локальный ключ порядка внутри серии.
+    // Поэтому материал опознаётся заголовком; переименование заголовка здесь заведёт новый
+    // материал вместо обновления прежнего.
+    const seeded = await ensureSeededMaterial(seed, {
       body,
       createIdempotencyKey: `local-series-demo-create-${String(index + 1)}`,
       metadata,
@@ -427,7 +429,7 @@ async function ensureSeriesReaderScenario(
         ? { providerVideoId: definition.providerVideoId }
         : {}),
     });
-    materialIds.set(definition.key, seeded.materialId);
+    materialIds.set(definition.orderKey, seeded.materialId);
   }
 
   const releaseKeys = ["demo-298-release-overview", "demo-298-prepare", "demo-298-docker", "demo-298-secrets", "demo-298-environment", "demo-298-deploy"];
@@ -447,20 +449,18 @@ async function ensureSeriesReaderScenario(
   ]);
 }
 
+/** Всё, чем засев пишет материалы: одна связка вместо трёх параметров у каждой функции. */
+interface SeedContext {
+  readonly authoring: ReturnType<typeof assembleMaterials>["authoring"];
+  readonly prisma: PlatformPrisma;
+  readonly videos: ReturnType<typeof assembleVideos>;
+}
+
 interface SeededMaterialDefinition {
-  readonly body: { readonly schemaVersion: 1; readonly doc: unknown };
+  readonly body: MaterialBodySnapshot;
   readonly createIdempotencyKey: string;
-  readonly metadata: {
-    readonly access: "free" | "membership" | "workshop";
-    readonly difficulty: MaterialDifficulty | null;
-    readonly formatId: string;
-    readonly outcomes: readonly string[];
-    readonly seriesIds: readonly string[];
-    readonly summary: string;
-    readonly tagIds: readonly string[];
-    readonly title: string;
-    readonly topicId: string;
-  };
+  /** Заголовок обязателен: он опознаёт засеянный материал и из него выдаётся хранимый slug. */
+  readonly metadata: MaterialMetadataSelectionInput & { readonly title: string };
   readonly providerVideoId?: string;
   readonly saveIdempotencyKeyPrefix: string;
   /** Хранимый slug, когда определение им владеет; иначе материал опознаётся заголовком. */
@@ -477,11 +477,10 @@ interface SeededMaterialDefinition {
  * базы: стенд покажет прежний контент и будет выглядеть исправным.
  */
 async function ensureSeededMaterial(
-  prisma: PlatformPrisma,
-  authoring: ReturnType<typeof assembleMaterials>["authoring"],
-  videos: ReturnType<typeof assembleVideos>,
+  seed: SeedContext,
   definition: SeededMaterialDefinition,
 ): Promise<{ readonly contentVersion: number; readonly materialId: string }> {
+  const { authoring, prisma, videos } = seed;
   const metadata = definition.metadata;
   const title = metadata.title;
   const existing = await prisma.material.findFirst({
@@ -531,13 +530,13 @@ async function ensureSeededMaterial(
     current.summary === metadata.summary &&
     current.title === title &&
     current.topicId === metadata.topicId &&
-    sameJsonValue(current.outcomes, metadata.outcomes) &&
+    isDeepStrictEqual(current.outcomes, metadata.outcomes) &&
     sameIdentifierSet(current.tagIds, metadata.tagIds) &&
     sameIdentifierSet(
       current.seriesMemberships.map(({ seriesId: value }) => value),
       metadata.seriesIds,
     ) &&
-    sameJsonValue(loaded.value.body, definition.body);
+    isDeepStrictEqual(loaded.value.body, definition.body);
   if (matchesDefinition) {
     return { contentVersion: loaded.value.contentVersion, materialId };
   }
@@ -545,7 +544,8 @@ async function ensureSeededMaterial(
     actor,
     body: definition.body,
     expectedContentVersion: loaded.value.contentVersion,
-    idempotencyKey: `${definition.saveIdempotencyKeyPrefix}-${String(loaded.value.contentVersion)}`,
+    idempotencyKey:
+      `${definition.saveIdempotencyKeyPrefix}-${String(loaded.value.contentVersion)}`,
     materialId,
     metadata,
     primaryVideoId,
@@ -566,31 +566,6 @@ function sameIdentifierSet(
     current.length === expected.length &&
     expected.every((value) => current.includes(value))
   );
-}
-
-/**
- * Сравнивает сохранённое значение с определением стенда. Порядок ключей в сохранённом документе
- * задаёт хранилище, поэтому сравнение идёт по значению, а не по тексту JSON.
- */
-function sameJsonValue(left: unknown, right: unknown): boolean {
-  if (Array.isArray(left) && Array.isArray(right)) {
-    return (
-      left.length === right.length &&
-      left.every((value, index) => sameJsonValue(value, right[index]))
-    );
-  }
-  if (isJsonRecord(left) && isJsonRecord(right)) {
-    const keys = Object.keys(left);
-    return (
-      keys.length === Object.keys(right).length &&
-      keys.every((key) => key in right && sameJsonValue(left[key], right[key]))
-    );
-  }
-  return left === right;
-}
-
-function isJsonRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 async function ensureDevelopmentSeriesOrder(
@@ -630,11 +605,7 @@ function requiredMaterialId(
   return value;
 }
 
-async function ensureCatalogContinuationMaterials(
-  prisma: PlatformPrisma,
-  authoring: ReturnType<typeof assembleMaterials>["authoring"],
-  videos: ReturnType<typeof assembleVideos>,
-): Promise<void> {
+async function ensureCatalogContinuationMaterials(seed: SeedContext): Promise<void> {
   for (let index = 1; index <= 11; index += 1) {
     const sequence = String(index).padStart(2, "0");
     const nodeId = `73000000-0000-4000-8000-${String(index).padStart(12, "0")}`;
@@ -662,7 +633,7 @@ async function ensureCatalogContinuationMaterials(
           ],
         },
       } as const;
-    await ensureSeededMaterial(prisma, authoring, videos, {
+    await ensureSeededMaterial(seed, {
       body,
       createIdempotencyKey: `local-catalog-create-${sequence}`,
       metadata,
@@ -672,11 +643,8 @@ async function ensureCatalogContinuationMaterials(
   }
 }
 
-async function ensureHomeMaterials(
-  prisma: PlatformPrisma,
-  authoring: ReturnType<typeof assembleMaterials>["authoring"],
-  videos: ReturnType<typeof assembleVideos>,
-): Promise<void> {
+async function ensureHomeMaterials(seed: SeedContext): Promise<void> {
+  const { authoring } = seed;
   const materials = [
     {
       formatId: videoFormatId,
@@ -744,7 +712,7 @@ async function ensureHomeMaterials(
         ],
       },
     } as const;
-    const seeded = await ensureSeededMaterial(prisma, authoring, videos, {
+    const seeded = await ensureSeededMaterial(seed, {
       body,
       createIdempotencyKey: `local-home-create-${String(index + 1)}`,
       metadata,
@@ -780,11 +748,7 @@ const localDevelopmentVideoProvider: VideoProvider = {
   },
 };
 
-async function ensureMembershipCatalogMaterial(
-  prisma: PlatformPrisma,
-  authoring: ReturnType<typeof assembleMaterials>["authoring"],
-  videos: ReturnType<typeof assembleVideos>,
-): Promise<void> {
+async function ensureMembershipCatalogMaterial(seed: SeedContext): Promise<void> {
   const metadata = {
       title: "Developer Pipeline без потери контекста",
       summary: "Закрытый Material с публичным безопасным описанием для каталога.",
@@ -809,7 +773,7 @@ async function ensureMembershipCatalogMaterial(
         ],
       },
     } as const;
-  await ensureSeededMaterial(prisma, authoring, videos, {
+  await ensureSeededMaterial(seed, {
     body,
     createIdempotencyKey: membershipCreateIdempotencyKey,
     metadata,
