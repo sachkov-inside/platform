@@ -68,8 +68,9 @@ test("guide programme marks the last opened material as the place to continue", 
 
   await page.goto("/guides/demo-series-harness/programme");
   const current = page.locator('[aria-current="step"]:visible');
+  // Место возврата обозначено выделением строки, а не словами: подпись убрал #441 вместе с
+  // прочими лишними статусами маршрута, и это решение о внешнем виде остаётся в силе.
   await expect(current).toHaveAttribute("data-route-material", "demo-295-finalnyy-gayd");
-  await expect(current.getByText("Продолжить здесь", { exact: true })).toBeVisible();
 });
 
 

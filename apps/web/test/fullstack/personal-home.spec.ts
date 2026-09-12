@@ -74,11 +74,11 @@ test("personal Home opens the real series, persists marks and reconciles a lost 
   await screenshot(page, testInfo.project.name, "series");
   const nextRow = page.getByRole("main").locator('[data-series-ordinal="3"]');
   const rowBefore = await nextRow.boundingBox();
-  await page.route("**/api/reading-progress/series-continuation", async (route) => { await route.fulfill({ status: 503 }); });
+  await page.route("**/api/reading-progress/guide-continuation", async (route) => { await route.fulfill({ status: 503 }); });
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   // Недоступное продолжение не выдумывает выделенную строку и не двигает маршрут.
   await expect(current).toHaveCount(0); expect(await nextRow.boundingBox()).toEqual(rowBefore);
-  await page.unroute("**/api/reading-progress/series-continuation"); await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await page.unroute("**/api/reading-progress/guide-continuation"); await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await expect(current.locator("[data-material-slug]")).toHaveAttribute("data-material-slug", "video-pro-developer-pipeline");
   await current.locator('a[href^="/materials/video-pro-developer-pipeline"]').click();
   await expect(page.getByText("Материал 2 из 3", { exact: true })).toBeVisible();
