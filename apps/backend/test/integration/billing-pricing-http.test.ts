@@ -143,6 +143,47 @@ describe("Billing pricing HTTP", () => {
     expect(repeated.json()).toEqual({ operationRef: payments.operationId, result: { outcome: "payments", items: [], nextCursor: null } });
   });
 
+  test("owner reads, records and re-reads one buyer state in the same shape", async () => {
+    // Служебное поле однажды уже уехало в этот ответ разворотом переменной, поэтому форма
+    // читается описанием: сверку выполняет сам `declaredServer` на каждом ответе ниже.
+    const server = declaredServer(app.getHttpAdapter().getInstance());
+    const headers = { authorization: `Bearer ${await signToken({ subject: "billing-classifier-001", email: "classifier@example.test" })}` };
+    expect((await server.inject({ method: "POST", url: "/accounts", headers })).statusCode).toBe(201);
+    const owner = await database.prisma.account.findUniqueOrThrow({ where: { logtoIssuer_logtoSubject: { logtoIssuer: issuer, logtoSubject: "billing-classifier-001" } } });
+    await database.prisma.accountPermission.create({ data: { accountId: owner.id, permission: "billing:manage" } });
+    const buyerHeaders = { authorization: `Bearer ${await signToken({ subject: "billing-buyer-001", email: "buyer@example.test" })}` };
+    expect((await server.inject({ method: "POST", url: "/accounts", headers: buyerHeaders })).statusCode).toBe(201);
+    const buyer = await database.prisma.account.findUniqueOrThrow({ where: { logtoIssuer_logtoSubject: { logtoIssuer: issuer, logtoSubject: "billing-buyer-001" } } });
+
+    const unknownRead = { operation: "grants.readClassification", operationId: randomUUID(), accountId: buyer.id };
+    const unknown = await server.inject({ method: "POST", url: "/billing/admin", headers, payload: unknownRead });
+    expect(unknown.statusCode).toBe(200);
+    expect(unknown.json()).toEqual({ operationRef: unknownRead.operationId, result: { outcome: "classification",
+      value: { accountId: buyer.id, classification: "unknown", revision: 0, recurringAllowed: false } } });
+
+    const decision = { operation: "grants.classify", operationId: randomUUID(), accountId: buyer.id, expectedRevision: 0,
+      classification: "confirmed_new", sourceRef: "tribute-import-2026-09", reason: "Подтверждён как новый покупатель",
+      bridgeEnabled: false, tributeStopped: false };
+    const recorded = await server.inject({ method: "POST", url: "/billing/admin", headers, payload: decision });
+    expect(recorded.statusCode).toBe(200);
+    expect(recorded.json()).toEqual({ operationRef: decision.operationId, result: { outcome: "classification",
+      value: { accountId: buyer.id, classification: "confirmed_new", revision: 1, recurringAllowed: true } } });
+
+    // Записанное решение и следующее чтение отвечают одной формой: иначе админка и кабинет
+    // рассказывали бы о покупателе разное.
+    const confirmedRead = { ...unknownRead, operationId: randomUUID() };
+    const confirmed = await server.inject({ method: "POST", url: "/billing/admin", headers, payload: confirmedRead });
+    expect(confirmed.statusCode).toBe(200);
+    expect(confirmed.json()).toEqual({ operationRef: confirmedRead.operationId, result: { outcome: "classification",
+      value: { accountId: buyer.id, classification: "confirmed_new", revision: 1, recurringAllowed: true } } });
+
+    // Решение принимается от того состояния, которое владелец видел, а не от любого.
+    const stale = await server.inject({ method: "POST", url: "/billing/admin", headers, payload: { ...decision, operationId: randomUUID() } });
+    expect(stale.statusCode).toBe(409);
+    expect(stale.headers["content-type"]).toContain("application/problem+json");
+    expect(stale.json()).toMatchObject({ code: "revision_conflict" });
+  });
+
   async function signToken(
     overrides: {
       readonly subject?: string;
