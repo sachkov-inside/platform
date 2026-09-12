@@ -1,0 +1,90 @@
+{
+  "library-loading-desktop-1440": {
+    "containerName": "library",
+    "overflowX": "clip",
+    "frameWidth": 1216,
+    "searchTopFromHeader": 28,
+    "searchHeight": 56,
+    "firstChildTopFromFrame": 48,
+    "firstChildHeight": 60,
+    "secondChildGap": 28,
+    "materialsHeadings": 0
+  },
+  "library-ready-desktop-1440": {
+    "containerName": "library",
+    "overflowX": "clip",
+    "frameWidth": 1216,
+    "searchTopFromHeader": 28,
+    "searchHeight": 56,
+    "firstChildTopFromFrame": 48,
+    "firstChildHeight": 60,
+    "secondChildGap": 28,
+    "materialsHeadings": 1
+  },
+  "discovery-loading-desktop-1440": {
+    "containerName": "discovery",
+    "overflowX": "visible",
+    "frameWidth": 1216,
+    "searchTopFromHeader": null,
+    "searchHeight": null,
+    "firstChildTopFromFrame": 28,
+    "firstChildHeight": 40,
+    "secondChildGap": 20,
+    "materialsHeadings": 0
+  },
+  "discovery-ready-desktop-1440": {
+    "containerName": "discovery",
+    "overflowX": "visible",
+    "frameWidth": 1216,
+    "searchTopFromHeader": null,
+    "searchHeight": null,
+    "firstChildTopFromFrame": 28,
+    "firstChildHeight": 40,
+    "secondChildGap": 20,
+    "materialsHeadings": 0
+  },
+  "library-loading-mobile-390": {
+    "containerName": "library",
+    "overflowX": "clip",
+    "frameWidth": 358,
+    "searchTopFromHeader": 28,
+    "searchHeight": 56,
+    "firstChildTopFromFrame": 36,
+    "firstChildHeight": 36,
+    "secondChildGap": 28,
+    "materialsHeadings": 0
+  },
+  "library-ready-mobile-390": {
+    "containerName": "library",
+    "overflowX": "clip",
+    "frameWidth": 358,
+    "searchTopFromHeader": 28,
+    "searchHeight": 56,
+    "firstChildTopFromFrame": 36,
+    "firstChildHeight": 36,
+    "secondChildGap": 28,
+    "materialsHeadings": 1
+  },
+  "discovery-loading-mobile-390": {
+    "containerName": "discovery",
+    "overflowX": "visible",
+    "frameWidth": 358,
+    "searchTopFromHeader": null,
+    "searchHeight": null,
+    "firstChildTopFromFrame": 28,
+    "firstChildHeight": 40,
+    "secondChildGap": 20,
+    "materialsHeadings": 0
+  },
+  "discovery-ready-mobile-390": {
+    "containerName": "discovery",
+    "overflowX": "visible",
+    "frameWidth": 358,
+    "searchTopFromHeader": null,
+    "searchHeight": null,
+    "firstChildTopFromFrame": 28,
+    "firstChildHeight": 40,
+    "secondChildGap": 20,
+    "materialsHeadings": 0
+  }
+}
