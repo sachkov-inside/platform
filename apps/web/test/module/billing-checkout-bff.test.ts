@@ -38,6 +38,7 @@ import {
   handleBillingPurchaseStatus,
   handleBillingQuote,
 } from "@/features/billing-checkout.server";
+import { purchaseInputSchema } from "@/features/billing-checkout";
 import { loadBillingOffers } from "@/entities/subscription.server";
 import { handleBillingConsents } from "@/entities/subscription.server";
 import { handleCancelRenewal, handleCurrentBilling } from "@/features/billing-subscription.server";
@@ -171,12 +172,24 @@ it("отклоняет неполную команду покупки до об�
       operationId,
       quoteRef: savedQuote.quoteRef,
       contactRevision: 2,
-      consentEvidenceRefs: [evidence[0]],
+      consentEvidenceRefs: [],
       acknowledgeExistingAccess: false,
     }),
   );
   expect(await response.json()).toEqual({ ok: false, code: "invalid_request" });
   expect(fakes.purchase).not.toHaveBeenCalled();
+});
+
+it("пропускает разовую покупку с одним согласием: её оферта — единственный обязательный документ", () => {
+  // Прежняя нижняя граница в два свидетельства осталась от времён, когда продавалась только
+  // подписка. Разовой покупке нужна одна оферта, и приложение принимает такую команду.
+  expect(purchaseInputSchema.safeParse({
+    operationId,
+    quoteRef: savedQuote.quoteRef,
+    contactRevision: 2,
+    consentEvidenceRefs: [evidence[0]],
+    acknowledgeExistingAccess: false,
+  }).success).toBe(true);
 });
 
 it("не выполняет команду с чужого источника", async () => {

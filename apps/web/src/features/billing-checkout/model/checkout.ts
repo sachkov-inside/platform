@@ -1,5 +1,34 @@
 import { z } from "zod";
 
+import {
+  purchaseConsentPolicy,
+  type AcceptedDocument,
+  type LegalDocument,
+  type LegalDocumentKind,
+  type PaymentMode,
+} from "@/entities/subscription";
+
+/**
+ * Документы, которые уходят в команду вместе с покупкой. Вид документа не различает оферты:
+ * разовая покупка и подписка обе `terms`, а различает их область применения. Поэтому отбор идёт
+ * по тому же правилу, которым покупателю показывают документы, — иначе в команду попали бы обе
+ * оферты сразу, и приложение отвергло бы её как повторяющиеся виды.
+ */
+export function acceptedPurchaseDocuments(
+  documents: readonly LegalDocument[],
+  mode: PaymentMode,
+  accepted: readonly LegalDocumentKind[],
+): AcceptedDocument[] {
+  return purchaseConsentPolicy(documents, mode)
+    .applicable.filter((document) => accepted.includes(document.kind))
+    .map((document) => ({
+      kind: document.kind,
+      documentId: document.documentId,
+      version: document.version,
+      digest: document.digest,
+    }));
+}
+
 export const quoteInputSchema = z.strictObject({
   operationId: z.uuid(),
   paymentOptionId: z.uuid(),
@@ -10,7 +39,9 @@ export const purchaseInputSchema = z.strictObject({
   operationId: z.uuid(),
   quoteRef: z.uuid(),
   contactRevision: z.number().int().positive(),
-  consentEvidenceRefs: z.array(z.uuid()).min(2).max(4),
+  // Разовой покупке довольно одной оферты, подписке нужна ещё и согласие на списания. Нижняя
+  // граница здесь повторяет контракт приложения: он принимает от одного свидетельства.
+  consentEvidenceRefs: z.array(z.uuid()).min(1).max(4),
   acknowledgeExistingAccess: z.boolean(),
 });
 export const purchaseRefSchema = z.uuid();
