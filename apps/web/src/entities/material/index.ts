@@ -8,6 +8,7 @@ export {
   materialPreviewSchema,
   publishedMaterialProjectionSchema,
   toMaterialPreview,
+  materialDifficultyLabel,
   materialTaxonomyLabel,
   calloutTones,
   type CalloutTone,
@@ -31,6 +32,8 @@ export {
   type LessonBlock,
   type LessonBlockRendering,
   MaterialLabeledList,
+  MaterialModeVariant,
+  type MaterialModeBranch,
   MaterialResourceCard,
   MaterialTakeaways,
 } from "./ui/material-blocks";

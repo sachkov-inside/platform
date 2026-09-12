@@ -1,5 +1,6 @@
 import "server-only";
 
+import { type MaterialDifficulty } from "@/shared/api/material-lesson-facts";
 import { type MaterialFormat } from "@/shared/api/material-format";
 
 import { MaterialAuthoringService } from "./generated/platform-api";
@@ -123,9 +124,11 @@ export function requestContentCollectionArchive(
 export function requestMaterialDraftCreation(
   input: {
     readonly access: "free" | "membership";
+    readonly difficulty: MaterialDifficulty | null;
     readonly document: Record<string, unknown>;
     readonly formatId: MaterialFormat | null;
     readonly idempotencyKey: string;
+    readonly outcomes: readonly string[];
     readonly seriesIds: readonly string[];
     readonly summary: string;
     readonly tagIds: readonly string[];
@@ -142,7 +145,9 @@ export function requestMaterialDraftCreation(
           body: { doc: input.document, schemaVersion: 1 },
           metadata: {
             access: input.access,
+            difficulty: input.difficulty,
             formatId: input.formatId,
+            outcomes: [...input.outcomes],
             seriesIds: [...input.seriesIds],
             summary: input.summary || null,
             tagIds: [...input.tagIds],
@@ -172,11 +177,13 @@ export function requestMaterialSave(
   input: {
     readonly access: "free" | "membership";
     readonly deleteVideoId: string | null;
+    readonly difficulty: MaterialDifficulty | null;
     readonly document: Record<string, unknown>;
     readonly expectedContentVersion: number;
     readonly formatId: MaterialFormat | null;
     readonly idempotencyKey: string;
     readonly materialId: string;
+    readonly outcomes: readonly string[];
     readonly publicationState: "draft" | "published" | "unpublished";
     readonly primaryVideoId: string | null;
     readonly seriesIds: readonly string[];
@@ -198,7 +205,9 @@ export function requestMaterialSave(
           expectedContentVersion: input.expectedContentVersion,
           metadata: {
             access: input.access,
+            difficulty: input.difficulty,
             formatId: input.formatId,
+            outcomes: [...input.outcomes],
             seriesIds: [...input.seriesIds],
             summary: input.summary,
             tagIds: [...input.tagIds],

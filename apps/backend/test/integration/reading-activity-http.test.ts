@@ -10,12 +10,11 @@ import { parsePlatformConfig } from "../../src/config/platform-config.js";
 import { createApiApplication } from "../../src/entrypoints/api/create-api-application.js";
 import { migrateToLatest } from "../../src/migrations/index.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
-import { learningHomeHttpSchema } from "../../src/modules/reading-activity/features/get-learning-home/get-learning-home.controller.js";
-import { seriesContinuationHttpSchema } from "../../src/modules/reading-activity/features/get-series-continuation/get-series-continuation.controller.js";
 import {
   createTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
+import { declaredServer } from "../support/declared-api.js";
 
 const issuer = "https://identity.example.test/oidc";
 const audience = "https://api.example.test";
@@ -57,7 +56,7 @@ describe("ReadingActivity HTTP", () => {
       { logger: false },
     );
     await app.init();
-    await app.getHttpAdapter().getInstance().ready();
+    await declaredServer(app.getHttpAdapter().getInstance()).ready();
   });
 
   afterAll(async () => {
@@ -71,7 +70,7 @@ describe("ReadingActivity HTTP", () => {
   test("trusted identity, personal no-store responses, conflict state, replay and bounded input", async () => {
     const token = await signToken();
     const token2 = await signToken({ subject: "another", email: "another@example.test" });
-    const server = app.getHttpAdapter().getInstance();
+    const server = declaredServer(app.getHttpAdapter().getInstance());
     for (const bearer of [token, token2]) {
       expect((await server.inject({ method: "POST", url: "/accounts", headers: { authorization: `Bearer ${bearer}` } })).statusCode).toBe(201);
     }
@@ -81,7 +80,7 @@ describe("ReadingActivity HTTP", () => {
     await database.prisma.guide.create({ data: { id: seriesId, name: "Series", slug: "series" } });
     const materials = assembleMaterials({ prisma: database.prisma, authorPolicy: { canManage: () => true } });
     const created = await materials.authoring.createDraft({ actor, idempotencyKey: randomUUID(),
-      metadata: { title: "Personal progress", summary: "HTTP test", access: "free", topicId, formatId, tagIds: [], seriesIds: [seriesId] },
+      metadata: { title: "Personal progress", summary: "HTTP test", access: "free", topicId, formatId, tagIds: [], difficulty: null, outcomes: [], seriesIds: [seriesId] },
       body: representativeDocument("Public content stays public."),
     });
     if (!created.ok) throw new Error(created.error.code);
@@ -142,16 +141,16 @@ describe("ReadingActivity HTTP", () => {
     expect((await server.inject({ method: "POST", url: "/reading-activity/opens", headers, payload: openPayload })).json()).toMatchObject({ replayed: true });
     const loaded = await materials.authoring.loadMaterial({ actor, materialId });
     if (!loaded.ok) throw new Error(loaded.error.code);
-    // `toMatchObject` accepts a key the response was never meant to publish, so each body is also
-    // read with the exact schema its controller declares. A projection that ships an undeclared key
-    // still answers 200 here, while every strict reader of this API drops the whole body and shows
-    // an account its progress as if there were none.
+    // `toMatchObject` accepts a key the response was never meant to publish, so `declaredServer`
+    // also reads every body with the description the API generates for that address. A projection
+    // that ships an undeclared key still answers 200, while every strict reader of this API drops
+    // the whole body and shows an account its progress as if there were none.
     const started = { read: 0, total: 1, continuation: { materialSlug: loaded.value.metadata.slug } };
     const unstarted = { read: 0, total: 1, continuation: null };
     for (const endpoint of [
-      { url: "/reading-activity/learning-home", declared: learningHomeHttpSchema, own: { video: null, series: started }, other: { video: null, series: null } },
-      { url: "/reading-activity/series-continuation/series", declared: seriesContinuationHttpSchema, own: started, other: unstarted },
-      { url: "/reading-activity/guide-continuation/series", declared: seriesContinuationHttpSchema, own: started, other: unstarted },
+      { url: "/reading-activity/learning-home", own: { video: null, series: started }, other: { video: null, series: null } },
+      { url: "/reading-activity/series-continuation/series", own: started, other: unstarted },
+      { url: "/reading-activity/guide-continuation/series", own: started, other: unstarted },
     ]) {
       expect((await server.inject({ method: "GET", url: endpoint.url })).statusCode).toBe(401);
       const own = await server.inject({ method: "GET", url: endpoint.url, headers });
@@ -160,7 +159,6 @@ describe("ReadingActivity HTTP", () => {
       const bodies: readonly unknown[] = [own.json(), other.json()];
       expect(bodies[0]).toMatchObject(endpoint.own);
       expect(bodies[1]).toMatchObject(endpoint.other);
-      for (const body of bodies) expect(endpoint.declared.safeParse(body).error?.issues ?? []).toEqual([]);
     }
     expect((await server.inject({ method: "GET", url: "/reading-activity/series-continuation/missing", headers })).statusCode).toBe(404);
 

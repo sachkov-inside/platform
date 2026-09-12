@@ -111,6 +111,33 @@ authoring base owns the record. Replacement opens a new version and keeps the id
 placements; delivery goes through ContentAccess. In Russian product language: «Артефакт».
 _Avoid_: MaterialAsset, supplementary Material, inline attachment, Content Cover
 
+**Guide Mode**:
+One of the two ways a reader goes through a Guide: on the worked example the author prepared, or
+on the reader's own project. It belongs to the reader, not to a Material: one stored choice covers
+every Guide, and it changes only what a Variant Step shows, never access, order or progress. In
+Russian product language: «Режим прохождения», with «Учебный проект» and «Свой проект».
+_Avoid_: Difficulty, access class, Guide Step Sequence, separate Guide copy
+
+**Variant Step**:
+A step of a lesson written for both Guide Modes, carrying one branch per mode. A branch may be
+missing: such a step belongs to its own mode alone and is not shown in the other. The reader sees
+the branch of the active mode and can open the other one in place, which changes nothing that is
+stored. Both branches stay in the lesson's search text, and the step — not a branch — is what
+progress and bookmarks address. In Russian product language: «Вариантный шаг».
+_Avoid_: Callout, separate Material, access variant, A/B test
+
+**Lesson Difficulty**:
+How hard one lesson is for the reader who opens it: basic, intermediate or advanced. It is the
+Material's own fact, so a lesson reused in two Guides keeps one answer, and a Material that
+declares none simply shows none. In Russian product language: «Сложность».
+_Avoid_: Guide Mode, access class, Guide-level rating
+
+**Lesson Outcomes**:
+What the reader can do after one lesson: two to four written points, or none at all. They come
+from the Material's data and are not repeated in its body; a published lesson carries either no
+points or a real list, never a single one. In Russian product language: «Чему научишься».
+_Avoid_: Guide Introduction, Summary, Takeaways block
+
 **Guide Step Sequence**:
 An explicitly named connection between some Materials within one Guide. Its steps follow the
 Guide order even when other Materials appear between them. The same Material may have a different

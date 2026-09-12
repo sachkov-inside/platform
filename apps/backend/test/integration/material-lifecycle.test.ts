@@ -29,6 +29,8 @@ function metadata(title: string) {
     topicId,
     formatId,
     tagIds: [],
+    difficulty: null,
+    outcomes: [],
     seriesIds: [],
   };
 }
@@ -586,6 +588,8 @@ describe("Material lifecycle", () => {
       topicId,
       formatId,
       tagIds: [],
+      difficulty: null,
+      outcomes: [],
       seriesIds: [],
     };
     const created = await authoring.createDraft({

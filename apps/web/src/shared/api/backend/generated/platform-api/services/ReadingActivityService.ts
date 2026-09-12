@@ -7,6 +7,40 @@ import type { BaseHttpRequest } from '../core/BaseHttpRequest';
 export class ReadingActivityService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
+   * Read the mode the current Account goes through guides in
+   * @returns any
+   * @throws ApiError
+   */
+  public getReaderGuideMode(): CancelablePromise<{
+    guideMode: 'example' | 'own';
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/reading-activity/guide-mode',
+    });
+  }
+  /**
+   * Set the mode the current Account goes through guides in
+   * @returns any
+   * @throws ApiError
+   */
+  public setReaderGuideMode({
+    requestBody,
+  }: {
+    requestBody: {
+      guideMode: 'example' | 'own';
+    },
+  }): CancelablePromise<{
+    guideMode: 'example' | 'own';
+  }> {
+    return this.httpRequest.request({
+      method: 'PUT',
+      url: '/reading-activity/guide-mode',
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
    * Read progress over the current published Guide composition
    * @returns any
    * @throws ApiError

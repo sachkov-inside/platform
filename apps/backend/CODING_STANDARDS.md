@@ -75,6 +75,13 @@ not dependency wiring.
 
 - Every public endpoint declares a stable `operationId`, concrete input/success/error schemas, and
   its security scheme. A prose response description is not an OpenAPI contract.
+- A spread into a response body publishes whatever its source gains next. The declared schema and
+  the DTO stay silent, because the excess property check does not apply to a spread, and every
+  strict reader of this API then drops the whole body instead of the one key it did not expect.
+  That emptied two surfaces on 2026-09-12: the learning continuation and the buyer-state response.
+  Name the fields of a response body one by one. `test/support/declared-api.ts` reads live
+  responses against the generated OpenAPI document, so the leak now fails in the test that calls
+  the address.
 - Derive actor identity from the trusted authentication adapter. Never accept actor/account IDs,
   permissions, or Membership decisions from a request body.
 - Use shared semantic cache policies. Interceptors and exception filters own wire headers and media

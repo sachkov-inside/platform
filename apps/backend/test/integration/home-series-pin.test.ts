@@ -18,13 +18,13 @@ beforeAll(async () => {
   const pinStart = platformMigrations.findIndex((migration) => migration.name === "0038_home_material_pin");
   expect(platformMigrations[pinStart - 1]?.name).toBe("0045_notifications");
   await runMigrationsToLatest(database.url, platformMigrations.slice(0, pinStart));
-  expect(await migrateToLatest(database.url)).toEqual({ appliedMigrations: ["0038_home_material_pin", "0039_home_series_pin", "0046_scoped_access", "0047_subscription_payments", "0048_subscription_lifecycle", "0050_guide_artifacts", "0051_guide_chapters", "0052_bookmarks", "0053_community_entitlements", "0054_billing_manage_permission", "0055_billing_operations", "0056_billing_notices", "0057_guide_introduction", "0058_offer_for_sale", "0059_one_time_purchase", "0060_material_announcements"] });
+  expect(await migrateToLatest(database.url)).toEqual({ appliedMigrations: ["0038_home_material_pin", "0039_home_series_pin", "0046_scoped_access", "0047_subscription_payments", "0048_subscription_lifecycle", "0050_guide_artifacts", "0051_guide_chapters", "0052_bookmarks", "0053_community_entitlements", "0054_billing_manage_permission", "0055_billing_operations", "0056_billing_notices", "0057_guide_introduction", "0058_offer_for_sale", "0059_one_time_purchase", "0060_material_announcements", "0061_lesson_difficulty_and_outcomes", "0062_reader_guide_mode"] });
   await database.prisma.topic.create({ data: { id: topicId, name: "Home", slug: "home" } });
   materials = assembleMaterials({ prisma: database.prisma, authorPolicy: { canManage: (id) => id === actor } });
 });
 afterAll(async () => { await database.dispose(); });
 
-function metadata(title: string, seriesIds: string[]) { return { title, summary: "Public summary", access: "membership" as const, topicId, formatId: "guide", tagIds: [], seriesIds }; }
+function metadata(title: string, seriesIds: string[]) { return { title, summary: "Public summary", access: "membership" as const, topicId, formatId: "guide", tagIds: [], difficulty: null, outcomes: [], seriesIds }; }
 async function createSeries(title: string) {
   const seriesId = randomUUID();
   await database.prisma.guide.create({ data: { id: seriesId, name: title, slug: `series-${seriesId}`, summary: "Series summary" } });

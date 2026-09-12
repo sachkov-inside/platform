@@ -536,6 +536,8 @@ function metadata(title: string) {
   return {
     access: "free" as const,
     formatId,
+    difficulty: null,
+    outcomes: [],
     seriesIds: [seriesId],
     summary: `${title} summary.`,
     tagIds: [],

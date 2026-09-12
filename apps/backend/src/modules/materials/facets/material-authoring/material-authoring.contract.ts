@@ -1,5 +1,6 @@
 import type {
   MaterialAccess,
+  MaterialDifficulty,
   MaterialMetadataValidationError,
 } from "../../domain/material-metadata.js";
 import type { PublicationState } from "../../domain/material.js";
@@ -19,6 +20,8 @@ export interface MaterialMetadataSelectionInput {
   readonly title: string | null;
   readonly summary: string | null;
   readonly access: MaterialAccess;
+  readonly difficulty: MaterialDifficulty | null;
+  readonly outcomes: readonly string[];
   readonly topicId: string | null;
   readonly formatId: string | null;
   readonly tagIds: readonly string[];

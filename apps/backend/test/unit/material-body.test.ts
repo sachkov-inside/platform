@@ -183,8 +183,11 @@ describe("MaterialBodyOperations", () => {
     expect(documentOperations.extract(document)).toEqual({
       ok: true,
       value: {
+        // Обе ветки вариантного шага попадают в текст поиска: читатель ищет слова того варианта,
+        // который сейчас не видит.
+        hasModeVariants: true,
         plainText:
-          "Developer Pipeline\n\nIssue хранит intent и evidence.\n\nDecision\n\nIssue\n\nOwner gate.\n\npnpm check\n\nStage\tEvidence\nReview\tChecks\n\nPublish requires owner GO.\n\nПример\n\nКороткий разбор одного шага.\n\nСпецификация Platform\nЧто обещает контракт\nhttps://example.com/spec\n\nПромпт для разбора\n\nРазбери материал и предложи три правки.\n\nИтоги урока\n\nОдин authority\n\nОдна проверка\n\nADR — Решение — Фиксирует необратимый выбор\nGate — Проверка\n\nВид блока задаёт платформа, а не вёрстка урока.\n\nDelivery stages\nOne retained path\n\nPipeline checklist",
+          "Developer Pipeline\n\nIssue хранит intent и evidence.\n\nDecision\n\nIssue\n\nOwner gate.\n\npnpm check\n\nStage\tEvidence\nReview\tChecks\n\nPublish requires owner GO.\n\nПример\n\nКороткий разбор одного шага.\n\nСпецификация Platform\nЧто обещает контракт\nhttps://example.com/spec\n\nПромпт для разбора\n\nРазбери материал и предложи три правки.\n\nИтоги урока\n\nОдин authority\n\nОдна проверка\n\nADR — Решение — Фиксирует необратимый выбор\nGate — Проверка\n\nУчебный проект: повторите шаг на образце.\n\nСвой проект: примените шаг к своему репозиторию.\n\nВид блока задаёт платформа, а не вёрстка урока.\n\nDelivery stages\nOne retained path\n\nPipeline checklist",
         headings: [{ level: 2, text: "Developer Pipeline" }],
         resources: [
           {

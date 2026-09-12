@@ -1,5 +1,9 @@
 import "server-only";
 
+import {
+  MATERIAL_OUTCOMES,
+  materialDifficultySchema,
+} from "@/shared/api/material-lesson-facts";
 import { materialFormatSchema } from "@/shared/api/material-format";
 
 
@@ -19,6 +23,10 @@ import { parseMaterialDocumentFields } from "./parse-material-document-fields";
 const formSchema = z.object({
   access: z.enum(["free", "membership"]),
   deleteVideoId: z.union([z.uuid(), z.literal("none")]).default("none"),
+  difficulty: materialDifficultySchema.or(z.literal("unassigned")),
+  outcomes: z
+    .array(z.string().trim().max(MATERIAL_OUTCOMES.maxLength))
+    .max(MATERIAL_OUTCOMES.maxCount),
   document: z.string().min(1).max(1_048_576),
   expectedContentVersion: z.coerce.number().int().positive(),
   formatId: materialFormatSchema.or(z.literal("unassigned")),
@@ -106,6 +114,8 @@ function parseForm(
   const parsed = formSchema.safeParse({
     access: formData.get("access"),
     deleteVideoId: formData.get("deleteVideoId") ?? undefined,
+    difficulty: formData.get("difficulty"),
+    outcomes: formData.getAll("outcome"),
     document: formData.get("document"),
     expectedContentVersion: formData.get("expectedContentVersion"),
     formatId: formData.get("formatId"),
@@ -137,6 +147,8 @@ function parseForm(
     value: {
       access: parsed.data.access,
       deleteVideoId: parsed.data.deleteVideoId === "none" ? null : parsed.data.deleteVideoId,
+      difficulty: parsed.data.difficulty === "unassigned" ? null : parsed.data.difficulty,
+      outcomes: parsed.data.outcomes.filter(Boolean),
       document: documentFields.document,
       expectedContentVersion: parsed.data.expectedContentVersion,
       formatId: parsed.data.formatId === "unassigned" ? null : parsed.data.formatId,
@@ -203,6 +215,12 @@ function mapSaveProblem(
 }
 
 function mapBackendIssue(issue: { readonly code: string; readonly path: string }) {
+  if (issue.code === "outcomes_too_few") {
+    return {
+      message: `Оставьте «Чему научишься» пустым или напишите ${String(MATERIAL_OUTCOMES.minPublishedCount)}–${String(MATERIAL_OUTCOMES.maxCount)} пункта.`,
+      path: issue.path,
+    };
+  }
   const message =
     issue.path.endsWith("/title")
       ? "Укажите название перед публикацией."

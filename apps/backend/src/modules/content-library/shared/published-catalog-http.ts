@@ -54,6 +54,7 @@ const guideIntroductionHttpSchema = z
 
 const discoveryReferenceHttpSchema = z
   .object({
+    hasModeVariants: z.boolean(),
     id: z.uuid(),
     introduction: guideIntroductionHttpSchema.nullable(),
     name: z.string(),
