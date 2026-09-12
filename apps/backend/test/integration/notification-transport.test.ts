@@ -1,4 +1,4 @@
-import { fork } from 'node:child_process';
+import { fork, type ChildProcess } from 'node:child_process';
 import { execFileSync } from 'node:child_process';
 import { once } from 'node:events';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
@@ -30,6 +30,62 @@ const materialFixture = fixtures.find(f => f.valid && f.definition === 'material
 function event() { return { ...billingFixture, messageId: randomUUID() }; }
 // Every wait below ends on a committed fact; the budget only bounds a stuck run.
 const barrierBudgetMs = 15_000;
+/**
+ * Запуск аварийного воркера — загрузка tsx, инициализация Prisma и TLS-рукопожатие с брокером. Эта
+ * длительность принадлежит машине, а не транспорту, поэтому она вынесена из бюджета поведения.
+ * Измерено на этом наборе: 0.8–1.0 с, когда файл идёт один, и 1.2–4.7 с, когда параллельно идёт
+ * весь набор. Бюджет — шестикратный запас к худшему наблюдённому запуску: он не измеряет поведение
+ * и останавливает только воркер, который не стартовал вовсе. Смерть процесса бюджета не ждёт.
+ */
+const crashWorkerStartBudgetMs = 30_000;
+/**
+ * Внешний срок сценария обязан превышать сумму его собственных бюджетов, иначе при зависании
+ * побеждает он, а не то ожидание, которое знает причину, — и падение снова остаётся безымянным.
+ * Здесь это запуск воркера плюс три барьера: поведение, глубина очереди и её опустошение.
+ */
+const crashScenarioTimeoutMs = crashWorkerStartBudgetMs + barrierBudgetMs * 3 + 5_000;
+/** Вместимость очереди стенда: на ней проверяется отказ по переполнению. */
+const queueCapacity = 2;
+/**
+ * Наблюдение за аварийным воркером. Сообщения запоминаются с момента запуска, поэтому ожидание
+ * не может разминуться с уже пришедшим: воркер успевает дойти до границы раньше, чем тест начнёт
+ * её ждать. Ожидание кончается фактом — названным сообщением или смертью процесса, и второй исход
+ * называет причину сразу: код выхода, сигнал и то, что воркер написал в stderr. Бюджет остаётся
+ * только на третий случай, когда воркер жив и молчит.
+ */
+function watchCrashWorker(child: ChildProcess) {
+  const reached = new Set<string>();
+  const waiting = new Map<string, () => void>();
+  let stderr = '';
+  let departure: string | undefined;
+  child.stderr?.on('data', chunk => { stderr += String(chunk); });
+  child.on('message', message => {
+    if (typeof message !== 'string') return;
+    reached.add(message);
+    waiting.get(message)?.();
+  });
+  child.once('exit', (code, signal) => {
+    departure = `exited (code ${String(code)}, signal ${String(signal)})`;
+    for (const wake of waiting.values()) wake();
+  });
+  const detail = () => stderr.trim() || 'no stderr output';
+  return {
+    async reaches(awaited: 'ready' | 'boundary', budgetMs: number): Promise<void> {
+      await new Promise<void>((resolve, reject) => {
+        const settle = () => {
+          clearTimeout(timer);
+          waiting.delete(awaited);
+          if (reached.has(awaited)) resolve();
+          else if (departure !== undefined) reject(new Error(`Crash worker ${departure} before ${awaited}: ${detail()}`));
+          else reject(new Error(`Crash worker is alive but did not reach ${awaited} within ${String(budgetMs)}ms: ${detail()}`));
+        };
+        const timer = setTimeout(settle, budgetMs);
+        waiting.set(awaited, settle);
+        if (reached.has(awaited) || departure !== undefined) settle();
+      });
+    },
+  };
+}
 
 describe('Notifications real PostgreSQL / RabbitMQ transport', () => {
   let broker: StartedTestContainer;
@@ -46,7 +102,7 @@ describe('Notifications real PostgreSQL / RabbitMQ transport', () => {
     directory = await mkdtemp(join(tmpdir(), 'platform-435-'));
     caFile = join(directory, 'cert.pem');
     execFileSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '1', '-subj', '/CN=localhost', '-addext', 'subjectAltName=DNS:localhost,IP:127.0.0.1', '-keyout', join(directory, 'key.pem'), '-out', caFile], { stdio: 'ignore' });
-    const topology = localNotificationTopology('inside-test', 2);
+    const topology = localNotificationTopology('inside-test', queueCapacity);
     topology.vhosts.push({ name: 'another-environment' });
     broker = await new GenericContainer(NOTIFICATION_BROKER_IMAGE)
       .withExposedPorts(5671)
@@ -111,16 +167,16 @@ describe('Notifications real PostgreSQL / RabbitMQ transport', () => {
         execArgv: ['--import', 'tsx'], stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
         env: { ...process.env, CRASH_CONFIG: JSON.stringify({ ...config(phase.includes('confirm') ? 'billing' : 'notifications'), databaseUrl: database.url, phase }) },
       });
-      let errors = ''; child.stderr?.on('data', chunk => { errors += String(chunk); });
+      const worker = watchCrashWorker(child);
       try {
-        const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 15_000);
-        try {
-          await once(child, 'message', { signal: controller.signal });
-          if (phase === 'before-confirm') {
-            // Broker persistence is observed while the application is still denied its confirm.
-            await eventually(async () => { expect(await queueDepth(admin, 'inside-test', lanes.billing.queue)).toBe(1); }, barrierBudgetMs);
-          }
-        } catch { throw new Error(`Crash child failed: ${errors}`); } finally { clearTimeout(timeout); }
+        // Запуск и проверяемое поведение ждут раздельно: первое зависит от машины, второе — нет.
+        await worker.reaches('ready', crashWorkerStartBudgetMs);
+        await worker.reaches('boundary', barrierBudgetMs);
+        if (phase === 'before-confirm') {
+          // Broker persistence is observed while the application is still denied its confirm.
+          // Проверка живёт вне ожидания воркера: её провал должен называться своим именем.
+          await eventually(async () => { expect(await queueDepth(admin, 'inside-test', lanes.billing.queue)).toBe(1); }, barrierBudgetMs);
+        }
       } finally { child.kill('SIGKILL'); await once(child, 'exit'); }
       if (phase.includes('confirm')) {
         expect(await database.prisma.billingNotificationOutbox.findUniqueOrThrow({ where: { scope_messageId: { scope: 'billing', messageId: envelope.messageId } } })).toMatchObject({ publishedAt: null });
@@ -135,7 +191,7 @@ describe('Notifications real PostgreSQL / RabbitMQ transport', () => {
       await eventually(async () => { expect(await queueDepth(admin, 'inside-test', lanes.billing.queue)).toBe(0); }, barrierBudgetMs);
       await consumer.stop();
       expect(await database.prisma.notificationInbox.count({ where: { messageId: envelope.messageId } })).toBe(1);
-    }, 45_000);
+    }, crashScenarioTimeoutMs);
   }
 
   test('mandatory return and queue saturation preserve unpublished outbox; other lanes advance', async () => {
@@ -149,20 +205,22 @@ describe('Notifications real PostgreSQL / RabbitMQ transport', () => {
     expect(await database.prisma.materialNotificationOutbox.findFirst()).toMatchObject({ publishedAt: null, attempts: 1 });
     await admin(['import_definitions', '/etc/rabbitmq/definitions.json']);
     const billing = await connect('billing');
-    let nacked = false;
-    for (let index = 0; index < 8; index++) {
+    // Отказ по переполнению наступает от факта — очередь заполнена, — а не от числа попыток.
+    // Сколько именно публикаций примет quorum-очередь до отказа, решает брокер: при медленном
+    // подтверждении он успевает принять больше. Поэтому публикуем, пока он не откажет, и
+    // ограничиваем это тем же бюджетом зависшего прогона, а не круглым числом попыток.
+    let rejected: string | undefined;
+    await eventually(async () => {
       const payload = event();
       await stageBillingNotification(database.prisma, payload);
-      try {
-        await assembleNotificationOutbox(database.prisma.billingNotificationOutbox, ['billing']).relay('billing', message => publishNotification(billing, message));
-        confirmedBeforeOutage.push(payload.messageId);
-      } catch {
-        nacked = true;
-        expect(await database.prisma.billingNotificationOutbox.findUniqueOrThrow({ where: { scope_messageId: { scope: 'billing', messageId: payload.messageId } } })).toMatchObject({ publishedAt: null, attempts: 1 });
-        break;
-      }
-    }
-    expect(nacked).toBe(true);
+      const published = await assembleNotificationOutbox(database.prisma.billingNotificationOutbox, ['billing'])
+        .relay('billing', message => publishNotification(billing, message))
+        .then(() => true, () => false);
+      if (published) confirmedBeforeOutage.push(payload.messageId);
+      else rejected ??= payload.messageId;
+      expect(rejected, `queue capped at ${String(queueCapacity)} still accepts every publish`).toBeDefined();
+    }, barrierBudgetMs);
+    expect(await database.prisma.billingNotificationOutbox.findUniqueOrThrow({ where: { scope_messageId: { scope: 'billing', messageId: rejected ?? '' } } })).toMatchObject({ publishedAt: null, attempts: 1 });
     await publishNotification(producer, encodeNotification('materials', { ...materialFixture, messageId: randomUUID() }));
     const transport = assembleNotificationTransport(database.prisma, 100);
     const consumer = await consumeNotificationLane(await connect('notifications'), 'materials', transport, 1);

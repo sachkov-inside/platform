@@ -6,6 +6,10 @@ import { assembleNotificationTransport } from '../../../src/modules/notification
 const config = z.object({ databaseUrl: z.string(), url: z.string(), caFile: z.string(), phase: z.string() }).parse(JSON.parse(process.env.CRASH_CONFIG ?? 'null'));
 const prisma = createPrismaClient(config.databaseUrl);
 const connection = await connectNotificationBroker(config);
+// Готовность отделена от проверяемого поведения. Загрузка tsx, инициализация Prisma и TLS-рукопожатие
+// с брокером занимают столько, сколько занимают на этой машине, и не должны попадать в бюджет
+// ожидания самого поведения: иначе тест мерит загрузку машины, а не транспорт.
+process.send?.('ready');
 const boundary = async () => { process.send?.('boundary'); await new Promise(() => undefined); };
 if (config.phase.includes('confirm')) {
   await assembleNotificationOutbox(prisma.billingNotificationOutbox, ['billing']).relay('billing', async envelope => {
