@@ -124,8 +124,9 @@ test("reading progress counts a shared material in both real Series", async ({ p
   // Отметка живёт у материала, поэтому её видно в программе каждого руководства, где он опубликован.
   for (const slug of ["demo-series-release", "demo-series-release-shared"]) {
     await page.goto(`/guides/${slug}/programme`);
-    const card = page.getByRole("article").filter({ has: page.getByRole("link", { name: "Demo · Подготовка приложения к релизу", exact: true }) });
-    await expect(card.locator("[data-material-reading-status]")).toHaveText("Изучено");
+    // В маршруте изученное показывает не подпись на карточке, а галочка вместо номера строки.
+    const row = page.locator('[data-route-material="demo-podgotovka-prilozheniya-k-relizu"]:visible');
+    await expect(row.locator('[data-series-marker-read="true"]')).toHaveCount(1);
     await expect(page.getByRole("main").locator('[data-series-marker-read="true"]')).toHaveCount(1);
     if (slug.endsWith("shared")) {
       await page.screenshot({ path: resolve(directory, `${testInfo.project.name}-series.png`) });
