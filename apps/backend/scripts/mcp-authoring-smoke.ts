@@ -54,9 +54,11 @@ try {
     toolNames,
     [
       "billing_grants_applyBatch",
+      "billing_grants_classify",
       "billing_grants_extend",
       "billing_grants_previewBatch",
       "billing_grants_read",
+      "billing_grants_readClassification",
       "billing_grants_revoke",
       "billing_offers_archive",
       "billing_offers_list",

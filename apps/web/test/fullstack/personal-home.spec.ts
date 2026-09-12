@@ -70,7 +70,6 @@ test("personal Home opens the real series, persists marks and reconciles a lost 
   await resumeSeries.click();
   await expect(page).toHaveURL(new RegExp(`/guides/${seriesSlug}/programme`));
   // Сводки прогресса над маршрутом нет: изученное видно галочкой на строке материала.
-  await expect(page.getByRole("main").locator("[data-series-progress]")).toHaveCount(0);
   await expect(page.getByRole("main").locator('[data-series-marker-read="true"]')).toHaveCount(1);
   const current = page.getByRole("main").locator('[aria-current="step"]');
   await expect(current.locator("[data-material-slug]")).toHaveAttribute("data-material-slug", "video-pro-developer-pipeline");

@@ -1,6 +1,7 @@
 import type { Route } from "next";
 
 import { internalRoute, isInternalRoute } from "./internal-route";
+import { guidePath } from "./public-page-path";
 
 /**
  * CTA страницы руководства ведёт на витрину и сохраняет контекст: после входа покупатель
@@ -41,10 +42,11 @@ export function subscriptionRouteTarget(
     : { returnTo: subscriptionHrefFrom(origin), originHref: origin };
 }
 
-/** Страница продукта руководства: она рассказывает и никогда не называет цену. */
-export function guideProductHref(slug: string): Route {
-  return internalRoute(`/guides/${encodeURIComponent(slug)}`);
-}
+/**
+ * Страница продукта руководства: она рассказывает и никогда не называет цену. Её адрес —
+ * канонический адрес руководства, поэтому он остаётся у одного владельца, `public-page-path`.
+ */
+export const guideProductHref = guidePath;
 
 /**
  * Программа руководства: материалы по главам живут отдельным адресом, потому что страница

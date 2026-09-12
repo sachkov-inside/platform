@@ -18,8 +18,8 @@ import {
   LibraryDiscoveryView,
 } from "./library-discovery-view";
 import type { ReaderGuideArtifactsResult } from "@/features/guide-artifacts.reader";
-import { guidePath, topicPath } from "@/shared/routing/public-page-path";
-import { guideProgrammeHref } from "@/shared/routing/subscription-route";
+import { topicPath } from "@/shared/routing/public-page-path";
+import { guideProductHref, guideProgrammeHref } from "@/shared/routing/subscription-route";
 import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 
 export async function PublishedTopicPage({
@@ -140,7 +140,7 @@ function renderPublishedSeriesResult(
     notFound();
   }
   if (result.kind === "unavailable") {
-    return <LibraryDiscoveryUnavailable retryHref={guidePath(slug)} />;
+    return <LibraryDiscoveryUnavailable retryHref={guideProductHref(slug)} />;
   }
   return (
     <LibraryDiscoveryView

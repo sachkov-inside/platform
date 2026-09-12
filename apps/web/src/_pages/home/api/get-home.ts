@@ -33,7 +33,9 @@ const homeSchema = z
     notes: z.array(publishedMaterialProjectionSchema),
     membership: z.discriminatedUnion("kind", [
       z.object({ kind: z.literal("active") }).strict(),
-      z.object({ acquisitionUrl: z.url({ protocol: /^https?$/u }), kind: z.literal("inactive") }).strict(),
+      // Адрес покупки главной больше не нужен: она ведёт на внутреннюю витрину. Контракт его ещё
+      // обещает, поэтому ключ принимается, но его вид ничего не решает и не ломает главную.
+      z.object({ acquisitionUrl: z.string(), kind: z.literal("inactive") }).strict(),
       z.object({ kind: z.literal("notOffered") }).strict(),
       z.object({ kind: z.literal("unknown") }).strict(),
     ]),

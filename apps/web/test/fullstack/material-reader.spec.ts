@@ -143,6 +143,11 @@ test("loads the safe PostgreSQL catalog through the client-owned Library query",
       hasText: "Создание Platform Inside",
     }),
   ).toBeVisible();
+  // Раскрытие оставляет фокус на кнопке, а клавиатурная проверка ниже начинается с начала
+  // документа: без этого первый Tab уводит не на ссылку «Перейти к содержанию».
+  await page.evaluate(() => {
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+  });
   await expect(
     page.getByRole("link", { exact: true, name: "Developer Pipeline без потери контекста" }),
   ).toHaveAttribute(

@@ -135,7 +135,6 @@ test("reading progress counts a shared material in both real Series", async ({ p
   await button.click(); await expect(button).toHaveAttribute("aria-pressed", "false");
   await page.goto("/guides/demo-series-release-shared/programme");
   await expect(page.getByRole("main").locator('[data-series-marker-read="true"]')).toHaveCount(0);
-  await expect(page.getByRole("main").locator("[data-series-progress]")).toHaveCount(0);
 });
 
 

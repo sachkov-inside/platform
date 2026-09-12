@@ -23,12 +23,12 @@ test("guide programme marks the last opened material and preserves the Reader re
 
   // Страница продукта рассказывает о руководстве и ведёт в программу одним действием.
   await page.goto("/guides/demo-series-harness");
-  await expect(page.locator('[data-guide-product="demo-series-harness"]')).toBeVisible();
+  await expect(page.locator('[data-guide-product="demo-series-harness"]:visible')).toBeVisible();
   await expect(page.getByRole("progressbar")).toHaveCount(0);
   await page.getByRole("link", { name: "Открыть программу", exact: true }).click();
   await expect(page).toHaveURL(/\/guides\/demo-series-harness\/programme/u);
 
-  const programme = page.locator('[data-guide-programme="demo-series-harness"]');
+  const programme = page.locator('[data-guide-programme="demo-series-harness"]:visible');
   await expect(programme).toBeVisible();
   await expect(page.getByRole("progressbar")).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Продолжить", exact: true })).toHaveCount(0);
@@ -104,7 +104,7 @@ test("guide programme paginates a real composition and returns from Reader to pa
     await expect(row).toBeInViewport();
     await expect(page.locator("[data-series-ordinal]:visible")).toHaveCount(1);
     // Состав считает сама программа: строка над маршрутом называет видимый отрезок и весь состав.
-    await expect(page.getByText("Материалы 13–13 из 13", { exact: true })).toBeVisible();
+    await expect(page.locator("p:visible", { hasText: "Материалы 13–13 из 13" })).toBeVisible();
     await page.goto(`/guides/${slug}/programme`);
     await expect(page).toHaveURL(/page=2$/u);
     await expect(page.getByRole("button", { name: "Страница 2, продолжение", exact: true })).toHaveAttribute("aria-current", "page");

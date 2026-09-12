@@ -5,7 +5,6 @@ import Link from "next/link";
 import { billingActionClass, type PriceSnapshot } from "@/entities/subscription";
 import type { ReaderGuideArtifactsResult } from "@/features/guide-artifacts.reader";
 import { formatMaterialCount, type PublishedSeriesResult } from "@/features/library-discovery";
-import { collectionDiscoveryHref } from "@/shared/routing/material-reader";
 import { guideProductHref, guideProgrammeHref, purchaseInvitation } from "@/shared/routing/subscription-route";
 import { Button } from "@/shared/ui/button";
 
@@ -98,7 +97,8 @@ function ProgrammePurchase({
   readonly subscriptionOffered: boolean;
 }) {
   const invitation = purchaseInvitation({
-    from: collectionDiscoveryHref("series", slug, undefined),
+    // Витрина вернёт человека в программу, откуда он ушёл, а не на страницу продукта.
+    from: guideProgrammeHref(slug),
     guide: { slug, sold: offer !== null },
     subscriptionOffered,
   });

@@ -77,18 +77,21 @@ const accessCopy = {
   guide: {
     title: "Продолжение входит в руководство",
     explanation: "Купите руководство — и весь его маршрут откроется целиком.",
-    action: "Купить руководство",
   },
   subscription: {
     title: "Продолжение для участников",
     explanation: "Откройте полный материал и весь маршрут по теме.",
-    action: "Получить доступ",
   },
   none: {
     title: "Продолжение для участников",
     explanation: "Купить доступ сейчас нельзя, но материал останется здесь.",
-    action: "",
   },
+} as const;
+
+/** Действие есть только там, где есть что купить. */
+const accessAction = {
+  guide: "Купить руководство",
+  subscription: "Получить доступ",
 } as const;
 
 /**
@@ -151,7 +154,7 @@ export function MaterialReaderAccess({
                     size="lg"
                   >
                     <Link href={invitation.href}>
-                      {copy.action}
+                      {accessAction[invitation.kind]}
                       <ArrowRight
                         aria-hidden="true"
                         className="shrink-0 text-sidebar-primary transition-transform duration-[var(--motion-duration-fast)] ease-[var(--motion-ease-out)] group-hover/button:translate-x-0.5 motion-reduce:transition-none"
