@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "doc": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "agentPrompt",
+        "attrs": {
+          "nodeId": "94000000-0000-4000-8000-000000000007",
+          "title": 7
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Разбери материал."
+          }
+        ]
+      }
+    ]
+  }
+}
