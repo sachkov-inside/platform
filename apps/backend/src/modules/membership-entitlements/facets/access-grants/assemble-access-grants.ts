@@ -5,6 +5,7 @@ import type { MembershipEntitlementsPrismaClient } from "../../infrastructure/pr
 import {
   accessFailure,
   classificationSchema,
+  recurringAllowedFor,
 } from "../../domain/access-grant.js";
 import {
   applyPaidPeriod,
@@ -44,6 +45,33 @@ export interface AccessGrantsDependencies {
 export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
   const { prisma, accounts } = dependencies;
   const clock = dependencies.clock ?? (() => new Date());
+  /**
+   * Классификация Account: состояние, его revision и вывод о допустимости автосписаний.
+   * Отсутствующая запись — это «неизвестно», а не ошибка чтения.
+   */
+  async function readClassificationOf(targetAccountId: string) {
+    if (!z.uuid().safeParse(targetAccountId).success)
+      return accessFailure("invalid_input");
+    try {
+      const row = await prisma.legacyClassification.findUnique({
+        where: { accountId: targetAccountId },
+      });
+      const classification = classificationSchema.parse(
+        row?.classification ?? "unknown",
+      );
+      return {
+        ok: true as const,
+        classification,
+        revision: row?.revision ?? 0,
+        recurringAllowed: recurringAllowedFor({
+          classification,
+          tributeStopped: row?.tributeStopped === true,
+        }),
+      };
+    } catch {
+      return accessFailure("unavailable");
+    }
+  }
   async function manage<Result>(
     actorId: string,
     permission: PlatformPermission,
@@ -85,10 +113,15 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       ),
     listGrants: (actorId: string, command: ListAccessGrantsCommand) =>
       manage(actorId, "billing:manage", () => listAccessGrants(prisma, command, clock())),
-    // Классификация старой подписки остаётся за platform:admin: она не входит в billing-операции.
+    // Классификация решает, разрешены ли автосписания, поэтому входит в тот же владельческий
+    // набор billing и проверяет то же `billing:manage`, что каталог, платежи и ручные права.
     classifyLegacy: (actorId: string, command: ClassifyLegacyAccountCommand) =>
-      manage(actorId, "platform:admin", () =>
+      manage(actorId, "billing:manage", () =>
         classifyLegacyAccount(prisma, accounts, actorId, command, clock()),
+      ),
+    readClassification: (actorId: string, targetAccountId: string) =>
+      manage(actorId, "billing:manage", () =>
+        readClassificationOf(targetAccountId),
       ),
     /** Собственные основания Account: без полномочия владельца и без операторских полей. */
     async readOwnAccess(targetAccountId: string) {
@@ -148,29 +181,9 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
         return accessFailure("unavailable");
       }
     },
-    async readLegacyClassification(targetAccountId: string) {
-      if (!z.uuid().safeParse(targetAccountId).success)
-        return accessFailure("invalid_input");
-      try {
-        const row = await prisma.legacyClassification.findUnique({
-          where: { accountId: targetAccountId },
-        });
-        const classification = classificationSchema.parse(
-          row?.classification ?? "unknown",
-        );
-        return {
-          ok: true as const,
-          classification,
-          revision: row?.revision ?? 0,
-          recurringAllowed:
-            classification === "confirmed_new" ||
-            (classification === "confirmed_legacy" &&
-              row?.tributeStopped === true),
-        };
-      } catch {
-        return accessFailure("unavailable");
-      }
-    },
+    /** Внутреннее чтение billing: покупка проверяет legacy gate своего же Account. */
+    readLegacyClassification: (targetAccountId: string) =>
+      readClassificationOf(targetAccountId),
   });
 }
 export type AccessGrants = ReturnType<typeof assembleAccessGrants>;

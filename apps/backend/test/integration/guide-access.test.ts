@@ -42,8 +42,9 @@ describe("independent guide, library, support and shared chat rights", () => {
     const preview = await grants.previewBatch(owner, { operationId: randomUUID(), rows: [{ rowKey: "fixture", accountId: buyer, source, sourceRef: randomUUID(), terms: { capabilities, startsAt: "2030-01-01T00:00:00Z", validUntil, reason: "Controlled #407 fixture" } }] });
     if (!preview.ok) throw new Error(preview.error.code);
     const result = await grants.applyBatch(owner, { operationId: randomUUID(), previewRef: preview.previewRef, expectedRevision: preview.revision, confirmedRows: ["fixture"] });
-    if (!result.ok || !result.rows[0]?.result.ok) throw new Error("Grant fixture failed");
-    return result.rows[0].result;
+    const row = result.ok ? result.rows[0]?.result : undefined;
+    if (row === undefined || !row.ok || !("grantRef" in row)) throw new Error("Grant fixture failed");
+    return row;
   }
   async function material(seriesIds: string[], publicationState: "draft" | "published" = "published") {
     const id = randomUUID(); const metadata = { title: id, summary: "Controlled guide access", access: "membership" as const, topicId, formatId: "guide", tagIds: [], seriesIds };

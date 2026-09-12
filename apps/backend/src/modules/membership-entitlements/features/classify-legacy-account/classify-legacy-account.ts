@@ -6,32 +6,26 @@ import { lockAccess } from "../../infrastructure/access-lock.js";
 import {
   accessFailure,
   accessFailureSchema,
-  classificationSchema,
-  reasonSchema,
-  sourceRefSchema,
+  classificationTermsAgree,
+  classificationTermsShape,
 } from "../../domain/access-grant.js";
 import {
   accessFingerprint,
   readAccessReceipt,
 } from "../../shared/access-receipts.js";
-const commandSchema = z
+import { writeClassification } from "../../shared/write-classification.js";
+export const classifyLegacyAccountCommandSchema = z
   .object({
     operationId: z.uuid(),
     accountId: z.uuid(),
     expectedRevision: z.number().int().nonnegative(),
-    classification: classificationSchema,
-    sourceRef: sourceRefSchema,
-    reason: reasonSchema,
-    bridgeEnabled: z.boolean(),
-    tributeStopped: z.boolean(),
+    ...classificationTermsShape,
   })
   .strict()
-  .refine(
-    (value) =>
-      value.classification === "confirmed_legacy" ||
-      (!value.bridgeEnabled && !value.tributeStopped),
-  );
-export type ClassifyLegacyAccountCommand = z.input<typeof commandSchema>;
+  .refine(classificationTermsAgree);
+export type ClassifyLegacyAccountCommand = z.input<
+  typeof classifyLegacyAccountCommandSchema
+>;
 const resultSchema = z.union([
   accessFailureSchema([
     "invalid_input",
@@ -50,7 +44,7 @@ export async function classifyLegacyAccount(
   input: ClassifyLegacyAccountCommand,
   now: Date,
 ): Promise<ClassifyLegacyAccountResult> {
-  const parsed = commandSchema.safeParse(input);
+  const parsed = classifyLegacyAccountCommandSchema.safeParse(input);
   if (!parsed.success) return accessFailure("invalid_input");
   const command = parsed.data;
   if ((await accounts.readIdentityForLink(command.accountId)) === undefined)
@@ -73,21 +67,15 @@ export async function classifyLegacyAccount(
     });
     if ((existing?.revision ?? 0) !== command.expectedRevision)
       return accessFailure("revision_conflict");
-    const data = {
-      classification: command.classification,
-      sourceRef: command.sourceRef,
-      reason: command.reason,
-      verifiedAt: now,
-      revision: command.expectedRevision + 1,
-      bridgeEnabled: command.bridgeEnabled,
-      tributeStopped: command.tributeStopped,
-    };
-    await transaction.legacyClassification.upsert({
-      where: { accountId: command.accountId },
-      create: { accountId: command.accountId, ...data },
-      update: data,
+    const revision = await writeClassification(transaction, {
+      accountId: command.accountId,
+      actorId,
+      operationId: command.operationId,
+      expectedRevision: command.expectedRevision,
+      terms: command,
+      now,
     });
-    const result = { ok: true as const, revision: data.revision };
+    const result = { ok: true as const, revision };
     await transaction.accessReceipt.create({
       data: {
         scope: actorId,
@@ -96,16 +84,6 @@ export async function classifyLegacyAccount(
         payload: command,
         result,
         createdAt: now,
-      },
-    });
-    await transaction.accessChange.create({
-      data: {
-        accountId: command.accountId,
-        actorId,
-        operationId: command.operationId,
-        kind: "legacy_classified",
-        reason: command.reason,
-        recordedAt: now,
       },
     });
     return result;

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { Accounts } from "../../../accounts/index.js";
-import type { AccessGrants } from "../../../membership-entitlements/index.js";
+import { recurringAllowedFor, type AccessGrants } from "../../../membership-entitlements/index.js";
 import {
   isOwnerReadOperation, ownerAccessFailure, ownerFailure, ownerOperationSchema, ownerPaymentFailure,
   ownerSuccessSchema, type OwnerOperation, type OwnerOutcome, type OwnerResult,
@@ -22,7 +22,8 @@ interface Dependencies {
   readonly pricing: Pick<BillingPricing, "manage" | "ownerCatalog">;
   readonly payments: Pick<BillingPayments, "reconcile">;
   readonly subscriptions: Pick<BillingSubscriptions, "cancel">;
-  readonly grants: Pick<AccessGrants, "previewBatch" | "applyBatch" | "changeGrant" | "listGrants">;
+  readonly grants: Pick<AccessGrants, "previewBatch" | "applyBatch" | "changeGrant" | "listGrants"
+    | "classifyLegacy" | "readClassification">;
   readonly bank: Tbank | undefined;
   readonly clock?: () => Date;
 }
@@ -136,6 +137,22 @@ export class BillingOperations {
         return result.ok
           ? { ok: true, operationRef, result: { outcome: "grants", value: result.value } } : ownerAccessFailure(result.error.code);
       }
+      case "grants.readClassification": {
+        const result = await grants.readClassification(actorId, command.accountId);
+        return result.ok
+          ? { ok: true, operationRef, result: { outcome: "classification", value: { accountId: command.accountId,
+            classification: result.classification, revision: result.revision, recurringAllowed: result.recurringAllowed } } }
+          : ownerAccessFailure(result.error.code);
+      }
+      case "grants.classify": {
+        // Вывод о списаниях принадлежит правам: владелец видит его тем же ответом, что и состояние.
+        const { operation: _operation, ...rest } = command;
+        const result = await grants.classifyLegacy(actorId, rest);
+        return result.ok
+          ? { ok: true, operationRef, result: { outcome: "classification", value: { accountId: command.accountId,
+            classification: command.classification, revision: result.revision, recurringAllowed: recurringAllowedFor(command) } } }
+          : ownerAccessFailure(result.error.code);
+      }
       case "grants.previewBatch": {
         const { operation: _operation, ...rest } = command;
         const result = await grants.previewBatch(actorId, rest);
@@ -197,7 +214,7 @@ function targetOf(command: OwnerOperation, outcome: OwnerOutcome): string {
     case "payments.read": case "payments.reconcile": case "refunds.decide": case "refunds.read": return command.purchaseRef;
     // Исполнение возврата ведёт к платежу своего решения.
     case "refunds.execute": return outcome.outcome === "refundDecision" ? outcome.value.purchaseRef : command.decisionRef;
-    case "subscriptions.cancel": case "grants.read": return command.accountId;
+    case "subscriptions.cancel": case "grants.read": case "grants.readClassification": case "grants.classify": return command.accountId;
     case "grants.previewBatch": return command.operationId;
     case "grants.applyBatch": return command.previewRef;
     case "grants.extend": case "grants.revoke": return command.grantRef;
