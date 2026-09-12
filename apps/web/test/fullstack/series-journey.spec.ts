@@ -55,7 +55,7 @@ test("guide programme marks the last opened material and preserves the Reader re
   // Гость видит состав и замки, но не получает ни прогресса, ни обещания чужого продолжения.
   await context.clearCookies();
   await page.goto("/guides/platform-inside/programme");
-  await expect(page.getByRole("list", { name: "Материалы руководства" }).getByText("Для участников", { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole("main").getByText("Для участников", { exact: true }).first()).toBeVisible();
   await expect(page.getByRole("progressbar")).toHaveCount(0);
   await expect(page.locator('[aria-current="step"]')).toHaveCount(0);
   await page.screenshot({ path: resolve(directory, `programme-guest-${testInfo.project.name}.png`), fullPage: true });

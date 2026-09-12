@@ -135,6 +135,9 @@ test("loads the safe PostgreSQL catalog through the client-owned Library query",
   await expect(topicFilters.getByRole("radio", { name: /^Platform/u })).toBeVisible();
   await expect(page.locator("[data-topic-card]")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Руководства", level: 2 })).toBeVisible();
+  // Каталог показывает первые руководства и раскрывается по требованию, поэтому нужное
+  // руководство ищется после раскрытия, а не в первой тройке.
+  await page.getByRole("button", { name: "Показать все" }).click();
   await expect(
     page.locator("[data-playlist-card]").filter({
       hasText: "Создание Platform Inside",
@@ -672,13 +675,13 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   });
   await expect(seriesLink).toHaveAttribute(
     "href",
-    "/series/platform-inside?from=%2Ftopics%2Fplatform%3Ffrom%3D%252Flibrary",
+    "/guides/platform-inside?from=%2Ftopics%2Fplatform%3Ffrom%3D%252Flibrary",
   );
   await seriesLink.focus();
   await expect(seriesLink).toBeFocused();
   await seriesLink.press("Enter");
   await expect(page).toHaveURL(
-    /\/series\/platform-inside\?from=%2Ftopics%2Fplatform%3Ffrom%3D%252Flibrary$/u,
+    /\/guides\/platform-inside\?from=%2Ftopics%2Fplatform%3Ffrom%3D%252Flibrary$/u,
   );
   await expect(page.getByRole("link", { name: "Назад к теме" })).toHaveAttribute(
     "href",
@@ -689,6 +692,9 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   ).toBeVisible();
   await expect(page).toHaveTitle("Создание Platform Inside — руководство · Sachkov Inside");
   await expectLibraryNavigationActive(page, testInfo);
+  // Материалы, состояния доступа и порядок живут в программе; страница продукта рассказывает.
+  await page.getByRole("link", { name: "Открыть программу", exact: true }).click();
+  await expect(page).toHaveURL(/\/guides\/platform-inside\/programme/u);
   await expect(
     page.locator("[data-series-order] [data-series-ordinal]").evaluateAll((items) =>
       items.map((item) => item.getAttribute("data-series-ordinal")),
@@ -714,7 +720,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
     .click();
   await expect(page).toHaveURL(/\/materials\/kak-ustroen-inside-platform\?/u);
   expect(new URL(page.url()).searchParams.get("from")).toBe(
-    "/series/platform-inside?from=%2Ftopics%2Fplatform%3Ffrom%3D%252Flibrary&page=1&at=kak-ustroen-inside-platform",
+    "/guides/platform-inside/programme?page=1&at=kak-ustroen-inside-platform",
   );
   const playlistBackLinks = page.getByRole("link", {
     name: "Все материалы руководства",
@@ -722,12 +728,12 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   await expect(playlistBackLinks).toHaveCount(1);
   await expect(playlistBackLinks.first()).toHaveAttribute(
     "href",
-    "/series/platform-inside?from=%2Ftopics%2Fplatform%3Ffrom%3D%252Flibrary&page=1&at=kak-ustroen-inside-platform",
+    "/guides/platform-inside/programme?page=1&at=kak-ustroen-inside-platform",
   );
   await expect(
     page.getByRole("link", { name: "Platform", exact: true }),
   ).toHaveAttribute("href", "/topics/platform");
-  await expect(page.getByRole("link", { name: "Назад к руководству" })).toHaveCount(1);
+  await expect(page.getByRole("link", { name: "Назад к программе" })).toHaveCount(1);
   await expect(page.locator("[data-reader-footer]")).not.toContainText("· №");
   await expect(page.locator("[data-related-state]")).toHaveCount(0);
 
@@ -742,32 +748,36 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
 test("uses the selected Series order for a shared Material and leaves standalone reading independent", async ({
   page,
 }) => {
-  await page.goto("/series/demo-series-harness");
+  // Порядок материала берёт та программа, из которой читатель пришёл: маршрут живёт там.
+  await page.goto("/guides/demo-series-harness/programme");
   await page.getByRole("link", { exact: true, name: "Demo #295 · Общий гайд" }).click();
   await expect(page.locator("[data-series-reader-navigation]")).toContainText("1 из 2");
-  await expect(
-    page.getByRole("link", { name: "Дальше" }),
-  ).toHaveAttribute(
-    "href",
-    "/materials/demo-295-finalnyy-gayd?from=%2Fseries%2Fdemo-series-harness%3Ffrom%3D%252Flibrary%26page%3D1%26at%3Ddemo-295-obshchiy-gayd",
-  );
+  const harnessNext = page.getByRole("link", { name: "Дальше" });
+  expect(
+    new URL(
+      (await harnessNext.getAttribute("href")) ?? "",
+      page.url(),
+    ).searchParams.get("from"),
+  ).toBe("/guides/demo-series-harness/programme?page=1&at=demo-295-obshchiy-gayd");
   await page.goBack();
-  await expect(page).toHaveURL(/\/series\/demo-series-harness$/u);
+  await expect(page).toHaveURL(/\/guides\/demo-series-harness\/programme/u);
   await page.goForward();
   await expect(
     page.getByRole("link", { name: "Дальше" }),
   ).toBeVisible();
 
-  await page.goto("/series/demo-series-review");
+  await page.goto("/guides/demo-series-review/programme");
   await page.getByRole("link", { exact: true, name: "Demo #295 · Общий гайд" }).click();
   await expect(page.locator("[data-series-reader-navigation]")).toContainText("1 из 3");
   const mixedNext = page.getByRole("link", {
     name: "Дальше",
   });
-  await expect(mixedNext).toHaveAttribute(
-    "href",
-    "/materials/demo-295-video-razbor?from=%2Fseries%2Fdemo-series-review%3Ffrom%3D%252Flibrary%26page%3D1%26at%3Ddemo-295-obshchiy-gayd",
-  );
+  expect(
+    new URL(
+      (await mixedNext.getAttribute("href")) ?? "",
+      page.url(),
+    ).searchParams.get("from"),
+  ).toBe("/guides/demo-series-review/programme?page=1&at=demo-295-obshchiy-gayd");
   await mixedNext.click();
   await expect(
     page.getByRole("link", { name: "Дальше" }),
