@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import { seedLocalDevelopment } from "../../src/development/seed-local-development.js";
@@ -7,6 +9,7 @@ import {
 } from "../../src/modules/content-library/index.js";
 import { anonymousSubject } from "../../src/modules/content-access/index.js";
 import { BillingPricing } from "../../src/modules/billing/index.js";
+import type { PriceSnapshot } from "../../src/modules/billing/domain/pricing.js";
 import { emptyCatalogVideos } from "../support/catalog-videos.js";
 import {
   assembleMaterials,
@@ -15,9 +18,6 @@ import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
-
-/** Серия, которую продаёт разовое предложение локального каталога. */
-const seedGuideId = "72000000-0000-4000-8000-000000000007";
 
 describe("local development seed", () => {
   let testDatabase: TestDatabase;
@@ -152,21 +152,62 @@ describe("local development seed", () => {
       }),
     );
   });
+});
 
-  test("puts two subscriptions and one guide purchase on sale without a second set", async () => {
-    const seed = await seedLocalDevelopment(testDatabase.prisma);
+/**
+ * Каталог стенда. Каждый сценарий сам возвращает каталог в засеянное состояние, поэтому порядок
+ * тестов не решает их исход, а миграции одной базы не повторяются на каждый тест.
+ */
+describe("local development offer catalog", () => {
+  const ownerActor = "72000000-0000-4000-8000-000000000590";
+  let testDatabase: TestDatabase;
+  let guideId: string;
+  let owner: BillingPricing;
+  let storefront: BillingPricing;
+
+  beforeAll(async () => {
+    testDatabase = await createMigratedTestDatabase();
     await seedLocalDevelopment(testDatabase.prisma);
-
-    const storefront = new BillingPricing({
+    const guide = await testDatabase.prisma.guide.findUniqueOrThrow({
+      select: { id: true },
+      where: { slug: "platform-inside" },
+    });
+    guideId = guide.id;
+    owner = new BillingPricing({
+      prisma: testDatabase.prisma,
+      accounts: {
+        checkPermission: () => Promise.resolve({ ok: true, allowed: true }),
+      },
+    });
+    storefront = new BillingPricing({
       prisma: testDatabase.prisma,
       accounts: {
         checkPermission: () => Promise.resolve({ ok: true, allowed: false }),
       },
     });
-    const forSale = await storefront.offers({ limit: 100 });
-    if (!forSale.ok) throw new Error(forSale.error.code);
+  });
+
+  afterAll(async () => {
+    await testDatabase.dispose();
+  });
+
+  async function forSale(): Promise<readonly PriceSnapshot[]> {
+    const result = await storefront.offers({ limit: 100 });
+    if (!result.ok) throw new Error(result.error.code);
+    return result.value.items;
+  }
+
+  async function seededOffer(): Promise<PriceSnapshot> {
+    const [first] = await forSale();
+    if (first === undefined) throw new Error("Expected a seeded offer for sale");
+    return first;
+  }
+
+  test("puts two subscriptions and one guide purchase on sale without a second set", async () => {
+    await seedLocalDevelopment(testDatabase.prisma);
+
     expect(
-      forSale.value.items.map((snapshot) => ({
+      (await forSale()).map((snapshot) => ({
         benefits: snapshot.offer.benefits,
         firstPriceKopecks: snapshot.firstPriceKopecks,
         mode: snapshot.paymentOption.mode,
@@ -189,55 +230,67 @@ describe("local development seed", () => {
         published: true,
       },
       {
-        benefits: [`guide:${seedGuideId}`],
+        benefits: [`guide:${guideId}`],
         firstPriceKopecks: 3_000,
         mode: "one_time",
         name: "Руководство «Создание Platform Inside»",
         published: true,
       },
     ]);
-    expect(seed.slug).toBe("kak-ustroen-inside-platform");
-    // Повторный seed использует receipt уже применённых владельческих команд, поэтому второго
-    // набора предложений и вариантов оплаты не появляется.
+    // Повторный seed сходится к тому же описанию, поэтому второго набора не появляется.
     await expect(testDatabase.prisma.billingOffer.count()).resolves.toBe(3);
-    await expect(
-      testDatabase.prisma.billingPaymentOption.count(),
-    ).resolves.toBe(3);
+    await expect(testDatabase.prisma.billingPaymentOption.count()).resolves.toBe(3);
   });
 
-  test("keeps an offer the owner took off sale off the storefront", async () => {
-    await seedLocalDevelopment(testDatabase.prisma);
-    const owner = "72000000-0000-4000-8000-000000000590";
-    const admin = new BillingPricing({
-      prisma: testDatabase.prisma,
-      accounts: {
-        checkPermission: () => Promise.resolve({ ok: true, allowed: true }),
+  test("leaves an offer the owner took off sale off the storefront", async () => {
+    const seeded = await seededOffer();
+    const unpublished = await owner.manage(ownerActor, {
+      expectedRevision: seeded.offer.revision,
+      id: seeded.offer.id,
+      operation: "offers.unpublish",
+      operationId: randomUUID(),
+    });
+    if (!unpublished.ok) throw new Error(unpublished.error.code);
+    try {
+      await seedLocalDevelopment(testDatabase.prisma);
+
+      expect((await forSale()).map((snapshot) => snapshot.offer.id)).not.toContain(
+        seeded.offer.id,
+      );
+    } finally {
+      await owner.manage(ownerActor, {
+        expectedRevision: unpublished.value.revision,
+        id: seeded.offer.id,
+        operation: "offers.publish",
+        operationId: randomUUID(),
+      });
+    }
+  });
+
+  test("brings a changed price back to the seeded catalog on the next run", async () => {
+    const seeded = await seededOffer();
+    const repriced = await owner.manage(ownerActor, {
+      expectedRevision: seeded.paymentOption.revision,
+      operation: "paymentOptions.save",
+      operationId: randomUUID(),
+      value: {
+        id: seeded.paymentOption.id,
+        mode: seeded.paymentOption.mode,
+        months: seeded.paymentOption.months,
+        offerId: seeded.offer.id,
+        priceKopecks: 777_000,
       },
     });
-    const seeded = await testDatabase.prisma.billingOffer.findFirstOrThrow({
-      orderBy: { id: "asc" },
-      select: { id: true, revision: true },
-    });
-    const unpublished = await admin.manage(owner, {
-      expectedRevision: seeded.revision,
-      id: seeded.id,
-      operation: "offers.unpublish",
-      operationId: "72000000-0000-4000-8000-000000000591",
-    });
-    expect(unpublished.ok).toBe(true);
+    expect(repriced.ok).toBe(true);
 
+    // Описание стенда — источник его цен, поэтому следующий запуск возвращает свою цену вместо
+    // того, чтобы упасть на изменившемся снимке команды и не дать локальному стеку подняться.
     await seedLocalDevelopment(testDatabase.prisma);
 
-    const forSale = await admin.offers({ limit: 100 });
-    if (!forSale.ok) throw new Error(forSale.error.code);
-    expect(forSale.value.items.map((snapshot) => snapshot.offer.id)).not.toContain(
-      seeded.id,
+    const restored = (await forSale()).find(
+      (snapshot) => snapshot.paymentOption.id === seeded.paymentOption.id,
     );
-    await expect(
-      testDatabase.prisma.billingOffer.findUniqueOrThrow({
-        select: { published: true },
-        where: { id: seeded.id },
-      }),
-    ).resolves.toEqual({ published: false });
+    expect(restored?.firstPriceKopecks).toBe(seeded.firstPriceKopecks);
+    await expect(testDatabase.prisma.billingPaymentOption.count()).resolves.toBe(3);
   });
 });

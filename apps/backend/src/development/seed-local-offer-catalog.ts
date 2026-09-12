@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import type { PlatformPrisma } from "../infrastructure/prisma/index.js";
 import { BillingPricing } from "../modules/billing/index.js";
 
@@ -7,16 +9,18 @@ import { BillingPricing } from "../modules/billing/index.js";
  * продажу приходится заводить руками перед каждой проверкой.
  *
  * Каталог заводится теми же командами, которыми его заводит владелец в `/authoring/billing`, а не
- * прямой записью в таблицы billing: проверка прав, revision и receipt повтора здесь настоящие.
- * Production-каталог и настоящие цены остаются решением владельца в админке; сюда они не попадают,
- * и seed демонстрационных данных исполняется только в development.
+ * прямой записью в таблицы billing: разбор команды, проверка revision и кросс-полевые правила
+ * здесь настоящие. Право на управление каталогом стенд объявляет сам — владельческий Account
+ * появляется позже. Production-каталог и настоящие цены остаются решением владельца в админке;
+ * сюда они не попадают, и seed демонстрационных данных исполняется только в development.
  */
 
 /**
  * Цены стенда собраны одним местом и заведомо не продуктовые: десять, двадцать и тридцать рублей.
  * Столько не стоит ни подписка, ни руководство, поэтому такой каталог нельзя принять за рабочий.
+ * Ниже не опускаемся: минимальную сумму платежа назначает терминал, и рубль может её не пройти.
  */
-const testPriceKopecks = {
+const localStandPriceKopecks = {
   materials: 1_000,
   materialsWithSupport: 2_000,
   guide: 3_000,
@@ -34,18 +38,9 @@ interface CatalogOffer {
   readonly option: {
     readonly id: string;
     readonly mode: "subscription" | "one_time";
+    /** Период списания подписки. У разовой покупки со своим сроком права он ни на что не влияет. */
     readonly months: number;
     readonly priceKopecks: number;
-  };
-  /**
-   * Постоянные идентификаторы владельческих команд. Повторный seed попадает в receipt уже
-   * применённой команды: второго набора предложений не появляется, а заведённое или изменённое
-   * руками остаётся как есть.
-   */
-  readonly operations: {
-    readonly save: string;
-    readonly option: string;
-    readonly publish: string;
   };
 }
 
@@ -60,12 +55,7 @@ function localCatalog(guideId: string): readonly CatalogOffer[] {
         id: "72000000-0000-4000-8000-000000000511",
         mode: "subscription",
         months: 1,
-        priceKopecks: testPriceKopecks.materials,
-      },
-      operations: {
-        save: "72000000-0000-4000-8000-000000000521",
-        option: "72000000-0000-4000-8000-000000000522",
-        publish: "72000000-0000-4000-8000-000000000523",
+        priceKopecks: localStandPriceKopecks.materials,
       },
     },
     {
@@ -77,12 +67,7 @@ function localCatalog(guideId: string): readonly CatalogOffer[] {
         id: "72000000-0000-4000-8000-000000000512",
         mode: "subscription",
         months: 1,
-        priceKopecks: testPriceKopecks.materialsWithSupport,
-      },
-      operations: {
-        save: "72000000-0000-4000-8000-000000000524",
-        option: "72000000-0000-4000-8000-000000000525",
-        publish: "72000000-0000-4000-8000-000000000526",
+        priceKopecks: localStandPriceKopecks.materialsWithSupport,
       },
     },
     {
@@ -95,29 +80,38 @@ function localCatalog(guideId: string): readonly CatalogOffer[] {
         id: "72000000-0000-4000-8000-000000000513",
         mode: "one_time",
         months: 1,
-        priceKopecks: testPriceKopecks.guide,
-      },
-      operations: {
-        save: "72000000-0000-4000-8000-000000000527",
-        option: "72000000-0000-4000-8000-000000000528",
-        publish: "72000000-0000-4000-8000-000000000529",
+        priceKopecks: localStandPriceKopecks.guide,
       },
     },
   ];
 }
 
+type OwnerCatalogResult = Awaited<ReturnType<BillingPricing["ownerCatalog"]>>;
+/** Снимок цены одного варианта оплаты — то, чем каталог отвечает своему владельцу. */
+type CatalogSnapshot = Extract<OwnerCatalogResult, { ok: true }>["value"]["items"][number];
+
+/**
+ * Приводит каталог стенда к описанию выше. Повторный запуск на совпадающем каталоге не отправляет
+ * ни одной команды, поэтому второго набора предложений не появляется и продажа, выключенная
+ * владельцем, остаётся выключенной. Изменённая цена — это изменение описания, и она применяется
+ * обычной владельческой командой с текущим revision, а не требует чистого тома.
+ */
 export async function seedLocalOfferCatalog(
   prisma: PlatformPrisma,
   target: { readonly actor: string; readonly guideId: string },
 ): Promise<void> {
   const pricing = new BillingPricing({
     prisma,
-    accounts: localCatalogPermission(target.actor),
+    accounts: localCatalogAccounts(target.actor),
   });
+  const current = await readOwnerCatalog(pricing);
   for (const offer of localCatalog(target.guideId)) {
-    const saved = await applyOwnerCommand(pricing, target.actor, {
-      operationId: offer.operations.save,
+    const live = current.get(offer.option.id);
+    if (live !== undefined && matchesDefinition(live, offer)) continue;
+    const saved = await apply(pricing, target.actor, {
       operation: "offers.save",
+      operationId: randomUUID(),
+      ...(live === undefined ? {} : { expectedRevision: live.offer.revision }),
       value: {
         id: offer.offerId,
         name: offer.name,
@@ -125,9 +119,13 @@ export async function seedLocalOfferCatalog(
         benefitPeriods: [...offer.benefitPeriods],
       },
     });
-    await applyOwnerCommand(pricing, target.actor, {
-      operationId: offer.operations.option,
+    // Конфликт revision означает, что предложение с этим идентификатором уже ведёт владелец.
+    // Стенд отступает: уронить seed значит не поднять локальный стек вовсе.
+    if (saved === undefined) continue;
+    const option = await apply(pricing, target.actor, {
       operation: "paymentOptions.save",
+      operationId: randomUUID(),
+      ...(live === undefined ? {} : { expectedRevision: live.paymentOption.revision }),
       value: {
         id: offer.option.id,
         offerId: offer.offerId,
@@ -136,37 +134,105 @@ export async function seedLocalOfferCatalog(
         priceKopecks: offer.option.priceKopecks,
       },
     });
-    // По умолчанию не продаётся ничего: сохранённое предложение выключено из продажи. Локальный
-    // стенд включает её отдельной владельческой командой, и это видно строкой, а не умолчанием.
-    await applyOwnerCommand(pricing, target.actor, {
-      operationId: offer.operations.publish,
+    if (option === undefined || live !== undefined) continue;
+    // По умолчанию не продаётся ничего: сохранённое предложение выключено из продажи. Новое
+    // предложение стенда включает в продажу отдельная владельческая команда — строкой ниже.
+    // Уже заведённому продажу не возвращаем: её состоянием распоряжается владелец.
+    await apply(pricing, target.actor, {
       operation: "offers.publish",
+      operationId: randomUUID(),
       id: offer.offerId,
       expectedRevision: saved.revision,
     });
   }
 }
 
-async function applyOwnerCommand(
+/** Весь неархивный каталог владельца по идентификатору варианта оплаты, включая снятый с продажи. */
+async function readOwnerCatalog(
   pricing: BillingPricing,
-  actor: string,
-  command: { readonly operation: string } & Record<string, unknown>,
-): Promise<{ readonly revision: number }> {
-  const result = await pricing.manage(actor, command);
-  if (!result.ok) {
-    throw new Error(
-      `Local offer catalog ${command.operation} failed: ${result.error.code}`,
-    );
-  }
-  return result.value;
+): Promise<ReadonlyMap<string, CatalogSnapshot>> {
+  const snapshots = new Map<string, CatalogSnapshot>();
+  let cursor: string | undefined;
+  do {
+    const page = await pricing.ownerCatalog({
+      limit: 100,
+      ...(cursor === undefined ? {} : { cursor }),
+    });
+    if (!page.ok) {
+      throw new Error(`Local offer catalog read failed: ${page.error.code}`);
+    }
+    for (const snapshot of page.value.items) {
+      snapshots.set(snapshot.paymentOption.id, snapshot);
+    }
+    cursor = page.value.nextCursor ?? undefined;
+  } while (cursor !== undefined);
+  return snapshots;
+}
+
+function matchesDefinition(
+  snapshot: CatalogSnapshot,
+  offer: CatalogOffer,
+): boolean {
+  const periods = snapshot.offer.benefitPeriods ?? [];
+  return (
+    snapshot.offer.id === offer.offerId &&
+    snapshot.offer.name === offer.name &&
+    sameValues(snapshot.offer.benefits, offer.benefits) &&
+    periods.length === offer.benefitPeriods.length &&
+    offer.benefitPeriods.every((period) =>
+      periods.some(
+        (live) =>
+          live.capability === period.capability && live.months === period.months,
+      ),
+    ) &&
+    (snapshot.paymentOption.mode ?? "subscription") === offer.option.mode &&
+    snapshot.paymentOption.months === offer.option.months &&
+    snapshot.paymentOption.priceKopecks === offer.option.priceKopecks
+  );
+}
+
+function sameValues(
+  live: readonly string[],
+  wanted: readonly string[],
+): boolean {
+  return (
+    live.length === wanted.length && wanted.every((value) => live.includes(value))
+  );
 }
 
 /**
- * Владельческий Account заводится release-бутстрапом уже после seed, поэтому право на каталог
- * объявляет сам стенд — и ровно для своего синтетического владельца, как это уже делает
- * авторская политика материалов. Всё остальное в команде проверяет тот же use case, что и админка.
+ * Одна владельческая команда каталога. Конфликт revision или операции возвращает `undefined`:
+ * такую строку каталога ведёт владелец, и стенд её не переписывает. Остальные ошибки — дефект
+ * описания выше, и они останавливают seed.
  */
-function localCatalogPermission(actor: string) {
+async function apply(
+  pricing: BillingPricing,
+  actor: string,
+  command: { readonly operation: string } & Record<string, unknown>,
+): Promise<{ readonly revision: number } | undefined> {
+  const result = await pricing.manage(actor, command);
+  if (result.ok) return result.value;
+  if (
+    result.error.code === "revision_conflict" ||
+    result.error.code === "operation_conflict"
+  ) {
+    process.stderr.write(
+      `Local offer catalog: ${command.operation} left to the owner (${result.error.code})\n`,
+    );
+    return undefined;
+  }
+  throw new Error(
+    `Local offer catalog ${command.operation} failed: ${result.error.code}`,
+  );
+}
+
+/**
+ * Права стенда для каталога. Владельческий Account заводится release-бутстрапом уже после seed,
+ * поэтому спросить настоящее право не у кого: стенд отвечает за своего синтетического владельца
+ * сам, как это уже делает авторская политика материалов. Всё остальное в команде — разбор,
+ * revision и кросс-полевые правила — проверяет тот же use case, что и админка.
+ */
+function localCatalogAccounts(actor: string) {
   return {
     checkPermission: ({ accountId }: { readonly accountId: string }) =>
       Promise.resolve({ ok: true as const, allowed: accountId === actor }),

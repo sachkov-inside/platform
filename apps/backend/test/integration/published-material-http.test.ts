@@ -54,15 +54,11 @@ describe("published Material HTTP contract", () => {
         title: "Developer Pipeline без потери контекста",
         access: "membership",
       },
-      access: {
-        availability: "locked",
-        // Локальный seed включает каталог в продажу, поэтому у закрытого материала есть CTA.
-        cta: {
-          label: "Получить доступ",
-          url: "https://t.me/tribute/app?startapp=inside",
-        },
-      },
+      access: { availability: "locked" },
     });
+    // Локальный seed включает каталог в продажу, поэтому у закрытого материала есть приглашение.
+    // Проверяется наличие, а не адрес: куда оно ведёт — отдельное продуктовое решение.
+    expect(response.json<{ access: { cta: unknown } }>().access.cta).not.toBeNull();
     expect(response.body).not.toContain("schemaVersion");
     expect(response.body).not.toContain("blocks");
     expect(response.body).not.toContain("membership_required");
@@ -203,11 +199,9 @@ describe("published Material HTTP contract", () => {
       }[];
     }>();
     expect(home.topics.map(({ slug }) => slug)).toContain("platform");
-    // Локальный seed включает каталог в продажу, поэтому подписка предлагается.
-    expect(home.membership).toEqual({
-      acquisitionUrl: "https://t.me/tribute/app?startapp=inside",
-      kind: "inactive",
-    });
+    // Локальный seed включает каталог в продажу, поэтому подписка предлагается. Проверяется
+    // состояние, а не маршрут покупателя: он остаётся отдельным продуктовым решением.
+    expect(home.membership).toMatchObject({ kind: "inactive" });
     expect(home.playlists).toHaveLength(4);
     expect(home.playlists.map(({ slug }) => slug)).toContain("demo-progress-series");
     expect(home.playlists[0]?.previewItems).toBeInstanceOf(Array);
@@ -470,9 +464,18 @@ describe("published Material HTTP contract", () => {
 
   test("hides the subscription without a variant on sale and shows the CTA with one", async () => {
     // Витрина следует каталогу, поэтому проверка начинается со снятого с продажи каталога seed.
+    // Сценарий возвращает продажу в конце: состояние каталога принадлежит ему, а не порядку тестов.
+    const seeded = await testDatabase.prisma.billingOffer.findMany({ select: { id: true }, where: { published: true } });
     await testDatabase.prisma.billingOffer.updateMany({ data: { published: false } });
-    const withoutSale = (await app.getHttpAdapter().getInstance().inject({ method: "GET", url: "/library/home" })).json<{ membership: unknown }>();
-    expect(withoutSale.membership).toEqual({ kind: "notOffered" });
+    try {
+      const withoutSale = (await app.getHttpAdapter().getInstance().inject({ method: "GET", url: "/library/home" })).json<{ membership: unknown }>();
+      expect(withoutSale.membership).toEqual({ kind: "notOffered" });
+    } finally {
+      await testDatabase.prisma.billingOffer.updateMany({
+        data: { published: true },
+        where: { id: { in: seeded.map(({ id }) => id) } },
+      });
+    }
 
     const offerId = randomUUID();
     const optionId = randomUUID();

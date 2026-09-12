@@ -462,15 +462,22 @@ reversed status settles it, and only then are the recorded access and renewal de
 The development seed leaves a catalog that can be bought immediately, so a local purchase check
 needs no manual setup: subscription «Материалы», subscription «Материалы + сопровождение», and a
 one-time purchase of the seeded `platform-inside` Series. Its prices are deliberately not product
-prices — ten, twenty and thirty roubles — and they are collected in one place at the top of
+prices, and they live in one place at the top of
 `apps/backend/src/development/seed-local-offer-catalog.ts`.
 
 The seed issues the same catalog commands the owner issues in `/authoring/billing`
-(`offers.save`, `paymentOptions.save`, `offers.publish`), so permissions, revision checks and
-replay receipts are the real ones. A saved offer is never on sale by default; the seed turns sale
-on with its own explicit `offers.publish` command. Repeating the seed replays those receipts
-instead of writing a second set, and an offer the owner later took off sale or edited by hand
-stays as the owner left it.
+(`offers.save`, `paymentOptions.save`, `offers.publish`), so command parsing, revision checks and
+the catalog's own rules are the real ones. Only the permission decision is the stand's own: the
+owner Account is bootstrapped after the seed, so there is nobody to ask yet. A saved offer is
+never on sale by default; the seed turns sale on with its own explicit `offers.publish` command.
+
+Each run brings those three offers back to the definition in that file and sends no command at all
+when they already match, so repeating the seed never writes a second set. Edit a price there and
+the next run applies it — no volume wipe. Two things the seed deliberately does not touch: an
+offer the owner created in the admin surface, and the sale switch of an existing seeded offer, so
+turning a variant off to test stays off across runs. If the owner takes over a seeded row outright,
+its revision no longer matches and the seed reports that row on stderr and leaves it alone rather
+than failing and blocking the stack from starting.
 
 This is the local stand only. The production catalog and real prices remain an owner decision in
 the admin surface, and no demonstration data is seeded there: `seed-local.ts` refuses to run
