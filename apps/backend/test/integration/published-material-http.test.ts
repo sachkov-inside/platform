@@ -200,8 +200,11 @@ describe("published Material HTTP contract", () => {
       }[];
     }>();
     expect(home.topics.map(({ slug }) => slug)).toContain("platform");
-    // Ни один вариант подписки не включён, поэтому подписка не предлагается вовсе.
-    expect(home.membership).toEqual({ kind: "notOffered" });
+    // Локальный seed включает каталог в продажу, поэтому подписка предлагается.
+    expect(home.membership).toEqual({
+      acquisitionUrl: "https://t.me/tribute/app?startapp=inside",
+      kind: "inactive",
+    });
     expect(home.playlists).toHaveLength(4);
     expect(home.playlists.map(({ slug }) => slug)).toContain("demo-progress-series");
     expect(home.playlists[0]?.previewItems).toBeInstanceOf(Array);
@@ -462,7 +465,12 @@ describe("published Material HTTP contract", () => {
     }
   });
 
-  test("shows the subscription CTA and inactive membership while a variant is on sale", async () => {
+  test("hides the subscription without a variant on sale and shows the CTA with one", async () => {
+    // Витрина следует каталогу, поэтому проверка начинается со снятого с продажи каталога seed.
+    await testDatabase.prisma.billingOffer.updateMany({ data: { published: false } });
+    const withoutSale = (await app.getHttpAdapter().getInstance().inject({ method: "GET", url: "/library/home" })).json<{ membership: unknown }>();
+    expect(withoutSale.membership).toEqual({ kind: "notOffered" });
+
     const offerId = randomUUID();
     const optionId = randomUUID();
     await testDatabase.prisma.billingOffer.create({
