@@ -15,10 +15,11 @@ import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
-import { declaredServer } from "../support/declared-api.js";
+import { declaredServer, type DeclaredServer } from "../support/declared-api.js";
 
 describe("published Material HTTP contract", () => {
   let app: NestFastifyApplication;
+  let server: DeclaredServer;
   let appPrisma: PlatformPrisma;
   let testDatabase: TestDatabase;
 
@@ -35,13 +36,14 @@ describe("published Material HTTP contract", () => {
       { logger: false },
     );
     await app.init();
-    await declaredServer(app.getHttpAdapter().getInstance()).ready();
+    server = declaredServer(app.getHttpAdapter().getInstance());
+    await server.ready();
     appPrisma = app.get(PrismaClientProvider);
   });
 
   test("returns an indexable locked teaser without protected body bytes", async () => {
     const bodyRead = vi.spyOn(appPrisma.material, "findFirst");
-    const response = await declaredServer(app.getHttpAdapter().getInstance()).inject({
+    const response = await server.inject({
       method: "GET",
       url: "/materials/developer-pipeline-bez-poteri-konteksta",
     });
@@ -79,7 +81,7 @@ describe("published Material HTTP contract", () => {
     const bodyRead = vi.spyOn(appPrisma.material, "findFirst");
     const accountRead = vi.spyOn(appPrisma.account, "findUnique");
     const permissionRead = vi.spyOn(appPrisma.accountPermission, "findUnique");
-    const response = await declaredServer(app.getHttpAdapter().getInstance()).inject({
+    const response = await server.inject({
       method: "GET",
       url: "/materials/kak-ustroen-inside-platform",
     });
@@ -140,7 +142,7 @@ describe("published Material HTTP contract", () => {
   });
 
   test("returns the published catalog without Material body bytes", async () => {
-    const response = await declaredServer(app.getHttpAdapter().getInstance()).inject({
+    const response = await server.inject({
       method: "GET",
       url: "/library/materials",
     });
@@ -176,7 +178,7 @@ describe("published Material HTTP contract", () => {
   });
 
   test("returns one bounded Home projection in visual section order", async () => {
-    const response = await declaredServer(app.getHttpAdapter().getInstance()).inject({
+    const response = await server.inject({
       method: "GET",
       url: "/library/home",
     });
@@ -234,7 +236,7 @@ describe("published Material HTTP contract", () => {
   });
 
   test("searches the catalog with canonical URL facets and sort", async () => {
-    const response = await declaredServer(app.getHttpAdapter().getInstance()).inject({
+    const response = await server.inject({
       method: "GET",
       url: "/library/materials?q=developer%20pipeline&topic=platform&format=guide&sort=relevance",
     });
@@ -264,15 +266,15 @@ describe("published Material HTTP contract", () => {
   });
 
   test("returns Topic, ordered Series and related generated views", async () => {
-    const topic = await declaredServer(app.getHttpAdapter().getInstance()).inject({
+    const topic = await server.inject({
       method: "GET",
       url: "/library/topics/platform",
     });
-    const series = await declaredServer(app.getHttpAdapter().getInstance()).inject({
+    const series = await server.inject({
       method: "GET",
       url: "/library/series/platform-inside",
     });
-    const related = await declaredServer(app.getHttpAdapter().getInstance()).inject({
+    const related = await server.inject({
       method: "GET",
       url: "/library/materials/kak-ustroen-inside-platform/related",
     });
@@ -323,7 +325,7 @@ describe("published Material HTTP contract", () => {
   });
 
   test("returns stable missing and invalid discovery outcomes", async () => {
-    const missing = await declaredServer(app.getHttpAdapter().getInstance()).inject({
+    const missing = await server.inject({
       method: "GET",
       url: "/library/topics/missing-topic",
     });
@@ -335,7 +337,7 @@ describe("published Material HTTP contract", () => {
       code: "discovery_not_found",
     });
 
-    const invalid = await declaredServer(app.getHttpAdapter().getInstance()).inject({
+    const invalid = await server.inject({
       method: "GET",
       url: "/library/series/INVALID",
     });
@@ -344,7 +346,7 @@ describe("published Material HTTP contract", () => {
   });
 
   test("returns a stable 404 outcome for an unpublished slug", async () => {
-    const response = await declaredServer(app.getHttpAdapter().getInstance()).inject({
+    const response = await server.inject({
       method: "GET",
       url: "/materials/not-published",
     });
@@ -360,7 +362,7 @@ describe("published Material HTTP contract", () => {
   });
 
   test("rejects an invalid slug at the Materials boundary", async () => {
-    const response = await declaredServer(app.getHttpAdapter().getInstance()).inject({
+    const response = await server.inject({
       method: "GET",
       url: "/materials/Invalid%20Slug",
     });
@@ -376,7 +378,7 @@ describe("published Material HTTP contract", () => {
   });
 
   test("rejects a malformed catalog cursor", async () => {
-    const response = await declaredServer(app.getHttpAdapter().getInstance()).inject({
+    const response = await server.inject({
       method: "GET",
       url: "/library/materials?after=not-a-cursor",
     });
@@ -415,7 +417,7 @@ describe("published Material HTTP contract", () => {
       "utf8",
     ).toString("base64url");
 
-    const response = await declaredServer(app.getHttpAdapter().getInstance()).inject({
+    const response = await server.inject({
       method: "GET",
       url: `/library/materials?series=platform-inside&sort=series&after=${after}`,
     });
@@ -476,7 +478,7 @@ describe("published Material HTTP contract", () => {
     const onSale = { id: { in: seeded.map(({ id }) => id) } };
     await testDatabase.prisma.billingOffer.updateMany({ data: { published: false }, where: onSale });
     try {
-      const withoutSale = (await declaredServer(app.getHttpAdapter().getInstance()).inject({ method: "GET", url: "/library/home" })).json<{ membership: unknown }>();
+      const withoutSale = (await server.inject({ method: "GET", url: "/library/home" })).json<{ membership: unknown }>();
       expect(withoutSale.membership).toEqual({ kind: "notOffered" });
     } finally {
       await testDatabase.prisma.billingOffer.updateMany({ data: { published: true }, where: onSale });
@@ -491,12 +493,12 @@ describe("published Material HTTP contract", () => {
       data: { id: optionId, revision: 1, offerId, months: 1, priceKopecks: 100_000 },
     });
 
-    const home = (await declaredServer(app.getHttpAdapter().getInstance()).inject({ method: "GET", url: "/library/home" })).json<{ membership: unknown }>();
+    const home = (await server.inject({ method: "GET", url: "/library/home" })).json<{ membership: unknown }>();
     expect(home.membership).toEqual({
       acquisitionUrl: "https://t.me/tribute/app?startapp=inside",
       kind: "inactive",
     });
-    const teaser = (await declaredServer(app.getHttpAdapter().getInstance()).inject({
+    const teaser = (await server.inject({
       method: "GET",
       url: "/materials/developer-pipeline-bez-poteri-konteksta",
     })).json<{ access: unknown }>();

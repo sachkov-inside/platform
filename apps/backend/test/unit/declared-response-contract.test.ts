@@ -94,4 +94,17 @@ describe("declared response contract", () => {
     expect(() => { assertDeclaredResponse(problem("quote_changed")); }).not.toThrow();
     expect(() => { assertDeclaredResponse(problem("quote_vanished")); }).toThrow(/allowed values/u);
   });
+
+  // Документ перечисляет варианты тела отказа через `oneOf`, и открытый вариант пересекается с
+  // закрытым. Честное тело фильтра подходит обоим: «ровно один» отверг бы правильный ответ.
+  test("accepts a refusal body that matches more than one declared variant", () => {
+    expect(() => {
+      assertDeclaredResponse({
+        method: "PUT",
+        url: "/reading-activity/materials/9f1a",
+        status: 400,
+        body: () => ({ type: "about:blank", title: "Bad request", status: 400, code: "invalid_request", detail: "materialId is not a UUID" }),
+      });
+    }).not.toThrow();
+  });
 });

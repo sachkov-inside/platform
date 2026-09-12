@@ -54,8 +54,16 @@ export interface InjectableServer<Response extends DeclaredResponseParts = Light
   ready(): PromiseLike<unknown>;
 }
 
+/** Сервер под контрактом: тот же `inject`, только ответ читается его собственным описанием. */
+export interface DeclaredServer<Response extends DeclaredResponseParts = LightMyRequestResponse> {
+  ready(): PromiseLike<unknown>;
+  inject(options: InjectOptions): Promise<Response>;
+}
+
 /** Fastify под контрактом: каждый ответ читается описанием, которое объявляет сам API. */
-export function declaredServer<Response extends DeclaredResponseParts>(server: InjectableServer<Response>) {
+export function declaredServer<Response extends DeclaredResponseParts>(
+  server: InjectableServer<Response>,
+): DeclaredServer<Response> {
   return {
     ready: () => server.ready(),
     inject: async (options: InjectOptions): Promise<Response> => {
@@ -88,6 +96,8 @@ export function assertDeclaredResponse(response: {
   }
   const declared = operation[String(response.status)];
   if (declared === undefined) {
+    // Необъявленный отказ описанию не противоречит: документ перечисляет отказы, которые обещает,
+    // а не все, которые возможны. Необъявленный успех противоречит — его обещания нет вовсе.
     if (succeeded) {
       throw new Error(
         `${address(response)} answered ${String(response.status)}, which its OpenAPI operation does not declare.`,
@@ -160,14 +170,15 @@ function parameterCount(declaredPath: string): number {
 }
 
 /**
- * Тело отказа — тоже объявленный ответ: `application/problem+json` описывает 620 из 745 ответов
- * документа, и пропустить их значило бы не встретиться с большей частью того, что проверяется.
+ * Тело отказа — тоже объявленный ответ: `application/problem+json` описывает 620 из 750 ответов
+ * документа с телом, и пропустить их значило бы не встретиться с большей частью проверяемого.
+ * Часть таких схем документ объявляет открытыми, часть закрытыми — решает документ, не сверка.
  */
 function declaredJsonSchema(declared: z.infer<typeof responseSchema>): object | undefined {
   const content = declared.content ?? {};
-  const mediaType = Object.keys(content).find(
-    (name) => name === "application/json" || name.endsWith("+json"),
-  );
+  const mediaType = Object.keys(content).includes("application/json")
+    ? "application/json"
+    : Object.keys(content).filter((name) => name.endsWith("+json")).sort()[0];
   const schema = mediaType === undefined ? undefined : content[mediaType]?.schema;
   return schema === null || typeof schema !== "object" ? undefined : schema;
 }
@@ -220,7 +231,14 @@ function translatedSchema(value: object): Record<string, unknown> {
     ),
     ...bounds,
   };
-  return source.nullable === true ? { anyOf: [schema, { type: "null" }] } : schema;
+  const alternatives = schema.oneOf;
+  // `oneOf` здесь — перечень вариантов ответа, а не исключающий выбор: его строит
+  // `problemDetailsOneOfContent` из перечисленных схем, и открытый вариант заведомо пересекается с
+  // закрытым. Требование «ровно один» отвергло бы честное тело отказа, которое подходит обоим.
+  const alternated = alternatives === undefined
+    ? schema
+    : { ...Object.fromEntries(Object.entries(schema).filter(([key]) => key !== "oneOf")), anyOf: alternatives };
+  return source.nullable === true ? { anyOf: [alternated, { type: "null" }] } : alternated;
 }
 
 function declaredFormats(value: unknown, found = new Set<string>()): Set<string> {
