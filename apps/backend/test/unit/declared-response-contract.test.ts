@@ -107,4 +107,36 @@ describe("declared response contract", () => {
       });
     }).not.toThrow();
   });
+
+  // Ответ о покупке — та самая поверхность, где утечка служебного поля обнулила бы раздел кабинета.
+  // HTTP-проверка семейства читает его через `declaredServer`; здесь закреплено, что именно
+  // отвергается, без базы и без стенда.
+  test("rejects a service field leaking into the purchase a buyer reads", () => {
+    const purchase = {
+      purchaseRef: "57976f6a-96c2-40c8-a812-9306ecdff7a6",
+      state: "pending",
+      paymentUrl: "https://securepay.tinkoff.ru/test",
+      snapshot: {
+        offer: { id: "5a1c6f10-0b33-4e2f-9a8c-7d4e12b0f001", revision: 2, name: "Synthetic subscription", benefits: ["materials"], archived: false, published: true },
+        paymentOption: { id: "5a1c6f10-0b33-4e2f-9a8c-7d4e12b0f002", revision: 1, offerId: "5a1c6f10-0b33-4e2f-9a8c-7d4e12b0f001", months: 1, priceKopecks: 200_000, archived: false },
+        promotion: null,
+        currency: "RUB",
+        timezone: "Europe/Moscow",
+        firstPriceKopecks: 200_000,
+        renewalPriceKopecks: 200_000,
+      },
+      access: "awaiting_payment",
+      fiscalization: "pending",
+      confirmedAt: null,
+      periodEndsAt: null,
+    };
+    const read = (body: unknown) => ({
+      method: "GET",
+      url: "/accounts/current/billing/purchases/57976f6a-96c2-40c8-a812-9306ecdff7a6",
+      status: 200,
+      body: () => body,
+    });
+    expect(() => { assertDeclaredResponse(read(purchase)); }).not.toThrow();
+    expect(() => { assertDeclaredResponse(read({ ...purchase, ok: true })); }).toThrow(/ok/u);
+  });
 });
