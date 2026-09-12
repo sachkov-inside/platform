@@ -40,15 +40,22 @@ const barrierBudgetMs = 15_000;
  */
 const crashWorkerStartBudgetMs = 30_000;
 /**
+ * Сколько ждём, пока брокер снимет подписку убитого воркера. Это не работа приложения, а реакция
+ * брокера на смерть соединения: измерено 3.0–3.8 с на свободной машине (фаза `before-confirm`, где
+ * воркер не подписывался, укладывается в 0.4–0.6 с). Бюджет взят с восьмикратным запасом к худшему
+ * измеренному. Честная граница этого числа: под нагрузкой раннера реакция брокера не измерялась.
+ */
+const brokerReapBudgetMs = 30_000;
+/**
  * Внешний срок сценария обязан превышать сумму его собственных бюджетов, иначе при зависании
  * побеждает он, а не то ожидание, которое знает причину, — и падение снова остаётся безымянным.
- * Самая длинная фаза `before-confirm` проходит пять барьеров: поведение, глубина очереди под
- * задержанным подтверждением, снятие подписки убитого воркера, запись в inbox и опустошение
- * очереди. Плюс запуск воркера. Потолок растёт не ради запаса, а потому что появился ещё один
+ * Самая длинная фаза `before-confirm` проходит четыре барьера на факты транспорта — поведение,
+ * глубина очереди под задержанным подтверждением, запись в inbox и опустошение очереди — и один
+ * барьер на реакцию брокера, у которого свой бюджет и своё измерение. Плюс запуск воркера. Потолок растёт не ради запаса, а потому что появился ещё один
  * барьер на факт: если сумма барьеров превысит потолок, при зависании снова победит он, и падение
  * снова останется безымянным.
  */
-const crashScenarioTimeoutMs = crashWorkerStartBudgetMs + barrierBudgetMs * 5 + 5_000;
+const crashScenarioTimeoutMs = crashWorkerStartBudgetMs + brokerReapBudgetMs + barrierBudgetMs * 4 + 5_000;
 /** Вместимость очереди стенда: на ней проверяется отказ по переполнению. */
 const queueCapacity = 2;
 /**
@@ -176,21 +183,28 @@ describe('Notifications real PostgreSQL / RabbitMQ transport', () => {
       try {
         // Запуск и проверяемое поведение ждут раздельно: первое зависит от машины, второе — нет.
         await worker.reaches(crashWorkerSignals.ready, crashWorkerStartBudgetMs);
-        await worker.reaches(crashWorkerSignals.boundary, barrierBudgetMs);
+        // Если воркер жив и молчит, важно знать, куда делось его сообщение: лежит ли оно в очереди,
+        // и есть ли на ней ещё чья-то подписка. Без этого падение сообщает лишь, что время вышло,
+        // и следующий разбор начинается с нуля. Локально этот бюджет расходуется на проценты
+        // (11–83 мс при 15 секундах), поэтому его истечение на раннере — само по себе находка.
+        try {
+          await worker.reaches(crashWorkerSignals.boundary, barrierBudgetMs);
+        } catch (error) {
+          const state = await admin(['list_queues', '-p', 'inside-test', 'name', 'messages', 'consumers', '--formatter', 'json']);
+          throw new Error(`${error instanceof Error ? error.message : String(error)} | broker: ${state.replace(/\s+/gu, ' ')}`, { cause: error });
+        }
         if (phase === 'before-confirm') {
           // Broker persistence is observed while the application is still denied its confirm.
           // Проверка живёт вне ожидания воркера: её провал должен называться своим именем.
           await eventually(async () => { expect(await queueDepth(admin, 'inside-test', lanes.billing.queue)).toBe(1); }, barrierBudgetMs);
         }
       } finally { child.kill('SIGKILL'); await once(child, 'exit'); }
-      // Мёртвый процесс не отписывается от очереди: подписку снимает брокер, заметив пропущенные
-      // heartbeat. Пока он этого не сделал, очередь отдаёт сообщения мёртвому потребителю — и
-      // следующий сценарий ждёт своего сообщения, которое ушло в никуда, а сценарий насыщения
-      // видит очередь, которая не наполняется. Ждём факт: подписок на очереди не осталось.
+      // Смерть воркера — это шаг сценария, а снятие его подписки — факт, который этот шаг
+      // производит. Пока брокер её держит, очередь отдаёт сообщения мёртвому потребителю.
       await eventually(async () => {
         expect(await queueConsumers(admin, 'inside-test', lanes.billing.queue),
-          'брокер всё ещё держит подписку убитого воркера').toBe(0);
-      }, barrierBudgetMs);
+          'broker still holds the killed worker subscription').toBe(0);
+      }, brokerReapBudgetMs);
       if (phase.includes('confirm')) {
         expect(await database.prisma.billingNotificationOutbox.findUniqueOrThrow({ where: { scope_messageId: { scope: 'billing', messageId: envelope.messageId } } })).toMatchObject({ publishedAt: null });
         await assembleNotificationOutbox(database.prisma.billingNotificationOutbox, ['billing']).relay('billing', message => publishNotification(producer, message));
@@ -218,14 +232,12 @@ describe('Notifications real PostgreSQL / RabbitMQ transport', () => {
     expect(await database.prisma.materialNotificationOutbox.findFirst()).toMatchObject({ publishedAt: null, attempts: 1 });
     await admin(['import_definitions', '/etc/rabbitmq/definitions.json']);
     const billing = await connect('billing');
-    // Насыщение имеет смысл только на очереди, которую никто не разбирает: живой потребитель
-    // уносит публикации, очередь не доходит до предела, и отказа не наступает вовсе. Это и было
-    // причиной «accepted 10 publishes without rejecting»: подписка убитого воркера предыдущего
-    // сценария ещё жила. Ждём факт, а не предполагаем его.
-    await eventually(async () => {
-      expect(await queueConsumers(admin, 'inside-test', lanes.billing.queue),
-        'очередь разбирает кто-то ещё, насыщения не будет').toBe(0);
-    }, barrierBudgetMs);
+    // Насыщение имеет смысл только на очереди, которую никто не разбирает. К этому месту факт уже
+    // обязан выполняться: его обеспечили предыдущие сценарии, каждый за собой. Поэтому здесь не
+    // ожидание, а утверждение: если подписка осталась, это дефект уборки, и он должен назваться
+    // сразу, а не прятаться за опросом.
+    expect(await queueConsumers(admin, 'inside-test', lanes.billing.queue),
+      'a leftover subscription still drains the queue, saturation cannot happen').toBe(0);
     // `import_definitions` возвращается раньше, чем очередь снова существует со своим пределом.
     // До этого момента брокер принимает всё, и прежний тест публиковал вслепую, утверждая то,
     // чего не контролировал: на медленной машине предел не успевал появиться, все публикации

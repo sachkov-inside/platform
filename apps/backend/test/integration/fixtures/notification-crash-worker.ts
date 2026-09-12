@@ -7,9 +7,11 @@ import { assembleNotificationTransport } from '../../../src/modules/notification
 const config = z.object({ databaseUrl: z.string(), url: z.string(), caFile: z.string(), phase: z.string() }).parse(JSON.parse(process.env.CRASH_CONFIG ?? 'null'));
 const prisma = createPrismaClient(config.databaseUrl);
 const connection = await connectNotificationBroker(config);
-// Готовность отделена от проверяемого поведения: загрузка tsx и TLS-рукопожатие с брокером занимают
-// столько, сколько занимают на этой машине, и не должны попадать в бюджет ожидания транспорта.
-// Подключение Prisma сюда не входит — клиент создаётся лениво и соединяется при первом запросе.
+// Готовность отделена от проверяемого поведения: загрузка tsx, TLS-рукопожатие с брокером и запуск
+// движка Prisma занимают столько, сколько занимают на этой машине, и не должны попадать в бюджет
+// ожидания транспорта. Prisma подключается лениво, поэтому её соединение открывается здесь явно:
+// иначе первый же запрос внутри проверяемого поведения оплатил бы запуск движка из чужого бюджета.
+await prisma.$connect();
 process.send?.(crashWorkerSignals.ready);
 const boundary = async () => { process.send?.(crashWorkerSignals.boundary); await new Promise(() => undefined); };
 if (config.phase.includes('confirm')) {
