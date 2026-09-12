@@ -121,7 +121,7 @@ function ProgressWalkthrough({ initialRead = ["text"], initialSurface = "home", 
 
 const meta = {
   title: "Features/Progress walkthrough", component: ProgressWalkthrough,
-  parameters: { controls: { disable: true }, docs: { description: { component: "Связанный визуальный сценарий #329–#332. Верхняя панель относится только к Storybook. Ниже используются компоненты Platform: Reader, ReadingAction, MaterialCard, SeriesProgress, HomePage, PlaylistCard и MaterialCard. Начатое руководство и недосмотренное видео стоят первыми в своих секциях без отдельных карточек продолжения. Отметки меняются только в памяти примера. Отметки и их ошибки: Features/Reading progress. Реальные Home и Series получают продолжение через private API; этот пример использует только демонстрационные данные." } } },
+  parameters: { controls: { disable: true }, docs: { description: { component: "Связанный визуальный сценарий #329–#332. Верхняя панель относится только к Storybook. Ниже используются компоненты Platform: Reader, ReadingAction, MaterialCard, HomePage, PlaylistCard и GuideProgrammeView. Начатое руководство и недосмотренное видео стоят первыми в своих секциях без отдельных карточек продолжения. Отметки меняются только в памяти примера. Отметки и их ошибки: Features/Reading progress. Реальные Home и Series получают продолжение через private API; этот пример использует только демонстрационные данные." } } },
 } satisfies Meta<typeof ProgressWalkthrough>;
 export default meta;
 type Story = StoryObj<typeof meta>;

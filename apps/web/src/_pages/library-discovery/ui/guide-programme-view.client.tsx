@@ -5,8 +5,7 @@ import Link from "next/link";
 import { billingActionClass, type PriceSnapshot } from "@/entities/subscription";
 import type { ReaderGuideArtifactsResult } from "@/features/guide-artifacts.reader";
 import { formatMaterialCount, type PublishedSeriesResult } from "@/features/library-discovery";
-import { collectionDiscoveryHref } from "@/shared/routing/material-reader";
-import { guideProductHref, guideProgrammeHref, guidePurchaseHref, subscriptionHrefFrom } from "@/shared/routing/subscription-route";
+import { guideProductHref, guideProgrammeHref, purchaseInvitation } from "@/shared/routing/subscription-route";
 import { Button } from "@/shared/ui/button";
 
 import { formatChapterCount } from "./guide-counts";
@@ -85,8 +84,8 @@ export function GuideProgrammeView({
 /**
  * Единственное действие продажи в программе. Цену и состав покупки показывает страница оплаты,
  * поэтому здесь только приглашение — читатель сначала видит бесплатные уроки и замки.
- * Без заведённой цены остаётся прежний путь, подписка, — но только пока она продаётся:
- * выключенную продажу нельзя предлагать ни отсюда, ни откуда-либо ещё.
+ * Куда вести, решает общее правило призыва к покупке: без заведённой цены остаётся прежний путь,
+ * подписка, — но только пока она продаётся.
  */
 function ProgrammePurchase({
   offer,
@@ -97,13 +96,17 @@ function ProgrammePurchase({
   readonly slug: string;
   readonly subscriptionOffered: boolean;
 }) {
-  if (offer === null) {
-    if (!subscriptionOffered) return null;
+  const invitation = purchaseInvitation({
+    // Витрина вернёт человека в программу, откуда он ушёл, а не на страницу продукта.
+    from: guideProgrammeHref(slug),
+    guide: { slug, sold: offer !== null },
+    subscriptionOffered,
+  });
+  if (invitation === null) return null;
+  if (invitation.kind === "subscription") {
     return (
       <Button asChild className={billingActionClass} variant="outline">
-        <Link href={subscriptionHrefFrom(collectionDiscoveryHref("series", slug, undefined))}>
-          Посмотреть тарифы
-        </Link>
+        <Link href={invitation.href}>Посмотреть тарифы</Link>
       </Button>
     );
   }
@@ -111,9 +114,9 @@ function ProgrammePurchase({
     <Button
       asChild
       className={`billing-invite h-auto min-h-11 rounded-full px-6 text-base font-semibold ${billingActionClass}`}
-      data-guide-offer={offer.paymentOption.id}
+      data-guide-offer={offer?.paymentOption.id}
     >
-      <Link href={guidePurchaseHref(slug)}>Оплатить сейчас</Link>
+      <Link href={invitation.href}>Оплатить сейчас</Link>
     </Button>
   );
 }

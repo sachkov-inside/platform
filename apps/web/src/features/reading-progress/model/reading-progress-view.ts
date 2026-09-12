@@ -10,8 +10,3 @@ export interface ReadingActionProps {
   readonly onSetReadingState: (isRead: boolean) => void;
   readonly onRefresh: () => void;
 }
-
-export type SeriesProgressView =
-  | { readonly kind: "ready"; readonly read: number; readonly total: number }
-  | { readonly kind: "loading" }
-  | { readonly kind: "unavailable" };
