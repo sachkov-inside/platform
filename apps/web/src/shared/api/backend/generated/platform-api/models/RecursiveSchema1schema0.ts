@@ -52,7 +52,40 @@ export type RecursiveSchema1schema0 = ({
 } | {
   content: Array<RecursiveSchema1schema0>;
   kind: 'callout';
-  tone: 'note' | 'tip' | 'warning';
+  title?: string;
+  tone: 'note' | 'tip' | 'warning' | 'example' | 'good' | 'bad' | 'definition';
+} | {
+  description?: string;
+  kind: 'resource_card';
+  title: string;
+  url: string;
+} | {
+  kind: 'agent_prompt';
+  text: string;
+  title?: string;
+} | {
+  content: Array<RecursiveSchema1schema0>;
+  kind: 'takeaways';
+  title: string;
+} | {
+  kind: 'labeled_list';
+  rows: Array<{
+    description?: string;
+    label: string;
+    name: string;
+  }>;
+} | {
+  content: Array<{
+    kind: 'text';
+    marks: Array<({
+      kind: 'bold' | 'code' | 'italic' | 'strike';
+    } | {
+      href: string;
+      kind: 'link';
+    })>;
+    text: string;
+  }>;
+  kind: 'key_point';
 } | {
   alt: string;
   assetId: string;

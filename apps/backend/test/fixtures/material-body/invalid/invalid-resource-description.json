@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "doc": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "resourceCard",
+        "attrs": {
+          "description": 12,
+          "nodeId": "94000000-0000-4000-8000-000000000013",
+          "title": "Спецификация",
+          "url": "https://example.com/spec"
+        }
+      }
+    ]
+  }
+}

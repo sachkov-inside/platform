@@ -10,7 +10,7 @@ import type {
   PrimaryVideoPresentation,
 } from "@/_pages/material-reader/model/material-reader-view";
 import type { SeriesReaderContext } from "@/_pages/material-reader/model/series-reader-context";
-import { materialTaxonomyLabel } from "@/entities/material";
+import { materialTaxonomyLabel, MaterialLessonBlock } from "@/entities/material";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { MaterialAssetFile, MaterialAssetImage } from "@/features/material-assets";
@@ -315,15 +315,31 @@ function ReaderBlockView({
       return <hr className="my-12 border-border" />;
     case "table":
       return <ReaderTable block={block} contentVersion={contentVersion} materialId={materialId} path={path} />;
+    case "agent_prompt":
     case "callout":
+    case "key_point":
+    case "labeled_list":
+    case "resource_card":
+    case "takeaways":
       return (
-        <aside
-          aria-label={calloutLabel(block.tone)}
-          className="mt-8 rounded-xl bg-secondary px-5 py-5 text-[0.9375rem] leading-7 text-secondary-foreground sm:px-6"
-        >
-          <p className="font-semibold">{calloutLabel(block.tone)}</p>
-          <ReaderBlocks blocks={block.content} contentVersion={contentVersion} materialId={materialId} path={path} />
-        </aside>
+        <MaterialLessonBlock
+          block={block}
+          rendering={{
+            renderBlock: (child, index) => (
+              <ReaderBlockView
+                block={child}
+                contentVersion={contentVersion}
+                key={[...path, index].join("-")}
+                materialId={materialId}
+                path={[...path, index]}
+              />
+            ),
+            renderBlocks: (blocks) => (
+              <ReaderBlocks blocks={blocks} contentVersion={contentVersion} materialId={materialId} path={path} />
+            ),
+            renderInline: (content) => <ReaderInline content={content} />,
+          }}
+        />
       );
     case "image":
       return (
@@ -469,6 +485,3 @@ function textContent(content: readonly ReaderText[]): string {
   return content.map(({ text }) => text).join("");
 }
 
-function calloutLabel(tone: "note" | "tip" | "warning"): string {
-  return tone === "tip" ? "Совет" : tone === "warning" ? "Важно" : "Примечание";
-}

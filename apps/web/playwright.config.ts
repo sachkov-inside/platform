@@ -14,6 +14,7 @@ export default defineConfig({
         "communications.spec.ts",
         "guide-product.spec.ts",
         "guide-purchase.spec.ts",
+        "legal.spec.ts",
         "link-indexing.spec.ts",
         "mobile-navigation.spec.ts",
         "subscription.spec.ts",

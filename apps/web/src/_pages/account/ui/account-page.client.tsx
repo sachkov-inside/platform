@@ -3,6 +3,7 @@ import { Check, Copy, RotateCcw } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { useId, useState } from "react";
 
+import { LegalDocumentLinks } from "@/entities/legal-document";
 import {
   bioLengthIsValid,
   displayNameLengthIsValid,
@@ -121,6 +122,11 @@ export function AccountPageClient({
             Ваш профиль
           </h2>
 
+          <p className="text-sm leading-6 text-muted-foreground">
+            Профиль заполняется по желанию. Имя, описание и изображение видят участники
+            с действующим доступом; без него материалы и покупки работают так же.
+          </p>
+
           {profile === null ? (
             <div className="flex items-center gap-4 border-b border-border pb-7">
               <ProfileAvatarPlaceholder displayName={displayName} />
@@ -238,6 +244,12 @@ export function AccountPageClient({
             </Button>
             <MutationNotice result={saveResult} />
           </div>
+
+          <LegalDocumentLinks
+            className="mt-7 border-t border-border pt-7"
+            label="Как обрабатываются данные профиля:"
+            keys={["privacy"]}
+          />
         </section>
       </form>
     </div>

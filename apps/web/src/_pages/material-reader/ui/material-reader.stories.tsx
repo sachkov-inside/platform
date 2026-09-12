@@ -5,10 +5,15 @@ import type {
   MaterialReaderMetadata,
   ReaderBlock,
 } from "@/_pages/material-reader/model/material-reader-view";
+import { calloutTones } from "@/entities/material";
 import {
   materialReaderHref,
   parseMaterialReaderReturnTarget,
 } from "@/shared/routing/material-reader";
+import {
+  guidePurchaseHref,
+  subscriptionHrefFrom,
+} from "@/shared/routing/subscription-route";
 import {
   MaterialReaderAccess,
   MaterialReaderLoading,
@@ -185,11 +190,134 @@ const body = [
   },
 ] as const satisfies readonly ReaderBlock[];
 
+/** Урок из блоков: по одному блоку каждого вида в обычном состоянии. */
+const lessonBody = [
+  {
+    kind: "key_point",
+    content: [
+      { kind: "text", text: "Issue хранит intent, pull request хранит evidence.", marks: [] },
+    ],
+  },
+  ...calloutTones.map((tone) => ({
+    kind: "callout" as const,
+    tone,
+    content: [
+      {
+        kind: "paragraph" as const,
+        content: [
+          { kind: "text" as const, text: `Врезка вида ${tone} в обычном состоянии.`, marks: [] },
+        ],
+      },
+    ],
+  })),
+  {
+    kind: "callout",
+    tone: "definition",
+    title: "Правило одного источника",
+    content: [
+      {
+        kind: "paragraph",
+        content: [{ kind: "text", text: "Один authority на каждый факт.", marks: [] }],
+      },
+    ],
+  },
+  {
+    kind: "resource_card",
+    title: "Спецификация Platform",
+    description: "Что обещает контракт доставки.",
+    url: "https://example.com/spec",
+  },
+  {
+    kind: "agent_prompt",
+    title: "Промпт для разбора",
+    text: "Разбери материал и предложи три правки.",
+  },
+  {
+    kind: "takeaways",
+    title: "Итоги урока",
+    content: [
+      {
+        kind: "paragraph",
+        content: [{ kind: "text", text: "Review закрыт", marks: [] }],
+      },
+      {
+        kind: "paragraph",
+        content: [{ kind: "text", text: "Owner дал merge GO", marks: [] }],
+      },
+    ],
+  },
+  {
+    kind: "labeled_list",
+    rows: [
+      { label: "ADR", name: "Решение", description: "Фиксирует необратимый выбор" },
+      { label: "Gate", name: "Проверка" },
+    ],
+  },
+] as const satisfies readonly ReaderBlock[];
+
+const longText =
+  "Длинный текст без переносов проверяет перенос строк и горизонтальную прокрутку: " +
+  "решение фиксируется один раз, а проверка повторяется на каждом изменении, поэтому " +
+  "формулировка остаётся длинной и подробной даже на узком экране.";
+
+/** Те же блоки с длинным содержимым: проверка переноса и ширины на телефоне. */
+const longLessonBody = [
+  {
+    kind: "key_point",
+    content: [{ kind: "text", text: longText, marks: [] }],
+  },
+  {
+    kind: "callout",
+    tone: "warning",
+    title: longText,
+    content: [
+      { kind: "paragraph", content: [{ kind: "text", text: longText, marks: [] }] },
+    ],
+  },
+  {
+    kind: "resource_card",
+    title: longText,
+    description: longText,
+    url: "https://example.com/очень/длинный/адрес/страницы/с/разделами",
+  },
+  {
+    kind: "agent_prompt",
+    title: longText,
+    text: `${longText}\n${longText}`,
+  },
+  {
+    kind: "takeaways",
+    title: longText,
+    content: [
+      { kind: "paragraph", content: [{ kind: "text", text: longText, marks: [] }] },
+    ],
+  },
+  {
+    kind: "labeled_list",
+    rows: [{ label: "Длинная метка", name: longText, description: longText }],
+  },
+] as const satisfies readonly ReaderBlock[];
+
+/** Незаполненные блоки: автор вставил блок и ещё не написал содержимое. */
+const emptyLessonBody = [
+  { kind: "key_point", content: [] },
+  { kind: "callout", tone: "note", content: [] },
+  { kind: "resource_card", title: "", url: "" },
+  { kind: "agent_prompt", text: "" },
+  { kind: "takeaways", title: "", content: [] },
+  { kind: "labeled_list", rows: [] },
+] as const satisfies readonly ReaderBlock[];
+
 type ReaderStoryMode =
+  | "access-guide"
+  | "access-not-offered"
   | "access-required"
   | "access-unavailable"
   | "desktop"
   | "error"
+  | "lesson-blocks"
+  | "lesson-blocks-empty"
+  | "lesson-blocks-long"
   | "loading"
   | "mobile"
   | "short"
@@ -253,6 +381,30 @@ function MaterialReaderState({ mode }: { readonly mode: ReaderStoryMode }) {
         />
       );
     }
+    case "lesson-blocks":
+      return (
+        <MaterialReaderView
+          body={lessonBody}
+          material={{ ...material, title: "Урок из готовых блоков" }}
+          primaryVideo={null}
+        />
+      );
+    case "lesson-blocks-long":
+      return (
+        <MaterialReaderView
+          body={longLessonBody}
+          material={{ ...material, title: "Урок с длинным содержимым" }}
+          primaryVideo={null}
+        />
+      );
+    case "lesson-blocks-empty":
+      return (
+        <MaterialReaderView
+          body={emptyLessonBody}
+          material={{ ...material, title: "Урок с незаполненными блоками" }}
+          primaryVideo={null}
+        />
+      );
     case "loading":
       return <MaterialReaderLoading />;
     case "video-processing":
@@ -281,10 +433,27 @@ function MaterialReaderState({ mode }: { readonly mode: ReaderStoryMode }) {
     case "access-required":
       return (
         <MaterialReaderAccess
-          cta={{
-            label: "Получить доступ",
-            url: "https://t.me/tribute/app?startapp=inside",
+          invitation={{
+            kind: "subscription",
+            href: subscriptionHrefFrom(materialReaderHref(material.slug)),
           }}
+          material={{ ...material, access: "membership" }}
+        />
+      );
+    case "access-guide":
+      return (
+        <MaterialReaderAccess
+          invitation={{
+            kind: "guide",
+            href: guidePurchaseHref(material.seriesMemberships[0].series.slug),
+          }}
+          material={{ ...material, access: "membership" }}
+        />
+      );
+    case "access-not-offered":
+      return (
+        <MaterialReaderAccess
+          invitation={null}
           material={{ ...material, access: "membership" }}
         />
       );
@@ -494,12 +663,12 @@ export const AccessRequired: Story = {
       canvas.getByRole("heading", { name: "Продолжение для участников" }),
     ).toBeInTheDocument();
     const membershipLink = canvas.getByRole("link", { name: "Получить доступ" });
+    // Покупка начинается внутри платформы: внешнего адреса и новой вкладки здесь больше нет.
     await expect(membershipLink).toHaveAttribute(
       "href",
-      "https://t.me/tribute/app?startapp=inside",
+      "/subscription?from=%2Fmaterials%2Fagent-first-skills",
     );
-    await expect(membershipLink).toHaveAttribute("target", "_blank");
-    await expect(membershipLink).toHaveAttribute("rel", "noopener noreferrer");
+    await expect(membershipLink).not.toHaveAttribute("target");
     await expect(canvas.queryByRole("list", { name: "Теги материала" })).not.toBeInTheDocument();
     await expect(canvas.queryByRole("list", { name: "Руководства материала" })).not.toBeInTheDocument();
     await expect(
@@ -508,6 +677,41 @@ export const AccessRequired: Story = {
       ),
     ).not.toBeInTheDocument();
     await expect(canvas.queryByText("Хороший skill начинается")).not.toBeInTheDocument();
+  },
+};
+
+/** Тот же отказ на телефоне: заголовок, объяснение и одно действие остаются читаемыми. */
+export const AccessRequiredMobile: Story = {
+  ...AccessRequired,
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+};
+
+/** Закрытый материал руководства со своей ценой: дальше идёт оплата именно этого руководства. */
+export const AccessGuidePurchase: Story = {
+  args: { mode: "access-guide" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("heading", { name: "Продолжение входит в руководство" }),
+    ).toBeInTheDocument();
+    await expect(canvas.getByRole("link", { name: "Купить руководство" })).toHaveAttribute(
+      "href",
+      "/guides/platform-inside/buy",
+    );
+  },
+};
+
+/** Продажа выключена: обещания купить нет, материал честно остаётся на месте. */
+export const AccessNotOffered: Story = {
+  args: { mode: "access-not-offered" },
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByText("Купить доступ сейчас нельзя, но материал останется здесь."),
+    ).toBeVisible();
+    await expect(canvas.queryByRole("link", { name: "Получить доступ" })).not.toBeInTheDocument();
+    await expect(canvas.queryByRole("link", { name: "Купить руководство" })).not.toBeInTheDocument();
   },
 };
 
@@ -551,6 +755,74 @@ export const ShortMaterial: Story = {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("link", { name: "Назад в Базу знаний" })).toBeVisible();
     await expect(canvasElement.querySelector('[data-reader-return="bottom"]')).toBeNull();
-    await expect(document.documentElement.scrollHeight).toBeLessThanOrEqual(window.innerHeight);
+    // Короткий материал умещается на экране целиком: ниже него идёт только общий футер сайта.
+    const body = canvasElement.querySelector("[data-reader-body]");
+    await expect(
+      body?.getBoundingClientRect().bottom ?? Number.POSITIVE_INFINITY,
+    ).toBeLessThanOrEqual(window.innerHeight);
+  },
+};
+
+export const LessonBlocks: Story = {
+  args: { mode: "lesson-blocks" },
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    for (const label of [
+      "Примечание",
+      "Совет",
+      "Важно",
+      "Пример",
+      "Хорошо",
+      "Плохо",
+      "Определение",
+    ]) {
+      await expect(canvas.getAllByLabelText(new RegExp(`^${label}`, "u")).length).toBeGreaterThan(0);
+    }
+    await expect(
+      canvas.getByLabelText("Определение: Правило одного источника"),
+    ).toBeInTheDocument();
+    const resource = canvas.getByRole("link", { name: /Открыть/u });
+    await expect(resource).toHaveAttribute("href", "https://example.com/spec");
+    await expect(canvas.getByRole("button", { name: /Копировать/u })).toBeInTheDocument();
+    await expect(canvas.getByRole("region", { name: "Итоги урока" })).toBeInTheDocument();
+    await expect(canvas.getByText("Фиксирует необратимый выбор")).toBeInTheDocument();
+    await expect(
+      canvas.getByText("Issue хранит intent, pull request хранит evidence."),
+    ).toBeInTheDocument();
+  },
+};
+
+export const LessonBlocksMobile: Story = {
+  args: { mode: "lesson-blocks" },
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole("region", { name: "Итоги урока" })).toBeInTheDocument();
+    const page = canvasElement.ownerDocument.documentElement;
+    await expect(page.scrollWidth).toBeLessThanOrEqual(page.clientWidth);
+  },
+};
+
+export const LessonBlocksLong: Story = {
+  args: { mode: "lesson-blocks-long" },
+  globals: { viewport: { isRotated: false, value: "mobile320" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole("button", { name: /Копировать/u })).toBeInTheDocument();
+    const page = canvasElement.ownerDocument.documentElement;
+    await expect(page.scrollWidth).toBeLessThanOrEqual(page.clientWidth);
+  },
+};
+
+export const LessonBlocksEmpty: Story = {
+  args: { mode: "lesson-blocks-empty" },
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    // Пустая карточка ресурса не предлагает открыть адрес, которого нет.
+    await expect(canvas.queryByRole("link", { name: /Открыть/u })).not.toBeInTheDocument();
+    await expect(canvas.getByLabelText("Примечание")).toBeInTheDocument();
+    await expect(canvas.getByRole("region", { name: "Итоги" })).toBeInTheDocument();
   },
 };
