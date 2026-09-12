@@ -9,7 +9,6 @@ import {
 } from "../../src/modules/content-library/index.js";
 import { anonymousSubject } from "../../src/modules/content-access/index.js";
 import { BillingPricing } from "../../src/modules/billing/index.js";
-import type { PriceSnapshot } from "../../src/modules/billing/domain/pricing.js";
 import { emptyCatalogVideos } from "../support/catalog-videos.js";
 import {
   assembleMaterials,
@@ -191,13 +190,14 @@ describe("local development offer catalog", () => {
     await testDatabase.dispose();
   });
 
-  async function forSale(): Promise<readonly PriceSnapshot[]> {
+  /** Витрина отдаёт только включённое в продажу, поэтому это и есть каталог глазами покупателя. */
+  async function forSale() {
     const result = await storefront.offers({ limit: 100 });
     if (!result.ok) throw new Error(result.error.code);
     return result.value.items;
   }
 
-  async function seededOffer(): Promise<PriceSnapshot> {
+  async function seededOffer() {
     const [first] = await forSale();
     if (first === undefined) throw new Error("Expected a seeded offer for sale");
     return first;
@@ -265,6 +265,28 @@ describe("local development offer catalog", () => {
         operationId: randomUUID(),
       });
     }
+  });
+
+  test("restores a seeded offer left without a payment option", async () => {
+    const seeded = await seededOffer();
+    // Прошлый запуск мог оборваться между созданием предложения и его варианта оплаты. Продавать
+    // в таком каталоге нечего, и сам по себе он не выправится: предложение уже есть, поэтому
+    // следующий запуск не может завести его заново.
+    await testDatabase.prisma.billingPaymentOption.delete({
+      where: { id: seeded.paymentOption.id },
+    });
+    expect((await forSale()).map((snapshot) => snapshot.offer.id)).not.toContain(
+      seeded.offer.id,
+    );
+
+    await seedLocalDevelopment(testDatabase.prisma);
+
+    const restored = (await forSale()).find(
+      (snapshot) => snapshot.offer.id === seeded.offer.id,
+    );
+    expect(restored?.paymentOption.id).toBe(seeded.paymentOption.id);
+    expect(restored?.firstPriceKopecks).toBe(seeded.firstPriceKopecks);
+    await expect(testDatabase.prisma.billingPaymentOption.count()).resolves.toBe(3);
   });
 
   test("brings a changed price back to the seeded catalog on the next run", async () => {

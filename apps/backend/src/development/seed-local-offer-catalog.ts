@@ -102,13 +102,26 @@ export async function seedLocalOfferCatalog(
 ): Promise<void> {
   const pricing = new BillingPricing({
     prisma,
-    accounts: localCatalogAccounts(target.actor),
+    accounts: standOwnerPermission(target.actor),
   });
   const current = await readOwnerCatalog(pricing);
   for (const offer of localCatalog(target.guideId)) {
     const live = current.get(offer.option.id);
     if (live !== undefined && matchesDefinition(live, offer)) continue;
-    const saved = await apply(pricing, target.actor, {
+    const saveOption = (expectedRevision?: number) =>
+      sendCatalogCommand(pricing, target.actor, {
+        operation: "paymentOptions.save",
+        operationId: randomUUID(),
+        ...(expectedRevision === undefined ? {} : { expectedRevision }),
+        value: {
+          id: offer.option.id,
+          offerId: offer.offerId,
+          mode: offer.option.mode,
+          months: offer.option.months,
+          priceKopecks: offer.option.priceKopecks,
+        },
+      });
+    const saved = await sendCatalogCommand(pricing, target.actor, {
       operation: "offers.save",
       operationId: randomUUID(),
       ...(live === undefined ? {} : { expectedRevision: live.offer.revision }),
@@ -119,26 +132,19 @@ export async function seedLocalOfferCatalog(
         benefitPeriods: [...offer.benefitPeriods],
       },
     });
-    // Конфликт revision означает, что предложение с этим идентификатором уже ведёт владелец.
-    // Стенд отступает: уронить seed значит не поднять локальный стек вовсе.
-    if (saved === undefined) continue;
-    const option = await apply(pricing, target.actor, {
-      operation: "paymentOptions.save",
-      operationId: randomUUID(),
-      ...(live === undefined ? {} : { expectedRevision: live.paymentOption.revision }),
-      value: {
-        id: offer.option.id,
-        offerId: offer.offerId,
-        mode: offer.option.mode,
-        months: offer.option.months,
-        priceKopecks: offer.option.priceKopecks,
-      },
-    });
+    if (saved === undefined) {
+      // Предложение есть, а живого варианта оплаты у него нет: прошлый запуск оборвался между
+      // двумя командами. Продавать в таком каталоге нечего, поэтому стенд досоздаёт только
+      // недостающий вариант и больше ничего не трогает.
+      if (live === undefined) await saveOption();
+      continue;
+    }
+    const option = await saveOption(live?.paymentOption.revision);
     if (option === undefined || live !== undefined) continue;
     // По умолчанию не продаётся ничего: сохранённое предложение выключено из продажи. Новое
     // предложение стенда включает в продажу отдельная владельческая команда — строкой ниже.
     // Уже заведённому продажу не возвращаем: её состоянием распоряжается владелец.
-    await apply(pricing, target.actor, {
+    await sendCatalogCommand(pricing, target.actor, {
       operation: "offers.publish",
       operationId: randomUUID(),
       id: offer.offerId,
@@ -177,7 +183,7 @@ function matchesDefinition(
   return (
     snapshot.offer.id === offer.offerId &&
     snapshot.offer.name === offer.name &&
-    sameValues(snapshot.offer.benefits, offer.benefits) &&
+    sameCapabilities(snapshot.offer.benefits, offer.benefits) &&
     periods.length === offer.benefitPeriods.length &&
     offer.benefitPeriods.every((period) =>
       periods.some(
@@ -191,7 +197,7 @@ function matchesDefinition(
   );
 }
 
-function sameValues(
+function sameCapabilities(
   live: readonly string[],
   wanted: readonly string[],
 ): boolean {
@@ -202,10 +208,10 @@ function sameValues(
 
 /**
  * Одна владельческая команда каталога. Конфликт revision или операции возвращает `undefined`:
- * такую строку каталога ведёт владелец, и стенд её не переписывает. Остальные ошибки — дефект
- * описания выше, и они останавливают seed.
+ * стенд сообщает о такой строке и не настаивает, потому что упавший seed не даёт подняться всему
+ * локальному стеку. Остальные ошибки — дефект описания выше, и они останавливают seed.
  */
-async function apply(
+async function sendCatalogCommand(
   pricing: BillingPricing,
   actor: string,
   command: { readonly operation: string } & Record<string, unknown>,
@@ -216,8 +222,8 @@ async function apply(
     result.error.code === "revision_conflict" ||
     result.error.code === "operation_conflict"
   ) {
-    process.stderr.write(
-      `Local offer catalog: ${command.operation} left to the owner (${result.error.code})\n`,
+    console.error(
+      `Local offer catalog: ${command.operation} left to the owner (${result.error.code})`,
     );
     return undefined;
   }
@@ -232,7 +238,7 @@ async function apply(
  * сам, как это уже делает авторская политика материалов. Всё остальное в команде — разбор,
  * revision и кросс-полевые правила — проверяет тот же use case, что и админка.
  */
-function localCatalogAccounts(actor: string) {
+function standOwnerPermission(actor: string) {
   return {
     checkPermission: ({ accountId }: { readonly accountId: string }) =>
       Promise.resolve({ ok: true as const, allowed: accountId === actor }),

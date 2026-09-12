@@ -461,7 +461,7 @@ reversed status settles it, and only then are the recorded access and renewal de
 
 The development seed leaves a catalog that can be bought immediately, so a local purchase check
 needs no manual setup: subscription «Материалы», subscription «Материалы + сопровождение», and a
-one-time purchase of the seeded `platform-inside` Series. Its prices are deliberately not product
+one-time purchase of the seeded `platform-inside` Guide. Its prices are deliberately not product
 prices, and they live in one place at the top of
 `apps/backend/src/development/seed-local-offer-catalog.ts`.
 
@@ -473,11 +473,12 @@ never on sale by default; the seed turns sale on with its own explicit `offers.p
 
 Each run brings those three offers back to the definition in that file and sends no command at all
 when they already match, so repeating the seed never writes a second set. Edit a price there and
-the next run applies it — no volume wipe. Two things the seed deliberately does not touch: an
-offer the owner created in the admin surface, and the sale switch of an existing seeded offer, so
-turning a variant off to test stays off across runs. If the owner takes over a seeded row outright,
-its revision no longer matches and the seed reports that row on stderr and leaves it alone rather
-than failing and blocking the stack from starting.
+the next run applies it — no volume wipe. That cuts both ways: the file owns the name, benefits and
+price of its three offers, so renaming or repricing one of them in the admin surface is restored on
+the next run. Two things the seed does not touch: an offer the owner created themselves, and the
+sale switch of an offer that already exists — turning a seeded variant off to test keeps it off
+across runs. When a catalog row cannot be reconciled at all, the seed names it on the console and
+moves on rather than failing, because a failed seed stops `api` and `web` from starting.
 
 This is the local stand only. The production catalog and real prices remain an owner decision in
 the admin surface, and no demonstration data is seeded there: `seed-local.ts` refuses to run
