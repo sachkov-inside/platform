@@ -1,3 +1,8 @@
+export {
+  calloutToneLabels,
+  calloutTones,
+  type CalloutTone,
+} from "./blocks/callout.js";
 export type {
   MaterialBlockDefinition,
   MaterialBlockIssueReport,
@@ -32,6 +37,7 @@ export type {
   HeadingLevel,
   MaterialBodyHeading,
   MaterialBodyResourceSummary,
+  MaterialLabeledRow,
   RenderedBlock,
   RenderedBlockKind,
   RenderedMark,
