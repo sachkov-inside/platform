@@ -18,6 +18,14 @@ import {
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const composeFile = resolve(root, "infra/identity/logto/compose.yaml");
 const composeEnvironment = resolve(root, "infra/identity/logto/compose.env");
+/**
+ * Где живёт база Logto. У одноразового окружения это его собственный compose-проект, у стенда —
+ * основной, где Logto включён профилем входа. Настройка здесь одна, чтобы у bootstrap не появился
+ * второй экземпляр ради второго места запуска.
+ */
+const logtoComposeArguments = process.env.LOGTO_STAND_COMPOSE_FILE === undefined
+  ? ["--env-file", composeEnvironment, "-f", composeFile]
+  : ["-f", process.env.LOGTO_STAND_COMPOSE_FILE, "--profile", "identity"];
 const { backendBaseUrl: platformResource, webBaseUrl } =
   readIdentityProofEndpoints(process.env);
 const endpoint = `https://identity.inside.localhost:${readIdentityProofPort(process.env, "IDENTITY_PROOF_LOGTO_PORT", 3301)}`;
@@ -109,10 +117,7 @@ function readSeededManagementSecret() {
     "docker",
     [
       "compose",
-      "--env-file",
-      composeEnvironment,
-      "-f",
-      composeFile,
+      ...logtoComposeArguments,
       "exec",
       "-T",
       "logto-postgres",
@@ -292,7 +297,7 @@ export async function ensureTelegramConnector(api) {
     return existing?.id;
   }
   // This is the disposable Logto owner's migration, never a Platform runtime DB access.
-  execFileSync("docker", ["compose", "--env-file", composeEnvironment, "-f", composeFile, "exec", "-T", "logto-postgres", "psql", "-U", "logto", "-d", "logto", "-v", "ON_ERROR_STOP=1"], {
+  execFileSync("docker", ["compose", ...logtoComposeArguments, "exec", "-T", "logto-postgres", "psql", "-U", "logto", "-d", "logto", "-v", "ON_ERROR_STOP=1"], {
     cwd: root, input: await readFile(resolve(root, "infra/identity/logto/telegram-identity.sql")), stdio: ["pipe", "pipe", "pipe"],
   });
   const config = {
@@ -349,9 +354,30 @@ async function writeRuntimeEnvironment(applicationId, applicationSecret) {
     WEB_BASE_URL: webBaseUrl,
   };
   await mkdir(dirname(envPath), { recursive: true });
+  await writeEnvFile(envPath, mergeEnv(current, updates));
+  // Тот же генератор описывает вход и для контейнеров стенда: адрес базы и бэкенда у них свой,
+  // поэтому сюда попадают только значения входа. Второго источника этих значений не существует.
+  const standPath = resolve(root, ".identity-proof/stand.env");
+  const standCurrent = await readFile(standPath, "utf8").catch(() => "");
+  await writeEnvFile(standPath, mergeEnv(standCurrent, {
+    LOGTO_ENDPOINT: updates.LOGTO_ENDPOINT,
+    LOGTO_ISSUER: updates.LOGTO_ISSUER,
+    LOGTO_AUDIENCE: updates.LOGTO_AUDIENCE,
+    LOGTO_JWKS_URL: updates.LOGTO_JWKS_URL,
+    LOGTO_APP_ID: updates.LOGTO_APP_ID,
+    LOGTO_APP_SECRET: updates.LOGTO_APP_SECRET,
+    LOGTO_COOKIE_SECRET: updates.LOGTO_COOKIE_SECRET,
+    IDENTITY_EMAIL_FINGERPRINT_KEY: updates.IDENTITY_EMAIL_FINGERPRINT_KEY,
+    WEB_BASE_URL: updates.WEB_BASE_URL,
+    // Корень стенда подписывает сертификат Logto; доверие ограничено этим файлом.
+    NODE_EXTRA_CA_CERTS: "/identity-tls/certificate.pem",
+  }));
+}
+
+async function writeEnvFile(envPath, contents) {
   const temporaryPath = `${envPath}.${String(process.pid)}.tmp`;
   try {
-    await writeFile(temporaryPath, mergeEnv(current, updates), { mode: 0o600 });
+    await writeFile(temporaryPath, contents, { mode: 0o600 });
     await chmod(temporaryPath, 0o600);
     await rename(temporaryPath, envPath);
     await chmod(envPath, 0o600);
