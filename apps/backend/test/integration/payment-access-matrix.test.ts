@@ -41,6 +41,10 @@ function asGrantBatch(result: OwnerResult) {
   const value = success(result);
   if (value.outcome !== "grantBatch") throw new Error(`Unexpected outcome ${value.outcome}`); return value;
 }
+function asClassification(result: OwnerResult) {
+  const value = success(result);
+  if (value.outcome !== "classification") throw new Error(`Unexpected outcome ${value.outcome}`); return value;
+}
 function asRefundDecision(result: OwnerResult) {
   const value = success(result);
   if (value.outcome !== "refundDecision") throw new Error(`Unexpected outcome ${value.outcome}`); return value.value;
@@ -189,12 +193,16 @@ describe("оплата, выдача прав и доступ к материа�
     await db.prisma.billingPurchase.updateMany({ where: { kind: "initial", lifecycleActive: true }, data: { lifecycleActive: false } });
   }
 
-  /** Покупатель с подтверждённым контактом: дальше он платит настоящим путём. */
-  async function buyer(): Promise<string> {
+  /**
+   * Покупатель с подтверждённым контактом: дальше он платит настоящим путём. Без решения
+   * владельца он остаётся неопределённым, и подписка ему недоступна.
+   */
+  async function buyer(options: { readonly classify?: boolean } = {}): Promise<string> {
     const id = randomUUID();
     await db.prisma.account.create({ data: { id, logtoIssuer: "https://identity.example.test", logtoSubject: id } });
-    expect(await grants.classifyLegacy(owner, { operationId: randomUUID(), accountId: id, expectedRevision: 0, classification: "confirmed_new",
-      sourceRef: id, reason: "Synthetic new buyer", bridgeEnabled: false, tributeStopped: false })).toMatchObject({ ok: true });
+    if (options.classify !== false)
+      expect(await grants.classifyLegacy(owner, { operationId: randomUUID(), accountId: id, expectedRevision: 0, classification: "confirmed_new",
+        sourceRef: id, reason: "Synthetic new buyer", bridgeEnabled: false, tributeStopped: false })).toMatchObject({ ok: true });
     const start = await contact.start(id, { operationId: randomUUID(), email: `${id}@example.test`, expectedRevision: 0 });
     if (!start.ok) throw new Error(start.error.code);
     expect(await contact.confirm(id, { operationId: randomUUID(), challengeRef: start.challengeRef, code: codes.get(start.challengeRef) })).toMatchObject({ ok: true });
@@ -490,6 +498,36 @@ describe("оплата, выдача прав и доступ к материа�
     const paid = await db.prisma.accessGrant.findMany({ where: { accountId: account, source: "paid" }, orderBy: { startsAt: "asc" } });
     expect(paid.at(-1)).toMatchObject({ capabilities: ["materials"], revokedAt: null, validUntil: new Date("2030-03-31T10:00:00Z") });
     expect(await decide(reader(account), libraryMaterial)).toMatchObject({ effect: "allow", validUntil: "2030-03-31T10:00:00.000Z" });
+  });
+
+  test("новый покупатель оформляет подписку только после решения владельца", async () => {
+    now = new Date(startedAt);
+    await ownSweeps();
+    const account = await buyer({ classify: false });
+    const { optionId } = await subscriptionOffer();
+    const { bank, payments, subscriptions, operations } = billingStand();
+
+    // Неопределённый покупатель проходит контакт и согласия, но списания ему запрещены.
+    expect(asClassification(await operations.execute(owner, { operation: "grants.readClassification",
+      operationId: randomUUID(), accountId: account })).value)
+      .toEqual({ accountId: account, classification: "unknown", revision: 0, recurringAllowed: false });
+    expect(await purchase(payments, account, optionId, { recurring: true }))
+      .toMatchObject({ ok: false, error: { code: "legacy_review_required" } });
+    expect(bank.initCalls).toBe(0);
+    expect(await db.prisma.billingPurchase.count({ where: { accountId: account } })).toBe(0);
+
+    // Владелец переводит аккаунт в «новый покупатель» тем же закрытым набором операций.
+    expect(asClassification(await operations.execute(owner, { operation: "grants.classify", operationId: randomUUID(),
+      accountId: account, expectedRevision: 0, classification: "confirmed_new", sourceRef: `matrix-${account}`,
+      reason: "Новый покупатель оформляет подписку", bridgeEnabled: false, tributeStopped: false })).value)
+      .toEqual({ accountId: account, classification: "confirmed_new", revision: 1, recurringAllowed: true });
+
+    const bought = value(await purchase(payments, account, optionId, { recurring: true }));
+    expect(await payments.notification(bank.notify(bought.purchaseRef, "AUTHORIZED", { RebillId: "synthetic-card" }))).toMatchObject({ ok: true });
+    expect(await payments.notification(bank.notify(bought.purchaseRef, "CONFIRMED"))).toMatchObject({ ok: true });
+    value(await payments.recover());
+    expect(value(await subscriptions.read(account)).subscription).toMatchObject({ state: "active", periodIndex: 1, paidUntil: subscriptionEndsAt });
+    expect(await decide(reader(account), libraryMaterial)).toMatchObject({ effect: "allow", reason: "active_membership", validUntil: subscriptionEndsAt });
   });
 
   test("выдача владельческой операцией открывает доступ, но не выдаётся за покупку", async () => {

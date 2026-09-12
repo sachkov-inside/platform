@@ -382,6 +382,12 @@ confirmed or declined payment, a cancelled renewal, an ended access term or a re
 a Billing fact with its own revisions, not the message, the channel or the delivery.
 _Avoid_: Notification, Delivery, email, reminder job
 
+**BuyerClassification**:
+The owner's recorded decision about who an Account is for billing: a confirmed new buyer, a
+confirmed prior buyer, or still undecided. Only a recorded decision allows recurring charges, and
+only a confirmed prior buyer carries the Tribute transition facts.
+_Avoid_: AccessGrant, MembershipEvidence, guessed status
+
 **LegacyCohort**:
 The separately established set of prior Inside participants whose existing access must be accounted
 for during the move to the new subscription. A new Inside-driven join does not add a participant.
