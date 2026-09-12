@@ -66,7 +66,10 @@ export const Ready: Story = {
     const canvas = within(canvasElement);
     await expect(canvas.getByText("Всё включено")).toBeInTheDocument();
     await expect(canvas.getByText("Без подписки")).toBeInTheDocument();
-    await expect(canvas.getByText("Руководство с сопровождением")).toBeInTheDocument();
+    // Купленное руководство само по себе открывает общий чат, и состав называет его.
+    await expect(
+      canvas.getByText("Руководство с сопровождением и общим чатом"),
+    ).toBeInTheDocument();
     await expect(canvas.getByRole("button", { name: /Купить за/u })).toBeEnabled();
     // Согласие на регулярные списания разовой покупке не показывается.
     await expect(

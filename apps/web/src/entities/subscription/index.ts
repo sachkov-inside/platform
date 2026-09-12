@@ -1,5 +1,6 @@
 export {
   accessCapabilitySchema,
+  accessComposition,
   attemptStateSchema,
   billingFailureCodeSchema,
   changeQuoteSchema,
