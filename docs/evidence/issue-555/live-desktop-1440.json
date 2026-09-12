@@ -1,0 +1,18 @@
+{
+  "loading": {
+    "top": 113,
+    "height": 30,
+    "fontSize": "24px",
+    "lineHeight": "30px",
+    "insideFrame": true,
+    "offsetInFrame": 0
+  },
+  "ready": {
+    "top": 113,
+    "height": 30,
+    "fontSize": "24px",
+    "lineHeight": "30px",
+    "insideFrame": true,
+    "offsetInFrame": 0
+  }
+}
