@@ -1,6 +1,6 @@
 import {
   ArrowLeft,
-  ArrowUpRight,
+  ArrowRight,
   LockKeyhole,
   SearchX,
   ShieldAlert,
@@ -15,6 +15,7 @@ import {
   libraryMaterialReaderReturnTarget,
   type MaterialReaderReturnTarget,
 } from "@/shared/routing/material-reader";
+import type { PurchaseInvitation } from "@/shared/routing/subscription-route";
 import {
   MaterialReaderHeader,
   MaterialReaderFooter,
@@ -68,22 +69,49 @@ export function MaterialReaderNotFound({
   );
 }
 
+/**
+ * Слова отказа собраны рядом: заголовок, объяснение и действие меняются вместе, потому что они
+ * рассказывают одну историю. Разложенные по трём условиям, они разъезжаются при первой правке.
+ */
+const accessCopy = {
+  guide: {
+    title: "Продолжение входит в руководство",
+    explanation: "Купите руководство — и весь его маршрут откроется целиком.",
+  },
+  subscription: {
+    title: "Продолжение для участников",
+    explanation: "Откройте полный материал и весь маршрут по теме.",
+  },
+  none: {
+    title: "Продолжение для участников",
+    explanation: "Купить доступ сейчас нельзя, но материал останется здесь.",
+  },
+} as const;
+
+/** Действие есть только там, где есть что купить. */
+const accessAction = {
+  guide: "Купить руководство",
+  subscription: "Получить доступ",
+} as const;
+
+/**
+ * Закрытый материал: отказ объяснён словами и даёт ровно один следующий шаг внутри платформы —
+ * оплату выбранного руководства или витрину подписки. Когда покупать нечего, обещания нет.
+ */
 export function MaterialReaderAccess({
   readingAction,
-  cta,
+  invitation,
   material,
   returnTarget = libraryMaterialReaderReturnTarget,
   seriesContext = null,
 }: {
   readonly readingAction?: React.ReactNode;
-  readonly cta: {
-    readonly label: "Получить доступ";
-    readonly url: string;
-  } | null;
+  readonly invitation: PurchaseInvitation | null;
   readonly material: MaterialReaderMetadata;
   readonly returnTarget?: MaterialReaderReturnTarget;
   readonly seriesContext?: SeriesReaderContext | null;
 }) {
+  const copy = accessCopy[invitation?.kind ?? "none"];
   return (
     <div data-material-reader-state="access-required">
       <ReaderReturnNavigation repeatAtBottom={seriesContext === null} target={returnTarget}>
@@ -110,31 +138,29 @@ export function MaterialReaderAccess({
                 <LockKeyhole aria-hidden="true" className="size-5" />
               </span>
               <h2
-                className="mt-4 text-2xl font-semibold tracking-[-0.04em]"
+                className="mt-4 text-balance text-2xl font-semibold tracking-[-0.04em]"
                 id="access-heading"
               >
-                Продолжение для участников
+                {copy.title}
               </h2>
-              <p className="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
-                {cta === null
-                  ? "Подписка сейчас не продаётся, но материал останется здесь."
-                  : "Откройте полный материал и весь маршрут по теме."}
+              <p className="mt-2 max-w-sm text-pretty text-sm leading-6 text-muted-foreground">
+                {copy.explanation}
               </p>
-              {cta === null ? null : (
-                <div className="mt-5 flex flex-wrap gap-3">
+              {invitation === null ? null : (
+                <div className="mt-5 flex flex-wrap justify-center gap-3">
                   <Button
                     asChild
-                    className="h-11 rounded-xl bg-accent px-4 text-white hover:bg-accent-hover"
+                    className="h-auto min-h-11 max-w-full whitespace-normal rounded-xl bg-accent px-4 text-white hover:bg-accent-hover"
                     size="lg"
                   >
-                    <a href={cta.url} rel="noopener noreferrer" target="_blank">
-                      {cta.label}
-                      <ArrowUpRight
+                    <Link href={invitation.href}>
+                      {accessAction[invitation.kind]}
+                      <ArrowRight
                         aria-hidden="true"
-                        className="text-sidebar-primary transition-transform duration-[var(--motion-duration-fast)] ease-[var(--motion-ease-out)] group-hover/button:-translate-y-0.5 group-hover/button:translate-x-0.5 motion-reduce:transition-none"
+                        className="shrink-0 text-sidebar-primary transition-transform duration-[var(--motion-duration-fast)] ease-[var(--motion-ease-out)] group-hover/button:translate-x-0.5 motion-reduce:transition-none"
                         data-icon="inline-end"
                       />
-                    </a>
+                    </Link>
                   </Button>
                 </div>
               )}

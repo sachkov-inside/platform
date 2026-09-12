@@ -74,10 +74,10 @@ export const LockedSeriesOffersSubscription: Story = {
   args: { result: lockedResult, learning: { kind: "guest" }, subscriptionOffered: true },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    // Контекст руководства сохраняется в ссылке, иначе после входа покупатель теряет место.
+    // Витрина возвращает человека в программу, откуда он ушёл, а не на страницу продукта.
     await expect(canvas.getByRole("link", { name: "Посмотреть тарифы" })).toHaveAttribute(
       "href",
-      "/subscription?from=%2Fguides%2Fplatform-inside",
+      "/subscription?from=%2Fguides%2Fplatform-inside%2Fprogramme",
     );
   },
 };

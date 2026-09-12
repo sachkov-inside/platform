@@ -66,7 +66,12 @@ test("закрытый материал отдаёт карточку назва
     "content",
     /index/u,
   );
-  await expect(page.getByRole("heading", { name: "Продолжение для участников" })).toBeVisible();
+  // Заголовок отказа зависит от того, что сейчас продаётся: своё руководство или подписка.
+  await expect(
+    page.getByRole("heading", {
+      name: /^Продолжение (для участников|входит в руководство)$/u,
+    }),
+  ).toBeVisible();
   await expect(page.locator("[data-reader-body]")).toHaveCount(0);
   await expect(page.locator('[data-material-reader-state="available"]')).toHaveCount(0);
 });
