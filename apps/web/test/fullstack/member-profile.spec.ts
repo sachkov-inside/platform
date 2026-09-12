@@ -6,6 +6,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
 import { signInFullStack } from "../support/full-stack-session";
+import { evidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 
 test("shows private Account Telegram and Membership presentation without disclosure", async ({
   context,
@@ -46,13 +47,13 @@ test("shows private Account Telegram and Membership presentation without disclos
     /\d{1,2}[.:]\d{2}|\d{4}-\d{2}-\d{2}/u,
   );
 
-  const evidenceDirectory = resolve(process.cwd(), "../../docs/evidence/issue-122");
+  const snapshots = evidenceDirectory("issue-122");
   const reviewDirectory = resolve(process.cwd(), "../../.impeccable/review");
-  await mkdir(evidenceDirectory, { recursive: true });
+  await mkdir(snapshots, { recursive: true });
   await mkdir(reviewDirectory, { recursive: true });
   const viewportName = testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop";
   await page.screenshot({
-    path: resolve(evidenceDirectory, `onboarding-unlinked-${viewportName}.png`),
+    path: resolve(snapshots, `onboarding-unlinked-${viewportName}.png`),
   });
   await page.screenshot({
     path: resolve(reviewDirectory, `issue-122-onboarding-unlinked-${viewportName}.png`),
@@ -88,7 +89,7 @@ test("shows private Account Telegram and Membership presentation without disclos
   const accessPanel = page.getByRole("region", { exact: true, name: "Telegram" });
   await expect(accessPanel).toBeVisible();
   await accessPanel.screenshot({
-    path: resolve(evidenceDirectory, `account-unlinked-${viewportName}.png`),
+    path: resolve(snapshots, `account-unlinked-${viewportName}.png`),
   });
   await accessPanel.screenshot({
     path: resolve(reviewDirectory, `issue-122-account-unlinked-${viewportName}.png`),
@@ -160,7 +161,7 @@ test("creates or edits the Account Profile and preserves the member projection",
   await expect(horizontalCrop).toBeFocused();
   await cropDialog.getByLabel("Масштаб").press("ArrowRight");
 
-  const avatarEvidenceDirectory = resolve(process.cwd(), "../../docs/evidence/issue-153");
+  const avatarEvidenceDirectory = evidenceDirectory("issue-153");
   const reviewDirectory = resolve(process.cwd(), "../../.impeccable/review");
   await mkdir(avatarEvidenceDirectory, { recursive: true });
   await mkdir(reviewDirectory, { recursive: true });
@@ -219,16 +220,16 @@ test("creates or edits the Account Profile and preserves the member projection",
   }));
   expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
 
-  const evidenceDirectory = resolve(process.cwd(), "../../docs/evidence/issue-189");
+  const snapshots = evidenceDirectory("issue-189");
   await mkdir(reviewDirectory, { recursive: true });
-  await mkdir(evidenceDirectory, { recursive: true });
+  await mkdir(snapshots, { recursive: true });
   const screenshotName =
     testInfo.project.name === "mobile-chromium" ? "mobile.png" : "desktop.png";
   await publicPathCode.evaluate((element) => {
     element.textContent = "/members/<opaque-public-id>";
   });
   await page.screenshot({ path: resolve(reviewDirectory, screenshotName) });
-  await page.screenshot({ path: resolve(evidenceDirectory, screenshotName) });
+  await page.screenshot({ path: resolve(snapshots, screenshotName) });
   if (testInfo.project.name === "desktop-chromium") {
     await page.getByRole("main").screenshot({
       path: resolve(reviewDirectory, "hero-repro.png"),

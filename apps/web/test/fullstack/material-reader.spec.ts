@@ -4,6 +4,7 @@ import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 
 import { signInFullStack } from "../support/full-stack-session";
+import { evidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 
 for (const width of [320, 390, 1440]) {
   test(`Home series lift stays visible at ${String(width)}px`, async ({ page }, testInfo) => {
@@ -88,9 +89,9 @@ test("server-renders the mobile-first Home showcase from ContentLibrary", async 
   const material = page.getByRole("region", { name: "Материалы", exact: true }).locator('a[href^="/materials/"]').first();
   await expect(material).toHaveAttribute("href", /\?from=%2Flibrary%3Ftopic%3Dplatform$/u);
   await topicFilters.scrollIntoViewIfNeeded();
-  const evidenceDirectory = resolve(process.cwd(), "../../docs/evidence/issue-432");
-  await mkdir(evidenceDirectory, { recursive: true });
-  await page.screenshot({ path: resolve(evidenceDirectory, `${testInfo.project.name}-topic-filter.png`), animations: "disabled" });
+  const snapshots = evidenceDirectory("issue-432");
+  await mkdir(snapshots, { recursive: true });
+  await page.screenshot({ path: resolve(snapshots, `${testInfo.project.name}-topic-filter.png`), animations: "disabled" });
   await material.click();
   await page.getByRole("link", { name: "Назад в Базу знаний", exact: true }).click();
   await expect(page).toHaveURL(/\/library\?topic=platform$/u);
@@ -834,17 +835,14 @@ async function captureIssue93Evidence(
   name: string,
 ) {
   if (process.env.CAPTURE_ISSUE_93_EVIDENCE !== "1") return;
-  const evidenceDirectory = resolve(
-    process.cwd(),
-    "../../docs/evidence/issue-93",
-  );
-  await mkdir(evidenceDirectory, { recursive: true });
+  const snapshots = evidenceDirectory("issue-93");
+  await mkdir(snapshots, { recursive: true });
   const viewport =
     testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop";
   await page.screenshot({
     animations: "disabled",
     fullPage: false,
-    path: resolve(evidenceDirectory, `${name}-${viewport}.png`),
+    path: resolve(snapshots, `${name}-${viewport}.png`),
   });
 }
 
@@ -854,17 +852,14 @@ async function captureIssue195Evidence(
   name: string,
 ) {
   if (process.env.CAPTURE_ISSUE_195_EVIDENCE !== "1") return;
-  const evidenceDirectory = resolve(
-    process.cwd(),
-    "../../docs/evidence/issue-195",
-  );
-  await mkdir(evidenceDirectory, { recursive: true });
+  const snapshots = evidenceDirectory("issue-195");
+  await mkdir(snapshots, { recursive: true });
   const viewport =
     testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop";
   await page.screenshot({
     animations: "disabled",
     fullPage: false,
-    path: resolve(evidenceDirectory, `${name}-${viewport}.png`),
+    path: resolve(snapshots, `${name}-${viewport}.png`),
   });
 }
 
@@ -874,17 +869,14 @@ async function captureIssue271Evidence(
   name: string,
 ) {
   if (process.env.CAPTURE_ISSUE_271_EVIDENCE !== "1") return;
-  const evidenceDirectory = resolve(
-    process.cwd(),
-    "../../docs/evidence/issue-271",
-  );
-  await mkdir(evidenceDirectory, { recursive: true });
+  const snapshots = evidenceDirectory("issue-271");
+  await mkdir(snapshots, { recursive: true });
   const viewport =
     testInfo.project.name === "mobile-chromium" ? "390x844" : "1440x1024";
   await page.screenshot({
     animations: "disabled",
     fullPage: false,
-    path: resolve(evidenceDirectory, `${name}-${viewport}.png`),
+    path: resolve(snapshots, `${name}-${viewport}.png`),
   });
 }
 

@@ -8,10 +8,11 @@ import {
   fullStackBaseUrl,
   signInFullStack,
 } from "../support/full-stack-session";
+import { evidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 
 // Руководство разделено на продукт, программу и оплату (#509). Место чтения возвращает карточка
 // материала в программе и `at=` в адресе: сводки прогресса, полосы и кнопки «Продолжить» здесь нет.
-const evidenceDirectory = resolve(process.cwd(), "../../docs/evidence/issue-529");
+const snapshots = evidenceDirectory("issue-529");
 
 test("guide product leads to the programme and the programme keeps the Reader return position", async ({ page, context }, testInfo) => {
   await signInFullStack(context, "NON_MEMBER");
@@ -41,9 +42,9 @@ test("guide product leads to the programme and the programme keeps the Reader re
   await expect(page.getByRole("navigation", { name: "Страницы маршрута" })).toHaveCount(0);
   const accessibility = await new AxeBuilder({ page }).include('[data-guide-programme="demo-series-harness"]').analyze();
   expect(accessibility.violations).toEqual([]);
-  await mkdir(evidenceDirectory, { recursive: true });
+  await mkdir(snapshots, { recursive: true });
   await page.evaluate(() => { window.scrollTo(0, 0); });
-  await page.screenshot({ path: resolve(evidenceDirectory, `programme-${testInfo.project.name}.png`), fullPage: true });
+  await page.screenshot({ path: resolve(snapshots, `programme-${testInfo.project.name}.png`), fullPage: true });
 
   // Гость видит состав и замки, но не получает ни прогресса, ни обещания чужого продолжения.
   await context.clearCookies();
@@ -51,7 +52,7 @@ test("guide product leads to the programme and the programme keeps the Reader re
   await expect(page.getByRole("main").getByText("Для участников", { exact: true }).first()).toBeVisible();
   await expect(page.getByRole("progressbar")).toHaveCount(0);
   await expect(page.locator('[aria-current="step"]')).toHaveCount(0);
-  await page.screenshot({ path: resolve(evidenceDirectory, `programme-guest-${testInfo.project.name}.png`), fullPage: true });
+  await page.screenshot({ path: resolve(snapshots, `programme-guest-${testInfo.project.name}.png`), fullPage: true });
 });
 
 test("guide programme marks the last opened material as the place to continue", async ({ page, context }) => {
@@ -122,8 +123,8 @@ test("guide programme paginates a real composition and returns from Reader to pa
     await expect(page).toHaveURL(/page=1$/u);
     await expect(page.locator("[data-series-ordinal]:visible")).toHaveCount(12);
     await page.getByRole("button", { name: "Страница 2, продолжение", exact: true }).click();
-    await mkdir(evidenceDirectory, { recursive: true });
-    await page.screenshot({ path: resolve(evidenceDirectory, `programme-page-two-${testInfo.project.name}.png`), fullPage: true });
+    await mkdir(snapshots, { recursive: true });
+    await page.screenshot({ path: resolve(snapshots, `programme-page-two-${testInfo.project.name}.png`), fullPage: true });
   } finally {
     const archived = await page.request.put("/api/authoring/collections/archive", { headers: { origin }, multipart: { kind: "series", collectionId: collection.id, expectedVersion: String(collection.version), archived: "true" } });
     expect(await archived.json()).toMatchObject({ kind: "saved" });

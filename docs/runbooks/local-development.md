@@ -275,6 +275,25 @@ does not run on every pull request. Pull requests into `main` run the four-job a
 Docker Compose gate on clean GitHub-hosted runners; see
 [Continuous integration](continuous-integration.md) for its job and failure-diagnostics contract.
 
+### Snapshots as issue evidence
+
+A run takes screenshots for every scenario it walks, not only for the issue you are working on. By
+default they go to `ci-artifacts/evidence/<issue folder>/`, which Git ignores, so an ordinary local
+run leaves `git status` clean and never overwrites the evidence another issue committed.
+
+Update the evidence of your own issue explicitly:
+
+```bash
+UPDATE_EVIDENCE=issue-529 pnpm test:fullstack
+```
+
+Only `docs/evidence/issue-529` is written; snapshots of every other scenario in the same run still
+go to the artifacts directory. Review the result and commit it with the work it belongs to.
+
+`scripts/evidence-path.mjs` owns this rule, and `scripts/evidence-path.test.mjs` keeps it honest.
+Evidence that a run reads rather than writes stays in the tree: the Storybook cover fixtures come
+from `docs/evidence/issue-271/covers`.
+
 Run only the real-PostgreSQL backend suite with:
 
 ```bash

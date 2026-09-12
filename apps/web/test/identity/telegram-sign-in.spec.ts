@@ -6,6 +6,7 @@ import {
   type Page,
 } from "@playwright/test";
 import { z } from "zod";
+import { evidenceDirectory, evidencePath } from "../../../../scripts/evidence-path.mjs";
 
 if (!process.env.WEB_BASE_URL || !process.env.LOGTO_ENDPOINT)
   throw new Error(
@@ -131,9 +132,9 @@ test("Telegram sign-in, logout and fresh repeat use the real Logto session", asy
   browser,
 }) => {
   const challenge = await start(page);
-  await mkdir("../../docs/evidence/issue-299", { recursive: true });
+  await mkdir(evidenceDirectory("issue-299"), { recursive: true });
   await page.screenshot({
-    path: "../../docs/evidence/issue-299/telegram-waiting-desktop.png",
+    path: evidencePath("issue-299", "telegram-waiting-desktop.png"),
     fullPage: true,
   });
   await page.setViewportSize({ width: 390, height: 844 });
@@ -141,7 +142,7 @@ test("Telegram sign-in, logout and fresh repeat use the real Logto session", asy
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
     .toBeLessThanOrEqual(390);
   await page.screenshot({
-    path: "../../docs/evidence/issue-299/telegram-waiting-mobile.png",
+    path: evidencePath("issue-299", "telegram-waiting-mobile.png"),
     fullPage: true,
   });
   await page.setViewportSize({ width: 1440, height: 1024 });
@@ -396,7 +397,7 @@ for (const [status, copy] of [
     await expect(page.locator("#bot")).toBeHidden();
     await expect(page.getByRole("link", { name: "Через почту" })).toBeVisible();
     await page.screenshot({
-      path: `../../docs/evidence/issue-299/telegram-${status}-mobile.png`,
+      path: evidencePath("issue-299", `telegram-${status}-mobile.png`),
       fullPage: true,
     });
   });

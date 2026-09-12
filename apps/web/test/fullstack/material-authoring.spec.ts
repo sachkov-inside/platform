@@ -5,6 +5,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
 import { signInFullStack } from "../support/full-stack-session";
+import { evidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 
 const currentMaterialEditorUrl =
   /\/authoring\/materials\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?:\?.*)?$/u;
@@ -138,17 +139,14 @@ for (const access of ["public", "membership"] as const) {
         .locator("html")
         .evaluate((element) => element.scrollWidth <= element.clientWidth),
     ).toBe(true);
-    const evidenceDirectory = resolve(
-      process.cwd(),
-      "../../docs/evidence/issue-186",
-    );
-    await mkdir(evidenceDirectory, { recursive: true });
+    const snapshots = evidenceDirectory("issue-186");
+    await mkdir(snapshots, { recursive: true });
     const viewport =
       testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop";
     await page.screenshot({
       animations: "disabled",
       fullPage: true,
-      path: resolve(evidenceDirectory, `${access}-${viewport}.png`),
+      path: resolve(snapshots, `${access}-${viewport}.png`),
     });
 
     const anonymousFile = await request.get(href, { maxRedirects: 0 });
@@ -212,7 +210,7 @@ for (const access of ["public", "membership"] as const) {
       await page.screenshot({
         animations: "disabled",
         fullPage: true,
-        path: resolve(evidenceDirectory, `denied-${viewport}.png`),
+        path: resolve(snapshots, `denied-${viewport}.png`),
       });
       for (const role of [
         "NON_MEMBER",
@@ -1509,17 +1507,14 @@ async function captureLifecycleEvidence(
   name: string,
 ) {
   if (process.env.CAPTURE_EVIDENCE !== "1") return;
-  const evidenceDirectory = resolve(
-    process.cwd(),
-    "../../docs/evidence/issue-150",
-  );
-  await mkdir(evidenceDirectory, { recursive: true });
+  const snapshots = evidenceDirectory("issue-150");
+  await mkdir(snapshots, { recursive: true });
   const viewport =
     testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop";
   await page.screenshot({
     animations: "disabled",
     fullPage: true,
-    path: resolve(evidenceDirectory, `${name}-${viewport}.png`),
+    path: resolve(snapshots, `${name}-${viewport}.png`),
   });
 }
 
@@ -1529,17 +1524,14 @@ async function captureAssetEvidence(
   name: string,
 ) {
   if (process.env.CAPTURE_EVIDENCE !== "1") return;
-  const evidenceDirectory = resolve(
-    process.cwd(),
-    "../../docs/evidence/issue-180",
-  );
-  await mkdir(evidenceDirectory, { recursive: true });
+  const snapshots = evidenceDirectory("issue-180");
+  await mkdir(snapshots, { recursive: true });
   const viewport =
     testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop";
   await page.screenshot({
     animations: "disabled",
     fullPage: true,
-    path: resolve(evidenceDirectory, `${name}-${viewport}.png`),
+    path: resolve(snapshots, `${name}-${viewport}.png`),
   });
 }
 
@@ -1549,17 +1541,14 @@ async function captureVideoEvidence(
   name: string,
 ) {
   if (process.env.CAPTURE_EVIDENCE !== "1") return;
-  const evidenceDirectory = resolve(
-    process.cwd(),
-    "../../docs/evidence/issue-183",
-  );
-  await mkdir(evidenceDirectory, { recursive: true });
+  const snapshots = evidenceDirectory("issue-183");
+  await mkdir(snapshots, { recursive: true });
   const viewport =
     testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop";
   await page.screenshot({
     animations: "disabled",
     fullPage: true,
-    path: resolve(evidenceDirectory, `${name}-${viewport}.png`),
+    path: resolve(snapshots, `${name}-${viewport}.png`),
   });
 }
 
@@ -1569,17 +1558,14 @@ async function captureVideoDeletionEvidence(
   name: string,
 ) {
   if (process.env.CAPTURE_EVIDENCE !== "1") return;
-  const evidenceDirectory = resolve(
-    process.cwd(),
-    "../../docs/evidence/issue-227",
-  );
-  await mkdir(evidenceDirectory, { recursive: true });
+  const snapshots = evidenceDirectory("issue-227");
+  await mkdir(snapshots, { recursive: true });
   const viewport =
     testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop";
   await page.screenshot({
     animations: "disabled",
     fullPage: true,
-    path: resolve(evidenceDirectory, `${name}-${viewport}.png`),
+    path: resolve(snapshots, `${name}-${viewport}.png`),
   });
 }
 

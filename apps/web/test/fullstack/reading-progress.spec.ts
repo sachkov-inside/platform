@@ -3,6 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { signInFullStack } from "../support/full-stack-session";
+import { evidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 
 async function openReader(page: Page, slug = "kak-ustroen-inside-platform", label = "Изучено") {
   await page.goto(`/materials/${slug}`);
@@ -34,7 +35,7 @@ test("reading progress persists for a free non-member, reconciles lost responses
   expect(command(commands[0] ?? "")).toBe(command(commands[1] ?? ""));
   await page.reload();
   await expect(button).toHaveAttribute("aria-pressed", "true");
-  const directory = resolve(process.cwd(), "../../docs/evidence/issue-329");
+  const directory = evidenceDirectory("issue-329");
   await mkdir(directory, { recursive: true });
   await expect(page.locator("[data-reading-action-state]:visible")).toHaveAttribute("data-reading-action-state", "ready");
   await page.emulateMedia({ reducedMotion: "reduce" });
@@ -115,7 +116,7 @@ test("reading progress counts a shared material in both real Series", async ({ p
   const button = await openReader(page, "demo-podgotovka-prilozheniya-k-relizu");
   if (await button.getAttribute("aria-pressed") !== "true") await button.click();
   await expect(button).toHaveAttribute("aria-pressed", "true");
-  const directory = resolve(process.cwd(), "../../docs/evidence/issue-329");
+  const directory = evidenceDirectory("issue-329");
   await mkdir(directory, { recursive: true });
   // Отметка живёт у материала, поэтому её видно в программе каждого руководства, где он опубликован.
   for (const slug of ["demo-series-release", "demo-series-release-shared"]) {

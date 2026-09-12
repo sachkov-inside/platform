@@ -1,6 +1,5 @@
 import { createServer, type Server } from "node:http";
 import { mkdir } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
 import AxeBuilder from "@axe-core/playwright";
 import { chromium, webkit, type Browser, type Page } from "@playwright/test";
 import { afterAll, beforeAll, expect, it } from "vitest";
@@ -10,6 +9,7 @@ import {
   telegramSignInScript,
   type InsideTelegramPresentation,
 } from "../../../../infra/identity/logto/fork/packages/core/src/routes/inside-telegram-view";
+import { evidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 
 let browser: Browser;
 let server: Server;
@@ -20,7 +20,7 @@ let offline = false;
 let requests = 0;
 let stalledStatus: "headers" | "body" | undefined;
 const botLink = "https://t.me/inside_fixture_bot?start=test-only";
-const evidence = fileURLToPath(new URL("../../../../docs/evidence/issue-303/", import.meta.url));
+const evidence = evidenceDirectory("issue-303");
 
 beforeAll(async () => {
   server = createServer((request, response) => {
