@@ -102,4 +102,22 @@ expectFailure(
   ],
 );
 
+// Инструмент, добавленный без `pnpm mcp:generate`, обязан ронять проверку и называть себя.
+expectFailure(
+  "pnpm",
+  [
+    "exec",
+    "tsx",
+    "scripts/mcp-tool-surface.ts",
+    "--check",
+    "--surface",
+    "test/guardrails/fixtures/mcp/stale-tool-surface.json",
+  ],
+  [
+    "MCP tool surface drift detected",
+    "Появились: billing_grants_classify, video_reconcile",
+    "pnpm mcp:generate",
+  ],
+);
+
 process.stdout.write("Negative TypeScript and architecture guardrails passed.\n");

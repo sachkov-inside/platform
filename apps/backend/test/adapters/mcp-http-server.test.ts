@@ -1,4 +1,8 @@
+import { readFileSync } from "node:fs";
+import { URL } from "node:url";
+
 import { exportJWK, generateKeyPair, SignJWT, type CryptoKey } from "jose";
+import { z } from "zod";
 import {
   Client,
   StreamableHTTPClientTransport,
@@ -66,34 +70,9 @@ describe("MCP Streamable HTTP adapter", () => {
     try {
       await client.connect(transport);
       const { tools } = await client.listTools();
-      const names = tools.map(({ name }) => name);
-      expect(names.filter(name => !name.startsWith("communications_") && !name.startsWith("billing_"))).toEqual([
-        "material_create_draft",
-        "material_load",
-        "material_save",
-        "material_preview",
-        "content_collection_list",
-        "content_collection_create",
-        "content_collection_update",
-        "content_collection_set_archive",
-        "playlist_load_composition",
-        "playlist_save_composition",
-        "guide_load_composition",
-        "guide_save_composition",
-        "video_attach_existing",
-        "video_init_upload",
-        "video_reconcile",
-      ]);
+      // Состав набора живёт в сгенерированном слепке; здесь доказывается, что вход отдаёт ровно его.
+      expect(tools.map(({ name }) => name).sort()).toEqual(committedToolSurface());
       // Владельческие billing-операции доступны тем же делегированным Account, без своей власти.
-      expect(names.filter(name => name.startsWith("billing_"))).toEqual([
-        "billing_offers_save", "billing_offers_archive", "billing_offers_publish", "billing_offers_unpublish",
-        "billing_paymentOptions_save", "billing_paymentOptions_archive",
-        "billing_promotions_save", "billing_promotions_archive", "billing_offers_list", "billing_payments_list", "billing_payments_read",
-        "billing_payments_reconcile", "billing_subscriptions_cancel", "billing_refunds_decide", "billing_refunds_execute",
-        "billing_refunds_read", "billing_grants_read", "billing_grants_readClassification", "billing_grants_classify",
-        "billing_grants_previewBatch", "billing_grants_applyBatch",
-        "billing_grants_extend", "billing_grants_revoke",
-      ]);
       const refund = tools.find(tool => tool.name === "billing_refunds_execute");
       expect(refund?.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true, openWorldHint: true });
       expect(tools.find(tool => tool.name === "billing_offers_publish")?.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true });
@@ -221,4 +200,12 @@ function fakeReadiness(): Pick<OperationalReadiness, "check" | "live"> {
 
 function currentTime(): number {
   return Math.floor(Date.now() / 1_000);
+}
+
+/** Тот же слепок, который проверяет `pnpm mcp:check`: одно ожидание на обе проверки. */
+function committedToolSurface(): string[] {
+  const value: unknown = JSON.parse(
+    readFileSync(new URL("../../mcp/tool-surface.json", import.meta.url), "utf8"),
+  );
+  return z.array(z.string().min(1)).parse(value);
 }

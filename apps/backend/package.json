@@ -32,6 +32,8 @@
     "guardrails": "pnpm notifications:check && pnpm communications:check && node scripts/check-backend-architecture.mjs src && node scripts/check-negative-guardrails.mjs",
     "openapi:generate": "tsx scripts/generate-openapi.ts",
     "openapi:check": "tsx scripts/generate-openapi.ts --check",
+    "mcp:generate": "tsx scripts/mcp-tool-surface.ts",
+    "mcp:check": "tsx scripts/mcp-tool-surface.ts --check",
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.mts",
     "smoke:mcp-authoring": "tsx scripts/mcp-authoring-smoke.ts",

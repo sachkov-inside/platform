@@ -170,11 +170,11 @@ Owner billing tools `billing_<operation>` are described in
 [owner billing operations](#owner-billing-operations); they check `billing:manage`, not
 `materials:manage`.
 
-The exposed tools are `material_create_draft`, `material_load`, `material_save`,
-`material_preview`, `content_collection_list`, `content_collection_create`,
-`content_collection_update`, `content_collection_set_archive`, `playlist_load_composition` and
-`playlist_save_composition`, `video_attach_existing`, `video_init_upload` and `video_reconcile`.
-The Video tools use the same Videos facet as the editor and its current `materials:manage` check.
+The complete exposed tool set is the generated snapshot `apps/backend/mcp/tool-surface.json`;
+`pnpm mcp:check` fails when the registered tools and that snapshot disagree, and `pnpm mcp:generate`
+rewrites it. Materials authoring exposes the `material_*`, `content_collection_*` and
+`playlist_*` tools; the Video tools use the same Videos facet as the editor and its current
+`materials:manage` check.
 `material_save` requires an explicit `primaryVideoId`: preserve the value from `material_load`,
 or pass `null` to detach without requesting provider deletion. Older clients omitting the field
 receive a validation error instead of silently detaching the Video.

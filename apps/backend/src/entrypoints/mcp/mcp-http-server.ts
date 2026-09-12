@@ -1,6 +1,6 @@
-import { registerBillingTools, type BillingOwnerTools } from "../../modules/billing/index.js";
-import { registerVideoTools, type VideoAuthoringTools } from "../../modules/videos/index.js";
-import { registerCommunicationsTools, type Communications } from "../../modules/communications/index.js";
+import type { BillingOwnerTools } from "../../modules/billing/index.js";
+import type { VideoAuthoringTools } from "../../modules/videos/index.js";
+import type { Communications } from "../../modules/communications/index.js";
 import { createServer, type Server as NodeHttpServer } from "node:http";
 
 import {
@@ -24,10 +24,8 @@ import {
   type Accounts,
   type LogtoAccessTokenVerifier,
 } from "../../modules/accounts/index.js";
-import {
-  assembleMaterialAuthoringMcpServer,
-  type MaterialAuthoring,
-} from "../../modules/materials/index.js";
+import type { MaterialAuthoring } from "../../modules/materials/index.js";
+import { assembleInsideMcpServer } from "./inside-mcp-server.js";
 
 export interface McpHttpServer {
   listen(): Promise<URL>;
@@ -54,14 +52,14 @@ export function createMcpHttpServer(dependencies: {
     resourceMetadataUrl: metadataUrl,
   });
   const handler = createMcpHandler(
-    ({ authInfo }) => {
-      const accountId = authenticatedAccountId(authInfo?.extra);
-      const server = assembleMaterialAuthoringMcpServer({ accountId, authoring: dependencies.authoring });
-      registerVideoTools(server, { accountId, videos: dependencies.videos });
-      registerCommunicationsTools(server, { accountId, communications: dependencies.communications });
-      registerBillingTools(server, { accountId, billing: dependencies.billing });
-      return server;
-    },
+    ({ authInfo }) =>
+      assembleInsideMcpServer({
+        accountId: authenticatedAccountId(authInfo?.extra),
+        authoring: dependencies.authoring,
+        billing: dependencies.billing,
+        communications: dependencies.communications,
+        videos: dependencies.videos,
+      }),
     { responseMode: "json" },
   );
   const metadata: OAuthProtectedResourceMetadata = {
