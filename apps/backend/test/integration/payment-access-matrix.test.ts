@@ -38,6 +38,10 @@ function asGrantBatch(result: OwnerResult) {
   const value = success(result);
   if (value.outcome !== "grantBatch") throw new Error(`Unexpected outcome ${value.outcome}`); return value;
 }
+function asRefundDecision(result: OwnerResult) {
+  const value = success(result);
+  if (value.outcome !== "refundDecision") throw new Error(`Unexpected outcome ${value.outcome}`); return value.value;
+}
 const config = tbankConfigSchema.parse({ environment: "demo", terminalKey: "SYNTHETICMATRIX", password: "synthetic-test-password",
   bindingEncryptionKey: Buffer.alloc(32, 61).toString("base64"), recurringCardConfirmed: true, cardOnlyHostedConfirmed: true,
   cardBinding: { confirmed: true, checkType: "3DS" }, minimumKopecks: 100, maximumKopecks: 10_000_000,
@@ -210,6 +214,39 @@ describe("оплата, выдача прав и доступ к материа�
   }
   function subscriptionOffer() {
     return offer({ name: "Материалы", benefits: ["materials"], priceKopecks: subscriptionPriceKopecks });
+  }
+  /** Старший тариф: общий чат объявлен прямо в его составе. */
+  function seniorOffer() {
+    return offer({ name: "Материалы и сообщество", benefits: ["materials", "community"], priceKopecks: subscriptionPriceKopecks });
+  }
+  /** Действующие права Account: ровно тот состав, из которого собирается желаемое состояние чата. */
+  async function capabilities(account: string) {
+    const resolved = await grants.resolveCapabilities(account);
+    if (!resolved.ok) throw new Error(resolved.error.code);
+    return resolved.capabilities;
+  }
+  /** Одно действующее основание с этим правом: его владелец и снимает. */
+  async function revokeGround(account: string, capability: string) {
+    const row = await db.prisma.accessGrant.findFirstOrThrow({
+      where: { accountId: account, revokedAt: null, capabilities: { has: capability } } });
+    expect(await grants.changeGrant(owner, { action: "revoke", operationId: randomUUID(), grantRef: row.id,
+      expectedRevision: row.revision, reason: `Синтетический отзыв основания ${capability}` })).toMatchObject({ ok: true });
+  }
+  /** Независимое бессрочное право на второе руководство, выданное владельцем, а не оплатой. */
+  async function manualGuideGrant(operations: BillingOperations, account: string, guideId: string) {
+    const preview = asGrantPreview(await operations.execute(owner, { operation: "grants.previewBatch", operationId: randomUUID(),
+      rows: [{ rowKey: "guide", accountId: account, source: "manual", sourceRef: randomUUID(),
+        terms: { capabilities: [`guide:${guideId}`], startsAt: startedAt, validUntil: null, reason: "Синтетическая выдача руководства" } }] }));
+    expect(asGrantBatch(await operations.execute(owner, { operation: "grants.applyBatch", operationId: randomUUID(),
+      previewRef: preview.previewRef, expectedRevision: preview.revision, confirmedRows: ["guide"] })).rows).toHaveLength(1);
+  }
+  /** Подтверждённый возврат с отзывом оплаченного основания: деньги и права решаются вместе. */
+  async function refundWithRevoke(operations: BillingOperations, purchaseRef: string, amountKopecks: number,
+    recurring: "keep" | "cancel" = "keep") {
+    const decided = asRefundDecision(await operations.execute(owner, { operation: "refunds.decide", operationId: randomUUID(),
+      purchaseRef, amountKopecks, access: "revoke", recurring, reason: "Синтетический возврат с отзывом доступа" }));
+    expect(asRefundDecision(await operations.execute(owner, { operation: "refunds.execute", operationId: randomUUID(),
+      decisionRef: decided.decisionRef, expectedRevision: 1 }))).toMatchObject({ state: "executed", attempt: { state: "confirmed" } });
   }
 
   /** Один платёжный стенд: свой банк, свои платежи и своё продление. */
@@ -457,5 +494,136 @@ describe("оплата, выдача прав и доступ к материа�
     expect(await db.prisma.billingSubscription.count({ where: { accountId: account } })).toBe(0);
     expect(value(await subscriptions.read(account))).toMatchObject({ subscription: null, payments: [],
       grounds: [{ source: "manual", capabilities: ["materials"], startsAt: "2030-01-31T10:00:00.000Z", validUntil: null, active: true }] });
+  });
+
+  /**
+   * Общий чат открывает не название тарифа, а любое действующее право: и состав старшей подписки,
+   * и купленное руководство. Решение владельца от 12.09.2026: срок участия равен сроку права.
+   */
+  test("купленное руководство открывает общий чат и держит его дольше истёкшей подписки", async () => {
+    now = new Date(startedAt);
+    await ownSweeps();
+    const [onlyGuide, withBoth] = await Promise.all([buyer(), buyer()]);
+    const senior = await seniorOffer();
+    const bought = await guideOffer();
+    const { bank, payments, subscriptions } = billingStand();
+    async function pay(account: string, optionId: string, options: { readonly recurring?: boolean } = {}) {
+      const purchased = value(await purchase(payments, account, optionId, options));
+      if (options.recurring === true) expect(await payments.notification(bank.notify(purchased.purchaseRef, "AUTHORIZED", { RebillId: "synthetic-card" }))).toMatchObject({ ok: true });
+      expect(await payments.notification(bank.notify(purchased.purchaseRef, "CONFIRMED"))).toMatchObject({ ok: true });
+      value(await payments.recover());
+      return purchased.purchaseRef;
+    }
+
+    // До покупки оснований нет: ни подписки, ни права на руководство, ни чата.
+    expect(await capabilities(onlyGuide)).toEqual([]);
+    await pay(onlyGuide, bought.optionId);
+    // Одна разовая покупка: право бессрочное, и участие в чате живёт ровно его сроком.
+    expect(await capabilities(onlyGuide)).toEqual([
+      { capability: "community", validUntil: null },
+      { capability: `guide:${guideA}`, validUntil: null },
+    ]);
+    // Кабинет показывает ровно одно оплаченное основание: чат выводится из него, а не из тарифа.
+    expect(value(await subscriptions.read(onlyGuide))).toMatchObject({ subscription: null,
+      grounds: [{ source: "paid", capabilities: [`guide:${guideA}`], validUntil: null, active: true }] });
+    // Проверка доступа к материалам не изменилась: чужая библиотека руководством не открывается.
+    expect(await decide(reader(onlyGuide), libraryMaterial)).toMatchObject({ effect: "deny", reason: "membership_required" });
+
+    await pay(withBoth, senior.optionId, { recurring: true });
+    await pay(withBoth, bought.optionId);
+    // Два основания сразу: бессрочное право на руководство перекрывает срок подписки.
+    expect(await capabilities(withBoth)).toEqual([
+      { capability: "community", validUntil: null },
+      { capability: `guide:${guideA}`, validUntil: null },
+      { capability: "materials", validUntil: subscriptionEndsAt },
+    ]);
+
+    now = new Date("2030-03-01T10:00:00Z");
+    // Оплаченный срок подписки закончился, а чат остался: его держит купленное руководство.
+    expect(await capabilities(withBoth)).toEqual([
+      { capability: "community", validUntil: null },
+      { capability: `guide:${guideA}`, validUntil: null },
+    ]);
+    expect(await decide(reader(withBoth), libraryMaterial)).toMatchObject({ effect: "deny", reason: "membership_expired" });
+  });
+
+  test("чат держится, пока есть хоть одно основание, и снимается вместе с последним", async () => {
+    now = new Date(startedAt);
+    await ownSweeps();
+    const [withBoth, refunded, kept] = await Promise.all([buyer(), buyer(), buyer()]);
+    const senior = await seniorOffer();
+    const bought = await guideOffer();
+    const { bank, payments, operations } = billingStand();
+    async function pay(account: string, optionId: string, options: { readonly recurring?: boolean } = {}) {
+      const purchased = value(await purchase(payments, account, optionId, options));
+      if (options.recurring === true) expect(await payments.notification(bank.notify(purchased.purchaseRef, "AUTHORIZED", { RebillId: "synthetic-card" }))).toMatchObject({ ok: true });
+      expect(await payments.notification(bank.notify(purchased.purchaseRef, "CONFIRMED"))).toMatchObject({ ok: true });
+      value(await payments.recover());
+      return purchased.purchaseRef;
+    }
+
+    const subscribed = await pay(withBoth, senior.optionId, { recurring: true });
+    const guidePurchase = await pay(withBoth, bought.optionId);
+    // Снятие одного основания не забирает чат: его продолжает держать состав подписки.
+    await refundWithRevoke(operations, guidePurchase, guidePriceKopecks);
+    value(await payments.recover());
+    expect(await capabilities(withBoth)).toEqual([
+      { capability: "community", validUntil: subscriptionEndsAt },
+      { capability: "materials", validUntil: subscriptionEndsAt },
+    ]);
+    // Снятие последнего основания забирает и чат.
+    await refundWithRevoke(operations, subscribed, subscriptionPriceKopecks, "cancel");
+    value(await payments.recover());
+    expect(await capabilities(withBoth)).toEqual([]);
+
+    // Возврат покупки снимает доступ, когда другого основания нет.
+    const refundedPurchase = await pay(refunded, bought.optionId);
+    expect(await capabilities(refunded)).toContainEqual({ capability: "community", validUntil: null });
+    await refundWithRevoke(operations, refundedPurchase, guidePriceKopecks);
+    value(await payments.recover());
+    expect(await capabilities(refunded)).toEqual([]);
+
+    // Тот же возврат при независимом бессрочном праве оставляет чат открытым.
+    const keptPurchase = await pay(kept, bought.optionId);
+    await manualGuideGrant(operations, kept, guideB);
+    await refundWithRevoke(operations, keptPurchase, guidePriceKopecks);
+    value(await payments.recover());
+    expect(await capabilities(kept)).toEqual([
+      { capability: "community", validUntil: null },
+      { capability: `guide:${guideB}`, validUntil: null },
+    ]);
+    // Ручное основание снимает владелец, и с последним основанием чат закрывается.
+    await revokeGround(kept, `guide:${guideB}`);
+    expect(await capabilities(kept)).toEqual([]);
+  });
+
+  /**
+   * Право на руководство уже открывает чат, поэтому старший тариф пересекается с ним составом.
+   * Покупатель об этом предупреждён и продолжает подтверждением, а не обходом проверки.
+   */
+  test("после покупки руководства старший тариф требует подтверждения пересечения состава", async () => {
+    now = new Date(startedAt);
+    await ownSweeps();
+    const account = await buyer();
+    const senior = await seniorOffer();
+    const bought = await guideOffer();
+    const { bank, payments } = billingStand();
+    const purchased = value(await purchase(payments, account, bought.optionId));
+    expect(await payments.notification(bank.notify(purchased.purchaseRef, "CONFIRMED"))).toMatchObject({ ok: true });
+    value(await payments.recover());
+
+    expect(await payments.purchase(account, await command(account, senior.optionId, { recurring: true })))
+      .toMatchObject({ ok: false, error: { code: "existing_access" } });
+    const acknowledged = value(await payments.purchase(account,
+      { ...await command(account, senior.optionId, { recurring: true }), acknowledgeExistingAccess: true }));
+    expect(await payments.notification(bank.notify(acknowledged.purchaseRef, "AUTHORIZED", { RebillId: "synthetic-card" }))).toMatchObject({ ok: true });
+    expect(await payments.notification(bank.notify(acknowledged.purchaseRef, "CONFIRMED"))).toMatchObject({ ok: true });
+    value(await payments.recover());
+    // Бессрочное право на руководство переживает срок подписки и оставляет чат бессрочным.
+    expect(await capabilities(account)).toEqual([
+      { capability: "community", validUntil: null },
+      { capability: `guide:${guideA}`, validUntil: null },
+      { capability: "materials", validUntil: subscriptionEndsAt },
+    ]);
   });
 });

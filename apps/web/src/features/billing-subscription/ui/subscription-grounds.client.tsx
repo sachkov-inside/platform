@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { Route } from "next";
 
 import {
+  accessComposition,
   accessSourceLabel,
   capabilityLabel,
   formatBillingDate,
@@ -18,7 +19,8 @@ export interface SubscriptionGroundsProps {
 
 /**
  * Что уже доступно, по какому основанию и до какого срока. Основания независимы: подписка их
- * не заменяет, а отдельное право на руководство переживает её окончание.
+ * не заменяет, а отдельное право на руководство переживает её окончание и само по себе открывает
+ * общий чат, поэтому чат назван и в таком основании.
  */
 export function SubscriptionGrounds({
   grounds,
@@ -69,7 +71,7 @@ export function SubscriptionGrounds({
                 </span>
               </div>
               <ul className="grid gap-1 leading-6">
-                {ground.capabilities.map((capability) => (
+                {accessComposition(ground.capabilities).map((capability) => (
                   <li className="[overflow-wrap:anywhere]" key={capability}>
                     {capabilityLabel(capability)}
                   </li>
