@@ -223,6 +223,45 @@ services:
     init: true
     stop_grace_period: 10s
 
+  bank-double:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+      target: bank-double
+    env_file:
+      - ./config/compose/local/bank-double.env
+    ports:
+      - "127.0.0.1:${BANK_DOUBLE_HOST_PORT:-8090}:8090"
+    volumes:
+      - bank-double-data:/data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8090/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    init: true
+    stop_grace_period: 10s
+
+  # Перехватчик писем стенда: общий для всех отправителей, наружу не отправляет ничего.
+  mailpit:
+    image: ghcr.io/axllent/mailpit:v1.30.6@sha256:7f33095f80e901f6ad08028f06ca284aa58fe84942be5496008d041d3b9f4d4d
+    env_file:
+      - ./config/compose/local/mailpit.env
+    ports:
+      - "127.0.0.1:${MAIL_CAPTURE_SMTP_HOST_PORT:-1025}:1025"
+      - "127.0.0.1:${MAIL_CAPTURE_HOST_PORT:-8025}:8025"
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
   web:
     build:
       context: .
@@ -274,6 +313,7 @@ services:
     stop_grace_period: 10s
 
 volumes:
+  bank-double-data:
   object-storage-data:
   postgres-data:
   notification-broker-data:

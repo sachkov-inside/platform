@@ -58,7 +58,8 @@
     "conformance:communications": "pnpm --filter @inside/backend conformance:communications",
     "editor:local": "node scripts/editor-local-review.mjs",
     "dev:notifications-worker": "pnpm --filter @inside/backend dev:notifications-worker",
-    "dev:billing-worker": "pnpm --filter @inside/backend dev:billing-worker"
+    "dev:billing-worker": "pnpm --filter @inside/backend dev:billing-worker",
+    "dev:bank-double": "pnpm --filter @inside/backend dev:bank-double"
   },
   "dependencies": {
     "zod": "4.4.3"

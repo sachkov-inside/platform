@@ -5,7 +5,7 @@ import { billingContactProtection } from "../../src/modules/accounts/infrastruct
 import { assembleAccessGrants, assembleMembershipEntitlements } from "../../src/modules/membership-entitlements/index.js";
 import { BillingNotices, BillingOperations, BillingPayments, BillingPricing, BillingSubscriptions } from "../../src/modules/billing/index.js";
 import type { OwnerOutcome, OwnerResult } from "../../src/modules/billing/domain/owner-operations.js";
-import { tbankConfigSchema } from "../../src/config/tbank-config.js";
+import { syntheticTbankConfig } from "../support/bank-terminal.js";
 import { assembleContentAccess } from "../../src/modules/content-access/index.js";
 import { assembleGuideArtifactDelivery, assembleGuideArtifactResourceFacts, assembleGuideArtifacts, assembleMaterials, assembleMaterialResourceFacts, materialId as checkedMaterialId, type MaterialId } from "../../src/modules/materials/index.js";
 import { assembleAssetResourceFacts } from "../../src/modules/materials/adapters/content-access/asset-resource-facts.js";
@@ -50,7 +50,7 @@ function asRefundDecision(result: OwnerResult) {
   const value = success(result);
   if (value.outcome !== "refundDecision") throw new Error(`Unexpected outcome ${value.outcome}`); return value.value;
 }
-const config = tbankConfigSchema.parse({ environment: "demo", terminalKey: "SYNTHETICMATRIX", password: "synthetic-test-password",
+const config = syntheticTbankConfig({ environment: "demo", terminalKey: "SYNTHETICMATRIX", password: "synthetic-test-password",
   bindingEncryptionKey: Buffer.alloc(32, 61).toString("base64"), recurringCardConfirmed: true, cardOnlyHostedConfirmed: true,
   cardBinding: { confirmed: true, checkType: "3DS" }, minimumKopecks: 100, maximumKopecks: 10_000_000,
   returnUrl: "https://inside.example.test/account", notificationUrl: "https://inside.example.test/billing/tbank/notification",

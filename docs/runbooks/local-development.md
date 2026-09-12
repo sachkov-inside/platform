@@ -22,6 +22,10 @@ The default stack contains:
 - `video-deletions-worker`, which owns explicit Platform-uploaded Kinescope Video deletion,
   reference rechecks and bounded retry and has no HTTP listener;
 - `billing-worker`, which reconciles saved bank attempts and projects confirmed payments into access grants;
+- `bank-double`, the stand's payment provider on <http://127.0.0.1:8090>, where a human chooses the
+  outcome of every payment, renewal charge, refund and card binding;
+- `mailpit`, the stand's mail interceptor: SMTP on `mailpit:1025` inside the Compose network, its
+  inbox on <http://127.0.0.1:8025>, and no delivery outside the machine;
 - RabbitMQ with local TLS, bounded quorum queues and `notifications-worker` for durable transport;
   see [Notifications transport](notification-transport.md) for recovery and the production boundary;
 - Next.js web on <http://127.0.0.1:3000>.
@@ -417,15 +421,74 @@ docker stop platform-396-postgres platform-396-storage
 
 Do not remove their data or use the shared Compose shutdown command for this isolated runtime.
 
+## Local sale: bank double and mail capture
+
+The stand sells without credentials, without real money and without sending a single message off
+the machine. Two services make the sale observable end to end, and both are chosen by configuration
+alone: the application keeps one bank adapter and one mail transport.
+
+`config/compose/local/*.env` already set `TBANK_PROVIDER_MODE=test`, so API and `billing-worker`
+call the `bank-double` service instead of the bank, and `BILLING_CONTACT_SMTP_*` point at `mailpit`
+instead of a provider. `TBANK_CONFIG_JSON` must stay absent in that mode: a real terminal beside the
+double is refused at startup.
+
+Pass the purchase in this order:
+
+1. Confirm the receipt address in Account. The code arrives in the interceptor's inbox on
+   <http://127.0.0.1:8025>; nothing reaches a real mailbox. An unconfirmed contact refuses the
+   purchase, so this step comes first.
+2. Buy a guide or a subscription. The application redirects the browser to the double's payment
+   form on <http://127.0.0.1:8090>, which is the address the real hosted form would occupy.
+3. Choose the outcome on that form. Each button answers exactly as the bank would:
+
+   | Button | Bank status | What the application does |
+   |---|---|---|
+   | Оплата прошла | `CONFIRMED` | opens the paid rights and saves the card binding when the purchase asked for one |
+   | Банк отказал | `REJECTED` | closes the attempt as failed and grants nothing |
+   | Покупатель отменил | `CANCELED` | closes the attempt as failed |
+   | Истёк срок оплаты | `DEADLINE_EXPIRED` | closes the attempt as failed |
+   | Непонятный ответ банка | `CONFIRMING` without success | leaves the attempt unknown for reconciliation, never charges again |
+   | Повторить нотификацию | repeats the current status | proves that a repeated notification issues no second grant |
+
+4. Renewal and refund have no buyer-facing form, so their outcome is chosen in advance on the
+   double's own page <http://127.0.0.1:8090>: «Следующее списание» decides what `Charge` answers,
+   and «Возврат» decides whether the bank accepts `Cancel`. A refund is full or partial according to
+   the amount the owner requested, exactly as the bank decides it.
+5. Changing a card opens the double's binding form. The new method applies only after the binding
+   is confirmed there and `billing-worker` reconciles the session within a minute. A charge against
+   a binding the double never issued is declined, so a revoked method stays observable.
+6. Cancelling recurring charges asks the bank nothing: the schedule closes locally, the paid period
+   stays, and the next renewal is simply never sent.
+
+Pass the guide and both subscription tariffs the same way: the double receives the same request for
+each published offer, and only what the purchase asks the bank for differs — a one-time guide never
+saves a card, the first subscription payment does, and renewals charge the saved one. The tariffs
+themselves differ in price, term or the rights they open, none of which the bank sees. Seeded local offers come from the
+development seed.
+
+The double keeps a ledger in its own volume, so restarting it keeps the orders the application may
+still have to reconcile; a bank that forgot a payment would strand an unfinished attempt forever.
+If the application misses a notification — for example while it is restarting — `billing-worker`
+reconciles the same attempt through `CheckOrder`/`GetState` within a minute and settles it without
+a second charge. Host processes use the same contour on loopback: `pnpm dev:bank-double` beside
+`pnpm dev:api` and `pnpm dev:billing-worker`.
+
+Neither service exists in production. The double refuses to start outside `NODE_ENV=development`,
+configuration refuses `TBANK_PROVIDER_MODE=test` and `BILLING_CONTACT_SMTP_LOCAL_CAPTURE=true` in
+production mode, and `scripts/production-runtime-contract.test.mjs` fails if the production Compose
+or its environment templates mention either of them.
+
 ## Subscription payment recovery
 
 `pnpm dev:billing-worker` starts the same recovery process provided by the local Compose service.
 It scans durable purchases every minute, reconciles unresolved attempts through CheckOrder/GetState,
 and applies the saved entitlement outbox. A failed or unknown Init is never automatically repeated.
-The worker and API share the database and optional `TBANK_CONFIG_JSON` configuration; its schema is
-`apps/backend/src/config/tbank-config.ts`. Without that configuration payment admission is unavailable.
-Use only synthetic bank adapters in automated tests. DEMO configuration and production activation
-belong to #413 and #414 respectively; this change does not enable either environment.
+The worker and API share the database and one bank contour; its schema is
+`apps/backend/src/config/tbank-config.ts`. The contour comes from `TBANK_PROVIDER_MODE`: `test`
+builds the local double described in [Local sale](#local-sale-bank-double-and-mail-capture) and
+`real` reads `TBANK_CONFIG_JSON`. Without either, payment admission is unavailable.
+Use only synthetic bank adapters in automated tests. DEMO configuration on a real test terminal and
+production activation belong to #413 and #414 respectively; neither is enabled by the local double.
 
 The JSON configuration requires explicit environment/terminal credentials, a 32-byte base64 encryption
 key, receipt tax settings, HTTPS notification and return URLs, amount limits, and confirmation that
@@ -447,9 +510,10 @@ The same process owns the `billing.subscription-renewal` queue: it starts due re
 card binding sessions and closes lapsed schedules. A renewal persists its attempt before Init and
 records `CHARGE_CALLED` before the network, so a lost response is reconciled through GetState on the
 same attempt and never repeated. Cancelling a renewal or revoking a saved method is checked under the
-same lock as worker dispatch. Changing a card needs the optional `cardBinding` capability in
-`TBANK_CONFIG_JSON` with an explicit confirmed check type; without it the operation reports
-`method_unavailable` instead of guessing a binding.
+same lock as worker dispatch. Changing a card needs the optional `cardBinding` capability of the
+contour with an explicit confirmed check type; without it the operation reports
+`method_unavailable` instead of guessing a binding. The local double declares that capability, so
+renewal and card change are verifiable on the stand.
 
 The `billing.payment-recovery` queue also reconciles unresolved refunds. A refund attempt is stored
 before the bank call and its own identifier travels as `ExternalRequestId`, which the bank treats as
@@ -500,8 +564,12 @@ no recorded decision reports `unknown`, refuses recurring charges and answers th
 `legacy_review_required`. Read it with `grants.readClassification`, record the decision with
 `grants.classify` and its `expectedRevision` (`0` for an Account with no decision yet), or classify
 a set through the same `grants.previewBatch` and `grants.applyBatch`. The owner page
-`/authoring/billing` performs the same operations under «Кто этот покупатель». Refund execution is a real external money
-operation and requires `TBANK_CONFIG_JSON`; without it the operation reports `method_unavailable`.
+`/authoring/billing` performs the same operations under «Кто этот покупатель».
+
+Refund execution is a real external money operation on the real contour and requires
+`TBANK_CONFIG_JSON`; without a configured contour the operation reports `method_unavailable`. On the
+stand the same command reaches the local double, which returns a full or partial refund according to
+the requested amount and moves no money.
 Automated tests use synthetic bank adapters only and perform no real refunds or grants.
 
 The first period starts when Inside first verifies and durably records CONFIRMED, whether from a

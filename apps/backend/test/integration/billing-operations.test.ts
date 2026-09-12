@@ -7,7 +7,7 @@ import { assembleAccessGrants } from "../../src/modules/membership-entitlements/
 import { BillingNotices, BillingOperations, BillingPayments, BillingPricing, BillingSubscriptions } from "../../src/modules/billing/index.js";
 import type { OwnerOutcome, OwnerResult } from "../../src/modules/billing/domain/owner-operations.js";
 import { Tbank, tbankToken } from "../../src/modules/billing/infrastructure/tbank/tbank.js";
-import { tbankConfigSchema } from "../../src/config/tbank-config.js";
+import { syntheticTbankConfig } from "../support/bank-terminal.js";
 import { createMigratedTestDatabase, type TestDatabase } from "./setup/test-database.js";
 import { syntheticConsentDocuments } from "./setup/consent-documents.js";
 
@@ -75,7 +75,7 @@ function asClassification(result: OwnerResult) {
   if (value.outcome !== "classification") throw unexpected(value); return value;
 }
 
-const config = tbankConfigSchema.parse({ environment: "demo", terminalKey: "SYNTHETICOWNER", password: "synthetic-test-password",
+const config = syntheticTbankConfig({ environment: "demo", terminalKey: "SYNTHETICOWNER", password: "synthetic-test-password",
   bindingEncryptionKey: Buffer.alloc(32, 61).toString("base64"), recurringCardConfirmed: true, cardOnlyHostedConfirmed: true,
   minimumKopecks: 100, maximumKopecks: 10_000_000, returnUrl: "https://inside.example.test/account",
   notificationUrl: "https://inside.example.test/billing/tbank/notification", receipt: { taxation: "usn_income", tax: "none" } });
