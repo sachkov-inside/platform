@@ -17,7 +17,9 @@ import { saveReaderGuideMode } from "../api/guide-mode.browser";
 
 function rememberGuestGuideMode(mode: GuideMode): void {
   try {
-    document.cookie = `${GUEST_GUIDE_MODE_COOKIE}=${mode}; path=/; max-age=${String(GUEST_GUIDE_MODE_COOKIE_MAX_AGE)}; samesite=lax`;
+    // На площадке cookie не должна уходить по открытому протоколу; на локальном http его нет.
+    const secure = window.location.protocol === "https:" ? "; secure" : "";
+    document.cookie = `${GUEST_GUIDE_MODE_COOKIE}=${mode}; path=/; max-age=${String(GUEST_GUIDE_MODE_COOKIE_MAX_AGE)}; samesite=lax${secure}`;
   } catch {
     // Запрет на запись cookie меняет только память между входами, а не текущий урок.
   }
