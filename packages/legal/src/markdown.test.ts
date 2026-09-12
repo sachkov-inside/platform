@@ -11,6 +11,7 @@ import {
   legalEditionPath,
   legalEditionVersion,
   legalEditions,
+  legalSeller,
   LegalTextError,
   parseLegalText,
   supersededLegalEditions,
@@ -195,5 +196,16 @@ describe("strict text parsing", () => {
   ])("rejects %j", (text, message) => {
     expect(() => parseLegalText(text)).toThrow(LegalTextError);
     expect(() => parseLegalText(text)).toThrow(message);
+  });
+});
+
+describe("seller", () => {
+  it("short seller facts repeat the published contacts edition", () => {
+    const contacts = currentLegalEdition("contacts").text;
+
+    expect(contacts).toContain("Сачков Кирилл Олегович");
+    expect(contacts).toContain(legalSeller.inn);
+    expect(contacts).toContain(legalSeller.ogrnip);
+    expect(contacts).toContain(legalSeller.email);
   });
 });

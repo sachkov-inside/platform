@@ -1,11 +1,11 @@
 import type { LegalEdition } from "@inside/legal";
+import { legalSeller } from "@inside/legal/seller";
 import Link from "next/link";
 
 import {
   LEGAL_GROUP_ORDER,
   LEGAL_GROUP_TITLES,
   LEGAL_NAVIGATION,
-  LEGAL_SELLER,
   legalEffectiveNote,
   type LegalGroup,
 } from "@/entities/legal-document";
@@ -41,14 +41,14 @@ export function LegalSectionPage({
           Продавец
         </h2>
         <p className="mt-3 text-sm leading-6 text-muted-foreground">
-          {LEGAL_SELLER.name}, ИНН {LEGAL_SELLER.inn}, ОГРНИП {LEGAL_SELLER.ogrnip}. Адрес для
+          {legalSeller.name}, ИНН {legalSeller.inn}, ОГРНИП {legalSeller.ogrnip}. Адрес для
           письменных обращений, телефон и порядок ответа — в документе{" "}
           <Link className="underline underline-offset-2" href={legalDocumentPath("contacts")}>
             «Реквизиты и обращения»
           </Link>
           . Письмо:{" "}
-          <a className="underline underline-offset-2" href={`mailto:${LEGAL_SELLER.email}`}>
-            {LEGAL_SELLER.email}
+          <a className="underline underline-offset-2" href={`mailto:${legalSeller.email}`}>
+            {legalSeller.email}
           </a>
           .
         </p>

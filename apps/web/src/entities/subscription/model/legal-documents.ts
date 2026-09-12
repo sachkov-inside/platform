@@ -63,8 +63,8 @@ export interface ConsentPolicy {
 
 /**
  * Какие согласия нужны перед оплатой. Подписка требует принятых `terms` и `recurring`; разовая
- * покупка — только `terms`, и согласие на регулярные списания ей не показывается, потому что
- * списаний по ней не будет и сервер такое согласие не принимает.
+ * покупка — только `terms`. Что вообще показать, решает область применения документа: согласие
+ * на регулярные списания относится к подписке, и в разовой покупке его нет.
  */
 export function purchaseConsentPolicy(
   documents: readonly LegalDocument[],
@@ -72,10 +72,7 @@ export function purchaseConsentPolicy(
 ): ConsentPolicy {
   const applicable = documents.filter((document) => document.appliesTo.includes(mode));
   return mode === "one_time"
-    ? {
-        required: ["terms"],
-        applicable: applicable.filter((document) => document.kind !== "recurring"),
-      }
+    ? { required: ["terms"], applicable }
     : { required: ["terms", "recurring"], applicable };
 }
 

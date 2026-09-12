@@ -11,7 +11,6 @@ export {
   type LegalGroup,
   type LegalNavigationEntry,
 } from "./model/catalog";
-export { LEGAL_SELLER } from "./model/seller";
 export { legalEffectiveNote } from "./model/status";
 export { LegalDocumentLinks } from "./ui/legal-document-links";
 export { LegalDocumentView } from "./ui/legal-document-view";

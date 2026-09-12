@@ -19,6 +19,7 @@ export {
   type ConsentKind,
   type PaymentMode,
 } from "./catalog.js";
+export { legalSeller } from "./seller.js";
 export {
   inlineText,
   LegalTextError,

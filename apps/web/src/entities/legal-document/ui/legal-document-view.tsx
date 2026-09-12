@@ -1,4 +1,4 @@
-import { inlineText, type LegalBlock, type LegalInline } from "@inside/legal";
+import { inlineText, type LegalBlock, type LegalInline } from "@inside/legal/markdown";
 import Link from "next/link";
 import type { ReactNode } from "react";
 

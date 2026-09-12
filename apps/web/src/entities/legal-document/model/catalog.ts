@@ -39,8 +39,7 @@ export const LEGAL_NAVIGATION: readonly LegalNavigationEntry[] = [
   { key: "tribute", navLabel: "Покупки через Tribute", group: "legacy" },
 ];
 
-export function legalNavigationEntry(
-  key: LegalDocumentKey,
-): LegalNavigationEntry | null {
+/** Как документ называется в навигации; `null` для ключа вне раздела. */
+export function legalNavigationEntry(key: string): LegalNavigationEntry | null {
   return LEGAL_NAVIGATION.find((entry) => entry.key === key) ?? null;
 }

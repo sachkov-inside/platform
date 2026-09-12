@@ -1,7 +1,7 @@
-import { currentLegalEditions } from "@inside/legal";
 import type { Metadata } from "next";
 
 import { LegalSectionPage } from "@/_pages/legal";
+import { legalSectionView } from "@/_pages/legal.server";
 
 export const metadata: Metadata = {
   title: "Документы",
@@ -11,5 +11,5 @@ export const metadata: Metadata = {
 
 /** Публичный юридический раздел: открыт без входа и без оплаты. */
 export default function LegalSectionRoute() {
-  return <LegalSectionPage editions={currentLegalEditions()} />;
+  return <LegalSectionPage editions={legalSectionView()} />;
 }

@@ -1,7 +1,7 @@
 "use client";
 import { useId, useState } from "react";
 
-import { LegalDocumentLinks } from "@/entities/legal-document";
+import { LegalDocumentLinks, legalNavigationEntry } from "@/entities/legal-document";
 import { Button } from "@/shared/ui/button";
 
 import {
@@ -258,7 +258,10 @@ export function BillingContactForm({
                 rel="noreferrer"
                 target="_blank"
               >
-                {legalDocumentLabel(document.kind)}
+                {/* Оферт две — покупки и подписки, — поэтому здесь они названы по документу,
+                    а не по виду согласия: иначе рядом стоят две одинаковые ссылки. */}
+                {legalNavigationEntry(document.documentId)?.navLabel ??
+                  legalDocumentLabel(document.kind)}
               </a>
             </li>
           ))}

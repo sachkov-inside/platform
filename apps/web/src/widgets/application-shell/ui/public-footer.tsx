@@ -1,6 +1,8 @@
 import Link from "next/link";
 
-import { LEGAL_NAVIGATION, LEGAL_SELLER } from "@/entities/legal-document";
+import { legalSeller } from "@inside/legal/seller";
+
+import { LEGAL_NAVIGATION } from "@/entities/legal-document";
 import { LEGAL_PATH, legalDocumentPath } from "@/shared/routing/public-page-path";
 
 /**
@@ -34,12 +36,12 @@ export function PublicFooter() {
         </ul>
       </nav>
       <p className="mt-5 text-xs leading-6">
-        {LEGAL_SELLER.name} · ИНН {LEGAL_SELLER.inn} · ОГРНИП {LEGAL_SELLER.ogrnip} ·{" "}
+        {legalSeller.name} · ИНН {legalSeller.inn} · ОГРНИП {legalSeller.ogrnip} ·{" "}
         <a
           className="underline underline-offset-4 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-          href={`mailto:${LEGAL_SELLER.email}`}
+          href={`mailto:${legalSeller.email}`}
         >
-          {LEGAL_SELLER.email}
+          {legalSeller.email}
         </a>
       </p>
     </footer>

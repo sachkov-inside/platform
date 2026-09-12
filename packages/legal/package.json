@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "sideEffects": false,
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -11,6 +12,14 @@
     "./document": {
       "types": "./dist/document.d.ts",
       "default": "./dist/document.js"
+    },
+    "./markdown": {
+      "types": "./dist/markdown.d.ts",
+      "default": "./dist/markdown.js"
+    },
+    "./seller": {
+      "types": "./dist/seller.d.ts",
+      "default": "./dist/seller.js"
     }
   },
   "files": [

@@ -1,8 +1,8 @@
-import { currentLegalEdition, currentLegalEditions } from "@inside/legal";
+import { currentLegalEditions } from "@inside/legal";
 import { legalDocumentKeys } from "@inside/legal/document";
 import { expect, it } from "vitest";
 
-import { LEGAL_GROUP_ORDER, LEGAL_NAVIGATION, LEGAL_SELLER } from "@/entities/legal-document";
+import { LEGAL_GROUP_ORDER, LEGAL_NAVIGATION } from "@/entities/legal-document";
 import { purchaseConsentPolicy, type LegalDocument } from "@/entities/subscription";
 import { legalDocumentPath, legalEditionPath } from "@/shared/routing/public-page-path";
 
@@ -23,15 +23,6 @@ it("адрес документа и адрес его редакции оста
       `/legal/${edition.key}/v${String(edition.version)}`,
     );
   }
-});
-
-it("краткие сведения продавца в футере взяты из документа о реквизитах", () => {
-  const contacts = currentLegalEdition("contacts").text;
-
-  expect(contacts).toContain("Сачков Кирилл Олегович");
-  expect(contacts).toContain(LEGAL_SELLER.inn);
-  expect(contacts).toContain(LEGAL_SELLER.ogrnip);
-  expect(contacts).toContain(LEGAL_SELLER.email);
 });
 
 it("покупателю показывается оферта его покупки, а не обе сразу", () => {
