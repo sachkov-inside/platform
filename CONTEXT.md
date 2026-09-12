@@ -370,8 +370,9 @@ _Avoid_: Telegram presence, single global paid flag
 
 **CommunityEntitlement**:
 An Account's effective right to participate in the Inside community, distinct from its actual
-presence in the Telegram chat.
-_Avoid_: ChatMember, membership observation
+presence in the Telegram chat. Any live AccessGrant reason opens it, a bought Guide included, and
+it lasts exactly as long as the reason that opens it.
+_Avoid_: ChatMember, membership observation, tier name as the rule
 
 **CommunityDelivery**:
 One attempt to make a CommunityEntitlement real in Telegram. Its desired state, the provider's

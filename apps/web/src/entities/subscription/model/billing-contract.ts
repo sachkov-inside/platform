@@ -243,6 +243,21 @@ export function isGuideCapability(capability: AccessCapability): boolean {
   return capability.startsWith("guide:");
 }
 
+/**
+ * Состав доступа, который эти права открывают на самом деле. Купленное руководство само по себе
+ * даёт и общий чат сообщества, поэтому страница оплаты и кабинет называют чат рядом с
+ * руководством. Право участия выдаёт сервер по тому же правилу: здесь оно нужно только чтобы
+ * назвать доступ до покупки и после неё одинаково честно.
+ */
+export function accessComposition(
+  capabilities: readonly AccessCapability[],
+): readonly AccessCapability[] {
+  return capabilities.includes("community") ||
+    !capabilities.some(isGuideCapability)
+    ? capabilities
+    : [...capabilities, "community"];
+}
+
 /** Способ продажи снимка: у старых снимков его нет, и это подписка. */
 export function paymentMode(snapshot: PriceSnapshot): PaymentMode {
   return snapshot.paymentOption.mode ?? "subscription";

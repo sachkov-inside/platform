@@ -1,4 +1,4 @@
-import { isGuideCapability } from "./billing-contract";
+import { accessComposition, isGuideCapability } from "./billing-contract";
 import type {
   AccessCapability,
   AccessSource,
@@ -80,29 +80,43 @@ export interface BenefitLine {
   readonly term: string;
 }
 
+/** Самый долгий из сроков. Неуказанный срок означает бессрочное право и побеждает любой другой. */
+function longestTerm(terms: readonly (number | null)[]): number | null {
+  let longest = 0;
+  for (const term of terms) {
+    if (term === null) return null;
+    longest = Math.max(longest, term);
+  }
+  return longest;
+}
+
 /**
  * Срок конкретного права может отличаться от периода списания: у подписки неуказанный срок
  * наследует период варианта оплаты, у разовой покупки такого периода нет и право бессрочно.
- * Явный `null` означает бессрочное право в обоих случаях.
+ * Явный `null` означает бессрочное право в обоих случаях. Общий чат, который открывают сами
+ * руководства предложения, живёт их сроком, а не периодом списания.
  */
 export function benefitLines(conditions: {
   readonly offer: BillingOffer;
   readonly paymentOption: BillingPaymentOption;
 }): readonly BenefitLine[] {
   const { offer, paymentOption } = conditions;
-  return offer.benefits.map((capability) => {
+  const months = (capability: AccessCapability): number | null => {
     const period = offer.benefitPeriods?.find(
       (entry) => entry.capability === capability,
     );
-    const term =
-      period === undefined
-        ? paymentOption.mode === "one_time"
-          ? "бессрочно"
-          : formatMonths(paymentOption.months)
-        : period.months === null
-          ? "бессрочно"
-          : formatMonths(period.months);
-    return { capability, label: capabilityLabel(capability), term };
+    if (period !== undefined) return period.months;
+    return paymentOption.mode === "one_time" ? null : paymentOption.months;
+  };
+  return accessComposition(offer.benefits).map((capability) => {
+    const term = offer.benefits.includes(capability)
+      ? months(capability)
+      : longestTerm(offer.benefits.filter(isGuideCapability).map(months));
+    return {
+      capability,
+      label: capabilityLabel(capability),
+      term: term === null ? "бессрочно" : formatMonths(term),
+    };
   });
 }
 
@@ -149,22 +163,24 @@ export function paymentSubjectLabel(payment: {
 
 /**
  * Как назвать состав предложения покупателю. Руководство с сопровождением называется именно так,
- * а не просто руководством: покупатель должен видеть, за что платит.
+ * а не просто руководством: покупатель должен видеть, за что платит. Общий чат назван и тогда,
+ * когда его открывает само руководство, а не отдельное право в составе предложения.
  */
 export function offerCompositionLabel(offer: BillingOffer): string {
   // Каждая часть названа дважды: сама по себе и после предлога. Русский требует творительного
   // падежа, а склеивать его из именительного нечем — поэтому обе формы написаны, а не выведены.
   const parts: { readonly alone: string; readonly after: string }[] = [];
-  if (offer.benefits.some(isGuideCapability)) {
+  const benefits = accessComposition(offer.benefits);
+  if (benefits.some(isGuideCapability)) {
     parts.push({ alone: "Руководство", after: "руководством" });
   }
-  if (offer.benefits.includes("materials")) {
+  if (benefits.includes("materials")) {
     parts.push({ alone: "Все материалы", after: "всеми материалами" });
   }
-  if (offer.benefits.includes("support")) {
+  if (benefits.includes("support")) {
     parts.push({ alone: "Сопровождение", after: "сопровождением" });
   }
-  if (offer.benefits.includes("community")) {
+  if (benefits.includes("community")) {
     parts.push({ alone: "Общий чат", after: "общим чатом" });
   }
   const [first, ...rest] = parts;
