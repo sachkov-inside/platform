@@ -21,6 +21,7 @@
     "identity:proof:start": "node scripts/identity-proof-start.mjs",
     "identity:proof:hardening": "node scripts/identity-hardening-proof.mjs",
     "local:setup": "node scripts/setup-local.mjs",
+    "local:stand": "node scripts/local-stand.mjs",
     "build": "pnpm --recursive --if-present build",
     "api:generate": "pnpm --filter @inside/backend openapi:generate && pnpm --filter @inside/web openapi:generate",
     "api:check": "pnpm --filter @inside/backend openapi:check && pnpm --filter @inside/web openapi:check",
