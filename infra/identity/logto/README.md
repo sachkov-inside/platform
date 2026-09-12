@@ -38,6 +38,13 @@ Mailpit. Without overrides, the public endpoints are:
 - Mailpit: `http://127.0.0.1:8026`
 - Platform: `http://127.0.0.1:3000`
 
+The same bootstrap also configures the sign-in of the local stand, where Logto runs inside the
+Platform Compose project behind the `identity` profile. `pnpm local:stand` sets `LOGTO_ON_STAND=true`,
+which points the bootstrap at that project and makes it write the stand's generated values to
+`.identity-proof/stand.env`. Both stands build the same pinned image; this environment stays
+separate because it owns and destroys its own volumes, which a stand holding the owner's data must
+never do. See [one stand](../../../docs/runbooks/local-development.md#one-stand-sign-in-and-purchase).
+
 Stop the complete `identity:proof:start` session with `Ctrl+C`; its ownership-aware launcher stops
 both Compose projects without deleting either database. If only `identity:proof:up` was run, stop
 that isolated proof environment explicitly:
