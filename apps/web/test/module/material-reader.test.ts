@@ -159,6 +159,8 @@ describe("Material Reader server adapter", () => {
         slug: "inside-platform-overview",
         title: "Как устроен Inside Platform",
         summary: "Один реальный published Material.",
+        difficulty: "basic",
+        outcomes: ["Назвать части платформы", "Найти нужный документ за минуту"],
         access: "membership",
         cover: {
           coverId: "72000000-0000-4000-8000-000000000022",
