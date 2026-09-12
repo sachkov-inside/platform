@@ -1,4 +1,9 @@
-import { addressableMaterialBlockTypes } from "@inside/material-blocks";
+import {
+  addressableMaterialBlockTypes,
+  isUnknownRecord,
+  materialBlockDefinitions,
+} from "@inside/material-blocks";
+import type { JsonValue } from "@inside/material-blocks";
 import { materialDocumentSchemaV1 } from "@inside/material-blocks/schema";
 import { getSchema } from "@tiptap/core";
 import type { Schema } from "@tiptap/pm/model";
@@ -27,6 +32,61 @@ function documentShape(schema: Schema): readonly string[] {
     ),
   ].sort();
 }
+
+/** Значение, по которому видно, что поле вернулось тем же, каким ушло в разметку. */
+function sampleField(defaultValue: JsonValue): JsonValue {
+  return Array.isArray(defaultValue)
+    ? [{ label: "Метка", name: "Название" }]
+    : "Значение поля";
+}
+
+/** Атрибуты, которые `toDOM` записал на сам элемент. */
+function renderedAttributes(rendered: unknown): Record<string, unknown> {
+  if (!Array.isArray(rendered)) {
+    throw new TypeError("Expected a DOM output spec");
+  }
+  const attributes: unknown = rendered[1];
+  return isUnknownRecord(attributes) ? attributes : {};
+}
+
+describe("Material document DOM contract", () => {
+  it("returns every field a block writes to its own DOM attribute", () => {
+    const withDomFields = materialBlockDefinitions.filter(
+      (definition) => definition.node?.domAttributes !== undefined,
+    );
+    expect(withDomFields.length).toBeGreaterThan(0);
+
+    for (const definition of withDomFields) {
+      const declaration = definition.node;
+      if (declaration?.domAttributes === undefined) continue;
+      const type = materialDocumentSchemaV1.nodes[definition.type];
+      if (type === undefined) throw new TypeError(`Missing node ${definition.type}`);
+
+      const fields = Object.fromEntries(
+        Object.keys(declaration.domAttributes).map((name) => [
+          name,
+          sampleField(declaration.attributes[name] ?? null),
+        ]),
+      );
+      const node = type.createAndFill(fields);
+      if (node === null) throw new TypeError(`Cannot build ${definition.type}`);
+
+      const attributes = renderedAttributes(type.spec.toDOM?.(node));
+      // Буфер обмена собирает узел заново из разметки, поэтому поле обязано пройти оба конца.
+      // Правило разбора читает только `getAttribute`, поэтому элемент здесь — этот один метод.
+      const element = {
+        getAttribute: (name: string) =>
+          typeof attributes[name] === "string" ? attributes[name] : null,
+      } as unknown as HTMLElement;
+      const parsed = type.spec.parseDOM?.[0]?.getAttrs?.(element);
+
+      expect([definition.type, parsed]).toEqual([
+        definition.type,
+        expect.objectContaining(fields),
+      ]);
+    }
+  });
+});
 
 describe("Material document schema", () => {
   it("gives the editor the same document the server accepts", () => {

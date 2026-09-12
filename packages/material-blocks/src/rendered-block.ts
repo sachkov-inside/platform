@@ -12,6 +12,13 @@ export interface RenderedText {
 
 export type HeadingLevel = 2 | 3 | 4;
 
+/** One term of a labeled list: a short label, the term it marks and an optional explanation. */
+export interface MaterialLabeledRow {
+  readonly description?: string | undefined;
+  readonly label: string;
+  readonly name: string;
+}
+
 /**
  * A rendered block is recursive, so TypeScript cannot infer this union from the registry's
  * schemas: the schemas need the type to describe their own nested content. The two stay in step
@@ -44,8 +51,37 @@ export type RenderedBlock =
   | {
       readonly content: readonly RenderedBlock[];
       readonly kind: "callout";
-      readonly tone: "note" | "tip" | "warning";
+      readonly title?: string | undefined;
+      readonly tone:
+        | "bad"
+        | "definition"
+        | "example"
+        | "good"
+        | "note"
+        | "tip"
+        | "warning";
     }
+  | {
+      readonly description?: string | undefined;
+      readonly kind: "resource_card";
+      readonly title: string;
+      readonly url: string;
+    }
+  | {
+      readonly kind: "agent_prompt";
+      readonly text: string;
+      readonly title?: string | undefined;
+    }
+  | {
+      readonly content: readonly RenderedBlock[];
+      readonly kind: "takeaways";
+      readonly title: string;
+    }
+  | {
+      readonly kind: "labeled_list";
+      readonly rows: readonly MaterialLabeledRow[];
+    }
+  | { readonly content: readonly RenderedText[]; readonly kind: "key_point" }
   | {
       readonly alt: string;
       readonly assetId: string;

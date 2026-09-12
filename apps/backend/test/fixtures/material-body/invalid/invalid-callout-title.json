@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "doc": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "callout",
+        "attrs": {
+          "kind": "note",
+          "nodeId": "94000000-0000-4000-8000-000000000003",
+          "title": 42
+        },
+        "content": [
+          {
+            "type": "paragraph",
+            "attrs": {
+              "nodeId": "94000000-0000-4000-8000-000000000004"
+            },
+            "content": [
+              {
+                "type": "text",
+                "text": "Врезка"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

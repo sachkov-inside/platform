@@ -177,6 +177,80 @@ export function fullRepresentativeDocument(): MaterialBodySnapshot {
           ],
         },
         {
+          type: "callout",
+          attrs: {
+            kind: "example",
+            nodeId: "01000000-0000-4000-8000-000000000021",
+            title: "Пример",
+          },
+          content: [
+            {
+              type: "paragraph",
+              attrs: { nodeId: "01000000-0000-4000-8000-000000000022" },
+              content: [{ type: "text", text: "Короткий разбор одного шага." }],
+            },
+          ],
+        },
+        {
+          type: "resourceCard",
+          attrs: {
+            description: "Что обещает контракт",
+            nodeId: "01000000-0000-4000-8000-000000000023",
+            title: "Спецификация Platform",
+            url: "https://example.com/spec",
+          },
+        },
+        {
+          type: "agentPrompt",
+          attrs: {
+            nodeId: "01000000-0000-4000-8000-000000000024",
+            title: "Промпт для разбора",
+          },
+          content: [
+            { type: "text", text: "Разбери материал и предложи три правки." },
+          ],
+        },
+        {
+          type: "takeaways",
+          attrs: {
+            nodeId: "01000000-0000-4000-8000-000000000025",
+            title: "Итоги урока",
+          },
+          content: [
+            {
+              type: "paragraph",
+              attrs: { nodeId: "01000000-0000-4000-8000-000000000026" },
+              content: [{ type: "text", text: "Один authority" }],
+            },
+            {
+              type: "paragraph",
+              attrs: { nodeId: "01000000-0000-4000-8000-000000000027" },
+              content: [{ type: "text", text: "Одна проверка" }],
+            },
+          ],
+        },
+        {
+          type: "labeledList",
+          attrs: {
+            nodeId: "01000000-0000-4000-8000-000000000028",
+            rows: [
+              {
+                description: "Фиксирует необратимый выбор",
+                label: "ADR",
+                name: "Решение",
+              },
+              { label: "Gate", name: "Проверка" },
+            ],
+          },
+        },
+        {
+          type: "keyPoint",
+          attrs: { nodeId: "01000000-0000-4000-8000-000000000029" },
+          content: [
+            { type: "text", text: "Вид блока задаёт платформа, а не вёрстка урока." },
+          ],
+        },
+        {
           type: "assetImage",
           attrs: {
             nodeId: "01000000-0000-4000-8000-000000000008",

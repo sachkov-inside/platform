@@ -9,6 +9,9 @@ export {
   publishedMaterialProjectionSchema,
   toMaterialPreview,
   materialTaxonomyLabel,
+  calloutTones,
+  type CalloutTone,
+  type MaterialLabeledRow,
   renderedBlockSchema,
   renderedMarkSchema,
   renderedMaterialBodySchema,
@@ -19,6 +22,18 @@ export {
   type RenderedText,
 } from "../material.model";
 export { MaterialCard, type MaterialCardProps } from "./ui/material-card";
+export {
+  calloutTonePresentation,
+  MaterialAgentPrompt,
+  MaterialCallout,
+  MaterialKeyPoint,
+  MaterialLessonBlock,
+  type LessonBlock,
+  type LessonBlockRendering,
+  MaterialLabeledList,
+  MaterialResourceCard,
+  MaterialTakeaways,
+} from "./ui/material-blocks";
 export { ContentCoverImage } from "./ui/content-cover-image.client";
 
 export { MaterialReadingStatus, materialReadingLabels } from "./ui/material-reading-status";
