@@ -1,5 +1,6 @@
 import type { Route } from "next";
 
+import { LegalDocumentLinks } from "@/entities/legal-document";
 import { billingActionClass } from "@/entities/subscription";
 import { Button } from "@/shared/ui/button";
 
@@ -20,6 +21,11 @@ export function BillingSignIn({
           Войти
         </Button>
       </form>
+      <LegalDocumentLinks
+        className="mt-5 border-t border-border pt-4"
+        label="Перед входом:"
+        keys={["terms", "privacy"]}
+      />
     </div>
   );
 }

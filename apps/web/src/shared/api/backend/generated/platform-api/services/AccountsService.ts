@@ -121,6 +121,7 @@ export class AccountsService {
       verifiedAt: string;
     } | null;
     documents: Array<{
+      readonly appliesTo: Array<'one_time' | 'subscription'>;
       digest: string;
       documentId: string;
       kind: 'terms' | 'recurring' | 'personal_data' | 'marketing';

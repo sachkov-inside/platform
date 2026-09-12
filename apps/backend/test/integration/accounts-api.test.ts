@@ -79,7 +79,10 @@ describe("Accounts API", () => {
     const read = await server.inject({ method: "GET", url: "/accounts/current/billing/contact", headers });
     expect(read.statusCode).toBe(200);
     expect(read.headers["cache-control"]).toBe("private, no-store");
-    expect(read.json()).toEqual({ ok: true, contact: null, documents: [] });
+    // Каталог редакций подключён в модуле: покупателю показывают действующие оферты и согласие.
+    expect(read.json()).toMatchObject({ ok: true, contact: null });
+    expect(read.json<{ documents: { documentId: string }[] }>().documents.map((document) => document.documentId))
+      .toEqual(["purchase", "subscription", "recurring-consent"]);
     const disabled = await server.inject({ method: "POST", url, headers, payload: { operationId: randomUUID(), expectedRevision: 0, email: "synthetic@example.test" } });
     expect(disabled.statusCode).toBe(503);
     expect(disabled.json()).toMatchObject({ code: "provider_unavailable" });

@@ -3,6 +3,7 @@ import { BillingContact } from "./facets/billing-contact/billing-contact.js";
 import { BillingContactController } from "./features/billing-contact/billing-contact.controller.js";
 import { billingContactProtection } from "./infrastructure/billing-contact-protection.js";
 import { assembleBillingContactSender } from "./infrastructure/send-billing-contact-code.js";
+import { consentDocuments } from "@inside/legal";
 import { Module } from "@nestjs/common";
 
 import {
@@ -41,7 +42,8 @@ import {
         prisma,
         protection: config.billingContact ? billingContactProtection(config.billingContact.encryptionKey) : undefined,
         sendCode: config.billingContact ? assembleBillingContactSender(config.billingContact) : undefined,
-        documents: [], // Approved editions arrive through legal #412; never fabricate acceptance text.
+        // The published editions themselves; a buyer accepts the text this catalogue carries.
+        documents: consentDocuments(config.publicSite.origin),
         now: () => new Date(),
       }),
     },

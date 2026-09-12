@@ -16,6 +16,7 @@ import type { ReactNode } from "react";
 
 import { cn } from "@/shared/lib/utils";
 import { InsideBrand } from "./inside-brand";
+import { PublicFooter } from "./public-footer";
 
 type ApplicationNavigationIcon = "bookmark" | "home" | "library" | "map" | "pen" | "profile";
 
@@ -117,6 +118,7 @@ export function ApplicationShell({
       >
         <div className="public-page-container mx-auto w-full pb-[calc(7rem+env(safe-area-inset-bottom))] pt-6 lg:pb-20 lg:pt-8">
           {children}
+          <PublicFooter />
         </div>
       </main>
     </div>

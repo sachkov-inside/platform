@@ -3,9 +3,11 @@ import type { Route } from "next";
 import Link from "next/link";
 import { useId } from "react";
 
+import { LegalDocumentLinks, legalNavigationEntry } from "@/entities/legal-document";
 import {
   billingActionClass,
   ConsentChecklist,
+  legalDocumentLabel,
   attemptStateLabel,
   formatBillingDateTime,
   formatKopecks,
@@ -48,6 +50,12 @@ export interface CheckoutPanelProps {
  * потом оплата. Ни один флажок не отмечен заранее, а возврат из банка не считается успехом.
  * Разовая покупка идёт тем же путём, но не обещает ни следующего периода, ни списаний.
  */
+
+/** Название принимаемого документа: оферты покупки и подписки называются по документу. */
+function documentLabel(document: LegalDocument): string {
+  return legalNavigationEntry(document.documentId)?.navLabel ?? legalDocumentLabel(document.kind);
+}
+
 export function CheckoutPanel({
   snapshot,
   quote,
@@ -201,6 +209,7 @@ export function CheckoutPanel({
                 accepted={accepted}
                 disabled={pending}
                 documents={applicable}
+                labelFor={documentLabel}
                 legend="Согласия перед оплатой"
                 markOptional
                 namePrefix="consent"
@@ -209,6 +218,12 @@ export function CheckoutPanel({
               />
             </div>
           )}
+
+          <LegalDocumentLinks
+            className="mt-5"
+            label="Документы этой покупки:"
+            keys={["subscription", "recurring-consent", "privacy"]}
+          />
 
           {existingAccess ? (
             <div className="mt-5 rounded-xl border border-accent/35 bg-accent/6 p-4 text-sm leading-6">
