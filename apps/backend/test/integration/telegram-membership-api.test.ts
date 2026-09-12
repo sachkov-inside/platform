@@ -17,6 +17,7 @@ import {
   createTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
+import { declaredServer } from "../support/declared-api.js";
 
 const issuer = "https://identity.telegram-membership.test/oidc";
 const audience = "https://api.telegram-membership.test";
@@ -73,7 +74,7 @@ describe("Telegram Membership API", () => {
       { logger: false },
     );
     await app.init();
-    await app.getHttpAdapter().getInstance().ready();
+    await declaredServer(app.getHttpAdapter().getInstance()).ready();
   });
 
   afterAll(async () => {
@@ -114,7 +115,7 @@ describe("Telegram Membership API", () => {
       membership: { kind: "notOffered" },
     });
 
-    const unauthenticated = await app.getHttpAdapter().getInstance().inject({
+    const unauthenticated = await declaredServer(app.getHttpAdapter().getInstance()).inject({
       method: "POST",
       url: "/accounts/current/telegram-link",
     });
@@ -278,7 +279,7 @@ describe("Telegram Membership API", () => {
     url: string,
     token: string,
   ) {
-    return app.getHttpAdapter().getInstance().inject({
+    return declaredServer(app.getHttpAdapter().getInstance()).inject({
       method,
       url,
       headers: { authorization: `Bearer ${token}` },
@@ -297,7 +298,7 @@ describe("Telegram Membership API", () => {
       readonly source: string;
     },
   ) {
-    return app.getHttpAdapter().getInstance().inject({
+    return declaredServer(app.getHttpAdapter().getInstance()).inject({
       method: "POST",
       url: "/integrations/telegram/v1/membership-evidence",
       headers: {

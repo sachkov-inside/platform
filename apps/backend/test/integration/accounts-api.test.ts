@@ -14,6 +14,7 @@ import {
   createTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
+import { declaredServer } from "../support/declared-api.js";
 
 const issuer = "https://identity.example.test/oidc";
 const audience = "https://api.example.test";
@@ -55,7 +56,7 @@ describe("Accounts API", () => {
       { logger: false },
     );
     await app.init();
-    await app.getHttpAdapter().getInstance().ready();
+    await declaredServer(app.getHttpAdapter().getInstance()).ready();
   });
 
   afterAll(async () => {
@@ -67,7 +68,7 @@ describe("Accounts API", () => {
   });
 
   test("billing contact endpoints require the current Account and reject injected owners", async () => {
-    const server = app.getHttpAdapter().getInstance();
+    const server = declaredServer(app.getHttpAdapter().getInstance());
     const url = "/accounts/current/billing/contact/start";
     expect((await server.inject({ method: "POST", url, payload: {} })).statusCode).toBe(401);
     const token = await signToken({ subject: "billing-api-account", email: "billing-api@example.test" });
@@ -119,7 +120,7 @@ describe("Accounts API", () => {
     expect(machine.json()).toMatchObject({ code: "invalid_proof" });
 
     const malformedOptionalProof =
-      await app.getHttpAdapter().getInstance().inject({
+      await declaredServer(app.getHttpAdapter().getInstance()).inject({
         method: "GET",
         url: "/materials/missing-material",
         headers: { authorization: "Bearer not-a-jwt" },
@@ -140,7 +141,7 @@ describe("Accounts API", () => {
     const accountId = readAccountId(established.json<unknown>());
     const authorization = { authorization: `Bearer ${token}` };
 
-    const forbidden = await app.getHttpAdapter().getInstance().inject({
+    const forbidden = await declaredServer(app.getHttpAdapter().getInstance()).inject({
       method: "POST",
       url: "/authoring/materials",
       headers: {
@@ -169,7 +170,7 @@ describe("Accounts API", () => {
       data: { id: seriesId, name: "Platform", slug: "platform" },
     });
 
-    const created = await app.getHttpAdapter().getInstance().inject({
+    const created = await declaredServer(app.getHttpAdapter().getInstance()).inject({
       method: "POST",
       url: "/authoring/materials",
       headers: {
@@ -185,7 +186,7 @@ describe("Accounts API", () => {
     expect(created.headers["cache-control"]).toBe("private, no-store");
     const initial = readMaterialReceipt(created.json<unknown>());
 
-    const companion = await app.getHttpAdapter().getInstance().inject({
+    const companion = await declaredServer(app.getHttpAdapter().getInstance()).inject({
       method: "POST",
       url: "/authoring/materials",
       headers: {
@@ -200,16 +201,16 @@ describe("Accounts API", () => {
     expect(companion.statusCode).toBe(201);
     const companionReceipt = readMaterialReceipt(companion.json<unknown>());
 
-    const initialOrder = await app.getHttpAdapter().getInstance().inject({
+    const initialOrder = await declaredServer(app.getHttpAdapter().getInstance()).inject({
       method: "GET",
       url: `/authoring/series/${seriesId}/order`,
       headers: authorization,
     });
     expect(initialOrder.statusCode).toBe(200);
-    const canonicalOrder = await app.getHttpAdapter().getInstance().inject({ method: "GET", url: `/authoring/guides/${seriesId}/order`, headers: authorization });
+    const canonicalOrder = await declaredServer(app.getHttpAdapter().getInstance()).inject({ method: "GET", url: `/authoring/guides/${seriesId}/order`, headers: authorization });
     expect(canonicalOrder.statusCode).toBe(200);
     expect(canonicalOrder.json()).toEqual(initialOrder.json());
-    expect((await app.getHttpAdapter().getInstance().inject({ method: "GET", url: `/authoring/guides/${seriesId}/order` })).statusCode).toBe(401);
+    expect((await declaredServer(app.getHttpAdapter().getInstance()).inject({ method: "GET", url: `/authoring/guides/${seriesId}/order` })).statusCode).toBe(401);
     const initialOrderBody = initialOrder.json<{
       readonly items: readonly { readonly materialId: string }[];
       readonly orderVersion: string;
@@ -219,7 +220,7 @@ describe("Accounts API", () => {
       companionReceipt.materialId,
     ]);
 
-    const reordered = await app.getHttpAdapter().getInstance().inject({
+    const reordered = await declaredServer(app.getHttpAdapter().getInstance()).inject({
       method: "PUT",
       url: `/authoring/guides/${seriesId}/order`,
       headers: authorization,
@@ -231,7 +232,7 @@ describe("Accounts API", () => {
     expect(reordered.statusCode).toBe(200);
     expect(reordered.json()).toMatchObject({ seriesId });
 
-    const staleOrder = await app.getHttpAdapter().getInstance().inject({
+    const staleOrder = await declaredServer(app.getHttpAdapter().getInstance()).inject({
       method: "PUT",
       url: `/authoring/series/${seriesId}/order`,
       headers: authorization,
@@ -248,7 +249,7 @@ describe("Accounts API", () => {
     expect(staleOrderBody.code).toBe("stale_series_order");
     expect(staleOrderBody.currentOrderVersion).toMatch(/^[a-f0-9]{64}$/u);
 
-    const corpus = await app.getHttpAdapter().getInstance().inject({
+    const corpus = await declaredServer(app.getHttpAdapter().getInstance()).inject({
       method: "GET",
       url: "/authoring/materials?search=generated&publicationState=draft&page=1",
       headers: authorization,
@@ -272,7 +273,7 @@ describe("Accounts API", () => {
       totalPages: 1,
     });
 
-    const loaded = await app.getHttpAdapter().getInstance().inject({
+    const loaded = await declaredServer(app.getHttpAdapter().getInstance()).inject({
       method: "GET",
       url: `/authoring/materials/${initial.materialId}`,
       headers: authorization,
@@ -285,7 +286,7 @@ describe("Accounts API", () => {
       metadata: { title: "Generated API contract" },
     });
 
-    const saved = await app.getHttpAdapter().getInstance().inject({
+    const saved = await declaredServer(app.getHttpAdapter().getInstance()).inject({
       method: "PUT",
       url: `/authoring/materials/${initial.materialId}`,
       headers: {
@@ -305,7 +306,7 @@ describe("Accounts API", () => {
     const current = readMaterialReceipt(saved.json<unknown>());
     expect(current.contentVersion).toBe(2);
 
-    const validation = await app.getHttpAdapter().getInstance().inject({
+    const validation = await declaredServer(app.getHttpAdapter().getInstance()).inject({
       method: "GET",
       url: `/authoring/materials/${current.materialId}/validation?expectedContentVersion=2`,
       headers: authorization,
@@ -313,7 +314,7 @@ describe("Accounts API", () => {
     expect(validation.statusCode).toBe(200);
     expect(validation.headers["cache-control"]).toBe("private, no-store");
 
-    const preview = await app.getHttpAdapter().getInstance().inject({
+    const preview = await declaredServer(app.getHttpAdapter().getInstance()).inject({
       method: "GET",
       url: `/authoring/materials/${current.materialId}/preview`,
       headers: authorization,
@@ -321,7 +322,7 @@ describe("Accounts API", () => {
     expect(preview.statusCode).toBe(200);
     expect(preview.headers["cache-control"]).toBe("private, no-store");
 
-    const published = await app.getHttpAdapter().getInstance().inject({
+    const published = await declaredServer(app.getHttpAdapter().getInstance()).inject({
       method: "PUT",
       url: `/authoring/materials/${current.materialId}`,
       headers: {
@@ -383,7 +384,7 @@ describe("Accounts API", () => {
       availability: "available",
     });
 
-    const unpublished = await app.getHttpAdapter().getInstance().inject({
+    const unpublished = await declaredServer(app.getHttpAdapter().getInstance()).inject({
       method: "PUT",
       url: `/authoring/materials/${initial.materialId}`,
       headers: {
@@ -406,7 +407,7 @@ describe("Accounts API", () => {
       publicationState: "unpublished",
     });
 
-    const deletable = await app.getHttpAdapter().getInstance().inject({
+    const deletable = await declaredServer(app.getHttpAdapter().getInstance()).inject({
       method: "POST",
       url: "/authoring/materials",
       headers: {
@@ -426,7 +427,7 @@ describe("Accounts API", () => {
       },
       payload: { expectedContentVersion: 1 },
     };
-    const deleted = await app.getHttpAdapter().getInstance().inject(deleteRequest);
+    const deleted = await declaredServer(app.getHttpAdapter().getInstance()).inject(deleteRequest);
     expect(deleted.statusCode).toBe(200);
     expect(deleted.json()).toEqual({ materialId: deletableReceipt.materialId });
     const duplicateDelete = await app
@@ -438,7 +439,7 @@ describe("Accounts API", () => {
       materialId: deletableReceipt.materialId,
     });
 
-    const forbiddenDelete = await app.getHttpAdapter().getInstance().inject({
+    const forbiddenDelete = await declaredServer(app.getHttpAdapter().getInstance()).inject({
       method: "DELETE",
       url: `/authoring/materials/${current.materialId}`,
       headers: {
@@ -479,7 +480,7 @@ describe("Accounts API", () => {
     expect(missing.json()).toEqual({ kind: "missing" });
     expect(missing.headers["cache-control"]).toBe("private, no-store");
 
-    const created = await app.getHttpAdapter().getInstance().inject({
+    const created = await declaredServer(app.getHttpAdapter().getInstance()).inject({
       method: "POST",
       url: "/account/profile",
       headers: { authorization: `Bearer ${ownerToken}` },
@@ -498,7 +499,7 @@ describe("Accounts API", () => {
     });
 
     for (const request of [
-      app.getHttpAdapter().getInstance().inject({
+      declaredServer(app.getHttpAdapter().getInstance()).inject({
         method: "GET",
         url: `/member-profiles/${privateProfile.publicProfileId}`,
       }),
@@ -558,7 +559,7 @@ describe("Accounts API", () => {
       /accountId|email|logto|telegram|permission|evidence|audit/iu,
     );
 
-    const removedReportRoute = await app.getHttpAdapter().getInstance().inject({
+    const removedReportRoute = await declaredServer(app.getHttpAdapter().getInstance()).inject({
       method: "POST",
       url: `/member-profiles/${privateProfile.publicProfileId}/reports`,
       headers: { authorization: `Bearer ${viewerToken}` },
@@ -566,7 +567,7 @@ describe("Accounts API", () => {
     });
     expect(removedReportRoute.statusCode).toBe(404);
 
-    const updated = await app.getHttpAdapter().getInstance().inject({
+    const updated = await declaredServer(app.getHttpAdapter().getInstance()).inject({
       method: "PUT",
       url: "/account/profile",
       headers: { authorization: `Bearer ${ownerToken}` },
@@ -583,7 +584,7 @@ describe("Accounts API", () => {
       version: 2,
     });
 
-    const conflict = await app.getHttpAdapter().getInstance().inject({
+    const conflict = await declaredServer(app.getHttpAdapter().getInstance()).inject({
       method: "PUT",
       url: "/account/profile",
       headers: { authorization: `Bearer ${ownerToken}` },
@@ -616,7 +617,7 @@ describe("Accounts API", () => {
     );
     expect(removedExportRoute.statusCode).toBe(404);
 
-    const removedDeleteRoute = await app.getHttpAdapter().getInstance().inject({
+    const removedDeleteRoute = await declaredServer(app.getHttpAdapter().getInstance()).inject({
       method: "DELETE",
       url: "/account/profile",
       headers: { authorization: `Bearer ${ownerToken}` },
@@ -636,7 +637,7 @@ describe("Accounts API", () => {
   });
 
   function inject(method: "GET" | "POST", url: string, token: string) {
-    return app.getHttpAdapter().getInstance().inject({
+    return declaredServer(app.getHttpAdapter().getInstance()).inject({
       method,
       url,
       headers: { authorization: `Bearer ${token}` },
