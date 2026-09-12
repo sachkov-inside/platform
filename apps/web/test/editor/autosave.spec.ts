@@ -183,8 +183,8 @@ test("cover drop and paste persist immediately; article paste inserts an image",
 }) => {
   await createDraft(page, "буфер");
   const cover = page.getByRole("region", { name: /^Обложка:/u });
-  // Обложку материала показывают два превью одной и той же картинки. Оба читают одно сохранённое
-  // состояние, поэтому расхождение между ними означало бы потерянное сохранение.
+  // Обложку материала показывают два превью одной и той же картинки. Каждое из них само снимает
+  // изображение, если доставка не удалась, поэтому проверяются оба, а не первое попавшееся.
   const wide = cover.getByRole("img", { name: "Превью 16:9" });
   const square = cover.getByRole("img", { name: "Квадратное превью" });
   const body = page.locator("[contenteditable=true]");
@@ -221,10 +221,16 @@ test("cover drop and paste persist immediately; article paste inserts an image",
     await expect(wide).toHaveAttribute("src", source);
     await expect(square).toHaveAttribute("src", source);
   }
+  /** Отсутствие адреса — это непоказанное превью, а не обложка с пустым адресом. */
+  async function currentCover(): Promise<string> {
+    const source = await wide.getAttribute("src");
+    if (source === null) throw new Error("Превью обложки не показывает изображение");
+    return source;
+  }
 
   await transfer(cover, "drop");
   await expect(cover.getByText("Обложка обновлена.")).toBeVisible();
-  const dropped = (await wide.getAttribute("src")) ?? "";
+  const dropped = await currentCover();
   await bothPreviewsShow(dropped);
   await page.reload();
   await bothPreviewsShow(dropped);
@@ -234,7 +240,7 @@ test("cover drop and paste persist immediately; article paste inserts an image",
   // Каждая загрузка создаёт свою обложку, поэтому адрес обязан смениться: без этого «сохранилось
   // сразу» подтверждалось бы обложкой, оставшейся от перетаскивания.
   await expect(wide).not.toHaveAttribute("src", dropped);
-  const pasted = (await wide.getAttribute("src")) ?? "";
+  const pasted = await currentCover();
   await bothPreviewsShow(pasted);
   await page.reload();
   await bothPreviewsShow(pasted);
