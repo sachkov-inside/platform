@@ -6,7 +6,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
 import { signInFullStack } from "../support/full-stack-session";
-import { evidenceDirectory } from "../../../../scripts/evidence-path.mjs";
+import { evidenceDirectory, prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 
 test("shows private Account Telegram and Membership presentation without disclosure", async ({
   context,
@@ -49,7 +49,7 @@ test("shows private Account Telegram and Membership presentation without disclos
 
   const snapshots = evidenceDirectory("issue-122");
   const reviewDirectory = resolve(process.cwd(), "../../.impeccable/review");
-  await mkdir(snapshots, { recursive: true });
+  await prepareEvidenceDirectory("issue-189");
   await mkdir(reviewDirectory, { recursive: true });
   const viewportName = testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop";
   await page.screenshot({
@@ -163,7 +163,7 @@ test("creates or edits the Account Profile and preserves the member projection",
 
   const avatarEvidenceDirectory = evidenceDirectory("issue-153");
   const reviewDirectory = resolve(process.cwd(), "../../.impeccable/review");
-  await mkdir(avatarEvidenceDirectory, { recursive: true });
+  await prepareEvidenceDirectory("issue-153");
   await mkdir(reviewDirectory, { recursive: true });
   const viewportName = testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop";
   await cropDialog.screenshot({
@@ -222,7 +222,7 @@ test("creates or edits the Account Profile and preserves the member projection",
 
   const snapshots = evidenceDirectory("issue-189");
   await mkdir(reviewDirectory, { recursive: true });
-  await mkdir(snapshots, { recursive: true });
+  await prepareEvidenceDirectory("issue-189");
   const screenshotName =
     testInfo.project.name === "mobile-chromium" ? "mobile.png" : "desktop.png";
   await publicPathCode.evaluate((element) => {

@@ -1,11 +1,10 @@
-import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
 import { signInFullStack } from "../support/full-stack-session";
-import { evidenceDirectory } from "../../../../scripts/evidence-path.mjs";
+import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 
 const currentMaterialEditorUrl =
   /\/authoring\/materials\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?:\?.*)?$/u;
@@ -139,8 +138,7 @@ for (const access of ["public", "membership"] as const) {
         .locator("html")
         .evaluate((element) => element.scrollWidth <= element.clientWidth),
     ).toBe(true);
-    const snapshots = evidenceDirectory("issue-186");
-    await mkdir(snapshots, { recursive: true });
+    const snapshots = await prepareEvidenceDirectory("issue-186");
     const viewport =
       testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop";
     await page.screenshot({
@@ -1507,8 +1505,7 @@ async function captureLifecycleEvidence(
   name: string,
 ) {
   if (process.env.CAPTURE_EVIDENCE !== "1") return;
-  const snapshots = evidenceDirectory("issue-150");
-  await mkdir(snapshots, { recursive: true });
+  const snapshots = await prepareEvidenceDirectory("issue-150");
   const viewport =
     testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop";
   await page.screenshot({
@@ -1524,8 +1521,7 @@ async function captureAssetEvidence(
   name: string,
 ) {
   if (process.env.CAPTURE_EVIDENCE !== "1") return;
-  const snapshots = evidenceDirectory("issue-180");
-  await mkdir(snapshots, { recursive: true });
+  const snapshots = await prepareEvidenceDirectory("issue-180");
   const viewport =
     testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop";
   await page.screenshot({
@@ -1541,8 +1537,7 @@ async function captureVideoEvidence(
   name: string,
 ) {
   if (process.env.CAPTURE_EVIDENCE !== "1") return;
-  const snapshots = evidenceDirectory("issue-183");
-  await mkdir(snapshots, { recursive: true });
+  const snapshots = await prepareEvidenceDirectory("issue-183");
   const viewport =
     testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop";
   await page.screenshot({
@@ -1558,8 +1553,7 @@ async function captureVideoDeletionEvidence(
   name: string,
 ) {
   if (process.env.CAPTURE_EVIDENCE !== "1") return;
-  const snapshots = evidenceDirectory("issue-227");
-  await mkdir(snapshots, { recursive: true });
+  const snapshots = await prepareEvidenceDirectory("issue-227");
   const viewport =
     testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop";
   await page.screenshot({

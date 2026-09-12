@@ -1,7 +1,9 @@
 import { mkdir } from "node:fs/promises";
+import path from "node:path";
 import { fileURLToPath, URL } from "node:url";
 
 const repositoryRoot = fileURLToPath(new URL("..", import.meta.url));
+const issueFolderPattern = /^issue-\d+$/u;
 
 /**
  * Куда прогон кладёт снимок-свидетельство.
@@ -16,13 +18,18 @@ const repositoryRoot = fileURLToPath(new URL("..", import.meta.url));
  */
 export function evidenceDirectory(issueFolder, environment = process.env) {
   const requested = environment.UPDATE_EVIDENCE?.trim();
+  // Опечатка в имени задачи иначе просто не сработала бы: снимки молча ушли бы в артефакты, а
+  // человек искал бы их в дереве и решил, что явный режим не работает.
+  if (requested !== undefined && requested !== "" && !issueFolderPattern.test(requested)) {
+    throw new Error(`UPDATE_EVIDENCE must name an issue folder such as issue-529, not "${requested}"`);
+  }
   return requested === issueFolder
-    ? `${repositoryRoot}docs/evidence/${issueFolder}`
-    : `${repositoryRoot}ci-artifacts/evidence/${issueFolder}`;
+    ? path.join(repositoryRoot, "docs", "evidence", issueFolder)
+    : path.join(repositoryRoot, "ci-artifacts", "evidence", issueFolder);
 }
 
 export function evidencePath(issueFolder, fileName, environment = process.env) {
-  return `${evidenceDirectory(issueFolder, environment)}/${fileName}`;
+  return path.join(evidenceDirectory(issueFolder, environment), fileName);
 }
 
 /** Каталог создаётся перед первым снимком: у артефактов его обычно ещё нет. */

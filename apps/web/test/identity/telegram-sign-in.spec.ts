@@ -1,4 +1,3 @@
-import { mkdir } from "node:fs/promises";
 import {
   expect,
   test,
@@ -6,7 +5,7 @@ import {
   type Page,
 } from "@playwright/test";
 import { z } from "zod";
-import { evidenceDirectory, evidencePath } from "../../../../scripts/evidence-path.mjs";
+import { evidencePath, prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 
 if (!process.env.WEB_BASE_URL || !process.env.LOGTO_ENDPOINT)
   throw new Error(
@@ -132,7 +131,7 @@ test("Telegram sign-in, logout and fresh repeat use the real Logto session", asy
   browser,
 }) => {
   const challenge = await start(page);
-  await mkdir(evidenceDirectory("issue-299"), { recursive: true });
+  await prepareEvidenceDirectory("issue-299");
   await page.screenshot({
     path: evidencePath("issue-299", "telegram-waiting-desktop.png"),
     fullPage: true,

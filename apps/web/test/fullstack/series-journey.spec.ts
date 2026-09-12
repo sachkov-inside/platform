@@ -1,14 +1,13 @@
 import { z } from "zod";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
-import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 
 import {
   fullStackBaseUrl,
   signInFullStack,
 } from "../support/full-stack-session";
-import { evidenceDirectory } from "../../../../scripts/evidence-path.mjs";
+import { evidenceDirectory, prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 
 // Руководство разделено на продукт, программу и оплату (#509). Место чтения возвращает карточка
 // материала в программе и `at=` в адресе: сводки прогресса, полосы и кнопки «Продолжить» здесь нет.
@@ -42,7 +41,7 @@ test("guide product leads to the programme and the programme keeps the Reader re
   await expect(page.getByRole("navigation", { name: "Страницы маршрута" })).toHaveCount(0);
   const accessibility = await new AxeBuilder({ page }).include('[data-guide-programme="demo-series-harness"]').analyze();
   expect(accessibility.violations).toEqual([]);
-  await mkdir(snapshots, { recursive: true });
+  await prepareEvidenceDirectory("issue-529");
   await page.evaluate(() => { window.scrollTo(0, 0); });
   await page.screenshot({ path: resolve(snapshots, `programme-${testInfo.project.name}.png`), fullPage: true });
 
@@ -123,7 +122,7 @@ test("guide programme paginates a real composition and returns from Reader to pa
     await expect(page).toHaveURL(/page=1$/u);
     await expect(page.locator("[data-series-ordinal]:visible")).toHaveCount(12);
     await page.getByRole("button", { name: "Страница 2, продолжение", exact: true }).click();
-    await mkdir(snapshots, { recursive: true });
+    await prepareEvidenceDirectory("issue-529");
     await page.screenshot({ path: resolve(snapshots, `programme-page-two-${testInfo.project.name}.png`), fullPage: true });
   } finally {
     const archived = await page.request.put("/api/authoring/collections/archive", { headers: { origin }, multipart: { kind: "series", collectionId: collection.id, expectedVersion: String(collection.version), archived: "true" } });

@@ -1,5 +1,4 @@
 import { createServer, type Server } from "node:http";
-import { mkdir } from "node:fs/promises";
 import AxeBuilder from "@axe-core/playwright";
 import { chromium, webkit, type Browser, type Page } from "@playwright/test";
 import { afterAll, beforeAll, expect, it } from "vitest";
@@ -9,7 +8,7 @@ import {
   telegramSignInScript,
   type InsideTelegramPresentation,
 } from "../../../../infra/identity/logto/fork/packages/core/src/routes/inside-telegram-view";
-import { evidenceDirectory } from "../../../../scripts/evidence-path.mjs";
+import { evidenceDirectory, prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 
 let browser: Browser;
 let server: Server;
@@ -114,7 +113,7 @@ it("renders every production state without overflow or accessibility violations 
         expect(await page.locator("#alternative").getAttribute("href")).toBe("/sign-in");
       }
       if (process.env.CAPTURE_TELEGRAM_EVIDENCE === "1") {
-        await mkdir(evidence, { recursive: true });
+        await prepareEvidenceDirectory("issue-303");
         await page.screenshot({ path: `${evidence}/${process.env.TELEGRAM_UI_ORIGIN ? "logto-" : ""}${status}-${String(width)}.png`, fullPage: true });
       }
     }
@@ -203,7 +202,7 @@ it.runIf(Boolean(process.env.STORYBOOK_UI_ORIGIN))("captures the exact Storybook
     await page.getByRole("heading", { name: "Вход через Telegram" }).waitFor();
     await page.evaluate(() => document.fonts.ready);
     expect((await new AxeBuilder({ page }).include(".inside-telegram").withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations).toEqual([]);
-    await mkdir(evidence, { recursive: true });
+    await prepareEvidenceDirectory("issue-303");
     await page.screenshot({ path: `${evidence}/storybook-pending-${String(width)}.png`, fullPage: true });
     await context.close();
   }
@@ -230,7 +229,7 @@ it("keeps the complete Telegram button geometry on narrow WebKit after loading",
       expect(geometry.label.right).toBeLessThanOrEqual(geometry.button.right);
       expect(geometry.label.bottom).toBeLessThanOrEqual(geometry.button.bottom);
       if (process.env.CAPTURE_TELEGRAM_EVIDENCE === "1") {
-        await mkdir(evidence, { recursive: true });
+        await prepareEvidenceDirectory("issue-303");
         await page.screenshot({ path: `${evidence}/webkit-${String(width)}.png` });
       }
       await page.close();

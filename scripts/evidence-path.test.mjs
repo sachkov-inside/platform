@@ -29,3 +29,12 @@ test("a snapshot keeps its file name under the directory the rule chose", () => 
     /ci-artifacts\/evidence\/issue-49\/landing-desktop\.png$/u,
   );
 });
+
+test("a misspelled issue folder fails loudly instead of writing nowhere visible", () => {
+  for (const requested of ["529", "issue-529/", "docs/evidence/issue-529"]) {
+    assert.throws(
+      () => evidenceDirectory("issue-529", { UPDATE_EVIDENCE: requested }),
+      /UPDATE_EVIDENCE must name an issue folder/u,
+    );
+  }
+});
