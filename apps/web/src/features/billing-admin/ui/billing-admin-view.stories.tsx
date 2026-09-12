@@ -211,6 +211,9 @@ export const Mobile: Story = {
     await expect(
       canvas.getAllByRole("button", { name: "Снять с продажи" }),
     ).toHaveLength(2);
+    await expect(
+      canvas.getByRole("heading", { name: "Кто этот покупатель" }),
+    ).toBeInTheDocument();
   },
 };
 export const Desktop: Story = {
@@ -220,5 +223,8 @@ export const Desktop: Story = {
     await expect(
       canvas.getAllByRole("button", { name: "Снять с продажи" }),
     ).toHaveLength(2);
+    await expect(
+      canvas.getByRole("heading", { name: "Кто этот покупатель" }),
+    ).toBeInTheDocument();
   },
 };
