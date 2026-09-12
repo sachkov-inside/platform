@@ -22,8 +22,9 @@ export { applyGrantBatchCommandSchema, type ApplyGrantBatchCommand, type ApplyGr
 export { changeAccessGrantCommandSchema, type ChangeAccessGrantCommand } from "./features/change-access-grant/change-access-grant.js";
 export { accessGrantsViewSchema, type AccessGrantsView, type ListAccessGrantsCommand } from "./features/list-access-grants/list-access-grants.js";
 export { ownAccessSchema, ownAccessGroundSchema, readOwnAccess, type OwnAccess } from "./features/read-own-access/read-own-access.js";
-export type { ClassifyLegacyAccountCommand } from "./features/classify-legacy-account/classify-legacy-account.js";
+export { classifyLegacyAccountCommandSchema, type ClassifyLegacyAccountCommand } from "./features/classify-legacy-account/classify-legacy-account.js";
 
-export { accessCapabilitySchema, capabilitiesSchema } from "./domain/access-grant.js";
+export { accessCapabilitySchema, capabilitiesSchema, legacyClassificationViewSchema,
+  recurringAllowedFor } from "./domain/access-grant.js";
 
 export { paidPeriodCommandSchema } from "./features/apply-paid-period/apply-paid-period.js";

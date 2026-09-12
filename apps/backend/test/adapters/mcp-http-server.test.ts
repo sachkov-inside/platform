@@ -90,7 +90,8 @@ describe("MCP Streamable HTTP adapter", () => {
         "billing_paymentOptions_save", "billing_paymentOptions_archive",
         "billing_promotions_save", "billing_promotions_archive", "billing_offers_list", "billing_payments_list", "billing_payments_read",
         "billing_payments_reconcile", "billing_subscriptions_cancel", "billing_refunds_decide", "billing_refunds_execute",
-        "billing_refunds_read", "billing_grants_read", "billing_grants_previewBatch", "billing_grants_applyBatch",
+        "billing_refunds_read", "billing_grants_read", "billing_grants_readClassification", "billing_grants_classify",
+        "billing_grants_previewBatch", "billing_grants_applyBatch",
         "billing_grants_extend", "billing_grants_revoke",
       ]);
       const refund = tools.find(tool => tool.name === "billing_refunds_execute");
@@ -98,6 +99,8 @@ describe("MCP Streamable HTTP adapter", () => {
       expect(tools.find(tool => tool.name === "billing_offers_publish")?.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true });
       expect(tools.find(tool => tool.name === "billing_offers_list")?.annotations).toMatchObject({ readOnlyHint: true });
       expect(tools.find(tool => tool.name === "billing_payments_read")?.annotations).toMatchObject({ readOnlyHint: true });
+      expect(tools.find(tool => tool.name === "billing_grants_readClassification")?.annotations).toMatchObject({ readOnlyHint: true });
+      expect(tools.find(tool => tool.name === "billing_grants_classify")?.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true });
     } finally {
       await client.close();
     }

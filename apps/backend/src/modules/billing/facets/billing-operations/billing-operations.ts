@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { Accounts } from "../../../accounts/index.js";
-import type { AccessGrants } from "../../../membership-entitlements/index.js";
+import { recurringAllowedFor, type AccessGrants } from "../../../membership-entitlements/index.js";
 import {
   isOwnerReadOperation, ownerAccessFailure, ownerFailure, ownerOperationSchema, ownerPaymentFailure,
   ownerSuccessSchema, type OwnerOperation, type OwnerOutcome, type OwnerResult,
@@ -22,7 +22,8 @@ interface Dependencies {
   readonly pricing: Pick<BillingPricing, "manage" | "ownerCatalog">;
   readonly payments: Pick<BillingPayments, "reconcile">;
   readonly subscriptions: Pick<BillingSubscriptions, "cancel">;
-  readonly grants: Pick<AccessGrants, "previewBatch" | "applyBatch" | "changeGrant" | "listGrants">;
+  readonly grants: Pick<AccessGrants, "previewBatch" | "applyBatch" | "changeGrant" | "listGrants"
+    | "classifyLegacy" | "readClassification">;
   readonly bank: Tbank | undefined;
   readonly clock?: () => Date;
 }
@@ -136,6 +137,22 @@ export class BillingOperations {
         return result.ok
           ? { ok: true, operationRef, result: { outcome: "grants", value: result.value } } : ownerAccessFailure(result.error.code);
       }
+      case "grants.readClassification": {
+        const result = await grants.readClassification(actorId, command.accountId);
+        return result.ok
+          ? classificationOutcome(operationRef, command.accountId, result)
+          : ownerAccessFailure(result.error.code);
+      }
+      case "grants.classify": {
+        // Ответ собирается из применённой команды: повтор проходит только при совпадении
+        // fingerprint, поэтому команда и есть записанное решение.
+        const { operation: _operation, ...rest } = command;
+        const result = await grants.classifyLegacy(actorId, rest);
+        return result.ok
+          ? classificationOutcome(operationRef, command.accountId,
+            { classification: command.classification, revision: result.revision, recurringAllowed: recurringAllowedFor(command) })
+          : ownerAccessFailure(result.error.code);
+      }
       case "grants.previewBatch": {
         const { operation: _operation, ...rest } = command;
         const result = await grants.previewBatch(actorId, rest);
@@ -170,6 +187,17 @@ export class BillingOperations {
 }
 
 /**
+ * Состояние покупателя одной формой: чтение и записанное решение отвечают одинаково. Поля
+ * перечислены поимённо: источник может нести служебные поля, а в ответ уходит ровно вид.
+ */
+function classificationOutcome(operationRef: string, accountId: string,
+  state: { readonly classification: "confirmed_legacy" | "confirmed_new" | "unknown";
+    readonly revision: number; readonly recurringAllowed: boolean }): OwnerResult {
+  return { ok: true, operationRef, result: { outcome: "classification", value: { accountId,
+    classification: state.classification, revision: state.revision, recurringAllowed: state.recurringAllowed } } };
+}
+
+/**
  * Основание команды. Исполнение возврата наследует основание своего решения, поэтому запись
  * аудита объясняет деньги, а не повторяет имя операции. Для каталога основанием остаётся операция.
  */
@@ -197,7 +225,7 @@ function targetOf(command: OwnerOperation, outcome: OwnerOutcome): string {
     case "payments.read": case "payments.reconcile": case "refunds.decide": case "refunds.read": return command.purchaseRef;
     // Исполнение возврата ведёт к платежу своего решения.
     case "refunds.execute": return outcome.outcome === "refundDecision" ? outcome.value.purchaseRef : command.decisionRef;
-    case "subscriptions.cancel": case "grants.read": return command.accountId;
+    case "subscriptions.cancel": case "grants.read": case "grants.readClassification": case "grants.classify": return command.accountId;
     case "grants.previewBatch": return command.operationId;
     case "grants.applyBatch": return command.previewRef;
     case "grants.extend": case "grants.revoke": return command.grantRef;
