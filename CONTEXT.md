@@ -28,6 +28,19 @@ rendered shape, search text and headings. It lives in `@inside/material-blocks`;
 editor and the reading client all read the same entry instead of keeping their own copy.
 _Avoid_: Block schema copy, editor extension list, ContentSchema capability
 
+**Lesson Block**:
+A typed block a lesson is assembled from, beyond running text: a callout of a named kind, an
+external resource card, an agent prompt, the takeaways of a lesson, a labeled list of terms and a
+key point. The platform owns how each one looks, so the same block reads the same in every
+Material. In Russian product language: «блок урока».
+_Avoid_: Custom layout, embedded HTML, per-lesson styling
+
+**Callout Kind**:
+The named kind of a callout: note, tip, warning, example, good, bad or definition. The kind is what
+a reader sees as a word, an icon and a color; the optional callout name is the author's own title
+beside it. In Russian product language: «вид врезки».
+_Avoid_: Callout color, callout style, callout severity
+
 **Public Material Projection**:
 The indexable body-free view of a Published Material: title, description, cover, author, taxonomy
 and publication date. A membership Material remains discoverable through this projection while its
@@ -148,6 +161,12 @@ _Avoid_: Principal, External Identity, Platform Account, Platform Session, user
 An Account-owned verified email for receipts and subscription notifications, independent of its
 sign-in identity. A pending replacement becomes the contact only after verification.
 _Avoid_: login email, email fingerprint, Account identity
+
+**Legal Edition**:
+One published version of a legal document, identified by its document key, version number,
+effective date and the SHA-256 of its exact text. A published edition never changes: a correction
+is the next version, and the earlier text stays readable at its own address.
+_Avoid_: draft, current page content, document without a version
 
 **Consent Evidence**:
 An immutable record of one Account explicitly accepting an exact document edition for a given

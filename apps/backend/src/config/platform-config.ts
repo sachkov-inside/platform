@@ -11,6 +11,7 @@ const DEFAULT_LOGTO_AUDIENCE = "http://127.0.0.1:3001";
 const DEFAULT_LOGTO_JWKS_URL =
   "https://identity.inside.localhost:3301/oidc/jwks";
 const DEFAULT_EMAIL_FINGERPRINT_KEY = "inside-local-email-fingerprint-key";
+const DEFAULT_PUBLIC_SITE_ORIGIN = "http://127.0.0.1:3000";
 const DEFAULT_MEMBERSHIP_ACQUISITION_URL = "https://t.me/tribute";
 const DEFAULT_TELEGRAM_BOT_START_URL = "https://t.me/inside_local_bot";
 const DEFAULT_TELEGRAM_LINKING_ENDPOINT =
@@ -222,6 +223,10 @@ const platformConfigSchema = z
       localInsecure: z.boolean(),
     }).refine(value => Boolean(value.smtpUser) === Boolean(value.smtpPassword), "SMTP user and password must be configured together").optional(),
     identity: identitySchema,
+    /** Where the published legal editions are readable; their addresses are stored with a consent. */
+    publicSite: z
+      .object({ origin: publicOriginSchema("PUBLIC_SITE_ORIGIN") })
+      .readonly(),
     contentAccess: contentAccessSchema,
     objectStorage: objectStorageSchema,
     kinescope: kinescopeSchema,
@@ -292,6 +297,9 @@ const unusedProductionGroups = {
     KINESCOPE_WEBHOOK_PASSWORD: "unused-webhook-password",
     KINESCOPE_WEBHOOK_USERNAME: "unused-webhook-user",
   },
+  publicSite: {
+    PUBLIC_SITE_ORIGIN: "https://unused.invalid",
+  },
   objectStorage: {
     MATERIAL_ASSET_ORPHAN_GRACE_SECONDS: "86400",
     OBJECT_STORAGE_ACCESS_KEY_ID: "unused-access-key",
@@ -318,7 +326,7 @@ const unusedProductionGroups = {
 const requiredGroupsByProcess = {
   api: new Set(Object.keys(unusedProductionGroups)),
   "material-assets-worker": new Set(["objectStorage"]),
-  mcp: new Set(["contentAccess", "identity", "kinescope", "objectStorage"]),
+  mcp: new Set(["contentAccess", "identity", "kinescope", "objectStorage", "publicSite"]),
   "profile-avatars-worker": new Set(["objectStorage"]),
   "video-deletions-worker": new Set(["kinescope"]),
   "notifications-worker": new Set<string>(),
@@ -556,6 +564,14 @@ export function parsePlatformConfig(
         "MEMBERSHIP_SUPPORT_URL",
       ),
     },
+    publicSite: {
+      origin: readRuntimeValue(
+        environment,
+        "PUBLIC_SITE_ORIGIN",
+        mode,
+        DEFAULT_PUBLIC_SITE_ORIGIN,
+      ),
+    },
   });
 
   if (!config.success) {
@@ -707,6 +723,7 @@ function readRuntimeValue(
     | "OBJECT_STORAGE_SECRET_ACCESS_KEY"
     | "OBJECT_STORAGE_SIGNED_GET_TTL_SECONDS"
     | "PROFILE_AVATAR_ORPHAN_GRACE_SECONDS"
+    | "PUBLIC_SITE_ORIGIN"
     | "TELEGRAM_BOT_START_URL"
     | "TELEGRAM_EVIDENCE_INGRESS_SECRET"
     | "TELEGRAM_LINKING_ENDPOINT"
@@ -737,6 +754,28 @@ function httpUrlSchema(name: string) {
     },
     { message: `${name} must use HTTP or HTTPS` },
   );
+}
+
+/**
+ * A bare public origin: consumers append a page path, so a trailing path, query or credentials
+ * would produce a wrong address rather than a rejected configuration.
+ */
+function publicOriginSchema(name: string) {
+  return httpUrlSchema(name)
+    .refine(
+      (value) => {
+        const url = new URL(value);
+        return (
+          url.pathname === "/" &&
+          !url.search &&
+          !url.hash &&
+          !url.username &&
+          !url.password
+        );
+      },
+      { message: `${name} must be a bare origin` },
+    )
+    .transform((value) => new URL(value).origin);
 }
 
 function integerStringSchema(message: string, minimum: number, maximum: number) {

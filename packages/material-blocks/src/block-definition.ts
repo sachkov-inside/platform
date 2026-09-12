@@ -24,11 +24,25 @@ export interface MaterialBlockNodeDescription {
   readonly atom?: boolean;
   /** Attribute name to its default value. */
   readonly attributes: Readonly<Record<string, JsonValue>>;
+  /** Verbatim text content: newlines survive and input rules stay out. */
+  readonly code?: boolean;
   readonly content?: string;
   readonly defining?: boolean;
+  /**
+   * DOM attribute each named field is written to and read back from. A field whose own name is a
+   * real HTML attribute, or whose value is not a string, needs one: the clipboard rebuilds a node
+   * from its DOM, so a field that never reaches an attribute is lost on paste.
+   */
+  readonly domAttributes?: Readonly<Record<string, string>>;
   readonly draggable?: boolean;
   readonly group: "block";
+  /** Accepted inline marks; an empty string keeps the content plain. */
+  readonly marks?: string;
+  /** Selector of the element holding the content when `renderHTML` also writes a field. */
+  readonly parseContent?: string;
   readonly parseHTML: readonly string[];
+  /** Keeps newlines and runs of spaces when the content is parsed back from the DOM. */
+  readonly preserveWhitespace?: "full";
   readonly renderHTML: (
     attributes: Readonly<Record<string, unknown>>,
   ) => [string, ...unknown[]];

@@ -17,6 +17,25 @@ export interface MaterialDocumentExtensionOptions {
   readonly nodeViews?: Readonly<Record<string, () => NodeViewRenderer>>;
 }
 
+/**
+ * A field travels through the DOM as text. Anything that is not a string is JSON, so a row list
+ * comes back as the same value it was written from.
+ */
+function encodeAttribute(value: unknown): string {
+  return typeof value === "string" ? value : JSON.stringify(value);
+}
+
+function decodeAttribute(value: string | null): unknown {
+  if (value === null) {
+    return null;
+  }
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
+
 function materialBlockNode(
   name: string,
   description: MaterialBlockNodeDescription,
@@ -24,22 +43,50 @@ function materialBlockNode(
 ): Node {
   return Node.create({
     ...(description.atom === true ? { atom: true } : {}),
+    ...(description.code === true ? { code: true } : {}),
     ...(description.content === undefined ? {} : { content: description.content }),
     ...(description.defining === true ? { defining: true } : {}),
     ...(description.draggable === true ? { draggable: true } : {}),
+    ...(description.marks === undefined ? {} : { marks: description.marks }),
     ...(nodeView === undefined ? {} : { addNodeView: nodeView }),
     addAttributes() {
       return Object.fromEntries(
-        Object.entries(description.attributes).map(([attribute, value]) => [
-          attribute,
-          { default: value },
-        ]),
+        Object.entries(description.attributes).map(([attribute, value]) => {
+          const domAttribute = description.domAttributes?.[attribute];
+          if (domAttribute === undefined) {
+            return [attribute, { default: value }];
+          }
+          return [
+            attribute,
+            {
+              default: value,
+              // The package compiles without the DOM library, so the element is read through
+              // the one method this rule needs.
+              parseHTML: (element: { getAttribute: (name: string) => string | null }) =>
+                decodeAttribute(element.getAttribute(domAttribute)),
+              renderHTML: (attributes: Record<string, unknown>) => {
+                const field = attributes[attribute];
+                return field === null || field === undefined
+                  ? {}
+                  : { [domAttribute]: encodeAttribute(field) };
+              },
+            },
+          ];
+        }),
       );
     },
     group: description.group,
     name,
     parseHTML() {
-      return description.parseHTML.map((tag) => ({ tag }));
+      return description.parseHTML.map((tag) => ({
+        tag,
+        ...(description.parseContent === undefined
+          ? {}
+          : { contentElement: description.parseContent }),
+        ...(description.preserveWhitespace === undefined
+          ? {}
+          : { preserveWhitespace: description.preserveWhitespace }),
+      }));
     },
     renderHTML({ HTMLAttributes }) {
       return description.renderHTML(HTMLAttributes);

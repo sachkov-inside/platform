@@ -24,6 +24,7 @@ import { representativeDocument } from "../fixtures/material-body/representative
 import { BankFixture } from "./setup/bank.js";
 import { linkTelegramAccount } from "./setup/telegram-link.js";
 import { createMigratedTestDatabase, type TestDatabase } from "./setup/test-database.js";
+import { syntheticConsentDocuments } from "./setup/consent-documents.js";
 
 function value<T>(result: { ok: true; value: T } | { ok: false; error: { code: string } }): T {
   if (!result.ok) throw new Error(result.error.code); return result.value;
@@ -54,8 +55,7 @@ const config = syntheticTbankConfig({ environment: "demo", terminalKey: "SYNTHET
   cardBinding: { confirmed: true, checkType: "3DS" }, minimumKopecks: 100, maximumKopecks: 10_000_000,
   returnUrl: "https://inside.example.test/account", notificationUrl: "https://inside.example.test/billing/tbank/notification",
   receipt: { taxation: "usn_income", tax: "none" } });
-const documents = (["terms", "recurring"] as const).map(kind => { const text = `Synthetic ${kind}, not legal terms`;
-  return { kind, documentId: kind, version: "test-v1", text, digest: createHash("sha256").update(text).digest("hex"), url: `https://example.test/${kind}` }; });
+const documents = syntheticConsentDocuments;
 const guidePriceKopecks = 290_000;
 const subscriptionPriceKopecks = 100_000;
 const startedAt = "2030-01-31T10:00:00Z";

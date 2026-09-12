@@ -27,6 +27,13 @@
   --action: oklch(0.51 0.17 37);
   --action-hover: oklch(0.41 0.15 36);
   --body-muted: oklch(0.4 0.015 128);
+  --callout-note: oklch(0.45 0.02 128);
+  --callout-tip: oklch(0.47 0.08 210);
+  --callout-warning: oklch(0.52 0.12 75);
+  --callout-example: oklch(0.48 0.1 255);
+  --callout-good: oklch(0.46 0.11 150);
+  --callout-bad: oklch(0.48 0.15 27);
+  --callout-definition: oklch(0.47 0.11 300);
   --eyebrow: oklch(0.46 0.014 128);
   --reader-foreground: oklch(0.48 0.012 128);
   --placeholder: oklch(0.61 0.01 128);
@@ -90,6 +97,14 @@
   --action-hover: #8f2c16;
   --body-muted: #4d4e51;
   --eyebrow: #66655f;
+  /* Публичная оболочка светлая всегда, поэтому виды врезок держат здесь свои светлые значения. */
+  --callout-note: oklch(0.45 0.02 128);
+  --callout-tip: oklch(0.47 0.08 210);
+  --callout-warning: oklch(0.52 0.12 75);
+  --callout-example: oklch(0.48 0.1 255);
+  --callout-good: oklch(0.46 0.11 150);
+  --callout-bad: oklch(0.48 0.15 27);
+  --callout-definition: oklch(0.47 0.11 300);
   --reader-foreground: #696a6e;
   --placeholder: #8b8c88;
   --placeholder-strong: #777873;
@@ -126,6 +141,13 @@
   --body-muted: var(--muted-foreground);
   --eyebrow: var(--muted-foreground);
   --reader-foreground: var(--muted-foreground);
+  --callout-note: oklch(0.78 0.02 120);
+  --callout-tip: oklch(0.76 0.09 210);
+  --callout-warning: oklch(0.79 0.12 80);
+  --callout-example: oklch(0.76 0.11 255);
+  --callout-good: oklch(0.76 0.12 150);
+  --callout-bad: oklch(0.72 0.15 27);
+  --callout-definition: oklch(0.76 0.12 300);
   --destructive: oklch(0.68 0.2 25);
   --border: oklch(0.34 0.013 128);
   --input: oklch(0.34 0.013 128);
@@ -358,6 +380,24 @@ body:has([data-public-shell]) {
   pointer-events: none;
   z-index: -1;
 }
+
+/*
+ * Вид врезки. Один и тот же атрибут стоит и в читательской разметке, и в DOM редактора, поэтому
+ * цвет вида задан здесь один раз. Поверхность и рамка выводятся из того же токена: собственных
+ * цветов у врезки нет.
+ */
+[data-callout] {
+  --callout-ink: var(--callout-note);
+  border-color: color-mix(in oklab, var(--callout-ink) 28%, var(--border));
+  background: color-mix(in oklab, var(--callout-ink) 10%, var(--card));
+}
+
+[data-callout="tip"] { --callout-ink: var(--callout-tip); }
+[data-callout="warning"] { --callout-ink: var(--callout-warning); }
+[data-callout="example"] { --callout-ink: var(--callout-example); }
+[data-callout="good"] { --callout-ink: var(--callout-good); }
+[data-callout="bad"] { --callout-ink: var(--callout-bad); }
+[data-callout="definition"] { --callout-ink: var(--callout-definition); }
 
 ::selection {
   color: var(--accent-foreground);

@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { GenericContainer, Wait } from "testcontainers";
 import { expect, onTestFinished, test } from "vitest";
 import { assembleAccounts, BillingContact, NotificationAccounts } from "../../src/modules/accounts/index.js";
@@ -17,6 +17,7 @@ import { brokerAdmin, queueDepth } from "./setup/broker.js";
 import { distinctClock } from "./setup/distinct-clock.js";
 import { eventually } from "./setup/eventually.js";
 import { createMigratedTestDatabase } from "./setup/test-database.js";
+import { syntheticConsentDocuments } from "./setup/consent-documents.js";
 
 function value<T>(result: { ok: true; value: T } | { ok: false; error: { code: string } }): T {
   if (!result.ok) throw new Error(result.error.code); return result.value;
@@ -28,8 +29,7 @@ const config = syntheticTbankConfig({ environment: "demo", terminalKey: "SYNTHET
   bindingEncryptionKey: Buffer.alloc(32, 63).toString("base64"), recurringCardConfirmed: true, cardOnlyHostedConfirmed: true,
   minimumKopecks: 100, maximumKopecks: 10_000_000, returnUrl: `${origin}/account`,
   notificationUrl: `${origin}/billing/tbank/notification`, receipt: { taxation: "usn_income", tax: "none" } });
-const documents = (["terms", "recurring"] as const).map(kind => { const text = `Synthetic ${kind}, not legal terms`;
-  return { kind, documentId: kind, version: "test-v1", text, digest: createHash("sha256").update(text).digest("hex"), url: `https://example.test/${kind}` }; });
+const documents = syntheticConsentDocuments;
 
 /**
  * Подтверждённая оплата проходит весь путь через настоящий брокер: outbox Billing, очередь

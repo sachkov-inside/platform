@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 import { MaterialAssetFile, MaterialAssetImage } from "@/features/material-assets";
-import { materialTaxonomyLabel } from "@/entities/material";
+import { materialTaxonomyLabel, MaterialLessonBlock } from "@/entities/material";
 
 import type {
   MaterialPreviewBlock,
@@ -101,18 +101,29 @@ function PreviewBlock({ block, contentVersion, materialId }: {
       return <hr className="my-10 border-border" />;
     case "table":
       return <PreviewTable block={block} contentVersion={contentVersion} materialId={materialId} />;
+    case "agent_prompt":
     case "callout":
+    case "key_point":
+    case "labeled_list":
+    case "resource_card":
+    case "takeaways":
       return (
-        <aside className="rounded-xl bg-secondary px-5 py-5 text-secondary-foreground">
-          <div className="font-semibold">
-            {block.tone === "warning" ? "Обратите внимание" : block.tone === "tip" ? "Практика" : "Контекст"}
-          </div>
-          <div className="mt-2 space-y-3">
-            {block.content.map((child, index) => (
+        <MaterialLessonBlock
+          block={block}
+          rendering={{
+            renderBlock: (child, index) => (
               <PreviewBlock block={child} contentVersion={contentVersion} key={`${child.kind}-${String(index)}`} materialId={materialId} />
-            ))}
-          </div>
-        </aside>
+            ),
+            renderBlocks: (blocks) => (
+              <div className="mt-2 space-y-3">
+                {blocks.map((child, index) => (
+                  <PreviewBlock block={child} contentVersion={contentVersion} key={`${child.kind}-${String(index)}`} materialId={materialId} />
+                ))}
+              </div>
+            ),
+            renderInline: (content) => renderInline(content),
+          }}
+        />
       );
     case "image":
       return (
