@@ -463,7 +463,7 @@ Pass the purchase in this order:
 Pass the guide and both subscription tariffs the same way: the double receives the same request for
 each published offer, and only what the purchase asks the bank for differs — a one-time guide never
 saves a card, the first subscription payment does, and renewals charge the saved one. The tariffs
-themselves differ in term and price, which the bank never sees. Seeded local offers come from the
+themselves differ in price, term or the rights they open, none of which the bank sees. Seeded local offers come from the
 development seed.
 
 The double keeps a ledger in its own volume, so restarting it keeps the orders the application may
