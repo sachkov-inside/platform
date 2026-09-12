@@ -53,7 +53,7 @@ export const Empty: Story = { args: { result: { kind: "ready", value: { ...home,
 export const EmptyMobile: Story = { ...Empty, globals: { viewport: { value: "mobile390", isRotated: false } } };
 export const Unavailable: Story = { args: { result: { kind: "unavailable" } }, play: noAcquisition };
 export const UnavailableMobile: Story = { ...Unavailable, globals: { viewport: { value: "mobile390", isRotated: false } } };
-export const Loading: Story = { args: { result: { kind: "unavailable" } }, render: () => <HomeLoading /> };
+export const Loading: Story = { args: { result: { kind: "unavailable" } }, render: () => <HomeLoading />, play: seriesHeadingOpensTheFrame };
 export const LoadingMobile: Story = { ...Loading, globals: { viewport: { value: "mobile390", isRotated: false } } };
 export const LongSeries: Story = { args: { result: { kind: "ready", value: { ...home, pinnedSeries: home.pinnedSeries === null ? null : { ...home.pinnedSeries, name: "Проектируем и развиваем приложение: от первой идеи до надёжного релиза с искусственным интеллектом", summary: "" } } } } };
 
@@ -64,4 +64,21 @@ async function noAcquisition({ canvasElement }: { canvasElement: HTMLElement }) 
   if (canvas.queryByRole("heading", { name: "Главная" })) await expect(canvas.getByRole("link", { name: "Открыть руководство" })).toBeVisible();
 }
 
-export const NoPin: Story = { args: { result: { kind: "ready", value: { ...home, pinnedSeries: null } } }, play: async ({ canvasElement }) => { await expect(canvasElement.querySelector("#featured-title")).toBeNull(); } };
+export const NoPin: Story = { args: { result: { kind: "ready", value: { ...home, pinnedSeries: null } } }, play: async ({ canvasElement }) => {
+  await expect(canvasElement.querySelector("#featured-title")).toBeNull();
+  await seriesHeadingOpensTheFrame({ canvasElement });
+} };
+export const NoPinMobile: Story = { ...NoPin, globals: { viewport: { value: "mobile390", isRotated: false } } };
+
+/**
+ * Первый экран не имеет права переехать между загрузкой и готовой главной. Заголовок руководств
+ * открывает каркас вплотную к его верху в обоих состояниях: рукописная копия заголовка мимо секции
+ * руководств теряет правило из `home-page.css` и роняет эту проверку.
+ */
+async function seriesHeadingOpensTheFrame({ canvasElement }: { canvasElement: HTMLElement }) {
+  const frame = canvasElement.querySelector(".home-page");
+  if (frame === null) throw new Error("Каркас главной не отрисован");
+  const heading = within(canvasElement).getByRole("heading", { name: "Руководства" });
+  await expect(heading.closest("section")).toHaveClass("home-series-section");
+  await expect(heading.getBoundingClientRect().top).toBe(frame.getBoundingClientRect().top);
+}
