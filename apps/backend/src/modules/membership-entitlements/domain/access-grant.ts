@@ -79,3 +79,45 @@ export const classificationSchema = z.enum([
   "confirmed_new",
   "unknown",
 ]);
+
+/**
+ * Состав решения о классификации: он одинаков для одного Account и для строки набора,
+ * поэтому оба пути принимают ровно эти поля и одно и то же кросс-полевое правило.
+ */
+export const classificationTermsShape = {
+  classification: classificationSchema,
+  sourceRef: sourceRefSchema,
+  reason: reasonSchema,
+  bridgeEnabled: z.boolean(),
+  tributeStopped: z.boolean(),
+};
+export type ClassificationTerms = z.infer<
+  z.ZodObject<typeof classificationTermsShape>
+>;
+/** Переходные признаки Tribute относятся только к подтверждённому старому покупателю. */
+export function classificationTermsAgree(terms: ClassificationTerms): boolean {
+  return (
+    terms.classification === "confirmed_legacy" ||
+    (!terms.bridgeEnabled && !terms.tributeStopped)
+  );
+}
+/**
+ * Legacy gate автосписаний: «неизвестно» их запрещает, новый покупатель разрешает,
+ * а старый — только после подтверждённой остановки Tribute.
+ */
+export function recurringAllowedFor(
+  state: Pick<ClassificationTerms, "classification" | "tributeStopped">,
+): boolean {
+  return (
+    state.classification === "confirmed_new" ||
+    (state.classification === "confirmed_legacy" && state.tributeStopped)
+  );
+}
+export const legacyClassificationViewSchema = z
+  .object({
+    accountId: z.uuid(),
+    classification: classificationSchema,
+    revision: z.number().int().nonnegative(),
+    recurringAllowed: z.boolean(),
+  })
+  .strict();

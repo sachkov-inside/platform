@@ -247,7 +247,8 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
       confirmedRows: ["community"],
     });
     const row = applied.ok ? applied.rows[0]?.result : undefined;
-    if (row === undefined || !row.ok) throw new Error(JSON.stringify(applied));
+    if (row === undefined || !row.ok || !("grantRef" in row))
+      throw new Error(JSON.stringify(applied));
     return { grantRef: row.grantRef, revision: row.revision };
   }
 
