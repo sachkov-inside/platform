@@ -8,6 +8,7 @@ import { PersonalHome } from "../../facets/personal-home/personal-home.js";
 import { throwPersonalHomeError } from "../../adapters/nest/personal-home-http.js";
 import { continueMaterialSchema } from "../get-continue-materials/get-continue-materials.controller.js";
 import { seriesContinuationHttpSchema } from "../get-series-continuation/get-series-continuation.controller.js";
+export const learningHomeHttpSchema = z.object({ video: continueMaterialSchema.nullable(), series: seriesContinuationHttpSchema.nullable() }).strict();
 @ApiTags("Personal home")
 @ApiBearerAuth("logto")
 @PrivateNoStore()
@@ -18,7 +19,7 @@ export class GetLearningHomeController {
   constructor(@Inject(PersonalHome) private readonly home: PersonalHome) {}
   @Get()
   @ApiOperation({ operationId: "getLearningHome", summary: "Read the latest unfinished Series and partially watched Video of the current Account" })
-  @ApiOkResponse({ schema: toOpenApiSchema(z.object({ video: continueMaterialSchema.nullable(), series: seriesContinuationHttpSchema.nullable() }).strict()) })
+  @ApiOkResponse({ schema: toOpenApiSchema(learningHomeHttpSchema) })
   @ApiResponse({ status: 400, content: problemDetailsContent(problemDetailsSchema(400, ["invalid_request"])) })
   @ApiResponse({ status: 401, content: problemDetailsContent(accountProblemSchema) })
   @ApiResponse({ status: 500, content: problemDetailsContent(accountProblemSchema) })

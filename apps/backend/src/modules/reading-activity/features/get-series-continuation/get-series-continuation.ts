@@ -52,8 +52,12 @@ export async function getSeriesContinuation(dependencies: SeriesContinuationDepe
     // Wrap only to revisit unfinished entries skipped earlier in the route.
     const next = visited === null ? undefined : items.slice(lastIndex).find(availableUnread) ?? items.slice(0, lastIndex).find(availableUnread);
     const resumes = await loadMaterialResumes(dependencies, subject, next === undefined ? [] : [next]);
+    // The discovery reference carries Guide-page facts this projection does not publish, so the
+    // catalog facet names its own fields: a spread would ship the next added one as an undeclared
+    // key and every strict reader of this response would drop the whole continuation.
+    const { cover, id, name, slug: collectionSlug, summary } = series.value.reference;
     return { ok: true, value: {
-      collection: { ...series.value.reference, count: items.length, previewItems: items.slice(0, 3) },
+      collection: { cover, count: items.length, id, name, previewItems: items.slice(0, 3), slug: collectionSlug, summary },
       read: read.size, total: items.length,
       continuation: next === undefined ? null : { materialSlug: next.slug, resume: resumes.get(next.materialId) ?? { kind: "start" } },
     } };

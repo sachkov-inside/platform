@@ -10,6 +10,8 @@ import { parsePlatformConfig } from "../../src/config/platform-config.js";
 import { createApiApplication } from "../../src/entrypoints/api/create-api-application.js";
 import { migrateToLatest } from "../../src/migrations/index.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
+import { learningHomeHttpSchema } from "../../src/modules/reading-activity/features/get-learning-home/get-learning-home.controller.js";
+import { seriesContinuationHttpSchema } from "../../src/modules/reading-activity/features/get-series-continuation/get-series-continuation.controller.js";
 import {
   createTestDatabase,
   type TestDatabase,
@@ -140,14 +142,25 @@ describe("ReadingActivity HTTP", () => {
     expect((await server.inject({ method: "POST", url: "/reading-activity/opens", headers, payload: openPayload })).json()).toMatchObject({ replayed: true });
     const loaded = await materials.authoring.loadMaterial({ actor, materialId });
     if (!loaded.ok) throw new Error(loaded.error.code);
+    // `toMatchObject` accepts a key the response was never meant to publish, so the personal home
+    // is also read against the exact schema its controller declares. A projection that ships an
+    // undeclared key still answers 200 here, while every strict reader of this API drops the whole
+    // body and shows an account its progress as if there were none.
+    let guideContinuation: unknown;
     for (const endpoint of ["/reading-activity/learning-home", "/reading-activity/series-continuation/series", "/reading-activity/guide-continuation/series"]) {
+      const declared = endpoint.endsWith("learning-home") ? learningHomeHttpSchema : seriesContinuationHttpSchema;
       expect((await server.inject({ method: "GET", url: endpoint })).statusCode).toBe(401);
       const own = await server.inject({ method: "GET", url: endpoint, headers });
       expect(own.statusCode).toBe(200); expect(own.headers["cache-control"]).toBe("private, no-store");
       expect(own.json()).toMatchObject(endpoint.endsWith("learning-home") ? { video: null, series: { read: 0, total: 1, continuation: { materialSlug: loaded.value.metadata.slug } } } : { read: 0, total: 1, continuation: { materialSlug: loaded.value.metadata.slug } });
       const other = await server.inject({ method: "GET", url: endpoint, headers: { authorization: `Bearer ${token2}` } });
       expect(other.json()).toMatchObject(endpoint.endsWith("learning-home") ? { video: null, series: null } : { read: 0, total: 1, continuation: null });
+      for (const body of [own.json(), other.json()] as unknown[]) expect(declared.safeParse(body).error?.issues ?? []).toEqual([]);
+      if (endpoint.endsWith("guide-continuation/series")) guideContinuation = own.json();
     }
+    // The contract check is only worth its place while an undeclared key still fails it.
+    const declaredBody = seriesContinuationHttpSchema.parse(guideContinuation);
+    expect(seriesContinuationHttpSchema.safeParse({ ...declaredBody, collection: { ...declaredBody.collection, introduction: null } }).success).toBe(false);
     expect((await server.inject({ method: "GET", url: "/reading-activity/series-continuation/missing", headers })).statusCode).toBe(404);
 
     const publicRead = await server.inject({ method: "GET", url: `/materials/${loaded.value.metadata.slug}` });
