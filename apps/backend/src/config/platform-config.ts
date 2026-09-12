@@ -1,4 +1,4 @@
-import { tbankRuntimeSchema, parseTbankConfig, localTbankConfig } from "./tbank-config.js";
+import { tbankRuntimeSchema, parseBankContour } from "./tbank-config.js";
 import { notificationsConfigSchema, parseNotificationsConfig } from './notifications-config.js';
 import { z } from "zod";
 
@@ -30,8 +30,6 @@ const DEFAULT_OBJECT_STORAGE_SIGNED_GET_TTL_SECONDS = "60";
 const DEFAULT_MATERIAL_ASSET_ORPHAN_GRACE_SECONDS = "86400";
 const DEFAULT_PROFILE_AVATAR_ORPHAN_GRACE_SECONDS = "86400";
 const DEFAULT_KINESCOPE_PROVIDER_MODE = "test";
-// Банк по умолчанию настоящий везде: двойник на стенде включается только явным режимом.
-const DEFAULT_TBANK_PROVIDER_MODE = "real";
 const DEFAULT_KINESCOPE_API_BASE_URL = "https://api.kinescope.io";
 const DEFAULT_KINESCOPE_UPLOADER_BASE_URL = "https://uploader.kinescope.io";
 const DEFAULT_KINESCOPE_API_TOKEN = "inside-local-kinescope-api-token";
@@ -349,14 +347,6 @@ export function parsePlatformConfig(
   environment: NodeJS.ProcessEnv,
 ): PlatformConfig {
   const mode = parsePlatformMode(environment.NODE_ENV);
-  const bankProviderMode = environment.TBANK_PROVIDER_MODE?.trim() || DEFAULT_TBANK_PROVIDER_MODE;
-  if (bankProviderMode !== "real" && bankProviderMode !== "test") {
-    throw new Error("TBANK_PROVIDER_MODE must be real or test");
-  }
-  // Двойник описывает терминал сам: настоящие ключи рядом с ним означали бы два владельца контура.
-  if (bankProviderMode === "test" && environment.TBANK_CONFIG_JSON !== undefined) {
-    throw new Error("TBANK_PROVIDER_MODE=test replaces TBANK_CONFIG_JSON; remove one of them");
-  }
   // Перехватчик писем существует только на стенде: production не принимает его даже объявленным.
   if (mode === "production" && environment.BILLING_CONTACT_SMTP_LOCAL_CAPTURE?.trim() === "true") {
     throw new Error("BILLING_CONTACT_SMTP_LOCAL_CAPTURE is not a production mail transport");
@@ -366,9 +356,7 @@ export function parsePlatformConfig(
     notificationDelivery: environment.NOTIFICATIONS_PLATFORM_ORIGIN || environment.NOTIFICATIONS_TELEGRAM_SECRET
       ? { origin: environment.NOTIFICATIONS_PLATFORM_ORIGIN, telegramSecret: environment.NOTIFICATIONS_TELEGRAM_SECRET } : undefined,
     mode,
-    tbank: bankProviderMode === "test"
-      ? localTbankConfig(environment)
-      : parseTbankConfig(environment.TBANK_CONFIG_JSON, environment.TBANK_CA_FILE),
+    tbank: parseBankContour(environment),
     billingContact: [environment.BILLING_CONTACT_ENCRYPTION_KEY, environment.BILLING_CONTACT_SMTP_HOST,
       environment.BILLING_CONTACT_SMTP_PORT, environment.BILLING_CONTACT_SMTP_USER, environment.BILLING_CONTACT_SMTP_PASSWORD,
       environment.BILLING_CONTACT_FROM].every(value => value === undefined) ? undefined : {

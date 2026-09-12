@@ -3,6 +3,7 @@ import { parsePlatformMode } from "../config/platform-config.js";
 import { startLocalBankDouble } from "./bank-double/start-local-bank-double.js";
 
 const DEFAULT_BANK_DOUBLE_HOST = "127.0.0.1";
+const DEFAULT_BANK_DOUBLE_LEDGER = "/data/bank-double.json";
 
 async function main(): Promise<void> {
   // Режим проверяется до остальной конфигурации: отказ двойника не должен зависеть от того,
@@ -19,6 +20,7 @@ async function main(): Promise<void> {
     config: config.tbank,
     host: process.env.BANK_DOUBLE_HOST?.trim() || DEFAULT_BANK_DOUBLE_HOST,
     port: Number(endpoint.port || "80"),
+    ledgerPath: process.env.BANK_DOUBLE_LEDGER?.trim() || DEFAULT_BANK_DOUBLE_LEDGER,
   });
   process.stdout.write(`${JSON.stringify({ process: "bank-double", status: "ready", port: running.port })}\n`);
   for (const signal of ["SIGINT", "SIGTERM"] as const)

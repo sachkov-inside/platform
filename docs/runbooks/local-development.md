@@ -455,11 +455,21 @@ Pass the purchase in this order:
    and «Возврат» decides whether the bank accepts `Cancel`. A refund is full or partial according to
    the amount the owner requested, exactly as the bank decides it.
 5. Changing a card opens the double's binding form. The new method applies only after the binding
-   is confirmed there and `billing-worker` reconciles the session within a minute.
+   is confirmed there and `billing-worker` reconciles the session within a minute. A charge against
+   a binding the double never issued is declined, so a revoked method stays observable.
+6. Cancelling recurring charges asks the bank nothing: the schedule closes locally, the paid period
+   stays, and the next renewal is simply never sent.
 
-The double keeps its orders in memory, so restarting it forgets them while the application keeps its
-own durable attempts in PostgreSQL. Host processes use the same contour on loopback:
-`pnpm dev:bank-double` beside `pnpm dev:api` and `pnpm dev:billing-worker`.
+Every published offer passes the same way. A guide and each subscription tariff differ only in what
+the purchase asks the bank for: a one-time guide never saves a card, the first subscription payment
+does, and renewals charge the saved one. Seeded local offers come from the development seed.
+
+The double keeps a ledger in its own volume, so restarting it keeps the orders the application may
+still have to reconcile; a bank that forgot a payment would strand an unfinished attempt forever.
+If the application misses a notification — for example while it is restarting — `billing-worker`
+reconciles the same attempt through `CheckOrder`/`GetState` within a minute and settles it without
+a second charge. Host processes use the same contour on loopback: `pnpm dev:bank-double` beside
+`pnpm dev:api` and `pnpm dev:billing-worker`.
 
 Neither service exists in production. The double refuses to start outside `NODE_ENV=development`,
 configuration refuses `TBANK_PROVIDER_MODE=test` and `BILLING_CONTACT_SMTP_LOCAL_CAPTURE=true` in

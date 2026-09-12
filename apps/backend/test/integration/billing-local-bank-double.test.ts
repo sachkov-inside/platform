@@ -7,25 +7,22 @@ import { assembleAccounts, BillingContact } from "../../src/modules/accounts/ind
 import { billingContactProtection } from "../../src/modules/accounts/infrastructure/billing-contact-protection.js";
 import { assembleAccessGrants } from "../../src/modules/membership-entitlements/index.js";
 import { BillingNotices, BillingOperations, BillingPayments, BillingPricing, BillingSubscriptions } from "../../src/modules/billing/index.js";
-import type { OwnerOutcome, OwnerResult } from "../../src/modules/billing/domain/owner-operations.js";
+import type { OwnerResult } from "../../src/modules/billing/domain/owner-operations.js";
 import { Tbank, type BankRequest } from "../../src/modules/billing/infrastructure/tbank/tbank.js";
 import { createMigratedTestDatabase, type TestDatabase } from "./setup/test-database.js";
 
 function value<T>(result: { ok: true; value: T } | { ok: false; error: { code: string } }): T {
   if (!result.ok) throw new Error(result.error.code); return result.value;
 }
-function success(result: OwnerResult): OwnerOutcome {
-  if (!result.ok) throw new Error(result.error.code); return result.result;
-}
 function asRefundDecision(result: OwnerResult) {
-  const outcome = success(result);
-  if (outcome.outcome !== "refundDecision") throw new Error(`Unexpected outcome ${outcome.outcome}`);
-  return outcome.value;
+  if (!result.ok) throw new Error(result.error.code);
+  if (result.result.outcome !== "refundDecision") throw new Error(`Unexpected outcome ${result.result.outcome}`);
+  return result.result.value;
 }
 function asRefunds(result: OwnerResult) {
-  const outcome = success(result);
-  if (outcome.outcome !== "refunds") throw new Error(`Unexpected outcome ${outcome.outcome}`);
-  return outcome;
+  if (!result.ok) throw new Error(result.error.code);
+  if (result.result.outcome !== "refunds") throw new Error(`Unexpected outcome ${result.result.outcome}`);
+  return result.result;
 }
 /** Обязательный адрес стенда: без него сценарий не продолжается на пустой строке. */
 function standUrl(value: string | null | undefined): string {
@@ -187,6 +184,23 @@ describe("локальная продажа через двойника банк
     expect(value(await s.subscriptions.read(s.buyer)).subscription).toBeNull();
     expect(await db.prisma.billingSubscription.findFirstOrThrow({ where: { accountId: s.buyer } })).toMatchObject({ state: "ended" });
     expect(await db.prisma.billingPurchase.count({ where: { accountId: s.buyer, kind: "renewal", state: "failed" } })).toBe(1);
+  });
+
+  test("отмена списаний закрывает расписание, не спрашивая банк", async () => {
+    const s = await scenario();
+    const first = await s.beginPurchase();
+    await s.choose(first.paymentUrl, "confirmed");
+    value(await s.payments.recover());
+    const active = value(await s.subscriptions.read(s.buyer)).subscription;
+    const delivered = s.delivered.length;
+
+    value(await s.subscriptions.cancel(s.buyer, { operationId: randomUUID(), expectedRevision: active?.revision }));
+    expect(value(await s.subscriptions.read(s.buyer)).subscription).toMatchObject({ state: "canceled" });
+    // Оплаченный срок остаётся, но следующее списание уже не отправляется.
+    now = new Date("2030-02-28T10:00:00Z");
+    expect(value(await s.payments.renew())).toMatchObject({ started: 0 });
+    expect(await db.prisma.billingPurchase.count({ where: { accountId: s.buyer, kind: "renewal" } })).toBe(0);
+    expect(s.delivered).toHaveLength(delivered);
   });
 
   test("смена карты применяется только после подтверждения на форме привязки", async () => {

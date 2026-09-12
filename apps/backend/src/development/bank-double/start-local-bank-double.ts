@@ -8,6 +8,7 @@ interface Options {
   readonly config: TbankConfig;
   readonly host: string;
   readonly port: number;
+  readonly ledgerPath?: string;
 }
 
 export interface RunningBankDouble {
@@ -20,7 +21,8 @@ export interface RunningBankDouble {
  * поведение банка остаётся в одном месте и потому проверяется без сокета.
  */
 export async function startLocalBankDouble(options: Options): Promise<RunningBankDouble> {
-  const double = createLocalBankDouble({ config: options.config });
+  const double = createLocalBankDouble({ config: options.config,
+    ...(options.ledgerPath === undefined ? {} : { ledgerPath: options.ledgerPath }) });
   const server = createServer((incoming, outgoing) => {
     void (async () => {
       const body = await buffer(incoming);

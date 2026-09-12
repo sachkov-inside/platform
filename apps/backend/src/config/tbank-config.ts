@@ -53,6 +53,25 @@ export const tbankRuntimeSchema = tbankTerminalSchema
     value.endpoints.apiBaseUrl, ...value.endpoints.formOrigins].every(url => new URL(url).protocol === "https:"),
   "A bank contour other than the local double accepts HTTPS addresses only");
 export type TbankConfig = z.infer<typeof tbankRuntimeSchema>;
+
+const DEFAULT_TBANK_PROVIDER_MODE = "real";
+/**
+ * Контур оплаты целиком: один владелец всех переменных `TBANK_*`. Банк настоящий везде, пока
+ * стенд не попросит двойника, и настоящий терминал рядом с двойником не принимается — иначе у
+ * контура оказалось бы два источника.
+ */
+export function parseBankContour(environment: NodeJS.ProcessEnv): TbankConfig | undefined {
+  const providerMode = environment.TBANK_PROVIDER_MODE?.trim() || DEFAULT_TBANK_PROVIDER_MODE;
+  if (providerMode !== "real" && providerMode !== "test") {
+    throw new Error("TBANK_PROVIDER_MODE must be real or test");
+  }
+  if (providerMode === "real") return parseTbankConfig(environment.TBANK_CONFIG_JSON, environment.TBANK_CA_FILE);
+  if (environment.TBANK_CONFIG_JSON !== undefined) {
+    throw new Error("TBANK_PROVIDER_MODE=test replaces TBANK_CONFIG_JSON; remove one of them");
+  }
+  return localTbankConfig(environment);
+}
+
 export function parseTbankConfig(value: string | undefined, caFile?: string): TbankConfig | undefined {
   if (value === undefined) return undefined;
   let terminal: z.infer<typeof tbankConfigSchema>;
@@ -75,19 +94,23 @@ const DEFAULT_LOCAL_BANK_RETURN_URL = "http://127.0.0.1:3000/subscription/return
  * продление и смену карты на стенде проверить нечем.
  */
 export function localTbankConfig(environment: NodeJS.ProcessEnv): TbankConfig {
-  return tbankRuntimeSchema.parse({
-    environment: "local",
-    terminalKey: "INSIDELOCALDOUBLE", password: "inside-local-bank-double-password",
-    bindingEncryptionKey: Buffer.alloc(32, 7).toString("base64"),
-    recurringCardConfirmed: true, cardOnlyHostedConfirmed: true,
-    cardBinding: { confirmed: true, checkType: "3DS" },
-    minimumKopecks: 100, maximumKopecks: 100_000_000,
-    returnUrl: environment.TBANK_TEST_RETURN_URL?.trim() || DEFAULT_LOCAL_BANK_RETURN_URL,
-    notificationUrl: environment.TBANK_TEST_NOTIFICATION_URL?.trim() || DEFAULT_LOCAL_BANK_NOTIFICATION_URL,
-    receipt: { taxation: "usn_income", tax: "none" },
-    endpoints: {
-      apiBaseUrl: environment.TBANK_TEST_API_BASE_URL?.trim() || DEFAULT_LOCAL_BANK_API_BASE_URL,
-      formOrigins: [environment.TBANK_TEST_PUBLIC_ORIGIN?.trim() || DEFAULT_LOCAL_BANK_FORM_ORIGIN],
-    },
-  });
+  try {
+    return tbankRuntimeSchema.parse({
+      environment: "local",
+      terminalKey: "INSIDELOCALDOUBLE", password: "inside-local-bank-double-password",
+      bindingEncryptionKey: Buffer.alloc(32, 7).toString("base64"),
+      recurringCardConfirmed: true, cardOnlyHostedConfirmed: true,
+      cardBinding: { confirmed: true, checkType: "3DS" },
+      minimumKopecks: 100, maximumKopecks: 100_000_000,
+      returnUrl: environment.TBANK_TEST_RETURN_URL?.trim() || DEFAULT_LOCAL_BANK_RETURN_URL,
+      notificationUrl: environment.TBANK_TEST_NOTIFICATION_URL?.trim() || DEFAULT_LOCAL_BANK_NOTIFICATION_URL,
+      receipt: { taxation: "usn_income", tax: "none" },
+      endpoints: {
+        apiBaseUrl: environment.TBANK_TEST_API_BASE_URL?.trim() || DEFAULT_LOCAL_BANK_API_BASE_URL,
+        formOrigins: [environment.TBANK_TEST_PUBLIC_ORIGIN?.trim() || DEFAULT_LOCAL_BANK_FORM_ORIGIN],
+      },
+    });
+  } catch {
+    throw new Error("Invalid TBANK_TEST_* stand address; use an absolute http or https URL without credentials");
+  }
 }

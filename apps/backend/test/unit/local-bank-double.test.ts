@@ -1,19 +1,25 @@
+import { fork } from "node:child_process";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { describe, expect, test } from "vitest";
 
 import { localTbankConfig } from "../../src/config/tbank-config.js";
 import { createLocalBankDouble } from "../../src/development/bank-double/local-bank-double.js";
 import { startLocalBankDouble } from "../../src/development/bank-double/start-local-bank-double.js";
-import { Tbank, type BankRequest } from "../../src/modules/billing/infrastructure/tbank/tbank.js";
+import { Tbank, tbankToken, type BankRequest } from "../../src/modules/billing/infrastructure/tbank/tbank.js";
 
 const config = localTbankConfig({});
 const origin = config.endpoints.formOrigins[0] ?? "";
 
 /** Двойник и приложение соединяются ровно тем адаптером, который работает с настоящим банком. */
-function stand() {
+function stand(ledgerPath?: string) {
   const notifications: Record<string, unknown>[] = [];
   const double = createLocalBankDouble({
     config,
     notify: (_url, payload) => { notifications.push({ ...payload }); return Promise.resolve(); },
+    ...(ledgerPath === undefined ? {} : { ledgerPath }),
   });
   const request: BankRequest = (url, init) =>
     double.handle(new Request(url, { method: init.method, headers: init.headers, body: init.body }));
@@ -49,6 +55,16 @@ describe("local bank double", () => {
     expect(notifications[1]).toEqual(notifications[0]);
   });
 
+  test("повторять нечего, пока исход не выбран", async () => {
+    const { bank, double, notifications } = stand();
+    const started = await bank.init(purchase);
+    expect(await (await double.handle(new Request(started.PaymentURL))).text()).not.toContain("Повторить нотификацию");
+    const answer = await double.handle(new Request(started.PaymentURL, { method: "POST",
+      body: new URLSearchParams({ outcome: "repeat" }) }));
+    expect(answer.status).toBe(400);
+    expect(notifications).toHaveLength(0);
+  });
+
   test("каждый управляемый исход приходит своим статусом", async () => {
     for (const [choice, status] of [["rejected", "REJECTED"], ["canceled", "CANCELED"],
       ["expired", "DEADLINE_EXPIRED"], ["unknown", "CONFIRMING"]] as const) {
@@ -76,6 +92,47 @@ describe("local bank double", () => {
     expect(await bank.charge({ paymentId: declined.PaymentId, rebillId: saved })).toMatchObject({ Status: "REJECTED", Success: false });
   });
 
+  test("списание по чужой привязке банк не исполняет", async () => {
+    const { bank, notifications, outcome } = stand();
+    const first = await bank.init(purchase);
+    await outcome(first.PaymentURL, "confirmed");
+    const renewal = await bank.init({ ...purchase, orderId: "0f2f7c0e-6d9e-4d23-9c0e-1f3c6f1c2f04", initiator: "R" });
+    // Привязку выдаёт сам банк: подставленный `RebillId` не является способом оплаты.
+    expect(await bank.charge({ paymentId: renewal.PaymentId, rebillId: "999999999" }))
+      .toMatchObject({ Status: "REJECTED", Success: false, ErrorCode: "3005" });
+    expect(notifications.at(-1)).toMatchObject({ Status: "REJECTED", ErrorCode: "3005" });
+  });
+
+  test("незнакомый платёж банк называет незнакомым, а не падает", async () => {
+    const { bank, double } = stand();
+    const answer = async (method: string, body: Record<string, unknown>): Promise<unknown> => {
+      const payload = { ...body, TerminalKey: config.terminalKey };
+      const response = await double.handle(new Request(`${config.endpoints.apiBaseUrl}/${method}`, {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ...payload, Token: tbankToken(payload, config.password) }),
+      }));
+      return response.json();
+    };
+    expect(await answer("GetState", { PaymentId: "404404404404" })).toMatchObject({ Success: false, ErrorCode: "7" });
+    expect(await answer("Charge", { PaymentId: "404404404404", RebillId: "1" })).toMatchObject({ Success: false, ErrorCode: "7" });
+    expect(await answer("Cancel", { PaymentId: "404404404404", Amount: 100, ExternalRequestId: "refund-x" }))
+      .toMatchObject({ Success: false, ErrorCode: "7" });
+    // Приложение видит это как невозможность сверки, а не как отказ платежа.
+    await expect(bank.state("404404404404")).rejects.toThrow();
+  });
+
+  test("журнал переживает перезапуск двойника", async () => {
+    const ledgerPath = join(mkdtempSync(join(tmpdir(), "inside-bank-double-")), "ledger.json");
+    const first = stand(ledgerPath);
+    const started = await first.bank.init(purchase);
+    await first.outcome(started.PaymentURL, "confirmed");
+
+    // Новый процесс с тем же журналом: банк помнит платёж, поэтому сверка приложения возможна.
+    const restarted = stand(ledgerPath);
+    expect(await restarted.bank.order(purchase.orderId)).toEqual([started.PaymentId]);
+    expect(await restarted.bank.state(started.PaymentId)).toMatchObject({ Status: "CONFIRMED", Success: true });
+  });
+
   test("возврат частями и целиком следует запрошенной сумме, повтор не возвращает дважды", async () => {
     const { bank, notifications, outcome } = stand();
     const started = await bank.init(purchase);
@@ -90,6 +147,23 @@ describe("local bank double", () => {
       .toMatchObject({ Status: "REFUNDED", Success: true, NewAmount: 0 });
     expect(await bank.cancel({ ...refund, amount: 100, externalRequestId: "refund-3" }))
       .toMatchObject({ Success: false, ErrorCode: "3007" });
+    // О возврате банк сообщает так же, как об оплате: приложение получает подписанное событие.
+    expect(notifications.map(item => item.Status)).toEqual(["CONFIRMED", "PARTIAL_REFUNDED", "REFUNDED"]);
+    expect(bank.notification(notifications.at(-1))).toMatchObject({ Status: "REFUNDED" });
+  });
+
+  test("отказ банка в возврате не запоминается за попыткой", async () => {
+    const { bank, double, outcome } = stand();
+    const started = await bank.init(purchase);
+    await outcome(started.PaymentURL, "confirmed");
+    await double.handle(new Request(`${origin}/control`, { method: "POST",
+      body: new URLSearchParams({ chargeOutcome: "confirmed", refundOutcome: "declined" }) }));
+    const refund = { paymentId: started.PaymentId, name: purchase.name, email: purchase.email, amount: 290_000, externalRequestId: "refund-1" };
+    expect(await bank.cancel(refund)).toMatchObject({ Success: false, ErrorCode: "3007" });
+    await double.handle(new Request(`${origin}/control`, { method: "POST",
+      body: new URLSearchParams({ chargeOutcome: "confirmed", refundOutcome: "accepted" }) }));
+    // Владелец вернул переключатель: та же попытка возврата теперь проходит.
+    expect(await bank.cancel(refund)).toMatchObject({ Status: "REFUNDED", Success: true });
   });
 
   test("привязка карты подтверждается человеком и только тогда выдаёт способ оплаты", async () => {
@@ -119,6 +193,18 @@ describe("local bank double", () => {
     expect(index.headers.get("content-type")).toBe("text/html; charset=utf-8");
     expect(await index.text()).toContain(config.terminalKey);
     expect((await double.handle(new Request(`${origin}/pay/unknown`))).status).toBe(404);
+  });
+
+  test("вне стенда двойник не запускается и говорит об этом", async () => {
+    const child = fork(new URL("../../src/development/bank-double.ts", import.meta.url), [], {
+      execArgv: ["--import", "tsx"], stdio: ["ignore", "ignore", "pipe", "ipc"],
+      env: { ...process.env, NODE_ENV: "production", TBANK_PROVIDER_MODE: "test" },
+    });
+    let reported = "";
+    child.stderr?.on("data", (chunk: Buffer) => { reported += chunk.toString("utf8"); });
+    const code = await new Promise<number | null>(resolve => child.once("exit", resolve));
+    expect(code).toBe(1);
+    expect(reported).toContain("The local bank double runs only with NODE_ENV=development");
   });
 
   test("сетевая оболочка отвечает тем же двойником", async () => {

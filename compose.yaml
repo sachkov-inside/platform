@@ -113,8 +113,6 @@ services:
         condition: service_completed_successfully
       object-storage:
         condition: service_healthy
-      mailpit:
-        condition: service_healthy
     ports:
       - "127.0.0.1:${API_HOST_PORT:-3001}:3001"
     healthcheck:
@@ -222,10 +220,6 @@ services:
         condition: service_healthy
       seed:
         condition: service_completed_successfully
-      bank-double:
-        condition: service_healthy
-      mailpit:
-        condition: service_healthy
     init: true
     stop_grace_period: 10s
 
@@ -238,6 +232,8 @@ services:
       - ./config/compose/local/bank-double.env
     ports:
       - "127.0.0.1:${BANK_DOUBLE_HOST_PORT:-8090}:8090"
+    volumes:
+      - bank-double-data:/data
     healthcheck:
       test:
         [
@@ -265,8 +261,6 @@ services:
       interval: 2s
       timeout: 3s
       retries: 30
-    volumes:
-      - mail-capture-data:/data
 
   web:
     build:
@@ -319,7 +313,7 @@ services:
     stop_grace_period: 10s
 
 volumes:
-  mail-capture-data:
+  bank-double-data:
   object-storage-data:
   postgres-data:
   notification-broker-data:

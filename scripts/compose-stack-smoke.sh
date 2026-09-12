@@ -83,16 +83,22 @@ if [[ "$seed_snapshot" != "1:2:published" ]]; then
   exit 1
 fi
 
-# Продажу на стенде можно пройти только когда двойник банка и перехватчик писем отвечают сами,
-# а приложение видит именно их контур: иначе покупка молча упрётся в «способ оплаты недоступен».
+# Продажу на стенде можно пройти только когда двойник банка и перехватчик писем отвечают сами.
 bank_double_health="$(curl --fail --silent --show-error "$bank_double_url/health")"
 if [[ "$bank_double_health" != *'"process":"bank-double"'* || "$bank_double_health" != *'"status":"ready"'* ]]; then
   echo "Unexpected bank double health response: $bank_double_health" >&2
   exit 1
 fi
 
-curl --fail --silent --show-error --output /dev/null "$mail_capture_url/api/v1/messages"
+mail_capture_inbox="$(curl --fail --silent --show-error "$mail_capture_url/api/v1/messages")"
+if [[ "$mail_capture_inbox" != *'"messages"'* ]]; then
+  echo "Unexpected mail capture inbox response: $mail_capture_inbox" >&2
+  exit 1
+fi
 
+# Контур приложения живым ответом не проверить: ни один открытый endpoint его не называет, а
+# покупка требует входа. Поэтому здесь проверяется конфигурация запущенных контейнеров — без неё
+# покупка на стенде молча ответит «способ оплаты недоступен».
 for service in api billing-worker; do
   service_contour="$(docker compose exec -T "$service" printenv TBANK_PROVIDER_MODE)"
   if [[ "$service_contour" != "test" ]]; then
