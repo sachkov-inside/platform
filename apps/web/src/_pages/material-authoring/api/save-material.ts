@@ -215,6 +215,12 @@ function mapSaveProblem(
 }
 
 function mapBackendIssue(issue: { readonly code: string; readonly path: string }) {
+  if (issue.code === "outcomes_too_few") {
+    return {
+      message: `Оставьте «Чему научишься» пустым или напишите ${String(MATERIAL_OUTCOMES.minPublishedCount)}–${String(MATERIAL_OUTCOMES.maxCount)} пункта.`,
+      path: issue.path,
+    };
+  }
   const message =
     issue.path.endsWith("/title")
       ? "Укажите название перед публикацией."

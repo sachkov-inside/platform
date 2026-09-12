@@ -4,6 +4,7 @@ import { createServer, type Server } from "node:http";
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
 import { exportJWK, generateKeyPair, SignJWT, type CryptoKey } from "jose";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { z } from "zod";
 
 import { parsePlatformConfig } from "../../src/config/platform-config.js";
 import { createApiApplication } from "../../src/entrypoints/api/create-api-application.js";
@@ -14,6 +15,11 @@ import {
   representativeDocument,
 } from "../fixtures/material-body/representative.js";
 import { createTestDatabase, type TestDatabase } from "./setup/test-database.js";
+
+/** Тело урока читается как есть: проверка смотрит на сам вариантный шаг, а не на его пересказ. */
+const readerBodySchema = z
+  .object({ body: z.object({ blocks: z.array(z.looseObject({ kind: z.string() })) }) })
+  .loose();
 
 const issuer = "https://identity.example.test/oidc";
 const audience = "https://api.example.test";
@@ -245,6 +251,41 @@ describe("Guide modes and lesson facts", () => {
         outcomes: ["Пройти шаг на образце", "Повторить его у себя"],
       },
     });
+    // Вариантный шаг переживает сохранение и публикацию обеими ветками и не становится врезкой.
+    const body = readerBodySchema.parse(reader.json());
+    expect(body.body.blocks.filter((block) => block.kind === "variant")).toEqual([
+      {
+        kind: "variant",
+        options: [
+          {
+            content: [
+              {
+                content: [
+                  { kind: "text", marks: [], text: "Учебный проект: повторите шаг на образце." },
+                ],
+                kind: "paragraph",
+              },
+            ],
+            mode: "example",
+          },
+          {
+            content: [
+              {
+                content: [
+                  {
+                    kind: "text",
+                    marks: [],
+                    text: "Свой проект: примените шаг к своему репозиторию.",
+                  },
+                ],
+                kind: "paragraph",
+              },
+            ],
+            mode: "own",
+          },
+        ],
+      },
+    ]);
   });
 
   test("publication accepts no promise at all but refuses a single point", async () => {

@@ -34,8 +34,11 @@ export interface MaterialReaderViewProps {
   readonly seriesContext?: SeriesReaderContext | null;
   readonly readingAction?: ReactNode;
   readonly bookmarkAction?: ReactNode;
-  /** Подсказка о двух режимах: страница ставит её у первого вариантного шага. */
-  readonly modeHint?: ReactNode;
+  /**
+   * Подсказка о двух режимах и место, куда она встаёт: перед шагом с этим номером. Место выбирает
+   * страница, потому что подсказка должна стоять у шага, который читатель действительно видит.
+   */
+  readonly modeHint?: { readonly at: number; readonly node: ReactNode };
   /** Переключатель режима прохождения; у руководства без вариантных шагов его нет. */
   readonly modeSwitch?: ReactNode;
 }
@@ -59,9 +62,6 @@ export function MaterialReaderView({
   modeSwitch,
 }: MaterialReaderViewProps) {
   const outline = collectOutline(body);
-  // Подсказка объясняет устройство руководства там, где оно впервые видно, — у первого шага,
-  // написанного для обоих режимов.
-  const firstVariant = body.findIndex((block) => block.kind === "variant");
 
   return (
     <div
@@ -92,9 +92,9 @@ export function MaterialReaderView({
               contentVersion={material.contentVersion}
               materialId={material.materialId}
               path={[]}
-              {...(firstVariant < 0 || modeHint === undefined
+              {...(modeHint === undefined
                 ? {}
-                : { hint: modeHint, hintAt: firstVariant })}
+                : { hint: modeHint.node, hintAt: modeHint.at })}
             />
           </article>
           {bookmarkAction === undefined && readingAction === undefined ? null : (

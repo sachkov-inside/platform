@@ -420,7 +420,8 @@ function GuideModeReader({
           material={{ ...material, title: "Подготовка к первому прогону" }}
           {...(withModes
             ? {
-                modeHint: <GuideModeHint />,
+                // Подсказка встаёт у первого шага, написанного для активного способа.
+                modeHint: { at: 1, node: <GuideModeHint /> },
                 modeSwitch: <GuideModeSwitch signedIn={false} />,
               }
             : {})}

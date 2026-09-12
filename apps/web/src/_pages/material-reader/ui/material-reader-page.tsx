@@ -101,6 +101,13 @@ export async function MaterialReaderPage({
     );
   }
   const showsModes = seriesContext?.series.hasModeVariants === true;
+  // Подсказка объясняет устройство руководства у шага, который читатель видит. Шаг, написанный
+  // для другого способа, в его режиме не рисуется, и подсказка стояла бы рядом с пустотой.
+  const hintAt = result.body.findIndex(
+    (block) =>
+      block.kind === "variant" &&
+      block.options.some((option) => option.mode === guideMode),
+  );
   return (
     <VisibleMaterialOpen key={`${result.material.materialId}:${String(result.material.contentVersion)}`} materialId={result.material.materialId} contentVersion={result.material.contentVersion}>
     <GuideModeProvider initialMode={guideMode}>
@@ -111,7 +118,9 @@ export async function MaterialReaderPage({
       material={result.material}
       {...(showsModes
         ? {
-            ...(hintSeen ? {} : { modeHint: <GuideModeHint /> }),
+            ...(hintSeen || hintAt < 0
+              ? {}
+              : { modeHint: { at: hintAt, node: <GuideModeHint /> } }),
             modeSwitch: <GuideModeSwitch signedIn={accessToken !== undefined} />,
           }
         : {})}
