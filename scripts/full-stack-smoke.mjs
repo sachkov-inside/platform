@@ -27,7 +27,11 @@ const mcpPort = process.env.FULLSTACK_MCP_PORT ?? "3002";
 const mcpServerUrl = `http://127.0.0.1:${mcpPort}/mcp`;
 const childEnvironment = { ...process.env };
 childEnvironment.NODE_ENV ??= "development";
+// Разрешение делегированных Account стенда принадлежит прогону, а не личному `.env`: иначе
+// `release:bootstrap-owner` возьмёт оттуда чужое значение и прогон начнёт зависеть от машины.
+const stackAuthorPermission = "materials:manage";
 Object.assign(childEnvironment, {
+  OWNER_PERMISSION: stackAuthorPermission,
   PLATFORM_RELEASE_VERSION: "v1",
   PLATFORM_SOURCE_SHA: "1".repeat(40),
 });
@@ -113,17 +117,22 @@ try {
     BACKEND_BASE_URL: apiBaseUrl,
   });
   const mcpAccessToken = await fullStackIdentity.createAccessToken();
-  // Отдельный делегированный Account без единого разрешения. Отказ инструменту коммуникаций
-  // обязан зависеть от полномочий, а не от того, что накопила локальная база на владельце.
-  const mcpUnauthorizedAccessToken = await fullStackIdentity.createAccessToken(
-    "fullstack-mcp-unauthorized",
+  // Отдельный автор Materials для пробы отказа в смоуке MCP: разрешение выдаётся здесь явно,
+  // поэтому у Account есть ровно `materials:manage` и никаких полномочий коммуникаций.
+  const mcpMaterialsOnlySubject = "fullstack-mcp-materials-only";
+  const mcpMaterialsOnlyAccessToken = await fullStackIdentity.createAccessToken(
+    mcpMaterialsOnlySubject,
   );
-  await establishFullStackAccount(mcpUnauthorizedAccessToken.token);
+  await runPnpm(["--filter", "@inside/backend", "release:bootstrap-owner"], {
+    ...childEnvironment,
+    OWNER_LOGTO_SUBJECT: mcpMaterialsOnlySubject,
+    OWNER_PERMISSION: stackAuthorPermission,
+  });
   await runPnpm(["--filter", "@inside/backend", "smoke:mcp-authoring"], {
     ...childEnvironment,
     MCP_SMOKE_ACCESS_TOKEN: mcpAccessToken.token,
+    MCP_SMOKE_MATERIALS_ONLY_ACCESS_TOKEN: mcpMaterialsOnlyAccessToken.token,
     MCP_SMOKE_SERVER_URL: mcpServerUrl,
-    MCP_SMOKE_UNAUTHORIZED_ACCESS_TOKEN: mcpUnauthorizedAccessToken.token,
   });
   const memberAccessToken = await fullStackIdentity.createAccessToken(
     fullStackIdentity.memberSubject,

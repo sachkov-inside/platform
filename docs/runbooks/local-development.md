@@ -228,9 +228,9 @@ starts the API and a production-built web process, verifies the published Reader
 mobile through Playwright, exercises the server-only adapter against the live API, and uses a
 signed delegated owner token to create/reload, publish, Preview and unpublish one stable Material
 through the live MCP process. The refusal of a communications tool is proved with a second
-delegated Account that holds no permission: the owner Account of a working machine may already
-carry `communications:manage`, and that step must read authority rather than the history of the
-local database.
+delegated Account that the launcher grants exactly `materials:manage`: the owner Account of a
+working machine may already carry `communications:manage`, and that step must read authority
+rather than the history of the local database.
 
 The identity fixture of that launcher serves a JWKS, a discovery document and a refresh-token grant
 on loopback, so a signed-in session can outlive the five minutes of one access token and last the

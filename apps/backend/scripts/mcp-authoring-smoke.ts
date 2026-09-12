@@ -11,11 +11,10 @@ import { COMMUNICATIONS_PERMISSION_DENIED } from "../src/modules/communications/
 
 const serverUrl = requireEnvironment("MCP_SMOKE_SERVER_URL");
 const accessToken = requireEnvironment("MCP_SMOKE_ACCESS_TOKEN");
-// Делегированный Account без единого разрешения. У автора стенда `communications:manage` могло
-// накопиться от прежней локальной работы, и тогда отказ приходит по другой причине; отдельный
-// Account оставляет проверку про полномочия, а не про историю базы.
-const unauthorizedAccessToken = requireEnvironment(
-  "MCP_SMOKE_UNAUTHORIZED_ACCESS_TOKEN",
+// Отдельный автор Materials: у него есть ровно `materials:manage`, поэтому отказ в коммуникациях
+// зависит от полномочий, а не от того, что накопила локальная база на владельце стенда.
+const materialsOnlyAccessToken = requireEnvironment(
+  "MCP_SMOKE_MATERIALS_ONLY_ACCESS_TOKEN",
 );
 const topicId = "72000000-0000-4000-8000-000000000002";
 const formatId = "guide";
@@ -49,30 +48,32 @@ const client = new Client({
   name: "inside-platform-full-stack-smoke",
   version: "1.0.0",
 });
-const unauthorizedClient = new Client({
-  name: "inside-platform-full-stack-smoke-unauthorized",
+const materialsOnlyClient = new Client({
+  name: "inside-platform-full-stack-smoke-materials-only",
   version: "1.0.0",
 });
 
 try {
   await client.connect(delegatedTransport(accessToken));
-  await unauthorizedClient.connect(delegatedTransport(unauthorizedAccessToken));
   // Состав набора инструментов сверяет `pnpm mcp:check`; здесь важно, что развёрнутый сервер отвечает.
   const tools = await client.listTools();
   if (tools.tools.length === 0) {
     throw new Error("MCP server exposed no tools");
   }
 
-  // Инструмент виден в наборе, но полномочий коммуникаций это не даёт. Ожидаемый код отказа
-  // приходит из контракта модуля, поэтому смена контракта меняет и сервер, и эту проверку.
-  const denied = await unauthorizedClient.callTool({
-    name: "communications_templates_list",
-    arguments: {
+  // Видимость инструмента и разрешение `materials:manage` не дают автору полномочий коммуникаций.
+  // Ожидаемый код отказа приходит из контракта модуля, поэтому смена контракта меняет и сервер,
+  // и эту проверку.
+  await materialsOnlyClient.connect(delegatedTransport(materialsOnlyAccessToken));
+  const denied = await callTool(
+    "communications_templates_list",
+    {
       operationId: "73000000-0000-4000-8000-000000000003",
       expectedRevision: 0,
       payload: {},
     },
-  });
+    materialsOnlyClient,
+  );
   assertField(denied, "isError", true, "communications permission denial");
   const denial = z.strictObject({
     ok: z.literal(false),
@@ -153,7 +154,7 @@ try {
     `MCP authoring smoke passed: ${materialId} published, previewed and unpublished\n`,
   );
 } finally {
-  await Promise.all([client.close(), unauthorizedClient.close()]);
+  await Promise.all([client.close(), materialsOnlyClient.close()]);
 }
 
 function delegatedTransport(token: string): StreamableHTTPClientTransport {
@@ -167,6 +168,12 @@ function metadata(access: "free" | "membership") {
     title: "MCP full-stack authoring smoke",
     summary: "A stable Material used to verify delegated MCP authoring.",
     access,
+    difficulty: "basic",
+    // Публикация принимает либо пустой список обещаний, либо настоящий: одна строка её не пройдёт.
+    outcomes: [
+      "Собрать материал через делегированный MCP.",
+      "Проверить публикацию и предпросмотр на живом стенде.",
+    ],
     topicId,
     formatId,
     tagIds: [],
@@ -177,8 +184,9 @@ function metadata(access: "free" | "membership") {
 function callTool(
   name: string,
   arguments_: Record<string, unknown>,
+  delegate: Client = client,
 ): Promise<CallToolResult> {
-  return client.callTool({ name, arguments: arguments_ });
+  return delegate.callTool({ name, arguments: arguments_ });
 }
 
 function successfulValue(
@@ -197,11 +205,23 @@ function successfulValue(
     typeof structured.value !== "object" ||
     Array.isArray(structured.value)
   ) {
-    throw new Error(
-      `${operation} failed: ${JSON.stringify(result.structuredContent)}`,
-    );
+    throw new Error(`${operation} failed: ${failureReason(result)}`);
   }
   return z.record(z.string(), z.unknown()).parse(structured.value);
+}
+
+/**
+ * Отказ до обработчика приходит без `structuredContent`, и тогда причина есть только в тексте
+ * ответа. Без неё падение смоука называет `undefined` вместо того, что отклонил сервер.
+ */
+function failureReason(result: CallToolResult): string {
+  if (result.structuredContent !== undefined) {
+    return JSON.stringify(result.structuredContent);
+  }
+  const reported = result.content
+    .map((block) => (block.type === "text" ? block.text : block.type))
+    .join("; ");
+  return reported.length > 0 ? reported : JSON.stringify(result);
 }
 
 function requireString(
