@@ -56,8 +56,11 @@ describe("published Material HTTP contract", () => {
       },
       access: {
         availability: "locked",
-        // По умолчанию ни один вариант подписки не продаётся: CTA не показывается.
-        cta: null,
+        // Локальный seed включает каталог в продажу, поэтому у закрытого материала есть CTA.
+        cta: {
+          label: "Получить доступ",
+          url: "https://t.me/tribute/app?startapp=inside",
+        },
       },
     });
     expect(response.body).not.toContain("schemaVersion");
