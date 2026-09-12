@@ -16,10 +16,13 @@ import { assembleMaterialAssets } from "../../src/modules/assets/index.js";
 import { assembleVideos } from "../../src/modules/videos/index.js";
 import { createTestVideoProvider } from "../../src/modules/videos/adapters/kinescope/test-video-provider.js";
 import { assembleWorkshopEntitlements } from "../../src/modules/workshop/index.js";
+import { CommunityEntitlements, TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
+import { disabledCommunityEntitlementProvider } from "../../src/modules/telegram-membership/ports/community-entitlement-provider.js";
 import { discoverPublishedMaterials } from "../../src/modules/content-library/index.js";
 import type { ObjectStorage, StoredObject } from "../../src/infrastructure/object-storage/index.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import { BankFixture } from "./setup/bank.js";
+import { linkTelegramAccount } from "./setup/telegram-link.js";
 import { createMigratedTestDatabase, type TestDatabase } from "./setup/test-database.js";
 
 function value<T>(result: { ok: true; value: T } | { ok: false; error: { code: string } }): T {
@@ -227,6 +230,11 @@ describe("оплата, выдача прав и доступ к материа�
   function seniorOffer() {
     return offer({ name: "Материалы и сообщество", benefits: ["materials", "community"], priceKopecks: subscriptionPriceKopecks });
   }
+  /** Проекция сообщества: желаемое состояние считается здесь, а исполняет его бот. */
+  function communityProjection() {
+    return new CommunityEntitlements({ accounts, clock: () => now, grants, links: new TelegramAccountLinks(db.prisma),
+      prisma: db.prisma, provider: disabledCommunityEntitlementProvider });
+  }
   /** Действующие права Account: ровно тот состав, из которого собирается желаемое состояние чата. */
   async function capabilities(account: string) {
     const resolved = await grants.resolveCapabilities(account);
@@ -265,7 +273,15 @@ describe("оплата, выдача прав и доступ к материа�
     const subscriptions = new BillingSubscriptions({ prisma: db.prisma, bank: client, contact, grants, payments,
       notices: new BillingNotices({ prisma: db.prisma, clock: () => now }), clock: () => now });
     const operations = new BillingOperations({ prisma: db.prisma, accounts, pricing, payments, subscriptions, grants, bank: client, clock: () => now });
-    return { bank, payments, subscriptions, operations };
+    /** Оплаченная покупка целиком: команда, ответ банка и выдача прав одним шагом. */
+    async function pay(account: string, optionId: string, options: { readonly recurring?: boolean } = {}) {
+      const bought = value(await purchase(payments, account, optionId, options));
+      if (options.recurring === true) expect(await payments.notification(bank.notify(bought.purchaseRef, "AUTHORIZED", { RebillId: "synthetic-card" }))).toMatchObject({ ok: true });
+      expect(await payments.notification(bank.notify(bought.purchaseRef, "CONFIRMED"))).toMatchObject({ ok: true });
+      value(await payments.recover());
+      return bought.purchaseRef;
+    }
+    return { bank, payments, subscriptions, operations, pay };
   }
   /** Расчёт и согласия одной покупки: подписка принимает списания, разовая — только оферту. */
   async function command(account: string, optionId: string, options: { readonly recurring?: boolean } = {}) {
@@ -544,15 +560,7 @@ describe("оплата, выдача прав и доступ к материа�
     const [onlyGuide, withBoth] = await Promise.all([buyer(), buyer()]);
     const senior = await seniorOffer();
     const bought = await guideOffer();
-    const { bank, payments, subscriptions } = billingStand();
-    async function pay(account: string, optionId: string, options: { readonly recurring?: boolean } = {}) {
-      const purchased = value(await purchase(payments, account, optionId, options));
-      if (options.recurring === true) expect(await payments.notification(bank.notify(purchased.purchaseRef, "AUTHORIZED", { RebillId: "synthetic-card" }))).toMatchObject({ ok: true });
-      expect(await payments.notification(bank.notify(purchased.purchaseRef, "CONFIRMED"))).toMatchObject({ ok: true });
-      value(await payments.recover());
-      return purchased.purchaseRef;
-    }
-
+    const { pay, subscriptions } = billingStand();
     // До покупки оснований нет: ни подписки, ни права на руководство, ни чата.
     expect(await capabilities(onlyGuide)).toEqual([]);
     await pay(onlyGuide, bought.optionId);
@@ -566,6 +574,14 @@ describe("оплата, выдача прав и доступ к материа�
       grounds: [{ source: "paid", capabilities: [`guide:${guideA}`], validUntil: null, active: true }] });
     // Проверка доступа к материалам не изменилась: чужая библиотека руководством не открывается.
     expect(await decide(reader(onlyGuide), libraryMaterial)).toMatchObject({ effect: "deny", reason: "membership_required" });
+
+    // Появление доступа видно в проекции: та же покупка даёт боту команду впустить бессрочно.
+    await linkTelegramAccount(db.prisma, { accountId: onlyGuide, identityRef: `identity-${onlyGuide}`, now });
+    expect(await communityProjection().project(onlyGuide)).toMatchObject({ ok: true, entitlementRevision: 1 });
+    expect(await db.prisma.telegramCommunityDesiredState.findUniqueOrThrow({ where: { accountId: onlyGuide } }))
+      .toMatchObject({ access: { kind: "lifetime" }, nextBoundary: null });
+    expect(await db.prisma.telegramCommunityOperation.findMany({ where: { accountId: onlyGuide } }))
+      .toMatchObject([{ access: { kind: "lifetime" }, delivery: "pending", entitlementRevision: 1, purpose: "apply" }]);
 
     await pay(withBoth, senior.optionId, { recurring: true });
     await pay(withBoth, bought.optionId);
@@ -591,15 +607,7 @@ describe("оплата, выдача прав и доступ к материа�
     const [withBoth, refunded, kept] = await Promise.all([buyer(), buyer(), buyer()]);
     const senior = await seniorOffer();
     const bought = await guideOffer();
-    const { bank, payments, operations } = billingStand();
-    async function pay(account: string, optionId: string, options: { readonly recurring?: boolean } = {}) {
-      const purchased = value(await purchase(payments, account, optionId, options));
-      if (options.recurring === true) expect(await payments.notification(bank.notify(purchased.purchaseRef, "AUTHORIZED", { RebillId: "synthetic-card" }))).toMatchObject({ ok: true });
-      expect(await payments.notification(bank.notify(purchased.purchaseRef, "CONFIRMED"))).toMatchObject({ ok: true });
-      value(await payments.recover());
-      return purchased.purchaseRef;
-    }
-
+    const { operations, pay, payments } = billingStand();
     const subscribed = await pay(withBoth, senior.optionId, { recurring: true });
     const guidePurchase = await pay(withBoth, bought.optionId);
     // Снятие одного основания не забирает чат: его продолжает держать состав подписки.
@@ -645,10 +653,8 @@ describe("оплата, выдача прав и доступ к материа�
     const account = await buyer();
     const senior = await seniorOffer();
     const bought = await guideOffer();
-    const { bank, payments } = billingStand();
-    const purchased = value(await purchase(payments, account, bought.optionId));
-    expect(await payments.notification(bank.notify(purchased.purchaseRef, "CONFIRMED"))).toMatchObject({ ok: true });
-    value(await payments.recover());
+    const { bank, payments, pay } = billingStand();
+    await pay(account, bought.optionId);
 
     expect(await payments.purchase(account, await command(account, senior.optionId, { recurring: true })))
       .toMatchObject({ ok: false, error: { code: "existing_access" } });
