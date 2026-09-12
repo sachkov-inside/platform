@@ -1,11 +1,23 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import process from "node:process";
 import { URL, fileURLToPath } from "node:url";
 
 const backendRoot = fileURLToPath(new URL("..", import.meta.url));
+
+function expectSuccess(command, arguments_) {
+  const result = spawnSync(command, arguments_, { cwd: backendRoot, encoding: "utf8" });
+  if (result.error !== undefined) {
+    throw result.error;
+  }
+  if (result.status !== 0) {
+    throw new Error(
+      `${command} failed while preparing a negative guardrail fixture\n${result.stdout ?? ""}${result.stderr ?? ""}`,
+    );
+  }
+}
 
 function expectFailure(command, arguments_, expectedDiagnostics) {
   const result = spawnSync(command, arguments_, {
@@ -106,30 +118,41 @@ expectFailure(
 );
 
 // Инструмент, добавленный без `pnpm mcp:generate`, обязан ронять проверку и называть себя.
-// Устаревший слепок выводится из текущего: перечня имён руками здесь нет.
-const committedSurface = JSON.parse(
-  readFileSync(path.join(backendRoot, "mcp/tool-surface.json"), "utf8"),
-);
-const appearedTool = committedSurface[0];
-const disappearedTool = "inside_tool_surface_probe";
-const staleSurfacePath = path.join(
-  mkdtempSync(path.join(tmpdir(), "inside-mcp-tool-surface-")),
-  "tool-surface.json",
-);
-writeFileSync(
-  staleSurfacePath,
-  `${JSON.stringify([...committedSurface.filter((name) => name !== appearedTool), disappearedTool].sort(), undefined, 2)}\n`,
-);
+// Устаревший слепок снимается той же командой и правится здесь: перечня имён руками нет,
+// а путь до слепка репозитория знает только сам скрипт.
+const surfaceRoot = mkdtempSync(path.join(tmpdir(), "inside-mcp-tool-surface-"));
+const staleSurfacePath = path.join(surfaceRoot, "tool-surface.json");
+try {
+  expectSuccess("pnpm", [
+    "exec",
+    "tsx",
+    "scripts/mcp-tool-surface.ts",
+    "--surface",
+    staleSurfacePath,
+  ]);
+  const registered = JSON.parse(readFileSync(staleSurfacePath, "utf8"));
+  const appearedTool = registered[0];
+  if (appearedTool === undefined) {
+    throw new Error("MCP tool surface fixture needs at least one registered tool");
+  }
+  const disappearedTool = "inside_tool_surface_probe";
+  writeFileSync(
+    staleSurfacePath,
+    `${JSON.stringify([...registered.filter((name) => name !== appearedTool), disappearedTool].sort(), undefined, 2)}\n`,
+  );
 
-expectFailure(
-  "pnpm",
-  ["exec", "tsx", "scripts/mcp-tool-surface.ts", "--check", "--surface", staleSurfacePath],
-  [
-    "MCP tool surface drift detected",
-    `Appeared: ${appearedTool}`,
-    `Disappeared: ${disappearedTool}`,
-    "pnpm mcp:generate",
-  ],
-);
+  expectFailure(
+    "pnpm",
+    ["exec", "tsx", "scripts/mcp-tool-surface.ts", "--check", "--surface", staleSurfacePath],
+    [
+      "MCP tool surface drift detected",
+      `Appeared: ${appearedTool}`,
+      `Disappeared: ${disappearedTool}`,
+      "pnpm mcp:generate",
+    ],
+  );
+} finally {
+  rmSync(surfaceRoot, { force: true, recursive: true });
+}
 
 process.stdout.write("Negative TypeScript and architecture guardrails passed.\n");

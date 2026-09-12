@@ -25,7 +25,7 @@ if (checkOnly) {
     throw new Error(`MCP tool surface is missing at ${surfacePath}. Run \`pnpm mcp:generate\`.`);
   }
   if (committed !== generated) {
-    throw new Error(drift(parseToolSurface(committed, surfacePath), registered));
+    throw new Error(drift(surfacePath, parseToolSurface(committed, surfacePath), registered));
   }
   process.stdout.write(`MCP tool surface is up to date: ${String(registered.length)} tools.\n`);
 } else {
@@ -53,11 +53,11 @@ async function registeredToolNames(): Promise<string[]> {
 }
 
 /** Расхождение называет инструменты поимённо: догадываться по разнице файлов не нужно. */
-function drift(committed: readonly string[], actual: readonly string[]): string {
+function drift(target: string, committed: readonly string[], actual: readonly string[]): string {
   const appeared = actual.filter((name) => !committed.includes(name));
   const disappeared = committed.filter((name) => !actual.includes(name));
   return [
-    `MCP tool surface drift detected in ${surfacePath}.`,
+    `MCP tool surface drift detected in ${target}.`,
     ...(appeared.length === 0 ? [] : [`Appeared: ${appeared.join(", ")}`]),
     ...(disappeared.length === 0 ? [] : [`Disappeared: ${disappeared.join(", ")}`]),
     ...(appeared.length === 0 && disappeared.length === 0
