@@ -22,6 +22,7 @@ import { discoverPublishedMaterials } from "../../src/modules/content-library/in
 import type { ObjectStorage, StoredObject } from "../../src/infrastructure/object-storage/index.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import { BankFixture } from "./setup/bank.js";
+import { linkTelegramAccount } from "./setup/telegram-link.js";
 import { createMigratedTestDatabase, type TestDatabase } from "./setup/test-database.js";
 
 function value<T>(result: { ok: true; value: T } | { ok: false; error: { code: string } }): T {
@@ -220,17 +221,6 @@ describe("оплата, выдача прав и доступ к материа�
   /** Старший тариф: общий чат объявлен прямо в его составе. */
   function seniorOffer() {
     return offer({ name: "Материалы и сообщество", benefits: ["materials", "community"], priceKopecks: subscriptionPriceKopecks });
-  }
-  /**
-   * Подтверждённая связь с Telegram ровно той формой, которую пишет протокол связывания:
-   * без неё проекции некому адресовать желаемое состояние.
-   */
-  async function linkTelegram(account: string): Promise<void> {
-    const principalRef = randomUUID();
-    await db.prisma.telegramLinkTransaction.create({ data: { accountId: account, createdAt: now,
-      expiresAt: new Date(now.getTime() + 300_000), linkRef: randomUUID(), principalRef,
-      providerIdentityRef: `identity-${account}`, providerTransactionRef: randomUUID(), returnCorrelation: randomUUID(),
-      status: "linked", tokenDigest: createHash("sha256").update(principalRef).digest("base64url"), updatedAt: now } });
   }
   /** Проекция сообщества: желаемое состояние считается здесь, а исполняет его бот. */
   function communityProjection() {
@@ -548,7 +538,7 @@ describe("оплата, выдача прав и доступ к материа�
     expect(await decide(reader(onlyGuide), libraryMaterial)).toMatchObject({ effect: "deny", reason: "membership_required" });
 
     // Появление доступа видно в проекции: та же покупка даёт боту команду впустить бессрочно.
-    await linkTelegram(onlyGuide);
+    await linkTelegramAccount(db.prisma, { accountId: onlyGuide, identityRef: `identity-${onlyGuide}`, now });
     expect(await communityProjection().project(onlyGuide)).toMatchObject({ ok: true, entitlementRevision: 1 });
     expect(await db.prisma.telegramCommunityDesiredState.findUniqueOrThrow({ where: { accountId: onlyGuide } }))
       .toMatchObject({ access: { kind: "lifetime" }, nextBoundary: null });

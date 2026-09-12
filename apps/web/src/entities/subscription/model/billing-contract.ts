@@ -249,7 +249,7 @@ export function isGuideCapability(capability: AccessCapability): boolean {
  * сервер по тому же правилу: здесь оно нужно только чтобы назвать доступ до покупки и после неё
  * одинаково честно.
  */
-export function guidesOpenCommunity(
+function guidesOpenCommunity(
   capabilities: readonly AccessCapability[],
 ): boolean {
   return capabilities.some(isGuideCapability);
