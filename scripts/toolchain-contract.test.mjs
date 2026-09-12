@@ -193,6 +193,8 @@ describe("supported toolchain contract", () => {
       "config/compose/local/video-deletions-worker.env",
       "config/compose/local/web.env",
       "config/compose/local/storybook.env",
+      "config/compose/local/bank-double.env",
+      "config/compose/local/mailpit.env",
       "config/compose/production/compose.env.example",
       "config/compose/production/runtime.env.example",
       "config/compose/production/migrations.env.example",
