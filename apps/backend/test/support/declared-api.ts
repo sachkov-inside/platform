@@ -1,0 +1,255 @@
+import { readFileSync } from "node:fs";
+import { URL } from "node:url";
+
+import { Ajv, type ValidateFunction } from "ajv";
+import type { InjectOptions, LightMyRequestResponse } from "fastify";
+import { z } from "zod";
+import addFormats from "ajv-formats";
+
+/**
+ * Ответ, прочитанный его собственным описанием.
+ *
+ * Владелец формы ответа один — сгенерированный документ OpenAPI: `pnpm api:check` держит его
+ * равным контроллерам, поэтому проверке не нужна своя схема рядом. `toMatchObject` лишнего ключа
+ * не видит, а каждый строгий читатель этого API на нём теряет всё тело, поэтому здесь форма
+ * сверяется целиком, вместе с запретом необъявленных полей.
+ */
+
+const documentPath = new URL("../../openapi/platform-api.json", import.meta.url);
+const schemaRootId = "inside://platform-api";
+
+const mediaTypeSchema = z.object({ schema: z.unknown() }).loose();
+const responseSchema = z.object({ content: z.record(z.string(), mediaTypeSchema).optional() }).loose();
+const operationSchema = z.object({ responses: z.record(z.string(), responseSchema).optional() }).loose();
+const documentSchema = z
+  .object({
+    paths: z.record(z.string(), z.record(z.string(), operationSchema)),
+    components: z.object({ schemas: z.record(z.string(), z.unknown()).optional() }).loose().optional(),
+  })
+  .loose();
+
+type OperationResponses = Record<string, z.infer<typeof responseSchema>>;
+
+const document = readApiDocument();
+const ajv = new Ajv({ strict: true, allErrors: true });
+addFormats.default(ajv);
+// Документ владеет и именами форматов. Тот, который ajv оценить не умеет, остаётся непроверенным,
+// а не рушит сверку целиком: собственный `pattern` рядом с таким форматом документ уже несёт.
+for (const format of declaredFormats(document)) {
+  if (ajv.formats[format] === undefined) ajv.addFormat(format, true);
+}
+ajv.addSchema({ $id: schemaRootId, definitions: translatedSchema(document.components?.schemas ?? {}) });
+
+const validators = new Map<string, ValidateFunction>();
+
+/** Ровно то, что сверка читает в ответе: статус и тело. */
+export interface DeclaredResponseParts {
+  readonly statusCode: number;
+  json(): unknown;
+}
+
+/** Ровно то, что нужно сверке: сервер, которому можно отправить запрос. */
+export interface InjectableServer<Response extends DeclaredResponseParts = LightMyRequestResponse> {
+  inject(options: InjectOptions): Promise<Response>;
+  ready(): PromiseLike<unknown>;
+}
+
+/** Сервер под контрактом: тот же `inject`, только ответ читается его собственным описанием. */
+export interface DeclaredServer<Response extends DeclaredResponseParts = LightMyRequestResponse> {
+  ready(): PromiseLike<unknown>;
+  inject(options: InjectOptions): Promise<Response>;
+}
+
+/** Fastify под контрактом: каждый ответ читается описанием, которое объявляет сам API. */
+export function declaredServer<Response extends DeclaredResponseParts>(
+  server: InjectableServer<Response>,
+): DeclaredServer<Response> {
+  return {
+    ready: () => server.ready(),
+    inject: async (options: InjectOptions): Promise<Response> => {
+      const response = await server.inject(options);
+      const { method, url } = requestAddress(options);
+      assertDeclaredResponse({ method, url, status: response.statusCode, body: () => response.json() });
+      return response;
+    },
+  };
+}
+
+/** Сверка одного уже полученного ответа: тело читается только когда описание его объявляет. */
+export function assertDeclaredResponse(response: {
+  readonly method: string;
+  readonly url: string;
+  readonly status: number;
+  readonly body: () => unknown;
+}): void {
+  const succeeded = response.status >= 200 && response.status < 300;
+  const operation = declaredOperation(response.method, response.url);
+  if (operation === undefined) {
+    // Отказ по адресу, которого в документе нет, документу не противоречит: API и правда его не
+    // знает, и проверка отсутствия — законный сценарий. Успех по такому адресу — противоречит.
+    if (succeeded) {
+      throw new Error(
+        `${address(response)} answered ${String(response.status)}, but the API declares no such address.`,
+      );
+    }
+    return;
+  }
+  const declared = operation[String(response.status)];
+  if (declared === undefined) {
+    // Необъявленный отказ описанию не противоречит: документ перечисляет отказы, которые обещает,
+    // а не все, которые возможны. Необъявленный успех противоречит — его обещания нет вовсе.
+    if (succeeded) {
+      throw new Error(
+        `${address(response)} answered ${String(response.status)}, which its OpenAPI operation does not declare.`,
+      );
+    }
+    return;
+  }
+  const schema = declaredJsonSchema(declared);
+  if (schema === undefined) return;
+  const validate = compiledValidator(schema);
+  if (validate(response.body())) return;
+  throw new Error(
+    `${address(response)} answered ${String(response.status)} with a body its own description rejects:\n${
+      (validate.errors ?? [])
+        .map((error) => `  ${error.instancePath === "" ? "/" : error.instancePath} ${error.message ?? ""} ${JSON.stringify(error.params)}`)
+        .join("\n")
+    }`,
+  );
+}
+
+function readApiDocument(): z.infer<typeof documentSchema> {
+  const parsed = documentSchema.safeParse(JSON.parse(readFileSync(documentPath, "utf8")));
+  if (!parsed.success) {
+    throw new Error(`${documentPath.pathname} is not an OpenAPI document. Run \`pnpm api:generate\`.`);
+  }
+  return parsed.data;
+}
+
+function address(response: { readonly method: string; readonly url: string }): string {
+  return `${response.method} ${response.url}`;
+}
+
+/** Один и тот же вид тела описан у разных адресов: компилируется он один раз на вид, а не на адрес. */
+function compiledValidator(schema: object): ValidateFunction {
+  const key = JSON.stringify(schema);
+  const existing = validators.get(key);
+  if (existing !== undefined) return existing;
+  const validate = ajv.compile(translatedSchema(schema));
+  validators.set(key, validate);
+  return validate;
+}
+
+function requestAddress(options: InjectOptions): { method: string; url: string } {
+  const target = options.url ?? options.path;
+  const url = typeof target === "string" ? target : target?.pathname ?? "";
+  return { method: (options.method ?? "GET").toUpperCase(), url };
+}
+
+/** Адрес приводится к объявленному шаблону: точное совпадение важнее параметризованного. */
+function declaredOperation(method: string, url: string): OperationResponses | undefined {
+  const path = url.split("?")[0] ?? url;
+  const exact = document.paths[path]?.[method.toLowerCase()];
+  if (exact !== undefined) return exact.responses ?? {};
+  const matches = Object.entries(document.paths)
+    .filter(([declaredPath, item]) =>
+      item[method.toLowerCase()] !== undefined && pathTemplate(declaredPath).test(path))
+    .sort(([left], [right]) => parameterCount(left) - parameterCount(right));
+  const [best, next] = matches;
+  if (best === undefined) return undefined;
+  // Порядок ключей документа не должен решать, какую схему читают: одинаково подробная пара
+  // шаблонов — это неоднозначность, а не выбор по умолчанию.
+  if (next !== undefined && parameterCount(next[0]) === parameterCount(best[0])) {
+    throw new Error(`${method} ${path} matches both ${best[0]} and ${next[0]}; the document is ambiguous here.`);
+  }
+  return best[1][method.toLowerCase()]?.responses ?? {};
+}
+
+function parameterCount(declaredPath: string): number {
+  return (declaredPath.match(/\{[^}]+\}/gu) ?? []).length;
+}
+
+/**
+ * Тело отказа — тоже объявленный ответ: `application/problem+json` описывает 620 из 750 ответов
+ * документа с телом, и пропустить их значило бы не встретиться с большей частью проверяемого.
+ * Часть таких схем документ объявляет открытыми, часть закрытыми — решает документ, не сверка.
+ */
+function declaredJsonSchema(declared: z.infer<typeof responseSchema>): object | undefined {
+  const content = declared.content ?? {};
+  const mediaType = Object.keys(content).includes("application/json")
+    ? "application/json"
+    : Object.keys(content).filter((name) => name.endsWith("+json")).sort()[0];
+  const schema = mediaType === undefined ? undefined : content[mediaType]?.schema;
+  return schema === null || typeof schema !== "object" ? undefined : schema;
+}
+
+const templates = new Map<string, RegExp>();
+
+function pathTemplate(declaredPath: string): RegExp {
+  const existing = templates.get(declaredPath);
+  if (existing !== undefined) return existing;
+  const pattern = new RegExp(
+    `^${declaredPath
+      .split(/(\{[^}]+\})/u)
+      .map((part) => (/^\{[^}]+\}$/u.test(part) ? "[^/]+" : part.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")))
+      .join("")}$`,
+    "u",
+  );
+  templates.set(declaredPath, pattern);
+  return pattern;
+}
+
+/**
+ * OpenAPI 3.0 описывает форму почти как JSON Schema, но `nullable` и булев `exclusiveMinimum`
+ * принадлежат только ему. Перевод их снимает, а ссылки на общие схемы уводит в корень. Всё
+ * остальное, чего перевод не знает, ajv отвергает при компиляции, а не пропускает молча.
+ */
+function translated(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(translated);
+  if (value === null || typeof value !== "object") return value;
+  return translatedSchema(value);
+}
+
+function translatedSchema(value: object): Record<string, unknown> {
+  const source: Record<string, unknown> = { ...value };
+  const bounds: Record<string, number> = {};
+  const dropped = new Set(["nullable"]);
+  if (source.exclusiveMinimum === true && typeof source.minimum === "number") {
+    bounds.exclusiveMinimum = source.minimum;
+    dropped.add("minimum").add("exclusiveMinimum");
+  }
+  const schema: Record<string, unknown> = {
+    ...Object.fromEntries(
+      Object.entries(source)
+        .filter(([key]) => !dropped.has(key))
+        .map(([key, entry]) => [
+          key,
+          key === "$ref" && typeof entry === "string" && entry.startsWith("#/components/schemas/")
+            ? `${schemaRootId}#/definitions/${entry.slice("#/components/schemas/".length)}`
+            : translated(entry),
+        ]),
+    ),
+    ...bounds,
+  };
+  const alternatives = schema.oneOf;
+  // `oneOf` здесь — перечень вариантов ответа, а не исключающий выбор: его строит
+  // `problemDetailsOneOfContent` из перечисленных схем, и открытый вариант заведомо пересекается с
+  // закрытым. Требование «ровно один» отвергло бы честное тело отказа, которое подходит обоим.
+  const alternated = alternatives === undefined
+    ? schema
+    : { ...Object.fromEntries(Object.entries(schema).filter(([key]) => key !== "oneOf")), anyOf: alternatives };
+  return source.nullable === true ? { anyOf: [alternated, { type: "null" }] } : alternated;
+}
+
+function declaredFormats(value: unknown, found = new Set<string>()): Set<string> {
+  if (Array.isArray(value)) {
+    for (const entry of value) declaredFormats(entry, found);
+    return found;
+  }
+  if (value === null || typeof value !== "object") return found;
+  for (const [key, entry] of Object.entries(value)) {
+    if (key === "format" && typeof entry === "string") found.add(entry);
+    else declaredFormats(entry, found);
+  }
+  return found;
+}
