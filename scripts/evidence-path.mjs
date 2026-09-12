@@ -1,9 +1,26 @@
+import { existsSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath, URL } from "node:url";
 
-const repositoryRoot = fileURLToPath(new URL("..", import.meta.url));
 const issueFolderPattern = /^issue-\d+$/u;
+
+/**
+ * Корень репозитория ищется по его собственному признаку, а не от адреса этого файла: сквозные
+ * спеки Playwright транспилирует в CommonJS, где `import.meta` не существует, и ссылка на него
+ * роняла загрузку всего набора. Рабочие каталоги у потребителей разные — корень и `apps/web`, —
+ * поэтому подъём идёт до файла рабочего пространства.
+ */
+function findRepositoryRoot() {
+  let directory = process.cwd();
+  for (;;) {
+    if (existsSync(path.join(directory, "pnpm-workspace.yaml"))) return directory;
+    const parent = path.dirname(directory);
+    if (parent === directory) {
+      throw new Error(`No pnpm-workspace.yaml above ${process.cwd()}: evidence has no repository to write into`);
+    }
+    directory = parent;
+  }
+}
 
 /**
  * Куда прогон кладёт снимок-свидетельство.
@@ -24,8 +41,8 @@ export function evidenceDirectory(issueFolder, environment = process.env) {
     throw new Error(`UPDATE_EVIDENCE must name an issue folder such as issue-529, not "${requested}"`);
   }
   return requested === issueFolder
-    ? path.join(repositoryRoot, "docs", "evidence", issueFolder)
-    : path.join(repositoryRoot, "ci-artifacts", "evidence", issueFolder);
+    ? path.join(findRepositoryRoot(), "docs", "evidence", issueFolder)
+    : path.join(findRepositoryRoot(), "ci-artifacts", "evidence", issueFolder);
 }
 
 export function evidencePath(issueFolder, fileName, environment = process.env) {
