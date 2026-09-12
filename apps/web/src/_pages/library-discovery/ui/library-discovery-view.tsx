@@ -282,18 +282,20 @@ export function LibraryDiscoveryLoading() {
   );
 }
 
+/**
+ * Сбой чтения подборки. Повтор возвращает человека ровно на ту страницу, где он стоял:
+ * страница продукта, программа и тема — разные места, и подмена одной другой теряет его шаг.
+ */
 export function LibraryDiscoveryUnavailable({
-  kind,
-  slug,
+  retryHref,
 }: {
-  readonly kind: Exclude<LibraryDiscoveryKind, "related">;
-  readonly slug: string;
+  readonly retryHref: Route;
 }) {
   return (
     <DiscoveryStatus
       action={
         <Button asChild size="lg">
-          <Link href={`/${kind === "topic" ? "topics" : "series"}/${slug}`}>
+          <Link href={retryHref}>
             <RefreshCw aria-hidden="true" />
             Повторить
           </Link>

@@ -1,8 +1,9 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { BillingContact } from "../../src/modules/accounts/facets/billing-contact/billing-contact.js";
 import { billingContactProtection } from "../../src/modules/accounts/infrastructure/billing-contact-protection.js";
 import type { LegalDocument } from "../../src/modules/accounts/facets/billing-contact/billing-contact.contract.js";
+import { syntheticConsentDocument } from "./setup/consent-documents.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -14,17 +15,7 @@ const protection = billingContactProtection(
 const document = (
   kind: LegalDocument["kind"],
   version = "test-v1",
-): LegalDocument => {
-  const text = `Synthetic ${kind} ${version}; not a legal document`;
-  return {
-    kind,
-    version,
-    documentId: kind,
-    text,
-    digest: createHash("sha256").update(text).digest("hex"),
-    url: `https://example.test/legal/${kind}/${version}`,
-  };
-};
+): LegalDocument => syntheticConsentDocument(kind, { version });
 describe("Billing contact and consent evidence (real PostgreSQL, synthetic email)", () => {
   let database: TestDatabase;
   let instant = new Date("2026-09-08T12:00:00Z");
@@ -376,9 +367,10 @@ describe("Billing contact and consent evidence (real PostgreSQL, synthetic email
         where: { accountId: owner },
       });
     expect(evidence.documentText).toBe(terms.text);
+    const { appliesTo: _catalogueOnly, ...acceptedTerms } = terms;
     expect(await next.readConsent(owner, evidence.id)).toMatchObject({
       ok: true,
-      evidence: { contextRef: command.contextRef, document: terms },
+      evidence: { contextRef: command.contextRef, document: acceptedTerms },
     });
     expect(await next.readConsent(await account(), evidence.id)).toEqual({
       ok: false,

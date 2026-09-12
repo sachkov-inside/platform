@@ -3,7 +3,7 @@ import { useState } from "react";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 import { MaterialReaderView, type MaterialReaderMetadata, type ReaderBlock } from "@/_pages/material-reader";
 import { MaterialCard, MaterialReadingStatus, type MaterialPreview } from "@/entities/material";
-import { ReadingAction, SeriesProgress, type ReadingActionView } from "@/features/reading-progress";
+import { ReadingAction, type ReadingActionView } from "@/features/reading-progress";
 import { publicPageEnvironment } from "@/workshop/story-environment";
 
 const metadata: MaterialReaderMetadata = {
@@ -20,16 +20,13 @@ const preview: MaterialPreview = {
   seriesMemberships: [], tags: [],
 };
 
-function ReadingProof({ initial = { kind: "ready", isRead: false, canMark: true }, format = "text", surface = "reader", total = 6, read = 2 }: {
+function ReadingProof({ initial = { kind: "ready", isRead: false, canMark: true }, format = "text", surface = "reader" }: {
   readonly initial?: ReadingActionView;
   readonly format?: string;
   readonly surface?: "reader" | "cards" | "series";
-  readonly total?: number;
-  readonly read?: number;
 }) {
   const [view, setView] = useState(initial);
   const isRead = "isRead" in view && view.isRead;
-  const displayedRead = read + (isRead ? 1 : 0);
   const onSetReadingState = (desiredIsRead: boolean) => {
     if (!("isRead" in view)) return;
     setView({ kind: "pending", isRead: view.isRead, canMark: view.canMark, desiredIsRead });
@@ -37,16 +34,14 @@ function ReadingProof({ initial = { kind: "ready", isRead: false, canMark: true 
     setTimeout(() => { setView({ kind: "ready", isRead: desiredIsRead, canMark: view.canMark }); }, 350);
   };
   const action = <ReadingAction format={format} view={view} onSetReadingState={onSetReadingState} onRefresh={() => { setView({ kind: "ready", isRead, canMark: true }); }} />;
-  const progress = <div className="mt-5"><SeriesProgress view={{ kind: "ready", total, read: displayedRead }} /></div>;
   const formatName = format === "video" ? "Видео" : format === "text" ? "Текст" : format === "note" ? "Заметка" : "Гайд";
   return <>
     {surface === "reader" ? <MaterialReaderView body={body} material={{ ...metadata, format: { name: formatName, slug: format } }} primaryVideo={format === "video" ? { state: "ready", videoId: "02000000-0000-4000-8000-000000000015", title: metadata.title } : null} readingAction={action} /> :
       <div className="mx-auto max-w-5xl">
-        {progress}
         {surface === "cards" ? <div className="mt-8 grid gap-8 sm:grid-cols-2">
           {(["default", "compact", "row", "feed"] as const).map((variant) => <div key={variant}><MaterialCard material={{ ...preview, format: formatName }} variant={variant} readingStatus={<MaterialReadingStatus format={format} isRead={isRead} />} /></div>)}
-        </div> : <div className="mt-6 grid gap-3">{total > 0 ? <MaterialCard material={preview} variant="row" readingStatus={<MaterialReadingStatus format={format} isRead={isRead} />} /> : <p className="text-muted-foreground">В этом руководстве пока нет опубликованных материалов.</p>}</div>}
-        {total > 0 ? action : null}
+        </div> : <div className="mt-6 grid gap-3"><MaterialCard material={preview} variant="row" readingStatus={<MaterialReadingStatus format={format} isRead={isRead} />} /></div>}
+        {action}
       </div>}
   </>;
 }
@@ -54,7 +49,7 @@ const environment = publicPageEnvironment("/library");
 const meta = {
   ...environment,
   title: "Features/Reading progress", component: ReadingProof,
-  parameters: { ...environment.parameters, docs: { description: { component: "Отметка «Изучено» в тех же продакшен-модулях, что и на маршрутах: читалка, карточки материала и счётчик руководства. Сохранение и транспорт живут в приложении; здесь проверяются только состояния и их ошибки." } } },
+  parameters: { ...environment.parameters, docs: { description: { component: "Отметка «Изучено» в тех же продакшен-модулях, что и на маршрутах: читалка, карточки материала и строка руководства. Сохранение и транспорт живут в приложении; здесь проверяются только состояния и их ошибки." } } },
 } satisfies Meta<typeof ReadingProof>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -85,18 +80,11 @@ export const CardsMarkAndRemove: Story = { ...Cards, play: async ({ canvasElemen
   await expect(canvas.getAllByText("Прочитано", { exact: true })).toHaveLength(5);
   await userEvent.click(canvas.getByRole("button", { name: "Прочитано" }));
   await waitFor(() => expect(canvas.queryAllByText("Прочитано", { exact: true })).toHaveLength(1));
-  await expect(canvas.getByText("Изучено 2 из 6")).toBeVisible();
   await userEvent.click(canvas.getByRole("button", { name: "Прочитано" }));
   await waitFor(() => expect(canvas.getAllByText("Прочитано", { exact: true })).toHaveLength(5));
-  await expect(canvas.getByText("Изучено 3 из 6")).toBeVisible();
 } };
 export const Series: Story = { args: { surface: "series" } };
-export const CompleteSeries: Story = { args: { surface: "series", read: 5, initial: { kind: "ready", isRead: true, canMark: true } } };
-export const EmptySeries: Story = { args: { surface: "series", read: 0, total: 0 }, play: async ({ canvasElement }) => {
-  const canvas = within(canvasElement);
-  await expect(canvas.getByText("Изучено 0 из 0")).toBeVisible();
-  await expect(canvas.queryByText("Все материалы изучены")).not.toBeInTheDocument();
-} };
+export const CompleteSeries: Story = { args: { surface: "series", initial: { kind: "ready", isRead: true, canMark: true } } };
 export const MarkAndRemove: Story = { play: async ({ canvasElement }) => {
   const canvas = within(canvasElement);
   const button = canvas.getByRole("button", { name: "Прочитано" });

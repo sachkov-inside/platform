@@ -11,6 +11,10 @@ import {
   parseMaterialReaderReturnTarget,
 } from "@/shared/routing/material-reader";
 import {
+  guidePurchaseHref,
+  subscriptionHrefFrom,
+} from "@/shared/routing/subscription-route";
+import {
   MaterialReaderAccess,
   MaterialReaderLoading,
   MaterialReaderNotFound,
@@ -305,6 +309,8 @@ const emptyLessonBody = [
 ] as const satisfies readonly ReaderBlock[];
 
 type ReaderStoryMode =
+  | "access-guide"
+  | "access-not-offered"
   | "access-required"
   | "access-unavailable"
   | "desktop"
@@ -427,10 +433,27 @@ function MaterialReaderState({ mode }: { readonly mode: ReaderStoryMode }) {
     case "access-required":
       return (
         <MaterialReaderAccess
-          cta={{
-            label: "Получить доступ",
-            url: "https://t.me/tribute/app?startapp=inside",
+          invitation={{
+            kind: "subscription",
+            href: subscriptionHrefFrom(materialReaderHref(material.slug)),
           }}
+          material={{ ...material, access: "membership" }}
+        />
+      );
+    case "access-guide":
+      return (
+        <MaterialReaderAccess
+          invitation={{
+            kind: "guide",
+            href: guidePurchaseHref(material.seriesMemberships[0].series.slug),
+          }}
+          material={{ ...material, access: "membership" }}
+        />
+      );
+    case "access-not-offered":
+      return (
+        <MaterialReaderAccess
+          invitation={null}
           material={{ ...material, access: "membership" }}
         />
       );
@@ -640,12 +663,12 @@ export const AccessRequired: Story = {
       canvas.getByRole("heading", { name: "Продолжение для участников" }),
     ).toBeInTheDocument();
     const membershipLink = canvas.getByRole("link", { name: "Получить доступ" });
+    // Покупка начинается внутри платформы: внешнего адреса и новой вкладки здесь больше нет.
     await expect(membershipLink).toHaveAttribute(
       "href",
-      "https://t.me/tribute/app?startapp=inside",
+      "/subscription?from=%2Fmaterials%2Fagent-first-skills",
     );
-    await expect(membershipLink).toHaveAttribute("target", "_blank");
-    await expect(membershipLink).toHaveAttribute("rel", "noopener noreferrer");
+    await expect(membershipLink).not.toHaveAttribute("target");
     await expect(canvas.queryByRole("list", { name: "Теги материала" })).not.toBeInTheDocument();
     await expect(canvas.queryByRole("list", { name: "Руководства материала" })).not.toBeInTheDocument();
     await expect(
@@ -654,6 +677,41 @@ export const AccessRequired: Story = {
       ),
     ).not.toBeInTheDocument();
     await expect(canvas.queryByText("Хороший skill начинается")).not.toBeInTheDocument();
+  },
+};
+
+/** Тот же отказ на телефоне: заголовок, объяснение и одно действие остаются читаемыми. */
+export const AccessRequiredMobile: Story = {
+  ...AccessRequired,
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+};
+
+/** Закрытый материал руководства со своей ценой: дальше идёт оплата именно этого руководства. */
+export const AccessGuidePurchase: Story = {
+  args: { mode: "access-guide" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("heading", { name: "Продолжение входит в руководство" }),
+    ).toBeInTheDocument();
+    await expect(canvas.getByRole("link", { name: "Купить руководство" })).toHaveAttribute(
+      "href",
+      "/guides/platform-inside/buy",
+    );
+  },
+};
+
+/** Продажа выключена: обещания купить нет, материал честно остаётся на месте. */
+export const AccessNotOffered: Story = {
+  args: { mode: "access-not-offered" },
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByText("Купить доступ сейчас нельзя, но материал останется здесь."),
+    ).toBeVisible();
+    await expect(canvas.queryByRole("link", { name: "Получить доступ" })).not.toBeInTheDocument();
+    await expect(canvas.queryByRole("link", { name: "Купить руководство" })).not.toBeInTheDocument();
   },
 };
 
@@ -697,7 +755,11 @@ export const ShortMaterial: Story = {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("link", { name: "Назад в Базу знаний" })).toBeVisible();
     await expect(canvasElement.querySelector('[data-reader-return="bottom"]')).toBeNull();
-    await expect(document.documentElement.scrollHeight).toBeLessThanOrEqual(window.innerHeight);
+    // Короткий материал умещается на экране целиком: ниже него идёт только общий футер сайта.
+    const body = canvasElement.querySelector("[data-reader-body]");
+    await expect(
+      body?.getBoundingClientRect().bottom ?? Number.POSITIVE_INFINITY,
+    ).toBeLessThanOrEqual(window.innerHeight);
   },
 };
 

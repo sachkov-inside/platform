@@ -1,5 +1,5 @@
 import { requestSameOriginMutation } from "@/shared/api/same-origin-mutation";
-import { readingResultSchema, readingStatesResultSchema, seriesProgressResultSchema, type ReadingCommand } from "../model/reading-contract";
+import { readingResultSchema, readingStatesResultSchema, type ReadingCommand } from "../model/reading-contract";
 export async function getReadingStates(materialIds: readonly string[]) {
   const form = new FormData();
   materialIds.forEach((id) => { form.append("materialId", id); });
@@ -17,13 +17,5 @@ export async function setReadingState(input: ReadingCommand) {
   const result = await requestSameOriginMutation("/api/reading-progress/state", "PUT", form);
   if (!result.ok) return { kind: result.status === 401 ? "unauthorized" : "unavailable" } as const;
   const parsed = readingResultSchema.safeParse(result.body);
-  return parsed.success ? parsed.data : { kind: "unavailable" } as const;
-}
-export async function getSeriesProgress(seriesId: string) {
-  const form = new FormData();
-  form.set("seriesId", seriesId);
-  const result = await requestSameOriginMutation("/api/reading-progress/guides", "POST", form);
-  if (!result.ok) return { kind: result.status === 401 ? "unauthorized" : "unavailable" } as const;
-  const parsed = seriesProgressResultSchema.safeParse(result.body);
   return parsed.success ? parsed.data : { kind: "unavailable" } as const;
 }

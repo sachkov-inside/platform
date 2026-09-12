@@ -162,6 +162,12 @@ An Account-owned verified email for receipts and subscription notifications, ind
 sign-in identity. A pending replacement becomes the contact only after verification.
 _Avoid_: login email, email fingerprint, Account identity
 
+**Legal Edition**:
+One published version of a legal document, identified by its document key, version number,
+effective date and the SHA-256 of its exact text. A published edition never changes: a correction
+is the next version, and the earlier text stays readable at its own address.
+_Avoid_: draft, current page content, document without a version
+
 **Consent Evidence**:
 An immutable record of one Account explicitly accepting an exact document edition for a given
 context. Recurring acceptance is distinct from other kinds and does not itself authorize a charge.

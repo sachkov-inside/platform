@@ -44,6 +44,7 @@ describe("process configuration", () => {
         jwksUrl: "https://identity.example.test/oidc/jwks",
         emailFingerprintKey: "test-email-fingerprint-key-32chars",
       },
+      publicSite: { origin: "http://127.0.0.1:3000" },
       contentAccess: {
         membershipAcquisitionUrl: "https://t.me/tribute/example",
       },
@@ -101,6 +102,7 @@ describe("process configuration", () => {
         jwksUrl: "https://identity.inside.localhost:3301/oidc/jwks",
         emailFingerprintKey: "inside-local-email-fingerprint-key",
       },
+      publicSite: { origin: "http://127.0.0.1:3000" },
       contentAccess: {
         membershipAcquisitionUrl: "https://t.me/tribute",
       },
@@ -164,6 +166,23 @@ describe("process configuration", () => {
           "production-email-fingerprint-key-32chars",
       }),
     ).toThrow("MEMBERSHIP_ACQUISITION_URL is required in production mode");
+  });
+
+  it("keeps the public site origin bare, because consent addresses append a path", () => {
+    expect(
+      parsePlatformConfig({ NODE_ENV: "test", PUBLIC_SITE_ORIGIN: "https://Inside.Example.test" })
+        .publicSite,
+    ).toEqual({ origin: "https://inside.example.test" });
+
+    for (const origin of [
+      "https://inside.example.test/legal",
+      "https://inside.example.test/?from=footer",
+      "https://user:secret@inside.example.test",
+      "ftp://inside.example.test",
+    ])
+      expect(() =>
+        parsePlatformConfig({ NODE_ENV: "test", PUBLIC_SITE_ORIGIN: origin }),
+      ).toThrow("PUBLIC_SITE_ORIGIN");
   });
 
   it("parses production database config for non-listening migration tooling", () => {

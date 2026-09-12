@@ -126,7 +126,13 @@ export async function getMaterialReader(
   const material = toMaterialMetadata(parsed.data.projection);
   return parsed.data.kind === "available"
     ? { kind: "available", material, body: parsed.data.body.blocks, primaryVideo: parsed.data.primaryVideo }
-    : { kind: "access", material, cta: parsed.data.access.cta };
+    : {
+        kind: "access",
+        material,
+        // Контракт ещё несёт внешний адрес покупки, но читателю он не показывается: наличие
+        // призыва означает включённую продажу подписки, а ведёт покупка внутрь платформы.
+        subscriptionOffered: parsed.data.access.cta !== null,
+      };
 }
 
 function toMaterialMetadata(

@@ -281,8 +281,11 @@ Safe public projection содержит author-controlled `title`, `description`
 taxonomy и `publishedAt`. Library и внутренний search показывают такие published membership-
 материалы с замком, а внешний индекс может индексировать их teaser. Body, inline media, downloads,
 video locators и иные связанные с body ресурсы в projection не входят. Любой locked teaser
-показывает один CTA «Получить доступ» на общую Platform-owned Tribute URL setting; эта ссылка не
-является полем Material и не доказывает Membership.
+показывает не больше одного призыва к покупке, и этот призыв ведёт внутрь платформы: на оплату
+руководства, которому владелец завёл цену, иначе на витрину подписки. Когда не продаётся ни
+руководство, ни подписка, призыва нет вовсе. Read API остаётся источником одного факта —
+продаётся ли сейчас подписка; адрес назначения принадлежит Web и не является полем Material,
+а сам призыв не доказывает Membership.
 
 ## MembershipEntitlements
 

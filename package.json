@@ -41,7 +41,7 @@
     "test:storybook": "pnpm --filter @inside/web test:storybook",
     "evidence:web": "pnpm --filter @inside/web test:evidence",
     "build:storybook": "pnpm --filter @inside/web build-storybook",
-    "check": "pnpm docs:check && pnpm --filter @inside/material-blocks build && pnpm api:check && pnpm lint && pnpm typecheck && pnpm guardrails && pnpm test && pnpm test:e2e && pnpm build && pnpm --filter @inside/web test:standalone-config && pnpm build:storybook",
+    "check": "pnpm docs:check && pnpm --filter @inside/material-blocks build && pnpm --filter @inside/legal build && pnpm api:check && pnpm lint && pnpm typecheck && pnpm guardrails && pnpm test && pnpm test:e2e && pnpm build && pnpm --filter @inside/web test:standalone-config && pnpm build:storybook",
     "compose:up": "docker compose up -d --build --wait",
     "compose:smoke": "bash scripts/compose-stack-smoke.sh",
     "compose:production:smoke": "bash scripts/production-compose-smoke.sh",
