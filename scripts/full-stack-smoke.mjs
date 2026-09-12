@@ -117,8 +117,8 @@ try {
     BACKEND_BASE_URL: apiBaseUrl,
   });
   const mcpAccessToken = await fullStackIdentity.createAccessToken();
-  // Отдельный автор Materials для пробы отказа в смоуке MCP: разрешение выдаётся здесь явно,
-  // поэтому у Account есть ровно `materials:manage` и никаких полномочий коммуникаций.
+  // Отдельный автор Materials для пробы отказа в смоуке MCP. Этот subject не используется больше
+  // нигде, а выдача разрешений только добавляет: поэтому у Account ровно `materials:manage`.
   const mcpMaterialsOnlySubject = "fullstack-mcp-materials-only";
   const mcpMaterialsOnlyAccessToken = await fullStackIdentity.createAccessToken(
     mcpMaterialsOnlySubject,

@@ -184,9 +184,9 @@ function metadata(access: "free" | "membership") {
 function callTool(
   name: string,
   arguments_: Record<string, unknown>,
-  delegate: Client = client,
+  caller: Client = client,
 ): Promise<CallToolResult> {
-  return delegate.callTool({ name, arguments: arguments_ });
+  return caller.callTool({ name, arguments: arguments_ });
 }
 
 function successfulValue(
