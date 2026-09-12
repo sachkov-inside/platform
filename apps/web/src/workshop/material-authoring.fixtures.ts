@@ -87,6 +87,11 @@ export const materialAuthoringPresentation = {
     access: "membership",
     canDelete: true,
     deleteVideoId: null,
+    difficulty: "intermediate",
+    outcomes: [
+      "Провести задачу от постановки до мержа",
+      "Назвать шаг, на котором работа обычно застревает",
+    ],
     latestVideoDeletion: null,
     unselectedVideoUpload: null,
     primaryVideo: null,
@@ -189,6 +194,19 @@ export const materialAuthoringPresentation = {
       },
       { content: [text("Issue хранит intent, PR хранит evidence.")], kind: "key_point" },
       {
+        kind: "variant",
+        options: [
+          {
+            content: [paragraph("Учебный проект: пройдите шаг на подготовленном репозитории.")],
+            mode: "example",
+          },
+          {
+            content: [paragraph("Свой проект: примените шаг к своему репозиторию.")],
+            mode: "own",
+          },
+        ],
+      },
+      {
         content: [paragraph("Review закрыт"), paragraph("Owner дал merge GO")],
         kind: "takeaways",
         title: "Итоги урока",
@@ -262,6 +280,59 @@ export const materialAuthoringPresentation = {
   validation: { kind: "idle" },
 } as const satisfies MaterialAuthoringPresentation;
 
+/**
+ * Урок с шагом для обоих режимов. Он живёт отдельной постановкой, потому что общий документ
+ * редактора держит проверки вложения, и вставка шага сдвинула бы их.
+ */
+export const variantStepAuthoringPresentation = {
+  ...materialAuthoringPresentation,
+  draft: {
+    ...materialAuthoringPresentation.draft,
+    document: {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            { type: "text", text: "Шаг написан для обоих способов пройти руководство." },
+          ],
+        },
+        {
+          type: "variant",
+          content: [
+            {
+              type: "variantOption",
+              attrs: { mode: "example" },
+              content: [
+                {
+                  type: "paragraph",
+                  content: [
+                    { type: "text", text: "Учебный проект: пройдите шаг на подготовленном репозитории." },
+                  ],
+                },
+              ],
+            },
+            {
+              type: "variantOption",
+              attrs: { mode: "own" },
+              content: [
+                {
+                  type: "paragraph",
+                  content: [
+                    { type: "text", text: "Свой проект: примените шаг к своему репозиторию." },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+        { type: "paragraph" },
+      ],
+    },
+    title: "Шаг для обоих режимов",
+  },
+} as const satisfies MaterialAuthoringPresentation;
+
 export const savedAfterEditingPresentation = {
   ...materialAuthoringPresentation,
   draft: {
@@ -277,14 +348,43 @@ export const savedAfterEditingPresentation = {
   validation: { headingCount: 1, kind: "valid", plainTextLength: 214 },
 } as const satisfies MaterialAuthoringPresentation;
 
+/**
+ * The same article with its image attachment in the editor. The catalog cannot deliver protected
+ * bytes, so the block shows its saved-without-preview state; the form around it is the production
+ * one. The asset is the image the preview already carries, so both sides describe one Material.
+ */
+export const imageAttachmentPresentation = {
+  ...materialAuthoringPresentation,
+  draft: {
+    ...materialAuthoringPresentation.draft,
+    document: {
+      ...materialAuthoringPresentation.draft.document,
+      content: [
+        ...materialAuthoringPresentation.draft.document.content,
+        {
+          type: "assetImage",
+          attrs: {
+            alt: "",
+            assetId: "94000000-0000-4000-8000-000000000051",
+            caption: null,
+          },
+        },
+        { type: "paragraph" },
+      ],
+    },
+  },
+} as const satisfies MaterialAuthoringPresentation;
+
 export const emptyMaterialAuthoringPresentation = {
   ...materialAuthoringPresentation,
   draft: {
     ...materialAuthoringPresentation.draft,
     access: "free",
     canDelete: false,
+    difficulty: "unassigned",
     document: { type: "doc", content: [{ type: "paragraph" }] },
     formatId: "unassigned",
+    outcomes: [],
     materialId: null,
     contentVersion: null,
     status: "new",

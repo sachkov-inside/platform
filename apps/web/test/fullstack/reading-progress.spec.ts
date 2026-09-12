@@ -1,13 +1,9 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type BrowserContext, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
-async function signIn(context: BrowserContext, persona = "NON_MEMBER") {
-  const name = process.env.FULLSTACK_LOGTO_COOKIE_NAME;
-  const value = process.env[`FULLSTACK_LOGTO_${persona}_SESSION`];
-  if (name === undefined || value === undefined) throw new Error("Missing local identity fixture");
-  await context.addCookies([{ name, value, url: process.env.FULLSTACK_WEB_BASE_URL ?? "http://127.0.0.1:3000", httpOnly: true, sameSite: "Lax" }]);
-}
+import { signInFullStack } from "../support/full-stack-session";
+
 async function openReader(page: Page, slug = "kak-ustroen-inside-platform", label = "Изучено") {
   await page.goto(`/materials/${slug}`);
   const dismiss = page.getByRole("button", { name: "Закрыть подключение Telegram" });
@@ -17,7 +13,7 @@ async function openReader(page: Page, slug = "kak-ustroen-inside-platform", labe
   return action.getByRole("button", { name: label, exact: true });
 }
 test("reading progress persists for a free non-member, reconciles lost responses and isolates Accounts", async ({ page, context, browser }, testInfo) => {
-  await signIn(context);
+  await signInFullStack(context);
   const button = await openReader(page);
   if (await button.getAttribute("aria-pressed") === "true") { await button.click(); await expect(button).toHaveAttribute("aria-pressed", "false"); }
   // The backend commits, but the browser loses the response. Retry must reuse the command.
@@ -52,7 +48,7 @@ test("reading progress persists for a free non-member, reconciles lost responses
   await page.screenshot({ path: resolve(directory, `${testInfo.project.name}-library.png`) });
   const other = await browser.newContext();
   try {
-    await signIn(other);
+    await signInFullStack(other);
     const second = await other.newPage();
     const secondButton = await openReader(second);
     await expect(secondButton).toHaveAttribute("aria-pressed", "true");
@@ -69,12 +65,12 @@ test("reading progress persists for a free non-member, reconciles lost responses
 
 
 test("reading progress reconciles stale windows and account changes without reloading the app", async ({ page, context, browser }) => {
-  await signIn(context);
+  await signInFullStack(context);
   const button = await openReader(page);
   if (await button.getAttribute("aria-pressed") === "true") { await button.click(); await expect(button).toHaveAttribute("aria-pressed", "false"); }
   const other = await browser.newContext();
   try {
-    await signIn(other);
+    await signInFullStack(other);
     const second = await other.newPage();
     const otherButton = await openReader(second);
     await otherButton.click(); await expect(otherButton).toHaveAttribute("aria-pressed", "true");
@@ -83,11 +79,11 @@ test("reading progress reconciles stale windows and account changes without relo
     await expect(button).toHaveAttribute("aria-pressed", "true");
     await page.getByRole("button", { name: "Обновить статус" }).click();
     // Another authenticated identity, in the SAME page and QueryClient.
-    await signIn(context, "EXPIRED_MEMBER");
+    await signInFullStack(context, "EXPIRED_MEMBER");
     await page.evaluate(() => window.dispatchEvent(new Event("focus")));
     await expect(page.locator("[data-reading-action-state]:visible")).toHaveAttribute("data-reading-action-state", "ready");
     if (await button.getAttribute("aria-pressed") === "true") { await button.click(); await expect(button).toHaveAttribute("aria-pressed", "false"); }
-    await signIn(context);
+    await signInFullStack(context);
     await page.evaluate(() => window.dispatchEvent(new Event("focus")));
     await expect(button).toHaveAttribute("aria-pressed", "true");
     await context.clearCookies();
@@ -97,7 +93,7 @@ test("reading progress reconciles stale windows and account changes without relo
 });
 
 test("reading progress appears on Home and Topic for video and other formats", async ({ page, context }) => {
-  await signIn(context, "MEMBER");
+  await signInFullStack(context, "MEMBER");
   for (const material of [
     { slug: "video-pro-developer-pipeline", label: "Просмотрено", title: "Видео про Developer Pipeline" },
     { slug: "demo-chto-proverit-pered-peredachey-sekretov", label: "Прочитано", title: "Demo · Что проверить перед передачей секретов" },
@@ -115,7 +111,7 @@ test("reading progress appears on Home and Topic for video and other formats", a
 });
 
 test("reading progress counts a shared material in both real Series", async ({ page, context }, testInfo) => {
-  await signIn(context, "EXPIRED_MEMBER");
+  await signInFullStack(context, "EXPIRED_MEMBER");
   const button = await openReader(page, "demo-podgotovka-prilozheniya-k-relizu");
   if (await button.getAttribute("aria-pressed") !== "true") await button.click();
   await expect(button).toHaveAttribute("aria-pressed", "true");
@@ -140,7 +136,7 @@ test("reading progress counts a shared material in both real Series", async ({ p
 
 
 test("reading progress supports Note and lets an expired member remove a protected mark", async ({ page, context }) => {
-  await signIn(context, "EXPIRED_MEMBER");
+  await signInFullStack(context, "EXPIRED_MEMBER");
   const text = await openReader(page, "tekst-dlya-proverki-progressa", "Прочитано");
   if (await text.getAttribute("aria-pressed") !== "true") await text.click();
   await expect(text).toHaveAttribute("aria-pressed", "true");
@@ -151,7 +147,11 @@ test("reading progress supports Note and lets an expired member remove a protect
   if (await protectedAction.getAttribute("aria-pressed") === "true") await protectedAction.click();
   await expect(protectedAction).toHaveAttribute("aria-pressed", "false");
   await expect(protectedAction).toHaveAttribute("aria-disabled", "true");
-  await page.goto("/account");
+  // Выход живёт в разделе «Аккаунт» кабинета; на «Профиле» этой кнопки нет. Кнопка есть только
+  // в дочитанном состоянии раздела, поэтому оно проверяется отдельно: иначе таймаут на кнопке
+  // назвал бы не ту причину.
+  await page.goto("/account/access");
+  await expect(page.getByRole("region", { exact: true, name: "Telegram" })).toBeVisible();
   const signedOut = page.waitForResponse((response) => response.url().endsWith("/auth/sign-out") && response.request().method() === "POST");
   await page.getByRole("button", { name: "Выйти из аккаунта", exact: true }).click();
   expect((await signedOut).status()).toBe(200);

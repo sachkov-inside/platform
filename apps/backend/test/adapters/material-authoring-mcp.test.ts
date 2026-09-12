@@ -186,6 +186,8 @@ function incompleteMetadata(title: string) {
     topicId: null,
     formatId: null,
     tagIds: [],
+    difficulty: null,
+    outcomes: [],
     seriesIds: [],
   };
 }

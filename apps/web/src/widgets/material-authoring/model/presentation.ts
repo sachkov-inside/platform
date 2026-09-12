@@ -31,7 +31,11 @@ export interface MaterialDraftPresentation {
   readonly document: JSONContent;
   readonly assetPreviewBlocks?: readonly RenderedBlock[];
   readonly deleteVideoId: string | null;
+  /** Сложность урока; `unassigned`, пока автор её не выбрал. */
+  readonly difficulty: string;
   readonly formatId: string;
+  /** «Чему научишься»: до четырёх пунктов, публикация требует ноль либо два-четыре. */
+  readonly outcomes: readonly string[];
   readonly materialId: string | null;
   readonly latestVideoDeletion: MaterialAuthoringVideo | null;
   readonly primaryVideo: MaterialAuthoringVideo | null;
@@ -120,6 +124,7 @@ export interface MaterialAuthoringPresentation {
 
 export type MaterialDraftField =
   | "access"
+  | "difficulty"
   | "formatId"
   | "summary"
   | "title"
@@ -134,6 +139,7 @@ export interface MaterialAuthoringActions {
   readonly onDelete: (input: DeleteMaterialDraftInput) => void;
   readonly onFieldChange: (field: MaterialDraftField, value: string) => void;
   readonly onOpenPreview: () => void;
+  readonly onOutcomesChange: (outcomes: readonly string[]) => void;
   readonly onPrimaryVideoChange: (
     primaryVideo: MaterialAuthoringVideo | null,
     deleteVideoId: string | null,

@@ -29,6 +29,7 @@ const guideIntroductionSchema = z
 const discoveryReferenceSchema = z
   .object({
     cover: contentCoverSchema.nullable(),
+    hasModeVariants: z.boolean().default(false),
     id: z.string(),
     introduction: guideIntroductionSchema.nullable().default(null),
     name: z.string(),
@@ -120,6 +121,7 @@ export function mapLibraryDiscoveryResult<
   const reference = {
     id: parsed.data.reference.id,
     cover: parsed.data.reference.cover,
+    hasModeVariants: parsed.data.reference.hasModeVariants,
     introduction: parsed.data.reference.introduction,
     name: parsed.data.reference.name,
     slug: parsed.data.reference.slug,

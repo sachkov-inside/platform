@@ -21,7 +21,7 @@ import {
   readBillingPurchaseStatus,
   startBillingPurchase,
 } from "../api/billing-checkout.browser";
-import { rememberPurchase } from "../model/checkout";
+import { acceptedPurchaseDocuments, rememberPurchase } from "../model/checkout";
 import { CheckoutPanel } from "./checkout-panel.client";
 import { OneTimeCheckoutPanel } from "./one-time-checkout-panel.client";
 
@@ -95,21 +95,13 @@ export function CheckoutFlow({
       readonly acknowledgeExistingAccess: boolean;
       readonly accepted: readonly LegalDocumentKind[];
     }) => {
-      const selected = documents.filter((document) =>
-        input.accepted.includes(document.kind),
-      );
       const consents = await acceptBillingConsents({
         operationId: operationId("consents", {
           quoteRef: input.quote.quoteRef,
           accepted: input.accepted,
         }),
         contextRef: input.quote.quoteRef,
-        documents: selected.map((document) => ({
-          kind: document.kind,
-          documentId: document.documentId,
-          version: document.version,
-          digest: document.digest,
-        })),
+        documents: acceptedPurchaseDocuments(documents, input.quote, input.accepted),
       });
       if (!consents.ok) return consents;
       const evidenceRefs = consents.value.evidenceRefs;

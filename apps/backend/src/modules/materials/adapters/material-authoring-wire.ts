@@ -1,6 +1,10 @@
 import { z } from "zod";
 
 import { materialFormatSchema } from "../domain/material-format.js";
+import {
+  MATERIAL_OUTCOMES,
+  materialDifficultySchema,
+} from "../domain/material-metadata.js";
 
 export const uuidWireSchema = z.uuid();
 export const materialIdWireSchema = uuidWireSchema;
@@ -21,6 +25,10 @@ const materialMetadataSelectionBaseShape = {
   title: z.string().trim().min(1).max(160).nullable(),
   summary: z.string().trim().min(1).max(500).nullable(),
   access: z.enum(["free", "membership", "workshop"]),
+  difficulty: materialDifficultySchema.nullable(),
+  outcomes: z
+    .array(z.string().trim().min(1).max(MATERIAL_OUTCOMES.maxLength))
+    .max(MATERIAL_OUTCOMES.maxCount),
   topicId: uuidWireSchema.nullable(),
   formatId: materialFormatSchema.nullable(),
   tagIds: z.array(uuidWireSchema).max(100),

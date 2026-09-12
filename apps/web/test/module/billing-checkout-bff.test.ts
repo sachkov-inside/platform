@@ -171,12 +171,31 @@ it("отклоняет неполную команду покупки до об�
       operationId,
       quoteRef: savedQuote.quoteRef,
       contactRevision: 2,
-      consentEvidenceRefs: [evidence[0]],
+      consentEvidenceRefs: [],
       acknowledgeExistingAccess: false,
     }),
   );
   expect(await response.json()).toEqual({ ok: false, code: "invalid_request" });
   expect(fakes.purchase).not.toHaveBeenCalled();
+});
+
+it("пропускает разовую покупку с одним согласием: её оферта — единственный обязательный документ", async () => {
+  // Прежняя нижняя граница в два свидетельства осталась от времён, когда продавалась только
+  // подписка. Разовой покупке нужна одна оферта, и команда с ней доходит до приложения.
+  fakes.purchase.mockResolvedValue(ok(pendingPurchase));
+
+  const response = await handleBillingPurchase(
+    command("/api/account/billing/purchase", {
+      operationId,
+      quoteRef: savedQuote.quoteRef,
+      contactRevision: 2,
+      consentEvidenceRefs: [evidence[0]],
+      acknowledgeExistingAccess: false,
+    }),
+  );
+
+  expect(await response.json()).toEqual({ ok: true, value: pendingPurchase });
+  expect(fakes.purchase).toHaveBeenCalled();
 });
 
 it("не выполняет команду с чужого источника", async () => {

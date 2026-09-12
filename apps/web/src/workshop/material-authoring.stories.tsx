@@ -21,10 +21,12 @@ import {
 import {
   emptyLessonBlocks,
   emptyMaterialAuthoringPresentation,
+  imageAttachmentPresentation,
   longLessonBlocks,
   materialAuthoringPresentation,
   savedAfterEditingPresentation,
   savedContentVersion,
+  variantStepAuthoringPresentation,
 } from "./material-authoring.fixtures";
 import { authoringPageEnvironment, routeContent } from "./story-environment";
 
@@ -35,6 +37,7 @@ const noopActions = {
   onDelete: fn(),
   onFieldChange: fn(),
   onOpenPreview: fn(),
+  onOutcomesChange: fn(),
   onPrimaryVideoChange: fn(),
   onRetry: fn(),
   onReturnToEditor: fn(),
@@ -96,6 +99,10 @@ function MaterialAuthoringFixture({
         primaryVideo,
         primaryVideoId: primaryVideo?.videoId ?? null,
       });
+    },
+    onOutcomesChange: (outcomes) => {
+      noopActions.onOutcomesChange(outcomes);
+      markDirty({ ...presentation.draft, outcomes });
     },
     onRetry: () => {
       noopActions.onRetry();
@@ -207,7 +214,7 @@ export const Editing: Story = {
     await expect(canvas.queryByRole("spinbutton")).not.toBeInTheDocument();
     const title = canvas.getByLabelText("Название");
     await userEvent.clear(title);
-    await userEvent.type(title, "Новая версия Developer Pipeline");
+    await userEvent.type(title, "Новая версия Developer Pipeline", { delay: null });
     await expect(canvas.getAllByText(/Не сохранено/u).length).toBeGreaterThan(
       0,
     );
@@ -245,6 +252,16 @@ export const LessonBlocksEditing: Story = {
       await userEvent.click(canvas.getByRole("button", { name: "Добавить блок" }));
       return canvas.getByRole("dialog", { name: "Добавить блок" });
     };
+    /**
+     * Узел редактора по его разметке. Отсутствие узла — это «блок не появился», и падение обязано
+     * сказать именно это: сравнение `null` с матчером сообщает лишь, что получено не HTMLElement,
+     * и разбор такого падения начинается с чтения истории вместо чтения причины.
+     */
+    const blockNode = (selector: string, missing: string) => {
+      const node = canvasElement.querySelector(selector);
+      if (node === null) throw new Error(missing);
+      return node;
+    };
 
     let menu = await openMenu();
     for (const name of [
@@ -265,33 +282,37 @@ export const LessonBlocksEditing: Story = {
     }
 
     await userEvent.click(within(menu).getByRole("button", { name: "Совет" }));
-    await expect(canvasElement.querySelector('aside[data-callout="tip"]')).toBeVisible();
+    await expect(blockNode('aside[data-callout="tip"]', 'Врезка «Совет» не появилась в редакторе')).toBeVisible();
 
     const tip = canvas.getByRole("button", { name: "Вид врезки: Совет" });
     await expect(tip).toHaveAttribute("aria-pressed", "true");
     await userEvent.click(canvas.getByRole("button", { name: "Вид врезки: Важно" }));
-    const warning = canvasElement.querySelector('aside[data-callout="warning"]');
+    const warning = blockNode('aside[data-callout="warning"]', 'Врезка не сменила вид на «Важно»');
     await expect(warning).toBeVisible();
     await expect(warning).toHaveTextContent("Важно");
 
-    await userEvent.type(canvas.getByLabelText("Название врезки"), "Не забудьте");
-    await expect(canvasElement.querySelector('aside[data-callout="warning"]')).toHaveTextContent(
+    // Ввод здесь без паузы между нажатиями: она ждёт по времени, а не по факту, и в этой истории
+    // сорока семи знаков стоила больше половины её длительности. Сами нажатия и их обработчики
+    // остаются прежними — короче становится только ожидание между ними.
+    await userEvent.type(canvas.getByLabelText("Название врезки"), "Не забудьте", { delay: null });
+    await expect(blockNode('aside[data-callout="warning"]', 'Врезка «Важно» исчезла после ввода названия')).toHaveTextContent(
       "Не забудьте",
     );
 
     menu = await openMenu();
     await userEvent.click(within(menu).getByRole("button", { name: "Итоги" }));
     await expect(
-      canvasElement.querySelector('section[data-material-block="takeaways"]'),
+      blockNode('section[data-material-block="takeaways"]', 'Блок «Итоги» не появился в редакторе'),
     ).toBeVisible();
     await expect(canvas.getByLabelText("Заголовок итогов")).toHaveValue("Итоги урока");
 
     menu = await openMenu();
     await userEvent.click(within(menu).getByRole("button", { name: "Ресурс" }));
-    await userEvent.type(canvas.getByLabelText("Название ресурса"), "Спецификация");
+    await userEvent.type(canvas.getByLabelText("Название ресурса"), "Спецификация", { delay: null });
     await userEvent.type(
       canvas.getByLabelText("Адрес ресурса"),
       "https://example.com/spec",
+      { delay: null },
     );
     await expect(canvas.getByLabelText("Адрес ресурса")).toHaveValue(
       "https://example.com/spec",
@@ -299,24 +320,23 @@ export const LessonBlocksEditing: Story = {
 
     menu = await openMenu();
     await userEvent.click(within(menu).getByRole("button", { name: "Термины" }));
-    await userEvent.type(canvas.getByLabelText("Метка строки 1"), "ADR");
+    await userEvent.type(canvas.getByLabelText("Метка строки 1"), "ADR", { delay: null });
     await userEvent.click(canvas.getByRole("button", { name: "Добавить строку" }));
     await expect(canvas.getByLabelText("Метка строки 2")).toHaveValue("");
 
     // Буфер обмена восстанавливает узел из разметки, поэтому название обязано быть в
     // DOM-атрибуте, а не только в тексте. Карточка ресурса и термины показывают в редакторе
     // собственную форму, поэтому их разметку проверяет не эта story, а схема документа.
-    await expect(canvasElement.querySelector("aside[data-callout]")).toHaveAttribute(
+    await expect(blockNode("aside[data-callout]", 'Врезка пропала из документа к концу истории')).toHaveAttribute(
       "data-callout-title",
       "Не забудьте",
     );
     await expect(
-      canvasElement.querySelector('section[data-material-block="takeaways"]'),
+      blockNode('section[data-material-block="takeaways"]', 'Блок «Итоги» пропал из документа к концу истории'),
     ).toHaveAttribute("data-takeaways-title", "Итоги урока");
 
     // Панель блока принадлежит текущей врезке: вернувшись в неё, автор снова меняет её вид.
-    const callout = canvasElement.querySelector("aside[data-callout] [data-callout-body] p");
-    if (callout === null) throw new Error("Врезка не найдена");
+    const callout = blockNode("aside[data-callout] [data-callout-body] p", 'Тело врезки не найдено: панель блока не к чему вернуть');
     await userEvent.click(callout);
     await expect(canvas.getByRole("button", { name: "Вид врезки: Важно" })).toHaveAttribute(
       "aria-pressed",
@@ -860,7 +880,7 @@ export const SearchableSeries: Story = {
     more.focus();
     await userEvent.keyboard("{Enter}");
     await expect(series.getAllByRole("checkbox").length).toBeGreaterThan(20);
-    await userEvent.type(canvas.getByLabelText("Поиск руководств"), "Руководство 45");
+    await userEvent.type(canvas.getByLabelText("Поиск руководств"), "Руководство 45", { delay: null });
     await expect(series.getAllByRole("checkbox")).toHaveLength(1);
     await expect(series.getByRole("checkbox", { name: "Руководство 45" })).toBeVisible();
     const page = routeContent(canvasElement);
@@ -868,6 +888,40 @@ export const SearchableSeries: Story = {
     await expect(page.getAllByText("Руководства", { exact: true })).toHaveLength(1);
   },
 };
+
+export const ImageAttachment: Story = {
+  name: "Вложенное изображение · форма вложения",
+  args: { presentation: imageAttachmentPresentation },
+  play: async ({ canvasElement }) => {
+    const form = within(imageAttachment(canvasElement));
+    // The description is a field of the attachment form: visible and writable as it stands.
+    const description = form.getByLabelText("Описание изображения");
+    await expect(description).toBeVisible();
+    await userEvent.type(description, "Путь задачи от issue до owner GO", { delay: null });
+    await expect(description).toHaveValue("Путь задачи от issue до owner GO");
+    await expect(form.getByLabelText("Подпись изображения")).toBeVisible();
+    await expect(form.getByLabelText("Размер изображения")).toBeVisible();
+  },
+};
+
+export const ImageAttachmentMobile: Story = {
+  args: { presentation: imageAttachmentPresentation },
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+  name: "Вложенное изображение · мобильный",
+  play: async ({ canvasElement }) => {
+    const form = within(imageAttachment(canvasElement));
+    await expect(form.getByLabelText("Описание изображения")).toBeVisible();
+    await expectNoHorizontalOverflow(canvasElement);
+  },
+};
+
+function imageAttachment(canvasElement: HTMLElement): HTMLElement {
+  const attachment = canvasElement.querySelector("[data-node-view-wrapper]");
+  if (!(attachment instanceof HTMLElement)) {
+    throw new Error("The article has no attachment block");
+  }
+  return attachment;
+}
 
 async function expectNoHorizontalOverflow(canvasElement: HTMLElement) {
   const storyWindow = canvasElement.ownerDocument.defaultView;
@@ -878,3 +932,54 @@ async function expectNoHorizontalOverflow(canvasElement: HTMLElement) {
     canvasElement.ownerDocument.documentElement.scrollWidth,
   ).toBeLessThanOrEqual(storyWindow.innerWidth + 1);
 }
+
+export const VariantStepEditor: Story = {
+  args: { presentation: variantStepAuthoringPresentation },
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
+  name: "Вариантный шаг · редактор",
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    // Имя режима автор читает на самой ветке: иначе две ветки неразличимы.
+    await expect(canvas.getByText("Учебный проект")).toBeVisible();
+    await expect(canvas.getByText("Свой проект")).toBeVisible();
+    await expect(
+      canvas.getByText("Учебный проект: пройдите шаг на подготовленном репозитории."),
+    ).toBeVisible();
+    // Сложность и обещание урока автор заполняет там же, где остальные параметры.
+    await expect(canvas.getByText("Сложность")).toBeVisible();
+    await expect(canvas.getByText("Чему научишься")).toBeVisible();
+    await expect(canvas.getByLabelText("Пункт 1")).toBeVisible();
+  },
+};
+
+export const VariantStepEditorMobile: Story = {
+  args: { presentation: variantStepAuthoringPresentation },
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+  name: "Вариантный шаг · мобильный",
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("Свой проект")).toBeVisible();
+    await expectNoHorizontalOverflow(canvasElement);
+  },
+};
+
+export const VariantStepPreview: Story = {
+  args: {
+    presentation: { ...materialAuthoringPresentation, mode: "preview" },
+  },
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
+  name: "Вариантный шаг · предпросмотр",
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    // Предпросмотр показывает то же, что читатель: ветку режима по умолчанию.
+    await expect(
+      canvas.getByText("Учебный проект: пройдите шаг на подготовленном репозитории."),
+    ).toBeVisible();
+    await expect(
+      canvas.getByText("Свой проект: примените шаг к своему репозиторию."),
+    ).not.toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: 'Показать вариант «Свой проект»' }),
+    ).toBeVisible();
+  },
+};

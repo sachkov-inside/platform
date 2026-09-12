@@ -83,6 +83,8 @@ export async function seedLocalDevelopment(
       title: "Как устроен Inside Platform",
       summary: "Representative published Material для локальной full-stack разработки.",
       access: "free",
+      difficulty: null,
+      outcomes: [],
       topicId,
       formatId,
       tagIds: [tagId],
@@ -306,6 +308,51 @@ export async function seedLocalDevelopment(
   return Object.freeze({ materialId: materialIdValue, contentVersion, slug });
 }
 
+/**
+ * A step written for both ways of going through a guide, so the local platform shows the mode
+ * switch, the one-time hint and the link to the branch the reader is not in.
+ */
+function modeVariantBlock(step: string, title: string) {
+  return {
+    attrs: { nodeId: `77000000-0000-4000-8000-${step}` },
+    content: [
+      {
+        attrs: { mode: "example" },
+        content: [
+          {
+            attrs: { nodeId: `78000000-0000-4000-8000-${step}` },
+            content: [
+              {
+                type: "text",
+                text: `Учебный проект: повторите «${title}» на демонстрационном репозитории, ничего не меняя в своём.`,
+              },
+            ],
+            type: "paragraph",
+          },
+        ],
+        type: "variantOption",
+      },
+      {
+        attrs: { mode: "own" },
+        content: [
+          {
+            attrs: { nodeId: `79000000-0000-4000-8000-${step}` },
+            content: [
+              {
+                type: "text",
+                text: `Свой проект: примените «${title}» к своему репозиторию и запишите, что пришлось изменить.`,
+              },
+            ],
+            type: "paragraph",
+          },
+        ],
+        type: "variantOption",
+      },
+    ],
+    type: "variant",
+  } as const;
+}
+
 async function ensureSeriesReaderScenario(
   authoring: ReturnType<typeof assembleMaterials>["authoring"],
   videos: ReturnType<typeof assembleVideos>,
@@ -348,12 +395,13 @@ async function ensureSeriesReaderScenario(
       title: "Demo #295 · Самостоятельная заметка",
     },
     ...[
-      { slug: "demo-298-release-overview", title: "Как устроен релиз моего проекта", formatId: videoFormatId, providerVideoId: "local-series-release-overview", summary: "Разбираем путь от коммита до работающего сервиса: сборку, публикацию и откат релиза." },
-      { slug: "demo-298-prepare", title: "Подготовка приложения к релизу", formatId },
-      { slug: "demo-298-docker", title: "Разбираем Docker на реальном примере", formatId: videoFormatId, providerVideoId: "local-series-release-docker", summary: "Разбираем сеть, переменные окружения и тома Docker Compose на примере запуска приложения." },
-      { slug: "demo-298-secrets", title: "Что проверить перед передачей секретов", formatId: noteFormatId },
-      { slug: "demo-298-environment", title: "Настройка окружения", formatId },
-      { slug: "demo-298-deploy", title: "Первый деплой и проверка результата", formatId },
+      { slug: "demo-298-release-overview", title: "Как устроен релиз моего проекта", formatId: videoFormatId, providerVideoId: "local-series-release-overview", summary: "Разбираем путь от коммита до работающего сервиса: сборку, публикацию и откат релиза.", difficulty: "basic" as const, outcomes: ["Видеть весь путь релиза целиком", "Называть шаги, на которых релиз ломается чаще всего"] },
+      // Два шага написаны для обоих режимов прохождения: на них виден переключатель.
+      { slug: "demo-298-prepare", title: "Подготовка приложения к релизу", formatId, difficulty: "basic" as const, outcomes: ["Собрать приложение под релиз", "Проверить сборку до публикации"], modes: true },
+      { slug: "demo-298-docker", title: "Разбираем Docker на реальном примере", formatId: videoFormatId, providerVideoId: "local-series-release-docker", summary: "Разбираем сеть, переменные окружения и тома Docker Compose на примере запуска приложения.", difficulty: "intermediate" as const, outcomes: ["Запустить приложение в Compose", "Прочитать логи упавшего контейнера", "Разложить переменные окружения по слоям"] },
+      { slug: "demo-298-secrets", title: "Что проверить перед передачей секретов", formatId: noteFormatId, difficulty: "intermediate" as const },
+      { slug: "demo-298-environment", title: "Настройка окружения", formatId, difficulty: "intermediate" as const, modes: true },
+      { slug: "demo-298-deploy", title: "Первый деплой и проверка результата", formatId, difficulty: "advanced" as const, outcomes: ["Выкатить первую версию", "Убедиться, что она отвечает", "Откатиться, когда она не отвечает"] },
     ].map((definition) => ({
       ...definition,
       title: `Demo · ${definition.title}`,
@@ -366,7 +414,9 @@ async function ensureSeriesReaderScenario(
   for (const [index, definition] of definitions.entries()) {
     const metadata = {
       access: "free" as const,
+      difficulty: "difficulty" in definition ? definition.difficulty : null,
       formatId: definition.formatId,
+      outcomes: "outcomes" in definition ? definition.outcomes : [],
       seriesIds: definition.seriesIds,
       summary: "summary" in definition && definition.summary !== undefined
         ? definition.summary
@@ -375,18 +425,20 @@ async function ensureSeriesReaderScenario(
       title: definition.title,
       topicId,
     };
+    const step = String(index + 1).padStart(12, "0");
     const body = {
       schemaVersion: 1,
       doc: {
         type: "doc",
         content: [
           {
-            attrs: {
-              nodeId: `76000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
-            },
+            attrs: { nodeId: `76000000-0000-4000-8000-${step}` },
             content: [{ type: "text", text: definition.bodyText }],
             type: "paragraph",
           },
+          ...("modes" in definition
+            ? [modeVariantBlock(step, definition.title)]
+            : []),
         ],
       },
     } as const;
@@ -510,6 +562,8 @@ async function ensureCatalogContinuationMaterials(
         title: `Архитектурная заметка ${sequence}`,
         summary: "Дополнительный published Material для проверки infinite catalog.",
         access: "free" as const,
+        difficulty: null,
+        outcomes: [],
         topicId,
         formatId,
         tagIds: [],
@@ -615,7 +669,9 @@ async function ensureHomeMaterials(
   for (const [index, materialDefinition] of materials.entries()) {
     const metadata = {
       access: "free" as const,
+      difficulty: null,
       formatId: materialDefinition.formatId,
+      outcomes: [],
       seriesIds: progressSlugs.includes(materialDefinition.slug) ? [progressSeriesId] : [],
       summary: materialDefinition.summary,
       tagIds: [tagId],
@@ -732,6 +788,8 @@ async function ensureMembershipCatalogMaterial(
       title: "Developer Pipeline без потери контекста",
       summary: "Закрытый Material с публичным безопасным описанием для каталога.",
       access: "membership" as const,
+      difficulty: null,
+      outcomes: [],
       topicId,
       formatId,
       tagIds: [tagId],

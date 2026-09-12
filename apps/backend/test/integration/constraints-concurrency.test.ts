@@ -54,6 +54,8 @@ describe("material authoring integrity contract", () => {
         topicId: "a0000000-0000-4000-8000-999999999999",
         formatId,
         tagIds: [],
+        difficulty: null,
+        outcomes: [],
         seriesIds: [],
       },
       body: representativeDocument(),
@@ -103,6 +105,8 @@ describe("material authoring integrity contract", () => {
       topicId,
       formatId,
       tagIds: [tagId],
+      difficulty: null,
+      outcomes: [],
       seriesIds: [seriesId],
     } as const;
     const first = await authoring.createDraft({
@@ -181,6 +185,8 @@ describe("material authoring integrity contract", () => {
           topicId,
           formatId,
           tagIds: [],
+          difficulty: null,
+          outcomes: [],
           seriesIds: [secondSeriesId],
         },
         body: representativeDocument(),
@@ -212,6 +218,8 @@ describe("material authoring integrity contract", () => {
       topicId,
       formatId,
       tagIds: [],
+      difficulty: null,
+      outcomes: [],
       seriesIds: [],
     } as const;
     const created = await authoring.createDraft({
@@ -264,6 +272,8 @@ describe("material authoring integrity contract", () => {
         topicId,
         formatId,
         tagIds: [],
+        difficulty: null,
+        outcomes: [],
         seriesIds: [],
       },
       body: representativeDocument(),
@@ -285,6 +295,8 @@ describe("material authoring integrity contract", () => {
         topicId,
         formatId,
         tagIds: [],
+        difficulty: null,
+        outcomes: [],
         seriesIds: [],
       },
       body: representativeDocument(),

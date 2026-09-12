@@ -12,6 +12,7 @@ import {
   createTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
+import { declaredServer } from "../support/declared-api.js";
 
 const issuer = "https://identity.example.test/oidc";
 const audience = "https://api.example.test";
@@ -53,7 +54,7 @@ describe("Billing pricing HTTP", () => {
       { logger: false },
     );
     await app.init();
-    await app.getHttpAdapter().getInstance().ready();
+    await declaredServer(app.getHttpAdapter().getInstance()).ready();
   });
 
   afterAll(async () => {
@@ -65,7 +66,7 @@ describe("Billing pricing HTTP", () => {
   });
 
   test("public catalog, trusted quote identity, owner authorization and wire conflicts", async () => {
-    const server = app.getHttpAdapter().getInstance();
+    const server = declaredServer(app.getHttpAdapter().getInstance());
     const token = await signToken();
     const headers = { authorization: `Bearer ${token}` };
     const offerId = randomUUID(); const optionId = randomUUID();
@@ -117,7 +118,7 @@ describe("Billing pricing HTTP", () => {
   });
 
   test("scoped billing permission opens the owner surface and maps its result codes", async () => {
-    const server = app.getHttpAdapter().getInstance();
+    const server = declaredServer(app.getHttpAdapter().getInstance());
     const headers = { authorization: `Bearer ${await signToken({ subject: "billing-manager-001", email: "manager@example.test" })}` };
     expect((await server.inject({ method: "POST", url: "/accounts", headers })).statusCode).toBe(201);
     const manager = await database.prisma.account.findUniqueOrThrow({ where: { logtoIssuer_logtoSubject: { logtoIssuer: issuer, logtoSubject: "billing-manager-001" } } });

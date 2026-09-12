@@ -8,6 +8,24 @@ import { normalizedUuidSchema } from "./uuid.js";
 
 export type MaterialAccess = "free" | "membership" | "workshop";
 
+/** How hard a lesson is for the reader who opens it. */
+export const materialDifficulties = ["basic", "intermediate", "advanced"] as const;
+
+export const materialDifficultySchema = z.enum(materialDifficulties);
+
+export type MaterialDifficulty = z.infer<typeof materialDifficultySchema>;
+
+/**
+ * What the reader can do after the lesson. A draft accepts any number up to the ceiling, because
+ * the author writes the points one at a time and autosave must not refuse the second one; a
+ * publication carries either none of them or a real list.
+ */
+export const MATERIAL_OUTCOMES = {
+  maxCount: 4,
+  maxLength: 200,
+  minPublishedCount: 2,
+} as const;
+
 export interface GuideMembership {
   readonly seriesId: string;
   readonly ordinal: number;
@@ -18,6 +36,8 @@ export interface MaterialMetadataValues {
   readonly summary: string | null;
   readonly slug: string | null;
   readonly access: MaterialAccess;
+  readonly difficulty: MaterialDifficulty | null;
+  readonly outcomes: readonly string[];
   readonly topicId: string | null;
   readonly formatId: MaterialFormat | null;
   readonly tagIds: readonly string[];
@@ -52,6 +72,10 @@ const metadataSelectionBaseShape = {
   title: z.string().trim().min(1).max(160).nullable(),
   summary: z.string().trim().min(1).max(500).nullable(),
   access: z.enum(["free", "membership", "workshop"]),
+  difficulty: materialDifficultySchema.nullable(),
+  outcomes: z
+    .array(z.string().trim().min(1).max(MATERIAL_OUTCOMES.maxLength))
+    .max(MATERIAL_OUTCOMES.maxCount),
   topicId: normalizedUuidSchema.nullable(),
   formatId: materialFormatSchema.nullable(),
   tagIds: z.array(normalizedUuidSchema).max(100),
@@ -89,6 +113,7 @@ export class MaterialMetadataSelection {
   private constructor(
     private readonly values: MaterialMetadataSelectionValues,
   ) {
+    Object.freeze(this.values.outcomes);
     Object.freeze(this.values.tagIds);
     Object.freeze(this.values.seriesIds);
     Object.freeze(this.values);
@@ -119,6 +144,7 @@ export class MaterialMetadataSelection {
       ok: true,
       value: new MaterialMetadataSelection({
         ...parsed.data,
+        outcomes: [...parsed.data.outcomes],
         tagIds: [...parsed.data.tagIds].sort(),
         seriesIds: [...parsed.data.seriesIds].sort(),
       }),
@@ -134,6 +160,8 @@ export class MaterialMetadataSelection {
       summary: this.values.summary,
       slug,
       access: this.values.access,
+      difficulty: this.values.difficulty,
+      outcomes: this.values.outcomes,
       topicId: this.values.topicId,
       formatId: this.values.formatId,
       tagIds: this.values.tagIds,
@@ -156,11 +184,14 @@ export class MaterialMetadata {
     readonly summary: string | null,
     readonly slug: string | null,
     readonly access: MaterialAccess,
+    readonly difficulty: MaterialDifficulty | null,
+    readonly outcomes: readonly string[],
     readonly topicId: string | null,
     readonly formatId: MaterialFormat | null,
     readonly tagIds: readonly string[],
     readonly seriesMemberships: readonly GuideMembership[],
   ) {
+    Object.freeze(this.outcomes);
     Object.freeze(this.tagIds);
     this.seriesMemberships.forEach(Object.freeze);
     Object.freeze(this.seriesMemberships);
@@ -200,6 +231,8 @@ export class MaterialMetadata {
         parsed.data.summary,
         parsed.data.slug,
         parsed.data.access,
+        parsed.data.difficulty,
+        [...parsed.data.outcomes],
         parsed.data.topicId,
         parsed.data.formatId,
         [...parsed.data.tagIds].sort(),
@@ -232,7 +265,9 @@ export class MaterialMetadata {
       ok: true,
       value: {
         access: this.access,
+        difficulty: this.difficulty,
         formatId: requireValue(this.formatId),
+        outcomes: this.outcomes,
         seriesMemberships: this.seriesMemberships,
         slug: requireValue(this.slug),
         summary: requireValue(this.summary),
@@ -249,6 +284,8 @@ export class MaterialMetadata {
       summary: this.summary,
       slug: this.slug,
       access: this.access,
+      difficulty: this.difficulty,
+      outcomes: this.outcomes,
       topicId: this.topicId,
       formatId: this.formatId,
       tagIds: this.tagIds,
@@ -268,11 +305,19 @@ function requiredPublicationIssues(
     ["title", metadata.title],
     ["topicId", metadata.topicId],
   ];
-  return fields.flatMap(([field, value]) =>
-    value === null
-      ? [{ code: "required_for_publication", path: `/metadata/${field}` }]
-      : [],
-  );
+  return [
+    ...fields.flatMap(([field, value]) =>
+      value === null
+        ? [{ code: "required_for_publication", path: `/metadata/${field}` }]
+        : [],
+    ),
+    // A written promise is a list, not a single line. None at all stays allowed: the lesson then
+    // simply does not make one.
+    ...(metadata.outcomes.length > 0 &&
+    metadata.outcomes.length < MATERIAL_OUTCOMES.minPublishedCount
+      ? [{ code: "outcomes_too_few", path: "/metadata/outcomes" }]
+      : []),
+  ];
 }
 
 function invalidMetadata(

@@ -7,6 +7,9 @@ import {
   calloutTonePresentation,
   type CalloutTone,
 } from "@/entities/material";
+import { guideModeLabels, guideModes, type GuideMode } from "@/shared/guide-mode";
+
+import { variantUnderCursor } from "../model/variant-branch";
 import { Button } from "@/shared/ui/button";
 
 const titleFieldClass =
@@ -51,6 +54,118 @@ function BlockTitleField({
       placeholder={placeholder}
       value={blockTitle(editor, type)}
     />
+  );
+}
+
+function activeVariantMode(editor: Editor): GuideMode | undefined {
+  return guideModes.find((mode) => editor.isActive("variantOption", { mode }));
+}
+
+/** Вариантный блок под курсором: сколько в нём веток и где он кончается. */
+/**
+ * Назначает ветке режим. Когда этот режим уже занят соседней веткой, ветки меняются режимами:
+ * две ветки одного режима — документ, который отвергло бы каждое автосохранение, и автор не
+ * должен уметь завести его одним нажатием.
+ */
+function selectBranchMode(
+  editor: Editor,
+  mode: GuideMode,
+  currentMode: GuideMode,
+): void {
+  const variant = variantUnderCursor(editor.state);
+  const occupied = variant?.branchPositions.find((position) => {
+    const branchMode: unknown = editor.state.doc.nodeAt(position)?.attrs.mode;
+    return position !== variant.currentBranch && branchMode === mode;
+  });
+  if (variant === undefined || occupied === undefined) {
+    editor.commands.updateAttributes("variantOption", { mode });
+    return;
+  }
+  editor.commands.command(({ dispatch, tr }) => {
+    if (dispatch) {
+      tr.setNodeAttribute(occupied, "mode", currentMode);
+      tr.setNodeAttribute(variant.currentBranch, "mode", mode);
+    }
+    return true;
+  });
+}
+
+/**
+ * Ветка вариантного блока: её режим нельзя набрать текстом, а второй вариант нужно откуда-то
+ * завести. Оба действия стоят здесь же, где автор уже меняет вид врезки.
+ */
+function VariantFields({
+  branchMode,
+  disabled,
+  editor,
+}: {
+  readonly branchMode: GuideMode;
+  readonly disabled: boolean;
+  readonly editor: Editor;
+}) {
+  const variant = variantUnderCursor(editor.state);
+  const branches = variant?.branchPositions.length ?? 0;
+  const missing = guideModes.find((mode) => mode !== branchMode);
+
+  return (
+    <div
+      aria-label="Вариант шага"
+      className="mr-auto flex min-w-0 flex-wrap items-center gap-1"
+      role="toolbar"
+    >
+      {guideModes.map((mode) => (
+        <Button
+          aria-label={`Режим ветки: ${guideModeLabels[mode]}`}
+          aria-pressed={mode === branchMode}
+          disabled={disabled}
+          key={mode}
+          onClick={() => {
+            if (mode === branchMode) return;
+            selectBranchMode(editor, mode, branchMode);
+          }}
+          onMouseDown={(event) => {
+            event.preventDefault();
+          }}
+          type="button"
+          variant={mode === branchMode ? "secondary" : "ghost"}
+        >
+          {guideModeLabels[mode]}
+        </Button>
+      ))}
+      {branches > 1 || missing === undefined ? null : (
+        <Button
+          disabled={disabled}
+          onClick={() => {
+            if (variant === undefined) return;
+            editor
+              .chain()
+              .focus()
+              .insertContentAt(variant.end, {
+                type: "variantOption",
+                attrs: { mode: missing },
+                content: [{ type: "paragraph" }],
+              })
+              .run();
+          }}
+          type="button"
+          variant="secondary"
+        >
+          Добавить «{guideModeLabels[missing]}»
+        </Button>
+      )}
+      {branches < 2 ? null : (
+        <Button
+          disabled={disabled}
+          onClick={() => {
+            editor.chain().focus().deleteNode("variantOption").run();
+          }}
+          type="button"
+          variant="ghost"
+        >
+          Убрать эту ветку
+        </Button>
+      )}
+    </div>
   );
 }
 
@@ -121,6 +236,13 @@ export function MaterialBlockFields({
           type="takeaways"
         />
       </div>
+    );
+  }
+
+  const branchMode = activeVariantMode(editor);
+  if (branchMode !== undefined) {
+    return (
+      <VariantFields branchMode={branchMode} disabled={disabled} editor={editor} />
     );
   }
 

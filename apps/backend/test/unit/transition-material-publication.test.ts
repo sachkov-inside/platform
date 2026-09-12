@@ -14,7 +14,9 @@ describe("Transition Material publication", () => {
       materialId,
       metadata: {
         access: "free" as const,
+        difficulty: null,
         formatId: null,
+        outcomes: [],
         seriesMemberships: [
           { ordinal: 1, seriesId: "97000000-0000-4000-8000-000000000002" },
         ],
@@ -59,6 +61,8 @@ describe("Transition Material publication", () => {
       metadata: {
         access: "free",
         formatId: null,
+        difficulty: null,
+        outcomes: [],
         seriesIds: ["97000000-0000-4000-8000-000000000002"],
         summary: "Summary",
         tagIds: [],

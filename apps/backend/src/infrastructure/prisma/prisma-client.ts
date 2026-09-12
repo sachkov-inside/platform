@@ -99,7 +99,7 @@ export interface TransactionClient<Transaction> {
 export type CommunicationsPrisma = Pick<PlatformPrisma, "communicationTrackingHit">;
 
 export type ReadingActivityPrisma = Pick<PlatformPrisma,
-  "$executeRaw" | "$queryRaw" | "readingMaterialState" | "readingEvent" | "readingCommand" | "readingMaterialVisit"
+  "$executeRaw" | "$queryRaw" | "readingMaterialState" | "readingEvent" | "readingCommand" | "readingMaterialVisit" | "readerPreferences"
 >;
 export type ReadingActivityPrismaClient = ReadingActivityPrisma & TransactionClient<ReadingActivityPrisma>;
 

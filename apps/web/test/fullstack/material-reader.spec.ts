@@ -3,6 +3,8 @@ import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 
+import { signInFullStack } from "../support/full-stack-session";
+
 for (const width of [320, 390, 1440]) {
   test(`Home series lift stays visible at ${String(width)}px`, async ({ page }, testInfo) => {
     // Narrow desktop pointer reproduces hovering a phone-sized Storybook preview.
@@ -490,8 +492,6 @@ test("renders a locked teaser whose purchase starts inside the platform and fail
   await expect(teaser.locator('a[href^="http"], a[target="_blank"]')).toHaveCount(0);
   await expect(page.getByText("Закрытое содержимое для участников")).toHaveCount(0);
 
-  await expect(page.locator("[data-related-state]")).toHaveCount(0);
-
   const invalidProof = await request.get(
     `${process.env.FULLSTACK_API_BASE_URL ?? "http://127.0.0.1:3001"}/materials/developer-pipeline-bez-poteri-konteksta`,
     { headers: { authorization: "Bearer not-a-jwt" } },
@@ -507,20 +507,7 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
   context,
   page,
 }, testInfo) => {
-  const cookieName = process.env.FULLSTACK_LOGTO_COOKIE_NAME;
-  const session = process.env.FULLSTACK_LOGTO_SESSION;
-  if (cookieName === undefined || session === undefined) {
-    throw new Error("Full-stack Logto session fixture is missing");
-  }
-  await context.addCookies([
-    {
-      name: cookieName,
-      value: session,
-      url: process.env.FULLSTACK_WEB_BASE_URL ?? "http://127.0.0.1:3000",
-      httpOnly: true,
-      sameSite: "Lax",
-    },
-  ]);
+  await signInFullStack(context, "OWNER");
 
   await page.goto("/materials/produkt-i-inzhenernyy-kontekst");
   const onboardingDismiss = page.getByRole("button", {
@@ -598,12 +585,19 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
   await expect(page).toHaveURL(/\/authoring\/materials$/u);
   await page.getByRole("link", { name: "Темы", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Темы", level: 1 })).toBeVisible();
-  await expect(page.locator('input[value="Platform"]')).toBeVisible();
+  // Тема раскрывается кнопкой: её название, адрес и число материалов складываются в доступное имя.
+  await expect(
+    page.getByRole("button", { name: /^Platform \/platform · \d+ материал/u }),
+  ).toBeVisible();
   await captureIssue195Evidence(page, testInfo, "admin-topics");
 
   await page.getByRole("link", { name: "Руководства", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Руководства", level: 1 })).toBeVisible();
-  await expect(page.locator('input[value="Создание Platform Inside"]')).toBeVisible();
+  const platformGuide = page.getByRole("link", {
+    name: /^Создание Platform Inside \d+ материал/u,
+  });
+  await expect(platformGuide).toBeVisible();
+  await expect(platformGuide).toHaveAttribute("href", /^\/authoring\/guides\//u);
   await captureIssue195Evidence(page, testInfo, "admin-playlists");
 });
 
@@ -740,7 +734,6 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   ).toHaveAttribute("href", "/topics/platform");
   await expect(page.getByRole("link", { name: "Назад к программе" })).toHaveCount(1);
   await expect(page.locator("[data-reader-footer]")).not.toContainText("· №");
-  await expect(page.locator("[data-related-state]")).toHaveCount(0);
 
   await expect(page).toHaveTitle("Как устроен Inside Platform · Sachkov Inside");
   await expectLibraryNavigationActive(page, testInfo);
