@@ -186,11 +186,15 @@ export class BillingOperations {
   }
 }
 
-/** Состояние покупателя одной формой: чтение и записанное решение отвечают одинаково. */
+/**
+ * Состояние покупателя одной формой: чтение и записанное решение отвечают одинаково. Поля
+ * перечислены поимённо: источник может нести служебные поля, а в ответ уходит ровно вид.
+ */
 function classificationOutcome(operationRef: string, accountId: string,
   state: { readonly classification: "confirmed_legacy" | "confirmed_new" | "unknown";
     readonly revision: number; readonly recurringAllowed: boolean }): OwnerResult {
-  return { ok: true, operationRef, result: { outcome: "classification", value: { accountId, ...state } } };
+  return { ok: true, operationRef, result: { outcome: "classification", value: { accountId,
+    classification: state.classification, revision: state.revision, recurringAllowed: state.recurringAllowed } } };
 }
 
 /**
