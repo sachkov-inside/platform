@@ -248,6 +248,7 @@ if (!statSync(scanRoot).isDirectory()) {
   throw new TypeError(`Architecture scan root is not a directory: ${scanRoot}`);
 }
 
+
 const findings = sourceFiles(scanRoot).flatMap((source) => {
   const { errors, program } = parseSync(source, readFileSync(source, "utf8"));
   if (errors.length > 0) {

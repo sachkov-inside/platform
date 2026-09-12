@@ -440,6 +440,7 @@ while (pendingBrowserFiles.length > 0) {
   }
 }
 
+
 const findings = [...parsedFiles].flatMap(([file, program]) => {
   const sourcePath = scannedPath(file);
   const insideBackendTransport = sourcePath.startsWith("src/shared/api/backend/");

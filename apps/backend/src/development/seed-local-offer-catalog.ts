@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import type { PlatformPrisma } from "../infrastructure/prisma/index.js";
 import { BillingPricing } from "../modules/billing/index.js";
+import { guideCapability } from "@inside/access-capabilities";
 
 /**
  * Каталог предложений локального стенда: две подписки и разовая покупка засеянного руководства.
@@ -73,9 +74,9 @@ function localCatalog(guideId: string): readonly CatalogOffer[] {
     {
       offerId: "72000000-0000-4000-8000-000000000503",
       name: "Руководство «Создание Platform Inside»",
-      benefits: [`guide:${guideId}`],
+      benefits: [guideCapability(guideId)],
       // Разовая покупка открывает руководство навсегда: оплаченного срока у неё нет.
-      benefitPeriods: [{ capability: `guide:${guideId}`, months: null }],
+      benefitPeriods: [{ capability: guideCapability(guideId), months: null }],
       option: {
         id: "72000000-0000-4000-8000-000000000513",
         mode: "one_time",

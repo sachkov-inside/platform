@@ -1,19 +1,19 @@
 import { z } from "zod";
+// Словарь прав и вывод состава доступа живут в `@inside/access-capabilities`: покупатель видит
+// на витрине ровно то, что сервер потом выдаёт, потому что это один и тот же вывод.
+export {
+  accessCapabilitySchema,
+  accessComposition,
+  guideCapability,
+  isGuideCapability,
+  type AccessCapability,
+} from "@inside/access-capabilities";
+import { accessCapabilitySchema, guideCapability, isGuideCapability } from "@inside/access-capabilities";
 
 /**
  * Форма провода billing, которую читает браузер. Генерируемые типы остаются подсказкой
  * компилятора: адаптеры принимают тело как `unknown` и проверяют его этими схемами.
  */
-export const globalAccessCapabilities = [
-  "materials",
-  "community",
-  "reviews",
-  "support",
-] as const;
-export const accessCapabilitySchema = z.union([
-  z.enum(globalAccessCapabilities),
-  z.templateLiteral(["guide:", z.uuid()]),
-]);
 export const offerSchema = z.object({
   id: z.uuid(),
   revision: z.number().int().positive(),
@@ -213,7 +213,6 @@ export const billingFailureSchema = z.object({
 
 export type PaymentMode = z.infer<typeof paymentModeSchema>;
 export type AttemptKind = z.infer<typeof attemptKindSchema>;
-export type AccessCapability = z.infer<typeof accessCapabilitySchema>;
 export type BillingOffer = z.infer<typeof offerSchema>;
 export type BillingPaymentOption = z.infer<typeof paymentOptionSchema>;
 export type PriceSnapshot = z.infer<typeof priceSnapshotSchema>;
@@ -234,30 +233,6 @@ export type ChangePlan = z.infer<typeof changePlanSchema>;
 export type ChangeResult = z.infer<typeof changeResultSchema>;
 export type BillingFailureCode = z.infer<typeof billingFailureCodeSchema>;
 export type BillingFailure = z.infer<typeof billingFailureSchema>;
-
-/** Право на конкретное руководство: строка права собирается и читается одним владельцем. */
-export function guideCapability(guideId: string): AccessCapability {
-  return `guide:${guideId}`;
-}
-export function isGuideCapability(capability: AccessCapability): boolean {
-  return capability.startsWith("guide:");
-}
-
-/**
- * Состав доступа, который эти права открывают на самом деле. Купленное руководство само по себе
- * даёт участие в сообществе — по решению владельца, а не по составу предложения, — поэтому чат
- * назван и там, где отдельного права участия в составе нет. Уже названный чат не повторяется.
- * Право участия выдаёт сервер по тому же правилу: здесь оно нужно только чтобы назвать доступ до
- * покупки и после неё одинаково честно.
- */
-export function accessComposition(
-  capabilities: readonly AccessCapability[],
-): readonly AccessCapability[] {
-  return capabilities.includes("community") ||
-    !capabilities.some(isGuideCapability)
-    ? capabilities
-    : [...capabilities, "community"];
-}
 
 /** Способ продажи снимка: у старых снимков его нет, и это подписка. */
 export function paymentMode(snapshot: PriceSnapshot): PaymentMode {
