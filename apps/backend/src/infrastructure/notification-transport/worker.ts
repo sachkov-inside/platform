@@ -1,16 +1,16 @@
 import { setTimeout as delay } from 'node:timers/promises';
 import type { ChannelModel } from 'amqplib';
 import type { NotificationsConfig } from '../../config/notifications-config.js';
-import type { NotificationTransport } from '../../modules/notifications/index.js';
+import type { NotificationTransport, SweepObservation } from '../../modules/notifications/index.js';
 import type { NotificationOutbox } from './outbox.js';
-import { notificationLaneSchema, lanes, type NotificationLane, type NotificationPrincipal } from './wire.js';
+import { loggableFailure, notificationLaneSchema, lanes, type NotificationLane, type NotificationPrincipal } from './wire.js';
 import { connectNotificationBroker, consumeNotificationLane, publishNotification } from './rabbitmq.js';
 
 const RELAY_SWEEP_MS = 1_000;
 const OBSERVATION_INTERVAL_MS = 60_000;
 const BACKLOG_ALERT_MS = 5 * 60 * 1_000;
 export function assembleNotificationWorker(input: {
-  processInbox?: () => Promise<void>;
+  processInbox?: () => Promise<readonly SweepObservation[]>;
   config: NotificationsConfig; transport: NotificationTransport;
   billing: NotificationOutbox; materials: NotificationOutbox;
   report: (event: Record<string, unknown>) => void;
@@ -48,26 +48,46 @@ export function assembleNotificationWorker(input: {
           if (consumer) {
             const handle = await consumeNotificationLane(consumer, lane, input.transport, input.config.prefetch);
             consumers.push(handle);
-            void handle.failed.catch(() => fail(new Error('notification_consumer_stopped')));
+            void handle.failed.catch((error: unknown) => {
+              // Причина остановки потребителя называется здесь: подмена именем оставляла журнал
+              // без объяснения ровно там, где объяснение и нужно.
+              input.report({ status: 'operator_attention', reason: 'notification_consumer_stopped', lane, error: loggableFailure(error) });
+              fail(error instanceof Error ? error : new Error('notification_consumer_stopped'));
+            });
           }
         }
         if (input.processInbox) tasks.push((async () => {
           while (!abort.signal.aborted) {
-            await input.processInbox?.();
+            // Разбор входящих переживает собственный отказ: одна строка не имеет права остановить
+            // остальные. Причина называется здесь, потому что дальше её уже никто не увидит.
+            try {
+              for (const observation of (await input.processInbox?.()) ?? []) input.report({ status: 'operator_attention', ...observation });
+            } catch (error) { input.report({ status: 'operator_attention', reason: 'inbox_sweep_failed', error: loggableFailure(error) }); }
             await delay(RELAY_SWEEP_MS, undefined, { signal: abort.signal }).catch(() => undefined);
           }
         })());
         tasks.push((async () => {
           while (!abort.signal.aborted) {
-            const observation = await input.transport.observe();
-            input.report({ status: observation.oldest && Date.now() - observation.oldest.getTime() > BACKLOG_ALERT_MS ? 'operator_attention' : 'transport_observation', ...observation });
+            // Наблюдение тоже переживает свой отказ: недоступная на секунду база — не повод
+            // останавливать доставку уведомлений.
+            try {
+              const observation = await input.transport.observe();
+              input.report({ status: observation.oldest && Date.now() - observation.oldest.getTime() > BACKLOG_ALERT_MS ? 'operator_attention' : 'transport_observation', ...observation });
+            } catch (error) { input.report({ status: 'operator_attention', reason: 'observation_failed', error: loggableFailure(error) }); }
             await delay(OBSERVATION_INTERVAL_MS, undefined, { signal: abort.signal }).catch(() => undefined);
           }
         })());
-        for (const task of tasks) void task.catch(() => fail(new Error('notification_worker_failed')));
-      } catch {
+        // Причина отказа задачи сохраняется: подмена на общее имя оставляла журнал без объяснения.
+        for (const task of tasks) void task.catch((error: unknown) => {
+          input.report({ status: 'operator_attention', reason: 'notification_worker_failed', error: loggableFailure(error) });
+          fail(error instanceof Error ? error : new Error('notification_worker_failed'));
+        });
+      } catch (error) {
+        // Причина называется до остановки: свой отказ у остановки тоже бывает, и он не должен
+        // заменить собой то, из-за чего запуск не состоялся.
+        input.report({ status: 'operator_attention', reason: 'notification_worker_start_failed', error: loggableFailure(error) });
         await this.stop();
-        throw new Error('notification_worker_start_failed');
+        throw new Error('notification_worker_start_failed', { cause: error });
       }
     },
     async stop(options: { timeout: number } = { timeout: 10_000 }) {

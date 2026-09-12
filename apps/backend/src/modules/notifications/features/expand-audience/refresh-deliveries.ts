@@ -29,6 +29,8 @@ export async function refreshDeliveries(deps: NotificationDependencies) {
     if (source.content.category === 'material' && (!await optedIn(transaction, delivery.notification.accountId, channel, new Date(event.occurredAt)) || await deps.sources.canRead(delivery.notification.accountId, event.sourceRef) !== 'allowed')) return;
     const binding = await deps.recipients.binding(delivery.notification.accountId, channel);
     if (!binding || fingerprint(binding) !== fingerprint(old.binding)) return;
+    // Без адреса читателя команду не пересобрать: замена подождёт настройки доставки.
+    if (deps.origin === undefined) return;
     const template = renderNotification(source, deps.origin);
     const command = { ...old, operationId: randomUUID(), commandRevision: old.commandRevision + 1, sourceEventId: event.messageId,
       content: source.content, templateRef: template.templateRef, templateRevision: template.templateRevision, text: template.text,

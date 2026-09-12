@@ -8,12 +8,21 @@
 
 API предоставляет настройки без необходимости оплаченного доступа. `notifications-worker`
 обрабатывает сохранённые events/results и отдельный email inbox. Для внешнего email требуются
-`NOTIFICATIONS_PLATFORM_ORIGIN` (HTTPS origin приложения), отдельный
+`NOTIFICATIONS_PLATFORM_ORIGIN` (origin приложения; HTTPS везде, кроме петли стенда), отдельный
 `NOTIFICATIONS_TELEGRAM_SECRET` (не менее 32 символов) и существующая конфигурация
 `BILLING_CONTACT_*`: подтверждённый отправитель, SMTP и ключ шифрования контактов Accounts.
 Одинаковая конфигурация origin/dispatch secret задаётся API и worker. RabbitMQ остаётся
 отдельной конфигурацией worker. Без email-конфигурации worker сохраняет задания и обрабатывает
 результаты, но не начинает SMTP-попытки. Credentials не входят в repository.
+
+Отсутствие адреса читателя — это состояние настройки, а не свойство повода: без
+`NOTIFICATIONS_PLATFORM_ORIGIN` повод ждёт настройки, повторяясь раз в тридцать секунд, и
+worker называет это наблюдением `delivery_not_configured`. Пустая строка вместо адреса не
+принимается нигде: раньше она доходила до шаблона и останавливала разбор целиком.
+
+Адрес читателя проверяется тем же правилом, что публичный адрес сайта, и в production обязан быть
+HTTPS. Стенд живёт на петле `http://127.0.0.1:3000`, поэтому шаблон принимает http только для
+петлевых адресов; любой другой узел без TLS отвергается как `notification_link_invalid`.
 
 Источники подключаются в `NotificationsModule` через `NotificationSources.resolve`. Оба
 подключены: `billing.notice-ready` отвечает публичный фасет Billing `resolveNotice`

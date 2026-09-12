@@ -199,7 +199,9 @@ const platformConfigSchema = z
   .object({
     notifications: notificationsConfigSchema.optional(),
     notificationDelivery: z.object({
-      origin: z.url().refine(value => { const url = new URL(value); return url.protocol === "https:" && url.pathname === "/" && !url.search && !url.hash && !url.username && !url.password; }),
+      // Адрес читателя разбирается как голый origin, а HTTPS требует отдельная проверка ниже:
+      // стенд живёт на петле без сертификата, а письмо наружу обязано вести только под TLS.
+      origin: publicOriginSchema("NOTIFICATIONS_PLATFORM_ORIGIN"),
       telegramSecret: z.string().min(32),
     }).optional(),
     mode: platformModeSchema,
@@ -603,6 +605,16 @@ export function parsePlatformConfig(
   // Проверяется собранный контур, а не только имя режима: двойника банка в production нет.
   if (mode === "production" && config.data.tbank?.environment === "local") {
     throw new Error("TBANK_PROVIDER_MODE must be real in production mode");
+  }
+
+  if (
+    mode === "production" &&
+    config.data.notificationDelivery !== undefined &&
+    new URL(config.data.notificationDelivery.origin).protocol !== "https:"
+  ) {
+    throw new Error(
+      "NOTIFICATIONS_PLATFORM_ORIGIN must use HTTPS in production mode",
+    );
   }
   if (config.data.kinescope.publicProjectId === config.data.kinescope.membershipProjectId) {
     throw new Error("Public and membership Kinescope projects must be distinct");

@@ -1,4 +1,5 @@
 import type { NotificationEvent, Binding, DeliveryCommand } from '../domain/notification-wire.js';
+import type { NotificationLane } from '../../../infrastructure/notification-transport/wire.js';
 
 /** Producers resolve their own durable occurrence. Broker data alone never authorizes a send. */
 export type NotificationSource =
@@ -20,3 +21,8 @@ export type EmailOutcome = { readonly state: 'sent' } | { readonly state: 'unkno
   { readonly state: 'failed'; readonly reason: 'recipient_unreachable' | 'provider_rejected' } |
   { readonly state: 'not_sent'; readonly retryAfterMs: number };
 export type SendNotificationEmail = (message: { readonly email: string; readonly text: string; readonly subject: string; readonly operationId: string }) => Promise<EmailOutcome>;
+/**
+ * Карантин входящих. Судьба необрабатываемой строки записывается тем же механизмом, что у
+ * транспорта, поэтому расширение аудитории просит его как способность, а не заводит второй.
+ */
+export type QuarantineNotification = (lane: NotificationLane, bytes: Buffer, reason: string) => Promise<void>;

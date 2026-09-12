@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import fixtures from '../../../../docs/contracts/notifications-v1/fixtures.json' with { type: 'json' };
-import { encodeNotification, NOTIFICATION_MESSAGE_MAX_BYTES } from '../../src/infrastructure/notification-transport/wire.js';
+import { encodeNotification, loggableFailure, NOTIFICATION_MESSAGE_MAX_BYTES } from '../../src/infrastructure/notification-transport/wire.js';
 import { parseNotificationsConfig } from '../../src/config/notifications-config.js';
 import { commandWindow, COMMAND_LIFETIME_MS } from '../../src/modules/notifications/domain/notification-wire.js';
 
@@ -36,4 +36,18 @@ test('a command window is bounded by one clock reading and disappears once the s
   // `issuedAt < notAfter` is the other half of the same clause: an exhausted deadline has no window.
   expect(commandWindow(issuedAt, issuedAt)).toBeNull();
   expect(commandWindow(issuedAt, new Date(issuedAt.getTime() - 1))).toBeNull();
+});
+
+test('причина отказа для журнала называет ошибку, но не пересказывает сообщение', () => {
+  expect(loggableFailure(new Error('notification_link_invalid'))).toBe('Error: notification_link_invalid');
+  // Оба этих текста цитируют полезную нагрузку или адрес получателя, поэтому в журнал не идут.
+  class PrismaClientKnownRequestError extends Error {
+    code = 'P2002';
+    constructor() { super('Unique constraint failed: { email: "buyer@example.test" }'); this.name = 'PrismaClientKnownRequestError'; }
+  }
+  expect(loggableFailure(new PrismaClientKnownRequestError())).toBe('PrismaClientKnownRequestError: P2002');
+  let parsed: string;
+  try { JSON.parse('{"email": buyer@example.test}'); parsed = 'parsed'; } catch (error) { parsed = loggableFailure(error); }
+  expect(parsed).toBe('SyntaxError');
+  expect(loggableFailure(new Error('x'.repeat(400)))).toHaveLength(300);
 });
