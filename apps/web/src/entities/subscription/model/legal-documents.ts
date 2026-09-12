@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { PaymentMode } from "./billing-contract";
+import { paymentModeSchema, type PaymentMode } from "./billing-contract";
 
 /**
  * Каталог применимых документов ведёт сервер: согласие принимается только при точном
@@ -19,6 +19,11 @@ export const legalDocumentKindSchema = z.enum([
 export const legalDocumentUrlSchema = z.url({ protocol: /^https?$/u });
 export const legalDocumentSchema = z.object({
   kind: legalDocumentKindSchema,
+  /**
+   * К каким продажам относится документ. Оферта разовой покупки и оферта подписки имеют один
+   * вид `terms`, поэтому покупателю показывается та из них, которая описывает его покупку.
+   */
+  appliesTo: z.array(paymentModeSchema).min(1),
   documentId: z.string().min(1),
   version: z.string().min(1),
   digest: z.string().length(64),
@@ -58,21 +63,17 @@ export interface ConsentPolicy {
 
 /**
  * Какие согласия нужны перед оплатой. Подписка требует принятых `terms` и `recurring`; разовая
- * покупка — только `terms`, и согласие на регулярные списания ей не показывается, потому что
- * списаний по ней не будет и сервер такое согласие не принимает.
+ * покупка — только `terms`. Что вообще показать, решает область применения документа: согласие
+ * на регулярные списания относится к подписке, и в разовой покупке его нет.
  */
 export function purchaseConsentPolicy(
   documents: readonly LegalDocument[],
   mode: PaymentMode,
 ): ConsentPolicy {
+  const applicable = documents.filter((document) => document.appliesTo.includes(mode));
   return mode === "one_time"
-    ? {
-        required: ["terms"],
-        applicable: documents.filter(
-          (document) => document.kind !== "recurring",
-        ),
-      }
-    : { required: ["terms", "recurring"], applicable: documents };
+    ? { required: ["terms"], applicable }
+    : { required: ["terms", "recurring"], applicable };
 }
 
 /** Возобновление списаний требует только нового явного согласия на них. */

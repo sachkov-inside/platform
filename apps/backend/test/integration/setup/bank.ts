@@ -5,7 +5,7 @@ import { Tbank, tbankToken } from "../../../src/modules/billing/infrastructure/t
 type TbankConfig = ConstructorParameters<typeof Tbank>[0];
 
 const requestSchema = z.object({ OrderId: z.string().optional(), PaymentId: z.string().optional(), RequestKey: z.string().optional(),
-  Amount: z.number().optional(), CustomerKey: z.string().optional(), ExternalRequestId: z.string().optional(), Token: z.string() }).loose();
+  Amount: z.number().optional(), CustomerKey: z.string().optional(), Token: z.string() }).loose();
 
 /**
  * Управляемый банк одного сценария: Init сам ничего не подтверждает, а исход Charge и привязки
@@ -15,11 +15,9 @@ export class BankFixture {
   constructor(private readonly config: TbankConfig) {}
   readonly orders = new Map<string, { paymentId: string; amount: number; status: string }>();
   readonly sessions = new Set<string>();
-  readonly cancels: { externalRequestId: string; paymentId: string; amount: number }[] = [];
   private readonly scope = randomUUID();
   initCalls = 0; chargeCalls = 0; addCardCalls = 0;
   chargeOutcome = "CONFIRMED"; failCharge = false; failInit = false;
-  cancelStatus = "REFUNDED"; cancelSucceeds = true;
   binding: { status: string; success: boolean; rebillId: string | undefined } = { status: "COMPLETED", success: true, rebillId: "synthetic-new-card" };
 
   event(orderId: string, extra: Record<string, unknown> = {}) {
@@ -59,12 +57,13 @@ export class BankFixture {
       entry[1].status = this.chargeOutcome;
       return Response.json(this.event(entry[0]));
     }
+    // Подтверждённый возврат. Отказ и потерянный ответ банка на возврат принадлежат
+    // `billing-operations`: своего двойника с этими исходами он уже держит.
     if (url.endsWith("/Cancel")) {
       const paymentId = z.string().parse(body.PaymentId);
       const [orderId, order] = this.byPayment(paymentId);
-      this.cancels.push({ externalRequestId: z.string().parse(body.ExternalRequestId), paymentId, amount: z.number().parse(body.Amount) });
-      return Response.json({ TerminalKey: this.config.terminalKey, OrderId: orderId, PaymentId: paymentId, Status: this.cancelStatus,
-        Success: this.cancelSucceeds, ErrorCode: this.cancelSucceeds ? "0" : "3007", OriginalAmount: order.amount });
+      return Response.json({ TerminalKey: this.config.terminalKey, OrderId: orderId, PaymentId: paymentId,
+        Status: "REFUNDED", Success: true, ErrorCode: "0", OriginalAmount: order.amount });
     }
     if (url.endsWith("/GetState")) return Response.json(this.event(this.byPayment(z.string().parse(body.PaymentId))[0]));
     if (url.endsWith("/CheckOrder")) {

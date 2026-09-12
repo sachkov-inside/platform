@@ -16,11 +16,15 @@ import { assembleMaterialAssets } from "../../src/modules/assets/index.js";
 import { assembleVideos } from "../../src/modules/videos/index.js";
 import { createTestVideoProvider } from "../../src/modules/videos/adapters/kinescope/test-video-provider.js";
 import { assembleWorkshopEntitlements } from "../../src/modules/workshop/index.js";
+import { CommunityEntitlements, TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
+import { disabledCommunityEntitlementProvider } from "../../src/modules/telegram-membership/ports/community-entitlement-provider.js";
 import { discoverPublishedMaterials } from "../../src/modules/content-library/index.js";
 import type { ObjectStorage, StoredObject } from "../../src/infrastructure/object-storage/index.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import { BankFixture } from "./setup/bank.js";
+import { linkTelegramAccount } from "./setup/telegram-link.js";
 import { createMigratedTestDatabase, type TestDatabase } from "./setup/test-database.js";
+import { syntheticConsentDocuments } from "./setup/consent-documents.js";
 
 function value<T>(result: { ok: true; value: T } | { ok: false; error: { code: string } }): T {
   if (!result.ok) throw new Error(result.error.code); return result.value;
@@ -38,6 +42,10 @@ function asGrantBatch(result: OwnerResult) {
   const value = success(result);
   if (value.outcome !== "grantBatch") throw new Error(`Unexpected outcome ${value.outcome}`); return value;
 }
+function asClassification(result: OwnerResult) {
+  const value = success(result);
+  if (value.outcome !== "classification") throw new Error(`Unexpected outcome ${value.outcome}`); return value;
+}
 function asRefundDecision(result: OwnerResult) {
   const value = success(result);
   if (value.outcome !== "refundDecision") throw new Error(`Unexpected outcome ${value.outcome}`); return value.value;
@@ -47,8 +55,7 @@ const config = tbankConfigSchema.parse({ environment: "demo", terminalKey: "SYNT
   cardBinding: { confirmed: true, checkType: "3DS" }, minimumKopecks: 100, maximumKopecks: 10_000_000,
   returnUrl: "https://inside.example.test/account", notificationUrl: "https://inside.example.test/billing/tbank/notification",
   receipt: { taxation: "usn_income", tax: "none" } });
-const documents = (["terms", "recurring"] as const).map(kind => { const text = `Synthetic ${kind}, not legal terms`;
-  return { kind, documentId: kind, version: "test-v1", text, digest: createHash("sha256").update(text).digest("hex"), url: `https://example.test/${kind}` }; });
+const documents = syntheticConsentDocuments;
 const guidePriceKopecks = 290_000;
 const subscriptionPriceKopecks = 100_000;
 const startedAt = "2030-01-31T10:00:00Z";
@@ -186,12 +193,16 @@ describe("оплата, выдача прав и доступ к материа�
     await db.prisma.billingPurchase.updateMany({ where: { kind: "initial", lifecycleActive: true }, data: { lifecycleActive: false } });
   }
 
-  /** Покупатель с подтверждённым контактом: дальше он платит настоящим путём. */
-  async function buyer(): Promise<string> {
+  /**
+   * Покупатель с подтверждённым контактом: дальше он платит настоящим путём. Без решения
+   * владельца он остаётся неопределённым, и подписка ему недоступна.
+   */
+  async function buyer(options: { readonly classify?: boolean } = {}): Promise<string> {
     const id = randomUUID();
     await db.prisma.account.create({ data: { id, logtoIssuer: "https://identity.example.test", logtoSubject: id } });
-    expect(await grants.classifyLegacy(owner, { operationId: randomUUID(), accountId: id, expectedRevision: 0, classification: "confirmed_new",
-      sourceRef: id, reason: "Synthetic new buyer", bridgeEnabled: false, tributeStopped: false })).toMatchObject({ ok: true });
+    if (options.classify !== false)
+      expect(await grants.classifyLegacy(owner, { operationId: randomUUID(), accountId: id, expectedRevision: 0, classification: "confirmed_new",
+        sourceRef: id, reason: "Synthetic new buyer", bridgeEnabled: false, tributeStopped: false })).toMatchObject({ ok: true });
     const start = await contact.start(id, { operationId: randomUUID(), email: `${id}@example.test`, expectedRevision: 0 });
     if (!start.ok) throw new Error(start.error.code);
     expect(await contact.confirm(id, { operationId: randomUUID(), challengeRef: start.challengeRef, code: codes.get(start.challengeRef) })).toMatchObject({ ok: true });
@@ -218,6 +229,11 @@ describe("оплата, выдача прав и доступ к материа�
   /** Старший тариф: общий чат объявлен прямо в его составе. */
   function seniorOffer() {
     return offer({ name: "Материалы и сообщество", benefits: ["materials", "community"], priceKopecks: subscriptionPriceKopecks });
+  }
+  /** Проекция сообщества: желаемое состояние считается здесь, а исполняет его бот. */
+  function communityProjection() {
+    return new CommunityEntitlements({ accounts, clock: () => now, grants, links: new TelegramAccountLinks(db.prisma),
+      prisma: db.prisma, provider: disabledCommunityEntitlementProvider });
   }
   /** Действующие права Account: ровно тот состав, из которого собирается желаемое состояние чата. */
   async function capabilities(account: string) {
@@ -257,7 +273,15 @@ describe("оплата, выдача прав и доступ к материа�
     const subscriptions = new BillingSubscriptions({ prisma: db.prisma, bank: client, contact, grants, payments,
       notices: new BillingNotices({ prisma: db.prisma, clock: () => now }), clock: () => now });
     const operations = new BillingOperations({ prisma: db.prisma, accounts, pricing, payments, subscriptions, grants, bank: client, clock: () => now });
-    return { bank, payments, subscriptions, operations };
+    /** Оплаченная покупка целиком: команда, ответ банка и выдача прав одним шагом. */
+    async function pay(account: string, optionId: string, options: { readonly recurring?: boolean } = {}) {
+      const bought = value(await purchase(payments, account, optionId, options));
+      if (options.recurring === true) expect(await payments.notification(bank.notify(bought.purchaseRef, "AUTHORIZED", { RebillId: "synthetic-card" }))).toMatchObject({ ok: true });
+      expect(await payments.notification(bank.notify(bought.purchaseRef, "CONFIRMED"))).toMatchObject({ ok: true });
+      value(await payments.recover());
+      return bought.purchaseRef;
+    }
+    return { bank, payments, subscriptions, operations, pay };
   }
   /** Расчёт и согласия одной покупки: подписка принимает списания, разовая — только оферту. */
   async function command(account: string, optionId: string, options: { readonly recurring?: boolean } = {}) {
@@ -476,6 +500,36 @@ describe("оплата, выдача прав и доступ к материа�
     expect(await decide(reader(account), libraryMaterial)).toMatchObject({ effect: "allow", validUntil: "2030-03-31T10:00:00.000Z" });
   });
 
+  test("новый покупатель оформляет подписку только после решения владельца", async () => {
+    now = new Date(startedAt);
+    await ownSweeps();
+    const account = await buyer({ classify: false });
+    const { optionId } = await subscriptionOffer();
+    const { bank, payments, subscriptions, operations } = billingStand();
+
+    // Неопределённый покупатель проходит контакт и согласия, но списания ему запрещены.
+    expect(asClassification(await operations.execute(owner, { operation: "grants.readClassification",
+      operationId: randomUUID(), accountId: account })).value)
+      .toEqual({ accountId: account, classification: "unknown", revision: 0, recurringAllowed: false });
+    expect(await purchase(payments, account, optionId, { recurring: true }))
+      .toMatchObject({ ok: false, error: { code: "legacy_review_required" } });
+    expect(bank.initCalls).toBe(0);
+    expect(await db.prisma.billingPurchase.count({ where: { accountId: account } })).toBe(0);
+
+    // Владелец переводит аккаунт в «новый покупатель» тем же закрытым набором операций.
+    expect(asClassification(await operations.execute(owner, { operation: "grants.classify", operationId: randomUUID(),
+      accountId: account, expectedRevision: 0, classification: "confirmed_new", sourceRef: `matrix-${account}`,
+      reason: "Новый покупатель оформляет подписку", bridgeEnabled: false, tributeStopped: false })).value)
+      .toEqual({ accountId: account, classification: "confirmed_new", revision: 1, recurringAllowed: true });
+
+    const bought = value(await purchase(payments, account, optionId, { recurring: true }));
+    expect(await payments.notification(bank.notify(bought.purchaseRef, "AUTHORIZED", { RebillId: "synthetic-card" }))).toMatchObject({ ok: true });
+    expect(await payments.notification(bank.notify(bought.purchaseRef, "CONFIRMED"))).toMatchObject({ ok: true });
+    value(await payments.recover());
+    expect(value(await subscriptions.read(account)).subscription).toMatchObject({ state: "active", periodIndex: 1, paidUntil: subscriptionEndsAt });
+    expect(await decide(reader(account), libraryMaterial)).toMatchObject({ effect: "allow", reason: "active_membership", validUntil: subscriptionEndsAt });
+  });
+
   test("выдача владельческой операцией открывает доступ, но не выдаётся за покупку", async () => {
     now = new Date(startedAt);
     const account = await buyer();
@@ -506,15 +560,7 @@ describe("оплата, выдача прав и доступ к материа�
     const [onlyGuide, withBoth] = await Promise.all([buyer(), buyer()]);
     const senior = await seniorOffer();
     const bought = await guideOffer();
-    const { bank, payments, subscriptions } = billingStand();
-    async function pay(account: string, optionId: string, options: { readonly recurring?: boolean } = {}) {
-      const purchased = value(await purchase(payments, account, optionId, options));
-      if (options.recurring === true) expect(await payments.notification(bank.notify(purchased.purchaseRef, "AUTHORIZED", { RebillId: "synthetic-card" }))).toMatchObject({ ok: true });
-      expect(await payments.notification(bank.notify(purchased.purchaseRef, "CONFIRMED"))).toMatchObject({ ok: true });
-      value(await payments.recover());
-      return purchased.purchaseRef;
-    }
-
+    const { pay, subscriptions } = billingStand();
     // До покупки оснований нет: ни подписки, ни права на руководство, ни чата.
     expect(await capabilities(onlyGuide)).toEqual([]);
     await pay(onlyGuide, bought.optionId);
@@ -528,6 +574,14 @@ describe("оплата, выдача прав и доступ к материа�
       grounds: [{ source: "paid", capabilities: [`guide:${guideA}`], validUntil: null, active: true }] });
     // Проверка доступа к материалам не изменилась: чужая библиотека руководством не открывается.
     expect(await decide(reader(onlyGuide), libraryMaterial)).toMatchObject({ effect: "deny", reason: "membership_required" });
+
+    // Появление доступа видно в проекции: та же покупка даёт боту команду впустить бессрочно.
+    await linkTelegramAccount(db.prisma, { accountId: onlyGuide, identityRef: `identity-${onlyGuide}`, now });
+    expect(await communityProjection().project(onlyGuide)).toMatchObject({ ok: true, entitlementRevision: 1 });
+    expect(await db.prisma.telegramCommunityDesiredState.findUniqueOrThrow({ where: { accountId: onlyGuide } }))
+      .toMatchObject({ access: { kind: "lifetime" }, nextBoundary: null });
+    expect(await db.prisma.telegramCommunityOperation.findMany({ where: { accountId: onlyGuide } }))
+      .toMatchObject([{ access: { kind: "lifetime" }, delivery: "pending", entitlementRevision: 1, purpose: "apply" }]);
 
     await pay(withBoth, senior.optionId, { recurring: true });
     await pay(withBoth, bought.optionId);
@@ -553,15 +607,7 @@ describe("оплата, выдача прав и доступ к материа�
     const [withBoth, refunded, kept] = await Promise.all([buyer(), buyer(), buyer()]);
     const senior = await seniorOffer();
     const bought = await guideOffer();
-    const { bank, payments, operations } = billingStand();
-    async function pay(account: string, optionId: string, options: { readonly recurring?: boolean } = {}) {
-      const purchased = value(await purchase(payments, account, optionId, options));
-      if (options.recurring === true) expect(await payments.notification(bank.notify(purchased.purchaseRef, "AUTHORIZED", { RebillId: "synthetic-card" }))).toMatchObject({ ok: true });
-      expect(await payments.notification(bank.notify(purchased.purchaseRef, "CONFIRMED"))).toMatchObject({ ok: true });
-      value(await payments.recover());
-      return purchased.purchaseRef;
-    }
-
+    const { operations, pay, payments } = billingStand();
     const subscribed = await pay(withBoth, senior.optionId, { recurring: true });
     const guidePurchase = await pay(withBoth, bought.optionId);
     // Снятие одного основания не забирает чат: его продолжает держать состав подписки.
@@ -607,10 +653,8 @@ describe("оплата, выдача прав и доступ к материа�
     const account = await buyer();
     const senior = await seniorOffer();
     const bought = await guideOffer();
-    const { bank, payments } = billingStand();
-    const purchased = value(await purchase(payments, account, bought.optionId));
-    expect(await payments.notification(bank.notify(purchased.purchaseRef, "CONFIRMED"))).toMatchObject({ ok: true });
-    value(await payments.recover());
+    const { bank, payments, pay } = billingStand();
+    await pay(account, bought.optionId);
 
     expect(await payments.purchase(account, await command(account, senior.optionId, { recurring: true })))
       .toMatchObject({ ok: false, error: { code: "existing_access" } });

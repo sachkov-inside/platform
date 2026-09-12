@@ -1,13 +1,18 @@
 import type { MaterialBlockDefinition } from "./block-definition.js";
+import { agentPromptBlock } from "./blocks/agent-prompt.js";
 import { blockquoteBlock } from "./blocks/blockquote.js";
 import { assetFileBlock, assetImageBlock } from "./blocks/assets.js";
 import { calloutBlock } from "./blocks/callout.js";
 import { codeBlock } from "./blocks/code-block.js";
 import { headingBlock } from "./blocks/heading.js";
 import { horizontalRuleBlock } from "./blocks/horizontal-rule.js";
+import { keyPointBlock } from "./blocks/key-point.js";
+import { labeledListBlock } from "./blocks/labeled-list.js";
 import { bulletListBlock, orderedListBlock } from "./blocks/lists.js";
 import { paragraphBlock } from "./blocks/paragraph.js";
+import { resourceCardBlock } from "./blocks/resource-card.js";
 import { tableBlock } from "./blocks/table.js";
+import { takeawaysBlock } from "./blocks/takeaways.js";
 import type { RenderedBlockKind } from "./rendered-block.js";
 
 /**
@@ -27,6 +32,11 @@ export const materialBlockDefinitions: readonly [
   horizontalRuleBlock,
   tableBlock,
   calloutBlock,
+  resourceCardBlock,
+  agentPromptBlock,
+  takeawaysBlock,
+  labeledListBlock,
+  keyPointBlock,
   assetImageBlock,
   assetFileBlock,
 ];

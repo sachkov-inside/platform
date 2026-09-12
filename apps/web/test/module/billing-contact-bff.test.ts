@@ -159,6 +159,7 @@ it("keeps the exact document editions the checkout must present", async () => {
   const documents = [
     {
       kind: "recurring",
+      appliesTo: ["subscription"],
       documentId: "recurring",
       version: "2026-09-01",
       digest: "b".repeat(64),

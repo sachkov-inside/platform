@@ -15,6 +15,48 @@ const paragraph = (value: string): MaterialPreviewBlock => ({
   kind: "paragraph",
 });
 
+const longFixtureText =
+  "Длинный текст без переносов проверяет перенос строк и горизонтальную прокрутку: " +
+  "решение фиксируется один раз, а проверка повторяется на каждом изменении, поэтому " +
+  "формулировка остаётся длинной и подробной даже на узком экране.";
+
+/** Блоки урока с длинным содержимым: проверка переноса на самой узкой ширине. */
+export const longLessonBlocks: readonly MaterialPreviewBlock[] = [
+  { content: [text(longFixtureText)], kind: "key_point" },
+  {
+    content: [paragraph(longFixtureText)],
+    kind: "callout",
+    title: longFixtureText,
+    tone: "warning",
+  },
+  {
+    description: longFixtureText,
+    kind: "resource_card",
+    title: longFixtureText,
+    url: "https://example.com/очень/длинный/адрес/страницы/с/разделами",
+  },
+  {
+    kind: "agent_prompt",
+    text: `${longFixtureText}\n${longFixtureText}`,
+    title: longFixtureText,
+  },
+  { content: [paragraph(longFixtureText)], kind: "takeaways", title: longFixtureText },
+  {
+    kind: "labeled_list",
+    rows: [{ description: longFixtureText, label: "Длинная метка", name: longFixtureText }],
+  },
+];
+
+/** Незаполненные блоки урока: автор вставил блок и ещё не написал содержимое. */
+export const emptyLessonBlocks: readonly MaterialPreviewBlock[] = [
+  { content: [], kind: "key_point" },
+  { content: [], kind: "callout", tone: "note" },
+  { kind: "resource_card", title: "", url: "" },
+  { kind: "agent_prompt", text: "" },
+  { content: [], kind: "takeaways", title: "" },
+  { kind: "labeled_list", rows: [] },
+];
+
 const contentVersion = 3;
 export const savedContentVersion = 4;
 
@@ -138,6 +180,36 @@ export const materialAuthoringPresentation = {
         ],
         kind: "callout",
         tone: "note",
+      },
+      {
+        content: [paragraph("Один authority на каждый факт.")],
+        kind: "callout",
+        title: "Правило одного источника",
+        tone: "definition",
+      },
+      { content: [text("Issue хранит intent, PR хранит evidence.")], kind: "key_point" },
+      {
+        content: [paragraph("Review закрыт"), paragraph("Owner дал merge GO")],
+        kind: "takeaways",
+        title: "Итоги урока",
+      },
+      {
+        kind: "labeled_list",
+        rows: [
+          { description: "Фиксирует необратимый выбор", label: "ADR", name: "Решение" },
+          { label: "Gate", name: "Проверка" },
+        ],
+      },
+      {
+        description: "Что обещает контракт доставки",
+        kind: "resource_card",
+        title: "Спецификация Platform",
+        url: "https://example.com/spec",
+      },
+      {
+        kind: "agent_prompt",
+        text: "Разбери материал и предложи три правки.",
+        title: "Промпт для разбора",
       },
       {
         kind: "code_block",

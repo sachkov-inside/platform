@@ -3,3 +3,88 @@
 .content :global(.ProseMirror-hideselection) *::selection {
   color: currentColor;
 }
+
+/*
+ * Блоки урока в редакторе выглядят так же, как у читателя: те же токены вида, та же рамка и тот
+ * же ритм. Разметку этих блоков задаёт реестр, поэтому правила опираются на его атрибуты.
+ */
+.content :global(.ProseMirror aside[data-callout]) {
+  margin-block: 2rem;
+  border: 1px solid;
+  border-radius: var(--radius-xl);
+  padding: 1rem 1.25rem;
+  font-size: 0.9375rem;
+  line-height: 1.75;
+}
+
+.content :global(.ProseMirror [data-callout-kind]) {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--callout-ink);
+}
+
+.content :global(.ProseMirror [data-callout-name]),
+.content :global(.ProseMirror [data-takeaways-name]),
+.content :global(.ProseMirror [data-agent-prompt-name]) {
+  margin: 0.25rem 0 0;
+  font-weight: 600;
+}
+
+.content :global(.ProseMirror [data-callout-name]:empty),
+.content :global(.ProseMirror [data-agent-prompt-name]:empty) {
+  display: none;
+}
+
+.content :global(.ProseMirror [data-callout-body] > *:first-child),
+.content :global(.ProseMirror [data-takeaways-body] > *:first-child) {
+  margin-top: 0.5rem;
+}
+
+.content :global(.ProseMirror section[data-material-block="takeaways"]) {
+  margin-block: 2rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: color-mix(in oklab, var(--secondary) 60%, var(--card));
+  padding: 1.25rem;
+}
+
+.content :global(.ProseMirror [data-takeaways-body] > p) {
+  position: relative;
+  margin-block: 0.5rem;
+  padding-inline-start: 1.5rem;
+}
+
+.content :global(.ProseMirror [data-takeaways-body] > p)::before {
+  content: "✓";
+  position: absolute;
+  inset-inline-start: 0;
+  color: var(--action);
+  font-weight: 600;
+}
+
+.content :global(.ProseMirror div[data-material-block="agentPrompt"]) {
+  margin-block: 2rem;
+  border-radius: var(--radius-xl);
+  background: var(--sidebar);
+  color: var(--sidebar-foreground);
+  padding: 0.75rem 1.25rem 1.25rem;
+}
+
+.content :global(.ProseMirror [data-agent-prompt-body]) {
+  margin: 0.5rem 0 0;
+  overflow-x: auto;
+  font-family: var(--font-utility);
+  font-size: 0.8125rem;
+  line-height: 1.5rem;
+  white-space: pre-wrap;
+}
+
+.content :global(.ProseMirror p[data-material-block="keyPoint"]) {
+  margin-block: 2rem;
+  border-inline-start: 4px solid var(--accent);
+  padding: 0.25rem 0 0.25rem 1.25rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.5;
+}

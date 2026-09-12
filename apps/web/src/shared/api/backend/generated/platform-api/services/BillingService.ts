@@ -1125,9 +1125,23 @@ export class BillingService {
       operation: 'grants.read';
       operationId: string;
     } | {
+      accountId: string;
+      operation: 'grants.readClassification';
+      operationId: string;
+    } | {
+      accountId: string;
+      bridgeEnabled: boolean;
+      classification: 'confirmed_legacy' | 'confirmed_new' | 'unknown';
+      expectedRevision: number;
+      operation: 'grants.classify';
+      operationId: string;
+      reason: string;
+      sourceRef: string;
+      tributeStopped: boolean;
+    } | {
       operation: 'grants.previewBatch';
       operationId: string;
-      rows: Array<{
+      rows: Array<({
         accountId: string;
         rowKey: string;
         source: 'manual' | 'legacy';
@@ -1138,7 +1152,16 @@ export class BillingService {
           startsAt: any;
           validUntil: any;
         };
-      }>;
+      } | {
+        accountId: string;
+        bridgeEnabled: boolean;
+        classification: 'confirmed_legacy' | 'confirmed_new' | 'unknown';
+        expectedRevision: number;
+        reason: string;
+        rowKey: string;
+        sourceRef: string;
+        tributeStopped: boolean;
+      })>;
     } | {
       confirmedRows: any;
       expectedRevision: number;
@@ -1571,6 +1594,14 @@ export class BillingService {
         }>;
       };
     } | {
+      outcome: 'classification';
+      value: {
+        accountId: string;
+        classification: 'confirmed_legacy' | 'confirmed_new' | 'unknown';
+        recurringAllowed: boolean;
+        revision: number;
+      };
+    } | {
       expiresAt: string;
       outcome: 'grantPreview';
       previewRef: string;
@@ -1585,6 +1616,10 @@ export class BillingService {
       rows: Array<{
         result: ({
           grantRef: string;
+          ok: boolean;
+          revision: number;
+        } | {
+          classification: 'confirmed_legacy' | 'confirmed_new' | 'unknown';
           ok: boolean;
           revision: number;
         } | {

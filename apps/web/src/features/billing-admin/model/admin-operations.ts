@@ -110,9 +110,43 @@ export const grantRowSchema = z.strictObject({
     reason,
   }),
 });
+/** Решение владельца о покупателе: «неизвестно» держит автосписания закрытыми. */
+export const accountClassificationSchema = z.enum([
+  "confirmed_legacy",
+  "confirmed_new",
+  "unknown",
+]);
+const classificationTerms = {
+  classification: accountClassificationSchema,
+  sourceRef: z.string().min(1).max(256),
+  reason,
+  bridgeEnabled: z.boolean(),
+  tributeStopped: z.boolean(),
+};
+export const readClassificationInputSchema = z.strictObject({
+  operationId,
+  accountId: z.uuid(),
+});
+export const classifyAccountInputSchema = z.strictObject({
+  operationId,
+  accountId: z.uuid(),
+  expectedRevision: z.number().int().nonnegative(),
+  ...classificationTerms,
+});
+export const classificationRowSchema = z.strictObject({
+  rowKey: z.string().min(1).max(100),
+  accountId: z.uuid(),
+  expectedRevision: z.number().int().nonnegative(),
+  ...classificationTerms,
+});
+/** Одна строка набора либо выдаёт основание, либо классифицирует Account. */
+export const batchRowSchema = z.union([
+  grantRowSchema,
+  classificationRowSchema,
+]);
 export const previewBatchInputSchema = z.strictObject({
   operationId,
-  rows: z.array(grantRowSchema).min(1).max(100),
+  rows: z.array(batchRowSchema).min(1).max(100),
 });
 export const applyBatchInputSchema = z.strictObject({
   operationId,
@@ -287,6 +321,17 @@ export const grantsOutcomeSchema = envelope(
     }),
   }),
 );
+export const classificationOutcomeSchema = envelope(
+  z.object({
+    outcome: z.literal("classification"),
+    value: z.object({
+      accountId: z.uuid(),
+      classification: accountClassificationSchema,
+      revision: z.number().int().nonnegative(),
+      recurringAllowed: z.boolean(),
+    }),
+  }),
+);
 export const grantPreviewOutcomeSchema = envelope(
   z.object({
     outcome: z.literal("grantPreview"),
@@ -311,6 +356,11 @@ export const grantBatchOutcomeSchema = envelope(
         result: z.union([
           z.object({ ok: z.literal(true), grantRef: z.uuid(), revision }),
           z.object({
+            ok: z.literal(true),
+            classification: accountClassificationSchema,
+            revision,
+          }),
+          z.object({
             ok: z.literal(false),
             error: z.object({ code: z.literal("operation_conflict") }),
           }),
@@ -334,6 +384,12 @@ export type DecideRefundInput = z.infer<typeof decideRefundInputSchema>;
 export type ExecuteRefundInput = z.infer<typeof executeRefundInputSchema>;
 export type ReadGrantsInput = z.infer<typeof readGrantsInputSchema>;
 export type GrantRow = z.infer<typeof grantRowSchema>;
+export type ClassificationRow = z.infer<typeof classificationRowSchema>;
+export type BatchRow = z.infer<typeof batchRowSchema>;
+export type ReadClassificationInput = z.infer<typeof readClassificationInputSchema>;
+export type ClassifyAccountInput = z.infer<typeof classifyAccountInputSchema>;
+export type ClassificationOutcome = z.infer<typeof classificationOutcomeSchema>;
+export type AccountClassification = z.infer<typeof accountClassificationSchema>;
 export type PreviewBatchInput = z.infer<typeof previewBatchInputSchema>;
 export type ApplyBatchInput = z.infer<typeof applyBatchInputSchema>;
 export type ExtendGrantInput = z.infer<typeof extendGrantInputSchema>;

@@ -21,6 +21,8 @@ COPY --chown=node:node apps/web/package.json ./apps/web/package.json
 COPY --chown=node:node packages/runtime-identity/package.json ./packages/runtime-identity/package.json
 # The block registry compiles during install, so its sources join the dependency stage.
 COPY --chown=node:node packages/material-blocks ./packages/material-blocks
+# Published legal editions compile the same way and the API serves their consent catalogue.
+COPY --chown=node:node packages/legal ./packages/legal
 RUN --mount=type=cache,id=inside-platform-pnpm,target=/pnpm/store,uid=1000,gid=1000 \
     pnpm install --frozen-lockfile --store-dir=/pnpm/store --package-import-method=copy
 
