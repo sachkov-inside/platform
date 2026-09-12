@@ -1,12 +1,16 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
-test("guest Home without an author pin keeps the catalog and acquisition route", async ({ page }) => {
+test("guest Home without an author pin keeps the catalog and starts the purchase inside the platform", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator('[data-home-membership="inactive"]:visible')).toBeVisible();
   await expect(page.locator("#featured-title")).toHaveCount(0);
   const offer = page.getByRole("region", { name: "Подписка Inside" });
-  await expect(offer.getByRole("link", { name: "Полный доступ", exact: true })).toHaveAttribute("href", /^https?:\/\//u);
+  // Призыв к покупке ведёт на внутреннюю витрину, а не на внешний сервис в новой вкладке.
+  const fullAccess = offer.getByRole("link", { name: "Полный доступ", exact: true });
+  await expect(fullAccess).toHaveAttribute("href", "/subscription");
+  await expect(fullAccess).not.toHaveAttribute("target", /.*/u);
+  await expect(page.getByRole("link", { name: "Получить полный доступ", exact: true })).toHaveAttribute("href", "/subscription");
   expect(await offer.evaluate((element) => Boolean(element.compareDocumentPosition(document.querySelector('[aria-labelledby="home-videos"]') as Node) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
   await expect(page.getByRole("heading", { name: "Все материалы в одном каталоге" })).toHaveCount(0);
   const scan = await new AxeBuilder({ page }).analyze();

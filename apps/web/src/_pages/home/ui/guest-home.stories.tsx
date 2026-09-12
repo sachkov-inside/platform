@@ -9,7 +9,7 @@ import { publicPageEnvironment } from "@/workshop/story-environment";
 const home: HomeView = {
   ...illustratedHome,
   pinnedSeries: illustratedHome.playlists[0] ?? null,
-  membership: { kind: "inactive", acquisitionUrl: "https://t.me/tribute" },
+  membership: { kind: "inactive" },
   playlists: illustratedHome.playlists.map((series, index) => index === 0 ? {
     ...series, name: "Создаём реальный продукт с ИИ", summary: "От идеи и архитектуры до кода и деплоя. На примере самой платформы Inside.",
   } : series),
@@ -30,7 +30,8 @@ export const Ready: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("link", { name: "Открыть руководство" })).toHaveAttribute("href", `/guides/${String(home.pinnedSeries?.slug)}?from=%2F`);
-    await expect(canvas.getByRole("link", { name: /^Полный доступ$/u })).toHaveAttribute("href", "https://t.me/tribute");
+    await expect(canvas.getByRole("link", { name: /^Полный доступ$/u })).toHaveAttribute("href", "/subscription");
+    await expect(canvas.getByRole("link", { name: "Получить полный доступ" })).toHaveAttribute("href", "/subscription");
     await expect(canvas.queryByRole("heading", { name: "Все материалы в одном каталоге" })).not.toBeInTheDocument();
     const sections = Array.from(canvasElement.querySelectorAll('section[aria-labelledby], section[aria-label="Подписка Inside"]'), (section) => section.getAttribute("aria-labelledby") ?? section.getAttribute("aria-label"));
     await expect(sections).toEqual(["featured-title", "home-series", "Подписка Inside", "home-videos", "home-guides", "home-notes", "home-benefits", "home-full-access"]);
@@ -39,6 +40,11 @@ export const Ready: Story = {
 export const Mobile: Story = { ...Ready, globals: { viewport: { value: "mobile390", isRotated: false } } };
 export const ActiveMember: Story = { args: { result: { kind: "ready", value: { ...home, membership: { kind: "active" } } } }, play: noAcquisition };
 export const UnknownMembership: Story = { args: { result: { kind: "ready", value: { ...home, membership: { kind: "unknown" } } } }, play: noAcquisition };
+/** Продажа подписки выключена: предложения нет нигде, главная остаётся публичной витриной. */
+export const SubscriptionNotOffered: Story = { args: { result: { kind: "ready", value: { ...home, membership: { kind: "notOffered" } } } }, play: async ({ canvasElement }) => {
+  await noAcquisition({ canvasElement });
+  await expect(within(canvasElement).getByRole("heading", { name: "Все материалы в одном каталоге" })).toBeVisible();
+} };
 export const Empty: Story = { args: { result: { kind: "ready", value: { ...home, pinnedSeries: null, playlists: [], videos: [], guides: [], notes: [], topics: [] } } }, play: async ({ canvasElement }) => {
   const canvas = within(canvasElement);
   await expect(canvas.queryByRole("link", { name: "Открыть руководство" })).not.toBeInTheDocument();

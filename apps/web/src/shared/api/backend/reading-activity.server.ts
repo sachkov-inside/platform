@@ -9,6 +9,3 @@ export function requestSetReadingState(input: { materialId: string; commandId: s
   const { materialId, ...requestBody } = input;
   return executeGeneratedRequest((request) => new ReadingActivityService(request).setMaterialReadingState({ materialId, requestBody }), 200, { accessToken });
 }
-export function requestSeriesProgress(seriesId: string, accessToken: string) {
-  return executeGeneratedRequest((request) => new ReadingActivityService(request).getGuideReadingProgress({ guideId: seriesId }), 200, { accessToken });
-}

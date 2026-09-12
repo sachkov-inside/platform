@@ -445,7 +445,7 @@ test("requires sign-in to save a video reading mark and does not create anonymou
   ))).toBe(false);
 });
 
-test("renders a locked teaser with the configured CTA and fails closed on invalid proof", async ({
+test("renders a locked teaser whose purchase starts inside the platform and fails closed on invalid proof", async ({
   page,
   request,
 }) => {
@@ -459,17 +459,22 @@ test("renders a locked teaser with the configured CTA and fails closed on invali
       level: 1,
     }),
   ).toBeVisible();
+  const teaser = page.locator('[data-material-reader-state="access-required"]');
   await expect(
-    page.getByRole("heading", {
-      name: "Продолжение для участников",
+    teaser.getByRole("heading", {
+      name: /^Продолжение (для участников|входит в руководство)$/u,
       level: 2,
     }),
   ).toBeVisible();
-  await expect(page.getByRole("link", { name: "Получить доступ" })).toHaveAttribute(
+  // Следующий шаг ведёт внутрь платформы: оплата выбранного руководства или витрина подписки.
+  const purchase = teaser.getByRole("link", {
+    name: /^(Получить доступ|Купить руководство)$/u,
+  });
+  await expect(purchase).toHaveAttribute(
     "href",
-    process.env.FULLSTACK_MEMBERSHIP_ACQUISITION_URL ??
-      "https://t.me/tribute",
+    /^\/(?:subscription(?:\?from=[^"]+)?|guides\/[a-z0-9-]+\/buy)$/u,
   );
+  expect(await purchase.getAttribute("target")).toBeNull();
   await expect(page.getByText("Закрытое содержимое для участников")).toHaveCount(0);
 
   await expect(page.locator("[data-related-state]")).toHaveCount(0);

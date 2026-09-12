@@ -71,3 +71,36 @@ export function subscriptionHrefFrom(origin: string): Route {
     ? internalRoute("/subscription")
     : internalRoute(`/subscription?from=${encodeURIComponent(origin)}`);
 }
+
+/** Куда ведёт призыв к покупке: оплата выбранного руководства или витрина подписки. */
+export type PurchaseInvitation =
+  | { readonly kind: "guide"; readonly href: Route }
+  | { readonly kind: "subscription"; readonly href: Route };
+
+/**
+ * Один призыв к покупке для всех поверхностей: главной, закрытого материала и программы
+ * руководства. Своя цена руководства важнее тарифов — человек уже выбрал, что берёт. Выключенная
+ * продажа молчит: звать туда, где купить нечего, нельзя. Правило живёт здесь, поэтому поверхности
+ * не могут разойтись и увести человека в тупик, а покупка начинается внутри платформы.
+ */
+export function purchaseInvitation({
+  guide,
+  subscriptionOffered,
+  from,
+}: {
+  /** Руководство, которое человек сейчас смотрит, и продаётся ли оно отдельно. */
+  readonly guide?: { readonly slug: string; readonly sold: boolean } | undefined;
+  /** Продаётся ли сейчас хоть один тариф подписки. */
+  readonly subscriptionOffered: boolean;
+  /** Откуда человек пришёл: витрина вернёт его сюда после входа. */
+  readonly from?: string | undefined;
+}): PurchaseInvitation | null {
+  if (guide?.sold === true) {
+    return { kind: "guide", href: guidePurchaseHref(guide.slug) };
+  }
+  if (!subscriptionOffered) return null;
+  return {
+    kind: "subscription",
+    href: from === undefined ? internalRoute("/subscription") : subscriptionHrefFrom(from),
+  };
+}

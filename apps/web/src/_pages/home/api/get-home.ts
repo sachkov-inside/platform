@@ -77,7 +77,9 @@ export async function getHome(
   return {
     kind: "ready",
     value: {
-      membership: parsed.data.membership,
+      // Внешний адрес покупки на главную не попадает: контракт его ещё обещает, но призыв ведёт
+      // внутрь платформы, и презентационная модель знает только состояние подписки.
+      membership: { kind: parsed.data.membership.kind },
       pinnedSeries: parsed.data.pinnedSeries === null ? null : mapCollection(parsed.data.pinnedSeries),
       guides: parsed.data.guides.map(toMaterialPreview),
       notes: parsed.data.notes.map(toMaterialPreview),
