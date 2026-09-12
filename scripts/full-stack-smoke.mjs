@@ -113,10 +113,17 @@ try {
     BACKEND_BASE_URL: apiBaseUrl,
   });
   const mcpAccessToken = await fullStackIdentity.createAccessToken();
+  // Отдельный делегированный Account без единого разрешения. Отказ инструменту коммуникаций
+  // обязан зависеть от полномочий, а не от того, что накопила локальная база на владельце.
+  const mcpUnauthorizedAccessToken = await fullStackIdentity.createAccessToken(
+    "fullstack-mcp-unauthorized",
+  );
+  await establishFullStackAccount(mcpUnauthorizedAccessToken.token);
   await runPnpm(["--filter", "@inside/backend", "smoke:mcp-authoring"], {
     ...childEnvironment,
     MCP_SMOKE_ACCESS_TOKEN: mcpAccessToken.token,
     MCP_SMOKE_SERVER_URL: mcpServerUrl,
+    MCP_SMOKE_UNAUTHORIZED_ACCESS_TOKEN: mcpUnauthorizedAccessToken.token,
   });
   const memberAccessToken = await fullStackIdentity.createAccessToken(
     fullStackIdentity.memberSubject,

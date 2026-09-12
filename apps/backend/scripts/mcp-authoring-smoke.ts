@@ -7,8 +7,16 @@ import {
 } from "@modelcontextprotocol/client";
 import { z } from "zod";
 
+import { COMMUNICATIONS_PERMISSION_DENIED } from "../src/modules/communications/communications-contract.js";
+
 const serverUrl = requireEnvironment("MCP_SMOKE_SERVER_URL");
 const accessToken = requireEnvironment("MCP_SMOKE_ACCESS_TOKEN");
+// Делегированный Account без единого разрешения. У автора стенда `communications:manage` могло
+// накопиться от прежней локальной работы, и тогда отказ приходит по другой причине; отдельный
+// Account оставляет проверку про полномочия, а не про историю базы.
+const unauthorizedAccessToken = requireEnvironment(
+  "MCP_SMOKE_UNAUTHORIZED_ACCESS_TOKEN",
+);
 const topicId = "72000000-0000-4000-8000-000000000002";
 const formatId = "guide";
 const body = {
@@ -41,29 +49,34 @@ const client = new Client({
   name: "inside-platform-full-stack-smoke",
   version: "1.0.0",
 });
+const unauthorizedClient = new Client({
+  name: "inside-platform-full-stack-smoke-unauthorized",
+  version: "1.0.0",
+});
 
 try {
-  await client.connect(
-    new StreamableHTTPClientTransport(new URL(serverUrl), {
-      authProvider: { token: () => Promise.resolve(accessToken) },
-    }),
-  );
+  await client.connect(delegatedTransport(accessToken));
+  await unauthorizedClient.connect(delegatedTransport(unauthorizedAccessToken));
   // Состав набора инструментов сверяет `pnpm mcp:check`; здесь важно, что развёрнутый сервер отвечает.
   const tools = await client.listTools();
   if (tools.tools.length === 0) {
     throw new Error("MCP server exposed no tools");
   }
 
-  // Tool discovery does not grant communications authority to a Material author.
-  const denied = await callTool("communications_templates_list", {
-    operationId: "73000000-0000-4000-8000-000000000003",
-    expectedRevision: 0,
-    payload: {},
+  // Инструмент виден в наборе, но полномочий коммуникаций это не даёт. Ожидаемый код отказа
+  // приходит из контракта модуля, поэтому смена контракта меняет и сервер, и эту проверку.
+  const denied = await unauthorizedClient.callTool({
+    name: "communications_templates_list",
+    arguments: {
+      operationId: "73000000-0000-4000-8000-000000000003",
+      expectedRevision: 0,
+      payload: {},
+    },
   });
   assertField(denied, "isError", true, "communications permission denial");
   const denial = z.strictObject({
     ok: z.literal(false),
-    error: z.strictObject({ code: z.literal("forbidden") }),
+    error: z.strictObject({ code: z.literal(COMMUNICATIONS_PERMISSION_DENIED) }),
   });
   denial.parse(denied.structuredContent);
 
@@ -140,7 +153,13 @@ try {
     `MCP authoring smoke passed: ${materialId} published, previewed and unpublished\n`,
   );
 } finally {
-  await client.close();
+  await Promise.all([client.close(), unauthorizedClient.close()]);
+}
+
+function delegatedTransport(token: string): StreamableHTTPClientTransport {
+  return new StreamableHTTPClientTransport(new URL(serverUrl), {
+    authProvider: { token: () => Promise.resolve(token) },
+  });
 }
 
 function metadata(access: "free" | "membership") {

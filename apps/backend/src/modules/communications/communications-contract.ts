@@ -72,6 +72,12 @@ export const communicationsResultSchema = z.union([
   communicationsFailureSchema,
 ]);
 export type CommunicationsResult = z.infer<typeof communicationsResultSchema>;
+/**
+ * Отказ Account, у которого нет разрешения `communications:manage` (его же покрывает явный
+ * `platform:admin`). Это единственное место, где записан код такого отказа: и сам отказ, и
+ * проверка развёрнутого стенда читают его отсюда.
+ */
+export const COMMUNICATIONS_PERMISSION_DENIED = "forbidden";
 export function communicationsFailure(
   code: z.infer<typeof communicationsFailureSchema>["error"]["code"],
 ): CommunicationsResult {
