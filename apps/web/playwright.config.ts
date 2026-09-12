@@ -56,7 +56,7 @@ export default defineConfig({
         process.env.PLAYWRIGHT_BACKEND_BASE_URL ?? "http://127.0.0.1:1",
       /** Проверки нажимают на мобильный док, поэтому поднимают сервер без индикатора разработки:
        * причину и выбор угла держит `next.config.ts`. */
-      HIDE_DEV_INDICATOR: "1",
+      HIDE_DEV_INDICATOR: "true",
       /** Публичный адрес площадки читается из конфигурации, а не из заголовка запроса. */
       WEB_BASE_URL: baseURL,
     },
