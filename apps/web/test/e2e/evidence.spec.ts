@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { resolve } from "node:path";
+import { evidencePath } from "../../../../scripts/evidence-path.mjs";
 
 const outputByProject: Readonly<Record<string, string>> = {
   "desktop-chromium": "desktop.png",
@@ -20,6 +20,6 @@ test("capture the issue 49 real authenticated-shell evidence", async ({ page }, 
   await page.screenshot({
     animations: "disabled",
     fullPage: true,
-    path: resolve(process.cwd(), "../../docs/evidence/issue-49", outputName),
+    path: evidencePath("issue-49", outputName),
   });
 });
