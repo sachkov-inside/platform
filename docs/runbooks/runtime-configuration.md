@@ -26,6 +26,11 @@ machine, so a check that loaded it would confirm what a developer keeps on disk 
 code does, and would turn red for anyone running an isolated stack on their own ports. Tests declare
 the environment they rely on.
 
+`NODE_ENV` is the only thing that separates the two: exactly `test` drops the env file, and every
+other value — including an absent one, which is production — keeps it. So a local run reads `.env`
+as before, and starting an application with `NODE_ENV=test` deliberately gives it local defaults
+and no env file.
+
 | Source | Tracked | Contains | Consumer |
 | --- | --- | --- | --- |
 | `.env.example` | yes | safe local values and override names | local development reference |

@@ -1,6 +1,8 @@
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
+import { parsePlatformMode } from "./platform-config.js";
+
 export const repositoryEnvPath = fileURLToPath(
   new URL("../../../../.env", import.meta.url),
 );
@@ -14,7 +16,9 @@ export const repositoryEnvPath = fileURLToPath(
 export function repositoryEnvFilePath(
   environment: NodeJS.ProcessEnv = process.env,
 ): string | undefined {
-  return environment.NODE_ENV === "test" ? undefined : repositoryEnvPath;
+  return parsePlatformMode(environment.NODE_ENV) === "test"
+    ? undefined
+    : repositoryEnvPath;
 }
 
 let loaded = false;
