@@ -1,10 +1,10 @@
 import { beforeEach, expect, it, vi } from "vitest";
-const fakes = vi.hoisted(() => ({ token: vi.fn(), states: vi.fn(), save: vi.fn(), series: vi.fn() }));
-vi.mock("@/shared/api/backend/index.server", () => ({ requestReadingStates: fakes.states, requestSetReadingState: fakes.save, requestSeriesProgress: fakes.series }));
+const fakes = vi.hoisted(() => ({ token: vi.fn(), states: vi.fn(), save: vi.fn() }));
+vi.mock("@/shared/api/backend/index.server", () => ({ requestReadingStates: fakes.states, requestSetReadingState: fakes.save }));
 vi.mock("@/shared/auth/platform-access-token.server", () => ({ getPlatformAccessToken: fakes.token, LogtoSessionUnavailableError: class extends Error {} }));
 vi.mock("@/shared/auth/logto-bff-config.server", () => ({ readLogtoBffConfig: () => ({ baseUrl: "https://inside.example.test" }) }));
 vi.mock("@/shared/auth/index.server", async () => { const handlers = await import("@/shared/auth/authenticated-mutation-handler.server"); return { handleAuthenticatedMutation: handlers.handleAuthenticatedMutation }; });
-import { handleReadingStates, handleSetReadingState, handleSeriesProgress } from "@/features/reading-progress.server";
+import { handleReadingStates, handleSetReadingState } from "@/features/reading-progress.server";
 const materialId = "10000000-0000-4000-8000-000000000001";
 const commandId = "20000000-0000-4000-8000-000000000001";
 const state = { materialId, isRead: true, version: 3, readAt: "2026-09-07T00:00:00.000Z", updatedAt: "2026-09-07T00:00:00.000Z" };
@@ -42,8 +42,4 @@ it("bounds batch reads and returns private state without public metadata", async
  const body = new FormData(); for (let i = 0; i < 101; i++) body.append("materialId", materialId);
  expect(await (await handleReadingStates(new Request("https://inside.example.test/api/reading-progress/states", { method: "POST", headers: { origin: "https://inside.example.test" }, body }))).json()).toEqual({ kind: "invalid_input" });
  expect(fakes.states).toHaveBeenCalledTimes(1);
-});
-it("rejects inconsistent series progress", async () => {
- fakes.series.mockResolvedValue({ ok: true, body: { seriesId: materialId, read: 3, total: 2, allRead: false }, response: new Response() });
- expect(await (await handleSeriesProgress(request({ seriesId: materialId }))).json()).toEqual({ kind: "unavailable" });
 });

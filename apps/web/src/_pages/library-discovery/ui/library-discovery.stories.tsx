@@ -12,6 +12,7 @@ import {
   LibraryDiscoveryUnavailable,
   LibraryDiscoveryView,
 } from "./library-discovery-view";
+import { topicPath } from "@/shared/routing/public-page-path";
 import { publicPageEnvironment } from "@/workshop/story-environment";
 
 /**
@@ -255,7 +256,7 @@ export const EmptySeries: Story = {
 
 export const Unavailable: Story = {
   args: { result: topicResult },
-  render: () => <LibraryDiscoveryUnavailable kind="topic" slug="platform" />,
+  render: () => <LibraryDiscoveryUnavailable retryHref={topicPath("platform")} />,
   name: "Unavailable",
 };
 

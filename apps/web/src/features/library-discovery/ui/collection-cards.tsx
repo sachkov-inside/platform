@@ -10,6 +10,7 @@ import {
 } from "@/entities/material";
 import { cn } from "@/shared/lib/utils";
 import { collectionDiscoveryHref } from "@/shared/routing/material-reader";
+import { guideProgrammeHref } from "@/shared/routing/subscription-route";
 
 export interface TopicCardPresentation {
   readonly cover?: ContentCover | null | undefined;
@@ -88,7 +89,9 @@ export function PlaylistCard({
       aria-label={`${playlist.continuation === undefined ? "Открыть" : "Продолжить"} руководство ${playlist.name}`}
       className="group/playlist flex h-full min-w-0 flex-col overflow-hidden rounded-[2rem] bg-primary p-5 text-left text-white no-underline transition-transform duration-200 hover:-translate-y-0.5 focus-visible:outline-ring motion-reduce:transform-none motion-reduce:transition-none"
       data-playlist-card
-      href={collectionDiscoveryHref("series", playlist.slug, returnHref)}
+      // Начатое руководство продолжается в программе: там материалы и подсвеченное место чтения.
+      // Непрочитанное открывается со страницы продукта, где руководство сначала рассказывает о себе.
+      href={playlist.continuation === undefined ? collectionDiscoveryHref("series", playlist.slug, returnHref) : guideProgrammeHref(playlist.slug)}
       prefetch={false}
     >
       <span className="flex items-start justify-between gap-3">
