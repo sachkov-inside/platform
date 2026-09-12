@@ -15,6 +15,7 @@ source of truth for every durable fact, not a prose copy of every implementation
 | Backend module seam, slice layout, DI, persistence, REST, or import rule | `apps/backend/CODING_STANDARDS.md` for the current rule and the relevant ADR for rationale |
 | Web slice, runtime, transport, server-state, mutation, or UI implementation rule | `apps/web/CODING_STANDARDS.md` for the current rule and the relevant ADR for rationale |
 | REST contract | Controller schemas, generated OpenAPI, and the generated Web client; `pnpm api:check` owns drift detection |
+| MCP tool set | The registering module and the generated `apps/backend/mcp/tool-surface.json`; `pnpm mcp:check` owns drift detection |
 | Development, test, run, configuration, or deployment procedure | The owning README or runbook; keep exact executable commands in package/config files |
 | Agent trigger, routing, verification, or completion rule | The nearest `AGENTS.md` or `docs/agents/` contract; do not copy product/domain explanations into agent files |
 | Managed product-harness workflow | Change the canonical harness package and distribute it through the harness lifecycle; do not edit managed copies locally |

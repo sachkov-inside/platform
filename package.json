@@ -24,6 +24,8 @@
     "build": "pnpm --recursive --if-present build",
     "api:generate": "pnpm --filter @inside/backend openapi:generate && pnpm --filter @inside/web openapi:generate",
     "api:check": "pnpm --filter @inside/backend openapi:check && pnpm --filter @inside/web openapi:check",
+    "mcp:generate": "pnpm --filter @inside/backend mcp:generate",
+    "mcp:check": "pnpm --filter @inside/backend mcp:check",
     "docs:check": "node scripts/check-agent-documentation.mjs",
     "lint": "oxlint --deny-warnings --report-unused-disable-directives --ignore-pattern 'apps/backend/test/guardrails/fixtures/oxlint/**' .",
     "typecheck": "pnpm --recursive --if-present typecheck",
