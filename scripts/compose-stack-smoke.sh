@@ -29,7 +29,7 @@ fi
 # Публичная витрина отдаёт только включённое в продажу, поэтому один ответ доказывает и то, что
 # каталог засеян, и то, что продажа включена. Лишние предложения владельца проверке не мешают.
 offers_response="$(curl --fail --silent --show-error "$api_base_url/billing/offers")"
-for seeded_offer in '"name":"Материалы"' '"name":"Материалы + сопровождение"' '"mode":"one_time"'; do
+for seeded_offer in '"name":"Материалы"' '"name":"Материалы + сопровождение"' '"name":"Руководство «Создание Platform Inside»"' '"mode":"one_time"'; do
   if [[ "$offers_response" != *"$seeded_offer"* ]]; then
     echo "Seeded offer catalog is missing $seeded_offer on the public storefront" >&2
     exit 1
