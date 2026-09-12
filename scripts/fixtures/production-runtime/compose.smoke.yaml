@@ -57,3 +57,5 @@ services:
     volumes:
       - ./scripts/fixtures/production-runtime/Caddyfile:/etc/caddy/Caddyfile:ro
       - ./infra/production/runtime/platform.caddy:/etc/caddy/platform.caddy:ro
+      - ./infra/production/deploy/maintenance.caddy:/etc/caddy/maintenance.caddy:ro
+      - ./infra/production/host/primary-domain-stage.caddy:/etc/caddy/primary-domain-stage.caddy:ro

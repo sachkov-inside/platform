@@ -1,4 +1,4 @@
-inside.sachkov.dev {
+sachkov.dev, inside.sachkov.dev {
 	route {
 		@private_health path /health /health/* /_health/*
 		respond @private_health 404
@@ -18,15 +18,44 @@ inside.sachkov.dev {
 		@kinescope_authorize path /integrations/kinescope/v1/authorize
 		reverse_proxy @kinescope_authorize {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}
 
-		@mcp path /mcp
+		@mcp {
+			host inside.sachkov.dev
+			path /mcp
+		}
 		reverse_proxy @mcp {$PLATFORM_MCP_UPSTREAM:127.0.0.1:13002}
 
-		@mcp_metadata path /.well-known/oauth-protected-resource/mcp
+		@mcp_metadata {
+			host inside.sachkov.dev
+			path /.well-known/oauth-protected-resource/mcp
+		}
 		reverse_proxy @mcp_metadata {$PLATFORM_MCP_UPSTREAM:127.0.0.1:13002}
 
 		@unknown_integration path /integrations/*
 		respond @unknown_integration 404
 
+		# MCP keeps its registered resource URL and Host validation on the old domain.
+		@other_mcp path /mcp /.well-known/oauth-protected-resource/mcp
+		respond @other_mcp 404
+
+		# A code issued to the old callback has no matching cookie on the new host.
+		@old_callback {
+			host inside.sachkov.dev
+			path /callback
+		}
+		header @old_callback Cache-Control "no-store"
+		redir @old_callback https://sachkov.dev/?authentication=failed 303
+
+		@old_web host inside.sachkov.dev
+		header @old_web Cache-Control "no-store"
+		redir @old_web https://sachkov.dev{uri} 302
+
 		reverse_proxy {$PLATFORM_WEB_UPSTREAM:127.0.0.1:13000}
+	}
+}
+
+www.sachkov.dev {
+	route {
+		header Cache-Control "no-store"
+		redir https://sachkov.dev{uri} 302
 	}
 }
