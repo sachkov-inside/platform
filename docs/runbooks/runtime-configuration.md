@@ -21,6 +21,11 @@ An already exported process or container variable wins over a value from an env 
 defaults apply only when `NODE_ENV` is `development` or `test`. Missing `NODE_ENV` is treated as
 `production`, so a production process cannot silently start with local credentials or endpoints.
 
+A test-mode process reads no env file at all. The repository `.env` holds the settings of one
+machine, so a check that loaded it would confirm what a developer keeps on disk instead of what the
+code does, and would turn red for anyone running an isolated stack on their own ports. Tests declare
+the environment they rely on.
+
 | Source | Tracked | Contains | Consumer |
 | --- | --- | --- | --- |
 | `.env.example` | yes | safe local values and override names | local development reference |

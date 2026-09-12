@@ -1,7 +1,7 @@
 import { type DynamicModule, Global, Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 
-import { repositoryEnvPath } from "./load-repository-environment.js";
+import { repositoryEnvFilePath } from "./load-repository-environment.js";
 import {
   PLATFORM_CONFIG,
   parsePlatformProcessConfig,
@@ -17,12 +17,15 @@ export class PlatformConfigModule {
     process: BackendProcess = "api",
   ): DynamicModule {
     if (config === undefined) {
+      const envFilePath = repositoryEnvFilePath();
       return {
         module: PlatformConfigModule,
         imports: [
           ConfigModule.forRoot({
             cache: true,
-            envFilePath: repositoryEnvPath,
+            ...(envFilePath === undefined
+              ? { ignoreEnvFile: true }
+              : { envFilePath }),
           }),
         ],
         providers: [

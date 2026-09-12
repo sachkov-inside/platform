@@ -1,8 +1,11 @@
+import { existsSync, rmSync, writeFileSync } from "node:fs";
+
 import type { INestApplicationContext } from "@nestjs/common";
 import { ModulesContainer, NestFactory } from "@nestjs/core";
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { repositoryEnvPath } from "../src/config/load-repository-environment.js";
 import {
   PLATFORM_CONFIG,
   parsePlatformConfig,
@@ -84,6 +87,38 @@ describe("backend process composition", () => {
     application = api;
 
     expect(api.get<PlatformConfig>(PLATFORM_CONFIG)).toEqual(config);
+  });
+
+  // Личный `.env` описывает обстановку одной машины, а не поведение кода: у человека со своим
+  // стендом там его порты. Сценарий держит правило, что тестовый процесс этот файл не читает.
+  // Без такого случая правило некому охранять: в CI файла нет, поэтому его возвращение увидел бы
+  // только следующий человек, и снова как красноту в своих изменениях.
+  it("composes the declared environment even when a developer env file exists", async () => {
+    vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv(
+      "DATABASE_URL",
+      "postgresql://inside:inside@127.0.0.1:1/inside",
+    );
+
+    // Чужой файл остаётся нетронутым: его наличие и есть проверяемая обстановка.
+    const written = !existsSync(repositoryEnvPath);
+    if (written) {
+      writeFileSync(
+        repositoryEnvPath,
+        "# inside composition guardrail\nOBJECT_STORAGE_REGION=guardrail-probe\n",
+      );
+    }
+
+    try {
+      const api = await createApiApplication(undefined, { logger: false });
+      application = api;
+
+      expect(api.get<PlatformConfig>(PLATFORM_CONFIG)).toEqual(config);
+    } finally {
+      if (written) {
+        rmSync(repositoryEnvPath, { force: true });
+      }
+    }
   });
 
   it("binds one immutable config and one Prisma lifecycle in the API", async () => {
