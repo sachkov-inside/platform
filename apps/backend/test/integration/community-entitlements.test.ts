@@ -985,4 +985,100 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
       validUntil: null,
     });
   });
+
+  /** One bought Guide is a reason of its own: the chat right follows that right's own term. */
+  async function grantGuide(
+    accountId: string,
+    validUntil: string | null,
+  ): Promise<{ grantRef: string; revision: number }> {
+    const preview = await grants.previewBatch(owner, {
+      operationId: randomUUID(),
+      rows: [
+        {
+          rowKey: "guide",
+          accountId,
+          source: "manual",
+          sourceRef: randomUUID(),
+          terms: {
+            capabilities: [`guide:${randomUUID()}`],
+            reason: "Synthetic guide right",
+            startsAt: start,
+            validUntil,
+          },
+        },
+      ],
+    });
+    if (!preview.ok) throw new Error(JSON.stringify(preview));
+    const applied = await grants.applyBatch(owner, {
+      operationId: randomUUID(),
+      previewRef: preview.previewRef,
+      expectedRevision: preview.revision,
+      confirmedRows: ["guide"],
+    });
+    const row = applied.ok ? applied.rows[0]?.result : undefined;
+    if (row === undefined || !row.ok || !("grantRef" in row))
+      throw new Error(JSON.stringify(applied));
+    return { grantRef: row.grantRef, revision: row.revision };
+  }
+
+  test("a Guide right alone admits to the one shared chat, and its revocation closes it", async () => {
+    now = new Date(start);
+    const account = await member();
+    await link(account, `identity-${account}`);
+    const guide = await grantGuide(account, null);
+    const app = community(new ProviderDouble());
+
+    expect(await app.project(account)).toMatchObject({
+      ok: true,
+      entitlementRevision: 1,
+    });
+    const desired =
+      await database.prisma.telegramCommunityDesiredState.findUniqueOrThrow({
+        where: { accountId: account },
+      });
+    // The Guide right carries no end, so participation carries none either.
+    expect(desired.access).toEqual({ kind: "lifetime" });
+    expect(desired.nextBoundary).toBeNull();
+    const [admitted] = await operations(account);
+    expect(admitted).toMatchObject({
+      delivery: "pending",
+      entitlementRevision: 1,
+      purpose: "apply",
+    });
+    expect(communitySetSchema.parse(admitted?.command).access).toEqual({
+      kind: "lifetime",
+    });
+
+    expect(
+      await grants.changeGrant(owner, {
+        action: "revoke",
+        grantRef: guide.grantRef,
+        expectedRevision: guide.revision,
+        operationId: randomUUID(),
+        reason: "Owner revoked the guide right",
+      }),
+    ).toMatchObject({ ok: true });
+    await app.project(account);
+    const [, denial] = await operations(account);
+    // The last reason is gone, so the same recipient is told to close participation.
+    expect(denial).toMatchObject({ entitlementRevision: 2, purpose: "apply" });
+    expect(denial?.access).toEqual({ kind: "denied" });
+  });
+
+  test("a finite Guide right ends participation exactly at its own boundary", async () => {
+    now = new Date(start);
+    const account = await member();
+    await link(account, `identity-${account}`);
+    await grantGuide(account, finish);
+    const app = community(new ProviderDouble());
+
+    await app.project(account);
+    const [admitted] = await operations(account);
+    expect(admitted?.access).toEqual({ kind: "finite", validUntil: finish });
+
+    now = new Date(finish);
+    await app.project(account);
+    const [, denial] = await operations(account);
+    expect(denial?.access).toEqual({ kind: "denied" });
+  });
 });

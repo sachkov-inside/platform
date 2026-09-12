@@ -6,6 +6,19 @@ export const accessCapabilitySchema = z.union([
   z.templateLiteral(["guide:", z.uuid()]),
 ]);
 export type AccessCapability = z.infer<typeof accessCapabilitySchema>;
+/** Право на одно конкретное руководство, независимое от состава тарифа подписки. */
+function isGuideCapability(capability: AccessCapability): boolean {
+  return capability.startsWith("guide:");
+}
+/**
+ * Что открывает одно право на самом деле. Купленное руководство само по себе открывает общий
+ * чат сообщества: чат один на всех, и участие в нём живёт ровно сроком права на руководство.
+ */
+export function capabilitiesOpenedBy(
+  capability: AccessCapability,
+): readonly AccessCapability[] {
+  return isGuideCapability(capability) ? [capability, "community"] : [capability];
+}
 export const capabilitiesSchema = z
   .array(accessCapabilitySchema)
   .min(1)
