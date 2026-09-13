@@ -32,6 +32,7 @@ export class PersonalHomeService {
       };
       materialId: string;
       noteExcerpt?: {
+        linkUrl?: string;
         text: string;
         truncated: boolean;
       };
@@ -115,6 +116,7 @@ export class PersonalHomeService {
         };
         materialId: string;
         noteExcerpt?: {
+          linkUrl?: string;
           text: string;
           truncated: boolean;
         };
@@ -206,6 +208,7 @@ export class PersonalHomeService {
           };
           materialId: string;
           noteExcerpt?: {
+            linkUrl?: string;
             text: string;
             truncated: boolean;
           };
@@ -273,6 +276,7 @@ export class PersonalHomeService {
         };
         materialId: string;
         noteExcerpt?: {
+          linkUrl?: string;
           text: string;
           truncated: boolean;
         };
@@ -382,6 +386,7 @@ export class PersonalHomeService {
         };
         materialId: string;
         noteExcerpt?: {
+          linkUrl?: string;
           text: string;
           truncated: boolean;
         };

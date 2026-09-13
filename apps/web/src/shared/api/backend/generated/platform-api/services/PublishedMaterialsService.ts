@@ -47,6 +47,7 @@ export class PublishedMaterialsService {
       };
       materialId: string;
       noteExcerpt?: {
+        linkUrl?: string;
         text: string;
         truncated: boolean;
       };
@@ -103,6 +104,7 @@ export class PublishedMaterialsService {
       };
       materialId: string;
       noteExcerpt?: {
+        linkUrl?: string;
         text: string;
         truncated: boolean;
       };

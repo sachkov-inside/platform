@@ -32,13 +32,14 @@ export function HomeFeedView({ initialQuery, createQueryOptions, syncLocation = 
   };
   const page = catalog.firstPage;
   const unavailable = catalog.query.isError && page === undefined || page?.kind === "unavailable";
-  return <section className="home-feed" aria-labelledby="home-materials" id="materials">
-    <h2 id="home-materials">Материалы</h2>
-    <LibrarySearchControl query={catalog.searchQuery} onQueryChange={changeQuery} />
+  return <section className="home-feed" aria-label="Материалы" id="materials">
+    <div className="home-feed-toolbar">
     <div className="home-feed-formats" role="group" aria-label="Формат материала">
       {formats.map(({ slug, label }) => <button key={slug ?? "all"} type="button" aria-pressed={(catalog.searchQuery.formatSlugs[0] ?? null) === slug} onClick={() => { changeQuery({ ...catalog.searchQuery, formatSlugs: slug === null ? [] : [slug], after: null }); }}>{label}</button>)}
     </div>
-    <p className="home-feed-status" role="status">{catalog.query.isPending || catalog.query.isFetching && !catalog.query.isFetchingNextPage ? "Загружаем материалы…" : page?.kind === "ready" ? `Материалов: ${String(page.totalCount)}` : ""}</p>
+    <LibrarySearchControl compact query={catalog.searchQuery} onQueryChange={changeQuery} />
+    </div>
+    <p className="sr-only" role="status">{catalog.query.isPending || catalog.query.isFetching && !catalog.query.isFetchingNextPage ? "Загружаем материалы…" : page?.kind === "ready" ? `Материалов: ${String(page.totalCount)}` : ""}</p>
     {catalog.query.isRefetchError && !catalog.query.isFetchNextPageError && page?.kind === "ready" ? <div role="alert" className="py-4"><p>Не удалось обновить ленту. Показаны ранее загруженные материалы.</p><Button variant="outline" className="mt-3" onClick={() => void catalog.query.refetch()}>Повторить обновление</Button></div> : null}
     {unavailable ? <div className="py-10"><p>Не удалось загрузить материалы.</p><Button className="mt-4" variant="outline" onClick={() => void catalog.query.refetch()}>Попробовать ещё раз</Button></div>
       : catalog.query.isPending ? <FeedSkeleton />
@@ -52,7 +53,7 @@ function FeedSkeleton() {
 }
 
 export function HomeFeedLoading() {
-  return <section className="home-feed" aria-busy="true" aria-label="Загружаем материалы"><h2>Материалы</h2><FeedSkeleton /></section>;
+  return <section className="home-feed" aria-busy="true" aria-label="Материалы"><div className="home-feed-toolbar" aria-hidden="true" /><FeedSkeleton /></section>;
 }
 
 function replaceHomeQuery(query: LibrarySearchQuery) {

@@ -105,6 +105,7 @@ export class BookmarksService {
       };
       materialId: string;
       noteExcerpt?: {
+        linkUrl?: string;
         text: string;
         truncated: boolean;
       };

@@ -1,4 +1,4 @@
-import { ChevronRight, Clock3, LockKeyhole, Play } from "lucide-react";
+import { ChevronRight, Clock3, Link2, LockKeyhole, Play } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 
@@ -14,6 +14,7 @@ import {
 import { materialDifficultyLabel } from "../model/material-difficulty-label";
 import { materialTaxonomyLabel } from "../model/material-taxonomy-label";
 import { ContentCoverImage } from "./content-cover-image.client";
+import { feedLink } from "../model/feed-link";
 
 import { SavedMaterialReadingStatus } from "./saved-material-reading-status.client";
 
@@ -68,19 +69,23 @@ export function MaterialCard({
     const excerpt = material.access === "free" && material.availability === "available" && material.formatSlug === "note" ? material.noteExcerpt : undefined;
     const video = materialPreviewHasVideo(material);
     const duration = materialDuration(material);
+    const link = video ? undefined : feedLink(excerpt?.text ?? material.summary, excerpt?.linkUrl);
+    const cover = <AccessCover material={material}><ContentCoverImage alt="" className="aspect-video min-h-0 w-full rounded-xl" cover={material.cover ?? null} fallbackKind={video ? "video" : material.formatSlug === "note" ? "note" : "material"} fallbackSeed={material.slug} sizes="(min-width: 768px) 28rem, 100vw" /></AccessCover>;
     return <article className="home-feed-post min-w-0" data-material-id={material.slug} data-material-slug={material.slug} data-material-variant="feed">
       <div className="flex items-center gap-3">
         <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground">S</span>
         <div className="min-w-0 text-sm"><strong>Sachkov Inside</strong><p className="text-xs text-muted-foreground">{material.format}{material.publishedAt === undefined ? null : <> · <time dateTime={material.publishedAt}>{new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "short", year: "numeric", timeZone: "Europe/Moscow" }).format(new Date(material.publishedAt))}</time></>}</p></div>
       </div>
-      {material.availability !== "available" ? <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground"><LockKeyhole aria-hidden="true" className="size-3.5" />{material.availability === "locked" ? "Закрытый материал" : "Доступ не подтверждён"}</p> : null}
-      <Heading className="mt-4 text-xl font-semibold leading-snug tracking-[-0.025em]"><Link className="no-underline hover:text-action" href={readerHref} prefetch={false}>{material.title}</Link></Heading>
+      <Heading className="mt-4 text-lg font-semibold leading-snug tracking-[-0.025em]"><Link className="no-underline hover:text-action" href={readerHref} prefetch={false}>{material.title}</Link></Heading>
       <p className="home-feed-post-copy mt-3 text-base text-body-muted">{excerpt?.text ?? material.summary}</p>
-      {material.cover != null || video ? <Link className="relative mt-5 block no-underline" href={readerHref} prefetch={false} aria-label={video ? `Смотреть: ${material.title}` : material.title}>
-        <AccessCover material={material}><ContentCoverImage alt="" className="aspect-video min-h-0 w-full rounded-2xl" cover={material.cover ?? null} fallbackKind={video ? "video" : "material"} fallbackSeed={material.slug} sizes="(min-width: 768px) 48rem, 100vw" /></AccessCover>
-        {video && material.availability === "available" ? <span className="absolute inset-0 grid place-items-center"><span className="grid size-14 place-items-center rounded-full bg-primary text-primary-foreground"><Play aria-hidden="true" className="size-6 fill-current" /></span></span> : null}
+      {link === undefined ? <Link className="home-feed-artwork" href={readerHref} prefetch={false} aria-label={video ? `Смотреть: ${material.title}` : `Открыть: ${material.title}`}>
+        {cover}
+        {video && material.availability === "available" ? <span className="absolute inset-0 grid place-items-center"><span className="grid size-11 place-items-center rounded-full bg-primary text-primary-foreground"><Play aria-hidden="true" className="size-5 fill-current" /></span></span> : null}
         {duration === undefined ? null : <span className="absolute bottom-3 right-3 rounded-md bg-primary px-2 py-1 text-xs tabular-nums text-primary-foreground">{duration}</span>}
-      </Link> : null}
+      </Link> : <a className="home-feed-artwork home-feed-link-preview" href={link.href} target="_blank" rel="noopener noreferrer" aria-label={`Открыть ${link.label} в новой вкладке`}>
+        {cover}
+        <span className="home-feed-link-domain"><Link2 aria-hidden="true" className="size-4 shrink-0" />{link.label}</span>
+      </a>}
       <div className="mt-4 flex min-h-11 flex-wrap items-center justify-between gap-3">
         <Link className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold no-underline" href={readerHref} prefetch={false}>{video ? "Смотреть видео" : excerpt === undefined || excerpt.truncated ? "Читать дальше" : "Открыть заметку"}<ChevronRight aria-hidden="true" className="size-4" /></Link>
         {readingStatus}

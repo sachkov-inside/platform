@@ -14,7 +14,7 @@ test("Home exposes one client-owned feed and preserves the reader return", async
   await expect(feed.getByRole("article").first()).toBeVisible();
   await expect(feed.getByRole("group", { name: "Тема материала" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Что даёт подписка" })).toHaveCount(0);
-  const material = feed.getByRole("heading").nth(1).getByRole("link");
+  const material = feed.getByRole("heading").first().getByRole("link");
   await expect(material).toHaveAttribute("href", /\?from=%2F%3Fformat%3Dguide$/u);
   await material.click();
   await page.getByRole("link", { name: "Назад на Главную", exact: true }).click();
@@ -39,7 +39,7 @@ test("loads successive PostgreSQL feed pages without exposing protected text", a
   expect(await articles.first().getAttribute("data-material-slug")).toBe(firstSlug);
   await page.getByRole("searchbox").fill("Developer Pipeline без потери контекста");
   await expect(articles).toHaveCount(1);
-  await expect(articles.first()).toContainText("Закрытый материал");
+  await expect(articles.first().locator("[data-access-cover=locked]")).toBeVisible();
   await expect(feed).not.toContainText("Закрытое содержимое для участников");
   await expectNoSeriousAccessibilityFindings(page);
 });
@@ -69,7 +69,7 @@ test("preserves canonical RU/EN search across reload, history and sharing", asyn
   await expect(
     page.getByRole("link", { exact: true, name: "Developer Pipeline без потери контекста" }),
   ).toBeVisible();
-  await expect(page.getByText("Материалов: 2")).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Материалов: 2" })).toHaveText("Материалов: 2");
   const documentsBeforeFilter = documentRequestCount;
   const filteredResponse = page.waitForResponse(
     (response) =>
@@ -96,7 +96,7 @@ test("preserves canonical RU/EN search across reload, history and sharing", asyn
     "/?q=%D0%B0%D1%80%D1%85%D0%B8%D1%82%D0%B5%D0%BA%D1%82%D1%83%D1%80%D0%BD%D0%B0%D1%8F+07",
   );
   await expect(
-    page.getByRole("link", { name: "Архитектурная заметка 07" }),
+    page.getByRole("link", { name: "Архитектурная заметка 07", exact: true }),
   ).toBeVisible();
   await page.goBack();
   await expect(
@@ -104,7 +104,7 @@ test("preserves canonical RU/EN search across reload, history and sharing", asyn
   ).toBeVisible();
   await page.goForward();
   await expect(
-    page.getByRole("link", { name: "Архитектурная заметка 07" }),
+    page.getByRole("link", { name: "Архитектурная заметка 07", exact: true }),
   ).toBeVisible();
 
   await page.getByLabel("Поиск по материалам").fill("nothing can match 404404");

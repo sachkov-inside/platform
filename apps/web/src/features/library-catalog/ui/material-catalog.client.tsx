@@ -143,7 +143,7 @@ export function MaterialCatalogGrid({
       {items.map((material) => (
         <li className="h-full min-w-0 w-full" key={material.slug}>
           <MaterialCard
-            headingLevel="h3"
+            headingLevel={presentation === "feed" ? "h2" : "h3"}
             material={material}
             variant={presentation === "feed" ? "feed" : "row"}
             {...(returnHref === undefined ? {} : { returnHref })}

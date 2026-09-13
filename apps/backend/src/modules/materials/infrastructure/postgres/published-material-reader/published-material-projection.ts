@@ -126,7 +126,7 @@ const publishedMaterialProjectionRowSchema = z.object({
   slug: z.string(),
   title: z.string(),
   summary: z.string(),
-  note_excerpt: z.object({ text: z.string(), truncated: z.boolean() }).nullable().optional(),
+  note_excerpt: z.object({ text: z.string(), truncated: z.boolean(), linkUrl: z.string().nullable().optional() }).nullable().optional(),
   difficulty: materialDifficultySchema.nullable(),
   outcomes: z.array(z.string()),
   access: z.enum(["free", "membership", "workshop"]),
@@ -259,8 +259,14 @@ function searchProjectionQuery(
       publication.slug,
       publication.title,
       publication.summary,
-      (select jsonb_build_object('text', left(document.plain_text, 1200), 'truncated', char_length(document.plain_text) > 1200)
+      (select jsonb_build_object(
+         'text', left(document.plain_text, 1200),
+         'truncated', char_length(document.plain_text) > 1200,
+         'linkUrl', jsonb_path_query_first(material.body,
+           '$.**.marks[*] ? (@.type == "link" && @.attrs.href like_regex "^https?://").attrs.href') #>> '{}')
        from materials.material_search_documents as document
+       join materials.materials as material on material.id = document.material_id
+         and material.content_version = document.content_version
        where publication.access = 'free' and publication.format_id = 'note'
          and document.material_id = publication.material_id
          and document.content_version = publication.content_version) as note_excerpt,
@@ -1111,7 +1117,7 @@ function toProjection(
     slug: row.slug,
     title: row.title,
     summary: row.summary,
-    ...(row.note_excerpt == null ? {} : { noteExcerpt: row.note_excerpt }),
+    ...(row.note_excerpt == null ? {} : { noteExcerpt: projectNoteExcerpt(row.note_excerpt) }),
     difficulty: row.difficulty,
     outcomes: row.outcomes,
     access: row.access,
@@ -1137,4 +1143,18 @@ function toProjection(
       }),
     ),
   };
+}
+
+/** A public note may expose one link, never its private or stale body. */
+function projectNoteExcerpt(excerpt: { readonly text: string; readonly truncated: boolean; readonly linkUrl?: string | null | undefined }): NonNullable<PublishedMaterialProjectionDto["noteExcerpt"]> {
+  let linkUrl: string | undefined;
+  if (excerpt.linkUrl != null && excerpt.linkUrl.length <= 2048) {
+    try {
+      const url = new URL(excerpt.linkUrl);
+      if ((url.protocol === "https:" || url.protocol === "http:") && !url.username && !url.password && url.href.length <= 2048) linkUrl = url.href;
+    } catch {
+      // Invalid links do not invalidate the rest of a published note.
+    }
+  }
+  return { text: excerpt.text, truncated: excerpt.truncated, ...(linkUrl === undefined ? {} : { linkUrl }) };
 }

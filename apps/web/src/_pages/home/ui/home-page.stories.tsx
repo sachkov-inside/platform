@@ -12,7 +12,7 @@ const note = illustratedHome.notes[0];
 if (note === undefined) throw new Error("Expected a note fixture");
 const items = [
   ...illustratedHome.videos,
-  { ...note, access: "free" as const, availability: "available" as const, formatSlug: "note", noteExcerpt: { text: "Маленький релиз легче проверить. Один результат, одна проверка — и понятный следующий шаг.", truncated: false } },
+  { ...note, access: "free" as const, availability: "available" as const, formatSlug: "note", noteExcerpt: { text: "Маленький релиз легче проверить. Один результат, одна проверка — и понятный следующий шаг. Пример проекта — по ссылке ниже.", truncated: false, linkUrl: "https://github.com/sachkov-inside/platform" } },
   ...illustratedHome.guides,
 ];
 function feed(result?: LibraryCatalogPage) {
@@ -28,8 +28,9 @@ export const RealDataReady: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("link", { name: "Открыть руководство" })).toBeInTheDocument();
-    await expect(canvas.getByRole("heading", { name: "Материалы" })).toBeInTheDocument();
+    await expect(canvas.getByRole("region", { name: "Материалы" })).toBeInTheDocument();
     await expect(canvas.getByRole("group", { name: "Формат материала" })).toBeInTheDocument();
+    await expect(await canvas.findByRole("link", { name: "Открыть github.com в новой вкладке" })).toHaveAttribute("href", "https://github.com/sachkov-inside/platform");
     await expect(canvas.queryByText("Что даёт подписка")).not.toBeInTheDocument();
     await expect(canvas.queryByText("База знаний")).not.toBeInTheDocument();
   },

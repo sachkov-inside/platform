@@ -64,14 +64,17 @@ export function LibrarySearchPlaceholder() {
 }
 
 export function LibrarySearchControl({
+  compact = false,
   onQueryChange,
   query,
 }: {
+  readonly compact?: boolean;
   readonly onQueryChange: (query: LibrarySearchQuery) => void;
   readonly query: LibrarySearchQuery;
 }) {
   return (
     <form
+      className="min-w-0"
       onSubmit={(event) => {
         event.preventDefault();
       }}
@@ -81,7 +84,7 @@ export function LibrarySearchControl({
         <label className="sr-only" htmlFor="library-search">
           Поиск по материалам
         </label>
-        <div className={`relative flex ${searchFieldHeight} items-center gap-3 rounded-2xl bg-muted px-4`}>
+        <div className={compact ? "flex min-h-11 items-center gap-2 border-b border-border focus-within:border-foreground focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring" : `relative flex ${searchFieldHeight} items-center gap-3 rounded-2xl bg-muted px-4`}>
           <Search
             aria-hidden="true"
             className="size-5 shrink-0 text-muted-foreground"
@@ -96,7 +99,7 @@ export function LibrarySearchControl({
                 { ...changeLibraryQuery(query, { q: event.currentTarget.value }), q: event.currentTarget.value },
               );
             }}
-            placeholder="Найти материал"
+            placeholder={compact ? "Поиск" : "Найти материал"}
             type="search"
             value={query.q}
           />

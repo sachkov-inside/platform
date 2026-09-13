@@ -8,7 +8,7 @@ export interface PublishedMaterialProjectionDto {
   readonly title: string;
   readonly summary: string;
   /** Bounded current text for a free published note in the public feed. */
-  readonly noteExcerpt?: { readonly text: string; readonly truncated: boolean };
+  readonly noteExcerpt?: { readonly text: string; readonly truncated: boolean; readonly linkUrl?: string };
   /** How hard the lesson is, and what the reader can do after it. Absent for a material
    * that promises neither. */
   readonly difficulty: MaterialDifficulty | null;

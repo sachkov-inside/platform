@@ -42,6 +42,7 @@ export class ContentLibraryService {
       };
       materialId: string;
       noteExcerpt?: {
+        linkUrl?: string;
         text: string;
         truncated: boolean;
       };
@@ -160,6 +161,7 @@ export class ContentLibraryService {
       };
       materialId: string;
       noteExcerpt?: {
+        linkUrl?: string;
         text: string;
         truncated: boolean;
       };
@@ -218,6 +220,7 @@ export class ContentLibraryService {
       };
       materialId: string;
       noteExcerpt?: {
+        linkUrl?: string;
         text: string;
         truncated: boolean;
       };
@@ -277,6 +280,7 @@ export class ContentLibraryService {
         };
         materialId: string;
         noteExcerpt?: {
+          linkUrl?: string;
           text: string;
           truncated: boolean;
         };
@@ -339,6 +343,7 @@ export class ContentLibraryService {
         };
         materialId: string;
         noteExcerpt?: {
+          linkUrl?: string;
           text: string;
           truncated: boolean;
         };
@@ -401,6 +406,7 @@ export class ContentLibraryService {
         };
         materialId: string;
         noteExcerpt?: {
+          linkUrl?: string;
           text: string;
           truncated: boolean;
         };
@@ -452,6 +458,7 @@ export class ContentLibraryService {
       };
       materialId: string;
       noteExcerpt?: {
+        linkUrl?: string;
         text: string;
         truncated: boolean;
       };
@@ -545,6 +552,7 @@ export class ContentLibraryService {
           };
           materialId: string;
           noteExcerpt?: {
+            linkUrl?: string;
             text: string;
             truncated: boolean;
           };
@@ -607,6 +615,7 @@ export class ContentLibraryService {
           };
           materialId: string;
           noteExcerpt?: {
+            linkUrl?: string;
             text: string;
             truncated: boolean;
           };
@@ -669,6 +678,7 @@ export class ContentLibraryService {
           };
           materialId: string;
           noteExcerpt?: {
+            linkUrl?: string;
             text: string;
             truncated: boolean;
           };
@@ -721,6 +731,7 @@ export class ContentLibraryService {
       };
       materialId: string;
       noteExcerpt?: {
+        linkUrl?: string;
         text: string;
         truncated: boolean;
       };
@@ -809,6 +820,7 @@ export class ContentLibraryService {
       };
       materialId: string;
       noteExcerpt?: {
+        linkUrl?: string;
         text: string;
         truncated: boolean;
       };
@@ -939,6 +951,7 @@ export class ContentLibraryService {
       };
       materialId: string;
       noteExcerpt?: {
+        linkUrl?: string;
         text: string;
         truncated: boolean;
       };
@@ -1068,6 +1081,7 @@ export class ContentLibraryService {
       };
       materialId: string;
       noteExcerpt?: {
+        linkUrl?: string;
         text: string;
         truncated: boolean;
       };
