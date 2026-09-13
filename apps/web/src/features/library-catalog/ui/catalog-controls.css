@@ -1,0 +1,12 @@
+.catalog-search-compact:focus-within {
+  border-bottom-color: var(--foreground);
+}
+
+/* One stable underline replaces the global input ring on this compact control. */
+.catalog-search-compact input:focus-visible {
+  outline: none;
+}
+
+.catalog-search-compact:has(input:focus-visible) {
+  box-shadow: 0 1px 0 var(--foreground);
+}

@@ -1,6 +1,7 @@
 "use client";
 
 import { Search, X } from "lucide-react";
+import "./catalog-controls.css";
 
 import { Button } from "@/shared/ui/button";
 import {
@@ -84,7 +85,7 @@ export function LibrarySearchControl({
         <label className="sr-only" htmlFor="library-search">
           Поиск по материалам
         </label>
-        <div className={compact ? "flex min-h-11 items-center gap-2 border-b border-border focus-within:border-foreground focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring" : `relative flex ${searchFieldHeight} items-center gap-3 rounded-2xl bg-muted px-4`}>
+        <div className={compact ? "catalog-search-compact flex min-h-11 items-center gap-2 border-b border-border" : `relative flex ${searchFieldHeight} items-center gap-3 rounded-2xl bg-muted px-4`}>
           <Search
             aria-hidden="true"
             className="size-5 shrink-0 text-muted-foreground"
