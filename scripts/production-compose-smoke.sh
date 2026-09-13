@@ -544,7 +544,15 @@ if ! cmp -s apps/web/public/images/kirill-mini-app.webp "$runtime_config_dir/hom
   echo "Bundled creator avatar differs from the approved bundled asset" >&2
   exit 1
 fi
-assert_public_status GET /library 404
+# Public Next not-found pages carry HTML; integration 404 responses remain empty and fail closed.
+retired_library_status="$(curl --cacert "$runtime_config_dir/caddy-root.crt" --noproxy '*' \
+  --resolve "inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" \
+  --silent --show-error --output /dev/null --write-out '%{http_code}' \
+  "https://inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}/library")"
+if [[ "$retired_library_status" != "404" ]]; then
+  echo "Retired Library route should return 404, got $retired_library_status" >&2
+  exit 1
+fi
 assert_public_status POST /integrations/telegram/v1/membership-evidence 401
 assert_public_status POST /integrations/telegram/v1/sign-in/linked-identity 401
 assert_public_status GET /integrations/telegram/v1/sign-in/linked-identity 404
