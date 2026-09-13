@@ -189,7 +189,7 @@ try {
   });
 
   process.stdout.write(
-    `Full-stack smoke passed: Library ${webBaseUrl}/library; Reader ${webBaseUrl}/materials/kak-ustroen-inside-platform; live API ${apiBaseUrl}; delegated MCP ${mcpServerUrl}; PostgreSQL reachable\n`,
+    `Full-stack smoke passed: Home ${webBaseUrl}/; Reader ${webBaseUrl}/materials/kak-ustroen-inside-platform; live API ${apiBaseUrl}; delegated MCP ${mcpServerUrl}; PostgreSQL reachable\n`,
   );
 } catch (error) {
   if (interruptedSignal === undefined) {

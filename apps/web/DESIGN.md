@@ -249,6 +249,10 @@ not define a second layout or terminology.
 
 ### Discovery Copy
 
+Композицию главной и поведение её иллюстрации описывает
+[surface brief главной](../../.impeccable/surfaces/route-home.md).
+Размеры этой поверхности не расширяют общую систему токенов.
+
 - **Content over mechanics:** headings and labels name content or actions. Reading and discovery surfaces do not narrate pagination, query limits, projection rules, automatic relationships or other implementation mechanics.
 - **Recovery is allowed:** explanatory copy appears only when it helps the user make a decision or recover from an empty, unavailable or invalid state.
 
