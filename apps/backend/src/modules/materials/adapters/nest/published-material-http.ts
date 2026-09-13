@@ -20,6 +20,7 @@ export const publishedMaterialProjectionHttpSchema = z
     slug: z.string(),
     title: z.string(),
     summary: z.string(),
+    noteExcerpt: z.object({ text: z.string().max(2400), truncated: z.boolean() }).strict().optional(),
     difficulty: materialDifficultySchema.nullable(),
     outcomes: z.array(z.string()),
     access: z.enum(["free", "membership", "workshop"]),

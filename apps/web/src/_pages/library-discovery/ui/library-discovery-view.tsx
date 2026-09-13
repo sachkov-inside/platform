@@ -24,7 +24,7 @@ import { PublicSectionHeading } from "@/shared/ui/public-section-heading";
 import { guideProgrammeHref } from "@/shared/routing/subscription-route";
 import {
   collectionDiscoveryHref,
-  libraryMaterialReaderReturnTarget,
+  homeMaterialReaderReturnTarget,
   type MaterialReaderReturnTarget,
 } from "@/shared/routing/material-reader";
 import type { ReaderGuideArtifactsResult } from "@/features/guide-artifacts.reader";
@@ -49,7 +49,7 @@ type PublishedTopicResultResolved = Exclude<
 export function LibraryDiscoveryView({
   artifacts = { kind: "ready", artifacts: [] },
   result,
-  returnTarget = libraryMaterialReaderReturnTarget,
+  returnTarget = homeMaterialReaderReturnTarget,
 }: {
   readonly artifacts?: ReaderGuideArtifactsResult;
   readonly result: ResolvedDiscoveryResult;
@@ -217,7 +217,7 @@ function DiscoveryEmpty({ kind }: { readonly kind: LibraryDiscoveryKind }) {
         {kind === "series" ? "В руководстве пока нет материалов" : "В теме пока нет материалов"}
       </h2>
       <Button asChild className="mt-6" size="lg" variant="outline">
-        <Link href="/library">Открыть Базу знаний</Link>
+        <Link href="/">Открыть материалы</Link>
       </Button>
     </section>
   );
@@ -355,9 +355,9 @@ export function LibraryDiscoveryNotFound() {
     <DiscoveryStatus
       action={
         <Button asChild size="lg">
-          <Link href="/library">
+          <Link href="/">
             <ArrowLeft aria-hidden="true" />
-            В Базу знаний
+            На главную
           </Link>
         </Button>
       }

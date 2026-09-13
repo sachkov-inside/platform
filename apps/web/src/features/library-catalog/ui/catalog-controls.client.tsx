@@ -79,7 +79,7 @@ export function LibrarySearchControl({
     >
       <div>
         <label className="sr-only" htmlFor="library-search">
-          Поиск по Базе знаний
+          Поиск по материалам
         </label>
         <div className={`relative flex ${searchFieldHeight} items-center gap-3 rounded-2xl bg-muted px-4`}>
           <Search
@@ -93,10 +93,10 @@ export function LibrarySearchControl({
             name="q"
             onChange={(event) => {
               onQueryChange(
-                changeLibraryQuery(query, { q: event.currentTarget.value }),
+                { ...changeLibraryQuery(query, { q: event.currentTarget.value }), q: event.currentTarget.value },
               );
             }}
-            placeholder="Материал, руководство, тема или тег"
+            placeholder="Найти материал"
             type="search"
             value={query.q}
           />

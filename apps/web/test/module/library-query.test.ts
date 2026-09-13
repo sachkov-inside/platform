@@ -3,8 +3,8 @@ import { QueryClient } from "@tanstack/react-query";
 
 import { GET } from "../../app/api/library/materials/route";
 import { GET as GET_TOPIC_MATERIALS } from "../../app/api/library/topics/[topicSlug]/materials/route";
-import { handleLibraryCatalogRequest } from "@/_pages/library.server";
-import { libraryCatalogQueryKey } from "@/_pages/library";
+import { handleLibraryCatalogRequest } from "@/features/library-catalog.server";
+import { libraryCatalogQueryKey } from "@/features/library-catalog";
 import {
   libraryCatalogQueryOptions,
   requestLibraryCatalogPage,

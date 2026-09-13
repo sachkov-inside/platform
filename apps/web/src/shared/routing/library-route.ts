@@ -48,11 +48,11 @@ function normalizeLibraryTopic(value: string | undefined): string | null {
 
 export function libraryRouteHref(state: LibraryRouteState): Route {
   const search = serializeLibraryRouteSearch(state);
-  return internalRoute(search.length === 0 ? "/library" : `/library?${search}`);
+  return internalRoute(search.length === 0 ? "/" : `/?${search}`);
 }
 
 export function readCanonicalLibraryRouteHref(url: URL): Route | undefined {
-  if (url.pathname !== "/library" || url.hash.length > 0) return undefined;
+  if (url.pathname !== "/" || url.hash.length > 0) return undefined;
   const state = parseLibraryRouteSearch(url.searchParams);
   return url.searchParams.toString() === serializeLibraryRouteSearch(state)
     ? libraryRouteHref(state)

@@ -56,7 +56,8 @@ test("author Home pin persists for guests and members, replaces and removes thro
       await viewer.goto("/");
       await expect(viewer.locator("#featured-title:visible")).toHaveText("Demo · Релиз своего проекта");
       await expect(viewer.getByRole("link", { name: "Открыть руководство", exact: true })).toHaveAttribute("href", "/guides/demo-series-release?from=%2F");
-      await expect(viewer.locator(".home-presenter img:visible")).toBeVisible();
+      await expect(viewer.locator(".home-guide-animation:visible")).toBeVisible();
+      await expect(viewer.getByRole("button", { name: "Остановить анимацию" })).toBeVisible();
     }
     const scan = await new AxeBuilder({ page: guestPage }).analyze();
     expect(scan.violations.filter((violation) => violation.impact === "serious" || violation.impact === "critical")).toEqual([]);

@@ -103,9 +103,9 @@ export function AuthoringShell({ children }: { readonly children: ReactNode }) {
               label="Оплата и права"
             />
             <AuthoringLink
-              href="/library"
+              href="/"
               icon={<LibraryBig aria-hidden="true" />}
-              label="База знаний"
+              label="Материалы"
             />
           </nav>
           <div className="mt-auto border-t border-sidebar-border pt-3">
@@ -146,7 +146,7 @@ export function AuthoringShell({ children }: { readonly children: ReactNode }) {
           >
             <ListOrdered aria-hidden="true" />
           </MobileLink>
-          <MobileLink href="/library" label="База знаний">
+          <MobileLink href="/" label="Материалы">
             <LibraryBig aria-hidden="true" />
           </MobileLink>
           <MobileLink href="/" label="Сайт">

@@ -2,7 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 const destinations = [
-  { path: "/library", label: "База знаний", heading: "База знаний" },
+  { path: "/", label: "Главная", heading: "Главная" },
 ] as const;
 
 for (const destination of destinations) {
@@ -21,7 +21,7 @@ for (const destination of destinations) {
 
     const navigation = getPrimaryNavigation(page, testInfo.project.name);
     await expect(navigation.getByRole("link")).toHaveCount(
-      navigationMode(testInfo.project.name) === "mobile" ? 4 : 3,
+      navigationMode(testInfo.project.name) === "mobile" ? 3 : 2,
     );
     await expect(
       navigation.getByRole("link", { name: destination.label, exact: true }),
@@ -50,7 +50,7 @@ test("root remains the canonical Home route", async ({ page }) => {
 
   await expect(page).toHaveURL(/\/$/u);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "Главная временно недоступна",
+    "Главная",
   );
 });
 
@@ -65,7 +65,7 @@ test("map remains available by direct URL without a primary navigation item", as
   );
   const navigation = getPrimaryNavigation(page, testInfo.project.name);
   await expect(navigation.getByRole("link")).toHaveCount(
-    navigationMode(testInfo.project.name) === "mobile" ? 4 : 3,
+    navigationMode(testInfo.project.name) === "mobile" ? 3 : 2,
   );
   await expect(navigation.getByRole("link", { name: "Карта" })).toHaveCount(0);
 });
@@ -73,7 +73,7 @@ test("map remains available by direct URL without a primary navigation item", as
 test("guest signs in through the desktop header or mobile Profile", async ({
   page,
 }, testInfo) => {
-  await page.goto("/library");
+  await page.goto("/");
   if (navigationMode(testInfo.project.name) === "mobile") {
     await expect(page.locator("[data-public-header]")).toBeHidden();
     await page
@@ -114,7 +114,7 @@ for (const state of ["authenticated", "unavailable"] as const) {
     await page.route("**/api/account", (route) =>
       route.fulfill({ json: linkedAccountPresentation() }),
     );
-    await page.goto("/library");
+    await page.goto("/");
     const trigger = page.getByRole("button", {
       name: state === "authenticated" ? "Аккаунт" : "Сессия",
       exact: true,
@@ -164,7 +164,7 @@ test("unlinked Account sees centered onboarding once per authenticated session",
     }),
   );
 
-  await page.goto("/library");
+  await page.goto("/");
   const dialog = page.getByRole("dialog", { name: "Подключите Telegram" });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByText("Доступ не активен")).toHaveCount(0);
@@ -298,7 +298,7 @@ test("Telegram onboarding keeps the final linked result visible without Membersh
     });
   });
 
-  await page.goto("/library");
+  await page.goto("/");
   const dialog = page.locator(
     "dialog[aria-labelledby='telegram-onboarding-heading']",
   );
@@ -343,7 +343,7 @@ test("manager shell preserves desktop editor access and the four-item mobile doc
   await page.route("**/api/account", (route) =>
     route.fulfill({ json: linkedAccountPresentation() }),
   );
-  await page.goto("/library");
+  await page.goto("/");
 
   const editorLink = (
     getPrimaryNavigation(page, testInfo.project.name)
@@ -404,7 +404,7 @@ test("auth control hydrates without a server-client mismatch", async ({
     }
   });
 
-  await page.goto("/library");
+  await page.goto("/");
   if (navigationMode(testInfo.project.name) === "mobile") {
     await expect(
       page
@@ -425,7 +425,7 @@ test("failed authentication returns a visible recoverable state", async ({
 }, testInfo) => {
   await page.goto("/?authentication=failed");
 
-  const feedback = page.getByRole("status");
+  const feedback = page.getByRole("status").filter({ hasText: "Вход не завершён" });
   await expect(feedback).toContainText("Вход не завершён. Повторите попытку");
 
   if (navigationMode(testInfo.project.name) === "mobile") {
@@ -450,7 +450,7 @@ test("incomplete global logout is reported without claiming success", async ({
 }) => {
   await page.goto("/?authentication=logout-incomplete");
 
-  await expect(page.getByRole("status")).toContainText(
+  await expect(page.getByRole("status").filter({ hasText: "Локальная сессия завершена" })).toContainText(
     "Локальная сессия завершена, но глобальный выход не подтверждён",
   );
 });
@@ -461,14 +461,14 @@ test("navigation works with pointer input", async ({ page }, testInfo) => {
   const libraryLink = (
     getPrimaryNavigation(page, testInfo.project.name)
   ).getByRole("link", {
-    name: "База знаний",
+    name: "Главная",
     exact: true,
   });
   await libraryLink.click();
 
-  await expect(page).toHaveURL(/\/library$/u);
+  await expect(page).toHaveURL(/\/$/u);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "База знаний",
+    "Главная",
   );
 });
 
@@ -481,7 +481,7 @@ test("header stays fixed while desktop content scrolls", async ({
   const before = await header.boundingBox();
   const main = page.getByRole("main");
   const mainBefore = await main.boundingBox();
-  await header.getByRole("link", { name: "База знаний", exact: true }).hover();
+  await header.getByRole("link", { name: "Главная", exact: true }).hover();
   await expect.poll(() => main.boundingBox()).toEqual(mainBefore);
   await main.evaluate((element) => {
     element.scrollTop = 300;
@@ -493,7 +493,7 @@ test("mobile uses the bottom dock without a public header", async ({
   page,
 }, testInfo) => {
   test.skip(navigationMode(testInfo.project.name) !== "mobile");
-  await page.goto("/library");
+  await page.goto("/");
   await expect(page.locator("[data-public-header]")).toBeHidden();
   await expect(page.getByRole("button", { name: "Открыть меню" })).toHaveCount(
     0,
@@ -507,7 +507,7 @@ test("mobile uses the bottom dock without a public header", async ({
 test("keyboard reaches the visible desktop or mobile navigation", async ({
   page,
 }, testInfo) => {
-  await page.goto("/library");
+  await page.goto("/");
   await page.keyboard.press("Tab");
   await expect(
     page.getByRole("link", { name: "Перейти к содержанию" }),
@@ -525,7 +525,7 @@ test("keyboard reaches the visible desktop or mobile navigation", async ({
   ).toBeFocused();
   await page.keyboard.press("Tab");
   const libraryLink = navigation.getByRole("link", {
-    name: "База знаний",
+    name: "Закладки",
     exact: true,
   });
   await expect(libraryLink).toBeFocused();
@@ -549,11 +549,11 @@ test("shell exposes essential landmarks to assistive technology", async ({
   }
   expect(accessibilityTree).toContain("- main:");
   expect(accessibilityTree).toContain(
-    '- heading "Главная временно недоступна" [level=1]',
+    '- heading "Главная" [level=1]',
   );
   const navigation = getPrimaryNavigation(page, testInfo.project.name);
   await expect(
-    navigation.getByRole("link", { name: "База знаний", exact: true }),
+    navigation.getByRole("link", { name: "Главная", exact: true }),
   ).toBeVisible();
   if (navigationMode(testInfo.project.name) === "mobile") {
     const audit = await new AxeBuilder({ page })
@@ -570,7 +570,7 @@ test("shell exposes essential landmarks to assistive technology", async ({
 test("content reflows without horizontal page overflow at 200% text size", async ({
   page,
 }, testInfo) => {
-  await page.goto("/library");
+  await page.goto("/");
   await page.locator("html").evaluate((element) => {
     element.style.fontSize = "200%";
   });
@@ -590,12 +590,12 @@ test("reduced motion removes navigation transitions", async ({
   page,
 }, testInfo) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.goto("/library");
+  await page.goto("/");
 
   const transitionProperty = await (
     getPrimaryNavigation(page, testInfo.project.name)
   )
-    .getByRole("link", { name: "База знаний", exact: true })
+    .getByRole("link", { name: "Главная", exact: true })
     .evaluate((element) => getComputedStyle(element).transitionProperty);
 
   expect(transitionProperty).toBe("none");
@@ -604,11 +604,11 @@ test("reduced motion removes navigation transitions", async ({
 test("current destination exposes its semantic selected state", async ({
   page,
 }, testInfo) => {
-  await page.goto("/library");
+  await page.goto("/");
 
   const navigation = getPrimaryNavigation(page, testInfo.project.name);
   const current = navigation.getByRole("link", {
-    name: "База знаний",
+    name: "Главная",
     exact: true,
   });
   await expect(current).toHaveAttribute("aria-current", "page");

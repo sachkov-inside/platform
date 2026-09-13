@@ -18,10 +18,7 @@ export interface HomeCollection {
 
 export interface HomeView {
   readonly pinnedSeries: HomeCollection | null;
-  /**
-   * `inactive` — подписки нет, а продажа включена: главная зовёт на внутреннюю витрину.
-   * Адрес покупки главная не получает: куда вести, решает `purchaseInvitation`.
-   */
+  /** Existing backend home projection; purchase calls to action are not rendered here. */
   readonly membership:
     | { readonly kind: "active" }
     | { readonly kind: "inactive" }

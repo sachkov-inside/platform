@@ -5,7 +5,6 @@ import type { ApplicationNavigationItem } from "../ui/application-shell.client";
 /** Разделы публичной шапки. Один источник для приложения и для Storybook. */
 export const publicNavigationItems = [
   { href: "/", icon: "home", label: "Главная" },
-  { href: "/library", icon: "library", label: "База знаний" },
   { href: "/bookmarks", icon: "bookmark", label: "Закладки" },
 ] as const satisfies readonly ApplicationNavigationItem[];
 

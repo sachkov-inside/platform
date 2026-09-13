@@ -27,6 +27,7 @@ export function InfiniteMaterialCatalog({
   returnHref,
   totalCount,
   withoutHeading = false,
+  presentation = "catalog",
 }: {
   readonly hasNextPage: boolean;
   readonly isFetchNextPageError: boolean;
@@ -36,6 +37,7 @@ export function InfiniteMaterialCatalog({
   readonly returnHref?: Route;
   readonly totalCount: number;
   readonly withoutHeading?: boolean;
+  readonly presentation?: "catalog" | "feed";
 }) {
   const loadSentinelRef = useRef<HTMLDivElement>(null);
   const materialCount = pages.reduce((count, page) => count + page.items.length, 0);
@@ -66,6 +68,7 @@ export function InfiniteMaterialCatalog({
     <>
       {pages.map((page, pageIndex) => (
         <MaterialCatalogGrid
+          presentation={presentation}
           className="mt-4"
           items={page.items}
           key={page.items[0]?.slug ?? `catalog-page-${String(pageIndex + 1)}`}
@@ -119,11 +122,13 @@ export function InfiniteMaterialCatalog({
 
 export function MaterialCatalogGrid({
   className = "",
+  presentation = "catalog",
   items,
   label,
   returnHref,
 }: {
   readonly className?: string;
+  readonly presentation?: "catalog" | "feed";
   readonly items: ReadyLibraryCatalogPage["items"];
   readonly label?: string;
   readonly returnHref?: Route;
@@ -131,7 +136,7 @@ export function MaterialCatalogGrid({
   return (
     <ul
       {...(label === undefined ? {} : { "aria-label": label })}
-      className={`${className} grid grid-cols-1 items-stretch gap-3 @min-[44rem]/library:grid-cols-2`}
+      className={`${className} ${presentation === "feed" ? "home-feed-list" : "grid grid-cols-1 items-stretch gap-3 @min-[44rem]/library:grid-cols-2"}`}
       data-material-grid
       role="list"
     >
@@ -140,7 +145,7 @@ export function MaterialCatalogGrid({
           <MaterialCard
             headingLevel="h3"
             material={material}
-            variant="row"
+            variant={presentation === "feed" ? "feed" : "row"}
             {...(returnHref === undefined ? {} : { returnHref })}
           />
         </li>

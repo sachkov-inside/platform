@@ -45,7 +45,6 @@ export function AccountCabinet({ children, options }: AccountCabinetProps) {
   const subscriptionOffered = subscriptionOfferedIn(options);
   const billing = useQuery({
     ...currentBillingQueryOptions(),
-    enabled: !subscriptionOffered,
   });
   const subscription =
     billing.data?.ok === true ? billing.data.value.subscription : null;

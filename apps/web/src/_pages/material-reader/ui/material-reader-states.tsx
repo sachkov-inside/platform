@@ -12,7 +12,7 @@ import type { MaterialReaderMetadata } from "@/_pages/material-reader/model/mate
 import type { SeriesReaderContext } from "@/_pages/material-reader/model/series-reader-context";
 import { Button } from "@/shared/ui/button";
 import {
-  libraryMaterialReaderReturnTarget,
+  homeMaterialReaderReturnTarget,
   type MaterialReaderReturnTarget,
 } from "@/shared/routing/material-reader";
 import type { PurchaseInvitation } from "@/shared/routing/subscription-route";
@@ -47,7 +47,7 @@ export function MaterialReaderLoading() {
 }
 
 export function MaterialReaderNotFound({
-  returnTarget = libraryMaterialReaderReturnTarget,
+  returnTarget = homeMaterialReaderReturnTarget,
 }: {
   readonly returnTarget?: MaterialReaderReturnTarget;
 }) {
@@ -102,7 +102,7 @@ export function MaterialReaderAccess({
   readingAction,
   invitation,
   material,
-  returnTarget = libraryMaterialReaderReturnTarget,
+  returnTarget = homeMaterialReaderReturnTarget,
   seriesContext = null,
 }: {
   readonly readingAction?: React.ReactNode;
@@ -176,7 +176,7 @@ export function MaterialReaderAccess({
 
 export function MaterialReaderUnavailable({
   retryHref,
-  returnTarget = libraryMaterialReaderReturnTarget,
+  returnTarget = homeMaterialReaderReturnTarget,
 }: {
   readonly retryHref: Route;
   readonly returnTarget?: MaterialReaderReturnTarget;
@@ -203,7 +203,7 @@ export function MaterialReaderUnavailable({
 
 export function MaterialReaderUnexpectedError({
   onRetry,
-  returnTarget = libraryMaterialReaderReturnTarget,
+  returnTarget = homeMaterialReaderReturnTarget,
 }: {
   readonly onRetry: () => void;
   readonly returnTarget?: MaterialReaderReturnTarget;

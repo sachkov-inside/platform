@@ -126,6 +126,7 @@ const publishedMaterialProjectionRowSchema = z.object({
   slug: z.string(),
   title: z.string(),
   summary: z.string(),
+  note_excerpt: z.object({ text: z.string(), truncated: z.boolean() }).nullable().optional(),
   difficulty: materialDifficultySchema.nullable(),
   outcomes: z.array(z.string()),
   access: z.enum(["free", "membership", "workshop"]),
@@ -258,6 +259,11 @@ function searchProjectionQuery(
       publication.slug,
       publication.title,
       publication.summary,
+      (select jsonb_build_object('text', left(document.plain_text, 1200), 'truncated', char_length(document.plain_text) > 1200)
+       from materials.material_search_documents as document
+       where publication.access = 'free' and publication.format_id = 'note'
+         and document.material_id = publication.material_id
+         and document.content_version = publication.content_version) as note_excerpt,
       publication.difficulty,
       publication.outcomes,
       publication.access,
@@ -1105,6 +1111,7 @@ function toProjection(
     slug: row.slug,
     title: row.title,
     summary: row.summary,
+    ...(row.note_excerpt == null ? {} : { noteExcerpt: row.note_excerpt }),
     difficulty: row.difficulty,
     outcomes: row.outcomes,
     access: row.access,

@@ -1,7 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import { publishedMaterialProjectionSchema, toMaterialPreview } from "@/entities/material.model";
-import { materialResumeSchema, seriesContinuationProjectionSchema, continuationLabel } from "@/features/reading-progress";
+import { materialResumeSchema, seriesContinuationProjectionSchema, continuationLabel } from "../model/series-continuation-contract";
 import { requestLearningHome } from "@/shared/api/backend/index.server";
 import type { PersonalHomeResult } from "../model/personal-home-contract";
 const projection = z.object({

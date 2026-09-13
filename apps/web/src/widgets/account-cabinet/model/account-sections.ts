@@ -58,11 +58,9 @@ export const accountSectionById: Readonly<
 ) as Readonly<Record<AccountSectionId, AccountSection>>;
 
 /**
- * «Подписка» появляется, когда её продают или когда она уже есть. Пока её не продают и у
- * человека её нет, раздел не занимает место: кабинет остаётся полезным без подписки.
+ * Раздел подписки доступен для управления уже купленной подпиской.
  */
 export function visibleAccountSections({
-  subscriptionOffered,
   subscriptionOwned,
 }: {
   readonly subscriptionOffered: boolean;
@@ -70,6 +68,6 @@ export function visibleAccountSections({
 }): readonly AccountSection[] {
   return accountSections.filter(
     (section) =>
-      section.id !== "subscription" || subscriptionOffered || subscriptionOwned,
+      section.id !== "subscription" || subscriptionOwned,
   );
 }

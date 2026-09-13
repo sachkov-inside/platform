@@ -487,7 +487,7 @@ function AuthoringMaterialsStateView({
               </Button>
             )}
             <Button asChild variant="outline">
-              <Link href="/library">База знаний</Link>
+              <Link href="/">Материалы</Link>
             </Button>
           </div>
         </section>

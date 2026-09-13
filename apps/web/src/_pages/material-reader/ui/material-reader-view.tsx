@@ -20,7 +20,7 @@ import { Button } from "@/shared/ui/button";
 import { MaterialAssetFile, MaterialAssetImage } from "@/features/material-assets";
 import { MaterialPrimaryVideo } from "@/features/material-video";
 import {
-  libraryMaterialReaderReturnTarget,
+  homeMaterialReaderReturnTarget,
   type MaterialReaderReturnTarget,
 } from "@/shared/routing/material-reader";
 
@@ -54,7 +54,7 @@ export function MaterialReaderView({
   body,
   material,
   primaryVideo,
-  returnTarget = libraryMaterialReaderReturnTarget,
+  returnTarget = homeMaterialReaderReturnTarget,
   seriesContext = null,
   readingAction,
   bookmarkAction,

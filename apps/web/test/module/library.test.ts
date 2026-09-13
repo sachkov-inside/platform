@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { getLibraryCatalogPage } from "@/_pages/library.server";
+import { getLibraryCatalogPage } from "@/features/library-catalog.server";
 
 const defaultQuery = {
   after: null,

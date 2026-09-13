@@ -104,6 +104,10 @@ export class BookmarksService {
         slug: 'video' | 'guide' | 'note';
       };
       materialId: string;
+      noteExcerpt?: {
+        text: string;
+        truncated: boolean;
+      };
       outcomes: Array<string>;
       primaryVideoDurationSeconds?: number;
       primaryVideoId: string | null;

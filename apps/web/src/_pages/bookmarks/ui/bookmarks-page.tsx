@@ -34,7 +34,7 @@ export function BookmarksEmpty() {
         Сохраняйте материалы кнопкой «В закладки», и они появятся здесь.
       </p>
       <Button asChild className="mt-6" variant="outline">
-        <Link href="/library">Открыть Базу знаний</Link>
+        <Link href="/">Открыть материалы</Link>
       </Button>
     </section>
   );

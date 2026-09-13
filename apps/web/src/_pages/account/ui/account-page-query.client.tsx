@@ -7,6 +7,7 @@ import {
   accountPresentationQueryKey,
   type AccountPresentationResult,
 } from "@/features/account-access";
+import { LearningContinuation } from "@/features/reading-progress";
 import { AccountPageClient } from "./account-page.client";
 import {
   AccountLoading,
@@ -27,6 +28,8 @@ export function AccountPageQuery() {
   }
   if (query.data.kind === "unauthorized") return <AccountSignInRequired />;
   return (
+    <>
+    <LearningContinuation />
     <AccountPageClient
       initialProfile={
         query.data.presentation.profile.kind === "profile"
@@ -49,5 +52,6 @@ export function AccountPageQuery() {
         );
       }}
     />
+    </>
   );
 }

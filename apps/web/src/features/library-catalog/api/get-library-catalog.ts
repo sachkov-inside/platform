@@ -6,7 +6,7 @@ import {
   hasActiveLibrarySearch,
   type LibraryCatalogPage,
   type LibrarySearchQuery,
-} from "@/features/library-catalog";
+} from "../index";
 import {
   publishedMaterialProjectionSchema,
   toMaterialPreview,

@@ -31,6 +31,10 @@ export class PersonalHomeService {
         slug: 'video' | 'guide' | 'note';
       };
       materialId: string;
+      noteExcerpt?: {
+        text: string;
+        truncated: boolean;
+      };
       outcomes: Array<string>;
       primaryVideoDurationSeconds?: number;
       primaryVideoId: string | null;
@@ -110,6 +114,10 @@ export class PersonalHomeService {
           slug: 'video' | 'guide' | 'note';
         };
         materialId: string;
+        noteExcerpt?: {
+          text: string;
+          truncated: boolean;
+        };
         outcomes: Array<string>;
         primaryVideoDurationSeconds?: number;
         primaryVideoId: string | null;
@@ -197,6 +205,10 @@ export class PersonalHomeService {
             slug: 'video' | 'guide' | 'note';
           };
           materialId: string;
+          noteExcerpt?: {
+            text: string;
+            truncated: boolean;
+          };
           outcomes: Array<string>;
           primaryVideoDurationSeconds?: number;
           primaryVideoId: string | null;
@@ -260,6 +272,10 @@ export class PersonalHomeService {
           slug: 'video' | 'guide' | 'note';
         };
         materialId: string;
+        noteExcerpt?: {
+          text: string;
+          truncated: boolean;
+        };
         outcomes: Array<string>;
         primaryVideoDurationSeconds?: number;
         primaryVideoId: string | null;
@@ -365,6 +381,10 @@ export class PersonalHomeService {
           slug: 'video' | 'guide' | 'note';
         };
         materialId: string;
+        noteExcerpt?: {
+          text: string;
+          truncated: boolean;
+        };
         outcomes: Array<string>;
         primaryVideoDurationSeconds?: number;
         primaryVideoId: string | null;

@@ -1,1 +1,1 @@
-export { handlePersonalHome as POST } from "@/_pages/home.server";
+export { handlePersonalHome as POST } from "@/features/reading-progress.server";
