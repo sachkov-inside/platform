@@ -15,7 +15,6 @@
 .home-guide-scenes { position: relative; flex: 1; min-height: 20rem; }
 .home-guide-scene { position: absolute; inset: 0; padding: 2.5rem; opacity: 0; animation: guide-scene 16s infinite; }
 .home-guide-scene > svg { width: 2rem; height: 2rem; margin-bottom: 1rem; }
-.home-guide-scene > span { font-size: .875rem; }
 .home-guide-scene > p { margin-top: 1rem; font-size: 1.75rem; line-height: 1.25; font-weight: 600; letter-spacing: -.025em; }
 .home-guide-scene-task { animation-delay: 0s; }
 .home-guide-scene-agent { animation-delay: -12s; }

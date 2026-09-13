@@ -26,12 +26,12 @@ export function FeaturedGuide({ series }: { readonly series: HomeCollection }) {
     </div>
     <div className="home-guide-animation" data-paused={paused}>
       <div className="home-guide-scenes" aria-hidden="true">
-        <div className="home-guide-scene home-guide-scene-task"><Terminal /><span>Задача</span><p>Собрать приложение.<br />От идеи до запуска.</p><div className="home-guide-prompt">Разберёмся с требованиями<ArrowRight /></div></div>
-        <div className="home-guide-scene home-guide-scene-agent"><Code2 /><span>Работа с агентом</span><p>Планируем.<br />Пишем. Разбираемся.</p><div className="home-guide-code"><i /><i /><i /><i /></div></div>
-        <div className="home-guide-scene home-guide-scene-checks"><Check /><span>Проверка</span><p>Код работает.<br />Теперь проверим почему.</p><ul><li><Check /> Тесты</li><li><Check /> Ревью</li><li><Check /> Сборка</li></ul></div>
+        <div className="home-guide-scene home-guide-scene-task"><Terminal /><p>Собрать приложение.<br />От идеи до запуска.</p><div className="home-guide-prompt">Разберёмся с требованиями<ArrowRight /></div></div>
+        <div className="home-guide-scene home-guide-scene-agent"><Code2 /><p>Планируем.<br />Пишем. Разбираемся.</p><div className="home-guide-code"><i /><i /><i /><i /></div></div>
+        <div className="home-guide-scene home-guide-scene-checks"><Check /><p>Код работает.<br />Теперь проверим почему.</p><ul><li><Check /> Тесты</li><li><Check /> Ревью</li><li><Check /> Сборка</li></ul></div>
         <div className="home-guide-scene home-guide-scene-app"><div className="home-guide-app"><div><span /><span /><span /></div><strong>Приложение запущено</strong><p>От задачи — к результату</p><div className="home-guide-app-content"><Check /> Всё готово к следующему шагу</div></div></div>
       </div>
-      <div className="home-guide-animation-caption"><span>От задачи до приложения</span><button type="button" aria-label={paused ? "Запустить анимацию" : "Остановить анимацию"} aria-pressed={paused} onClick={() => { setPaused(!paused); }}>{paused ? <Play aria-hidden="true" /> : <Pause aria-hidden="true" />}</button></div>
+      <div className="home-guide-animation-caption"><span>Задача → агент → проверки → приложение</span><button type="button" aria-label={paused ? "Запустить анимацию" : "Остановить анимацию"} aria-pressed={paused} onClick={() => { setPaused(!paused); }}>{paused ? <Play aria-hidden="true" /> : <Pause aria-hidden="true" />}</button></div>
     </div>
   </section>;
 }
