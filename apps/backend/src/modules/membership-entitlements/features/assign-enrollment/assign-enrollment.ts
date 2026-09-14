@@ -15,6 +15,8 @@ export async function assignEnrollment(prisma: MembershipEntitlementsPrismaClien
   const snapshot = tierSnapshotSchema.safeParse(tierInput);
   if (!parsed.success || !snapshot.success) return accessFailure("invalid_input");
   const command = parsed.data;
+  // Temporary Tribute assignments require registry audience and fresh source evidence.
+  if (command.origin === "tribute" && command.terms.endPolicy === "temporary_membership") return accessFailure("invalid_input");
   if (snapshot.data.id !== command.tierId || snapshot.data.revision !== command.tierRevision) return accessFailure("revision_conflict");
   return prisma.$transaction(async tx => {
     const receipt = await readAccessReceipt(tx, actorId, command.operationId);

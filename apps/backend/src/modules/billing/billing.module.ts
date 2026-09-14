@@ -1,6 +1,8 @@
+import { ReceiveTributeController } from "./features/receive-tribute/receive-tribute.controller.js";
+import { TributeConvergence } from "./facets/tribute-convergence/tribute-convergence.js";
 import { PLATFORM_CONFIG, type PlatformConfig } from "../../config/platform-config.js";
 import { BillingContact } from "../accounts/index.js";
-import { ACCESS_GRANTS, MembershipEntitlementsModule, type AccessGrants } from "../membership-entitlements/index.js";
+import { ACCESS_GRANTS, TributeSources, MembershipEntitlementsModule, type AccessGrants } from "../membership-entitlements/index.js";
 import { BillingPayments } from "./facets/billing-payments/billing-payments.js";
 import { Tbank } from "./infrastructure/tbank/tbank.js";
 import { bankRequest } from "./infrastructure/tbank/bank-request.js";
@@ -25,8 +27,9 @@ const BILLING_BANK = Symbol("BillingBank");
 
 @Module({
   imports: [PrismaModule, AccountsModule, MembershipEntitlementsModule],
-  controllers: [ PurchaseSubscriptionController, ManageSubscriptionController, ChangePaymentMethodController, AcceptTbankNotificationController, ManageBillingController, QuotePurchaseController, ListOffersController],
+  controllers: [ReceiveTributeController, PurchaseSubscriptionController, ManageSubscriptionController, ChangePaymentMethodController, AcceptTbankNotificationController, ManageBillingController, QuotePurchaseController, ListOffersController],
   providers: [
+    { provide: TributeConvergence, inject: [PrismaClientProvider, TributeSources], useFactory: (prisma: PrismaClientProvider, sources: TributeSources) => new TributeConvergence(prisma, sources) },
     { provide: BILLING_BANK, inject: [PLATFORM_CONFIG],
       useFactory: (config: PlatformConfig) => config.tbank ? new Tbank(config.tbank, bankRequest(config.tbank.caFile)) : undefined },
     { provide: BillingPayments, inject: [PrismaClientProvider, BillingContact, ACCESS_GRANTS, BILLING_BANK],
@@ -37,10 +40,10 @@ const BILLING_BANK = Symbol("BillingBank");
       useFactory: (prisma: PrismaClientProvider, contact: BillingContact, grants: AccessGrants, bank: Tbank | undefined, payments: BillingPayments, notices: BillingNotices) =>
         new BillingSubscriptions({ prisma, contact, grants, bank, payments, notices }) },
     { provide: BillingPricing, inject: [PrismaClientProvider, ACCOUNTS], useFactory: (prisma: PrismaClientProvider, accounts: Accounts) => new BillingPricing({ prisma, accounts }) },
-    { provide: BillingOperations, inject: [PrismaClientProvider, ACCOUNTS, BillingPricing, BillingPayments, BillingSubscriptions, ACCESS_GRANTS, BILLING_BANK],
+    { provide: BillingOperations, inject: [PrismaClientProvider, ACCOUNTS, BillingPricing, BillingPayments, BillingSubscriptions, ACCESS_GRANTS, BILLING_BANK, TributeConvergence],
       useFactory: (prisma: PrismaClientProvider, accounts: Accounts, pricing: BillingPricing, payments: BillingPayments,
-        subscriptions: BillingSubscriptions, grants: AccessGrants, bank: Tbank | undefined) =>
-        new BillingOperations({ prisma, accounts, pricing, payments, subscriptions, grants, bank }) }],
-  exports: [BillingPayments, BillingSubscriptions, BillingOperations, BillingNotices, BillingPricing],
+        subscriptions: BillingSubscriptions, grants: AccessGrants, bank: Tbank | undefined, tribute: TributeConvergence) =>
+        new BillingOperations({ prisma, accounts, pricing, payments, subscriptions, grants, bank, tribute }) }],
+  exports: [TributeConvergence, BillingPayments, BillingSubscriptions, BillingOperations, BillingNotices, BillingPricing],
 })
 export class BillingModule {}

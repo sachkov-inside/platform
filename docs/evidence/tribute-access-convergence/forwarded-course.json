@@ -1,0 +1,10 @@
+{
+  "source": "left",
+  "mobile": false,
+  "checks": [
+    "PASS browser sign-in controls support keyboard focus and activation",
+    "PASS forwarded link to nonmember gives no Enrollment",
+    "PASS cabinet accessibility and viewport checks",
+    "PASS nonmember cannot read protected course material"
+  ]
+}

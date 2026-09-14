@@ -334,6 +334,12 @@ delegated Account that the launcher grants exactly `materials:manage`: the owner
 working machine may already carry `communications:manage`, and that step must read authority
 rather than the history of the local database.
 
+`pnpm smoke:enrollments` separately owns the course-recipient, catalog and provider fixtures for
+`playwright.enrollment.config.ts`; the general full-stack configuration does not run that fixture-dependent suite.
+`pnpm check:full` runs both smokes, and CI Integration runs the enrollment smoke after PostgreSQL integration tests.
+The legacy full-stack fixture freezes the seeded material corpus. Materials created afterward do not become
+accessible to that cohort without an explicit scoped basis; video checks distinguish this denial from owner access.
+
 The identity fixture of that launcher serves a JWKS, a discovery document and a refresh-token grant
 on loopback, so a signed-in session can outlive the five minutes of one access token and last the
 whole run. The five-minute lifetime itself is unchanged and the API still verifies it; the web BFF

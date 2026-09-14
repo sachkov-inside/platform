@@ -1,3 +1,4 @@
+import { TributeSources } from "./facets/tribute-sources/tribute-sources.js";
 import { Module } from "@nestjs/common";
 
 import {
@@ -20,13 +21,18 @@ import {
 @Module({
   imports: [PrismaModule, AccountsModule, WorkshopModule ],
   providers: [
+    { provide: TributeSources, inject: [PrismaClientProvider, ACCOUNTS],
+      useFactory: async (prisma: PrismaClientProvider, accounts: Accounts) => {
+        const { TelegramAccountLinks } = await import("../telegram-membership/index.js");
+        return new TributeSources({ prisma, accounts, links: new TelegramAccountLinks(prisma) });
+      } },
     {
       provide: MEMBERSHIP_ENTITLEMENTS,
       inject: [PrismaClientProvider, WORKSHOP_ENTITLEMENTS],
-      useFactory: (
-        prisma: PrismaClientProvider,
-        workshopEntitlements: WorkshopEntitlements,
-      ) => assembleMembershipEntitlements({ prisma, workshopEntitlements }),
+      useFactory: async (prisma: PrismaClientProvider, workshopEntitlements: WorkshopEntitlements) => {
+        const { TelegramAccountLinks } = await import("../telegram-membership/index.js");
+        return assembleMembershipEntitlements({ prisma, workshopEntitlements, recipientLinks: new TelegramAccountLinks(prisma) });
+      },
     },
     {
       provide: ACCESS_GRANTS,
@@ -40,6 +46,6 @@ import {
       },
     },
   ],
-  exports: [MEMBERSHIP_ENTITLEMENTS, ACCESS_GRANTS],
+  exports: [MEMBERSHIP_ENTITLEMENTS, ACCESS_GRANTS, TributeSources],
 })
 export class MembershipEntitlementsModule {}

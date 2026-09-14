@@ -1,3 +1,4 @@
+import { dismissTributeImportSchema, tributeImportReviewSchema, saveTributePolicySchema, previewTributeImportSchema, applyTributeImportSchema, reconcileTributeSchema, retryTributeInboxSchema, tributePolicySchema, tributePreviewSchema, tributeApplyResultSchema, tributeSourceViewSchema, tributeInboxViewSchema, tributeOperationsViewSchema } from "../../membership-entitlements/index.js";
 import { contentScopeEntrySchema } from "@inside/access-capabilities";
 import { z } from "zod";
 import {
@@ -23,6 +24,13 @@ const listBounds = { cursor: idSchema.optional(), limit: z.int().min(1).max(100)
  * прежние схемы, платежи и возвраты добавляют собственные. Actor приходит из adapter, не из payload.
  */
 export const ownerOperationSchema = z.discriminatedUnion("operation", [
+  z.strictObject({ ...command, operation: z.literal("tribute.status"), page: z.int().min(0).max(100000).optional() }),
+  z.strictObject({ ...dismissTributeImportSchema.shape, operation: z.literal("tribute.dismissImport") }),
+  z.strictObject({ ...saveTributePolicySchema.shape, operation: z.literal("tribute.savePolicy") }),
+  z.strictObject({ ...previewTributeImportSchema.shape, operation: z.literal("tribute.preview") }),
+  z.strictObject({ ...applyTributeImportSchema.shape, operation: z.literal("tribute.apply") }),
+  z.strictObject({ ...reconcileTributeSchema.shape, operation: z.literal("tribute.reconcile") }),
+  z.strictObject({ ...retryTributeInboxSchema.shape, operation: z.literal("tribute.retryEvent") }),
   z.strictObject({ ...command, operation: z.literal("recipients.lookup"), identityRef: z.string().trim().min(1).max(256) }),
   ...manageCatalogSchema.options,
   z.strictObject({ ...command, operation: z.literal("content.list") }),
@@ -57,7 +65,7 @@ export const ownerOperationSchema = z.discriminatedUnion("operation", [
 ]);
 export type OwnerOperation = z.infer<typeof ownerOperationSchema>;
 /** Чтение не меняет состояние: такие операции не пишут receipt и повторяются свободно. */
-export const ownerReadOperations = ["recipients.lookup", "content.list","activationRules.list", "enrollments.list", "tiers.list", "offers.list", "payments.list", "payments.read", "refunds.read", "grants.read",
+export const ownerReadOperations = ["tribute.status", "recipients.lookup", "content.list","activationRules.list", "enrollments.list", "tiers.list", "offers.list", "payments.list", "payments.read", "refunds.read", "grants.read",
   "grants.readClassification"] as const;
 const readOperations: readonly string[] = ownerReadOperations;
 export function isOwnerReadOperation(operation: string): boolean {
@@ -67,7 +75,7 @@ export function isOwnerReadOperation(operation: string): boolean {
 export const paymentViewSchema = z.strictObject({
   purchaseRef: idSchema, accountId: idSchema, kind: attemptKindSchema, state: attemptStateSchema,
   subscriptionRef: idSchema.nullable(), periodIndex: z.int().positive().nullable(),
-  amountKopecks: moneySchema, environment: z.enum(["demo", "production"]), terminalRef: z.string(),
+  amountKopecks: moneySchema, environment: z.enum(["demo", "production", "local"]), terminalRef: z.string(),
   paymentId: z.string().nullable(), snapshot: priceSnapshotSchema,
   fiscalization: z.enum(["not_configured", "pending", "confirmed", "failed"]),
   confirmedAt: z.iso.datetime().nullable(), periodEndsAt: z.iso.datetime().nullable(),
@@ -94,6 +102,13 @@ export const auditEntryViewSchema = z.strictObject({
 });
 
 export const ownerSuccessSchema = z.union([
+  z.strictObject({ outcome: z.literal("tributeImportReview"), value: tributeImportReviewSchema }),
+  z.strictObject({ outcome: z.literal("tributeStatus"), value: tributeOperationsViewSchema }),
+  z.strictObject({ outcome: z.literal("tributePolicy"), value: tributePolicySchema }),
+  z.strictObject({ outcome: z.literal("tributePreview"), value: tributePreviewSchema }),
+  z.strictObject({ outcome: z.literal("tributeApplied"), value: tributeApplyResultSchema }),
+  z.strictObject({ outcome: z.literal("tributeSource"), value: tributeSourceViewSchema }),
+  z.strictObject({ outcome: z.literal("tributeEvent"), value: tributeInboxViewSchema }),
   z.strictObject({ outcome: z.literal("sourceEntitlement"), value: sourceEntitlementViewSchema }),
   z.strictObject({ outcome: z.literal("activationRule"), value: activationRuleSchema }),
   z.strictObject({ outcome: z.literal("activationRules"), items: z.array(activationRuleSchema) }),
@@ -167,9 +182,10 @@ export function ownerPaymentFailure(code: PaymentFailureCode): Extract<OwnerResu
 }
 /** Ошибки прав переносятся в тот же закрытый набор без потери смысла. */
 export type AccessFailureCode = "invalid_input" | "not_found" | "revision_conflict" | "operation_conflict"
-  | "forbidden" | "unavailable" | "preview_expired" | "identity_changed";
+  | "forbidden" | "unavailable" | "preview_expired" | "identity_changed" | "identity_conflict";
 export function ownerAccessFailure(code: AccessFailureCode): Extract<OwnerResult, { ok: false }> {
   switch (code) {
+    case "identity_conflict": return ownerFailure("identity_changed");
     case "invalid_input": return ownerFailure("invalid_request");
     case "unavailable": return ownerFailure("dependency_unavailable");
     case "not_found": case "revision_conflict": case "operation_conflict": case "forbidden":

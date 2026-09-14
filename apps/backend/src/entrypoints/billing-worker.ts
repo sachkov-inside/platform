@@ -4,13 +4,14 @@ import { PgBoss } from "pg-boss";
 import { PLATFORM_CONFIG, type PlatformConfig } from "../config/platform-config.js";
 import { OperationalReadiness } from "../infrastructure/operational-readiness.js";
 import { runWorker } from "../infrastructure/worker-runtime.js";
-import { BillingNotices, BillingOperations, BillingPayments, BillingSubscriptions } from "../modules/billing/index.js";
+import { TributeConvergence, BillingNotices, BillingOperations, BillingPayments, BillingSubscriptions } from "../modules/billing/index.js";
 import { COMMUNITY_RECONCILIATION_INTERVAL_MS, CommunityEntitlements } from "../modules/telegram-membership/index.js";
 import { BillingWorkerModule } from "./billing-worker/billing-worker.module.js";
 
 const recoveryQueue = "billing.payment-recovery";
 const renewalQueue = "billing.subscription-renewal";
 const noticeQueue = "billing.subscription-notices";
+const tributeQueue = "tribute.source-reconciliation";
 const communityQueue = "community.entitlement-delivery";
 const communityBatchSize = 50;
 const communityIntervalSeconds = COMMUNITY_RECONCILIATION_INTERVAL_MS / 1_000;
@@ -21,6 +22,7 @@ void bootstrap().catch(() => { console.error("Billing worker failed"); process.e
 async function bootstrap(): Promise<void> {
   const application = await NestFactory.createApplicationContext(BillingWorkerModule.forRoot());
   const config = application.get<PlatformConfig>(PLATFORM_CONFIG);
+  const tribute = application.get(TributeConvergence);
   const payments = application.get(BillingPayments);
   const subscriptions = application.get(BillingSubscriptions);
   const notices = application.get(BillingNotices);
@@ -60,6 +62,13 @@ async function bootstrap(): Promise<void> {
         return result.value;
       });
       // Community delivery only runs where the provider direction is actually configured.
+      await jobs.createQueue(tributeQueue, { deleteAfterSeconds: jobRetentionSeconds, expireInSeconds: jobTimeoutSeconds, retryLimit: 0 });
+      await jobs.schedule(tributeQueue, "* * * * *", {});
+      await jobs.send(tributeQueue, {}, { singletonSeconds: jobIntervalSeconds });
+      await jobs.work(tributeQueue, async () => {
+        const report = await tribute.sweep(50);
+        if (report.pending > 0) console.warn(JSON.stringify({ process: "billing-worker", queue: tributeQueue, status: "operator_attention", pending: report.pending }));
+      });
       if (!config.communityEntitlements) return;
       await jobs.createQueue(communityQueue, { deleteAfterSeconds: jobRetentionSeconds, expireInSeconds: jobTimeoutSeconds, retryLimit: 0 });
       await jobs.schedule(communityQueue, "* * * * *", {});

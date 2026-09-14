@@ -216,6 +216,8 @@ test("a cold tab shows its destination immediately while the route response is s
 test("external Home query changes update the selected format and results", async ({ page }) => {
   await page.route("**/api/library/materials**", (route) => route.fulfill({ json: catalog }));
   await page.goto("/?format=note");
+  // SSR already exposes the selected button; loaded API content proves client navigation is mounted.
+  await expect(page.getByRole("heading", { name: "Навигация 1", exact: true })).toBeVisible();
   const notes = page.getByRole("button", { name: "Заметки", exact: true });
   await expect(notes).toHaveAttribute("aria-pressed", "true");
   // Native history integration uses the same search-parameter notification as an App Router link.

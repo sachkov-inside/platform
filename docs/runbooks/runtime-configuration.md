@@ -219,3 +219,11 @@ The pinned root was compared with the chain the bank serves and matches: SHA-256
 `D2:6D:2D:02:31:B7:C3:9F:92:CC:73:85:12:BA:54:10:35:19:E4:40:5D:68:B5:BD:70:3E:97:88:CA:8E:CF:31`.
 Verified terminal and cash-register capabilities are recorded in
 [issue-402 terminal capability](../verification/issue-402-tbank-terminal-capability.md).
+
+## Tribute source ingress
+
+Optional `TRIBUTE_API_KEY` and `TRIBUTE_SIGNATURE_ENCODING` (`hex` or `base64`) configure only the
+signed Tribute inbox. Both absent means disabled; one without the other fails configuration.
+Encoding requires a credentialed provider fixture before rollout. The key never reaches the web
+application. Billing worker reconciles pending verified sources in bounded batches independently of
+community dispatch. See [Tribute operations](tribute-access-convergence.md) for scope and gates.

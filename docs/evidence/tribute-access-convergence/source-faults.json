@@ -1,0 +1,8 @@
+{
+  "scope": "Actual accepted consumer and Platform HTTP/PG; external normalized Telegram adapter faults (not literal network429 parsing)",
+  "passed": [
+    "permission_lost yields actual consumer unavailable evidence, never not_member or Enrollment",
+    "429 yields actual consumer unavailable evidence, never not_member or Enrollment",
+    "timeout yields actual consumer unavailable evidence, never not_member or Enrollment"
+  ]
+}

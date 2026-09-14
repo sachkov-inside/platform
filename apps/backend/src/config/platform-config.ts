@@ -216,6 +216,7 @@ const platformConfigSchema = z
       })
       .readonly(),
     tbank: tbankRuntimeSchema.optional(),
+    tribute: z.strictObject({ apiKey: z.string().min(16).max(1024), signatureEncoding: z.enum(["hex", "base64"]) }).readonly().optional(),
     billingContact: z.object({
       encryptionKey: z.string().refine(value => Buffer.from(value, "base64").length === 32, "BILLING_CONTACT_ENCRYPTION_KEY must be 32 base64-encoded bytes"),
       smtpHost: z.string().min(1),
@@ -369,6 +370,8 @@ export function parsePlatformConfig(
       ? { origin: environment.NOTIFICATIONS_PLATFORM_ORIGIN, telegramSecret: environment.NOTIFICATIONS_TELEGRAM_SECRET } : undefined,
     mode,
     tbank: parseBankContour(environment),
+    tribute: environment.TRIBUTE_API_KEY === undefined && environment.TRIBUTE_SIGNATURE_ENCODING === undefined ? undefined
+      : { apiKey: environment.TRIBUTE_API_KEY, signatureEncoding: environment.TRIBUTE_SIGNATURE_ENCODING },
     billingContact: [environment.BILLING_CONTACT_ENCRYPTION_KEY, environment.BILLING_CONTACT_SMTP_HOST,
       environment.BILLING_CONTACT_SMTP_PORT, environment.BILLING_CONTACT_SMTP_USER, environment.BILLING_CONTACT_SMTP_PASSWORD,
       environment.BILLING_CONTACT_FROM].every(value => value === undefined) ? undefined : {

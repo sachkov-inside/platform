@@ -95,6 +95,9 @@ describe("Subscription Enrollment with real PostgreSQL", () => {
     const command = { operationId: randomUUID(), accountId: target, origin: "tribute", sourceRef: randomUUID(), tierId: tier.id, tierRevision: 1, terms, billingRef: null, reason: "Verified external membership" };
     expect(await grants.assignEnrollment(owner, command, tier)).toMatchObject({ ok: false, error: { code: "invalid_input" } });
     const row = value(await grants.assignEnrollment(owner, { ...command, terms: { ...terms, endsAt: "2030-02-01T00:00:00.000Z", endPolicy: "confirmed_external" } }, tier));
+    expect(await grants.changeEnrollment(owner, { operationId: randomUUID(), enrollmentId: row.id, expectedRevision: 1,
+      action: "change_term", terms: { ...terms, endsAt: "2030-02-01T00:00:00.000Z", endPolicy: "temporary_membership" },
+      reason: "Cannot create temporary audience through term change" })).toMatchObject({ ok: false, error: { code: "invalid_input" } });
     expect(await grants.changeEnrollment(owner, { operationId: randomUUID(), enrollmentId: row.id, expectedRevision: 1, action: "change_term", terms, reason: "Cannot erase external bound" })).toMatchObject({ ok: false, error: { code: "invalid_input" } });
   });
 

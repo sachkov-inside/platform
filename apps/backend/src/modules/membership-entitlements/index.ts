@@ -41,3 +41,10 @@ export { registerSourceSchema, sourceEntitlementViewSchema } from "./domain/subs
 
 export { ownSubscriptionAccessQuerySchema } from "./domain/subscription-activation.js";
 export { bindingLookupQuerySchema, bindingSnapshotSchema } from "./domain/subscription-activation.js";
+
+export { TributeSources } from "./facets/tribute-sources/tribute-sources.js";
+export { saveTributePolicySchema, previewTributeImportSchema, applyTributeImportSchema, reconcileTributeSchema, retryTributeInboxSchema, tributePolicySchema, tributePreviewSchema, tributeApplyResultSchema, tributeSourceViewSchema, tributeInboxViewSchema, tributeOperationsViewSchema } from "./domain/tribute-source.js";
+
+export { tributeWebhookSchema } from "./domain/tribute-webhook.js";
+
+export { tributeImportReviewSchema, dismissTributeImportSchema } from "./domain/tribute-source.js";

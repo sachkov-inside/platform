@@ -1,4 +1,5 @@
 "use client";
+import { TributeOperationsPanel } from "./tribute-operations-panel.client";
 import { SubscriptionSourcePanel } from "./subscription-source-panel.client";
 import { listSubscriptionTiers, readContentCatalog } from "../api/enrollments.browser";
 import { ActivationRulesPanel } from "./activation-rules-panel.client";
@@ -149,7 +150,7 @@ export function BillingAdminPanel({ offers }: BillingAdminPanelProps) {
   return (
     <BillingAdminView
       content={content.data ?? []} tiers={tiers.data ?? []} catalogLoading={content.isPending || tiers.isPending} catalogError={content.error?.message ?? tiers.error?.message}
-      enrollmentControls={<><EnrollmentAdminPanel /><ActivationRulesPanel /><SubscriptionSourcePanel /></>}
+      enrollmentControls={<><EnrollmentAdminPanel /><ActivationRulesPanel /><SubscriptionSourcePanel /><TributeOperationsPanel /></>}
       batch={batch}
       classification={classification}
       error={error}

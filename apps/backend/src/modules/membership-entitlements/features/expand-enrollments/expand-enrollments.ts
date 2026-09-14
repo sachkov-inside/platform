@@ -68,13 +68,19 @@ export async function applyEnrollmentExpansion(prisma: MembershipEntitlementsPri
       if (grant === undefined) throw new Error("Enrollment has no access grant");
       // Preserve each original capability's own paid term; expansion cannot lengthen it.
       await tx.accessGrant.updateMany({ where: { enrollmentId: row.id }, data: { contentScope: stored.tier.contentScope, ...(row.origin === "platform_payment" ? {} : { revision: { increment: 1 } }) } });
+      // New capabilities inherit the effective temporary grant, including suspended evidence.
+      const temporary = row.origin === "tribute" && row.endPolicy === "temporary_membership";
+      const temporaryRevokedAt = grants.find(item => item.revokedAt !== null)?.revokedAt ?? null;
+      const temporaryEnds = grants.map(item => item.validUntil).filter((end): end is Date => end !== null);
+      const effectiveEnd = temporary && temporaryEnds.length > 0
+        ? new Date(Math.min(...temporaryEnds.map(end => end.getTime()), row.endsAt?.getTime() ?? Infinity)) : row.endsAt;
       const previousBenefits = new Set(tierSnapshotSchema.parse(row.snapshot).benefits);
       const added = stored.tier.benefits.filter(value => !previousBenefits.has(value));
       if (added.length > 0) await tx.accessGrant.create({ data: {
         id: randomUUID(), accountId: row.accountId, enrollmentId: row.id,
         source: row.origin === "platform_payment" ? "paid" : "manual", sourceRef: `enrollment:${row.id}:expansion:${stored.tier.revision}`,
-        capabilities: added, contentScope: stored.tier.contentScope, startsAt: row.startsAt, validUntil: row.endsAt,
-        revokedAt: row.revokedAt, revision: 1, reason: stored.command.reason,
+        capabilities: added, contentScope: stored.tier.contentScope, startsAt: row.startsAt, validUntil: effectiveEnd,
+        revokedAt: row.revokedAt ?? (temporary ? temporaryRevokedAt : null), revision: 1, reason: stored.command.reason,
       } });
       await tx.accessChange.create({ data: { accountId: row.accountId, grantId: grant.id, actorId, operationId: command.operationId,
         kind: "enrollment_expanded", reason: stored.command.reason, recordedAt: now } });

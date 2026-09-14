@@ -21,13 +21,13 @@ test("owner assigns scoped course and the open cabinet converges through real BF
   await page.getByLabel("Гайд: Инженерная практика", { exact: true }).check();
   await page.getByRole("button", { name: "Сохранить предложение", exact: true }).click();
   await expect(page.getByText("Предложение сохранено, редакция 1.", { exact: true })).toBeVisible();
-  const rules = page.getByRole("heading", { name: "Активация за курс", exact: true }).locator("..");
+  const rules = page.getByRole("heading", { name: "Ссылки активации курса и Tribute", exact: true }).locator("..");
   const code = randomUUID();
   await rules.getByLabel("Идентификатор нового правила").fill(randomUUID());
   await rules.getByLabel("Название правила").fill(`Правило ${info.project.name}`);
   await rules.getByLabel("Код активации").fill(code);
   await rules.getByRole("combobox", { name: "Тариф", exact: true }).selectOption({ label: tierName });
-  await rules.getByLabel("Подтверждаемый источник курса").fill(`synthetic-course-${info.project.name}`);
+  await rules.getByLabel("Подтверждаемый источник").fill(`synthetic-course-${info.project.name}`);
   await rules.getByLabel("Начало по Москве").fill(new Date(Date.now() - 86_400_000).toISOString().slice(0, 16));
   await rules.getByLabel("Причина", { exact: true }).fill("Синтетическая публикация правила");
   await rules.getByLabel("Опубликовать правило").check();
@@ -36,8 +36,13 @@ test("owner assigns scoped course and the open cabinet converges through real BF
   await expect(rules.getByText(`Правило ${info.project.name} · Опубликовано`, { exact: true })).toBeVisible();
   const cabinet = await context.newPage(); await cabinet.goto("/account");
   async function openSubscription() {
-    if (info.project.name === "mobile-chromium") await cabinet.getByRole("button", { name: "Личный кабинет Профиль", exact: true }).click();
-    await cabinet.getByRole("link", { name: /^Подписка/u }).click();
+    const navigation = cabinet.locator(`[data-account-section-nav="${info.project.name === "mobile-chromium" ? "mobile" : "desktop"}"]`);
+    if (info.project.name === "mobile-chromium") {
+      const toggle = navigation.getByRole("button", { name: /^Личный кабинет/u });
+      if (await toggle.getAttribute("aria-expanded") !== "true") await toggle.click();
+      await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    }
+    await navigation.getByRole("link", { name: /^Подписка/u }).click();
   }
   await expect(cabinet.getByRole("dialog")).toBeVisible();
   await cabinet.keyboard.press("Escape");
@@ -102,7 +107,7 @@ test("owner assigns scoped course and the open cabinet converges through real BF
   await savedRule.getByRole("button", { name: "Обновить привязку тарифа", exact: true }).evaluate(element => { element.scrollIntoView({ block: "center" }); });
   await savedRule.getByRole("button", { name: "Обновить привязку тарифа", exact: true }).click();
   await expect(savedRule.getByText(/Закреплена редакция тарифа 3/u)).toBeVisible();
-  await expect(savedRule.getByText(`Код: ${code} · источник: synthetic-course-${info.project.name}`, { exact: true })).toBeVisible();
+  await expect(savedRule.getByText(`Код: ${code} · источник: synthetic-course-${info.project.name} · Проверка курса`, { exact: true })).toBeVisible();
   await savedRule.scrollIntoViewIfNeeded();
   expect(await savedRule.evaluate(element => element.getBoundingClientRect().right <= window.innerWidth)).toBe(true);
   await savedRule.screenshot({ path: info.outputPath("activation-rule.png") });

@@ -6,7 +6,9 @@ export function EnrollmentList({ items }: { readonly items: readonly Enrollment[
   return <div className="grid gap-5">{items.length === 0 ? <p className="text-muted-foreground">Назначенных тарифов пока нет. Разовые покупки сохраняются в разделе «Покупки».</p> : [...groups.entries()].map(([key, group]) => <section key={key} className="grid gap-5">{group.length > 1 ? <h2 className="font-semibold">Одинаковый состав · {group.length} основания</h2> : null}{group.map((item, index) =>
     <article key={item.id} className="grid gap-3 border-b border-border pb-5 last:border-0">
       <div className="flex flex-wrap items-baseline justify-between gap-2"><h3 className="text-lg font-semibold">{item.tier.name}</h3><span className="text-sm">{enrollmentStateLabels[item.state]}</span></div>
-      <p className="text-sm text-muted-foreground">{enrollmentSourceLabels[item.origin]}</p>
+      <p className="text-sm text-muted-foreground">{item.origin === "tribute" && item.endPolicy === "temporary_membership" ? "Временный доступ · срок Tribute уточняется" : enrollmentSourceLabels[item.origin]}</p>
+      {item.state === "pending_verification" ? <p className="text-sm">Ожидаем актуальное подтверждение источника. Если проверка не завершается, обратитесь в поддержку. Другие приобретённые права сохраняются.</p> : null}
+      {item.state === "suspended_source" ? <p className="text-sm">Источник больше не подтверждает доступ. Для восстановления требуется проверка поддержкой; повторное вступление само по себе доступ не возвращает. Другие приобретённые права сохраняются.</p> : null}
       <dl className="grid grid-cols-[auto_1fr] gap-x-5 gap-y-2 text-sm"><dt>Начало</dt><dd>{formatBillingDate(item.startsAt)}</dd>
         <dt>Срок</dt><dd>{item.endsAt === null ? "Без даты окончания" : `До ${formatBillingDate(item.endsAt)}`}</dd>
         <dt>Материалы</dt><dd>Руководства: {item.tier.contentScope.guideIds.length}; отдельные материалы: {item.tier.contentScope.materialIds.length}</dd>

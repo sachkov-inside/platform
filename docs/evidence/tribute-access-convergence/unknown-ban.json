@@ -1,0 +1,7 @@
+{
+  "scope": "Actual owner revoke, Platform v2 dispatch, accepted consumer, external ban committed then unknown ACK; proof resumed read-only after correcting diagnostic field name",
+  "passed": [
+    "actual external ban effect committed once with unknown ACK",
+    "consumer observes banned without blind repeated ban after bounded15s"
+  ]
+}

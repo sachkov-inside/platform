@@ -75,6 +75,9 @@ const membershipEntitlementTables = [
   "legacy_classifications",
   "source_entitlements",
   "subscription_enrollments",
+  "tribute_import_reviews",
+  "tribute_inbox",
+  "tribute_policies",
 ] as const;
 
 const memberProfileTables = [
@@ -230,6 +233,7 @@ describe("Platform migrations", () => {
         "0061_lesson_difficulty_and_outcomes",
         "0062_reader_guide_mode",
         "0063_subscription_enrollments",
+        "0064_tribute_sources",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -822,6 +826,7 @@ describe("Platform migrations", () => {
         "0061_lesson_difficulty_and_outcomes",
         "0062_reader_guide_mode",
         "0063_subscription_enrollments",
+        "0064_tribute_sources",
         ],
       });
 

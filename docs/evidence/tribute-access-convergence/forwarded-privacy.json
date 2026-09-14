@@ -1,0 +1,7 @@
+{
+  "scope": "Read-only assertion against retained actual forwarded-link bot transcript and current foreign synthetic bindings",
+  "passed": [
+    "nonmember transcript contains none of the other Accounts, identity, principal or link references"
+  ],
+  "foreignReferencesChecked": 152
+}

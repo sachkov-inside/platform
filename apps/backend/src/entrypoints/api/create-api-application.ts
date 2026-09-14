@@ -22,7 +22,7 @@ export async function createApiApplication(
   const app = await NestFactory.create<NestFastifyApplication>(
     ApiModule.forRoot(config),
     new FastifyAdapter({ bodyLimit: MAX_HTTP_BODY_BYTES }),
-    options,
+    { ...options, rawBody: true },
   );
   await app.register(multipart, {
     limits: { fields: 4, fileSize: 25 * 1024 * 1024, files: 1, parts: 5 },
@@ -42,6 +42,7 @@ export function createApiOpenApiDocument(
       "Canonical REST contract for the Inside Platform web and agent adapters.",
     )
     .setVersion("1.0.0")
+    .addApiKey({ type: "apiKey", in: "header", name: "trbt-signature", description: "HMAC-SHA256 of original request body using the Tribute API key; configured encoding must be credentialed-verified." }, "tribute-signature")
     .addBearerAuth(
       {
         type: "http",

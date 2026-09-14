@@ -357,3 +357,17 @@ it("поиск получателя передаёт точную identity и н
   expect(await response.json()).toMatchObject({ ok: false, code: "forbidden" });
   expect(fakes.manage).toHaveBeenCalledWith({ operationId, operation: "recipients.lookup", identityRef: "verified-identity" }, "owner-token");
 });
+
+it("owner payments retain local one-time Guide purchases and their filter", async () => {
+  const paid = { purchaseRef, accountId, kind: "one_time", state: "confirmed", subscriptionRef: null, periodIndex: null,
+    amountKopecks: 10000, environment: "local", terminalRef: "synthetic-local", paymentId: "625",
+    snapshot: { offer: { id: offerId, revision: 1, name: "Guide", benefits: ["guide:" + offerId], archived: false },
+      paymentOption: { id: previewRef, revision: 1, offerId, mode: "one_time", months: 1, priceKopecks: 10000, archived: false },
+      promotion: null, currency: "RUB", timezone: "Europe/Moscow", firstPriceKopecks: 10000, renewalPriceKopecks: 10000 },
+    fiscalization: "not_configured", confirmedAt: "2030-01-01T00:00:00.000Z", periodEndsAt: null,
+    createdAt: "2030-01-01T00:00:00.000Z", updatedAt: "2030-01-01T00:00:00.000Z", access: "ready", refundedKopecks: 0, refundableKopecks: 10000 };
+  fakes.manage.mockResolvedValue(ok({ operationRef: operationId, result: { outcome: "payments", items: [paid], nextCursor: null } }));
+  const response = await handleListPayments(command("/api/authoring/billing/payments/list", { operationId, accountId, kind: "one_time", limit: 10 }));
+  expect(await response.json()).toMatchObject({ ok: true, value: { result: { items: [paid] } } });
+  expect(fakes.manage).toHaveBeenCalledWith({ operation: "payments.list", operationId, accountId, kind: "one_time", limit: 10 }, "owner-token", {});
+});

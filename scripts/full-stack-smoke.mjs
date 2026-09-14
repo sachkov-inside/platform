@@ -27,6 +27,7 @@ const mcpPort = process.env.FULLSTACK_MCP_PORT ?? "3002";
 const mcpServerUrl = `http://127.0.0.1:${mcpPort}/mcp`;
 const childEnvironment = { ...process.env };
 childEnvironment.NODE_ENV ??= "development";
+// OWNER получает platform:admin для реальных операций каталога/назначения; отдельный MCP автор — только materials:manage.
 // Разрешение делегированных Account стенда принадлежит прогону, а не личному `.env`: иначе
 // `release:bootstrap-owner` возьмёт оттуда чужое значение и прогон начнёт зависеть от машины.
 const stackAuthorPermission = "materials:manage";
@@ -71,7 +72,7 @@ try {
   await runPnpm(["--filter", "@inside/backend", "db:seed"]);
   await runPnpm(
     ["--filter", "@inside/backend", "release:bootstrap-owner"],
-    childEnvironment,
+    { ...childEnvironment, OWNER_PERMISSION: "platform:admin" },
   );
   await runPnpm(["--filter", "@inside/web", "build"], {
     ...childEnvironment,

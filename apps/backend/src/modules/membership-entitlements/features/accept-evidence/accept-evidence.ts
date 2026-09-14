@@ -1,9 +1,13 @@
+import type { ActivationBindings } from "../../domain/subscription-activation.js";
+import { observeTemporaryTribute } from "../manage-tribute/observe-temporary-tribute.js";
+import { lockAccess } from "../../infrastructure/access-lock.js";
 import { createHash, randomUUID } from "node:crypto";
 
 import { z } from "zod";
 
 import {
   lockAccountEntitlementChanges,
+  lockTelegramAccountBinding,
   Prisma,
 } from "../../../../infrastructure/prisma/index.js";
 import type {
@@ -111,6 +115,7 @@ export async function acceptMembershipEvidence(
   >,
   command: AcceptMembershipEvidenceCommand,
   now: Date,
+  links?: Pick<ActivationBindings, "readBinding">,
 ): Promise<MembershipEvidenceAcceptance> {
   const metadata = commandMetadataSchema.safeParse({
     deliveryId: command.deliveryId,
@@ -135,6 +140,9 @@ export async function acceptMembershipEvidence(
   const retainUntil = addDays(now, EVIDENCE_RECEIPT_RETENTION_DAYS);
 
   return prisma.$transaction(async (transaction) => {
+    await lockTelegramAccountBinding(transaction, command.accountId);
+    const tributeCandidates = await transaction.sourceEntitlement.findMany({ where: { origin: "tribute", accountId: command.accountId }, orderBy: { sourceRef: "asc" } });
+    for (const source of tributeCandidates) await lockAccess(transaction, `enrollment:tribute:${source.sourceRef}`);
     await lockAccountEntitlementChanges(transaction, command.accountId);
     const inserted = await transaction.$executeRaw(Prisma.sql`
       insert into membership_entitlements.evidence_receipts (
@@ -238,6 +246,13 @@ export async function acceptMembershipEvidence(
         checkedCommand.deliveryId,
         applied.error.code,
       );
+    }
+    if (applied.outcome === "applied" && tributeCandidates.length > 0 && links !== undefined) {
+      const current = await links.readBinding({ accountId: command.accountId });
+      if (current.ok && current.binding?.accountRef === validation.value.principalRef
+        && current.binding.telegramIdentityRef === validation.value.telegramIdentityRef) {
+        await observeTemporaryTribute(transaction, tributeCandidates.map(source => source.id), command.accountId, validation.value, now);
+      }
     }
     await transaction.membershipEvidenceReceipt.update({
       where: { deliveryId: checkedCommand.deliveryId },

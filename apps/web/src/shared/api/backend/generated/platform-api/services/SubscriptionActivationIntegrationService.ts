@@ -53,7 +53,7 @@ export class SubscriptionActivationIntegrationService {
         renewal: 'not_applicable' | 'billing_agreement';
         revision: number;
         startsAt: string;
-        state: 'scheduled' | 'active' | 'expired' | 'revoked';
+        state: 'scheduled' | 'active' | 'expired' | 'revoked' | 'pending_verification' | 'suspended_source';
         tier: {
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope: {
@@ -69,6 +69,7 @@ export class SubscriptionActivationIntegrationService {
         id: string;
         revision: number;
         sourceRef: string;
+        verificationMode?: 'course_membership' | 'tribute_registry';
       };
       state: 'needs_account' | 'checking' | 'pending_review' | 'active' | 'already_active' | 'unavailable' | 'rejected';
     };
@@ -139,7 +140,7 @@ export class SubscriptionActivationIntegrationService {
       audience: 'inside.platform.subscription-activation';
       checkedAt: any;
       contractVersion: 'inside.subscription-activation.v1';
-      decision: 'member' | 'not_member' | 'unavailable';
+      decision: 'member' | 'not_member' | 'unavailable' | 'registry_lookup';
       evidenceRef: string;
       identityRef: string;
       linkRef: string;
@@ -182,7 +183,7 @@ export class SubscriptionActivationIntegrationService {
         renewal: 'not_applicable' | 'billing_agreement';
         revision: number;
         startsAt: string;
-        state: 'scheduled' | 'active' | 'expired' | 'revoked';
+        state: 'scheduled' | 'active' | 'expired' | 'revoked' | 'pending_verification' | 'suspended_source';
         tier: {
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope: {
@@ -198,6 +199,7 @@ export class SubscriptionActivationIntegrationService {
         id: string;
         revision: number;
         sourceRef: string;
+        verificationMode?: 'course_membership' | 'tribute_registry';
       };
       state: 'needs_account' | 'checking' | 'pending_review' | 'active' | 'already_active' | 'unavailable' | 'rejected';
     };
@@ -265,7 +267,7 @@ export class SubscriptionActivationIntegrationService {
         renewal: 'not_applicable' | 'billing_agreement';
         revision: number;
         startsAt: string;
-        state: 'scheduled' | 'active' | 'expired' | 'revoked';
+        state: 'scheduled' | 'active' | 'expired' | 'revoked' | 'pending_verification' | 'suspended_source';
         tier: {
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope: {

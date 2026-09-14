@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 const CONTRACT_VERSION = "inside.membership-evidence.v1";
-const MAX_EVIDENCE_VALIDITY_MS = 5 * 60 * 1_000;
+export const MAX_EVIDENCE_VALIDITY_MS = 5 * 60 * 1_000;
 
 const principalRefSchema = z
   .string()

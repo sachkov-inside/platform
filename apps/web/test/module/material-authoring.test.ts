@@ -511,6 +511,8 @@ function successfulPreview(): typeof requestMaterialPreview {
         materialId,
         metadata: {
           access: "free",
+          difficulty: "intermediate",
+          outcomes: ["Understand the saved lesson", "Apply the documented workflow"],
           formatId,
           seriesMemberships: [],
           slug: "one-production-path",
