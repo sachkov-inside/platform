@@ -1020,6 +1020,149 @@
           "additionalProperties": false
         }
       ]
+    },
+    "bindingQuery": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "inside.subscription-activation.v1"
+        },
+        "identityRef": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      },
+      "required": [
+        "contractVersion",
+        "identityRef"
+      ],
+      "additionalProperties": false
+    },
+    "bindingResponse": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "ok": {
+              "type": "boolean",
+              "const": true
+            },
+            "value": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "contractVersion": {
+                      "type": "string",
+                      "const": "inside.subscription-activation.v1"
+                    },
+                    "state": {
+                      "type": "string",
+                      "const": "linked"
+                    },
+                    "binding": {
+                      "type": "object",
+                      "properties": {
+                        "accountRef": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 256
+                        },
+                        "identityRef": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 256
+                        },
+                        "linkRef": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "linkRevision": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "accountRef",
+                        "identityRef",
+                        "linkRef",
+                        "linkRevision"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "contractVersion",
+                    "state",
+                    "binding"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "contractVersion": {
+                      "type": "string",
+                      "const": "inside.subscription-activation.v1"
+                    },
+                    "state": {
+                      "type": "string",
+                      "const": "unlinked"
+                    }
+                  },
+                  "required": [
+                    "contractVersion",
+                    "state"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "required": [
+            "ok",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "ok": {
+              "type": "boolean",
+              "const": false
+            },
+            "error": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "enum": [
+                    "invalid_input",
+                    "identity_conflict",
+                    "unavailable"
+                  ]
+                }
+              },
+              "required": [
+                "code"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "ok",
+            "error"
+          ],
+          "additionalProperties": false
+        }
+      ]
     }
   }
 }

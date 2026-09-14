@@ -86,6 +86,46 @@ export class SubscriptionActivationIntegrationService {
     });
   }
   /**
+   * Read the exact current Platform binding for a verified source-authority identity
+   * @returns any
+   * @throws ApiError
+   */
+  public readSubscriptionActivationBinding({
+    requestBody,
+  }: {
+    requestBody: {
+      contractVersion: 'inside.subscription-activation.v1';
+      identityRef: string;
+    },
+  }): CancelablePromise<({
+    ok: boolean;
+    value: ({
+      binding: {
+        accountRef: string;
+        identityRef: string;
+        linkRef: string;
+        linkRevision: number;
+      };
+      contractVersion: 'inside.subscription-activation.v1';
+      state: 'linked';
+    } | {
+      contractVersion: 'inside.subscription-activation.v1';
+      state: 'unlinked';
+    });
+  } | {
+    error: {
+      code: 'invalid_input' | 'identity_conflict' | 'unavailable';
+    };
+    ok: boolean;
+  })> {
+    return this.httpRequest.request({
+      method: 'POST',
+      url: '/integrations/telegram/v1/subscription-activation/binding',
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
    * Apply bounded source proof to the exact current Account binding and rule revision
    * @returns any
    * @throws ApiError

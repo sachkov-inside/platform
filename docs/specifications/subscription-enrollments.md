@@ -64,6 +64,9 @@ Enrollment changes объявляются соседним вкладкам то
 
 - [subscription-activation-v1](../contracts/subscription-activation-v1/protocol.md): отдельный
   credential, bounded source proof, exact binding/rule and own-access.
+  Repair #627 добавляет read-only `/binding` по verified identityRef: точная текущая
+  Platform binding либо unlinked/identity_conflict/unavailable. Browser transaction linkRef
+  не заменяет current binding; lookup не ослабляет проверку последующей перепривязки.
 - [community-v2](../contracts/community-v2/protocol.md): обязательный admissionRestriction,
   v2-only новые effects и dispatch target/digest внутри envelope billing-dispatch.v1.
 - Исторический billing-v1 corpus неизменяем; v1 receipts остаются читаемыми.

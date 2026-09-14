@@ -3,5 +3,11 @@
   "schema": "schema.json",
   "fixtures": "fixtures.json",
   "scenarios": "scenarios.json",
-  "protocol": "protocol.md"
+  "protocol": "protocol.md",
+  "bindingLookup": {
+    "method": "POST",
+    "path": "/integrations/telegram/v1/subscription-activation/binding",
+    "requestDefinition": "bindingQuery",
+    "responseDefinition": "bindingResponse"
+  }
 }

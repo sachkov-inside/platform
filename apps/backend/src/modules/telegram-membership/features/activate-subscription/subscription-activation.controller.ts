@@ -1,11 +1,11 @@
-import { activationResponseSchema, ownSubscriptionAccessResponseSchema } from "../../domain/subscription-activation-wire.js";
+import { bindingLookupResponseSchema, activationResponseSchema, ownSubscriptionAccessResponseSchema } from "../../domain/subscription-activation-wire.js";
 import { Body, Controller, Headers, HttpCode, HttpException, Inject, Post } from "@nestjs/common";
 import { ApiBearerAuth, ApiBody, ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { PLATFORM_CONFIG, type PlatformConfig } from "../../../../config/platform-config.js";
 import { bearerCredential, credentialsMatch } from "../../../../infrastructure/http/bearer-credentials.js";
 import { PrivateNoStore } from "../../../../infrastructure/http/http-cache-policy.js";
 import { problemDetailsContent, problemDetailsSchema, toOpenApiSchema } from "../../../../infrastructure/http/zod-openapi.js";
-import { ownSubscriptionAccessQuerySchema, beginActivationSchema, activationEvidenceSchema } from "../../../membership-entitlements/index.js";
+import { bindingLookupQuerySchema, ownSubscriptionAccessQuerySchema, beginActivationSchema, activationEvidenceSchema } from "../../../membership-entitlements/index.js";
 import { SubscriptionActivation } from "../../../billing/index.js";
 @ApiTags("Subscription activation integration")
 @ApiBearerAuth("subscription-activation")
@@ -19,6 +19,15 @@ export class SubscriptionActivationController {
     const expected = this.config.telegramMembership.activationIngressSecret;
     if (expected === undefined || !credentialsMatch(bearerCredential(authorization), expected))
       throw new HttpException({ type: "about:blank", title: "Activation authority required", status: 401, code: "unauthorized" }, 401);
+  }
+  @Post("binding")
+  @HttpCode(200)
+  @ApiOperation({ operationId: "readSubscriptionActivationBinding", summary: "Read the exact current Platform binding for a verified source-authority identity" })
+  @ApiBody({ schema: toOpenApiSchema(bindingLookupQuerySchema) })
+  @ApiOkResponse({ schema: toOpenApiSchema(bindingLookupResponseSchema) })
+  async binding(@Headers("authorization") authorization: string | undefined, @Body() input: unknown) {
+    this.authenticate(authorization);
+    return this.activation.lookupBinding(input);
   }
   @Post("own-access")
   @HttpCode(200)

@@ -5,11 +5,11 @@ import activationSchema from "../../../../docs/contracts/subscription-activation
 import activationFixtures from "../../../../docs/contracts/subscription-activation-v1/fixtures.json" with { type: "json" };
 import communitySchema from "../../../../docs/contracts/community-v2/schema.json" with { type: "json" };
 import communityFixtures from "../../../../docs/contracts/community-v2/fixtures.json" with { type: "json" };
-import { beginActivationSchema, activationEvidenceSchema, ownSubscriptionAccessQuerySchema } from "../../src/modules/membership-entitlements/index.js";
-import { activationResponseSchema, ownSubscriptionAccessResponseSchema } from "../../src/modules/telegram-membership/domain/subscription-activation-wire.js";
+import { bindingLookupQuerySchema, beginActivationSchema, activationEvidenceSchema, ownSubscriptionAccessQuerySchema } from "../../src/modules/membership-entitlements/index.js";
+import { bindingLookupResponseSchema, activationResponseSchema, ownSubscriptionAccessResponseSchema } from "../../src/modules/telegram-membership/domain/subscription-activation-wire.js";
 import { communitySetSchema, communityStatusQuerySchema, communityResultSchema, communityErrorSchema, dispatchAuthorizeSchema, dispatchResultSchema, dispatchErrorSchema } from "../../src/modules/telegram-membership/domain/community-entitlement.js";
 import { z } from "zod";
-const activationCodecs: Record<string, z.ZodType> = { begin: beginActivationSchema, evidence: activationEvidenceSchema, ownAccessQuery: ownSubscriptionAccessQuerySchema, activationResponse: activationResponseSchema, ownAccessResponse: ownSubscriptionAccessResponseSchema };
+const activationCodecs: Record<string, z.ZodType> = { begin: beginActivationSchema, evidence: activationEvidenceSchema, ownAccessQuery: ownSubscriptionAccessQuerySchema, activationResponse: activationResponseSchema, ownAccessResponse: ownSubscriptionAccessResponseSchema, bindingQuery: bindingLookupQuerySchema, bindingResponse: bindingLookupResponseSchema };
 const communityCodecs: Record<string, z.ZodType> = { communityRequest: z.union([communitySetSchema, communityStatusQuerySchema]), communityResponse: z.union([communityResultSchema, communityErrorSchema]), authorizationRequest: dispatchAuthorizeSchema, authorizationResponse: z.union([dispatchResultSchema, dispatchErrorSchema]) };
 describe("portable subscription contracts agree with production codecs", () => {
   for (const bundle of [{ schema: activationSchema, fixtures: activationFixtures, codecs: activationCodecs }, { schema: communitySchema, fixtures: communityFixtures, codecs: communityCodecs }]) {
