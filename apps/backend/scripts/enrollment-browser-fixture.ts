@@ -1,0 +1,28 @@
+import { writeFile } from "node:fs/promises";
+import { PostgreSqlContainer } from "@testcontainers/postgresql";
+import Fastify from "fastify";
+import { exportJWK, generateKeyPair, SignJWT } from "jose";
+import { z } from "zod";
+import { parsePlatformConfig } from "../src/config/platform-config.js";
+import { createApiApplication } from "../src/entrypoints/api/create-api-application.js";
+import { createPrismaClient } from "../src/infrastructure/prisma/index.js";
+import { migrateToLatest } from "../src/migrations/index.js";
+import { bootstrapOwnerAccount } from "../src/modules/accounts/index.js";
+const container = await new PostgreSqlContainer("postgres:18.4-alpine").start();
+const databaseUrl = container.getConnectionUri(); const prisma = createPrismaClient(databaseUrl);
+await migrateToLatest(databaseUrl);
+const issuer = "https://enrollment.smoke.test/oidc", audience = "https://enrollment.smoke.test/api";
+const keyPair = await generateKeyPair("ES384");
+const provider = Fastify(); provider.get("/jwks", async () => ({ keys: [{ ...(await exportJWK(keyPair.publicKey)), alg: "ES384", kid: "smoke-key" }] }));
+const providerUrl = await provider.listen({ host: "127.0.0.1", port: 0 });
+const owner = await bootstrapOwnerAccount(prisma, { issuer, subject: "owner" }, "platform:admin");
+const guideId = "62000000-0000-4000-8000-000000000701";
+await prisma.guide.create({ data: { id: guideId, name: "Инженерная практика", slug: "engineering-practice" } });
+const app = await createApiApplication(parsePlatformConfig({ NODE_ENV: "test", DATABASE_URL: databaseUrl, LOGTO_ISSUER: issuer, LOGTO_AUDIENCE: audience, LOGTO_JWKS_URL: `${providerUrl}/jwks` }), { logger: false });
+await app.listen(0, "127.0.0.1");
+const token = await new SignJWT({}).setProtectedHeader({ alg: "ES384", kid: "smoke-key" }).setIssuer(issuer).setSubject("owner").setAudience(audience).setIssuedAt().setExpirationTime("5m").sign(keyPair.privateKey);
+await writeFile(z.string().min(1).parse(process.env.ENROLLMENT_FIXTURE_PATH), JSON.stringify({ BACKEND_BASE_URL: await app.getUrl(), LOGTO_AUDIENCE: audience, LOGTO_ISSUER: issuer, LOGTO_JWKS_URL: `${providerUrl}/jwks`, token, providerUrl, ENROLLMENT_OWNER_ID: owner.accountId }));
+let stopping = false;
+async function stop() { if (stopping) return; stopping = true; await app.close(); await provider.close(); await prisma.$disconnect(); await container.stop(); }
+process.on("SIGTERM", () => { void stop().then(() => process.exit(0)); });
+process.on("SIGINT", () => { void stop().then(() => process.exit(0)); });

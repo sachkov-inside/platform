@@ -285,6 +285,10 @@ describe("ContentAccess availability", () => {
           },
         },
         membershipEntitlements: {
+          resolveManyForAccess(_accountId, resources) {
+            membershipReads += 1;
+            return Promise.resolve(resources.map(() => ({ kind: "active" as const, validUntil: "2026-08-27T13:05:00.000Z" })));
+          },
           resolveForAccess() {
             membershipReads += 1;
             return Promise.resolve({

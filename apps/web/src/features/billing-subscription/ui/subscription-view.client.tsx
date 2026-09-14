@@ -76,7 +76,7 @@ export function SubscriptionSectionView({
         <p role="status">Загружаем подписку…</p>
       ) : subscription === null ? (
         <section className="rounded-2xl border border-border bg-card p-6 shadow-card">
-          <h2 className="text-xl font-semibold">Действующей подписки нет</h2>
+          <h2 className="text-xl font-semibold">Автопродление Inside не подключено</h2>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
             Ранее выданные права остаются в силе на своих условиях: подписка их
             не заменяет.

@@ -1,5 +1,10 @@
+import { contentScopeEntrySchema } from "@inside/access-capabilities";
 import { z } from "zod";
 import {
+  registerSourceSchema, sourceEntitlementViewSchema,
+  manageActivationRuleSchema, activationRuleSchema,
+  previewEnrollmentExpansionSchema, applyEnrollmentExpansionSchema, expansionPreviewSchema,
+  assignEnrollmentSchema, changeEnrollmentSchema, enrollmentViewSchema, tierSnapshotSchema,
   applyGrantBatchCommandSchema, changeAccessGrantCommandSchema, previewGrantBatchCommandSchema,
   accessGrantsViewSchema, classifyLegacyAccountCommandSchema, legacyClassificationViewSchema,
 } from "../../membership-entitlements/index.js";
@@ -19,6 +24,16 @@ const listBounds = { cursor: idSchema.optional(), limit: z.int().min(1).max(100)
  */
 export const ownerOperationSchema = z.discriminatedUnion("operation", [
   ...manageCatalogSchema.options,
+  z.strictObject({ ...command, operation: z.literal("content.list") }),
+  z.strictObject({ ...registerSourceSchema.shape, operation: z.literal("sources.register") }),
+  z.strictObject({ ...manageActivationRuleSchema.shape, operation: z.literal("activationRules.save") }),
+  z.strictObject({ ...command, operation: z.literal("activationRules.list") }),
+  z.strictObject({ ...previewEnrollmentExpansionSchema.shape, operation: z.literal("enrollments.previewExpansion") }),
+  z.strictObject({ ...applyEnrollmentExpansionSchema.shape, operation: z.literal("enrollments.applyExpansion") }),
+  z.strictObject({ ...assignEnrollmentSchema.shape, operation: z.literal("enrollments.assign") }),
+  z.strictObject({ ...changeEnrollmentSchema.shape, operation: z.literal("enrollments.change") }),
+  z.strictObject({ ...command, operation: z.literal("enrollments.list"), accountId: idSchema }),
+  z.strictObject({ ...command, operation: z.literal("tiers.list"), ...listBounds }),
   z.strictObject({ ...command, operation: z.literal("offers.list"), ...listBounds }),
   z.strictObject({ ...command, operation: z.literal("payments.list"), accountId: idSchema.optional(),
     state: attemptStateSchema.optional(), kind: attemptKindSchema.optional(), ...listBounds }),
@@ -41,7 +56,7 @@ export const ownerOperationSchema = z.discriminatedUnion("operation", [
 ]);
 export type OwnerOperation = z.infer<typeof ownerOperationSchema>;
 /** Чтение не меняет состояние: такие операции не пишут receipt и повторяются свободно. */
-export const ownerReadOperations = ["offers.list", "payments.list", "payments.read", "refunds.read", "grants.read",
+export const ownerReadOperations = ["content.list","activationRules.list", "enrollments.list", "tiers.list", "offers.list", "payments.list", "payments.read", "refunds.read", "grants.read",
   "grants.readClassification"] as const;
 const readOperations: readonly string[] = ownerReadOperations;
 export function isOwnerReadOperation(operation: string): boolean {
@@ -78,6 +93,17 @@ export const auditEntryViewSchema = z.strictObject({
 });
 
 export const ownerSuccessSchema = z.union([
+  z.strictObject({ outcome: z.literal("sourceEntitlement"), value: sourceEntitlementViewSchema }),
+  z.strictObject({ outcome: z.literal("activationRule"), value: activationRuleSchema }),
+  z.strictObject({ outcome: z.literal("activationRules"), items: z.array(activationRuleSchema) }),
+  z.strictObject({ outcome: z.literal("enrollmentExpansionPreview"), value: expansionPreviewSchema }),
+  z.strictObject({ outcome: z.literal("enrollmentExpansion"), enrollmentIds: z.array(idSchema) }),
+  z.strictObject({ outcome: z.literal("enrollment"), value: enrollmentViewSchema }),
+  z.strictObject({ outcome: z.literal("enrollments"), items: z.array(enrollmentViewSchema) }),
+  z.strictObject({ outcome: z.literal("content"), items: z.array(contentScopeEntrySchema) }),
+  z.strictObject({ outcome: z.literal("tiers"), items: z.array(z.strictObject({
+    tier: tierSnapshotSchema, availableForAssignment: z.boolean(), published: z.boolean(), archived: z.boolean(),
+  })), nextCursor: idSchema.nullable() }),
   z.strictObject({ outcome: z.literal("catalog"), value: catalogOutcomeSchema }),
   z.strictObject({ outcome: z.literal("catalogOffers"), items: z.array(priceSnapshotSchema), nextCursor: idSchema.nullable() }),
   z.strictObject({ outcome: z.literal("payments"), items: z.array(paymentViewSchema), nextCursor: idSchema.nullable() }),

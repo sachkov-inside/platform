@@ -164,6 +164,7 @@ const telegramMembershipSchema = z
           "TELEGRAM_BOT_START_URL must be a t.me bot deep-link base URL",
       },
     ),
+    activationIngressSecret: telegramSecretSchema("TELEGRAM_ACTIVATION_INGRESS_SECRET").optional(),
     evidenceIngressSecret: telegramSecretSchema(
       "TELEGRAM_EVIDENCE_INGRESS_SECRET",
     ),
@@ -238,6 +239,7 @@ const platformConfigSchema = z
       return url.protocol === "https:" && url.pathname === "/" && !url.search && !url.hash && !url.username && !url.password;
     }).optional(),
     communityEntitlements: z.object({
+      contractVersion: z.literal("inside.community-entitlement.v2").optional(),
       endpoint: telegramIntegrationEndpointSchema("TELEGRAM_COMMUNITY_ENTITLEMENT_ENDPOINT",
         "/integrations/platform/v1/community-entitlements"),
       providerSecret: telegramSecretSchema("TELEGRAM_COMMUNITY_ENTITLEMENT_SECRET"),
@@ -383,6 +385,7 @@ export function parsePlatformConfig(
     },
     communityEntitlements: [environment.TELEGRAM_COMMUNITY_ENTITLEMENT_ENDPOINT, environment.TELEGRAM_COMMUNITY_ENTITLEMENT_SECRET,
       environment.TELEGRAM_COMMUNITY_DISPATCH_SECRET].every(value => value === undefined) ? undefined : {
+      contractVersion: environment.TELEGRAM_COMMUNITY_CONTRACT_VERSION,
       endpoint: environment.TELEGRAM_COMMUNITY_ENTITLEMENT_ENDPOINT,
       providerSecret: environment.TELEGRAM_COMMUNITY_ENTITLEMENT_SECRET,
       dispatchSecret: environment.TELEGRAM_COMMUNITY_DISPATCH_SECRET,
@@ -531,6 +534,7 @@ export function parsePlatformConfig(
       webhookUsername: readRuntimeValue(environment, "KINESCOPE_WEBHOOK_USERNAME", mode, DEFAULT_KINESCOPE_WEBHOOK_USERNAME),
     },
     telegramMembership: {
+      activationIngressSecret: environment.TELEGRAM_ACTIVATION_INGRESS_SECRET,
       botStartUrl: readRuntimeValue(
         environment,
         "TELEGRAM_BOT_START_URL",
@@ -639,6 +643,13 @@ export function parsePlatformConfig(
   // Community authenticates on its own credentials; reusing another direction's secret
   // would let that caller inherit community authority. Only the two settings added here
   // are gated, so an existing deployment keeps starting with whatever it already has.
+  const activationSecret = config.data.telegramMembership.activationIngressSecret;
+  if (activationSecret !== undefined && [config.data.telegramMembership.linkingSecret,
+    config.data.telegramMembership.evidenceIngressSecret, config.data.identity.telegramSignInIntegrationSecret,
+    config.data.communityEntitlements?.dispatchSecret, config.data.communityEntitlements?.providerSecret,
+    config.data.communications?.secret, config.data.communications?.authorizationSecret].includes(activationSecret)) {
+    throw new Error("Activation authority requires a separate integration secret");
+  }
   if (config.data.communityEntitlements) {
     const { dispatchSecret, providerSecret } = config.data.communityEntitlements;
     const otherSecrets = [

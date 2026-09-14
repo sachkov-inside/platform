@@ -356,11 +356,35 @@ _Avoid_: Payment, MembershipEvidence, AccessGrant
 
 **Offer**:
 A versioned description of a chosen access composition, independent of a Guide and a payment.
-Its payment option specifies the price, period and sale mode: a subscription charged on a schedule,
+It can be available for assignment without being published for sale. Its payment option specifies the price, period and sale mode: a subscription charged on a schedule,
 or a one-time purchase that is paid once and creates no schedule. It carries a reversible `published`
 (for-sale) state, separate from permanent archival; while no offer is published, neither the
 subscription nor a separately sold Guide is offered anywhere.
 _Avoid_: Guide, Order, AccessGrant
+
+**SubscriptionEnrollment**:
+An Account's assignment to a promised version of an Inside tier, with its own origin and term.
+Course, Tribute, owner assignment and Platform payment are independent origins; an assignment is not a payment or consent to renewal.
+_Avoid_: BillingSubscription, Payment, Telegram membership
+
+**ContentScope**:
+The explicit set of Guides and individual Materials promised by a tier.
+It includes the evolving published program of an included Guide, without including new separate products automatically.
+_Avoid_: Global materials access, catalogue, price
+
+**ActivationRule**:
+A published or paused path from a verified course source to a selected tier.
+Its code selects the path; possession of the code does not prove entitlement.
+_Avoid_: Invite link, payment proof, grant
+
+**SourceEntitlement**:
+A verified external basis identified by its source policy and person, which can exist before an Account is linked.
+Repeated verification of the same course does not create another assignment.
+_Avoid_: Telegram presence, Account, SubscriptionEnrollment
+
+**AdmissionRestriction**:
+A moderation or externally reported restriction on admission to the community, independent of content rights.
+_Avoid_: Expired tariff, revoked materials, failed payment
 
 **OneTimePurchase**:
 A single payment for one Offer that creates no Subscription, no renewal schedule and no recurring

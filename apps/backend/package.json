@@ -30,7 +30,7 @@
     "smoke:grant-full-stack-membership": "tsx src/development/grant-full-stack-membership.ts",
     "db:schema:check": "pnpm prisma:validate && pnpm prisma:generate",
     "typecheck": "pnpm prisma:generate && tsc -p tsconfig.json --noEmit && tsc -p test/tsconfig.json --noEmit",
-    "guardrails": "pnpm notifications:check && pnpm communications:check && pnpm mcp:check && node scripts/check-backend-architecture.mjs src && node scripts/check-negative-guardrails.mjs",
+    "guardrails": "pnpm contracts:check && pnpm notifications:check && pnpm communications:check && pnpm mcp:check && node scripts/check-backend-architecture.mjs src && node scripts/check-negative-guardrails.mjs",
     "openapi:generate": "tsx scripts/generate-openapi.ts",
     "openapi:check": "tsx scripts/generate-openapi.ts --check",
     "mcp:generate": "tsx scripts/mcp-tool-surface.ts",
@@ -47,7 +47,9 @@
     "dev:notifications-worker": "tsx watch src/entrypoints/notifications-worker.ts",
     "start:notifications-worker": "node dist/entrypoints/notifications-worker.js",
     "dev:billing-worker": "tsx watch src/entrypoints/billing-worker.ts",
-    "start:billing-worker": "node dist/entrypoints/billing-worker.js"
+    "start:billing-worker": "node dist/entrypoints/billing-worker.js",
+    "contracts:generate": "tsx scripts/generate-subscription-contracts.ts",
+    "contracts:check": "tsx scripts/generate-subscription-contracts.ts --check"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1121.0",

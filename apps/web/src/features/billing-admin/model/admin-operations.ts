@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { contentScopeSchema } from "@inside/access-capabilities";
 
 import {
   accessCapabilitySchema,
@@ -21,6 +22,8 @@ export const saveOfferInputSchema = z.strictObject({
     id: z.uuid(),
     name: z.string().trim().min(1).max(200),
     benefits: z.array(accessCapabilitySchema).min(1).max(100),
+    availableForAssignment: z.boolean().optional(),
+    contentScope: contentScopeSchema.nullable().optional(),
     benefitPeriods: z
       .array(
         z.strictObject({

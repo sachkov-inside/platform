@@ -61,7 +61,7 @@ export async function changeAccessGrant(
     });
     if (grant === null) return accessFailure("not_found");
     // Billing owns paid revisions. Refund access decisions use its projector.
-    if (grant.source === "paid") return accessFailure("forbidden");
+    if (grant.source === "paid" || grant.enrollmentId !== null) return accessFailure("forbidden");
     if (grant.revision !== command.expectedRevision)
       return accessFailure("revision_conflict");
     if (grant.revokedAt !== null) return accessFailure("revision_conflict");

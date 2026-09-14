@@ -851,6 +851,8 @@ model AccessGrant {
   source       String
   sourceRef    String    @map("source_ref") @db.VarChar(256)
   capabilities String[]
+  contentScope Json? @map("content_scope")
+  enrollmentId String? @map("enrollment_id") @db.Uuid
   startsAt     DateTime  @map("starts_at") @db.Timestamptz
   validUntil   DateTime? @map("valid_until") @db.Timestamptz
   revokedAt    DateTime? @map("revoked_at") @db.Timestamptz
@@ -897,6 +899,8 @@ model LegacyClassification {
   reason         String   @db.VarChar(1000)
   verifiedAt     DateTime @map("verified_at") @db.Timestamptz
   revision       Int
+  bridgeContentScope Json? @map("bridge_content_scope")
+  bridgeBenefits String[] @default(["materials", "community"]) @map("bridge_benefits")
   bridgeEnabled  Boolean  @default(false) @map("bridge_enabled")
   tributeStopped Boolean  @default(false) @map("tribute_stopped")
 
@@ -1026,6 +1030,8 @@ model BillingOffer {
   benefitPeriods Json @default("[]") @map("benefit_periods")
   archived Boolean @default(false)
   published Boolean @default(false)
+  availableForAssignment Boolean @default(false) @map("available_for_assignment")
+  contentScope Json? @map("content_scope")
   options BillingPaymentOption[]
   @@map("offers")
   @@schema("billing")
@@ -1645,4 +1651,68 @@ model BillingNoticeRevision {
   @@id([noticeRef, revision])
   @@map("notice_revisions")
   @@schema("billing")
+}
+
+model SubscriptionEnrollment {
+  id String @id @db.Uuid
+  accountId String @map("account_id") @db.Uuid
+  tierId String @map("tier_id") @db.Uuid
+  tierRevision Int @map("tier_revision")
+  snapshot Json
+  origin String
+  sourceRef String @map("source_ref") @db.VarChar(256)
+  startsAt DateTime @map("starts_at") @db.Timestamptz
+  endsAt DateTime? @map("ends_at") @db.Timestamptz
+  endPolicy String @map("end_policy")
+  billingRef String? @map("billing_ref") @db.Uuid
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz
+  revision Int
+  reason String @db.VarChar(1000)
+  @@unique([origin, sourceRef])
+  @@index([accountId])
+  @@map("subscription_enrollments")
+  @@schema("membership_entitlements")
+}
+
+model ActivationRule {
+ id String @id @db.Uuid
+ code String @unique @db.VarChar(40)
+ name String @db.VarChar(200)
+ revision Int
+ tierId String @map("tier_id") @db.Uuid
+ tierRevision Int @map("tier_revision")
+ sourceRef String @map("source_ref") @db.VarChar(256)
+ published Boolean @default(false)
+ startsAt DateTime @map("starts_at") @db.Timestamptz
+ endsAt DateTime? @map("ends_at") @db.Timestamptz
+ reason String @db.VarChar(1000)
+ @@map("activation_rules")
+ @@schema("membership_entitlements")
+}
+model SourceEntitlement {
+ id String @id @db.Uuid
+ origin String
+ sourceRef String @map("source_ref") @db.VarChar(256)
+ sourcePolicyRef String @map("source_policy_ref") @db.VarChar(256)
+ identityRef String @map("identity_ref") @db.VarChar(256)
+ accountId String? @map("account_id") @db.Uuid
+ enrollmentId String? @map("enrollment_id") @db.Uuid
+ revision Int
+ evidence Json
+ revokedAt DateTime? @map("revoked_at") @db.Timestamptz
+ checkedAt DateTime @map("checked_at") @db.Timestamptz
+ @@unique([origin, sourceRef])
+ @@map("source_entitlements")
+ @@schema("membership_entitlements")
+}
+model ActivationAttempt {
+ id String @id @db.Uuid
+ identityRef String @map("identity_ref") @db.VarChar(256)
+ ruleId String @map("rule_id") @db.Uuid
+ ruleRevision Int @map("rule_revision")
+ accountId String? @map("account_id") @db.Uuid
+ result Json
+ expiresAt DateTime @map("expires_at") @db.Timestamptz
+ @@map("activation_attempts")
+ @@schema("membership_entitlements")
 }

@@ -1,4 +1,5 @@
 "use client";
+import { EnrollmentsPanel } from "./enrollments-panel.client";
 import type { Route } from "next";
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
@@ -138,7 +139,7 @@ export function SubscriptionPanel({
   });
 
   return (
-    <SubscriptionSectionView
+    <div className="grid gap-6"><EnrollmentsPanel /><SubscriptionSectionView
       changeQuote={changeQuote}
       error={cabinet.error}
       loading={cabinet.loading}
@@ -219,6 +220,6 @@ export function SubscriptionPanel({
       sessionExpired={cabinet.sessionExpired}
       storefrontHref={storefrontHref}
       subscription={subscription}
-    />
+    /></div>
   );
 }

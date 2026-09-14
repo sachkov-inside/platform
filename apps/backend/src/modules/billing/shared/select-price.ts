@@ -10,7 +10,7 @@ export async function selectPrice(tx: BillingPrisma, optionId: string, now: Date
   const row = await tx.billingPaymentOption.findUnique({ where: { id: optionId }, include: { offer: true } });
   if (!row || row.archived || row.offer.archived || (options.allowUnpublished !== true && !row.offer.published)) return failure("not_found");
   const offer = offerSchema.parse({ id: row.offer.id, name: row.offer.name, revision: row.offer.revision, benefits: row.offer.benefits,
-    archived: row.offer.archived, published: row.offer.published, ...(Array.isArray(row.offer.benefitPeriods) && row.offer.benefitPeriods.length > 0 ? { benefitPeriods: row.offer.benefitPeriods } : {}),
+    archived: row.offer.archived, published: row.offer.published, availableForAssignment: row.offer.availableForAssignment, contentScope: row.offer.contentScope, ...(Array.isArray(row.offer.benefitPeriods) && row.offer.benefitPeriods.length > 0 ? { benefitPeriods: row.offer.benefitPeriods } : {}),
   });
   const option = optionSchema.parse({ id: row.id, offerId: row.offerId, revision: row.revision, months: row.months, mode: row.mode, priceKopecks: Number(row.priceKopecks), archived: row.archived });
   const rows = await tx.billingPromotion.findMany({ where: { archived: false, startsAt: { lte: now }, endsAt: { gt: now }, OR: [{ code: null }, ...(promoCode ? [{ code: promoCode }] : [])] } });

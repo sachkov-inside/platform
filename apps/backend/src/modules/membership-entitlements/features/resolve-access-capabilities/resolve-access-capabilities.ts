@@ -1,10 +1,10 @@
+import { contentScopeSchema } from "@inside/access-capabilities";
 import type { MembershipAccessState } from "../../facets/membership-entitlements/membership-entitlements.interface.js";
 import type { AccountId } from "../../../accounts/index.js";
 import type { MembershipEntitlementsPrisma } from "../../infrastructure/prisma.js";
 import {
   accessCapabilitySchema,
   capabilitiesOpenedBy,
-  globalAccessCapabilities,
   type AccessCapability,
 } from "../../domain/access-grant.js";
 
@@ -20,9 +20,13 @@ export async function resolveAccessCapabilities(
   prisma: MembershipEntitlementsPrisma,
   accountId: AccountId,
   now: Date,
+  resource?: { guideIds: readonly string[]; materialId?: string | undefined },
 ): Promise<
   AccessCapabilities & { readonly membership: MembershipAccessState }
 > {
+  return projectAccessCapabilities(await readAccessCapabilityFacts(prisma, accountId, now), now, resource);
+}
+export async function readAccessCapabilityFacts(prisma: MembershipEntitlementsPrisma, accountId: AccountId, now: Date) {
   const grants = await prisma.accessGrant.findMany({
     where: {
       accountId,
@@ -42,6 +46,26 @@ export async function resolveAccessCapabilities(
     orderBy: { revision: "desc" },
     select: { revision: true },
   });
+    const historicalMaterials = await prisma.accessGrant.findMany({
+      where: {
+        accountId,
+        capabilities: { has: "materials" },
+        startsAt: { lte: now },
+      },
+      select: { contentScope: true },
+    });
+    const binding = await prisma.membershipBinding.findUnique({
+      where: { accountId },
+      select: { accountId: true },
+    });
+    const last = await prisma.membershipEvidenceReceipt.findFirst({
+      where: { accountId, outcome: "accepted_without_entitlement" },
+      orderBy: [{ receivedAt: "desc" }, { deliveryId: "desc" }],
+      select: { decision: true },
+    });
+  return { grants, classification, projection, revision, historicalMaterials, binding, last };
+}
+export function projectAccessCapabilities({ grants, classification, projection, revision, historicalMaterials, binding, last }: Awaited<ReturnType<typeof readAccessCapabilityFacts>>, now: Date, resource?: { guideIds: readonly string[]; materialId?: string | undefined }): AccessCapabilities & { readonly membership: MembershipAccessState } {
   const bounds = new Map<AccessCapability, string | null>();
   const futureBoundaries: number[] = [];
   function include(capability: AccessCapability, until: string | null) {
@@ -63,13 +87,24 @@ export async function resolveAccessCapabilities(
     const validUntil = grant.validUntil?.toISOString() ?? null;
     for (const value of grant.capabilities) {
       const granted = accessCapabilitySchema.parse(value);
+      if (granted === "materials" && resource !== undefined) {
+        const scope = contentScopeSchema.parse(grant.contentScope ?? { guideIds: [], materialIds: [] });
+        if (!resource.guideIds.some(id => scope.guideIds.includes(id)) &&
+          (resource.materialId === undefined || !scope.materialIds.includes(resource.materialId))) continue;
+      }
       for (const capability of capabilitiesOpenedBy(granted))
         include(capability, validUntil);
     }
   }
   if (projection?.decision === "member" && projection.validUntil > now) {
-    for (const capability of globalAccessCapabilities)
+    for (const capability of (classification?.bridgeBenefits ?? ["materials", "community"]).map(value => accessCapabilitySchema.parse(value))) {
+      if (capability === "materials" && resource !== undefined) {
+        const scope = contentScopeSchema.parse(classification?.bridgeContentScope ?? { guideIds: [], materialIds: [] });
+        if (!resource.guideIds.some(id => scope.guideIds.includes(id)) &&
+          (resource.materialId === undefined || !scope.materialIds.includes(resource.materialId))) continue;
+      }
       include(capability, projection.validUntil.toISOString());
+    }
     futureBoundaries.push(projection.validUntil.getTime());
   }
   let membership: MembershipAccessState;
@@ -79,29 +114,17 @@ export async function resolveAccessCapabilities(
       validUntil: bounds.get("materials") ?? null,
     };
   } else if (classification?.bridgeEnabled !== true) {
-    const expired = await prisma.accessGrant.findFirst({
-      where: {
-        accountId,
-        capabilities: { has: "materials" },
-        startsAt: { lte: now },
-      },
-      select: { id: true },
+    const expired = historicalMaterials.some(grant => {
+      if (resource === undefined) return true;
+      const scope = contentScopeSchema.parse(grant.contentScope ?? { guideIds: [], materialIds: [] });
+      return resource.guideIds.some(id => scope.guideIds.includes(id)) || (resource.materialId !== undefined && scope.materialIds.includes(resource.materialId));
     });
-    membership = { kind: expired === null ? "required" : "expired" };
+    membership = { kind: expired ? "expired" : "required" };
   } else if (projection !== null) {
     membership = {
       kind: projection.decision === "not_member" ? "expired" : "stale",
     };
   } else {
-    const binding = await prisma.membershipBinding.findUnique({
-      where: { accountId },
-      select: { accountId: true },
-    });
-    const last = await prisma.membershipEvidenceReceipt.findFirst({
-      where: { accountId, outcome: "accepted_without_entitlement" },
-      orderBy: [{ receivedAt: "desc" }, { deliveryId: "desc" }],
-      select: { decision: true },
-    });
     membership = {
       kind:
         binding !== null ||

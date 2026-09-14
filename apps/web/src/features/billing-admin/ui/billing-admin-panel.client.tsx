@@ -1,6 +1,10 @@
 "use client";
+import { SubscriptionSourcePanel } from "./subscription-source-panel.client";
+import { listSubscriptionTiers, readContentCatalog } from "../api/enrollments.browser";
+import { ActivationRulesPanel } from "./activation-rules-panel.client";
+import { EnrollmentAdminPanel } from "./enrollment-admin-panel.client";
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import {
   billingErrorMessage,
@@ -63,6 +67,9 @@ export interface BillingAdminPanelProps {
  * изменилась нагрузка, поэтому повтор читает исходный результат, а не создаёт второй.
  */
 export function BillingAdminPanel({ offers }: BillingAdminPanelProps) {
+  const queryClient = useQueryClient();
+  const content = useQuery({ queryKey: ["owner-content-scope"], queryFn: async () => { const result = await readContentCatalog(); if (!result.ok) throw new Error(billingErrorMessage(result.code)); return result.value.result.items; } });
+  const tiers = useQuery({ queryKey: ["owner-subscription-tiers"], queryFn: async () => { const result = await listSubscriptionTiers({ operationId: crypto.randomUUID(), limit: 100 }); if (!result.ok) throw new Error(billingErrorMessage(result.code)); return result.value.result.items; } });
   const [catalog, setCatalog] = useState<readonly PriceSnapshot[]>(offers);
   const [payments, setPayments] = useState<readonly PaymentView[]>([]);
   const [paymentsCursor, setPaymentsCursor] = useState<string | null>(null);
@@ -94,6 +101,7 @@ export function BillingAdminPanel({ offers }: BillingAdminPanelProps) {
       setError(undefined);
       setNotice(task.notice);
       result.apply();
+      void queryClient.invalidateQueries({ queryKey: ["owner-subscription-tiers"] });
     },
   });
 
@@ -140,6 +148,8 @@ export function BillingAdminPanel({ offers }: BillingAdminPanelProps) {
 
   return (
     <BillingAdminView
+      content={content.data ?? []} tiers={tiers.data ?? []} catalogLoading={content.isPending || tiers.isPending} catalogError={content.error?.message ?? tiers.error?.message}
+      enrollmentControls={<><EnrollmentAdminPanel /><ActivationRulesPanel /><SubscriptionSourcePanel /></>}
       batch={batch}
       classification={classification}
       error={error}

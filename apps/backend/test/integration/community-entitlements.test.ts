@@ -7,7 +7,7 @@ import { Ajv } from "ajv";
 import addFormats from "ajv-formats";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
-import schema from "../../../../docs/contracts/billing-v1/schema.json" with { type: "json" };
+import schema from "../../../../docs/contracts/community-v2/schema.json" with { type: "json" };
 import { contractDigest } from "../../src/infrastructure/contracts/canonical-digest.js";
 import {
   accountId,
@@ -109,6 +109,7 @@ class ProviderDouble implements CommunityEntitlementProvider {
       status: "accepted" as CommunityDeliveryStatus,
     };
     const result = {
+      admissionRestriction: "none" as const,
       access: command.access,
       binding: command.binding,
       contractVersion: command.contractVersion,
@@ -250,7 +251,7 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     return {
       attemptId: randomUUID(),
       contractVersion: DISPATCH_CONTRACT_VERSION,
-      dispatchContractVersion: "inside.community-entitlement.v1",
+      dispatchContractVersion: "inside.community-entitlement.v2",
       dispatchId,
       effect,
       effectRef: randomUUID(),
@@ -904,7 +905,7 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
           live?.payloadDigest ?? "",
           "community.approve_join",
         ),
-        contractVersion: "inside.community-entitlement.v1",
+        contractVersion: "inside.community-entitlement.v2",
       });
       expect(wrongVersion.statusCode).toBe(422);
       expect(wrongVersion.json()).toMatchObject({

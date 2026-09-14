@@ -176,6 +176,7 @@ export async function applyGrantBatch(
           source: row.source,
           sourceRef: row.sourceRef,
           capabilities: row.terms.capabilities,
+          ...(row.terms.contentScope === undefined ? {} : { contentScope: row.terms.contentScope }),
           startsAt: new Date(row.terms.startsAt),
           validUntil:
             row.terms.validUntil === null

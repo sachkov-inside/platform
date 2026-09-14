@@ -25,3 +25,8 @@ export async function lockMaterialReferenceChanges(
     `);
   }
 }
+
+/** Same key as the durable Telegram binding trigger; holds a verified binding through commit. */
+export async function lockTelegramAccountBinding(transaction: AdvisoryLockTransaction, accountId: string): Promise<void> {
+  await transaction.$executeRaw(Prisma.sql`select pg_advisory_xact_lock(hashtextextended(${`telegram-link-state:${accountId}`}, 0::bigint))`);
+}

@@ -1,4 +1,5 @@
 "use client";
+import type { ReactNode } from "react";
 import type { PriceSnapshot } from "@/entities/subscription";
 
 import { CatalogSection, type CatalogSectionProps } from "./catalog-section.client";
@@ -18,6 +19,7 @@ export interface BillingAdminViewProps
     Omit<GrantsSectionProps, "pending">,
     Omit<ClassificationSectionProps, "pending"> {
   readonly offers: readonly PriceSnapshot[];
+  readonly enrollmentControls?: ReactNode;
   readonly pending?: boolean;
   readonly error?: string | undefined;
   readonly notice?: string | undefined;
@@ -28,6 +30,7 @@ export interface BillingAdminViewProps
  * Каждый раздел отвечает за свою группу операций, а страница — за общий исход команды.
  */
 export function BillingAdminView({
+  content, tiers, catalogLoading, catalogError, enrollmentControls,
   offers,
   payments,
   paymentsCursor,
@@ -92,7 +95,8 @@ export function BillingAdminView({
         </p>
       )}
 
-      <CatalogSection
+      {enrollmentControls}
+      <CatalogSection content={content} tiers={tiers} catalogLoading={catalogLoading} catalogError={catalogError}
         offers={offers}
         onArchiveOffer={onArchiveOffer}
         onPublishOffer={onPublishOffer}

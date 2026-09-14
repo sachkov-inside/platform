@@ -1,7 +1,7 @@
 import type { MembershipEntitlementsPrismaClient } from "../../infrastructure/prisma.js";
 import { acceptMembershipEvidence } from "../../features/accept-evidence/accept-evidence.js";
 import { bindMembershipPrincipal } from "../../features/bind-principal/bind-membership-principal.js";
-import { resolveMembershipForAccess } from "../../features/resolve-membership-for-access/resolve-membership-for-access.js";
+import { resolveMembershipForAccess, resolveMembershipForAccessMany } from "../../features/resolve-membership-for-access/resolve-membership-for-access.js";
 import type {
   AcceptMembershipEvidenceCommand,
   MembershipAccessState,
@@ -37,9 +37,11 @@ export function assembleMembershipEntitlements(
         return { ok: false, error: { code: "unavailable" } };
       }
     },
+    resolveManyForAccess: (accountId, resources) => resolveMembershipForAccessMany(dependencies.prisma, accountId, clock(), resources),
     async resolveForAccess(
       accountId: AccountId,
-      guideIds: readonly string[] = [],
+      guideIds?: readonly string[],
+      materialId?: string,
     ): Promise<MembershipAccessState> {
       try {
         return await resolveMembershipForAccess(
@@ -47,6 +49,7 @@ export function assembleMembershipEntitlements(
           accountId,
           clock(),
           guideIds,
+          materialId,
         );
       } catch {
         return { kind: "unavailable" };

@@ -7,7 +7,8 @@ import type {
 } from "../../../../infrastructure/prisma/index.js";
 import type { AccessGrants } from "../../../membership-entitlements/index.js";
 import {
-  COMMUNITY_CONTRACT_VERSION,
+  COMMUNITY_V2_CONTRACT_VERSION,
+  communitySetSchema,
   DISPATCH_CONTRACT_VERSION,
   PERMIT_LIFETIME_MS,
   accessAllows,
@@ -74,7 +75,7 @@ export async function authorizeCommunityDispatch(
 
   // Only community effects belong to this owner; a notice keeps its own facet.
   if (
-    input.dispatchContractVersion !== COMMUNITY_CONTRACT_VERSION ||
+    input.dispatchContractVersion !== COMMUNITY_V2_CONTRACT_VERSION ||
     input.effect === "notice.send"
   ) {
     return denied("effect_conflict");
@@ -139,7 +140,9 @@ async function decide(
     where: { operationId: input.dispatchId },
   });
   if (operation === null) return denied("not_found");
-  if (operation.payloadDigest !== input.payloadDigest) {
+  const storedCommand = communitySetSchema.safeParse(operation.command);
+  if (!storedCommand.success || storedCommand.data.contractVersion !== input.dispatchContractVersion ||
+    operation.payloadDigest !== input.payloadDigest || contractDigest(storedCommand.data) !== input.payloadDigest) {
     return denied("payload_conflict");
   }
   const [capabilities, binding] = await Promise.all([

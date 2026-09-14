@@ -235,3 +235,5 @@ export { MaterialAnnouncements } from "./facets/material-announcements/material-
 
 export { LoadHomePinController } from "./features/load-home-pin/load-home-pin.controller.js";
 export { SetHomePinController } from "./features/set-home-pin/set-home-pin.controller.js";
+
+export { ContentScopeCatalog } from "./facets/content-scope-catalog/content-scope-catalog.js";

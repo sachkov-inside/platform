@@ -39,7 +39,7 @@ describe("independent guide, library, support and shared chat rights", () => {
   });
   afterAll(async () => db.dispose());
   async function grant(capabilities: AccessCapability[], validUntil: string | null, source: "manual" | "legacy" = "manual") {
-    const preview = await grants.previewBatch(owner, { operationId: randomUUID(), rows: [{ rowKey: "fixture", accountId: buyer, source, sourceRef: randomUUID(), terms: { capabilities, startsAt: "2030-01-01T00:00:00Z", validUntil, reason: "Controlled #407 fixture" } }] });
+    const preview = await grants.previewBatch(owner, { operationId: randomUUID(), rows: [{ rowKey: "fixture", accountId: buyer, source, sourceRef: randomUUID(), terms: { capabilities, contentScope: { guideIds: [guideA, guideB], materialIds: [] }, startsAt: "2030-01-01T00:00:00Z", validUntil, reason: "Controlled #407 fixture" } }] });
     if (!preview.ok) throw new Error(preview.error.code);
     const result = await grants.applyBatch(owner, { operationId: randomUUID(), previewRef: preview.previewRef, expectedRevision: preview.revision, confirmedRows: ["fixture"] });
     const row = result.ok ? result.rows[0]?.result : undefined;

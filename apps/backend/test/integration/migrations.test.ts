@@ -67,9 +67,14 @@ const membershipEntitlementTables = [
   "access_grants",
   "access_receipts",
   "account_bindings",
+  "activation_attempts",
+  "activation_rules",
+  "content_scope_baseline",
   "current_projections",
   "evidence_receipts",
   "legacy_classifications",
+  "source_entitlements",
+  "subscription_enrollments",
 ] as const;
 
 const memberProfileTables = [
@@ -224,6 +229,7 @@ describe("Platform migrations", () => {
           "0060_material_announcements",
         "0061_lesson_difficulty_and_outcomes",
         "0062_reader_guide_mode",
+        "0063_subscription_enrollments",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -815,6 +821,7 @@ describe("Platform migrations", () => {
           "0060_material_announcements",
         "0061_lesson_difficulty_and_outcomes",
         "0062_reader_guide_mode",
+        "0063_subscription_enrollments",
         ],
       });
 

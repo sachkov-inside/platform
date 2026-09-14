@@ -1,3 +1,4 @@
+import { OwnCommunityAdmissionController } from "./features/activate-subscription/own-community-admission.controller.js";
 import { Module } from "@nestjs/common";
 
 import {
@@ -29,7 +30,7 @@ import { TelegramAccountLinksModule } from "./telegram-account-links.module.js";
     MembershipEntitlementsModule,
     TelegramAccountLinksModule,
   ],
-  controllers: [CommunityDispatchController, CommunityDeliveryController],
+  controllers: [OwnCommunityAdmissionController, CommunityDispatchController, CommunityDeliveryController],
   providers: [
     {
       provide: CommunityEntitlements,
@@ -52,7 +53,7 @@ import { TelegramAccountLinksModule } from "./telegram-account-links.module.js";
           grants,
           links,
           prisma,
-          provider: config.communityEntitlements
+          provider: config.communityEntitlements?.contractVersion === "inside.community-entitlement.v2"
             ? new HttpCommunityEntitlementProvider(
                 config.communityEntitlements.endpoint,
                 config.communityEntitlements.providerSecret,

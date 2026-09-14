@@ -32,3 +32,5 @@ export {
   lockAccountEntitlementChanges,
   lockMaterialReferenceChanges,
 } from "./transaction-locks.js";
+
+export { lockTelegramAccountBinding } from "./transaction-locks.js";

@@ -25,7 +25,7 @@ const BILLING_BANK = Symbol("BillingBank");
 
 @Module({
   imports: [PrismaModule, AccountsModule, MembershipEntitlementsModule],
-  controllers: [PurchaseSubscriptionController, ManageSubscriptionController, ChangePaymentMethodController, AcceptTbankNotificationController, ManageBillingController, QuotePurchaseController, ListOffersController],
+  controllers: [ PurchaseSubscriptionController, ManageSubscriptionController, ChangePaymentMethodController, AcceptTbankNotificationController, ManageBillingController, QuotePurchaseController, ListOffersController],
   providers: [
     { provide: BILLING_BANK, inject: [PLATFORM_CONFIG],
       useFactory: (config: PlatformConfig) => config.tbank ? new Tbank(config.tbank, bankRequest(config.tbank.caFile)) : undefined },

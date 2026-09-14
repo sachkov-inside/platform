@@ -18,7 +18,7 @@ import {
 } from "./membership-entitlements.tokens.js";
 
 @Module({
-  imports: [PrismaModule, AccountsModule, WorkshopModule],
+  imports: [PrismaModule, AccountsModule, WorkshopModule ],
   providers: [
     {
       provide: MEMBERSHIP_ENTITLEMENTS,
@@ -31,8 +31,12 @@ import {
     {
       provide: ACCESS_GRANTS,
       inject: [PrismaClientProvider, ACCOUNTS],
-      useFactory: (prisma: PrismaClientProvider, accounts: Accounts) =>
-        assembleAccessGrants({ prisma, accounts }),
+      // Materials' public barrel also exports its authoring composition, which consumes Membership.
+      // Resolve this read-only metadata facet after module initialization, without that DI cycle.
+      useFactory: async (prisma: PrismaClientProvider, accounts: Accounts) => {
+        const { ContentScopeCatalog } = await import("../materials/index.js");
+        return assembleAccessGrants({ prisma, accounts, contentCatalog: new ContentScopeCatalog(prisma) });
+      },
     },
   ],
   exports: [MEMBERSHIP_ENTITLEMENTS, ACCESS_GRANTS],

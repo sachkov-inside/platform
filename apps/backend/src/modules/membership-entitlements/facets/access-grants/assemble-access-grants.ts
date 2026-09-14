@@ -1,3 +1,15 @@
+import { contentScopeSchema } from "@inside/access-capabilities";
+import type { ContentScopeCatalog } from "../../../materials/index.js";
+import { enrollmentView, enrollmentBenefitTerms } from "../../shared/enrollment-view.js";
+import { registerSourceEntitlement } from "../../features/register-source-entitlement/register-source-entitlement.js";
+import { manageActivationRule } from "../../features/manage-activation-rule/manage-activation-rule.js";
+import { beginActivation, activateSubscription, readActivationReceipt } from "../../features/activate-subscription/activate-subscription.js";
+import { activationRuleSchema, type ActivationBindings } from "../../domain/subscription-activation.js";
+import { previewEnrollmentExpansion, applyEnrollmentExpansion } from "../../features/expand-enrollments/expand-enrollments.js";
+import { accessFingerprint } from "../../shared/access-receipts.js";
+import { assignEnrollment } from "../../features/assign-enrollment/assign-enrollment.js";
+import { changeEnrollment } from "../../features/change-enrollment/change-enrollment.js";
+import { assignEnrollmentSchema, enrollmentResultSchema } from "../../domain/subscription-enrollment.js";
 import { setAccessSnapshotIsolation } from "../../infrastructure/access-lock.js";
 import { z } from "zod";
 import { accountId, type Accounts, type PlatformPermission } from "../../../accounts/index.js";
@@ -37,6 +49,7 @@ import { readOwnAccess } from "../../features/read-own-access/read-own-access.js
 export interface AccessGrantsDependencies {
   readonly prisma: MembershipEntitlementsPrismaClient;
   readonly accounts: Pick<Accounts, "checkPermission" | "readIdentityForLink">;
+  readonly contentCatalog?: Pick<ContentScopeCatalog, "resolve" | "list">;
   readonly clock?: () => Date;
 }
 // Internal capability for billing fulfillment, owner operations (#409), and community projection (#415).
@@ -92,6 +105,69 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
     }
   }
   return Object.freeze({
+    readEnrollmentAssignmentReceipt: (actorId: string, input: unknown) =>
+      manage(actorId, "billing:manage", async () => {
+        const command = assignEnrollmentSchema.safeParse(input);
+        if (!command.success) return accessFailure("invalid_input");
+        const receipt = await prisma.accessReceipt.findUnique({ where: { scope_operationId: { scope: actorId, operationId: command.data.operationId } } });
+        if (receipt === null) return null;
+        return receipt.fingerprint === accessFingerprint({ action: "assignEnrollment", command: command.data })
+          ? enrollmentResultSchema.parse(receipt.result) : accessFailure("operation_conflict");
+      }),
+    readActivationReceipt: (input: unknown) => readActivationReceipt(prisma, input),
+    previewEnrollmentExpansion: (actorId: string, input: unknown, tier: unknown) =>
+      manage(actorId, "billing:manage", () => previewEnrollmentExpansion(prisma, actorId, input, tier, clock())),
+    applyEnrollmentExpansion: (actorId: string, input: unknown) =>
+      manage(actorId, "billing:manage", () => applyEnrollmentExpansion(prisma, actorId, input, clock())),
+    assignEnrollment: (actorId: string, command: unknown, snapshot: unknown) =>
+      manage(actorId, "billing:manage", async () => {
+        const parsed = assignEnrollmentSchema.safeParse(command);
+        if (!parsed.success) return accessFailure("invalid_input");
+        if (await accounts.readIdentityForLink(parsed.data.accountId) === undefined) return accessFailure("not_found");
+        return assignEnrollment(prisma, actorId, parsed.data, snapshot, clock());
+      }),
+    changeEnrollment: (actorId: string, command: unknown) =>
+      manage(actorId, "billing:manage", () => changeEnrollment(prisma, actorId, command, clock())),
+    registerSourceEntitlement: (actorId: string, input: unknown) => manage(actorId, "billing:manage", () => registerSourceEntitlement(prisma, actorId, input, clock())),
+    manageActivationRule: (actorId: string, input: unknown) =>
+      manage(actorId, "billing:manage", () => manageActivationRule(prisma, actorId, input, clock())),
+    listActivationRules: (actorId: string) => manage(actorId, "billing:manage", async () => {
+      const rows = await prisma.activationRule.findMany({ orderBy: { id: "asc" } });
+      return { ok: true as const, value: rows.map(row => activationRuleSchema.parse({ id: row.id, code: row.code,
+        name: row.name, revision: row.revision, tierId: row.tierId, tierRevision: row.tierRevision, sourceRef: row.sourceRef,
+        published: row.published, startsAt: row.startsAt.toISOString(), endsAt: row.endsAt?.toISOString() ?? null })) };
+    }),
+    async readActivationRule(ruleId: string) {
+      if (!z.uuid().safeParse(ruleId).success) return null;
+      const row = await prisma.activationRule.findUnique({ where: { id: ruleId } });
+      return row === null ? null : activationRuleSchema.parse({ id: row.id, code: row.code, name: row.name, revision: row.revision, tierId: row.tierId, tierRevision: row.tierRevision, sourceRef: row.sourceRef, published: row.published, startsAt: row.startsAt.toISOString(), endsAt: row.endsAt?.toISOString() ?? null });
+    },
+    beginActivation: (input: unknown) => beginActivation(prisma, input, clock()),
+    activateSubscription: (bindings: ActivationBindings, input: unknown, tier: unknown) => activateSubscription(prisma, bindings, input, tier, clock()),
+    async readOwnEnrollments(targetAccountId: string) {
+      if (!z.uuid().safeParse(targetAccountId).success) return accessFailure("invalid_input");
+      try {
+        const now = clock();
+        const rows = await prisma.subscriptionEnrollment.findMany({ where: { accountId: targetAccountId }, orderBy: [{ startsAt: "desc" }, { id: "asc" }] });
+        return { ok: true as const, value: await Promise.all(rows.map(async row => { const view = enrollmentView(row, now); const benefitGrants = await prisma.accessGrant.findMany({ where: { enrollmentId: row.id } }); return { ...view, benefitTerms: enrollmentBenefitTerms(benefitGrants), ...(dependencies.contentCatalog === undefined ? {} : { content: await dependencies.contentCatalog.resolve(view.tier.contentScope) }) }; })) };
+      } catch { return accessFailure("unavailable"); }
+    },
+    async readCompatibilityContentScope() {
+      const rows = z.array(z.object({ scope: contentScopeSchema })).parse(await prisma.$queryRaw`SELECT scope FROM membership_entitlements.content_scope_baseline WHERE id = 1`);
+      const row = rows[0]; if (row === undefined) throw new Error("Compatibility scope baseline missing");
+      return row.scope;
+    },
+    readContentCatalog: (actorId: string) => manage(actorId, "billing:manage", async () => {
+      if (dependencies.contentCatalog === undefined) return accessFailure("unavailable");
+      return { ok: true as const, value: await dependencies.contentCatalog.list() };
+    }),
+    listEnrollments: (actorId: string, targetAccountId: string) =>
+      manage(actorId, "billing:manage", async () => {
+        if (!z.uuid().safeParse(targetAccountId).success) return accessFailure("invalid_input");
+        const now = clock();
+        const rows = await prisma.subscriptionEnrollment.findMany({ where: { accountId: targetAccountId }, orderBy: { id: "asc" } });
+        return { ok: true as const, value: await Promise.all(rows.map(async row => { const view = enrollmentView(row, now); const benefitGrants = await prisma.accessGrant.findMany({ where: { enrollmentId: row.id } }); const changes = await prisma.accessChange.findMany({ where: { accountId: targetAccountId, grantId: { in: benefitGrants.map(grant => grant.id) } }, orderBy: { revision: "desc" }, take: 100 }); return { ...view, benefitTerms: enrollmentBenefitTerms(benefitGrants), history: changes.map(change => ({ kind: change.kind, reason: change.reason, recordedAt: change.recordedAt.toISOString() })), ...(dependencies.contentCatalog === undefined ? {} : { content: await dependencies.contentCatalog.resolve(view.tier.contentScope) }) }; })) };
+      }),
     async applyPaidPeriod(command: ApplyPaidPeriodCommand) {
       try {
         return await applyPaidPeriod(prisma, accounts, command, clock());

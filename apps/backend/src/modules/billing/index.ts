@@ -11,3 +11,5 @@ export { registerBillingTools, type BillingOwnerTools } from "./adapters/mcp/reg
 // Подпись протокола банка нужна и вне модуля: двойник банка на стенде подписывает нотификации
 // тем же алгоритмом, иначе приложение не приняло бы их своим обычным путём.
 export { tbankToken } from "./infrastructure/tbank/tbank.js";
+
+export { SubscriptionActivation } from "./facets/subscription-activation/subscription-activation.js";

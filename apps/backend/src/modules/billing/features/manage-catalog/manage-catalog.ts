@@ -1,5 +1,6 @@
+import { isGuideCapability } from "@inside/access-capabilities";
 import type { Accounts } from "../../../accounts/index.js";
-import type { BillingPrisma, BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import { Prisma, type BillingPrisma, type BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { failure, idSchema, type PricingResult } from "../../domain/pricing.js";
 import { lockPricing } from "../../infrastructure/postgres/catalog-lock.js";
 import { catalogOutcomeSchema, manageCatalogSchema, type ManageCatalogCommand } from "./manage-catalog.contract.js";
@@ -48,8 +49,12 @@ async function changeCatalog(tx: BillingPrisma, command: ManageCatalogCommand): 
   switch (command.operation) {
     case "offers.save": {
       const periods = command.value.benefitPeriods ?? [];
+      const assignable = command.value.availableForAssignment ?? (current !== null && "availableForAssignment" in current && current.availableForAssignment);
+      const scope = command.value.contentScope === undefined && current !== null && "contentScope" in current ? current.contentScope : command.value.contentScope;
+      if (assignable && (scope == null || command.value.benefits.some(value => isGuideCapability(value)))) return failure("invalid_request");
       if (new Set(periods.map(value => value.capability)).size !== periods.length || periods.some(value => !command.value.benefits.includes(value.capability))) return failure("invalid_request");
-      const data = { ...command.value, benefitPeriods: periods, revision, archived: false };
+      const { contentScope, availableForAssignment, ...value } = command.value;
+      const data = { ...value, ...(availableForAssignment === undefined ? {} : { availableForAssignment }), ...(contentScope === undefined ? {} : { contentScope: contentScope === null ? Prisma.JsonNull : contentScope }), benefitPeriods: periods, revision, archived: false };
       await tx.billingOffer.upsert({ where: { id }, create: data, update: data });
       return { ok: true, value: { id, revision, archived: false, published: currentPublished } };
     }

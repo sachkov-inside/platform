@@ -1,3 +1,4 @@
+import { contentScopeSchema } from "@inside/access-capabilities";
 import { z } from "zod";
 // Словарь прав и вывод состава доступа живут в `@inside/access-capabilities`: покупатель видит
 // на витрине ровно то, что сервер потом выдаёт, потому что это один и тот же вывод.
@@ -30,6 +31,8 @@ export const offerSchema = z.object({
   archived: z.boolean(),
   /** Обратимый признак продажи. В прежних сохранённых снимках может отсутствовать. */
   published: z.boolean().optional(),
+  availableForAssignment: z.boolean().optional(),
+  contentScope: contentScopeSchema.nullable().optional(),
 });
 /** Как продаётся вариант: по расписанию или один раз. Старый снимок без режима — подписка. */
 export const paymentModeSchema = z.enum(["subscription", "one_time"]);

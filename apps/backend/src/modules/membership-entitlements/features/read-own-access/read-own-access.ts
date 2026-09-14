@@ -19,7 +19,7 @@ export const ownAccessSchema = z.object({
 });
 export type OwnAccess = z.infer<typeof ownAccessSchema>;
 export type ReadOwnAccessResult =
-  | AccessFailure<"invalid_input">
+  | AccessFailure<"invalid_input" | "unavailable">
   | { readonly ok: true; readonly value: OwnAccess };
 
 /**
@@ -39,8 +39,9 @@ export async function readOwnAccess(
       OR: [{ validUntil: null }, { validUntil: { gt: now } }],
     },
     orderBy: [{ startsAt: "asc" }, { id: "asc" }],
-    take: 100,
+    take: 1001,
   });
+  if (grants.length > 1000) return accessFailure("unavailable");
   return {
     ok: true,
     value: ownAccessSchema.parse({

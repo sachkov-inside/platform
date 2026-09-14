@@ -66,7 +66,7 @@ export interface AccountPermissions {
 export type { MembershipAccessState };
 export type MembershipEntitlements = Pick<
   MembershipEntitlementsModule,
-  "resolveForAccess"
+  "resolveForAccess" | "resolveManyForAccess"
 >;
 
 export interface ContentAccessDependencies {

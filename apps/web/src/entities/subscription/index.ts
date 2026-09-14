@@ -93,3 +93,9 @@ export {
   ConsentChecklist,
   type ConsentChecklistProps,
 } from "./ui/consent-checklist.client";
+
+export { tierSchema, enrollmentSchema, enrollmentsSchema, enrollmentSourceLabels, enrollmentStateLabels, type Enrollment } from "./model/enrollment";
+
+export { EnrollmentList } from "./ui/enrollment-list";
+
+export { announceEnrollmentChange, subscribeEnrollmentChange } from "./model/enrollment-events";

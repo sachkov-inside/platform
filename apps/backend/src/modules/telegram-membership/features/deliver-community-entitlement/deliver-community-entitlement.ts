@@ -3,6 +3,7 @@ import {
   COMMUNITY_OVERDUE_MS,
   COMMUNITY_RECONCILIATION_INTERVAL_MS,
   COMMUNITY_RETRY_DELAYS_MS,
+  COMMUNITY_V2_CONTRACT_VERSION,
   communitySetSchema,
   type CommunityResult,
 } from "../../domain/community-entitlement.js";
@@ -72,6 +73,10 @@ export async function deliverCommunityOperations(
         },
       });
       rejected += 1;
+      continue;
+    }
+    if (command.data.contractVersion !== COMMUNITY_V2_CONTRACT_VERSION) {
+      await dependencies.prisma.telegramCommunityOperation.update({ where: { operationId: row.operationId }, data: { delivery: "superseded", updatedAt: now } });
       continue;
     }
     const outcome = await dependencies.provider.set(command.data);
