@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { Accounts } from "../../../accounts/index.js";
 import type { TelegramAccountLinks } from "../../../telegram-membership/index.js";
-import { Prisma, lockTelegramAccountBinding } from "../../../../infrastructure/prisma/index.js";
+import { Prisma, lockTelegramAccountBinding, lockAccountEntitlementChanges } from "../../../../infrastructure/prisma/index.js";
 import type { MembershipEntitlementsPrismaClient, MembershipEntitlementsPrisma } from "../../infrastructure/prisma.js";
 import { lockAccess } from "../../infrastructure/access-lock.js";
 import { accessFingerprint, readAccessReceipt } from "../../shared/access-receipts.js";
@@ -165,10 +165,14 @@ export class TributeSources {
       const selected = stored.command.rows.filter(row => command.selectedRows.includes(row.rowRef));
       if (selected.length !== command.selectedRows.length) return accessFailure("invalid_input");
       const foundAccounts = stored.rows.filter(row => command.selectedRows.includes(row.rowRef)).flatMap(row => row.accountId === null ? [] : [row.accountId]);
-      for (const accountId of [...new Set(foundAccounts)].sort()) await lockTelegramAccountBinding(tx, accountId);
+      const orderedAccounts = [...new Set(foundAccounts)].sort();
+      for (const accountId of orderedAccounts) await lockTelegramAccountBinding(tx, accountId);
       const sourceRefs = selected.map(row => sourceIdentityRef("tribute", row.policyRef, row.identityRef ?? ""));
       for (const ref of [...new Set(sourceRefs)].sort()) await lockAccess(tx, `enrollment:tribute:${ref}`);
       await lockAccess(tx, "tribute:policies");
+      // Binding → sorted sources → policy → all sorted accounts → row mutations.
+      // Taking accounts lazily after source UPSERT reverses generic owner changes and batch expansion.
+      for (const accountId of orderedAccounts) await lockAccountEntitlementChanges(tx, accountId);
       for (const row of selected) {
         const prior = stored.rows.find(value => value.rowRef === row.rowRef);
         if (!prior || !["new", "matched", "pending_identity"].includes(prior.status)) return accessFailure("invalid_input");
@@ -328,6 +332,9 @@ export class TributeSources {
         if (link.ok && link.state === "found") await lockTelegramAccountBinding(tx, link.recipient.accountId);
         await lockAccess(tx, `enrollment:tribute:${candidate.sourceRef}`);
         const row = await tx.sourceEntitlement.findUniqueOrThrow({ where: { id: candidate.id } });
+        const accountIds = [row.accountId, link.ok && link.state === "found" ? link.recipient.accountId : null]
+          .filter((id): id is string => id !== null);
+        for (const accountId of [...new Set(accountIds)].sort()) await lockAccountEntitlementChanges(tx, accountId);
         await tx.sourceEntitlement.update({ where: { id: row.id }, data: { reconcileAt: new Date(now.getTime() + reconciliationIntervalMilliseconds) } });
         if (row.accountId !== null && row.enrollmentId !== null) return;
         const policy = await tx.tributePolicy.findUnique({ where: { id: row.sourcePolicyRef } });

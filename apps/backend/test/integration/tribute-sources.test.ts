@@ -1,3 +1,6 @@
+import { eventually } from "./setup/eventually.js";
+import { lockAccountEntitlementChanges } from "../../src/infrastructure/prisma/index.js";
+import { changeEnrollmentInTransaction } from "../../src/modules/membership-entitlements/features/change-enrollment/change-enrollment.js";
 import { z } from "zod";
 import { activationResponseSchema } from "../../src/modules/telegram-membership/domain/subscription-activation-wire.js";
 import { createHash, createHmac, randomUUID } from "node:crypto";
@@ -18,6 +21,11 @@ import { ProblemDetailsFilter } from "../../src/infrastructure/http/problem-deta
 import { createMigratedTestDatabase, type TestDatabase } from "./setup/test-database.js";
 import { linkTelegramAccount } from "./setup/telegram-link.js";
 
+function deferredValue<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>(settle => { resolve = settle; });
+  return { promise, resolve };
+}
 function value<T>(result: { ok: true; value: T } | { ok: false; error: { code: string } }): T {
   if (!result.ok) throw new Error(result.error.code);
   return result.value;
@@ -158,6 +166,59 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
     now = new Date("2030-02-01T00:00:00.000Z");
     expect(await membership.resolveForAccess(accountId(customer.id), [context.guideId])).not.toMatchObject({ kind: "active" });
   });
+  test.each(["change_term", "revoke"] as const)("multirow import and generic %s use account locks before source mutations", async (action) => {
+    const first = await setup(); const firstAccount = await link(first.row.identityRef); await apply(first.row);
+    const second = await setup(); const secondAccount = await link(second.row.identityRef); await apply(second.row);
+    const ordered = [{ context: first, account: firstAccount }, { context: second, account: secondAccount }]
+      .sort((left, right) => left.account.id.localeCompare(right.account.id));
+    const [target, untouched] = ordered;
+    if (!target || !untouched) throw new Error("Expected two independent Accounts");
+    const original = await db.prisma.subscriptionEnrollment.findFirstOrThrow({ where: { accountId: target.account.id } });
+    const otherBefore = await db.prisma.subscriptionEnrollment.findFirstOrThrow({ where: { accountId: untouched.account.id } });
+    const rows = await Promise.all([...ordered].reverse().map(async ({ context }) => ({ ...context.row,
+      expectedRevision: (await db.prisma.sourceEntitlement.findFirstOrThrow({ where: { identityRef: context.row.identityRef } })).revision,
+      endsAt: "2030-03-01T00:00:00.000Z" })));
+    const preview = value(await convergence.preview(owner, { operationId: randomUUID(), batchRef: randomUUID(), rows }));
+    const command = { operationId: randomUUID(), previewRef: preview.previewRef, selectedRows: rows.map(row => row.rowRef) };
+    const locked = deferredValue<number>(); const proceed = deferredValue<boolean>();
+    const change = { operationId: randomUUID(), enrollmentId: original.id, expectedRevision: original.revision, action,
+      terms: { startsAt: original.startsAt.toISOString(), endsAt: "2030-01-20T00:00:00.000Z", endPolicy: "confirmed_external" as const },
+      reason: "Concurrent generic owner decision" };
+    // Pause the real owner transaction after its account lock. PostgreSQL's wait graph, not a delay,
+    // proves the real import reached the conflicting account before the owner updates the source row.
+    const ownerChange = db.prisma.$transaction(async tx => {
+      await lockAccountEntitlementChanges(tx, target.account.id);
+      const [backend] = z.array(z.object({ pid: z.int().positive() })).parse(
+        await tx.$queryRaw`SELECT pg_backend_pid() AS pid`);
+      if (!backend) throw new Error("Missing transaction PID");
+      locked.resolve(backend.pid); await proceed.promise;
+      return changeEnrollmentInTransaction(tx, owner, change, now);
+    }, { timeout: 15_000 });
+    const ownerPid = await locked.promise;
+    const importing = convergence.apply(owner, command);
+    const results = Promise.allSettled([ownerChange, importing]);
+    try {
+      await eventually(async () => {
+        const rows = z.array(z.object({ waiting: z.boolean() })).parse(await db.prisma.$queryRaw`SELECT EXISTS (
+          SELECT 1 FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'
+          AND query LIKE '%pg_advisory_xact_lock%' AND ${ownerPid} = ANY(pg_blocking_pids(pid))
+        ) AS waiting`);
+        expect(rows[0]?.waiting).toBe(true);
+      }, 5_000);
+    } finally { proceed.resolve(true); }
+    const [changed, imported] = await results;
+    if (changed.status === "rejected") throw changed.reason;
+    if (imported.status === "rejected") throw imported.reason;
+    expect(changed).toMatchObject({ status: "fulfilled", value: { ok: true } });
+    expect(imported).toMatchObject({ status: "fulfilled", value: { ok: false, error: { code: "revision_conflict" } } });
+    expect(await db.prisma.subscriptionEnrollment.findUniqueOrThrow({ where: { id: otherBefore.id } })).toEqual(otherBefore);
+    const current = await db.prisma.subscriptionEnrollment.findUniqueOrThrow({ where: { id: original.id } });
+    expect(current.revision).toBe(original.revision + 1);
+    expect(current.revokedAt !== null).toBe(action === "revoke");
+    expect(await db.prisma.accessReceipt.count({ where: { scope: owner, operationId: command.operationId } })).toBe(0);
+    expect(await grants.changeEnrollment(owner, change)).toMatchObject({ ok: true, value: { id: original.id, revision: current.revision } });
+    expect(await convergence.apply(owner, command)).toMatchObject({ ok: false, error: { code: "revision_conflict" } });
+  }, 20_000);
   test("preview flags every period reduction and confirmed-to-temporary downgrade before apply", async () => {
     const context = await setup(); const customer = await link(context.row.identityRef); await apply(context.row);
     const source = await db.prisma.sourceEntitlement.findFirstOrThrow({ where: { identityRef: context.row.identityRef } });

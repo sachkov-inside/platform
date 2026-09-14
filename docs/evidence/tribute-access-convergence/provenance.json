@@ -24,7 +24,7 @@
     "no-active.json": "612ecc89deb6265c1af7422a76a531d12e61d2aee99774ae99bf7ec67c04c54d",
     "nonpaid.json": "3d7a2126c30d98ca6a4549e81091ed625e9b0b5d1d17e3505c86396dccb025e9",
     "overlap.json": "27b5b87293deb418686674e0880afbb9674a21a49c09a63bf832a40956ddff25",
-    "owner-invariants.md": "5783b1a50c53aa834e8b2fe44e04c19a6cfbf101198e67f53ee2ef62e76f4d4b",
+    "owner-invariants.md": "a9cf8d9f6f1292b6cb5c995509ab002088426350822e69808538de95dd930ada",
     "portable-equality.json": "0a8fb74c548245577f1f878f21c9543575bc11b99366ce992437a5f2b74c35ce",
     "restored-pair.json": "d310da0fa57dd5f654482e098a6296ed34d0a7d357bbd3c47c2daee83200ced1",
     "source-faults.json": "52b610a6938a096265b13b54259415b36f32caabf018475fcbbfab00b5599a65",
@@ -37,5 +37,6 @@
   "externalFaultAdapter": "Accepted Telegram source with only external port doubles extended; consumer decisions and Platform transports unchanged.",
   "platformRuntimeBase": "4ede757af5af118585604d0fbe7bd52de0aeeeef",
   "implementationCommit": "e93c4f2ebc44d7ad591d0ef178cbf19237c38ad1",
-  "runtimeDisposition": "Paired proofs began on 4ede757; local one_time payment schema correction was loaded for refund/moderation proofs, then final shortening preview correction loaded after paired runtime acceptance. Both changes and check/fullPG regressions belong to implementationCommit. Final-head CI is recorded in the PR."
+  "runtimeDisposition": "Paired proofs began on 4ede757; local one_time payment schema correction was loaded for refund/moderation proofs, then final shortening preview correction loaded after paired runtime acceptance. Both changes and check/fullPG regressions belong to implementationCommit. Final-head CI is recorded in the PR.",
+  "postAcceptanceRegression": "Coordinator concurrency finding repaired after the paired checkpoints: import/sweep acquire sorted Account locks before source mutation; deterministic real PostgreSQL term/revoke regression and full 468-test PG suite pass. Exact repair head and terminal verification are recorded in PR630."
 }

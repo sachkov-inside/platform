@@ -19,7 +19,11 @@ export function tributeSourceView(row: TributeSourceRecord, now: Date) {
       : state.mode === "temporary_membership" && (state.observation !== "member" || state.observedUntil === null || new Date(state.observedUntil) <= now)
         ? "pending_verification" : new Date(state.startsAt) > now ? "scheduled" : new Date(state.endsAt) <= now ? "expired" : "active" });
 }
-/** Caller holds the exact binding, source and catalog locks; this transaction owns all derived rights. */
+/**
+ * Caller holds exact binding/source/catalog guards. Before any earlier source-row mutation,
+ * it must also acquire all affected account locks in sorted order; this reentrant lock is too late otherwise.
+ * Generic owner changes acquire account before rows and must never acquire source guards afterward.
+ */
 export async function projectTributeSource(tx: MembershipEntitlementsPrisma, row: TributeSourceRecord,
   state: TributeState, accountId: string, actorId: string | null, reason: string, now: Date) {
   await lockAccountEntitlementChanges(tx, accountId);
