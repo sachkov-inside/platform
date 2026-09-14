@@ -138,6 +138,43 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
     expect(await db.prisma.billingPurchase.count({ where: { accountId: customer.id } })).toBe(0);
     expect(await sources.preview(customer.id, { operationId: randomUUID(), batchRef: "forbidden", rows: [context.row] })).toMatchObject({ ok: false, error: { code: "forbidden" } });
   });
+  test("24/26 full enrollment snapshot survives catalog edit and offset periods resolve at exact UTC bounds", async () => {
+    const context = await setup(); const customer = await link(context.row.identityRef);
+    await apply({ ...context.row, startsAt: "2030-01-01T03:00:00.000+03:00", endsAt: "2030-02-01T03:00:00.000+03:00" });
+    const before = await db.prisma.subscriptionEnrollment.findFirstOrThrow({ where: { accountId: customer.id } });
+    const beforeGrants = await db.prisma.accessGrant.findMany({ where: { accountId: customer.id }, orderBy: { id: "asc" } });
+    await db.prisma.billingOffer.update({ where: { id: context.tier.id }, data: { name: "Changed next cohort", revision: 2,
+      benefits: ["materials", "reviews"], contentScope: { guideIds: [randomUUID()], materialIds: [] } } });
+    expect(await db.prisma.subscriptionEnrollment.findUniqueOrThrow({ where: { id: before.id } })).toEqual(before);
+    expect(await db.prisma.accessGrant.findMany({ where: { accountId: customer.id }, orderBy: { id: "asc" } })).toEqual(beforeGrants);
+    expect(before.startsAt.toISOString()).toBe("2030-01-01T00:00:00.000Z");
+    expect(before.endsAt?.toISOString()).toBe("2030-02-01T00:00:00.000Z");
+    now = new Date("2029-12-31T23:59:59.999Z");
+    expect(await membership.resolveForAccess(accountId(customer.id), [context.guideId])).not.toMatchObject({ kind: "active" });
+    now = new Date("2030-01-01T00:00:00.000Z");
+    expect(await membership.resolveForAccess(accountId(customer.id), [context.guideId])).toMatchObject({ kind: "active" });
+    now = new Date("2030-01-31T23:59:59.999Z");
+    expect(await membership.resolveForAccess(accountId(customer.id), [context.guideId])).toMatchObject({ kind: "active" });
+    now = new Date("2030-02-01T00:00:00.000Z");
+    expect(await membership.resolveForAccess(accountId(customer.id), [context.guideId])).not.toMatchObject({ kind: "active" });
+  });
+  test("preview flags every period reduction and confirmed-to-temporary downgrade before apply", async () => {
+    const context = await setup(); const customer = await link(context.row.identityRef); await apply(context.row);
+    const source = await db.prisma.sourceEntitlement.findFirstOrThrow({ where: { identityRef: context.row.identityRef } });
+    value(await convergence.savePolicy(owner, { operationId: randomUUID(), expectedRevision: 1, id: context.row.policyRef,
+      subscriptionId: context.row.subscriptionId, enabled: true, tierId: context.tier.id, tierRevision: 1,
+      temporaryUntil: context.row.endsAt, reason: "Explicit synthetic temporary-policy boundary" }));
+    for (const patch of [{ startsAt: "2030-01-02T00:00:00.000Z" }, { endsAt: "2030-01-31T00:00:00.000Z" },
+      { mode: "temporary_membership" as const }]) {
+      const preview = value(await convergence.preview(owner, { operationId: randomUUID(), batchRef: randomUUID(),
+        rows: [{ ...context.row, ...patch, expectedRevision: source.revision }] }));
+      expect(preview.rows[0]).toMatchObject({ status: "matched", shortens: true });
+      expect(await membership.resolveForAccess(accountId(customer.id), [context.guideId])).toMatchObject({ kind: "active" });
+    }
+    const extension = value(await convergence.preview(owner, { operationId: randomUUID(), batchRef: randomUUID(),
+      rows: [{ ...context.row, startsAt: "2029-12-31T00:00:00.000Z", endsAt: "2030-03-01T00:00:00.000Z", expectedRevision: source.revision }] }));
+    expect(extension.rows[0]).toMatchObject({ status: "matched", shortens: false });
+  });
   test("10 preview never infers identity or periods; changed revisions and archived catalog fail closed", async () => {
     const context = await setup();
     const unknown = value(await convergence.preview(owner, { operationId: randomUUID(), batchRef: randomUUID(), rows: [{ ...context.row, endsAt: null }] }));

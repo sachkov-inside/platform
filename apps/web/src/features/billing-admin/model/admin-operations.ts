@@ -70,7 +70,7 @@ export const listPaymentsInputSchema = z.strictObject({
   operationId,
   accountId: z.uuid().optional(),
   state: attemptStateSchema.optional(),
-  kind: z.enum(["initial", "renewal", "upgrade"]).optional(),
+  kind: z.enum(["initial", "one_time", "renewal", "upgrade"]).optional(),
   cursor: z.uuid().optional(),
   limit: z.number().int().min(1).max(100),
 });
@@ -195,12 +195,12 @@ export const catalogOffersOutcomeSchema = envelope(
 export const paymentViewSchema = z.object({
   purchaseRef: z.uuid(),
   accountId: z.uuid(),
-  kind: z.enum(["initial", "renewal", "upgrade"]),
+  kind: z.enum(["initial", "one_time", "renewal", "upgrade"]),
   state: attemptStateSchema,
   subscriptionRef: z.uuid().nullable(),
   periodIndex: z.number().int().positive().nullable(),
   amountKopecks: money,
-  environment: z.enum(["demo", "production"]),
+  environment: z.enum(["demo", "production", "local"]),
   terminalRef: z.string(),
   paymentId: z.string().nullable(),
   snapshot: priceSnapshotSchema,

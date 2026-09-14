@@ -176,6 +176,10 @@ describe("локальная продажа через двойника банк
     expect(await s.capabilities()).toEqual(["community", guide.capability]);
     const row = await s.purchaseRow(guide.purchaseRef);
     expect(row).toMatchObject({ kind: "one_time", state: "confirmed", environment: "local", subscriptionRef: null });
+    expect(await s.operations.execute(owner, { operation: "payments.list", operationId: randomUUID(), accountId: s.buyer, kind: "one_time", limit: 10 }))
+      .toMatchObject({ ok: true, result: { outcome: "payments", items: [{ purchaseRef: guide.purchaseRef, kind: "one_time", environment: "local" }] } });
+    expect(await s.operations.execute(owner, { operation: "payments.read", operationId: randomUUID(), purchaseRef: guide.purchaseRef }))
+      .toMatchObject({ ok: true, result: { outcome: "payment", value: { kind: "one_time", environment: "local" } } });
     // Банк не выдал привязку: разовая покупка её не просила, и продлевать тут нечего.
     expect(row.bindingCiphertext).toBeNull();
     expect(await db.prisma.billingSubscription.count({ where: { accountId: s.buyer } })).toBe(0);

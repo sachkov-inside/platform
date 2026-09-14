@@ -77,11 +77,16 @@ export class TributeSources {
     const prior = source?.tributeState == null ? null : tributeStateSchema.parse(source.tributeState);
     const enrollment = source?.enrollmentId == null ? null : await tx.subscriptionEnrollment.findUnique({ where: { id: source.enrollmentId } });
     const link = row.identityRef === null ? null : await this.dependencies.links.findCurrentByIdentity(row.identityRef);
+    const previousStart = prior?.startsAt ?? enrollment?.startsAt.toISOString();
+    const previousEnd = prior?.endsAt ?? enrollment?.endsAt?.toISOString();
+    const wasConfirmed = prior?.mode === "confirmed_period" || enrollment?.endPolicy === "confirmed_external";
     const result = { rowRef: row.rowRef, status: "matched" as z.infer<typeof tributePreviewRowSchema>["status"], detail: "Подтверждённое обновление",
       sourceId: source?.id ?? null, accountId: link?.ok && link.state === "found" ? link.recipient.accountId : null,
       bindingFingerprint: link?.ok && link.state === "found" ? accessFingerprint(link.recipient) : null,
       sourceRevision: source?.revision ?? 0, policyRevision: policy?.revision ?? 0, enrollmentRevision: enrollment?.revision ?? 0,
-      shortens: prior !== null && row.endsAt !== null && Date.parse(row.endsAt) < Date.parse(prior.endsAt),
+      shortens: (previousStart !== undefined && row.startsAt !== null && Date.parse(row.startsAt) > Date.parse(previousStart))
+        || (previousEnd !== undefined && row.endsAt !== null && Date.parse(row.endsAt) < Date.parse(previousEnd))
+        || (wasConfirmed && row.mode === "temporary_membership"),
       tier: prior?.tier ?? (policy === null ? null : tierSnapshotSchema.parse(policy.tierSnapshot)), startsAt: row.startsAt, endsAt: row.endsAt };
     if (policy === null || !policy.enabled || row.subscriptionId !== policy.subscriptionId) {
       result.status = "conflict"; result.detail = "Источник отсутствует, остановлен или не совпадает";

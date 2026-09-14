@@ -90,7 +90,7 @@ export function TributeOperationsView(props: Props) {
         <input className="mt-1 size-4" type="checkbox" name="row" value={row.rowRef} disabled={!["new", "matched", "pending_identity"].includes(row.status)} />
         <span className="grid min-w-0 gap-1 break-words"><strong>{row.rowRef} · {previewLabels[row.status]}</strong><span>{row.detail}</span>
           <span>{row.tier?.name ?? "Тариф не подтверждён"} · {row.startsAt ?? "Начало неизвестно"} → {row.endsAt ?? "Конец неизвестен"}</span>
-          {row.shortens ? <strong>Выбранная строка сократит ранее подтверждённый срок.</strong> : null}</span>
+          {row.shortens ? <strong>Выбранная строка сократит ранее подтверждённый доступ. Проверьте начало, окончание и режим подтверждения.</strong> : null}</span>
       </label>)}
       <Button type="submit" disabled={props.busy}>Применить выбранные строки</Button>
     </form> : null}

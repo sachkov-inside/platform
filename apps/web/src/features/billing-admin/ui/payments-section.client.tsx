@@ -112,6 +112,7 @@ export function PaymentsSection({
             options={[
               { value: "any", label: "Любой" },
               { value: "initial", label: "initial" },
+              { value: "one_time", label: "Разовая покупка" },
               { value: "renewal", label: "renewal" },
               { value: "upgrade", label: "upgrade" },
             ]}

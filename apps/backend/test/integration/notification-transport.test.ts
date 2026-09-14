@@ -64,7 +64,7 @@ const brokerReapBudgetMs = 15_000;
  * реальной работы, при зависании побеждает потолок, а не барьер, и падение снова теряет имя.
  */
 const crashScenarioWorkMs = 20_000;
-const crashScenarioTimeoutMs = crashWorkerStartBudgetMs + brokerReapBudgetMs + barrierBudgetMs * 4 + crashScenarioWorkMs;
+const crashScenarioTimeoutMs = crashWorkerStartBudgetMs + brokerReapBudgetMs * 2 + barrierBudgetMs * 4 + crashScenarioWorkMs;
 /** Вместимость очереди стенда: на ней проверяется отказ по переполнению. */
 const queueCapacity = 2;
 /**
@@ -226,6 +226,12 @@ describe('Notifications real PostgreSQL / RabbitMQ transport', () => {
       // Wait for both confirm-window copies to be consumed before moving to the next crash phase.
       await eventually(async () => { expect(await queueDepth(admin, 'inside-test', lanes.billing.queue)).toBe(0); }, barrierBudgetMs);
       await consumer.stop();
+      // Cancel acknowledgement precedes the quorum queue's observed consumer count on loaded runners.
+      // Each crash scenario owns this cleanup barrier; the next scenario still requires zero consumers.
+      await eventually(async () => {
+        expect(await queueConsumers(admin, 'inside-test', lanes.billing.queue),
+          'broker still holds the stopped recovery consumer').toBe(0);
+      }, brokerReapBudgetMs);
       expect(await database.prisma.notificationInbox.count({ where: { messageId: envelope.messageId } })).toBe(1);
     }, crashScenarioTimeoutMs);
   }

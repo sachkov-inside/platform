@@ -243,7 +243,7 @@ describe("владельческие операции billing: платежи, �
       if (!resolved.ok) throw new Error(resolved.error.code);
       return resolved.capabilities.map(entry => entry.capability);
     };
-    return { buyer, guideId, offerId, optionId, bank, payments, subscriptions, operations, buy, reserve, lifetimeGuideGrant, capabilities };
+    return { buyer, guideId, offerId, optionId, bank, payments, subscriptions, operations, buy, reserve, consentFor, lifetimeGuideGrant, capabilities };
   }
 
   test("владелец определяет покупателя: повтор не пишет второй раз, конфликт редакции не пишет вовсе", async () => {
@@ -571,6 +571,15 @@ describe("владельческие операции billing: платежи, �
     expect(await db.prisma.accessGrant.findUniqueOrThrow({ where: { id: paid.id } })).toMatchObject({ revision: paid.revision, validUntil: paid.validUntil });
   });
 
+  test("21 a quote accepted before unpublish cannot start a new purchase afterward", async () => {
+    const s = await scenario();
+    const quote = value(await pricing.quote(s.buyer, { operationId: randomUUID(), paymentOptionId: s.optionId, optionRevision: 1 }));
+    const consentEvidenceRefs = await s.consentFor(quote.quoteRef);
+    asCatalog(await s.operations.execute(owner, { operation: "offers.unpublish", operationId: randomUUID(), id: s.offerId, expectedRevision: 2 }));
+    expect(await s.payments.purchase(s.buyer, { operationId: randomUUID(), quoteRef: quote.quoteRef, contactRevision: 1,
+      consentEvidenceRefs, acknowledgeExistingAccess: false })).toMatchObject({ ok: false });
+    expect(await db.prisma.billingPurchase.count({ where: { accountId: s.buyer } })).toBe(0);
+  });
   test("каталог управляется той же поверхностью с проверкой revision", async () => {
     const s = await scenario();
     const offerId = randomUUID();

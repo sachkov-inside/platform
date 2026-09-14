@@ -4,6 +4,7 @@ const baseURL = process.env.FULLSTACK_WEB_BASE_URL ?? "http://127.0.0.1:3000";
 
 export default defineConfig({
   testDir: "./test/fullstack",
+  testIgnore: "**/enrollment.spec.ts",
   fullyParallel: false,
   forbidOnly: true,
   reporter: "list",

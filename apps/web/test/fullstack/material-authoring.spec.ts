@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
-import { signInFullStack } from "../support/full-stack-session";
+import { fullStackBaseUrl, fullStackBrowserRequest, signInFullStack } from "../support/full-stack-session";
 import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 
 const currentMaterialEditorUrl =
@@ -16,6 +16,18 @@ for (const access of ["public", "membership"] as const) {
     page,
     request,
   }, testInfo) => {
+    let recipientAccountId: string | undefined;
+    if (access === "membership") {
+      const memberContext = await browser.newContext();
+      try {
+        await signInFullStack(memberContext, "MEMBER");
+        const memberPage = await memberContext.newPage();
+        await memberPage.goto(`${fullStackBaseUrl()}/account`);
+        const identity = await fullStackBrowserRequest(memberPage, "/auth/status");
+        const value = await identity.json() as { accountId: string };
+        recipientAccountId = value.accountId;
+      } finally { await memberContext.close(); }
+    }
     const suffix = String(Date.now());
     const title = `Media acceptance ${access} ${suffix}`;
     const slug = `media-acceptance-${access}-${suffix}`;
@@ -82,6 +94,20 @@ for (const access of ["public", "membership"] as const) {
       page.locator("header [role=status]").filter({ hasText: "Сохранено" }),
     ).toBeVisible({ timeout: 15_000 });
 
+    if (access === "membership") {
+      // The saved legacy cohort excludes future products. Assign this material explicitly through owner operations.
+      const materialId = new URL(page.url()).pathname.split("/").at(-1);
+      const tierId = crypto.randomUUID();
+      const saved = await fullStackBrowserRequest(page, "/api/authoring/billing/offers/save", "POST", { input: JSON.stringify({
+        operationId: crypto.randomUUID(), value: { id: tierId, name: `Media acceptance ${suffix}`, benefits: ["materials"],
+          availableForAssignment: true, contentScope: { guideIds: [], materialIds: [materialId] } } }) });
+      expect(await saved.json()).toMatchObject({ ok: true });
+      const assigned = await fullStackBrowserRequest(page, "/api/authoring/billing/enrollments/assign", "POST", { input: JSON.stringify({
+        operationId: crypto.randomUUID(), accountId: recipientAccountId, origin: "manual", sourceRef: `media-proof-${suffix}`,
+        tierId, tierRevision: 1, terms: { startsAt: new Date().toISOString(), endsAt: null, endPolicy: "fixed" },
+        billingRef: null, reason: "Synthetic scoped media acceptance" }) });
+      expect(await assigned.json()).toMatchObject({ ok: true });
+    }
     // The ordinary member has no author permission; exercise the same live resource after switching Subject.
     await signInFullStack(context, "MEMBER");
     await page.goto(`/materials/${slug}`);
@@ -597,7 +623,7 @@ test("explicitly requests deletion of a Platform-uploaded Video through autosave
   await captureVideoDeletionEvidence(page, testInfo, "requested");
 });
 
-test("member primary Video denies anonymous playback and issues a DRM proof to an authorized Account", async ({
+test("member primary Video denies anonymous and out-of-scope legacy access while authorizing its owner", async ({
   context,
   page,
   request,
@@ -658,8 +684,14 @@ test("member primary Video denies anonymous playback and issues a DRM proof to a
       multipart: { materialId, videoId },
     },
   );
-  expect(memberSession.status()).toBe(200);
-  const memberBody = (await memberSession.json()) as {
+  // The legacy snapshot predates this new product; membership alone cannot open its video.
+  expect(memberSession.status()).toBe(403);
+  await signInFullStack(context, "OWNER");
+  const ownerSession = await page.request.post("/api/material-video-playback-sessions", {
+    headers: { origin: new URL(page.url()).origin }, multipart: { materialId, videoId },
+  });
+  expect(ownerSession.status()).toBe(200);
+  const memberBody = (await ownerSession.json()) as {
     readonly drmAuthToken?: unknown;
     readonly progressScope?: unknown;
     readonly videoId?: unknown;

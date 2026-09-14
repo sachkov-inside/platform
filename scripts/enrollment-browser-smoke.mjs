@@ -115,7 +115,7 @@ try {
       "playwright",
       "test",
       "--config",
-      "playwright.fullstack.config.ts",
+      "playwright.enrollment.config.ts",
       "enrollment.spec.ts",
     ],
     env,

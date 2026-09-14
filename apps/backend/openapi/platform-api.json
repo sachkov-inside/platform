@@ -49567,7 +49567,8 @@
                                   "environment": {
                                     "enum": [
                                       "demo",
-                                      "production"
+                                      "production",
+                                      "local"
                                     ],
                                     "type": "string"
                                   },
@@ -50194,7 +50195,8 @@
                                 "environment": {
                                   "enum": [
                                     "demo",
-                                    "production"
+                                    "production",
+                                    "local"
                                   ],
                                   "type": "string"
                                 },
@@ -50603,7 +50605,8 @@
                                 "environment": {
                                   "enum": [
                                     "demo",
-                                    "production"
+                                    "production",
+                                    "local"
                                   ],
                                   "type": "string"
                                 },

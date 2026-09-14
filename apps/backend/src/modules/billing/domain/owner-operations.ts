@@ -75,7 +75,7 @@ export function isOwnerReadOperation(operation: string): boolean {
 export const paymentViewSchema = z.strictObject({
   purchaseRef: idSchema, accountId: idSchema, kind: attemptKindSchema, state: attemptStateSchema,
   subscriptionRef: idSchema.nullable(), periodIndex: z.int().positive().nullable(),
-  amountKopecks: moneySchema, environment: z.enum(["demo", "production"]), terminalRef: z.string(),
+  amountKopecks: moneySchema, environment: z.enum(["demo", "production", "local"]), terminalRef: z.string(),
   paymentId: z.string().nullable(), snapshot: priceSnapshotSchema,
   fiscalization: z.enum(["not_configured", "pending", "confirmed", "failed"]),
   confirmedAt: z.iso.datetime().nullable(), periodEndsAt: z.iso.datetime().nullable(),

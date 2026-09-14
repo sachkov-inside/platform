@@ -1991,7 +1991,7 @@ export class BillingService {
         amountKopecks: number;
         confirmedAt: string | null;
         createdAt: string;
-        environment: 'demo' | 'production';
+        environment: 'demo' | 'production' | 'local';
         fiscalization: 'not_configured' | 'pending' | 'confirmed' | 'failed';
         kind: 'initial' | 'one_time' | 'renewal' | 'upgrade';
         paymentId: string | null;
@@ -2087,7 +2087,7 @@ export class BillingService {
         amountKopecks: number;
         confirmedAt: string | null;
         createdAt: string;
-        environment: 'demo' | 'production';
+        environment: 'demo' | 'production' | 'local';
         fiscalization: 'not_configured' | 'pending' | 'confirmed' | 'failed';
         kind: 'initial' | 'one_time' | 'renewal' | 'upgrade';
         paymentId: string | null;
@@ -2147,7 +2147,7 @@ export class BillingService {
         amountKopecks: number;
         confirmedAt: string | null;
         createdAt: string;
-        environment: 'demo' | 'production';
+        environment: 'demo' | 'production' | 'local';
         fiscalization: 'not_configured' | 'pending' | 'confirmed' | 'failed';
         kind: 'initial' | 'one_time' | 'renewal' | 'upgrade';
         paymentId: string | null;

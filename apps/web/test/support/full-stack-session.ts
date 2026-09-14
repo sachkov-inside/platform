@@ -1,4 +1,4 @@
-import type { BrowserContext } from "@playwright/test";
+import type { BrowserContext, Page } from "@playwright/test";
 
 /**
  * Роли сквозного набора. Имя роли — это то, чем она является для продукта; в какой переменной
@@ -80,4 +80,15 @@ export async function fullStackSessionState(
     return `HTTP ${String(response.status())}`;
   }
   return String(((await response.json()) as { readonly state?: string }).state);
+}
+
+/** Use the browser cookie rules for real user mutations, including refreshed Secure cookies on loopback. */
+export async function fullStackBrowserRequest(page: Page, path: string, method = "GET", fields?: Record<string, string>) {
+  const result = await page.evaluate(async ({ path, method, fields }) => {
+    const body = fields === undefined ? undefined : new FormData();
+    if (body !== undefined && fields !== undefined) for (const [key, value] of Object.entries(fields)) body.set(key, value);
+    const response = await fetch(path, { method, ...(body === undefined ? {} : { body }), credentials: "same-origin" });
+    return { ok: response.ok, status: response.status, body: await response.text() };
+  }, { path, method, fields });
+  return { ok: () => result.ok, status: () => result.status, json: (): Promise<unknown> => Promise.resolve(JSON.parse(result.body) as unknown) };
 }

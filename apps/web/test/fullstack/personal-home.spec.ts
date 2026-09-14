@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { resolve } from "node:path";
-import { signInFullStack } from "../support/full-stack-session";
+import { fullStackBrowserRequest, signInFullStack } from "../support/full-stack-session";
 import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 
 async function dismissOnboarding(page: Page) {
@@ -114,7 +114,7 @@ test("profile resumes real Video progress and excludes playback end", async ({ p
   const videoId = await page.getByRole("main").locator("[data-video-id]").getAttribute("data-video-id");
   if (materialId === null || videoId === null) throw new Error("Missing real video identity");
   async function save(positionSeconds: string) {
-    const response = await page.request.put("/api/material-video-progress", { headers: { origin: new URL(page.url()).origin }, multipart: { durationSeconds: "628", materialId: materialId ?? "", videoId: videoId ?? "", positionSeconds } });
+    const response = await fullStackBrowserRequest(page, "/api/material-video-progress", "PUT", { durationSeconds: "628", materialId: materialId ?? "", videoId: videoId ?? "", positionSeconds });
     expect(await response.json()).toEqual({ kind: "saved" });
   }
   await save("123"); await page.goto("/account");

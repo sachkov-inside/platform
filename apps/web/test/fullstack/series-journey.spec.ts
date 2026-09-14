@@ -4,7 +4,7 @@ import { expect, test } from "@playwright/test";
 import { resolve } from "node:path";
 
 import {
-  fullStackBaseUrl,
+  fullStackBrowserRequest,
   signInFullStack,
 } from "../support/full-stack-session";
 import { evidenceDirectory, prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
@@ -75,24 +75,24 @@ test("guide programme marks the last opened material as the place to continue", 
 
 
 test("guide programme paginates a real composition and returns from Reader to page two", async ({ page, context }, testInfo) => {
-  const origin = fullStackBaseUrl();
   await signInFullStack(context, "OWNER");
   await page.addLocatorHandler(page.getByRole("button", { name: "Закрыть подключение Telegram" }), async (button) => { await button.click(); });
+  await page.goto("/account");
   const slug = `series-journey-${String(Date.now())}`;
-  const created = await page.request.post("/api/authoring/collections", { headers: { origin }, multipart: { kind: "series", name: "Demo #426 · Длинный маршрут", slug, summary: "Локальная проверка прохождения руководства." } });
+  const created = await fullStackBrowserRequest(page, "/api/authoring/collections", "POST", { kind: "series", name: "Demo #426 · Длинный маршрут", slug, summary: "Локальная проверка прохождения руководства." });
   expect(created.ok()).toBe(true);
   const { collection } = z.object({ kind: z.literal("saved"), collection: z.object({ id: z.uuid(), version: z.number() }) }).parse(await created.json());
   try {
     const ids: string[] = [];
     for (let number = 1; number <= 3 && ids.length < 13; number++) {
-      const response = await page.request.get(`/api/authoring/materials?page=${String(number)}&search=`);
+      const response = await fullStackBrowserRequest(page, `/api/authoring/materials?page=${String(number)}&search=`);
       const data = z.object({ kind: z.literal("ready"), items: z.array(z.object({ materialId: z.uuid(), publicationState: z.string() })) }).parse(await response.json());
       ids.push(...data.items.filter((item) => item.publicationState === "published").map((item) => item.materialId));
     }
     expect(ids.length).toBeGreaterThanOrEqual(13);
-    const orderResponse = await page.request.get(`/api/authoring/series/${collection.id}/order`);
+    const orderResponse = await fullStackBrowserRequest(page, `/api/authoring/series/${collection.id}/order`);
     const { order } = z.object({ kind: z.literal("ready"), order: z.object({ orderVersion: z.string() }) }).parse(await orderResponse.json());
-    const saved = await page.request.put("/api/authoring/series/order", { headers: { origin }, multipart: { seriesId: collection.id, expectedOrderVersion: order.orderVersion, orderedMaterialIds: JSON.stringify(ids.slice(0, 13)) } });
+    const saved = await fullStackBrowserRequest(page, "/api/authoring/series/order", "PUT", { seriesId: collection.id, expectedOrderVersion: order.orderVersion, orderedMaterialIds: JSON.stringify(ids.slice(0, 13)) });
     expect(await saved.json()).toMatchObject({ kind: "saved" });
     await page.goto(`/guides/${slug}/programme?page=1`);
     await expect(page.locator("[data-series-ordinal]:visible")).toHaveCount(12);
@@ -125,7 +125,7 @@ test("guide programme paginates a real composition and returns from Reader to pa
     await prepareEvidenceDirectory("issue-529");
     await page.screenshot({ path: resolve(snapshots, `programme-page-two-${testInfo.project.name}.png`), fullPage: true });
   } finally {
-    const archived = await page.request.put("/api/authoring/collections/archive", { headers: { origin }, multipart: { kind: "series", collectionId: collection.id, expectedVersion: String(collection.version), archived: "true" } });
+    const archived = await fullStackBrowserRequest(page, "/api/authoring/collections/archive", "PUT", { kind: "series", collectionId: collection.id, expectedVersion: String(collection.version), archived: "true" });
     expect(await archived.json()).toMatchObject({ kind: "saved" });
   }
 });
