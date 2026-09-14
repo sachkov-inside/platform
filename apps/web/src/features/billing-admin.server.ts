@@ -39,3 +39,11 @@ export { handleReadContentCatalog } from "./billing-admin/api/enrollments.server
 export { handleRegisterSubscriptionSource } from "./billing-admin/api/enrollments.server";
 
 export { handleLookupSubscriptionRecipient } from "./billing-admin/api/enrollments.server";
+export { handleTributeStatus } from "./billing-admin/api/tribute.server";
+export { handleTributeSavePolicy } from "./billing-admin/api/tribute.server";
+export { handleTributePreview } from "./billing-admin/api/tribute.server";
+export { handleTributeApply } from "./billing-admin/api/tribute.server";
+export { handleTributeReconcile } from "./billing-admin/api/tribute.server";
+export { handleTributeRetryEvent } from "./billing-admin/api/tribute.server";
+
+export { handleTributeDismissImport } from "./billing-admin/api/tribute.server";

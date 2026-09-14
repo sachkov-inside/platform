@@ -40,8 +40,15 @@ export class SubscriptionActivation {
       return { ok: true as const, value: { contractVersion: query.contractVersion, enrollments: enrollments.value, grounds: access.value.grounds, admission: await this.dependencies.readAdmission(accountId) } };
     });
   }
-  begin(input: unknown) { return this.dependencies.grants.beginActivation(input); }
+  async begin(input: unknown) {
+    try { return await this.dependencies.grants.beginActivation(input); }
+    catch { return { ok: false as const, error: { code: "unavailable" as const } }; }
+  }
   async accept(input: unknown) {
+    try { return await this.acceptConfirmedInput(input); }
+    catch { return { ok: false as const, error: { code: "unavailable" as const } }; }
+  }
+  private async acceptConfirmedInput(input: unknown) {
     const parsed = activationEvidenceSchema.safeParse(input);
     if (!parsed.success) return { ok: false as const, error: { code: "invalid_input" as const } };
     const receipt = await this.dependencies.grants.readActivationReceipt(parsed.data);

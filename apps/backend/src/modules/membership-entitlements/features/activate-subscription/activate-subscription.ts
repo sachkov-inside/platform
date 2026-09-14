@@ -1,3 +1,4 @@
+import { activateTributeRegistry } from "./activate-tribute-registry.js";
 import { courseSourceRef } from "../../domain/source-identity.js";
 import { randomUUID } from "node:crypto";
 import { lockTelegramAccountBinding } from "../../../../infrastructure/prisma/index.js";
@@ -22,7 +23,7 @@ export async function beginActivation(prisma: MembershipEntitlementsPrismaClient
     const prior = await tx.activationAttempt.findUnique({ where: { id: command.attemptId } });
     if (prior !== null) return prior.identityRef === command.identityRef && prior.ruleId === rule.id
       ? { ok: true as const, value: activationOutcomeSchema.parse(prior.result) } : accessFailure("operation_conflict");
-    const value: ActivationOutcome = { contractVersion: ACTIVATION_CONTRACT_VERSION, attemptId: command.attemptId, state: "needs_account", enrollment: null, rule: { id: rule.id, revision: rule.revision, sourceRef: rule.sourceRef } };
+    const value: ActivationOutcome = { contractVersion: ACTIVATION_CONTRACT_VERSION, attemptId: command.attemptId, state: "needs_account", enrollment: null, rule: { id: rule.id, revision: rule.revision, sourceRef: rule.sourceRef, ...(rule.verificationMode === "tribute_registry" ? { verificationMode: "tribute_registry" as const } : {}) } };
     await tx.activationAttempt.create({ data: { id: command.attemptId, identityRef: command.identityRef, ruleId: rule.id,
       ruleRevision: rule.revision, result: value, expiresAt: new Date(now.getTime() + activationAttemptLifetimeMilliseconds) } });
     return { ok: true as const, value };
@@ -65,7 +66,11 @@ export async function activateSubscription(prisma: MembershipEntitlementsPrismaC
     if (binding.binding === null || binding.binding.telegramIdentityRef !== evidence.identityRef || binding.binding.accountRef !== evidence.accountRef || binding.binding.linkRef !== evidence.linkRef || binding.binding.linkRevision !== evidence.linkRevision) return accessFailure("identity_conflict");
     let value: ActivationOutcome = { contractVersion: ACTIVATION_CONTRACT_VERSION, attemptId: evidence.attemptId,
       state: evidence.decision === "unavailable" ? "unavailable" : "rejected", enrollment: null };
-    if (evidence.decision === "member") {
+    if (rule.verificationMode === "tribute_registry") {
+      if (evidence.decision !== "registry_lookup") return accessFailure("source_not_confirmed");
+      value = await activateTributeRegistry(tx, rule.sourceRef, accountId, evidence, tier.data, now);
+    } else if (evidence.decision === "registry_lookup") return accessFailure("source_not_confirmed");
+    else if (evidence.decision === "member") {
       const sourceRef = courseSourceRef(rule.sourceRef, evidence.identityRef);
       const result = await assignEnrollmentInTransaction(tx, null, { operationId: evidence.evidenceRef, accountId,
         origin: "course", sourceRef, tierId: tier.data.id, tierRevision: tier.data.revision,

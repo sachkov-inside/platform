@@ -1675,6 +1675,7 @@ model SubscriptionEnrollment {
 }
 
 model ActivationRule {
+ verificationMode String @default("course_membership") @map("verification_mode")
  id String @id @db.Uuid
  code String @unique @db.VarChar(40)
  name String @db.VarChar(200)
@@ -1690,6 +1691,8 @@ model ActivationRule {
  @@schema("membership_entitlements")
 }
 model SourceEntitlement {
+ tributeState Json? @map("tribute_state")
+ reconcileAt DateTime? @map("reconcile_at") @db.Timestamptz
  id String @id @db.Uuid
  origin String
  sourceRef String @map("source_ref") @db.VarChar(256)
@@ -1714,5 +1717,48 @@ model ActivationAttempt {
  result Json
  expiresAt DateTime @map("expires_at") @db.Timestamptz
  @@map("activation_attempts")
+ @@schema("membership_entitlements")
+}
+
+model TributePolicy {
+ id String @id @db.VarChar(256)
+ subscriptionId Int @unique @map("subscription_id")
+ revision Int
+ enabled Boolean
+ tierSnapshot Json @map("tier_snapshot")
+ temporaryUntil DateTime? @map("temporary_until") @db.Timestamptz
+ reason String @db.VarChar(1000)
+ @@map("tribute_policies")
+ @@schema("membership_entitlements")
+}
+model TributeInbox {
+ id String @id @db.Uuid
+ eventKey String @map("event_key") @db.Char(64)
+ fingerprint String @unique @db.Char(64)
+ rawDigest String @map("raw_digest") @db.Char(64)
+ payload Json
+ state String
+ reason String
+ sourceId String? @map("source_id") @db.Uuid
+ receivedAt DateTime @map("received_at") @db.Timestamptz
+ updatedAt DateTime @map("updated_at") @db.Timestamptz
+ revision Int
+ @@index([eventKey])
+ @@index([state, receivedAt])
+ @@map("tribute_inbox")
+ @@schema("membership_entitlements")
+}
+
+model TributeImportReview {
+ id String @id @db.Uuid
+ actorId String @map("actor_id") @db.Uuid
+ batchRef String @map("batch_ref") @db.VarChar(256)
+ pendingRows Json @map("pending_rows")
+ state String
+ revision Int
+ expiresAt DateTime @map("expires_at") @db.Timestamptz
+ reason String @db.VarChar(1000)
+ @@index([state,id])
+ @@map("tribute_import_reviews")
  @@schema("membership_entitlements")
 }

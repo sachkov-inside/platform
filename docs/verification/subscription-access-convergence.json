@@ -1,0 +1,282 @@
+{
+  "issue": "https://github.com/sachkov-inside/platform/issues/625",
+  "specification": "https://github.com/sachkov-inside/workspace/issues/180",
+  "platformBase": "a663f661e89dfb90270b93e871da81d37d476363",
+  "telegramCommit": "2b72bb23f6cb3124aa287bb7bff47ca283e4c8fb",
+  "scope": "local real applications and PostgreSQL; external providers are controlled doubles",
+  "scenarios": [
+    {
+      "id": 1,
+      "scenario": "Курс, новый Account, успешная группа",
+      "expected": "Один Enrollment нужного тарифа, корректный срок, чтение и чат",
+      "status": "pending",
+      "evidence": []
+    },
+    {
+      "id": 2,
+      "scenario": "Курс, существующий Account с покупками",
+      "expected": "Существующая identity и покупки сохранены",
+      "status": "pending",
+      "evidence": []
+    },
+    {
+      "id": 3,
+      "scenario": "Ссылка курса переслана постороннему",
+      "expected": "Нет выдачи и утечки чужой информации",
+      "status": "pending",
+      "evidence": []
+    },
+    {
+      "id": 4,
+      "scenario": "Повтор /start, две ссылки и два worker",
+      "expected": "Одна выдача, срок не перезапущен",
+      "status": "pending",
+      "evidence": []
+    },
+    {
+      "id": 5,
+      "scenario": "Выход из группы курса после активации",
+      "expected": "Назначенный срок не сокращён",
+      "status": "pending",
+      "evidence": []
+    },
+    {
+      "id": 6,
+      "scenario": "Правило paused/изменено во время linking",
+      "expected": "Старое evidence не выдаёт по новой политике",
+      "status": "pending",
+      "evidence": []
+    },
+    {
+      "id": 7,
+      "scenario": "Bot permission loss/429/timeout",
+      "expected": "unavailable, без ложного not_member и без новых прав",
+      "status": "pending",
+      "evidence": []
+    },
+    {
+      "id": 8,
+      "scenario": "Истёкший login/evidence, занятая identity",
+      "expected": "Без silent merge; безопасное продолжение",
+      "status": "pending",
+      "evidence": []
+    },
+    {
+      "id": 9,
+      "scenario": "Tribute initial import до регистрации",
+      "expected": "Pending source сопоставляется только verified identity",
+      "status": "pending",
+      "evidence": []
+    },
+    {
+      "id": 10,
+      "scenario": "Неполный список/неизвестный expiry/дубликат имени",
+      "expected": "Preview требует разбор, срок не угадывается",
+      "status": "pending",
+      "evidence": []
+    },
+    {
+      "id": 11,
+      "scenario": "Повтор batch и потерянный ответ apply",
+      "expected": "Те же receipts и права",
+      "status": "pending",
+      "evidence": []
+    },
+    {
+      "id": 12,
+      "scenario": "Tribute повтор/перестановка/конфликт событий",
+      "expected": "Нет двойного срока или ошибочного отзыва",
+      "status": "pending",
+      "evidence": []
+    },
+    {
+      "id": 13,
+      "scenario": "Отмена Tribute renewal",
+      "expected": "Оплаченный остаток сохранён",
+      "status": "pending",
+      "evidence": []
+    },
+    {
+      "id": 14,
+      "scenario": "Неверная подпись/чужой subscription ID/trial",
+      "expected": "Нет ошибочной paid выдачи",
+      "status": "pending",
+      "evidence": []
+    },
+    {
+      "id": 15,
+      "scenario": "Tribute expiry + Guide",
+      "expected": "Полный тариф истёк, Guide/чат остались",
+      "status": "pending",
+      "evidence": []
+    },
+    {
+      "id": 16,
+      "scenario": "Выход и rejoin по Guide прежнего Tribute",
+      "expected": "Старое полное право не восстановилось",
+      "status": "pending",
+      "evidence": []
+    },
+    {
+      "id": 17,
+      "scenario": "Курс + Tribute expiry/refund другой покупки",
+      "expected": "Независимое назначение курса сохранилось",
+      "status": "pending",
+      "evidence": []
+    },
+    {
+      "id": 18,
+      "scenario": "Guide one-time + join",
+      "expected": "Guide/чат бессрочны; другой Guide закрыт",
+      "status": "pending",
+      "evidence": []
+    },
+    {
+      "id": 19,
+      "scenario": "Два Guide, отзыв одного основания",
+      "expected": "Второй Guide и чат сохранены",
+      "status": "pending",
+      "evidence": []
+    },
+    {
+      "id": 20,
+      "scenario": "Тариф скрыт или архивирован",
+      "expected": "Hidden запрещает продажу, но разрешает enabled assignment; archived запрещает новые продажи/назначения; старое право действует",
+      "status": "pending",
+      "evidence": []
+    },
+    {
+      "id": 21,
+      "scenario": "Прямой API/старый quote/кеш при закрытой продаже",
+      "expected": "Не обходят серверный gate; in-flight платёж сверяется",
+      "status": "pending",
+      "evidence": []
+    },
+    {
+      "id": 22,
+      "scenario": "Новый отдельный продукт вне состава",
+      "expected": "Закрыт, включая прямые body/asset/video/artifact URLs",
+      "status": "pending",
+      "evidence": []
+    },
+    {
+      "id": 23,
+      "scenario": "Новый материал внутри включённого Guide",
+      "expected": "Доступен по прежнему составу без покупки заново",
+      "status": "pending",
+      "evidence": []
+    },
+    {
+      "id": 24,
+      "scenario": "Изменение цены/benefits/версии тарифа",
+      "expected": "Старые снимки/сроки не переписаны",
+      "status": "pending",
+      "evidence": []
+    },
+    {
+      "id": 25,
+      "scenario": "Два пересекающихся тарифа, один истёк",
+      "expected": "Объединение независимо; граница срока точная",
+      "status": "pending",
+      "evidence": []
+    },
+    {
+      "id": 26,
+      "scenario": "Таймзона, конец месяца, startsAt в будущем",
+      "expected": "Полуоткрытые интервалы без ранней выдачи/лишнего дня",
+      "status": "pending",
+      "evidence": []
+    },
+    {
+      "id": 27,
+      "scenario": "Чужая/просроченная invite, stale permit/revision",
+      "expected": "Нет допуска или удаления не того человека",
+      "status": "pending",
+      "evidence": []
+    },
+    {
+      "id": 28,
+      "scenario": "Модераторский ban + новое /start/покупка",
+      "expected": "Автоматического обхода нет; материалы независимы",
+      "status": "pending",
+      "evidence": []
+    },
+    {
+      "id": 29,
+      "scenario": "Сбой после grant commit до community delivery",
+      "expected": "Права доступны, доставка восстанавливается",
+      "status": "pending",
+      "evidence": []
+    },
+    {
+      "id": 30,
+      "scenario": "Сбой после внешнего invite/ban до ack",
+      "expected": "Неизвестный исход сверяется, нет слепого двойного эффекта",
+      "status": "pending",
+      "evidence": []
+    },
+    {
+      "id": 31,
+      "scenario": "Backup/restore, restart, rollback flags",
+      "expected": "Права и receipts сохранены, recurring не включён",
+      "status": "pending",
+      "evidence": []
+    },
+    {
+      "id": 32,
+      "scenario": "Mobile/desktop бот → вход → кабинет → чтение",
+      "expected": "Понятные состояния, клавиатура/a11y, нет тупика после возврата",
+      "status": "pending",
+      "evidence": []
+    },
+    {
+      "id": 33,
+      "scenario": "Нет активных прав",
+      "expected": "Аккаунт/история доступны, закрытые материалы недоступны",
+      "status": "pending",
+      "evidence": []
+    },
+    {
+      "id": 34,
+      "scenario": "Будущий тестовый публичный тариф и согласие",
+      "expected": "Настоящий billing lifecycle локально, без реальной продажи",
+      "status": "pending",
+      "evidence": []
+    },
+    {
+      "id": 35,
+      "scenario": "Revoke → /start/import/renewal → restore",
+      "expected": "Отзыв сохраняется до явной owner-команды; дубликата нет",
+      "status": "pending",
+      "evidence": []
+    },
+    {
+      "id": 36,
+      "scenario": "TTL/timeout → fresh member и отдельно left → member",
+      "expected": "В первом случае прежнее временное право восстановлено; во втором нужен внешний период/оператор",
+      "status": "pending",
+      "evidence": []
+    },
+    {
+      "id": 37,
+      "scenario": "Новый Guide → изменение Offer → расширение выбранной когорты",
+      "expected": "Старые назначения не меняются от Offer edit; явная операция открывает Guide только выбранным Enrollment",
+      "status": "pending",
+      "evidence": []
+    },
+    {
+      "id": 38,
+      "scenario": "Ручное подтверждение курса и две ссылки в обоих порядках",
+      "expected": "Один course source entitlement и один срок",
+      "status": "pending",
+      "evidence": []
+    },
+    {
+      "id": 39,
+      "scenario": "Community v1 receipts + v2 status и несовместимые версии",
+      "expected": "История читается, moderation видна в боте/кабинете, небезопасного fallback/unban нет",
+      "status": "pending",
+      "evidence": []
+    }
+  ]
+}

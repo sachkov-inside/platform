@@ -121,10 +121,12 @@ export function AdminSelect({
   label,
   name,
   options,
+  defaultValue,
 }: {
   readonly label: string;
   readonly name: string;
   readonly options: readonly { readonly value: string; readonly label: string }[];
+  readonly defaultValue?: string;
 }) {
   const id = useId();
   return (
@@ -136,6 +138,7 @@ export function AdminSelect({
         className="min-h-11 w-full rounded-xl border border-input bg-background px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         id={id}
         name={name}
+        defaultValue={defaultValue}
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>

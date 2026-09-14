@@ -1,3 +1,4 @@
+import type { ActivationBindings } from "../../domain/subscription-activation.js";
 import type { MembershipEntitlementsPrismaClient } from "../../infrastructure/prisma.js";
 import { acceptMembershipEvidence } from "../../features/accept-evidence/accept-evidence.js";
 import { bindMembershipPrincipal } from "../../features/bind-principal/bind-membership-principal.js";
@@ -19,6 +20,7 @@ export interface MembershipEntitlementsDependencies {
     "applyAcceptedMembershipEvidence"
   >;
   readonly clock?: () => Date;
+  readonly recipientLinks?: Pick<ActivationBindings, "readBinding">;
 }
 
 export function assembleMembershipEntitlements(
@@ -64,6 +66,7 @@ export function assembleMembershipEntitlements(
           dependencies.workshopEntitlements,
           command,
           clock(),
+          dependencies.recipientLinks,
         );
       } catch {
         return { ok: false, error: { code: "unavailable" } };

@@ -1,7 +1,8 @@
+import { tributeStateSchema } from "../../domain/tribute-source.js";
 import type { TelegramAccountLinks } from "../../../telegram-membership/index.js";
 import { contentScopeSchema } from "@inside/access-capabilities";
 import type { ContentScopeCatalog } from "../../../materials/index.js";
-import { enrollmentView, enrollmentBenefitTerms } from "../../shared/enrollment-view.js";
+import { enrollmentView, enrollmentBenefitTerms, enrollmentSourceState } from "../../shared/enrollment-view.js";
 import { registerSourceEntitlement } from "../../features/register-source-entitlement/register-source-entitlement.js";
 import { manageActivationRule } from "../../features/manage-activation-rule/manage-activation-rule.js";
 import { beginActivation, activateSubscription, readActivationReceipt } from "../../features/activate-subscription/activate-subscription.js";
@@ -74,11 +75,16 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       const classification = classificationSchema.parse(
         row?.classification ?? "unknown",
       );
+      const externalSources = await prisma.sourceEntitlement.findMany({ where: { origin: "tribute", accountId: targetAccountId }, take: 1001 });
+      const oldChargingStopped = externalSources.length <= 1000 && externalSources.every(source => {
+        const state = tributeStateSchema.safeParse(source.tributeState);
+        return state.success && state.data.renewal === "stopped";
+      });
       return {
         ok: true as const,
         classification,
         revision: row?.revision ?? 0,
-        recurringAllowed: recurringAllowedFor({
+        recurringAllowed: oldChargingStopped && recurringAllowedFor({
           classification,
           tributeStopped: row?.tributeStopped === true,
         }),
@@ -144,13 +150,13 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
     listActivationRules: (actorId: string) => manage(actorId, "billing:manage", async () => {
       const rows = await prisma.activationRule.findMany({ orderBy: { id: "asc" } });
       return { ok: true as const, value: rows.map(row => activationRuleSchema.parse({ id: row.id, code: row.code,
-        name: row.name, revision: row.revision, tierId: row.tierId, tierRevision: row.tierRevision, sourceRef: row.sourceRef,
+        name: row.name, revision: row.revision, tierId: row.tierId, tierRevision: row.tierRevision, sourceRef: row.sourceRef, verificationMode: row.verificationMode,
         published: row.published, startsAt: row.startsAt.toISOString(), endsAt: row.endsAt?.toISOString() ?? null })) };
     }),
     async readActivationRule(ruleId: string) {
       if (!z.uuid().safeParse(ruleId).success) return null;
       const row = await prisma.activationRule.findUnique({ where: { id: ruleId } });
-      return row === null ? null : activationRuleSchema.parse({ id: row.id, code: row.code, name: row.name, revision: row.revision, tierId: row.tierId, tierRevision: row.tierRevision, sourceRef: row.sourceRef, published: row.published, startsAt: row.startsAt.toISOString(), endsAt: row.endsAt?.toISOString() ?? null });
+      return row === null ? null : activationRuleSchema.parse({ id: row.id, code: row.code, name: row.name, revision: row.revision, tierId: row.tierId, tierRevision: row.tierRevision, sourceRef: row.sourceRef, verificationMode: row.verificationMode, published: row.published, startsAt: row.startsAt.toISOString(), endsAt: row.endsAt?.toISOString() ?? null });
     },
     beginActivation: (input: unknown) => beginActivation(prisma, input, clock()),
     activateSubscription: (bindings: ActivationBindings, input: unknown, tier: unknown) => activateSubscription(prisma, bindings, input, tier, clock()),
@@ -159,7 +165,7 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       try {
         const now = clock();
         const rows = await prisma.subscriptionEnrollment.findMany({ where: { accountId: targetAccountId }, orderBy: [{ startsAt: "desc" }, { id: "asc" }] });
-        return { ok: true as const, value: await Promise.all(rows.map(async row => { const view = enrollmentView(row, now); const benefitGrants = await prisma.accessGrant.findMany({ where: { enrollmentId: row.id } }); return { ...view, benefitTerms: enrollmentBenefitTerms(benefitGrants), ...(dependencies.contentCatalog === undefined ? {} : { content: await dependencies.contentCatalog.resolve(view.tier.contentScope) }) }; })) };
+        return { ok: true as const, value: await Promise.all(rows.map(async row => { const view = enrollmentView(row, now); if (row.origin === "tribute" && view.state !== "revoked") view.state = await enrollmentSourceState(prisma, row.id, now) ?? view.state; const benefitGrants = await prisma.accessGrant.findMany({ where: { enrollmentId: row.id } }); return { ...view, benefitTerms: enrollmentBenefitTerms(benefitGrants), ...(dependencies.contentCatalog === undefined ? {} : { content: await dependencies.contentCatalog.resolve(view.tier.contentScope) }) }; })) };
       } catch { return accessFailure("unavailable"); }
     },
     async readCompatibilityContentScope() {
@@ -176,7 +182,7 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
         if (!z.uuid().safeParse(targetAccountId).success) return accessFailure("invalid_input");
         const now = clock();
         const rows = await prisma.subscriptionEnrollment.findMany({ where: { accountId: targetAccountId }, orderBy: { id: "asc" } });
-        return { ok: true as const, value: await Promise.all(rows.map(async row => { const view = enrollmentView(row, now); const benefitGrants = await prisma.accessGrant.findMany({ where: { enrollmentId: row.id } }); const changes = await prisma.accessChange.findMany({ where: { accountId: targetAccountId, grantId: { in: benefitGrants.map(grant => grant.id) } }, orderBy: { revision: "desc" }, take: 100 }); return { ...view, benefitTerms: enrollmentBenefitTerms(benefitGrants), history: changes.map(change => ({ kind: change.kind, reason: change.reason, recordedAt: change.recordedAt.toISOString() })), ...(dependencies.contentCatalog === undefined ? {} : { content: await dependencies.contentCatalog.resolve(view.tier.contentScope) }) }; })) };
+        return { ok: true as const, value: await Promise.all(rows.map(async row => { const view = enrollmentView(row, now); if (row.origin === "tribute" && view.state !== "revoked") view.state = await enrollmentSourceState(prisma, row.id, now) ?? view.state; const benefitGrants = await prisma.accessGrant.findMany({ where: { enrollmentId: row.id } }); const changes = await prisma.accessChange.findMany({ where: { accountId: targetAccountId, grantId: { in: benefitGrants.map(grant => grant.id) } }, orderBy: { revision: "desc" }, take: 100 }); return { ...view, benefitTerms: enrollmentBenefitTerms(benefitGrants), history: changes.map(change => ({ kind: change.kind, reason: change.reason, recordedAt: change.recordedAt.toISOString() })), ...(dependencies.contentCatalog === undefined ? {} : { content: await dependencies.contentCatalog.resolve(view.tier.contentScope) }) }; })) };
       }),
     async applyPaidPeriod(command: ApplyPaidPeriodCommand) {
       try {

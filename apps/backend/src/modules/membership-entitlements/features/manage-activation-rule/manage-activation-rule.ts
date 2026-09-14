@@ -14,8 +14,12 @@ export async function manageActivationRule(prisma: MembershipEntitlementsPrismaC
     const current = await tx.activationRule.findUnique({ where: { id: command.value.id } });
     if (current?.revision !== command.expectedRevision) return accessFailure("revision_conflict");
     // Source identity is durable; editing a rule cannot reclassify a previously issued course.
-    if (current !== null && (current.code !== command.value.code || current.sourceRef !== command.value.sourceRef)) return accessFailure("invalid_input");
-    const data = { ...command.value, revision: (current?.revision ?? 0) + 1, startsAt: new Date(command.value.startsAt),
+    if (current !== null && (current.code !== command.value.code || current.sourceRef !== command.value.sourceRef || current.verificationMode !== (command.value.verificationMode ?? "course_membership"))) return accessFailure("invalid_input");
+    if (command.value.verificationMode === "tribute_registry") {
+      const policy = await tx.tributePolicy.findUnique({ where: { id: command.value.sourceRef } });
+      if (policy === null || !policy.enabled) return accessFailure("invalid_input");
+    }
+    const data = { ...command.value, verificationMode: command.value.verificationMode ?? "course_membership", revision: (current?.revision ?? 0) + 1, startsAt: new Date(command.value.startsAt),
       endsAt: command.value.endsAt === null ? null : new Date(command.value.endsAt), reason: command.reason };
     await tx.activationRule.upsert({ where: { id: command.value.id }, create: data, update: data });
     const value = activationRuleSchema.parse({ ...command.value, revision: data.revision });

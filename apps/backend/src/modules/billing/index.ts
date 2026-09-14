@@ -13,3 +13,5 @@ export { registerBillingTools, type BillingOwnerTools } from "./adapters/mcp/reg
 export { tbankToken } from "./infrastructure/tbank/tbank.js";
 
 export { SubscriptionActivation } from "./facets/subscription-activation/subscription-activation.js";
+
+export { TributeConvergence } from "./facets/tribute-convergence/tribute-convergence.js";

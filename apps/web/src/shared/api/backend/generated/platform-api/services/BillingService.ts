@@ -174,7 +174,7 @@ export class BillingService {
       renewal: 'not_applicable' | 'billing_agreement';
       revision: number;
       startsAt: string;
-      state: 'scheduled' | 'active' | 'expired' | 'revoked';
+      state: 'scheduled' | 'active' | 'expired' | 'revoked' | 'pending_verification' | 'suspended_source';
       tier: {
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
         contentScope: {
@@ -1155,6 +1155,70 @@ export class BillingService {
     requestBody,
   }: {
     requestBody: ({
+      operation: 'tribute.status';
+      operationId: string;
+      page?: number;
+    } | {
+      expectedRevision: number;
+      operation: 'tribute.dismissImport';
+      operationId: string;
+      previewRef: string;
+      reason: string;
+    } | {
+      enabled: boolean;
+      expectedRevision: number;
+      id: string;
+      operation: 'tribute.savePolicy';
+      operationId: string;
+      reason: string;
+      subscriptionId: number;
+      temporaryUntil: any;
+      tierId: string;
+      tierRevision: number;
+    } | {
+      batchRef: string;
+      operation: 'tribute.preview';
+      operationId: string;
+      rows: Array<{
+        checkedAt: any;
+        endsAt: any;
+        expectedRevision: number;
+        identityRef: string | null;
+        mode: 'confirmed_period' | 'temporary_membership';
+        policyRef: string;
+        reason: string;
+        renewal: 'unknown' | 'enabled' | 'stopped';
+        rowRef: string;
+        startsAt: any;
+        subscriptionId: number | null;
+        telegramUserId: string | null;
+        verificationRef: string | null;
+      }>;
+    } | {
+      operation: 'tribute.apply';
+      operationId: string;
+      previewRef: string;
+      selectedRows: Array<string>;
+    } | {
+      action: 'retry' | 'revoke' | 'restore';
+      confirmedTerms?: {
+        endsAt: any;
+        startsAt: any;
+        verificationRef: string;
+      };
+      expectedRevision: number;
+      operation: 'tribute.reconcile';
+      operationId: string;
+      reason: string;
+      sourceId: string;
+    } | {
+      action?: 'retry' | 'reject';
+      expectedRevision: number;
+      inboxId: string;
+      operation: 'tribute.retryEvent';
+      operationId: string;
+      reason: string;
+    } | {
       identityRef: string;
       operation: 'recipients.lookup';
       operationId: string;
@@ -1255,6 +1319,7 @@ export class BillingService {
         startsAt: any;
         tierId: string;
         tierRevision: number;
+        verificationMode?: 'course_membership' | 'tribute_registry';
       };
     } | {
       operation: 'activationRules.list';
@@ -1427,6 +1492,245 @@ export class BillingService {
   }): CancelablePromise<{
     operationRef: string;
     result: ({
+      outcome: 'tributeImportReview';
+      value: {
+        batchRef: string;
+        expiresAt: any;
+        pendingRows: Array<string>;
+        previewRef: string;
+        reason: string;
+        revision: number;
+        state: 'pending' | 'applied' | 'dismissed';
+      };
+    } | {
+      outcome: 'tributeStatus';
+      value: {
+        hasMore: boolean;
+        imports: Array<{
+          batchRef: string;
+          expiresAt: any;
+          pendingRows: Array<string>;
+          previewRef: string;
+          reason: string;
+          revision: number;
+          state: 'pending' | 'applied' | 'dismissed';
+        }>;
+        inbox: Array<{
+          id: string;
+          reason: string;
+          receivedAt: any;
+          revision: number;
+          sourceId: string | null;
+          state: 'received' | 'applied' | 'pending_reconciliation' | 'rejected';
+          updatedAt: any;
+        }>;
+        metrics: {
+          pendingIdentity: number;
+          rolloutBlocked: boolean;
+          staleConfirmations: number;
+          temporarySources: number;
+          unresolvedEvents: number;
+          unresolvedImports: number;
+        };
+        page: number;
+        policies: Array<{
+          enabled: boolean;
+          id: string;
+          revision: number;
+          subscriptionId: number;
+          temporaryUntil: any;
+          tier: {
+            benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+            contentScope: {
+              guideIds: Array<string>;
+              materialIds: Array<string>;
+            };
+            id: string;
+            name: string;
+            revision: number;
+          };
+        }>;
+        sources: Array<{
+          accountId: string | null;
+          checkedAt: any;
+          enrollmentId: string | null;
+          id: string;
+          identityRef: string;
+          policyRef: string;
+          revision: number;
+          revoked: boolean;
+          sourceRef: string;
+          state: {
+            endsAt: any;
+            lastEventAt: string | null;
+            lastEventFingerprint: string | null;
+            mode: 'confirmed_period' | 'temporary_membership';
+            observation: 'pending' | 'member' | 'observation_stale' | 'source_ended';
+            observationVersion: string | null;
+            observedUntil: any;
+            policyRevision: number;
+            renewal: 'unknown' | 'enabled' | 'stopped';
+            startsAt: any;
+            subscriptionId: number;
+            telegramUserId: string;
+            tier: {
+              benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+              contentScope: {
+                guideIds: Array<string>;
+                materialIds: Array<string>;
+              };
+              id: string;
+              name: string;
+              revision: number;
+            };
+            verificationRef: string;
+          };
+          status: 'pending_identity' | 'active' | 'scheduled' | 'expired' | 'revoked' | 'pending_verification' | 'suspended_source';
+        }>;
+      };
+    } | {
+      outcome: 'tributePolicy';
+      value: {
+        enabled: boolean;
+        id: string;
+        revision: number;
+        subscriptionId: number;
+        temporaryUntil: any;
+        tier: {
+          benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+          contentScope: {
+            guideIds: Array<string>;
+            materialIds: Array<string>;
+          };
+          id: string;
+          name: string;
+          revision: number;
+        };
+      };
+    } | {
+      outcome: 'tributePreview';
+      value: {
+        batchRef: string;
+        expiresAt: any;
+        previewRef: string;
+        rows: Array<{
+          accountId: string | null;
+          bindingFingerprint: string | null;
+          detail: string;
+          endsAt: any;
+          enrollmentRevision: number;
+          policyRevision: number;
+          rowRef: string;
+          shortens: boolean;
+          sourceId: string | null;
+          sourceRevision: number;
+          startsAt: any;
+          status: 'new' | 'matched' | 'pending_identity' | 'ambiguous' | 'unknown_term' | 'conflict';
+          tier: {
+            benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+            contentScope: {
+              guideIds: Array<string>;
+              materialIds: Array<string>;
+            };
+            id: string;
+            name: string;
+            revision: number;
+          } | null;
+        }>;
+      };
+    } | {
+      outcome: 'tributeApplied';
+      value: {
+        previewRef: string;
+        sources: Array<{
+          accountId: string | null;
+          checkedAt: any;
+          enrollmentId: string | null;
+          id: string;
+          identityRef: string;
+          policyRef: string;
+          revision: number;
+          revoked: boolean;
+          sourceRef: string;
+          state: {
+            endsAt: any;
+            lastEventAt: string | null;
+            lastEventFingerprint: string | null;
+            mode: 'confirmed_period' | 'temporary_membership';
+            observation: 'pending' | 'member' | 'observation_stale' | 'source_ended';
+            observationVersion: string | null;
+            observedUntil: any;
+            policyRevision: number;
+            renewal: 'unknown' | 'enabled' | 'stopped';
+            startsAt: any;
+            subscriptionId: number;
+            telegramUserId: string;
+            tier: {
+              benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+              contentScope: {
+                guideIds: Array<string>;
+                materialIds: Array<string>;
+              };
+              id: string;
+              name: string;
+              revision: number;
+            };
+            verificationRef: string;
+          };
+          status: 'pending_identity' | 'active' | 'scheduled' | 'expired' | 'revoked' | 'pending_verification' | 'suspended_source';
+        }>;
+      };
+    } | {
+      outcome: 'tributeSource';
+      value: {
+        accountId: string | null;
+        checkedAt: any;
+        enrollmentId: string | null;
+        id: string;
+        identityRef: string;
+        policyRef: string;
+        revision: number;
+        revoked: boolean;
+        sourceRef: string;
+        state: {
+          endsAt: any;
+          lastEventAt: string | null;
+          lastEventFingerprint: string | null;
+          mode: 'confirmed_period' | 'temporary_membership';
+          observation: 'pending' | 'member' | 'observation_stale' | 'source_ended';
+          observationVersion: string | null;
+          observedUntil: any;
+          policyRevision: number;
+          renewal: 'unknown' | 'enabled' | 'stopped';
+          startsAt: any;
+          subscriptionId: number;
+          telegramUserId: string;
+          tier: {
+            benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+            contentScope: {
+              guideIds: Array<string>;
+              materialIds: Array<string>;
+            };
+            id: string;
+            name: string;
+            revision: number;
+          };
+          verificationRef: string;
+        };
+        status: 'pending_identity' | 'active' | 'scheduled' | 'expired' | 'revoked' | 'pending_verification' | 'suspended_source';
+      };
+    } | {
+      outcome: 'tributeEvent';
+      value: {
+        id: string;
+        reason: string;
+        receivedAt: any;
+        revision: number;
+        sourceId: string | null;
+        state: 'received' | 'applied' | 'pending_reconciliation' | 'rejected';
+        updatedAt: any;
+      };
+    } | {
       outcome: 'sourceEntitlement';
       value: {
         accountId: string | null;
@@ -1452,6 +1756,7 @@ export class BillingService {
         startsAt: any;
         tierId: string;
         tierRevision: number;
+        verificationMode?: 'course_membership' | 'tribute_registry';
       };
     } | {
       items: Array<{
@@ -1465,6 +1770,7 @@ export class BillingService {
         startsAt: any;
         tierId: string;
         tierRevision: number;
+        verificationMode?: 'course_membership' | 'tribute_registry';
       }>;
       outcome: 'activationRules';
     } | {
@@ -1521,7 +1827,7 @@ export class BillingService {
         renewal: 'not_applicable' | 'billing_agreement';
         revision: number;
         startsAt: string;
-        state: 'scheduled' | 'active' | 'expired' | 'revoked';
+        state: 'scheduled' | 'active' | 'expired' | 'revoked' | 'pending_verification' | 'suspended_source';
         tier: {
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope: {
@@ -1562,7 +1868,7 @@ export class BillingService {
         renewal: 'not_applicable' | 'billing_agreement';
         revision: number;
         startsAt: string;
-        state: 'scheduled' | 'active' | 'expired' | 'revoked';
+        state: 'scheduled' | 'active' | 'expired' | 'revoked' | 'pending_verification' | 'suspended_source';
         tier: {
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope: {

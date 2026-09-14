@@ -12,7 +12,9 @@ import { createTestDatabase } from "./setup/test-database.js";
 test("preview, transaction rollback, preserved legacy scope and late fulfillment exclude new products", async () => {
   const db = await createTestDatabase(); const pool = new Pool({ connectionString: db.url, max: 1 });
   try {
-    await runMigrationsToLatest(db.url, platformMigrations.slice(0, -1));
+    const migrationIndex = platformMigrations.findIndex(item => item.name === "0063_subscription_enrollments");
+    expect(migrationIndex).toBeGreaterThan(0);
+    await runMigrationsToLatest(db.url, platformMigrations.slice(0, migrationIndex));
     const owner = randomUUID(), included = randomUUID(), excluded = randomUUID(), grant = randomUUID();
     await db.prisma.account.create({ data: { id: owner, logtoIssuer: "https://migration.example.test", logtoSubject: owner } });
     await db.prisma.guide.create({ data: { id: included, name: "Обещанный гайд", slug: included } });

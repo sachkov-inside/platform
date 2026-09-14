@@ -1,3 +1,4 @@
+import type { TributeConvergence } from "../tribute-convergence/tribute-convergence.js";
 import { z } from "zod";
 import { benefitPeriodsSchema } from "../../domain/pricing.js";
 import { lockPricing } from "../../infrastructure/postgres/catalog-lock.js";
@@ -20,6 +21,7 @@ import type { BillingPricing } from "../billing-pricing/billing-pricing.js";
 import type { BillingSubscriptions } from "../billing-subscriptions/billing-subscriptions.js";
 
 interface Dependencies {
+  readonly tribute?: TributeConvergence;
   readonly prisma: BillingPrismaClient;
   readonly accounts: Pick<Accounts, "checkPermission">;
   readonly pricing: Pick<BillingPricing, "manage" | "ownerCatalog">;
@@ -91,6 +93,48 @@ export class BillingOperations {
     const { prisma, grants } = this.dependencies;
     const operationRef = command.operationId;
     switch (command.operation) {
+      case "tribute.status": {
+        if (this.dependencies.tribute === undefined) return ownerFailure("dependency_unavailable");
+        const result = await this.dependencies.tribute.status(actorId, command.page ?? 0);
+        return result.ok ? { ok: true, operationRef, result: { outcome: "tributeStatus", value: result.value } } : ownerAccessFailure(result.error.code);
+      }
+      case "tribute.dismissImport": {
+        if (this.dependencies.tribute === undefined) return ownerFailure("dependency_unavailable");
+        const { operation: _operation, ...input } = command;
+        const result = await this.dependencies.tribute.dismissImport(actorId, input);
+        return result.ok ? { ok: true, operationRef, result: { outcome: "tributeImportReview", value: result.value } } : ownerAccessFailure(result.error.code);
+      }
+      case "tribute.savePolicy": {
+        if (this.dependencies.tribute === undefined) return ownerFailure("dependency_unavailable");
+        const { operation: _operation, ...input } = command;
+        const result = await this.dependencies.tribute.savePolicy(actorId, input);
+        return result.ok ? { ok: true, operationRef, result: { outcome: "tributePolicy", value: result.value } } : ownerAccessFailure(result.error.code);
+      }
+      case "tribute.preview": {
+        if (this.dependencies.tribute === undefined) return ownerFailure("dependency_unavailable");
+        const { operation: _operation, ...input } = command;
+        const result = await this.dependencies.tribute.preview(actorId, input);
+        return result.ok ? { ok: true, operationRef, result: { outcome: "tributePreview", value: result.value } } : ownerAccessFailure(result.error.code);
+      }
+      case "tribute.apply": {
+        if (this.dependencies.tribute === undefined) return ownerFailure("dependency_unavailable");
+        const { operation: _operation, ...input } = command;
+        const result = await this.dependencies.tribute.apply(actorId, input);
+        return result.ok ? { ok: true, operationRef, result: { outcome: "tributeApplied", value: result.value } } : ownerAccessFailure(result.error.code);
+      }
+      case "tribute.reconcile": {
+        if (this.dependencies.tribute === undefined) return ownerFailure("dependency_unavailable");
+        const { operation: _operation, ...input } = command;
+        const result = await this.dependencies.tribute.reconcile(actorId, input);
+        return result.ok ? { ok: true, operationRef, result: { outcome: "tributeSource", value: result.value } } : ownerAccessFailure(result.error.code);
+      }
+      case "tribute.retryEvent": {
+        if (this.dependencies.tribute === undefined) return ownerFailure("dependency_unavailable");
+        const { operation: _operation, ...input } = command;
+        const result = await this.dependencies.tribute.retryEvent(actorId, input);
+        return result.ok ? { ok: true, operationRef, result: { outcome: "tributeEvent", value: result.value } } : ownerAccessFailure(result.error.code);
+      }
+
       case "recipients.lookup": {
         const result = await grants.lookupRecipient(actorId, command.identityRef);
         if (!result.ok) return ownerAccessFailure(result.error.code);
@@ -313,6 +357,7 @@ function storedResult(operationRef: string, stored: unknown): OwnerResult {
 /** Аудит собирается по объекту операции: решение и исполнение возврата ведут к своему платежу. */
 function targetOf(command: OwnerOperation, outcome: OwnerOutcome): string {
   switch (command.operation) {
+    case "tribute.dismissImport": case "tribute.status": case "tribute.savePolicy": case "tribute.preview": case "tribute.apply": case "tribute.reconcile": case "tribute.retryEvent": return command.operationId;
     case "offers.save": case "paymentOptions.save": case "promotions.save": return command.value.id;
     case "offers.archive": case "offers.publish": case "offers.unpublish": case "paymentOptions.archive": case "promotions.archive": return command.id;
     case "sources.register": return command.operationId;

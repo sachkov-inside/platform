@@ -15,7 +15,7 @@ export const tiersOutcomeSchema = z.object({ operationRef: z.uuid(), result: z.o
 export const enrollmentsOutcomeSchema = z.object({ operationRef: z.uuid(), result: z.object({ outcome: z.literal("enrollments"), items: z.array(enrollmentSchema) }) });
 export const enrollmentOutcomeSchema = z.object({ operationRef: z.uuid(), result: z.object({ outcome: z.literal("enrollment"), value: enrollmentSchema }) });
 
-export const activationRuleSchema = z.object({ id: z.uuid(), code: z.string().min(1).max(40).regex(/^[A-Za-z0-9_-]+$/u), name: z.string().min(1).max(200), revision: z.int().positive(), tierId: z.uuid(), tierRevision: z.int().positive(), sourceRef: z.string().min(1).max(256), published: z.boolean(), startsAt: z.iso.datetime(), endsAt: z.iso.datetime().nullable() });
+export const activationRuleSchema = z.object({ id: z.uuid(), code: z.string().min(1).max(40).regex(/^[A-Za-z0-9_-]+$/u), name: z.string().min(1).max(200), revision: z.int().positive(), tierId: z.uuid(), tierRevision: z.int().positive(), sourceRef: z.string().min(1).max(256), verificationMode: z.enum(["course_membership", "tribute_registry"]).optional(), published: z.boolean(), startsAt: z.iso.datetime(), endsAt: z.iso.datetime().nullable() });
 export const listRulesInputSchema = z.object({ operationId });
 export const saveRuleInputSchema = z.object({ operationId, expectedRevision: z.int().positive().optional(), value: activationRuleSchema.omit({ revision: true }), reason: z.string().min(1).max(1000) });
 export const rulesOutcomeSchema = z.object({ operationRef: z.uuid(), result: z.object({ outcome: z.literal("activationRules"), items: z.array(activationRuleSchema) }) });

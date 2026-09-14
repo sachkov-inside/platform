@@ -373,13 +373,15 @@ It includes the evolving published program of an included Guide, without includi
 _Avoid_: Global materials access, catalogue, price
 
 **ActivationRule**:
-A published or paused path from a verified course source to a selected tier.
+A published or paused path from a verified course source or a confirmed Tribute registry to a selected tier.
+Its verification mode distinguishes source membership from registry lookup; only the registry defines an external paid period.
 Its code selects the path; possession of the code does not prove entitlement.
 _Avoid_: Invite link, payment proof, grant
 
 **SourceEntitlement**:
 A verified external basis identified by its source policy and person, which can exist before an Account is linked.
-Repeated verification of the same course does not create another assignment.
+Repeated verification of the same source policy and identity does not create another assignment.
+A Tribute source retains explicit period, renewal and verification facts; a temporary source is bounded and cannot infer paid expiry from chat presence.
 _Avoid_: Telegram presence, Account, SubscriptionEnrollment
 
 **AdmissionRestriction**:

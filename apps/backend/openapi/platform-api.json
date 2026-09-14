@@ -1508,6 +1508,12 @@
         "description": "Dedicated Telegram notification dispatch credential.",
         "scheme": "bearer",
         "type": "http"
+      },
+      "tribute-signature": {
+        "description": "HMAC-SHA256 of original request body using the Tribute API key; configured encoding must be credentialed-verified.",
+        "in": "header",
+        "name": "trbt-signature",
+        "type": "apiKey"
       }
     }
   },
@@ -7609,7 +7615,9 @@
                               "scheduled",
                               "active",
                               "expired",
-                              "revoked"
+                              "revoked",
+                              "pending_verification",
+                              "suspended_source"
                             ],
                             "type": "string"
                           },
@@ -44118,6 +44126,411 @@
                   {
                     "additionalProperties": false,
                     "properties": {
+                      "operation": {
+                        "enum": [
+                          "tribute.status"
+                        ],
+                        "type": "string"
+                      },
+                      "operationId": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
+                      "page": {
+                        "maximum": 100000,
+                        "minimum": 0,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "operationId",
+                      "operation"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "expectedRevision": {
+                        "exclusiveMinimum": true,
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "operation": {
+                        "enum": [
+                          "tribute.dismissImport"
+                        ],
+                        "type": "string"
+                      },
+                      "operationId": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
+                      "previewRef": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
+                      "reason": {
+                        "maxLength": 1000,
+                        "minLength": 1,
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "operationId",
+                      "previewRef",
+                      "expectedRevision",
+                      "reason",
+                      "operation"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "enabled": {
+                        "type": "boolean"
+                      },
+                      "expectedRevision": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "id": {
+                        "maxLength": 256,
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "operation": {
+                        "enum": [
+                          "tribute.savePolicy"
+                        ],
+                        "type": "string"
+                      },
+                      "operationId": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
+                      "reason": {
+                        "maxLength": 1000,
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "subscriptionId": {
+                        "exclusiveMinimum": true,
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "temporaryUntil": {
+                        "nullable": true
+                      },
+                      "tierId": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
+                      "tierRevision": {
+                        "exclusiveMinimum": true,
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "operationId",
+                      "expectedRevision",
+                      "id",
+                      "subscriptionId",
+                      "enabled",
+                      "tierId",
+                      "tierRevision",
+                      "temporaryUntil",
+                      "reason",
+                      "operation"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "batchRef": {
+                        "maxLength": 256,
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "operation": {
+                        "enum": [
+                          "tribute.preview"
+                        ],
+                        "type": "string"
+                      },
+                      "operationId": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
+                      "rows": {
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "checkedAt": {},
+                            "endsAt": {
+                              "nullable": true
+                            },
+                            "expectedRevision": {
+                              "maximum": 9007199254740991,
+                              "minimum": 0,
+                              "type": "integer"
+                            },
+                            "identityRef": {
+                              "maxLength": 256,
+                              "minLength": 1,
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "mode": {
+                              "enum": [
+                                "confirmed_period",
+                                "temporary_membership"
+                              ],
+                              "type": "string"
+                            },
+                            "policyRef": {
+                              "maxLength": 256,
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "reason": {
+                              "maxLength": 1000,
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "renewal": {
+                              "enum": [
+                                "unknown",
+                                "enabled",
+                                "stopped"
+                              ],
+                              "type": "string"
+                            },
+                            "rowRef": {
+                              "maxLength": 256,
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "startsAt": {
+                              "nullable": true
+                            },
+                            "subscriptionId": {
+                              "exclusiveMinimum": true,
+                              "maximum": 9007199254740991,
+                              "minimum": 0,
+                              "nullable": true,
+                              "type": "integer"
+                            },
+                            "telegramUserId": {
+                              "nullable": true,
+                              "pattern": "^[1-9][0-9]{0,15}$",
+                              "type": "string"
+                            },
+                            "verificationRef": {
+                              "maxLength": 256,
+                              "minLength": 1,
+                              "nullable": true,
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "rowRef",
+                            "policyRef",
+                            "subscriptionId",
+                            "identityRef",
+                            "telegramUserId",
+                            "verificationRef",
+                            "checkedAt",
+                            "mode",
+                            "startsAt",
+                            "endsAt",
+                            "renewal",
+                            "expectedRevision",
+                            "reason"
+                          ],
+                          "type": "object"
+                        },
+                        "maxItems": 100,
+                        "minItems": 1,
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "operationId",
+                      "batchRef",
+                      "rows",
+                      "operation"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "operation": {
+                        "enum": [
+                          "tribute.apply"
+                        ],
+                        "type": "string"
+                      },
+                      "operationId": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
+                      "previewRef": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
+                      "selectedRows": {
+                        "items": {
+                          "maxLength": 256,
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "maxItems": 100,
+                        "minItems": 1,
+                        "type": "array"
+                      }
+                    },
+                    "required": [
+                      "operationId",
+                      "previewRef",
+                      "selectedRows",
+                      "operation"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "action": {
+                        "enum": [
+                          "retry",
+                          "revoke",
+                          "restore"
+                        ],
+                        "type": "string"
+                      },
+                      "confirmedTerms": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "endsAt": {},
+                          "startsAt": {},
+                          "verificationRef": {
+                            "maxLength": 256,
+                            "minLength": 1,
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "startsAt",
+                          "endsAt",
+                          "verificationRef"
+                        ],
+                        "type": "object"
+                      },
+                      "expectedRevision": {
+                        "exclusiveMinimum": true,
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "operation": {
+                        "enum": [
+                          "tribute.reconcile"
+                        ],
+                        "type": "string"
+                      },
+                      "operationId": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
+                      "reason": {
+                        "maxLength": 1000,
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "sourceId": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "operationId",
+                      "sourceId",
+                      "expectedRevision",
+                      "action",
+                      "reason",
+                      "operation"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "action": {
+                        "enum": [
+                          "retry",
+                          "reject"
+                        ],
+                        "type": "string"
+                      },
+                      "expectedRevision": {
+                        "exclusiveMinimum": true,
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "inboxId": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
+                      "operation": {
+                        "enum": [
+                          "tribute.retryEvent"
+                        ],
+                        "type": "string"
+                      },
+                      "operationId": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
+                      "reason": {
+                        "maxLength": 1000,
+                        "minLength": 1,
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "operationId",
+                      "inboxId",
+                      "expectedRevision",
+                      "reason",
+                      "operation"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
                       "identityRef": {
                         "maxLength": 256,
                         "minLength": 1,
@@ -44765,6 +45178,13 @@
                             "maximum": 9007199254740991,
                             "minimum": 0,
                             "type": "integer"
+                          },
+                          "verificationMode": {
+                            "enum": [
+                              "course_membership",
+                              "tribute_registry"
+                            ],
+                            "type": "string"
                           }
                         },
                         "required": [
@@ -45913,6 +46333,1535 @@
                           "properties": {
                             "outcome": {
                               "enum": [
+                                "tributeImportReview"
+                              ],
+                              "type": "string"
+                            },
+                            "value": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "batchRef": {
+                                  "maxLength": 256,
+                                  "minLength": 1,
+                                  "type": "string"
+                                },
+                                "expiresAt": {},
+                                "pendingRows": {
+                                  "items": {
+                                    "maxLength": 256,
+                                    "minLength": 1,
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                },
+                                "previewRef": {
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                  "type": "string"
+                                },
+                                "reason": {
+                                  "type": "string"
+                                },
+                                "revision": {
+                                  "exclusiveMinimum": true,
+                                  "maximum": 9007199254740991,
+                                  "minimum": 0,
+                                  "type": "integer"
+                                },
+                                "state": {
+                                  "enum": [
+                                    "pending",
+                                    "applied",
+                                    "dismissed"
+                                  ],
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "previewRef",
+                                "batchRef",
+                                "revision",
+                                "state",
+                                "pendingRows",
+                                "expiresAt",
+                                "reason"
+                              ],
+                              "type": "object"
+                            }
+                          },
+                          "required": [
+                            "outcome",
+                            "value"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "outcome": {
+                              "enum": [
+                                "tributeStatus"
+                              ],
+                              "type": "string"
+                            },
+                            "value": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "hasMore": {
+                                  "type": "boolean"
+                                },
+                                "imports": {
+                                  "items": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "batchRef": {
+                                        "maxLength": 256,
+                                        "minLength": 1,
+                                        "type": "string"
+                                      },
+                                      "expiresAt": {},
+                                      "pendingRows": {
+                                        "items": {
+                                          "maxLength": 256,
+                                          "minLength": 1,
+                                          "type": "string"
+                                        },
+                                        "type": "array"
+                                      },
+                                      "previewRef": {
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                        "type": "string"
+                                      },
+                                      "reason": {
+                                        "type": "string"
+                                      },
+                                      "revision": {
+                                        "exclusiveMinimum": true,
+                                        "maximum": 9007199254740991,
+                                        "minimum": 0,
+                                        "type": "integer"
+                                      },
+                                      "state": {
+                                        "enum": [
+                                          "pending",
+                                          "applied",
+                                          "dismissed"
+                                        ],
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "previewRef",
+                                      "batchRef",
+                                      "revision",
+                                      "state",
+                                      "pendingRows",
+                                      "expiresAt",
+                                      "reason"
+                                    ],
+                                    "type": "object"
+                                  },
+                                  "type": "array"
+                                },
+                                "inbox": {
+                                  "items": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "id": {
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                        "type": "string"
+                                      },
+                                      "reason": {
+                                        "type": "string"
+                                      },
+                                      "receivedAt": {},
+                                      "revision": {
+                                        "exclusiveMinimum": true,
+                                        "maximum": 9007199254740991,
+                                        "minimum": 0,
+                                        "type": "integer"
+                                      },
+                                      "sourceId": {
+                                        "format": "uuid",
+                                        "nullable": true,
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                        "type": "string"
+                                      },
+                                      "state": {
+                                        "enum": [
+                                          "received",
+                                          "applied",
+                                          "pending_reconciliation",
+                                          "rejected"
+                                        ],
+                                        "type": "string"
+                                      },
+                                      "updatedAt": {}
+                                    },
+                                    "required": [
+                                      "id",
+                                      "state",
+                                      "reason",
+                                      "sourceId",
+                                      "revision",
+                                      "receivedAt",
+                                      "updatedAt"
+                                    ],
+                                    "type": "object"
+                                  },
+                                  "type": "array"
+                                },
+                                "metrics": {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "pendingIdentity": {
+                                      "maximum": 9007199254740991,
+                                      "minimum": 0,
+                                      "type": "integer"
+                                    },
+                                    "rolloutBlocked": {
+                                      "type": "boolean"
+                                    },
+                                    "staleConfirmations": {
+                                      "maximum": 9007199254740991,
+                                      "minimum": 0,
+                                      "type": "integer"
+                                    },
+                                    "temporarySources": {
+                                      "maximum": 9007199254740991,
+                                      "minimum": 0,
+                                      "type": "integer"
+                                    },
+                                    "unresolvedEvents": {
+                                      "maximum": 9007199254740991,
+                                      "minimum": 0,
+                                      "type": "integer"
+                                    },
+                                    "unresolvedImports": {
+                                      "maximum": 9007199254740991,
+                                      "minimum": 0,
+                                      "type": "integer"
+                                    }
+                                  },
+                                  "required": [
+                                    "unresolvedImports",
+                                    "pendingIdentity",
+                                    "unresolvedEvents",
+                                    "temporarySources",
+                                    "staleConfirmations",
+                                    "rolloutBlocked"
+                                  ],
+                                  "type": "object"
+                                },
+                                "page": {
+                                  "maximum": 9007199254740991,
+                                  "minimum": 0,
+                                  "type": "integer"
+                                },
+                                "policies": {
+                                  "items": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "enabled": {
+                                        "type": "boolean"
+                                      },
+                                      "id": {
+                                        "maxLength": 256,
+                                        "minLength": 1,
+                                        "type": "string"
+                                      },
+                                      "revision": {
+                                        "exclusiveMinimum": true,
+                                        "maximum": 9007199254740991,
+                                        "minimum": 0,
+                                        "type": "integer"
+                                      },
+                                      "subscriptionId": {
+                                        "exclusiveMinimum": true,
+                                        "maximum": 9007199254740991,
+                                        "minimum": 0,
+                                        "type": "integer"
+                                      },
+                                      "temporaryUntil": {
+                                        "nullable": true
+                                      },
+                                      "tier": {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "benefits": {
+                                            "items": {
+                                              "anyOf": [
+                                                {
+                                                  "enum": [
+                                                    "materials",
+                                                    "community",
+                                                    "reviews",
+                                                    "support"
+                                                  ],
+                                                  "type": "string"
+                                                },
+                                                {
+                                                  "pattern": "^guide:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                                  "type": "string"
+                                                }
+                                              ]
+                                            },
+                                            "maxItems": 100,
+                                            "minItems": 1,
+                                            "type": "array"
+                                          },
+                                          "contentScope": {
+                                            "additionalProperties": false,
+                                            "properties": {
+                                              "guideIds": {
+                                                "items": {
+                                                  "format": "uuid",
+                                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                                  "type": "string"
+                                                },
+                                                "maxItems": 1000,
+                                                "type": "array"
+                                              },
+                                              "materialIds": {
+                                                "items": {
+                                                  "format": "uuid",
+                                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                                  "type": "string"
+                                                },
+                                                "maxItems": 1000,
+                                                "type": "array"
+                                              }
+                                            },
+                                            "required": [
+                                              "guideIds",
+                                              "materialIds"
+                                            ],
+                                            "type": "object"
+                                          },
+                                          "id": {
+                                            "format": "uuid",
+                                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                            "type": "string"
+                                          },
+                                          "name": {
+                                            "maxLength": 200,
+                                            "minLength": 1,
+                                            "type": "string"
+                                          },
+                                          "revision": {
+                                            "exclusiveMinimum": true,
+                                            "maximum": 9007199254740991,
+                                            "minimum": 0,
+                                            "type": "integer"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "revision",
+                                          "name",
+                                          "benefits",
+                                          "contentScope"
+                                        ],
+                                        "type": "object"
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "subscriptionId",
+                                      "revision",
+                                      "enabled",
+                                      "tier",
+                                      "temporaryUntil"
+                                    ],
+                                    "type": "object"
+                                  },
+                                  "type": "array"
+                                },
+                                "sources": {
+                                  "items": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "accountId": {
+                                        "format": "uuid",
+                                        "nullable": true,
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                        "type": "string"
+                                      },
+                                      "checkedAt": {},
+                                      "enrollmentId": {
+                                        "format": "uuid",
+                                        "nullable": true,
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                        "type": "string"
+                                      },
+                                      "id": {
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                        "type": "string"
+                                      },
+                                      "identityRef": {
+                                        "maxLength": 256,
+                                        "minLength": 1,
+                                        "type": "string"
+                                      },
+                                      "policyRef": {
+                                        "maxLength": 256,
+                                        "minLength": 1,
+                                        "type": "string"
+                                      },
+                                      "revision": {
+                                        "exclusiveMinimum": true,
+                                        "maximum": 9007199254740991,
+                                        "minimum": 0,
+                                        "type": "integer"
+                                      },
+                                      "revoked": {
+                                        "type": "boolean"
+                                      },
+                                      "sourceRef": {
+                                        "maxLength": 256,
+                                        "minLength": 1,
+                                        "type": "string"
+                                      },
+                                      "state": {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "endsAt": {},
+                                          "lastEventAt": {
+                                            "nullable": true,
+                                            "type": "string"
+                                          },
+                                          "lastEventFingerprint": {
+                                            "nullable": true,
+                                            "type": "string"
+                                          },
+                                          "mode": {
+                                            "enum": [
+                                              "confirmed_period",
+                                              "temporary_membership"
+                                            ],
+                                            "type": "string"
+                                          },
+                                          "observation": {
+                                            "enum": [
+                                              "pending",
+                                              "member",
+                                              "observation_stale",
+                                              "source_ended"
+                                            ],
+                                            "type": "string"
+                                          },
+                                          "observationVersion": {
+                                            "nullable": true,
+                                            "type": "string"
+                                          },
+                                          "observedUntil": {
+                                            "nullable": true
+                                          },
+                                          "policyRevision": {
+                                            "exclusiveMinimum": true,
+                                            "maximum": 9007199254740991,
+                                            "minimum": 0,
+                                            "type": "integer"
+                                          },
+                                          "renewal": {
+                                            "enum": [
+                                              "unknown",
+                                              "enabled",
+                                              "stopped"
+                                            ],
+                                            "type": "string"
+                                          },
+                                          "startsAt": {},
+                                          "subscriptionId": {
+                                            "exclusiveMinimum": true,
+                                            "maximum": 9007199254740991,
+                                            "minimum": 0,
+                                            "type": "integer"
+                                          },
+                                          "telegramUserId": {
+                                            "pattern": "^[1-9][0-9]{0,15}$",
+                                            "type": "string"
+                                          },
+                                          "tier": {
+                                            "additionalProperties": false,
+                                            "properties": {
+                                              "benefits": {
+                                                "items": {
+                                                  "anyOf": [
+                                                    {
+                                                      "enum": [
+                                                        "materials",
+                                                        "community",
+                                                        "reviews",
+                                                        "support"
+                                                      ],
+                                                      "type": "string"
+                                                    },
+                                                    {
+                                                      "pattern": "^guide:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                                      "type": "string"
+                                                    }
+                                                  ]
+                                                },
+                                                "maxItems": 100,
+                                                "minItems": 1,
+                                                "type": "array"
+                                              },
+                                              "contentScope": {
+                                                "additionalProperties": false,
+                                                "properties": {
+                                                  "guideIds": {
+                                                    "items": {
+                                                      "format": "uuid",
+                                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                                      "type": "string"
+                                                    },
+                                                    "maxItems": 1000,
+                                                    "type": "array"
+                                                  },
+                                                  "materialIds": {
+                                                    "items": {
+                                                      "format": "uuid",
+                                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                                      "type": "string"
+                                                    },
+                                                    "maxItems": 1000,
+                                                    "type": "array"
+                                                  }
+                                                },
+                                                "required": [
+                                                  "guideIds",
+                                                  "materialIds"
+                                                ],
+                                                "type": "object"
+                                              },
+                                              "id": {
+                                                "format": "uuid",
+                                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                                "type": "string"
+                                              },
+                                              "name": {
+                                                "maxLength": 200,
+                                                "minLength": 1,
+                                                "type": "string"
+                                              },
+                                              "revision": {
+                                                "exclusiveMinimum": true,
+                                                "maximum": 9007199254740991,
+                                                "minimum": 0,
+                                                "type": "integer"
+                                              }
+                                            },
+                                            "required": [
+                                              "id",
+                                              "revision",
+                                              "name",
+                                              "benefits",
+                                              "contentScope"
+                                            ],
+                                            "type": "object"
+                                          },
+                                          "verificationRef": {
+                                            "maxLength": 256,
+                                            "minLength": 1,
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "subscriptionId",
+                                          "telegramUserId",
+                                          "verificationRef",
+                                          "mode",
+                                          "startsAt",
+                                          "endsAt",
+                                          "renewal",
+                                          "tier",
+                                          "policyRevision",
+                                          "observation",
+                                          "observedUntil",
+                                          "observationVersion",
+                                          "lastEventAt",
+                                          "lastEventFingerprint"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      "status": {
+                                        "enum": [
+                                          "pending_identity",
+                                          "active",
+                                          "scheduled",
+                                          "expired",
+                                          "revoked",
+                                          "pending_verification",
+                                          "suspended_source"
+                                        ],
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "sourceRef",
+                                      "policyRef",
+                                      "identityRef",
+                                      "revision",
+                                      "accountId",
+                                      "enrollmentId",
+                                      "revoked",
+                                      "checkedAt",
+                                      "state",
+                                      "status"
+                                    ],
+                                    "type": "object"
+                                  },
+                                  "type": "array"
+                                }
+                              },
+                              "required": [
+                                "page",
+                                "hasMore",
+                                "imports",
+                                "policies",
+                                "sources",
+                                "inbox",
+                                "metrics"
+                              ],
+                              "type": "object"
+                            }
+                          },
+                          "required": [
+                            "outcome",
+                            "value"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "outcome": {
+                              "enum": [
+                                "tributePolicy"
+                              ],
+                              "type": "string"
+                            },
+                            "value": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "enabled": {
+                                  "type": "boolean"
+                                },
+                                "id": {
+                                  "maxLength": 256,
+                                  "minLength": 1,
+                                  "type": "string"
+                                },
+                                "revision": {
+                                  "exclusiveMinimum": true,
+                                  "maximum": 9007199254740991,
+                                  "minimum": 0,
+                                  "type": "integer"
+                                },
+                                "subscriptionId": {
+                                  "exclusiveMinimum": true,
+                                  "maximum": 9007199254740991,
+                                  "minimum": 0,
+                                  "type": "integer"
+                                },
+                                "temporaryUntil": {
+                                  "nullable": true
+                                },
+                                "tier": {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "benefits": {
+                                      "items": {
+                                        "anyOf": [
+                                          {
+                                            "enum": [
+                                              "materials",
+                                              "community",
+                                              "reviews",
+                                              "support"
+                                            ],
+                                            "type": "string"
+                                          },
+                                          {
+                                            "pattern": "^guide:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                            "type": "string"
+                                          }
+                                        ]
+                                      },
+                                      "maxItems": 100,
+                                      "minItems": 1,
+                                      "type": "array"
+                                    },
+                                    "contentScope": {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "guideIds": {
+                                          "items": {
+                                            "format": "uuid",
+                                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                            "type": "string"
+                                          },
+                                          "maxItems": 1000,
+                                          "type": "array"
+                                        },
+                                        "materialIds": {
+                                          "items": {
+                                            "format": "uuid",
+                                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                            "type": "string"
+                                          },
+                                          "maxItems": 1000,
+                                          "type": "array"
+                                        }
+                                      },
+                                      "required": [
+                                        "guideIds",
+                                        "materialIds"
+                                      ],
+                                      "type": "object"
+                                    },
+                                    "id": {
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                      "type": "string"
+                                    },
+                                    "name": {
+                                      "maxLength": 200,
+                                      "minLength": 1,
+                                      "type": "string"
+                                    },
+                                    "revision": {
+                                      "exclusiveMinimum": true,
+                                      "maximum": 9007199254740991,
+                                      "minimum": 0,
+                                      "type": "integer"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "revision",
+                                    "name",
+                                    "benefits",
+                                    "contentScope"
+                                  ],
+                                  "type": "object"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "subscriptionId",
+                                "revision",
+                                "enabled",
+                                "tier",
+                                "temporaryUntil"
+                              ],
+                              "type": "object"
+                            }
+                          },
+                          "required": [
+                            "outcome",
+                            "value"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "outcome": {
+                              "enum": [
+                                "tributePreview"
+                              ],
+                              "type": "string"
+                            },
+                            "value": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "batchRef": {
+                                  "maxLength": 256,
+                                  "minLength": 1,
+                                  "type": "string"
+                                },
+                                "expiresAt": {},
+                                "previewRef": {
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                  "type": "string"
+                                },
+                                "rows": {
+                                  "items": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "accountId": {
+                                        "format": "uuid",
+                                        "nullable": true,
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                        "type": "string"
+                                      },
+                                      "bindingFingerprint": {
+                                        "maxLength": 64,
+                                        "minLength": 64,
+                                        "nullable": true,
+                                        "type": "string"
+                                      },
+                                      "detail": {
+                                        "type": "string"
+                                      },
+                                      "endsAt": {
+                                        "nullable": true
+                                      },
+                                      "enrollmentRevision": {
+                                        "maximum": 9007199254740991,
+                                        "minimum": 0,
+                                        "type": "integer"
+                                      },
+                                      "policyRevision": {
+                                        "maximum": 9007199254740991,
+                                        "minimum": 0,
+                                        "type": "integer"
+                                      },
+                                      "rowRef": {
+                                        "maxLength": 256,
+                                        "minLength": 1,
+                                        "type": "string"
+                                      },
+                                      "shortens": {
+                                        "type": "boolean"
+                                      },
+                                      "sourceId": {
+                                        "format": "uuid",
+                                        "nullable": true,
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                        "type": "string"
+                                      },
+                                      "sourceRevision": {
+                                        "maximum": 9007199254740991,
+                                        "minimum": 0,
+                                        "type": "integer"
+                                      },
+                                      "startsAt": {
+                                        "nullable": true
+                                      },
+                                      "status": {
+                                        "enum": [
+                                          "new",
+                                          "matched",
+                                          "pending_identity",
+                                          "ambiguous",
+                                          "unknown_term",
+                                          "conflict"
+                                        ],
+                                        "type": "string"
+                                      },
+                                      "tier": {
+                                        "additionalProperties": false,
+                                        "nullable": true,
+                                        "properties": {
+                                          "benefits": {
+                                            "items": {
+                                              "anyOf": [
+                                                {
+                                                  "enum": [
+                                                    "materials",
+                                                    "community",
+                                                    "reviews",
+                                                    "support"
+                                                  ],
+                                                  "type": "string"
+                                                },
+                                                {
+                                                  "pattern": "^guide:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                                  "type": "string"
+                                                }
+                                              ]
+                                            },
+                                            "maxItems": 100,
+                                            "minItems": 1,
+                                            "type": "array"
+                                          },
+                                          "contentScope": {
+                                            "additionalProperties": false,
+                                            "properties": {
+                                              "guideIds": {
+                                                "items": {
+                                                  "format": "uuid",
+                                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                                  "type": "string"
+                                                },
+                                                "maxItems": 1000,
+                                                "type": "array"
+                                              },
+                                              "materialIds": {
+                                                "items": {
+                                                  "format": "uuid",
+                                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                                  "type": "string"
+                                                },
+                                                "maxItems": 1000,
+                                                "type": "array"
+                                              }
+                                            },
+                                            "required": [
+                                              "guideIds",
+                                              "materialIds"
+                                            ],
+                                            "type": "object"
+                                          },
+                                          "id": {
+                                            "format": "uuid",
+                                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                            "type": "string"
+                                          },
+                                          "name": {
+                                            "maxLength": 200,
+                                            "minLength": 1,
+                                            "type": "string"
+                                          },
+                                          "revision": {
+                                            "exclusiveMinimum": true,
+                                            "maximum": 9007199254740991,
+                                            "minimum": 0,
+                                            "type": "integer"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "revision",
+                                          "name",
+                                          "benefits",
+                                          "contentScope"
+                                        ],
+                                        "type": "object"
+                                      }
+                                    },
+                                    "required": [
+                                      "rowRef",
+                                      "status",
+                                      "detail",
+                                      "sourceId",
+                                      "accountId",
+                                      "sourceRevision",
+                                      "policyRevision",
+                                      "enrollmentRevision",
+                                      "bindingFingerprint",
+                                      "shortens",
+                                      "tier",
+                                      "startsAt",
+                                      "endsAt"
+                                    ],
+                                    "type": "object"
+                                  },
+                                  "type": "array"
+                                }
+                              },
+                              "required": [
+                                "previewRef",
+                                "batchRef",
+                                "expiresAt",
+                                "rows"
+                              ],
+                              "type": "object"
+                            }
+                          },
+                          "required": [
+                            "outcome",
+                            "value"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "outcome": {
+                              "enum": [
+                                "tributeApplied"
+                              ],
+                              "type": "string"
+                            },
+                            "value": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "previewRef": {
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                  "type": "string"
+                                },
+                                "sources": {
+                                  "items": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "accountId": {
+                                        "format": "uuid",
+                                        "nullable": true,
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                        "type": "string"
+                                      },
+                                      "checkedAt": {},
+                                      "enrollmentId": {
+                                        "format": "uuid",
+                                        "nullable": true,
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                        "type": "string"
+                                      },
+                                      "id": {
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                        "type": "string"
+                                      },
+                                      "identityRef": {
+                                        "maxLength": 256,
+                                        "minLength": 1,
+                                        "type": "string"
+                                      },
+                                      "policyRef": {
+                                        "maxLength": 256,
+                                        "minLength": 1,
+                                        "type": "string"
+                                      },
+                                      "revision": {
+                                        "exclusiveMinimum": true,
+                                        "maximum": 9007199254740991,
+                                        "minimum": 0,
+                                        "type": "integer"
+                                      },
+                                      "revoked": {
+                                        "type": "boolean"
+                                      },
+                                      "sourceRef": {
+                                        "maxLength": 256,
+                                        "minLength": 1,
+                                        "type": "string"
+                                      },
+                                      "state": {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "endsAt": {},
+                                          "lastEventAt": {
+                                            "nullable": true,
+                                            "type": "string"
+                                          },
+                                          "lastEventFingerprint": {
+                                            "nullable": true,
+                                            "type": "string"
+                                          },
+                                          "mode": {
+                                            "enum": [
+                                              "confirmed_period",
+                                              "temporary_membership"
+                                            ],
+                                            "type": "string"
+                                          },
+                                          "observation": {
+                                            "enum": [
+                                              "pending",
+                                              "member",
+                                              "observation_stale",
+                                              "source_ended"
+                                            ],
+                                            "type": "string"
+                                          },
+                                          "observationVersion": {
+                                            "nullable": true,
+                                            "type": "string"
+                                          },
+                                          "observedUntil": {
+                                            "nullable": true
+                                          },
+                                          "policyRevision": {
+                                            "exclusiveMinimum": true,
+                                            "maximum": 9007199254740991,
+                                            "minimum": 0,
+                                            "type": "integer"
+                                          },
+                                          "renewal": {
+                                            "enum": [
+                                              "unknown",
+                                              "enabled",
+                                              "stopped"
+                                            ],
+                                            "type": "string"
+                                          },
+                                          "startsAt": {},
+                                          "subscriptionId": {
+                                            "exclusiveMinimum": true,
+                                            "maximum": 9007199254740991,
+                                            "minimum": 0,
+                                            "type": "integer"
+                                          },
+                                          "telegramUserId": {
+                                            "pattern": "^[1-9][0-9]{0,15}$",
+                                            "type": "string"
+                                          },
+                                          "tier": {
+                                            "additionalProperties": false,
+                                            "properties": {
+                                              "benefits": {
+                                                "items": {
+                                                  "anyOf": [
+                                                    {
+                                                      "enum": [
+                                                        "materials",
+                                                        "community",
+                                                        "reviews",
+                                                        "support"
+                                                      ],
+                                                      "type": "string"
+                                                    },
+                                                    {
+                                                      "pattern": "^guide:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                                      "type": "string"
+                                                    }
+                                                  ]
+                                                },
+                                                "maxItems": 100,
+                                                "minItems": 1,
+                                                "type": "array"
+                                              },
+                                              "contentScope": {
+                                                "additionalProperties": false,
+                                                "properties": {
+                                                  "guideIds": {
+                                                    "items": {
+                                                      "format": "uuid",
+                                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                                      "type": "string"
+                                                    },
+                                                    "maxItems": 1000,
+                                                    "type": "array"
+                                                  },
+                                                  "materialIds": {
+                                                    "items": {
+                                                      "format": "uuid",
+                                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                                      "type": "string"
+                                                    },
+                                                    "maxItems": 1000,
+                                                    "type": "array"
+                                                  }
+                                                },
+                                                "required": [
+                                                  "guideIds",
+                                                  "materialIds"
+                                                ],
+                                                "type": "object"
+                                              },
+                                              "id": {
+                                                "format": "uuid",
+                                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                                "type": "string"
+                                              },
+                                              "name": {
+                                                "maxLength": 200,
+                                                "minLength": 1,
+                                                "type": "string"
+                                              },
+                                              "revision": {
+                                                "exclusiveMinimum": true,
+                                                "maximum": 9007199254740991,
+                                                "minimum": 0,
+                                                "type": "integer"
+                                              }
+                                            },
+                                            "required": [
+                                              "id",
+                                              "revision",
+                                              "name",
+                                              "benefits",
+                                              "contentScope"
+                                            ],
+                                            "type": "object"
+                                          },
+                                          "verificationRef": {
+                                            "maxLength": 256,
+                                            "minLength": 1,
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "subscriptionId",
+                                          "telegramUserId",
+                                          "verificationRef",
+                                          "mode",
+                                          "startsAt",
+                                          "endsAt",
+                                          "renewal",
+                                          "tier",
+                                          "policyRevision",
+                                          "observation",
+                                          "observedUntil",
+                                          "observationVersion",
+                                          "lastEventAt",
+                                          "lastEventFingerprint"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      "status": {
+                                        "enum": [
+                                          "pending_identity",
+                                          "active",
+                                          "scheduled",
+                                          "expired",
+                                          "revoked",
+                                          "pending_verification",
+                                          "suspended_source"
+                                        ],
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "sourceRef",
+                                      "policyRef",
+                                      "identityRef",
+                                      "revision",
+                                      "accountId",
+                                      "enrollmentId",
+                                      "revoked",
+                                      "checkedAt",
+                                      "state",
+                                      "status"
+                                    ],
+                                    "type": "object"
+                                  },
+                                  "type": "array"
+                                }
+                              },
+                              "required": [
+                                "previewRef",
+                                "sources"
+                              ],
+                              "type": "object"
+                            }
+                          },
+                          "required": [
+                            "outcome",
+                            "value"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "outcome": {
+                              "enum": [
+                                "tributeSource"
+                              ],
+                              "type": "string"
+                            },
+                            "value": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "accountId": {
+                                  "format": "uuid",
+                                  "nullable": true,
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                  "type": "string"
+                                },
+                                "checkedAt": {},
+                                "enrollmentId": {
+                                  "format": "uuid",
+                                  "nullable": true,
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                  "type": "string"
+                                },
+                                "id": {
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                  "type": "string"
+                                },
+                                "identityRef": {
+                                  "maxLength": 256,
+                                  "minLength": 1,
+                                  "type": "string"
+                                },
+                                "policyRef": {
+                                  "maxLength": 256,
+                                  "minLength": 1,
+                                  "type": "string"
+                                },
+                                "revision": {
+                                  "exclusiveMinimum": true,
+                                  "maximum": 9007199254740991,
+                                  "minimum": 0,
+                                  "type": "integer"
+                                },
+                                "revoked": {
+                                  "type": "boolean"
+                                },
+                                "sourceRef": {
+                                  "maxLength": 256,
+                                  "minLength": 1,
+                                  "type": "string"
+                                },
+                                "state": {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "endsAt": {},
+                                    "lastEventAt": {
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "lastEventFingerprint": {
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "mode": {
+                                      "enum": [
+                                        "confirmed_period",
+                                        "temporary_membership"
+                                      ],
+                                      "type": "string"
+                                    },
+                                    "observation": {
+                                      "enum": [
+                                        "pending",
+                                        "member",
+                                        "observation_stale",
+                                        "source_ended"
+                                      ],
+                                      "type": "string"
+                                    },
+                                    "observationVersion": {
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "observedUntil": {
+                                      "nullable": true
+                                    },
+                                    "policyRevision": {
+                                      "exclusiveMinimum": true,
+                                      "maximum": 9007199254740991,
+                                      "minimum": 0,
+                                      "type": "integer"
+                                    },
+                                    "renewal": {
+                                      "enum": [
+                                        "unknown",
+                                        "enabled",
+                                        "stopped"
+                                      ],
+                                      "type": "string"
+                                    },
+                                    "startsAt": {},
+                                    "subscriptionId": {
+                                      "exclusiveMinimum": true,
+                                      "maximum": 9007199254740991,
+                                      "minimum": 0,
+                                      "type": "integer"
+                                    },
+                                    "telegramUserId": {
+                                      "pattern": "^[1-9][0-9]{0,15}$",
+                                      "type": "string"
+                                    },
+                                    "tier": {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "benefits": {
+                                          "items": {
+                                            "anyOf": [
+                                              {
+                                                "enum": [
+                                                  "materials",
+                                                  "community",
+                                                  "reviews",
+                                                  "support"
+                                                ],
+                                                "type": "string"
+                                              },
+                                              {
+                                                "pattern": "^guide:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                                "type": "string"
+                                              }
+                                            ]
+                                          },
+                                          "maxItems": 100,
+                                          "minItems": 1,
+                                          "type": "array"
+                                        },
+                                        "contentScope": {
+                                          "additionalProperties": false,
+                                          "properties": {
+                                            "guideIds": {
+                                              "items": {
+                                                "format": "uuid",
+                                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                                "type": "string"
+                                              },
+                                              "maxItems": 1000,
+                                              "type": "array"
+                                            },
+                                            "materialIds": {
+                                              "items": {
+                                                "format": "uuid",
+                                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                                "type": "string"
+                                              },
+                                              "maxItems": 1000,
+                                              "type": "array"
+                                            }
+                                          },
+                                          "required": [
+                                            "guideIds",
+                                            "materialIds"
+                                          ],
+                                          "type": "object"
+                                        },
+                                        "id": {
+                                          "format": "uuid",
+                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                          "type": "string"
+                                        },
+                                        "name": {
+                                          "maxLength": 200,
+                                          "minLength": 1,
+                                          "type": "string"
+                                        },
+                                        "revision": {
+                                          "exclusiveMinimum": true,
+                                          "maximum": 9007199254740991,
+                                          "minimum": 0,
+                                          "type": "integer"
+                                        }
+                                      },
+                                      "required": [
+                                        "id",
+                                        "revision",
+                                        "name",
+                                        "benefits",
+                                        "contentScope"
+                                      ],
+                                      "type": "object"
+                                    },
+                                    "verificationRef": {
+                                      "maxLength": 256,
+                                      "minLength": 1,
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "subscriptionId",
+                                    "telegramUserId",
+                                    "verificationRef",
+                                    "mode",
+                                    "startsAt",
+                                    "endsAt",
+                                    "renewal",
+                                    "tier",
+                                    "policyRevision",
+                                    "observation",
+                                    "observedUntil",
+                                    "observationVersion",
+                                    "lastEventAt",
+                                    "lastEventFingerprint"
+                                  ],
+                                  "type": "object"
+                                },
+                                "status": {
+                                  "enum": [
+                                    "pending_identity",
+                                    "active",
+                                    "scheduled",
+                                    "expired",
+                                    "revoked",
+                                    "pending_verification",
+                                    "suspended_source"
+                                  ],
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "sourceRef",
+                                "policyRef",
+                                "identityRef",
+                                "revision",
+                                "accountId",
+                                "enrollmentId",
+                                "revoked",
+                                "checkedAt",
+                                "state",
+                                "status"
+                              ],
+                              "type": "object"
+                            }
+                          },
+                          "required": [
+                            "outcome",
+                            "value"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "outcome": {
+                              "enum": [
+                                "tributeEvent"
+                              ],
+                              "type": "string"
+                            },
+                            "value": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "id": {
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                  "type": "string"
+                                },
+                                "reason": {
+                                  "type": "string"
+                                },
+                                "receivedAt": {},
+                                "revision": {
+                                  "exclusiveMinimum": true,
+                                  "maximum": 9007199254740991,
+                                  "minimum": 0,
+                                  "type": "integer"
+                                },
+                                "sourceId": {
+                                  "format": "uuid",
+                                  "nullable": true,
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                  "type": "string"
+                                },
+                                "state": {
+                                  "enum": [
+                                    "received",
+                                    "applied",
+                                    "pending_reconciliation",
+                                    "rejected"
+                                  ],
+                                  "type": "string"
+                                },
+                                "updatedAt": {}
+                              },
+                              "required": [
+                                "id",
+                                "state",
+                                "reason",
+                                "sourceId",
+                                "revision",
+                                "receivedAt",
+                                "updatedAt"
+                              ],
+                              "type": "object"
+                            }
+                          },
+                          "required": [
+                            "outcome",
+                            "value"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "outcome": {
+                              "enum": [
                                 "sourceEntitlement"
                               ],
                               "type": "string"
@@ -46047,6 +47996,13 @@
                                   "maximum": 9007199254740991,
                                   "minimum": 0,
                                   "type": "integer"
+                                },
+                                "verificationMode": {
+                                  "enum": [
+                                    "course_membership",
+                                    "tribute_registry"
+                                  ],
+                                  "type": "string"
                                 }
                               },
                               "required": [
@@ -46121,6 +48077,13 @@
                                     "maximum": 9007199254740991,
                                     "minimum": 0,
                                     "type": "integer"
+                                  },
+                                  "verificationMode": {
+                                    "enum": [
+                                      "course_membership",
+                                      "tribute_registry"
+                                    ],
+                                    "type": "string"
                                   }
                                 },
                                 "required": [
@@ -46495,7 +48458,9 @@
                                     "scheduled",
                                     "active",
                                     "expired",
-                                    "revoked"
+                                    "revoked",
+                                    "pending_verification",
+                                    "suspended_source"
                                   ],
                                   "type": "string"
                                 },
@@ -46764,7 +48729,9 @@
                                       "scheduled",
                                       "active",
                                       "expired",
-                                      "revoked"
+                                      "revoked",
+                                      "pending_verification",
+                                      "suspended_source"
                                     ],
                                     "type": "string"
                                   },
@@ -81209,7 +83176,9 @@
                                     "scheduled",
                                     "active",
                                     "expired",
-                                    "revoked"
+                                    "revoked",
+                                    "pending_verification",
+                                    "suspended_source"
                                   ],
                                   "type": "string"
                                 },
@@ -81324,6 +83293,13 @@
                                 "sourceRef": {
                                   "maxLength": 256,
                                   "minLength": 1,
+                                  "type": "string"
+                                },
+                                "verificationMode": {
+                                  "enum": [
+                                    "course_membership",
+                                    "tribute_registry"
+                                  ],
                                   "type": "string"
                                 }
                               },
@@ -81717,7 +83693,8 @@
                     "enum": [
                       "member",
                       "not_member",
-                      "unavailable"
+                      "unavailable",
+                      "registry_lookup"
                     ],
                     "type": "string"
                   },
@@ -81972,7 +83949,9 @@
                                     "scheduled",
                                     "active",
                                     "expired",
-                                    "revoked"
+                                    "revoked",
+                                    "pending_verification",
+                                    "suspended_source"
                                   ],
                                   "type": "string"
                                 },
@@ -82087,6 +84066,13 @@
                                 "sourceRef": {
                                   "maxLength": 256,
                                   "minLength": 1,
+                                  "type": "string"
+                                },
+                                "verificationMode": {
+                                  "enum": [
+                                    "course_membership",
+                                    "tribute_registry"
+                                  ],
                                   "type": "string"
                                 }
                               },
@@ -82483,7 +84469,9 @@
                                       "scheduled",
                                       "active",
                                       "expired",
-                                      "revoked"
+                                      "revoked",
+                                      "pending_verification",
+                                      "suspended_source"
                                     ],
                                     "type": "string"
                                   },
@@ -82748,6 +84736,522 @@
         "summary": "Read every independent access ground for the exact authenticated Telegram binding",
         "tags": [
           "Subscription activation integration"
+        ]
+      }
+    },
+    "/integrations/tribute/v1/webhook": {
+      "post": {
+        "operationId": "receiveTributeWebhook",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "created_at": {
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                        "type": "string"
+                      },
+                      "name": {
+                        "enum": [
+                          "new_subscription"
+                        ],
+                        "type": "string"
+                      },
+                      "payload": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "amount": {
+                            "maximum": 9007199254740991,
+                            "minimum": -9007199254740991,
+                            "type": "integer"
+                          },
+                          "channel_id": {
+                            "maximum": 9007199254740991,
+                            "minimum": -9007199254740991,
+                            "type": "integer"
+                          },
+                          "channel_name": {
+                            "type": "string"
+                          },
+                          "currency": {
+                            "type": "string"
+                          },
+                          "expires_at": {
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                            "type": "string"
+                          },
+                          "period": {
+                            "enum": [
+                              "monthly",
+                              "quarterly",
+                              "yearly"
+                            ],
+                            "type": "string"
+                          },
+                          "period_id": {
+                            "maximum": 9007199254740991,
+                            "minimum": -9007199254740991,
+                            "type": "integer"
+                          },
+                          "price": {
+                            "maximum": 9007199254740991,
+                            "minimum": -9007199254740991,
+                            "type": "integer"
+                          },
+                          "subscription_id": {
+                            "maximum": 9007199254740991,
+                            "minimum": -9007199254740991,
+                            "type": "integer"
+                          },
+                          "subscription_name": {
+                            "type": "string"
+                          },
+                          "telegram_user_id": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "telegram_username": {
+                            "type": "string"
+                          },
+                          "trb_user_id": {
+                            "type": "string"
+                          },
+                          "type": {
+                            "enum": [
+                              "regular",
+                              "gift",
+                              "trial"
+                            ],
+                            "type": "string"
+                          },
+                          "user_id": {
+                            "maximum": 9007199254740991,
+                            "minimum": -9007199254740991,
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "subscription_name",
+                          "subscription_id",
+                          "period_id",
+                          "period",
+                          "price",
+                          "amount",
+                          "currency",
+                          "user_id",
+                          "trb_user_id",
+                          "telegram_user_id",
+                          "channel_id",
+                          "channel_name",
+                          "expires_at"
+                        ],
+                        "type": "object"
+                      },
+                      "sent_at": {
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "created_at",
+                      "sent_at",
+                      "payload"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "created_at": {
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                        "type": "string"
+                      },
+                      "name": {
+                        "enum": [
+                          "renewed_subscription"
+                        ],
+                        "type": "string"
+                      },
+                      "payload": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "amount": {
+                            "maximum": 9007199254740991,
+                            "minimum": -9007199254740991,
+                            "type": "integer"
+                          },
+                          "channel_id": {
+                            "maximum": 9007199254740991,
+                            "minimum": -9007199254740991,
+                            "type": "integer"
+                          },
+                          "channel_name": {
+                            "type": "string"
+                          },
+                          "currency": {
+                            "type": "string"
+                          },
+                          "email": {
+                            "type": "string"
+                          },
+                          "expires_at": {
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                            "type": "string"
+                          },
+                          "period": {
+                            "enum": [
+                              "monthly",
+                              "quarterly",
+                              "yearly"
+                            ],
+                            "type": "string"
+                          },
+                          "period_id": {
+                            "maximum": 9007199254740991,
+                            "minimum": -9007199254740991,
+                            "type": "integer"
+                          },
+                          "price": {
+                            "maximum": 9007199254740991,
+                            "minimum": -9007199254740991,
+                            "type": "integer"
+                          },
+                          "subscription_id": {
+                            "maximum": 9007199254740991,
+                            "minimum": -9007199254740991,
+                            "type": "integer"
+                          },
+                          "subscription_name": {
+                            "type": "string"
+                          },
+                          "telegram_user_id": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "telegram_username": {
+                            "type": "string"
+                          },
+                          "trb_user_id": {
+                            "type": "string"
+                          },
+                          "type": {
+                            "enum": [
+                              "regular",
+                              "gift",
+                              "trial"
+                            ],
+                            "type": "string"
+                          },
+                          "user_id": {
+                            "maximum": 9007199254740991,
+                            "minimum": -9007199254740991,
+                            "type": "integer"
+                          },
+                          "web_app_link": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "subscription_name",
+                          "subscription_id",
+                          "period_id",
+                          "period",
+                          "price",
+                          "amount",
+                          "currency",
+                          "user_id",
+                          "trb_user_id",
+                          "telegram_user_id",
+                          "channel_id",
+                          "channel_name",
+                          "expires_at",
+                          "type"
+                        ],
+                        "type": "object"
+                      },
+                      "sent_at": {
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "created_at",
+                      "sent_at",
+                      "payload"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "created_at": {
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                        "type": "string"
+                      },
+                      "name": {
+                        "enum": [
+                          "cancelled_subscription"
+                        ],
+                        "type": "string"
+                      },
+                      "payload": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "amount": {
+                            "maximum": 9007199254740991,
+                            "minimum": -9007199254740991,
+                            "type": "integer"
+                          },
+                          "cancel_reason": {
+                            "type": "string"
+                          },
+                          "channel_id": {
+                            "maximum": 9007199254740991,
+                            "minimum": -9007199254740991,
+                            "type": "integer"
+                          },
+                          "channel_name": {
+                            "type": "string"
+                          },
+                          "currency": {
+                            "type": "string"
+                          },
+                          "expires_at": {
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                            "type": "string"
+                          },
+                          "period": {
+                            "enum": [
+                              "monthly",
+                              "quarterly",
+                              "yearly"
+                            ],
+                            "type": "string"
+                          },
+                          "period_id": {
+                            "maximum": 9007199254740991,
+                            "minimum": -9007199254740991,
+                            "type": "integer"
+                          },
+                          "price": {
+                            "maximum": 9007199254740991,
+                            "minimum": -9007199254740991,
+                            "type": "integer"
+                          },
+                          "subscription_id": {
+                            "maximum": 9007199254740991,
+                            "minimum": -9007199254740991,
+                            "type": "integer"
+                          },
+                          "subscription_name": {
+                            "type": "string"
+                          },
+                          "telegram_user_id": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "telegram_username": {
+                            "type": "string"
+                          },
+                          "trb_user_id": {
+                            "type": "string"
+                          },
+                          "type": {
+                            "enum": [
+                              "regular",
+                              "gift",
+                              "trial"
+                            ],
+                            "type": "string"
+                          },
+                          "user_id": {
+                            "maximum": 9007199254740991,
+                            "minimum": -9007199254740991,
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "subscription_name",
+                          "subscription_id",
+                          "period_id",
+                          "period",
+                          "price",
+                          "amount",
+                          "currency",
+                          "user_id",
+                          "trb_user_id",
+                          "telegram_user_id",
+                          "channel_id",
+                          "channel_name",
+                          "expires_at",
+                          "cancel_reason"
+                        ],
+                        "type": "object"
+                      },
+                      "sent_at": {
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "created_at",
+                      "sent_at",
+                      "payload"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              }
+            }
+          },
+          "description": "Official Tribute envelope. Signed unsupported schemas are retained as pending_reconciliation without access.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "ok": {
+                      "enum": [
+                        true
+                      ],
+                      "type": "boolean"
+                    },
+                    "receiptRef": {
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                      "type": "string"
+                    },
+                    "status": {
+                      "enum": [
+                        "applied",
+                        "duplicate",
+                        "pending_reconciliation",
+                        "rejected",
+                        "received"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "ok",
+                    "receiptRef",
+                    "status"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "invalid_signature"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "enum": [
+                        401
+                      ],
+                      "type": "number"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "status",
+                    "title",
+                    "type"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "tribute_unavailable"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "enum": [
+                        503
+                      ],
+                      "type": "number"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "status",
+                    "title",
+                    "type"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "tribute-signature": []
+          }
+        ],
+        "summary": "Durably accept the official raw-body signed Tribute event; unsupported facts require reconciliation",
+        "tags": [
+          "Tribute integration"
         ]
       }
     },

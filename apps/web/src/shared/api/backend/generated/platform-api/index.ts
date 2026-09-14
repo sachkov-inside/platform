@@ -34,4 +34,5 @@ export { TelegramCommunityService } from './services/TelegramCommunityService';
 export { TelegramMembershipService } from './services/TelegramMembershipService';
 export { TelegramMembershipIntegrationService } from './services/TelegramMembershipIntegrationService';
 export { TelegramSignInService } from './services/TelegramSignInService';
+export { TributeIntegrationService } from './services/TributeIntegrationService';
 export { VideoPlaybackService } from './services/VideoPlaybackService';
