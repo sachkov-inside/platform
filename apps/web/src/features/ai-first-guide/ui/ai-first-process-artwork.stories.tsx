@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, waitFor } from "storybook/test";
 
-import { AiFirstProcessArtwork } from "./ai-first-process-artwork";
+import { AiFirstProcessArtwork } from "./ai-first-process-artwork.client";
 
 const meta = {
   component: AiFirstProcessArtwork,

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
 
 import { accountPresentationQueryKey } from "@/features/account-access";
-import { libraryCatalogQueryOptions, parseLibrarySearchParams } from "@/features/library-catalog";
+import { libraryCatalogQueryRootKey, libraryCatalogQueryOptions, parseLibrarySearchParams } from "@/features/library-catalog";
 
 const rootPaths = ["/", "/bookmarks", "/account"] as const;
 type RootPath = typeof rootPaths[number];
@@ -80,7 +80,7 @@ export function useMobileNavigation(pathname: string, accountId: string | null, 
       setLinks({});
       // Account presentation is shared by Profile and onboarding; never reuse the old identity.
       void queryClient.resetQueries({ queryKey: accountPresentationQueryKey() });
-      void queryClient.resetQueries({ queryKey: ["library", "catalog"] });
+      void queryClient.resetQueries({ queryKey: libraryCatalogQueryRootKey() });
     }
     previousAccount.current = accountId;
   }, [accountId, authResolved, queryClient]);
