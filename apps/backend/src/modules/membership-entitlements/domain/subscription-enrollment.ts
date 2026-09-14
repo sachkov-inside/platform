@@ -30,7 +30,7 @@ export const enrollmentViewSchema = z.strictObject({
   id: z.uuid(), accountId: z.uuid(), tier: tierSnapshotSchema,
   origin: enrollmentOriginSchema, startsAt: z.iso.datetime(), endsAt: z.iso.datetime().nullable(),
   endPolicy: enrollmentTermsSchema.shape.endPolicy, revision: z.int().positive(),
-  state: z.enum(["scheduled", "active", "expired", "revoked"]),
+  state: z.enum(["scheduled", "active", "expired", "revoked", "pending_verification", "suspended_source"]),
   nextChargeAt: z.iso.datetime().nullable().optional(),
   renewal: z.enum(["not_applicable", "billing_agreement"]),
   benefitTerms: z.array(z.strictObject({ capability: z.string(), startsAt: z.iso.datetime(), endsAt: z.iso.datetime().nullable(), revoked: z.boolean() })).optional(),

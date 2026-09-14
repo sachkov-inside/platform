@@ -10,9 +10,10 @@ export const bindingSnapshotSchema = z.strictObject({
   linkRef: z.uuid(), linkRevision: z.int().positive(),
 });
 export const activationCodeSchema = z.string().min(1).max(40).regex(/^[A-Za-z0-9_-]+$/u);
+const verificationModeSchema = z.enum(["course_membership", "tribute_registry"]);
 export const activationRuleSchema = z.strictObject({
   id: z.uuid(), code: activationCodeSchema, name: z.string().trim().min(1).max(200), revision: z.int().positive(),
-  tierId: z.uuid(), tierRevision: z.int().positive(), sourceRef: sourceRefSchema, published: z.boolean(),
+  tierId: z.uuid(), tierRevision: z.int().positive(), sourceRef: sourceRefSchema, verificationMode: verificationModeSchema.optional(), published: z.boolean(),
   startsAt: instantSchema, endsAt: instantSchema.nullable(),
 });
 export const manageActivationRuleSchema = z.strictObject({
@@ -29,13 +30,13 @@ export const activationEvidenceSchema = z.strictObject({
   accountRef: sourceRefSchema, linkRef: z.uuid(), linkRevision: z.int().positive(),
   ruleId: z.uuid(), ruleRevision: z.int().positive(),
   checkedAt: instantSchema, validUntil: instantSchema,
-  decision: z.enum(["member", "not_member", "unavailable"]),
+  decision: z.enum(["member", "not_member", "unavailable", "registry_lookup"]),
 });
 export const activationOutcomeSchema = z.strictObject({
   contractVersion: z.literal(ACTIVATION_CONTRACT_VERSION), attemptId: z.uuid(),
   state: z.enum(["needs_account", "checking", "pending_review", "active", "already_active", "unavailable", "rejected"]),
   enrollment: enrollmentViewSchema.nullable(),
-  rule: z.strictObject({ id: z.uuid(), revision: z.int().positive(), sourceRef: sourceRefSchema }).optional(),
+  rule: z.strictObject({ id: z.uuid(), revision: z.int().positive(), sourceRef: sourceRefSchema, verificationMode: verificationModeSchema.optional() }).optional(),
 });
 export type ActivationOutcome = z.infer<typeof activationOutcomeSchema>;
 export interface ActivationBindings {
