@@ -37,7 +37,7 @@ async function screenshot(page: Page, project: string, surface: string) {
   if (captureViewport && surface === "series") await page.evaluate(() => { window.scrollTo(0, document.documentElement.scrollHeight); });
   await page.screenshot({ path: resolve(directory, `${project}-inline-${surface}.png`), fullPage: !captureViewport });
 }
-test("personal Home opens the real series, persists marks and reconciles a lost visible open", async ({ page, context }, testInfo) => {
+test("profile continuation opens the real series, persists marks and reconciles a lost visible open", async ({ page, context }, testInfo) => {
   await signInFullStack(context, "EXPIRED_MEMBER"); await dismissOnboarding(page); await resetSeries(page);
   await page.goto(`/materials/${materialSlugs[0]}`); const otherMark = await unmark(page, "Прочитано");
   await otherMark.click(); await expect(otherMark).toHaveAttribute("aria-pressed", "true");
@@ -57,9 +57,9 @@ test("personal Home opens the real series, persists marks and reconciles a lost 
   const commandId = (body: string) => /name="commandId"\r\n\r\n([^\r]+)/u.exec(body)?.[1];
   expect(commandId(commands[0] ?? "")).toBeTruthy(); expect(commandId(commands[1] ?? "")).toBe(commandId(commands[0] ?? ""));
   await button.click(); await expect(button).toHaveAttribute("aria-pressed", "true");
-  await page.goto("/");
+  await page.goto("/account");
   const resumeSeries = page.getByRole("link", { name: "Продолжить руководство Demo · Прогресс обучения" });
-  await expect(resumeSeries).toContainText("изучено 1 из 3");
+  await expect(resumeSeries).toContainText("Прочитано 1 из 3");
   await expect(resumeSeries).toHaveAttribute("href", `/guides/${seriesSlug}/programme`);
   await expect(page.getByRole("region", { name: "Продолжить изучение" })).toHaveCount(0);
   expect((await new AxeBuilder({ page }).include("main").analyze()).violations).toEqual([]);
@@ -89,16 +89,16 @@ test("personal Home opens the real series, persists marks and reconciles a lost 
   const guideMark = await unmark(page, "Изучено"); await guideMark.click(); await expect(guideMark).toHaveAttribute("aria-pressed", "true");
   await page.goto(`/guides/${seriesSlug}/programme`); await expect(current).toHaveCount(0);
   await expect(page.getByRole("main").locator('[data-series-marker-read="true"]')).toHaveCount(3);
-  await page.goto("/"); await expect(resumeSeries).toHaveCount(0);
+  await page.goto("/account"); await expect(resumeSeries).toHaveCount(0);
   await page.goto(`/materials/${materialSlugs[0]}`); await unmark(page, "Прочитано");
-  await page.goto("/"); await expect(resumeSeries).toContainText("изучено 2 из 3");
-  await context.clearCookies(); await page.goto("/"); await expect(resumeSeries).toHaveCount(0);
-  await signInFullStack(context); await page.reload(); await expect(resumeSeries).toContainText("изучено 2 из 3");
+  await page.goto("/account"); await expect(resumeSeries).toContainText("Прочитано 2 из 3");
+  await context.clearCookies(); await page.goto("/account"); await expect(resumeSeries).toHaveCount(0);
+  await signInFullStack(context); await page.reload(); await expect(resumeSeries).toContainText("Прочитано 2 из 3");
   await signInFullStack(context, "EXPIRED_MEMBER"); await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-  await expect(resumeSeries).toContainText("изучено 1 из 3"); await personal(page);
+  await expect(resumeSeries).toContainText("Прочитано 1 из 3"); await personal(page);
 });
 
-test("personal Home resumes real Video progress in the normal video section and excludes playback end", async ({ page, context }, testInfo) => {
+test("profile resumes real Video progress and excludes playback end", async ({ page, context }, testInfo) => {
   await signInFullStack(context, "MEMBER"); await dismissOnboarding(page);
   // The iframe SDK is the only double; playback sessions and progress use the API and PostgreSQL.
   await page.route("https://kinescope.io/**", async (route) => { await route.fulfill({ contentType: "text/html", body: "<title>Local video provider</title>" }); });
@@ -117,52 +117,42 @@ test("personal Home resumes real Video progress in the normal video section and 
     const response = await page.request.put("/api/material-video-progress", { headers: { origin: new URL(page.url()).origin }, multipart: { durationSeconds: "628", materialId: materialId ?? "", videoId: videoId ?? "", positionSeconds } });
     expect(await response.json()).toEqual({ kind: "saved" });
   }
-  await save("123"); await page.goto("/");
-  const videos = page.getByRole("region", { name: "Новые видео" });
-  const card = videos.locator('[data-material-slug="video-pro-developer-pipeline"]');
-  await expect(videos.getByRole("article").first()).toHaveAttribute("data-material-slug", "video-pro-developer-pipeline");
-  await expect(card).toContainText("Продолжить с 2:03"); await expect(card).toContainText("Продолжить просмотр");
+  await save("123"); await page.goto("/account");
+  const videos = page.getByRole("region", { name: "Продолжить обучение" });
+  const card = videos.getByRole("link").filter({ hasText: "Видео про Developer Pipeline" });
+  await expect(card).toContainText("Продолжить с 2:03");
   await expect(card).toHaveCount(1); await card.scrollIntoViewIfNeeded(); await screenshot(page, testInfo.project.name, "video");
-  await card.getByRole("link").click();
+  await card.click();
   await expect(page.locator("[data-video-player-mount] iframe")).toHaveAttribute("data-seek-seconds", "123");
-  await save("628"); await page.goto("/"); await expect(videos.getByText("Продолжить просмотр", { exact: true })).toHaveCount(0);
+  await save("628"); await page.goto("/account"); await expect(videos.getByRole("link").filter({ hasText: "Видео про Developer Pipeline" })).toHaveCount(0);
   await page.goto("/materials/video-pro-developer-pipeline"); await expect(mark).toHaveAttribute("aria-pressed", "false");
   await save("123"); await mark.click(); await expect(mark).toHaveAttribute("aria-pressed", "true");
-  await page.goto("/"); await expect(videos.getByText("Продолжить просмотр", { exact: true })).toHaveCount(0);
+  await page.goto("/account"); await expect(videos.getByRole("link").filter({ hasText: "Видео про Developer Pipeline" })).toHaveCount(0);
 });
 
-test("personal Home preserves the public hub through errors and excludes denied, prefetched and SSR opens", async ({ page, context }) => {
+test("profile continuation preserves the account form through errors and excludes denied, prefetched and SSR opens", async ({ page, context }) => {
   await signInFullStack(context); await dismissOnboarding(page);
   const opens: string[] = [];
   page.on("request", (request) => { if (request.url().endsWith("/api/reading-progress/open")) opens.push(request.url()); });
-  await page.goto("/");
+  await page.goto("/account");
   await page.request.get("/materials/demo-podgotovka-prilozheniya-k-relizu", { headers: { "next-router-prefetch": "1", rsc: "1" } });
   expect(opens).toEqual([]);
   await page.goto("/materials/developer-pipeline-bez-poteri-konteksta");
   await expect(page.locator("[data-reader-body]:visible")).toHaveCount(0); expect(opens).toEqual([]);
-  await page.goto("/");
-  await expect(page.locator("[data-personal-home-state]")).toHaveAttribute("data-personal-home-state", "ready");
-  const series = page.getByRole("heading", { name: "Руководства", exact: true });
-  const before = (await series.boundingBox())?.y;
+  await page.goto("/account");
+  const field = page.getByRole("textbox").first();
+  await expect(field).toBeVisible();
+  const before = await field.boundingBox();
   await page.route("**/api/personal-home", async (route) => { await route.fulfill({ status: 503 }); });
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-  await expect(page.locator("[data-personal-home-state]")).toHaveAttribute("data-personal-home-state", "unavailable");
-  await expect(series).toBeVisible(); expect((await series.boundingBox())?.y).toBe(before);
+  await expect(page.getByText("Не удалось загрузить продолжение обучения.")).toBeVisible();
+  expect((await field.boundingBox())?.y).toBe(before?.y);
   await expect(page.getByRole("link", { name: /^Продолжить руководство/u })).toHaveCount(0);
-  await page.unroute("**/api/personal-home"); await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-  await expect(page.locator("[data-personal-home-state]")).toHaveAttribute("data-personal-home-state", "ready");
+  await page.unroute("**/api/personal-home");
+  await page.goto("/");
+  await expect(page.getByRole("region", { name: "Материалы", exact: true })).toBeVisible();
 });
 
-test("personal Home preserves SSR geometry through authenticated hydration", async ({ page, context }) => {
-  await signInFullStack(context); await dismissOnboarding(page);
-  const { promise, resolve: release } = Promise.withResolvers<undefined>();
-  await page.route("**/*.js*", async (route) => { await promise; await route.continue(); });
-  await page.goto("/", { waitUntil: "commit" });
-  const series = page.getByRole("heading", { name: "Руководства", exact: true }); await expect(series).toBeVisible();
-  await page.evaluate(() => document.fonts.ready); const before = await series.boundingBox(); release(undefined);
-  await page.waitForResponse((response) => response.url().endsWith("/api/personal-home") && response.status() === 200);
-  expect((await series.boundingBox())?.y).toBe(before?.y);
-});
 
 test("personal Home waits for document visibility before recording an available Reader", async ({ page, context }) => {
   await signInFullStack(context); await dismissOnboarding(page);

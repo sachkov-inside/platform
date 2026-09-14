@@ -24,6 +24,6 @@ describe("Series pagination and return context", () => {
     expect(seriesReaderReturnHref(href, 1)).toBe("/series/platform?from=%2F&page=1");
   });
   it.each(["page=0", "page=-1", "page=2&page=3", "page=1e2", "at=bad%22slug", "from=https://evil.example", "other=2"])("rejects invalid Series return context: %s", (query) => {
-    expect(parseMaterialReaderReturnTarget(`/series/platform?${query}`).kind).toBe("library");
+    expect(parseMaterialReaderReturnTarget(`/series/platform?${query}`).kind).toBe("home");
   });
 });

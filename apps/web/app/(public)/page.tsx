@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { HomeLoading } from "@/_pages/home";
 
-import { getHome, PersonalHome } from "@/_pages/home.server";
+import { getHome, HomePage } from "@/_pages/home.server";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/optional-platform-access-token.server";
 import { publicPageMetadata, siteLinkPreview } from "@/shared/link-preview";
 import { readPublicSiteOrigin } from "@/shared/link-preview/index.server";
@@ -17,5 +17,5 @@ export default function HomeRoute() {
 
 async function HomeContent() {
   const accessToken = await getOptionalPlatformAccessToken();
-  return <PersonalHome result={await getHome(accessToken)} accessToken={accessToken} />;
+  return <HomePage result={await getHome(accessToken)} />;
 }

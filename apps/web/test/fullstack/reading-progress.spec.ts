@@ -41,7 +41,7 @@ test("reading progress persists for a free non-member, reconciles lost responses
   await page.screenshot({ path: resolve(directory, `${testInfo.project.name}-reader.png`) });
   const accessibility = await new AxeBuilder({ page }).include("[data-reading-action-state]").analyze();
   expect(accessibility.violations).toEqual([]);
-  await page.goto(`/library?q=${encodeURIComponent("Как устроен Inside Platform")}`);
+  await page.goto(`/?q=${encodeURIComponent("Как устроен Inside Platform")}`);
   const card = page.getByRole("article").filter({ has: page.getByRole("link", { name: "Как устроен Inside Platform", exact: true }) });
   await expect(card.locator("[data-material-reading-status]")).toHaveText("Изучено");
   await page.screenshot({ path: resolve(directory, `${testInfo.project.name}-library.png`) });
@@ -100,7 +100,7 @@ test("reading progress appears on Home and Topic for video and other formats", a
     const button = await openReader(page, material.slug, material.label);
     if (await button.getAttribute("aria-pressed") !== "true") await button.click();
     await expect(button).toHaveAttribute("aria-pressed", "true");
-    await page.goto("/");
+    await page.goto(`/?q=${encodeURIComponent(material.title)}`);
     const card = page.getByRole("article").filter({ has: page.getByRole("link", { name: material.title, exact: true }) });
     await expect(card.locator("[data-material-reading-status]")).toHaveText(material.label);
     await page.goto("/topics/platform");

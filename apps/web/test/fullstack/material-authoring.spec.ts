@@ -428,7 +428,7 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
   await page.evaluate(() => {
     sessionStorage.setItem("test-player-defer-seek", "1");
   });
-  await page.goto("/library");
+  await page.goto("/");
   await page.goto(`/materials/${slug}#t=3`);
   const playerFrame = page.locator("[data-video-player-mount] iframe");
   await expect(playerFrame).toHaveAttribute("data-pending-seek-seconds", "3");

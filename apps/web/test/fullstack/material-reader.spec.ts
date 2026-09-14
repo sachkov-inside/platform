@@ -5,206 +5,43 @@ import { resolve } from "node:path";
 import { signInFullStack } from "../support/full-stack-session";
 import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 
-for (const width of [320, 390, 1440]) {
-  test(`Home series lift stays visible at ${String(width)}px`, async ({ page }, testInfo) => {
-    // Narrow desktop pointer reproduces hovering a phone-sized Storybook preview.
-    test.skip(testInfo.project.name !== "desktop-chromium");
-    await page.setViewportSize({ width, height: 1000 });
-    await page.emulateMedia({ reducedMotion: "no-preference" });
-    await page.goto("/");
-    const card = page.locator("[data-playlist-card]").first();
-    await card.scrollIntoViewIfNeeded();
-    await card.hover();
-    await expect(card).toHaveCSS("translate", "0px -2px");
-    // Probe the lifted top edge: an overflow ancestor must not remove it from hit testing.
-    await expect.poll(() => card.evaluate((element) => {
-      const rect = element.getBoundingClientRect();
-      const painted = document.elementFromPoint(rect.x + rect.width / 2, rect.y + 0.5);
-      return painted !== null && element.contains(painted);
-    })).toBe(true);
-  });
-}
-
-test("server-renders the mobile-first Home showcase from ContentLibrary", async ({
-  page,
-  request,
-}, testInfo) => {
-  const documentResponse = await request.get("/");
-  const initialHtml = await documentResponse.text();
-  expect(documentResponse.status()).toBe(200);
-  expect(initialHtml).toContain("Новые видео");
-  expect(initialHtml).toContain("Видео про Developer Pipeline");
-
-  await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Главная", level: 1 })).toBeAttached();
-  await expect(page.getByRole("searchbox")).toHaveCount(0);
-  await expect(page.getByText(/продолжить/iu)).toHaveCount(0);
-  const sectionOrder = await page.locator("main section > h2, main section > div > h2").evaluateAll(
-    (headings) => headings.map((heading) => heading.textContent?.trim()),
-  );
-  expect(sectionOrder).toEqual([
-    "Руководства",
-    "Новые видео",
-    "Свежие гайды",
-    "Заметки",
-    "Что даёт подписка",
-    "Изучай. Применяй. Обсуждай.",
-  ]);
-  const videoCards = page
-    .getByRole("heading", { name: "Новые видео", level: 2 })
-    .locator("xpath=ancestor::section")
-    .getByRole("article");
-  await expect(videoCards).toHaveCount(6);
-  await expect(videoCards.nth(0)).toContainText(/\d+:\d{2}/u);
-  if (testInfo.project.name === "desktop-chromium") {
-    await expect(
-      page
-        .getByRole("navigation", { name: "Фильтр по теме" })
-        .getByRole("link", { name: "Platform" }),
-    ).toHaveAttribute("href", "/library?topic=platform");
-  }
-  if (testInfo.project.name === "mobile-chromium") {
-    const [first, second] = await Promise.all([
-      videoCards.nth(0).boundingBox(),
-      videoCards.nth(1).boundingBox(),
-    ]);
-    expect(first).not.toBeNull();
-    expect(second).not.toBeNull();
-    expect(Math.abs((first?.y ?? 0) - (second?.y ?? 0))).toBeLessThan(8);
-    expect(second?.x).toBeGreaterThan(first?.x ?? 0);
-    const scrollbarWidths = await page.evaluate(() => ({
-      body: getComputedStyle(document.body).scrollbarWidth,
-      html: getComputedStyle(document.documentElement).scrollbarWidth,
-    }));
-    expect(scrollbarWidths).toEqual({ body: "none", html: "none" });
-  }
+test("Home exposes one client-owned feed and preserves the reader return", async ({ page, request }, testInfo) => {
+  const document = await request.get("/");
+  expect(document.status()).toBe(200);
+  expect(await document.text()).toContain("Материалы");
+  await page.goto("/?format=guide");
+  const feed = page.getByRole("region", { name: "Материалы", exact: true });
+  await expect(feed.getByRole("article").first()).toBeVisible();
+  await expect(feed.getByRole("group", { name: "Тема материала" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Что даёт подписка" })).toHaveCount(0);
+  const material = feed.getByRole("heading").first().getByRole("link");
+  await expect(material).toHaveAttribute("href", /\?from=%2F%3Fformat%3Dguide$/u);
+  await material.click();
+  await page.getByRole("link", { name: "Назад на Главную", exact: true }).click();
+  await expect(page).toHaveURL(/\/\?format=guide$/u);
+  await expect(page.getByRole("button", { name: "Гайды", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expectNoSeriousAccessibilityFindings(page);
   await expectNoHorizontalOverflow(page);
   await captureIssue271Evidence(page, testInfo, "home");
-  await page.getByRole("navigation", { name: "Фильтр по теме" }).getByRole("link", { name: "Platform", exact: true }).click();
-  await expect(page).toHaveURL(/\/library\?topic=platform$/u);
-  const topicFilters = page.getByRole("group", { name: "Тема материала" });
-  await expect(topicFilters.getByRole("radio", { name: /^Platform/u })).toBeChecked();
-  const material = page.getByRole("region", { name: "Материалы", exact: true }).locator('a[href^="/materials/"]').first();
-  await expect(material).toHaveAttribute("href", /\?from=%2Flibrary%3Ftopic%3Dplatform$/u);
-  await topicFilters.scrollIntoViewIfNeeded();
-  const snapshots = await prepareEvidenceDirectory("issue-432");
-  await page.screenshot({ path: resolve(snapshots, `${testInfo.project.name}-topic-filter.png`), animations: "disabled" });
-  await material.click();
-  await page.getByRole("link", { name: "Назад в Базу знаний", exact: true }).click();
-  await expect(page).toHaveURL(/\/library\?topic=platform$/u);
-  await expect(topicFilters.getByRole("radio", { name: /^Platform/u })).toBeChecked();
-  await topicFilters.getByText("Все темы", { exact: true }).click();
-  await expect(page).toHaveURL(/\/library$/u);
 });
 
-test("loads the safe PostgreSQL catalog through the client-owned Library query", async ({
-  page,
-  request,
-}, testInfo) => {
-  const browserErrors: string[] = [];
-  page.on("console", (message) => {
-    if (message.type() === "error") {
-      browserErrors.push(message.text());
-    }
-  });
-  page.on("pageerror", (error) => browserErrors.push(error.message));
-
-  const documentResponse = await request.get("/library");
-  const initialHtml = await documentResponse.text();
-
-  expect(documentResponse.status()).toBe(200);
-  expect(initialHtml).toContain("База знаний");
-  expect(initialHtml).not.toContain("Developer Pipeline без потери контекста");
+test("loads successive PostgreSQL feed pages without exposing protected text", async ({ page, request }) => {
+  const initialHtml = await (await request.get("/")).text();
   expect(initialHtml).not.toContain("Закрытое содержимое для участников");
-
-  const continuation = page.waitForResponse(
-    (response) =>
-      response.url().includes("/api/library/materials?after=") &&
-      response.status() === 200,
-  );
-  const browserResponse = await page.goto("/library");
-  expect(browserResponse?.status()).toBe(200);
-  await expect(page.getByRole("heading", { name: "База знаний", level: 1 })).toBeVisible();
-  const membershipCard = page.getByRole("article").filter({
-    has: page.getByRole("link", { name: "Developer Pipeline без потери контекста", exact: true }),
-  });
-  await expect(page.getByText("Бесплатно")).toHaveCount(0);
-  const materialSection = page.getByRole("region", { name: "Материалы", exact: true });
-  const topicFilters = materialSection.getByRole("group", { name: "Тема материала" });
-  await expect(topicFilters.getByRole("radio", { name: "Все темы", exact: true })).toBeChecked();
-  await expect(topicFilters.getByRole("radio", { name: /^Platform/u })).toBeVisible();
-  await expect(page.locator("[data-topic-card]")).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "Руководства", level: 2 })).toBeVisible();
-  await expect(
-    page.getByRole("link", { exact: true, name: "Developer Pipeline без потери контекста" }),
-  ).toHaveAttribute(
-    "href",
-    "/materials/developer-pipeline-bez-poteri-konteksta?from=%2Flibrary",
-  );
-  await expect(page).toHaveTitle("База знаний · Sachkov Inside");
-  await captureIssue195Evidence(page, testInfo, "library");
-  await captureIssue271Evidence(page, testInfo, "library");
-
-  await page.getByRole("main").evaluate((element) => {
-    element.scrollTo({ top: element.scrollHeight });
-  });
-  await page.evaluate(() => {
-    window.scrollTo({ top: document.documentElement.scrollHeight });
-  });
-  await continuation;
-  const articles = materialSection.getByRole("article");
-  await expect.poll(() => articles.count()).toBeGreaterThanOrEqual(13);
-  const loadedCount = await articles.count();
-  expect(loadedCount).toBeGreaterThanOrEqual(13);
-  await expect(
-    page.getByRole("link", { exact: true, name: "Как устроен Inside Platform" }),
-  ).toBeVisible();
-  const catalogStatus = materialSection.getByText(/^\d+ материал(?:а|ов)? найден(?:о)?$/u);
-  await expect(catalogStatus).toBeVisible();
-  const counts = (await catalogStatus.innerText()).match(/\d+/gu);
-  expect(counts).toHaveLength(1);
-  expect(Number(counts?.[0])).toBeGreaterThanOrEqual(loadedCount);
-  expect(loadedCount).toBeGreaterThanOrEqual(13);
-
-  await page.keyboard.press("Tab");
-  await expect(page.getByRole("link", { name: "Перейти к содержанию" })).toBeFocused();
-
-  const accessibility = await new AxeBuilder({ page })
-    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
-    .analyze();
-  expect(
-    accessibility.violations.filter(
-      ({ impact }) => impact === "serious" || impact === "critical",
-    ),
-  ).toEqual([]);
-
-  const overflow = await page.locator("html").evaluate((element) => ({
-    clientWidth: element.clientWidth,
-    scrollWidth: element.scrollWidth,
-  }));
-  expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
-
-  // Каталог показывает первые руководства и раскрывается по требованию, поэтому нужное
-  // руководство ищется после раскрытия, а не в первой тройке. Раскрытие идёт после клавиатурной
-  // проверки: оно оставляет фокус на кнопке, а та проверка начинается с начала документа.
-  await page.getByRole("button", { name: "Показать все" }).click();
-  await expect(
-    page.locator("[data-playlist-card]").filter({
-      hasText: "Создание Platform Inside",
-    }),
-  ).toBeVisible();
-
-  const search = page.getByRole("searchbox", { name: "Поиск по Базе знаний" });
-  await search.fill("Developer Pipeline без потери контекста");
-  await expect(membershipCard).toBeVisible();
-  await expect(membershipCard.locator('[data-access-cover="locked"]')).toBeVisible();
-  await search.clear();
-  await expect(page).toHaveURL(/\/library$/u);
-  await page.reload();
-  await expect(page.getByRole("article").first()).toBeVisible();
-  await expect(page).toHaveURL(/\/library$/u);
-  expect(browserErrors).toEqual([]);
+  await page.goto("/");
+  const feed = page.getByRole("region", { name: "Материалы", exact: true });
+  const articles = feed.getByRole("article");
+  await expect(articles.first()).toBeVisible();
+  const firstSlug = await articles.first().getAttribute("data-material-slug");
+  const firstCount = await articles.count();
+  await articles.last().scrollIntoViewIfNeeded();
+  await expect.poll(() => articles.count()).toBeGreaterThan(firstCount);
+  expect(await articles.first().getAttribute("data-material-slug")).toBe(firstSlug);
+  await page.getByRole("searchbox").fill("Developer Pipeline без потери контекста");
+  await expect(articles).toHaveCount(1);
+  await expect(articles.first().locator("[data-access-cover=locked]")).toBeVisible();
+  await expect(feed).not.toContainText("Закрытое содержимое для участников");
+  await expectNoSeriousAccessibilityFindings(page);
 });
 
 test("preserves canonical RU/EN search across reload, history and sharing", async ({
@@ -217,22 +54,22 @@ test("preserves canonical RU/EN search across reload, history and sharing", asyn
       documentRequestCount += 1;
     }
   });
-  const englishUrl = "/library?q=developer+pipeline";
+  const englishUrl = "/?q=developer+pipeline";
   const englishDocument = await request.get(englishUrl);
   const englishHtml = await englishDocument.text();
   expect(englishDocument.status()).toBe(200);
-  expect(englishHtml).toContain("База знаний");
+  expect(englishHtml).toContain("Материалы");
   expect(englishHtml).not.toContain("Developer Pipeline без потери контекста");
   expect(englishHtml).not.toContain("Закрытое содержимое для участников");
 
   await page.goto(englishUrl);
-  await expect(page.getByLabel("Поиск по Базе знаний")).toHaveValue(
+  await expect(page.getByLabel("Поиск по материалам")).toHaveValue(
     "developer pipeline",
   );
   await expect(
     page.getByRole("link", { exact: true, name: "Developer Pipeline без потери контекста" }),
   ).toBeVisible();
-  await expect(page.getByText("2 материала найдено")).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Материалов: 2" })).toHaveText("Материалов: 2");
   const documentsBeforeFilter = documentRequestCount;
   const filteredResponse = page.waitForResponse(
     (response) =>
@@ -240,12 +77,10 @@ test("preserves canonical RU/EN search across reload, history and sharing", asyn
       response.url().includes("format=guide") &&
       response.status() === 200,
   );
-  const formatFilter = page.getByRole("radio", {
-    name: /^Гайды \d+$/u,
-  });
+  const formatFilter = page.getByRole("button", { name: "Гайды", exact: true });
   await formatFilter.focus();
   await page.keyboard.press("Space");
-  await expect(formatFilter).toBeChecked();
+  await expect(formatFilter).toHaveAttribute("aria-pressed", "true");
   await filteredResponse;
   expect(documentRequestCount).toBe(documentsBeforeFilter);
   expect(new URL(page.url()).searchParams.getAll("format")).toEqual(["guide"]);
@@ -258,10 +93,10 @@ test("preserves canonical RU/EN search across reload, history and sharing", asyn
   ).toBeVisible();
 
   await page.goto(
-    "/library?q=%D0%B0%D1%80%D1%85%D0%B8%D1%82%D0%B5%D0%BA%D1%82%D1%83%D1%80%D0%BD%D0%B0%D1%8F+07",
+    "/?q=%D0%B0%D1%80%D1%85%D0%B8%D1%82%D0%B5%D0%BA%D1%82%D1%83%D1%80%D0%BD%D0%B0%D1%8F+07",
   );
   await expect(
-    page.getByRole("link", { name: "Архитектурная заметка 07" }),
+    page.getByRole("link", { name: "Архитектурная заметка 07", exact: true }),
   ).toBeVisible();
   await page.goBack();
   await expect(
@@ -269,22 +104,19 @@ test("preserves canonical RU/EN search across reload, history and sharing", asyn
   ).toBeVisible();
   await page.goForward();
   await expect(
-    page.getByRole("link", { name: "Архитектурная заметка 07" }),
+    page.getByRole("link", { name: "Архитектурная заметка 07", exact: true }),
   ).toBeVisible();
 
-  await page.getByLabel("Поиск по Базе знаний").fill("nothing can match 404404");
-  await expect(page.getByRole("heading", { name: "Ничего не найдено" })).toBeVisible();
-  await expect(
-    page.getByRole("heading", { name: "Ничего не найдено" }).locator("xpath=ancestor::section").getByRole("button", { name: "Очистить поиск" }),
-  ).toBeVisible();
+  await page.getByLabel("Поиск по материалам").fill("nothing can match 404404");
+  await expect(page.getByText("Ничего не найдено. Измените запрос или выберите другой формат.")).toBeVisible();
   expect(new URL(page.url()).searchParams.get("q")).toBe(
     "nothing can match 404404",
   );
 
-  await page.goto("/library?topic=INVALID&sort=broken&ignored=value");
-  await expect(page).toHaveURL(/\/library$/u);
-  await page.goto("/library?after=opaque_cursor");
-  await expect(page).toHaveURL(/\/library$/u);
+  await page.goto("/?topic=INVALID&sort=broken&ignored=value");
+  await expect(page).toHaveURL(/\/$/u);
+  await page.goto("/?after=opaque_cursor");
+  await expect(page).toHaveURL(/\/$/u);
 });
 
 test("server-renders the representative PostgreSQL Material through Nest", async ({
@@ -368,7 +200,7 @@ test("server-renders the representative PostgreSQL Material through Nest", async
     page.getByRole("heading", { name: "Первый вертикальный срез", level: 2 }),
   ).toBeVisible();
   await expect(page).toHaveTitle("Как устроен Inside Platform · Sachkov Inside");
-  await expect(page.getByRole("link", { name: "Назад в Базу знаний" }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "Назад на Главную" }).first()).toBeVisible();
   await expect(page.getByRole("main")).toContainText("PostgreSQL хранит current Material");
   await expect(page.locator("[data-reader-body]")).toHaveCount(1);
 
@@ -545,7 +377,7 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
   await expect(page.getByRole("main").getByText("Закрытое содержимое для участников.")).toBeVisible();
   await expect(page.getByRole("link", { name: "Получить доступ" })).toHaveCount(0);
 
-  await page.goto("/library?q=developer+pipeline");
+  await page.goto("/?q=developer+pipeline");
   const membershipCard = page
     .getByRole("article")
     .filter({ hasText: "Developer Pipeline без потери контекста" });
@@ -627,21 +459,11 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   expect(topicHtml).toContain("Загружаем материалы темы");
   expect(topicHtml).not.toContain("Закрытое содержимое для участников");
 
-  await page.goto("/library");
-  const membershipCard = page
-    .getByRole("article")
-    .filter({ hasText: "Developer Pipeline без потери контекста" });
-  const topicLink = membershipCard.getByRole("link", {
-    name: "Platform",
-    exact: true,
-  });
-  await topicLink.focus();
-  await expect(topicLink).toBeFocused();
-  await topicLink.press("Enter");
-  await expect(page).toHaveURL(/\/topics\/platform\?from=%2Flibrary$/u);
-  await expect(page.getByRole("link", { name: "Назад в Базу знаний" })).toHaveAttribute(
+  await page.goto("/topics/platform?from=%2F");
+  const membershipCard = page.getByRole("article").filter({ hasText: "Developer Pipeline без потери контекста" });
+  await expect(page.getByRole("link", { name: "Назад на Главную" })).toHaveAttribute(
     "href",
-    "/library",
+    "/",
   );
   await expect(page.getByRole("heading", { level: 1, name: "Platform" })).toBeVisible();
   await expect(page).toHaveTitle("Platform — тема · Sachkov Inside");
@@ -658,7 +480,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
     new URL(topicMaterialHref ?? "", "http://127.0.0.1:3000").searchParams.get(
       "from",
     ),
-  ).toBe("/topics/platform?from=%2Flibrary");
+  ).toBe("/topics/platform?from=%2F");
   await expectNoSeriousAccessibilityFindings(page);
   await expectNoHorizontalOverflow(page);
   await captureIssue93Evidence(page, testInfo, "topic");
@@ -670,17 +492,17 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   });
   await expect(seriesLink).toHaveAttribute(
     "href",
-    "/guides/platform-inside?from=%2Ftopics%2Fplatform%3Ffrom%3D%252Flibrary",
+    "/guides/platform-inside?from=%2Ftopics%2Fplatform%3Ffrom%3D%252F",
   );
   await seriesLink.focus();
   await expect(seriesLink).toBeFocused();
   await seriesLink.press("Enter");
   await expect(page).toHaveURL(
-    /\/guides\/platform-inside\?from=%2Ftopics%2Fplatform%3Ffrom%3D%252Flibrary$/u,
+    /\/guides\/platform-inside\?from=%2Ftopics%2Fplatform%3Ffrom%3D%252F$/u,
   );
   await expect(page.getByRole("link", { name: "Назад к теме" })).toHaveAttribute(
     "href",
-    "/topics/platform?from=%2Flibrary",
+    "/topics/platform?from=%2F",
   );
   await expect(
     page.getByRole("heading", { level: 1, name: "Создание Platform Inside" }),
@@ -783,7 +605,7 @@ test("uses the selected Series order for a shared Material and leaves standalone
   await page.goto("/materials/demo-295-samostoyatelnaya-zametka");
   await expect(page.getByRole("heading", { name: "Demo #295 · Самостоятельная заметка" })).toBeVisible();
   await expect(page.locator("[data-series-reader-navigation]")).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Назад в Базу знаний" }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "Назад на Главную" }).first()).toBeVisible();
 });
 
 async function expectLibraryNavigationActive(page: Page, testInfo: TestInfo) {
@@ -791,7 +613,7 @@ async function expectLibraryNavigationActive(page: Page, testInfo: TestInfo) {
   await expect(
     page
       .getByRole("navigation", { name: "Мобильная навигация" })
-      .getByRole("link", { name: "База знаний" }),
+      .getByRole("link", { name: "Главная", exact: true }),
   ).toHaveAttribute("aria-current", "page");
 }
 
@@ -883,7 +705,7 @@ test("renders missing Topic and Series as controlled noindex states", async ({ p
       /noindex/u,
     );
     await expect(page.getByRole("heading", { name: "Подборка не найдена" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "В Базу знаний" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "На главную" })).toBeVisible();
   }
 });
 

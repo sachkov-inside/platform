@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { ContentCoverImage } from "@/entities/material";
+import { aiFirstGuide } from "@/features/ai-first-guide";
 import type { ReaderGuideArtifactsResult } from "@/features/guide-artifacts.reader";
 import {
   formatMaterialCount,
@@ -14,6 +15,7 @@ import { guideProgrammeHref } from "@/shared/routing/subscription-route";
 import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 import { Button } from "@/shared/ui/button";
 
+import { AiFirstGuideView } from "./ai-first-guide-view";
 import { formatArtifactCount, formatChapterCount } from "./guide-counts";
 
 type ResolvedSeriesResult = Extract<PublishedSeriesResult, { kind: "ready" | "empty" }>;
@@ -37,6 +39,9 @@ export function GuideProductView({
   /** Бесплатный вход из обложки. Он ведёт в программу: там читатель сразу видит открытые уроки. */
   readonly freeEntryHref?: Route;
 }) {
+  if (result.reference.slug === aiFirstGuide.slug) {
+    return <AiFirstGuideView result={result} returnTarget={returnTarget} {...(freeEntryHref === undefined ? {} : { freeEntryHref })} />;
+  }
   const { reference } = result;
   const introduction = reference.introduction ?? null;
   const items = result.kind === "ready" ? result.items : [];

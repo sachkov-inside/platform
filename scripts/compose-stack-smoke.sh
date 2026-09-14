@@ -39,7 +39,11 @@ for seeded_offer in '"name":"Материалы"' '"name":"Материалы + 
 done
 
 curl --fail --silent --show-error --output /dev/null "$web_base_url"
-curl --fail --silent --show-error --output /dev/null "$web_base_url/library"
+retired_library_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "$web_base_url/library")"
+if [[ "$retired_library_status" != "404" ]]; then
+  echo "Retired Library route should return 404, got $retired_library_status" >&2
+  exit 1
+fi
 docker compose exec -T web pnpm --filter @inside/web smoke:backend
 
 mcp_origin="${mcp_server_url%/mcp}"

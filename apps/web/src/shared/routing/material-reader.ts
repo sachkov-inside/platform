@@ -5,7 +5,6 @@ import { readCanonicalLibraryRouteHref } from "./library-route";
 
 export type MaterialReaderReturnKind =
   | "home"
-  | "library"
   | "profile"
   | "series"
   | "topic";
@@ -14,9 +13,8 @@ export interface MaterialReaderReturnTarget {
   readonly href: Route;
   readonly kind: MaterialReaderReturnKind;
   readonly label:
-    | "Назад в Базу знаний"
-    | "Назад в профиль"
     | "Назад на Главную"
+    | "Назад в профиль"
     | "Назад к руководству"
     | "Назад к программе"
     | "Назад к теме";
@@ -26,11 +24,11 @@ export interface MaterialReaderReturnTarget {
 const applicationOrigin = "https://inside.local";
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 
-export const libraryMaterialReaderReturnTarget: MaterialReaderReturnTarget =
+export const homeMaterialReaderReturnTarget: MaterialReaderReturnTarget =
   Object.freeze({
-    href: internalRoute("/library"),
-    kind: "library",
-    label: "Назад в Базу знаний",
+    href: internalRoute("/"),
+    kind: "home",
+    label: "Назад на Главную",
   });
 
 export function materialReaderOriginHref(
@@ -72,7 +70,7 @@ export function collectionDiscoveryHref(
 export function parseMaterialReaderReturnTarget(
   value: unknown,
 ): MaterialReaderReturnTarget {
-  return readReturnTarget(value) ?? libraryMaterialReaderReturnTarget;
+  return readReturnTarget(value) ?? homeMaterialReaderReturnTarget;
 }
 
 function readReturnTarget(
@@ -95,18 +93,11 @@ function readReturnTarget(
   }
   if (url.origin !== applicationOrigin || url.hash.length > 0) return undefined;
 
-  if (url.pathname === "/library") {
+  if (url.pathname === "/") {
     const href = readCanonicalLibraryRouteHref(url);
     return href === undefined
       ? undefined
-      : { ...libraryMaterialReaderReturnTarget, href };
-  }
-  if (url.pathname === "/" && url.search.length === 0) {
-    return {
-      href: internalRoute("/"),
-      kind: "home",
-      label: "Назад на Главную",
-    };
+      : { ...homeMaterialReaderReturnTarget, href };
   }
   if (url.pathname === "/account" && url.search.length === 0) {
     return {

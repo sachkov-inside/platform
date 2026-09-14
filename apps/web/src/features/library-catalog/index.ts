@@ -7,6 +7,7 @@ export {
 export {
   createLibraryCatalogQueryOptions,
   libraryCatalogQueryKey,
+  libraryCatalogQueryRootKey,
   type LibraryCatalogQueryOptions,
 } from "./model/library-catalog-query";
 export type {

@@ -13,7 +13,7 @@ import { GuideModeProvider, defaultGuideMode } from "@/shared/guide-mode";
 import { loadMaterialReader } from "../api/load-material-reader";
 import { resolveSeriesReaderContext } from "../model/series-reader-context";
 import {
-  libraryMaterialReaderReturnTarget,
+  homeMaterialReaderReturnTarget,
   materialReaderHref,
   type MaterialReaderReturnTarget,
 } from "@/shared/routing/material-reader";
@@ -59,7 +59,7 @@ export async function MaterialReaderPage({
       : null;
   const effectiveReturnTarget =
     returnTarget.kind === "series" && seriesContext === null
-      ? libraryMaterialReaderReturnTarget
+      ? homeMaterialReaderReturnTarget
       : returnTarget;
   if (result.kind === "access") {
     // Руководство, которым человек занят, важнее тарифов: если у него есть своя цена, дальше
@@ -149,6 +149,6 @@ function currentMaterialHref(
 ) {
   return materialReaderHref(
     slug,
-    returnTarget.kind === "library" ? undefined : returnTarget.href,
+    returnTarget.href,
   );
 }

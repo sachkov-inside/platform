@@ -7,7 +7,7 @@ export async function expectImmediateMobileNavigation(page: Page) {
     await held;
     await route.continue().catch(() => undefined);
   });
-  await page.goto("/library");
+  await page.goto("/");
   await expect(page.getByRole("searchbox")).toBeVisible();
   try {
     await page.getByRole("navigation", { name: "Мобильная навигация" }).getByRole("link", { name: "Профиль" }).click();

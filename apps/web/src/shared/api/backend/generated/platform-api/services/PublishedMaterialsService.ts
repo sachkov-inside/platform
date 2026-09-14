@@ -46,6 +46,11 @@ export class PublishedMaterialsService {
         slug: 'video' | 'guide' | 'note';
       };
       materialId: string;
+      noteExcerpt?: {
+        linkUrl?: string;
+        text: string;
+        truncated: boolean;
+      };
       outcomes: Array<string>;
       primaryVideoId: string | null;
       publishedAt: string;
@@ -98,6 +103,11 @@ export class PublishedMaterialsService {
         slug: 'video' | 'guide' | 'note';
       };
       materialId: string;
+      noteExcerpt?: {
+        linkUrl?: string;
+        text: string;
+        truncated: boolean;
+      };
       outcomes: Array<string>;
       primaryVideoId: string | null;
       publishedAt: string;

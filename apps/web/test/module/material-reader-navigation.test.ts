@@ -10,15 +10,15 @@ import {
 describe("Material Reader navigation", () => {
   it("preserves Guide and legacy contexts, page and selected Material", () => {
     for (const prefix of ["guides", "series"]) {
-      const href = `/${prefix}/platform-inside?from=%2Flibrary&page=2&at=second`;
+      const href = `/${prefix}/platform-inside?from=%2F&page=2&at=second`;
       expect(parseMaterialReaderReturnTarget(href)).toEqual({ href, kind: "series", seriesSlug: "platform-inside", label: "Назад к руководству" });
-      expect(parseMaterialReaderReturnTarget(`/${prefix}/platform-inside?page=0`).kind).toBe("library");
-      expect(parseMaterialReaderReturnTarget(`/${prefix}/platform-inside?from=https%3A%2F%2Fevil.test`).kind).toBe("library");
+      expect(parseMaterialReaderReturnTarget(`/${prefix}/platform-inside?page=0`).kind).toBe("home");
+      expect(parseMaterialReaderReturnTarget(`/${prefix}/platform-inside?from=https%3A%2F%2Fevil.test`).kind).toBe("home");
     }
-    expect(parseMaterialReaderReturnTarget(undefined).kind).toBe("library");
+    expect(parseMaterialReaderReturnTarget(undefined).kind).toBe("home");
   });
 
-  it("round-trips Home, Library, Playlist, Topic and Profile origins", () => {
+  it("round-trips Home feed, Playlist, Topic and Profile origins", () => {
     expect(collectionDiscoveryHref("topic", "platform", "/")).toBe(
       "/topics/platform?from=%2F",
     );
@@ -55,12 +55,12 @@ describe("Material Reader navigation", () => {
     });
 
     const filteredLibrary = parseMaterialReaderReturnTarget(
-      "/library?q=platform&format=video&sort=title",
+      "/?q=platform&format=video&sort=title",
     );
     expect(filteredLibrary).toEqual({
-      href: "/library?q=platform&format=video&sort=title",
-      kind: "library",
-      label: "Назад в Базу знаний",
+      href: "/?q=platform&format=video&sort=title",
+      kind: "home",
+      label: "Назад на Главную",
     });
     const nestedTopic = collectionDiscoveryHref(
       "topic",
@@ -70,27 +70,27 @@ describe("Material Reader navigation", () => {
     expect(
       collectionDiscoveryHref("series", "platform-inside", nestedTopic),
     ).toBe(
-      "/guides/platform-inside?from=%2Ftopics%2Fplatform%3Ffrom%3D%252Flibrary%253Fq%253Dplatform%2526format%253Dvideo%2526sort%253Dtitle",
+      "/guides/platform-inside?from=%2Ftopics%2Fplatform%3Ffrom%3D%252F%253Fq%253Dplatform%2526format%253Dvideo%2526sort%253Dtitle",
     );
   });
 
-  it("falls back to Library for direct, external and malformed origins", () => {
+  it("falls back to Home for direct, external and malformed origins", () => {
     for (const value of [
       undefined,
       "https://attacker.example/series/platform-inside",
       "//attacker.example/series/platform-inside",
       "/series/platform-inside?unexpected=true",
-      "/library?after=cursor",
-      "/library?format=workshop",
-      "/library?q=one&q=two",
+      "/?after=cursor",
+      "/?format=workshop",
+      "/?q=one&q=two",
       "/materials/inside-platform-overview",
       "/admin",
       ["/series/one", "/series/two"],
     ]) {
       expect(parseMaterialReaderReturnTarget(value)).toEqual({
-        href: "/library",
-        kind: "library",
-        label: "Назад в Базу знаний",
+        href: "/",
+        kind: "home",
+        label: "Назад на Главную",
       });
     }
   });

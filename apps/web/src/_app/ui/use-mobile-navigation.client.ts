@@ -6,16 +6,16 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
 
 import { accountPresentationQueryKey } from "@/features/account-access";
-import { libraryCatalogQueryOptions, parseLibrarySearchParams } from "@/features/library-catalog";
+import { libraryCatalogQueryRootKey, libraryCatalogQueryOptions, parseLibrarySearchParams } from "@/features/library-catalog";
 
-const rootPaths = ["/", "/library", "/bookmarks", "/account"] as const;
+const rootPaths = ["/", "/bookmarks", "/account"] as const;
 type RootPath = typeof rootPaths[number];
 interface TabPosition { readonly href: Route; readonly top: number }
 type TabPositions = Partial<Record<RootPath, TabPosition>>;
 const prefetchDelayMs = 250;
 const restorationTimeoutMs = 3_000;
 
-/** Remembers only the four root tabs; App Router still owns routing and browser history. */
+/** Remembers the root tabs; App Router still owns routing and browser history. */
 export function useMobileNavigation(pathname: string, accountId: string | null, authResolved: boolean) {
   const positions = useRef<TabPositions>({});
   const [links, setLinks] = useState<TabPositions>({});
@@ -47,10 +47,17 @@ export function useMobileNavigation(pathname: string, accountId: string | null, 
 
   useEffect(() => {
     const capture = (event: MouseEvent) => {
-      if (!(event.target instanceof Element) || event.target.closest("a[href]") === null) return;
+      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || !(event.target instanceof Element)) return;
+      const anchor = event.target.closest<HTMLAnchorElement>("a[href]");
+      if (anchor === null || anchor.target === "_blank" || anchor.hasAttribute("download")) return;
       stopRestoring.current();
       pending.current = null;
       saveCurrent();
+      const destination = new URL(anchor.href, window.location.origin);
+      if (destination.origin !== window.location.origin || destination.hash !== "") return;
+      const root = rootPaths.find((path) => path === destination.pathname);
+      const saved = root === undefined ? undefined : positions.current[root];
+      if (saved?.href === `${destination.pathname}${destination.search}`) pending.current = saved;
     };
     const cancelSelection = () => { setSelectedHref(null); };
     window.addEventListener("popstate", cancelSelection);
@@ -73,15 +80,16 @@ export function useMobileNavigation(pathname: string, accountId: string | null, 
       setLinks({});
       // Account presentation is shared by Profile and onboarding; never reuse the old identity.
       void queryClient.resetQueries({ queryKey: accountPresentationQueryKey() });
+      void queryClient.resetQueries({ queryKey: libraryCatalogQueryRootKey() });
     }
     previousAccount.current = accountId;
   }, [accountId, authResolved, queryClient]);
 
   useEffect(() => {
-    if (!authResolved || pathname === "/library") return;
+    if (!authResolved || pathname === "/") return;
     const timer = window.setTimeout(() => {
       if (document.visibilityState !== "visible") return;
-      const href = positions.current["/library"]?.href ?? "/library";
+      const href = positions.current["/"]?.href ?? "/";
       const query = parseLibrarySearchParams(new URL(href, window.location.origin).searchParams).query;
       void queryClient.infiniteQuery(libraryCatalogQueryOptions(query)).catch(() => undefined);
     }, prefetchDelayMs);
@@ -138,7 +146,7 @@ export function useMobileNavigation(pathname: string, accountId: string | null, 
     startNavigation(() => { router.push(href, { scroll: false }); });
   }, [router, saveCurrent]);
 
-  return { libraryHref: links["/library"]?.href ?? "/library", onNavigate, recordLocation, pendingHref };
+  return { homeHref: links["/"]?.href ?? "/", onNavigate, recordLocation, pendingHref };
 }
 
 function readScrollTop(): number {

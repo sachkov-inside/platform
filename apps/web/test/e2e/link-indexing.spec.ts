@@ -29,7 +29,7 @@ test("карта сайта остаётся рабочей, когда ката
   expect(response.status()).toBe(200);
   const body = await response.text();
   expect(body).toContain(`<loc>${String(baseURL)}/</loc>`);
-  expect(body).toContain(`<loc>${String(baseURL)}/library</loc>`);
+  expect(body).not.toContain(`<loc>${String(baseURL)}/library</loc>`);
 });
 
 test.describe("Закрытые от индексации разделы", () => {

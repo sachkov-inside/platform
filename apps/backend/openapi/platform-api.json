@@ -48976,6 +48976,28 @@
                           "materialId": {
                             "type": "string"
                           },
+                          "noteExcerpt": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "linkUrl": {
+                                "format": "uri",
+                                "maxLength": 2048,
+                                "type": "string"
+                              },
+                              "text": {
+                                "maxLength": 2400,
+                                "type": "string"
+                              },
+                              "truncated": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "text",
+                              "truncated"
+                            ],
+                            "type": "object"
+                          },
                           "outcomes": {
                             "items": {
                               "type": "string"
@@ -78785,6 +78807,28 @@
                           "materialId": {
                             "type": "string"
                           },
+                          "noteExcerpt": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "linkUrl": {
+                                "format": "uri",
+                                "maxLength": 2048,
+                                "type": "string"
+                              },
+                              "text": {
+                                "maxLength": 2400,
+                                "type": "string"
+                              },
+                              "truncated": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "text",
+                              "truncated"
+                            ],
+                            "type": "object"
+                          },
                           "outcomes": {
                             "items": {
                               "type": "string"
@@ -79595,6 +79639,28 @@
                           "materialId": {
                             "type": "string"
                           },
+                          "noteExcerpt": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "linkUrl": {
+                                "format": "uri",
+                                "maxLength": 2048,
+                                "type": "string"
+                              },
+                              "text": {
+                                "maxLength": 2400,
+                                "type": "string"
+                              },
+                              "truncated": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "text",
+                              "truncated"
+                            ],
+                            "type": "object"
+                          },
                           "outcomes": {
                             "items": {
                               "type": "string"
@@ -79910,6 +79976,28 @@
                           "materialId": {
                             "type": "string"
                           },
+                          "noteExcerpt": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "linkUrl": {
+                                "format": "uri",
+                                "maxLength": 2048,
+                                "type": "string"
+                              },
+                              "text": {
+                                "maxLength": 2400,
+                                "type": "string"
+                              },
+                              "truncated": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "text",
+                              "truncated"
+                            ],
+                            "type": "object"
+                          },
                           "outcomes": {
                             "items": {
                               "type": "string"
@@ -80213,6 +80301,28 @@
                               },
                               "materialId": {
                                 "type": "string"
+                              },
+                              "noteExcerpt": {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "linkUrl": {
+                                    "format": "uri",
+                                    "maxLength": 2048,
+                                    "type": "string"
+                                  },
+                                  "text": {
+                                    "maxLength": 2400,
+                                    "type": "string"
+                                  },
+                                  "truncated": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "text",
+                                  "truncated"
+                                ],
+                                "type": "object"
                               },
                               "outcomes": {
                                 "items": {
@@ -80538,6 +80648,28 @@
                                 },
                                 "materialId": {
                                   "type": "string"
+                                },
+                                "noteExcerpt": {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "linkUrl": {
+                                      "format": "uri",
+                                      "maxLength": 2048,
+                                      "type": "string"
+                                    },
+                                    "text": {
+                                      "maxLength": 2400,
+                                      "type": "string"
+                                    },
+                                    "truncated": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "text",
+                                    "truncated"
+                                  ],
+                                  "type": "object"
                                 },
                                 "outcomes": {
                                   "items": {
@@ -80866,6 +80998,28 @@
                                 "materialId": {
                                   "type": "string"
                                 },
+                                "noteExcerpt": {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "linkUrl": {
+                                      "format": "uri",
+                                      "maxLength": 2048,
+                                      "type": "string"
+                                    },
+                                    "text": {
+                                      "maxLength": 2400,
+                                      "type": "string"
+                                    },
+                                    "truncated": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "text",
+                                    "truncated"
+                                  ],
+                                  "type": "object"
+                                },
                                 "outcomes": {
                                   "items": {
                                     "type": "string"
@@ -81134,6 +81288,28 @@
                           },
                           "materialId": {
                             "type": "string"
+                          },
+                          "noteExcerpt": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "linkUrl": {
+                                "format": "uri",
+                                "maxLength": 2048,
+                                "type": "string"
+                              },
+                              "text": {
+                                "maxLength": 2400,
+                                "type": "string"
+                              },
+                              "truncated": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "text",
+                              "truncated"
+                            ],
+                            "type": "object"
                           },
                           "outcomes": {
                             "items": {
@@ -81764,6 +81940,28 @@
                                     "materialId": {
                                       "type": "string"
                                     },
+                                    "noteExcerpt": {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "linkUrl": {
+                                          "format": "uri",
+                                          "maxLength": 2048,
+                                          "type": "string"
+                                        },
+                                        "text": {
+                                          "maxLength": 2400,
+                                          "type": "string"
+                                        },
+                                        "truncated": {
+                                          "type": "boolean"
+                                        }
+                                      },
+                                      "required": [
+                                        "text",
+                                        "truncated"
+                                      ],
+                                      "type": "object"
+                                    },
                                     "outcomes": {
                                       "items": {
                                         "type": "string"
@@ -82094,6 +82292,28 @@
                                     "materialId": {
                                       "type": "string"
                                     },
+                                    "noteExcerpt": {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "linkUrl": {
+                                          "format": "uri",
+                                          "maxLength": 2048,
+                                          "type": "string"
+                                        },
+                                        "text": {
+                                          "maxLength": 2400,
+                                          "type": "string"
+                                        },
+                                        "truncated": {
+                                          "type": "boolean"
+                                        }
+                                      },
+                                      "required": [
+                                        "text",
+                                        "truncated"
+                                      ],
+                                      "type": "object"
+                                    },
                                     "outcomes": {
                                       "items": {
                                         "type": "string"
@@ -82421,6 +82641,28 @@
                                     "materialId": {
                                       "type": "string"
                                     },
+                                    "noteExcerpt": {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "linkUrl": {
+                                          "format": "uri",
+                                          "maxLength": 2048,
+                                          "type": "string"
+                                        },
+                                        "text": {
+                                          "maxLength": 2400,
+                                          "type": "string"
+                                        },
+                                        "truncated": {
+                                          "type": "boolean"
+                                        }
+                                      },
+                                      "required": [
+                                        "text",
+                                        "truncated"
+                                      ],
+                                      "type": "object"
+                                    },
                                     "outcomes": {
                                       "items": {
                                         "type": "string"
@@ -82697,6 +82939,28 @@
                           },
                           "materialId": {
                             "type": "string"
+                          },
+                          "noteExcerpt": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "linkUrl": {
+                                "format": "uri",
+                                "maxLength": 2048,
+                                "type": "string"
+                              },
+                              "text": {
+                                "maxLength": 2400,
+                                "type": "string"
+                              },
+                              "truncated": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "text",
+                              "truncated"
+                            ],
+                            "type": "object"
                           },
                           "outcomes": {
                             "items": {
@@ -83270,6 +83534,28 @@
                           },
                           "materialId": {
                             "type": "string"
+                          },
+                          "noteExcerpt": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "linkUrl": {
+                                "format": "uri",
+                                "maxLength": 2048,
+                                "type": "string"
+                              },
+                              "text": {
+                                "maxLength": 2400,
+                                "type": "string"
+                              },
+                              "truncated": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "text",
+                              "truncated"
+                            ],
+                            "type": "object"
                           },
                           "outcomes": {
                             "items": {
@@ -84130,6 +84416,28 @@
                           "materialId": {
                             "type": "string"
                           },
+                          "noteExcerpt": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "linkUrl": {
+                                "format": "uri",
+                                "maxLength": 2048,
+                                "type": "string"
+                              },
+                              "text": {
+                                "maxLength": 2400,
+                                "type": "string"
+                              },
+                              "truncated": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "text",
+                              "truncated"
+                            ],
+                            "type": "object"
+                          },
                           "outcomes": {
                             "items": {
                               "type": "string"
@@ -84987,6 +85295,28 @@
                           },
                           "materialId": {
                             "type": "string"
+                          },
+                          "noteExcerpt": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "linkUrl": {
+                                "format": "uri",
+                                "maxLength": 2048,
+                                "type": "string"
+                              },
+                              "text": {
+                                "maxLength": 2400,
+                                "type": "string"
+                              },
+                              "truncated": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "text",
+                              "truncated"
+                            ],
+                            "type": "object"
                           },
                           "outcomes": {
                             "items": {
@@ -87172,6 +87502,28 @@
                             "materialId": {
                               "type": "string"
                             },
+                            "noteExcerpt": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "linkUrl": {
+                                  "format": "uri",
+                                  "maxLength": 2048,
+                                  "type": "string"
+                                },
+                                "text": {
+                                  "maxLength": 2400,
+                                  "type": "string"
+                                },
+                                "truncated": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "text",
+                                "truncated"
+                              ],
+                              "type": "object"
+                            },
                             "outcomes": {
                               "items": {
                                 "type": "string"
@@ -87462,6 +87814,28 @@
                             },
                             "materialId": {
                               "type": "string"
+                            },
+                            "noteExcerpt": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "linkUrl": {
+                                  "format": "uri",
+                                  "maxLength": 2048,
+                                  "type": "string"
+                                },
+                                "text": {
+                                  "maxLength": 2400,
+                                  "type": "string"
+                                },
+                                "truncated": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "text",
+                                "truncated"
+                              ],
+                              "type": "object"
                             },
                             "outcomes": {
                               "items": {
@@ -89275,6 +89649,28 @@
                           "materialId": {
                             "type": "string"
                           },
+                          "noteExcerpt": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "linkUrl": {
+                                "format": "uri",
+                                "maxLength": 2048,
+                                "type": "string"
+                              },
+                              "text": {
+                                "maxLength": 2400,
+                                "type": "string"
+                              },
+                              "truncated": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "text",
+                              "truncated"
+                            ],
+                            "type": "object"
+                          },
                           "outcomes": {
                             "items": {
                               "type": "string"
@@ -89834,6 +90230,28 @@
                               },
                               "materialId": {
                                 "type": "string"
+                              },
+                              "noteExcerpt": {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "linkUrl": {
+                                    "format": "uri",
+                                    "maxLength": 2048,
+                                    "type": "string"
+                                  },
+                                  "text": {
+                                    "maxLength": 2400,
+                                    "type": "string"
+                                  },
+                                  "truncated": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "text",
+                                  "truncated"
+                                ],
+                                "type": "object"
                               },
                               "outcomes": {
                                 "items": {
@@ -91434,6 +91852,28 @@
                                   "materialId": {
                                     "type": "string"
                                   },
+                                  "noteExcerpt": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "linkUrl": {
+                                        "format": "uri",
+                                        "maxLength": 2048,
+                                        "type": "string"
+                                      },
+                                      "text": {
+                                        "maxLength": 2400,
+                                        "type": "string"
+                                      },
+                                      "truncated": {
+                                        "type": "boolean"
+                                      }
+                                    },
+                                    "required": [
+                                      "text",
+                                      "truncated"
+                                    ],
+                                    "type": "object"
+                                  },
                                   "outcomes": {
                                     "items": {
                                       "type": "string"
@@ -91797,6 +92237,28 @@
                             },
                             "materialId": {
                               "type": "string"
+                            },
+                            "noteExcerpt": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "linkUrl": {
+                                  "format": "uri",
+                                  "maxLength": 2048,
+                                  "type": "string"
+                                },
+                                "text": {
+                                  "maxLength": 2400,
+                                  "type": "string"
+                                },
+                                "truncated": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "text",
+                                "truncated"
+                              ],
+                              "type": "object"
                             },
                             "outcomes": {
                               "items": {
@@ -93556,6 +94018,28 @@
                               },
                               "materialId": {
                                 "type": "string"
+                              },
+                              "noteExcerpt": {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "linkUrl": {
+                                    "format": "uri",
+                                    "maxLength": 2048,
+                                    "type": "string"
+                                  },
+                                  "text": {
+                                    "maxLength": 2400,
+                                    "type": "string"
+                                  },
+                                  "truncated": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "text",
+                                  "truncated"
+                                ],
+                                "type": "object"
                               },
                               "outcomes": {
                                 "items": {

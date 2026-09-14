@@ -45,7 +45,7 @@ function ReadingProof({ initial = { kind: "ready", isRead: false, canMark: true 
       </div>}
   </>;
 }
-const environment = publicPageEnvironment("/library");
+const environment = publicPageEnvironment("/");
 const meta = {
   ...environment,
   title: "Features/Reading progress", component: ReadingProof,

@@ -1,4 +1,4 @@
-import { handleTopicMaterialCatalogRequest } from "@/_pages/library.server";
+import { handleTopicMaterialCatalogRequest } from "@/features/library-catalog.server";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/optional-platform-access-token.server";
 
 export async function GET(

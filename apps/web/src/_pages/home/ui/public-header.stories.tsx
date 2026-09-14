@@ -108,7 +108,7 @@ export const Authenticated: Story = {
       canvas
         .getByRole("navigation", { name: "Основная" })
         .querySelector('[aria-current="page"]'),
-    ).toHaveTextContent("База знаний");
+    ).toHaveTextContent("Главная");
     const trigger = canvas.getByRole("button", { name: "Аккаунт" });
     await userEvent.click(trigger);
     await expect(
@@ -139,7 +139,7 @@ export const MobileBottomNavigation: Story = {
       publicMobileNavigationItems.length,
     );
     await expect(
-      within(navigation).getByRole("link", { name: "База знаний" }),
+      within(navigation).getByRole("link", { name: "Главная" }),
     ).toHaveAttribute("aria-current", "page");
     await expect(
       within(navigation).getByRole("link", { name: "Профиль" }),
@@ -176,7 +176,7 @@ function SwitchingNavigation() {
     setPath(new URL(link.href).pathname);
   }}>
     <ApplicationShell {...meta.args} currentPath={path}>
-      <h1 className="text-4xl font-bold">{path === "/" ? "Главная" : path === "/library" ? "База знаний" : "Профиль"}</h1>
+      <h1 className="text-4xl font-bold">{path === "/" ? "Главная" : path === "/bookmarks" ? "Закладки" : "Профиль"}</h1>
       <p className="mt-4 text-muted-foreground">Переключайте разделы нижней панели.</p>
     </ApplicationShell>
   </div>;
@@ -189,7 +189,7 @@ export const MobileSwitching: Story = {
   play: async ({ canvasElement }) => {
     const navigation = within(canvasElement).getByRole("navigation", { name: "Мобильная навигация" });
     const width = navigation.getBoundingClientRect().width;
-    for (const name of ["База знаний", "Профиль", "Главная"]) {
+    for (const name of ["Закладки", "Профиль", "Главная"]) {
       const link = within(navigation).getByRole("link", { name });
       await userEvent.click(link);
       await expect(link).toHaveAttribute("aria-current", "page");

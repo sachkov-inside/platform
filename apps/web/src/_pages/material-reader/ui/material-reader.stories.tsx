@@ -667,7 +667,7 @@ export const Mobile: Story = {
     const scrollRoot = document.scrollingElement;
     if (scrollRoot === null) throw new Error("Mobile document scroll is missing");
     await expect(canvasElement.querySelector("[data-public-header]")).not.toBeVisible();
-    const back = canvas.getByRole("link", { name: "Назад в Базу знаний" });
+    const back = canvas.getByRole("link", { name: "Назад на Главную" });
     await expect(canvasElement.querySelector('[data-reader-return="top"]')?.contains(back)).toBe(true);
     const originalFontSize = document.documentElement.style.fontSize;
     try {
@@ -700,7 +700,7 @@ export const Desktop: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("navigation", { name: "В этом материале" })).toBeInTheDocument();
-    await expect(canvas.getAllByRole("link", { name: "Назад в Базу знаний" })).toHaveLength(1);
+    await expect(canvas.getAllByRole("link", { name: "Назад на Главную" })).toHaveLength(1);
     await expect(canvas.getByRole("region", { name: "Таблица в материале" })).toBeInTheDocument();
     const image = canvas.getByRole("img", { name: "Маршрут от project rules через skill к evidence" }) as HTMLImageElement;
     image.scrollIntoView({ behavior: "instant" });
@@ -798,7 +798,7 @@ export const NotFound: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("heading", { name: "Материал не найден" })).toBeInTheDocument();
-    await expect(canvas.getByRole("link", { name: "Назад в Базу знаний" })).toBeInTheDocument();
+    await expect(canvas.getByRole("link", { name: "Назад на Главную" })).toBeInTheDocument();
   },
 };
 
@@ -900,7 +900,7 @@ export const ShortMaterial: Story = {
   globals: { viewport: { isRotated: false, value: "mobile320" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("link", { name: "Назад в Базу знаний" })).toBeVisible();
+    await expect(canvas.getByRole("link", { name: "Назад на Главную" })).toBeVisible();
     await expect(canvasElement.querySelector('[data-reader-return="bottom"]')).toBeNull();
     // Короткий материал умещается на экране целиком: ниже него идёт только общий футер сайта.
     const body = canvasElement.querySelector("[data-reader-body]");

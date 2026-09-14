@@ -8,3 +8,5 @@ export { VisibleMaterialOpen } from "./ui/visible-material-open.client";
 
 export { seriesContinuationQueryKey, seriesContinuationProjectionSchema, materialResumeSchema, continuationLabel } from "./model/series-continuation-contract";
 export { loadSeriesContinuation } from "./api/series-continuation.browser";
+
+export { LearningContinuation, LearningContinuationView } from "./ui/learning-continuation.client";

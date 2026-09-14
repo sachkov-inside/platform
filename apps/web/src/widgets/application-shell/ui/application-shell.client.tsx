@@ -88,7 +88,7 @@ export function ApplicationShell({
           </nav>
           <Link
             aria-label="Найти материал"
-            href="/library"
+            href="/#materials"
             className="ml-auto inline-flex size-11 shrink-0 items-center justify-center gap-2 rounded-full text-sm text-muted-foreground no-underline hover:text-action focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring xl:w-auto"
           >
             <Search aria-hidden="true" className="size-5" />
@@ -160,11 +160,12 @@ function MobileBottomNavigation({
   return (
     <nav
       aria-label="Мобильная навигация"
+      style={{ width: `calc(${String(totalParts * 3.375)}rem + .75rem + 2px)` }}
       className="mobile-navigation fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-40 w-max max-w-[calc(100%-1rem)] -translate-x-1/2 rounded-[1.6rem] border border-black/8 bg-white/88 p-1.5 text-foreground shadow-floating-nav backdrop-blur-xl lg:hidden"
     >
       <div
         className="mobile-navigation-items relative grid"
-        style={{ gridTemplateColumns: `repeat(${String(totalParts)}, 3.375rem)` }}
+        style={{ gridTemplateColumns: `repeat(${String(totalParts)}, minmax(0, 1fr))` }}
       >
         <span
           aria-hidden="true"
@@ -218,9 +219,9 @@ function MobileBottomNavigation({
 
 function isCurrentPath(pathname: string, href: Route): boolean {
   href = href.split("?")[0] as Route;
-  if (href === "/") return pathname === href;
+  if (href === "/" && pathname === "/") return true;
   if (
-    href === "/library" &&
+    href === "/" &&
     ["/materials/", "/guides/", "/series/", "/topics/"].some((prefix) =>
       pathname.startsWith(prefix),
     )

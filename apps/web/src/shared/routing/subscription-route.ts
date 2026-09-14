@@ -13,7 +13,6 @@ const publicOriginSections = [
   "/series/",
   "/topics/",
   "/materials/",
-  "/library",
   "/map",
 ] as const;
 
@@ -26,6 +25,7 @@ export interface SubscriptionRouteTarget {
 
 function publicOrigin(value: string | undefined): Route | undefined {
   if (value === undefined || !isInternalRoute(value)) return undefined;
+  if (value === "/") return internalRoute(value);
   return publicOriginSections.some(
     (section) => value === section.replace(/\/$/u, "") || value.startsWith(section),
   )

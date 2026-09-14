@@ -6,10 +6,13 @@ import {
   type LibrarySearchQuery,
 } from "./library-search-query";
 
+export function libraryCatalogQueryRootKey() {
+  return ["library", "catalog"] as const;
+}
+
 export function libraryCatalogQueryKey(query: LibrarySearchQuery) {
   return [
-    "library",
-    "catalog",
+    ...libraryCatalogQueryRootKey(),
     librarySearchQueryIdentity({ ...query, after: null }),
   ] as const;
 }

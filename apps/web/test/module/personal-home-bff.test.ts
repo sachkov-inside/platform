@@ -5,7 +5,7 @@ vi.mock("@/shared/auth/platform-access-token.server", () => ({ getPlatformAccess
 vi.mock("@/shared/auth/logto-bff-config.server", () => ({ readLogtoBffConfig: () => ({ baseUrl: "https://inside.example.test" }) }));
 vi.mock("@/shared/auth/index.server", async () => ({ handleAuthenticatedMutation: (await import("@/shared/auth/authenticated-mutation-handler.server")).handleAuthenticatedMutation }));
 import { handleMaterialOpen, handleSeriesContinuation } from "@/features/reading-progress.server";
-import { handlePersonalHome } from "@/_pages/home.server";
+import { handlePersonalHome } from "@/features/reading-progress.server";
 const materialId = "10000000-0000-4000-8000-000000000001";
 const commandId = "20000000-0000-4000-8000-000000000001";
 function request(input: Record<string, string>, origin = "https://inside.example.test") {

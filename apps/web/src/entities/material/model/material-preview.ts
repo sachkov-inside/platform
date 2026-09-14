@@ -27,6 +27,7 @@ export interface MaterialPreview {
   }[];
   readonly slug: string;
   readonly summary: string;
+  readonly noteExcerpt?: { readonly text: string; readonly truncated: boolean; readonly linkUrl?: string | undefined } | undefined;
   readonly tags: readonly string[];
   readonly title: string;
   readonly topic: string;

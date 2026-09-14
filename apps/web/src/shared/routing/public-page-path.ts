@@ -12,7 +12,6 @@ import { internalRoute } from "./internal-route";
  * остался совместимым адресом той же страницы и ведёт на канонический адрес, а не спорит с ним.
  */
 export const HOME_PATH = internalRoute("/");
-export const LIBRARY_PATH = internalRoute("/library");
 export const MAP_PATH = internalRoute("/map");
 export const LEGAL_PATH = internalRoute("/legal");
 

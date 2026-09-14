@@ -8,7 +8,6 @@ import {
   HOME_PATH,
   LEGAL_PATH,
   legalDocumentPath,
-  LIBRARY_PATH,
   MAP_PATH,
   materialPath,
   topicPath,
@@ -22,8 +21,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const origin = await readPublicSiteOrigin();
   const alwaysPublic = [
     HOME_PATH,
-    LIBRARY_PATH,
-    MAP_PATH,
+      MAP_PATH,
     LEGAL_PATH,
     ...LEGAL_NAVIGATION.map((entry) => legalDocumentPath(entry.key)),
   ].map((path) => ({

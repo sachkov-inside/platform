@@ -12,6 +12,8 @@ import { useLiveSearchValue } from "@/shared/lib/use-live-search-value.client";
 import type { LibraryCatalogPage } from "./library-view";
 import type { LibraryCatalogQueryOptions } from "./library-catalog-query";
 import {
+  libraryHref,
+  parseLibrarySearchParams,
   withoutLibraryCursor,
   type LibrarySearchQuery,
 } from "./library-search-query";
@@ -28,6 +30,13 @@ export function useLibraryCatalogQuery({
   const [searchQuery, setSearchQuery] = useState(() =>
     withoutLibraryCursor(initialQuery),
   );
+  const incomingHref = libraryHref(withoutLibraryCursor(initialQuery));
+  const [previousIncomingHref, setPreviousIncomingHref] = useState(incomingHref);
+  if (previousIncomingHref !== incomingHref) {
+    setPreviousIncomingHref(incomingHref);
+    const currentCanonical = parseLibrarySearchParams(new URL(libraryHref(searchQuery), "http://localhost").searchParams).query;
+    if (libraryHref(currentCanonical) !== incomingHref) setSearchQuery(withoutLibraryCursor(initialQuery));
+  }
   const debouncedSearch = useLiveSearchValue(searchQuery.q);
   const requestQuery = useMemo(
     () =>
@@ -39,14 +48,14 @@ export function useLibraryCatalogQuery({
     enabled: typeof window !== "undefined",
     placeholderData: keepPreviousData,
   });
-  const { fetchNextPage, hasNextPage, isFetchingNextPage } = query;
+  const { fetchNextPage, hasNextPage, isFetching } = query;
   const changeQuery = useCallback((nextQuery: LibrarySearchQuery) => {
     setSearchQuery(withoutLibraryCursor(nextQuery));
   }, []);
   const loadNextPage = useCallback(() => {
-    if (!hasNextPage || isFetchingNextPage) return;
+    if (!hasNextPage || isFetching) return;
     void fetchNextPage();
-  }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
+  }, [fetchNextPage, hasNextPage, isFetching]);
 
   return {
     changeQuery,

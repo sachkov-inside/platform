@@ -1,0 +1,602 @@
+[
+  {
+    "viewport": 390,
+    "scene": 1,
+    "slot": [
+      358,
+      230
+    ],
+    "text": [
+      {
+        "text": "AGENTS.md",
+        "font": "11px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "spec.md",
+        "font": "11px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "tasks.md",
+        "font": "11px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "Исследование",
+        "font": "12px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "Реализация",
+        "font": "12px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "Ревью",
+        "font": "12px",
+        "overflow": false,
+        "outside": false
+      }
+    ]
+  },
+  {
+    "viewport": 390,
+    "scene": 2,
+    "slot": [
+      358,
+      230
+    ],
+    "text": [
+      {
+        "text": "Исследование",
+        "font": "12px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "Спецификация",
+        "font": "12px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "Задачи",
+        "font": "12px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "Реализация",
+        "font": "12px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "Ревью",
+        "font": "12px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "AGENTS.md",
+        "font": "11px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "spec.md",
+        "font": "11px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "tasks.md",
+        "font": "11px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "skills",
+        "font": "11px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "MCP",
+        "font": "11px",
+        "overflow": false,
+        "outside": false
+      }
+    ]
+  },
+  {
+    "viewport": 390,
+    "scene": 3,
+    "slot": [
+      358,
+      230
+    ],
+    "text": [
+      {
+        "text": "API",
+        "font": "12px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "Интерфейс",
+        "font": "12px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "База данных",
+        "font": "12px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "Очередь",
+        "font": "12px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "AI-модель",
+        "font": "12px",
+        "overflow": false,
+        "outside": false
+      }
+    ]
+  },
+  {
+    "viewport": 390,
+    "scene": 4,
+    "slot": [
+      358,
+      230
+    ],
+    "text": [
+      {
+        "text": "function notify(user) {",
+        "font": "11.5px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "+  if (!user) return okисправлено",
+        "font": "11.5px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "+  send(user)",
+        "font": "11.5px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "return ok",
+        "font": "11.5px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "}",
+        "font": "11.5px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "test(\"notify skips empty user\", () => {",
+        "font": "11.5px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "expect(notify(null)).toBe(ok)",
+        "font": "11.5px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "})",
+        "font": "11.5px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "Принято",
+        "font": "12px",
+        "overflow": false,
+        "outside": false
+      }
+    ]
+  },
+  {
+    "viewport": 390,
+    "scene": 5,
+    "slot": [
+      358,
+      230
+    ],
+    "text": [
+      {
+        "text": "Сборка",
+        "font": "12px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "Production",
+        "font": "12px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "ok tests 48 passed",
+        "font": "11.356px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "ok build v1.2.0",
+        "font": "11.356px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "ok deploy v1.2.0",
+        "font": "11.356px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "ok health 200",
+        "font": "11.356px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "warn queue lag 1.2s",
+        "font": "11.356px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "ok retry · lag 0.1s",
+        "font": "11.356px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "v1.3 следующее обновление",
+        "font": "12px",
+        "overflow": false,
+        "outside": false
+      }
+    ]
+  },
+  {
+    "viewport": 320,
+    "scene": 1,
+    "slot": [
+      288,
+      230
+    ],
+    "text": [
+      {
+        "text": "AGENTS.md",
+        "font": "11px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "spec.md",
+        "font": "11px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "tasks.md",
+        "font": "11px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "Исследование",
+        "font": "12px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "Реализация",
+        "font": "12px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "Ревью",
+        "font": "12px",
+        "overflow": false,
+        "outside": false
+      }
+    ]
+  },
+  {
+    "viewport": 320,
+    "scene": 2,
+    "slot": [
+      288,
+      230
+    ],
+    "text": [
+      {
+        "text": "Исследование",
+        "font": "11px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "Спецификация",
+        "font": "11px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "Задачи",
+        "font": "11px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "Реализация",
+        "font": "11px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "Ревью",
+        "font": "11px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "AGENTS.md",
+        "font": "11px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "spec.md",
+        "font": "11px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "tasks.md",
+        "font": "11px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "skills",
+        "font": "11px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "MCP",
+        "font": "11px",
+        "overflow": false,
+        "outside": false
+      }
+    ]
+  },
+  {
+    "viewport": 320,
+    "scene": 3,
+    "slot": [
+      288,
+      230
+    ],
+    "text": [
+      {
+        "text": "API",
+        "font": "12px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "Интерфейс",
+        "font": "12px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "База данных",
+        "font": "12px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "Очередь",
+        "font": "12px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "AI-модель",
+        "font": "12px",
+        "overflow": false,
+        "outside": false
+      }
+    ]
+  },
+  {
+    "viewport": 320,
+    "scene": 4,
+    "slot": [
+      288,
+      230
+    ],
+    "text": [
+      {
+        "text": "function notify(user) {",
+        "font": "10.5px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "+  if (!user) return okисправлено",
+        "font": "10.5px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "+  send(user)",
+        "font": "10.5px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "return ok",
+        "font": "10.5px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "}",
+        "font": "10.5px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "test(\"notify skips empty user\", () => {",
+        "font": "10.5px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "expect(notify(null)).toBe(ok)",
+        "font": "10.5px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "})",
+        "font": "10.5px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "Принято",
+        "font": "12px",
+        "overflow": false,
+        "outside": false
+      }
+    ]
+  },
+  {
+    "viewport": 320,
+    "scene": 5,
+    "slot": [
+      288,
+      230
+    ],
+    "text": [
+      {
+        "text": "Сборка",
+        "font": "12px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "Production",
+        "font": "12px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "ok tests 48 passed",
+        "font": "10px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "ok build v1.2.0",
+        "font": "10px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "ok deploy v1.2.0",
+        "font": "10px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "ok health 200",
+        "font": "10px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "warn queue lag 1.2s",
+        "font": "10px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "ok retry · lag 0.1s",
+        "font": "10px",
+        "overflow": false,
+        "outside": false
+      },
+      {
+        "text": "v1.3 следующее обновление",
+        "font": "12px",
+        "overflow": false,
+        "outside": false
+      }
+    ]
+  },
+  {
+    "loop": [
+      {
+        "scene": "1",
+        "ms": 0
+      },
+      {
+        "scene": "2",
+        "ms": 4967
+      },
+      {
+        "scene": "3",
+        "ms": 9468
+      },
+      {
+        "scene": "4",
+        "ms": 13718
+      },
+      {
+        "scene": "5",
+        "ms": 18218
+      },
+      {
+        "scene": "1",
+        "ms": 24218
+      }
+    ],
+    "earlyGreenOpacity": "0"
+  },
+  {
+    "reducedMotion": "static scene 5"
+  }
+]
