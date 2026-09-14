@@ -2,6 +2,13 @@ import { z } from "zod";
 import { instantSchema, reasonSchema, sourceRefSchema } from "./access-grant.js";
 import { enrollmentViewSchema } from "./subscription-enrollment.js";
 export const ACTIVATION_CONTRACT_VERSION = "inside.subscription-activation.v1" as const;
+export const bindingLookupQuerySchema = z.strictObject({
+  contractVersion: z.literal(ACTIVATION_CONTRACT_VERSION), identityRef: sourceRefSchema,
+});
+export const bindingSnapshotSchema = z.strictObject({
+  accountRef: sourceRefSchema, identityRef: sourceRefSchema,
+  linkRef: z.uuid(), linkRevision: z.int().positive(),
+});
 export const activationCodeSchema = z.string().min(1).max(40).regex(/^[A-Za-z0-9_-]+$/u);
 export const activationRuleSchema = z.strictObject({
   id: z.uuid(), code: activationCodeSchema, name: z.string().trim().min(1).max(200), revision: z.int().positive(),

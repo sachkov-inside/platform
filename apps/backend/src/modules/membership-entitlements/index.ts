@@ -40,3 +40,4 @@ export { courseSourceRef } from "./domain/source-identity.js";
 export { registerSourceSchema, sourceEntitlementViewSchema } from "./domain/subscription-activation.js";
 
 export { ownSubscriptionAccessQuerySchema } from "./domain/subscription-activation.js";
+export { bindingLookupQuerySchema, bindingSnapshotSchema } from "./domain/subscription-activation.js";
