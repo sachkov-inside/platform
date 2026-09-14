@@ -1,5 +1,5 @@
 import type { MembershipEntitlementsPrisma } from "../../infrastructure/prisma.js";
-import type { ObservedMembershipEvidence } from "../accept-evidence/validate-membership-evidence.js";
+import { MAX_EVIDENCE_VALIDITY_MS, type ObservedMembershipEvidence } from "../accept-evidence/validate-membership-evidence.js";
 import { tributeStateSchema } from "../../domain/tribute-source.js";
 import { projectTributeSource } from "../../shared/tribute-source.js";
 
@@ -15,7 +15,7 @@ export async function observeTemporaryTribute(tx: MembershipEntitlementsPrisma, 
     if (state.observationVersion !== null && BigInt(state.observationVersion) >= BigInt(evidence.evidenceVersion)) continue;
     const policy = await tx.tributePolicy.findUnique({ where: { id: source.sourcePolicyRef } });
     const cutoff = Math.min(Date.parse(state.endsAt), policy?.temporaryUntil?.getTime() ?? now.getTime());
-    const validUntil = Math.min(Date.parse(evidence.validUntil), Date.parse(evidence.checkedAt) + 300_000, cutoff);
+    const validUntil = Math.min(Date.parse(evidence.validUntil), Date.parse(evidence.checkedAt) + MAX_EVIDENCE_VALIDITY_MS, cutoff);
     const member = evidence.decision === "member" && policy?.enabled === true && validUntil > now.getTime();
     const next = tributeStateSchema.parse({ ...state,
       observation: evidence.decision === "not_member" ? "source_ended" : member ? "member" : "observation_stale",

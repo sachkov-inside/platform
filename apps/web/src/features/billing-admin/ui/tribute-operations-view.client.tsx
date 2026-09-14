@@ -41,6 +41,10 @@ export function TributeOperationsView(props: Props) {
       <p>Временные основания: {props.data.metrics.temporarySources}</p><p>Давно не проверялись: {props.data.metrics.staleConfirmations}</p>
       <p className="sm:col-span-2">{props.data.metrics.rolloutBlocked ? "Массовое переключение требует разбора оставшихся источников." : "В этом реестре нет незавершённых проверок. Включение внешних источников требует отдельных проверок запуска."}</p>
     </div> : null}
+    {props.data && props.data.unconfirmedSources.length > 0 ? <details><summary className="cursor-pointer font-semibold">Прежние источники без подтверждённого периода</summary>
+      <p className="my-3 text-sm">Подтвердите identity и период через импорт ниже, указав прежнее правило и текущую ревизию. Членство и старые заметки сами по себе не подтверждают оплату.</p>
+      {props.data.unconfirmedSources.map(source => <p key={source.id} className="my-3 break-words text-sm">{source.policyRef} · {source.identityRef} · ревизия {source.revision}</p>)}
+    </details> : null}
     <details><summary className="cursor-pointer font-semibold">1. Настроить разрешённый источник</summary>
       <label className="mt-4 grid gap-1 text-sm">Источник<select className="min-h-11 rounded-xl border border-input bg-background px-3" value={policyId} onChange={event => { setPolicyId(event.target.value); }}>
         <option value="">Новый источник</option>{props.data?.policies.map(item => <option key={item.id} value={item.id}>{item.id} · {item.tier.name}</option>)}

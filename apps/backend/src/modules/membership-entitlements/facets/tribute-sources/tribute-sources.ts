@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { Accounts } from "../../../accounts/index.js";
 import type { TelegramAccountLinks } from "../../../telegram-membership/index.js";
-import { lockTelegramAccountBinding } from "../../../../infrastructure/prisma/index.js";
+import { Prisma, lockTelegramAccountBinding } from "../../../../infrastructure/prisma/index.js";
 import type { MembershipEntitlementsPrismaClient, MembershipEntitlementsPrisma } from "../../infrastructure/prisma.js";
 import { lockAccess } from "../../infrastructure/access-lock.js";
 import { accessFingerprint, readAccessReceipt } from "../../shared/access-receipts.js";
@@ -16,6 +16,10 @@ import { applyTributeImportSchema, previewTributeImportSchema, saveTributePolicy
 import { tributeInboxView, receiveTribute, reconcileTributeEvent } from "../../features/receive-tribute/receive-tribute.js";
 import { changeEnrollmentInTransaction } from "../../features/change-enrollment/change-enrollment.js";
 import { projectTributeSource, tributeSourceView } from "../../shared/tribute-source.js";
+
+const importPreviewLifetimeMilliseconds = 10 * 60 * 1_000;
+const sourceConfirmationFreshnessMilliseconds = 24 * 60 * 60 * 1_000;
+const reconciliationIntervalMilliseconds = 60 * 1_000;
 
 interface Dependencies {
   prisma: MembershipEntitlementsPrismaClient;
@@ -117,7 +121,7 @@ export class TributeSources {
         const target = rows.find(value => value.rowRef === row.rowRef);
         if (target) { target.status = "conflict"; target.detail = "Повтор внешнего получателя внутри batch"; }
       }
-      const value = { previewRef: randomUUID(), batchRef: command.batchRef, expiresAt: new Date(now.getTime() + 600_000).toISOString(), rows };
+      const value = { previewRef: randomUUID(), batchRef: command.batchRef, expiresAt: new Date(now.getTime() + importPreviewLifetimeMilliseconds).toISOString(), rows };
       await tx.accessBatchPreview.create({ data: { id: value.previewRef, actorId, operationId: command.operationId, fingerprint,
         rows: { command, rows, tiers: rows.flatMap(row => row.tier === null ? [] : [row.tier]) }, revision: 1, expiresAt: new Date(value.expiresAt) } });
       await tx.tributeImportReview.create({ data: { id: value.previewRef, actorId, batchRef: value.batchRef, pendingRows: rows.map(row => row.rowRef), state: "pending", revision: 1, expiresAt: new Date(value.expiresAt), reason: "Awaiting owner decision" } });
@@ -202,17 +206,21 @@ export class TributeSources {
     if (!await this.permitted(actorId)) return accessFailure("forbidden");
     const now = this.clock(); const prisma = this.dependencies.prisma;
     const rows = await prisma.sourceEntitlement.findMany({ where: { origin: "tribute", tributeState: { path: ["mode"], not: "" } }, orderBy: { id: "asc" }, take: 101, skip: page * 100 });
+    const unconfirmedWhere = { origin: "tribute", revokedAt: null, tributeState: { equals: Prisma.DbNull } };
+    const unconfirmed = await prisma.sourceEntitlement.findMany({ where: unconfirmedWhere, orderBy: { id: "asc" }, take: 101, skip: page * 100 });
+    const unconfirmedCount = await prisma.sourceEntitlement.count({ where: unconfirmedWhere });
     const sources = rows.slice(0, 100).map(row => tributeSourceView(row, now));
     const inbox = await prisma.tributeInbox.findMany({ orderBy: { id: "asc" }, take: 101, skip: page * 100 });
     const reviews = await prisma.tributeImportReview.findMany({ orderBy: { id: "asc" }, take: 101, skip: page * 100 });
     const unresolvedImports = await prisma.tributeImportReview.count({ where: { state: "pending" } });
     const unresolvedEvents = await prisma.tributeInbox.count({ where: { state: { in: ["received", "pending_reconciliation"] } } });
-    const pendingIdentity = await prisma.sourceEntitlement.count({ where: { origin: "tribute", accountId: null } });
+    const pendingIdentity = await prisma.sourceEntitlement.count({ where: { origin: "tribute", accountId: null, revokedAt: null } });
     const temporarySources = await prisma.sourceEntitlement.count({ where: { origin: "tribute", revokedAt: null, AND: [{ tributeState: { path: ["mode"], equals: "temporary_membership" } }, { tributeState: { path: ["endsAt"], gt: now.toISOString() } }] } });
-    const staleConfirmations = await prisma.sourceEntitlement.count({ where: { origin: "tribute", revokedAt: null, tributeState: { path: ["endsAt"], gt: now.toISOString() }, checkedAt: { lt: new Date(now.getTime() - 86_400_000) } } });
-    return { ok: true as const, value: tributeOperationsViewSchema.parse({ page, hasMore: rows.length > 100 || inbox.length > 100 || reviews.length > 100, imports: reviews.slice(0, 100).map(importReviewView), policies: await this.policies(), sources,
+    const staleConfirmations = await prisma.sourceEntitlement.count({ where: { origin: "tribute", revokedAt: null, tributeState: { path: ["endsAt"], gt: now.toISOString() }, checkedAt: { lt: new Date(now.getTime() - sourceConfirmationFreshnessMilliseconds) } } });
+    return { ok: true as const, value: tributeOperationsViewSchema.parse({ page, hasMore: unconfirmed.length > 100 || rows.length > 100 || inbox.length > 100 || reviews.length > 100, imports: reviews.slice(0, 100).map(importReviewView), policies: await this.policies(), sources,
+      unconfirmedSources: unconfirmed.slice(0, 100).map(row => ({ id: row.id, sourceRef: row.sourceRef, policyRef: row.sourcePolicyRef, identityRef: row.identityRef, revision: row.revision })),
       inbox: inbox.slice(0, 100).map(tributeInboxView), metrics: { unresolvedImports, pendingIdentity, unresolvedEvents, temporarySources, staleConfirmations,
-        rolloutBlocked: unresolvedImports > 0 || pendingIdentity > 0 || unresolvedEvents > 0 || temporarySources > 0 || staleConfirmations > 0 } }) };
+        rolloutBlocked: unconfirmedCount > 0 || unresolvedImports > 0 || pendingIdentity > 0 || unresolvedEvents > 0 || temporarySources > 0 || staleConfirmations > 0 } }) };
   }
   async dismissImport(actorId: string, input: unknown) {
     if (!await this.permitted(actorId)) return accessFailure("forbidden");
@@ -307,7 +315,7 @@ export class TributeSources {
     for (const candidate of rows) {
       const state = tributeStateSchema.safeParse(candidate.tributeState);
       if (!state.success) {
-        await prisma.sourceEntitlement.update({ where: { id: candidate.id }, data: { reconcileAt: new Date(now.getTime() + 60_000) } });
+        await prisma.sourceEntitlement.update({ where: { id: candidate.id }, data: { reconcileAt: new Date(now.getTime() + reconciliationIntervalMilliseconds) } });
         pending++; continue;
       }
       const link = await this.dependencies.links.findCurrentByIdentity(candidate.identityRef);
@@ -315,7 +323,7 @@ export class TributeSources {
         if (link.ok && link.state === "found") await lockTelegramAccountBinding(tx, link.recipient.accountId);
         await lockAccess(tx, `enrollment:tribute:${candidate.sourceRef}`);
         const row = await tx.sourceEntitlement.findUniqueOrThrow({ where: { id: candidate.id } });
-        await tx.sourceEntitlement.update({ where: { id: row.id }, data: { reconcileAt: new Date(now.getTime() + 60_000) } });
+        await tx.sourceEntitlement.update({ where: { id: row.id }, data: { reconcileAt: new Date(now.getTime() + reconciliationIntervalMilliseconds) } });
         if (row.accountId !== null && row.enrollmentId !== null) return;
         const policy = await tx.tributePolicy.findUnique({ where: { id: row.sourcePolicyRef } });
         if (!link.ok || link.state !== "found" || !policy?.enabled || !eligibleTierIds.includes(state.data.tier.id)) { pending++; return; }

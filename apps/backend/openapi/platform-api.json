@@ -46917,6 +46917,48 @@
                                     "type": "object"
                                   },
                                   "type": "array"
+                                },
+                                "unconfirmedSources": {
+                                  "items": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "id": {
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                        "type": "string"
+                                      },
+                                      "identityRef": {
+                                        "maxLength": 256,
+                                        "minLength": 1,
+                                        "type": "string"
+                                      },
+                                      "policyRef": {
+                                        "maxLength": 256,
+                                        "minLength": 1,
+                                        "type": "string"
+                                      },
+                                      "revision": {
+                                        "exclusiveMinimum": true,
+                                        "maximum": 9007199254740991,
+                                        "minimum": 0,
+                                        "type": "integer"
+                                      },
+                                      "sourceRef": {
+                                        "maxLength": 256,
+                                        "minLength": 1,
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "id",
+                                      "sourceRef",
+                                      "policyRef",
+                                      "identityRef",
+                                      "revision"
+                                    ],
+                                    "type": "object"
+                                  },
+                                  "type": "array"
                                 }
                               },
                               "required": [
@@ -46924,6 +46966,7 @@
                                 "hasMore",
                                 "imports",
                                 "policies",
+                                "unconfirmedSources",
                                 "sources",
                                 "inbox",
                                 "metrics"

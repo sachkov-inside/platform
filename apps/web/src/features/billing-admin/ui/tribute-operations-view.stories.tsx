@@ -6,7 +6,7 @@ const tier = { id: "62500000-0000-4000-8000-000000000001", revision: 1, name: "Ð
 const environment = authoringPageEnvironment("/authoring/billing");
 const meta = {
   ...environment, title: "Pages/Authoring/Tribute import", component: TributeOperationsView,
-  args: { data: { page: 0, hasMore: false, imports: [], policies: [], sources: [], inbox: [], metrics: { unresolvedImports: 0, pendingIdentity: 0, unresolvedEvents: 0, temporarySources: 0, staleConfirmations: 0, rolloutBlocked: false } },
+  args: { data: { page: 0, hasMore: false, imports: [], policies: [], unconfirmedSources: [], sources: [], inbox: [], metrics: { unresolvedImports: 0, pendingIdentity: 0, unresolvedEvents: 0, temporarySources: 0, staleConfirmations: 0, rolloutBlocked: false } },
     tiers: [tier], preview: null, loading: false, busy: false, error: null, message: "",
     onMessage: fn(), onRefresh: fn(), onPage: fn(), onPolicy: fn(), onPreview: fn(), onApply: fn(), onRecover: fn(), onReconcile: fn(), onInbox: fn(), onDismiss: fn() },
 } satisfies Meta<typeof TributeOperationsView>;

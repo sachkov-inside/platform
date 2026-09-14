@@ -28,6 +28,14 @@ export async function changeEnrollmentInTransaction(tx: MembershipEntitlementsPr
     if (row.origin === "platform_payment") return accessFailure("forbidden");
     if (row.origin === "course" && (command.terms.endsAt !== null || new Date(command.terms.startsAt).getTime() !== row.startsAt.getTime())) return accessFailure("invalid_input");
     if (command.action === "restore" && row.revokedAt === null) return accessFailure("revision_conflict");
+    if (row.origin === "tribute" && command.action !== "revoke" && command.terms.endPolicy === "temporary_membership") {
+      const source = await tx.sourceEntitlement.findFirst({ where: { enrollmentId: row.id, origin: "tribute" } });
+      const state = tributeStateSchema.safeParse(source?.tributeState);
+      if (source === null || !state.success || state.data.mode !== "temporary_membership") return accessFailure("invalid_input");
+      const policy = await tx.tributePolicy.findUnique({ where: { id: source.sourcePolicyRef } });
+      if (policy?.temporaryUntil == null || !policy.enabled || command.terms.endsAt === null ||
+        new Date(command.terms.endsAt) > policy.temporaryUntil) return accessFailure("invalid_input");
+    }
     const before = enrollmentView(row, now);
     const data = { revision: row.revision + 1, reason: command.reason,
       revokedAt: command.action === "revoke" ? row.revokedAt ?? now : command.action === "restore" ? null : row.revokedAt,

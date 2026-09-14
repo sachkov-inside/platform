@@ -1587,6 +1587,13 @@ export class BillingService {
           };
           status: 'pending_identity' | 'active' | 'scheduled' | 'expired' | 'revoked' | 'pending_verification' | 'suspended_source';
         }>;
+        unconfirmedSources: Array<{
+          id: string;
+          identityRef: string;
+          policyRef: string;
+          revision: number;
+          sourceRef: string;
+        }>;
       };
     } | {
       outcome: 'tributePolicy';

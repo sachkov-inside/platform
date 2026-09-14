@@ -71,6 +71,8 @@ export const tributeImportReviewSchema = z.strictObject({ previewRef: z.uuid(), 
   revision: z.int().positive(), state: z.enum(["pending", "applied", "dismissed"]), pendingRows: z.array(sourceRefSchema), expiresAt: instantSchema, reason: z.string() });
 export const dismissTributeImportSchema = z.strictObject({ operationId: z.uuid(), previewRef: z.uuid(), expectedRevision: z.int().positive(), reason: reasonSchema });
 export const tributeOperationsViewSchema = z.strictObject({ page: z.int().nonnegative(), hasMore: z.boolean(), imports: z.array(tributeImportReviewSchema), policies: z.array(tributePolicySchema),
+  unconfirmedSources: z.array(z.strictObject({ id: z.uuid(), sourceRef: sourceRefSchema, policyRef: sourceRefSchema,
+    identityRef: sourceRefSchema, revision: z.int().positive() })),
   sources: z.array(tributeSourceViewSchema), inbox: z.array(tributeInboxViewSchema),
   metrics: z.strictObject({ unresolvedImports: z.int().nonnegative(), pendingIdentity: z.int().nonnegative(), unresolvedEvents: z.int().nonnegative(),
     temporarySources: z.int().nonnegative(), staleConfirmations: z.int().nonnegative(), rolloutBlocked: z.boolean() }) });

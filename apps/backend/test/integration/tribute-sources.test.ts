@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { activationResponseSchema } from "../../src/modules/telegram-membership/domain/subscription-activation-wire.js";
-import { createHmac, randomUUID } from "node:crypto";
+import { createHash, createHmac, randomUUID } from "node:crypto";
 import { Module } from "@nestjs/common";
 import { APP_FILTER, APP_INTERCEPTOR, NestFactory } from "@nestjs/core";
 import { FastifyAdapter, type NestFastifyApplication } from "@nestjs/platform-fastify";
@@ -88,10 +88,48 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
     expect(response.headers["cache-control"]).toBe("private, no-store");
     return response;
   }
+  test("legacy unconfirmed source is visible and imported into the same record; generic Tribute registration is closed", async () => {
+    const context = await setup();
+    expect(await grants.registerSourceEntitlement(owner, { operationId: randomUUID(), origin: "tribute",
+      sourcePolicyRef: context.row.policyRef, identityRef: context.row.identityRef, checkedAt: now.toISOString(),
+      startsAt: context.row.startsAt, endsAt: context.row.endsAt, reason: "Must use registry import" })).toMatchObject({ ok: false });
+    const sourceRef = createHash("sha256").update(JSON.stringify(["tribute", context.row.policyRef, context.row.identityRef])).digest("hex");
+    const legacy = await db.prisma.sourceEntitlement.create({ data: { id: randomUUID(), origin: "tribute", sourceRef,
+      sourcePolicyRef: context.row.policyRef, identityRef: context.row.identityRef, revision: 1, evidence: {}, checkedAt: now } });
+    expect(value(await convergence.status(owner)).unconfirmedSources).toContainEqual({ id: legacy.id, sourceRef,
+      policyRef: context.row.policyRef, identityRef: context.row.identityRef, revision: 1 });
+    const imported = await apply({ ...context.row, expectedRevision: 1 });
+    expect(imported.result.sources[0]?.id).toBe(legacy.id);
+    expect(value(await convergence.status(owner)).unconfirmedSources.some(item => item.id === legacy.id)).toBe(false);
+    expect(await db.prisma.subscriptionEnrollment.count({ where: { sourceRef } })).toBe(0);
+  });
+  test("temporary owner assignment is rejected and expansion preserves pending grant suspension", async () => {
+    const context = await setup("temporary_membership");
+    const customer = await link(context.row.identityRef);
+    const tier = { id: context.tier.id, revision: 1, name: context.tier.name,
+      benefits: ["materials", "community"], contentScope: { guideIds: [context.guideId], materialIds: [] } };
+    expect(await grants.assignEnrollment(owner, { operationId: randomUUID(), accountId: customer.id,
+      origin: "tribute", sourceRef: randomUUID(), tierId: tier.id, tierRevision: 1,
+      terms: { startsAt: context.row.startsAt, endsAt: context.row.endsAt, endPolicy: "temporary_membership" },
+      billingRef: null, reason: "Cannot bypass source registry" }, tier)).toMatchObject({ ok: false, error: { code: "invalid_input" } });
+    expect(await db.prisma.accessGrant.count({ where: { accountId: customer.id } })).toBe(0);
+    const imported = await apply(context.row);
+    const source = imported.result.sources[0];
+    if (!source?.enrollmentId) throw new Error("Expected pending enrollment");
+    const row = await db.prisma.subscriptionEnrollment.findUniqueOrThrow({ where: { id: source.enrollmentId } });
+    const expanded = { ...tier, revision: 2, benefits: [...tier.benefits, "support"] };
+    const preview = value(await grants.previewEnrollmentExpansion(owner, { operationId: randomUUID(), tierId: tier.id, tierRevision: 2,
+      targets: [{ enrollmentId: row.id, expectedRevision: row.revision, tierRevision: 1 }], reason: "Expand without source evidence" }, expanded));
+    expect(await grants.applyEnrollmentExpansion(owner, { operationId: randomUUID(), previewRef: preview.previewRef })).toMatchObject({ ok: true });
+    const added = await db.prisma.accessGrant.findFirstOrThrow({ where: { accountId: customer.id, capabilities: { has: "support" } } });
+    expect(added.revokedAt).not.toBeNull();
+    expect(await db.prisma.accessGrant.count({ where: { accountId: customer.id, revokedAt: null } })).toBe(0);
+    expect(value(await grants.readOwnEnrollments(customer.id))[0]?.state).toBe("pending_verification");
+  });
   test("9/11 pending import, verified linking and recoverable sweep preserve one source and exact receipt", async () => {
     const context = await setup(); const imported = await apply(context.row);
     expect(imported.result.sources[0]).toMatchObject({ accountId: null, status: "pending_identity" });
-    expect(await db.prisma.accessGrant.count()).toBe(0);
+    expect(await db.prisma.subscriptionEnrollment.count({ where: { sourceRef: imported.result.sources[0]?.sourceRef ?? "missing" } })).toBe(0);
     const customer = await link(context.row.identityRef);
     expect(await convergence.sweep()).toMatchObject({ attached: 1 });
     expect(await membership.resolveForAccess(accountId(customer.id), [context.guideId])).toMatchObject({ kind: "active" });

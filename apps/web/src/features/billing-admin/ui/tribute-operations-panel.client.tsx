@@ -20,12 +20,12 @@ export function TributeOperationsPanel() {
     if (!result.ok) throw new Error(billingErrorMessage(result.code));
     return result.value.result.value;
   } });
-  const tiers = useQuery({ queryKey: ["tribute-tiers"], queryFn: async () => {
+  const tiers = useQuery({ queryKey: ["owner-subscription-tiers"], queryFn: async () => {
     const result = await listSubscriptionTiers({ operationId: crypto.randomUUID(), limit: 100 });
     if (!result.ok) throw new Error(billingErrorMessage(result.code));
-    return result.value.result.items.filter(item => item.availableForAssignment && !item.archived).map(item => item.tier);
+    return result.value.result.items;
   } });
-  function refresh() { announceEnrollmentChange(); void cache.invalidateQueries({ queryKey: ["tribute-operations"] }); }
+  function refresh() { void cache.invalidateQueries({ queryKey: ["owner-subscription-tiers"] }); announceEnrollmentChange(); void cache.invalidateQueries({ queryKey: ["tribute-operations"] }); }
   function failed() { setMessage("Ответ не получен. Повторите то же действие: сохранённая ссылка на операцию защитит от повторного применения."); }
   const policy = useMutation({ mutationFn: tributeSavePolicy, onError: failed, onSuccess: result => {
     if (!result.ok) { setMessage(billingErrorMessage(result.code)); return; }
@@ -36,7 +36,12 @@ export function TributeOperationsPanel() {
     repeat.completeOperation("tribute-preview"); setPreview(result.value.result.value); setMessage("Проверьте итог каждой строки и выберите строки для применения.");
   } });
   const apply = useMutation({ mutationFn: tributeApply, onError: failed, onSuccess: result => {
-    if (!result.ok) { setMessage(billingErrorMessage(result.code)); return; }
+    if (!result.ok) {
+      if (!["unavailable", "dependency_unavailable", "provider_unavailable", "unauthorized"].includes(result.code)) {
+        try { sessionStorage.removeItem(pendingApplyKey); } catch { /* Keep recovery available when storage is inaccessible. */ }
+      }
+      setMessage(billingErrorMessage(result.code)); return;
+    }
     try { sessionStorage.removeItem(pendingApplyKey); } catch { /* The receipt itself remains durable on Platform. */ }
     setPreview(null); setMessage(`Импорт применён. Строк: ${String(result.value.result.value.sources.length)}. Операция: ${result.value.operationRef}.`); refresh();
   } });
@@ -52,16 +57,23 @@ export function TributeOperationsPanel() {
     if (!result.ok) { setMessage(billingErrorMessage(result.code)); return; }
     repeat.completeOperation("tribute-inbox"); setMessage(`Событие обработано: ${result.value.result.value.reason}.`); refresh();
   } });
-  return <TributeOperationsView data={status.data ?? null} tiers={tiers.data ?? []} preview={preview}
+  return <TributeOperationsView data={status.data ?? null} tiers={(tiers.data ?? []).filter(item => item.availableForAssignment && !item.archived).map(item => item.tier)} preview={preview}
     loading={status.isPending} error={status.error?.message ?? tiers.error?.message ?? null} message={message}
     busy={dismiss.isPending || policy.isPending || previewMutation.isPending || apply.isPending || reconcile.isPending || inbox.isPending}
     onMessage={setMessage} onRefresh={refresh} onPage={setPage}
     onPolicy={input => { policy.mutate({ ...input, operationId: repeat.operationId("tribute-policy", input) }); }}
-    onPreview={input => { previewMutation.mutate({ ...input, operationId: repeat.operationId("tribute-preview", input) }); }}
+    onPreview={input => {
+      try { if (sessionStorage.getItem(pendingApplyKey) !== null) { setMessage("Сначала восстановите результат предыдущего применения."); return; } }
+      catch { setMessage("Не удалось проверить незавершённую операцию в хранилище вкладки."); return; }
+      previewMutation.mutate({ ...input, operationId: repeat.operationId("tribute-preview", input) }); }}
     onApply={selectedRows => {
       if (!preview) return;
       const command = { operationId: repeat.operationId("tribute-apply", { previewRef: preview.previewRef, selectedRows }), previewRef: preview.previewRef, selectedRows };
-      try { sessionStorage.setItem(pendingApplyKey, JSON.stringify(command)); }
+      try {
+        const pending = sessionStorage.getItem(pendingApplyKey);
+        if (pending !== null && pending !== JSON.stringify(command)) { setMessage("Сначала восстановите результат предыдущего применения."); return; }
+        sessionStorage.setItem(pendingApplyKey, JSON.stringify(command));
+      }
       catch { setMessage("Браузер не смог сохранить данные восстановления. Разрешите хранилище этой вкладки перед применением."); return; }
       apply.mutate(command);
     }}

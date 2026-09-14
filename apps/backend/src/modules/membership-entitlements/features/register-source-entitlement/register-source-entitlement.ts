@@ -13,6 +13,7 @@ export async function registerSourceEntitlement(prisma: MembershipEntitlementsPr
   return prisma.$transaction(async tx => {
     const receipt = await readAccessReceipt(tx, actorId, command.operationId);
     if (receipt !== null) return receipt.fingerprint === fingerprint ? { ok: true as const, value: sourceEntitlementViewSchema.parse(receipt.result) } : accessFailure("operation_conflict");
+    if (command.origin === "tribute") return accessFailure("invalid_input");
     await lockAccess(tx, `enrollment:${command.origin}:${sourceRef}`);
     const existing = await tx.sourceEntitlement.findUnique({ where: { origin_sourceRef: { origin: command.origin, sourceRef } } });
     const row = existing ?? await tx.sourceEntitlement.create({ data: { id: randomUUID(), origin: command.origin, sourceRef,
