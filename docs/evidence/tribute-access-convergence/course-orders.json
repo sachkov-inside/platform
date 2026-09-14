@@ -1,0 +1,17 @@
+{
+  "scope": "Actual accepted consumer and Platform owner BFF/HTTP/PG; two code ingress concurrent, owning two-worker tests supplement process concurrency",
+  "passed": [
+    "manual-first: actual concurrent repeated two-code ingress and owner assignment keep one exact course source/Enrollment and original term; no charge",
+    "activation-first: actual concurrent repeated two-code ingress and owner assignment keep one exact course source/Enrollment and original term; no charge"
+  ],
+  "lostAck": {
+    "phase": "response_dropped",
+    "mode": "drop_response_after_forward",
+    "validUntil": "2026-09-14T21:26:20.877Z",
+    "ruleRevision": 1,
+    "digest": "1dfc8c5f581cb837309d44f15145d54ff10ec5ef8c8e9150a0b9bbdccf972e28",
+    "upstreamStatus": 200,
+    "armed": false,
+    "held": false
+  }
+}

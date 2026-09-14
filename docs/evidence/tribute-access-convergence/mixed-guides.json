@@ -1,0 +1,19 @@
+{
+  "scope": "Actual Guide B refund resumes two already paid real local purchases after fixing owner local/one_time schema; no repurchase",
+  "passed": [
+    "owner local one_time list/read/refund accepted through actual BFF/API",
+    "exact B refund closes B; lifetime Guide A remains readable",
+    "community remains member; expired Tribute unchanged; no course masks denial",
+    "no recurring BillingSubscription created; purchase history remains accessible"
+  ],
+  "precedingPhase": {
+    "outcome": "Assertions passed before an owner local-payment view schema error; refund resumed without repurchase after regression fix",
+    "assertions": [
+      "paid lifetime Guide A remains readable after exact confirmed Tribute expiry; Guide B becomes denied",
+      "actual Guide-driven leave/rejoin preserves expired Tribute and denied B",
+      "second real one-time purchase opens B before its exact refund"
+    ],
+    "sourceDriver": "platform625-mixed-guides-proof.mjs",
+    "sourceSha256": "aba7f56d0b6fe2b030c3b455d3bc92d6b8a9b9fc8f1cbe72033e663aef731e4b"
+  }
+}

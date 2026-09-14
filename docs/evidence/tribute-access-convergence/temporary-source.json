@@ -1,0 +1,12 @@
+{
+  "scope": "Actual accepted Telegram AppModule and Platform PG; source fault is external adapter timeout, no hand-built Platform evidence",
+  "policy": "explicitly scoped to configured canonical synthetic legacy group",
+  "passed": [
+    "actual canonical membership reconciliation and evidence delivery activates bounded temporary sources",
+    "actual provider timeout expires temporary confirmation at real TTL; independent no-end course survives",
+    "fresh real member evidence restores stale observation on the same Enrollment",
+    "accepted left is latched across subsequent actual member observations; independent course remains active"
+  ],
+  "postcondition": "Both latched sources still source_ended while the accepted Platform current projection is member at a strictly newer evidenceVersion.",
+  "matchingSources": 2
+}

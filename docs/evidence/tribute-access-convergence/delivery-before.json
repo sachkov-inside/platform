@@ -1,0 +1,7 @@
+{
+  "scope": "Own billing worker stopped after PID/cwd verification before course grant; actual Reader opens while community has not admitted user",
+  "passed": [
+    "grant committed once and protected Reader opens before community dispatch",
+    "external community remains not_member"
+  ]
+}

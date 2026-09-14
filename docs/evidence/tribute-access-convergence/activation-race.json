@@ -1,0 +1,27 @@
+{
+  "scope": "Actual accepted consumer through byte-preserving transport proxy to own Platform HTTP/PG; no handbuilt evidence",
+  "passed": [
+    "Actual consumer evidence captured before owner pause cannot grant after pause/revision change",
+    "Original exact consumer evidence held past validUntil creates no course Enrollment"
+  ],
+  "pausedCapture": {
+    "phase": "held",
+    "mode": "hold",
+    "validUntil": "2026-09-14T21:19:43.263Z",
+    "ruleRevision": 1,
+    "digest": "46c16b991149c17a8e93520e8f44ff95ed02ddedab74d3c9ff9e176d2baa4098",
+    "autoReleaseAt": "2026-09-14T21:20:43.266Z",
+    "armed": false,
+    "held": true
+  },
+  "expiredCapture": {
+    "phase": "held",
+    "mode": "hold",
+    "validUntil": "2026-09-14T21:19:49.260Z",
+    "ruleRevision": 3,
+    "digest": "b0c36df8f30c69db16b6727219f8f83822abdf77a7e64784e069e1950a8282b3",
+    "autoReleaseAt": "2026-09-14T21:20:49.263Z",
+    "armed": false,
+    "held": true
+  }
+}

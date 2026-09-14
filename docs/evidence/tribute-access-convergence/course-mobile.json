@@ -1,0 +1,13 @@
+{
+  "source": "member",
+  "mobile": true,
+  "checks": [
+    "PASS browser sign-in controls support keyboard focus and activation",
+    "PASS real browser linking and one Platform course Enrollment",
+    "PASS cabinet accessibility and viewport checks",
+    "PASS protected guide material body is readable",
+    "PASS intended join via actual Platform v2 dispatch permit",
+    "PASS repeated start and source exit preserve Enrollment identity, revision and dates",
+    "PASS moderation reaches bot and cabinet; repeated start cannot unban; course content remains readable"
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "scope": "real Platform and accepted Telegram AppModule with real PG; external providers only are synthetic",
+  "scenarios": [
+    "PASS pending registry import after actual private ingress creates neither Account nor grant",
+    "PASS actual registry activation with source member and unknown_period creates no Enrollment or billing charge"
+  ],
+  "visualDisposition": "Transient loading capture omitted; settled Account UI is documented separately in no-active.json."
+}

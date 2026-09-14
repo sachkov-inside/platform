@@ -1,0 +1,10 @@
+{
+  "scope": "actual25 scoped overlap; real Platform owner BFF+Reader+PG and accepted Telegram consumer; synthetic external chat",
+  "passed": [
+    "both protected materials readable during overlap",
+    "A expired and denied while B remains readable",
+    "intended actual consumer join before expiry; membership and no repeated effects over bounded12s after expiry",
+    "zero purchases and BillingSubscription"
+  ],
+  "limitation": "12-second post-expiry observation is bounded; not an unlimited future membership guarantee"
+}

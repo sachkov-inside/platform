@@ -2,281 +2,415 @@
   "issue": "https://github.com/sachkov-inside/platform/issues/625",
   "specification": "https://github.com/sachkov-inside/workspace/issues/180",
   "platformBase": "a663f661e89dfb90270b93e871da81d37d476363",
-  "telegramCommit": "2b72bb23f6cb3124aa287bb7bff47ca283e4c8fb",
+  "telegramCommit": "c392721bf76c562881164035e97ceb96f15c78f9",
   "scope": "local real applications and PostgreSQL; external providers are controlled doubles",
   "scenarios": [
     {
       "id": 1,
       "scenario": "Курс, новый Account, успешная группа",
       "expected": "Один Enrollment нужного тарифа, корректный срок, чтение и чат",
-      "status": "pending",
-      "evidence": []
+      "status": "local_pass",
+      "evidence": [
+        "../evidence/tribute-access-convergence/course-desktop.json",
+        "../evidence/tribute-access-convergence/course-mobile.json"
+      ]
     },
     {
       "id": 2,
       "scenario": "Курс, существующий Account с покупками",
       "expected": "Существующая identity и покупки сохранены",
-      "status": "pending",
-      "evidence": []
+      "status": "local_pass",
+      "evidence": [
+        "../evidence/tribute-access-convergence/existing-account.json"
+      ]
     },
     {
       "id": 3,
       "scenario": "Ссылка курса переслана постороннему",
       "expected": "Нет выдачи и утечки чужой информации",
-      "status": "pending",
-      "evidence": []
+      "status": "local_pass",
+      "evidence": [
+        "../evidence/tribute-access-convergence/forwarded-course.json",
+        "../evidence/tribute-access-convergence/forwarded-privacy.json"
+      ]
     },
     {
       "id": 4,
       "scenario": "Повтор /start, две ссылки и два worker",
       "expected": "Одна выдача, срок не перезапущен",
-      "status": "pending",
-      "evidence": []
+      "status": "local_pass",
+      "evidence": [
+        "../evidence/tribute-access-convergence/course-desktop.json",
+        "../evidence/tribute-access-convergence/course-orders.json",
+        "../evidence/tribute-access-convergence/owner-invariants.md"
+      ],
+      "proofBoundary": "Paired actual application journeys plus owning boundary tests with real PostgreSQL. Consumer adapter tests prove consumer validation/recovery only; Platform grants are separately proved in the owning service and running pair. Exact commands/tests are in owner-invariants.md."
     },
     {
       "id": 5,
       "scenario": "Выход из группы курса после активации",
       "expected": "Назначенный срок не сокращён",
-      "status": "pending",
-      "evidence": []
+      "status": "local_pass",
+      "evidence": [
+        "../evidence/tribute-access-convergence/course-desktop.json",
+        "../evidence/tribute-access-convergence/course-mobile.json"
+      ]
     },
     {
       "id": 6,
       "scenario": "Правило paused/изменено во время linking",
       "expected": "Старое evidence не выдаёт по новой политике",
-      "status": "pending",
-      "evidence": []
+      "status": "local_pass",
+      "evidence": [
+        "../evidence/tribute-access-convergence/activation-race.json",
+        "../evidence/tribute-access-convergence/owner-invariants.md"
+      ]
     },
     {
       "id": 7,
       "scenario": "Bot permission loss/429/timeout",
       "expected": "unavailable, без ложного not_member и без новых прав",
-      "status": "pending",
-      "evidence": []
+      "status": "local_pass",
+      "evidence": [
+        "../evidence/tribute-access-convergence/source-faults.json"
+      ],
+      "proofBoundary": "Actual accepted consumer AppModule and Platform HTTP/PG; external Telegram adapter controlled locally. No credentialed provider proof."
     },
     {
       "id": 8,
       "scenario": "Истёкший login/evidence, занятая identity",
       "expected": "Без silent merge; безопасное продолжение",
-      "status": "pending",
-      "evidence": []
+      "status": "local_pass",
+      "evidence": [
+        "../evidence/tribute-access-convergence/activation-race.json",
+        "../evidence/tribute-access-convergence/owner-invariants.md"
+      ],
+      "proofBoundary": "Paired actual application journeys plus owning boundary tests with real PostgreSQL. Consumer adapter tests prove consumer validation/recovery only; Platform grants are separately proved in the owning service and running pair. Exact commands/tests are in owner-invariants.md."
     },
     {
       "id": 9,
       "scenario": "Tribute initial import до регистрации",
       "expected": "Pending source сопоставляется только verified identity",
-      "status": "pending",
-      "evidence": []
+      "status": "local_pass",
+      "evidence": [
+        "../evidence/tribute-access-convergence/tribute-desktop.json"
+      ]
     },
     {
       "id": 10,
       "scenario": "Неполный список/неизвестный expiry/дубликат имени",
       "expected": "Preview требует разбор, срок не угадывается",
-      "status": "pending",
-      "evidence": []
+      "status": "local_pass",
+      "evidence": [
+        "../evidence/tribute-access-convergence/unknown-period.json",
+        "../evidence/tribute-access-convergence/owner-invariants.md"
+      ],
+      "proofBoundary": "Paired actual application journeys plus owning boundary tests with real PostgreSQL. Consumer adapter tests prove consumer validation/recovery only; Platform grants are separately proved in the owning service and running pair. Exact commands/tests are in owner-invariants.md."
     },
     {
       "id": 11,
       "scenario": "Повтор batch и потерянный ответ apply",
       "expected": "Те же receipts и права",
-      "status": "pending",
-      "evidence": []
+      "status": "local_pass",
+      "evidence": [
+        "../evidence/tribute-access-convergence/tribute-desktop.json",
+        "../evidence/tribute-access-convergence/tribute-mobile.json"
+      ]
     },
     {
       "id": 12,
       "scenario": "Tribute повтор/перестановка/конфликт событий",
       "expected": "Нет двойного срока или ошибочного отзыва",
-      "status": "pending",
-      "evidence": []
+      "status": "local_pass",
+      "evidence": [
+        "../evidence/tribute-access-convergence/owner-invariants.md"
+      ],
+      "proofBoundary": "Paired actual application journeys plus owning boundary tests with real PostgreSQL. Consumer adapter tests prove consumer validation/recovery only; Platform grants are separately proved in the owning service and running pair. Exact commands/tests are in owner-invariants.md."
     },
     {
       "id": 13,
       "scenario": "Отмена Tribute renewal",
       "expected": "Оплаченный остаток сохранён",
-      "status": "pending",
-      "evidence": []
+      "status": "local_pass",
+      "evidence": [
+        "../evidence/tribute-access-convergence/tribute-desktop.json"
+      ]
     },
     {
       "id": 14,
       "scenario": "Неверная подпись/чужой subscription ID/trial",
       "expected": "Нет ошибочной paid выдачи",
-      "status": "pending",
-      "evidence": []
+      "status": "local_pass",
+      "evidence": [
+        "../evidence/tribute-access-convergence/nonpaid.json",
+        "../evidence/tribute-access-convergence/owner-invariants.md"
+      ],
+      "proofBoundary": "Paired actual application journeys plus owning boundary tests with real PostgreSQL. Consumer adapter tests prove consumer validation/recovery only; Platform grants are separately proved in the owning service and running pair. Exact commands/tests are in owner-invariants.md."
     },
     {
       "id": 15,
       "scenario": "Tribute expiry + Guide",
       "expected": "Полный тариф истёк, Guide/чат остались",
-      "status": "pending",
-      "evidence": []
+      "status": "local_pass",
+      "evidence": [
+        "../evidence/tribute-access-convergence/mixed-guides.json"
+      ]
     },
     {
       "id": 16,
       "scenario": "Выход и rejoin по Guide прежнего Tribute",
       "expected": "Старое полное право не восстановилось",
-      "status": "pending",
-      "evidence": []
+      "status": "local_pass",
+      "evidence": [
+        "../evidence/tribute-access-convergence/mixed-guides.json"
+      ]
     },
     {
       "id": 17,
       "scenario": "Курс + Tribute expiry/refund другой покупки",
       "expected": "Независимое назначение курса сохранилось",
-      "status": "pending",
-      "evidence": []
+      "status": "local_pass",
+      "evidence": [
+        "../evidence/tribute-access-convergence/mixed-course.json"
+      ]
     },
     {
       "id": 18,
       "scenario": "Guide one-time + join",
       "expected": "Guide/чат бессрочны; другой Guide закрыт",
-      "status": "pending",
-      "evidence": []
+      "status": "local_pass",
+      "evidence": [
+        "../evidence/tribute-access-convergence/mixed-guides.json"
+      ]
     },
     {
       "id": 19,
       "scenario": "Два Guide, отзыв одного основания",
       "expected": "Второй Guide и чат сохранены",
-      "status": "pending",
-      "evidence": []
+      "status": "local_pass",
+      "evidence": [
+        "../evidence/tribute-access-convergence/mixed-guides.json"
+      ]
     },
     {
       "id": 20,
       "scenario": "Тариф скрыт или архивирован",
       "expected": "Hidden запрещает продажу, но разрешает enabled assignment; archived запрещает новые продажи/назначения; старое право действует",
-      "status": "pending",
-      "evidence": []
+      "status": "local_pass",
+      "evidence": [
+        "apps/backend/test/integration/billing-operations.test.ts: каталог управляется той же поверхностью с проверкой revision",
+        "apps/backend/test/integration/payment-access-matrix.test.ts: выключение и архивирование продажи не трогают действующий доступ и продление",
+        "../evidence/tribute-access-convergence/owner-invariants.md"
+      ],
+      "proofBoundary": "Paired actual application journeys plus owning boundary tests with real PostgreSQL. Consumer adapter tests prove consumer validation/recovery only; Platform grants are separately proved in the owning service and running pair. Exact commands/tests are in owner-invariants.md."
     },
     {
       "id": 21,
       "scenario": "Прямой API/старый quote/кеш при закрытой продаже",
       "expected": "Не обходят серверный gate; in-flight платёж сверяется",
-      "status": "pending",
-      "evidence": []
+      "status": "local_pass",
+      "evidence": [
+        "apps/backend/test/integration/billing-operations.test.ts: 21 a quote accepted before unpublish cannot start a new purchase afterward",
+        "../evidence/tribute-access-convergence/owner-invariants.md"
+      ],
+      "proofBoundary": "Paired actual application journeys plus owning boundary tests with real PostgreSQL. Consumer adapter tests prove consumer validation/recovery only; Platform grants are separately proved in the owning service and running pair. Exact commands/tests are in owner-invariants.md."
     },
     {
       "id": 22,
       "scenario": "Новый отдельный продукт вне состава",
       "expected": "Закрыт, включая прямые body/asset/video/artifact URLs",
-      "status": "pending",
-      "evidence": []
+      "status": "local_pass",
+      "evidence": [
+        "../evidence/tribute-access-convergence/owner-invariants.md",
+        "../evidence/tribute-access-convergence/tribute-desktop.json"
+      ],
+      "proofBoundary": "Paired actual application journeys plus owning boundary tests with real PostgreSQL. Consumer adapter tests prove consumer validation/recovery only; Platform grants are separately proved in the owning service and running pair. Exact commands/tests are in owner-invariants.md."
     },
     {
       "id": 23,
       "scenario": "Новый материал внутри включённого Guide",
       "expected": "Доступен по прежнему составу без покупки заново",
-      "status": "pending",
-      "evidence": []
+      "status": "local_pass",
+      "evidence": [
+        "../evidence/tribute-access-convergence/tribute-desktop.json",
+        "../evidence/tribute-access-convergence/tribute-mobile.json"
+      ]
     },
     {
       "id": 24,
       "scenario": "Изменение цены/benefits/версии тарифа",
       "expected": "Старые снимки/сроки не переписаны",
-      "status": "pending",
-      "evidence": []
+      "status": "local_pass",
+      "evidence": [
+        "../evidence/tribute-access-convergence/tribute-desktop.json",
+        "../evidence/tribute-access-convergence/owner-invariants.md"
+      ],
+      "proofBoundary": "Paired actual application journeys plus owning boundary tests with real PostgreSQL. Consumer adapter tests prove consumer validation/recovery only; Platform grants are separately proved in the owning service and running pair. Exact commands/tests are in owner-invariants.md."
     },
     {
       "id": 25,
       "scenario": "Два пересекающихся тарифа, один истёк",
       "expected": "Объединение независимо; граница срока точная",
-      "status": "pending",
-      "evidence": []
+      "status": "local_pass",
+      "evidence": [
+        "../evidence/tribute-access-convergence/overlap.json"
+      ]
     },
     {
       "id": 26,
       "scenario": "Таймзона, конец месяца, startsAt в будущем",
       "expected": "Полуоткрытые интервалы без ранней выдачи/лишнего дня",
-      "status": "pending",
-      "evidence": []
+      "status": "local_pass",
+      "evidence": [
+        "apps/backend/test/integration/tribute-sources.test.ts: 24/26 full enrollment snapshot survives catalog edit and offset periods resolve at exact UTC bounds",
+        "apps/backend/test/integration/billing-subscriptions.test.ts: продление считает срок от исходного anchor и продолжает права без перерыва",
+        "../evidence/tribute-access-convergence/owner-invariants.md"
+      ],
+      "proofBoundary": "Paired actual application journeys plus owning boundary tests with real PostgreSQL. Consumer adapter tests prove consumer validation/recovery only; Platform grants are separately proved in the owning service and running pair. Exact commands/tests are in owner-invariants.md."
     },
     {
       "id": 27,
       "scenario": "Чужая/просроченная invite, stale permit/revision",
       "expected": "Нет допуска или удаления не того человека",
-      "status": "pending",
-      "evidence": []
+      "status": "local_pass",
+      "evidence": [
+        "../evidence/tribute-access-convergence/course-desktop.json",
+        "../evidence/tribute-access-convergence/delivery-recovery.json",
+        "../evidence/tribute-access-convergence/owner-invariants.md"
+      ],
+      "proofBoundary": "Paired actual application journeys plus owning boundary tests with real PostgreSQL. Consumer adapter tests prove consumer validation/recovery only; Platform grants are separately proved in the owning service and running pair. Exact commands/tests are in owner-invariants.md."
     },
     {
       "id": 28,
       "scenario": "Модераторский ban + новое /start/покупка",
       "expected": "Автоматического обхода нет; материалы независимы",
-      "status": "pending",
-      "evidence": []
+      "status": "local_pass",
+      "evidence": [
+        "../evidence/tribute-access-convergence/course-desktop.json",
+        "../evidence/tribute-access-convergence/moderation-purchase.json"
+      ]
     },
     {
       "id": 29,
       "scenario": "Сбой после grant commit до community delivery",
       "expected": "Права доступны, доставка восстанавливается",
-      "status": "pending",
-      "evidence": []
+      "status": "local_pass",
+      "evidence": [
+        "../evidence/tribute-access-convergence/delivery-before.json",
+        "../evidence/tribute-access-convergence/delivery-recovery.json",
+        "../evidence/tribute-access-convergence/course-orders.json"
+      ]
     },
     {
       "id": 30,
       "scenario": "Сбой после внешнего invite/ban до ack",
       "expected": "Неизвестный исход сверяется, нет слепого двойного эффекта",
-      "status": "pending",
-      "evidence": []
+      "status": "local_pass",
+      "evidence": [
+        "../evidence/tribute-access-convergence/unknown-ban.json",
+        "../evidence/tribute-access-convergence/owner-invariants.md"
+      ],
+      "proofBoundary": "Paired actual application journeys plus owning boundary tests with real PostgreSQL. Consumer adapter tests prove consumer validation/recovery only; Platform grants are separately proved in the owning service and running pair. Exact commands/tests are in owner-invariants.md."
     },
     {
       "id": 31,
       "scenario": "Backup/restore, restart, rollback flags",
       "expected": "Права и receipts сохранены, recurring не включён",
-      "status": "pending",
-      "evidence": []
+      "status": "local_pass",
+      "evidence": [
+        "../evidence/tribute-access-convergence/restored-pair.json"
+      ]
     },
     {
       "id": 32,
       "scenario": "Mobile/desktop бот → вход → кабинет → чтение",
       "expected": "Понятные состояния, клавиатура/a11y, нет тупика после возврата",
-      "status": "pending",
-      "evidence": []
+      "status": "local_pass",
+      "evidence": [
+        "../evidence/tribute-access-convergence/course-desktop.json",
+        "../evidence/tribute-access-convergence/course-mobile.json",
+        "../evidence/tribute-access-convergence/tribute-desktop.json",
+        "../evidence/tribute-access-convergence/tribute-mobile.json",
+        "../evidence/tribute-access-convergence/no-active.json",
+        "../evidence/tribute-access-convergence/activation-race.json"
+      ]
     },
     {
       "id": 33,
       "scenario": "Нет активных прав",
       "expected": "Аккаунт/история доступны, закрытые материалы недоступны",
-      "status": "pending",
-      "evidence": []
+      "status": "local_pass",
+      "evidence": [
+        "../evidence/tribute-access-convergence/no-active.json"
+      ]
     },
     {
       "id": 34,
       "scenario": "Будущий тестовый публичный тариф и согласие",
       "expected": "Настоящий billing lifecycle локально, без реальной продажи",
-      "status": "pending",
-      "evidence": []
+      "status": "local_pass",
+      "evidence": [
+        "apps/backend/test/integration/billing-subscriptions.test.ts: продление считает срок от исходного anchor и продолжает права без перерыва",
+        "../evidence/tribute-access-convergence/owner-invariants.md"
+      ],
+      "proofBoundary": "Paired actual application journeys plus owning boundary tests with real PostgreSQL. Consumer adapter tests prove consumer validation/recovery only; Platform grants are separately proved in the owning service and running pair. Exact commands/tests are in owner-invariants.md."
     },
     {
       "id": 35,
       "scenario": "Revoke → /start/import/renewal → restore",
       "expected": "Отзыв сохраняется до явной owner-команды; дубликата нет",
-      "status": "pending",
-      "evidence": []
+      "status": "local_pass",
+      "evidence": [
+        "../evidence/tribute-access-convergence/tribute-desktop.json"
+      ]
     },
     {
       "id": 36,
       "scenario": "TTL/timeout → fresh member и отдельно left → member",
       "expected": "В первом случае прежнее временное право восстановлено; во втором нужен внешний период/оператор",
-      "status": "pending",
-      "evidence": []
+      "status": "local_pass",
+      "evidence": [
+        "../evidence/tribute-access-convergence/temporary-source.json"
+      ],
+      "proofBoundary": "Actual accepted consumer AppModule and Platform HTTP/PG; external Telegram adapter controlled locally. No credentialed provider proof."
     },
     {
       "id": 37,
       "scenario": "Новый Guide → изменение Offer → расширение выбранной когорты",
       "expected": "Старые назначения не меняются от Offer edit; явная операция открывает Guide только выбранным Enrollment",
-      "status": "pending",
-      "evidence": []
+      "status": "local_pass",
+      "evidence": [
+        "../evidence/tribute-access-convergence/tribute-desktop.json"
+      ]
     },
     {
       "id": 38,
       "scenario": "Ручное подтверждение курса и две ссылки в обоих порядках",
       "expected": "Один course source entitlement и один срок",
-      "status": "pending",
-      "evidence": []
+      "status": "local_pass",
+      "evidence": [
+        "../evidence/tribute-access-convergence/course-orders.json",
+        "../evidence/tribute-access-convergence/owner-invariants.md"
+      ],
+      "proofBoundary": "Paired actual application journeys plus owning boundary tests with real PostgreSQL. Consumer adapter tests prove consumer validation/recovery only; Platform grants are separately proved in the owning service and running pair. Exact commands/tests are in owner-invariants.md."
     },
     {
       "id": 39,
       "scenario": "Community v1 receipts + v2 status и несовместимые версии",
       "expected": "История читается, moderation видна в боте/кабинете, небезопасного fallback/unban нет",
-      "status": "pending",
-      "evidence": []
+      "status": "local_pass",
+      "evidence": [
+        "../evidence/tribute-access-convergence/restored-pair.json",
+        "../evidence/tribute-access-convergence/owner-invariants.md",
+        "../evidence/tribute-access-convergence/portable-equality.json",
+        "../evidence/tribute-access-convergence/moderation-purchase.json"
+      ],
+      "proofBoundary": "Paired actual application journeys plus owning boundary tests with real PostgreSQL. Consumer adapter tests prove consumer validation/recovery only; Platform grants are separately proved in the owning service and running pair. Exact commands/tests are in owner-invariants.md."
     }
-  ]
+  ],
+  "platformRuntimeCheckpoint": "4ede757af5af118585604d0fbe7bd52de0aeeeef",
+  "status": "local_matrix_pass",
+  "finalHeadGate": "Authoritative terminal checks and independent review closure belong to the exact remote head in PR630; this immutable local matrix does not assert a CI result.",
+  "acceptanceComposition": "All 39 expected outcomes are covered by actual paired journeys and deterministic owning-boundary tests. This is not 39 independent browser tests or credentialed provider acceptance.",
+  "implementationCommit": "e93c4f2ebc44d7ad591d0ef178cbf19237c38ad1"
 }

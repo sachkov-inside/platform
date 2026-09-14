@@ -1,0 +1,65 @@
+{
+  "scope": "actual restored Platform + accepted Telegram AppModule; external Telegram only is synthetic",
+  "passed": [
+    "restored exact current binding and own-access",
+    "exact accepted evidence receipt replay",
+    "actual restored Telegram /access calls isolated Platform",
+    "unchanged enrollment/grant/source/purchase/subscription business digests",
+    "actual provider and consumer reject incompatible versions without downgrade"
+  ],
+  "before": {
+    "membership_entitlements.subscription_enrollments": {
+      "digest": "dc4f3348e46ce589e20c865cc3e40731",
+      "count": 22
+    },
+    "membership_entitlements.access_grants": {
+      "digest": "8be412b00d55e0937e059c0eb5d26190",
+      "count": 28
+    },
+    "membership_entitlements.source_entitlements": {
+      "digest": "350955d9fd4e78301f98ac20e4fada96",
+      "count": 22
+    },
+    "billing.purchases": {
+      "digest": "54b774570ec7e55c834fa16ca001549c",
+      "count": 6
+    },
+    "billing.subscriptions": {
+      "digest": "d41d8cd98f00b204e9800998ecf8427e",
+      "count": 0
+    }
+  },
+  "after": {
+    "membership_entitlements.subscription_enrollments": {
+      "digest": "dc4f3348e46ce589e20c865cc3e40731",
+      "count": 22
+    },
+    "membership_entitlements.access_grants": {
+      "digest": "8be412b00d55e0937e059c0eb5d26190",
+      "count": 28
+    },
+    "membership_entitlements.source_entitlements": {
+      "digest": "350955d9fd4e78301f98ac20e4fada96",
+      "count": 22
+    },
+    "billing.purchases": {
+      "digest": "54b774570ec7e55c834fa16ca001549c",
+      "count": 6
+    },
+    "billing.subscriptions": {
+      "digest": "d41d8cd98f00b204e9800998ecf8427e",
+      "count": 0
+    }
+  },
+  "flags": {
+    "community": "disabled",
+    "removals": false,
+    "membership": "disabled",
+    "evidence": "disabled",
+    "notifications": false,
+    "marketing": false,
+    "platformWorkers": false
+  },
+  "restartBusinessDigestsEqual": true,
+  "limitation": "Online snapshots do not prove atomic consistency across databases; external Telegram state remains a controlled double."
+}

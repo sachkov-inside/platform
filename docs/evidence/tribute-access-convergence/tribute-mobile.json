@@ -1,0 +1,19 @@
+{
+  "scope": "real Platform and accepted Telegram AppModule with real PG; external providers only are synthetic",
+  "scenarios": [
+    "PASS pending registry import after actual private ingress creates neither Account nor grant",
+    "PASS actual Telegram linking and registry activation gives one finite Platform Enrollment while course source is left",
+    "PASS Tribute registry grant opens the protected included material through real Reader/BFF/Platform",
+    "PASS newly published material inside the included Guide opens without replacing or extending the existing Enrollment",
+    "PASS finite Tribute source authorizes intended community join through actual consumer and Platform dispatch permit",
+    "PASS duplicate link and exact apply receipt preserve one Enrollment and original finite term",
+    "PASS signed HTTP renewal/dedup/cancel retains exact paid remainder on real account",
+    "PASS actual owner revoke survives bot start/import/signed renewal; explicit restore keeps same source and Enrollment",
+    "PASS owner CSV preview/select/apply commits through real BFF and restores lost HTTP response without replacing command",
+    "PASS actual account and owner UI; no login/token screenshot persisted"
+  ],
+  "evidence": [
+    "mobile-account.png",
+    "mobile-owner.png"
+  ]
+}
