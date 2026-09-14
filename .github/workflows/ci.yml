@@ -48,7 +48,7 @@ jobs:
         run: pnpm check
       - name: Upload Playwright diagnostics
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@v7
         with:
           name: quality-playwright-${{ github.run_attempt }}
           path: |
@@ -136,7 +136,7 @@ jobs:
           docker compose logs --no-color --tail 500 >ci-artifacts/compose-development/compose.log 2>&1 || true
       - name: Upload failure diagnostics
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@v7
         with:
           name: compose-development-diagnostics-${{ github.run_attempt }}
           path: ci-artifacts/compose-development
@@ -171,7 +171,7 @@ jobs:
         run: pnpm release:images:smoke
       - name: Upload failure diagnostics
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@v7
         with:
           name: compose-production-diagnostics-${{ github.run_attempt }}
           path: ci-artifacts/compose-production
