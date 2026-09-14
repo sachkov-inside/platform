@@ -1,4 +1,6 @@
-const durations = [4000, 3600, 3400, 3600, 3600];
+export const PROCESS_ARTWORK_TIME_SCALE = 1.25;
+export const PROCESS_ARTWORK_TRANSITION_MS = 640;
+
 const starts = [0, 4000, 7600, 11000, 14600];
 const end = 19400;
 
@@ -10,19 +12,17 @@ export interface ProcessArtworkOptions {
 }
 
 /** Owns only the presentation subtree, never React state or application data. */
-export function mountProcessArtwork(host: HTMLElement, { mode, scene = 5, loop = false }: ProcessArtworkOptions) {
+export function mountProcessArtwork(host: HTMLElement, { mode, scene = 5, loop = true }: ProcessArtworkOptions) {
   const stage = host.querySelector<HTMLElement>(".stage");
   if (!stage) throw new Error("Process artwork stage is missing");
   const scenes = [...stage.querySelectorAll<HTMLElement>(".scene")];
-  const segments = [...stage.querySelectorAll<HTMLElement>(".stage-progress i")];
   const register = (el: HTMLElement) => {
     const text = el.textContent;
     const next = el.nextElementSibling;
     return { el, text, start: Number(el.dataset.t ?? 0), speed: Number(el.dataset.speed ?? 42), caret: next?.classList.contains("caret") ? next : null };
   };
   const typers = scenes.map(item => [...item.querySelectorAll<HTMLElement>(".type")].map(register));
-  const steps = [...stage.querySelectorAll<HTMLElement>(".stage-step .type")].map(register);
-  const allTypers = [...typers.flat(), ...steps];
+  const allTypers = typers.flat();
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
   let current = -1;
   let elapsed = 0;
@@ -40,29 +40,18 @@ export function mountProcessArtwork(host: HTMLElement, { mode, scene = 5, loop =
       leaving?.classList.remove("is-active", "is-leaving");
       leaving = scenes[current];
       leaving?.classList.add("is-leaving");
-      leavingUntil = elapsed + 400;
+      leavingUntil = elapsed + PROCESS_ARTWORK_TRANSITION_MS;
     }
     current = index;
     const active = scenes[index];
     active?.classList.remove("is-active", "is-leaving");
     if (active) { void active.offsetWidth; active.classList.add("is-active"); }
     for (const typer of typers[index] ?? []) { typer.el.textContent = ""; typer.caret?.classList.remove("is-on"); }
-    steps.forEach((step, i) => { step.el.hidden = i !== index; step.el.textContent = ""; });
-    segments.forEach((segment, i) => {
-      segment.classList.remove("is-done", "is-active");
-      if (i < index) segment.classList.add("is-done");
-      if (i === index) {
-        segment.style.setProperty("--d", `${String(durations[i] ?? 0)}ms`);
-        void segment.offsetWidth;
-        segment.classList.add("is-active");
-      }
-    });
     if (stage) stage.dataset.scene = String(index + 1);
   }
 
   function renderTyping(sceneTime: number) {
-    const step = steps[current];
-    for (const typer of [...(typers[current] ?? []), ...(step ? [step] : [])]) {
+    for (const typer of typers[current] ?? []) {
       const length = Math.max(0, Math.min(typer.text.length, Math.floor((sceneTime - typer.start) / typer.speed)));
       if (typer.el.textContent.length !== length) typer.el.textContent = typer.text.slice(0, length);
       typer.caret?.classList.toggle("is-on", sceneTime >= typer.start && sceneTime <= typer.start + typer.text.length * typer.speed + 800);
@@ -80,7 +69,7 @@ export function mountProcessArtwork(host: HTMLElement, { mode, scene = 5, loop =
 
   function tick(now: number) {
     if (!running) return;
-    elapsed += now - lastNow;
+    elapsed += (now - lastNow) / PROCESS_ARTWORK_TIME_SCALE;
     lastNow = now;
     if (leaving && elapsed >= leavingUntil) { leaving.classList.remove("is-active", "is-leaving"); leaving = undefined; }
     if (elapsed >= end) {
@@ -123,7 +112,6 @@ export function mountProcessArtwork(host: HTMLElement, { mode, scene = 5, loop =
       const index = mode === "static" ? scene - 1 : 4;
       activate(index);
       for (const typer of allTypers) { typer.el.textContent = typer.text; typer.caret?.classList.remove("is-on"); }
-      segments.forEach((segment, i) => { segment.classList.remove("is-active"); segment.classList.toggle("is-done", i <= index); });
     } else syncVisibility();
   }
 
@@ -141,7 +129,6 @@ export function mountProcessArtwork(host: HTMLElement, { mode, scene = 5, loop =
     stage.classList.remove("is-static", "is-paused");
     delete stage.dataset.scene;
     scenes.forEach(item => { item.classList.remove("is-active", "is-leaving"); });
-    segments.forEach(segment => { segment.classList.remove("is-active", "is-done"); });
     for (const typer of allTypers) { typer.el.textContent = typer.text; typer.caret?.classList.remove("is-on"); }
   };
 }

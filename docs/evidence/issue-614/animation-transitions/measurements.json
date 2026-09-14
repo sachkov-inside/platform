@@ -1,0 +1,3511 @@
+[
+  {
+    "width": 1440,
+    "transitions": [
+      {
+        "from": "1",
+        "to": "2",
+        "start": 5357.1,
+        "samples": [
+          {
+            "ms": 0,
+            "out": 1,
+            "in": 0,
+            "leaving": true
+          },
+          {
+            "ms": 17,
+            "out": 0.999169,
+            "in": 0.0008308,
+            "leaving": true
+          },
+          {
+            "ms": 33,
+            "out": 0.996666,
+            "in": 0.00333439,
+            "leaving": true
+          },
+          {
+            "ms": 50,
+            "out": 0.992414,
+            "in": 0.00758553,
+            "leaving": true
+          },
+          {
+            "ms": 67,
+            "out": 0.986425,
+            "in": 0.0135754,
+            "leaving": true
+          },
+          {
+            "ms": 83,
+            "out": 0.978532,
+            "in": 0.0214683,
+            "leaving": true
+          },
+          {
+            "ms": 100,
+            "out": 0.968889,
+            "in": 0.0311115,
+            "leaving": true
+          },
+          {
+            "ms": 117,
+            "out": 0.957307,
+            "in": 0.0426932,
+            "leaving": true
+          },
+          {
+            "ms": 133,
+            "out": 0.943815,
+            "in": 0.056185,
+            "leaving": true
+          },
+          {
+            "ms": 150,
+            "out": 0.928495,
+            "in": 0.071505,
+            "leaving": true
+          },
+          {
+            "ms": 167,
+            "out": 0.911265,
+            "in": 0.0887347,
+            "leaving": true
+          },
+          {
+            "ms": 183,
+            "out": 0.892009,
+            "in": 0.107991,
+            "leaving": true
+          },
+          {
+            "ms": 200,
+            "out": 0.870843,
+            "in": 0.129157,
+            "leaving": true
+          },
+          {
+            "ms": 217,
+            "out": 0.8478,
+            "in": 0.1522,
+            "leaving": true
+          },
+          {
+            "ms": 233,
+            "out": 0.823083,
+            "in": 0.176917,
+            "leaving": true
+          },
+          {
+            "ms": 250,
+            "out": 0.796464,
+            "in": 0.203536,
+            "leaving": true
+          },
+          {
+            "ms": 267,
+            "out": 0.768348,
+            "in": 0.231652,
+            "leaving": true
+          },
+          {
+            "ms": 283,
+            "out": 0.738507,
+            "in": 0.261493,
+            "leaving": true
+          },
+          {
+            "ms": 300,
+            "out": 0.707237,
+            "in": 0.292763,
+            "leaving": true
+          },
+          {
+            "ms": 317,
+            "out": 0.67489,
+            "in": 0.32511,
+            "leaving": true
+          },
+          {
+            "ms": 333,
+            "out": 0.64125,
+            "in": 0.35875,
+            "leaving": true
+          },
+          {
+            "ms": 350,
+            "out": 0.606703,
+            "in": 0.393297,
+            "leaving": true
+          },
+          {
+            "ms": 367,
+            "out": 0.571672,
+            "in": 0.428328,
+            "leaving": true
+          },
+          {
+            "ms": 383,
+            "out": 0.535745,
+            "in": 0.464255,
+            "leaving": true
+          },
+          {
+            "ms": 400,
+            "out": 0.500009,
+            "in": 0.499991,
+            "leaving": true
+          },
+          {
+            "ms": 417,
+            "out": 0.464057,
+            "in": 0.535943,
+            "leaving": true
+          },
+          {
+            "ms": 433,
+            "out": 0.428345,
+            "in": 0.571655,
+            "leaving": true
+          },
+          {
+            "ms": 450,
+            "out": 0.393314,
+            "in": 0.606686,
+            "leaving": true
+          },
+          {
+            "ms": 467,
+            "out": 0.358971,
+            "in": 0.641029,
+            "leaving": true
+          },
+          {
+            "ms": 483,
+            "out": 0.325324,
+            "in": 0.674676,
+            "leaving": true
+          },
+          {
+            "ms": 500,
+            "out": 0.292778,
+            "in": 0.707222,
+            "leaving": true
+          },
+          {
+            "ms": 517,
+            "out": 0.261691,
+            "in": 0.738309,
+            "leaving": true
+          },
+          {
+            "ms": 533,
+            "out": 0.231666,
+            "in": 0.768334,
+            "leaving": true
+          },
+          {
+            "ms": 550,
+            "out": 0.203549,
+            "in": 0.796451,
+            "leaving": true
+          },
+          {
+            "ms": 567,
+            "out": 0.176929,
+            "in": 0.823071,
+            "leaving": true
+          },
+          {
+            "ms": 583,
+            "out": 0.152068,
+            "in": 0.847932,
+            "leaving": true
+          },
+          {
+            "ms": 600,
+            "out": 0.129167,
+            "in": 0.870833,
+            "leaving": true
+          },
+          {
+            "ms": 617,
+            "out": 0.108,
+            "in": 0.892,
+            "leaving": true
+          },
+          {
+            "ms": 633,
+            "out": 0.0887435,
+            "in": 0.911257,
+            "leaving": true
+          },
+          {
+            "ms": 650,
+            "out": 0.0715128,
+            "in": 0.928487,
+            "leaving": true
+          },
+          {
+            "ms": 667,
+            "out": 0.056192,
+            "in": 0.943808,
+            "leaving": true
+          },
+          {
+            "ms": 683,
+            "out": 0.0426992,
+            "in": 0.957301,
+            "leaving": true
+          },
+          {
+            "ms": 700,
+            "out": 0.0311803,
+            "in": 0.96882,
+            "leaving": true
+          },
+          {
+            "ms": 717,
+            "out": 0.0214725,
+            "in": 0.978528,
+            "leaving": true
+          },
+          {
+            "ms": 733,
+            "out": 0.0136203,
+            "in": 0.98638,
+            "leaving": true
+          },
+          {
+            "ms": 750,
+            "out": 0.00761878,
+            "in": 0.992381,
+            "leaving": true
+          },
+          {
+            "ms": 767,
+            "out": 0.00333601,
+            "in": 0.996664,
+            "leaving": true
+          },
+          {
+            "ms": 783,
+            "out": 0.0008316,
+            "in": 0.999168,
+            "leaving": true
+          },
+          {
+            "ms": 800,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 817,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 833,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 850,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 867,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 883,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 900,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 917,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 933,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          }
+        ]
+      },
+      {
+        "from": "2",
+        "to": "3",
+        "start": 9856.9,
+        "samples": [
+          {
+            "ms": 0,
+            "out": 1,
+            "in": 0,
+            "leaving": true
+          },
+          {
+            "ms": 17,
+            "out": 0.999171,
+            "in": 0.000828801,
+            "leaving": true
+          },
+          {
+            "ms": 33,
+            "out": 0.99667,
+            "in": 0.00333035,
+            "leaving": true
+          },
+          {
+            "ms": 50,
+            "out": 0.992421,
+            "in": 0.00757939,
+            "leaving": true
+          },
+          {
+            "ms": 67,
+            "out": 0.986391,
+            "in": 0.0136086,
+            "leaving": true
+          },
+          {
+            "ms": 83,
+            "out": 0.978542,
+            "in": 0.0214578,
+            "leaving": true
+          },
+          {
+            "ms": 100,
+            "out": 0.968838,
+            "in": 0.0311624,
+            "leaving": true
+          },
+          {
+            "ms": 117,
+            "out": 0.957322,
+            "in": 0.0426782,
+            "leaving": true
+          },
+          {
+            "ms": 133,
+            "out": 0.943832,
+            "in": 0.0561677,
+            "leaving": true
+          },
+          {
+            "ms": 150,
+            "out": 0.928515,
+            "in": 0.0714854,
+            "leaving": true
+          },
+          {
+            "ms": 167,
+            "out": 0.911287,
+            "in": 0.0887128,
+            "leaving": true
+          },
+          {
+            "ms": 183,
+            "out": 0.891913,
+            "in": 0.108087,
+            "leaving": true
+          },
+          {
+            "ms": 200,
+            "out": 0.870737,
+            "in": 0.129263,
+            "leaving": true
+          },
+          {
+            "ms": 217,
+            "out": 0.847829,
+            "in": 0.152171,
+            "leaving": true
+          },
+          {
+            "ms": 233,
+            "out": 0.823114,
+            "in": 0.176886,
+            "leaving": true
+          },
+          {
+            "ms": 250,
+            "out": 0.796497,
+            "in": 0.203503,
+            "leaving": true
+          },
+          {
+            "ms": 267,
+            "out": 0.768383,
+            "in": 0.231617,
+            "leaving": true
+          },
+          {
+            "ms": 283,
+            "out": 0.738361,
+            "in": 0.261639,
+            "leaving": true
+          },
+          {
+            "ms": 300,
+            "out": 0.707275,
+            "in": 0.292725,
+            "leaving": true
+          },
+          {
+            "ms": 317,
+            "out": 0.674929,
+            "in": 0.325071,
+            "leaving": true
+          },
+          {
+            "ms": 333,
+            "out": 0.641086,
+            "in": 0.358914,
+            "leaving": true
+          },
+          {
+            "ms": 350,
+            "out": 0.606745,
+            "in": 0.393255,
+            "leaving": true
+          },
+          {
+            "ms": 367,
+            "out": 0.571502,
+            "in": 0.428498,
+            "leaving": true
+          },
+          {
+            "ms": 383,
+            "out": 0.536003,
+            "in": 0.463997,
+            "leaving": true
+          },
+          {
+            "ms": 400,
+            "out": 0.500052,
+            "in": 0.499948,
+            "leaving": true
+          },
+          {
+            "ms": 417,
+            "out": 0.4641,
+            "in": 0.5359,
+            "leaving": true
+          },
+          {
+            "ms": 433,
+            "out": 0.428387,
+            "in": 0.571613,
+            "leaving": true
+          },
+          {
+            "ms": 450,
+            "out": 0.393146,
+            "in": 0.606853,
+            "leaving": true
+          },
+          {
+            "ms": 467,
+            "out": 0.358807,
+            "in": 0.641193,
+            "leaving": true
+          },
+          {
+            "ms": 483,
+            "out": 0.325166,
+            "in": 0.674834,
+            "leaving": true
+          },
+          {
+            "ms": 500,
+            "out": 0.292817,
+            "in": 0.707183,
+            "leaving": true
+          },
+          {
+            "ms": 517,
+            "out": 0.261544,
+            "in": 0.738456,
+            "leaving": true
+          },
+          {
+            "ms": 533,
+            "out": 0.231875,
+            "in": 0.768125,
+            "leaving": true
+          },
+          {
+            "ms": 550,
+            "out": 0.203582,
+            "in": 0.796418,
+            "leaving": true
+          },
+          {
+            "ms": 567,
+            "out": 0.17696,
+            "in": 0.82304,
+            "leaving": true
+          },
+          {
+            "ms": 583,
+            "out": 0.15224,
+            "in": 0.84776,
+            "leaving": true
+          },
+          {
+            "ms": 600,
+            "out": 0.129194,
+            "in": 0.870806,
+            "leaving": true
+          },
+          {
+            "ms": 617,
+            "out": 0.108145,
+            "in": 0.891855,
+            "leaving": true
+          },
+          {
+            "ms": 633,
+            "out": 0.088875,
+            "in": 0.911125,
+            "leaving": true
+          },
+          {
+            "ms": 650,
+            "out": 0.0715325,
+            "in": 0.928468,
+            "leaving": true
+          },
+          {
+            "ms": 667,
+            "out": 0.0562093,
+            "in": 0.943791,
+            "leaving": true
+          },
+          {
+            "ms": 683,
+            "out": 0.0426392,
+            "in": 0.957361,
+            "leaving": true
+          },
+          {
+            "ms": 700,
+            "out": 0.0311293,
+            "in": 0.968871,
+            "leaving": true
+          },
+          {
+            "ms": 717,
+            "out": 0.0214305,
+            "in": 0.97857,
+            "leaving": true
+          },
+          {
+            "ms": 733,
+            "out": 0.0136286,
+            "in": 0.986371,
+            "leaving": true
+          },
+          {
+            "ms": 750,
+            "out": 0.00759414,
+            "in": 0.992406,
+            "leaving": true
+          },
+          {
+            "ms": 767,
+            "out": 0.00336031,
+            "in": 0.99664,
+            "leaving": true
+          },
+          {
+            "ms": 783,
+            "out": 0.000833602,
+            "in": 0.999166,
+            "leaving": true
+          },
+          {
+            "ms": 800,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 817,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 833,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 850,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 867,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 883,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 900,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 917,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 933,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          }
+        ]
+      },
+      {
+        "from": "3",
+        "to": "4",
+        "start": 14106.7,
+        "samples": [
+          {
+            "ms": 0,
+            "out": 1,
+            "in": 0,
+            "leaving": true
+          },
+          {
+            "ms": 17,
+            "out": 0.999174,
+            "in": 0.000825808,
+            "leaving": true
+          },
+          {
+            "ms": 33,
+            "out": 0.996655,
+            "in": 0.00334451,
+            "leaving": true
+          },
+          {
+            "ms": 50,
+            "out": 0.992399,
+            "in": 0.00760091,
+            "leaving": true
+          },
+          {
+            "ms": 67,
+            "out": 0.986362,
+            "in": 0.0136377,
+            "leaving": true
+          },
+          {
+            "ms": 83,
+            "out": 0.978558,
+            "in": 0.021442,
+            "leaving": true
+          },
+          {
+            "ms": 100,
+            "out": 0.968857,
+            "in": 0.0311433,
+            "leaving": true
+          },
+          {
+            "ms": 117,
+            "out": 0.957269,
+            "in": 0.0427308,
+            "leaving": true
+          },
+          {
+            "ms": 133,
+            "out": 0.943945,
+            "in": 0.0560553,
+            "leaving": true
+          },
+          {
+            "ms": 150,
+            "out": 0.928544,
+            "in": 0.071456,
+            "leaving": true
+          },
+          {
+            "ms": 167,
+            "out": 0.911101,
+            "in": 0.0888991,
+            "leaving": true
+          },
+          {
+            "ms": 183,
+            "out": 0.891949,
+            "in": 0.108051,
+            "leaving": true
+          },
+          {
+            "ms": 200,
+            "out": 0.870777,
+            "in": 0.129223,
+            "leaving": true
+          },
+          {
+            "ms": 217,
+            "out": 0.847872,
+            "in": 0.152128,
+            "leaving": true
+          },
+          {
+            "ms": 233,
+            "out": 0.823006,
+            "in": 0.176994,
+            "leaving": true
+          },
+          {
+            "ms": 250,
+            "out": 0.796382,
+            "in": 0.203618,
+            "leaving": true
+          },
+          {
+            "ms": 267,
+            "out": 0.768261,
+            "in": 0.231739,
+            "leaving": true
+          },
+          {
+            "ms": 283,
+            "out": 0.738416,
+            "in": 0.261584,
+            "leaving": true
+          },
+          {
+            "ms": 300,
+            "out": 0.707141,
+            "in": 0.292859,
+            "leaving": true
+          },
+          {
+            "ms": 317,
+            "out": 0.674791,
+            "in": 0.325209,
+            "leaving": true
+          },
+          {
+            "ms": 333,
+            "out": 0.641148,
+            "in": 0.358852,
+            "leaving": true
+          },
+          {
+            "ms": 350,
+            "out": 0.606807,
+            "in": 0.393192,
+            "leaving": true
+          },
+          {
+            "ms": 367,
+            "out": 0.571566,
+            "in": 0.428434,
+            "leaving": true
+          },
+          {
+            "ms": 383,
+            "out": 0.535853,
+            "in": 0.464147,
+            "leaving": true
+          },
+          {
+            "ms": 400,
+            "out": 0.499901,
+            "in": 0.500099,
+            "leaving": true
+          },
+          {
+            "ms": 417,
+            "out": 0.464165,
+            "in": 0.535835,
+            "leaving": true
+          },
+          {
+            "ms": 433,
+            "out": 0.428451,
+            "in": 0.571549,
+            "leaving": true
+          },
+          {
+            "ms": 450,
+            "out": 0.393418,
+            "in": 0.606582,
+            "leaving": true
+          },
+          {
+            "ms": 467,
+            "out": 0.358869,
+            "in": 0.641131,
+            "leaving": true
+          },
+          {
+            "ms": 483,
+            "out": 0.325225,
+            "in": 0.674775,
+            "leaving": true
+          },
+          {
+            "ms": 500,
+            "out": 0.292683,
+            "in": 0.707317,
+            "leaving": true
+          },
+          {
+            "ms": 517,
+            "out": 0.261599,
+            "in": 0.738401,
+            "leaving": true
+          },
+          {
+            "ms": 533,
+            "out": 0.231927,
+            "in": 0.768073,
+            "leaving": true
+          },
+          {
+            "ms": 550,
+            "out": 0.203467,
+            "in": 0.796533,
+            "leaving": true
+          },
+          {
+            "ms": 567,
+            "out": 0.177006,
+            "in": 0.822994,
+            "leaving": true
+          },
+          {
+            "ms": 583,
+            "out": 0.15214,
+            "in": 0.84786,
+            "leaving": true
+          },
+          {
+            "ms": 600,
+            "out": 0.129101,
+            "in": 0.870899,
+            "leaving": true
+          },
+          {
+            "ms": 617,
+            "out": 0.108061,
+            "in": 0.891939,
+            "leaving": true
+          },
+          {
+            "ms": 633,
+            "out": 0.0889079,
+            "in": 0.911092,
+            "leaving": true
+          },
+          {
+            "ms": 650,
+            "out": 0.0715619,
+            "in": 0.928438,
+            "leaving": true
+          },
+          {
+            "ms": 667,
+            "out": 0.0561487,
+            "in": 0.943851,
+            "leaving": true
+          },
+          {
+            "ms": 683,
+            "out": 0.0426617,
+            "in": 0.957338,
+            "leaving": true
+          },
+          {
+            "ms": 700,
+            "out": 0.0310847,
+            "in": 0.968915,
+            "leaving": true
+          },
+          {
+            "ms": 717,
+            "out": 0.0214462,
+            "in": 0.978554,
+            "leaving": true
+          },
+          {
+            "ms": 733,
+            "out": 0.013641,
+            "in": 0.986359,
+            "leaving": true
+          },
+          {
+            "ms": 750,
+            "out": 0.00760338,
+            "in": 0.992397,
+            "leaving": true
+          },
+          {
+            "ms": 767,
+            "out": 0.00334613,
+            "in": 0.996654,
+            "leaving": true
+          },
+          {
+            "ms": 783,
+            "out": 0.000836609,
+            "in": 0.999163,
+            "leaving": true
+          },
+          {
+            "ms": 800,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 817,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 833,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 850,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 867,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 883,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 900,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 917,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 933,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          }
+        ]
+      },
+      {
+        "from": "4",
+        "to": "5",
+        "start": 18606.6,
+        "samples": [
+          {
+            "ms": 0,
+            "out": 1,
+            "in": 0,
+            "leaving": true
+          },
+          {
+            "ms": 17,
+            "out": 0.999176,
+            "in": 0.000823816,
+            "leaving": true
+          },
+          {
+            "ms": 33,
+            "out": 0.99666,
+            "in": 0.00334046,
+            "leaving": true
+          },
+          {
+            "ms": 50,
+            "out": 0.992405,
+            "in": 0.00759476,
+            "leaving": true
+          },
+          {
+            "ms": 67,
+            "out": 0.986412,
+            "in": 0.0135879,
+            "leaving": true
+          },
+          {
+            "ms": 83,
+            "out": 0.978568,
+            "in": 0.0214315,
+            "leaving": true
+          },
+          {
+            "ms": 100,
+            "out": 0.968869,
+            "in": 0.0311306,
+            "leaving": true
+          },
+          {
+            "ms": 117,
+            "out": 0.957359,
+            "in": 0.0426407,
+            "leaving": true
+          },
+          {
+            "ms": 133,
+            "out": 0.943876,
+            "in": 0.0561245,
+            "leaving": true
+          },
+          {
+            "ms": 150,
+            "out": 0.928466,
+            "in": 0.0715344,
+            "leaving": true
+          },
+          {
+            "ms": 167,
+            "out": 0.911232,
+            "in": 0.0887676,
+            "leaving": true
+          },
+          {
+            "ms": 183,
+            "out": 0.891973,
+            "in": 0.108027,
+            "leaving": true
+          },
+          {
+            "ms": 200,
+            "out": 0.870804,
+            "in": 0.129196,
+            "leaving": true
+          },
+          {
+            "ms": 217,
+            "out": 0.8479,
+            "in": 0.1521,
+            "leaving": true
+          },
+          {
+            "ms": 233,
+            "out": 0.823037,
+            "in": 0.176963,
+            "leaving": true
+          },
+          {
+            "ms": 250,
+            "out": 0.796415,
+            "in": 0.203585,
+            "leaving": true
+          },
+          {
+            "ms": 267,
+            "out": 0.768122,
+            "in": 0.231878,
+            "leaving": true
+          },
+          {
+            "ms": 283,
+            "out": 0.738635,
+            "in": 0.261365,
+            "leaving": true
+          },
+          {
+            "ms": 300,
+            "out": 0.707371,
+            "in": 0.292629,
+            "leaving": true
+          },
+          {
+            "ms": 317,
+            "out": 0.67483,
+            "in": 0.32517,
+            "leaving": true
+          },
+          {
+            "ms": 333,
+            "out": 0.641189,
+            "in": 0.358811,
+            "leaving": true
+          },
+          {
+            "ms": 350,
+            "out": 0.60664,
+            "in": 0.39336,
+            "leaving": true
+          },
+          {
+            "ms": 367,
+            "out": 0.571609,
+            "in": 0.428391,
+            "leaving": true
+          },
+          {
+            "ms": 383,
+            "out": 0.535896,
+            "in": 0.464104,
+            "leaving": true
+          },
+          {
+            "ms": 400,
+            "out": 0.50016,
+            "in": 0.499841,
+            "leaving": true
+          },
+          {
+            "ms": 417,
+            "out": 0.464208,
+            "in": 0.535792,
+            "leaving": true
+          },
+          {
+            "ms": 433,
+            "out": 0.428493,
+            "in": 0.571507,
+            "leaving": true
+          },
+          {
+            "ms": 450,
+            "out": 0.39346,
+            "in": 0.60654,
+            "leaving": true
+          },
+          {
+            "ms": 467,
+            "out": 0.358705,
+            "in": 0.641295,
+            "leaving": true
+          },
+          {
+            "ms": 483,
+            "out": 0.325265,
+            "in": 0.674735,
+            "leaving": true
+          },
+          {
+            "ms": 500,
+            "out": 0.292721,
+            "in": 0.707279,
+            "leaving": true
+          },
+          {
+            "ms": 517,
+            "out": 0.261636,
+            "in": 0.738364,
+            "leaving": true
+          },
+          {
+            "ms": 533,
+            "out": 0.231788,
+            "in": 0.768212,
+            "leaving": true
+          },
+          {
+            "ms": 550,
+            "out": 0.203664,
+            "in": 0.796336,
+            "leaving": true
+          },
+          {
+            "ms": 567,
+            "out": 0.177037,
+            "in": 0.822963,
+            "leaving": true
+          },
+          {
+            "ms": 583,
+            "out": 0.152169,
+            "in": 0.847831,
+            "leaving": true
+          },
+          {
+            "ms": 600,
+            "out": 0.12926,
+            "in": 0.87074,
+            "leaving": true
+          },
+          {
+            "ms": 617,
+            "out": 0.108085,
+            "in": 0.891915,
+            "leaving": true
+          },
+          {
+            "ms": 633,
+            "out": 0.0889298,
+            "in": 0.91107,
+            "leaving": true
+          },
+          {
+            "ms": 650,
+            "out": 0.0714834,
+            "in": 0.928517,
+            "leaving": true
+          },
+          {
+            "ms": 667,
+            "out": 0.056166,
+            "in": 0.943834,
+            "leaving": true
+          },
+          {
+            "ms": 683,
+            "out": 0.0426767,
+            "in": 0.957323,
+            "leaving": true
+          },
+          {
+            "ms": 700,
+            "out": 0.0311612,
+            "in": 0.968839,
+            "leaving": true
+          },
+          {
+            "ms": 717,
+            "out": 0.0214567,
+            "in": 0.978543,
+            "leaving": true
+          },
+          {
+            "ms": 733,
+            "out": 0.0136078,
+            "in": 0.986392,
+            "leaving": true
+          },
+          {
+            "ms": 750,
+            "out": 0.00760953,
+            "in": 0.99239,
+            "leaving": true
+          },
+          {
+            "ms": 767,
+            "out": 0.00335018,
+            "in": 0.99665,
+            "leaving": true
+          },
+          {
+            "ms": 783,
+            "out": 0.000828602,
+            "in": 0.999171,
+            "leaving": true
+          },
+          {
+            "ms": 800,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 817,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 833,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 850,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 867,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 883,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 900,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 917,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 933,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          }
+        ]
+      },
+      {
+        "from": "5",
+        "to": "1",
+        "start": 24606.3,
+        "samples": [
+          {
+            "ms": 0,
+            "out": 1,
+            "in": 0,
+            "leaving": true
+          },
+          {
+            "ms": 17,
+            "out": 0.999172,
+            "in": 0.000827803,
+            "leaving": true
+          },
+          {
+            "ms": 33,
+            "out": 0.996672,
+            "in": 0.00332833,
+            "leaving": true
+          },
+          {
+            "ms": 50,
+            "out": 0.992393,
+            "in": 0.00760707,
+            "leaving": true
+          },
+          {
+            "ms": 67,
+            "out": 0.986396,
+            "in": 0.0136045,
+            "leaving": true
+          },
+          {
+            "ms": 83,
+            "out": 0.978548,
+            "in": 0.0214525,
+            "leaving": true
+          },
+          {
+            "ms": 100,
+            "out": 0.968908,
+            "in": 0.0310924,
+            "leaving": true
+          },
+          {
+            "ms": 117,
+            "out": 0.957329,
+            "in": 0.0426707,
+            "leaving": true
+          },
+          {
+            "ms": 133,
+            "out": 0.943927,
+            "in": 0.0560726,
+            "leaving": true
+          },
+          {
+            "ms": 150,
+            "out": 0.928426,
+            "in": 0.0715737,
+            "leaving": true
+          },
+          {
+            "ms": 167,
+            "out": 0.911189,
+            "in": 0.0888114,
+            "leaving": true
+          },
+          {
+            "ms": 183,
+            "out": 0.892046,
+            "in": 0.107954,
+            "leaving": true
+          },
+          {
+            "ms": 200,
+            "out": 0.870751,
+            "in": 0.129249,
+            "leaving": true
+          },
+          {
+            "ms": 217,
+            "out": 0.847843,
+            "in": 0.152157,
+            "leaving": true
+          },
+          {
+            "ms": 233,
+            "out": 0.82313,
+            "in": 0.17687,
+            "leaving": true
+          },
+          {
+            "ms": 250,
+            "out": 0.796513,
+            "in": 0.203487,
+            "leaving": true
+          },
+          {
+            "ms": 267,
+            "out": 0.768226,
+            "in": 0.231774,
+            "leaving": true
+          },
+          {
+            "ms": 283,
+            "out": 0.738562,
+            "in": 0.261438,
+            "leaving": true
+          },
+          {
+            "ms": 300,
+            "out": 0.707103,
+            "in": 0.292897,
+            "leaving": true
+          },
+          {
+            "ms": 317,
+            "out": 0.674949,
+            "in": 0.325051,
+            "leaving": true
+          },
+          {
+            "ms": 333,
+            "out": 0.641107,
+            "in": 0.358893,
+            "leaving": true
+          },
+          {
+            "ms": 350,
+            "out": 0.606766,
+            "in": 0.393234,
+            "leaving": true
+          },
+          {
+            "ms": 367,
+            "out": 0.571524,
+            "in": 0.428476,
+            "leaving": true
+          },
+          {
+            "ms": 383,
+            "out": 0.536024,
+            "in": 0.463976,
+            "leaving": true
+          },
+          {
+            "ms": 400,
+            "out": 0.499858,
+            "in": 0.500142,
+            "leaving": true
+          },
+          {
+            "ms": 417,
+            "out": 0.464122,
+            "in": 0.535878,
+            "leaving": true
+          },
+          {
+            "ms": 433,
+            "out": 0.428408,
+            "in": 0.571592,
+            "leaving": true
+          },
+          {
+            "ms": 450,
+            "out": 0.393377,
+            "in": 0.606623,
+            "leaving": true
+          },
+          {
+            "ms": 467,
+            "out": 0.358828,
+            "in": 0.641172,
+            "leaving": true
+          },
+          {
+            "ms": 483,
+            "out": 0.325384,
+            "in": 0.674616,
+            "leaving": true
+          },
+          {
+            "ms": 500,
+            "out": 0.292836,
+            "in": 0.707164,
+            "leaving": true
+          },
+          {
+            "ms": 517,
+            "out": 0.261562,
+            "in": 0.738438,
+            "leaving": true
+          },
+          {
+            "ms": 533,
+            "out": 0.231892,
+            "in": 0.768108,
+            "leaving": true
+          },
+          {
+            "ms": 550,
+            "out": 0.203599,
+            "in": 0.796401,
+            "leaving": true
+          },
+          {
+            "ms": 567,
+            "out": 0.176975,
+            "in": 0.823025,
+            "leaving": true
+          },
+          {
+            "ms": 583,
+            "out": 0.152255,
+            "in": 0.847745,
+            "leaving": true
+          },
+          {
+            "ms": 600,
+            "out": 0.129207,
+            "in": 0.870793,
+            "leaving": true
+          },
+          {
+            "ms": 617,
+            "out": 0.108037,
+            "in": 0.891963,
+            "leaving": true
+          },
+          {
+            "ms": 633,
+            "out": 0.0888859,
+            "in": 0.911114,
+            "leaving": true
+          },
+          {
+            "ms": 650,
+            "out": 0.0715423,
+            "in": 0.928458,
+            "leaving": true
+          },
+          {
+            "ms": 667,
+            "out": 0.0561314,
+            "in": 0.943869,
+            "leaving": true
+          },
+          {
+            "ms": 683,
+            "out": 0.0426467,
+            "in": 0.957353,
+            "leaving": true
+          },
+          {
+            "ms": 700,
+            "out": 0.031072,
+            "in": 0.968928,
+            "leaving": true
+          },
+          {
+            "ms": 717,
+            "out": 0.0214357,
+            "in": 0.978564,
+            "leaving": true
+          },
+          {
+            "ms": 733,
+            "out": 0.0136327,
+            "in": 0.986367,
+            "leaving": true
+          },
+          {
+            "ms": 750,
+            "out": 0.00759722,
+            "in": 0.992403,
+            "leaving": true
+          },
+          {
+            "ms": 767,
+            "out": 0.00334208,
+            "in": 0.996658,
+            "leaving": true
+          },
+          {
+            "ms": 783,
+            "out": 0.000834604,
+            "in": 0.999165,
+            "leaving": true
+          },
+          {
+            "ms": 800,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 817,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 833,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 850,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 867,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 883,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 900,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 917,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 933,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "width": 390,
+    "transitions": [
+      {
+        "from": "1",
+        "to": "2",
+        "start": 5503.6,
+        "samples": [
+          {
+            "ms": 0,
+            "out": 1,
+            "in": 0,
+            "leaving": true
+          },
+          {
+            "ms": 17,
+            "out": 0.999174,
+            "in": 0.000826107,
+            "leaving": true
+          },
+          {
+            "ms": 33,
+            "out": 0.996655,
+            "in": 0.00334511,
+            "leaving": true
+          },
+          {
+            "ms": 50,
+            "out": 0.992429,
+            "in": 0.00757109,
+            "leaving": true
+          },
+          {
+            "ms": 67,
+            "out": 0.986403,
+            "in": 0.0135974,
+            "leaving": true
+          },
+          {
+            "ms": 83,
+            "out": 0.978556,
+            "in": 0.0214436,
+            "leaving": true
+          },
+          {
+            "ms": 100,
+            "out": 0.968918,
+            "in": 0.0310816,
+            "leaving": true
+          },
+          {
+            "ms": 117,
+            "out": 0.957342,
+            "in": 0.042658,
+            "leaving": true
+          },
+          {
+            "ms": 133,
+            "out": 0.943856,
+            "in": 0.0561444,
+            "leaving": true
+          },
+          {
+            "ms": 150,
+            "out": 0.928541,
+            "in": 0.0714589,
+            "leaving": true
+          },
+          {
+            "ms": 167,
+            "out": 0.911207,
+            "in": 0.0887928,
+            "leaving": true
+          },
+          {
+            "ms": 183,
+            "out": 0.891945,
+            "in": 0.108055,
+            "leaving": true
+          },
+          {
+            "ms": 200,
+            "out": 0.870773,
+            "in": 0.129227,
+            "leaving": true
+          },
+          {
+            "ms": 217,
+            "out": 0.847867,
+            "in": 0.152133,
+            "leaving": true
+          },
+          {
+            "ms": 233,
+            "out": 0.823156,
+            "in": 0.176844,
+            "leaving": true
+          },
+          {
+            "ms": 250,
+            "out": 0.796377,
+            "in": 0.203623,
+            "leaving": true
+          },
+          {
+            "ms": 267,
+            "out": 0.768256,
+            "in": 0.231744,
+            "leaving": true
+          },
+          {
+            "ms": 283,
+            "out": 0.738593,
+            "in": 0.261407,
+            "leaving": true
+          },
+          {
+            "ms": 300,
+            "out": 0.707327,
+            "in": 0.292673,
+            "leaving": true
+          },
+          {
+            "ms": 317,
+            "out": 0.674785,
+            "in": 0.325215,
+            "leaving": true
+          },
+          {
+            "ms": 333,
+            "out": 0.641142,
+            "in": 0.358858,
+            "leaving": true
+          },
+          {
+            "ms": 350,
+            "out": 0.606592,
+            "in": 0.393408,
+            "leaving": true
+          },
+          {
+            "ms": 367,
+            "out": 0.571347,
+            "in": 0.428653,
+            "leaving": true
+          },
+          {
+            "ms": 383,
+            "out": 0.535846,
+            "in": 0.464154,
+            "leaving": true
+          },
+          {
+            "ms": 400,
+            "out": 0.50011,
+            "in": 0.49989,
+            "leaving": true
+          },
+          {
+            "ms": 417,
+            "out": 0.464158,
+            "in": 0.535842,
+            "leaving": true
+          },
+          {
+            "ms": 433,
+            "out": 0.428444,
+            "in": 0.571555,
+            "leaving": true
+          },
+          {
+            "ms": 450,
+            "out": 0.393203,
+            "in": 0.606797,
+            "leaving": true
+          },
+          {
+            "ms": 467,
+            "out": 0.358862,
+            "in": 0.641137,
+            "leaving": true
+          },
+          {
+            "ms": 483,
+            "out": 0.325418,
+            "in": 0.674582,
+            "leaving": true
+          },
+          {
+            "ms": 500,
+            "out": 0.292868,
+            "in": 0.707132,
+            "leaving": true
+          },
+          {
+            "ms": 517,
+            "out": 0.261593,
+            "in": 0.738407,
+            "leaving": true
+          },
+          {
+            "ms": 533,
+            "out": 0.231922,
+            "in": 0.768078,
+            "leaving": true
+          },
+          {
+            "ms": 550,
+            "out": 0.203627,
+            "in": 0.796373,
+            "leaving": true
+          },
+          {
+            "ms": 567,
+            "out": 0.177002,
+            "in": 0.822998,
+            "leaving": true
+          },
+          {
+            "ms": 583,
+            "out": 0.152279,
+            "in": 0.847721,
+            "leaving": true
+          },
+          {
+            "ms": 600,
+            "out": 0.129229,
+            "in": 0.870771,
+            "leaving": true
+          },
+          {
+            "ms": 617,
+            "out": 0.108057,
+            "in": 0.891943,
+            "leaving": true
+          },
+          {
+            "ms": 633,
+            "out": 0.0889046,
+            "in": 0.911095,
+            "leaving": true
+          },
+          {
+            "ms": 650,
+            "out": 0.0715589,
+            "in": 0.928441,
+            "leaving": true
+          },
+          {
+            "ms": 667,
+            "out": 0.0561461,
+            "in": 0.943854,
+            "leaving": true
+          },
+          {
+            "ms": 683,
+            "out": 0.0426595,
+            "in": 0.957341,
+            "leaving": true
+          },
+          {
+            "ms": 700,
+            "out": 0.0310828,
+            "in": 0.968917,
+            "leaving": true
+          },
+          {
+            "ms": 717,
+            "out": 0.0214446,
+            "in": 0.978555,
+            "leaving": true
+          },
+          {
+            "ms": 733,
+            "out": 0.0136398,
+            "in": 0.98636,
+            "leaving": true
+          },
+          {
+            "ms": 750,
+            "out": 0.00760245,
+            "in": 0.992398,
+            "leaving": true
+          },
+          {
+            "ms": 767,
+            "out": 0.00334552,
+            "in": 0.996655,
+            "leaving": true
+          },
+          {
+            "ms": 783,
+            "out": 0.000836308,
+            "in": 0.999164,
+            "leaving": true
+          },
+          {
+            "ms": 800,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 817,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 833,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 850,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 867,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 883,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 900,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 917,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 933,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 950,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          }
+        ]
+      },
+      {
+        "from": "2",
+        "to": "3",
+        "start": 10003.3,
+        "samples": [
+          {
+            "ms": 0,
+            "out": 1,
+            "in": 0,
+            "leaving": true
+          },
+          {
+            "ms": 17,
+            "out": 0.999176,
+            "in": 0.000824115,
+            "leaving": true
+          },
+          {
+            "ms": 33,
+            "out": 0.996659,
+            "in": 0.00334107,
+            "leaving": true
+          },
+          {
+            "ms": 50,
+            "out": 0.992435,
+            "in": 0.00756495,
+            "leaving": true
+          },
+          {
+            "ms": 67,
+            "out": 0.986369,
+            "in": 0.0136306,
+            "leaving": true
+          },
+          {
+            "ms": 83,
+            "out": 0.978567,
+            "in": 0.0214331,
+            "leaving": true
+          },
+          {
+            "ms": 100,
+            "out": 0.968867,
+            "in": 0.0311325,
+            "leaving": true
+          },
+          {
+            "ms": 117,
+            "out": 0.957357,
+            "in": 0.042643,
+            "leaving": true
+          },
+          {
+            "ms": 133,
+            "out": 0.943873,
+            "in": 0.0561271,
+            "leaving": true
+          },
+          {
+            "ms": 150,
+            "out": 0.928463,
+            "in": 0.0715374,
+            "leaving": true
+          },
+          {
+            "ms": 167,
+            "out": 0.911229,
+            "in": 0.0887708,
+            "leaving": true
+          },
+          {
+            "ms": 183,
+            "out": 0.89197,
+            "in": 0.10803,
+            "leaving": true
+          },
+          {
+            "ms": 200,
+            "out": 0.8708,
+            "in": 0.1292,
+            "leaving": true
+          },
+          {
+            "ms": 217,
+            "out": 0.847753,
+            "in": 0.152247,
+            "leaving": true
+          },
+          {
+            "ms": 233,
+            "out": 0.823032,
+            "in": 0.176968,
+            "leaving": true
+          },
+          {
+            "ms": 250,
+            "out": 0.79641,
+            "in": 0.20359,
+            "leaving": true
+          },
+          {
+            "ms": 267,
+            "out": 0.768291,
+            "in": 0.231709,
+            "leaving": true
+          },
+          {
+            "ms": 283,
+            "out": 0.738447,
+            "in": 0.261553,
+            "leaving": true
+          },
+          {
+            "ms": 300,
+            "out": 0.707174,
+            "in": 0.292826,
+            "leaving": true
+          },
+          {
+            "ms": 317,
+            "out": 0.674824,
+            "in": 0.325176,
+            "leaving": true
+          },
+          {
+            "ms": 333,
+            "out": 0.641182,
+            "in": 0.358818,
+            "leaving": true
+          },
+          {
+            "ms": 350,
+            "out": 0.606634,
+            "in": 0.393366,
+            "leaving": true
+          },
+          {
+            "ms": 367,
+            "out": 0.571602,
+            "in": 0.428398,
+            "leaving": true
+          },
+          {
+            "ms": 383,
+            "out": 0.535889,
+            "in": 0.464111,
+            "leaving": true
+          },
+          {
+            "ms": 400,
+            "out": 0.499938,
+            "in": 0.500063,
+            "leaving": true
+          },
+          {
+            "ms": 417,
+            "out": 0.463986,
+            "in": 0.536014,
+            "leaving": true
+          },
+          {
+            "ms": 433,
+            "out": 0.428487,
+            "in": 0.571513,
+            "leaving": true
+          },
+          {
+            "ms": 450,
+            "out": 0.393454,
+            "in": 0.606546,
+            "leaving": true
+          },
+          {
+            "ms": 467,
+            "out": 0.358903,
+            "in": 0.641097,
+            "leaving": true
+          },
+          {
+            "ms": 483,
+            "out": 0.325457,
+            "in": 0.674543,
+            "leaving": true
+          },
+          {
+            "ms": 500,
+            "out": 0.292906,
+            "in": 0.707094,
+            "leaving": true
+          },
+          {
+            "ms": 517,
+            "out": 0.26163,
+            "in": 0.73837,
+            "leaving": true
+          },
+          {
+            "ms": 533,
+            "out": 0.231782,
+            "in": 0.768218,
+            "leaving": true
+          },
+          {
+            "ms": 550,
+            "out": 0.203659,
+            "in": 0.796341,
+            "leaving": true
+          },
+          {
+            "ms": 567,
+            "out": 0.177032,
+            "in": 0.822968,
+            "leaving": true
+          },
+          {
+            "ms": 583,
+            "out": 0.152164,
+            "in": 0.847836,
+            "leaving": true
+          },
+          {
+            "ms": 600,
+            "out": 0.129256,
+            "in": 0.870744,
+            "leaving": true
+          },
+          {
+            "ms": 617,
+            "out": 0.108081,
+            "in": 0.891919,
+            "leaving": true
+          },
+          {
+            "ms": 633,
+            "out": 0.0888169,
+            "in": 0.911183,
+            "leaving": true
+          },
+          {
+            "ms": 650,
+            "out": 0.0714805,
+            "in": 0.928519,
+            "leaving": true
+          },
+          {
+            "ms": 667,
+            "out": 0.0561634,
+            "in": 0.943837,
+            "leaving": true
+          },
+          {
+            "ms": 683,
+            "out": 0.0426745,
+            "in": 0.957326,
+            "leaving": true
+          },
+          {
+            "ms": 700,
+            "out": 0.0311593,
+            "in": 0.968841,
+            "leaving": true
+          },
+          {
+            "ms": 717,
+            "out": 0.0214551,
+            "in": 0.978545,
+            "leaving": true
+          },
+          {
+            "ms": 733,
+            "out": 0.0136065,
+            "in": 0.986393,
+            "leaving": true
+          },
+          {
+            "ms": 750,
+            "out": 0.00757785,
+            "in": 0.992422,
+            "leaving": true
+          },
+          {
+            "ms": 767,
+            "out": 0.00334957,
+            "in": 0.99665,
+            "leaving": true
+          },
+          {
+            "ms": 783,
+            "out": 0.000828302,
+            "in": 0.999172,
+            "leaving": true
+          },
+          {
+            "ms": 800,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 817,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 833,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 850,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 867,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 883,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 900,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 917,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 933,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          }
+        ]
+      },
+      {
+        "from": "3",
+        "to": "4",
+        "start": 14253.2,
+        "samples": [
+          {
+            "ms": 0,
+            "out": 1,
+            "in": 0,
+            "leaving": true
+          },
+          {
+            "ms": 17,
+            "out": 0.999169,
+            "in": 0.0008311,
+            "leaving": true
+          },
+          {
+            "ms": 33,
+            "out": 0.996665,
+            "in": 0.003335,
+            "leaving": true
+          },
+          {
+            "ms": 50,
+            "out": 0.992414,
+            "in": 0.00758646,
+            "leaving": true
+          },
+          {
+            "ms": 67,
+            "out": 0.986382,
+            "in": 0.0136182,
+            "leaving": true
+          },
+          {
+            "ms": 83,
+            "out": 0.97853,
+            "in": 0.0214698,
+            "leaving": true
+          },
+          {
+            "ms": 100,
+            "out": 0.968887,
+            "in": 0.0311134,
+            "leaving": true
+          },
+          {
+            "ms": 117,
+            "out": 0.957305,
+            "in": 0.0426955,
+            "leaving": true
+          },
+          {
+            "ms": 133,
+            "out": 0.943812,
+            "in": 0.0561876,
+            "leaving": true
+          },
+          {
+            "ms": 150,
+            "out": 0.928492,
+            "in": 0.0715079,
+            "leaving": true
+          },
+          {
+            "ms": 167,
+            "out": 0.911152,
+            "in": 0.0888476,
+            "leaving": true
+          },
+          {
+            "ms": 183,
+            "out": 0.892006,
+            "in": 0.107994,
+            "leaving": true
+          },
+          {
+            "ms": 200,
+            "out": 0.870839,
+            "in": 0.129161,
+            "leaving": true
+          },
+          {
+            "ms": 217,
+            "out": 0.847939,
+            "in": 0.152061,
+            "leaving": true
+          },
+          {
+            "ms": 233,
+            "out": 0.823079,
+            "in": 0.176921,
+            "leaving": true
+          },
+          {
+            "ms": 250,
+            "out": 0.796459,
+            "in": 0.203541,
+            "leaving": true
+          },
+          {
+            "ms": 267,
+            "out": 0.768169,
+            "in": 0.231831,
+            "leaving": true
+          },
+          {
+            "ms": 283,
+            "out": 0.738502,
+            "in": 0.261498,
+            "leaving": true
+          },
+          {
+            "ms": 300,
+            "out": 0.707422,
+            "in": 0.292578,
+            "leaving": true
+          },
+          {
+            "ms": 317,
+            "out": 0.674884,
+            "in": 0.325116,
+            "leaving": true
+          },
+          {
+            "ms": 333,
+            "out": 0.641039,
+            "in": 0.358961,
+            "leaving": true
+          },
+          {
+            "ms": 350,
+            "out": 0.606697,
+            "in": 0.393303,
+            "leaving": true
+          },
+          {
+            "ms": 367,
+            "out": 0.571666,
+            "in": 0.428334,
+            "leaving": true
+          },
+          {
+            "ms": 383,
+            "out": 0.535954,
+            "in": 0.464046,
+            "leaving": true
+          },
+          {
+            "ms": 400,
+            "out": 0.500002,
+            "in": 0.499998,
+            "leaving": true
+          },
+          {
+            "ms": 417,
+            "out": 0.464266,
+            "in": 0.535734,
+            "leaving": true
+          },
+          {
+            "ms": 433,
+            "out": 0.428551,
+            "in": 0.571449,
+            "leaving": true
+          },
+          {
+            "ms": 450,
+            "out": 0.393308,
+            "in": 0.606692,
+            "leaving": true
+          },
+          {
+            "ms": 467,
+            "out": 0.35876,
+            "in": 0.64124,
+            "leaving": true
+          },
+          {
+            "ms": 483,
+            "out": 0.325319,
+            "in": 0.674681,
+            "leaving": true
+          },
+          {
+            "ms": 500,
+            "out": 0.292964,
+            "in": 0.707036,
+            "leaving": true
+          },
+          {
+            "ms": 517,
+            "out": 0.261502,
+            "in": 0.738498,
+            "leaving": true
+          },
+          {
+            "ms": 533,
+            "out": 0.231835,
+            "in": 0.768165,
+            "leaving": true
+          },
+          {
+            "ms": 550,
+            "out": 0.203544,
+            "in": 0.796456,
+            "leaving": true
+          },
+          {
+            "ms": 567,
+            "out": 0.176924,
+            "in": 0.823076,
+            "leaving": true
+          },
+          {
+            "ms": 583,
+            "out": 0.152207,
+            "in": 0.847793,
+            "leaving": true
+          },
+          {
+            "ms": 600,
+            "out": 0.129163,
+            "in": 0.870837,
+            "leaving": true
+          },
+          {
+            "ms": 617,
+            "out": 0.108118,
+            "in": 0.891882,
+            "leaving": true
+          },
+          {
+            "ms": 633,
+            "out": 0.0888497,
+            "in": 0.91115,
+            "leaving": true
+          },
+          {
+            "ms": 650,
+            "out": 0.0715099,
+            "in": 0.92849,
+            "leaving": true
+          },
+          {
+            "ms": 667,
+            "out": 0.0561894,
+            "in": 0.943811,
+            "leaving": true
+          },
+          {
+            "ms": 683,
+            "out": 0.042697,
+            "in": 0.957303,
+            "leaving": true
+          },
+          {
+            "ms": 700,
+            "out": 0.0311147,
+            "in": 0.968885,
+            "leaving": true
+          },
+          {
+            "ms": 717,
+            "out": 0.0214709,
+            "in": 0.978529,
+            "leaving": true
+          },
+          {
+            "ms": 733,
+            "out": 0.013619,
+            "in": 0.986381,
+            "leaving": true
+          },
+          {
+            "ms": 750,
+            "out": 0.00758707,
+            "in": 0.992413,
+            "leaving": true
+          },
+          {
+            "ms": 767,
+            "out": 0.00335565,
+            "in": 0.996644,
+            "leaving": true
+          },
+          {
+            "ms": 783,
+            "out": 0.0008313,
+            "in": 0.999169,
+            "leaving": true
+          },
+          {
+            "ms": 800,
+            "out": 3.01208e-08,
+            "in": 1,
+            "leaving": true
+          },
+          {
+            "ms": 817,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 833,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 850,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 867,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 883,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 900,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 917,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 933,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          }
+        ]
+      },
+      {
+        "from": "4",
+        "to": "5",
+        "start": 18753,
+        "samples": [
+          {
+            "ms": 0,
+            "out": 1,
+            "in": 0,
+            "leaving": true
+          },
+          {
+            "ms": 17,
+            "out": 0.999171,
+            "in": 0.000829101,
+            "leaving": true
+          },
+          {
+            "ms": 33,
+            "out": 0.996649,
+            "in": 0.00335119,
+            "leaving": true
+          },
+          {
+            "ms": 50,
+            "out": 0.992389,
+            "in": 0.00761107,
+            "leaving": true
+          },
+          {
+            "ms": 67,
+            "out": 0.98639,
+            "in": 0.0136099,
+            "leaving": true
+          },
+          {
+            "ms": 83,
+            "out": 0.978593,
+            "in": 0.0214068,
+            "leaving": true
+          },
+          {
+            "ms": 100,
+            "out": 0.968899,
+            "in": 0.0311007,
+            "leaving": true
+          },
+          {
+            "ms": 117,
+            "out": 0.957319,
+            "in": 0.0426805,
+            "leaving": true
+          },
+          {
+            "ms": 133,
+            "out": 0.94383,
+            "in": 0.0561703,
+            "leaving": true
+          },
+          {
+            "ms": 150,
+            "out": 0.928512,
+            "in": 0.0714883,
+            "leaving": true
+          },
+          {
+            "ms": 167,
+            "out": 0.911174,
+            "in": 0.0888256,
+            "leaving": true
+          },
+          {
+            "ms": 183,
+            "out": 0.89203,
+            "in": 0.10797,
+            "leaving": true
+          },
+          {
+            "ms": 200,
+            "out": 0.870866,
+            "in": 0.129134,
+            "leaving": true
+          },
+          {
+            "ms": 217,
+            "out": 0.847824,
+            "in": 0.152176,
+            "leaving": true
+          },
+          {
+            "ms": 233,
+            "out": 0.822955,
+            "in": 0.177045,
+            "leaving": true
+          },
+          {
+            "ms": 250,
+            "out": 0.796492,
+            "in": 0.203508,
+            "leaving": true
+          },
+          {
+            "ms": 267,
+            "out": 0.768378,
+            "in": 0.231622,
+            "leaving": true
+          },
+          {
+            "ms": 283,
+            "out": 0.738538,
+            "in": 0.261462,
+            "leaving": true
+          },
+          {
+            "ms": 300,
+            "out": 0.707269,
+            "in": 0.292731,
+            "leaving": true
+          },
+          {
+            "ms": 317,
+            "out": 0.674725,
+            "in": 0.325275,
+            "leaving": true
+          },
+          {
+            "ms": 333,
+            "out": 0.64108,
+            "in": 0.35892,
+            "leaving": true
+          },
+          {
+            "ms": 350,
+            "out": 0.606738,
+            "in": 0.393262,
+            "leaving": true
+          },
+          {
+            "ms": 367,
+            "out": 0.571496,
+            "in": 0.428504,
+            "leaving": true
+          },
+          {
+            "ms": 383,
+            "out": 0.535782,
+            "in": 0.464218,
+            "leaving": true
+          },
+          {
+            "ms": 400,
+            "out": 0.500045,
+            "in": 0.499955,
+            "leaving": true
+          },
+          {
+            "ms": 417,
+            "out": 0.464094,
+            "in": 0.535906,
+            "leaving": true
+          },
+          {
+            "ms": 433,
+            "out": 0.428593,
+            "in": 0.571407,
+            "leaving": true
+          },
+          {
+            "ms": 450,
+            "out": 0.393349,
+            "in": 0.606651,
+            "leaving": true
+          },
+          {
+            "ms": 467,
+            "out": 0.358801,
+            "in": 0.641199,
+            "leaving": true
+          },
+          {
+            "ms": 483,
+            "out": 0.325358,
+            "in": 0.674642,
+            "leaving": true
+          },
+          {
+            "ms": 500,
+            "out": 0.292811,
+            "in": 0.707189,
+            "leaving": true
+          },
+          {
+            "ms": 517,
+            "out": 0.261539,
+            "in": 0.738461,
+            "leaving": true
+          },
+          {
+            "ms": 533,
+            "out": 0.231695,
+            "in": 0.768305,
+            "leaving": true
+          },
+          {
+            "ms": 550,
+            "out": 0.203577,
+            "in": 0.796423,
+            "leaving": true
+          },
+          {
+            "ms": 567,
+            "out": 0.176955,
+            "in": 0.823045,
+            "leaving": true
+          },
+          {
+            "ms": 583,
+            "out": 0.152236,
+            "in": 0.847764,
+            "leaving": true
+          },
+          {
+            "ms": 600,
+            "out": 0.12919,
+            "in": 0.87081,
+            "leaving": true
+          },
+          {
+            "ms": 617,
+            "out": 0.108021,
+            "in": 0.891979,
+            "leaving": true
+          },
+          {
+            "ms": 633,
+            "out": 0.0888717,
+            "in": 0.911128,
+            "leaving": true
+          },
+          {
+            "ms": 650,
+            "out": 0.0715295,
+            "in": 0.92847,
+            "leaving": true
+          },
+          {
+            "ms": 667,
+            "out": 0.0562067,
+            "in": 0.943793,
+            "leaving": true
+          },
+          {
+            "ms": 683,
+            "out": 0.042712,
+            "in": 0.957288,
+            "leaving": true
+          },
+          {
+            "ms": 700,
+            "out": 0.0311274,
+            "in": 0.968873,
+            "leaving": true
+          },
+          {
+            "ms": 717,
+            "out": 0.0214814,
+            "in": 0.978519,
+            "leaving": true
+          },
+          {
+            "ms": 733,
+            "out": 0.0136273,
+            "in": 0.986373,
+            "leaving": true
+          },
+          {
+            "ms": 750,
+            "out": 0.00759322,
+            "in": 0.992407,
+            "leaving": true
+          },
+          {
+            "ms": 767,
+            "out": 0.0033597,
+            "in": 0.99664,
+            "leaving": true
+          },
+          {
+            "ms": 783,
+            "out": 0.000833301,
+            "in": 0.999167,
+            "leaving": true
+          },
+          {
+            "ms": 800,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 817,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 833,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 850,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 867,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 883,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 900,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 917,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 933,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          }
+        ]
+      },
+      {
+        "from": "5",
+        "to": "1",
+        "start": 24752.8,
+        "samples": [
+          {
+            "ms": 0,
+            "out": 1,
+            "in": 0,
+            "leaving": true
+          },
+          {
+            "ms": 17,
+            "out": 0.999177,
+            "in": 0.000823119,
+            "leaving": true
+          },
+          {
+            "ms": 33,
+            "out": 0.996661,
+            "in": 0.00333904,
+            "leaving": true
+          },
+          {
+            "ms": 50,
+            "out": 0.992407,
+            "in": 0.00759261,
+            "leaving": true
+          },
+          {
+            "ms": 67,
+            "out": 0.986415,
+            "in": 0.013585,
+            "leaving": true
+          },
+          {
+            "ms": 83,
+            "out": 0.978572,
+            "in": 0.0214278,
+            "leaving": true
+          },
+          {
+            "ms": 100,
+            "out": 0.968874,
+            "in": 0.0311261,
+            "leaving": true
+          },
+          {
+            "ms": 117,
+            "out": 0.957365,
+            "in": 0.0426355,
+            "leaving": true
+          },
+          {
+            "ms": 133,
+            "out": 0.943882,
+            "in": 0.0561184,
+            "leaving": true
+          },
+          {
+            "ms": 150,
+            "out": 0.928472,
+            "in": 0.0715276,
+            "leaving": true
+          },
+          {
+            "ms": 167,
+            "out": 0.91124,
+            "in": 0.0887599,
+            "leaving": true
+          },
+          {
+            "ms": 183,
+            "out": 0.891982,
+            "in": 0.108018,
+            "leaving": true
+          },
+          {
+            "ms": 200,
+            "out": 0.870813,
+            "in": 0.129187,
+            "leaving": true
+          },
+          {
+            "ms": 217,
+            "out": 0.84791,
+            "in": 0.15209,
+            "leaving": true
+          },
+          {
+            "ms": 233,
+            "out": 0.823048,
+            "in": 0.176952,
+            "leaving": true
+          },
+          {
+            "ms": 250,
+            "out": 0.796591,
+            "in": 0.203409,
+            "leaving": true
+          },
+          {
+            "ms": 267,
+            "out": 0.768308,
+            "in": 0.231692,
+            "leaving": true
+          },
+          {
+            "ms": 283,
+            "out": 0.738282,
+            "in": 0.261718,
+            "leaving": true
+          },
+          {
+            "ms": 300,
+            "out": 0.707384,
+            "in": 0.292616,
+            "leaving": true
+          },
+          {
+            "ms": 317,
+            "out": 0.674844,
+            "in": 0.325156,
+            "leaving": true
+          },
+          {
+            "ms": 333,
+            "out": 0.641203,
+            "in": 0.358797,
+            "leaving": true
+          },
+          {
+            "ms": 350,
+            "out": 0.606655,
+            "in": 0.393345,
+            "leaving": true
+          },
+          {
+            "ms": 367,
+            "out": 0.571624,
+            "in": 0.428376,
+            "leaving": true
+          },
+          {
+            "ms": 383,
+            "out": 0.535911,
+            "in": 0.464089,
+            "leaving": true
+          },
+          {
+            "ms": 400,
+            "out": 0.500175,
+            "in": 0.499825,
+            "leaving": true
+          },
+          {
+            "ms": 417,
+            "out": 0.464223,
+            "in": 0.535777,
+            "leaving": true
+          },
+          {
+            "ms": 433,
+            "out": 0.428508,
+            "in": 0.571492,
+            "leaving": true
+          },
+          {
+            "ms": 450,
+            "out": 0.393475,
+            "in": 0.606525,
+            "leaving": true
+          },
+          {
+            "ms": 467,
+            "out": 0.358924,
+            "in": 0.641076,
+            "leaving": true
+          },
+          {
+            "ms": 483,
+            "out": 0.325279,
+            "in": 0.674721,
+            "leaving": true
+          },
+          {
+            "ms": 500,
+            "out": 0.292734,
+            "in": 0.707266,
+            "leaving": true
+          },
+          {
+            "ms": 517,
+            "out": 0.261648,
+            "in": 0.738352,
+            "leaving": true
+          },
+          {
+            "ms": 533,
+            "out": 0.2318,
+            "in": 0.7682,
+            "leaving": true
+          },
+          {
+            "ms": 550,
+            "out": 0.203676,
+            "in": 0.796324,
+            "leaving": true
+          },
+          {
+            "ms": 567,
+            "out": 0.177048,
+            "in": 0.822952,
+            "leaving": true
+          },
+          {
+            "ms": 583,
+            "out": 0.152322,
+            "in": 0.847678,
+            "leaving": true
+          },
+          {
+            "ms": 600,
+            "out": 0.129137,
+            "in": 0.870863,
+            "leaving": true
+          },
+          {
+            "ms": 617,
+            "out": 0.108093,
+            "in": 0.891907,
+            "leaving": true
+          },
+          {
+            "ms": 633,
+            "out": 0.0888278,
+            "in": 0.911172,
+            "leaving": true
+          },
+          {
+            "ms": 650,
+            "out": 0.0714903,
+            "in": 0.92851,
+            "leaving": true
+          },
+          {
+            "ms": 667,
+            "out": 0.0561721,
+            "in": 0.943828,
+            "leaving": true
+          },
+          {
+            "ms": 683,
+            "out": 0.042682,
+            "in": 0.957318,
+            "leaving": true
+          },
+          {
+            "ms": 700,
+            "out": 0.0311656,
+            "in": 0.968834,
+            "leaving": true
+          },
+          {
+            "ms": 717,
+            "out": 0.0214604,
+            "in": 0.97854,
+            "leaving": true
+          },
+          {
+            "ms": 733,
+            "out": 0.0136107,
+            "in": 0.986389,
+            "leaving": true
+          },
+          {
+            "ms": 750,
+            "out": 0.00761169,
+            "in": 0.992388,
+            "leaving": true
+          },
+          {
+            "ms": 767,
+            "out": 0.00335159,
+            "in": 0.996648,
+            "leaving": true
+          },
+          {
+            "ms": 783,
+            "out": 0.00083932,
+            "in": 0.999161,
+            "leaving": true
+          },
+          {
+            "ms": 800,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 817,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 833,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 850,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 867,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 883,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 900,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 917,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          },
+          {
+            "ms": 933,
+            "out": 0,
+            "in": 1,
+            "leaving": false
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "reducedMotion": "static scene 5"
+  }
+]

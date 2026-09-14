@@ -1,0 +1,766 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI-first разработка — анимация карточки</title>
+<style>
+:root {
+  --cover-ink: #25272d; --cover-ink-foreground: #ffffff;
+  --cover-blue: #dce9ff; --cover-blue-foreground: #205aa7;
+  --cover-lavender: #e9e1ff; --cover-lavender-foreground: #5d43a4;
+  --cover-mint: #dcefe5; --cover-mint-foreground: #267057;
+  --cover-coral: #ffdcd2; --cover-coral-foreground: #b83a25;
+  --accent: #4f8cff; --mint: #8fd7b4; --coral: #ff9a86; --lavender: #c4b3ff; --amber: #ffcf8a;
+  --font-body: "Manrope Variable", Manrope, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-utility: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  /* кривые Carbon из vertical-content: приход, стандарт, уход; предметы приходят с инерцией */
+  --ease-out: cubic-bezier(0, 0, .38, .9);
+  --ease-standard: cubic-bezier(.2, 0, .38, .9);
+  --ease-exit: cubic-bezier(.2, 0, 1, .9);
+  --ease-pop: cubic-bezier(.34, 1.5, .64, 1);
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 2rem 1rem 4rem; background: #f3f3f1; color: #202124; font-family: var(--font-body); }
+.page { max-width: 64rem; margin-inline: auto; }
+.page-head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 1rem; margin-bottom: 1.25rem; }
+.page-head h1 { margin: 0; font-size: 1.1rem; font-weight: 700; }
+.page-head p { margin: .3rem 0 0; font-size: .85rem; color: #6b6d72; }
+.tabs { display: flex; gap: .25rem; }
+.tabs button, .controls button, .controls label { display: inline-flex; align-items: center; gap: .4rem; min-height: 2.4rem; padding: .4rem .85rem; border: 1px solid #d9d9d5; border-radius: 2rem; background: #fff; color: #202124; font: inherit; font-size: .85rem; cursor: pointer; }
+.tabs button[aria-selected="true"], .controls button.is-primary { background: #202124; color: #fff; border-color: #202124; }
+.frame[hidden] { display: none; }
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-top: 1rem; }
+.controls .scenes { display: flex; gap: .25rem; margin-left: auto; }
+.controls .scenes button { min-width: 2.4rem; justify-content: center; padding-inline: .5rem; }
+.controls .scenes button[aria-current="true"] { background: #e8e8e4; }
+.note { margin-top: .75rem; font-size: .8rem; color: #6b6d72; line-height: 1.5; }
+
+/* ---------- Рамка «Главная»: копия карточки руководства ---------- */
+.home-guide { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); overflow: hidden; min-height: 27rem; border-radius: 1rem; background: #202124; color: #fff; }
+.home-guide-copy { min-width: 0; padding: 2.5rem; display: flex; flex-direction: column; }
+.home-guide-copy h2 { margin: 0; font-size: clamp(1.75rem, 3.2vw, 2.75rem); line-height: 1.1; font-weight: 700; letter-spacing: -.035em; text-wrap: balance; }
+.home-guide-copy > p { margin: 1.25rem 0 0; font-size: 1rem; line-height: 1.6; color: rgb(255 255 255 / .78); }
+.home-guide-actions { margin-top: auto; padding-top: 2rem; display: flex; flex-direction: column; align-items: start; gap: 1rem; }
+.home-guide-actions > span { font-size: .875rem; }
+.home-guide-open { display: inline-flex; align-items: center; gap: 1rem; min-height: 3rem; padding: .75rem 1rem; border-radius: .75rem; background: #fff; color: #202124; font-size: .875rem; font-weight: 700; text-decoration: none; }
+.home-guide-open svg { width: 1.125rem; height: 1.125rem; }
+.home-guide-animation { position: relative; min-width: 0; background: var(--cover-ink); }
+/* ---------- Рамка «Страница руководства» ---------- */
+.ai-guide-hero { display: grid; grid-template-columns: 1.05fr 1fr; align-items: center; gap: 2.5rem; padding: 1rem 0; }
+.ai-guide-hero h1 { margin: 0; font-size: clamp(2.3rem, 4vw, 3.6rem); font-weight: 700; line-height: 1.08; letter-spacing: -.035em; }
+.ai-guide-headline { margin: 1.25rem 0 0; font-size: clamp(1.25rem, 2.2vw, 1.65rem); line-height: 1.35; font-weight: 550; }
+.ai-guide-intro { margin: 1rem 0 0; line-height: 1.75; color: #6b6d72; }
+.ai-guide-button { display: inline-flex; align-items: center; gap: 1rem; min-height: 3rem; margin-top: 1.5rem; padding: .85rem 1.2rem; border-radius: .75rem; background: #202124; color: #fff; font-size: .9rem; font-weight: 650; text-decoration: none; }
+.ai-guide-button svg { width: 1.1rem; height: 1.1rem; }
+.ai-guide-format { margin: .85rem 0 0; font-size: .75rem; color: #6b6d72; }
+.ai-artwork-slot { position: relative; aspect-ratio: 480 / 387; border-radius: 1rem; overflow: hidden; background: var(--cover-ink); }
+/* ---------- Рамка «Мобильный»: заголовок над карточкой, подвал внутри карточки ---------- */
+.phone { width: 390px; max-width: 100%; margin: 0 auto; padding: 1.25rem 1rem 1.5rem; border: 1px solid #ddd; border-radius: 1.5rem; background: #fff; }
+.m-eyebrow { margin: 0; font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; color: #6b6d72; }
+.m-title { margin: .35rem 0 0; font-size: 1.5rem; font-weight: 700; letter-spacing: -.02em; line-height: 1.15; }
+.m-subtitle { margin: .3rem 0 0; font-size: 1rem; color: #6b6d72; }
+.m-card { display: flex; flex-direction: column; margin-top: 1rem; aspect-ratio: 4 / 3; overflow: hidden; border-radius: 1.25rem; background: var(--cover-ink); color: #fff; }
+.m-card .stage-host { position: relative; flex: 1; min-height: 0; }
+.m-foot { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .75rem 1rem .9rem; }
+.m-foot > span { font-size: .85rem; }
+.m-foot .m-open { display: inline-flex; align-items: center; min-height: 2.5rem; padding: .5rem 1rem; border-radius: 2rem; background: rgb(255 255 255 / .14); color: #fff; font-size: .85rem; font-weight: 600; text-decoration: none; }
+.m-foot .m-arrow { width: 1.1rem; height: 1.1rem; color: rgb(255 255 255 / .8); }
+.m-below { margin-top: 1.25rem; font-size: .95rem; line-height: 1.55; color: #6b6d72; }
+
+/* ---------- Сцена: подстраивается под контейнер ---------- */
+.stage-host { container-type: inline-size; }
+.stage { position: absolute; inset: 0; display: flex; flex-direction: column; gap: .7em; padding: 1.25em; overflow: hidden; isolation: isolate; font-size: clamp(11px, 3.1cqi, 16px); color: #fff; background: linear-gradient(180deg, #2a2c33 0%, var(--cover-ink) 50%, #1f2126 100%); }
+.stage::before { content: ""; position: absolute; inset: 0; z-index: 1; background-image: linear-gradient(rgb(255 255 255 / .05) 1px, transparent 1px), linear-gradient(90deg, rgb(255 255 255 / .05) 1px, transparent 1px); background-size: 2.4em 2.4em; background-position: center; mask-image: radial-gradient(ellipse 70% 70% at 50% 45%, #000 40%, transparent 100%); pointer-events: none; }
+.stage-body { position: relative; z-index: 2; flex: 1; min-height: 0; container-type: size; }
+.stage-foot { position: relative; z-index: 2; display: flex; justify-content: space-between; align-items: center; gap: 1em; height: 1.3em; }
+.stage-step { font-family: var(--font-utility); font-size: .7em; color: rgb(255 255 255 / .6); white-space: nowrap; }
+.stage-step .type[hidden] { display: none; }
+.stage-progress { display: flex; gap: .35em; width: 7.5em; flex: none; }
+.stage-progress i { position: relative; flex: 1; height: .2em; overflow: hidden; border-radius: 1em; background: rgb(255 255 255 / .16); }
+.stage-progress i::after { content: ""; position: absolute; inset: 0; background: #fff; transform: scaleX(0); transform-origin: left; }
+.stage-progress i.is-done::after { transform: scaleX(1); }
+.stage-progress i.is-active::after { animation: seg-fill var(--d, 4s) linear forwards; }
+@keyframes seg-fill { to { transform: scaleX(1); } }
+.glow { position: absolute; z-index: 1; left: 0; top: 0; width: 70%; aspect-ratio: 1; border-radius: 50%; background: var(--gc, var(--accent)); opacity: .22; filter: blur(4em); transform: translate(var(--gx, -20%), var(--gy, -10%)); transition: transform 1.2s var(--ease-out), background-color 1.2s ease; pointer-events: none; }
+.stage[data-scene="1"] { --gx: -25%; --gy: -20%; --gc: var(--accent); }
+.stage[data-scene="2"] { --gx: 20%; --gy: 10%; --gc: var(--lavender); }
+.stage[data-scene="3"] { --gx: 60%; --gy: 0%; --gc: var(--lavender); }
+.stage[data-scene="4"] { --gx: 70%; --gy: 45%; --gc: var(--accent); }
+.stage[data-scene="5"] { --gx: 25%; --gy: 70%; --gc: var(--mint); }
+
+.scene { position: absolute; inset: 0; opacity: 0; visibility: hidden; }
+.scene.is-active { visibility: visible; animation: scene-in .5s var(--ease-out) both; }
+.scene.is-leaving { animation: scene-out .38s var(--ease-exit) forwards; }
+@keyframes scene-in { from { opacity: 0; transform: translateY(1.1em); filter: blur(4px); } to { opacity: 1; transform: none; filter: blur(0); } }
+@keyframes scene-out { to { opacity: 0; transform: translateY(-1.1em) scale(.92); filter: blur(7px); } }
+.is-paused *, .is-paused *::before, .is-paused *::after { animation-play-state: paused !important; }
+/* сквозной переход: объекты предыдущей сцены перелетают и становятся элементами следующей */
+.stage-morph { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
+.stage-morph-under { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+.morph-ghost { position: absolute; margin: 0 !important; overflow: hidden; visibility: visible; will-change: left, top, width, height; }
+.morph-ghost, .morph-ghost * { animation: none !important; transition: none !important; }
+.morph-ghost .status .spin { display: none; }
+.morph-ghost .status .ok { opacity: 1; }
+.morph-ghost .bar i { transform: none; }
+.morph-ghost .prompt .send, .morph-ghost.prompt .send { opacity: 1; }
+.is-morph-source { visibility: hidden !important; }
+.is-morph-target { animation: none !important; opacity: 0 !important; }
+.is-morphed { opacity: 1 !important; transition: opacity .25s ease; }
+.is-morphed.a-up, .is-morphed.a-pop, .is-morphed.a-left, .is-morphed.a-drop, .is-morphed.a-fade { animation: none !important; }
+.scene.is-active.is-morph-in { animation: a-fade .3s ease both; }
+.is-static *, .is-static *::before, .is-static *::after { animation-duration: 0s !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; transition: none !important; }
+
+/* ---------- Общие примитивы ---------- */
+svg { display: block; }
+.ico { flex: none; width: 1.1em; height: 1.1em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.panel { background: linear-gradient(160deg, rgb(255 255 255 / .07), rgb(255 255 255 / .02) 42%, rgb(255 255 255 / .05)); border: 1px solid rgb(255 255 255 / .09); border-radius: .9em; box-shadow: inset 0 1px 0 rgb(255 255 255 / .16), 0 1.1em 3em -1.4em rgb(0 0 0 / .6); backdrop-filter: blur(14px) saturate(1.35); }
+.well { display: grid; place-items: center; flex: none; width: 2em; height: 2em; border-radius: .55em; background: color-mix(in srgb, var(--c, #fff) 14%, transparent); color: var(--c, #fff); }
+.well .ico { width: 1.1em; height: 1.1em; }
+.chip { display: inline-flex; align-items: center; gap: .4em; padding: .45em .7em; border-radius: 2em; background: rgb(255 255 255 / .09); font-family: var(--font-utility); font-size: .7em; white-space: nowrap; }
+.chip .ico { width: 1.15em; height: 1.15em; stroke-width: 1.8; }
+.label { font-size: .74em; color: rgb(255 255 255 / .7); }
+.bar { height: .35em; overflow: hidden; border-radius: 1em; background: rgb(255 255 255 / .12); }
+.bar i { display: block; width: 100%; height: 100%; background: var(--bar, #fff); transform: scaleX(0); transform-origin: left; }
+.is-active .bar i { animation: bar-fill var(--dur, 1.4s) var(--ease-standard) forwards; animation-delay: var(--t, 0ms); }
+@keyframes bar-fill { to { transform: scaleX(var(--to, 1)); } }
+
+.a-up, .a-pop, .a-left, .a-fade, .a-drop { opacity: 0; }
+.is-active .a-up { animation: a-up .55s var(--ease-out) both; animation-delay: var(--t, 0ms); }
+.is-active .a-pop { animation: a-pop .5s var(--ease-pop) both; animation-delay: var(--t, 0ms); }
+.is-active .a-left { animation: a-left .55s var(--ease-out) both; animation-delay: var(--t, 0ms); }
+.is-active .a-fade { animation: a-fade .4s ease both; animation-delay: var(--t, 0ms); }
+.is-active .a-drop { animation: a-drop .6s var(--ease-out) both; animation-delay: var(--t, 0ms); }
+@keyframes a-up { from { opacity: 0; transform: translateY(1em); filter: blur(3px); } to { opacity: 1; transform: none; filter: blur(0); } }
+@keyframes a-pop { from { opacity: 0; transform: scale(.6); } 70% { opacity: 1; transform: scale(1.04, .97); } to { opacity: 1; transform: none; } }
+@keyframes a-left { from { opacity: 0; transform: translateX(-1.2em); filter: blur(4px); } to { opacity: 1; transform: none; filter: blur(0); } }
+@keyframes a-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes a-drop { from { opacity: 0; transform: translateY(-1.6em) scale(.9); filter: blur(5px); } 75% { opacity: 1; transform: translateY(.08em) scale(1.02, .98); filter: blur(0); } to { opacity: 1; transform: none; filter: blur(0); } }
+svg .a-pop, svg .a-fade { transform-box: fill-box; transform-origin: center; }
+
+.draw { stroke-dasharray: 1; stroke-dashoffset: 1; opacity: 0; }
+.is-active .draw { animation: draw var(--dur, .7s) var(--ease-out) forwards; animation-delay: var(--t, 0ms); }
+@keyframes draw { from { opacity: 1; stroke-dashoffset: 1; } to { opacity: 1; stroke-dashoffset: 0; } }
+
+/* набор текста ведёт JS по часам сцены; каретка стоит сразу за набранным */
+.type { white-space: nowrap; }
+.caret { display: none; width: .08em; height: 1em; margin-left: .12em; background: currentColor; vertical-align: -.12em; }
+.caret.is-on { display: inline-block; animation: caret .9s steps(2, end) infinite; }
+@keyframes caret { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+.status { position: relative; display: inline-grid; place-items: center; flex: none; width: 1.4em; height: 1.4em; }
+.status .spin { position: absolute; inset: .12em; border-radius: 50%; border: .13em solid rgb(255 255 255 / .18); border-top-color: #fff; opacity: 0; }
+.status .ok { position: absolute; inset: 0; display: grid; place-items: center; border-radius: 50%; background: var(--mint); color: #143d2b; opacity: 0; }
+.status .ok svg { width: .9em; height: .9em; stroke-width: 2.8; }
+.is-active .status .spin { animation: a-fade .3s ease both, spin .7s linear infinite, vanish .2s ease forwards; animation-delay: var(--t, 0ms), var(--t, 0ms), var(--done, 1s); }
+.is-active .status .ok { animation: a-pop .45s var(--ease-pop) both; animation-delay: var(--done, 1s); }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes vanish { to { opacity: 0; visibility: hidden; } }
+
+/* ---------- 1. Контекст и агенты ---------- */
+.scene-1 { display: flex; flex-direction: column; }
+.docs { display: flex; flex-wrap: wrap; gap: .4em; }
+.prompt { display: flex; align-items: center; gap: .7em; margin-top: auto; padding: .5em; border-radius: 3em; }
+.prompt .who { display: inline-flex; align-items: center; gap: .4em; padding: .45em .75em .45em .55em; border-radius: 2em; background: rgb(255 255 255 / .12); font-size: .78em; font-weight: 700; }
+.prompt .text { flex: 1; min-width: 0; overflow: hidden; font-size: .98em; font-weight: 500; letter-spacing: -.01em; }
+.prompt .send { display: grid; place-items: center; flex: none; width: 2.1em; height: 2.1em; border-radius: 50%; background: var(--accent); color: #fff; opacity: 0; }
+.prompt .send svg { width: 1.05em; height: 1.05em; stroke-width: 2.4; }
+.is-active .prompt .send { animation: a-pop .45s var(--ease-pop) both, press .4s ease forwards; animation-delay: var(--t), calc(var(--t) + 220ms); }
+@keyframes press { 0% { transform: scale(1); } 45% { transform: scale(.82); } 100% { transform: scale(1); } }
+.agents { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .55em; margin-top: 1em; margin-bottom: auto; }
+.agent { display: grid; gap: .5em; padding: .7em .75em .8em; }
+.agent header { display: flex; align-items: center; justify-content: space-between; gap: .4em; }
+.agent .name { font-size: .76em; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.agent .well { width: 1.9em; height: 1.9em; border-radius: .5em; }
+.agent .well .ico { width: 1.05em; height: 1.05em; }
+.agent .status { width: 1.3em; height: 1.3em; }
+
+/* ---------- 2. Харнес и пайплайн ---------- */
+.scene-2 { display: flex; flex-direction: column; justify-content: center; gap: .9em; }
+.lane { position: relative; height: 2.3em; container-type: inline-size; }
+.lane-line { position: absolute; left: 10%; right: 10%; top: 50%; height: 1px; background: rgb(255 255 255 / .28); transform: scaleX(0); transform-origin: left; }
+.is-active .lane-line { animation: grow-x .5s var(--ease-standard) forwards; animation-delay: var(--t); }
+@keyframes grow-x { to { transform: scaleX(1); } }
+.lane-tick { position: absolute; top: 50%; width: .45em; height: .45em; border-radius: 50%; background: rgb(255 255 255 / .35); transform: translate(-50%, -50%); }
+.token-anchor { position: absolute; left: 10%; top: 50%; transform: translate(-50%, -50%); }
+.token { display: inline-flex; align-items: center; padding: .5em 1em; border-radius: 2em; background: #fff; color: var(--cover-ink); font-size: .72em; font-weight: 700; line-height: 1; white-space: nowrap; box-shadow: 0 .6em 1.4em -.5em rgb(0 0 0 / .8); }
+.is-active .token { animation: token-travel 2s var(--ease-standard) both; animation-delay: var(--t); }
+@keyframes token-travel {
+  0%, 12% { transform: translateX(0); }
+  22%, 34% { transform: translateX(20cqi); }
+  44%, 56% { transform: translateX(40cqi); }
+  66%, 78% { transform: translateX(60cqi); }
+  88%, 100% { transform: translateX(80cqi); }
+}
+.stages { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .4em; }
+.stage-block { display: flex; flex-direction: column; align-items: center; gap: .45em; padding: .6em .3em .65em; text-align: center; }
+.stage-block .name { font-size: .6em; font-weight: 600; line-height: 1.15; letter-spacing: -.01em; max-width: 100%; overflow-wrap: anywhere; }
+.stage-block .well { width: 2.1em; height: 2.1em; }
+.is-active .stage-block .well { animation: lit .45s ease forwards; animation-delay: var(--lit, 9s); }
+@keyframes lit { to { box-shadow: 0 0 0 .2em color-mix(in srgb, var(--c, #fff) 35%, transparent); background: color-mix(in srgb, var(--c, #fff) 26%, transparent); } }
+.foundation { display: flex; flex-wrap: wrap; align-items: center; gap: .4em; }
+.foundation-label { display: inline-flex; align-items: center; gap: .4em; margin-right: .3em; font-size: .72em; font-weight: 700; color: rgb(255 255 255 / .75); }
+.foundation-label .ico { width: 1.05em; height: 1.05em; }
+
+/* ---------- 3. Архитектура ---------- */
+.diagram { position: absolute; inset: 0; margin: auto; width: min(100%, calc(100cqh * 100 / 64)); aspect-ratio: 100 / 64; }
+.diagram > svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.diagram .edges path { fill: none; stroke: rgb(255 255 255 / .36); stroke-width: .55; }
+.packet { r: 1.05; fill: var(--accent); opacity: 0; offset-path: var(--path); offset-rotate: 0deg; }
+.is-active .packet { animation: travel .9s ease-in-out both; animation-delay: var(--t, 0ms); }
+@keyframes travel { 0% { offset-distance: 0%; opacity: 0; } 12% { opacity: 1; } 88% { opacity: 1; } 100% { offset-distance: 100%; opacity: 0; } }
+.node { position: absolute; left: var(--x); top: var(--y); transform: translate(-50%, -50%); }
+.node-box { display: flex; flex-direction: column; align-items: center; gap: .4em; min-width: 6.4em; padding: .7em .8em .75em; border-radius: .85em; background: linear-gradient(160deg, #34373f, #2c2f36); border: 1px solid rgb(255 255 255 / .12); box-shadow: inset 0 1px 0 rgb(255 255 255 / .14), 0 .8em 1.6em -.7em rgb(0 0 0 / .7); }
+.node-box .well { width: 2.1em; height: 2.1em; }
+.node-box .well .ico { width: 1.2em; height: 1.2em; stroke-width: 1.9; }
+.node-box span { font-size: .74em; font-weight: 600; white-space: nowrap; }
+.node-box.node-ai { background: linear-gradient(160deg, #3d3658, #32304a); border-color: rgb(196 179 255 / .45); }
+
+/* ---------- 4. Проверка результата ---------- */
+.scene-4 { display: grid; grid-template-rows: 1fr auto; gap: .7em; }
+.review { display: grid; grid-template-columns: 1fr 1.6fr; gap: .7em; min-height: 0; }
+.checks { display: grid; align-content: start; gap: .5em; padding: .8em; }
+.check { display: flex; align-items: center; gap: .55em; font-size: .8em; font-weight: 600; }
+.diff { padding: .75em .85em; font-family: var(--font-utility); font-size: .66em; line-height: 1.8; overflow: hidden; }
+.diff .line { position: relative; padding-inline: .5em; border-radius: .35em; white-space: pre; color: rgb(255 255 255 / .78); }
+.diff .line em { font-style: normal; color: var(--lavender); }
+.diff .line b { font-weight: 500; color: var(--accent); }
+.diff .line i { font-style: normal; color: var(--amber); }
+.diff .add { color: var(--mint); background: rgb(143 215 180 / .12); }
+.diff .del { overflow: hidden; }
+.is-active .diff .del { animation: a-fade .4s ease both, flag .35s ease forwards, del-out .35s ease forwards; animation-delay: var(--t), var(--t2), var(--t3); }
+@keyframes flag { to { color: var(--coral); background: rgb(255 154 134 / .12); } }
+@keyframes del-out { to { opacity: 0; transform: translateX(-.6em); height: 0; } }
+.mark-wrap { position: absolute; inset: 0 .35em 0 auto; display: flex; align-items: center; }
+.mark { display: inline-flex; align-items: center; gap: .35em; padding: .3em .6em; border-radius: 2em; font-size: .95em; font-weight: 700; line-height: 1; white-space: nowrap; }
+.mark svg { width: .85em; height: .85em; stroke-width: 2.8; }
+.mark-bug { background: var(--coral); color: #4d1d13; }
+.mark-fix { background: var(--mint); color: #143d2b; }
+.accept { justify-self: center; display: inline-flex; align-items: center; gap: .55em; padding: .55em 1em .55em .75em; border-radius: 2em; background: #fff; color: var(--cover-ink); font-size: .9em; font-weight: 700; }
+.accept .ico { color: var(--cover-mint-foreground); }
+
+/* ---------- 5. Выпуск и эксплуатация ---------- */
+.scene-5 { display: grid; grid-template-rows: auto 1fr auto; gap: .7em; }
+.pipeline { display: flex; align-items: center; gap: .45em; }
+.step { display: grid; gap: .5em; flex: 1; min-width: 0; padding: .65em .75em; }
+.step header { display: flex; align-items: center; gap: .5em; font-size: .76em; font-weight: 600; white-space: nowrap; }
+.step header .well { width: 1.8em; height: 1.8em; border-radius: .45em; }
+.step header .well .ico { width: 1em; height: 1em; }
+.step-tag { flex: none; padding: .5em .65em; border-radius: .5em; background: #fff; color: var(--cover-ink); font-family: var(--font-utility); font-size: .72em; font-weight: 700; }
+.pipeline .arrow { flex: none; width: 1.3em; height: .9em; overflow: visible; }
+.pipeline .arrow path { fill: none; stroke: rgb(255 255 255 / .5); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.live { position: relative; flex: none; width: .55em; height: .55em; border-radius: 50%; background: rgb(255 255 255 / .25); }
+.live::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: var(--mint); opacity: 0; }
+.is-active .live::after { animation: live 1.1s ease-out 3 both; animation-delay: var(--t); }
+@keyframes live { 0% { opacity: 1; box-shadow: 0 0 0 0 rgb(143 215 180 / .7); } 100% { opacity: 1; box-shadow: 0 0 0 .7em rgb(143 215 180 / 0); } }
+.ops { display: grid; grid-template-columns: 1.15fr 1fr; gap: .7em; min-height: 0; }
+.metrics, .logs { display: grid; grid-template-rows: auto 1fr; gap: .45em; padding: .7em .8em; min-height: 0; }
+.metrics .label, .logs .label { display: flex; align-items: center; gap: .4em; }
+.metrics .label .ico, .logs .label .ico { width: 1.05em; height: 1.05em; }
+.metrics svg { width: 100%; height: 100%; min-height: 0; overflow: visible; }
+.metrics .area { fill: url(#metric-fill); opacity: 0; }
+.is-active .metrics .area { animation: a-fade .7s ease both; animation-delay: var(--t); }
+.metrics .curve { fill: none; stroke: var(--accent); stroke-width: 1.6; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.logs { font-family: var(--font-utility); font-size: .64em; line-height: 1.7; }
+.logs .label { font-size: 1.15em; font-family: var(--font-body); }
+.log { color: rgb(255 255 255 / .62); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.log b { font-weight: 600; color: var(--mint); }
+.log .warn { color: var(--amber); }
+.next { justify-self: start; display: inline-flex; align-items: center; gap: .5em; padding: .5em .85em .5em .7em; border-radius: 2em; border: 1px solid rgb(255 255 255 / .18); font-size: .76em; font-weight: 600; white-space: nowrap; }
+.next .ico { color: var(--lavender); }
+.next code { font-family: var(--font-utility); font-weight: 700; }
+
+/* узкий слот (мобильный): плотнее */
+@container (max-width: 24rem) {
+  .stage { padding: 1em 1em .8em; gap: .5em; }
+  .stage-step { display: none; }
+  .stage-progress { margin-left: auto; }
+  .docs .chip .ico { display: none; }
+  .agent { padding: .6em .6em .65em; }
+  .stage-block { padding: .5em .2em .55em; }
+  .stage-block .name { font-size: .52em; }
+  .foundation .chip:nth-child(n + 5) { display: none; }
+  .logs .log:nth-child(n + 5) { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scene.is-active, .scene.is-leaving { animation: none; opacity: 1; transform: none; }
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
+    <symbol id="i-user-check" viewBox="0 0 24 24"><path d="m16 11 2 2 4-4"/><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></symbol>
+    <symbol id="i-bot" viewBox="0 0 24 24"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></symbol>
+    <symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></symbol>
+    <symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></symbol>
+    <symbol id="i-window" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M10 4v4"/><path d="M2 8h20"/><path d="M6 4v4"/></symbol>
+    <symbol id="i-braces" viewBox="0 0 24 24"><path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1"/><path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1"/></symbol>
+    <symbol id="i-db" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><path d="M3 5h.01"/><path d="M3 12h.01"/><path d="M3 19h.01"/><path d="M8 5h13"/><path d="M8 12h13"/><path d="M8 19h13"/></symbol>
+    <symbol id="i-list-checks" viewBox="0 0 24 24"><path d="M13 5h8"/><path d="M13 12h8"/><path d="M13 19h8"/><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/></symbol>
+    <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+    <symbol id="i-package" viewBox="0 0 24 24"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M12 22V12"/><polyline points="3.29 7 12 12 20.71 7"/><path d="m7.5 4.27 9 5.15"/></symbol>
+    <symbol id="i-git-branch" viewBox="0 0 24 24"><path d="M15 6a9 9 0 0 0-9 9V3"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></symbol>
+    <symbol id="i-code" viewBox="0 0 24 24"><path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-activity" viewBox="0 0 24 24"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/></symbol>
+    <symbol id="i-scroll" viewBox="0 0 24 24"><path d="M15 12h-5"/><path d="M15 8h-5"/><path d="M19 17V5a2 2 0 0 0-2-2H4"/><path d="M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3"/></symbol>
+    <symbol id="i-server" viewBox="0 0 24 24"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"/><path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"/><path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"/></symbol>
+  </defs>
+</svg>
+
+<template id="stage-template">
+  <div class="stage" data-scene="1" role="img" aria-label="Иллюстрация AI-first процесса: контекст и агенты, харнес и пайплайн, архитектура, проверка результата, выпуск и эксплуатация.">
+    <div class="glow" aria-hidden="true"></div>
+    <div class="stage-body" aria-hidden="true">
+
+      <section class="scene scene-1">
+        <div class="docs">
+          <span class="chip a-left" style="--t:300ms"><svg class="ico"><use href="#i-file"/></svg>AGENTS.md</span>
+          <span class="chip a-left" style="--t:460ms"><svg class="ico"><use href="#i-file"/></svg>spec.md</span>
+          <span class="chip a-left" style="--t:620ms"><svg class="ico"><use href="#i-file"/></svg>tasks.md</span>
+        </div>
+        <div class="prompt panel a-up" style="--t:420ms">
+          <span class="who"><svg class="ico"><use href="#i-user"/></svg>ты</span>
+          <span class="text"><span class="type" data-t="900" data-speed="32">Добавь уведомления о новых заявках</span><i class="caret"></i></span>
+          <span class="send" style="--t:2100ms"><svg class="ico"><use href="#i-arrow-up"/></svg></span>
+        </div>
+        <div class="agents">
+          <div class="agent panel a-drop" style="--t:2500ms">
+            <header><i class="well" style="--c:var(--lavender)"><svg class="ico"><use href="#i-search"/></svg></i><span class="status" style="--t:2800ms;--done:3350ms"><i class="spin"></i><i class="ok"><svg class="ico"><use href="#i-check"/></svg></i></span></header>
+            <span class="name">Исследование</span>
+            <div class="bar" style="--bar:var(--lavender)"><i style="--t:2800ms;--dur:.5s"></i></div>
+          </div>
+          <div class="agent panel a-drop" style="--t:2660ms">
+            <header><i class="well" style="--c:var(--accent)"><svg class="ico"><use href="#i-code"/></svg></i><span class="status" style="--t:2900ms;--done:3750ms"><i class="spin"></i><i class="ok"><svg class="ico"><use href="#i-check"/></svg></i></span></header>
+            <span class="name">Реализация</span>
+            <div class="bar" style="--bar:var(--accent)"><i style="--t:2900ms;--dur:.8s"></i></div>
+          </div>
+          <div class="agent panel a-drop" style="--t:2820ms">
+            <header><i class="well" style="--c:var(--mint)"><svg class="ico"><use href="#i-eye"/></svg></i><span class="status" style="--t:3000ms;--done:9000ms"><i class="spin"></i><i class="ok"><svg class="ico"><use href="#i-check"/></svg></i></span></header>
+            <span class="name">Ревью</span>
+            <div class="bar" style="--bar:var(--mint)"><i style="--t:3000ms;--dur:1.4s;--to:.55"></i></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="scene scene-2">
+        <div class="lane">
+          <i class="lane-line" style="--t:500ms"></i>
+          <i class="lane-tick" style="left:10%"></i><i class="lane-tick" style="left:30%"></i><i class="lane-tick" style="left:50%"></i><i class="lane-tick" style="left:70%"></i><i class="lane-tick" style="left:90%"></i>
+          <span class="token-anchor a-fade" style="--t:800ms"><span class="token" style="--t:900ms">Задача</span></span>
+        </div>
+        <div class="stages">
+          <div class="stage-block stage-research panel a-pop" style="--t:0ms"><i class="well" style="--c:var(--lavender);--lit:900ms"><svg class="ico"><use href="#i-search"/></svg></i><span class="name">Исследование</span></div>
+          <div class="stage-block panel a-pop" style="--t:120ms"><i class="well" style="--c:var(--amber);--lit:1340ms"><svg class="ico"><use href="#i-file"/></svg></i><span class="name">Спецификация</span></div>
+          <div class="stage-block panel a-pop" style="--t:240ms"><i class="well" style="--c:var(--amber);--lit:1780ms"><svg class="ico"><use href="#i-list-checks"/></svg></i><span class="name">Задачи</span></div>
+          <div class="stage-block stage-build panel a-pop" style="--t:360ms"><i class="well" style="--c:var(--accent);--lit:2220ms"><svg class="ico"><use href="#i-code"/></svg></i><span class="name">Реализация</span></div>
+          <div class="stage-block stage-review panel a-pop" style="--t:480ms"><i class="well" style="--c:var(--mint);--lit:2660ms"><svg class="ico"><use href="#i-eye"/></svg></i><span class="name">Ревью</span></div>
+        </div>
+        <div class="foundation">
+          <span class="foundation-label a-fade" style="--t:500ms"><svg class="ico"><use href="#i-layers"/></svg>Харнес</span>
+          <span class="chip a-pop" style="--t:560ms"><svg class="ico"><use href="#i-file"/></svg>AGENTS.md</span>
+          <span class="chip a-pop" style="--t:660ms"><svg class="ico"><use href="#i-file"/></svg>spec.md</span>
+          <span class="chip a-pop" style="--t:760ms"><svg class="ico"><use href="#i-file"/></svg>tasks.md</span>
+          <span class="chip a-pop" style="--t:860ms">skills</span>
+          <span class="chip a-pop" style="--t:960ms">MCP</span>
+        </div>
+      </section>
+
+      <section class="scene scene-3">
+        <div class="diagram">
+          <svg viewBox="0 0 100 64">
+            <g class="edges">
+              <path class="draw" pathLength="1" d="M50 19.2L16 16.6" style="--t:600ms;--dur:.6s"/>
+              <path class="draw" pathLength="1" d="M50 19.2L84 16.6" style="--t:750ms;--dur:.6s"/>
+              <path class="draw" pathLength="1" d="M50 19.2L72 46" style="--t:900ms;--dur:.6s"/>
+              <path class="draw" pathLength="1" d="M72 46L28 46" style="--t:1050ms;--dur:.6s"/>
+              <path class="draw" pathLength="1" d="M28 46L50 19.2" style="--t:1200ms;--dur:.6s"/>
+            </g>
+            <g class="packets">
+              <circle class="packet" style="--path:path('M50 19.2L16 16.6');--t:1500ms"/>
+              <circle class="packet" style="--path:path('M50 19.2L84 16.6');--t:1700ms"/>
+              <circle class="packet" style="--path:path('M50 19.2L72 46');--t:1900ms"/>
+              <circle class="packet" style="--path:path('M72 46L28 46');--t:2200ms"/>
+              <circle class="packet" style="--path:path('M28 46L50 19.2');--t:2500ms"/>
+            </g>
+          </svg>
+          <div class="node node-api" style="--x:50%;--y:30%"><div class="node-box a-pop" style="--t:0ms"><i class="well" style="--c:var(--accent)"><svg class="ico"><use href="#i-braces"/></svg></i><span>API</span></div></div>
+          <div class="node" style="--x:16%;--y:26%"><div class="node-box a-pop" style="--t:200ms"><i class="well"><svg class="ico"><use href="#i-window"/></svg></i><span>Интерфейс</span></div></div>
+          <div class="node" style="--x:84%;--y:26%"><div class="node-box a-pop" style="--t:350ms"><i class="well" style="--c:var(--amber)"><svg class="ico"><use href="#i-db"/></svg></i><span>База данных</span></div></div>
+          <div class="node" style="--x:72%;--y:72%"><div class="node-box a-pop" style="--t:500ms"><i class="well" style="--c:var(--mint)"><svg class="ico"><use href="#i-list"/></svg></i><span>Очередь</span></div></div>
+          <div class="node" style="--x:28%;--y:72%"><div class="node-box node-ai a-pop" style="--t:650ms"><i class="well" style="--c:var(--lavender)"><svg class="ico"><use href="#i-sparkles"/></svg></i><span>AI-модель</span></div></div>
+        </div>
+      </section>
+
+      <section class="scene scene-4">
+        <div class="review">
+          <div class="checks panel a-up" style="--t:0ms">
+            <div class="check"><span class="status" style="--t:400ms;--done:1100ms"><i class="spin"></i><i class="ok"><svg class="ico"><use href="#i-check"/></svg></i></span>Тесты</div>
+            <div class="check"><span class="status" style="--t:500ms;--done:1500ms"><i class="spin"></i><i class="ok"><svg class="ico"><use href="#i-check"/></svg></i></span>Сборка</div>
+            <div class="check"><span class="status" style="--t:600ms;--done:2650ms"><i class="spin"></i><i class="ok"><svg class="ico"><use href="#i-check"/></svg></i></span>Ревью</div>
+          </div>
+          <div class="diff panel a-up" style="--t:120ms">
+            <div class="line a-fade" style="--t:450ms"><em>export</em> <b>function</b> notify(user) {</div>
+            <div class="line del" style="--t:520ms;--t2:1300ms;--t3:2000ms">-  send(user)<span class="mark-wrap"><span class="mark mark-bug a-pop" style="--t:1350ms"><svg class="ico"><use href="#i-x"/></svg>ошибка</span></span></div>
+            <div class="line add a-fade" style="--t:2000ms">+  if (user) send(user)<span class="mark-wrap"><span class="mark mark-fix a-pop" style="--t:2250ms"><svg class="ico"><use href="#i-check"/></svg>исправлено</span></span></div>
+            <div class="line a-fade" style="--t:590ms">   log(<i>"notified"</i>, user.id)</div>
+            <div class="line a-fade" style="--t:660ms">   return ok</div>
+            <div class="line a-fade" style="--t:730ms">}</div>
+            <div class="line a-fade" style="--t:800ms"> </div>
+            <div class="line a-fade" style="--t:870ms"><b>test</b>(<i>"notify skips empty user"</i>, () => {</div>
+            <div class="line a-fade" style="--t:940ms">   expect(notify(null)).toBe(ok)</div>
+            <div class="line a-fade" style="--t:1010ms">})</div>
+          </div>
+        </div>
+        <div class="accept a-pop" style="--t:2900ms"><svg class="ico"><use href="#i-user-check"/></svg>Принято</div>
+      </section>
+
+      <section class="scene scene-5">
+        <div class="pipeline">
+          <div class="step step-build panel a-up" style="--t:0ms">
+            <header><i class="well" style="--c:var(--accent)"><svg class="ico"><use href="#i-package"/></svg></i>Сборка</header>
+            <div class="bar"><i style="--t:400ms;--dur:.7s"></i></div>
+          </div>
+          <svg class="arrow" viewBox="0 0 24 16"><path class="draw" pathLength="1" d="M2 8h18M15 3l5 5-5 5" style="--t:1150ms;--dur:.35s"/></svg>
+          <div class="step-tag a-pop" style="--t:1250ms">v1.2.0</div>
+          <svg class="arrow" viewBox="0 0 24 16"><path class="draw" pathLength="1" d="M2 8h18M15 3l5 5-5 5" style="--t:1400ms;--dur:.35s"/></svg>
+          <div class="step panel a-up" style="--t:1500ms">
+            <header><i class="well" style="--c:var(--mint)"><svg class="ico"><use href="#i-server"/></svg></i>Production<i class="live" style="--t:2500ms"></i></header>
+            <div class="bar" style="--bar:var(--mint)"><i style="--t:1700ms;--dur:.75s"></i></div>
+          </div>
+        </div>
+        <div class="ops">
+          <div class="metrics panel a-up" style="--t:2000ms">
+            <span class="label"><svg class="ico"><use href="#i-activity"/></svg>Метрики</span>
+            <svg viewBox="0 0 100 30" preserveAspectRatio="none">
+              <defs><linearGradient id="metric-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4f8cff" stop-opacity=".45"/><stop offset="1" stop-color="#4f8cff" stop-opacity="0"/></linearGradient></defs>
+              <path class="area" d="M0 23C10 21 15 13 25 15S40 25 50 17 65 6 75 10 90 19 100 8V30H0z" style="--t:2700ms"/>
+              <path class="curve draw" pathLength="1" d="M0 23C10 21 15 13 25 15S40 25 50 17 65 6 75 10 90 19 100 8" style="--t:2200ms;--dur:1s"/>
+            </svg>
+          </div>
+          <div class="logs panel a-up" style="--t:250ms">
+            <span class="label"><svg class="ico"><use href="#i-scroll"/></svg>Логи</span>
+            <div>
+              <div class="log a-fade" style="--t:800ms"><b>ok</b> tests 48 passed</div>
+              <div class="log a-fade" style="--t:1150ms"><b>ok</b> build v1.2.0</div>
+              <div class="log a-fade" style="--t:2500ms"><b>ok</b> deploy v1.2.0</div>
+              <div class="log a-fade" style="--t:2700ms"><b>ok</b> health 200</div>
+              <div class="log a-fade" style="--t:2900ms"><span class="warn">warn</span> queue lag 1.2s</div>
+              <div class="log a-fade" style="--t:3100ms"><b>ok</b> retry · lag 0.1s</div>
+            </div>
+          </div>
+        </div>
+        <div class="next a-left" style="--t:3100ms"><svg class="ico"><use href="#i-git-branch"/></svg><code>v1.3</code> следующее обновление</div>
+      </section>
+    </div>
+
+    <div class="stage-foot" aria-hidden="true">
+      <span class="stage-step">
+        <span class="type" data-t="150" data-speed="24">01 · Контекст и агенты</span>
+        <span class="type" data-t="150" data-speed="24" hidden>02 · Харнес и пайплайн</span>
+        <span class="type" data-t="150" data-speed="24" hidden>03 · Архитектура системы</span>
+        <span class="type" data-t="150" data-speed="24" hidden>04 · Проверка результата</span>
+        <span class="type" data-t="150" data-speed="24" hidden>05 · Выпуск и эксплуатация</span>
+      </span>
+      <div class="stage-progress"><i></i><i></i><i></i><i></i><i></i></div>
+    </div>
+  </div>
+</template>
+
+<main class="page">
+  <div class="page-head">
+    <div><h1>Анимация карточки «AI-first разработка»</h1><p>Сцена подстраивается под слот. Заголовок и кнопка живут в карточке и не двигаются.</p></div>
+    <nav class="tabs" id="tabs" aria-label="Размер">
+      <button type="button" data-frame="home" aria-selected="true">Главная · desktop</button>
+      <button type="button" data-frame="guide" aria-selected="false">Страница руководства</button>
+      <button type="button" data-frame="mobile" aria-selected="false">Мобильный · 390</button>
+    </nav>
+  </div>
+
+  <section class="frame" data-frame="home">
+    <div class="home-guide">
+      <div class="home-guide-copy">
+        <h2>AI-first разработка</h2>
+        <p>Выстрой понятный процесс работы с AI-агентами: от требований и архитектуры до проверки кода, деплоя и развития проекта. Инженерная база и современные практики разработки — на одном сквозном проекте.</p>
+        <div class="home-guide-actions"><span>3 материала</span><a class="home-guide-open" href="#">Открыть руководство <svg class="ico"><use href="#i-arrow-right"/></svg></a></div>
+      </div>
+      <div class="home-guide-animation stage-host"></div>
+    </div>
+  </section>
+
+  <section class="frame" data-frame="guide" hidden>
+    <div class="ai-guide-hero">
+      <div>
+        <h1>AI-first разработка</h1>
+        <p class="ai-guide-headline">Инженерный подход к разработке с AI</p>
+        <p class="ai-guide-intro">Выстрой понятный процесс работы с AI-агентами: от требований и архитектуры до проверки кода, деплоя и развития проекта.</p>
+        <a class="ai-guide-button" href="#">Открыть программу <svg class="ico"><use href="#i-arrow-right"/></svg></a>
+        <p class="ai-guide-format">Руководство с сопровождением · практика на проекте</p>
+      </div>
+      <div class="ai-artwork-slot stage-host"></div>
+    </div>
+  </section>
+
+  <section class="frame" data-frame="mobile" hidden>
+    <div class="phone">
+      <p class="m-eyebrow">Руководство</p>
+      <h2 class="m-title">AI-first разработка</h2>
+      <p class="m-subtitle">Инженерная работа с агентами</p>
+      <div class="m-card">
+        <div class="stage-host"></div>
+        <div class="m-foot"><span>3 материала</span><svg class="ico m-arrow"><use href="#i-arrow-right"/></svg><a class="m-open" href="#">Открыть</a></div>
+      </div>
+      <p class="m-below">Выстрой понятный процесс работы с AI-агентами: от требований и архитектуры до проверки кода, деплоя и развития проекта.</p>
+    </div>
+  </section>
+
+  <div class="controls">
+    <button type="button" class="is-primary" id="replay">Повторить</button>
+    <button type="button" id="pause">Пауза</button>
+    <label><input type="checkbox" id="loop" checked> Зациклить</label>
+    <div class="scenes" id="scene-buttons" aria-label="Перейти к сцене">
+      <button type="button" data-scene="0" title="Контекст и агенты">1</button>
+      <button type="button" data-scene="1" title="Харнес и пайплайн">2</button>
+      <button type="button" data-scene="2" title="Архитектура">3</button>
+      <button type="button" data-scene="3" title="Проверка результата">4</button>
+      <button type="button" data-scene="4" title="Выпуск и эксплуатация">5</button>
+    </div>
+  </div>
+  <p class="note">Один прогон около 18 секунд, затем пауза 1,2 секунды и, если включён цикл, повтор. При системной настройке «уменьшить движение» показывается только финальная сцена.</p>
+</main>
+
+<script>
+(() => {
+  const DURATIONS = [4000, 3600, 3400, 3600, 3600];
+  const HOLD = 1200;
+  const starts = DURATIONS.map((_, i) => DURATIONS.slice(0, i).reduce((a, b) => a + b, 0));
+  const total = starts[4] + DURATIONS[4];
+  const template = document.getElementById("stage-template");
+  const params = new URLSearchParams(location.search);
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches || params.has("static");
+
+  // Сквозные переходы: объекты сцены N перелетают и становятся элементами сцены N+1.
+  // under: клон летит под элементами новой сцены, over: поверх.
+  const HANDOFFS = {
+    "0>1": [
+      { from: ".scene-1 .agent:nth-child(1)", to: ".scene-2 .stage-research", delay: 0 },
+      { from: ".scene-1 .agent:nth-child(2)", to: ".scene-2 .stage-build", delay: 60 },
+      { from: ".scene-1 .agent:nth-child(3)", to: ".scene-2 .stage-review", delay: 120 },
+      { from: ".scene-1 .docs .chip:nth-child(1)", to: ".scene-2 .foundation .chip:nth-child(2)", delay: 150, layer: "under" },
+      { from: ".scene-1 .docs .chip:nth-child(2)", to: ".scene-2 .foundation .chip:nth-child(3)", delay: 210, layer: "under" },
+      { from: ".scene-1 .docs .chip:nth-child(3)", to: ".scene-2 .foundation .chip:nth-child(4)", delay: 270, layer: "under" },
+      { from: ".scene-1 .prompt", to: ".scene-2 .token-anchor", delay: 250 },
+    ],
+    "1>2": [{ from: ".scene-2 .stage-build", to: ".scene-3 .node-api .node-box", delay: 0 }],
+    "2>3": [
+      { from: ".scene-3 .node-api .node-box", to: ".scene-4 .diff", delay: 0 },
+      { from: ".scene-3 .node:nth-child(3) .node-box", to: ".scene-4 .diff", delay: 40 },
+      { from: ".scene-3 .node:nth-child(4) .node-box", to: ".scene-4 .diff", delay: 80 },
+      { from: ".scene-3 .node:nth-child(5) .node-box", to: ".scene-4 .diff", delay: 120 },
+      { from: ".scene-3 .node:nth-child(6) .node-box", to: ".scene-4 .diff", delay: 160 },
+    ],
+    "3>4": [
+      { from: ".scene-4 .checks", to: ".scene-5 .step-build", delay: 0 },
+      { from: ".scene-4 .diff", to: ".scene-5 .logs", delay: 60 },
+      { from: ".scene-4 .accept", to: ".scene-5 .step-tag", delay: 120 },
+    ],
+    "4>0": [{ from: ".scene-5 .next", to: ".scene-1 .prompt", delay: 0 }],
+  };
+  const USE_MORPHS = false; // перелёты объектов между сценами выключены по решению владельца
+  const MORPH_MS = 620;
+  const MORPH_FADE_MS = 260;
+  const MORPH_EASE = "cubic-bezier(.2, 0, .38, .9)";
+  const PANEL_TONE = "#33363d";
+  const isTransparent = (color) => /rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*0\s*\)/.test(color) || color === "transparent";
+
+  function mount(host) {
+    const stage = template.content.firstElementChild.cloneNode(true);
+    host.appendChild(stage);
+    const body = stage.querySelector(".stage-body");
+    const morphLayer = document.createElement("div");
+    morphLayer.className = "stage-morph";
+    body.appendChild(morphLayer);
+    const morphUnder = document.createElement("div");
+    morphUnder.className = "stage-morph-under";
+    body.appendChild(morphUnder);
+    const morphs = new Set();
+    const scenes = [...stage.querySelectorAll(".scene")];
+    const segments = [...stage.querySelectorAll(".stage-progress i")];
+    const rectIn = (el) => { const b = body.getBoundingClientRect(); const r = el.getBoundingClientRect(); return { left: r.left - b.left, top: r.top - b.top, width: r.width, height: r.height }; };
+    const clearMorphs = (keepRevealed = false) => {
+      for (const m of morphs) m.cancel();
+      morphs.clear();
+      morphLayer.replaceChildren();
+      morphUnder.replaceChildren();
+      const classes = keepRevealed ? ["is-morph-source", "is-morph-target", "is-morph-in"] : ["is-morph-source", "is-morph-target", "is-morphed", "is-morph-in"];
+      for (const el of stage.querySelectorAll(classes.map((c) => `.${c}`).join(", "))) el.classList.remove(...classes);
+    };
+    function prepareMorphs(previous, index) {
+      const plans = HANDOFFS[`${previous}>${index}`];
+      if (!USE_MORPHS || !plans || reduced) return [];
+      const pending = [];
+      for (const plan of plans) {
+        const source = scenes[previous].querySelector(plan.from);
+        const target = scenes[index].querySelector(plan.to);
+        if (!source || !target) continue;
+        const from = rectIn(source);
+        const ghost = source.cloneNode(true);
+        ghost.classList.add("morph-ghost");
+        for (const el of [ghost, ...ghost.querySelectorAll("*")]) el.classList.remove("is-morph-source", "is-morph-target", "is-morphed", "node-ai", "a-up", "a-pop", "a-left", "a-drop", "a-fade");
+        for (const node of [...ghost.childNodes]) {
+          if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) { const span = document.createElement("span"); node.replaceWith(span); span.appendChild(node); }
+        }
+        const sourceStyle = getComputedStyle(source);
+        Object.assign(ghost.style, { left: `${from.left}px`, top: `${from.top}px`, width: `${from.width}px`, height: `${from.height}px`, borderRadius: sourceStyle.borderRadius, backgroundColor: sourceStyle.backgroundColor });
+        source.classList.add("is-morph-source");
+        (plan.layer === "under" ? morphUnder : morphLayer).appendChild(ghost);
+        pending.push({ ghost, target, from, delay: plan.delay || 0, fromColor: sourceStyle.backgroundColor });
+      }
+      return pending;
+    }
+    /* клон летит плотным до самой цели, меняя фон на тон цели; цель проявляется только по прилёте */
+    function runMorph({ ghost, target, from, delay, fromColor }) {
+      const to = rectIn(target);
+      const targetStyle = getComputedStyle(target);
+      let toColor = targetStyle.backgroundColor;
+      if (isTransparent(toColor)) toColor = targetStyle.backgroundImage !== "none" ? PANEL_TONE : "rgba(255, 255, 255, 0)";
+      const startColor = isTransparent(fromColor) ? "rgba(255, 255, 255, 0)" : fromColor;
+      morphs.add(ghost.animate([
+        { left: `${from.left}px`, top: `${from.top}px`, width: `${from.width}px`, height: `${from.height}px`, borderRadius: ghost.style.borderRadius, backgroundColor: startColor },
+        { left: `${to.left}px`, top: `${to.top}px`, width: `${to.width}px`, height: `${to.height}px`, borderRadius: targetStyle.borderRadius, backgroundColor: toColor },
+      ], { duration: MORPH_MS, delay, easing: MORPH_EASE, fill: "forwards" }));
+      for (const child of ghost.children) morphs.add(child.animate([{ opacity: 1 }, { opacity: 0 }], { duration: MORPH_MS * .4, delay, easing: "linear", fill: "forwards" }));
+      const fade = ghost.animate([{ opacity: 1 }, { opacity: 1, offset: .999 }, { opacity: 0 }], { duration: MORPH_MS + MORPH_FADE_MS, delay, easing: "linear", fill: "forwards" });
+      fade.addEventListener("finish", () => ghost.remove());
+      const arrival = ghost.animate([{ opacity: 1 }, { opacity: 1 }], { duration: MORPH_MS, delay });
+      arrival.addEventListener("finish", () => {
+        target.classList.remove("is-morph-target"); target.classList.add("is-morphed");
+        morphs.add(ghost.animate([{ opacity: 1 }, { opacity: 0 }], { duration: MORPH_FADE_MS, easing: "ease-out", fill: "forwards" }));
+      });
+      morphs.add(fade); morphs.add(arrival);
+    }
+
+    const register = (el) => {
+      const text = el.textContent; el.textContent = "";
+      const next = el.nextElementSibling;
+      return { el, text, start: Number(el.dataset.t || 0), speed: Number(el.dataset.speed || 42), caret: next && next.classList.contains("caret") ? next : null };
+    };
+    const typers = scenes.map((s) => [...s.querySelectorAll(".type")].map(register));
+    const steps = [...stage.querySelectorAll(".stage-step .type")].map(register);
+    let current = -1, elapsed = 0, lastNow = 0, running = false, rafId = null, loop = true;
+    const onState = () => api.onState && api.onState();
+
+    const restartAnimations = (el) => { el.classList.remove("is-active", "is-leaving"); void el.offsetWidth; el.classList.add("is-active"); };
+    function activate(index) {
+      const previous = current;
+      current = index;
+      let pending = [];
+      if (previous >= 0 && previous !== index) {
+        pending = prepareMorphs(previous, index);
+        const leaving = scenes[previous];
+        leaving.classList.add("is-leaving");
+        setTimeout(() => { if (current !== previous) leaving.classList.remove("is-active", "is-leaving", "is-morph-in"); }, 400);
+      }
+      restartAnimations(scenes[index]);
+      if (pending.length) {
+        scenes[index].classList.add("is-morph-in");
+        for (const p of pending) p.target.classList.add("is-morph-target");
+        void body.offsetWidth;
+        for (const p of pending) runMorph(p);
+      }
+      for (const t of typers[index]) { t.el.textContent = ""; if (t.caret) t.caret.classList.remove("is-on"); }
+      steps.forEach((s, i) => { s.el.hidden = i !== index; s.el.textContent = ""; });
+      segments.forEach((seg, i) => {
+        seg.classList.remove("is-done", "is-active");
+        if (i < index) seg.classList.add("is-done");
+        if (i === index) { seg.style.setProperty("--d", `${DURATIONS[i]}ms`); void seg.offsetWidth; seg.classList.add("is-active"); }
+      });
+      stage.dataset.scene = String(index + 1);
+      onState();
+    }
+    function renderTyping(sceneTime) {
+      for (const t of [...typers[current], steps[current]]) {
+        const n = Math.max(0, Math.min(t.text.length, Math.floor((sceneTime - t.start) / t.speed)));
+        if (t.el.textContent.length !== n) t.el.textContent = t.text.slice(0, n);
+        if (t.caret) t.caret.classList.toggle("is-on", sceneTime >= t.start && sceneTime <= t.start + t.text.length * t.speed + 800);
+      }
+    }
+    const indexFor = (t) => { let i = 0; while (i < 4 && t >= starts[i + 1]) i += 1; return i; };
+    function tick(now) {
+      if (!running) return;
+      elapsed += now - lastNow; lastNow = now;
+      if (elapsed >= total + HOLD) { if (loop) { loopAround(); return; } running = false; onState(); return; }
+      const index = indexFor(elapsed);
+      if (index !== current) activate(index);
+      renderTyping(elapsed - starts[index]);
+      rafId = requestAnimationFrame(tick);
+    }
+    function play() { if (running || reduced) return; running = true; stage.classList.remove("is-paused"); for (const m of morphs) if (m.playState === "paused") m.play(); lastNow = performance.now(); rafId = requestAnimationFrame(tick); onState(); }
+    function pause() { running = false; if (rafId) cancelAnimationFrame(rafId); stage.classList.add("is-paused"); for (const m of morphs) if (m.playState === "running") m.pause(); onState(); }
+    function stop() { running = false; if (rafId) cancelAnimationFrame(rafId); }
+    function reset() { stop(); clearMorphs(); scenes.forEach((s) => s.classList.remove("is-active", "is-leaving")); current = -1; }
+    function restart() { reset(); elapsed = 0; activate(0); play(); }
+    /* замыкание цикла: пятая сцена перетекает в первую тем же перелётом, без сброса */
+    function loopAround() { stop(); clearMorphs(true); elapsed = 0; activate(0); play(); }
+    function jump(index) { reset(); elapsed = starts[index]; activate(index); play(); }
+    /* статичный кадр: конечное состояние сцены index без движения (reduced motion, иллюстрации секций) */
+    function showStatic(index = 4) {
+      stage.classList.add("is-static");
+      reset();
+      activate(index);
+      for (const t of [...typers[index], steps[index]]) t.el.textContent = t.text;
+      segments.forEach((seg, i) => { seg.classList.remove("is-active"); if (i <= index) seg.classList.add("is-done"); });
+    }
+    const api = { restart, jump, pause, play, stop, showStatic, setLoop: (v) => { loop = v; }, get running() { return running; }, get current() { return current; }, get ended() { return elapsed >= total + HOLD; }, onState: null };
+    return api;
+  }
+
+  const frames = new Map();
+  for (const frame of document.querySelectorAll(".frame")) frames.set(frame.dataset.frame, { frame, timeline: mount(frame.querySelector(".stage-host")) });
+  let activeKey = "home";
+  const active = () => frames.get(activeKey).timeline;
+
+  const pauseButton = document.getElementById("pause");
+  const sceneButtons = [...document.querySelectorAll("#scene-buttons button")];
+  const loopInput = document.getElementById("loop");
+  const syncControls = () => {
+    const t = active();
+    pauseButton.textContent = t.running ? "Пауза" : "Продолжить";
+    sceneButtons.forEach((b, i) => b.setAttribute("aria-current", i === t.current ? "true" : "false"));
+  };
+  for (const { timeline } of frames.values()) { timeline.onState = () => { if (timeline === active()) syncControls(); }; timeline.setLoop(loopInput.checked); }
+
+  document.getElementById("replay").addEventListener("click", () => active().restart());
+  pauseButton.addEventListener("click", () => { const t = active(); if (t.running) t.pause(); else if (t.ended) t.restart(); else t.play(); });
+  sceneButtons.forEach((b) => b.addEventListener("click", () => active().jump(Number(b.dataset.scene))));
+  loopInput.addEventListener("change", () => { for (const { timeline } of frames.values()) timeline.setLoop(loopInput.checked); });
+
+  const tabs = [...document.querySelectorAll("#tabs button")];
+  const requestedScene = Number(params.get("scene"));
+  const staticScene = Number.isInteger(requestedScene) && requestedScene >= 1 && requestedScene <= 5 ? requestedScene - 1 : 4;
+  function selectFrame(key) {
+    activeKey = key;
+    for (const [k, { frame, timeline }] of frames) { frame.hidden = k !== key; if (k !== key) timeline.stop(); }
+    tabs.forEach((b) => b.setAttribute("aria-selected", b.dataset.frame === key ? "true" : "false"));
+    if (reduced) active().showStatic(staticScene); else active().restart();
+    syncControls();
+  }
+  tabs.forEach((b) => b.addEventListener("click", () => selectFrame(b.dataset.frame)));
+
+  if (params.has("loop")) loopInput.checked = params.get("loop") !== "0";
+  for (const { timeline } of frames.values()) timeline.setLoop(loopInput.checked);
+  selectFrame(params.get("frame") && frames.has(params.get("frame")) ? params.get("frame") : "home");
+  if (!reduced && Number.isInteger(requestedScene) && requestedScene >= 1 && requestedScene <= 5) active().jump(requestedScene - 1);
+  window.__timeline = { active, selectFrame };
+})();
+</script>
+</body>
+</html>
