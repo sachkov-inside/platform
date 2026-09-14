@@ -1,3 +1,4 @@
+import { isGuideCapability } from "@inside/access-capabilities";
 import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { z } from "zod";
@@ -32,7 +33,7 @@ const paymentInitiators: Record<AttemptKind, PaymentInitiator> = { initial: "1",
 interface Dependencies {
   readonly prisma: BillingPrismaClient;
   readonly contact: Pick<BillingContact, "read" | "readConsent">;
-  readonly grants: Pick<AccessGrants, "readLegacyClassification" | "resolveCapabilities" | "applyPaidPeriod">;
+  readonly grants: Pick<AccessGrants, "readCompatibilityContentScope" | "readLegacyClassification" | "resolveCapabilities" | "applyPaidPeriod">;
   readonly bank: Tbank | undefined;
   readonly clock?: () => Date;
 }
@@ -415,15 +416,24 @@ export class BillingPayments {
             ...(period.subscriptionRef === null || paidUntil === null ? {} : { subscriptionRef: period.subscriptionRef, dueAt: paidUntil }),
             attemptRef: row.id, title: snapshot.offer.name,
             amountKopecks: payment.Amount, ...lifecycleWindow(paidAt) }, now);
-          for (const capability of snapshot.offer.benefits) {
+          const benefitTerms = snapshot.offer.benefits.map(capability => {
             const term = snapshot.offer.benefitPeriods?.find(value => value.capability === capability);
-            // Право без собственного срока действует ровно оплаченный период подписки; разовая
-            // покупка оплаченного срока не имеет и открывает такое право бессрочно.
-            const validUntil = term === undefined ? paidUntil?.toISOString() ?? null
+            const validUntil = kind === "one_time" && (isGuideCapability(capability) || capability === "community") ? null : term === undefined ? paidUntil?.toISOString() ?? null
               : term.months === null ? null : subscriptionPeriodEnd(period.startsAt, term.months).toISOString();
-            const grantEventRef = randomUUID();
+            return { capabilities: [capability], startsAt: period.startsAt.toISOString(), validUntil, reason: `Confirmed payment ${row.id}` };
+          });
+          const scope = snapshot.offer.contentScope ?? await this.dependencies.grants.readCompatibilityContentScope();
+          const enrollment = period.subscriptionRef !== null && paidUntil !== null && !snapshot.offer.benefits.some(isGuideCapability)
+            ? { purchaseRef: row.id, billingRef: period.subscriptionRef,
+              tier: { id: snapshot.offer.id, revision: snapshot.offer.revision, name: snapshot.offer.name, benefits: snapshot.offer.benefits, contentScope: scope },
+              startsAt: period.startsAt.toISOString(), endsAt: paidUntil.toISOString(), benefitTerms }
+            : undefined;
+          for (const [index, terms] of benefitTerms.entries()) {
+            if (enrollment !== undefined && index > 0) continue;
+            const grantEventRef = randomUUID(); const capability = terms.capabilities[0];
+            if (capability === undefined) throw new Error("Empty paid benefit");
             const command = { eventRef: grantEventRef, periodRef: `${row.id}:${capability}`, accountId: row.accountId, revision: 1, revoked: false,
-              terms: { capabilities: [capability], startsAt: period.startsAt.toISOString(), validUntil, reason: `Confirmed payment ${row.id}` } };
+              terms, ...(enrollment === undefined ? {} : { enrollment }) };
             await tx.billingFulfillment.create({ data: { eventRef: grantEventRef, purchaseRef: row.id, payload: command } });
           }
         } else if (["REJECTED", "AUTH_FAIL", "CANCELED", "DEADLINE_EXPIRED", "REVERSED"].includes(payment.Status)) {

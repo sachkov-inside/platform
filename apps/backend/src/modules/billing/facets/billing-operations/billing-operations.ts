@@ -1,4 +1,7 @@
 import { z } from "zod";
+import { benefitPeriodsSchema } from "../../domain/pricing.js";
+import { lockPricing } from "../../infrastructure/postgres/catalog-lock.js";
+import { courseSourceRef, tierSnapshotSchema } from "../../../membership-entitlements/index.js";
 import type { BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { Accounts } from "../../../accounts/index.js";
 import { recurringAllowedFor, type AccessGrants } from "../../../membership-entitlements/index.js";
@@ -22,8 +25,8 @@ interface Dependencies {
   readonly pricing: Pick<BillingPricing, "manage" | "ownerCatalog">;
   readonly payments: Pick<BillingPayments, "reconcile">;
   readonly subscriptions: Pick<BillingSubscriptions, "cancel">;
-  readonly grants: Pick<AccessGrants, "previewBatch" | "applyBatch" | "changeGrant" | "listGrants"
-    | "classifyLegacy" | "readClassification">;
+  readonly grants: Pick<AccessGrants, "lookupRecipient" | "readContentCatalog" | "previewBatch" | "applyBatch" | "changeGrant" | "listGrants"
+    | "classifyLegacy" | "readClassification" | "registerSourceEntitlement" | "manageActivationRule" | "listActivationRules" | "previewEnrollmentExpansion" | "applyEnrollmentExpansion" | "readEnrollmentAssignmentReceipt" | "assignEnrollment" | "changeEnrollment" | "listEnrollments">;
   readonly bank: Tbank | undefined;
   readonly clock?: () => Date;
 }
@@ -88,6 +91,98 @@ export class BillingOperations {
     const { prisma, grants } = this.dependencies;
     const operationRef = command.operationId;
     switch (command.operation) {
+      case "recipients.lookup": {
+        const result = await grants.lookupRecipient(actorId, command.identityRef);
+        if (!result.ok) return ownerAccessFailure(result.error.code);
+        const { ok: _ok, ...value } = result;
+        return { ok: true, operationRef, result: { outcome: "recipient", value } };
+      }
+      case "content.list": {
+        const result = await grants.readContentCatalog(actorId);
+        return result.ok ? { ok: true, operationRef, result: { outcome: "content", items: result.value } } : ownerAccessFailure(result.error.code);
+      }
+      case "sources.register": {
+        const { operation: _operation, ...input } = command;
+        const result = await grants.registerSourceEntitlement(actorId, input);
+        return result.ok ? { ok: true, operationRef, result: { outcome: "sourceEntitlement", value: result.value } } : ownerAccessFailure(result.error.code);
+      }
+      case "activationRules.list": {
+        const result = await grants.listActivationRules(actorId);
+        return result.ok ? { ok: true, operationRef, result: { outcome: "activationRules", items: result.value } } : ownerAccessFailure(result.error.code);
+      }
+      case "activationRules.save": {
+        return prisma.$transaction(async tx => {
+          await lockPricing(tx);
+          const row = await tx.billingOffer.findUnique({ where: { id: command.value.tierId } });
+          if (command.value.published && (row === null || row.archived || !row.availableForAssignment)) return ownerFailure("not_found");
+          if (command.value.published && row?.revision !== command.value.tierRevision) return ownerFailure("revision_conflict");
+          const { operation: _operation, ...input } = command;
+          const result = await grants.manageActivationRule(actorId, input);
+          return result.ok ? { ok: true, operationRef, result: { outcome: "activationRule", value: result.value } } : ownerAccessFailure(result.error.code);
+        });
+      }
+      case "enrollments.previewExpansion": {
+        return prisma.$transaction(async tx => {
+          await lockPricing(tx);
+          const row = await tx.billingOffer.findUnique({ where: { id: command.tierId } });
+          if (row === null) return ownerFailure("not_found");
+          if (row.revision !== command.tierRevision) return ownerFailure("revision_conflict");
+          const { operation: _operation, ...input } = command;
+          const result = await grants.previewEnrollmentExpansion(actorId, input, { id: row.id, revision: row.revision, name: row.name, benefits: row.benefits, contentScope: row.contentScope });
+          return result.ok ? { ok: true, operationRef, result: { outcome: "enrollmentExpansionPreview", value: result.value } } : ownerAccessFailure(result.error.code);
+        });
+      }
+      case "enrollments.applyExpansion": {
+        const { operation: _operation, ...input } = command;
+        const result = await grants.applyEnrollmentExpansion(actorId, input);
+        return result.ok ? { ok: true, operationRef, result: { outcome: "enrollmentExpansion", enrollmentIds: result.enrollmentIds } } : ownerAccessFailure(result.error.code);
+      }
+      case "tiers.list": {
+        const rows = await prisma.billingOffer.findMany({ where: {
+          ...(command.cursor === undefined ? {} : { id: { gt: command.cursor } }),
+        }, orderBy: { id: "asc" }, take: command.limit + 1 });
+        const items = rows.slice(0, command.limit).flatMap(row => {
+          const tier = tierSnapshotSchema.safeParse({ id: row.id, revision: row.revision, name: row.name,
+            benefits: row.benefits, contentScope: row.contentScope });
+          return tier.success ? [{ tier: tier.data, benefitPeriods: benefitPeriodsSchema.parse(row.benefitPeriods), availableForAssignment: row.availableForAssignment,
+            published: row.published, archived: row.archived }] : [];
+        });
+        return { ok: true, operationRef, result: { outcome: "tiers", items,
+          nextCursor: rows.length > command.limit ? rows[command.limit - 1]?.id ?? null : null } };
+      }
+      case "enrollments.assign": {
+        if (command.origin === "platform_payment") return ownerFailure("forbidden");
+        const { operation: _operation, ...requested } = command;
+        if (command.origin === "course" && command.courseSource === undefined) return ownerFailure("invalid_request");
+        const input = command.origin === "course" && command.courseSource !== undefined
+          ? { ...requested, sourceRef: courseSourceRef(command.courseSource.policyRef, command.courseSource.verifiedIdentityRef) } : requested;
+        const receipt = await grants.readEnrollmentAssignmentReceipt(actorId, input);
+        if (receipt !== null) return receipt.ok
+          ? { ok: true, operationRef, result: { outcome: "enrollment", value: receipt.value } }
+          : ownerFailure(receipt.error.code === "identity_conflict" ? "identity_changed" : receipt.error.code === "invalid_input" ? "invalid_request" : receipt.error.code === "unavailable" ? "dependency_unavailable" : receipt.error.code);
+        return prisma.$transaction(async tx => {
+          await lockPricing(tx);
+          const row = await tx.billingOffer.findUnique({ where: { id: command.tierId } });
+          if (row === null || row.archived || !row.availableForAssignment) return ownerFailure("not_found");
+          if (row.revision !== command.tierRevision) return ownerFailure("revision_conflict");
+          const tier = tierSnapshotSchema.safeParse({ id: row.id, revision: row.revision, name: row.name,
+            benefits: row.benefits, contentScope: row.contentScope });
+          if (!tier.success) return ownerFailure("invalid_request");
+          const result = await grants.assignEnrollment(actorId, input, tier.data);
+          return result.ok ? { ok: true, operationRef, result: { outcome: "enrollment", value: result.value } }
+            : ownerFailure(result.error.code === "identity_conflict" ? "identity_changed" : result.error.code === "invalid_input" ? "invalid_request" : result.error.code === "unavailable" ? "dependency_unavailable" : result.error.code);
+        });
+      }
+      case "enrollments.change": {
+        const { operation: _operation, ...input } = command;
+        const result = await grants.changeEnrollment(actorId, input);
+        return result.ok ? { ok: true, operationRef, result: { outcome: "enrollment", value: result.value } }
+          : ownerFailure(result.error.code === "identity_conflict" ? "identity_changed" : result.error.code === "invalid_input" ? "invalid_request" : result.error.code === "unavailable" ? "dependency_unavailable" : result.error.code);
+      }
+      case "enrollments.list": {
+        const result = await grants.listEnrollments(actorId, command.accountId);
+        return result.ok ? { ok: true, operationRef, result: { outcome: "enrollments", items: result.value } } : ownerAccessFailure(result.error.code);
+      }
       case "offers.save": case "offers.archive": case "offers.publish": case "offers.unpublish":
       case "paymentOptions.save": case "paymentOptions.archive":
       case "promotions.save": case "promotions.archive": {
@@ -220,7 +315,13 @@ function targetOf(command: OwnerOperation, outcome: OwnerOutcome): string {
   switch (command.operation) {
     case "offers.save": case "paymentOptions.save": case "promotions.save": return command.value.id;
     case "offers.archive": case "offers.publish": case "offers.unpublish": case "paymentOptions.archive": case "promotions.archive": return command.id;
-    case "offers.list": return command.operationId;
+    case "sources.register": return command.operationId;
+    case "activationRules.save": return command.value.id;
+    case "activationRules.list": return command.operationId;
+    case "enrollments.previewExpansion": case "enrollments.applyExpansion": return command.operationId;
+    case "recipients.lookup": case "content.list": case "tiers.list": case "offers.list": return command.operationId;
+    case "enrollments.assign": case "enrollments.list": return command.accountId;
+    case "enrollments.change": return command.enrollmentId;
     case "payments.list": return command.accountId ?? command.operationId;
     case "payments.read": case "payments.reconcile": case "refunds.decide": case "refunds.read": return command.purchaseRef;
     // Исполнение возврата ведёт к платежу своего решения.

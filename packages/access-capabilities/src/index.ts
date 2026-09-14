@@ -62,3 +62,12 @@ export function accessComposition(
   }
   return composed;
 }
+
+/** Explicit products included by a tier. Legacy promises are frozen by the migration baseline. */
+export const contentScopeSchema = z.strictObject({
+  guideIds: z.array(z.uuid()).max(1000).refine(ids => new Set(ids).size === ids.length),
+  materialIds: z.array(z.uuid()).max(1000).refine(ids => new Set(ids).size === ids.length),
+});
+export type ContentScope = z.infer<typeof contentScopeSchema>;
+
+export const contentScopeEntrySchema = z.strictObject({ kind: z.enum(["guide", "material"]), id: z.uuid(), title: z.string(), slug: z.string().nullable(), available: z.boolean() });

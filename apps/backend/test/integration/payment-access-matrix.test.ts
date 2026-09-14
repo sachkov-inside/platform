@@ -102,7 +102,7 @@ describe("оплата, выдача прав и доступ к материа�
     await db.prisma.account.create({ data: { id: owner, logtoIssuer: "https://identity.example.test", logtoSubject: owner } });
     await db.prisma.accountPermission.create({ data: { accountId: owner, permission: "platform:admin" } });
     accounts = assembleAccounts({ prisma: db.prisma, emailFingerprintKey: "synthetic-matrix-fingerprint-key-00000" });
-    grants = assembleAccessGrants({ prisma: db.prisma, accounts, clock: () => now });
+    grants = assembleAccessGrants({ prisma: db.prisma, accounts, recipientLinks: new TelegramAccountLinks(db.prisma), clock: () => now });
     membership = assembleMembershipEntitlements({ prisma: db.prisma, clock: () => now, workshopEntitlements: assembleWorkshopEntitlements({ prisma: db.prisma, clock: () => now }) });
     pricing = new BillingPricing({ prisma: db.prisma, accounts, clock: () => now });
     contact = new BillingContact({ prisma: db.prisma, protection: billingContactProtection(Buffer.alloc(32, 62).toString("base64")),
@@ -213,7 +213,7 @@ describe("оплата, выдача прав и доступ к материа�
     readonly priceKopecks: number; readonly benefitPeriods?: readonly { capability: string; months: number | null }[] }) {
     const offerId = randomUUID(), optionId = randomUUID();
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.save", value: { id: offerId, name: input.name,
-      benefits: [...input.benefits], ...(input.benefitPeriods ? { benefitPeriods: [...input.benefitPeriods] } : {}) } }));
+      benefits: [...input.benefits], ...(input.benefits.includes("materials") ? { contentScope: { guideIds: [guideA, guideB], materialIds: [libraryMaterial] } } : {}), ...(input.benefitPeriods ? { benefitPeriods: [...input.benefitPeriods] } : {}) } }));
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "paymentOptions.save", value: { id: optionId, offerId,
       ...(input.mode ? { mode: input.mode } : {}), months: 1, priceKopecks: input.priceKopecks } }));
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.publish", expectedRevision: 1, id: offerId }));
@@ -310,6 +310,7 @@ describe("оплата, выдача прав и доступ к материа�
       { first: null, kind: "series", slug: guideSlug, subject });
     return value(discovered);
   }
+
 
   test("путь покупки руководства открывает ровно его материалы, файлы, видео и артефакты", async () => {
     now = new Date(startedAt);
@@ -537,7 +538,7 @@ describe("оплата, выдача прав и доступ к материа�
     const sourceRef = randomUUID();
     const preview = asGrantPreview(await operations.execute(owner, { operation: "grants.previewBatch", operationId: randomUUID(),
       rows: [{ rowKey: "matrix", accountId: account, source: "manual", sourceRef,
-        terms: { capabilities: ["materials"], startsAt: startedAt, validUntil: null, reason: "Синтетическая выдача через API" } }] }));
+        terms: { capabilities: ["materials"], contentScope: { guideIds: [guideA, guideB], materialIds: [libraryMaterial] }, startsAt: startedAt, validUntil: null, reason: "Синтетическая выдача через API" } }] }));
     expect(asGrantBatch(await operations.execute(owner, { operation: "grants.applyBatch", operationId: randomUUID(),
       previewRef: preview.previewRef, expectedRevision: preview.revision, confirmedRows: ["matrix"] })).rows).toHaveLength(1);
     expect(await decide(reader(account), libraryMaterial)).toMatchObject({ effect: "allow", validUntil: null });
@@ -670,4 +671,35 @@ describe("оплата, выдача прав и доступ к материа�
       { capability: "materials", validUntil: subscriptionEndsAt },
     ]);
   });
+  test("назначение курса проходит body/file/video/artifact и не открывает исключённый продукт", async () => {
+    now = new Date(startedAt);
+    const account = await buyer(); const { operations, bank } = billingStand();
+    const tierId = randomUUID();
+    success(await operations.execute(owner, { operation: "offers.save", operationId: randomUUID(), value: { id: tierId, name: "Курс: выбранный гайд", benefits: ["materials", "community"], availableForAssignment: true, contentScope: { guideIds: [guideA], materialIds: [] } } }));
+    const command = { operation: "enrollments.assign", operationId: randomUUID(), accountId: account, tierId, tierRevision: 1, origin: "course", sourceRef: "course-matrix", courseSource: { policyRef: "course-matrix", verifiedIdentityRef: `verified-${account}` }, terms: { startsAt: now.toISOString(), endsAt: null, endPolicy: "fixed" }, billingRef: null, reason: "Owner verified synthetic course" };
+    await linkTelegramAccount(db.prisma, { accountId: account, identityRef: `verified-${account}`, now });
+    const lookup = { operation: "recipients.lookup", operationId: randomUUID(), identityRef: `verified-${account}` };
+    expect(await operations.execute(account, lookup)).toMatchObject({ ok: false, error: { code: "forbidden" } });
+    expect(success(await operations.execute(owner, lookup))).toMatchObject({ outcome: "recipient", value: { state: "found", recipient: { accountId: account } } });
+    const assigned = success(await operations.execute(owner, command));
+    if (assigned.outcome !== "enrollment") throw new Error("Expected enrollment");
+    const subject = reader(account);
+    for (const id of [guideMaterial, sharedMaterial]) expect(await decide(subject, id)).toMatchObject({ effect: "allow" });
+    for (const id of [libraryMaterial, otherGuideMaterial]) expect(await decide(subject, id)).toMatchObject({ effect: "deny" });
+    expect(await delivery.deliver({ materialId: guideMaterial, assetId: guideResources.assetId, contentVersion: 2, preview: false, subject })).toMatchObject({ ok: true });
+    expect(await playback.createSession({ materialId: guideMaterial, videoId: guideResources.videoId, subject, correlationId: randomUUID() })).toMatchObject({ ok: true });
+    expect(await artifacts.deliver({ artifactId: guideResources.artifactId, guideId: guideA, preview: false, subject, version: 1 })).toMatchObject({ ok: true });
+    expect(await artifacts.deliver({ artifactId: guideResources.artifactId, guideId: guideB, preview: false, subject, version: 1 })).toMatchObject({ ok: false });
+    const futureStep = await material([guideA]); const separate = await material([guideB]);
+    expect(await decide(subject, futureStep)).toMatchObject({ effect: "allow" });
+    expect(await decide(subject, separate)).toMatchObject({ effect: "deny" });
+    expect(await db.prisma.billingPurchase.count({ where: { accountId: account } })).toBe(0); expect(bank.initCalls).toBe(0);
+    success(await operations.execute(owner, { operation: "enrollments.change", operationId: randomUUID(), enrollmentId: assigned.value.id, expectedRevision: 1, action: "revoke", terms: command.terms, reason: "Course revoked" }));
+    expect(await decide(subject, guideMaterial)).toMatchObject({ effect: "deny" });
+    expect(await delivery.deliver({ materialId: guideMaterial, assetId: guideResources.assetId, contentVersion: 2, preview: false, subject })).toMatchObject({ ok: false });
+    expect(await playback.createSession({ materialId: guideMaterial, videoId: guideResources.videoId, subject, correlationId: randomUUID() })).toMatchObject({ ok: false });
+    expect(await artifacts.deliver({ artifactId: guideResources.artifactId, guideId: guideA, preview: false, subject, version: 1 })).toMatchObject({ ok: false });
+    expect(success(await operations.execute(owner, { ...command, operationId: randomUUID() }))).toMatchObject({ outcome: "enrollment", value: { id: assigned.value.id, state: "revoked" } });
+  });
+
 });

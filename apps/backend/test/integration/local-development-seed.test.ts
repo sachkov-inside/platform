@@ -207,7 +207,7 @@ describe("local development offer catalog", () => {
     return first;
   }
 
-  test("puts two subscriptions and one guide purchase on sale without a second set", async () => {
+  test("keeps subscriptions hidden and one guide purchase on sale without a second set", async () => {
     await seedLocalDevelopment(testDatabase.prisma);
 
     expect(
@@ -220,20 +220,6 @@ describe("local development offer catalog", () => {
       })),
     ).toEqual([
       {
-        benefits: ["materials"],
-        firstPriceKopecks: 1_000,
-        mode: "subscription",
-        name: "Материалы",
-        published: true,
-      },
-      {
-        benefits: ["materials", "support"],
-        firstPriceKopecks: 2_000,
-        mode: "subscription",
-        name: "Материалы + сопровождение",
-        published: true,
-      },
-      {
         benefits: [`guide:${guideId}`],
         firstPriceKopecks: 3_000,
         mode: "one_time",
@@ -242,7 +228,7 @@ describe("local development offer catalog", () => {
       },
     ]);
     // Повторный seed сходится к тому же описанию, поэтому второго набора не появляется.
-    await expect(testDatabase.prisma.billingOffer.count()).resolves.toBe(3);
+    await expect(testDatabase.prisma.billingOffer.count()).resolves.toBe(4);
     await expect(testDatabase.prisma.billingPaymentOption.count()).resolves.toBe(3);
   });
 

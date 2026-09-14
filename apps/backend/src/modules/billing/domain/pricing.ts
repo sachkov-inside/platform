@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { contentScopeSchema } from "@inside/access-capabilities";
 import { accessCapabilitySchema, capabilitiesSchema } from "../../membership-entitlements/index.js";
 
 export const idSchema = z.uuid().toLowerCase();
@@ -14,6 +15,8 @@ export const offerSchema = z.strictObject({
   benefits: benefitsSchema, benefitPeriods: benefitPeriodsSchema.optional(), archived: z.boolean(),
   /** Обратимый признак продажи, независимый от архивации. В прежних снимках может отсутствовать. */
   published: z.boolean().optional(),
+  availableForAssignment: z.boolean().optional(),
+  contentScope: contentScopeSchema.nullable().optional(),
 });
 /**
  * Как оплачивается вариант. `subscription` списывается по расписанию, `one_time` покупается

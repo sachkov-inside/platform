@@ -135,14 +135,14 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
     expect(s.requests()[0]).not.toHaveProperty("Recurrent");
   });
 
-  test("право без объявленного срока остаётся бессрочным, а объявленный срок соблюдается", async () => {
+  test("новая разовая покупка Guide бессрочна даже при старом ограниченном варианте", async () => {
     const silent = await scenario({ benefitPeriods: [] });
     await silent.buy();
     // Состав без сроков: у разовой покупки нет оплаченного периода, чтобы его унаследовать.
     expect((await db.prisma.accessGrant.findFirst({ where: { accountId: silent.buyer } }))?.validUntil).toBeNull();
     const yearly = await scenario({ term: 12 });
     await yearly.buy();
-    expect((await db.prisma.accessGrant.findFirst({ where: { accountId: yearly.buyer } }))?.validUntil?.toISOString()).toBe("2031-01-31T10:00:00.000Z");
+    expect((await db.prisma.accessGrant.findFirst({ where: { accountId: yearly.buyer } }))?.validUntil).toBeNull();
   });
 
   test("разовая покупка не принимает согласие на списания и требует оферту", async () => {

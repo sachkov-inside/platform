@@ -104,6 +104,7 @@ describe("приёмка обоих источников Notifications (реал
 
   let owner: string;
   let topicId: string;
+  const subscriptionGuideId = randomUUID();
   let pricing: BillingPricing;
   let contact: BillingContact;
   let grants: ReturnType<typeof assembleAccessGrants>;
@@ -145,6 +146,7 @@ describe("приёмка обоих источников Notifications (реал
     await platform.prisma.accountPermission.create({
       data: { accountId: owner, permission: "platform:admin" },
     });
+    await platform.prisma.guide.create({ data: { id: subscriptionGuideId, slug: subscriptionGuideId, name: "Программа подписки приёмки" } });
     topicId = randomUUID();
     await platform.prisma.topic.create({
       data: { id: topicId, slug: "acceptance-topic", name: "Приёмка" },
@@ -298,6 +300,7 @@ describe("приёмка обоих источников Notifications (реал
     const offerId = randomUUID(), optionId = randomUUID();
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.save",
       value: { id: offerId, name: input.name, benefits: [...input.benefits],
+        ...(input.benefits.includes("materials") ? { contentScope: { guideIds: (await platform.prisma.guide.findMany({ select: { id: true } })).map(guide => guide.id), materialIds: [] } } : {}),
         ...(input.benefitPeriods ? { benefitPeriods: [...input.benefitPeriods] } : {}) } }));
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "paymentOptions.save",
       value: { id: optionId, offerId, ...(input.mode ? { mode: input.mode } : {}), months: 1, priceKopecks: input.priceKopecks } }));
@@ -340,7 +343,7 @@ describe("приёмка обоих источников Notifications (реал
   }
 
   /** Первая публикация материала нужного состава через настоящий путь авторской работы. */
-  async function publish(title: string, guideIds: readonly string[] = []): Promise<MaterialId> {
+  async function publish(title: string, guideIds: readonly string[] = [subscriptionGuideId]): Promise<MaterialId> {
     const metadata = { title, summary: "Материал приёмки уведомлений", access: "membership" as const,
       topicId, formatId: "guide", tagIds: [], difficulty: null, outcomes: [], seriesIds: [...guideIds] };
     const created = value(await materials.authoring.createDraft({
@@ -384,8 +387,8 @@ describe("приёмка обоих источников Notifications (реал
   test("оба источника доходят до обоих каналов и возвращают результаты", async () => {
     const subscriber = await member();
     const buyerAccount = await member();
-    const subscription = await offer({ name: "Подписка «Материалы»", benefits: ["materials"], priceKopecks: 100_000 });
     const guideId = await guideCollection();
+    const subscription = await offer({ name: "Подписка «Материалы»", benefits: ["materials"], priceKopecks: 100_000 });
     const guideOffer = await offer({ name: "Руководство «Приёмка»", benefits: [`guide:${guideId}`],
       mode: "one_time", priceKopecks: 290_000, benefitPeriods: [{ capability: `guide:${guideId}`, months: null }] });
 

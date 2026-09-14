@@ -1,0 +1,14 @@
+{
+  "runtimeAssertions": [
+    "no Account: durable attempt, no grant",
+    "evidence checkedAt <= now < validUntil; age and total lifetime <= 5 minutes",
+    "exact audience identity Account link rule and source revision",
+    "two rules with same course source and identity yield one Enrollment",
+    "owner confirmed course and self-service yield the same source hash",
+    "revoke followed by retry remains pending_review",
+    "expired or paused rules reject new activation",
+    "not_member and unavailable produce no access",
+    "receipt replay with changed evidence is operation_conflict",
+    "own access checks current binding and includes independent grounds and moderation"
+  ]
+}

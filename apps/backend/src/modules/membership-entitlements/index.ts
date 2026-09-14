@@ -28,3 +28,15 @@ export { accessCapabilitySchema, capabilitiesSchema, legacyClassificationViewSch
   recurringAllowedFor } from "./domain/access-grant.js";
 
 export { paidPeriodCommandSchema } from "./features/apply-paid-period/apply-paid-period.js";
+
+export { assignEnrollmentSchema, changeEnrollmentSchema, enrollmentViewSchema, tierSnapshotSchema } from "./domain/subscription-enrollment.js";
+
+export { previewEnrollmentExpansionSchema, applyEnrollmentExpansionSchema, expansionPreviewSchema } from "./domain/subscription-enrollment.js";
+
+export { ACTIVATION_CONTRACT_VERSION, activationRuleSchema, manageActivationRuleSchema, beginActivationSchema, activationEvidenceSchema, activationOutcomeSchema, type ActivationBindings } from "./domain/subscription-activation.js";
+
+export { courseSourceRef } from "./domain/source-identity.js";
+
+export { registerSourceSchema, sourceEntitlementViewSchema } from "./domain/subscription-activation.js";
+
+export { ownSubscriptionAccessQuerySchema } from "./domain/subscription-activation.js";

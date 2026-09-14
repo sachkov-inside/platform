@@ -111,7 +111,7 @@ export const NoSubscription: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.getByText("Действующей подписки нет"),
+      canvas.getByText("Автопродление Inside не подключено"),
     ).toBeInTheDocument();
     await expect(
       canvas.getByRole("link", { name: "Посмотреть тарифы" }),
@@ -128,7 +128,7 @@ export const NoSubscriptionNotOffered: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.getByText("Действующей подписки нет"),
+      canvas.getByText("Автопродление Inside не подключено"),
     ).toBeInTheDocument();
     await expect(
       canvas.queryByRole("link", { name: "Посмотреть тарифы" }),

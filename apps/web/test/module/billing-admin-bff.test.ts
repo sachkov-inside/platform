@@ -339,3 +339,21 @@ it("читает владельческий каталог, где остают�
     "owner-token",
   );
 });
+
+it("поиск подтверждённого получателя закрыт без сессии и сохраняет private no-store", async () => {
+  const { handleLookupSubscriptionRecipient } = await import("@/features/billing-admin.server");
+  const { LogtoSessionUnavailableError } = await import("@/shared/auth/platform-access-token.server");
+  fakes.token.mockRejectedValue(new LogtoSessionUnavailableError());
+  const response = await handleLookupSubscriptionRecipient(command("/api/authoring/billing/recipients/lookup", { operationId, identityRef: "verified-identity" }));
+  expect(response.status).toBe(401);
+  expect(response.headers.get("cache-control")).toContain("no-store");
+  expect(fakes.manage).not.toHaveBeenCalled();
+});
+
+it("поиск получателя передаёт точную identity и не раскрывает результат без owner permission", async () => {
+  const { handleLookupSubscriptionRecipient } = await import("@/features/billing-admin.server");
+  fakes.manage.mockResolvedValue(problem("forbidden", 403));
+  const response = await handleLookupSubscriptionRecipient(command("/api/authoring/billing/recipients/lookup", { operationId, identityRef: "verified-identity" }));
+  expect(await response.json()).toMatchObject({ ok: false, code: "forbidden" });
+  expect(fakes.manage).toHaveBeenCalledWith({ operationId, operation: "recipients.lookup", identityRef: "verified-identity" }, "owner-token");
+});

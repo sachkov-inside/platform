@@ -76,6 +76,8 @@ export function handleSaveOffer(request: Request): Promise<Response> {
         id: input.value.id,
         name: input.value.name,
         benefits: [...input.value.benefits],
+        ...(input.value.availableForAssignment === undefined ? {} : { availableForAssignment: input.value.availableForAssignment }),
+        ...(input.value.contentScope === undefined ? {} : { contentScope: input.value.contentScope }),
         ...(input.value.benefitPeriods === undefined
           ? {}
           : { benefitPeriods: [...input.value.benefitPeriods] }),

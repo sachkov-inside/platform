@@ -1,4 +1,5 @@
 "use client";
+import { useId } from "react";
 import type {
   InputHTMLAttributes,
   ReactNode,
@@ -22,7 +23,7 @@ export function AdminSection({
   readonly children: ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-border bg-card p-6 shadow-card">
+    <section className="min-w-0 rounded-2xl border border-border bg-card p-6 shadow-card">
       <h2 className="text-xl font-semibold tracking-[-0.02em]">{title}</h2>
       {description === undefined ? null : (
         <p className="mt-1 text-sm leading-6 text-muted-foreground">
@@ -44,7 +45,7 @@ export function AdminField({
   readonly name: string;
   readonly hint?: string;
 } & InputHTMLAttributes<HTMLInputElement>) {
-  const id = `admin-${name}`;
+  const id = useId();
   return (
     <p className="grid gap-1">
       <label className="text-sm font-semibold" htmlFor={id}>
@@ -73,7 +74,7 @@ export function AdminTextArea({
   readonly name: string;
   readonly hint?: string;
 } & TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  const id = `admin-${name}`;
+  const id = useId();
   return (
     <p className="grid gap-1">
       <label className="text-sm font-semibold" htmlFor={id}>
@@ -100,7 +101,7 @@ export function AdminCheckbox({
   readonly label: string;
   readonly name: string;
 }) {
-  const id = `admin-${name}`;
+  const id = useId();
   return (
     <p className="flex items-center gap-2">
       <input
@@ -125,7 +126,7 @@ export function AdminSelect({
   readonly name: string;
   readonly options: readonly { readonly value: string; readonly label: string }[];
 }) {
-  const id = `admin-${name}`;
+  const id = useId();
   return (
     <p className="grid gap-1">
       <label className="text-sm font-semibold" htmlFor={id}>

@@ -1,5 +1,5 @@
 import {
-  COMMUNITY_CONTRACT_VERSION,
+  COMMUNITY_V2_CONTRACT_VERSION,
   COMMUNITY_MAXIMUM_BODY_BYTES,
   COMMUNITY_REQUEST_TIMEOUT_MS,
   communityErrorSchema,
@@ -30,13 +30,14 @@ export class HttpCommunityEntitlementProvider
   ) {}
 
   set(command: CommunitySetCommand): Promise<CommunityDeliveryOutcome> {
+    if (command.contractVersion !== COMMUNITY_V2_CONTRACT_VERSION) return Promise.resolve({ kind: "error", error: "unsupported_contract" });
     return this.exchange(command, command);
   }
 
   status(command: CommunitySetCommand): Promise<CommunityDeliveryOutcome> {
     return this.exchange(
       {
-        contractVersion: COMMUNITY_CONTRACT_VERSION,
+        contractVersion: command.contractVersion,
         operation: "entitlement.status",
         operationId: command.operationId,
       },
@@ -82,6 +83,7 @@ export class HttpCommunityEntitlementProvider
     const failure = communityErrorSchema.safeParse(payload);
     // A status that contradicts its own body is an unknown outcome, not a decision.
     return failure.success &&
+      failure.data.contractVersion === command.contractVersion &&
       failure.data.operationId === command.operationId &&
       communityErrorStatus[failure.data.error] === response.status
       ? { kind: "error", error: failure.data.error }
@@ -98,6 +100,7 @@ function correlates(
   command: CommunitySetCommand,
 ): boolean {
   return (
+    result.contractVersion === command.contractVersion &&
     result.operationId === command.operationId &&
     result.entitlementRevision === command.entitlementRevision &&
     result.binding.accountRef === command.binding.accountRef &&

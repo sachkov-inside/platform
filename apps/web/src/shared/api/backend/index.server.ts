@@ -33,3 +33,7 @@ export * from "./billing-contact.server";
 export * from "./notifications.server";
 export * from "./bookmarks.server";
 export * from "./billing.server";
+
+export { requestCurrentEnrollments } from "./billing.server";
+
+export { requestCurrentCommunityAdmission } from "./billing.server";

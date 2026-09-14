@@ -1,3 +1,4 @@
+import { name as enrollmentName, statement as enrollmentStatement } from "../modules/membership-entitlements/infrastructure/postgres/migrations/0063-subscription-enrollments.js";
 import { name as readerGuideModeName, statement as readerGuideModeStatement } from "../modules/reading-activity/infrastructure/postgres/migrations/0062-reader-guide-mode.js";
 import { name as lessonDifficultyAndOutcomesName, statement as lessonDifficultyAndOutcomesStatement } from "../modules/materials/infrastructure/postgres/migrations/0061-lesson-difficulty-and-outcomes.js";
 import { name as materialAnnouncementsName, statement as materialAnnouncementsStatement } from "../modules/materials/infrastructure/postgres/migrations/0060-material-announcements.js";
@@ -338,6 +339,7 @@ export const platformMigrations = [
     statement: lessonDifficultyAndOutcomesStatement,
   },
   { name: readerGuideModeName, statement: readerGuideModeStatement },
+  { name: enrollmentName, statement: enrollmentStatement },
 ] as const;
 
 export function migrateToLatest(

@@ -4,7 +4,7 @@ import { createContext, useContext, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import type { PriceSnapshot } from "@/entities/subscription";
-import { currentBillingQueryOptions } from "@/features/billing-subscription";
+import { currentBillingQueryOptions, useOwnEnrollments } from "@/features/billing-subscription";
 
 import { visibleAccountSections } from "../model/account-sections";
 import { AccountSectionNav } from "./account-section-nav.client";
@@ -48,10 +48,11 @@ export function AccountCabinet({ children, options }: AccountCabinetProps) {
   });
   const subscription =
     billing.data?.ok === true ? billing.data.value.subscription : null;
+  const enrollments = useOwnEnrollments();
   const sections = visibleAccountSections({
     subscriptionOffered,
-    // Завершённая подписка ничего не даёт: разделу нечего показать и нечем управлять.
-    subscriptionOwned: subscription !== null && subscription.state !== "ended",
+    // Назначения остаются видны вместе с историей после окончания и отзыва.
+    subscriptionOwned: (enrollments.data?.length ?? 0) > 0 || (subscription !== null && subscription.state !== "ended"),
   });
 
   return (

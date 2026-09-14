@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import type { PlatformPrisma } from "../infrastructure/prisma/index.js";
+import { ContentScopeCatalog } from "../modules/materials/index.js";
 import { BillingPricing } from "../modules/billing/index.js";
 import { guideCapability } from "@inside/access-capabilities";
 
@@ -105,6 +106,13 @@ export async function seedLocalOfferCatalog(
     prisma,
     accounts: standOwnerPermission(target.actor),
   });
+  const initialTier = await prisma.billingOffer.findUnique({ where: { id: "62000000-0000-4000-8000-000000000624" } });
+  if (initialTier !== null && initialTier.revision === 1) {
+    const content = await new ContentScopeCatalog(prisma).list();
+    await sendCatalogCommand(pricing, target.actor, { operation: "offers.save", operationId: randomUUID(), expectedRevision: 1,
+      value: { id: initialTier.id, name: initialTier.name, benefits: ["materials", "community"], availableForAssignment: true,
+        contentScope: { guideIds: content.filter(item => item.kind === "guide" && item.available).map(item => item.id), materialIds: content.filter(item => item.kind === "material" && item.available).map(item => item.id) } } });
+  }
   const current = await readOwnerCatalog(pricing);
   for (const offer of localCatalog(target.guideId)) {
     const live = current.get(offer.option.id);
@@ -141,7 +149,7 @@ export async function seedLocalOfferCatalog(
       continue;
     }
     const option = await saveOption(live?.paymentOption.revision);
-    if (option === undefined || live !== undefined) continue;
+    if (option === undefined || live !== undefined || offer.option.mode === "subscription") continue;
     // По умолчанию не продаётся ничего: сохранённое предложение выключено из продажи. Новое
     // предложение стенда включает в продажу отдельная владельческая команда — строкой ниже.
     // Уже заведённому продажу не возвращаем: её состоянием распоряжается владелец.

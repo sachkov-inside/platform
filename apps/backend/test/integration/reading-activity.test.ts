@@ -169,6 +169,7 @@ describe("ReadingActivity on PostgreSQL", () => {
         evidenceRef: randomUUID(), evidenceVersion: version,
       } });
       expect(accepted).toMatchObject({ ok: true });
+      await database.prisma.legacyClassification.update({ where: { accountId: memberId }, data: { bridgeContentScope: { guideIds: [], materialIds: [protectedId] } } });
       if (version === 1) expect(await reading.setReadingState({ ...command(protectedId), accountId: memberId })).toMatchObject({ ok: true });
     }
     expect(await reading.getReadingStates({ accountId: memberId, materialIds: [protectedId] })).toMatchObject({ ok: true, value: [{ isRead: true }] });
@@ -188,6 +189,7 @@ describe("ReadingActivity on PostgreSQL", () => {
       checkedAt: checkedAt.toISOString(), validUntil: validUntil.toISOString(), telegramIdentityRef: `telegram-${memberId}`, evidenceRef: randomUUID(), evidenceVersion: 1,
     } });
     expect(accepted).toMatchObject({ ok: true });
+    await database.prisma.legacyClassification.update({ where: { accountId: memberId }, data: { bridgeContentScope: { guideIds: [], materialIds: [id] } } });
     expect(await reading.setReadingState({ ...command(id), accountId: memberId })).toMatchObject({ ok: true });
     try {
       membershipNow = new Date(validUntil.getTime() + 1);

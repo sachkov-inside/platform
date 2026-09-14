@@ -7,6 +7,20 @@ import type { BaseHttpRequest } from '../core/BaseHttpRequest';
 export class TelegramCommunityService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
+   * Read own current community restriction independently of content access
+   * @returns any
+   * @throws ApiError
+   */
+  public currentCommunityAdmission(): CancelablePromise<{
+    admissionRestriction: 'none' | 'moderation' | 'external_unknown' | null;
+    state: 'checking' | 'no_access' | 'moderation_blocked' | 'ready';
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/accounts/current/community-admission',
+    });
+  }
+  /**
    * Read the desired, accepted and applied community states of one Account
    * @returns any
    * @throws ApiError
@@ -62,7 +76,7 @@ export class TelegramCommunityService {
     requestBody: {
       attemptId: string;
       contractVersion: 'inside.billing-dispatch.v1';
-      dispatchContractVersion: 'inside.community-entitlement.v1' | 'inside.billing-notification.v1';
+      dispatchContractVersion: 'inside.community-entitlement.v1' | 'inside.community-entitlement.v2' | 'inside.billing-notification.v1';
       dispatchId: string;
       effect: 'community.ensure_admission' | 'community.approve_join' | 'community.ensure_absence' | 'notice.send';
       effectRef: string;

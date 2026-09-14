@@ -80,20 +80,24 @@ export function assembleContentAccess(
           })),
         };
       }
-      // Materials in the same guide scope share one subject read within this batch.
-      const subjectReads = new Map<string, Promise<SubjectFacts | undefined>>();
-      const subjectFactsByResource = new Map(await Promise.all([...resourcesByKey].map(async ([key, facts]) => {
-        const required = input.operations.some(operation => resourceKey(operation.resource) === key &&
-          !isWorkshopDelivery(facts, operation.action) && needsSubjectFacts(facts, operation.action));
-        if (!required) return [key, undefined] as const;
-        const scopeKey = JSON.stringify([facts.access === "membership", [...(facts.guideIds ?? [])].sort()]);
-        let pending = subjectReads.get(scopeKey);
-        if (!pending) {
-          pending = resolveSubjectFacts(dependencies, input.subject, facts.access === "membership", facts.guideIds);
-          subjectReads.set(scopeKey, pending);
+      const requiredResources = [...resourcesByKey].filter(([key, facts]) => input.operations.some(operation => resourceKey(operation.resource) === key && !isWorkshopDelivery(facts, operation.action) && needsSubjectFacts(facts, operation.action)));
+      const subjectFactsByResource = new Map<string, SubjectFacts | undefined>();
+      if (requiredResources.length > 0) {
+        const permission = await resolveSubjectFacts(dependencies, input.subject, false);
+        for (const [key] of requiredResources) subjectFactsByResource.set(key, permission);
+        const protectedResources = requiredResources.filter(([, facts]) => facts.access === "membership");
+        if (permission?.permission === "denied" && input.subject.kind === "account" && protectedResources.length > 0) {
+          const accountId = input.subject.accountId;
+          let memberships: readonly MembershipAccessState[];
+          const resources = protectedResources.map(([, facts]) => ({ guideIds: facts.guideIds ?? [], materialId: facts.materialId }));
+          try {
+            memberships = dependencies.membershipEntitlements.resolveManyForAccess === undefined
+              ? await Promise.all(resources.map(resource => dependencies.membershipEntitlements.resolveForAccess(accountId, resource.guideIds, resource.materialId)))
+              : await dependencies.membershipEntitlements.resolveManyForAccess(accountId, resources);
+          } catch { memberships = []; }
+          protectedResources.forEach(([key], index) => subjectFactsByResource.set(key, { permission: "denied", membership: memberships[index] ?? { kind: "unavailable" } }));
         }
-        return [key, await pending] as const;
-      })));
+      }
       const workshopAccessByMaterial = await resolveWorkshopAccessMany(
         dependencies,
         input.subject,
@@ -193,6 +197,7 @@ export function assembleContentAccess(
         input.subject,
         needsMembership(facts, input.action),
         facts.guideIds,
+        facts.materialId,
       );
       const reason = evaluate(facts, input.action, input.subject, subjectFacts);
       if (reason === "public_resource" || reason === "materials_manager") {
@@ -241,6 +246,7 @@ async function resolveSubjectFacts(
   subject: Subject,
   includeMembership: boolean,
   guideIds: readonly string[] = [],
+  materialId?: string,
 ): Promise<SubjectFacts | undefined> {
   if (subject.kind === "anonymous") {
     return undefined;
@@ -265,6 +271,7 @@ async function resolveSubjectFacts(
       membership: await dependencies.membershipEntitlements.resolveForAccess(
         subject.accountId,
         guideIds,
+        materialId,
       ),
     };
   } catch {

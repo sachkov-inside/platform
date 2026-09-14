@@ -1,5 +1,5 @@
 import "server-only";
-import { BillingService, AccountsService } from "./generated/platform-api";
+import { BillingService, AccountsService, TelegramCommunityService } from "./generated/platform-api";
 import { executeGeneratedRequest } from "./transport-core.server";
 
 type BillingRequest<Method extends Exclude<keyof BillingService, "httpRequest">> = Parameters<
@@ -159,3 +159,9 @@ export function requestManageBilling(
       : { accessToken },
   );
 }
+
+export function requestCurrentEnrollments(accessToken: string) {
+  return executeGeneratedRequest(request => new BillingService(request).currentEnrollments(), 200, { accessToken });
+}
+
+export function requestCurrentCommunityAdmission(accessToken: string) { return executeGeneratedRequest(request => new TelegramCommunityService(request).currentCommunityAdmission(), 200, { accessToken }); }

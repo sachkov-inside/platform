@@ -107,6 +107,7 @@ describe("Bookmarks on PostgreSQL", () => {
     const protectedId = await material("membership");
     expect(await bookmarks.addBookmark({ accountId, materialId: protectedId })).toEqual({ ok: false, error: { code: "access_denied" } });
     const memberId = await memberWithAccess();
+    await database.prisma.legacyClassification.update({ where: { accountId: memberId }, data: { bridgeContentScope: { guideIds: [], materialIds: [protectedId] } } });
     expect(await bookmarks.addBookmark({ accountId: memberId, materialId: protectedId })).toMatchObject({ ok: true, value: { bookmarked: true } });
     expect(await bookmarks.listBookmarks({ accountId: memberId, first: 12 })).toMatchObject({ ok: true, value: { items: [{ materialId: protectedId, availability: "available" }] } });
     await expireMembership(memberId, 2);

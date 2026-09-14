@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { contentScopeSchema } from "@inside/access-capabilities";
 
 // Словарь прав и то, что каждое право открывает, живут в `@inside/access-capabilities`: витрина
 // называет состав доступа до покупки тем же выводом, которым сервер его потом выдаёт.
@@ -23,6 +24,7 @@ export const sourceRefSchema = z.string().min(1).max(256);
 export const grantTermsSchema = z
   .object({
     capabilities: capabilitiesSchema,
+    contentScope: contentScopeSchema.optional(),
     startsAt: instantSchema,
     validUntil: instantSchema.nullable(),
     reason: reasonSchema,

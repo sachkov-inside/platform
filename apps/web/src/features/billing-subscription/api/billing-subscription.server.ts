@@ -1,6 +1,9 @@
+import { z } from "zod";
+import { requestCurrentCommunityAdmission } from "@/shared/api/backend/index.server";
 import "server-only";
 
 import {
+  enrollmentsSchema,
   changeQuoteSchema,
   changeResultSchema,
   currentBillingSchema,
@@ -17,6 +20,7 @@ import {
   requestBillingChangeQuote,
   requestChangeBillingMethod,
   requestCurrentBilling,
+  requestCurrentEnrollments,
   requestResumeBillingRenewal,
   requestRevokeBillingMethod,
 } from "@/shared/api/backend/index.server";
@@ -111,3 +115,9 @@ export function handleRevokePaymentMethod(request: Request): Promise<Response> {
     ),
   );
 }
+
+export function handleCurrentEnrollments(): Promise<Response> {
+  return readAuthenticatedBilling(accessToken => requestCurrentEnrollments(accessToken), enrollmentsSchema);
+}
+
+export function handleCurrentCommunityAdmission(): Promise<Response> { return readAuthenticatedBilling(accessToken => requestCurrentCommunityAdmission(accessToken), z.strictObject({ admissionRestriction: z.enum(["none", "moderation", "external_unknown"]).nullable(), state: z.enum(["checking", "no_access", "moderation_blocked", "ready"]) })); }

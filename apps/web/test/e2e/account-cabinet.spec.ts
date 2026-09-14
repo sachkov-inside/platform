@@ -81,6 +81,7 @@ async function stubAccount(
       json: { ok: true, value: { subscription, notices: [], grounds, payments: [] } },
     }),
   );
+  await page.route("**/api/account/billing/enrollments", route => route.fulfill({ json: { ok: true, value: { items: [] } } }));
   await page.route("**/api/account/billing/contact", (route) =>
     route.fulfill({ json: { ok: true, contact: contact(), documents: [] } }),
   );
@@ -426,3 +427,20 @@ test("без объявлений подтвердившая поверхнос�
   await expect(page.getByText(verifiedContact.email, { exact: true })).toBeVisible();
   await expect(page.getByText("Email пока не подтверждён.")).toHaveCount(0);
 });
+
+for (const [state, label] of [["scheduled", "Начнётся позже"], ["expired", "Срок завершён"], ["revoked", "Отозвано"]] as const) {
+  test(`назначение ${state} доступно из профиля без платёжной подписки`, async ({ page }, info) => {
+    await stubAccount(page);
+    await page.route("**/api/account/billing/enrollments", route => route.fulfill({ json: { ok: true, value: { items: [{
+      id: "00000000-0000-4000-8000-000000000624", accountId: "00000000-0000-4000-8000-000000000625",
+      tier: { id: "00000000-0000-4000-8000-000000000626", revision: 1, name: "История тарифа", benefits: ["community"], contentScope: { guideIds: [], materialIds: [] } },
+      origin: "manual", startsAt: "2030-01-01T00:00:00.000Z", endsAt: "2030-02-01T00:00:00.000Z", endPolicy: "fixed", revision: 1, state, renewal: "not_applicable", nextChargeAt: null,
+    }] } } }));
+    await page.goto("/account");
+    const mode = navigationMode(info.project.name);
+    if (mode === "mobile") await page.getByRole("button", { name: /Личный кабинет/u }).click();
+    await cabinetNavigation(page, mode).getByRole("link", { name: /Подписка/u }).click();
+    await expect(page.getByRole("heading", { name: "История тарифа", exact: true })).toBeVisible();
+    await expect(page.getByRole("article").getByText(label, { exact: true })).toBeVisible();
+  });
+}

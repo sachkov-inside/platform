@@ -62,7 +62,8 @@
     "editor:local": "node scripts/editor-local-review.mjs",
     "dev:notifications-worker": "pnpm --filter @inside/backend dev:notifications-worker",
     "dev:billing-worker": "pnpm --filter @inside/backend dev:billing-worker",
-    "dev:bank-double": "pnpm --filter @inside/backend dev:bank-double"
+    "dev:bank-double": "pnpm --filter @inside/backend dev:bank-double",
+    "smoke:enrollments": "node scripts/enrollment-browser-smoke.mjs"
   },
   "dependencies": {
     "zod": "4.4.3"

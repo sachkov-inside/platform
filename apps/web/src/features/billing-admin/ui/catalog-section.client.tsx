@@ -1,4 +1,6 @@
 "use client";
+import type { z } from "zod";
+import type { contentCatalogOutcomeSchema, tiersOutcomeSchema } from "../model/enrollment-operations";
 import { useState } from "react";
 
 import {
@@ -33,6 +35,10 @@ import type { AdminCommand } from "./admin-command";
 
 export interface CatalogSectionProps {
   readonly offers: readonly PriceSnapshot[];
+  readonly content?: z.infer<typeof contentCatalogOutcomeSchema>["result"]["items"] | undefined;
+  readonly tiers?: z.infer<typeof tiersOutcomeSchema>["result"]["items"] | undefined;
+  readonly catalogLoading?: boolean | undefined;
+  readonly catalogError?: string | undefined;
   readonly pending: boolean;
   readonly onSaveOffer: (input: AdminCommand<SaveOfferInput>) => void;
   readonly onArchiveOffer: (input: AdminCommand<ArchiveInput>) => void;
@@ -47,6 +53,7 @@ export interface CatalogSectionProps {
 }
 
 export function CatalogSection({
+  content = [], tiers = [], catalogLoading = false, catalogError,
   offers,
   pending,
   onSaveOffer,
@@ -58,6 +65,9 @@ export function CatalogSection({
   onSavePromotion,
   onArchivePromotion,
 }: CatalogSectionProps) {
+  const [editingId, setEditingId] = useState("");
+  const editing = tiers.find(item => item.tier.id === editingId);
+
   const [benefitError, setBenefitError] = useState<string>();
   return (
     <>
@@ -129,7 +139,10 @@ export function CatalogSection({
         description="Состав предложения — независимые права. Строка `capability=12` задаёт срок в месяцах, `capability=null` — бессрочное право."
         title="Предложение"
       >
-        <form
+        <div className="grid gap-2"><Button variant="outline" onClick={() => { setEditingId(crypto.randomUUID()); }}>Новый тариф</Button>
+          {tiers.map(item => <div key={item.tier.id} className="flex flex-wrap items-center justify-between gap-2 text-sm"><span>{item.tier.name} · {item.availableForAssignment ? "назначается" : "назначение выключено"}{item.archived ? " · архив" : ""}</span><Button variant="outline" onClick={() => { setEditingId(item.tier.id); }}>Редактировать состав</Button></div>)}
+        </div>
+        <form key={`${editingId}:${String(editing?.tier.revision ?? 0)}`}
           className="grid gap-4"
           onSubmit={onAdminSubmit((form) => {
             const parsed = parseCapabilities(formText(form.get("offerBenefits")));
@@ -147,6 +160,8 @@ export function CatalogSection({
                 id: formText(form.get("offerId")),
                 name: formText(form.get("offerName")),
                 benefits: [...parsed.capabilities],
+                availableForAssignment: form.get("offerAssignable") === "on",
+                contentScope: { guideIds: form.getAll("offerGuides").map(formText), materialIds: form.getAll("offerMaterials").map(formText) },
                 ...(parsed.periods.length === 0
                   ? {}
                   : { benefitPeriods: [...parsed.periods] }),
@@ -158,25 +173,38 @@ export function CatalogSection({
             hint="UUID существующего предложения или новый."
             label="Идентификатор"
             name="offerId"
+            defaultValue={editingId}
             required
           />
           <AdminField
             label="Название"
             maxLength={200}
             name="offerName"
+            defaultValue={editing?.tier.name}
             required
           />
           <AdminTextArea
             hint={`По одному праву в строке. ${capabilityHint}`}
             label="Состав"
             name="offerBenefits"
+            defaultValue={editing?.tier.benefits.map(capability => {
+              const period = editing.benefitPeriods?.find(item => item.capability === capability);
+              return period === undefined ? capability : `${capability}=${String(period.months)}`;
+            }).join("\n")}
             required
           />
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="offerAssignable" defaultChecked={editing?.availableForAssignment} /> Доступен для назначения</label>
+          {catalogError !== undefined ? <p role="alert">{catalogError}</p> : null}
+          <fieldset className="grid max-h-80 gap-2 overflow-y-auto rounded-xl border border-border p-4"><legend className="px-2 text-sm">Точный состав тарифа</legend>
+            {catalogLoading ? <p role="status">Загружаем каталог…</p> : content.map(item => <label className="flex items-start gap-2 text-sm" key={`${item.kind}:${item.id}`}><input type="checkbox" name={item.kind === "guide" ? "offerGuides" : "offerMaterials"} value={item.id} defaultChecked={editing === undefined ? false : (item.kind === "guide" ? editing.tier.contentScope.guideIds : editing.tier.contentScope.materialIds).includes(item.id)} /><span>{item.kind === "guide" ? "Гайд" : "Материал"}: {item.title}{item.available ? "" : " · не опубликован"}</span></label>)}
+          </fieldset>
+          <p className="text-sm text-muted-foreground">Новые шаги выбранного гайда входят в состав. Новый отдельный гайд или материал нужно добавить явно.</p>
           <AdminField
             hint="Пусто — создание нового предложения."
             inputMode="numeric"
             label="Ожидаемая редакция"
             name="offerRevision"
+            defaultValue={editing?.tier.revision}
           />
           {benefitError === undefined ? null : (
             <p className="text-sm text-destructive" role="alert">

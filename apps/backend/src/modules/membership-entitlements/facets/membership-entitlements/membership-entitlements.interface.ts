@@ -61,7 +61,8 @@ export type MembershipPrincipalBinding =
     }>;
 
 export interface MembershipEntitlements {
-  resolveForAccess(accountId: AccountId, guideIds?: readonly string[]): Promise<MembershipAccessState>;
+  resolveManyForAccess?(accountId: AccountId, resources: readonly { guideIds: readonly string[]; materialId?: string | undefined }[]): Promise<readonly MembershipAccessState[]>;
+  resolveForAccess(accountId: AccountId, guideIds?: readonly string[], materialId?: string): Promise<MembershipAccessState>;
   bindPrincipal(command: {
     readonly accountId: AccountId;
     readonly principalRef: string;

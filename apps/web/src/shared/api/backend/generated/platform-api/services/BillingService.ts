@@ -58,11 +58,16 @@ export class BillingService {
           firstPriceKopecks: number;
           offer: {
             archived: boolean;
+            availableForAssignment?: boolean;
             benefitPeriods?: Array<{
               capability: ('materials' | 'community' | 'reviews' | 'support' | string);
               months: number | null;
             }>;
             benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+            contentScope?: {
+              guideIds: Array<string>;
+              materialIds: Array<string>;
+            } | null;
             id: string;
             name: string;
             published?: boolean;
@@ -99,11 +104,16 @@ export class BillingService {
         currency: 'RUB';
         offer: {
           archived: boolean;
+          availableForAssignment?: boolean;
           benefitPeriods?: Array<{
             capability: ('materials' | 'community' | 'reviews' | 'support' | string);
             months: number | null;
           }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+          contentScope?: {
+            guideIds: Array<string>;
+            materialIds: Array<string>;
+          } | null;
           id: string;
           name: string;
           published?: boolean;
@@ -128,6 +138,58 @@ export class BillingService {
     return this.httpRequest.request({
       method: 'GET',
       url: '/accounts/current/billing',
+    });
+  }
+  /**
+   * Read own assigned tiers, composition, sources and complete enrollment history
+   * @returns any
+   * @throws ApiError
+   */
+  public currentEnrollments(): CancelablePromise<{
+    items: Array<{
+      accountId: string;
+      benefitTerms?: Array<{
+        capability: string;
+        endsAt: string | null;
+        revoked: boolean;
+        startsAt: string;
+      }>;
+      content?: Array<{
+        available: boolean;
+        id: string;
+        kind: 'guide' | 'material';
+        slug: string | null;
+        title: string;
+      }>;
+      endPolicy: 'fixed' | 'confirmed_external' | 'temporary_membership';
+      endsAt: string | null;
+      history?: Array<{
+        kind: string;
+        reason: string;
+        recordedAt: string;
+      }>;
+      id: string;
+      nextChargeAt?: string | null;
+      origin: 'course' | 'tribute' | 'manual' | 'platform_payment';
+      renewal: 'not_applicable' | 'billing_agreement';
+      revision: number;
+      startsAt: string;
+      state: 'scheduled' | 'active' | 'expired' | 'revoked';
+      tier: {
+        benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+        contentScope: {
+          guideIds: Array<string>;
+          materialIds: Array<string>;
+        };
+        id: string;
+        name: string;
+        revision: number;
+      };
+    }>;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/accounts/current/billing/enrollments',
     });
   }
   /**
@@ -187,11 +249,16 @@ export class BillingService {
         firstPriceKopecks: number;
         offer: {
           archived: boolean;
+          availableForAssignment?: boolean;
           benefitPeriods?: Array<{
             capability: ('materials' | 'community' | 'reviews' | 'support' | string);
             months: number | null;
           }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+          contentScope?: {
+            guideIds: Array<string>;
+            materialIds: Array<string>;
+          } | null;
           id: string;
           name: string;
           published?: boolean;
@@ -228,11 +295,16 @@ export class BillingService {
       currency: 'RUB';
       offer: {
         archived: boolean;
+        availableForAssignment?: boolean;
         benefitPeriods?: Array<{
           capability: ('materials' | 'community' | 'reviews' | 'support' | string);
           months: number | null;
         }>;
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+        contentScope?: {
+          guideIds: Array<string>;
+          materialIds: Array<string>;
+        } | null;
         id: string;
         name: string;
         published?: boolean;
@@ -287,11 +359,16 @@ export class BillingService {
       firstPriceKopecks: number;
       offer: {
         archived: boolean;
+        availableForAssignment?: boolean;
         benefitPeriods?: Array<{
           capability: ('materials' | 'community' | 'reviews' | 'support' | string);
           months: number | null;
         }>;
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+        contentScope?: {
+          guideIds: Array<string>;
+          materialIds: Array<string>;
+        } | null;
         id: string;
         name: string;
         published?: boolean;
@@ -345,11 +422,16 @@ export class BillingService {
       firstPriceKopecks: number;
       offer: {
         archived: boolean;
+        availableForAssignment?: boolean;
         benefitPeriods?: Array<{
           capability: ('materials' | 'community' | 'reviews' | 'support' | string);
           months: number | null;
         }>;
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+        contentScope?: {
+          guideIds: Array<string>;
+          materialIds: Array<string>;
+        } | null;
         id: string;
         name: string;
         published?: boolean;
@@ -406,11 +488,16 @@ export class BillingService {
       firstPriceKopecks: number;
       offer: {
         archived: boolean;
+        availableForAssignment?: boolean;
         benefitPeriods?: Array<{
           capability: ('materials' | 'community' | 'reviews' | 'support' | string);
           months: number | null;
         }>;
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+        contentScope?: {
+          guideIds: Array<string>;
+          materialIds: Array<string>;
+        } | null;
         id: string;
         name: string;
         published?: boolean;
@@ -473,11 +560,16 @@ export class BillingService {
         firstPriceKopecks: number;
         offer: {
           archived: boolean;
+          availableForAssignment?: boolean;
           benefitPeriods?: Array<{
             capability: ('materials' | 'community' | 'reviews' | 'support' | string);
             months: number | null;
           }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+          contentScope?: {
+            guideIds: Array<string>;
+            materialIds: Array<string>;
+          } | null;
           id: string;
           name: string;
           published?: boolean;
@@ -514,11 +606,16 @@ export class BillingService {
       currency: 'RUB';
       offer: {
         archived: boolean;
+        availableForAssignment?: boolean;
         benefitPeriods?: Array<{
           capability: ('materials' | 'community' | 'reviews' | 'support' | string);
           months: number | null;
         }>;
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+        contentScope?: {
+          guideIds: Array<string>;
+          materialIds: Array<string>;
+        } | null;
         id: string;
         name: string;
         published?: boolean;
@@ -572,11 +669,16 @@ export class BillingService {
         firstPriceKopecks: number;
         offer: {
           archived: boolean;
+          availableForAssignment?: boolean;
           benefitPeriods?: Array<{
             capability: ('materials' | 'community' | 'reviews' | 'support' | string);
             months: number | null;
           }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+          contentScope?: {
+            guideIds: Array<string>;
+            materialIds: Array<string>;
+          } | null;
           id: string;
           name: string;
           published?: boolean;
@@ -621,11 +723,16 @@ export class BillingService {
           firstPriceKopecks: number;
           offer: {
             archived: boolean;
+            availableForAssignment?: boolean;
             benefitPeriods?: Array<{
               capability: ('materials' | 'community' | 'reviews' | 'support' | string);
               months: number | null;
             }>;
             benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+            contentScope?: {
+              guideIds: Array<string>;
+              materialIds: Array<string>;
+            } | null;
             id: string;
             name: string;
             published?: boolean;
@@ -662,11 +769,16 @@ export class BillingService {
         currency: 'RUB';
         offer: {
           archived: boolean;
+          availableForAssignment?: boolean;
           benefitPeriods?: Array<{
             capability: ('materials' | 'community' | 'reviews' | 'support' | string);
             months: number | null;
           }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+          contentScope?: {
+            guideIds: Array<string>;
+            materialIds: Array<string>;
+          } | null;
           id: string;
           name: string;
           published?: boolean;
@@ -726,11 +838,16 @@ export class BillingService {
         firstPriceKopecks: number;
         offer: {
           archived: boolean;
+          availableForAssignment?: boolean;
           benefitPeriods?: Array<{
             capability: ('materials' | 'community' | 'reviews' | 'support' | string);
             months: number | null;
           }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+          contentScope?: {
+            guideIds: Array<string>;
+            materialIds: Array<string>;
+          } | null;
           id: string;
           name: string;
           published?: boolean;
@@ -767,11 +884,16 @@ export class BillingService {
       currency: 'RUB';
       offer: {
         archived: boolean;
+        availableForAssignment?: boolean;
         benefitPeriods?: Array<{
           capability: ('materials' | 'community' | 'reviews' | 'support' | string);
           months: number | null;
         }>;
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+        contentScope?: {
+          guideIds: Array<string>;
+          materialIds: Array<string>;
+        } | null;
         id: string;
         name: string;
         published?: boolean;
@@ -824,11 +946,16 @@ export class BillingService {
         firstPriceKopecks: number;
         offer: {
           archived: boolean;
+          availableForAssignment?: boolean;
           benefitPeriods?: Array<{
             capability: ('materials' | 'community' | 'reviews' | 'support' | string);
             months: number | null;
           }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+          contentScope?: {
+            guideIds: Array<string>;
+            materialIds: Array<string>;
+          } | null;
           id: string;
           name: string;
           published?: boolean;
@@ -862,11 +989,16 @@ export class BillingService {
         firstPriceKopecks: number;
         offer: {
           archived: boolean;
+          availableForAssignment?: boolean;
           benefitPeriods?: Array<{
             capability: ('materials' | 'community' | 'reviews' | 'support' | string);
             months: number | null;
           }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+          contentScope?: {
+            guideIds: Array<string>;
+            materialIds: Array<string>;
+          } | null;
           id: string;
           name: string;
           published?: boolean;
@@ -931,11 +1063,16 @@ export class BillingService {
         firstPriceKopecks: number;
         offer: {
           archived: boolean;
+          availableForAssignment?: boolean;
           benefitPeriods?: Array<{
             capability: ('materials' | 'community' | 'reviews' | 'support' | string);
             months: number | null;
           }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+          contentScope?: {
+            guideIds: Array<string>;
+            materialIds: Array<string>;
+          } | null;
           id: string;
           name: string;
           published?: boolean;
@@ -972,11 +1109,16 @@ export class BillingService {
       currency: 'RUB';
       offer: {
         archived: boolean;
+        availableForAssignment?: boolean;
         benefitPeriods?: Array<{
           capability: ('materials' | 'community' | 'reviews' | 'support' | string);
           months: number | null;
         }>;
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+        contentScope?: {
+          guideIds: Array<string>;
+          materialIds: Array<string>;
+        } | null;
         id: string;
         name: string;
         published?: boolean;
@@ -1013,15 +1155,24 @@ export class BillingService {
     requestBody,
   }: {
     requestBody: ({
+      identityRef: string;
+      operation: 'recipients.lookup';
+      operationId: string;
+    } | {
       expectedRevision?: number;
       operation: 'offers.save';
       operationId: string;
       value: {
+        availableForAssignment?: boolean;
         benefitPeriods?: Array<{
           capability: ('materials' | 'community' | 'reviews' | 'support' | string);
           months: number | null;
         }>;
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+        contentScope?: {
+          guideIds: Array<string>;
+          materialIds: Array<string>;
+        } | null;
         id: string;
         name: string;
       };
@@ -1075,6 +1226,93 @@ export class BillingService {
       expectedRevision: number;
       id: string;
       operation: 'promotions.archive';
+      operationId: string;
+    } | {
+      operation: 'content.list';
+      operationId: string;
+    } | {
+      checkedAt: any;
+      endsAt: any;
+      identityRef: string;
+      operation: 'sources.register';
+      operationId: string;
+      origin: 'course' | 'tribute';
+      reason: string;
+      sourcePolicyRef: string;
+      startsAt: any;
+    } | {
+      expectedRevision?: number;
+      operation: 'activationRules.save';
+      operationId: string;
+      reason: string;
+      value: {
+        code: string;
+        endsAt: any;
+        id: string;
+        name: string;
+        published: boolean;
+        sourceRef: string;
+        startsAt: any;
+        tierId: string;
+        tierRevision: number;
+      };
+    } | {
+      operation: 'activationRules.list';
+      operationId: string;
+    } | {
+      operation: 'enrollments.previewExpansion';
+      operationId: string;
+      reason: string;
+      targets: Array<{
+        enrollmentId: string;
+        expectedRevision: number;
+        tierRevision: number;
+      }>;
+      tierId: string;
+      tierRevision: number;
+    } | {
+      operation: 'enrollments.applyExpansion';
+      operationId: string;
+      previewRef: string;
+    } | {
+      accountId: string;
+      billingRef: string | null;
+      courseSource?: {
+        policyRef: string;
+        verifiedIdentityRef: string;
+      };
+      operation: 'enrollments.assign';
+      operationId: string;
+      origin: 'course' | 'tribute' | 'manual' | 'platform_payment';
+      reason: string;
+      sourceRef: string;
+      terms: {
+        endPolicy: 'fixed' | 'confirmed_external' | 'temporary_membership';
+        endsAt: any;
+        startsAt: any;
+      };
+      tierId: string;
+      tierRevision: number;
+    } | {
+      action: 'change_term' | 'revoke' | 'restore';
+      enrollmentId: string;
+      expectedRevision: number;
+      operation: 'enrollments.change';
+      operationId: string;
+      reason: string;
+      terms: {
+        endPolicy: 'fixed' | 'confirmed_external' | 'temporary_membership';
+        endsAt: any;
+        startsAt: any;
+      };
+    } | {
+      accountId: string;
+      operation: 'enrollments.list';
+      operationId: string;
+    } | {
+      cursor?: string;
+      limit: number;
+      operation: 'tiers.list';
       operationId: string;
     } | {
       cursor?: string;
@@ -1148,6 +1386,10 @@ export class BillingService {
         sourceRef: string;
         terms: {
           capabilities: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+          contentScope?: {
+            guideIds: Array<string>;
+            materialIds: Array<string>;
+          };
           reason: string;
           startsAt: any;
           validUntil: any;
@@ -1185,6 +1427,202 @@ export class BillingService {
   }): CancelablePromise<{
     operationRef: string;
     result: ({
+      outcome: 'sourceEntitlement';
+      value: {
+        accountId: string | null;
+        checkedAt: string;
+        enrollmentId: string | null;
+        id: string;
+        identityRef: string;
+        origin: 'course' | 'tribute';
+        revision: number;
+        sourcePolicyRef: string;
+        sourceRef: string;
+      };
+    } | {
+      outcome: 'activationRule';
+      value: {
+        code: string;
+        endsAt: any;
+        id: string;
+        name: string;
+        published: boolean;
+        revision: number;
+        sourceRef: string;
+        startsAt: any;
+        tierId: string;
+        tierRevision: number;
+      };
+    } | {
+      items: Array<{
+        code: string;
+        endsAt: any;
+        id: string;
+        name: string;
+        published: boolean;
+        revision: number;
+        sourceRef: string;
+        startsAt: any;
+        tierId: string;
+        tierRevision: number;
+      }>;
+      outcome: 'activationRules';
+    } | {
+      outcome: 'enrollmentExpansionPreview';
+      value: {
+        expiresAt: string;
+        previewRef: string;
+        targets: Array<{
+          enrollmentId: string;
+          expectedRevision: number;
+          tierRevision: number;
+        }>;
+        tier: {
+          benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+          contentScope: {
+            guideIds: Array<string>;
+            materialIds: Array<string>;
+          };
+          id: string;
+          name: string;
+          revision: number;
+        };
+      };
+    } | {
+      enrollmentIds: Array<string>;
+      outcome: 'enrollmentExpansion';
+    } | {
+      outcome: 'enrollment';
+      value: {
+        accountId: string;
+        benefitTerms?: Array<{
+          capability: string;
+          endsAt: string | null;
+          revoked: boolean;
+          startsAt: string;
+        }>;
+        content?: Array<{
+          available: boolean;
+          id: string;
+          kind: 'guide' | 'material';
+          slug: string | null;
+          title: string;
+        }>;
+        endPolicy: 'fixed' | 'confirmed_external' | 'temporary_membership';
+        endsAt: string | null;
+        history?: Array<{
+          kind: string;
+          reason: string;
+          recordedAt: string;
+        }>;
+        id: string;
+        nextChargeAt?: string | null;
+        origin: 'course' | 'tribute' | 'manual' | 'platform_payment';
+        renewal: 'not_applicable' | 'billing_agreement';
+        revision: number;
+        startsAt: string;
+        state: 'scheduled' | 'active' | 'expired' | 'revoked';
+        tier: {
+          benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+          contentScope: {
+            guideIds: Array<string>;
+            materialIds: Array<string>;
+          };
+          id: string;
+          name: string;
+          revision: number;
+        };
+      };
+    } | {
+      items: Array<{
+        accountId: string;
+        benefitTerms?: Array<{
+          capability: string;
+          endsAt: string | null;
+          revoked: boolean;
+          startsAt: string;
+        }>;
+        content?: Array<{
+          available: boolean;
+          id: string;
+          kind: 'guide' | 'material';
+          slug: string | null;
+          title: string;
+        }>;
+        endPolicy: 'fixed' | 'confirmed_external' | 'temporary_membership';
+        endsAt: string | null;
+        history?: Array<{
+          kind: string;
+          reason: string;
+          recordedAt: string;
+        }>;
+        id: string;
+        nextChargeAt?: string | null;
+        origin: 'course' | 'tribute' | 'manual' | 'platform_payment';
+        renewal: 'not_applicable' | 'billing_agreement';
+        revision: number;
+        startsAt: string;
+        state: 'scheduled' | 'active' | 'expired' | 'revoked';
+        tier: {
+          benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+          contentScope: {
+            guideIds: Array<string>;
+            materialIds: Array<string>;
+          };
+          id: string;
+          name: string;
+          revision: number;
+        };
+      }>;
+      outcome: 'enrollments';
+    } | {
+      items: Array<{
+        available: boolean;
+        id: string;
+        kind: 'guide' | 'material';
+        slug: string | null;
+        title: string;
+      }>;
+      outcome: 'content';
+    } | {
+      outcome: 'recipient';
+      value: ({
+        recipient: {
+          accountId: string;
+          accountRef: string;
+          identityRef: string;
+          linkRef: string;
+          linkRevision: number;
+        };
+        state: 'found';
+      } | {
+        state: 'not_found';
+      } | {
+        state: 'ambiguous';
+      });
+    } | {
+      items: Array<{
+        archived: boolean;
+        availableForAssignment: boolean;
+        benefitPeriods: Array<{
+          capability: ('materials' | 'community' | 'reviews' | 'support' | string);
+          months: number | null;
+        }>;
+        published: boolean;
+        tier: {
+          benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+          contentScope: {
+            guideIds: Array<string>;
+            materialIds: Array<string>;
+          };
+          id: string;
+          name: string;
+          revision: number;
+        };
+      }>;
+      nextCursor: string | null;
+      outcome: 'tiers';
+    } | {
       outcome: 'catalog';
       value: {
         archived: boolean;
@@ -1198,11 +1636,16 @@ export class BillingService {
         firstPriceKopecks: number;
         offer: {
           archived: boolean;
+          availableForAssignment?: boolean;
           benefitPeriods?: Array<{
             capability: ('materials' | 'community' | 'reviews' | 'support' | string);
             months: number | null;
           }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+          contentScope?: {
+            guideIds: Array<string>;
+            materialIds: Array<string>;
+          } | null;
           id: string;
           name: string;
           published?: boolean;
@@ -1249,11 +1692,16 @@ export class BillingService {
           firstPriceKopecks: number;
           offer: {
             archived: boolean;
+            availableForAssignment?: boolean;
             benefitPeriods?: Array<{
               capability: ('materials' | 'community' | 'reviews' | 'support' | string);
               months: number | null;
             }>;
             benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+            contentScope?: {
+              guideIds: Array<string>;
+              materialIds: Array<string>;
+            } | null;
             id: string;
             name: string;
             published?: boolean;
@@ -1340,11 +1788,16 @@ export class BillingService {
           firstPriceKopecks: number;
           offer: {
             archived: boolean;
+            availableForAssignment?: boolean;
             benefitPeriods?: Array<{
               capability: ('materials' | 'community' | 'reviews' | 'support' | string);
               months: number | null;
             }>;
             benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+            contentScope?: {
+              guideIds: Array<string>;
+              materialIds: Array<string>;
+            } | null;
             id: string;
             name: string;
             published?: boolean;
@@ -1395,11 +1848,16 @@ export class BillingService {
           firstPriceKopecks: number;
           offer: {
             archived: boolean;
+            availableForAssignment?: boolean;
             benefitPeriods?: Array<{
               capability: ('materials' | 'community' | 'reviews' | 'support' | string);
               months: number | null;
             }>;
             benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+            contentScope?: {
+              guideIds: Array<string>;
+              materialIds: Array<string>;
+            } | null;
             id: string;
             name: string;
             published?: boolean;
@@ -1449,11 +1907,16 @@ export class BillingService {
             firstPriceKopecks: number;
             offer: {
               archived: boolean;
+              availableForAssignment?: boolean;
               benefitPeriods?: Array<{
                 capability: ('materials' | 'community' | 'reviews' | 'support' | string);
                 months: number | null;
               }>;
               benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+              contentScope?: {
+                guideIds: Array<string>;
+                materialIds: Array<string>;
+              } | null;
               id: string;
               name: string;
               published?: boolean;
@@ -1490,11 +1953,16 @@ export class BillingService {
           currency: 'RUB';
           offer: {
             archived: boolean;
+            availableForAssignment?: boolean;
             benefitPeriods?: Array<{
               capability: ('materials' | 'community' | 'reviews' | 'support' | string);
               months: number | null;
             }>;
             benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+            contentScope?: {
+              guideIds: Array<string>;
+              materialIds: Array<string>;
+            } | null;
             id: string;
             name: string;
             published?: boolean;
@@ -1664,11 +2132,16 @@ export class BillingService {
       firstPriceKopecks: number;
       offer: {
         archived: boolean;
+        availableForAssignment?: boolean;
         benefitPeriods?: Array<{
           capability: ('materials' | 'community' | 'reviews' | 'support' | string);
           months: number | null;
         }>;
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+        contentScope?: {
+          guideIds: Array<string>;
+          materialIds: Array<string>;
+        } | null;
         id: string;
         name: string;
         published?: boolean;

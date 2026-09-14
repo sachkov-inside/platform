@@ -1,3 +1,5 @@
+import { z } from "zod";
+import { ACCESS_GRANTS, enrollmentViewSchema, type AccessGrants } from "../../../membership-entitlements/index.js";
 import { Body, Controller, Get, HttpCode, Inject, Post, UseFilters, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiBody, ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { PrivateNoStore } from "../../../../infrastructure/http/http-cache-policy.js";
@@ -23,7 +25,16 @@ import { cancelChangeSchema, cancelRenewalSchema, changeOptionSchema, changeQuot
 @ApiResponse({ status: 503, content: problemDetailsOneOfContent(problemDetailsSchema(503, ["provider_unavailable", "dependency_unavailable"]), accountProblemSchema) })
 @Controller("accounts/current/billing")
 export class ManageSubscriptionController {
-  constructor(@Inject(BillingSubscriptions) private readonly subscriptions: BillingSubscriptions) {}
+  constructor(@Inject(BillingSubscriptions) private readonly subscriptions: BillingSubscriptions, @Inject(ACCESS_GRANTS) private readonly grants: AccessGrants) {}
+
+  @Get("enrollments")
+  @ApiOperation({ operationId: "currentEnrollments", summary: "Read own assigned tiers, composition, sources and complete enrollment history" })
+  @ApiOkResponse({ schema: toOpenApiSchema(z.strictObject({ items: z.array(enrollmentViewSchema) })) })
+  async enrollments(@CurrentAccount() account: AuthenticatedAccount) {
+    const result = await this.grants.readOwnEnrollments(account.accountId);
+    if (!result.ok) throwPaymentError(result.error.code === "invalid_input" ? "invalid_request" : "dependency_unavailable");
+    return { items: result.value };
+  }
 
   @Get()
   @ApiOperation({ operationId: "currentBilling", summary: "Read own subscription, its paid term, pending changes and service notices" })

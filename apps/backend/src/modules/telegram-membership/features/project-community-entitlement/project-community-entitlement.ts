@@ -10,7 +10,7 @@ import {
 } from "../../../../infrastructure/prisma/index.js";
 import type { AccessGrants } from "../../../membership-entitlements/index.js";
 import {
-  COMMUNITY_CONTRACT_VERSION,
+  COMMUNITY_V2_CONTRACT_VERSION,
   accessAllows,
   communityAccessFor,
   communityAccessSchema,
@@ -104,7 +104,7 @@ export async function projectCommunityEntitlement(
         const command = communitySetSchema.parse({
           access: commandAccess,
           binding: target,
-          contractVersion: COMMUNITY_CONTRACT_VERSION,
+          contractVersion: COMMUNITY_V2_CONTRACT_VERSION,
           correlationRef: randomUUID(),
           entitlementRevision,
           issuedAt: now.toISOString(),
@@ -171,7 +171,10 @@ export async function projectCommunityEntitlement(
         stored !== null &&
         stored.accountRef !== null &&
         stored.accountRef === currentAccountRef;
-      const unchanged =
+      const latest = stored?.latestOperationId ? await transaction.telegramCommunityOperation.findUnique({ where: { operationId: stored.latestOperationId } }) : null;
+      const latestCommand = latest === null ? null : communitySetSchema.safeParse(latest.command);
+      const currentVersion = latestCommand?.success === true && latestCommand.data.contractVersion === COMMUNITY_V2_CONTRACT_VERSION;
+      const unchanged = currentVersion &&
         sameRecipient &&
         stored.identityRef === currentIdentity &&
         stored.linkRevision === currentLinkRevision &&

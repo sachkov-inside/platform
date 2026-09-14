@@ -4,7 +4,11 @@ import type { TelegramMembershipPrismaClient } from "../../../../infrastructure/
 import type { Accounts } from "../../../accounts/index.js";
 import type { AccessGrants } from "../../../membership-entitlements/index.js";
 import {
+  sameAccess,
   communityAccessSchema,
+  communityResultSchema,
+  communityAccessFor,
+  accessAllows,
   type DispatchAuthorizeRequest,
 } from "../../domain/community-entitlement.js";
 import {
@@ -62,6 +66,25 @@ export class CommunityEntitlements {
 
   constructor(private readonly dependencies: CommunityEntitlementsDependencies) {
     this.clock = dependencies.clock ?? (() => new Date());
+  }
+
+  async readOwnAdmission(accountId: string) {
+    if (!z.uuid().safeParse(accountId).success) return { admissionRestriction: null, state: "checking" as const };
+    const [access, binding, desired] = await Promise.all([
+      this.dependencies.grants.resolveCapabilities(accountId), this.dependencies.links.readBinding({ accountId }),
+      this.dependencies.prisma.telegramCommunityDesiredState.findUnique({ where: { accountId } }),
+    ]);
+    if (!access.ok || !binding.ok) return { admissionRestriction: null, state: "checking" as const };
+    if (!accessAllows(communityAccessFor(access.capabilities), this.clock())) return { admissionRestriction: null, state: "no_access" as const };
+    const operation = desired?.latestOperationId === null || desired?.latestOperationId === undefined ? null
+      : await this.dependencies.prisma.telegramCommunityOperation.findUnique({ where: { operationId: desired.latestOperationId } });
+    const result = communityResultSchema.safeParse(operation?.result);
+    if (!result.success || !sameAccess(result.data.access, communityAccessFor(access.capabilities)) || result.data.admissionRestriction === undefined || binding.binding === null ||
+      result.data.binding.linkRevision !== binding.binding.linkRevision || result.data.binding.linkRef !== binding.binding.linkRef ||
+      result.data.binding.telegramIdentityRef !== binding.binding.telegramIdentityRef) return { admissionRestriction: null, state: "checking" as const };
+    const restriction = result.data.admissionRestriction;
+    return { admissionRestriction: restriction, state: restriction === "moderation" ? "moderation_blocked" as const
+      : restriction === "none" && (result.data.status === "applied" || result.data.status === "waiting_for_join") ? "ready" as const : "checking" as const };
   }
 
   /** Recomputes one Account's desired community state and queues what must be sent. */

@@ -16,6 +16,21 @@ export type TelegramAccountLinkResult =
 export class TelegramAccountLinks {
   constructor(private readonly prisma: TelegramMembershipPrismaClient) {}
 
+  /** Exact current verified identity only; historical links and usernames are never recipients. */
+  async findCurrentByIdentity(identityRef: string) {
+    if (!z.string().trim().min(1).max(256).safeParse(identityRef).success) return { ok: false as const };
+    try {
+      const rows = await this.prisma.telegramAccountLinkState.findMany({
+        where: { identityRef, principalRef: { not: null } }, take: 2,
+      });
+      if (rows.length > 1) return { ok: true as const, state: "ambiguous" as const };
+      const row = rows[0];
+      if (row === undefined || row.principalRef === null || row.identityRef === null) return { ok: true as const, state: "not_found" as const };
+      return { ok: true as const, state: "found" as const, recipient: { accountId: row.accountId,
+        accountRef: row.principalRef, identityRef: row.identityRef, linkRef: row.linkRef, linkRevision: row.revision } };
+    } catch { return { ok: false as const }; }
+  }
+
   /** Durable binding snapshots for community delivery; null identity is an unlink tombstone. */
   async readBinding(query: { readonly accountId: string; readonly revision?: number }) {
     if (!z.object({ accountId: z.uuid(), revision: z.number().int().positive().optional() }).strict().safeParse(query).success) return { ok: false as const };

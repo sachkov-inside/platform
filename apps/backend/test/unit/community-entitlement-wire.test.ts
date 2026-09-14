@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { createHash } from "node:crypto";
 
 import { Ajv } from "ajv";
@@ -61,11 +62,11 @@ describe("community entitlement wire agreement", () => {
     for (const fixture of fixtures) {
       const codec =
         fixture.definition === "communityRequest"
-          ? communitySetSchema
+          ? communitySetSchema.extend({ contractVersion: z.literal("inside.community-entitlement.v1") })
           : fixture.definition === "communityResponse"
             ? communityResultSchema
             : fixture.definition === "authorizationRequest"
-              ? dispatchAuthorizeSchema
+              ? dispatchAuthorizeSchema.extend({ dispatchContractVersion: z.enum(["inside.community-entitlement.v1", "inside.billing-notification.v1"]) })
               : undefined;
       if (codec === undefined) continue;
       const parsed = codec.safeParse(fixture.value);
