@@ -37,3 +37,8 @@ export async function applyEnrollmentExpansion(input: z.infer<typeof applyExpans
 export async function readContentCatalog() { return billingCommandResult(await requestSameOriginMutation("/api/authoring/billing/content/list", "POST", billingCommandPayload({ operationId: crypto.randomUUID() })), contentCatalogOutcomeSchema); }
 
 export async function registerSubscriptionSource(input: z.infer<typeof registerSourceInputSchema>) { return billingCommandResult(await requestSameOriginMutation("/api/authoring/billing/sources/register", "POST", billingCommandPayload(input)), sourceOutcomeSchema); }
+
+import { type lookupRecipientInputSchema, recipientOutcomeSchema } from "../model/enrollment-operations";
+export async function lookupSubscriptionRecipient(input: z.infer<typeof lookupRecipientInputSchema>) {
+  return billingCommandResult(await requestSameOriginMutation("/api/authoring/billing/recipients/lookup", "POST", billingCommandPayload(input)), recipientOutcomeSchema);
+}

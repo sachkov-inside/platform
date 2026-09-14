@@ -44118,6 +44118,33 @@
                   {
                     "additionalProperties": false,
                     "properties": {
+                      "identityRef": {
+                        "maxLength": 256,
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "operation": {
+                        "enum": [
+                          "recipients.lookup"
+                        ],
+                        "type": "string"
+                      },
+                      "operationId": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "operationId",
+                      "operation",
+                      "identityRef"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
                       "expectedRevision": {
                         "exclusiveMinimum": true,
                         "maximum": 2147483647,
@@ -46907,6 +46934,107 @@
                         {
                           "additionalProperties": false,
                           "properties": {
+                            "outcome": {
+                              "enum": [
+                                "recipient"
+                              ],
+                              "type": "string"
+                            },
+                            "value": {
+                              "oneOf": [
+                                {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "recipient": {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "accountId": {
+                                          "format": "uuid",
+                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                          "type": "string"
+                                        },
+                                        "accountRef": {
+                                          "type": "string"
+                                        },
+                                        "identityRef": {
+                                          "type": "string"
+                                        },
+                                        "linkRef": {
+                                          "format": "uuid",
+                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                          "type": "string"
+                                        },
+                                        "linkRevision": {
+                                          "exclusiveMinimum": true,
+                                          "maximum": 9007199254740991,
+                                          "minimum": 0,
+                                          "type": "integer"
+                                        }
+                                      },
+                                      "required": [
+                                        "accountId",
+                                        "accountRef",
+                                        "identityRef",
+                                        "linkRef",
+                                        "linkRevision"
+                                      ],
+                                      "type": "object"
+                                    },
+                                    "state": {
+                                      "enum": [
+                                        "found"
+                                      ],
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "state",
+                                    "recipient"
+                                  ],
+                                  "type": "object"
+                                },
+                                {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "state": {
+                                      "enum": [
+                                        "not_found"
+                                      ],
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "state"
+                                  ],
+                                  "type": "object"
+                                },
+                                {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "state": {
+                                      "enum": [
+                                        "ambiguous"
+                                      ],
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "state"
+                                  ],
+                                  "type": "object"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "outcome",
+                            "value"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
                             "items": {
                               "items": {
                                 "additionalProperties": false,
@@ -46916,6 +47044,44 @@
                                   },
                                   "availableForAssignment": {
                                     "type": "boolean"
+                                  },
+                                  "benefitPeriods": {
+                                    "items": {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "capability": {
+                                          "anyOf": [
+                                            {
+                                              "enum": [
+                                                "materials",
+                                                "community",
+                                                "reviews",
+                                                "support"
+                                              ],
+                                              "type": "string"
+                                            },
+                                            {
+                                              "pattern": "^guide:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                              "type": "string"
+                                            }
+                                          ]
+                                        },
+                                        "months": {
+                                          "exclusiveMinimum": true,
+                                          "maximum": 1200,
+                                          "minimum": 0,
+                                          "nullable": true,
+                                          "type": "integer"
+                                        }
+                                      },
+                                      "required": [
+                                        "capability",
+                                        "months"
+                                      ],
+                                      "type": "object"
+                                    },
+                                    "maxItems": 100,
+                                    "type": "array"
                                   },
                                   "published": {
                                     "type": "boolean"
@@ -47002,6 +47168,7 @@
                                 },
                                 "required": [
                                   "tier",
+                                  "benefitPeriods",
                                   "availableForAssignment",
                                   "published",
                                   "archived"

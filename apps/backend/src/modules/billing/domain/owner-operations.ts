@@ -9,7 +9,7 @@ import {
   accessGrantsViewSchema, classifyLegacyAccountCommandSchema, legacyClassificationViewSchema,
 } from "../../membership-entitlements/index.js";
 import { manageCatalogSchema, catalogOutcomeSchema } from "../features/manage-catalog/manage-catalog.contract.js";
-import { idSchema, moneySchema, priceSnapshotSchema, revisionSchema } from "./pricing.js";
+import { benefitPeriodsSchema, idSchema, moneySchema, priceSnapshotSchema, revisionSchema } from "./pricing.js";
 import { attemptKindSchema, attemptStateSchema } from "./payment-attempt.js";
 import { subscriptionViewSchema } from "./subscription-change.js";
 import type { PaymentFailureCode } from "../features/purchase-subscription/purchase-subscription.contract.js";
@@ -23,6 +23,7 @@ const listBounds = { cursor: idSchema.optional(), limit: z.int().min(1).max(100)
  * прежние схемы, платежи и возвраты добавляют собственные. Actor приходит из adapter, не из payload.
  */
 export const ownerOperationSchema = z.discriminatedUnion("operation", [
+  z.strictObject({ ...command, operation: z.literal("recipients.lookup"), identityRef: z.string().trim().min(1).max(256) }),
   ...manageCatalogSchema.options,
   z.strictObject({ ...command, operation: z.literal("content.list") }),
   z.strictObject({ ...registerSourceSchema.shape, operation: z.literal("sources.register") }),
@@ -56,7 +57,7 @@ export const ownerOperationSchema = z.discriminatedUnion("operation", [
 ]);
 export type OwnerOperation = z.infer<typeof ownerOperationSchema>;
 /** Чтение не меняет состояние: такие операции не пишут receipt и повторяются свободно. */
-export const ownerReadOperations = ["content.list","activationRules.list", "enrollments.list", "tiers.list", "offers.list", "payments.list", "payments.read", "refunds.read", "grants.read",
+export const ownerReadOperations = ["recipients.lookup", "content.list","activationRules.list", "enrollments.list", "tiers.list", "offers.list", "payments.list", "payments.read", "refunds.read", "grants.read",
   "grants.readClassification"] as const;
 const readOperations: readonly string[] = ownerReadOperations;
 export function isOwnerReadOperation(operation: string): boolean {
@@ -101,8 +102,12 @@ export const ownerSuccessSchema = z.union([
   z.strictObject({ outcome: z.literal("enrollment"), value: enrollmentViewSchema }),
   z.strictObject({ outcome: z.literal("enrollments"), items: z.array(enrollmentViewSchema) }),
   z.strictObject({ outcome: z.literal("content"), items: z.array(contentScopeEntrySchema) }),
+  z.strictObject({ outcome: z.literal("recipient"), value: z.discriminatedUnion("state", [
+    z.strictObject({ state: z.literal("found"), recipient: z.strictObject({ accountId: z.uuid(), accountRef: z.string(), identityRef: z.string(), linkRef: z.uuid(), linkRevision: z.int().positive() }) }),
+    z.strictObject({ state: z.literal("not_found") }), z.strictObject({ state: z.literal("ambiguous") }),
+  ]) }),
   z.strictObject({ outcome: z.literal("tiers"), items: z.array(z.strictObject({
-    tier: tierSnapshotSchema, availableForAssignment: z.boolean(), published: z.boolean(), archived: z.boolean(),
+    tier: tierSnapshotSchema, benefitPeriods: benefitPeriodsSchema, availableForAssignment: z.boolean(), published: z.boolean(), archived: z.boolean(),
   })), nextCursor: idSchema.nullable() }),
   z.strictObject({ outcome: z.literal("catalog"), value: catalogOutcomeSchema }),
   z.strictObject({ outcome: z.literal("catalogOffers"), items: z.array(priceSnapshotSchema), nextCursor: idSchema.nullable() }),

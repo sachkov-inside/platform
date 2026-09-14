@@ -5,13 +5,17 @@
 
 - [Кабинет desktop](cabinet-desktop.png), [mobile](cabinet-mobile.png).
 - [Назначения владельца desktop](owner-desktop.png), [mobile](owner-mobile.png).
+- [Обновление прежнего правила desktop](activation-rule-desktop.png), [mobile](activation-rule-mobile.png).
 - [Storybook кабинет desktop](storybook-cabinet-desktop.png), [mobile](storybook-cabinet-mobile.png).
 - [Storybook каталог владельца desktop](storybook-owner-desktop.png), [mobile](storybook-owner-mobile.png).
 
 `pnpm smoke:enrollments` поднимает собственные PostgreSQL Testcontainers, настоящий Nest API и
 Next, выдаёт синтетическую короткую сессию и запускает desktop/mobile Playwright. Проверяет
-создание тарифа без продажи, выбор Guide по названию, назначение за курс, состав и отсутствие
-списания в открытом кабинете, отзыв/восстановление и обновление соседней вкладки. Проверки axe
+создание тарифа без продажи, выбор Guide по названию, поиск подтверждённого получателя,
+назначение за курс и вход из `/account` через обычную навигацию. Проверяет состав, отсутствие
+списания, сохранение конечного benefitPeriod при переименовании, отзыв/восстановление и
+расширение в двух уже открытых owner окнах и кабинете. Создаёт опубликованное правило,
+затем явно обновляет его на новую редакцию, сохраняя код и источник. Проверки axe
 WCAG 2 A/AA, 2.1 AA не обнаружили serious/critical нарушений на обеих живых поверхностях.
 Скриншоты запуска лежат в `apps/web/test-results/`; fixture services удаляются после запуска.
 

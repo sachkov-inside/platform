@@ -1,3 +1,4 @@
+import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { accountId, assembleAccounts, bootstrapOwnerAccount } from "../../src/modules/accounts/index.js";
@@ -19,7 +20,7 @@ describe("Subscription Enrollment with real PostgreSQL", () => {
     db = await createMigratedTestDatabase();
     owner = (await bootstrapOwnerAccount(db.prisma, { issuer: "https://identity.example.test", subject: "enrollment-owner" }, "platform:admin")).accountId;
     const accounts = assembleAccounts({ prisma: db.prisma, emailFingerprintKey: "synthetic-enrollment-fingerprint-key" });
-    grants = assembleAccessGrants({ prisma: db.prisma, accounts, clock: () => now });
+    grants = assembleAccessGrants({ prisma: db.prisma, accounts, recipientLinks: new TelegramAccountLinks(db.prisma), clock: () => now });
     membership = assembleMembershipEntitlements({ prisma: db.prisma, clock: () => now,
       workshopEntitlements: assembleWorkshopEntitlements({ prisma: db.prisma, clock: () => now }) });
   });
@@ -95,6 +96,28 @@ describe("Subscription Enrollment with real PostgreSQL", () => {
     expect(await grants.assignEnrollment(owner, command, tier)).toMatchObject({ ok: false, error: { code: "invalid_input" } });
     const row = value(await grants.assignEnrollment(owner, { ...command, terms: { ...terms, endsAt: "2030-02-01T00:00:00.000Z", endPolicy: "confirmed_external" } }, tier));
     expect(await grants.changeEnrollment(owner, { operationId: randomUUID(), enrollmentId: row.id, expectedRevision: 1, action: "change_term", terms, reason: "Cannot erase external bound" })).toMatchObject({ ok: false, error: { code: "invalid_input" } });
+  });
+
+  test("recipient lookup is authorized, current and unambiguous; relink cannot assign another identity", async () => {
+    const target = await customer(), identityRef = `verified:${target}`;
+    const lookup = () => grants.lookupRecipient(owner, identityRef);
+    expect(await lookup()).toMatchObject({ ok: true, state: "not_found" });
+    await db.prisma.telegramAccountLinkState.create({ data: { accountId: target, linkRef: randomUUID(), revision: 1, principalRef: `account:${target}`, identityRef, updatedAt: now } });
+    expect(await lookup()).toMatchObject({ ok: true, state: "found", recipient: { accountId: target, identityRef, linkRevision: 1 } });
+    expect(await grants.lookupRecipient(target, identityRef)).toMatchObject({ ok: false, error: { code: "forbidden" } });
+    const duplicate = await customer();
+    await db.prisma.telegramAccountLinkState.create({ data: { accountId: duplicate, linkRef: randomUUID(), revision: 1, principalRef: `account:${duplicate}`, identityRef, updatedAt: now } });
+    expect(await lookup()).toMatchObject({ ok: true, state: "ambiguous" });
+    await db.prisma.telegramAccountLinkState.update({ where: { accountId: duplicate }, data: { identityRef: null, principalRef: null, revision: 2 } });
+    const tier = { id: randomUUID(), revision: 1, name: "Verified recipient", benefits: ["materials"], contentScope: { guideIds: [], materialIds: [] } };
+    const command = { operationId: randomUUID(), accountId: target, origin: "course", sourceRef: randomUUID(), courseSource: { policyRef: "verified-course", verifiedIdentityRef: identityRef }, tierId: tier.id, tierRevision: 1, terms, billingRef: null, reason: "Verified owner selection" };
+    const assigned = await grants.assignEnrollment(owner, command, tier);
+    expect(assigned).toMatchObject({ ok: true });
+    await db.prisma.telegramAccountLinkState.update({ where: { accountId: target }, data: { identityRef: "relinked-identity", revision: 2 } });
+    expect(await lookup()).toMatchObject({ ok: true, state: "not_found" });
+    expect(await grants.assignEnrollment(owner, command, tier)).toEqual(assigned);
+    expect(await grants.assignEnrollment(owner, { ...command, operationId: randomUUID(), sourceRef: randomUUID() }, tier)).toMatchObject({ ok: false, error: { code: "identity_conflict" } });
+    expect(await db.prisma.subscriptionEnrollment.count({ where: { accountId: target } })).toBe(1);
   });
 
 });

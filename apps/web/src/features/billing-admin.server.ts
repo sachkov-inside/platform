@@ -37,3 +37,5 @@ export { handleApplyEnrollmentExpansion } from "./billing-admin/api/enrollments.
 export { handleReadContentCatalog } from "./billing-admin/api/enrollments.server";
 
 export { handleRegisterSubscriptionSource } from "./billing-admin/api/enrollments.server";
+
+export { handleLookupSubscriptionRecipient } from "./billing-admin/api/enrollments.server";

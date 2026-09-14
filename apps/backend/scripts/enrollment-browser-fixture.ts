@@ -16,6 +16,7 @@ const keyPair = await generateKeyPair("ES384");
 const provider = Fastify(); provider.get("/jwks", async () => ({ keys: [{ ...(await exportJWK(keyPair.publicKey)), alg: "ES384", kid: "smoke-key" }] }));
 const providerUrl = await provider.listen({ host: "127.0.0.1", port: 0 });
 const owner = await bootstrapOwnerAccount(prisma, { issuer, subject: "owner" }, "platform:admin");
+await prisma.telegramAccountLinkState.create({ data: { accountId: owner.accountId, linkRef: "62000000-0000-4000-8000-000000000702", revision: 1, principalRef: "synthetic-owner-account", identityRef: "synthetic-owner-624", updatedAt: new Date() } });
 const guideId = "62000000-0000-4000-8000-000000000701";
 await prisma.guide.create({ data: { id: guideId, name: "Инженерная практика", slug: "engineering-practice" } });
 const app = await createApiApplication(parsePlatformConfig({ NODE_ENV: "test", DATABASE_URL: databaseUrl, LOGTO_ISSUER: issuer, LOGTO_AUDIENCE: audience, LOGTO_JWKS_URL: `${providerUrl}/jwks` }), { logger: false });

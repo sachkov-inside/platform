@@ -1,4 +1,4 @@
-import { contentScopeEntrySchema } from "@inside/access-capabilities";
+import { accessCapabilitySchema, contentScopeEntrySchema } from "@inside/access-capabilities";
 import { z } from "zod";
 import { tierSchema, enrollmentSchema } from "@/entities/subscription";
 const operationId = z.uuid();
@@ -11,7 +11,7 @@ export const assignEnrollmentInputSchema = z.object({ operationId, accountId: z.
 export const changeEnrollmentInputSchema = z.object({ operationId, enrollmentId: z.uuid(), expectedRevision: z.int().positive(),
   action: z.enum(["change_term", "revoke", "restore"]), terms, reason: z.string().min(1) });
 export const tiersOutcomeSchema = z.object({ operationRef: z.uuid(), result: z.object({ outcome: z.literal("tiers"),
-  items: z.array(z.object({ tier: tierSchema, availableForAssignment: z.boolean(), published: z.boolean(), archived: z.boolean() })), nextCursor: z.uuid().nullable() }) });
+  items: z.array(z.object({ tier: tierSchema, benefitPeriods: z.array(z.object({ capability: accessCapabilitySchema, months: z.int().positive().nullable() })).optional(), availableForAssignment: z.boolean(), published: z.boolean(), archived: z.boolean() })), nextCursor: z.uuid().nullable() }) });
 export const enrollmentsOutcomeSchema = z.object({ operationRef: z.uuid(), result: z.object({ outcome: z.literal("enrollments"), items: z.array(enrollmentSchema) }) });
 export const enrollmentOutcomeSchema = z.object({ operationRef: z.uuid(), result: z.object({ outcome: z.literal("enrollment"), value: enrollmentSchema }) });
 
@@ -30,3 +30,9 @@ export const contentCatalogOutcomeSchema = z.object({ operationRef: z.uuid(), re
 
 export const registerSourceInputSchema = z.object({ operationId, origin: z.enum(["course", "tribute"]), sourcePolicyRef: z.string().min(1).max(256), identityRef: z.string().min(1).max(256), checkedAt: z.iso.datetime(), startsAt: z.iso.datetime(), endsAt: z.iso.datetime().nullable(), reason: z.string().min(1).max(1000) });
 export const sourceOutcomeSchema = z.object({ operationRef: z.uuid(), result: z.object({ outcome: z.literal("sourceEntitlement"), value: z.object({ id: z.uuid(), origin: z.enum(["course", "tribute"]), sourceRef: z.string(), sourcePolicyRef: z.string(), identityRef: z.string(), accountId: z.uuid().nullable(), enrollmentId: z.uuid().nullable(), revision: z.int().positive(), checkedAt: z.iso.datetime() }) }) });
+
+export const lookupRecipientInputSchema = z.object({ operationId, identityRef: z.string().trim().min(1).max(256) });
+export const recipientSchema = z.object({ accountId: z.uuid(), accountRef: z.string(), identityRef: z.string(), linkRef: z.uuid(), linkRevision: z.int().positive() });
+export const recipientOutcomeSchema = z.object({ operationRef: z.uuid(), result: z.object({ outcome: z.literal("recipient"), value: z.discriminatedUnion("state", [
+  z.object({ state: z.literal("found"), recipient: recipientSchema }), z.object({ state: z.literal("not_found") }), z.object({ state: z.literal("ambiguous") }),
+]) }) });

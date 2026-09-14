@@ -102,7 +102,7 @@ describe("оплата, выдача прав и доступ к материа�
     await db.prisma.account.create({ data: { id: owner, logtoIssuer: "https://identity.example.test", logtoSubject: owner } });
     await db.prisma.accountPermission.create({ data: { accountId: owner, permission: "platform:admin" } });
     accounts = assembleAccounts({ prisma: db.prisma, emailFingerprintKey: "synthetic-matrix-fingerprint-key-00000" });
-    grants = assembleAccessGrants({ prisma: db.prisma, accounts, clock: () => now });
+    grants = assembleAccessGrants({ prisma: db.prisma, accounts, recipientLinks: new TelegramAccountLinks(db.prisma), clock: () => now });
     membership = assembleMembershipEntitlements({ prisma: db.prisma, clock: () => now, workshopEntitlements: assembleWorkshopEntitlements({ prisma: db.prisma, clock: () => now }) });
     pricing = new BillingPricing({ prisma: db.prisma, accounts, clock: () => now });
     contact = new BillingContact({ prisma: db.prisma, protection: billingContactProtection(Buffer.alloc(32, 62).toString("base64")),
@@ -677,6 +677,10 @@ describe("оплата, выдача прав и доступ к материа�
     const tierId = randomUUID();
     success(await operations.execute(owner, { operation: "offers.save", operationId: randomUUID(), value: { id: tierId, name: "Курс: выбранный гайд", benefits: ["materials", "community"], availableForAssignment: true, contentScope: { guideIds: [guideA], materialIds: [] } } }));
     const command = { operation: "enrollments.assign", operationId: randomUUID(), accountId: account, tierId, tierRevision: 1, origin: "course", sourceRef: "course-matrix", courseSource: { policyRef: "course-matrix", verifiedIdentityRef: `verified-${account}` }, terms: { startsAt: now.toISOString(), endsAt: null, endPolicy: "fixed" }, billingRef: null, reason: "Owner verified synthetic course" };
+    await linkTelegramAccount(db.prisma, { accountId: account, identityRef: `verified-${account}`, now });
+    const lookup = { operation: "recipients.lookup", operationId: randomUUID(), identityRef: `verified-${account}` };
+    expect(await operations.execute(account, lookup)).toMatchObject({ ok: false, error: { code: "forbidden" } });
+    expect(success(await operations.execute(owner, lookup))).toMatchObject({ outcome: "recipient", value: { state: "found", recipient: { accountId: account } } });
     const assigned = success(await operations.execute(owner, command));
     if (assigned.outcome !== "enrollment") throw new Error("Expected enrollment");
     const subject = reader(account);

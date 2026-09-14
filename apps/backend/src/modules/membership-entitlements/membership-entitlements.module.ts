@@ -35,7 +35,8 @@ import {
       // Resolve this read-only metadata facet after module initialization, without that DI cycle.
       useFactory: async (prisma: PrismaClientProvider, accounts: Accounts) => {
         const { ContentScopeCatalog } = await import("../materials/index.js");
-        return assembleAccessGrants({ prisma, accounts, contentCatalog: new ContentScopeCatalog(prisma) });
+        const { TelegramAccountLinks } = await import("../telegram-membership/index.js");
+        return assembleAccessGrants({ prisma, accounts, contentCatalog: new ContentScopeCatalog(prisma), recipientLinks: new TelegramAccountLinks(prisma) });
       },
     },
   ],

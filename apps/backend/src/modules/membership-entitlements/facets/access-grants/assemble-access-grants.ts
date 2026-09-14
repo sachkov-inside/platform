@@ -1,3 +1,4 @@
+import type { TelegramAccountLinks } from "../../../telegram-membership/index.js";
 import { contentScopeSchema } from "@inside/access-capabilities";
 import type { ContentScopeCatalog } from "../../../materials/index.js";
 import { enrollmentView, enrollmentBenefitTerms } from "../../shared/enrollment-view.js";
@@ -49,6 +50,7 @@ import { readOwnAccess } from "../../features/read-own-access/read-own-access.js
 export interface AccessGrantsDependencies {
   readonly prisma: MembershipEntitlementsPrismaClient;
   readonly accounts: Pick<Accounts, "checkPermission" | "readIdentityForLink">;
+  readonly recipientLinks?: Pick<TelegramAccountLinks, "findCurrentByIdentity" | "readBinding">;
   readonly contentCatalog?: Pick<ContentScopeCatalog, "resolve" | "list">;
   readonly clock?: () => Date;
 }
@@ -105,6 +107,14 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
     }
   }
   return Object.freeze({
+    lookupRecipient: (actorId: string, identityRef: string) => manage(actorId, "billing:manage", async () => {
+      if (!z.string().trim().min(1).max(256).safeParse(identityRef).success) return accessFailure("invalid_input");
+      const result = await dependencies.recipientLinks?.findCurrentByIdentity(identityRef);
+      if (result === undefined || !result.ok) return accessFailure("unavailable");
+      if (result.state === "found" && await accounts.readIdentityForLink(result.recipient.accountId) === undefined)
+        return { ok: true as const, state: "not_found" as const };
+      return result;
+    }),
     readEnrollmentAssignmentReceipt: (actorId: string, input: unknown) =>
       manage(actorId, "billing:manage", async () => {
         const command = assignEnrollmentSchema.safeParse(input);
@@ -124,7 +134,7 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
         const parsed = assignEnrollmentSchema.safeParse(command);
         if (!parsed.success) return accessFailure("invalid_input");
         if (await accounts.readIdentityForLink(parsed.data.accountId) === undefined) return accessFailure("not_found");
-        return assignEnrollment(prisma, actorId, parsed.data, snapshot, clock());
+        return assignEnrollment(prisma, actorId, parsed.data, snapshot, clock(), dependencies.recipientLinks);
       }),
     changeEnrollment: (actorId: string, command: unknown) =>
       manage(actorId, "billing:manage", () => changeEnrollment(prisma, actorId, command, clock())),

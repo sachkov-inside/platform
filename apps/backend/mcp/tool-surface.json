@@ -26,6 +26,7 @@
   "billing_payments_reconcile",
   "billing_promotions_archive",
   "billing_promotions_save",
+  "billing_recipients_lookup",
   "billing_refunds_decide",
   "billing_refunds_execute",
   "billing_refunds_read",

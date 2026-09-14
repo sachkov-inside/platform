@@ -40,3 +40,9 @@ export function handleApplyEnrollmentExpansion(request: Request): Promise<Respon
 export function handleReadContentCatalog(request: Request): Promise<Response> { return handleAuthenticatedMutation(request, (form, accessToken) => executeBillingCommand(form, listRulesInputSchema, contentCatalogOutcomeSchema, input => requestManageBilling({ ...input, operation: "content.list" }, accessToken))); }
 
 export function handleRegisterSubscriptionSource(request: Request): Promise<Response> { return handleAuthenticatedMutation(request, (form, accessToken) => executeBillingCommand(form, registerSourceInputSchema, sourceOutcomeSchema, input => requestManageBilling({ ...input, operation: "sources.register" }, accessToken))); }
+
+import { lookupRecipientInputSchema, recipientOutcomeSchema } from "../model/enrollment-operations";
+export function handleLookupSubscriptionRecipient(request: Request): Promise<Response> {
+  return handleAuthenticatedMutation(request, (form, accessToken) => executeBillingCommand(form, lookupRecipientInputSchema, recipientOutcomeSchema,
+    input => requestManageBilling({ ...input, operation: "recipients.lookup" }, accessToken)));
+}

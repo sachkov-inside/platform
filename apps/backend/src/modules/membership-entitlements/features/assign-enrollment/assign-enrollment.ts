@@ -1,7 +1,8 @@
+import type { ActivationBindings } from "../../domain/subscription-activation.js";
 import { enrollmentView } from "../../shared/enrollment-view.js";
 import type { z } from "zod";
 import { randomUUID } from "node:crypto";
-import { lockAccountEntitlementChanges } from "../../../../infrastructure/prisma/index.js";
+import { lockTelegramAccountBinding, lockAccountEntitlementChanges } from "../../../../infrastructure/prisma/index.js";
 import type { MembershipEntitlementsPrismaClient, MembershipEntitlementsPrisma } from "../../infrastructure/prisma.js";
 import { lockAccess } from "../../infrastructure/access-lock.js";
 import { accessFailure } from "../../domain/access-grant.js";
@@ -9,13 +10,25 @@ import { assignEnrollmentSchema, enrollmentResultSchema, tierSnapshotSchema, typ
 import { accessFingerprint, readAccessReceipt } from "../../shared/access-receipts.js";
 
 /** Caller holds catalog eligibility stable until this transaction commits. */
-export async function assignEnrollment(prisma: MembershipEntitlementsPrismaClient, actorId: string, input: unknown, tierInput: unknown, now: Date): Promise<EnrollmentResult> {
+export async function assignEnrollment(prisma: MembershipEntitlementsPrismaClient, actorId: string, input: unknown, tierInput: unknown, now: Date, bindings?: Pick<ActivationBindings, "readBinding">): Promise<EnrollmentResult> {
   const parsed = assignEnrollmentSchema.safeParse(input);
   const snapshot = tierSnapshotSchema.safeParse(tierInput);
   if (!parsed.success || !snapshot.success) return accessFailure("invalid_input");
   const command = parsed.data;
   if (snapshot.data.id !== command.tierId || snapshot.data.revision !== command.tierRevision) return accessFailure("revision_conflict");
-  return prisma.$transaction(tx => assignEnrollmentInTransaction(tx, actorId, command, snapshot.data, now));
+  return prisma.$transaction(async tx => {
+    const receipt = await readAccessReceipt(tx, actorId, command.operationId);
+    if (receipt !== null) return receipt.fingerprint === accessFingerprint({ action: "assignEnrollment", command })
+      ? enrollmentResultSchema.parse(receipt.result) : accessFailure("operation_conflict");
+    if (command.origin === "course" && command.courseSource !== undefined) {
+      await lockTelegramAccountBinding(tx, command.accountId);
+      const current = await bindings?.readBinding({ accountId: command.accountId });
+      if (current === undefined || !current.ok) return accessFailure("unavailable");
+      if (current.binding?.accountRef == null || current.binding.telegramIdentityRef !== command.courseSource.verifiedIdentityRef)
+        return accessFailure("identity_conflict");
+    }
+    return assignEnrollmentInTransaction(tx, actorId, command, snapshot.data, now);
+  });
 }
 
 export async function assignEnrollmentInTransaction(tx: MembershipEntitlementsPrisma, actorId: string | null,

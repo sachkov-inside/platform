@@ -1155,6 +1155,10 @@ export class BillingService {
     requestBody,
   }: {
     requestBody: ({
+      identityRef: string;
+      operation: 'recipients.lookup';
+      operationId: string;
+    } | {
       expectedRevision?: number;
       operation: 'offers.save';
       operationId: string;
@@ -1581,9 +1585,29 @@ export class BillingService {
       }>;
       outcome: 'content';
     } | {
+      outcome: 'recipient';
+      value: ({
+        recipient: {
+          accountId: string;
+          accountRef: string;
+          identityRef: string;
+          linkRef: string;
+          linkRevision: number;
+        };
+        state: 'found';
+      } | {
+        state: 'not_found';
+      } | {
+        state: 'ambiguous';
+      });
+    } | {
       items: Array<{
         archived: boolean;
         availableForAssignment: boolean;
+        benefitPeriods: Array<{
+          capability: ('materials' | 'community' | 'reviews' | 'support' | string);
+          months: number | null;
+        }>;
         published: boolean;
         tier: {
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;

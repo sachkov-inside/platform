@@ -187,7 +187,10 @@ export function CatalogSection({
             hint={`По одному праву в строке. ${capabilityHint}`}
             label="Состав"
             name="offerBenefits"
-            defaultValue={editing?.tier.benefits.join("\n")}
+            defaultValue={editing?.tier.benefits.map(capability => {
+              const period = editing.benefitPeriods?.find(item => item.capability === capability);
+              return period === undefined ? capability : `${capability}=${String(period.months)}`;
+            }).join("\n")}
             required
           />
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="offerAssignable" defaultChecked={editing?.availableForAssignment} /> Доступен для назначения</label>

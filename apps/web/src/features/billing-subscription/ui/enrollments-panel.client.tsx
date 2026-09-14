@@ -2,20 +2,17 @@
 import { useEffect } from "react";
 import { z } from "zod";
 import { useQuery } from "@tanstack/react-query";
-import { subscribeEnrollmentChange, EnrollmentList, enrollmentsSchema, readBillingEndpoint, billingErrorMessage } from "@/entities/subscription";
+import { subscribeEnrollmentChange, EnrollmentList, readBillingEndpoint, billingErrorMessage } from "@/entities/subscription";
 import { Button } from "@/shared/ui/button";
+import { useOwnEnrollments } from "../model/use-own-enrollments.client";
 export function EnrollmentsPanel() {
-  const query = useQuery({ queryKey: ["own-subscription-enrollments"], queryFn: async () => {
-    const result = await readBillingEndpoint("/api/account/billing/enrollments", enrollmentsSchema);
-    if (!result.ok) throw new Error(billingErrorMessage(result.code));
-    return result.value.items;
-  } });
+  const query = useOwnEnrollments();
   const admission = useQuery({ queryKey: ["own-community-admission"], queryFn: async () => {
     const result = await readBillingEndpoint("/api/account/billing/community-admission", z.strictObject({ admissionRestriction: z.enum(["none", "moderation", "external_unknown"]).nullable(), state: z.enum(["checking", "no_access", "moderation_blocked", "ready"]) }));
     if (!result.ok) throw new Error(billingErrorMessage(result.code)); return result.value;
   } });
-  const refreshEnrollments = query.refetch; const refreshAdmission = admission.refetch;
-  useEffect(() => subscribeEnrollmentChange(() => { void refreshEnrollments(); void refreshAdmission(); }), [refreshEnrollments, refreshAdmission]);
+  const refreshAdmission = admission.refetch;
+  useEffect(() => subscribeEnrollmentChange(() => { void refreshAdmission(); }), [refreshAdmission]);
   const admissionText = admission.data?.admissionRestriction === "moderation" ? "Вступление в сообщество ограничено модерацией. Доступ к материалам сохраняется."
     : admission.data?.admissionRestriction === "external_unknown" ? "Telegram сообщает об ограничении вступления. Причину нужно уточнить у поддержки. Материалы доступны независимо."
     : admission.data?.state === "ready" ? "Право на сообщество подтверждено."

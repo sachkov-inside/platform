@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { benefitPeriodsSchema } from "../../domain/pricing.js";
 import { lockPricing } from "../../infrastructure/postgres/catalog-lock.js";
 import { courseSourceRef, tierSnapshotSchema } from "../../../membership-entitlements/index.js";
 import type { BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
@@ -24,7 +25,7 @@ interface Dependencies {
   readonly pricing: Pick<BillingPricing, "manage" | "ownerCatalog">;
   readonly payments: Pick<BillingPayments, "reconcile">;
   readonly subscriptions: Pick<BillingSubscriptions, "cancel">;
-  readonly grants: Pick<AccessGrants, "readContentCatalog" | "previewBatch" | "applyBatch" | "changeGrant" | "listGrants"
+  readonly grants: Pick<AccessGrants, "lookupRecipient" | "readContentCatalog" | "previewBatch" | "applyBatch" | "changeGrant" | "listGrants"
     | "classifyLegacy" | "readClassification" | "registerSourceEntitlement" | "manageActivationRule" | "listActivationRules" | "previewEnrollmentExpansion" | "applyEnrollmentExpansion" | "readEnrollmentAssignmentReceipt" | "assignEnrollment" | "changeEnrollment" | "listEnrollments">;
   readonly bank: Tbank | undefined;
   readonly clock?: () => Date;
@@ -90,6 +91,12 @@ export class BillingOperations {
     const { prisma, grants } = this.dependencies;
     const operationRef = command.operationId;
     switch (command.operation) {
+      case "recipients.lookup": {
+        const result = await grants.lookupRecipient(actorId, command.identityRef);
+        if (!result.ok) return ownerAccessFailure(result.error.code);
+        const { ok: _ok, ...value } = result;
+        return { ok: true, operationRef, result: { outcome: "recipient", value } };
+      }
       case "content.list": {
         const result = await grants.readContentCatalog(actorId);
         return result.ok ? { ok: true, operationRef, result: { outcome: "content", items: result.value } } : ownerAccessFailure(result.error.code);
@@ -137,7 +144,7 @@ export class BillingOperations {
         const items = rows.slice(0, command.limit).flatMap(row => {
           const tier = tierSnapshotSchema.safeParse({ id: row.id, revision: row.revision, name: row.name,
             benefits: row.benefits, contentScope: row.contentScope });
-          return tier.success ? [{ tier: tier.data, availableForAssignment: row.availableForAssignment,
+          return tier.success ? [{ tier: tier.data, benefitPeriods: benefitPeriodsSchema.parse(row.benefitPeriods), availableForAssignment: row.availableForAssignment,
             published: row.published, archived: row.archived }] : [];
         });
         return { ok: true, operationRef, result: { outcome: "tiers", items,
@@ -312,7 +319,7 @@ function targetOf(command: OwnerOperation, outcome: OwnerOutcome): string {
     case "activationRules.save": return command.value.id;
     case "activationRules.list": return command.operationId;
     case "enrollments.previewExpansion": case "enrollments.applyExpansion": return command.operationId;
-    case "content.list": case "tiers.list": case "offers.list": return command.operationId;
+    case "recipients.lookup": case "content.list": case "tiers.list": case "offers.list": return command.operationId;
     case "enrollments.assign": case "enrollments.list": return command.accountId;
     case "enrollments.change": return command.enrollmentId;
     case "payments.list": return command.accountId ?? command.operationId;

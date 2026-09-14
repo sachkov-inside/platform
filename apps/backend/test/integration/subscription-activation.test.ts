@@ -26,7 +26,7 @@ describe("course activation HTTP authority with real PostgreSQL", () => {
     db = await createMigratedTestDatabase();
     owner = (await bootstrapOwnerAccount(db.prisma, { issuer: "https://activation.example.test", subject: "owner" }, "platform:admin")).accountId;
     const accounts = assembleAccounts({ prisma: db.prisma, emailFingerprintKey: "activation-test-fingerprint-secret" });
-    grants = assembleAccessGrants({ prisma: db.prisma, accounts, clock: () => now });
+    grants = assembleAccessGrants({ prisma: db.prisma, accounts, recipientLinks: new TelegramAccountLinks(db.prisma), clock: () => now });
     const service = new SubscriptionActivation({ prisma: db.prisma, grants, bindings: new TelegramAccountLinks(db.prisma), readAdmission: () => Promise.resolve({ state: "checking", admissionRestriction: null }) });
     @Module({ controllers: [SubscriptionActivationController], providers: [
       { provide: SubscriptionActivation, useValue: service },
@@ -96,4 +96,26 @@ describe("course activation HTTP authority with real PostgreSQL", () => {
     await grants.manageActivationRule(owner, { operationId: randomUUID(), expectedRevision: 1, value: { ...rule2, published: false }, reason: "Pause" });
     expect((await send("attempts", { ...begin, attemptId: randomUUID(), code: rule2.code })).json()).toMatchObject({ ok: false, error: { code: "policy_paused" } });
   });
+  test("published rule explicitly rebinds to a new tier revision and retains the same activation link", async () => {
+    const context = await setup();
+    const accountRef = await linkTelegramAccount(db.prisma, { accountId: context.id, identityRef: context.identityRef, now });
+    const binding = await new TelegramAccountLinks(db.prisma).readBinding({ accountId: context.id });
+    if (!binding.ok || binding.binding === null) throw new Error("Missing fixture binding");
+    await db.prisma.billingOffer.update({ where: { id: context.tier.id }, data: { name: "Новое название", revision: 2 } });
+    const attemptId = randomUUID();
+    const begin = { contractVersion: version, attemptId, code: context.rule.code, identityRef: context.identityRef };
+    await send("attempts", begin);
+    const evidence = { contractVersion: version, audience: "inside.platform.subscription-activation", evidenceRef: randomUUID(), attemptId,
+      sourceRef: context.policy, identityRef: context.identityRef, accountRef, linkRef: binding.binding.linkRef,
+      linkRevision: binding.binding.linkRevision, ruleId: context.rule.id, ruleRevision: 1,
+      checkedAt: now.toISOString(), validUntil: "2030-01-01T00:04:00.000Z", decision: "member" };
+    expect((await send("evidence", evidence)).json()).toMatchObject({ ok: false, error: { code: "revision_conflict" } });
+    const repair = { operationId: randomUUID(), expectedRevision: 1, value: { ...context.rule, tierRevision: 2 }, reason: "Explicit owner rebind" };
+    expect(await grants.manageActivationRule(owner, repair)).toMatchObject({ ok: true, value: { revision: 2, code: context.rule.code, sourceRef: context.policy } });
+    expect(await grants.manageActivationRule(owner, { ...repair, operationId: randomUUID() })).toMatchObject({ ok: false, error: { code: "revision_conflict" } });
+    const nextAttempt = randomUUID();
+    expect((await send("attempts", { ...begin, attemptId: nextAttempt })).json()).toMatchObject({ ok: true, value: { rule: { revision: 2 } } });
+    expect((await send("evidence", { ...evidence, attemptId: nextAttempt, evidenceRef: randomUUID(), ruleRevision: 2 })).json()).toMatchObject({ ok: true, value: { state: "active", enrollment: { tier: { revision: 2, name: "Новое название" } } } });
+  });
+
 });
