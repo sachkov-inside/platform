@@ -46,13 +46,30 @@ export function formatBillingDateTime(instant: string): string {
   }).format(new Date(instant));
 }
 
+/** Одна, две–четыре и пять и больше: русское число выбирает форму по двум последним цифрам. */
+function pluralize(
+  count: number,
+  forms: readonly [one: string, few: string, many: string],
+): string {
+  const tail = count % 100;
+  const last = count % 10;
+  const form =
+    tail > 10 && tail < 20
+      ? forms[2]
+      : last === 1
+        ? forms[0]
+        : last > 1 && last < 5
+          ? forms[1]
+          : forms[2];
+  return `${String(count)} ${form}`;
+}
+
 export function formatMonths(months: number): string {
-  const tail = months % 100;
-  const last = months % 10;
-  if (tail > 10 && tail < 20) return `${String(months)} месяцев`;
-  if (last === 1) return `${String(months)} месяц`;
-  if (last > 1 && last < 5) return `${String(months)} месяца`;
-  return `${String(months)} месяцев`;
+  return pluralize(months, ["месяц", "месяца", "месяцев"]);
+}
+
+export function formatYears(years: number): string {
+  return pluralize(years, ["год", "года", "лет"]);
 }
 
 /**
@@ -257,6 +274,8 @@ export function billingErrorMessage(code: BillingFailureCode): string {
       return "Сначала подтвердите email для чеков: без него оплату принять нельзя.";
     case "consent_required":
       return "Отметьте требуемые условия в этой форме — без них оплату принять нельзя.";
+    case "document_changed":
+      return "Условия покупки обновились. Прочитайте действующую редакцию и отметьте согласие снова.";
     case "existing_access":
       return "У вас уже есть доступ к части этого состава. Подтвердите, что понимаете это, и продолжите.";
     case "legacy_review_required":
