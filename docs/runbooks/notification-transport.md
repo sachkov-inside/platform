@@ -19,7 +19,8 @@ Topology is generated from `src/infrastructure/notification-transport/topology.t
 route map. `pnpm --filter @inside/backend notifications:generate` regenerates the schema snapshot
 and local definitions; `notifications:check` rejects drift. There are six topic exchanges and eight
 quorum queues, with independent capacity and manual-ack prefetch per lane. Default capacity is
-1,000 messages / 16 MiB per queue; overshoot at the broker's rejection boundary is possible.
+1,000 messages / 16,384,000 bytes (1,000 × 16 KiB) per queue; overshoot at the broker's rejection
+boundary is possible.
 `reject-publish`, persistent messages, mandatory returns and confirms retain unconfirmed work in
 PostgreSQL. No TTL, alternate exchange, dead-letter drop or automatic delivery limit removes work.
 
