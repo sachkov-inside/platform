@@ -46,7 +46,7 @@ parent [Specification #325](https://github.com/sachkov-inside/platform/issues/32
 | Разрешённая отдача содержимого материала | Materials + ContentAccess | Точка `published_material_read` в `read-published-material.ts`: возвращает либо тело, либо `teaser` с замком, и для анонимного посетителя тоже | Да, единственная авторитетная точка; событий сегодня не пишет — [#120](https://github.com/sachkov-inside/platform/issues/120) отказался от постоянного журнала авторизаций |
 | Страница руководства | ContentLibrary | `GET /library/guides/:slug` и совместимый `GET /library/series/:slug` | Да, отдельная точка, не смешанная с материалами |
 | Переход по ссылке рассылки | Telegram, контракт `inside-communications-v1` | `communications.tracking_hits` (`token`, `occurred_at`, `traffic`) и доставка `tracking.recordHit` | Да, но это переход, а не просмотр; определения источников и воронок принадлежат Telegram |
-| Переход к покупке | Platform | Внешний адрес `MEMBERSHIP_ACQUISITION_URL` в CTA заблокированного материала, по умолчанию Tribute | Частично: виден только клик, результат за пределами Platform |
+| Переход к покупке | Platform | Призыв закрытого материала ведёт на внутреннюю витрину или оплату руководства (#529); внешнего адреса покупки в контракте нет (#540) | Частично: сегодня клик не пишется, оплата — отдельный факт Billing |
 | Подтверждённая оплата | Billing | Поставлена в [#407](https://github.com/sachkov-inside/platform/issues/407): подтверждённая покупка со своим сроком и неизменяемая история платёжных событий; контракт — [billing v1](subscription-billing-v1.md) | Источник выбран в [контракте измерений подписочной аналитики v1](subscription-analytics-measurement-v1.md); этот контракт покупок не считает |
 
 Три известных разрыва в сегодняшних переходах по ссылкам рассылки.
@@ -125,8 +125,8 @@ Platform не заводит — см. [сессии и principals](identity-pri
 руководство, из которого пришли. Поле присутствует у трёх типов, но пустое при прямом входе, а у
 события о самой странице руководства его нет вовсе.
 
-`target` различает, куда ведёт предложение: `external` — сегодняшний внешний адрес
-`MEMBERSHIP_ACQUISITION_URL`, `checkout` — внутренняя оплата, когда её поставит
+`target` различает, куда ведёт предложение: `external` — внешний адрес покупки, который Platform
+больше не отдаёт (#540), `checkout` — внутренняя оплата, когда её поставит
 [#411](https://github.com/sachkov-inside/platform/issues/411). Вместе с `checkout` появляется
 необязательное `offer_ref` — выбранное предложение и его версия, как того требует
 [Workspace #159](https://github.com/sachkov-inside/workspace/issues/159). Пока оплата внешняя,

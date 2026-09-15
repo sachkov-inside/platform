@@ -36,10 +36,6 @@ import {
   MEMBERSHIP_ENTITLEMENTS,
   type MembershipEntitlements,
 } from "../../../membership-entitlements/index.js";
-import {
-  PLATFORM_CONFIG,
-  type PlatformConfig,
-} from "../../../../config/platform-config.js";
 import { throwContentLibraryError } from "../../adapters/nest/content-library-http-errors.js";
 import {
   publishedCatalogFacetHttpSchema,
@@ -57,9 +53,7 @@ const homeContentHttpSchema = z
     notes: z.array(publishedCatalogItemHttpSchema),
     membership: z.discriminatedUnion("kind", [
       z.object({ kind: z.literal("active") }).strict(),
-      z
-        .object({ acquisitionUrl: z.url(), kind: z.literal("inactive") })
-        .strict(),
+      z.object({ kind: z.literal("inactive") }).strict(),
       z.object({ kind: z.literal("notOffered") }).strict(),
       z.object({ kind: z.literal("unknown") }).strict(),
     ]),
@@ -86,8 +80,6 @@ export class ReadHomeContentController {
       MembershipEntitlements,
       "resolveForAccess"
     >,
-    @Inject(PLATFORM_CONFIG)
-    private readonly config: PlatformConfig,
     @Inject(BillingPricing)
     private readonly pricing: BillingPricing,
   ) {}
@@ -120,7 +112,6 @@ export class ReadHomeContentController {
       this.contentAccess,
       this.videos,
       this.membershipEntitlements,
-      this.config.contentAccess.membershipAcquisitionUrl,
       await this.pricing.hasOffersForSale(),
       account === undefined
         ? anonymousSubject
