@@ -2,7 +2,6 @@ import { SavedReadingAction, VisibleMaterialOpen } from "@/features/reading-prog
 import { SavedBookmarkAction } from "@/features/bookmarks";
 import { notFound } from "next/navigation";
 
-import { loadGuideOffers } from "@/entities/subscription.catalog.server";
 import { GuideModeHint, GuideModeSwitch } from "@/features/guide-modes";
 import {
   loadReaderGuideMode,
@@ -17,7 +16,7 @@ import {
   materialReaderHref,
   type MaterialReaderReturnTarget,
 } from "@/shared/routing/material-reader";
-import { purchaseInvitation } from "@/shared/routing/subscription-route";
+import { guidePurchaseHref } from "@/shared/routing/subscription-route";
 import { MaterialReaderAccess, MaterialReaderUnavailable } from "./material-reader-states";
 import { MaterialReaderView } from "./material-reader-view";
 
@@ -62,10 +61,8 @@ export async function MaterialReaderPage({
       ? homeMaterialReaderReturnTarget
       : returnTarget;
   if (result.kind === "access") {
-    // Руководство, которым человек занят, важнее тарифов: если у него есть своя цена, дальше
-    // идёт его оплата. Иначе человек попадает на витрину и возвращается к этому же материалу.
-    // Материал может входить в несколько руководств, поэтому без пути захода продаётся только
-    // единственное: наугад выбранное руководство открыло бы человеку не то, за чем он пришёл.
+    // Закрытый урок ведёт к покупке выбранного руководства. Подписка не является запасной продажей.
+    // При нескольких руководствах без контекста не выбираем одно наугад.
     const memberships = result.material.seriesMemberships;
     const guideSlug =
       returnTarget.kind === "series"
@@ -73,13 +70,7 @@ export async function MaterialReaderPage({
         : memberships.length === 1
           ? memberships[0]?.series.slug
           : undefined;
-    const invitation = purchaseInvitation({
-      ...(guideSlug === undefined
-        ? {}
-        : { guide: { slug: guideSlug, sold: await guideIsSold(guideSlug, accessToken) } }),
-      from: currentMaterialHref(slug, effectiveReturnTarget),
-      subscriptionOffered: result.subscriptionOffered,
-    });
+    const invitation = guideSlug === undefined ? null : { kind: "guide" as const, href: guidePurchaseHref(guideSlug) };
     return (
       <div className="@container/material-reader">
         <MaterialReaderAccess
@@ -133,22 +124,7 @@ export async function MaterialReaderPage({
   );
 }
 
-/** Руководство продаётся, только когда владелец завёл ему цену; сбой каталога её не выдумывает. */
-async function guideIsSold(slug: string, accessToken?: string): Promise<boolean> {
-  const guide = await loadPublishedSeries(slug, accessToken);
-  const guideId =
-    guide.kind === "ready" || guide.kind === "empty" ? guide.reference.id : undefined;
-  if (guideId === undefined) return false;
-  const offers = await loadGuideOffers(guideId);
-  return offers.kind === "ready" && offers.offers.length > 0;
-}
 
-function currentMaterialHref(
-  slug: string,
-  returnTarget: MaterialReaderReturnTarget,
-) {
-  return materialReaderHref(
-    slug,
-    returnTarget.href,
-  );
+function currentMaterialHref(slug: string, returnTarget: MaterialReaderReturnTarget) {
+  return materialReaderHref(slug, returnTarget.href);
 }

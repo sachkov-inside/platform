@@ -79,7 +79,7 @@ test("guide programme paginates a real composition and returns from Reader to pa
   await signInFullStack(context, "OWNER");
   await page.addLocatorHandler(page.getByRole("button", { name: "Закрыть подключение Telegram" }), async (button) => { await button.click(); });
   const slug = `series-journey-${String(Date.now())}`;
-  const created = await page.request.post("/api/authoring/collections", { headers: { origin }, multipart: { kind: "series", name: "Demo #426 · Длинный маршрут", slug, summary: "Локальная проверка прохождения руководства." } });
+  const created = await page.request.post("/api/authoring/collections", { headers: { origin }, multipart: { kind: "series", name: "Demo #426 · Длинный маршрут", slug, summary: "Локальная проверка прохождения практикума." } });
   expect(created.ok()).toBe(true);
   const { collection } = z.object({ kind: z.literal("saved"), collection: z.object({ id: z.uuid(), version: z.number() }) }).parse(await created.json());
   try {

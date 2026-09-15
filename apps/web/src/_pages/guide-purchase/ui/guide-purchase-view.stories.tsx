@@ -34,7 +34,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "Руководство продаётся, только когда владелец завёл ему цену. Отсутствие предложения — обычное состояние, а не ошибка, и подписка на эту страницу не влияет.",
+          "Практикум продаётся, только когда владелец завёл ему цену. Отсутствие предложения — обычное состояние, а не ошибка, и подписка на эту страницу не влияет.",
       },
     },
   },
@@ -62,7 +62,7 @@ export const NotForSale: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("status")).toHaveTextContent(
-      "не продаётся отдельно",
+      "Условия покупки практикума готовятся",
     );
     await expect(
       canvas.getByRole("link", { name: "Программа" }),

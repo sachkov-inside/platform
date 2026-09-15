@@ -18,7 +18,7 @@ test("author Home pin persists for guests and members, replaces and removes thro
     await page.route("**/api/authoring/home-pin", async (route) => { await pinReady; await route.fulfill({ status: 503, contentType: "application/json", body: "{}" }); }, { times: 1 });
     await page.goto("/authoring/guides");
     const releaseName = "Demo · Релиз своего проекта";
-    const pin = page.getByRole("list", { name: "Все руководства" });
+    const pin = page.getByRole("list", { name: "Все практикумы" });
     const pinButton = () => pin.getByRole("button", { name: `Закрепить «${releaseName}» на главной` });
     await expect(pinButton()).toBeDisabled();
     const loadingBox = await pin.boundingBox();
@@ -38,24 +38,24 @@ test("author Home pin persists for guests and members, replaces and removes thro
     if (editorHref === null) throw new Error("Guide editor link is missing");
     // Legacy deep links open the same editor and the same persisted Guide selection.
     await page.goto(editorHref.replace("/authoring/guides/", "/authoring/playlists/"));
-    await expect(page.getByRole("textbox", { name: "Название руководства" })).toHaveValue(releaseName);
+    await expect(page.getByRole("textbox", { name: "Название практикума" })).toHaveValue(releaseName);
     await expect(page.getByRole("button", { name: "Снять закреп с главной", exact: true })).toBeEnabled();
     await page.getByRole("button", { name: "Снять закреп с главной", exact: true }).click();
     await expect(page.getByText("Закреп снят с главной.", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Закрепить на главной", exact: true }).click();
-    await expect(page.getByText("Руководство закреплено на главной.", { exact: true })).toBeVisible();
+    await expect(page.getByText("Практикум закреплён на главной.", { exact: true })).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath("guide-editor.png"), fullPage: true });
     await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(page.viewportSize()?.width ?? 1440);
     await page.screenshot({ path: testInfo.outputPath("guide-editor-text-200.png"), fullPage: true });
     await page.reload();
-    await page.getByRole("button", { name: "Все руководства", exact: true }).click();
+    await page.getByRole("button", { name: "Все практикумы", exact: true }).click();
     await expect(page).toHaveURL(/\/authoring\/guides$/u);
     await expect(pin.getByRole("button", { name: `Снять закреп «${releaseName}»` })).toBeVisible();
     for (const viewer of [guestPage, memberPage]) {
       await viewer.goto("/");
       await expect(viewer.locator("#featured-title:visible")).toHaveText("Demo · Релиз своего проекта");
-      await expect(viewer.getByRole("link", { name: "Открыть руководство", exact: true })).toHaveAttribute("href", "/guides/demo-series-release?from=%2F");
+      await expect(viewer.getByRole("link", { name: "Открыть практикум", exact: true })).toHaveAttribute("href", "/guides/demo-series-release?from=%2F");
       await expect(viewer.locator(".home-guide-animation:visible")).toBeVisible();
       await expect(viewer.getByRole("button", { name: "Остановить анимацию" })).toHaveCount(0);
     }
@@ -78,7 +78,7 @@ test("author Home pin persists for guests and members, replaces and removes thro
     await expect(pin.getByRole("button", { name: `Закрепить «${releaseName}» на главной` })).toHaveAttribute("aria-pressed", "false");
     await guestPage.goto("/");
     await expect(guestPage.locator("#featured-title:visible")).toHaveText("Учебный пример · Подготовка проекта");
-    await guestPage.getByRole("link", { name: "Открыть руководство", exact: true }).click();
+    await guestPage.getByRole("link", { name: "Открыть практикум", exact: true }).click();
     await expect(guestPage).toHaveURL(/\/guides\/demo-series-release-shared/u);
     await pin.getByRole("button", { name: `Снять закреп «${nextName}»` }).click();
     await expect(pin.getByRole("button", { name: `Закрепить «${nextName}» на главной` })).toHaveAttribute("aria-pressed", "false");

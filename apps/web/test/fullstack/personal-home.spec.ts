@@ -58,7 +58,7 @@ test("profile continuation opens the real series, persists marks and reconciles 
   expect(commandId(commands[0] ?? "")).toBeTruthy(); expect(commandId(commands[1] ?? "")).toBe(commandId(commands[0] ?? ""));
   await button.click(); await expect(button).toHaveAttribute("aria-pressed", "true");
   await page.goto("/account");
-  const resumeSeries = page.getByRole("link", { name: "Продолжить руководство Demo · Прогресс обучения" });
+  const resumeSeries = page.getByRole("link", { name: "Продолжить практикум Demo · Прогресс обучения" });
   await expect(resumeSeries).toContainText("Прочитано 1 из 3");
   await expect(resumeSeries).toHaveAttribute("href", `/guides/${seriesSlug}/programme`);
   await expect(page.getByRole("region", { name: "Продолжить изучение" })).toHaveCount(0);
@@ -147,7 +147,7 @@ test("profile continuation preserves the account form through errors and exclude
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await expect(page.getByText("Не удалось загрузить продолжение обучения.")).toBeVisible();
   expect((await field.boundingBox())?.y).toBe(before?.y);
-  await expect(page.getByRole("link", { name: /^Продолжить руководство/u })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /^Продолжить практикум/u })).toHaveCount(0);
   await page.unroute("**/api/personal-home");
   await page.goto("/");
   await expect(page.getByRole("region", { name: "Материалы", exact: true })).toBeVisible();

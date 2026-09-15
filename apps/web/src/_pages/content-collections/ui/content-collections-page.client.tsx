@@ -76,8 +76,8 @@ export function ContentCollectionsPageClient({
   const refreshCollections = () => {
     router.refresh();
   };
-  const noun = kind === "topic" ? "тему" : "руководство";
-  const plural = kind === "topic" ? "Темы" : "Руководства";
+  const noun = kind === "topic" ? "тему" : "практикум";
+  const plural = kind === "topic" ? "Темы" : "Практикумы";
 
   return (
     <main
@@ -382,7 +382,7 @@ function SeriesList({
         <p>
           {hasError
             ? message
-            : "Закрепите руководство значком справа — оно появится первым на главной."}
+            : "Закрепите практикум значком справа — он появится первым на главной."}
         </p>
         <Button
           className={
@@ -401,7 +401,7 @@ function SeriesList({
       </div>
       <ul
         className="mt-2 divide-y divide-border border-y border-border"
-        aria-label="Все руководства"
+        aria-label="Все практикумы"
       >
         {collections.map((collection) => {
           const pinned = controls.pin?.seriesId === collection.id;

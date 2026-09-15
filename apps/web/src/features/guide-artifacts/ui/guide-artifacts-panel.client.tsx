@@ -62,13 +62,13 @@ export function GuideArtifactsPanel({
       </h2>
       <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
         Шаблоны, конфигурации и чек-листы, которые читатель забирает себе. Один
-        артефакт можно использовать в нескольких руководствах: запись остаётся
+        артефакт можно использовать в нескольких практикумах: запись остаётся
         общей, копии не создаются.
       </p>
 
       {archived ? (
         <p className="mt-4 text-sm text-muted-foreground" role="status">
-          Руководство в архиве. Читатели не видят его артефакты.
+          Практикум в архиве. Читатели не видят его артефакты.
         </p>
       ) : null}
 
@@ -312,7 +312,7 @@ function ArtifactCard({
           type="button"
           variant="ghost"
         >
-          Убрать из руководства
+          Убрать из практикума
         </Button>
         <Button
           disabled={pending}
@@ -498,7 +498,7 @@ function AddArtifact({
       {mode === null && candidates.length > 0 ? (
         <details className="mt-3">
           <summary className="cursor-pointer text-sm text-muted-foreground">
-            Взять артефакт из другого руководства
+            Взять артефакт из другого практикума
           </summary>
           <ul className="mt-2 grid gap-2">
             {candidates.map((artifact) => (

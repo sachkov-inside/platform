@@ -11,7 +11,7 @@ describe("Material Reader navigation", () => {
   it("preserves Guide and legacy contexts, page and selected Material", () => {
     for (const prefix of ["guides", "series"]) {
       const href = `/${prefix}/platform-inside?from=%2F&page=2&at=second`;
-      expect(parseMaterialReaderReturnTarget(href)).toEqual({ href, kind: "series", seriesSlug: "platform-inside", label: "Назад к руководству" });
+      expect(parseMaterialReaderReturnTarget(href)).toEqual({ href, kind: "series", seriesSlug: "platform-inside", label: "Назад к практикуму" });
       expect(parseMaterialReaderReturnTarget(`/${prefix}/platform-inside?page=0`).kind).toBe("home");
       expect(parseMaterialReaderReturnTarget(`/${prefix}/platform-inside?from=https%3A%2F%2Fevil.test`).kind).toBe("home");
     }
@@ -33,7 +33,7 @@ describe("Material Reader navigation", () => {
     expect(parseMaterialReaderReturnTarget(seriesHref)).toEqual({
       href: "/guides/platform-inside",
       kind: "series",
-      label: "Назад к руководству",
+      label: "Назад к практикуму",
       seriesSlug: "platform-inside",
     });
 

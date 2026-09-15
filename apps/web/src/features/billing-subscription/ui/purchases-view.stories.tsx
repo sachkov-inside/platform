@@ -45,14 +45,14 @@ export const OwnGroundsAndPayments: Story = {
     await expect(canvas.getAllByText("Оплаченный доступ").length).toBe(2);
     // Ручная выдача переживает подписку и не называется покупкой.
     await expect(canvas.getByText("Выдано вручную")).toBeInTheDocument();
-    await expect(canvas.getAllByText("Отдельное руководство").length).toBe(2);
+    await expect(canvas.getAllByText("Отдельный практикум").length).toBe(2);
     // Общий чат открывает и старший тариф, и каждое право на руководство.
     await expect(canvas.getAllByText("Общий чат").length).toBe(3);
     await expect(canvas.getAllByText(/^операция /u).length).toBe(3);
     await expect(canvas.getByText(/Оплата не прошла/u)).toBeInTheDocument();
     // Разовая покупка названа покупкой: срока варианта оплаты у неё нет.
     await expect(
-      canvas.getByText(/Руководство «Создание Platform Inside» · разовая покупка/u),
+      canvas.getByText(/Практикум «Создание Platform Inside» · разовая покупка/u),
     ).toBeInTheDocument();
   },
 };

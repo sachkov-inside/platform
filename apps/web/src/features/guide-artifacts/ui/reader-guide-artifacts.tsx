@@ -24,7 +24,7 @@ export function ReaderGuideArtifacts({
 }) {
   const Heading = headingLevel;
   return (
-    <ul aria-label="Артефакты руководства" className="grid gap-4">
+    <ul aria-label="Артефакты практикума" className="grid gap-4">
       {artifacts.map((artifact) => {
         const locked = artifact.availability === "locked";
         return (

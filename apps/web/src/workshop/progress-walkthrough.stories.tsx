@@ -23,7 +23,7 @@ const materials = [
 const body: readonly ReaderBlock[] = [{ kind: "paragraph", content: [{ kind: "text", marks: [], text: "Сервер сохранил изменение, но ответ потерялся. Повтор запроса должен вернуть результат той же команды. Так временный сбой соединения не превращается в повторное действие." }] }];
 const register = () => () => undefined;
 const refresh = () => Promise.resolve();
-const surfaces = { home: "Профиль", reader: "Материал", series: "Руководство", cards: "Карточки" } as const;
+const surfaces = { home: "Профиль", reader: "Материал", series: "Практикум", cards: "Карточки" } as const;
 type Surface = keyof typeof surfaces;
 
 function preview(item: ContinueMaterialView): MaterialPreview {
@@ -95,7 +95,7 @@ function ProgressWalkthrough({ initialRead = ["text"], initialSurface = "home", 
     <aside aria-label="Проверка прогресса в Storybook" className="border-b border-border bg-muted px-4 py-4 text-sm">
       <div className="mx-auto max-w-6xl">
         <p className="font-semibold">Проверка прогресса · демонстрационные данные</p>
-        <p className="mt-1 text-muted-foreground">Откройте материал, поставьте отметку и сравните профиль, руководство и карточки. Продолжение находится в профиле; галочки показывают изученное.</p>
+        <p className="mt-1 text-muted-foreground">Откройте материал, поставьте отметку и сравните профиль, практикум и карточки. Продолжение находится в профиле; галочки показывают изученное.</p>
         <div className="mt-3 flex flex-wrap gap-2">
           {(Object.entries(surfaces) as [Surface, string][]).map(([value, label]) => <Button aria-pressed={surface === value} key={value} size="sm" variant={surface === value ? "default" : "outline"} onClick={() => { navigate(value); }}>{label}</Button>)}
           <Button size="sm" variant="ghost" onClick={() => { setRead(initialRead); setFailure(null); setShouldFail(failFirstSave); setSelectedId("text"); setReaderFromSeries(false); navigate(initialSurface); }}>Сбросить пример</Button>
@@ -124,7 +124,7 @@ function ProgressWalkthrough({ initialRead = ["text"], initialSurface = "home", 
 const meta = {
   beforeEach: () => { mocked(usePathname).mockReturnValue("/account"); },
   title: "Features/Progress walkthrough", component: ProgressWalkthrough,
-  parameters: { controls: { disable: true }, docs: { description: { component: "Связанный визуальный сценарий #329–#332. Верхняя панель относится только к Storybook. Ниже используются компоненты Platform: Reader, ReadingAction, MaterialCard, LearningContinuationView, AccountCabinet и GuideProgrammeView. Продолжение руководства и видео находится в профиле. Отметки меняются только в памяти примера. Отметки и их ошибки: Features/Reading progress. Реальные профиль и программа получают продолжение через private API; этот пример использует только демонстрационные данные." } } },
+  parameters: { controls: { disable: true }, docs: { description: { component: "Связанный визуальный сценарий #329–#332. Верхняя панель относится только к Storybook. Ниже используются компоненты Platform: Reader, ReadingAction, MaterialCard, LearningContinuationView, AccountCabinet и GuideProgrammeView. Продолжение практикума и видео находится в профиле. Отметки меняются только в памяти примера. Отметки и их ошибки: Features/Reading progress. Реальные профиль и программа получают продолжение через private API; этот пример использует только демонстрационные данные." } } },
 } satisfies Meta<typeof ProgressWalkthrough>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -139,12 +139,12 @@ export const CheckConnections: Story = { name: "Проверка связей", 
   const toolbar = within(canvas.getByRole("complementary", { name: "Проверка прогресса в Storybook" }));
   await expect(canvas.queryByRole("region", { name: "Продолжить изучение" })).not.toBeInTheDocument();
   await userEvent.click(canvas.getByRole("link", { name: /Создание Platform Inside/u }));
-  await expect(canvas.getByRole("list", { name: "Материалы руководства" })).toBeVisible();
+  await expect(canvas.getByRole("list", { name: "Материалы практикума" })).toBeVisible();
   await expect(canvasElement.querySelector('[aria-current="step"]')).toHaveTextContent(materials[1].title);
   await userEvent.click(canvas.getByRole("link", { name: materials[1].title }));
   await expect(canvas.getByRole("heading", { name: materials[1].title })).toBeVisible();
   await userEvent.click(canvas.getByRole("button", { name: "Просмотрено" }));
-  await userEvent.click(toolbar.getByRole("button", { name: "Руководство" }));
+  await userEvent.click(toolbar.getByRole("button", { name: "Практикум" }));
   // Сводка прогресса над маршрутом убрана: изученное видно отметкой на карточке материала.
   await expect(canvas.getAllByRole("img", { name: /изучен/u }).length).toBeGreaterThanOrEqual(2);
   await expect(canvas.getByRole("img", { name: "Материал 1, изучен" })).toBeVisible();

@@ -258,7 +258,7 @@ export function SeriesOrderManager({
         {embedded ? (
           <header className="flex flex-wrap items-center justify-between gap-4 border-y border-border py-4">
             <div className="flex items-baseline gap-3">
-              <h2 className="text-xl font-semibold">Материалы руководства</h2>
+              <h2 className="text-xl font-semibold">Материалы практикума</h2>
               <span className="text-sm tabular-nums text-muted-foreground">
                 {items.length}
               </span>
@@ -289,7 +289,7 @@ export function SeriesOrderManager({
             <div className="flex min-w-0 items-start gap-3">
               <Button
                 aria-label={
-                  embedded ? "Закрыть состав руководства" : "Вернуться к материалам"
+                  embedded ? "Закрыть состав практикума" : "Вернуться к материалам"
                 }
                 className="mt-0.5 size-10"
                 onClick={close}
@@ -318,7 +318,7 @@ export function SeriesOrderManager({
                     className="mb-2 block text-sm font-medium"
                     htmlFor="playlist-switcher"
                   >
-                    Руководство
+                    Практикум
                   </label>
                   <Select
                     onValueChange={(value) => {
@@ -413,17 +413,17 @@ export function SeriesOrderManager({
         >
           {presentation.archived ? (
             <div className="mb-7 rounded-2xl bg-muted p-5 text-sm leading-6">
-              <p className="font-semibold">Руководство находится в архиве</p>
+              <p className="font-semibold">Практикум находится в архиве</p>
               <p className="mt-1 text-muted-foreground">
                 Можно изменить порядок или удалить существующие материалы. Новые
-                назначения станут доступны после восстановления руководства.
+                назначения станут доступны после восстановления практикума.
               </p>
             </div>
           ) : null}
 
           {items.length === 0 && chapters.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-border bg-card px-5 py-14 text-center">
-              <h2 className="text-lg font-semibold">Руководство пока пусто</h2>
+              <h2 className="text-lg font-semibold">Практикум пока пуст</h2>
               <p className="mt-2 text-sm text-muted-foreground">
                 Нажмите «Добавить материал» и найдите нужную запись.
               </p>
@@ -801,7 +801,7 @@ function ChapterSection({
         chapters={chapters}
         dragState={dragState}
         entries={entries}
-        label="Материалы руководства"
+        label="Материалы практикума"
         total={total}
       />
     );

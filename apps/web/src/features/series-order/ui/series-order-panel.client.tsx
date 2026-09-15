@@ -15,13 +15,13 @@ export function SeriesOrderPanel({
   if (query.isPending)
     return (
       <p className="p-6" role="status">
-        Загружаем материалы руководства…
+        Загружаем материалы практикума…
       </p>
     );
   if (query.data?.kind !== "ready")
     return (
       <div className="p-6" role="alert">
-        Не удалось открыть руководство.{" "}
+        Не удалось открыть практикум.{" "}
         <Button
           onClick={() => {
             void query.refetch();

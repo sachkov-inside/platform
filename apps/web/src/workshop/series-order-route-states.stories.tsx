@@ -10,7 +10,7 @@ const meta = {
   ...environment,
   args: { state: { kind: "empty" } },
   component: SeriesOrderRouteState,
-  title: "Pages/Authoring/Состояния руководств",
+  title: "Pages/Authoring/Состояния практикумов",
 } satisfies Meta<typeof SeriesOrderRouteState>;
 
 export default meta;

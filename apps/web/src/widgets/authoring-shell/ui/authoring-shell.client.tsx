@@ -82,7 +82,7 @@ export function AuthoringShell({ children }: { readonly children: ReactNode }) {
               current={current === "playlists"}
               href="/authoring/guides"
               icon={<ListOrdered aria-hidden="true" />}
-              label="Руководства"
+              label="Практикумы"
             />
             {current === "preview" ? (
               <div
@@ -142,7 +142,7 @@ export function AuthoringShell({ children }: { readonly children: ReactNode }) {
           <MobileLink
             current={current === "playlists"}
             href="/authoring/guides"
-            label="Руководства"
+            label="Практикумы"
           >
             <ListOrdered aria-hidden="true" />
           </MobileLink>

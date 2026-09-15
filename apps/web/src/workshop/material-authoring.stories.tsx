@@ -206,7 +206,7 @@ export const Editing: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.getByRole("group", { name: /^Руководства/u }),
+      canvas.getByRole("group", { name: /^Практикумы/u }),
     ).toBeInTheDocument();
     await expect(
       canvas.getByRole("checkbox", { name: "Создание Platform Inside" }),
@@ -857,12 +857,12 @@ export const MobileTextZoom: Story = {
 };
 
 export const SearchableSeries: Story = {
-  name: "Руководства · поиск и продолжение списка",
+  name: "Практикумы · поиск и продолжение списка",
   args: {
     presentation: {
       ...materialAuthoringPresentation,
       availableSeries: Array.from({ length: 45 }, (_, index) => ({
-        label: `Руководство ${String(index + 1).padStart(2, "0")}`,
+        label: `Практикум ${String(index + 1).padStart(2, "0")}`,
         value: `94000000-0000-4000-8000-${String(index + 100).padStart(12, "0")}`,
       })),
       draft: { ...materialAuthoringPresentation.draft, seriesIds: [] },
@@ -870,18 +870,18 @@ export const SearchableSeries: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const series = within(canvas.getByLabelText("Выбор руководств"));
+    const series = within(canvas.getByLabelText("Выбор практикумов"));
     await expect(series.getAllByRole("checkbox")).toHaveLength(20);
     const more = series.getByRole("button", { name: "Показать ещё" });
     more.focus();
     await userEvent.keyboard("{Enter}");
     await expect(series.getAllByRole("checkbox").length).toBeGreaterThan(20);
-    await userEvent.type(canvas.getByLabelText("Поиск руководств"), "Руководство 45", { delay: null });
+    await userEvent.type(canvas.getByLabelText("Поиск практикумов"), "Практикум 45", { delay: null });
     await expect(series.getAllByRole("checkbox")).toHaveLength(1);
-    await expect(series.getByRole("checkbox", { name: "Руководство 45" })).toBeVisible();
+    await expect(series.getByRole("checkbox", { name: "Практикум 45" })).toBeVisible();
     const page = routeContent(canvasElement);
     await expect(page.getAllByText("Теги", { exact: true })).toHaveLength(1);
-    await expect(page.getAllByText("Руководства", { exact: true })).toHaveLength(1);
+    await expect(page.getAllByText("Практикумы", { exact: true })).toHaveLength(1);
   },
 };
 

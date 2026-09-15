@@ -25,7 +25,7 @@ export function LearningContinuationView({ continuation }: { readonly continuati
   return <section className="mb-10 min-h-80" aria-labelledby="account-learning">
     <h2 className="text-xl font-semibold" id="account-learning">Продолжить обучение</h2>
     <ul className="mt-4 divide-y divide-border">
-      {series === undefined ? null : <li><Link className="flex min-h-20 items-center justify-between gap-4 py-4 no-underline" aria-label={`Продолжить руководство ${series.collection.name}`} href={guideProgrammeHref(series.collection.slug)}><span><strong className="block">{series.collection.name}</strong><span className="text-sm text-muted-foreground">Прочитано {series.read} из {series.total}</span></span><ArrowRight aria-hidden="true" className="size-5 shrink-0" /></Link></li>}
+      {series === undefined ? null : <li><Link className="flex min-h-20 items-center justify-between gap-4 py-4 no-underline" aria-label={`Продолжить практикум ${series.collection.name}`} href={guideProgrammeHref(series.collection.slug)}><span><strong className="block">{series.collection.name}</strong><span className="text-sm text-muted-foreground">Прочитано {series.read} из {series.total}</span></span><ArrowRight aria-hidden="true" className="size-5 shrink-0" /></Link></li>}
       {video === undefined ? null : <li><Link className="flex min-h-20 items-center justify-between gap-4 py-4 no-underline" href={materialReaderHref(video.material.slug, "/account")}><span><strong className="block">{video.material.title}</strong><span className="text-sm text-muted-foreground">{video.label}</span></span><ArrowRight aria-hidden="true" className="size-5 shrink-0" /></Link></li>}
     </ul>
   </section>;

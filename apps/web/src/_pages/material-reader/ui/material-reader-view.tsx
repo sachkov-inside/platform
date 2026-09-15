@@ -119,7 +119,7 @@ export function SeriesReaderNavigation({
 
   return (
     <nav
-      aria-label={`Навигация по руководству «${context.series.name}»`}
+      aria-label={`Навигация по практикуму «${context.series.name}»`}
       className="max-w-[43rem]"
       data-series-reader-navigation
     >
@@ -129,7 +129,7 @@ export function SeriesReaderNavigation({
       <p className="mt-1 break-words text-sm text-muted-foreground">{context.series.name}</p>
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
         <Button asChild className="h-auto min-h-12 whitespace-normal rounded-xl px-5 py-3 text-center" variant="secondary">
-          <Link href={context.series.href}>Все материалы руководства</Link>
+          <Link href={context.series.href}>Все материалы практикума</Link>
         </Button>
         {context.next === null ? null : (
           <Button asChild className="h-auto min-h-12 whitespace-normal rounded-xl px-5 py-3 text-center">

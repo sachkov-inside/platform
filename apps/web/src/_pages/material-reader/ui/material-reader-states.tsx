@@ -75,8 +75,8 @@ export function MaterialReaderNotFound({
  */
 const accessCopy = {
   guide: {
-    title: "Продолжение входит в руководство",
-    explanation: "Купите руководство — и весь его маршрут откроется целиком.",
+    title: "Продолжение входит в практикум",
+    explanation: "Купите практикум — и весь его маршрут откроется целиком.",
   },
   subscription: {
     title: "Продолжение для участников",
@@ -90,7 +90,7 @@ const accessCopy = {
 
 /** Действие есть только там, где есть что купить. */
 const accessAction = {
-  guide: "Купить руководство",
+  guide: "Купить практикум",
   subscription: "Получить доступ",
 } as const;
 

@@ -21,7 +21,7 @@ export async function generateMetadata({
       ? result.reference.name
       : undefined;
   return {
-    title: name === undefined ? "Покупка руководства" : `Купить «${name}»`,
+    title: name === undefined ? "Покупка практикума" : `Купить «${name}»`,
     robots: { follow: true, index: false },
   };
 }

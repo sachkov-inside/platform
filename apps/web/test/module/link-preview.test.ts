@@ -40,7 +40,7 @@ const guide: LibraryDiscoveryReference = {
   cover: null,
   name: "Создание Platform Inside",
   slug: "platform-inside",
-  summary: "Руководство о сборке платформы.",
+  summary: "Практикум о сборке платформы.",
 };
 
 describe("Карточка публичной ссылки", () => {
@@ -70,11 +70,11 @@ describe("Карточка публичной ссылки", () => {
     expect(metadata.robots).toEqual({ follow: true, index: true });
   });
 
-  it("ведёт руководство на канонический адрес `/guides/`, а не на совместимый `/series/`", () => {
+  it("ведёт практикум на канонический адрес `/guides/`, а не на совместимый `/series/`", () => {
     const preview = guideLinkPreview(guide);
 
     expect(preview.canonicalPath).toBe("/guides/platform-inside");
-    expect(preview.title).toBe("Создание Platform Inside — руководство");
+    expect(preview.title).toBe("Создание Platform Inside — практикум");
     expect(preview.image.url).toBe("/guides/platform-inside/social-card");
   });
 
@@ -115,9 +115,9 @@ describe("Карточка публичной ссылки", () => {
 
 describe("Содержимое сгенерированной карточки", () => {
   it("называет вид страницы одним словом и в заголовке, и на карточке", () => {
-    expect(guideLinkPreview(guide).title).toBe("Создание Platform Inside — руководство");
+    expect(guideLinkPreview(guide).title).toBe("Создание Platform Inside — практикум");
     expect(guideSocialCard(guide)).toEqual({
-      eyebrow: "Руководство",
+      eyebrow: "Практикум",
       title: "Создание Platform Inside",
     });
 

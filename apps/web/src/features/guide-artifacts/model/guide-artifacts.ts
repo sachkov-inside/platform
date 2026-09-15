@@ -90,5 +90,5 @@ export function describeArtifactContent(artifact: GuideArtifact): string {
 export function guidesInWords(count: number): string {
   const lastTwo = count % 100;
   const singular = count % 10 === 1 && lastTwo !== 11;
-  return `${String(count)} ${singular ? "руководстве" : "руководствах"}`;
+  return `${String(count)} ${singular ? "практикуме" : "практикумах"}`;
 }

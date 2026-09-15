@@ -300,14 +300,14 @@ test("renders a locked teaser whose purchase starts inside the platform and fail
   const teaser = page.locator('[data-material-reader-state="access-required"]');
   await expect(
     teaser.getByRole("heading", {
-      name: /^Продолжение (для участников|входит в руководство)$/u,
+      name: /^Продолжение (для участников|входит в практикум)$/u,
       level: 2,
     }),
   ).toBeVisible();
   // Один следующий шаг — и он внутри платформы. Каталог предложений локального стенда решает,
   // есть ли что покупать: без включённой продажи материал честно остаётся без призыва.
   const purchase = teaser.getByRole("link", {
-    name: /^(Получить доступ|Купить руководство)$/u,
+    name: /^(Получить доступ|Купить практикум)$/u,
   });
   if (await purchase.count() === 0) {
     await expect(
@@ -422,8 +422,8 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
   ).toBeVisible();
   await captureIssue195Evidence(page, testInfo, "admin-topics");
 
-  await page.getByRole("link", { name: "Руководства", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Руководства", level: 1 })).toBeVisible();
+  await page.getByRole("link", { name: "Практикумы", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Практикумы", level: 1 })).toBeVisible();
   const platformGuide = page.getByRole("link", {
     name: /^Создание Platform Inside \d+ материал/u,
   });
@@ -442,7 +442,7 @@ test("returns the production not-found state for an unpublished slug", async ({ 
     /noindex/,
   );
   await expect(page.getByRole("heading", { name: "Материал не найден" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Назад к руководству" })).toHaveAttribute(
+  await expect(page.getByRole("link", { name: "Назад к практикуму" })).toHaveAttribute(
     "href",
     "/series/platform-inside",
   );
@@ -507,7 +507,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   await expect(
     page.getByRole("heading", { level: 1, name: "Создание Platform Inside" }),
   ).toBeVisible();
-  await expect(page).toHaveTitle("Создание Platform Inside — руководство · Sachkov Inside");
+  await expect(page).toHaveTitle("Создание Platform Inside — практикум · Sachkov Inside");
   await expectLibraryNavigationActive(page, testInfo);
   // Материалы, состояния доступа и порядок живут в программе; страница продукта рассказывает.
   await page.getByRole("link", { name: "Открыть программу", exact: true }).click();
@@ -543,7 +543,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
     "/guides/platform-inside/programme?page=1&at=kak-ustroen-inside-platform",
   );
   const playlistBackLinks = page.getByRole("link", {
-    name: "Все материалы руководства",
+    name: "Все материалы практикума",
   });
   await expect(playlistBackLinks).toHaveCount(1);
   await expect(playlistBackLinks.first()).toHaveAttribute(

@@ -4,18 +4,15 @@ import { resolveAccount } from "@/shared/api/backend/index.server";
 import { getQueryClient } from "@/shared/api/query-client";
 import { getSeriesContinuation } from "@/features/reading-progress.server";
 import { seriesContinuationQueryKey } from "@/features/reading-progress";
-import type { PriceSnapshot } from "@/entities/subscription";
 import type { ReaderGuideArtifactsResult } from "@/features/guide-artifacts.reader";
 import type { PublishedSeriesResult } from "@/features/library-discovery";
 import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 import { SavedSeries } from "./saved-series.client";
-export async function PersonalSeries({ artifacts, result, accessToken, returnTarget, guideOffer = null, subscriptionOffered = false }: {
+export async function PersonalSeries({ artifacts, result, accessToken, returnTarget }: {
   readonly artifacts: ReaderGuideArtifactsResult;
   readonly result: Extract<PublishedSeriesResult, { kind: "ready" | "empty" }>;
   readonly accessToken?: string;
   readonly returnTarget?: MaterialReaderReturnTarget;
-  readonly guideOffer?: PriceSnapshot | null;
-  readonly subscriptionOffered?: boolean;
 }) {
   const client = getQueryClient();
   let accountId: string | null = null;
@@ -25,5 +22,5 @@ export async function PersonalSeries({ artifacts, result, accessToken, returnTar
       await client.query({ queryKey: seriesContinuationQueryKey(accountId, result.reference.slug), queryFn: () => getSeriesContinuation(result.reference.slug, accessToken) });
     } catch { accountId = null; }
   }
-  return <HydrationBoundary state={dehydrate(client)}><SavedSeries artifacts={artifacts} result={result} initialAccountId={accountId} guideOffer={guideOffer} subscriptionOffered={subscriptionOffered} {...(returnTarget === undefined ? {} : { returnTarget })} /></HydrationBoundary>;
+  return <HydrationBoundary state={dehydrate(client)}><SavedSeries artifacts={artifacts} result={result} initialAccountId={accountId} {...(returnTarget === undefined ? {} : { returnTarget })} /></HydrationBoundary>;
 }

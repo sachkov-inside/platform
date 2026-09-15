@@ -82,7 +82,7 @@ _Avoid_: Free-form keyword, hashtag
 
 **Guide**:
 A standalone practical Inside product for a reader task, with an authored sequence of reusable
-Materials. In Russian: «Руководство»; distinct from the Material format «Гайд».
+Materials. In Russian: «Практикум»; distinct from the Material format «Гайд».
 _Avoid_: Series, Playlist, Topic, Material format guide
 
 **GuideProgramme**:
@@ -99,7 +99,7 @@ _Avoid_: Video chapter, Material, separately purchased Guide
 The author's own answer, on the Guide, to what a reader will be able to do, who the Guide is
 written for, what they need beforehand and what it leaves outside. Its four fields carry the
 authoring base wording unchanged, an unwritten field is absent rather than empty, and none of it
-is an access decision. In Russian product language: «О руководстве».
+is an access decision. In Russian product language: «О практикуме».
 _Avoid_: Summary, marketing page, access condition, price
 
 **Guide Artifact**:

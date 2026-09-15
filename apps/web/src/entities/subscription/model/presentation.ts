@@ -62,7 +62,7 @@ export function formatMonths(months: number): string {
 export function capabilityLabel(capability: AccessCapability): string {
   switch (capability) {
     case "materials":
-      return "Все опубликованные материалы и руководства";
+      return "Все опубликованные материалы и практикумы";
     case "support":
       return "Вопросы автору и эфиры";
     case "community":
@@ -71,7 +71,7 @@ export function capabilityLabel(capability: AccessCapability): string {
       return "Разборы работ";
     default:
       // В закрытом наборе остаётся только право на конкретное руководство.
-      return "Отдельное руководство";
+      return "Отдельный практикум";
   }
 }
 
@@ -181,7 +181,7 @@ export function offerCompositionLabel(offer: BillingOffer): string {
   const parts: { readonly alone: string; readonly after: string }[] = [];
   const benefits = accessComposition(offer.benefits);
   if (benefits.some(isGuideCapability)) {
-    parts.push({ alone: "Руководство", after: "руководством" });
+    parts.push({ alone: "Практикум", after: "практикумом" });
   }
   if (benefits.includes("materials")) {
     parts.push({ alone: "Все материалы", after: "всеми материалами" });

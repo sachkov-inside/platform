@@ -1,8 +1,7 @@
+import type { ReaderGuideArtifactsResult } from "@/features/guide-artifacts.reader";
 import { PersonalSeries } from "./personal-series.server";
 import { notFound } from "next/navigation";
 
-import { loadBillingOffers } from "@/entities/subscription.server";
-import { guidePurchaseOffers, publicSubscriptionOffers } from "@/entities/subscription";
 
 import type {
   PublishedSeriesResult,
@@ -17,7 +16,6 @@ import {
   LibraryDiscoveryUnavailable,
   LibraryDiscoveryView,
 } from "./library-discovery-view";
-import type { ReaderGuideArtifactsResult } from "@/features/guide-artifacts.reader";
 import { topicPath } from "@/shared/routing/public-page-path";
 import { guideProductHref, guideProgrammeHref } from "@/shared/routing/subscription-route";
 import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reader";
@@ -82,26 +80,13 @@ export async function GuideProgrammePage({
     return <LibraryDiscoveryUnavailable retryHref={guideProgrammeHref(slug)} />;
   }
   const guideId = result.reference.id;
-  // Публичный каталог отдаёт только включённое в продажу, поэтому один запрос отвечает сразу на
-  // два вопроса программы: продаётся ли это руководство и есть ли вообще что предложить на витрине
-  // подписки. На второй отвечает её собственный отбор: звать туда, где пусто, нельзя.
-  const [artifacts, catalog] = await Promise.all([
-    guideId === undefined
-      ? Promise.resolve<ReaderGuideArtifactsResult>({ artifacts: [], kind: "ready" })
-      : readReaderGuideArtifacts(guideId, accessToken),
-    loadBillingOffers(),
-  ]);
-  const forSale = catalog.kind === "ready" ? catalog.offers : [];
-  // Программе хватает самого дешёвого варианта: он решает, приглашать ли к оплате.
-  // Выбор между вариантами живёт на странице оплаты, где их видно составом и ценой.
-  const programmeOffer =
-    guideId === undefined ? null : guidePurchaseOffers(forSale, guideId)[0] ?? null;
+  const artifacts = guideId === undefined
+    ? { artifacts: [], kind: "ready" as const }
+    : await readReaderGuideArtifacts(guideId, accessToken);
   return (
     <PersonalSeries
       artifacts={artifacts}
-      guideOffer={programmeOffer}
       result={result}
-      subscriptionOffered={publicSubscriptionOffers(forSale).length > 0}
       {...(accessToken === undefined ? {} : { accessToken })}
     />
   );

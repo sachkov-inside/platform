@@ -36,7 +36,7 @@ export function SeriesOrderRouteState({
             {state.kind === "empty" ? null : (
               <Button asChild>
                 <Link href={{ pathname: retryHref }}>
-                  {state.kind === "not_found" ? "Выбрать другое руководство" : "Повторить"}
+                  {state.kind === "not_found" ? "Выбрать другой практикум" : "Повторить"}
                 </Link>
               </Button>
             )}
@@ -56,18 +56,18 @@ export function SeriesOrderRouteState({
 function routeStateContent(state: RouteState): { readonly text: string; readonly title: string } {
   if (state.kind === "empty") {
     return {
-      text: "Добавьте руководство в справочные данные, чтобы управлять порядком материалов.",
-      title: "Руководств пока нет",
+      text: "Добавьте практикум в справочные данные, чтобы управлять порядком материалов.",
+      title: "Практикумов пока нет",
     };
   }
   if (state.kind === "not_found") {
     return {
-      text: "Возможно, руководство было удалено. Выберите другое руководство и продолжите работу.",
-      title: "Руководство не найдено",
+      text: "Возможно, практикум был удалён. Выберите другой практикум и продолжите работу.",
+      title: "Практикум не найден",
     };
   }
   return {
     text: "Данные не изменены. Повторите попытку после восстановления соединения.",
-    title: "Не удалось открыть руководство",
+    title: "Не удалось открыть практикум",
   };
 }

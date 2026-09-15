@@ -25,12 +25,12 @@ const INTRODUCTION_FIELDS: readonly {
   {
     field: "outcome",
     label: "Что читатель сможет",
-    placeholder: "Какую задачу читатель решит после полного руководства?",
+    placeholder: "Какую задачу читатель решит после полного практикума?",
   },
   {
     field: "audience",
     label: "Для кого",
-    placeholder: "Кому это руководство полезно?",
+    placeholder: "Кому этот практикум полезен?",
   },
   {
     field: "prerequisites",
@@ -40,7 +40,7 @@ const INTRODUCTION_FIELDS: readonly {
   {
     field: "scope",
     label: "Что разбираем и что остаётся за границами",
-    placeholder: "Что входит в руководство, а что нет и что ещё готовится?",
+    placeholder: "Что входит в практикум, а что нет и что ещё готовится?",
   },
 ];
 
@@ -79,12 +79,12 @@ export function SeriesEditorPageClient({
   return (
     <SeriesEditorPageFrame>
       <nav
-        aria-label="Навигация руководства"
+        aria-label="Навигация практикума"
         className="flex flex-wrap items-center justify-between gap-3 border-b border-border py-4"
       >
         <Button onClick={back} type="button" variant="ghost">
           <ArrowLeft aria-hidden="true" />
-          Все руководства
+          Все практикумы
         </Button>
         <div className="flex items-center gap-3">
           <span
@@ -115,10 +115,10 @@ export function SeriesEditorPageClient({
         </div>
       </nav>
       <header className="py-8 sm:py-10">
-        <h1 className="sr-only">Редактирование руководства: {name}</h1>
-        <h2 className="sr-only">Настройки руководства</h2>
+        <h1 className="sr-only">Редактирование практикума: {name}</h1>
+        <h2 className="sr-only">Настройки практикума</h2>
         <form
-          aria-label="Настройки руководства"
+          aria-label="Настройки практикума"
           onSubmit={(event) => {
             event.preventDefault();
             void autosave.retry();
@@ -126,7 +126,7 @@ export function SeriesEditorPageClient({
         >
           <label className="block">
             <span className="text-sm text-muted-foreground">
-              Название руководства
+              Название практикума
             </span>
             <textarea
               name="name"
@@ -150,7 +150,7 @@ export function SeriesEditorPageClient({
                 rows={3}
                 className="mt-2 block min-h-24 w-full resize-y rounded-md border border-transparent bg-transparent px-0 py-1 text-base leading-relaxed outline-none hover:border-input focus:border-ring focus:ring-2 focus:ring-ring/30"
                 maxLength={500}
-                placeholder="Какую задачу помогает решить это руководство?"
+                placeholder="Какую задачу помогает решить этот практикум?"
                 value={summary}
                 onChange={(event) => {
                   setSummary(event.currentTarget.value);
@@ -170,7 +170,7 @@ export function SeriesEditorPageClient({
           </div>
           <fieldset className="mt-8 grid gap-6 border-0 p-0 sm:grid-cols-2">
             <legend className="mb-4 block text-sm font-semibold">
-              О руководстве для читателя
+              О практикуме для читателя
             </legend>
             {INTRODUCTION_FIELDS.map(({ field, label, placeholder }) => (
               <label className="block" key={field}>

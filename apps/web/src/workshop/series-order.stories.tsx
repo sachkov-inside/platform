@@ -23,7 +23,7 @@ const loadMaterialsSpy = fn(
         {
           materialId: "95000000-0000-4000-8000-000000000004",
           publicationState: "draft" as const,
-          title: "Материал вне руководства",
+          title: "Материал вне практикума",
         },
       ],
       kind: "ready" as const,
@@ -96,7 +96,7 @@ const meta = {
     },
   },
   component: SeriesOrderManager,
-  title: "Pages/Authoring/Руководства",
+  title: "Pages/Authoring/Практикумы",
 } satisfies Meta<typeof SeriesOrderManager>;
 
 export default meta;
@@ -275,7 +275,7 @@ export const AddMaterial: Story = {
     await expect(dialog).toBeVisible();
     await expect(
       await within(dialog).findByRole("button", {
-        name: "Добавить «Материал вне руководства»",
+        name: "Добавить «Материал вне практикума»",
       }),
     ).toBeVisible();
     await expect(loadMaterialsSpy).toHaveBeenCalledOnce();

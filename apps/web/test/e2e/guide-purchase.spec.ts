@@ -4,14 +4,14 @@ import { expect, test } from "@playwright/test";
 const guide = "/guides/platform-inside";
 const purchase = `${guide}/buy`;
 
-test("витрина руководства отвечает и объясняет недоступность цены", async ({
+test("витрина практикума отвечает и объясняет недоступность цены", async ({
   page,
 }) => {
   const response = await page.goto(purchase);
 
   expect(response?.status()).toBe(200);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "Руководство",
+    "Практикум",
   );
   // Возврат из банка не единственный честный предел: цена тоже приходит с сервера.
   await expect(page.getByRole("status")).toContainText(
@@ -28,18 +28,18 @@ test("страница оплаты возвращает в программу",
   );
 });
 
-test("оба адреса руководства ведут на одну витрину покупки", async ({
+test("оба адреса практикума ведут на одну витрину покупки", async ({
   page,
 }) => {
   const response = await page.goto("/series/platform-inside/buy");
 
   expect(response?.status()).toBe(200);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "Руководство",
+    "Практикум",
   );
 });
 
-test("витрина руководства не имеет серьёзных нарушений доступности", async ({
+test("витрина практикума не имеет серьёзных нарушений доступности", async ({
   page,
 }) => {
   await page.goto(purchase);

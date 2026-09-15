@@ -6,7 +6,7 @@ const artworkStyle = (value: CSSProperties & Record<`--${string}`, string>) => v
 
 export function ProcessArtworkScenes() {
   const gradientId = useId();
-  return (<div className="stage" role="img" aria-label="Иллюстрация AI-first процесса: контекст и агенты, харнес и пайплайн, архитектура, проверка результата, выпуск и эксплуатация.">
+  return (<div className="stage" role="img" aria-label="Иллюстрация AI-first процесса: контекст и агенты, харнес и пайплайн, архитектура, проверка результата, релиз и эксплуатация.">
     <div className="glow" aria-hidden="true"></div>
     <div className="stage-body" aria-hidden="true">
 
@@ -47,10 +47,10 @@ export function ProcessArtworkScenes() {
           <span className="token-anchor a-fade" style={artworkStyle({"--t": "800ms"})}><span className="token" style={artworkStyle({"--t": "900ms"})}>Задача</span></span>
         </div>
         <div className="stages">
-          <div className="stage-block stage-research panel a-pop" style={artworkStyle({"--t": "0ms"})}><i className="well" style={artworkStyle({"--c": "var(--lavender)", "--lit": "900ms"})}><Search className="ico" /></i><span className="name">Исследование</span></div>
-          <div className="stage-block panel a-pop" style={artworkStyle({"--t": "120ms"})}><i className="well" style={artworkStyle({"--c": "var(--amber)", "--lit": "1340ms"})}><FileText className="ico" /></i><span className="name">Спецификация</span></div>
+          <div className="stage-block stage-research panel a-pop" style={artworkStyle({"--t": "0ms"})}><i className="well" style={artworkStyle({"--c": "var(--lavender)", "--lit": "900ms"})}><Search className="ico" /></i><span className="name">Исследо<wbr />вание</span></div>
+          <div className="stage-block panel a-pop" style={artworkStyle({"--t": "120ms"})}><i className="well" style={artworkStyle({"--c": "var(--amber)", "--lit": "1340ms"})}><FileText className="ico" /></i><span className="name">Специфи<wbr />кация</span></div>
           <div className="stage-block panel a-pop" style={artworkStyle({"--t": "240ms"})}><i className="well" style={artworkStyle({"--c": "var(--amber)", "--lit": "1780ms"})}><ListChecks className="ico" /></i><span className="name">Задачи</span></div>
-          <div className="stage-block stage-build panel a-pop" style={artworkStyle({"--t": "360ms"})}><i className="well" style={artworkStyle({"--c": "var(--accent)", "--lit": "2220ms"})}><Code className="ico" /></i><span className="name">Реализация</span></div>
+          <div className="stage-block stage-build panel a-pop" style={artworkStyle({"--t": "360ms"})}><i className="well" style={artworkStyle({"--c": "var(--accent)", "--lit": "2220ms"})}><Code className="ico" /></i><span className="name">Реали<wbr />зация</span></div>
           <div className="stage-block stage-review panel a-pop" style={artworkStyle({"--t": "480ms"})}><i className="well" style={artworkStyle({"--c": "var(--mint)", "--lit": "2660ms"})}><Eye className="ico" /></i><span className="name">Ревью</span></div>
         </div>
         <div className="foundation">
@@ -92,18 +92,17 @@ export function ProcessArtworkScenes() {
       <section className="scene scene-4">
         <div className="review">
           <div className="checks panel a-up" style={artworkStyle({"--t": "0ms"})}>
-            <div className="check"><span className="status" style={artworkStyle({"--t": "400ms", "--done": "1100ms"})}><i className="spin"></i><i className="ok"><Check className="ico" /></i></span>Тесты</div>
-            <div className="check"><span className="status" style={artworkStyle({"--t": "500ms", "--done": "1500ms"})}><i className="spin"></i><i className="ok"><Check className="ico" /></i></span>Сборка</div>
+            <div className="check"><span className="status" style={artworkStyle({"--t": "400ms", "--done": "2500ms"})}><i className="spin"></i><i className="ok"><Check className="ico" /></i></span>Тесты</div>
+            <div className="check"><span className="status" style={artworkStyle({"--t": "500ms", "--done": "2550ms"})}><i className="spin"></i><i className="ok"><Check className="ico" /></i></span>Сборка</div>
             <div className="check"><span className="status" style={artworkStyle({"--t": "600ms", "--done": "2650ms"})}><i className="spin"></i><i className="ok"><Check className="ico" /></i></span>Ревью</div>
           </div>
           <div className="diff panel a-up" style={artworkStyle({"--t": "120ms"})}>
-            <div className="line a-fade" style={artworkStyle({"--t": "450ms"})}><em>export</em> <b>function</b>{" notify(user) {"}</div>
+            <div className="line a-fade" style={artworkStyle({"--t": "450ms"})}><b>function</b>{" notify(user) {"}</div>
             <div className="line del" style={artworkStyle({"--t": "520ms", "--t2": "1300ms", "--t3": "2000ms"})}>-  send(user)<span className="mark-wrap"><span className="mark mark-bug a-pop" style={artworkStyle({"--t": "1350ms"})}><X className="ico" />ошибка</span></span></div>
-            <div className="line add a-fade" style={artworkStyle({"--t": "2000ms"})}>+  if (user) send(user)<span className="mark-wrap"><span className="mark mark-fix a-pop" style={artworkStyle({"--t": "2250ms"})}><Check className="ico" />исправлено</span></span></div>
-            <div className="line a-fade" style={artworkStyle({"--t": "590ms"})}>   log(<i>"notified"</i>, user.id)</div>
+            <div className="line add a-fade" style={artworkStyle({"--t": "2000ms"})}>+  if (!user) return ok<span className="mark-wrap"><span className="mark mark-fix a-pop" style={artworkStyle({"--t": "2250ms"})}><Check className="ico" />исправлено</span></span></div>
+            <div className="line add a-fade" style={artworkStyle({"--t": "2000ms"})}>+  send(user)</div>
             <div className="line a-fade" style={artworkStyle({"--t": "660ms"})}>   return ok</div>
             <div className="line a-fade" style={artworkStyle({"--t": "730ms"})}>{"}"}</div>
-            <div className="line a-fade" style={artworkStyle({"--t": "800ms"})}> </div>
             <div className="line a-fade" style={artworkStyle({"--t": "870ms"})}><b>test</b>(<i>"notify skips empty user"</i>{", () => {"}</div>
             <div className="line a-fade" style={artworkStyle({"--t": "940ms"})}>   expect(notify(null)).toBe(ok)</div>
             <div className="line a-fade" style={artworkStyle({"--t": "1010ms"})}>{"})"}</div>
@@ -151,15 +150,6 @@ export function ProcessArtworkScenes() {
       </section>
     </div>
 
-    <div className="stage-foot" aria-hidden="true">
-      <span className="stage-step">
-        <span className="type" data-t="150" data-speed="24">01 · Контекст и агенты</span>
-        <span className="type" data-t="150" data-speed="24" hidden>02 · Харнес и пайплайн</span>
-        <span className="type" data-t="150" data-speed="24" hidden>03 · Архитектура системы</span>
-        <span className="type" data-t="150" data-speed="24" hidden>04 · Проверка результата</span>
-        <span className="type" data-t="150" data-speed="24" hidden>05 · Выпуск и эксплуатация</span>
-      </span>
-      <div className="stage-progress"><i></i><i></i><i></i><i></i><i></i></div>
-    </div>
+
   </div>);
 }

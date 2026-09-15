@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { ContentCoverImage } from "@/entities/material";
+import { aiFirstGuide } from "@/features/ai-first-guide";
 import type { ReaderGuideArtifactsResult } from "@/features/guide-artifacts.reader";
 import {
   formatMaterialCount,
@@ -15,6 +16,7 @@ import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reade
 import { Button } from "@/shared/ui/button";
 
 import { formatArtifactCount, formatChapterCount } from "./guide-counts";
+import { AiFirstGuideView } from "./ai-first-guide-view";
 
 type ResolvedSeriesResult = Extract<PublishedSeriesResult, { kind: "ready" | "empty" }>;
 
@@ -37,6 +39,9 @@ export function GuideProductView({
   /** Бесплатный вход из обложки. Он ведёт в программу: там читатель сразу видит открытые уроки. */
   readonly freeEntryHref?: Route;
 }) {
+  if (result.reference.slug === aiFirstGuide.slug) {
+    return <AiFirstGuideView result={result} returnTarget={returnTarget} {...(freeEntryHref === undefined ? {} : { freeEntryHref })} />;
+  }
   const { reference } = result;
   const introduction = reference.introduction ?? null;
   const items = result.kind === "ready" ? result.items : [];
@@ -62,7 +67,7 @@ export function GuideProductView({
                 {returnTarget.label}
               </Link>
             </li>
-            <li className="sr-only">Руководство</li>
+            <li className="sr-only">Практикум</li>
             <li aria-current="page" className="sr-only">
               {reference.name}
             </li>
@@ -71,7 +76,7 @@ export function GuideProductView({
 
         <header className="mt-3 overflow-hidden rounded-[1.75rem] bg-primary p-4 text-white">
           <p className="text-xs font-bold uppercase tracking-[0.14em] text-white/60">
-            Руководство
+            Практикум
           </p>
           <div className="mt-3 overflow-hidden rounded-2xl">
             <ContentCoverImage
@@ -129,7 +134,7 @@ export function GuideProductView({
         )}
 
         {chapters.length === 0 ? null : (
-          <Section title="Что внутри руководства">
+          <Section title="Что внутри практикума">
             <p className="text-sm leading-6 text-muted-foreground">
               <span className="font-semibold text-foreground">
                 {formatMaterialCount(items.length)}
@@ -257,4 +262,3 @@ const chapterTones = [
 function chapterTone(index: number): string {
   return `${chapterTones[index % chapterTones.length] ?? "bg-secondary"} text-foreground`;
 }
-

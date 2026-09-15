@@ -294,7 +294,7 @@ export const variantStepAuthoringPresentation = {
         {
           type: "paragraph",
           content: [
-            { type: "text", text: "Шаг написан для обоих способов пройти руководство." },
+            { type: "text", text: "Шаг написан для обоих способов пройти практикум." },
           ],
         },
         {

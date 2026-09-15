@@ -333,7 +333,7 @@ function failureResult(
     }
   }
   if (status === 404) {
-    return { kind: "rejected", reason: "Артефакт или руководство не найдены." };
+    return { kind: "rejected", reason: "Артефакт или практикум не найдены." };
   }
   if (status === 413) return { kind: "rejected", reason: ARTIFACT_TOO_LARGE };
   if (status === 422) {

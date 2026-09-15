@@ -72,7 +72,7 @@ export const guideOnlyOffer: PriceSnapshot = {
   offer: {
     id: uuid("103"),
     revision: 1,
-    name: "Руководство «Создание Platform Inside»",
+    name: "Практикум «Создание Platform Inside»",
     benefits: [guideCapability(uuid("f01"))],
     benefitPeriods: [{ capability: guideCapability(uuid("f01")), months: null }],
     archived: false,
@@ -99,7 +99,7 @@ export const guideWithSupportOffer: PriceSnapshot = {
   offer: {
     id: uuid("104"),
     revision: 1,
-    name: "Руководство «Создание Platform Inside» с сопровождением",
+    name: "Практикум «Создание Platform Inside» с сопровождением",
     benefits: [guideCapability(uuid("f01")), "support"],
     benefitPeriods: [
       { capability: guideCapability(uuid("f01")), months: null },
@@ -295,7 +295,7 @@ export const ownPayments: readonly OwnPayment[] = [
     kind: "one_time",
     state: "confirmed",
     amountKopecks: 250_000,
-    offerName: "Руководство «Создание Platform Inside»",
+    offerName: "Практикум «Создание Platform Inside»",
     months: 1,
     fiscalization: "confirmed",
     confirmedAt: "2026-08-20T12:00:00.000Z",

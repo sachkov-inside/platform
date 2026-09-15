@@ -33,6 +33,11 @@ export const Release: Story = { args: { mode: "static", scene: 5 } };
 export const Mobile: Story = {
   render: args => <div style={{ width: 358, height: 230, overflow: "hidden", borderRadius: 16 }}><AiFirstProcessArtwork {...args} /></div>,
 };
+export const MobileContext: Story = { ...Mobile, args: { mode: "static", scene: 1 } };
+export const MobileHarness: Story = { ...Mobile, args: { mode: "static", scene: 2 } };
+export const MobileArchitecture: Story = { ...Mobile, args: { mode: "static", scene: 3 } };
+export const MobileReview: Story = { ...Mobile, args: { mode: "static", scene: 4 } };
+export const MobileRelease: Story = { ...Mobile, args: { mode: "static", scene: 5 } };
 export const ReducedMotion: Story = {
   parameters: { docs: { description: { story: "При системном prefers-reduced-motion показывается сцена 5. Здесь проверяем и изменение настройки во время показа." } } },
   play: async ({ canvasElement }) => {
