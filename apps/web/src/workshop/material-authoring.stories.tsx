@@ -1,6 +1,6 @@
 import type { JSONContent } from "@tiptap/core";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { useState } from "react";
+import { Profiler, useState } from "react";
 import { expect, fn, userEvent, within } from "storybook/test";
 
 import {
@@ -346,21 +346,57 @@ export const LessonBlocksEditing: Story = {
  * ВРЕМЕННО для #602: цена одного знака. Печатает по знаку те же сорок семь знаков, что замерял
  * #586, и отдельно набор в теле документа. Снимается до мержа.
  */
+const keystrokeProbe = { commits: 0, reactMs: 0 };
+
 export const KeystrokeCostProbe: Story = {
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   name: "Редактор · цена знака (замер #602)",
+  render: ({ presentation }) => (
+    <Profiler
+      id="material-authoring"
+      onRender={(_id, _phase, actualDuration) => {
+        keystrokeProbe.commits += 1;
+        keystrokeProbe.reactMs += actualDuration;
+      }}
+    >
+      <MaterialAuthoringFixture initialPresentation={presentation} />
+    </Profiler>
+  ),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     let totalMs = 0;
     let totalKeys = 0;
+    // oxlint-disable-next-line typescript/unbound-method -- временный замер: исходный метод вызывается через call
+    const elementRect = Element.prototype.getBoundingClientRect;
+    // oxlint-disable-next-line typescript/unbound-method -- временный замер: исходный метод вызывается через call
+    const rangeRect = Range.prototype.getBoundingClientRect;
+    // oxlint-disable-next-line typescript/unbound-method -- временный замер: исходный метод вызывается через call
+    const rangeRects = Range.prototype.getClientRects;
+    let layoutReads = 0;
+    Element.prototype.getBoundingClientRect = function (this: Element) {
+      layoutReads += 1;
+      return elementRect.call(this);
+    };
+    Range.prototype.getBoundingClientRect = function (this: Range) {
+      layoutReads += 1;
+      return rangeRect.call(this);
+    };
+    Range.prototype.getClientRects = function (this: Range) {
+      layoutReads += 1;
+      return rangeRects.call(this);
+    };
     const measure = async (step: string, text: string, type: () => Promise<unknown>) => {
+      keystrokeProbe.commits = 0;
+      keystrokeProbe.reactMs = 0;
+      layoutReads = 0;
       const started = performance.now();
       await type();
+      await new Promise((resolve) => requestAnimationFrame(resolve));
       const elapsed = performance.now() - started;
       totalMs += elapsed;
       totalKeys += text.length;
       console.error(
-        `[602] ${step}: ${String(Math.round(elapsed))} мс, ${String(text.length)} знаков, ${(elapsed / text.length).toFixed(1)} мс/знак`,
+        `[602] ${step}: ${String(Math.round(elapsed))} мс, ${String(text.length)} знаков, ${(elapsed / text.length).toFixed(1)} мс/знак; коммитов React ${String(keystrokeProbe.commits)}, React ${keystrokeProbe.reactMs.toFixed(0)} мс; чтений вёрстки ${String(layoutReads)}`,
       );
     };
     const openMenu = async () => {
