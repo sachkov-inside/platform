@@ -262,14 +262,14 @@ describe("локальная продажа через двойника банк
     value(await s.payments.recover());
 
     const partial = asRefundDecision(await s.operations.execute(owner, { operation: "refunds.decide", operationId: randomUUID(),
-      purchaseRef, amountKopecks: 40_000, access: "keep", recurring: "keep", reason: "Стенд: частичный возврат" }));
+      purchaseRef, amountKopecks: 40_000, basis: "compensation", recurring: "keep", reason: "Стенд: частичный возврат" }));
     const partialExecuted = asRefundDecision(await s.operations.execute(owner, { operation: "refunds.execute", operationId: randomUUID(),
       decisionRef: partial.decisionRef, expectedRevision: 1 }));
     expect(partialExecuted).toMatchObject({ state: "executed",
       attempt: { state: "confirmed", amountKopecks: 40_000, observedStatus: "PARTIAL_REFUNDED", errorCode: "0" } });
 
     const rest = asRefundDecision(await s.operations.execute(owner, { operation: "refunds.decide", operationId: randomUUID(),
-      purchaseRef, amountKopecks: 60_000, access: "revoke", recurring: "cancel", reason: "Стенд: возврат остатка" }));
+      purchaseRef, amountKopecks: 60_000, basis: "withdrawal", recurring: "cancel", reason: "Стенд: возврат остатка" }));
     const restExecuted = asRefundDecision(await s.operations.execute(owner, { operation: "refunds.execute", operationId: randomUUID(),
       decisionRef: rest.decisionRef, expectedRevision: 1 }));
     expect(restExecuted).toMatchObject({ state: "executed",

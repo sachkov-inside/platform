@@ -148,8 +148,10 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
 
   test("сопровождение в предложении продукта живёт шесть месяцев с покупки и не бывает бессрочным", async () => {
     const guideId = randomUUID(); const capability = `guide:${guideId}`;
-    // Без срока сопровождение из разовой покупки стало бы бессрочным: каталог такое не сохраняет.
-    for (const benefitPeriods of [[{ capability, months: null }], [{ capability, months: null }, { capability: "support", months: null }]])
+    // Без срока сопровождение из разовой покупки стало бы бессрочным, а с другим сроком разошлось бы
+    // с офертой: каталог сохраняет только шесть месяцев.
+    for (const benefitPeriods of [[{ capability, months: null }], [{ capability, months: null }, { capability: "support", months: null }],
+      [{ capability, months: null }, { capability: "support", months: 3 }]])
       expect(code(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.save",
         value: { id: randomUUID(), name: "Продукт с сопровождением", benefits: [capability, "support"], benefitPeriods } }))).toBe("invalid_request");
     const s = await scenario({ supportMonths: 6 });

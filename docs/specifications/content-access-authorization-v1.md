@@ -302,7 +302,8 @@ video locators и иные связанные с body ресурсы в projecti
 `one-time-purchase`, `tier-via-course`, `tier-via-tribute`, `manual-assignment`,
 `hidden-active-tier`, `direct`, `expired-or-revoked`, `multiple-grounds`, `withdrawal-refund`,
 `moderation`. Переходы: `expiry`, `revocation`, `bridge-replaced-by-tribute`,
-`tribute-temporary-source-lost`, `refund`, `refund-without-withdrawal`, `material-added-to-product`,
+`tribute-temporary-source-lost`, `refund`, `refund-without-withdrawal`,
+`support-kept-by-other-ground`, `material-added-to-product`,
 `material-removed-from-product`, `guide-archived`, `tier-composition-change`,
 `tier-archived-with-assignments`. Публикация: `standalone-membership-publication-rejected`.
 У каждой клетки стабильное имя `<строка>/<столбец>`.

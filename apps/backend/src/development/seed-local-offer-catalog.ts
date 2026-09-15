@@ -79,9 +79,10 @@ function localCatalog(guideId: string): readonly CatalogOffer[] {
     {
       offerId: "72000000-0000-4000-8000-000000000503",
       name: "Руководство «Создание Platform Inside»",
-      benefits: [guideCapability(guideId)],
-      // Разовая покупка открывает руководство навсегда: оплаченного срока у неё нет.
-      benefitPeriods: [{ capability: guideCapability(guideId), months: null }],
+      benefits: [guideCapability(guideId), "support"],
+      // Право разовой покупки выдаётся без даты окончания; договорные сроки называет оферта.
+      // Сопровождение по оферте разовой покупки — шесть месяцев с оплаты (#648).
+      benefitPeriods: [{ capability: guideCapability(guideId), months: null }, { capability: "support", months: 6 }],
       option: {
         id: "72000000-0000-4000-8000-000000000513",
         mode: "one_time",
@@ -115,7 +116,8 @@ export async function seedLocalOfferCatalog(
     const content = await new ContentScopeCatalog(prisma).list();
     await sendCatalogCommand(pricing, target.actor, { operation: "offers.save", operationId: randomUUID(), expectedRevision: 1,
       value: { id: initialTier.id, name: initialTier.name, benefits: ["materials", "community"], availableForAssignment: true,
-        contentScope: { guideIds: content.filter(item => item.kind === "guide" && item.available).map(item => item.id), materialIds: content.filter(item => item.kind === "material" && item.available).map(item => item.id) } } });
+        // Состав называет только продукты: отдельный материал в тариф не входит (#648).
+        contentScope: { guideIds: content.filter(item => item.kind === "guide" && item.available).map(item => item.id), materialIds: [] } } });
   }
   const current = await readOwnerCatalog(pricing);
   for (const offer of localCatalog(target.guideId)) {

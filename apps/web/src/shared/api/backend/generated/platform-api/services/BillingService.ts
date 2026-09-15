@@ -1407,8 +1407,8 @@ export class BillingService {
       operationId: string;
       reason: string;
     } | {
-      access: 'keep' | 'revoke';
       amountKopecks: number;
+      basis: 'withdrawal' | 'compensation';
       operation: 'refunds.decide';
       operationId: string;
       purchaseRef: string;
@@ -2066,6 +2066,7 @@ export class BillingService {
           state: 'sent' | 'unknown' | 'confirmed' | 'failed';
           updatedAt: string;
         } | null;
+        basis: 'withdrawal' | 'compensation' | null;
         createdAt: string;
         decisionRef: string;
         purchaseRef: string;
@@ -2311,6 +2312,7 @@ export class BillingService {
           state: 'sent' | 'unknown' | 'confirmed' | 'failed';
           updatedAt: string;
         } | null;
+        basis: 'withdrawal' | 'compensation' | null;
         createdAt: string;
         decisionRef: string;
         purchaseRef: string;
@@ -2334,6 +2336,7 @@ export class BillingService {
           state: 'sent' | 'unknown' | 'confirmed' | 'failed';
           updatedAt: string;
         } | null;
+        basis: 'withdrawal' | 'compensation' | null;
         createdAt: string;
         decisionRef: string;
         purchaseRef: string;

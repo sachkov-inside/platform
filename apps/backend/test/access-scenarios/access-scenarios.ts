@@ -51,6 +51,7 @@ export const accessTransitions = [
   "tribute-temporary-source-lost",
   "refund",
   "refund-without-withdrawal",
+  "support-kept-by-other-ground",
   "material-added-to-product",
   "material-removed-from-product",
   "guide-archived",
@@ -171,7 +172,8 @@ export const accessScenarioTable = {
     "artifacts": productContent,
     // Видео закрытого материала не имеет тизера: без права ссылка воспроизведения не выдаётся.
     "video": { ...productContent, "guest": closed, "account-without-rights": closed, "expired-or-revoked": closed, "withdrawal-refund": closed },
-    // Чат открывает право на продукт и тариф с `community`. Когда право кончилось, закрыт только
+    // Общую группу открывает право на продукт, сопровождение и тариф с `community`. Запрет в чате
+    // сопровождение не отзывает. Когда право кончилось, закрыт только
     // новый вход: автоматических удалений нет, убирает оператор по списку. Запрет модератора закрывает чат.
     "community-chat": {
       ...productContent,
@@ -248,6 +250,10 @@ export const accessScenarioTable = {
       rule: "Возврат без отказа от договора доступ сам не меняет: владелец отдельно решает судьбу прав.",
       after: { "product-material": open("lifetime"), "support": open("six-months"), "community-chat": open("lifetime") },
     },
+    "support-kept-by-other-ground": {
+      rule: "Сопровождение — одно общее право: отказ от одной покупки не прекращает сопровождение другого действующего основания, и общая группа остаётся открытой на его срок.",
+      after: { "product-material": locked, "support": open("ground-term"), "community-chat": open("ground-term") },
+    },
     "material-added-to-product": {
       rule: "Новый материал продукта открывается всем, кому продукт открыт: покупке, составу назначения и прямому праву.",
       after: { "product-material": open("lifetime") },
@@ -257,6 +263,8 @@ export const accessScenarioTable = {
       after: { "product-material": locked },
     },
     "guide-archived": {
+      // Сноска 4 модели: скрыть программу архивного продукта от тех, кому он не открыт, и снять его с
+      // продажи при архиве — отдельная задача после релиза. Здесь проверяется только сохранность у имеющих право.
       rule: "Архивный продукт уходит с витрины; те, кому он открыт, сохраняют программу, материалы и артефакты.",
       after: { "programme": open("public"), "product-material": open("lifetime"), "artifacts": open("lifetime") },
     },

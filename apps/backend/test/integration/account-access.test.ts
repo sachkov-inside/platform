@@ -90,7 +90,7 @@ describe("independent Account access", () => {
           sourceRef: randomUUID(),
           terms: {
             ...terms,
-            capabilities: ["materials", "community", "reviews"],
+            capabilities: ["materials", "community"],
             validUntil,
           },
         },
@@ -218,9 +218,12 @@ describe("independent Account access", () => {
       capabilities: [
         { capability: "community", validUntil: null },
         { capability: "materials", validUntil: null },
-        { capability: "reviews", validUntil: null },
       ],
     });
+    // Прежняя запись с правом `reviews` его не открывает: ревью не выдаёт ни одно основание (#648).
+    await db.prisma.accessGrant.updateMany({ where: { accountId: target, source: "manual" }, data: { capabilities: ["community", "materials", "reviews"] } });
+    const legacy = await grants.resolveCapabilities(target);
+    expect(legacy.ok && legacy.capabilities.map(entry => entry.capability)).toEqual(["community", "materials"]);
   });
   test("half-open intervals, future starts and finite bounds are exact", async () => {
     now = new Date(start);
@@ -324,6 +327,13 @@ describe("independent Account access", () => {
         rows: [...command.rows, ...command.rows],
       }),
     ).toEqual({ ok: false, error: { code: "invalid_input" } });
+    // Ручная выдача не выдаёт ревью и не открывает отдельный материал (#648).
+    const [row] = command.rows;
+    if (row === undefined) throw new Error("Expected one grant row");
+    for (const forbidden of [{ capabilities: ["reviews" as const] },
+      { capabilities: ["materials" as const], contentScope: { guideIds: [], materialIds: [randomUUID()] } }])
+      expect(await grants.previewBatch(owner, { ...command, operationId: randomUUID(),
+        rows: [{ ...row, terms: { ...row.terms, ...forbidden } }] })).toEqual({ ok: false, error: { code: "invalid_input" } });
     const preview = await grants.previewBatch(owner, command);
     if (!preview.ok) throw new Error(JSON.stringify(preview));
     const apply = {

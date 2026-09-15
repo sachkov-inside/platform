@@ -133,7 +133,7 @@ describe("Billing pricing HTTP", () => {
     expect(missing.statusCode).toBe(404);
     expect(missing.headers["content-type"]).toContain("application/problem+json");
     expect(missing.json()).toMatchObject({ code: "not_found" });
-    const decision = { operation: "refunds.decide", operationId: randomUUID(), purchaseRef: randomUUID(), amountKopecks: 0, access: "keep", recurring: "keep", reason: "Недопустимая сумма" };
+    const decision = { operation: "refunds.decide", operationId: randomUUID(), purchaseRef: randomUUID(), amountKopecks: 0, basis: "compensation", recurring: "keep", reason: "Недопустимая сумма" };
     expect((await server.inject({ method: "POST", url: "/billing/admin", headers, payload: decision })).statusCode).toBe(400);
     const grant = { operation: "grants.revoke", operationId: randomUUID(), grantRef: randomUUID(), expectedRevision: 1, reason: "Неизвестное основание" };
     expect((await server.inject({ method: "POST", url: "/billing/admin", headers, payload: grant })).statusCode).toBe(404);

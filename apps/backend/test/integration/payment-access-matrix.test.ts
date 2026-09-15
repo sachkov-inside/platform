@@ -86,6 +86,7 @@ describe("оплата, выдача прав и доступ к материа�
     signGet: input => Promise.resolve(`https://storage.example.test/${input.key}?ttl=${String(input.ttlSeconds)}`),
   };
   let guideA: string, guideB: string, guideSlug: string, topicId: string;
+  let libraryGuide: string;
   let freeMaterial: MaterialId, libraryMaterial: MaterialId, guideMaterial: MaterialId, sharedMaterial: MaterialId, otherGuideMaterial: MaterialId;
   let chapterId: string;
   /** Один закрытый ресурс каждого вида: файл в теле, первичное видео и артефакт руководства. */
@@ -115,9 +116,9 @@ describe("оплата, выдача прав и доступ к материа�
     guideA = await guide(guideSlug);
     guideB = await guide(`matrix-other-${randomUUID()}`);
     // Закрытый материал публикуется только внутри продукта. Материал «библиотеки» живёт в своём
-    // руководстве, которое не продаётся и не входит в составы: открыть его может только явный
-    // `materialIds` тарифа, ровно как раньше.
-    const libraryGuide = await guide(`matrix-library-${randomUUID()}`);
+    // руководстве, которое не продаётся: открыть его может только состав тарифа. Отдельный
+    // материал в состав не входит (#648).
+    libraryGuide = await guide(`matrix-library-${randomUUID()}`);
     [freeMaterial, libraryMaterial, guideMaterial, sharedMaterial, otherGuideMaterial] = await Promise.all([
       material([], "free"), material([libraryGuide]), material([guideA]), material([guideA, guideB]), material([guideB]),
     ]);
@@ -217,7 +218,7 @@ describe("оплата, выдача прав и доступ к материа�
     readonly priceKopecks: number; readonly benefitPeriods?: readonly { capability: string; months: number | null }[] }) {
     const offerId = randomUUID(), optionId = randomUUID();
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.save", value: { id: offerId, name: input.name,
-      benefits: [...input.benefits], ...(input.benefits.includes("materials") ? { contentScope: { guideIds: [guideA, guideB], materialIds: [libraryMaterial] } } : {}), ...(input.benefitPeriods ? { benefitPeriods: [...input.benefitPeriods] } : {}) } }));
+      benefits: [...input.benefits], ...(input.benefits.includes("materials") ? { contentScope: { guideIds: [guideA, guideB, libraryGuide], materialIds: [] } } : {}), ...(input.benefitPeriods ? { benefitPeriods: [...input.benefitPeriods] } : {}) } }));
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "paymentOptions.save", value: { id: optionId, offerId,
       ...(input.mode ? { mode: input.mode } : {}), months: 1, priceKopecks: input.priceKopecks } }));
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.publish", expectedRevision: 1, id: offerId }));
@@ -264,7 +265,7 @@ describe("оплата, выдача прав и доступ к материа�
   async function refundWithRevoke(operations: BillingOperations, purchaseRef: string, amountKopecks: number,
     recurring: "keep" | "cancel" = "keep") {
     const decided = asRefundDecision(await operations.execute(owner, { operation: "refunds.decide", operationId: randomUUID(),
-      purchaseRef, amountKopecks, access: "revoke", recurring, reason: "Синтетический возврат с отзывом доступа" }));
+      purchaseRef, amountKopecks, basis: "withdrawal", recurring, reason: "Синтетический возврат с отзывом доступа" }));
     expect(asRefundDecision(await operations.execute(owner, { operation: "refunds.execute", operationId: randomUUID(),
       decisionRef: decided.decisionRef, expectedRevision: 1 }))).toMatchObject({ state: "executed", attempt: { state: "confirmed" } });
   }
@@ -542,7 +543,7 @@ describe("оплата, выдача прав и доступ к материа�
     const sourceRef = randomUUID();
     const preview = asGrantPreview(await operations.execute(owner, { operation: "grants.previewBatch", operationId: randomUUID(),
       rows: [{ rowKey: "matrix", accountId: account, source: "manual", sourceRef,
-        terms: { capabilities: ["materials"], contentScope: { guideIds: [guideA, guideB], materialIds: [libraryMaterial] }, startsAt: startedAt, validUntil: null, reason: "Синтетическая выдача через API" } }] }));
+        terms: { capabilities: ["materials"], contentScope: { guideIds: [guideA, guideB, libraryGuide], materialIds: [] }, startsAt: startedAt, validUntil: null, reason: "Синтетическая выдача через API" } }] }));
     expect(asGrantBatch(await operations.execute(owner, { operation: "grants.applyBatch", operationId: randomUUID(),
       previewRef: preview.previewRef, expectedRevision: preview.revision, confirmedRows: ["matrix"] })).rows).toHaveLength(1);
     expect(await decide(reader(account), libraryMaterial)).toMatchObject({ effect: "allow", validUntil: null });

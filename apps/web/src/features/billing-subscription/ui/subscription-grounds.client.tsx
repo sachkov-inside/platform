@@ -66,7 +66,7 @@ export function SubscriptionGrounds({
                 </span>
                 <span className="font-mono text-xs tabular-nums text-muted-foreground">
                   {ground.validUntil === null
-                    ? "бессрочно"
+                    ? "без даты окончания"
                     : `до ${formatBillingDate(ground.validUntil)}`}
                 </span>
               </div>

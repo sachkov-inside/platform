@@ -28,14 +28,20 @@ export function guideCapability(guideId: string): AccessCapability {
 }
 
 /**
- * Что открывает одно право. Купленное руководство само по себе открывает общий чат сообщества:
- * чат один на всех, и участие в нём живёт ровно сроком права на руководство.
+ * Что открывает одно право. Общая группа одна на всех (#648, решение владельца): её открывает и
+ * купленное руководство, и сопровождение, поэтому участие живёт сроком самого долгого из них.
  */
 export function capabilitiesOpenedBy(
   capability: AccessCapability,
 ): readonly AccessCapability[] {
-  return isGuideCapability(capability) ? [capability, "community"] : [capability];
+  return isGuideCapability(capability) || capability === "support" ? [capability, "community"] : [capability];
 }
+
+/**
+ * Право, которое на релизе не выдаёт ни одно основание (#648): ни покупка, ни тариф, ни мост.
+ * Словарь его ещё называет, чтобы читались прежние записи, но действующим оно не становится.
+ */
+export const withheldAccessCapabilities: readonly AccessCapability[] = ["reviews"];
 
 /**
  * Какие из этих прав открывают названное право. Срок такого права держится каждым из них, поэтому

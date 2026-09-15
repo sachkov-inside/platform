@@ -236,6 +236,7 @@ describe("Platform migrations", () => {
         "0063_subscription_enrollments",
         "0064_tribute_sources",
         "0065_guide_material_removals",
+        "0066_refund_basis",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -830,6 +831,7 @@ describe("Platform migrations", () => {
         "0063_subscription_enrollments",
         "0064_tribute_sources",
         "0065_guide_material_removals",
+        "0066_refund_basis",
         ],
       });
 

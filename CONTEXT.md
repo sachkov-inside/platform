@@ -422,8 +422,9 @@ Its refund and the owner's decision about access are separate facts.
 _Avoid_: Browser return, grant, subscription
 
 **RefundDecision**:
-The owner's recorded decision about one Payment: how much to return, whether access is kept or
-revoked, and whether renewal stops. It is separate from the bank attempt that executes it, and an
+The owner's recorded decision about one Payment: how much to return, on which basis, and whether
+renewal stops. A withdrawal from the contract revokes the purchase's access once the refund is
+confirmed; a compensation without withdrawal keeps access. It is separate from the bank attempt that executes it, and an
 unresolved or failed attempt is never presented as executed.
 _Avoid_: Refund attempt, access revocation, dispute
 

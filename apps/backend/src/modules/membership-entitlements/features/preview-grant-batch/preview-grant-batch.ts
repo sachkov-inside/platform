@@ -10,6 +10,7 @@ import {
   grantTermsSchema,
   sourceRefSchema,
   type AccessFailure,
+  withheldAccessCapabilities,
 } from "../../domain/access-grant.js";
 import { accessFingerprint } from "../../shared/access-receipts.js";
 
@@ -19,7 +20,10 @@ const grantRowSchema = z
     ...rowTarget,
     source: z.enum(["manual", "legacy"]),
     sourceRef: sourceRefSchema,
-    terms: grantTermsSchema,
+    // Ручная выдача не открывает отдельный материал и не выдаёт право, которого нет ни у одного
+    // основания (#648): закрытое открывается продуктом или составом тарифа.
+    terms: grantTermsSchema.refine(terms => !terms.capabilities.some(capability => withheldAccessCapabilities.includes(capability)) &&
+      (terms.contentScope?.materialIds.length ?? 0) === 0),
   })
   .strict();
 /**

@@ -245,6 +245,22 @@ describe("признак продажи подписки на собственн
     expect(await billing.hasOffersForSale()).toBe(true);
     expect(value(await billing.offers({ mode: "subscription" })).items.map(item => item.offer.id)).toEqual([sold.offerId]);
   });
+
+  test("предложение не выдаёт ревью и не открывает отдельный материал", async () => {
+    const guide = randomUUID();
+    const save = (benefits: readonly string[], contentScope?: { guideIds: string[]; materialIds: string[] }) => billing.manage(owner, { operation: "offers.save",
+      operationId: randomUUID(), value: { id: randomUUID(), name: "Запрещённый состав", benefits: [...benefits], ...(contentScope === undefined ? {} : { contentScope }) } });
+    // Ревью не выдаёт ни покупка, ни тариф.
+    expect(await save([`guide:${guide}`, "reviews"])).toMatchObject({ ok: false, error: { code: "invalid_request" } });
+    expect(await save(["materials", "reviews"], { guideIds: [guide], materialIds: [] })).toMatchObject({ ok: false, error: { code: "invalid_request" } });
+    // Состав называет только продукты: отдельный материал в тариф не входит.
+    expect(await save(["materials", "community"], { guideIds: [guide], materialIds: [randomUUID()] })).toMatchObject({ ok: false, error: { code: "invalid_request" } });
+    // Строка, записанная в обход каталога, с ревью не продаётся.
+    const sold = await offer({ benefits: ["materials"], mode: "subscription", contentScope: { guideIds: [guide], materialIds: [] } });
+    value(await sold.publish());
+    await database.prisma.billingOffer.update({ where: { id: sold.offerId }, data: { benefits: ["materials", "reviews"] } });
+    expect(await billing.quote(randomUUID(), { operationId: randomUUID(), paymentOptionId: sold.optionId, optionRevision: 1 })).toMatchObject({ error: { code: "not_found" } });
+  });
 });
 
 function pick(command: { accountId: string; purchaseRef: string }) { return { accountId: command.accountId, purchaseRef: command.purchaseRef }; }

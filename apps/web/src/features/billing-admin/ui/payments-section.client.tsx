@@ -267,7 +267,7 @@ export function PaymentsSection({
       </AdminSection>
 
       <AdminSection
-        description="Решение фиксирует сумму, судьбу доступа и автопродления. Исполнение наследует основание своего решения и не принимает новую сумму."
+        description="Решение фиксирует сумму, основание возврата и судьбу автопродления. Отказ от договора прекращает права покупки после подтверждённого возврата, компенсация без отказа доступ сохраняет. Исполнение наследует решение и не принимает новую сумму."
         title="Возвраты"
       >
         <form
@@ -276,7 +276,7 @@ export function PaymentsSection({
             onDecideRefund({
               purchaseRef: formText(form.get("refundPurchase")),
               amountKopecks: Number(formText(form.get("refundAmount"))),
-              access: formText(form.get("refundAccess")) as "keep" | "revoke",
+              basis: formText(form.get("refundBasis")) as "withdrawal" | "compensation",
               recurring: formText(form.get("refundRecurring")) as
                 | "keep"
                 | "cancel",
@@ -293,11 +293,11 @@ export function PaymentsSection({
             required
           />
           <AdminSelect
-            label="Доступ"
-            name="refundAccess"
+            label="Основание возврата"
+            name="refundBasis"
             options={[
-              { value: "keep", label: "Сохранить" },
-              { value: "revoke", label: "Отозвать" },
+              { value: "withdrawal", label: "Отказ от договора — права прекращаются" },
+              { value: "compensation", label: "Компенсация без отказа — доступ сохраняется" },
             ]}
           />
           <AdminSelect
@@ -368,7 +368,8 @@ export function PaymentsSection({
                     {decision.state}
                   </span>
                   <span>
-                    {formatKopecks(decision.amountKopecks)} · доступ{" "}
+                    {formatKopecks(decision.amountKopecks)} · основание{" "}
+                    {decision.basis ?? "не указано"} · доступ{" "}
                     {decision.access} · продление {decision.recurring}
                   </span>
                   {decision.attempt === null ? null : (

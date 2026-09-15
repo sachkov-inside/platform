@@ -1600,6 +1600,7 @@ model BillingRefundDecision {
   actorId String @map("actor_id") @db.Uuid
   operationId String @map("operation_id") @db.Uuid
   amountKopecks BigInt @map("amount_kopecks")
+  basis String?
   access String
   recurring String
   reason String @db.VarChar(1000)

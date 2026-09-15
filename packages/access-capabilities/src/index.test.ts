@@ -43,7 +43,8 @@ describe("access capabilities", () => {
     expect(accessComposition([guide])).toEqual([guide, "community"]);
     expect(accessComposition([guide, "community"])).toEqual([guide, "community"]);
     expect(accessComposition(["community", guide])).toEqual(["community", guide]);
-    expect(accessComposition(["materials", "support"])).toEqual(["materials", "support"]);
+    expect(accessComposition(["materials", "support"])).toEqual(["materials", "support", "community"]);
+    expect(capabilitiesOpenedBy("support")).toEqual(["support", "community"]);
     expect(accessComposition([])).toEqual([]);
     // Купленное идёт первым, а то, что к нему прилагается, — следом: этот порядок человек читает
     // на витрине, и он не должен зависеть от того, где в наборе стоит право на руководство.

@@ -200,7 +200,7 @@ describe("таблица сценариев доступа (реальный Pos
     await linkChat(refunded);
     const refundedPurchase = await pay(refunded, productOptionId);
     await project(refunded);
-    await refund(refundedPurchase, "revoke", guidePriceKopecks);
+    await refund(refundedPurchase, "withdrawal", guidePriceKopecks);
     grounds.set("withdrawal-refund", [refunded]);
 
     // Модератор запретил вход: запрет приходит от бота результатом доставки права.
@@ -368,9 +368,9 @@ describe("таблица сценариев доступа (реальный Pos
     owned(await operations.execute(owner, { operation: "enrollments.change", operationId: randomUUID(), enrollmentId: enrollment.enrollmentId,
       expectedRevision: 1, action: "revoke", terms: enrollment.terms, reason: "Сценарий отзыва" }));
   }
-  async function refund(purchaseRef: string, access: "keep" | "revoke", amountKopecks: number) {
+  async function refund(purchaseRef: string, basis: "withdrawal" | "compensation", amountKopecks: number) {
     const decided = owned(await operations.execute(owner, { operation: "refunds.decide", operationId: randomUUID(), purchaseRef,
-      amountKopecks, access, recurring: "keep", reason: access === "revoke" ? "Возврат по отказу от договора" : "Возврат без отказа от договора" }));
+      amountKopecks, basis, recurring: "keep", reason: basis === "withdrawal" ? "Возврат по отказу от договора" : "Возврат без отказа от договора" }));
     if (decided.outcome !== "refundDecision") throw new Error(`Unexpected outcome ${decided.outcome}`);
     expect(owned(await operations.execute(owner, { operation: "refunds.execute", operationId: randomUUID(), decisionRef: decided.value.decisionRef, expectedRevision: 1 })))
       .toMatchObject({ outcome: "refundDecision", value: { state: "executed" } });
@@ -583,7 +583,7 @@ describe("таблица сценариев доступа (реальный Pos
     const purchaseRef = await pay(buyer, productOptionId);
     await project(buyer);
     expect(await observe("support", buyer)).toEqual(open("six-months"));
-    await refund(purchaseRef, "revoke", guidePriceKopecks);
+    await refund(purchaseRef, "withdrawal", guidePriceKopecks);
     expect(await transitionVerdicts("refund", buyer)).toEqual([]);
   });
 
@@ -591,8 +591,22 @@ describe("таблица сценариев доступа (реальный Pos
     now = new Date(startedAt);
     const buyer = await account();
     const purchaseRef = await pay(buyer, productOptionId);
-    await refund(purchaseRef, "keep", 100_000);
+    await refund(purchaseRef, "compensation", 100_000);
     expect(await transitionVerdicts("refund-without-withdrawal", buyer)).toEqual([]);
+  });
+
+  test("support-kept-by-other-ground", async () => {
+    now = new Date(startedAt);
+    // Прямое право `support` до срока основания и покупка продукта с шестью месяцами сопровождения.
+    const buyer = await account();
+    const preview = await grants.previewBatch(owner, { operationId: randomUUID(), rows: [{ rowKey: "support", accountId: buyer, source: "manual", sourceRef: randomUUID(),
+      terms: { capabilities: ["support"], startsAt: startedAt, validUntil: groundEndsAt, reason: "Сопровождение другого основания" } }] });
+    if (!preview.ok) throw new Error(preview.error.code);
+    expect(await grants.applyBatch(owner, { operationId: randomUUID(), previewRef: preview.previewRef, expectedRevision: preview.revision, confirmedRows: ["support"] })).toMatchObject({ ok: true });
+    const purchaseRef = await pay(buyer, productOptionId);
+    expect(await observe("support", buyer)).toEqual(open("six-months"));
+    await refund(purchaseRef, "withdrawal", guidePriceKopecks);
+    expect(await transitionVerdicts("support-kept-by-other-ground", buyer)).toEqual([]);
   });
 
   test("material-added-to-product", async () => {
