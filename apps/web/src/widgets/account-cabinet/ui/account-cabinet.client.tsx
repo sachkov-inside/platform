@@ -1,10 +1,9 @@
 "use client";
 import { usePathname } from "next/navigation";
 import { createContext, useContext, type ReactNode } from "react";
-import { useQuery } from "@tanstack/react-query";
 
 import type { PriceSnapshot } from "@/entities/subscription";
-import { currentBillingQueryOptions, useOwnEnrollments } from "@/features/billing-subscription";
+import { useCurrentBilling, useOwnEnrollments } from "@/features/billing-subscription";
 
 import { visibleAccountSections } from "../model/account-sections";
 import { AccountSectionNav } from "./account-section-nav.client";
@@ -43,9 +42,7 @@ export function AccountCabinet({ children, options }: AccountCabinetProps) {
   const pathname = usePathname();
   // Провайдер стоит ниже, поэтому рамка считает то же правило по своему же каталогу.
   const subscriptionOffered = subscriptionOfferedIn(options);
-  const billing = useQuery({
-    ...currentBillingQueryOptions(),
-  });
+  const billing = useCurrentBilling();
   const subscription =
     billing.data?.ok === true ? billing.data.value.subscription : null;
   const enrollments = useOwnEnrollments();
