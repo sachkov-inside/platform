@@ -1,5 +1,5 @@
 export { useOwnEnrollments } from "./model/use-own-enrollments.client";
-export { currentBillingQueryOptions } from "./model/current-billing";
+export { useCurrentBilling } from "./model/use-current-billing.client";
 export { useBillingSessionExpired } from "./model/use-billing-cabinet.client";
 export {
   PurchasesPanel,

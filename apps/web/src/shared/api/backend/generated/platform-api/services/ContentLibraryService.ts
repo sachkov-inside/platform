@@ -194,7 +194,6 @@ export class ContentLibraryService {
     membership: ({
       kind: 'active';
     } | {
-      acquisitionUrl: string;
       kind: 'inactive';
     } | {
       kind: 'notOffered';

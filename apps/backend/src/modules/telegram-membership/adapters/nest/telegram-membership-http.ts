@@ -77,9 +77,7 @@ const accountTelegramLinkStateSchema = z.discriminatedUnion("kind", [
 ]);
 const accountMembershipStateSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("active") }).strict(),
-  z
-    .object({ acquisitionUrl: z.url(), kind: z.literal("inactive") })
-    .strict(),
+  z.object({ kind: z.literal("inactive") }).strict(),
   z.object({ kind: z.literal("stale") }).strict(),
   z.object({ kind: z.literal("notOffered") }).strict(),
   z.object({ kind: z.literal("unavailable") }).strict(),
