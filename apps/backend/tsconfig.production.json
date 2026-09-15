@@ -10,6 +10,7 @@
     "src/infrastructure/worker-healthcheck.ts",
     "src/migrations/migrate.ts",
     "src/release/bootstrap-owner-account.ts",
+    "src/release/write-notification-broker-definitions.ts",
     "src/entrypoints/notifications-worker.ts"
   ],
   "include": []

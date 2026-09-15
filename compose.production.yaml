@@ -17,6 +17,35 @@ x-worker-healthcheck: &worker-healthcheck
   start_period: 10s
 
 services:
+  # Свой брокер окружения. Он переживает выпуски приложения: deploy его не останавливает, а данные
+  # лежат в именованном томе. Наружу не публикуется ничего; notifications-worker и Telegram
+  # подключаются по AMQPS через внутреннюю сеть `broker`.
+  rabbitmq:
+    image: rabbitmq:4.2.4-alpine@sha256:83522278ca69414e4895b3ea3c0f943c63ad316c063f9cda9c32fd42fe800f47
+    pull_policy: missing
+    hostname: rabbitmq
+    # Сразу пользователь образа: healthcheck и rabbitmqctl не создают erlang cookie от root раньше
+    # сервера, а TLS-ключ и определения читаются по группе 101.
+    user: rabbitmq
+    configs:
+      - source: rabbitmq-conf
+        target: /etc/rabbitmq/rabbitmq.conf
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_listener", "5671"]
+      interval: 15s
+      timeout: 10s
+      retries: 12
+      start_period: 30s
+    mem_limit: 768m
+    networks: [broker]
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    stop_grace_period: 60s
+    volumes:
+      - broker-data:/var/lib/rabbitmq
+      # Server-owned: TLS сервера и определения окружения с хэшами паролей. Читает только брокер.
+      - ${PLATFORM_CONFIG_DIR:?PLATFORM_CONFIG_DIR is required}/rabbitmq:/etc/inside/broker:ro
+
   migrations:
     <<: *backend-runtime
     command: ["node", "dist/migrations/migrate.js"]
@@ -121,6 +150,43 @@ services:
     stop_grace_period: 20s
     tmpfs: [/tmp]
 
+  # Сверка и продление оплаты, возвраты, Tribute и доставка права на сообщество. Выходит в банк и
+  # Telegram через `edge`.
+  billing-worker:
+    <<: *backend-runtime
+    command: ["node", "dist/entrypoints/billing-worker.js"]
+    env_file:
+      - ${PLATFORM_RELEASE_ENV_FILE:?PLATFORM_RELEASE_ENV_FILE is required}
+      - ${PLATFORM_CONFIG_DIR:?PLATFORM_CONFIG_DIR is required}/billing-worker.env
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+    healthcheck: *worker-healthcheck
+    networks: [edge, application, database]
+    restart: unless-stopped
+    stop_grace_period: 20s
+    tmpfs: [/tmp]
+
+  # Письма и команды Telegram из outbox через брокер. Доверяет только CA брокера окружения.
+  notifications-worker:
+    <<: *backend-runtime
+    command: ["node", "dist/entrypoints/notifications-worker.js"]
+    env_file:
+      - ${PLATFORM_RELEASE_ENV_FILE:?PLATFORM_RELEASE_ENV_FILE is required}
+      - ${PLATFORM_CONFIG_DIR:?PLATFORM_CONFIG_DIR is required}/notifications-worker.env
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    healthcheck: *worker-healthcheck
+    networks: [edge, application, database, broker]
+    restart: unless-stopped
+    stop_grace_period: 20s
+    tmpfs: [/tmp]
+    volumes:
+      - ${PLATFORM_CONFIG_DIR:?PLATFORM_CONFIG_DIR is required}/rabbitmq/tls/ca.pem:/etc/inside/broker-ca.pem:ro
+
   web:
     image: ${PLATFORM_WEB_IMAGE_REPOSITORY:?web repository is required}@sha256:${PLATFORM_WEB_IMAGE_DIGEST:?web sha256 digest is required}
     pull_policy: never
@@ -157,3 +223,29 @@ networks:
   database:
     external: true
     name: ${FOUNDATION_DATABASE_NETWORK:?FOUNDATION_DATABASE_NETWORK is required}
+  # Telegram подключает свой процесс к этой сети как external и обращается к брокеру по имени `rabbitmq`.
+  broker:
+    internal: true
+    name: ${PLATFORM_BROKER_NETWORK:?PLATFORM_BROKER_NETWORK is required}
+
+volumes:
+  broker-data:
+
+configs:
+  # Один AMQPS-слушатель, TLS только сервера (клиенты входят паролем своего principal), топология
+  # из определений при запуске. Пределы памяти и диска рассчитаны на общий VPS: 2 CPU, 3,9 GiB.
+  rabbitmq-conf:
+    content: |
+      listeners.tcp = none
+      listeners.ssl.default = 5671
+      ssl_options.cacertfile = /etc/inside/broker/tls/ca.pem
+      ssl_options.certfile = /etc/inside/broker/tls/server.pem
+      ssl_options.keyfile = /etc/inside/broker/tls/server-key.pem
+      ssl_options.verify = verify_none
+      ssl_options.fail_if_no_peer_cert = false
+      ssl_options.versions.1 = tlsv1.3
+      ssl_options.versions.2 = tlsv1.2
+      definitions.import_backend = local_filesystem
+      definitions.local.path = /etc/inside/broker/definitions.json
+      vm_memory_high_watermark.absolute = 512MiB
+      disk_free_limit.absolute = 1GB

@@ -56,6 +56,7 @@ export type PaymentOption = z.infer<typeof optionSchema>;
 export type PricingError = { readonly code:
   | "invalid_request" | "forbidden" | "not_found" | "revision_conflict" | "operation_conflict"
   | "quote_changed" | "quote_expired" | "unsupported_amount" | "reservation_conflict" | "dependency_unavailable"
+  | "method_unavailable"
 };
 export type PricingResult<T, Code extends PricingError["code"] = PricingError["code"]> = { readonly ok: true; readonly value: T } | { readonly ok: false; readonly error: { readonly code: Code } };
 export const failure = <const Code extends PricingError["code"]>(code: Code): { readonly ok: false; readonly error: { readonly code: Code } } => ({ ok: false, error: { code } });

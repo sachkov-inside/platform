@@ -58,6 +58,52 @@ describe("production deployment state machine", () => {
     }
   });
 
+  it("starts the broker before the processes and drains only the workers each release declares", () => {
+    const fixture = createHostFixture();
+    const legacy = { INSIDE_DEPLOY_TEST_LEGACY_RELEASE: "v1" };
+    try {
+      assert.equal(runGateway(fixture, "deploy", "v1", 601, legacy).status, 0);
+      const logStart = readExternalLog(fixture).length;
+      const deployed = runGateway(fixture, "deploy", "v2", 602, legacy);
+      assert.equal(deployed.status, 0, deployed.stderr);
+      const log = readExternalLog(fixture).slice(logStart);
+      const workers = "material-assets-worker profile-avatars-worker video-deletions-worker";
+      // The previous release predates billing and notification workers: stopping them there would fail.
+      assert.match(log, new RegExp(`/releases/v1/runtime/compose\\.production\\.yaml stop --timeout 20 ${workers}\\n`, "u"));
+      const pullBroker = log.indexOf("/releases/v2/runtime/compose.production.yaml pull rabbitmq");
+      const startBroker = log.indexOf("/releases/v2/runtime/compose.production.yaml up --detach --wait --no-deps rabbitmq\n");
+      const startProcesses = log.indexOf(
+        `/releases/v2/runtime/compose.production.yaml up --detach --wait --no-deps api mcp ${workers} billing-worker notifications-worker web\n`,
+      );
+      assert.ok(pullBroker > log.indexOf("docker pull"), "the broker image is pulled with the release images");
+      assert.ok(startBroker > pullBroker && startProcesses > startBroker, "the broker is healthy before its consumers start");
+
+      const nextStart = readExternalLog(fixture).length;
+      assertGatewaySuccess(fixture, "deploy", "v3", 603);
+      assert.match(
+        readExternalLog(fixture).slice(nextStart),
+        new RegExp(`/releases/v2/runtime/compose\\.production\\.yaml stop --timeout 20 ${workers} billing-worker notifications-worker\\n`, "u"),
+      );
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  for (const missing of ["billing-worker.env", "notifications-worker.env", "rabbitmq/definitions.json", "rabbitmq/tls/server-key.pem"]) {
+    it(`rejects a deployment without server-owned ${missing} before maintenance`, () => {
+      const fixture = createHostFixture();
+      try {
+        rmSync(resolve(fixture.root, "etc/inside/runtime", missing));
+        const rejected = runGateway(fixture, "deploy", "v1", 610);
+        assert.notEqual(rejected.status, 0);
+        assert.match(rejected.stderr, /Missing server-owned (?:runtime|broker) configuration/u);
+        assert.doesNotMatch(readExternalLog(fixture), /caddy reload|docker pull/u);
+      } finally {
+        fixture.cleanup();
+      }
+    });
+  }
+
   it("deploys the corrected release after rollback without restarting the rolled-back version", () => {
     const fixture = createHostFixture();
     try {
@@ -1000,11 +1046,17 @@ function createHostFixture({ compatible = true } = {}) {
       "",
     ].join("\n"),
   );
+  mkdirSync(resolve(root, "etc/inside/runtime/rabbitmq/tls"), { recursive: true });
+  for (const name of ["definitions.json", "tls/ca.pem", "tls/server.pem", "tls/server-key.pem"]) {
+    writeFileSync(resolve(root, "etc/inside/runtime/rabbitmq", name), "CONFIGURED=true\n");
+  }
   for (const name of [
     "api.env",
+    "billing-worker.env",
     "material-assets-worker.env",
     "mcp.env",
     "migrations.env",
+    "notifications-worker.env",
     "profile-avatars-worker.env",
     "video-deletions-worker.env",
     "web.env",
@@ -1028,6 +1080,13 @@ set -euo pipefail
 printf "docker %s\\n" "$*" >>"$INSIDE_DEPLOY_TEST_ROOT/external.log"
 if [[ "$*" == *"config --format json"* ]]; then
   printf '{"networks":{"database":{"name":"inside-platform-database-test"}},"services":{"api":{"ports":[{"host_ip":"127.0.0.1","target":3001,"published":"13001","protocol":"tcp"}]},"web":{"ports":[{"host_ip":"127.0.0.1","target":3000,"published":"13000","protocol":"tcp"}]}}}\n'
+elif [[ "$*" == *"config --services"* ]]; then
+  # A release published before the broker declares only the original seven processes.
+  if [[ -n "\${INSIDE_DEPLOY_TEST_LEGACY_RELEASE:-}" && "$*" == *"/releases/\${INSIDE_DEPLOY_TEST_LEGACY_RELEASE}/"* ]]; then
+    printf '%s\\n' migrations api mcp material-assets-worker profile-avatars-worker video-deletions-worker web
+  else
+    printf '%s\\n' rabbitmq migrations api mcp material-assets-worker profile-avatars-worker video-deletions-worker billing-worker notifications-worker web
+  fi
 elif [[ "$*" == *"ps --filter network="*"--filter label=com.docker.compose.service=postgres --quiet"* ]]; then
   printf '%s\n' '${"f".repeat(64)}'
 elif [[ "$*" == *"exec --env-file "*" psql "* ]]; then

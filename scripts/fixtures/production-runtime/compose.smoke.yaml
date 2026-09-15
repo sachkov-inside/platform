@@ -29,6 +29,20 @@ services:
       retries: 3
       start_period: 2s
 
+  billing-worker:
+    image: ${PRODUCTION_SMOKE_BACKEND_IMAGE:?candidate backend image ID is required}
+    healthcheck:
+      interval: 1s
+      retries: 3
+      start_period: 2s
+
+  notifications-worker:
+    image: ${PRODUCTION_SMOKE_BACKEND_IMAGE:?candidate backend image ID is required}
+    healthcheck:
+      interval: 1s
+      retries: 3
+      start_period: 2s
+
   web:
     image: ${PRODUCTION_SMOKE_WEB_IMAGE:?candidate web image ID is required}
 

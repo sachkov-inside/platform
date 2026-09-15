@@ -49,7 +49,7 @@ describe("служебные сообщения подписки (реальны
     await db.prisma.accountPermission.create({ data: { accountId: owner, permission: "platform:admin" } });
     accounts = assembleAccounts({ prisma: db.prisma, emailFingerprintKey: "synthetic-notice-fingerprint-000000" });
     grants = assembleAccessGrants({ prisma: db.prisma, accounts, clock: () => now });
-    pricing = new BillingPricing({ prisma: db.prisma, accounts, clock: () => now });
+    pricing = new BillingPricing({ prisma: db.prisma, accounts, clock: () => now, sale: { payments: true, subscriptions: true } });
     contact = new BillingContact({ prisma: db.prisma, protection, documents, now: () => now,
       sendCode: message => { codes.set(message.challengeRef, message.code); return Promise.resolve(); } });
   });

@@ -1,4 +1,5 @@
 import { isEmptyContentScope, isGuideCapability } from "@inside/access-capabilities";
+import type { SaleCapability } from "../../domain/sale-capability.js";
 import type { Accounts } from "../../../accounts/index.js";
 import { Prisma, type BillingPrisma, type BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { failure, idSchema, type PricingResult } from "../../domain/pricing.js";
@@ -9,9 +10,9 @@ import { catalogOutcomeSchema, manageCatalogSchema, type ManageCatalogCommand } 
 type Outcome = { id: string; revision: number; archived: boolean; published?: boolean | undefined };
 type ManageCatalogResult = PricingResult<Outcome,
   "invalid_request" | "forbidden" | "not_found" | "revision_conflict" | "operation_conflict" | "reservation_conflict" | "dependency_unavailable"
+  | "method_unavailable"
 >;
-
-export async function manageCatalog(dependencies: { prisma: BillingPrismaClient; accounts: Pick<Accounts, "checkPermission"> }, actor: string, input: unknown): Promise<ManageCatalogResult> {
+export async function manageCatalog(dependencies: { prisma: BillingPrismaClient; accounts: Pick<Accounts, "checkPermission">; sale: SaleCapability }, actor: string, input: unknown): Promise<ManageCatalogResult> {
   const parsed = manageCatalogSchema.safeParse(input);
   const identity = idSchema.safeParse(actor);
   if (!parsed.success || !identity.success) return failure("invalid_request");
@@ -30,14 +31,14 @@ export async function manageCatalog(dependencies: { prisma: BillingPrismaClient;
       const receipt = await tx.billingPricingCommand.findUnique({ where: { actor_operationId: key } });
       if (receipt) return receipt.fingerprint === fingerprint
         ? { ok: true, value: catalogOutcomeSchema.parse(receipt.outcome) } : failure("operation_conflict");
-      const result = await changeCatalog(tx, command);
+      const result = await changeCatalog(tx, command, dependencies.sale);
       if (result.ok) await tx.billingPricingCommand.create({ data: { ...key, fingerprint, outcome: result.value } });
       return result;
     });
   } catch { return failure("dependency_unavailable"); }
 }
 
-async function changeCatalog(tx: BillingPrisma, command: ManageCatalogCommand): Promise<ManageCatalogResult> {
+async function changeCatalog(tx: BillingPrisma, command: ManageCatalogCommand, sale: SaleCapability): Promise<ManageCatalogResult> {
   const id = "value" in command ? command.value.id : command.id;
   const current = command.operation.startsWith("offers.") ? await tx.billingOffer.findUnique({ where: { id } })
     : command.operation.startsWith("paymentOptions.") ? await tx.billingPaymentOption.findUnique({ where: { id } })
@@ -73,6 +74,11 @@ async function changeCatalog(tx: BillingPrisma, command: ManageCatalogCommand): 
       if (current === null || current.archived) return failure("not_found");
       const published = command.operation === "offers.publish";
       if (published && "benefits" in current && (tierLacksComposition(current) || productOfferBreaksOfferTerms(current) || offerGrantsWithheld(current))) return failure("invalid_request");
+      // Без терминала и адреса для чека продавать нечем: отказ сейчас, а не при следующем запуске.
+      if (published && !sale.payments) return failure("method_unavailable");
+      // Включение продажи предложения с вариантом подписки — это включение продажи подписки.
+      if (published && !sale.subscriptions &&
+        await tx.billingPaymentOption.count({ where: { offerId: id, archived: false, mode: "subscription" } }) > 0) return failure("method_unavailable");
       await tx.billingOffer.update({ where: { id }, data: { revision, published } });
       return { ok: true, value: { id, revision, archived: false, published } };
     }
@@ -83,6 +89,8 @@ async function changeCatalog(tx: BillingPrisma, command: ManageCatalogCommand): 
       // Способ оплаты входит в принятые условия покупки, поэтому у существующего варианта он
       // не переписывается: подписку не превращают в разовую продажу задним числом.
       if (current && "mode" in current && current.mode !== mode) return failure("invalid_request");
+      // Вариант подписки у продаваемого предложения сразу поступает в продажу.
+      if (mode === "subscription" && offer.published && !sale.subscriptions) return failure("method_unavailable");
       const data = { ...command.value, mode, revision, archived: false };
       await tx.billingPaymentOption.upsert({ where: { id }, create: data, update: data });
       break;

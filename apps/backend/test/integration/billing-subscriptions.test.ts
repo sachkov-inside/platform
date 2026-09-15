@@ -35,7 +35,7 @@ describe("подписка: продление, отмена, смена вар�
     await db.prisma.accountPermission.create({ data: { accountId: owner, permission: "platform:admin" } });
     accounts = assembleAccounts({ prisma: db.prisma, emailFingerprintKey: "synthetic-lifecycle-fingerprint-000000" });
     grants = assembleAccessGrants({ prisma: db.prisma, accounts, clock: () => now });
-    pricing = new BillingPricing({ prisma: db.prisma, accounts, clock: () => now });
+    pricing = new BillingPricing({ prisma: db.prisma, accounts, clock: () => now, sale: { payments: true, subscriptions: true } });
     contact = new BillingContact({ prisma: db.prisma, protection: billingContactProtection(Buffer.alloc(32, 52).toString("base64")),
       documents, now: () => now, sendCode: message => { codes.set(message.challengeRef, message.code); return Promise.resolve(); } });
   });

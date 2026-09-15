@@ -50,6 +50,11 @@ describe("Billing pricing HTTP", () => {
         LOGTO_AUDIENCE: audience,
         LOGTO_JWKS_URL: `http://127.0.0.1:${String(address.port)}/jwks`,
         IDENTITY_EMAIL_FINGERPRINT_KEY: "accounts-api-test-email-fingerprint-key",
+        // Каталог включает продажу только в процессе с терминалом и адресом для чека.
+        TBANK_PROVIDER_MODE: "test",
+        BILLING_CONTACT_ENCRYPTION_KEY: Buffer.alloc(32, 9).toString("base64"),
+        BILLING_CONTACT_SMTP_HOST: "127.0.0.1",
+        BILLING_CONTACT_FROM: "inside@example.test",
       }),
       { logger: false },
     );

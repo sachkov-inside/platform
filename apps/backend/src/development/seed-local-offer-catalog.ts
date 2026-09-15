@@ -109,6 +109,8 @@ export async function seedLocalOfferCatalog(
 ): Promise<void> {
   const pricing = new BillingPricing({
     prisma,
+    // Стенд продаёт через двойника банка с обоими подтверждениями и перехватчиком писем.
+    sale: { payments: true, subscriptions: true },
     accounts: standOwnerPermission(target.actor),
   });
   const initialTier = await prisma.billingOffer.findUnique({ where: { id: "62000000-0000-4000-8000-000000000624" } });

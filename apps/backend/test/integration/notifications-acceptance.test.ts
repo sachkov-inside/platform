@@ -160,7 +160,7 @@ describe("приёмка обоих источников Notifications (реал
       prisma: platform.prisma,
       workshopEntitlements: assembleWorkshopEntitlements({ prisma: platform.prisma }),
     });
-    pricing = new BillingPricing({ prisma: platform.prisma, accounts });
+    pricing = new BillingPricing({ prisma: platform.prisma, accounts, sale: { payments: true, subscriptions: true } });
     contact = new BillingContact({
       prisma: platform.prisma, protection, documents, now: () => new Date(),
       sendCode: (message) => { codes.set(message.challengeRef, message.code); return Promise.resolve(); },
