@@ -35,7 +35,6 @@ export function assembleMaterials(dependencies: {
     MaterialAssets,
     "inspectReferences" | "loadPresentations" | "markUnreferenced"
   >;
-  readonly membershipAcquisitionUrl?: string;
   readonly workshopMaterialProtection?: WorkshopMaterialProtection;
   readonly guideAccessHolders?: GuideAccessHolders;
   readonly videos?: Pick<
@@ -87,8 +86,6 @@ export function assembleMaterials(dependencies: {
       materialContent,
       materialBodyOperations,
       ...(dependencies.videos === undefined ? {} : { videos: dependencies.videos }),
-      membershipAcquisitionUrl:
-        dependencies.membershipAcquisitionUrl ?? "https://t.me/tribute",
     }),
   });
 }

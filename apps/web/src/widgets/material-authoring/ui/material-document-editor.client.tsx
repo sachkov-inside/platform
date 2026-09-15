@@ -3,7 +3,7 @@ import { useMaterialBlockControls } from "./use-material-block-controls";
 import { materialSaveStateLabel } from "../model/material-save-state-label";
 import { withMaterialNodeIds } from "../model/material-document-identifiers";
 
-import { EditorContent, useEditor } from "@tiptap/react";
+import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import {
   Bold,
   ExternalLink,
@@ -33,7 +33,9 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import {
+  memo,
   useEffect,
+  useMemo,
   useState,
   useRef,
   useCallback,
@@ -61,23 +63,62 @@ import {
   useMaterialAssetUploads,
 } from "./material-asset-upload-controls.client";
 
-export function MaterialDocumentEditor({
+const noAssetPreviewBlocks: NonNullable<
+  MaterialAuthoringPresentation["draft"]["assetPreviewBlocks"]
+> = [];
+
+interface MaterialDocumentEditorProps {
+  /**
+   * Редактор показывает из состояния сохранения только подпись, и `sameEditorProps` сравнивает
+   * именно её. Покажете из состояния что-то ещё — сравните и это, иначе редактор не перерисуется.
+   */
+  readonly saveState?: MaterialAuthoringPresentation["save"];
+  readonly contentVersion?: number | null;
+  readonly assetPreviewBlocks?: MaterialAuthoringPresentation["draft"]["assetPreviewBlocks"];
+  readonly disabled: boolean;
+  /** Документ читается один раз, при монтировании: дальше им владеет Tiptap. */
+  readonly document: MaterialAuthoringPresentation["draft"]["document"];
+  readonly materialId: string | null;
+  /** Должен быть одним на всё время страницы, иначе редактор перерисуется на каждый знак. */
+  readonly onChange: MaterialAuthoringActions["onDocumentChange"];
+}
+
+/**
+ * Страница кладёт черновик в состояние на каждый знак, а редактору при этом перерисовывать нечего.
+ * `document` читается только при монтировании, а состояние сохранения приходит новым объектом на
+ * каждом рендере страницы, поэтому сравнивается по подписи. Остальные свойства сравниваются как
+ * обычно — и те, что появятся позже, тоже.
+ */
+function sameEditorProps(
+  previous: MaterialDocumentEditorProps,
+  next: MaterialDocumentEditorProps,
+): boolean {
+  const { document: _previousDocument, saveState: previousSave, ...previousRest } = previous;
+  const { document: _nextDocument, saveState: nextSave, ...nextRest } = next;
+  if (saveLabel(previousSave) !== saveLabel(nextSave)) return false;
+  const nextValues = new Map<string, unknown>(Object.entries(nextRest));
+  const previousValues = Object.entries(previousRest);
+  return (
+    previousValues.length === nextValues.size &&
+    previousValues.every(
+      ([key, value]) => nextValues.has(key) && Object.is(value, nextValues.get(key)),
+    )
+  );
+}
+
+function saveLabel(state: MaterialDocumentEditorProps["saveState"]): string | undefined {
+  return state === undefined ? undefined : materialSaveStateLabel(state);
+}
+
+function MaterialDocumentEditorView({
   disabled,
   document,
   materialId,
   onChange,
   contentVersion = null,
-  assetPreviewBlocks = [],
+  assetPreviewBlocks = noAssetPreviewBlocks,
   saveState,
-}: {
-  readonly saveState?: MaterialAuthoringPresentation["save"];
-  readonly contentVersion?: number | null;
-  readonly assetPreviewBlocks?: MaterialAuthoringPresentation["draft"]["assetPreviewBlocks"];
-  readonly disabled: boolean;
-  readonly document: MaterialAuthoringPresentation["draft"]["document"];
-  readonly materialId: string | null;
-  readonly onChange: MaterialAuthoringActions["onDocumentChange"];
-}) {
+}: MaterialDocumentEditorProps) {
   const [expanded, setExpanded] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
@@ -125,7 +166,6 @@ export function MaterialDocumentEditor({
     editable: !disabled,
     extensions: materialEditorExtensions,
     immediatelyRender: false,
-    shouldRerenderOnTransaction: true,
     editorProps: {
       handleKeyDown(view, event) {
         if (
@@ -151,6 +191,31 @@ export function MaterialDocumentEditor({
       onChange(currentEditor.getJSON());
     },
   });
+  // Редактор не пересобирается на каждой транзакции: панели читают из него только то, что
+  // показывают, и React просыпается, когда меняется именно это. Знак, набранный в тексте, не
+  // меняет ни отметок под курсором, ни того, стоит ли курсор в таблице.
+  const toolbarState = useEditorState({
+    editor,
+    selector: ({ editor: current }) =>
+      current === null
+        ? null
+        : {
+            bold: current.isActive("bold"),
+            italic: current.isActive("italic"),
+            link: current.isActive("link"),
+            table: current.isActive("table"),
+          },
+  });
+  // Вложения читают контекст: новое значение на каждом рендере перерисовало бы их все.
+  const assetContext = useMemo(
+    () => ({
+      materialId,
+      contentVersion,
+      blocks: assetPreviewBlocks,
+      localImages,
+    }),
+    [assetPreviewBlocks, contentVersion, localImages, materialId],
+  );
   const assetUploads = useMaterialAssetUploads(editor, materialId, imageReady);
   const {
     surface,
@@ -403,7 +468,7 @@ export function MaterialDocumentEditor({
     >
       <div className="sticky top-0 z-30 flex min-h-12 flex-wrap items-center justify-end gap-1 rounded-t-2xl bg-card/95 px-3 py-1">
         <div className="mr-auto flex min-w-0 flex-wrap items-center gap-1">
-          {editor.isActive("table") ? (
+          {toolbarState?.table ? (
             <div
               className="flex gap-1"
               role="toolbar"
@@ -533,7 +598,7 @@ export function MaterialDocumentEditor({
             role="toolbar"
           >
             <ToolbarButton
-              active={editor.isActive("bold")}
+              active={toolbarState?.bold ?? false}
               disabled={disabled}
               label="Полужирный"
               onClick={() => editor.chain().focus().toggleBold().run()}
@@ -541,7 +606,7 @@ export function MaterialDocumentEditor({
               <Bold aria-hidden="true" />
             </ToolbarButton>
             <ToolbarButton
-              active={editor.isActive("italic")}
+              active={toolbarState?.italic ?? false}
               disabled={disabled}
               label="Курсив"
               onClick={() => editor.chain().focus().toggleItalic().run()}
@@ -549,7 +614,7 @@ export function MaterialDocumentEditor({
               <Italic aria-hidden="true" />
             </ToolbarButton>
             <ToolbarButton
-              active={editor.isActive("link")}
+              active={toolbarState?.link ?? false}
               disabled={disabled}
               label="Ссылка"
               onClick={() => {
@@ -629,14 +694,7 @@ export function MaterialDocumentEditor({
             Сначала создайте черновик, затем добавляйте файлы и изображения.
           </p>
         ) : null}
-        <EditorAssetContext.Provider
-          value={{
-            materialId,
-            contentVersion,
-            blocks: assetPreviewBlocks,
-            localImages,
-          }}
-        >
+        <EditorAssetContext.Provider value={assetContext}>
           <EditorContent
             onPointerMove={(event) => {
               hover(event.target);
@@ -712,3 +770,8 @@ function ToolbarButton({
     </Button>
   );
 }
+
+export const MaterialDocumentEditor = memo(
+  MaterialDocumentEditorView,
+  sameEditorProps,
+);

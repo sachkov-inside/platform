@@ -160,7 +160,7 @@ export const TopicDesktop: Story = {
 
 export const TopicMobile: Story = {
   args: { result: topicResult },
-  globals: { viewport: { isRotated: false, value: "mobile360" } },
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
   name: "Topic · mobile",
   play: heroOpensAtTheSamePlace,
 };
@@ -172,7 +172,7 @@ export const TopicLongTitle: Story = {
       reference: { ...topicResult.reference, name: "Т".repeat(120) },
     },
   },
-  globals: { viewport: { isRotated: false, value: "mobile360" } },
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
   name: "Topic · long title",
   play: async ({ canvasElement }) => {
     await expectNoHorizontalOverflow(canvasElement);
@@ -221,7 +221,7 @@ export const SeriesProductDesktop: Story = {
 
 export const SeriesProductMobile: Story = {
   args: { result: { ...seriesResult, chapters: seriesChapters } },
-  globals: { viewport: { isRotated: false, value: "mobile360" } },
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
   name: "Series · product mobile",
   play: async ({ canvasElement }) => {
     await expectNoHorizontalOverflow(canvasElement);
@@ -235,7 +235,7 @@ export const SeriesLongTitle: Story = {
       reference: { ...seriesResult.reference, name: "П".repeat(120) },
     },
   },
-  globals: { viewport: { isRotated: false, value: "mobile360" } },
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
   name: "Series · long title",
   play: async ({ canvasElement }) => {
     await expectNoHorizontalOverflow(canvasElement);

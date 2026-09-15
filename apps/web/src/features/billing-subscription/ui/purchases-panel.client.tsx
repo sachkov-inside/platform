@@ -35,7 +35,7 @@ export function PurchasesPanel({
     retry: false,
     onSuccess: (result) => {
       cabinet.settle(result, (value) => {
-        cabinet.refresh();
+        cabinet.rereadAfterCommand();
         if (value.formUrl !== null) (onNavigate ?? assignLocation)(value.formUrl);
       });
     },

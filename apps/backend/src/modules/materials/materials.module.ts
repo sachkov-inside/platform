@@ -271,7 +271,6 @@ import {
         PrismaClientProvider,
         CONTENT_ACCESS,
         MATERIAL_CONTENT,
-        PLATFORM_CONFIG,
         MATERIAL_ASSETS,
         VIDEOS,
         BillingPricing,
@@ -280,7 +279,6 @@ import {
         prisma: PrismaClientProvider,
         contentAccess: ContentAccess,
         materialContent: MaterialContent,
-        config: PlatformConfig,
         materialAssets: MaterialAssets,
         videos: Videos,
         pricing: BillingPricing,
@@ -293,8 +291,6 @@ import {
           materialAssets,
           videos,
           subscriptionForSale: () => pricing.hasOffersForSale(),
-          membershipAcquisitionUrl:
-            config.contentAccess.membershipAcquisitionUrl,
         }),
     },
     {

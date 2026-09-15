@@ -1,0 +1,32 @@
+{
+  "product-first": {
+    "backendDelayMs": 400,
+    "desktop-1440": {
+      "firstByte": 438,
+      "firstContentfulPaint": 484,
+      "homeFrame": 445,
+      "product": 445
+    },
+    "mobile-390": {
+      "firstByte": 442,
+      "firstContentfulPaint": 476,
+      "homeFrame": 449,
+      "product": 449
+    }
+  },
+  "suspense-shell": {
+    "backendDelayMs": 400,
+    "desktop-1440": {
+      "firstByte": 19,
+      "firstContentfulPaint": 44,
+      "homeFrame": 24,
+      "product": 448
+    },
+    "mobile-390": {
+      "firstByte": 19,
+      "firstContentfulPaint": 44,
+      "homeFrame": 24,
+      "product": 448
+    }
+  }
+}

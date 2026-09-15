@@ -29,8 +29,6 @@ describe("published Material HTTP contract", () => {
       parsePlatformConfig({
         NODE_ENV: "test",
         DATABASE_URL: testDatabase.url,
-        MEMBERSHIP_ACQUISITION_URL:
-          "https://t.me/tribute/app?startapp=inside",
       }),
       { logger: false },
     );
@@ -57,13 +55,13 @@ describe("published Material HTTP contract", () => {
         title: "Developer Pipeline без потери контекста",
         access: "membership",
       },
-      // Локальный seed продаёт только руководство, а подписку не продаёт. Разовое предложение
-      // продукта признак продажи подписки не включает, поэтому приглашения к подписке нет:
-      // купить закрытый материал ведёт страница его руководства.
-      access: {
-        availability: "locked",
-        cta: null,
-      },
+    });
+    // Локальный seed продаёт только руководство, а подписку не продаёт: разовое предложение
+    // продукта признак продажи подписки не включает (#648). Строгое сравнение не пропустит в ответ
+    // адрес покупки.
+    expect(response.json<{ access: object }>().access).toStrictEqual({
+      availability: "locked",
+      subscriptionOffered: false,
     });
     expect(response.body).not.toContain("schemaVersion");
     expect(response.body).not.toContain("blocks");
@@ -190,9 +188,7 @@ describe("published Material HTTP contract", () => {
     const home = response.json<{
       readonly guides: readonly { readonly slug: string }[];
       readonly notes: readonly { readonly slug: string }[];
-      readonly membership: {
-        readonly kind: "notOffered";
-      };
+      readonly membership: { readonly kind: "notOffered" };
       readonly playlists: readonly {
         readonly previewItems: readonly unknown[];
         readonly slug: string;
@@ -205,8 +201,9 @@ describe("published Material HTTP contract", () => {
     }>();
     expect(home.topics.map(({ slug }) => slug)).toContain("platform");
     // Локальный seed продаёт только руководство: разовое предложение продукта не делает подписку
-    // продаваемой, поэтому главная к подписке не зовёт.
-    expect(home.membership).toEqual({ kind: "notOffered" });
+    // продаваемой (#648), поэтому главная к подписке не зовёт. Строгое сравнение проверяет, что
+    // ответ несёт только состояние, без адреса покупки.
+    expect(home.membership).toStrictEqual({ kind: "notOffered" });
     expect(home.playlists).toHaveLength(4);
     expect(home.playlists.map(({ slug }) => slug)).toContain("demo-progress-series");
     expect(home.playlists[0]?.previewItems).toBeInstanceOf(Array);
@@ -467,7 +464,7 @@ describe("published Material HTTP contract", () => {
     }
   });
 
-  test("hides the subscription without a variant on sale and shows the CTA with one", async () => {
+  test("reports the subscription as not offered without a variant on sale and as offered with one", async () => {
     // Витрина следует каталогу, поэтому проверка начинается со снятого с продажи каталога seed.
     // Сценарий возвращает продажу в конце: состояние каталога принадлежит ему, а не порядку тестов.
     const seeded = await testDatabase.prisma.billingOffer.findMany({ select: { id: true }, where: { published: true } });
@@ -476,6 +473,11 @@ describe("published Material HTTP contract", () => {
     try {
       const withoutSale = (await server.inject({ method: "GET", url: "/library/home" })).json<{ membership: unknown }>();
       expect(withoutSale.membership).toEqual({ kind: "notOffered" });
+      const lockedWithoutSale = (await server.inject({
+        method: "GET",
+        url: "/materials/developer-pipeline-bez-poteri-konteksta",
+      })).json<{ access: unknown }>();
+      expect(lockedWithoutSale.access).toEqual({ availability: "locked", subscriptionOffered: false });
     } finally {
       await testDatabase.prisma.billingOffer.updateMany({ data: { published: true }, where: onSale });
     }
@@ -490,20 +492,11 @@ describe("published Material HTTP contract", () => {
     });
 
     const home = (await server.inject({ method: "GET", url: "/library/home" })).json<{ membership: unknown }>();
-    expect(home.membership).toEqual({
-      acquisitionUrl: "https://t.me/tribute/app?startapp=inside",
-      kind: "inactive",
-    });
+    expect(home.membership).toEqual({ kind: "inactive" });
     const teaser = (await server.inject({
       method: "GET",
       url: "/materials/developer-pipeline-bez-poteri-konteksta",
     })).json<{ access: unknown }>();
-    expect(teaser.access).toEqual({
-      availability: "locked",
-      cta: {
-        label: "Получить доступ",
-        url: "https://t.me/tribute/app?startapp=inside",
-      },
-    });
+    expect(teaser.access).toEqual({ availability: "locked", subscriptionOffered: true });
   });
 });

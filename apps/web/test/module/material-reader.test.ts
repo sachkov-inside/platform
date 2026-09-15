@@ -128,7 +128,7 @@ describe("Material Reader server adapter", () => {
     expect(fetch).toHaveBeenCalledOnce();
   });
 
-  it("returns an expected access state without the external purchase address", async () => {
+  it("returns an expected access state with the subscription sale signal", async () => {
     vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
     vi.stubGlobal(
       "fetch",
@@ -137,13 +137,7 @@ describe("Material Reader server adapter", () => {
           kind: "teaser",
           cacheScope: "private-no-store",
           projection: { ...publishedProjection, access: "membership" },
-          access: {
-            availability: "locked",
-            cta: {
-              label: "Получить доступ",
-              url: "https://t.me/tribute/app?startapp=inside",
-            },
-          },
+          access: { availability: "locked", subscriptionOffered: true },
         }),
       ),
     );
@@ -180,7 +174,7 @@ describe("Material Reader server adapter", () => {
     });
   });
 
-  it("reports no subscription on sale when the locked Material carries no call to action", async () => {
+  it("reports no subscription on sale when the locked Material says so", async () => {
     vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
     vi.stubGlobal(
       "fetch",
@@ -189,7 +183,7 @@ describe("Material Reader server adapter", () => {
           kind: "teaser",
           cacheScope: "private-no-store",
           projection: { ...publishedProjection, access: "membership" },
-          access: { availability: "locked", cta: null },
+          access: { availability: "locked", subscriptionOffered: false },
         }),
       ),
     );
