@@ -67,7 +67,7 @@ export const supportOffer: PriceSnapshot = {
   renewalPriceKopecks: 350_000,
 };
 
-/** Руководство, которому владелец завёл цену: покупается один раз и открывается навсегда. */
+/** Руководство, которому владелец завёл цену: покупается один раз, право выдаётся без даты окончания. */
 export const guideOnlyOffer: PriceSnapshot = {
   offer: {
     id: uuid("103"),
