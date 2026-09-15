@@ -96,7 +96,16 @@ export function convertMarkdown(markdown, { sourcePath, sourceId, link, image })
   function assign(node, path) {
     if (addressableMaterialBlockTypes.includes(node.type)) node.attrs = { ...node.attrs, nodeId: sourceUuid(`${sourceId}:${path.join(".")}`) };
     if (node.marks) node.marks.sort((left, right) => materialDocumentSchemaV1.marks[left.type].rank - materialDocumentSchemaV1.marks[right.type].rank);
-    node.content?.forEach((child, index) => assign(child, [...path, index]));
+    if (node.content) {
+      const merged = [];
+      for (const child of node.content) {
+        const previous = merged.at(-1);
+        if (child.type === "text" && previous?.type === "text" && JSON.stringify(child.marks ?? []) === JSON.stringify(previous.marks ?? [])) previous.text += child.text;
+        else merged.push(child);
+      }
+      node.content = merged;
+      node.content.forEach((child, index) => assign(child, [...path, index]));
+    }
   }
   assign(doc, []);
   return { schemaVersion: 1, doc };

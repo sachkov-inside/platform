@@ -740,9 +740,28 @@ confirmation still gives a full period; duplicate notifications and fulfillment 
 the original saved bounds. No separate time-policy injection is required. Missing terminal
 configuration continues to disable payment admission; DEMO/production activation remains separate.
 
-### Authoring package tooling under development (#468)
+### Local Obsidian authoring preview (#468)
 
-`pnpm test:authoring` verifies the portable package reader, Markdown conversion and persistent
-operation journal in `tools/authoring`. These modules are implementation work in progress; they
-are not yet a complete watch/import/release command. Current evidence and remaining acceptance
-are recorded in [the #468 checkpoint](../evidence/issue-468/README.md).
+The isolated `editor:local` runtime above supports a loopback-only import gateway. Start the
+runtime before `pnpm authoring:sync-local PACKAGE_JSON STATE_DIRECTORY`, or run
+`pnpm authoring:watch-local CONTENT_ROOT GUIDE_ID STATE_DIRECTORY` to export and synchronize
+on saves under Content `guides`, `materials` and `assets`. The watcher requires the existing
+Content `uv` environment and writes immutable packages under its ignored `_local/platform-packages`.
+Refresh the browser after a successful `synced` log entry; automatic browser refresh is not yet wired.
+
+This adapter copies source drafts into **locally published** Materials so the actual product and
+reader can be reviewed. Missing access uses the owner's approved `membership` default for this
+acceptance. It has no remote target option. Source IDs and the separate persistent journal preserve
+Material identities across edits and renames. Do not discard the journal between synchronizations.
+Validation runs before Material changes; invalid Markdown leaves existing Material bodies intact.
+An interrupted batch can be partially applied and is resumed, not rolled back as one transaction.
+
+Only main programme placements contribute to this local Guide. Supplementary Materials have
+separate reader URLs in `journal.json`'s `lastReport`; their product tab is separate follow-up work.
+If the Guide introduction exceeds the existing 500-character summary contract, the preview uses
+its first paragraph and reports that the full introduction has not been mapped. It remains in the
+package and original. Real video attachment, covers and artifact transfer are still reported as
+pending. This is an author identity preview, not paid-buyer or provider acceptance.
+
+`pnpm test:authoring` verifies package checks, Markdown conversion and operation recovery.
+Remaining #468 work is recorded in [the checkpoint](../evidence/issue-468/README.md).

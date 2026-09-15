@@ -35,12 +35,23 @@ export async function applyJournaled({ journal, persist }, request, send) {
   const key = `authoring:${checksum(canonical(request))}`;
   let entry = journal.operations[key];
   if (entry?.status === "applied") return entry.result;
+  if (entry?.status === "rejected") throw Object.assign(new Error(entry.error.message), { status: entry.error.status });
   if (!entry) {
     entry = { request, status: "pending" };
     journal.operations[key] = entry;
     await persist();
   }
-  const result = await send(entry.request, key);
+  let result;
+  try { result = await send(entry.request, key); }
+  catch (error) {
+    // A definitive client rejection did not commit; do not replay it ahead of corrected inputs.
+    if (error.status >= 400 && error.status < 500 && ![408, 429].includes(error.status)) {
+      entry.status = "rejected";
+      entry.error = { status: error.status, message: error.message };
+      await persist();
+    }
+    throw error;
+  }
   entry.status = "applied";
   entry.result = result;
   await persist();

@@ -28,3 +28,12 @@ test("renaming the original does not change node identities", () => {
   const renamed = convertMarkdown("# Title\n\nText", { ...options, sourcePath: "moved.md" });
   assert.deepEqual(first, renamed);
 });
+
+test("soft line breaks merge adjacent equal-mark text without dropping author words", () => {
+  const doc = convert("One line\nsecond line **bold**\nthird line.");
+  const content = doc.content[0].content;
+  assert.equal(content[0].text, "One line\nsecond line ");
+  assert.equal(content[1].text, "bold");
+  assert.equal(content[2].text, "\nthird line.");
+  assert.deepEqual(JSON.parse(JSON.stringify(materialDocumentSchemaV1.nodeFromJSON(doc).toJSON())), doc);
+});

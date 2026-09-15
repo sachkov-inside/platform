@@ -38,6 +38,20 @@ const gateway = createServer(async (request, response) => {
     return;
   }
   try {
+    if (request.url?.startsWith("/__local-api/")) {
+      if (request.headers.origin !== undefined && request.headers.origin !== webBaseUrl) {
+        response.writeHead(403).end();
+        return;
+      }
+      const upstream = proxyRequest({
+        hostname: "127.0.0.1", port: 4397,
+        path: request.url.slice("/__local-api".length), method: request.method,
+        headers: { ...request.headers, host: "127.0.0.1:4397", authorization: `Bearer ${(await identity.createAccessToken()).token}` },
+      }, (incoming) => { response.writeHead(incoming.statusCode ?? 502, incoming.headers); incoming.pipe(response); });
+      upstream.on("error", () => response.writeHead(502).end("Local API is starting"));
+      request.pipe(upstream);
+      return;
+    }
     const session = await identity.createSession(
       await identity.createAccessToken(),
     );
