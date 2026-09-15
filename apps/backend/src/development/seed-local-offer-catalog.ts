@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 
 import type { PlatformPrisma } from "../infrastructure/prisma/index.js";
-import { ContentScopeCatalog } from "../modules/materials/index.js";
 import { BillingPricing } from "../modules/billing/index.js";
 import { guideCapability } from "@inside/access-capabilities";
 
@@ -113,14 +112,7 @@ export async function seedLocalOfferCatalog(
     sale: { payments: true, subscriptions: true },
     accounts: standOwnerPermission(target.actor),
   });
-  const initialTier = await prisma.billingOffer.findUnique({ where: { id: "62000000-0000-4000-8000-000000000624" } });
-  if (initialTier !== null && initialTier.revision === 1) {
-    const content = await new ContentScopeCatalog(prisma).list();
-    await sendCatalogCommand(pricing, target.actor, { operation: "offers.save", operationId: randomUUID(), expectedRevision: 1,
-      value: { id: initialTier.id, name: initialTier.name, benefits: ["materials", "community", "support"], availableForAssignment: true,
-        // Состав называет только продукты: отдельный материал в тариф не входит (#648).
-        contentScope: { guideIds: content.filter(item => item.kind === "guide" && item.available).map(item => item.id), materialIds: [] } } });
-  }
+  // Стартовый тариф задаёт миграция 0067: все продукты платформы, сопровождение и общая группа.
   const current = await readOwnerCatalog(pricing);
   for (const offer of localCatalog(target.guideId)) {
     const live = current.get(offer.option.id);

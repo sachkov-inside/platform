@@ -73,8 +73,18 @@ export function accessComposition(
 export const contentScopeSchema = z.strictObject({
   guideIds: z.array(z.uuid()).max(1000).refine(ids => new Set(ids).size === ids.length),
   materialIds: z.array(z.uuid()).max(1000).refine(ids => new Set(ids).size === ids.length),
+  /**
+   * Все продукты платформы, включая опубликованные позже: состав подписки и стартового тарифа.
+   * Отдельные материалы состав не образуют; прежние снимки ещё могут их называть.
+   */
+  allGuides: z.literal(true).exactOptional(),
 });
 export type ContentScope = z.infer<typeof contentScopeSchema>;
+
+/** Открывает ли состав продукт: продукт назван явно или состав включает все продукты. */
+export function scopeIncludesGuide(scope: ContentScope, guideId: string): boolean {
+  return scope.allGuides === true || scope.guideIds.includes(guideId);
+}
 
 /**
  * Состав, который ничего не открывает: его нет, он не читается как состав или в нём нет ни одного
@@ -83,7 +93,8 @@ export type ContentScope = z.infer<typeof contentScopeSchema>;
  */
 export function isEmptyContentScope(scope: unknown): boolean {
   const parsed = contentScopeSchema.safeParse(scope);
-  return !parsed.success || (parsed.data.guideIds.length === 0 && parsed.data.materialIds.length === 0);
+  return !parsed.success ||
+    (parsed.data.allGuides !== true && parsed.data.guideIds.length === 0 && parsed.data.materialIds.length === 0);
 }
 
 export const contentScopeEntrySchema = z.strictObject({ kind: z.enum(["guide", "material"]), id: z.uuid(), title: z.string(), slug: z.string().nullable(), available: z.boolean() });

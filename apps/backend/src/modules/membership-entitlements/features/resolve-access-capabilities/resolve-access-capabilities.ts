@@ -1,4 +1,4 @@
-import { contentScopeSchema } from "@inside/access-capabilities";
+import { contentScopeSchema, scopeIncludesGuide } from "@inside/access-capabilities";
 import type { MembershipAccessState } from "../../facets/membership-entitlements/membership-entitlements.interface.js";
 import type { AccountId } from "../../../accounts/index.js";
 import type { MembershipEntitlementsPrisma } from "../../infrastructure/prisma.js";
@@ -92,7 +92,7 @@ export function projectAccessCapabilities({ grants, classification, projection, 
       if (withheldAccessCapabilities.includes(granted)) continue;
       if (granted === "materials" && resource !== undefined) {
         const scope = contentScopeSchema.parse(grant.contentScope ?? { guideIds: [], materialIds: [] });
-        if (!resource.guideIds.some(id => scope.guideIds.includes(id)) &&
+        if (!resource.guideIds.some(id => scopeIncludesGuide(scope, id)) &&
           (resource.materialId === undefined || !scope.materialIds.includes(resource.materialId))) continue;
       }
       for (const capability of capabilitiesOpenedBy(granted))
@@ -104,7 +104,7 @@ export function projectAccessCapabilities({ grants, classification, projection, 
       if (withheldAccessCapabilities.includes(capability)) continue;
       if (capability === "materials" && resource !== undefined) {
         const scope = contentScopeSchema.parse(classification?.bridgeContentScope ?? { guideIds: [], materialIds: [] });
-        if (!resource.guideIds.some(id => scope.guideIds.includes(id)) &&
+        if (!resource.guideIds.some(id => scopeIncludesGuide(scope, id)) &&
           (resource.materialId === undefined || !scope.materialIds.includes(resource.materialId))) continue;
       }
       // Мост открывает то же, что и выданное право: сопровождение приводит в общую группу.
@@ -123,7 +123,7 @@ export function projectAccessCapabilities({ grants, classification, projection, 
     const expired = historicalMaterials.some(grant => {
       if (resource === undefined) return true;
       const scope = contentScopeSchema.parse(grant.contentScope ?? { guideIds: [], materialIds: [] });
-      return resource.guideIds.some(id => scope.guideIds.includes(id)) || (resource.materialId !== undefined && scope.materialIds.includes(resource.materialId));
+      return resource.guideIds.some(id => scopeIncludesGuide(scope, id)) || (resource.materialId !== undefined && scope.materialIds.includes(resource.materialId));
     });
     membership = { kind: expired ? "expired" : "required" };
   } else if (projection !== null) {

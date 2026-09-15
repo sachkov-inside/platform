@@ -269,7 +269,7 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
 
     const subscriptionOffer = randomUUID(), subscriptionOption = randomUUID();
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.save",
-      value: { id: subscriptionOffer, name: "Материалы", benefits: ["materials"] } }));
+      value: { id: subscriptionOffer, name: "Материалы", benefits: ["materials"], contentScope: { guideIds: [randomUUID()], materialIds: [] } } }));
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "paymentOptions.save",
       value: { id: subscriptionOption, offerId: subscriptionOffer, months: 1, priceKopecks: 100_000 } }));
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.publish", expectedRevision: 1, id: subscriptionOffer }));

@@ -233,11 +233,13 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
         account_id: z.uuid(),
         capabilities: z.array(z.string()),
         guide_ids: z.array(z.string()).nullable(),
+        all_guides: z.boolean().nullable(),
       })).parse(
         await prisma.$queryRaw(Prisma.sql`
           select grant_row.account_id,
                  grant_row.capabilities,
-                 grant_row.content_scope -> 'guideIds' as guide_ids
+                 grant_row.content_scope -> 'guideIds' as guide_ids,
+                 grant_row.content_scope ->> 'allGuides' = 'true' as all_guides
           from membership_entitlements.access_grants as grant_row
           where grant_row.revoked_at is null
             and grant_row.starts_at <= ${now}
@@ -246,7 +248,8 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
               grant_row.capabilities && ${ids.map(guideCapability)}::text[]
               or (
                 grant_row.capabilities @> array['materials']::text[]
-                and coalesce(grant_row.content_scope -> 'guideIds', '[]'::jsonb) ?| ${ids}::text[]
+                and (coalesce(grant_row.content_scope -> 'guideIds', '[]'::jsonb) ?| ${ids}::text[]
+                  or grant_row.content_scope ->> 'allGuides' = 'true')
               )
             )
         `),
@@ -254,7 +257,7 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       return new Map(ids.map((id) => {
         const holders = new Set(rows.flatMap((row) =>
           row.capabilities.includes(guideCapability(id)) ||
-          (row.capabilities.includes("materials") && (row.guide_ids ?? []).includes(id))
+          (row.capabilities.includes("materials") && (row.all_guides === true || (row.guide_ids ?? []).includes(id)))
             ? [row.account_id] : []));
         return [id, holders.size];
       }));

@@ -9,6 +9,7 @@ import {
   guideCapability,
   isEmptyContentScope,
   isGuideCapability,
+  scopeIncludesGuide,
 } from "./index.js";
 
 const guide = "guide:5a1c6f10-0b33-4e2f-9a8c-7d4e12b0f001" as const;
@@ -64,6 +65,11 @@ describe("access capabilities", () => {
     expect(isEmptyContentScope({ guideIds: ["not-a-uuid"], materialIds: [] })).toBe(true);
     expect(isEmptyContentScope({ guideIds: [id], materialIds: [] })).toBe(false);
     expect(isEmptyContentScope({ guideIds: [], materialIds: [id] })).toBe(false);
+    expect(isEmptyContentScope({ guideIds: [], materialIds: [], allGuides: true })).toBe(false);
+    // Все продукты платформы включают и тот, что появится позже.
+    expect(scopeIncludesGuide({ guideIds: [], materialIds: [], allGuides: true }, id)).toBe(true);
+    expect(scopeIncludesGuide({ guideIds: [id], materialIds: [] }, id)).toBe(true);
+    expect(scopeIncludesGuide({ guideIds: [], materialIds: [id] }, id)).toBe(false);
   });
 
   // Срок участия в чате держится всем, что чат открывает: и объявленным правом участия, и каждым

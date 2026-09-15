@@ -269,7 +269,7 @@ export const accessScenarioTable = {
       after: { "programme": open("public"), "product-material": open("lifetime"), "artifacts": open("lifetime") },
     },
     "tier-composition-change": {
-      rule: "Новая редакция состава тарифа не меняет действующие назначения, пока владелец явно не расширит их.",
+      rule: "Новая редакция состава тарифа не меняет действующие назначения, пока владелец явно не расширит их. Стартовый тариф и подписка состава не правят: они открывают все продукты, включая новые.",
       after: { "product-material": open("ground-term") },
     },
     "tier-archived-with-assignments": {

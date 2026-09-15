@@ -131,7 +131,7 @@ describe("таблица сценариев доступа (реальный Pos
     // Tribute открывает тариф только через реестр источника: политика, строка реестра и сверка.
     convergence = new TributeConvergence(db.prisma, new TributeSources({ prisma: db.prisma, accounts, links, clock: () => now }));
     community = new CommunityEntitlements({ accounts, clock: () => now, grants, links, prisma: db.prisma, provider });
-    pricing = new BillingPricing({ prisma: db.prisma, accounts, clock: () => now });
+    pricing = new BillingPricing({ prisma: db.prisma, accounts, clock: () => now, sale: { payments: true, subscriptions: true } });
     contact = new BillingContact({ prisma: db.prisma, protection: billingContactProtection(Buffer.alloc(32, 72).toString("base64")),
       documents: syntheticConsentDocuments, now: () => now, sendCode: message => { codes.set(message.challengeRef, message.code); return Promise.resolve(); } });
     bank = new BankFixture(config);
@@ -164,7 +164,8 @@ describe("таблица сценариев доступа (реальный Pos
     artifactId = await artifact(guideA);
 
     productOptionId = (await productOffer(guideA)).optionId;
-    tierId = await tier([guideA]);
+    // Стартовый тариф открывает все продукты платформы, включая новые.
+    tierId = await tier("all");
 
     grounds.set("guest", [null]);
     grounds.set("account-without-rights", [await account()]);
@@ -254,11 +255,12 @@ describe("таблица сценариев доступа (реальный Pos
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.publish", expectedRevision: 1, id: offerId }));
     return { offerId, optionId };
   }
-  /** Тариф как стартовый: материалы продуктов, сопровождение и общая группа. */
-  async function tier(guideIds: readonly string[], benefits: readonly string[] = ["materials", "community", "support"]): Promise<string> {
+  /** Тариф с правами стартового: материалы, сопровождение и общая группа; состав — все продукты или названные. */
+  async function tier(guideIds: readonly string[] | "all", benefits: readonly string[] = ["materials", "community", "support"]): Promise<string> {
     const id = randomUUID();
+    const contentScope = guideIds === "all" ? { guideIds: [], materialIds: [], allGuides: true } : { guideIds: [...guideIds], materialIds: [] };
     owned(await operations.execute(owner, { operation: "offers.save", operationId: randomUUID(),
-      value: { id, name: "Стартовый тариф", benefits: [...benefits], availableForAssignment: true, contentScope: { guideIds: [...guideIds], materialIds: [] } } }));
+      value: { id, name: "Стартовый тариф", benefits: [...benefits], availableForAssignment: true, contentScope } }));
     return id;
   }
   async function account(): Promise<string> {
@@ -666,6 +668,9 @@ describe("таблица сценариев доступа (реальный Pos
     now = new Date(startedAt);
     const guideC = await guide(`scenario-added-${randomUUID()}`);
     const added = await material([guideC]);
+    // Стартовый тариф состава не правит: новый продукт открывается его назначению сам.
+    const starter = await assigned("course", null);
+    expect(await observe("product-material", starter, { material: added })).toEqual(open("lifetime"));
     const changing = await tier([guideA]);
     const recipient = await account();
     const enrollment = await assignEnrollment("manual", recipient, groundEndsAt, changing);

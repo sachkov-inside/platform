@@ -172,7 +172,7 @@ describe("Billing catalog, quotes and reservations on PostgreSQL", () => {
     // Процесс без терминала или адреса для чека не включает в продажу ничего, даже разовый вариант.
     const unconfigured = new BillingPricing({ prisma: database.prisma, accounts, clock: () => now, sale: { payments: false, subscriptions: false } });
     const unsold = randomUUID(), unsoldCapability = `guide:${randomUUID()}`;
-    value(await unconfigured.manage(owner, { operation: "offers.save", operationId: randomUUID(), value: { id: unsold, name: "Руководство", benefits: [unsoldCapability], benefitPeriods: [{ capability: unsoldCapability, months: null }] } }));
+    value(await unconfigured.manage(owner, { operation: "offers.save", operationId: randomUUID(), value: { id: unsold, name: "Руководство", benefits: [unsoldCapability, "support"], benefitPeriods: [{ capability: unsoldCapability, months: null }, { capability: "support", months: 6 }] } }));
     value(await unconfigured.manage(owner, { operation: "paymentOptions.save", operationId: randomUUID(), value: { id: randomUUID(), offerId: unsold, mode: "one_time", months: 1, priceKopecks: 100_000 } }));
     expect(await unconfigured.manage(owner, { operation: "offers.publish", operationId: randomUUID(), expectedRevision: 1, id: unsold }))
       .toMatchObject({ ok: false, error: { code: "method_unavailable" } });
@@ -183,14 +183,14 @@ describe("Billing catalog, quotes and reservations on PostgreSQL", () => {
       operation: "paymentOptions.save", operationId: randomUUID(), value: { id, offerId, mode, months: 1, priceKopecks: 100_000 } });
 
     const subscription = randomUUID();
-    value(await allMethods.manage(owner, { operation: "offers.save", operationId: randomUUID(), value: { id: subscription, name: "Материалы", benefits: ["materials"] } }));
+    value(await allMethods.manage(owner, { operation: "offers.save", operationId: randomUUID(), value: { id: subscription, name: "Материалы", benefits: ["materials"], contentScope: { guideIds: [randomUUID()], materialIds: [] } } }));
     value(await save(subscription, "subscription"));
     expect(await allMethods.manage(owner, { operation: "offers.publish", operationId: randomUUID(), expectedRevision: 1, id: subscription }))
       .toMatchObject({ ok: false, error: { code: "method_unavailable" } });
     expect(await onSale("subscription")).not.toContain(subscription);
 
     const guide = randomUUID(), capability = `guide:${randomUUID()}`;
-    value(await allMethods.manage(owner, { operation: "offers.save", operationId: randomUUID(), value: { id: guide, name: "Руководство", benefits: [capability], benefitPeriods: [{ capability, months: null }] } }));
+    value(await allMethods.manage(owner, { operation: "offers.save", operationId: randomUUID(), value: { id: guide, name: "Руководство", benefits: [capability, "support"], benefitPeriods: [{ capability, months: null }, { capability: "support", months: 6 }] } }));
     value(await save(guide, "one_time"));
     expect(value(await allMethods.manage(owner, { operation: "offers.publish", operationId: randomUUID(), expectedRevision: 1, id: guide }))).toMatchObject({ published: true });
     expect(await onSale("one_time")).toContain(guide);
@@ -250,7 +250,8 @@ describe("признак продажи подписки на собственн
     database = await createMigratedTestDatabase();
     await database.prisma.account.create({ data: { id: owner, logtoIssuer: "https://identity.invalid", logtoSubject: owner } });
     await database.prisma.accountPermission.create({ data: { accountId: owner, permission: "billing:manage" } });
-    billing = new BillingPricing({ prisma: database.prisma, accounts: assembleAccounts({ prisma: database.prisma, emailFingerprintKey: "billing-sale-key-0000000000000000000" }), clock: () => now });
+    billing = new BillingPricing({ prisma: database.prisma, accounts: assembleAccounts({ prisma: database.prisma, emailFingerprintKey: "billing-sale-key-0000000000000000000" }), clock: () => now,
+      sale: { payments: true, subscriptions: true } });
   });
   afterAll(async () => { await database.dispose(); });
   async function offer(input: { readonly benefits: readonly string[]; readonly mode: "subscription" | "one_time"; readonly contentScope?: { guideIds: string[]; materialIds: string[] };

@@ -4687,6 +4687,12 @@
                                       "additionalProperties": false,
                                       "nullable": true,
                                       "properties": {
+                                        "allGuides": {
+                                          "enum": [
+                                            true
+                                          ],
+                                          "type": "boolean"
+                                        },
                                         "guideIds": {
                                           "items": {
                                             "format": "uuid",
@@ -4983,6 +4989,12 @@
                                   "additionalProperties": false,
                                   "nullable": true,
                                   "properties": {
+                                    "allGuides": {
+                                      "enum": [
+                                        true
+                                      ],
+                                      "type": "boolean"
+                                    },
                                     "guideIds": {
                                       "items": {
                                         "format": "uuid",
@@ -7649,6 +7661,12 @@
                               "contentScope": {
                                 "additionalProperties": false,
                                 "properties": {
+                                  "allGuides": {
+                                    "enum": [
+                                      true
+                                    ],
+                                    "type": "boolean"
+                                  },
                                   "guideIds": {
                                     "items": {
                                       "format": "uuid",
@@ -8872,6 +8890,12 @@
                                   "additionalProperties": false,
                                   "nullable": true,
                                   "properties": {
+                                    "allGuides": {
+                                      "enum": [
+                                        true
+                                      ],
+                                      "type": "boolean"
+                                    },
                                     "guideIds": {
                                       "items": {
                                         "format": "uuid",
@@ -9168,6 +9192,12 @@
                               "additionalProperties": false,
                               "nullable": true,
                               "properties": {
+                                "allGuides": {
+                                  "enum": [
+                                    true
+                                  ],
+                                  "type": "boolean"
+                                },
                                 "guideIds": {
                                   "items": {
                                     "format": "uuid",
@@ -9944,6 +9974,12 @@
                               "additionalProperties": false,
                               "nullable": true,
                               "properties": {
+                                "allGuides": {
+                                  "enum": [
+                                    true
+                                  ],
+                                  "type": "boolean"
+                                },
                                 "guideIds": {
                                   "items": {
                                     "format": "uuid",
@@ -10718,6 +10754,12 @@
                               "additionalProperties": false,
                               "nullable": true,
                               "properties": {
+                                "allGuides": {
+                                  "enum": [
+                                    true
+                                  ],
+                                  "type": "boolean"
+                                },
                                 "guideIds": {
                                   "items": {
                                     "format": "uuid",
@@ -11497,6 +11539,12 @@
                               "additionalProperties": false,
                               "nullable": true,
                               "properties": {
+                                "allGuides": {
+                                  "enum": [
+                                    true
+                                  ],
+                                  "type": "boolean"
+                                },
                                 "guideIds": {
                                   "items": {
                                     "format": "uuid",
@@ -12264,6 +12312,12 @@
                                   "additionalProperties": false,
                                   "nullable": true,
                                   "properties": {
+                                    "allGuides": {
+                                      "enum": [
+                                        true
+                                      ],
+                                      "type": "boolean"
+                                    },
                                     "guideIds": {
                                       "items": {
                                         "format": "uuid",
@@ -12560,6 +12614,12 @@
                               "additionalProperties": false,
                               "nullable": true,
                               "properties": {
+                                "allGuides": {
+                                  "enum": [
+                                    true
+                                  ],
+                                  "type": "boolean"
+                                },
                                 "guideIds": {
                                   "items": {
                                     "format": "uuid",
@@ -13331,6 +13391,12 @@
                                   "additionalProperties": false,
                                   "nullable": true,
                                   "properties": {
+                                    "allGuides": {
+                                      "enum": [
+                                        true
+                                      ],
+                                      "type": "boolean"
+                                    },
                                     "guideIds": {
                                       "items": {
                                         "format": "uuid",
@@ -13685,6 +13751,12 @@
                                       "additionalProperties": false,
                                       "nullable": true,
                                       "properties": {
+                                        "allGuides": {
+                                          "enum": [
+                                            true
+                                          ],
+                                          "type": "boolean"
+                                        },
                                         "guideIds": {
                                           "items": {
                                             "format": "uuid",
@@ -13981,6 +14053,12 @@
                                   "additionalProperties": false,
                                   "nullable": true,
                                   "properties": {
+                                    "allGuides": {
+                                      "enum": [
+                                        true
+                                      ],
+                                      "type": "boolean"
+                                    },
                                     "guideIds": {
                                       "items": {
                                         "format": "uuid",
@@ -14786,6 +14864,12 @@
                                   "additionalProperties": false,
                                   "nullable": true,
                                   "properties": {
+                                    "allGuides": {
+                                      "enum": [
+                                        true
+                                      ],
+                                      "type": "boolean"
+                                    },
                                     "guideIds": {
                                       "items": {
                                         "format": "uuid",
@@ -15082,6 +15166,12 @@
                               "additionalProperties": false,
                               "nullable": true,
                               "properties": {
+                                "allGuides": {
+                                  "enum": [
+                                    true
+                                  ],
+                                  "type": "boolean"
+                                },
                                 "guideIds": {
                                   "items": {
                                     "format": "uuid",
@@ -15842,6 +15932,12 @@
                                       "additionalProperties": false,
                                       "nullable": true,
                                       "properties": {
+                                        "allGuides": {
+                                          "enum": [
+                                            true
+                                          ],
+                                          "type": "boolean"
+                                        },
                                         "guideIds": {
                                           "items": {
                                             "format": "uuid",
@@ -16127,6 +16223,12 @@
                                       "additionalProperties": false,
                                       "nullable": true,
                                       "properties": {
+                                        "allGuides": {
+                                          "enum": [
+                                            true
+                                          ],
+                                          "type": "boolean"
+                                        },
                                         "guideIds": {
                                           "items": {
                                             "format": "uuid",
@@ -16960,6 +17062,12 @@
                                   "additionalProperties": false,
                                   "nullable": true,
                                   "properties": {
+                                    "allGuides": {
+                                      "enum": [
+                                        true
+                                      ],
+                                      "type": "boolean"
+                                    },
                                     "guideIds": {
                                       "items": {
                                         "format": "uuid",
@@ -17256,6 +17364,12 @@
                               "additionalProperties": false,
                               "nullable": true,
                               "properties": {
+                                "allGuides": {
+                                  "enum": [
+                                    true
+                                  ],
+                                  "type": "boolean"
+                                },
                                 "guideIds": {
                                   "items": {
                                     "format": "uuid",
@@ -49007,6 +49121,12 @@
                             "additionalProperties": false,
                             "nullable": true,
                             "properties": {
+                              "allGuides": {
+                                "enum": [
+                                  true
+                                ],
+                                "type": "boolean"
+                              },
                               "guideIds": {
                                 "items": {
                                   "format": "uuid",
@@ -50428,6 +50548,12 @@
                                     "contentScope": {
                                       "additionalProperties": false,
                                       "properties": {
+                                        "allGuides": {
+                                          "enum": [
+                                            true
+                                          ],
+                                          "type": "boolean"
+                                        },
                                         "guideIds": {
                                           "items": {
                                             "format": "uuid",
@@ -50977,6 +51103,12 @@
                                           "contentScope": {
                                             "additionalProperties": false,
                                             "properties": {
+                                              "allGuides": {
+                                                "enum": [
+                                                  true
+                                                ],
+                                                "type": "boolean"
+                                              },
                                               "guideIds": {
                                                 "items": {
                                                   "format": "uuid",
@@ -51175,6 +51307,12 @@
                                               "contentScope": {
                                                 "additionalProperties": false,
                                                 "properties": {
+                                                  "allGuides": {
+                                                    "enum": [
+                                                      true
+                                                    ],
+                                                    "type": "boolean"
+                                                  },
                                                   "guideIds": {
                                                     "items": {
                                                       "format": "uuid",
@@ -51405,6 +51543,12 @@
                                     "contentScope": {
                                       "additionalProperties": false,
                                       "properties": {
+                                        "allGuides": {
+                                          "enum": [
+                                            true
+                                          ],
+                                          "type": "boolean"
+                                        },
                                         "guideIds": {
                                           "items": {
                                             "format": "uuid",
@@ -51591,6 +51735,12 @@
                                           "contentScope": {
                                             "additionalProperties": false,
                                             "properties": {
+                                              "allGuides": {
+                                                "enum": [
+                                                  true
+                                                ],
+                                                "type": "boolean"
+                                              },
                                               "guideIds": {
                                                 "items": {
                                                   "format": "uuid",
@@ -51829,6 +51979,12 @@
                                               "contentScope": {
                                                 "additionalProperties": false,
                                                 "properties": {
+                                                  "allGuides": {
+                                                    "enum": [
+                                                      true
+                                                    ],
+                                                    "type": "boolean"
+                                                  },
                                                   "guideIds": {
                                                     "items": {
                                                       "format": "uuid",
@@ -52090,6 +52246,12 @@
                                         "contentScope": {
                                           "additionalProperties": false,
                                           "properties": {
+                                            "allGuides": {
+                                              "enum": [
+                                                true
+                                              ],
+                                              "type": "boolean"
+                                            },
                                             "guideIds": {
                                               "items": {
                                                 "format": "uuid",
@@ -52603,6 +52765,12 @@
                                     "contentScope": {
                                       "additionalProperties": false,
                                       "properties": {
+                                        "allGuides": {
+                                          "enum": [
+                                            true
+                                          ],
+                                          "type": "boolean"
+                                        },
                                         "guideIds": {
                                           "items": {
                                             "format": "uuid",
@@ -52897,6 +53065,12 @@
                                     "contentScope": {
                                       "additionalProperties": false,
                                       "properties": {
+                                        "allGuides": {
+                                          "enum": [
+                                            true
+                                          ],
+                                          "type": "boolean"
+                                        },
                                         "guideIds": {
                                           "items": {
                                             "format": "uuid",
@@ -53168,6 +53342,12 @@
                                       "contentScope": {
                                         "additionalProperties": false,
                                         "properties": {
+                                          "allGuides": {
+                                            "enum": [
+                                              true
+                                            ],
+                                            "type": "boolean"
+                                          },
                                           "guideIds": {
                                             "items": {
                                               "format": "uuid",
@@ -53486,6 +53666,12 @@
                                       "contentScope": {
                                         "additionalProperties": false,
                                         "properties": {
+                                          "allGuides": {
+                                            "enum": [
+                                              true
+                                            ],
+                                            "type": "boolean"
+                                          },
                                           "guideIds": {
                                             "items": {
                                               "format": "uuid",
@@ -53705,6 +53891,12 @@
                                         "additionalProperties": false,
                                         "nullable": true,
                                         "properties": {
+                                          "allGuides": {
+                                            "enum": [
+                                              true
+                                            ],
+                                            "type": "boolean"
+                                          },
                                           "guideIds": {
                                             "items": {
                                               "format": "uuid",
@@ -54072,6 +54264,12 @@
                                             "additionalProperties": false,
                                             "nullable": true,
                                             "properties": {
+                                              "allGuides": {
+                                                "enum": [
+                                                  true
+                                                ],
+                                                "type": "boolean"
+                                              },
                                               "guideIds": {
                                                 "items": {
                                                   "format": "uuid",
@@ -54709,6 +54907,12 @@
                                           "additionalProperties": false,
                                           "nullable": true,
                                           "properties": {
+                                            "allGuides": {
+                                              "enum": [
+                                                true
+                                              ],
+                                              "type": "boolean"
+                                            },
                                             "guideIds": {
                                               "items": {
                                                 "format": "uuid",
@@ -55119,6 +55323,12 @@
                                           "additionalProperties": false,
                                           "nullable": true,
                                           "properties": {
+                                            "allGuides": {
+                                              "enum": [
+                                                true
+                                              ],
+                                              "type": "boolean"
+                                            },
                                             "guideIds": {
                                               "items": {
                                                 "format": "uuid",
@@ -55514,6 +55724,12 @@
                                               "additionalProperties": false,
                                               "nullable": true,
                                               "properties": {
+                                                "allGuides": {
+                                                  "enum": [
+                                                    true
+                                                  ],
+                                                  "type": "boolean"
+                                                },
                                                 "guideIds": {
                                                   "items": {
                                                     "format": "uuid",
@@ -55810,6 +56026,12 @@
                                           "additionalProperties": false,
                                           "nullable": true,
                                           "properties": {
+                                            "allGuides": {
+                                              "enum": [
+                                                true
+                                              ],
+                                              "type": "boolean"
+                                            },
                                             "guideIds": {
                                               "items": {
                                                 "format": "uuid",
@@ -57366,6 +57588,12 @@
                                 "additionalProperties": false,
                                 "nullable": true,
                                 "properties": {
+                                  "allGuides": {
+                                    "enum": [
+                                      true
+                                    ],
+                                    "type": "boolean"
+                                  },
                                   "guideIds": {
                                     "items": {
                                       "format": "uuid",
@@ -87829,6 +88057,12 @@
                                     "contentScope": {
                                       "additionalProperties": false,
                                       "properties": {
+                                        "allGuides": {
+                                          "enum": [
+                                            true
+                                          ],
+                                          "type": "boolean"
+                                        },
                                         "guideIds": {
                                           "items": {
                                             "format": "uuid",
@@ -88602,6 +88836,12 @@
                                     "contentScope": {
                                       "additionalProperties": false,
                                       "properties": {
+                                        "allGuides": {
+                                          "enum": [
+                                            true
+                                          ],
+                                          "type": "boolean"
+                                        },
                                         "guideIds": {
                                           "items": {
                                             "format": "uuid",
@@ -89122,6 +89362,12 @@
                                       "contentScope": {
                                         "additionalProperties": false,
                                         "properties": {
+                                          "allGuides": {
+                                            "enum": [
+                                              true
+                                            ],
+                                            "type": "boolean"
+                                          },
                                           "guideIds": {
                                             "items": {
                                               "format": "uuid",

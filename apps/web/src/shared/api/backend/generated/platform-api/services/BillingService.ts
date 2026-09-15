@@ -65,6 +65,7 @@ export class BillingService {
             }>;
             benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
             contentScope?: {
+              allGuides?: boolean;
               guideIds: Array<string>;
               materialIds: Array<string>;
             } | null;
@@ -111,6 +112,7 @@ export class BillingService {
           }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope?: {
+            allGuides?: boolean;
             guideIds: Array<string>;
             materialIds: Array<string>;
           } | null;
@@ -178,6 +180,7 @@ export class BillingService {
       tier: {
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
         contentScope: {
+          allGuides?: boolean;
           guideIds: Array<string>;
           materialIds: Array<string>;
         };
@@ -256,6 +259,7 @@ export class BillingService {
           }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope?: {
+            allGuides?: boolean;
             guideIds: Array<string>;
             materialIds: Array<string>;
           } | null;
@@ -302,6 +306,7 @@ export class BillingService {
         }>;
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
         contentScope?: {
+          allGuides?: boolean;
           guideIds: Array<string>;
           materialIds: Array<string>;
         } | null;
@@ -366,6 +371,7 @@ export class BillingService {
         }>;
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
         contentScope?: {
+          allGuides?: boolean;
           guideIds: Array<string>;
           materialIds: Array<string>;
         } | null;
@@ -429,6 +435,7 @@ export class BillingService {
         }>;
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
         contentScope?: {
+          allGuides?: boolean;
           guideIds: Array<string>;
           materialIds: Array<string>;
         } | null;
@@ -495,6 +502,7 @@ export class BillingService {
         }>;
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
         contentScope?: {
+          allGuides?: boolean;
           guideIds: Array<string>;
           materialIds: Array<string>;
         } | null;
@@ -567,6 +575,7 @@ export class BillingService {
           }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope?: {
+            allGuides?: boolean;
             guideIds: Array<string>;
             materialIds: Array<string>;
           } | null;
@@ -613,6 +622,7 @@ export class BillingService {
         }>;
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
         contentScope?: {
+          allGuides?: boolean;
           guideIds: Array<string>;
           materialIds: Array<string>;
         } | null;
@@ -676,6 +686,7 @@ export class BillingService {
           }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope?: {
+            allGuides?: boolean;
             guideIds: Array<string>;
             materialIds: Array<string>;
           } | null;
@@ -730,6 +741,7 @@ export class BillingService {
             }>;
             benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
             contentScope?: {
+              allGuides?: boolean;
               guideIds: Array<string>;
               materialIds: Array<string>;
             } | null;
@@ -776,6 +788,7 @@ export class BillingService {
           }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope?: {
+            allGuides?: boolean;
             guideIds: Array<string>;
             materialIds: Array<string>;
           } | null;
@@ -845,6 +858,7 @@ export class BillingService {
           }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope?: {
+            allGuides?: boolean;
             guideIds: Array<string>;
             materialIds: Array<string>;
           } | null;
@@ -891,6 +905,7 @@ export class BillingService {
         }>;
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
         contentScope?: {
+          allGuides?: boolean;
           guideIds: Array<string>;
           materialIds: Array<string>;
         } | null;
@@ -953,6 +968,7 @@ export class BillingService {
           }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope?: {
+            allGuides?: boolean;
             guideIds: Array<string>;
             materialIds: Array<string>;
           } | null;
@@ -996,6 +1012,7 @@ export class BillingService {
           }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope?: {
+            allGuides?: boolean;
             guideIds: Array<string>;
             materialIds: Array<string>;
           } | null;
@@ -1070,6 +1087,7 @@ export class BillingService {
           }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope?: {
+            allGuides?: boolean;
             guideIds: Array<string>;
             materialIds: Array<string>;
           } | null;
@@ -1116,6 +1134,7 @@ export class BillingService {
         }>;
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
         contentScope?: {
+          allGuides?: boolean;
           guideIds: Array<string>;
           materialIds: Array<string>;
         } | null;
@@ -1234,6 +1253,7 @@ export class BillingService {
         }>;
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
         contentScope?: {
+          allGuides?: boolean;
           guideIds: Array<string>;
           materialIds: Array<string>;
         } | null;
@@ -1452,6 +1472,7 @@ export class BillingService {
         terms: {
           capabilities: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope?: {
+            allGuides?: boolean;
             guideIds: Array<string>;
             materialIds: Array<string>;
           };
@@ -1542,6 +1563,7 @@ export class BillingService {
           tier: {
             benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
             contentScope: {
+              allGuides?: boolean;
               guideIds: Array<string>;
               materialIds: Array<string>;
             };
@@ -1576,6 +1598,7 @@ export class BillingService {
             tier: {
               benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
               contentScope: {
+                allGuides?: boolean;
                 guideIds: Array<string>;
                 materialIds: Array<string>;
               };
@@ -1606,6 +1629,7 @@ export class BillingService {
         tier: {
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope: {
+            allGuides?: boolean;
             guideIds: Array<string>;
             materialIds: Array<string>;
           };
@@ -1636,6 +1660,7 @@ export class BillingService {
           tier: {
             benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
             contentScope: {
+              allGuides?: boolean;
               guideIds: Array<string>;
               materialIds: Array<string>;
             };
@@ -1675,6 +1700,7 @@ export class BillingService {
             tier: {
               benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
               contentScope: {
+                allGuides?: boolean;
                 guideIds: Array<string>;
                 materialIds: Array<string>;
               };
@@ -1715,6 +1741,7 @@ export class BillingService {
           tier: {
             benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
             contentScope: {
+              allGuides?: boolean;
               guideIds: Array<string>;
               materialIds: Array<string>;
             };
@@ -1793,6 +1820,7 @@ export class BillingService {
         tier: {
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope: {
+            allGuides?: boolean;
             guideIds: Array<string>;
             materialIds: Array<string>;
           };
@@ -1838,6 +1866,7 @@ export class BillingService {
         tier: {
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope: {
+            allGuides?: boolean;
             guideIds: Array<string>;
             materialIds: Array<string>;
           };
@@ -1879,6 +1908,7 @@ export class BillingService {
         tier: {
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope: {
+            allGuides?: boolean;
             guideIds: Array<string>;
             materialIds: Array<string>;
           };
@@ -1925,6 +1955,7 @@ export class BillingService {
         tier: {
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope: {
+            allGuides?: boolean;
             guideIds: Array<string>;
             materialIds: Array<string>;
           };
@@ -1956,6 +1987,7 @@ export class BillingService {
           }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope?: {
+            allGuides?: boolean;
             guideIds: Array<string>;
             materialIds: Array<string>;
           } | null;
@@ -2012,6 +2044,7 @@ export class BillingService {
             }>;
             benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
             contentScope?: {
+              allGuides?: boolean;
               guideIds: Array<string>;
               materialIds: Array<string>;
             } | null;
@@ -2109,6 +2142,7 @@ export class BillingService {
             }>;
             benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
             contentScope?: {
+              allGuides?: boolean;
               guideIds: Array<string>;
               materialIds: Array<string>;
             } | null;
@@ -2169,6 +2203,7 @@ export class BillingService {
             }>;
             benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
             contentScope?: {
+              allGuides?: boolean;
               guideIds: Array<string>;
               materialIds: Array<string>;
             } | null;
@@ -2228,6 +2263,7 @@ export class BillingService {
               }>;
               benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
               contentScope?: {
+                allGuides?: boolean;
                 guideIds: Array<string>;
                 materialIds: Array<string>;
               } | null;
@@ -2274,6 +2310,7 @@ export class BillingService {
             }>;
             benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
             contentScope?: {
+              allGuides?: boolean;
               guideIds: Array<string>;
               materialIds: Array<string>;
             } | null;
@@ -2455,6 +2492,7 @@ export class BillingService {
         }>;
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
         contentScope?: {
+          allGuides?: boolean;
           guideIds: Array<string>;
           materialIds: Array<string>;
         } | null;

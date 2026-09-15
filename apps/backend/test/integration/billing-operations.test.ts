@@ -631,31 +631,34 @@ describe("владельческие операции billing: платежи, �
     expect(value(await s.subscriptions.read(s.buyer)).subscription).toMatchObject({ state: "active", snapshot: { offer: { revision: 2, archived: false } } });
   });
 
-  test("тариф без состава нельзя сохранить назначаемым, назначить или привязать к правилу активации", async () => {
+  test("тариф без состава или с отдельным материалом не назначается, а стартовый тариф назначается сразу", async () => {
     const s = await scenario();
     const recipient = await account();
     expect(failure(await s.operations.execute(owner, { operation: "offers.save", operationId: randomUUID(),
       value: { id: randomUUID(), name: "Пустой тариф", benefits: ["materials", "community"], availableForAssignment: true, contentScope: { guideIds: [], materialIds: [] } } }))).toBe("invalid_request");
-    // Стартовый тариф миграции 0063, применённой к пустой базе: назначаемый, но без единого материала.
-    const tier = await db.prisma.billingOffer.findUniqueOrThrow({ where: { id: "62000000-0000-4000-8000-000000000624" } });
-    // Стартовый тариф даёт материалы, сопровождение и общую группу (миграция 0067).
-    expect(tier).toMatchObject({ availableForAssignment: true, revision: 1, benefits: ["community", "materials", "support"], contentScope: { guideIds: [], materialIds: [] } });
+    // Состав, потерянный в обход каталога, тариф не назначает и к правилу активации не привязывает.
+    const course = asCatalog(await s.operations.execute(owner, { operation: "offers.save", operationId: randomUUID(),
+      value: { id: randomUUID(), name: "Курс", benefits: ["materials", "community", "support"], availableForAssignment: true, contentScope: { guideIds: [s.guideId], materialIds: [] } } }));
+    await db.prisma.billingOffer.update({ where: { id: course.value.id }, data: { contentScope: { guideIds: [], materialIds: [] } } });
     const terms = { startsAt: now.toISOString(), endsAt: null, endPolicy: "fixed" };
-    expect(failure(await s.operations.execute(owner, { operation: "enrollments.assign", operationId: randomUUID(), accountId: recipient,
-      tierId: tier.id, tierRevision: 1, origin: "manual", sourceRef: randomUUID(), terms, billingRef: null, reason: "Назначение до задания состава" }))).toBe("state_conflict");
-    expect(failure(await s.operations.execute(owner, { operation: "activationRules.save", operationId: randomUUID(), reason: "Правило до задания состава",
-      value: { id: randomUUID(), code: randomUUID(), name: "Курс", tierId: tier.id, tierRevision: 1, sourceRef: `course:${randomUUID()}`, published: true, startsAt: now.toISOString(), endsAt: null } }))).toBe("state_conflict");
+    const assign = (tierId: string, tierRevision: number, reason: string) => s.operations.execute(owner, { operation: "enrollments.assign", operationId: randomUUID(),
+      accountId: recipient, tierId, tierRevision, origin: "manual", sourceRef: randomUUID(), terms, billingRef: null, reason });
+    expect(failure(await assign(course.value.id, course.value.revision, "Назначение без состава"))).toBe("state_conflict");
+    expect(failure(await s.operations.execute(owner, { operation: "activationRules.save", operationId: randomUUID(), reason: "Правило без состава",
+      value: { id: randomUUID(), code: randomUUID(), name: "Курс", tierId: course.value.id, tierRevision: course.value.revision, sourceRef: `course:${randomUUID()}`, published: true, startsAt: now.toISOString(), endsAt: null } }))).toBe("state_conflict");
+    // Отдельный материал, записанный в состав в обход каталога, тариф тоже не назначает.
+    await db.prisma.billingOffer.update({ where: { id: course.value.id }, data: { contentScope: { guideIds: [s.guideId], materialIds: [randomUUID()] } } });
+    expect(failure(await assign(course.value.id, course.value.revision, "Назначение с отдельным материалом"))).toBe("state_conflict");
     expect(await db.prisma.subscriptionEnrollment.count({ where: { accountId: recipient } })).toBe(0);
     expect(await db.prisma.accessGrant.count({ where: { accountId: recipient } })).toBe(0);
-    // Состав задан — тот же тариф назначается.
-    const scoped = asCatalog(await s.operations.execute(owner, { operation: "offers.save", operationId: randomUUID(), expectedRevision: 1,
-      value: { id: tier.id, name: tier.name, benefits: ["materials", "community", "support"], availableForAssignment: true, contentScope: { guideIds: [s.guideId], materialIds: [] } } }));
-    // Отдельный материал, записанный в состав в обход каталога, тариф не назначает.
-    await db.prisma.billingOffer.update({ where: { id: tier.id }, data: { contentScope: { guideIds: [s.guideId], materialIds: [randomUUID()] } } });
-    expect(failure(await s.operations.execute(owner, { operation: "enrollments.assign", operationId: randomUUID(), accountId: recipient,
-      tierId: tier.id, tierRevision: scoped.value.revision, origin: "manual", sourceRef: randomUUID(), terms, billingRef: null, reason: "Назначение с отдельным материалом" }))).toBe("state_conflict");
-    await db.prisma.billingOffer.update({ where: { id: tier.id }, data: { contentScope: { guideIds: [s.guideId], materialIds: [] } } });
-    expect(success(await s.operations.execute(owner, { operation: "enrollments.assign", operationId: randomUUID(), accountId: recipient,
-      tierId: tier.id, tierRevision: scoped.value.revision, origin: "manual", sourceRef: randomUUID(), terms, billingRef: null, reason: "Назначение после задания состава" }))).toMatchObject({ outcome: "enrollment" });
+    // Стартовый тариф (миграции 0063 и 0067) открывает все продукты платформы, включая новые, даёт
+    // сопровождение и общую группу и назначается без шага выпуска.
+    const starter = await db.prisma.billingOffer.findUniqueOrThrow({ where: { id: "62000000-0000-4000-8000-000000000624" } });
+    expect(starter).toMatchObject({ availableForAssignment: true, revision: 1, benefits: ["community", "materials", "support"],
+      contentScope: { guideIds: [], materialIds: [], allGuides: true } });
+    expect(success(await assign(starter.id, starter.revision, "Назначение стартового тарифа"))).toMatchObject({ outcome: "enrollment" });
+    const issued = await db.prisma.accessGrant.findMany({ where: { accountId: recipient } });
+    expect(issued.flatMap(grant => grant.capabilities).sort()).toEqual(["community", "materials", "support"]);
+    expect(issued[0]?.contentScope).toEqual({ guideIds: [], materialIds: [], allGuides: true });
   });
 });
