@@ -1,3 +1,6 @@
+import type { QueryClient } from "@tanstack/react-query";
+
+import { factAnnouncement } from "@/shared/api/fact-announcement";
 import {
   selfRefreshingRead,
   unavailableRetryIntervalMs,
@@ -7,6 +10,9 @@ import type { BillingCommandResult, CurrentBilling } from "@/entities/subscripti
 import { readCurrentBilling } from "../api/billing-subscription.browser";
 
 export const currentBillingQueryKey = ["account", "billing"] as const;
+
+/** Каждая команда, изменившая состояние покупателя, объявляется всем открытым поверхностям. */
+export const currentBillingChanged = factAnnouncement("inside.account.billing.changed");
 
 /**
  * Пока у банка есть незавершённая операция, её исход приходит сам: раздел перечитывает
@@ -42,4 +48,15 @@ export function currentBillingQueryOptions() {
       };
     }) => billingRefreshInterval(state.data),
   };
+}
+
+/**
+ * Забыть прежний ответ о состоянии покупателя и перечитать его. Начатое перечитывание не
+ * отменяется: сколько бы поверхностей одной вкладки ни услышало объявление, чтение одно.
+ */
+export function resetCurrentBilling(client: QueryClient): Promise<void> {
+  return client.invalidateQueries(
+    { queryKey: currentBillingQueryKey },
+    { cancelRefetch: false },
+  );
 }

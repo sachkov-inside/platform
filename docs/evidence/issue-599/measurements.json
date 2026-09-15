@@ -1,0 +1,15 @@
+{
+  "source": "apps/web/src/_pages/library-discovery/ui/library-discovery.stories.tsx",
+  "runner": "@storybook/addon-vitest 10.5.10, chromium, the same composition as pnpm test",
+  "notes": "frameWidth is [data-discovery-frame]; product stories have no such frame. 'default' is the story with no declared size, which is where the undeclared mobile360 used to land.",
+  "stories": [
+    { "story": "Topic · mobile", "viewport": "mobile390", "innerWidth": 390, "scrollWidth": 390, "frameWidth": 358, "screenshot": "topic-mobile-390.png" },
+    { "story": "Topic · mobile", "viewport": null, "innerWidth": 1200, "scrollWidth": 1200, "frameWidth": 1106, "screenshot": "topic-mobile-default.png" },
+    { "story": "Topic · long title", "viewport": "mobile390", "innerWidth": 390, "scrollWidth": 390, "frameWidth": 358, "screenshot": "topic-long-title-390.png" },
+    { "story": "Topic · long title", "viewport": null, "innerWidth": 1200, "scrollWidth": 1200, "frameWidth": 1106, "screenshot": "topic-long-title-default.png" },
+    { "story": "Series · product mobile", "viewport": "mobile390", "innerWidth": 390, "scrollWidth": 390, "frameWidth": null, "screenshot": "series-product-mobile-390.png" },
+    { "story": "Series · product mobile", "viewport": null, "innerWidth": 1200, "scrollWidth": 1200, "frameWidth": null, "screenshot": "series-product-mobile-default.png" },
+    { "story": "Series · long title", "viewport": "mobile390", "innerWidth": 390, "scrollWidth": 390, "frameWidth": null, "screenshot": "series-long-title-390.png" },
+    { "story": "Series · long title", "viewport": null, "innerWidth": 1200, "scrollWidth": 1200, "frameWidth": null, "screenshot": "series-long-title-default.png" }
+  ]
+}

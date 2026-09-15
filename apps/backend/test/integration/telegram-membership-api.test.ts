@@ -63,7 +63,6 @@ describe("Telegram Membership API", () => {
         LOGTO_AUDIENCE: audience,
         LOGTO_ISSUER: issuer,
         LOGTO_JWKS_URL: serverUrl(jwksServer, "/jwks"),
-        MEMBERSHIP_ACQUISITION_URL: "https://t.me/tribute/inside",
         MEMBERSHIP_SUPPORT_URL: "https://t.me/inside_support",
         NODE_ENV: "test",
         TELEGRAM_BOT_START_URL: "https://t.me/inside_test_bot",

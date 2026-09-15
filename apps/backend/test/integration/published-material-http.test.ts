@@ -10,7 +10,6 @@ import {
   PrismaClientProvider,
   type PlatformPrisma,
 } from "../../src/infrastructure/prisma/index.js";
-import { stringMatching } from "../support/matchers.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -30,8 +29,6 @@ describe("published Material HTTP contract", () => {
       parsePlatformConfig({
         NODE_ENV: "test",
         DATABASE_URL: testDatabase.url,
-        MEMBERSHIP_ACQUISITION_URL:
-          "https://t.me/tribute/app?startapp=inside",
       }),
       { logger: false },
     );
@@ -58,12 +55,12 @@ describe("published Material HTTP contract", () => {
         title: "Developer Pipeline без потери контекста",
         access: "membership",
       },
-      // Локальный seed включает каталог в продажу, поэтому у закрытого материала есть приглашение.
-      // Проверяется его состав, а не адрес: куда оно ведёт — отдельное продуктовое решение.
-      access: {
-        availability: "locked",
-        cta: { label: stringMatching(/./u), url: stringMatching(/./u) },
-      },
+    });
+    // Локальный seed включает каталог в продажу, поэтому закрытый материал сообщает только, что
+    // подписка продаётся: строгое сравнение не пропустит в ответ адрес покупки.
+    expect(response.json<{ access: object }>().access).toStrictEqual({
+      availability: "locked",
+      subscriptionOffered: true,
     });
     expect(response.body).not.toContain("schemaVersion");
     expect(response.body).not.toContain("blocks");
@@ -190,10 +187,7 @@ describe("published Material HTTP contract", () => {
     const home = response.json<{
       readonly guides: readonly { readonly slug: string }[];
       readonly notes: readonly { readonly slug: string }[];
-      readonly membership: {
-        readonly acquisitionUrl: string;
-        readonly kind: "inactive";
-      };
+      readonly membership: { readonly kind: "inactive" };
       readonly playlists: readonly {
         readonly previewItems: readonly unknown[];
         readonly slug: string;
@@ -205,12 +199,9 @@ describe("published Material HTTP contract", () => {
       }[];
     }>();
     expect(home.topics.map(({ slug }) => slug)).toContain("platform");
-    // Локальный seed включает каталог в продажу, поэтому подписка предлагается. Проверяется
-    // состояние, а не маршрут покупателя: он остаётся отдельным продуктовым решением.
-    expect(home.membership).toEqual({
-      acquisitionUrl: stringMatching(/./u),
-      kind: "inactive",
-    });
+    // Локальный seed включает каталог в продажу, поэтому подписка предлагается. Строгое сравнение
+    // проверяет, что ответ несёт только состояние, без адреса покупки.
+    expect(home.membership).toStrictEqual({ kind: "inactive" });
     expect(home.playlists).toHaveLength(4);
     expect(home.playlists.map(({ slug }) => slug)).toContain("demo-progress-series");
     expect(home.playlists[0]?.previewItems).toBeInstanceOf(Array);
@@ -471,7 +462,7 @@ describe("published Material HTTP contract", () => {
     }
   });
 
-  test("hides the subscription without a variant on sale and shows the CTA with one", async () => {
+  test("reports the subscription as not offered without a variant on sale and as offered with one", async () => {
     // Витрина следует каталогу, поэтому проверка начинается со снятого с продажи каталога seed.
     // Сценарий возвращает продажу в конце: состояние каталога принадлежит ему, а не порядку тестов.
     const seeded = await testDatabase.prisma.billingOffer.findMany({ select: { id: true }, where: { published: true } });
@@ -480,6 +471,11 @@ describe("published Material HTTP contract", () => {
     try {
       const withoutSale = (await server.inject({ method: "GET", url: "/library/home" })).json<{ membership: unknown }>();
       expect(withoutSale.membership).toEqual({ kind: "notOffered" });
+      const lockedWithoutSale = (await server.inject({
+        method: "GET",
+        url: "/materials/developer-pipeline-bez-poteri-konteksta",
+      })).json<{ access: unknown }>();
+      expect(lockedWithoutSale.access).toEqual({ availability: "locked", subscriptionOffered: false });
     } finally {
       await testDatabase.prisma.billingOffer.updateMany({ data: { published: true }, where: onSale });
     }
@@ -494,20 +490,11 @@ describe("published Material HTTP contract", () => {
     });
 
     const home = (await server.inject({ method: "GET", url: "/library/home" })).json<{ membership: unknown }>();
-    expect(home.membership).toEqual({
-      acquisitionUrl: "https://t.me/tribute/app?startapp=inside",
-      kind: "inactive",
-    });
+    expect(home.membership).toEqual({ kind: "inactive" });
     const teaser = (await server.inject({
       method: "GET",
       url: "/materials/developer-pipeline-bez-poteri-konteksta",
     })).json<{ access: unknown }>();
-    expect(teaser.access).toEqual({
-      availability: "locked",
-      cta: {
-        label: "Получить доступ",
-        url: "https://t.me/tribute/app?startapp=inside",
-      },
-    });
+    expect(teaser.access).toEqual({ availability: "locked", subscriptionOffered: true });
   });
 });

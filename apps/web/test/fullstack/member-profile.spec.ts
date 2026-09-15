@@ -21,11 +21,7 @@ test("shows private Account Telegram and Membership presentation without disclos
   };
   expect(accountState.telegramMembership).toEqual({
     link: { kind: "unlinked" },
-    membership: {
-      acquisitionUrl:
-        process.env.FULLSTACK_MEMBERSHIP_ACQUISITION_URL ?? "https://t.me/tribute",
-      kind: "inactive",
-    },
+    membership: { kind: "inactive" },
   });
 
   const account = await page.goto("/account");

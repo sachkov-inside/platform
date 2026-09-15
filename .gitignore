@@ -15,6 +15,9 @@ coverage/
 dist/
 node_modules/
 *.tsbuildinfo
+__pycache__/
+*.py[cod]
+next-env.d.ts
 apps/backend/src/infrastructure/prisma/generated/
 apps/web/release-identity.json
 

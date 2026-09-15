@@ -2,7 +2,6 @@
 import type { Route } from "next";
 import Link from "next/link";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 
 import {
   billingActionClass,
@@ -18,7 +17,7 @@ import {
   type BillingContactState,
 } from "@/features/billing-contact";
 import { CheckoutFlow } from "@/features/billing-checkout";
-import { currentBillingQueryOptions } from "@/features/billing-subscription";
+import { useCurrentBilling } from "@/features/billing-subscription";
 import { Button } from "@/shared/ui/button";
 
 export interface SubscriptionStorefrontProps {
@@ -46,7 +45,7 @@ export function SubscriptionStorefront({
   const [contactState, setContactState] = useState<BillingContactState | null>(
     null,
   );
-  const billing = useQuery(currentBillingQueryOptions());
+  const billing = useCurrentBilling();
   const selected =
     offers.find((offer) => offer.paymentOption.id === selectedId) ?? null;
   const signedOut = billing.data?.ok === false && billing.data.code === "unauthorized";
