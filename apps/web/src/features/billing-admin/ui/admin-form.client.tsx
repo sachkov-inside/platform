@@ -123,7 +123,6 @@ export function AdminSelect({
   options,
   defaultValue,
   placeholder,
-  required,
 }: {
   readonly label: string;
   readonly name: string;
@@ -131,7 +130,6 @@ export function AdminSelect({
   readonly defaultValue?: string;
   /** Пустой выбор, который нельзя отправить: решение не принимается незаметно по первому варианту. */
   readonly placeholder?: string;
-  readonly required?: boolean;
 }) {
   const id = useId();
   return (
@@ -144,7 +142,7 @@ export function AdminSelect({
         id={id}
         name={name}
         defaultValue={defaultValue ?? (placeholder === undefined ? undefined : "")}
-        required={required}
+        required={placeholder !== undefined}
       >
         {placeholder === undefined ? null : (
           <option disabled value="">

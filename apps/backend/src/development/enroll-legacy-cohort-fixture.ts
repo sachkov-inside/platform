@@ -1,12 +1,11 @@
 import type { PlatformPrisma } from "../infrastructure/prisma/index.js";
 
 export async function enrollLegacyCohortFixture(
-  prisma: Pick<PlatformPrisma, "legacyClassification" | "material">,
+  prisma: Pick<PlatformPrisma, "legacyClassification">,
   accountId: string,
 ): Promise<void> {
-  // Freeze the seeded local corpus; the production bridge never means all future products.
-  const materialIds = (await prisma.material.findMany({ select: { id: true } })).map(row => row.id);
-  const bridgeContentScope = { guideIds: [], materialIds };
+  // The bridge opens what the starter tier opens: every product of the platform, including new ones.
+  const bridgeContentScope = { guideIds: [], materialIds: [], allGuides: true };
   await prisma.legacyClassification.createMany({
     data: {
       accountId,

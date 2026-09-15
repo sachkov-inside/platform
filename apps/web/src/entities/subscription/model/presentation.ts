@@ -121,6 +121,15 @@ function longestTerm(terms: readonly (number | null)[]): number | null {
  * короткий срок, участие держится дольше. Так же объединяет основания сервер — с той разницей,
  * что он смотрит на все действующие права Account, а предложение отвечает только за свой состав.
  */
+/**
+ * Как назвать состав тарифа одной строкой: все продукты платформы или число выбранных продуктов.
+ */
+export function contentScopeSummary(scope: { readonly guideIds: readonly string[]; readonly allGuides?: true }): string {
+  return scope.allGuides === true
+    ? "Все продукты платформы, включая новые"
+    : `Продукты: ${String(scope.guideIds.length)}`;
+}
+
 export function benefitLines(conditions: {
   readonly offer: BillingOffer;
   readonly paymentOption: BillingPaymentOption;

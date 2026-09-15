@@ -1,4 +1,4 @@
-import { withheldAccessCapabilities } from "@inside/access-capabilities";
+import { isWithheldCapability } from "@inside/access-capabilities";
 import { z } from "zod";
 import type { MembershipEntitlementsPrismaClient } from "../../infrastructure/prisma.js";
 import { accessCapabilitySchema, accessFailure, type AccessFailure } from "../../domain/access-grant.js";
@@ -48,7 +48,7 @@ export async function readOwnAccess(
     value: ownAccessSchema.parse({
       // Право, которое не выдаёт ни одно основание, кабинет не показывает и в прежних записях.
       grounds: grants.flatMap((grant) => {
-        const capabilities = grant.capabilities.filter((capability) => !withheldAccessCapabilities.some((withheld) => withheld === capability));
+        const capabilities = grant.capabilities.filter((capability) => !isWithheldCapability(capability));
         return capabilities.length === 0 ? [] : [{
           source: grant.source,
           capabilities,

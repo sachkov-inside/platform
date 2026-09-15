@@ -43,6 +43,11 @@ export function capabilitiesOpenedBy(
  */
 export const withheldAccessCapabilities: readonly AccessCapability[] = ["reviews"];
 
+/** Не выдаётся ли право: принимает и сырую строку прежней записи. */
+export function isWithheldCapability(capability: string): boolean {
+  return withheldAccessCapabilities.some((withheld) => withheld === capability);
+}
+
 /**
  * Какие из этих прав открывают названное право. Срок такого права держится каждым из них, поэтому
  * спрашивать надо у вывода, а не перечислять открывающие права заново на своей стороне.
@@ -78,12 +83,27 @@ export const contentScopeSchema = z.strictObject({
    * Отдельные материалы состав не образуют; прежние снимки ещё могут их называть.
    */
   allGuides: z.literal(true).exactOptional(),
-});
+}).refine(
+  // «Все продукты» ничего не перечисляет: иначе состав противоречил бы сам себе.
+  scope => scope.allGuides !== true || (scope.guideIds.length === 0 && scope.materialIds.length === 0),
+);
 export type ContentScope = z.infer<typeof contentScopeSchema>;
 
 /** Открывает ли состав продукт: продукт назван явно или состав включает все продукты. */
 export function scopeIncludesGuide(scope: ContentScope, guideId: string): boolean {
   return scope.allGuides === true || scope.guideIds.includes(guideId);
+}
+
+/**
+ * Открывает ли состав ресурс: один из его продуктов входит в состав, или прежний снимок называет
+ * сам материал.
+ */
+export function scopeOpensResource(
+  scope: ContentScope,
+  resource: { readonly guideIds: readonly string[]; readonly materialId?: string | undefined },
+): boolean {
+  return resource.guideIds.some((id) => scopeIncludesGuide(scope, id)) ||
+    (resource.materialId !== undefined && scope.materialIds.includes(resource.materialId));
 }
 
 /**

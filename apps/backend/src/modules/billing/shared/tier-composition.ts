@@ -31,7 +31,7 @@ function supportPeriodMonths(offer: { readonly benefitPeriods: unknown }): numbe
  * Сопровождение в предложении продукта длится столько, сколько обещает оферта: шесть месяцев.
  * Черновик без сопровождения сохраняется, а сопровождение с другим сроком — нет.
  */
-export function productSupportBreaksOfferTerm(offer: CatalogOffer & { readonly benefitPeriods: unknown }): boolean {
+export function productSupportTermMismatch(offer: CatalogOffer & { readonly benefitPeriods: unknown }): boolean {
   return isProductOffer(offer) && offer.benefits.includes("support") && supportPeriodMonths(offer) !== productSupportMonths;
 }
 
@@ -39,7 +39,7 @@ export function productSupportBreaksOfferTerm(offer: CatalogOffer & { readonly b
  * Покупка продукта — это материалы продукта и сопровождение. Продаётся только предложение продукта,
  * которое даёт сопровождение на срок оферты.
  */
-export function productOfferBreaksOfferTerms(offer: CatalogOffer & { readonly benefitPeriods: unknown }): boolean {
+export function productOfferUnsellable(offer: CatalogOffer & { readonly benefitPeriods: unknown }): boolean {
   return isProductOffer(offer) && (!offer.benefits.includes("support") || supportPeriodMonths(offer) !== productSupportMonths);
 }
 

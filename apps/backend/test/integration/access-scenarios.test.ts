@@ -559,10 +559,11 @@ describe("таблица сценариев доступа (реальный Pos
     const member = await participant("bridge");
     expect(await grants.classifyLegacy(owner, { operationId: randomUUID(), accountId: member.account, expectedRevision: 0, classification: "confirmed_legacy",
       sourceRef: `bridge-${member.account}`, reason: "Прежний участник", bridgeEnabled: true, tributeStopped: false })).toMatchObject({ ok: true });
-    // Мост прежних участников открывает продукт A и сопровождение, пока подтверждено членство; общую
-    // группу открывает само сопровождение, отдельного `community` у моста нет.
-    await db.prisma.legacyClassification.update({ where: { accountId: member.account },
-      data: { bridgeContentScope: { guideIds: [guideA], materialIds: [] }, bridgeBenefits: ["materials", "support"] } });
+    // Мост открывает состав стартового тарифа — все продукты платформы — без `reviews`.
+    expect(await db.prisma.legacyClassification.findUniqueOrThrow({ where: { accountId: member.account } }))
+      .toMatchObject({ bridgeContentScope: { guideIds: [], materialIds: [], allGuides: true }, bridgeBenefits: ["materials", "community"] });
+    // Мост с сопровождением, но без отдельного `community`: общую группу открывает само сопровождение.
+    await db.prisma.legacyClassification.update({ where: { accountId: member.account }, data: { bridgeBenefits: ["materials", "support"] } });
     await observeMembership(member, "member", 1);
     expect(await observe("support", member.account)).toEqual(open("ground-term"));
     expect(await observe("community-chat", member.account)).toEqual(open("ground-term"));

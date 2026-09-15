@@ -9,7 +9,9 @@ import {
   guideCapability,
   isEmptyContentScope,
   isGuideCapability,
+  isWithheldCapability,
   scopeIncludesGuide,
+  scopeOpensResource,
 } from "./index.js";
 
 const guide = "guide:5a1c6f10-0b33-4e2f-9a8c-7d4e12b0f001" as const;
@@ -70,6 +72,13 @@ describe("access capabilities", () => {
     expect(scopeIncludesGuide({ guideIds: [], materialIds: [], allGuides: true }, id)).toBe(true);
     expect(scopeIncludesGuide({ guideIds: [id], materialIds: [] }, id)).toBe(true);
     expect(scopeIncludesGuide({ guideIds: [], materialIds: [id] }, id)).toBe(false);
+    expect(scopeOpensResource({ guideIds: [], materialIds: [id] }, { guideIds: [], materialId: id })).toBe(true);
+    expect(scopeOpensResource({ guideIds: [], materialIds: [], allGuides: true }, { guideIds: [id] })).toBe(true);
+    expect(scopeOpensResource({ guideIds: [], materialIds: [], allGuides: true }, { guideIds: [] })).toBe(false);
+    // «Все продукты» не перечисляет продукты и материалы.
+    expect(isEmptyContentScope({ guideIds: [id], materialIds: [], allGuides: true })).toBe(true);
+    expect(isWithheldCapability("reviews")).toBe(true);
+    expect(isWithheldCapability("support")).toBe(false);
   });
 
   // Срок участия в чате держится всем, что чат открывает: и объявленным правом участия, и каждым

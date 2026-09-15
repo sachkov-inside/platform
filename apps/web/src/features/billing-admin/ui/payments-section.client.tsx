@@ -30,6 +30,16 @@ import {
   reasonMaxLength,
 } from "./admin-form.client";
 
+
+/** Основание возврата словами владельца: одна карта для выбора и для истории решений. */
+const refundBasisLabels = {
+  withdrawal: "отказ от договора",
+  compensation: "компенсация без отказа",
+} as const;
+const refundBasisOptions = [
+  { value: "withdrawal", label: "Отказ от договора — права прекращаются" },
+  { value: "compensation", label: "Компенсация без отказа — доступ сохраняется" },
+];
 export interface PaymentsSectionProps {
   readonly payments: readonly PaymentView[];
   readonly paymentsCursor: string | null;
@@ -296,11 +306,7 @@ export function PaymentsSection({
             label="Основание возврата"
             name="refundBasis"
             placeholder="Выберите основание"
-            required
-            options={[
-              { value: "withdrawal", label: "Отказ от договора — права прекращаются" },
-              { value: "compensation", label: "Компенсация без отказа — доступ сохраняется" },
-            ]}
+            options={refundBasisOptions}
           />
           <AdminSelect
             label="Автопродление"
@@ -373,7 +379,7 @@ export function PaymentsSection({
                     {formatKopecks(decision.amountKopecks)} · основание{" "}
                     {decision.basis === null
                       ? "не указано"
-                      : { withdrawal: "отказ от договора", compensation: "компенсация без отказа" }[decision.basis]}{" "}
+                      : refundBasisLabels[decision.basis]}{" "}
                     · доступ{" "}
                     {decision.access} · продление {decision.recurring}
                   </span>

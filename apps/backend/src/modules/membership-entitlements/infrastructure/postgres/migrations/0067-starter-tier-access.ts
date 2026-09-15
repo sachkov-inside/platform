@@ -20,7 +20,7 @@ UPDATE billing.offers
 UPDATE membership_entitlements.legacy_classifications
    SET bridge_content_scope = ${allGuides},
        bridge_benefits = array_remove(bridge_benefits, 'reviews')
- WHERE bridge_enabled;
+ WHERE bridge_enabled OR bridge_content_scope IS NOT NULL OR 'reviews' = ANY(bridge_benefits);
 CREATE OR REPLACE FUNCTION membership_entitlements.freeze_bridge_scope() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
  IF NEW.bridge_enabled AND NEW.bridge_content_scope IS NULL THEN

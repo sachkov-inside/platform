@@ -375,7 +375,7 @@ _Avoid_: BillingSubscription, Payment, Telegram membership
 **ContentScope**:
 The set of Guides promised by a tier: named Guides, or every Guide of the platform including later ones (allGuides).
 It includes the evolving published program of an included Guide; a scope of named Guides does not include new products automatically.
-The starter tier and a subscription promise every Guide.
+The starter tier promises every Guide.
 A new ContentScope names no individual Materials; older snapshots may still name them.
 A tier with an empty ContentScope is neither assigned nor sold.
 _Avoid_: Global materials access, catalogue, price
