@@ -271,13 +271,14 @@ describe("HTTP and delegated OAuth communications parity against a contract stub
   });
 
   function token(subject: string) {
+    const issuedAt = Math.floor(Date.now() / 1_000);
     return new SignJWT({})
       .setProtectedHeader({ alg: "ES384", kid: "communications-key" })
       .setIssuer(issuer)
       .setSubject(subject)
       .setAudience(audience)
-      .setIssuedAt()
-      .setExpirationTime("5m")
+      .setIssuedAt(issuedAt)
+      .setExpirationTime(issuedAt + 5 * 60)
       .sign(privateKey);
   }
   async function http(
