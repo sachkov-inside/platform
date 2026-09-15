@@ -3,11 +3,16 @@ import type { Route } from "next";
 import Link from "next/link";
 
 import { AiFirstProcessArtwork, aiFirstGuide } from "@/features/ai-first-guide";
+import { oneTimeTermLabels } from "@/features/billing-checkout";
 import { formatMaterialCount, type PublishedSeriesResult } from "@/features/library-discovery";
 import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 import { guideProgrammeHref } from "@/shared/routing/subscription-route";
 
 import "./ai-first-guide-view.css";
+
+// Сроки называет действующая оферта разовой покупки: страница повторяет их, а не пишет свои.
+const accessTerm = oneTimeTermLabels.materialsAndChat;
+const supportTerm = oneTimeTermLabels.support;
 
 export function AiFirstGuideView({ result, returnTarget, freeEntryHref }: {
   readonly result: Extract<PublishedSeriesResult, { kind: "ready" | "empty" }>;
@@ -25,7 +30,7 @@ export function AiFirstGuideView({ result, returnTarget, freeEntryHref }: {
         <ul className="ai-guide-highlights" aria-label="Формат практикума">
           <li><Code2 aria-hidden="true" />Твой стек</li>
           <li><Clock3 aria-hidden="true" />В своём темпе</li>
-          <li><MessagesSquare aria-hidden="true" />Моя поддержка</li>
+          <li><MessagesSquare aria-hidden="true" />Поддержка {supportTerm}</li>
         </ul>
         <Link className="ai-guide-button" href={programme}>Открыть программу<ArrowRight /></Link>
         {freeCount > 0 ? <p className="ai-guide-format">Бесплатно: {formatMaterialCount(freeCount)}</p> : null}
@@ -80,17 +85,17 @@ export function AiFirstGuideView({ result, returnTarget, freeEntryHref }: {
     </section>
 
     <section className="ai-guide-support" id="support">
-      <div className="ai-guide-support-intro"><p className="ai-guide-eyebrow">Кирилл Сачков · автор практикума</p><h2>Моё сопровождение и закрытое сообщество</h2><p>После покупки сразу открываются все опубликованные материалы практикума и закрытое сообщество. Доступ без ограничения срока и без продлений. Проходи материалы в своём темпе и возвращайся к практике, когда удобно.</p></div>
+      <div className="ai-guide-support-intro"><p className="ai-guide-eyebrow">Кирилл Сачков · автор практикума</p><h2>Моё сопровождение и закрытое сообщество</h2><p>После покупки сразу открываются все опубликованные материалы практикума и закрытое сообщество — на {accessTerm} гарантированно, без продлений и доплат; дальше доступ может сохраняться, но без гарантии срока. Моё сопровождение — {supportTerm} с покупки. Проходи материалы в своём темпе и возвращайся к практике, когда удобно.</p></div>
       <div className="ai-guide-support-details">
-        <div><MessagesSquare aria-hidden="true" /><h3>Моя помощь в сообществе</h3><p>Задавай вопросы и приноси решения на обсуждение. Я помогу разобраться с задачей и выбрать следующий шаг. Помощь доступна всё время твоего участия в сообществе; личные встречи обсуждаем отдельно.</p></div>
+        <div><MessagesSquare aria-hidden="true" /><h3>Моя помощь в сообществе</h3><p>Задавай вопросы и приноси решения на обсуждение. Я помогу разобраться с задачей и выбрать следующий шаг. Моя помощь — {supportTerm} с покупки; личные встречи и обязательная проверка кода в неё не входят.</p></div>
         <div><Play aria-hidden="true" /><h3>Видео и разборы</h3><p>Показываю свой процесс разработки и объясняю решения на примерах. Сложные темы дополняю разборами и видео.</p></div>
-        <div><GitPullRequest aria-hidden="true" /><h3>Практика вместе с участниками</h3><p>Обсуждай проекты, делись находками и учись на опыте других. Время от времени будем встречаться и разбирать сложные темы вместе.</p></div>
+        <div><GitPullRequest aria-hidden="true" /><h3>Практика вместе с участниками</h3><p>Обсуждай проекты, делись находками и учись на опыте других. Время от времени проводим общие разборы сложных тем.</p></div>
       </div>
     </section>
 
     <section className="ai-guide-bonuses">
       <h2>Бонусные материалы</h2>
-      <p className="ai-guide-section-intro">Моя практика за пределами основной программы. Эти материалы буду добавлять в практикум по мере подготовки.</p>
+      <p className="ai-guide-section-intro">Моя практика за пределами основной программы. Эти материалы буду добавлять в практикум по мере подготовки. Срок появления не назначен: в покупку входят уже опубликованные материалы, новые открываются без доплаты.</p>
       <div className="ai-guide-bonus-grid">
         <div><div className="ai-guide-bonus-preview ai-guide-bonus-video" aria-hidden="true"><span>Идея</span><ArrowRight /><Play /><ArrowRight /><span>Ролик</span></div><h3>Как я делаю шортсы с AI</h3><p>Разбор моего процесса: от идеи и сценария до сборки ролика с помощью агентов.</p></div>
         <div><div className="ai-guide-bonus-preview ai-guide-bonus-code" aria-hidden="true"><FolderGit2 /><span>Код<br /><small>Решения · примеры · разборы</small></span></div><h3>Мои проекты и репозитории</h3><p>Доступ к репозиториям с примерами и разборы моих проектов: как они устроены, какие решения я принимаю и как работаю с агентами.</p></div>

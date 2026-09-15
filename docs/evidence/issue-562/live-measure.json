@@ -1,0 +1,138 @@
+{
+  "none/desktop-1440": {
+    "firstResponse": {
+      "feed": true,
+      "product": false,
+      "wholeHomeSkeleton": false
+    },
+    "loadingStatus": "Загружаем материалы…",
+    "loading": {
+      "featured": null,
+      "materialsTop": 153,
+      "toolbar": {
+        "top": 153,
+        "height": 44
+      },
+      "firstRowTop": 213
+    },
+    "ready": {
+      "featured": null,
+      "materialsTop": 153,
+      "toolbar": {
+        "top": 153,
+        "height": 44
+      },
+      "firstRowTop": 213
+    },
+    "same": true,
+    "axe": {
+      "loading": [],
+      "ready": []
+    }
+  },
+  "none/mobile-390": {
+    "firstResponse": {
+      "feed": true,
+      "product": false,
+      "wholeHomeSkeleton": false
+    },
+    "loadingStatus": "Загружаем материалы…",
+    "loading": {
+      "featured": null,
+      "materialsTop": 64,
+      "toolbar": {
+        "top": 64,
+        "height": 96
+      },
+      "firstRowTop": 176
+    },
+    "ready": {
+      "featured": null,
+      "materialsTop": 64,
+      "toolbar": {
+        "top": 64,
+        "height": 96
+      },
+      "firstRowTop": 176
+    },
+    "same": true,
+    "axe": {
+      "loading": [],
+      "ready": []
+    }
+  },
+  "ai-first/desktop-1440": {
+    "firstResponse": {
+      "feed": true,
+      "product": true,
+      "wholeHomeSkeleton": false
+    },
+    "loadingStatus": "Загружаем материалы…",
+    "loading": {
+      "featured": {
+        "top": 113,
+        "height": 432
+      },
+      "materialsTop": 585,
+      "toolbar": {
+        "top": 585,
+        "height": 44
+      },
+      "firstRowTop": 645
+    },
+    "ready": {
+      "featured": {
+        "top": 113,
+        "height": 432
+      },
+      "materialsTop": 585,
+      "toolbar": {
+        "top": 585,
+        "height": 44
+      },
+      "firstRowTop": 645
+    },
+    "same": true,
+    "axe": {
+      "loading": [],
+      "ready": []
+    }
+  },
+  "ai-first/mobile-390": {
+    "firstResponse": {
+      "feed": true,
+      "product": true,
+      "wholeHomeSkeleton": false
+    },
+    "loadingStatus": "Загружаем материалы…",
+    "loading": {
+      "featured": {
+        "top": 24,
+        "height": 463
+      },
+      "materialsTop": 527,
+      "toolbar": {
+        "top": 527,
+        "height": 96
+      },
+      "firstRowTop": 639
+    },
+    "ready": {
+      "featured": {
+        "top": 24,
+        "height": 463
+      },
+      "materialsTop": 527,
+      "toolbar": {
+        "top": 527,
+        "height": 96
+      },
+      "firstRowTop": 639
+    },
+    "same": true,
+    "axe": {
+      "loading": [],
+      "ready": []
+    }
+  }
+}

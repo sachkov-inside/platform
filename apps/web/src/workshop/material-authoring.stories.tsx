@@ -1,7 +1,7 @@
 import type { JSONContent } from "@tiptap/core";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { useState } from "react";
-import { expect, fn, userEvent, within } from "storybook/test";
+import { useCallback, useState } from "react";
+import { expect, fn, spyOn, userEvent, waitFor, within } from "storybook/test";
 
 import {
   MaterialAuthoringPreviewUnauthorizedState,
@@ -56,36 +56,51 @@ function MaterialAuthoringFixture({
 }) {
   const [presentation, setPresentation] = useState(initialPresentation);
 
-  const markDirty = (draft: MaterialAuthoringPresentation["draft"]) => {
-    setPresentation((current) => ({
-      ...current,
-      draft,
-      save: { kind: "dirty" },
-    }));
-  };
+  // Черновик меняется от текущего состояния, а не от черновика рендера: так обработчики не держат
+  // устаревшую копию, и обработчик документа остаётся одним на всё время истории — как у страницы,
+  // где редактор иначе перерисовывался бы на каждый знак.
+  const markDirty = useCallback(
+    (
+      change: (
+        draft: MaterialAuthoringPresentation["draft"],
+      ) => MaterialAuthoringPresentation["draft"],
+    ) => {
+      setPresentation((current) => ({
+        ...current,
+        draft: change(current.draft),
+        save: { kind: "dirty" },
+      }));
+    },
+    [],
+  );
+
+  const onDocumentChange = useCallback(
+    (document: JSONContent) => {
+      noopActions.onDocumentChange(document);
+      markDirty((draft) => ({ ...draft, document }));
+    },
+    [markDirty],
+  );
 
   const actions = {
     onBack: noopActions.onBack,
     onConflictAction: (action) => {
       noopActions.onConflictAction(action);
     },
-    onDocumentChange: (document: JSONContent) => {
-      noopActions.onDocumentChange(document);
-      markDirty({ ...presentation.draft, document });
-    },
+    onDocumentChange,
     onDelete: (input) => {
       noopActions.onDelete(input);
     },
     onFieldChange: (field: MaterialDraftField, value: string) => {
       noopActions.onFieldChange(field, value);
       if (field === "access") {
-        markDirty({
-          ...presentation.draft,
+        markDirty((draft) => ({
+          ...draft,
           access: value === "membership" ? "membership" : "free",
-        });
+        }));
         return;
       }
-      markDirty({ ...presentation.draft, [field]: value });
+      markDirty((draft) => ({ ...draft, [field]: value }));
     },
     onOpenPreview: () => {
       noopActions.onOpenPreview();
@@ -93,16 +108,16 @@ function MaterialAuthoringFixture({
     },
     onPrimaryVideoChange: (primaryVideo, deleteVideoId) => {
       noopActions.onPrimaryVideoChange(primaryVideo, deleteVideoId);
-      markDirty({
-        ...presentation.draft,
+      markDirty((draft) => ({
+        ...draft,
         deleteVideoId,
         primaryVideo,
         primaryVideoId: primaryVideo?.videoId ?? null,
-      });
+      }));
     },
     onOutcomesChange: (outcomes) => {
       noopActions.onOutcomesChange(outcomes);
-      markDirty({ ...presentation.draft, outcomes });
+      markDirty((draft) => ({ ...draft, outcomes }));
     },
     onRetry: () => {
       noopActions.onRetry();
@@ -123,25 +138,21 @@ function MaterialAuthoringFixture({
     },
     onSeriesToggle: (seriesId, checked) => {
       noopActions.onSeriesToggle(seriesId, checked);
-      markDirty({
-        ...presentation.draft,
+      markDirty((draft) => ({
+        ...draft,
         seriesIds: checked
-          ? [...presentation.draft.seriesIds, seriesId]
-          : presentation.draft.seriesIds.filter(
-              (candidate) => candidate !== seriesId,
-            ),
-      });
+          ? [...draft.seriesIds, seriesId]
+          : draft.seriesIds.filter((candidate) => candidate !== seriesId),
+      }));
     },
     onTagToggle: (tagId: string, checked: boolean) => {
       noopActions.onTagToggle(tagId, checked);
-      markDirty({
-        ...presentation.draft,
+      markDirty((draft) => ({
+        ...draft,
         tagIds: checked
-          ? [...presentation.draft.tagIds, tagId]
-          : presentation.draft.tagIds.filter(
-              (candidate) => candidate !== tagId,
-            ),
-      });
+          ? [...draft.tagIds, tagId]
+          : draft.tagIds.filter((candidate) => candidate !== tagId),
+      }));
     },
   } satisfies MaterialAuthoringActions;
 
@@ -339,6 +350,148 @@ export const LessonBlocksEditing: Story = {
       "true",
     );
     await expect(canvas.getByLabelText("Название врезки")).toHaveValue("Не забудьте");
+  },
+};
+
+/** Допуск в пикселях между кнопкой «Добавить блок» и верхом блока, у которого она стоит. */
+const controlsTolerance = 2;
+
+/**
+ * Сколько замеров контролов законно случается, пока автор набирает восемь знаков: перенос строки
+ * меняет высоту документа, и контролы перемеряются, потому что блоки ниже сдвинулись. Пересчёт на
+ * каждой транзакции дал бы по замеру на знак.
+ */
+const remeasuresAllowedWhileTyping = 2;
+
+/** Экземпляр Tiptap, который редактор кладёт на свой DOM-узел. */
+interface TiptapEditorInstance {
+  setOptions(options: object): void;
+}
+
+function tiptapEditor(canvasElement: HTMLElement): TiptapEditorInstance {
+  const dom = canvasElement.querySelector(".ProseMirror");
+  const editor: unknown = dom === null ? undefined : Reflect.get(dom, "editor");
+  if (
+    typeof editor !== "object" ||
+    editor === null ||
+    typeof Reflect.get(editor, "setOptions") !== "function"
+  ) {
+    throw new Error("У документа нет экземпляра Tiptap: не к чему подключить счётчик перерисовок");
+  }
+  return editor as TiptapEditorInstance;
+}
+
+/**
+ * Контролы блока встают у блока под курсором, стоят на месте, пока автор печатает, и следуют за
+ * новым блоком и за указателем. Знак при этом не стоит ни перерисовки редактора, ни замера контролов.
+ *
+ * До #602 каждый знак перерисовывал редактор дважды — сам по себе (`shouldRerenderOnTransaction`)
+ * и вместе со страницей, которая кладёт черновик в состояние для автосохранения, — и заново мерил
+ * контролы на каждой транзакции. История идёт на той же фикстуре, что и страница, и падает, если
+ * вернуть любое из трёх.
+ */
+async function expectBlockControlsWithoutKeystrokeCost(canvasElement: HTMLElement) {
+  const canvas = within(canvasElement);
+  const plus = canvas.getByRole("button", { name: "Добавить блок" });
+  const surface = plus.parentElement;
+  if (!(surface instanceof HTMLElement)) {
+    throw new Error("У кнопки «Добавить блок» нет поверхности, от которой считается её место");
+  }
+  const editorWindow = surface.parentElement;
+  if (!(editorWindow instanceof HTMLElement)) {
+    throw new Error("Поверхность редактора стоит вне окна редактора");
+  }
+  const editor = tiptapEditor(canvasElement);
+  const block = (index: number) => {
+    const node = canvasElement.querySelectorAll(".ProseMirror > *")[index];
+    if (!(node instanceof HTMLElement)) {
+      throw new Error(`В документе нет блока ${String(index + 1)}`);
+    }
+    return node;
+  };
+  const controlsOffset = (target: HTMLElement) =>
+    Math.abs(plus.getBoundingClientRect().top - target.getBoundingClientRect().top);
+  const expectControlsAt = (target: HTMLElement, message: string) =>
+    waitFor(() => expect(controlsOffset(target), message).toBeLessThan(controlsTolerance));
+  const nextFrame = () =>
+    new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+  const paragraph = block(2);
+  await userEvent.click(paragraph);
+  await expectControlsAt(paragraph, "Кнопка «Добавить блок» не встала у абзаца под курсором");
+  // Первый знак переводит черновик в «Не сохранено»: подпись в подвале редактора меняется, и эта
+  // перерисовка законна. Считать начинаем после неё.
+  await userEvent.keyboard(" и");
+  await expect(await within(editorWindow).findByText("Не сохранено")).toBeVisible();
+  await nextFrame();
+
+  // `useEditor` отдаёт Tiptap свежие настройки после каждого рендера редактора: вызов — это рендер.
+  const renders = spyOn(editor, "setOptions");
+  // ProseMirror на каждом знаке прокручивает курсор в видимую область и для этого читает размеры
+  // каждого предка, поверхности и окна редактора поровну. Контролы читают только поверхность,
+  // поэтому их замеры — это разница между двумя счётчиками.
+  const surfaceReads = spyOn(surface, "getBoundingClientRect");
+  const windowReads = spyOn(editorWindow, "getBoundingClientRect");
+  try {
+    // Кадр после каждого знака: замер, назначенный на кадр, успевает выполниться и попасть в счёт.
+    for (const key of " её цена") {
+      await userEvent.keyboard(key);
+      await nextFrame();
+    }
+    await expect(paragraph).toHaveTextContent("и её цена");
+    // Сначала замеры: пересчёт контролов тоже может перерисовать редактор, и проверка рендеров
+    // назвала бы его не той причиной.
+    await expect(
+      surfaceReads.mock.calls.length - windowReads.mock.calls.length,
+      "Набор в абзаце заново мерил положение контролов: пересчёт снова идёт на каждой транзакции",
+    ).toBeLessThanOrEqual(remeasuresAllowedWhileTyping);
+    await expect(
+      renders,
+      "Набор в абзаце перерисовал редактор: он снова перерисовывается на каждой транзакции или вместе со страницей",
+    ).not.toHaveBeenCalled();
+    await expect(
+      controlsOffset(paragraph),
+      "Кнопка «Добавить блок» сдвинулась, пока автор печатал в том же абзаце",
+    ).toBeLessThan(controlsTolerance);
+    // Счётчик рендеров должен что-то видеть: раскрытие на весь экран перерисовывает редактор.
+    await userEvent.click(canvas.getByRole("button", { name: "На весь экран" }));
+    await expect(
+      renders,
+      "Раскрытие редактора не дошло до Tiptap: счётчик перерисовок больше ничего не видит",
+    ).toHaveBeenCalled();
+  } finally {
+    renders.mockRestore();
+    surfaceReads.mockRestore();
+    windowReads.mockRestore();
+  }
+  await userEvent.click(canvas.getByRole("button", { name: "Свернуть редактор" }));
+  await expectControlsAt(paragraph, "Кнопка «Добавить блок» не вернулась к абзацу после свёртывания");
+
+  // Кнопка свёртывания забрала фокус: клик возвращает курсор в абзац, Enter делит его надвое.
+  await userEvent.click(paragraph);
+  await userEvent.keyboard("{Enter}");
+  const created = block(3);
+  await expectControlsAt(created, "Кнопка «Добавить блок» не перешла к новому абзацу");
+
+  const first = block(0);
+  await userEvent.hover(first);
+  await expectControlsAt(first, "Кнопка «Добавить блок» не перешла к блоку под указателем");
+}
+
+export const BlockControlsTyping: Story = {
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
+  name: "Редактор · контролы блока",
+  play: async ({ canvasElement }) => {
+    await expectBlockControlsWithoutKeystrokeCost(canvasElement);
+  },
+};
+
+export const BlockControlsTypingMobile: Story = {
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+  name: "Редактор · контролы блока, мобильный",
+  play: async ({ canvasElement }) => {
+    await expectBlockControlsWithoutKeystrokeCost(canvasElement);
+    await expectNoHorizontalOverflow(canvasElement);
   },
 };
 

@@ -1,5 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query";
 
+import { factAnnouncement } from "@/shared/api/fact-announcement";
 import {
   selfRefreshingRead,
   unavailableRetryIntervalMs,
@@ -9,6 +10,9 @@ import { readBillingContact } from "../api/billing-contact.browser";
 import type { ReadContactResult } from "./billing-contact";
 
 export const billingContactQueryKey = ["account", "billing-contact"] as const;
+
+/** Подтверждение адреса объявляется всем открытым поверхностям одного браузера. */
+export const billingContactVerified = factAnnouncement("inside.billing-contact.verified");
 
 /**
  * Один владелец чтения контакта в браузере: разделы кабинета, витрина и форма читают тот же

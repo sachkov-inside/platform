@@ -76,7 +76,7 @@ function localCatalog(guideId: string): readonly CatalogOffer[] {
       offerId: "72000000-0000-4000-8000-000000000503",
       name: "Руководство «Создание Platform Inside»",
       benefits: [guideCapability(guideId)],
-      // Разовая покупка открывает руководство навсегда: оплаченного срока у неё нет.
+      // Право разовой покупки выдаётся без даты окончания; договорные сроки называет оферта.
       benefitPeriods: [{ capability: guideCapability(guideId), months: null }],
       option: {
         id: "72000000-0000-4000-8000-000000000513",
