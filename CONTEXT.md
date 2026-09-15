@@ -201,10 +201,13 @@ effective date and the SHA-256 of its exact text. A published edition never chan
 is the next version, and the earlier text stays readable at its own address.
 _Avoid_: draft, current page content, document without a version
 
-**Consent Evidence**:
-An immutable record of one Account explicitly accepting an exact document edition for a given
-context. Recurring acceptance is distinct from other kinds and does not itself authorize a charge.
-_Avoid_: current legal text, payment permission, preselected checkbox
+**Legal Acceptance**:
+An immutable journal record of one Account accepting an exact legal edition by pressing a labelled
+button: the first sign-in screen accepts the terms of use, a payment button accepts its offer, and a
+subscription or resumption button also records the renewal terms shown next to it. Recurring
+acceptance is distinct from other kinds and does not itself authorize a charge; a first sign-in
+acceptance never stands in for payment consent.
+_Avoid_: consent checkbox, current legal text, payment permission, preselected checkbox
 
 **Platform Administrator**:
 An Account explicitly granted all known Platform operations through `platform:admin`.
@@ -212,8 +215,9 @@ Its authority is read from current Account grants, never inferred from author ac
 _Avoid_: author, member, Telegram administrator
 
 **Member Profile**:
-A presentation of an Account that is visible only to active Inside members and never grants
-identity, Membership or content access.
+The owner's own presentation of an Account: display name, bio and avatar visible only to that
+Account. It is never shown to other members or visitors and never grants identity, Membership or
+content access.
 _Avoid_: Account, public internet profile, identity record
 
 **MembershipEvidence**:
@@ -222,7 +226,7 @@ _Avoid_: MembershipEntitlement, Tribute subscription
 
 **MembershipEntitlement**:
 Platform's current conclusion that an Account may access Membership-scoped surfaces, including
-protected Library content and Member Profiles, for a finite term or through an independent lifetime
+protected Library content, for a finite term or through an independent lifetime
 right. It does not authorize Workshop content.
 _Avoid_: Subscription, Telegram membership status, WorkshopEntitlement
 

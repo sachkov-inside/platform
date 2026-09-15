@@ -53,7 +53,7 @@ import {
   type TestDatabase,
 } from "./setup/test-database.js";
 import { providerStand, type ProviderStand } from "./setup/telegram-provider-stand.js";
-import { syntheticConsentDocuments } from "./setup/consent-documents.js";
+import { pressedPaymentButton, syntheticConsentDocuments } from "./setup/consent-documents.js";
 
 // Каждое ожидание заканчивается на зафиксированном факте; бюджет только ограничивает зависший прогон.
 const barrierBudgetMs = 45_000;
@@ -311,12 +311,12 @@ describe("приёмка обоих источников Notifications (реал
   /** Подтверждённая оплата настоящим путём: расчёт, согласия, команда и ответ банка. */
   async function buy(account: string, optionId: string, options: { readonly recurring?: boolean } = {}) {
     const quote = value(await pricing.quote(account, { operationId: randomUUID(), paymentOptionId: optionId, optionRevision: 1 }));
-    const accepted = await contact.acceptConsents(account, {
+    const accepted = await contact.acceptConsents(account, pressedPaymentButton({
       operationId: randomUUID(), contextRef: quote.quoteRef,
       documents: documents.filter((document) => options.recurring === true || document.kind === "terms")
         .map((document) => ({ kind: document.kind, documentId: document.documentId,
           version: document.version, digest: document.digest, accepted: true })),
-    });
+    }, { snapshot: quote.snapshot }));
     if (!accepted.ok) throw new Error(accepted.error.code);
     const purchase = value(await payments.purchase(account, {
       operationId: randomUUID(), quoteRef: quote.quoteRef, contactRevision: 1,

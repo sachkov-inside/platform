@@ -56,7 +56,6 @@ const profile = {
   bio: "Строю платформу.",
   createdAt: "2026-08-30T10:00:00.000Z",
   displayName: "Кирилл",
-  publicProfileId: "d3acb421-85e2-4c79-9dfa-4b2c925e56e8",
   status: "active",
   updatedAt: "2026-08-30T10:00:00.000Z",
   version: 3,

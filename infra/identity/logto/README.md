@@ -94,7 +94,10 @@ same presentation, while production has no dependency on the Storybook fixture.
 
 Other appearance stays provider-configured. The Management API bootstrap owns the empty logo,
 forced Russian language, Platform accent and light-mode settings; this keeps the source delta small
-and reviewable.
+and reviewable. It also owns the line under the sign-in form (#658): only `privacyPolicyUrl` is set,
+`agreeToTermsPolicy` is `Automatic` and the `ru` custom phrase says that the terms of use are
+accepted right after sign-in, on the Platform first sign-in screen. A production identity instance
+applies the same settings through its own Management API step.
 
 ## Updating the fork
 

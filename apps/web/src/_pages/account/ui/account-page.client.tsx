@@ -1,5 +1,5 @@
 "use client";
-import { Check, Copy, RotateCcw } from "lucide-react";
+import { Check, RotateCcw } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { useId, useState } from "react";
 
@@ -33,7 +33,6 @@ export function AccountPageClient({
   const [bio, setBio] = useState(initialProfile?.bio ?? "");
   const [nameTouched, setNameTouched] = useState(false);
   const [bioTouched, setBioTouched] = useState(false);
-  const [copied, setCopied] = useState(false);
   const nameHelpId = useId();
   const nameErrorId = useId();
   const bioHelpId = useId();
@@ -94,8 +93,7 @@ export function AccountPageClient({
         <div className="mb-6 rounded-xl border border-destructive/30 bg-destructive/6 p-4 text-sm">
           <p className="font-semibold">Профиль скрыт модерацией</p>
           <p className="mt-1 text-muted-foreground">
-            Другие участники получают безопасную страницу 404. Поля можно исправить;
-            восстановление выполняет владелец платформы.
+            Поля можно исправить; восстановление выполняет владелец платформы.
           </p>
         </div>
       ) : null}
@@ -123,8 +121,8 @@ export function AccountPageClient({
           </h2>
 
           <p className="text-sm leading-6 text-muted-foreground">
-            Профиль заполняется по желанию. Имя, описание и изображение видят участники
-            с действующим доступом; без него материалы и покупки работают так же.
+            Профиль заполняется по желанию и виден только вам. Другим участникам он не
+            показывается; без него материалы и покупки работают так же.
           </p>
 
           {profile === null ? (
@@ -198,7 +196,7 @@ export function AccountPageClient({
                 value={bio}
               />
               <div className="mt-2 flex justify-between gap-4 text-xs text-muted-foreground">
-                <p id={bioHelpId}>Короткий текст, который увидят участники.</p>
+                <p id={bioHelpId}>Короткий текст о себе, виден только вам.</p>
                 <span aria-label={`${String(bioLength)} из 500 символов`} className="font-mono">
                   {bioLength}/500
                 </span>
@@ -210,29 +208,6 @@ export function AccountPageClient({
               ) : null}
             </div>
           </div>
-
-          {profile === null ? (
-            <p className="mt-7 border-t border-border pt-7 text-sm leading-6 text-muted-foreground">
-              После создания профиль получит постоянную ссылку для участников.
-            </p>
-          ) : (
-            <div className="mt-7 border-t border-border pt-7">
-              <p className="text-sm font-semibold">Ссылка для участников</p>
-              <ProfileLink
-                copied={copied}
-                onCopy={() => {
-                  const url = `${window.location.origin}/members/${profile.publicProfileId}`;
-                  void navigator.clipboard.writeText(url).then(() => {
-                    setCopied(true);
-                    window.setTimeout(() => {
-                      setCopied(false);
-                    }, 1_500);
-                  });
-                }}
-                publicProfileId={profile.publicProfileId}
-              />
-            </div>
-          )}
 
           <div className="mt-7 flex flex-wrap items-center gap-4">
             <Button
@@ -271,30 +246,6 @@ function ProfileAvatarPlaceholder({ displayName }: { readonly displayName: strin
     >
       {initials === "" ? "\u00A0" : initials}
     </span>
-  );
-}
-
-function ProfileLink({
-  copied,
-  onCopy,
-  publicProfileId,
-}: {
-  readonly copied: boolean;
-  readonly onCopy: () => void;
-  readonly publicProfileId: string;
-}) {
-  return (
-    <div className="mt-4 flex items-center gap-2 rounded-xl border border-border bg-muted/45 p-2 pl-4">
-      <code className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground">
-        /members/{publicProfileId}
-      </code>
-      <Button aria-label="Скопировать ссылку на профиль" className="size-11" onClick={onCopy} size="icon" type="button" variant="ghost">
-        {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
-      </Button>
-      <span aria-live="polite" className="sr-only">
-        {copied ? "Ссылка скопирована" : ""}
-      </span>
-    </div>
   );
 }
 

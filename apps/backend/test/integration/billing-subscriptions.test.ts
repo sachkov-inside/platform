@@ -7,7 +7,7 @@ import { BillingNotices, BillingPayments, BillingPricing, BillingSubscriptions }
 import { syntheticTbankConfig } from "../support/bank-terminal.js";
 import { BankFixture } from "./setup/bank.js";
 import { createMigratedTestDatabase, type TestDatabase } from "./setup/test-database.js";
-import { syntheticConsentDocuments } from "./setup/consent-documents.js";
+import { pressedPaymentButton, syntheticConsentDocuments, type RenewalSource } from "./setup/consent-documents.js";
 
 function value<T>(result: { ok: true; value: T } | { ok: false; error: { code: string } }): T {
   if (!result.ok) throw new Error(result.error.code); return result.value;
@@ -67,16 +67,16 @@ describe("подписка: продление, отмена, смена вар�
     const notices = new BillingNotices({ prisma: db.prisma, clock: () => now });
     const subscriptions = new BillingSubscriptions({ prisma: db.prisma, bank: client, contact, grants, payments, notices, clock: () => now });
 
-    async function consentFor(contextRef: string) {
-      const accepted = await contact.acceptConsents(buyer, { operationId: randomUUID(), contextRef,
-        documents: documents.map(document => ({ kind: document.kind, documentId: document.documentId, version: document.version, digest: document.digest, accepted: true })) });
+    async function consentFor(contextRef: string, renewal: RenewalSource, screen: "checkout" | "subscription-resume" = "checkout") {
+      const accepted = await contact.acceptConsents(buyer, pressedPaymentButton({ operationId: randomUUID(), contextRef,
+        documents: documents.map(document => ({ kind: document.kind, documentId: document.documentId, version: document.version, digest: document.digest, accepted: true })) }, renewal, screen));
       if (!accepted.ok) throw new Error(accepted.error.code);
       return accepted.evidenceRefs;
     }
     async function buy() {
       const quote = value(await pricing.quote(buyer, { operationId: randomUUID(), paymentOptionId: optionId, optionRevision: 1 }));
       const purchase = value(await payments.purchase(buyer, { operationId: randomUUID(), quoteRef: quote.quoteRef, contactRevision: 1,
-        consentEvidenceRefs: await consentFor(quote.quoteRef), acknowledgeExistingAccess: false }));
+        consentEvidenceRefs: await consentFor(quote.quoteRef, { snapshot: quote.snapshot }), acknowledgeExistingAccess: false }));
       expect(await payments.notification(bank.notify(purchase.purchaseRef, "AUTHORIZED", { RebillId: "synthetic-first-card" }))).toMatchObject({ ok: true });
       expect(await payments.notification(bank.notify(purchase.purchaseRef, "CONFIRMED"))).toMatchObject({ ok: true });
       value(await payments.recover());
@@ -443,7 +443,7 @@ describe("подписка: продление, отмена, смена вар�
       .toMatchObject({ error: { code: "consent_required" } });
     const operationId = randomUUID();
     const resumed = value(await s.subscriptions.resume(s.buyer, { operationId, expectedRevision: canceled.revision,
-      consentEvidenceRefs: await s.consentFor(operationId) }));
+      consentEvidenceRefs: await s.consentFor(operationId, { snapshot: canceled.snapshot, nextChargeAt: new Date(canceled.paidUntil) }, "subscription-resume") }));
     expect(resumed).toMatchObject({ state: "active" });
     now = new Date("2030-02-28T10:00:00Z");
     value(await s.payments.renew());

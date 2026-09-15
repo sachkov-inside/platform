@@ -56,6 +56,20 @@ and should be deleted when upstream does the same.
 Platform does not add `inside_session`, `inside_signin`, sessionRef, custom callback idempotency or
 reauthentication cookies. Official Logto SDK context is the only BFF session.
 
+## First sign-in screen
+
+After the callback establishes or resolves the Account, the BFF reads whether the Account accepted
+the terms of use edition in force (`GET accounts/current/legal-acceptances/terms`). If not, it
+redirects to `/welcome?returnTo=<local path>` instead of the post-sign-in return URI; the return path
+accepts only an address of this site. The same check guards the Account cabinet and purchase routes,
+and Nest refuses those surfaces with `403 terms_acceptance_required` until the terms are accepted.
+The acceptance needs no verified email. A Telegram sign-in finishes the bot link only after the
+acceptance; the acceptance BFF retries the completion with the still-fresh sign-in token.
+
+The Logto sign-in screen links the privacy policy and states that the terms are accepted right after
+sign-in (`agreeToTermsPolicy: Automatic`, no terms URL, `ru` custom phrase); the Management API
+bootstrap owns that configuration.
+
 ## Token claims
 
 The owner-controlled Logto custom access-token script exposes one private claim for direct

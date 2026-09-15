@@ -45,6 +45,7 @@ export class AccountsService {
     requestBody,
   }: {
     requestBody: {
+      buttonLabel: string;
       contextRef: string;
       documents: Array<{
         accepted: boolean;
@@ -54,6 +55,12 @@ export class AccountsService {
         version: string;
       }>;
       operationId: string;
+      screen: 'checkout' | 'subscription-resume';
+      shownTerms?: {
+        amountKopecks: number;
+        nextChargeOn: string;
+        periodMonths: number;
+      };
     },
   }): CancelablePromise<({
     evidenceRefs: Array<string>;
@@ -83,6 +90,7 @@ export class AccountsService {
   }): CancelablePromise<({
     evidence: {
       acceptedAt: string;
+      buttonLabel: string | null;
       contextRef: string;
       document: {
         digest: string;
@@ -93,6 +101,11 @@ export class AccountsService {
         version: string;
       };
       evidenceRef: string;
+      shownTerms: {
+        amountKopecks: number;
+        nextChargeOn: string;
+        periodMonths: number;
+      } | null;
     };
     ok: boolean;
   } | {
@@ -197,6 +210,94 @@ export class AccountsService {
     return this.httpRequest.request({
       method: 'POST',
       url: '/accounts/current/billing/contact/start',
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
+   * List own accepted legal documents, newest first
+   * @returns any
+   * @throws ApiError
+   */
+  public listLegalAcceptances(): CancelablePromise<({
+    documents: Array<{
+      acceptanceRef: string;
+      acceptedAt: string;
+      buttonLabel: string | null;
+      documentId: string;
+      screen: 'first-sign-in' | 'checkout' | 'subscription-resume' | null;
+      shownTerms: {
+        amountKopecks: number;
+        nextChargeOn: string;
+        periodMonths: number;
+      } | null;
+      url: string;
+      version: string;
+    }>;
+    ok: boolean;
+  } | {
+    error: {
+      code: 'invalid_input' | 'forbidden' | 'document_changed' | 'operation_conflict' | 'internal_error';
+    };
+    ok: boolean;
+  })> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/accounts/current/legal-acceptances',
+    });
+  }
+  /**
+   * Read whether the terms of use in force are accepted
+   * @returns any
+   * @throws ApiError
+   */
+  public readTermsAcceptance(): CancelablePromise<({
+    accepted: boolean;
+    document: {
+      digest: string;
+      documentId: 'terms';
+      url: string;
+      version: string;
+    };
+    ok: boolean;
+    previouslyAccepted: boolean;
+  } | {
+    error: {
+      code: 'invalid_input' | 'forbidden' | 'document_changed' | 'operation_conflict' | 'internal_error';
+    };
+    ok: boolean;
+  })> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/accounts/current/legal-acceptances/terms',
+    });
+  }
+  /**
+   * Accept the exact terms of use edition in force by the pressed button
+   * @returns any
+   * @throws ApiError
+   */
+  public acceptTerms({
+    requestBody,
+  }: {
+    requestBody: {
+      buttonLabel: string;
+      digest: string;
+      operationId: string;
+      version: string;
+    },
+  }): CancelablePromise<({
+    acceptanceRef: string;
+    ok: boolean;
+  } | {
+    error: {
+      code: 'invalid_input' | 'forbidden' | 'document_changed' | 'operation_conflict' | 'internal_error';
+    };
+    ok: boolean;
+  })> {
+    return this.httpRequest.request({
+      method: 'POST',
+      url: '/accounts/current/legal-acceptances/terms',
       body: requestBody,
       mediaType: 'application/json',
     });

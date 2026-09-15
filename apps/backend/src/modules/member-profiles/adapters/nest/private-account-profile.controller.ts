@@ -5,7 +5,6 @@ import {
   Inject,
   Post,
   Put,
-  UseGuards,
 } from "@nestjs/common";
 import {
   ApiBearerAuth,
@@ -17,7 +16,7 @@ import {
 
 import { toOpenApiSchema } from "../../../../infrastructure/http/zod-openapi.js";
 import {
-  AccountGuard,
+  AcceptedTermsEndpoint,
   CurrentAccount,
   accountId,
   type AuthenticatedAccount,
@@ -41,7 +40,7 @@ import {
 
 @MemberProfileEndpoint()
 @ApiBearerAuth("logto")
-@UseGuards(AccountGuard)
+@AcceptedTermsEndpoint()
 @Controller("account/profile")
 export class PrivateAccountProfileController {
   constructor(

@@ -3,14 +3,10 @@ import { HttpException } from "@nestjs/common";
 import type { FastifyRequest } from "fastify";
 import { describe, expect, test, vi } from "vitest";
 
-import {
-  PrivateProfileAvatarController,
-  ProfileAvatarDeliveryController,
-} from "../../src/modules/member-profiles/adapters/nest/profile-avatar.controller.js";
+import { PrivateProfileAvatarController } from "../../src/modules/member-profiles/adapters/nest/profile-avatar.controller.js";
 import type { MemberProfiles } from "../../src/modules/member-profiles/index.js";
 
 const account = { accountId: "30000000-0000-4000-8000-000000000001" };
-const publicProfileId = "40000000-0000-4000-8000-000000000001";
 const avatarId = "50000000-0000-4000-8000-000000000001";
 
 describe("Profile Avatar HTTP controllers", () => {
@@ -101,7 +97,7 @@ describe("Profile Avatar HTTP controllers", () => {
     );
   });
 
-  test("masks invalid, anonymous, and unavailable delivery while returning redirects", async () => {
+  test("masks invalid and unavailable own-avatar delivery while returning redirects", async () => {
     const deliverAvatar = vi
       .fn<MemberProfiles["deliverAvatar"]>()
       .mockResolvedValueOnce({ error: { code: "not_found" }, ok: false })
@@ -113,38 +109,43 @@ describe("Profile Avatar HTTP controllers", () => {
         location: "https://storage.example.test/protected-avatar",
         ok: true,
       });
-    const controller = new ProfileAvatarDeliveryController(
+    const controller = new PrivateProfileAvatarController(
       memberProfiles({ deliverAvatar }),
     );
 
     await expectHttpProblem(
-      controller.read(undefined, publicProfileId, avatarId, "320"),
+      controller.read(account, "not-a-uuid", "320"),
       404,
       "profile_not_found",
     );
     await expectHttpProblem(
-      controller.read(account, "not-a-uuid", avatarId, "320"),
+      controller.read(account, avatarId, "1024"),
       404,
       "profile_not_found",
     );
     await expectHttpProblem(
-      controller.read(account, publicProfileId, avatarId, "320"),
+      controller.read(account, avatarId, "320"),
       404,
       "profile_not_found",
     );
     await expectHttpProblem(
-      controller.read(account, publicProfileId, avatarId, "320"),
+      controller.read(account, avatarId, "320"),
       503,
       "dependency_unavailable",
     );
     await expect(
-      controller.read(account, publicProfileId, avatarId, "320"),
+      controller.read(account, avatarId, "320"),
     ).resolves.toEqual({
       cacheScope: "private-no-store",
       kind: "redirect",
       location: "https://storage.example.test/protected-avatar",
     });
     expect(deliverAvatar).toHaveBeenCalledTimes(3);
+    expect(deliverAvatar).toHaveBeenLastCalledWith({
+      accountId: account.accountId,
+      avatarId,
+      size: 320,
+    });
   });
 });
 
@@ -155,7 +156,6 @@ function memberProfiles(overrides: Partial<MemberProfiles>): MemberProfiles {
     deliverAvatar: vi.fn<MemberProfiles["deliverAvatar"]>(),
     readPrivateProfile: vi.fn<MemberProfiles["readPrivateProfile"]>(),
     updateProfile: vi.fn<MemberProfiles["updateProfile"]>(),
-    viewProfile: vi.fn<MemberProfiles["viewProfile"]>(),
     ...overrides,
   };
 }

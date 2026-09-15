@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 
-import { AccountAccessPage } from "@/_pages/account-access";
+import { AccountAccessRoute } from "@/_pages/account-access.server";
 
 export const metadata: Metadata = {
   title: "Аккаунт",
 };
 
-export default function AccountAccessRoute() {
-  return <AccountAccessPage />;
+export default function AccountAccessPage() {
+  return <AccountAccessRoute />;
 }

@@ -1,8 +1,8 @@
-import { Body, Controller, HttpCode, Inject, Post, UseFilters, UseGuards } from "@nestjs/common";
+import { Body, Controller, HttpCode, Inject, Post, UseFilters } from "@nestjs/common";
 import { ApiBearerAuth, ApiBody, ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { PrivateNoStore } from "../../../../infrastructure/http/http-cache-policy.js";
 import { problemDetailsOneOfContent, problemDetailsContent, problemDetailsSchema, toOpenApiSchema } from "../../../../infrastructure/http/zod-openapi.js";
-import { AccountGuard, AccountProblemDetailsFilter, CurrentAccount, accountProblemSchema, type AuthenticatedAccount } from "../../../accounts/index.js";
+import { AcceptedTermsEndpoint, AccountProblemDetailsFilter, CurrentAccount, accountProblemSchema, type AuthenticatedAccount } from "../../../accounts/index.js";
 import { subscriptionViewSchema } from "../../domain/subscription-change.js";
 import { BillingSubscriptions } from "../../facets/billing-subscriptions/billing-subscriptions.js";
 import { changeMethodSchema, methodFlowSchema, revokeMethodSchema } from "./change-payment-method.contract.js";
@@ -11,11 +11,10 @@ import { throwPaymentError } from "../../shared/payment-http.filter.js";
 @ApiTags("Billing")
 @ApiBearerAuth("logto")
 @PrivateNoStore()
-@UseGuards(AccountGuard)
+@AcceptedTermsEndpoint(problemDetailsSchema(403, ["forbidden"]))
 @UseFilters(AccountProblemDetailsFilter)
 @ApiResponse({ status: 400, content: problemDetailsOneOfContent(problemDetailsSchema(400, ["invalid_request"]), accountProblemSchema) })
 @ApiResponse({ status: 401, content: problemDetailsContent(accountProblemSchema) })
-@ApiResponse({ status: 403, content: problemDetailsContent(problemDetailsSchema(403, ["forbidden"])) })
 @ApiResponse({ status: 404, content: problemDetailsContent(problemDetailsSchema(404, ["not_found"])) })
 @ApiResponse({ status: 409, content: problemDetailsOneOfContent(problemDetailsSchema(409, ["operation_conflict", "revision_conflict"]), accountProblemSchema) })
 @ApiResponse({ status: 422, content: problemDetailsContent(problemDetailsSchema(422, ["method_unavailable"])) })

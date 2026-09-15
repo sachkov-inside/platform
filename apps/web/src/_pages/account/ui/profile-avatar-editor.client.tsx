@@ -228,7 +228,6 @@ export function ProfileAvatarEditor({
         <ProfileAvatar
           avatar={profile.avatar}
           displayName={profile.displayName}
-          publicProfileId={profile.publicProfileId}
           size="small"
         />
         <div className="min-w-0 flex-1">

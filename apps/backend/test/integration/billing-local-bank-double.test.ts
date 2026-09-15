@@ -9,7 +9,7 @@ import { assembleAccessGrants } from "../../src/modules/membership-entitlements/
 import { BillingNotices, BillingOperations, BillingPayments, BillingPricing, BillingSubscriptions } from "../../src/modules/billing/index.js";
 import type { OwnerResult } from "../../src/modules/billing/domain/owner-operations.js";
 import { Tbank, type BankRequest } from "../../src/modules/billing/infrastructure/tbank/tbank.js";
-import { syntheticConsentDocuments } from "./setup/consent-documents.js";
+import { pressedPaymentButton, syntheticConsentDocuments } from "./setup/consent-documents.js";
 import { createMigratedTestDatabase, type TestDatabase } from "./setup/test-database.js";
 
 function value<T>(result: { ok: true; value: T } | { ok: false; error: { code: string } }): T {
@@ -112,9 +112,9 @@ describe("локальная продажа через двойника банк
     async function beginPurchase(option = optionId, accepted: readonly string[] = documents.map(document => document.kind)):
       Promise<{ purchaseRef: string; paymentUrl: string }> {
       const quote = value(await pricing.quote(buyer, { operationId: randomUUID(), paymentOptionId: option, optionRevision: 1 }));
-      const consent = await contact.acceptConsents(buyer, { operationId: randomUUID(), contextRef: quote.quoteRef,
+      const consent = await contact.acceptConsents(buyer, pressedPaymentButton({ operationId: randomUUID(), contextRef: quote.quoteRef,
         documents: documents.filter(document => accepted.includes(document.kind))
-          .map(document => ({ kind: document.kind, documentId: document.documentId, version: document.version, digest: document.digest, accepted: true })) });
+          .map(document => ({ kind: document.kind, documentId: document.documentId, version: document.version, digest: document.digest, accepted: true })) }, { snapshot: quote.snapshot }));
       if (!consent.ok) throw new Error(consent.error.code);
       const purchase = value(await payments.purchase(buyer, { operationId: randomUUID(), quoteRef: quote.quoteRef,
         contactRevision: 1, consentEvidenceRefs: consent.evidenceRefs, acknowledgeExistingAccess: false }));

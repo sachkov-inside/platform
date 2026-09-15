@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { AccountsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { acquireAccountLocks } from "../../infrastructure/postgres/advisory-locks.js";
 import type { billingContactProtection } from "../../infrastructure/billing-contact-protection.js";
+import { shownRenewalTermsSchema } from "../legal-acceptances/legal-acceptances.contract.js";
 import {
   acceptConsentsSchema,
   acceptConsentsResultSchema,
@@ -101,15 +102,18 @@ export class BillingContact {
       return contactFailure("not_found");
     try {
       const row =
-        await this.dependencies.prisma.billingConsentEvidence.findFirst({
-          where: { id: evidenceRef, accountId },
+        await this.dependencies.prisma.legalAcceptance.findFirst({
+          // First sign-in acceptances have no payment context and never stand in for a payment consent.
+          where: { id: evidenceRef, accountId, contextRef: { not: null } },
         });
-      if (!row) return contactFailure("not_found");
+      if (!row?.contextRef) return contactFailure("not_found");
       return {
         ok: true,
         evidence: {
           evidenceRef: row.id,
           contextRef: row.contextRef,
+          buttonLabel: row.buttonLabel,
+          shownTerms: shownRenewalTermsSchema.nullable().parse(row.shownTerms),
           acceptedAt: row.acceptedAt.toISOString(),
           document: acceptedLegalDocumentSchema.parse({
             kind: row.kind,
@@ -380,7 +384,10 @@ export class BillingContact {
     if (
       !parsed.success ||
       new Set(parsed.data.documents.map((document) => document.kind)).size !==
-        parsed.data.documents.length
+        parsed.data.documents.length ||
+      // Renewal terms are shown exactly where recurring payments are accepted, and only there.
+      parsed.data.documents.some((document) => document.kind === "recurring") !==
+        (parsed.data.shownTerms !== undefined)
     )
       return contactFailure("invalid_input");
     if (!z.uuid().safeParse(accountId).success)
@@ -443,7 +450,7 @@ export class BillingContact {
         const instant = now();
         for (const document of selected) {
           const id = randomUUID();
-          await transaction.billingConsentEvidence.create({
+          await transaction.legalAcceptance.create({
             data: {
               id,
               accountId,
@@ -455,6 +462,11 @@ export class BillingContact {
               documentDigest: document.digest,
               documentText: document.text,
               documentUrl: document.url,
+              screen: command.screen,
+              buttonLabel: command.buttonLabel,
+              ...(command.shownTerms === undefined
+                ? {}
+                : { shownTerms: command.shownTerms }),
               acceptedAt: instant,
             },
           });

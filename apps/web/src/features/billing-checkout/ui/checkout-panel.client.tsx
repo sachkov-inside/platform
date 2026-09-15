@@ -5,19 +5,22 @@ import { useId } from "react";
 
 import { LegalDocumentLinks, legalNavigationEntry } from "@/entities/legal-document";
 import {
+  AcceptanceNote,
   billingActionClass,
-  ConsentChecklist,
+  checkoutButtonLabel,
+  checkoutActionName,
   legalDocumentLabel,
   attemptStateLabel,
   formatBillingDateTime,
   formatKopecks,
   formatMonths,
   paymentMode,
+  renewalTermsAtCheckout,
+  renewalTermsLine,
   promotionLabel,
   purchaseConsentPolicy,
   type BillingQuote,
   type LegalDocument,
-  type LegalDocumentKind,
   type PriceSnapshot,
   type PurchaseStatus,
   type VerifiedContact,
@@ -29,7 +32,6 @@ export interface CheckoutPanelProps {
   /** Сохранённый расчёт: точные суммы и срок действия условий. */
   readonly quote: BillingQuote | null;
   readonly documents: readonly LegalDocument[];
-  readonly accepted: readonly LegalDocumentKind[];
   readonly contact: VerifiedContact | null;
   readonly contactHref: Route;
   readonly acknowledgeExistingAccess: boolean;
@@ -39,28 +41,28 @@ export interface CheckoutPanelProps {
   readonly error?: string | undefined;
   readonly purchase: PurchaseStatus | null;
   readonly onQuote: () => void;
-  readonly onToggleDocument: (kind: LegalDocumentKind) => void;
   readonly onToggleAcknowledge: () => void;
   readonly onPay: () => void;
   readonly onRefreshStatus: () => void;
 }
 
 /**
- * Оформление покупки: сначала точные условия сервера, затем отдельные согласия, и только
- * потом оплата. Ни один флажок не отмечен заранее, а возврат из банка не считается успехом.
+ * Оформление покупки: сначала точные условия сервера, потом одна кнопка. Нажатие принимает
+ * оферту, а у подписки ещё и автопродление на условиях, названных под кнопкой; отметок нет.
+ * Возврат из банка не считается успехом.
  * Разовая покупка идёт тем же путём, но не обещает ни следующего периода, ни списаний.
  */
 
-/** Название принимаемого документа: оферты покупки и подписки называются по документу. */
+/** Название принимаемого документа в строке «вы принимаете …»: оферты называются по документу. */
 function documentLabel(document: LegalDocument): string {
-  return legalNavigationEntry(document.documentId)?.navLabel ?? legalDocumentLabel(document.kind);
+  const entry = legalNavigationEntry(document.documentId);
+  return entry?.consentLabel ?? entry?.navLabel ?? legalDocumentLabel(document.kind);
 }
 
 export function CheckoutPanel({
   snapshot,
   quote,
   documents,
-  accepted,
   contact,
   contactHref,
   acknowledgeExistingAccess,
@@ -70,7 +72,6 @@ export function CheckoutPanel({
   error,
   purchase,
   onQuote,
-  onToggleDocument,
   onToggleAcknowledge,
   onPay,
   onRefreshStatus,
@@ -85,12 +86,10 @@ export function CheckoutPanel({
   const missingRequired = required.filter(
     (kind) => !applicable.some((document) => document.kind === kind),
   );
-  const consentsAccepted = required.every((kind) => accepted.includes(kind));
   const payable =
     quote !== null &&
     contact !== null &&
     missingRequired.length === 0 &&
-    consentsAccepted &&
     !legacyBlocked &&
     (!existingAccess || acknowledgeExistingAccess);
 
@@ -203,21 +202,7 @@ export function CheckoutPanel({
               Условия продажи ещё не опубликованы, поэтому принять оплату нельзя.
               Мы включим оформление, как только документы появятся.
             </p>
-          ) : (
-            <div className="mt-5 border-t border-border pt-5">
-              <ConsentChecklist
-                accepted={accepted}
-                disabled={pending}
-                documents={applicable}
-                labelFor={documentLabel}
-                legend="Согласия перед оплатой"
-                markOptional
-                namePrefix="consent"
-                onToggle={onToggleDocument}
-                required={required}
-              />
-            </div>
-          )}
+          ) : null}
 
           <LegalDocumentLinks
             className="mt-5"
@@ -259,16 +244,28 @@ export function CheckoutPanel({
               новое списание не начинаем — доступ по прежнему основанию сохраняется.
             </p>
           ) : (
-            <Button
-              className={`mt-6 w-full sm:w-auto ${billingActionClass}`}
-              disabled={!payable || pending}
-              onClick={onPay}
-              type="button"
-            >
-              {pending
-                ? "Готовим оплату…"
-                : `Оплатить ${formatKopecks(conditions.firstPriceKopecks)}`}
-            </Button>
+            <>
+              <Button
+                className={`mt-6 w-full sm:w-auto ${billingActionClass}`}
+                disabled={!payable || pending}
+                onClick={onPay}
+                type="button"
+              >
+                {pending ? "Готовим оплату…" : checkoutButtonLabel(conditions)}
+              </Button>
+              {missingRequired.length > 0 ? null : (
+                <AcceptanceNote className="mt-3" underage>
+                  Нажимая «{checkoutActionName(conditions)}», вы принимаете{" "}
+                  {applicable
+                    .filter((document) => document.kind === "terms")
+                    .map(documentLabel)
+                    .join(" и ")}
+                  {recurring
+                    ? ` и разрешаете автопродление: ${renewalTermsLine(renewalTermsAtCheckout(quote))}. Отключить продление можно в кабинете, в разделе «Подписка».`
+                    : "."}
+                </AcceptanceNote>
+              )}
+            </>
           )}
         </>
       )}

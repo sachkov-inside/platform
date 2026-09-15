@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Post, HttpCode, HttpException, Inject, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { z } from 'zod';
-import { AccountGuard, CurrentAccount, type AuthenticatedAccount } from '../../../accounts/index.js';
+import { AcceptedTermsEndpoint, AccountGuard, CurrentAccount, type AuthenticatedAccount } from '../../../accounts/index.js';
 import { PrivateNoStore } from '../../../../infrastructure/http/http-cache-policy.js';
 import { toOpenApiSchema, problemDetailsContent, problemDetailsSchema } from '../../../../infrastructure/http/zod-openapi.js';
 import { Notifications } from '../../facets/notifications/notifications.js';
@@ -18,7 +18,7 @@ function queryId(value: string | undefined): string | undefined {
 @ApiResponse({ status: 503, content: problemDetailsContent(problemDetailsSchema(503, ['dependency_unavailable'])) })
 @ApiResponse({ status: 500, content: problemDetailsContent(problemDetailsSchema(500, ['internal_error'])) })
 @PrivateNoStore()
-@UseGuards(AccountGuard)
+@AcceptedTermsEndpoint()
 export class NotificationPreferencesController {
   constructor(@Inject(Notifications) private readonly notifications: Notifications) {}
   @Get('preferences')

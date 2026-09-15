@@ -1,0 +1,114 @@
+[
+  {
+    "surface": "welcome",
+    "viewport": "desktop",
+    "id": "pages-welcome--first-sign-in",
+    "overflow": false,
+    "checkboxes": 0,
+    "serious": []
+  },
+  {
+    "surface": "checkout-one-time",
+    "viewport": "desktop",
+    "id": "pages-guide-payment--ready",
+    "overflow": false,
+    "checkboxes": 0,
+    "serious": []
+  },
+  {
+    "surface": "checkout-subscription",
+    "viewport": "desktop",
+    "id": "pages-subscription-checkout--acceptance-by-button",
+    "overflow": false,
+    "checkboxes": 0,
+    "serious": []
+  },
+  {
+    "surface": "subscription-resume",
+    "viewport": "desktop",
+    "id": "pages-account-subscription--canceled",
+    "overflow": false,
+    "checkboxes": 0,
+    "serious": []
+  },
+  {
+    "surface": "storage-notice",
+    "viewport": "desktop",
+    "id": "patterns-storage-notice--new-edition",
+    "overflow": false,
+    "checkboxes": 0,
+    "serious": []
+  },
+  {
+    "surface": "accepted-documents",
+    "viewport": "desktop",
+    "id": "pages-account-access--linked",
+    "overflow": false,
+    "checkboxes": 0,
+    "serious": []
+  },
+  {
+    "surface": "profile",
+    "viewport": "desktop",
+    "id": "pages-account-profile--active-desktop",
+    "overflow": false,
+    "checkboxes": 0,
+    "serious": []
+  },
+  {
+    "surface": "welcome",
+    "viewport": "mobile",
+    "id": "pages-welcome--first-sign-in",
+    "overflow": false,
+    "checkboxes": 0,
+    "serious": []
+  },
+  {
+    "surface": "checkout-one-time",
+    "viewport": "mobile",
+    "id": "pages-guide-payment--ready",
+    "overflow": false,
+    "checkboxes": 0,
+    "serious": []
+  },
+  {
+    "surface": "checkout-subscription",
+    "viewport": "mobile",
+    "id": "pages-subscription-checkout--acceptance-by-button",
+    "overflow": false,
+    "checkboxes": 0,
+    "serious": []
+  },
+  {
+    "surface": "subscription-resume",
+    "viewport": "mobile",
+    "id": "pages-account-subscription--canceled",
+    "overflow": false,
+    "checkboxes": 0,
+    "serious": []
+  },
+  {
+    "surface": "storage-notice",
+    "viewport": "mobile",
+    "id": "patterns-storage-notice--new-edition",
+    "overflow": false,
+    "checkboxes": 0,
+    "serious": []
+  },
+  {
+    "surface": "accepted-documents",
+    "viewport": "mobile",
+    "id": "pages-account-access--linked",
+    "overflow": false,
+    "checkboxes": 0,
+    "serious": []
+  },
+  {
+    "surface": "profile",
+    "viewport": "mobile",
+    "id": "pages-account-profile--active-desktop",
+    "overflow": false,
+    "checkboxes": 0,
+    "serious": []
+  }
+]

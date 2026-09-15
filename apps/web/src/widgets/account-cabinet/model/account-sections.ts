@@ -20,13 +20,13 @@ const sections = [
     id: "profile",
     href: "/account",
     label: "Профиль",
-    summary: "Аватар, имя, о себе и ссылка для участников",
+    summary: "Аватар, имя и о себе — видите только вы",
   },
   {
     id: "access",
     href: "/account/access",
     label: "Аккаунт",
-    summary: "Связь с Telegram и выход",
+    summary: "Связь с Telegram, принятые документы и выход",
   },
   {
     id: "purchases",
