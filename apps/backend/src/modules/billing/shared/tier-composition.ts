@@ -1,4 +1,4 @@
-import { accessCapabilitySchema, contentScopeSchema, isEmptyContentScope, isGuideCapability, withheldAccessCapabilities } from "@inside/access-capabilities";
+import { accessCapabilitySchema, contentScopeSchema, isEmptyContentScope, isGuideCapability, isWithheldCapability } from "@inside/access-capabilities";
 import { benefitPeriodsSchema } from "../domain/pricing.js";
 
 type CatalogOffer = { readonly benefits: readonly string[] };
@@ -48,7 +48,7 @@ export function productOfferUnsellable(offer: CatalogOffer & { readonly benefitP
  * материал в составе. Закрытое живёт внутри продуктов, поэтому состав называет только продукты.
  */
 export function offerGrantsWithheld(offer: CatalogOffer & { readonly contentScope?: unknown }): boolean {
-  if (offer.benefits.some(value => withheldAccessCapabilities.some(withheld => withheld === value))) return true;
+  if (offer.benefits.some(isWithheldCapability)) return true;
   const scope = contentScopeSchema.safeParse(offer.contentScope);
   return scope.success && scope.data.materialIds.length > 0;
 }

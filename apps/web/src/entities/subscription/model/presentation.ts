@@ -1,4 +1,4 @@
-import { capabilitiesOpening } from "@inside/access-capabilities";
+import { capabilitiesOpening, type ContentScope } from "@inside/access-capabilities";
 import { accessComposition, isGuideCapability } from "./billing-contract";
 import type {
   AccessCapability,
@@ -113,6 +113,15 @@ function longestTerm(terms: readonly (number | null)[]): number | null {
 }
 
 /**
+ * Как назвать состав тарифа одной строкой: все продукты платформы или число выбранных продуктов.
+ */
+export function contentScopeSummary(scope: Pick<ContentScope, "guideIds" | "allGuides">): string {
+  return scope.allGuides === true
+    ? "Все продукты платформы, включая новые"
+    : `Продукты: ${String(scope.guideIds.length)}`;
+}
+
+/**
  * Срок конкретного права может отличаться от периода списания: у подписки неуказанный срок
  * наследует период варианта оплаты, у разовой покупки такого периода нет и право выдаётся без
  * даты окончания. Явный `null` означает то же в обоих случаях. Договорный срок покупки называет
@@ -121,15 +130,6 @@ function longestTerm(terms: readonly (number | null)[]): number | null {
  * короткий срок, участие держится дольше. Так же объединяет основания сервер — с той разницей,
  * что он смотрит на все действующие права Account, а предложение отвечает только за свой состав.
  */
-/**
- * Как назвать состав тарифа одной строкой: все продукты платформы или число выбранных продуктов.
- */
-export function contentScopeSummary(scope: { readonly guideIds: readonly string[]; readonly allGuides?: true }): string {
-  return scope.allGuides === true
-    ? "Все продукты платформы, включая новые"
-    : `Продукты: ${String(scope.guideIds.length)}`;
-}
-
 export function benefitLines(conditions: {
   readonly offer: BillingOffer;
   readonly paymentOption: BillingPaymentOption;

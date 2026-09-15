@@ -96,7 +96,8 @@ for (const access of ["public", "membership"] as const) {
     ).toBeVisible({ timeout: 15_000 });
 
     if (access === "membership") {
-      // Materials open only through a tier or a product; a tier of every product also opens this new one.
+      // The member's bridge already opens every product; this all-products tier keeps the scenario independent
+      // of the short bridge evidence lifetime. It does not prove the tier path on its own.
       const tierId = crypto.randomUUID();
       const saved = await fullStackBrowserRequest(page, "/api/authoring/billing/offers/save", "POST", { input: JSON.stringify({
         operationId: crypto.randomUUID(), value: { id: tierId, name: `Media acceptance ${suffix}`, benefits: ["materials"],
@@ -678,7 +679,7 @@ test("member primary Video denies anonymous and non-member access while authoriz
   );
   expect(anonymousSession.status()).toBe(403);
   await signInFullStack(context, "NON_MEMBER");
-  const memberSession = await page.request.post(
+  const nonMemberSession = await page.request.post(
     "/api/material-video-playback-sessions",
     {
       headers: { origin: new URL(page.url()).origin },
@@ -686,7 +687,7 @@ test("member primary Video denies anonymous and non-member access while authoriz
     },
   );
   // An Account without a tier, a product or the bridge cannot open the product video.
-  expect(memberSession.status()).toBe(403);
+  expect(nonMemberSession.status()).toBe(403);
   await signInFullStack(context, "OWNER");
   const ownerSession = await page.request.post("/api/material-video-playback-sessions", {
     headers: { origin: new URL(page.url()).origin }, multipart: { materialId, videoId },

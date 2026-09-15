@@ -30,16 +30,15 @@ import {
   reasonMaxLength,
 } from "./admin-form.client";
 
-
-/** Основание возврата словами владельца: одна карта для выбора и для истории решений. */
-const refundBasisLabels = {
-  withdrawal: "отказ от договора",
-  compensation: "компенсация без отказа",
+/** Основание возврата словами владельца и его последствие: одна карта для выбора и для истории решений. */
+const refundBases = {
+  withdrawal: { label: "отказ от договора", consequence: "права прекращаются" },
+  compensation: { label: "компенсация без отказа", consequence: "доступ сохраняется" },
 } as const;
-const refundBasisOptions = [
-  { value: "withdrawal", label: "Отказ от договора — права прекращаются" },
-  { value: "compensation", label: "Компенсация без отказа — доступ сохраняется" },
-];
+const refundBasisOptions = (["withdrawal", "compensation"] as const).map((value) => {
+  const { label, consequence } = refundBases[value];
+  return { value, label: `${label.charAt(0).toUpperCase()}${label.slice(1)} — ${consequence}` };
+});
 export interface PaymentsSectionProps {
   readonly payments: readonly PaymentView[];
   readonly paymentsCursor: string | null;
@@ -379,7 +378,7 @@ export function PaymentsSection({
                     {formatKopecks(decision.amountKopecks)} · основание{" "}
                     {decision.basis === null
                       ? "не указано"
-                      : refundBasisLabels[decision.basis]}{" "}
+                      : refundBases[decision.basis].label}{" "}
                     · доступ{" "}
                     {decision.access} · продление {decision.recurring}
                   </span>
