@@ -10,7 +10,6 @@ import {
   PrismaClientProvider,
   type PlatformPrisma,
 } from "../../src/infrastructure/prisma/index.js";
-import { stringMatching } from "../support/matchers.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -58,11 +57,12 @@ describe("published Material HTTP contract", () => {
         title: "Developer Pipeline без потери контекста",
         access: "membership",
       },
-      // Локальный seed включает каталог в продажу, поэтому у закрытого материала есть приглашение.
-      // Проверяется его состав, а не адрес: куда оно ведёт — отдельное продуктовое решение.
+      // Локальный seed продаёт только руководство, а подписку не продаёт. Разовое предложение
+      // продукта признак продажи подписки не включает, поэтому приглашения к подписке нет:
+      // купить закрытый материал ведёт страница его руководства.
       access: {
         availability: "locked",
-        cta: { label: stringMatching(/./u), url: stringMatching(/./u) },
+        cta: null,
       },
     });
     expect(response.body).not.toContain("schemaVersion");
@@ -191,8 +191,7 @@ describe("published Material HTTP contract", () => {
       readonly guides: readonly { readonly slug: string }[];
       readonly notes: readonly { readonly slug: string }[];
       readonly membership: {
-        readonly acquisitionUrl: string;
-        readonly kind: "inactive";
+        readonly kind: "notOffered";
       };
       readonly playlists: readonly {
         readonly previewItems: readonly unknown[];
@@ -205,12 +204,9 @@ describe("published Material HTTP contract", () => {
       }[];
     }>();
     expect(home.topics.map(({ slug }) => slug)).toContain("platform");
-    // Локальный seed включает каталог в продажу, поэтому подписка предлагается. Проверяется
-    // состояние, а не маршрут покупателя: он остаётся отдельным продуктовым решением.
-    expect(home.membership).toEqual({
-      acquisitionUrl: stringMatching(/./u),
-      kind: "inactive",
-    });
+    // Локальный seed продаёт только руководство: разовое предложение продукта не делает подписку
+    // продаваемой, поэтому главная к подписке не зовёт.
+    expect(home.membership).toEqual({ kind: "notOffered" });
     expect(home.playlists).toHaveLength(4);
     expect(home.playlists.map(({ slug }) => slug)).toContain("demo-progress-series");
     expect(home.playlists[0]?.previewItems).toBeInstanceOf(Array);
@@ -487,7 +483,7 @@ describe("published Material HTTP contract", () => {
     const offerId = randomUUID();
     const optionId = randomUUID();
     await testDatabase.prisma.billingOffer.create({
-      data: { id: offerId, revision: 1, name: "Материалы", benefits: ["materials"], published: true },
+      data: { id: offerId, revision: 1, name: "Материалы", benefits: ["materials"], contentScope: { guideIds: [randomUUID()], materialIds: [] }, published: true },
     });
     await testDatabase.prisma.billingPaymentOption.create({
       data: { id: optionId, revision: 1, offerId, months: 1, priceKopecks: 100_000 },

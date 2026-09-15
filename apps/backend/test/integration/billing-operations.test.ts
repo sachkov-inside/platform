@@ -194,7 +194,9 @@ describe("владельческие операции billing: платежи, �
     expect(await contact.confirm(buyer, { operationId: randomUUID(), challengeRef: start.challengeRef, code: codes.get(start.challengeRef) })).toMatchObject({ ok: true });
     const offerId = randomUUID(), optionId = randomUUID();
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.save",
-      value: { id: offerId, name: "Материалы и сопровождение", benefits: [...options.benefits ?? ["materials", "support"]] } }));
+      value: { id: offerId, name: "Материалы и сопровождение", benefits: [...options.benefits ?? ["materials", "support"]],
+        // Продаваемый тариф открывает только явный состав; разовое предложение продукта его не несёт.
+        ...(options.benefits?.some(benefit => benefit.startsWith("guide:")) === true ? {} : { contentScope: { guideIds: [guideId], materialIds: [] } }) } }));
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "paymentOptions.save",
       value: { id: optionId, offerId, months: 1, priceKopecks: options.priceKopecks ?? 100_000 } }));
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.publish", expectedRevision: 1, id: offerId }));
@@ -612,9 +614,37 @@ describe("владельческие операции billing: платежи, �
     expect(restored.value).toEqual({ id: s.offerId, revision: 4, archived: false, published: true });
     const withdrawn = asCatalog(await s.operations.execute(owner, { operation: "offers.archive", operationId: randomUUID(),
       id: s.offerId, expectedRevision: 4 }));
-    expect(withdrawn.value).toEqual({ id: s.offerId, revision: 5, archived: true, published: true });
+    // Архив окончателен: он снимает продажу, и ни сохранение, ни включение не возвращают тариф.
+    expect(withdrawn.value).toEqual({ id: s.offerId, revision: 5, archived: true, published: false });
+    expect(failure(await s.operations.execute(owner, { operation: "offers.save", operationId: randomUUID(), expectedRevision: 5,
+      value: { id: s.offerId, name: "Материалы и сопровождение", benefits: ["materials", "support"], contentScope: { guideIds: [s.guideId], materialIds: [] } } }))).toBe("not_found");
+    expect(failure(await s.operations.execute(owner, { operation: "offers.publish", operationId: randomUUID(),
+      id: s.offerId, expectedRevision: 5 }))).toBe("not_found");
+    expect(await db.prisma.billingOffer.findUniqueOrThrow({ where: { id: s.offerId } })).toMatchObject({ revision: 5, archived: true, published: false });
     const detail = asPayment(await s.operations.execute(owner, { operation: "payments.read", operationId: randomUUID(), purchaseRef }));
     expect(detail.value.snapshot.offer).toMatchObject({ id: s.offerId, revision: 2, archived: false });
     expect(value(await s.subscriptions.read(s.buyer)).subscription).toMatchObject({ state: "active", snapshot: { offer: { revision: 2, archived: false } } });
+  });
+
+  test("тариф без состава нельзя сохранить назначаемым, назначить или привязать к правилу активации", async () => {
+    const s = await scenario();
+    const recipient = await account();
+    expect(failure(await s.operations.execute(owner, { operation: "offers.save", operationId: randomUUID(),
+      value: { id: randomUUID(), name: "Пустой тариф", benefits: ["materials", "community"], availableForAssignment: true, contentScope: { guideIds: [], materialIds: [] } } }))).toBe("invalid_request");
+    // Так выглядит стартовый тариф миграции на пустой базе: назначаемый, но без единого материала.
+    const tier = await db.prisma.billingOffer.create({ data: { id: randomUUID(), name: "Материалы + сообщество", benefits: ["materials", "community"],
+      availableForAssignment: true, contentScope: { guideIds: [], materialIds: [] }, revision: 1 } });
+    const terms = { startsAt: now.toISOString(), endsAt: null, endPolicy: "fixed" };
+    expect(failure(await s.operations.execute(owner, { operation: "enrollments.assign", operationId: randomUUID(), accountId: recipient,
+      tierId: tier.id, tierRevision: 1, origin: "manual", sourceRef: randomUUID(), terms, billingRef: null, reason: "Назначение до задания состава" }))).toBe("state_conflict");
+    expect(failure(await s.operations.execute(owner, { operation: "activationRules.save", operationId: randomUUID(), reason: "Правило до задания состава",
+      value: { id: randomUUID(), code: randomUUID(), name: "Курс", tierId: tier.id, tierRevision: 1, sourceRef: `course:${randomUUID()}`, published: true, startsAt: now.toISOString(), endsAt: null } }))).toBe("state_conflict");
+    expect(await db.prisma.subscriptionEnrollment.count({ where: { accountId: recipient } })).toBe(0);
+    expect(await db.prisma.accessGrant.count({ where: { accountId: recipient } })).toBe(0);
+    // Состав задан — тот же тариф назначается.
+    const scoped = asCatalog(await s.operations.execute(owner, { operation: "offers.save", operationId: randomUUID(), expectedRevision: 1,
+      value: { id: tier.id, name: tier.name, benefits: ["materials", "community"], availableForAssignment: true, contentScope: { guideIds: [s.guideId], materialIds: [] } } }));
+    expect(success(await s.operations.execute(owner, { operation: "enrollments.assign", operationId: randomUUID(), accountId: recipient,
+      tierId: tier.id, tierRevision: scoped.value.revision, origin: "manual", sourceRef: randomUUID(), terms, billingRef: null, reason: "Назначение после задания состава" }))).toMatchObject({ outcome: "enrollment" });
   });
 });

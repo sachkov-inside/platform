@@ -7,6 +7,7 @@ import {
   capabilitiesOpening,
   globalAccessCapabilities,
   guideCapability,
+  isEmptyContentScope,
   isGuideCapability,
 } from "./index.js";
 
@@ -52,6 +53,16 @@ describe("access capabilities", () => {
   test("the composition never repeats a capability the set already names", () => {
     const second = "guide:5a1c6f10-0b33-4e2f-9a8c-7d4e12b0f002" as const;
     expect(accessComposition([guide, second])).toEqual([guide, second, "community"]);
+  });
+
+  test("a composition without a Guide or a Material opens nothing", () => {
+    const id = "5a1c6f10-0b33-4e2f-9a8c-7d4e12b0f001";
+    expect(isEmptyContentScope(null)).toBe(true);
+    expect(isEmptyContentScope(undefined)).toBe(true);
+    expect(isEmptyContentScope({ guideIds: [], materialIds: [] })).toBe(true);
+    expect(isEmptyContentScope({ guideIds: ["not-a-uuid"], materialIds: [] })).toBe(true);
+    expect(isEmptyContentScope({ guideIds: [id], materialIds: [] })).toBe(false);
+    expect(isEmptyContentScope({ guideIds: [], materialIds: [id] })).toBe(false);
   });
 
   // Срок участия в чате держится всем, что чат открывает: и объявленным правом участия, и каждым

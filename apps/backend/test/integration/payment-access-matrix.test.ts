@@ -114,8 +114,12 @@ describe("оплата, выдача прав и доступ к материа�
     guideSlug = `matrix-guide-${randomUUID()}`;
     guideA = await guide(guideSlug);
     guideB = await guide(`matrix-other-${randomUUID()}`);
+    // Закрытый материал публикуется только внутри продукта. Материал «библиотеки» живёт в своём
+    // руководстве, которое не продаётся и не входит в составы: открыть его может только явный
+    // `materialIds` тарифа, ровно как раньше.
+    const libraryGuide = await guide(`matrix-library-${randomUUID()}`);
     [freeMaterial, libraryMaterial, guideMaterial, sharedMaterial, otherGuideMaterial] = await Promise.all([
-      material([], "free"), material([]), material([guideA]), material([guideA, guideB]), material([guideB]),
+      material([], "free"), material([libraryGuide]), material([guideA]), material([guideA, guideB]), material([guideB]),
     ]);
     chapterId = await chapter(guideA, [guideMaterial, sharedMaterial]);
 

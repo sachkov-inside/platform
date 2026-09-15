@@ -1,8 +1,9 @@
-import { isGuideCapability } from "@inside/access-capabilities";
+import { isEmptyContentScope, isGuideCapability } from "@inside/access-capabilities";
 import type { Accounts } from "../../../accounts/index.js";
 import { Prisma, type BillingPrisma, type BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { failure, idSchema, type PricingResult } from "../../domain/pricing.js";
 import { lockPricing } from "../../infrastructure/postgres/catalog-lock.js";
+import { productSupportIsOpenEnded, tierLacksComposition } from "../../shared/tier-composition.js";
 import { catalogOutcomeSchema, manageCatalogSchema, type ManageCatalogCommand } from "./manage-catalog.contract.js";
 
 type Outcome = { id: string; revision: number; archived: boolean; published?: boolean | undefined };
@@ -48,24 +49,28 @@ async function changeCatalog(tx: BillingPrisma, command: ManageCatalogCommand): 
   const archived = !('value' in command);
   switch (command.operation) {
     case "offers.save": {
+      // Архив окончателен: сохранение не возвращает тариф ни в каталог, ни в продажу.
+      if (current?.archived === true) return failure("not_found");
       const periods = command.value.benefitPeriods ?? [];
       const assignable = command.value.availableForAssignment ?? (current !== null && "availableForAssignment" in current && current.availableForAssignment);
       const scope = command.value.contentScope === undefined && current !== null && "contentScope" in current ? current.contentScope : command.value.contentScope;
-      if (assignable && (scope == null || command.value.benefits.some(value => isGuideCapability(value)))) return failure("invalid_request");
+      if (assignable && (isEmptyContentScope(scope) || command.value.benefits.some(value => isGuideCapability(value)))) return failure("invalid_request");
       if (new Set(periods.map(value => value.capability)).size !== periods.length || periods.some(value => !command.value.benefits.includes(value.capability))) return failure("invalid_request");
+      if (productSupportIsOpenEnded({ benefits: command.value.benefits, benefitPeriods: periods })) return failure("invalid_request");
       const { contentScope, availableForAssignment, ...value } = command.value;
       const data = { ...value, ...(availableForAssignment === undefined ? {} : { availableForAssignment }), ...(contentScope === undefined ? {} : { contentScope: contentScope === null ? Prisma.JsonNull : contentScope }), benefitPeriods: periods, revision, archived: false };
       await tx.billingOffer.upsert({ where: { id }, create: data, update: data });
       return { ok: true, value: { id, revision, archived: false, published: currentPublished } };
     }
     case "offers.archive": {
-      // Архив — окончательное снятие; обратимый признак продажи при этом сохраняется как был.
-      await tx.billingOffer.update({ where: { id }, data: { revision, archived } });
-      return { ok: true, value: { id, revision, archived, published: currentPublished } };
+      // Архив — окончательное снятие, поэтому он снимает и продажу: вернуть тариф нельзя ничем.
+      await tx.billingOffer.update({ where: { id }, data: { revision, archived, published: false } });
+      return { ok: true, value: { id, revision, archived, published: false } };
     }
     case "offers.publish": case "offers.unpublish": {
       if (current === null || current.archived) return failure("not_found");
       const published = command.operation === "offers.publish";
+      if (published && "benefits" in current && (tierLacksComposition(current) || productSupportIsOpenEnded(current))) return failure("invalid_request");
       await tx.billingOffer.update({ where: { id }, data: { revision, published } });
       return { ok: true, value: { id, revision, archived: false, published } };
     }

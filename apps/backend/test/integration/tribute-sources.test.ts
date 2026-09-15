@@ -421,7 +421,7 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
   test("pending source keeps its promised tier; changing policy cannot bypass archive, while existing terms remain updateable", async () => {
     const context = await setup(); const imported = await apply(context.row);
     await db.prisma.billingOffer.update({ where: { id: context.tier.id }, data: { archived: true } });
-    const replacement = await db.prisma.billingOffer.create({ data: { id: randomUUID(), name: "Replacement", benefits: ["materials"], contentScope: { guideIds: [], materialIds: [] }, availableForAssignment: true, revision: 1 } });
+    const replacement = await db.prisma.billingOffer.create({ data: { id: randomUUID(), name: "Replacement", benefits: ["materials"], contentScope: { guideIds: [randomUUID()], materialIds: [] }, availableForAssignment: true, revision: 1 } });
     value(await convergence.savePolicy(owner, { operationId: randomUUID(), expectedRevision: 1, id: context.row.policyRef, subscriptionId: context.row.subscriptionId,
       enabled: true, tierId: replacement.id, tierRevision: 1, temporaryUntil: null, reason: "New policy for future sources" }));
     const source = imported.result.sources[0]; if (!source) throw new Error("Missing pending source");

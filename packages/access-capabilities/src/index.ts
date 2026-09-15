@@ -70,4 +70,14 @@ export const contentScopeSchema = z.strictObject({
 });
 export type ContentScope = z.infer<typeof contentScopeSchema>;
 
+/**
+ * Состав, который ничего не открывает: его нет, он не читается как состав или в нём нет ни одного
+ * руководства и материала. Тариф с таким составом дал бы чат без материалов, поэтому его нельзя
+ * ни назначить, ни продать.
+ */
+export function isEmptyContentScope(scope: unknown): boolean {
+  const parsed = contentScopeSchema.safeParse(scope);
+  return !parsed.success || (parsed.data.guideIds.length === 0 && parsed.data.materialIds.length === 0);
+}
+
 export const contentScopeEntrySchema = z.strictObject({ kind: z.enum(["guide", "material"]), id: z.uuid(), title: z.string(), slug: z.string().nullable(), available: z.boolean() });

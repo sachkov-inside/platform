@@ -52,4 +52,33 @@ describe("MaterialMetadata", () => {
       },
     });
   });
+
+  test("publishes a closed Material only inside a Guide", () => {
+    const complete = {
+      title: "Synthetic closed step",
+      summary: "A closed Material lives inside a product.",
+      slug: "synthetic-closed-step",
+      topicId: "72000000-0000-4000-8000-000000000002",
+      formatId: "guide",
+      difficulty: null,
+      outcomes: [],
+      tagIds: [],
+    } as const;
+    const publication = (input: object) => {
+      const created = MaterialMetadata.create({ ...complete, ...input });
+      if (!created.ok) throw new Error("expected structurally valid metadata");
+      return created.value.validateForPublication();
+    };
+
+    expect(publication({ access: "membership", seriesMemberships: [] })).toEqual({
+      ok: false,
+      error: {
+        code: "invalid_content",
+        issues: [{ code: "membership_outside_product", path: "/metadata/seriesIds" }],
+      },
+    });
+    expect(publication({ access: "membership", seriesMemberships: [{ seriesId: "72000000-0000-4000-8000-000000000003", ordinal: 1 }] })).toMatchObject({ ok: true });
+    // Открытый материал вне руководства публикуется: открытое доступно всем.
+    expect(publication({ access: "free", seriesMemberships: [] })).toMatchObject({ ok: true });
+  });
 });

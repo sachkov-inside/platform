@@ -32,6 +32,8 @@ interface CatalogOffer {
   readonly offerId: string;
   readonly name: string;
   readonly benefits: readonly string[];
+  /** Явный состав подписки: без него тариф не продаётся. У разовой покупки продукта его нет. */
+  readonly contentScope?: { readonly guideIds: readonly string[]; readonly materialIds: readonly string[] };
   /** Право с собственным сроком: `null` — бессрочно, иначе столько календарных месяцев. */
   readonly benefitPeriods: readonly {
     readonly capability: string;
@@ -52,6 +54,7 @@ function localCatalog(guideId: string): readonly CatalogOffer[] {
       offerId: "72000000-0000-4000-8000-000000000501",
       name: "Материалы",
       benefits: ["materials"],
+      contentScope: { guideIds: [guideId], materialIds: [] },
       benefitPeriods: [],
       option: {
         id: "72000000-0000-4000-8000-000000000511",
@@ -64,6 +67,7 @@ function localCatalog(guideId: string): readonly CatalogOffer[] {
       offerId: "72000000-0000-4000-8000-000000000502",
       name: "Материалы + сопровождение",
       benefits: ["materials", "support"],
+      contentScope: { guideIds: [guideId], materialIds: [] },
       benefitPeriods: [],
       option: {
         id: "72000000-0000-4000-8000-000000000512",
@@ -138,6 +142,9 @@ export async function seedLocalOfferCatalog(
         id: offer.offerId,
         name: offer.name,
         benefits: [...offer.benefits],
+        ...(offer.contentScope === undefined ? {} : {
+          contentScope: { guideIds: [...offer.contentScope.guideIds], materialIds: [...offer.contentScope.materialIds] },
+        }),
         benefitPeriods: [...offer.benefitPeriods],
       },
     });
@@ -193,6 +200,8 @@ function matchesDefinition(
     snapshot.offer.id === offer.offerId &&
     snapshot.offer.name === offer.name &&
     sameCapabilities(snapshot.offer.benefits, offer.benefits) &&
+    sameCapabilities(snapshot.offer.contentScope?.guideIds ?? [], offer.contentScope?.guideIds ?? []) &&
+    sameCapabilities(snapshot.offer.contentScope?.materialIds ?? [], offer.contentScope?.materialIds ?? []) &&
     periods.length === offer.benefitPeriods.length &&
     offer.benefitPeriods.every((period) =>
       periods.some(

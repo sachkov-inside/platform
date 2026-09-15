@@ -317,6 +317,11 @@ function requiredPublicationIssues(
     metadata.outcomes.length < MATERIAL_OUTCOMES.minPublishedCount
       ? [{ code: "outcomes_too_few", path: "/metadata/outcomes" }]
       : []),
+    // Закрытое живёт внутри продуктов: закрытый материал без руководства купить негде, и открыть
+    // его было бы нечем, кроме ручного состава тарифа.
+    ...(metadata.access === "membership" && metadata.seriesMemberships.length === 0
+      ? [{ code: "membership_outside_product", path: "/metadata/seriesIds" }]
+      : []),
   ];
 }
 

@@ -221,6 +221,12 @@ function mapBackendIssue(issue: { readonly code: string; readonly path: string }
       path: issue.path,
     };
   }
+  if (issue.code === "membership_outside_product") {
+    return {
+      message: "Закрытый материал публикуется только внутри продукта: добавьте его в руководство или откройте всем.",
+      path: issue.path,
+    };
+  }
   const message =
     issue.path.endsWith("/title")
       ? "Укажите название перед публикацией."

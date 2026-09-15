@@ -76,7 +76,7 @@ describe("локальная продажа через двойника банк
     if (!start.ok) throw new Error(start.error.code);
     expect(await contact.confirm(buyer, { operationId: randomUUID(), challengeRef: start.challengeRef, code: codes.get(start.challengeRef) })).toMatchObject({ ok: true });
     const offerId = randomUUID(), optionId = randomUUID();
-    value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.save", value: { id: offerId, name: "Материалы", benefits: ["materials"] } }));
+    value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.save", value: { id: offerId, name: "Материалы", benefits: ["materials"], contentScope: { guideIds: [randomUUID()], materialIds: [] } } }));
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "paymentOptions.save",
       value: { id: optionId, offerId, months: 1, priceKopecks: 100_000 } }));
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.publish", expectedRevision: 1, id: offerId }));

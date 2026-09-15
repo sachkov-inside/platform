@@ -38,6 +38,8 @@ const issuer = "https://identity.mcp.test/oidc";
 const audience = "https://api.mcp.test";
 const ownerSubject = "mcp-owner-001";
 const topicId = "92000000-0000-4000-8000-000000000001";
+/** Закрытый материал публикуется только внутри продукта. */
+const closedGuideId = "92000000-0000-4000-8000-000000000002";
 const formatId = "guide";
 
 describe("delegated Material authoring over MCP", () => {
@@ -82,6 +84,9 @@ describe("delegated Material authoring over MCP", () => {
     await Promise.all([
       database.prisma.topic.create({
         data: { id: topicId, name: "Platform", slug: "platform" },
+      }),
+      database.prisma.guide.create({
+        data: { id: closedGuideId, name: "MCP closed guide", slug: "mcp-closed-guide" },
       }),
 
     ]);
@@ -422,7 +427,8 @@ describe("delegated Material authoring over MCP", () => {
     expect(await callTool("content_collection_list", { kind: "series" })).toMatchObject({
       structuredContent: {
         ok: true,
-        value: [expect.objectContaining({ archived: true, id: playlist.id })],
+        // Закрытое руководство фикстуры лежит в том же каталоге коллекций.
+        value: expect.arrayContaining([expect.objectContaining({ archived: true, id: playlist.id })]),
       },
     });
   });
@@ -532,7 +538,7 @@ function metadata(
     tagIds: [],
     difficulty: null,
     outcomes: [],
-    seriesIds: [],
+    seriesIds: access === "membership" ? [closedGuideId] : [],
   };
 }
 

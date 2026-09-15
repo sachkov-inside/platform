@@ -33,7 +33,7 @@ describe("Billing catalog, quotes and reservations on PostgreSQL", () => {
   afterAll(async () => { await second.$disconnect(); await database.dispose(); });
   async function catalog(priceKopecks = 200_000, months = 3) {
     const offerId = randomUUID(); const optionId = randomUUID();
-    value(await billing.manage(owner, { operation: "offers.save", operationId: randomUUID(), value: { id: offerId, name: "Материалы", benefits: ["materials"] } }));
+    value(await billing.manage(owner, { operation: "offers.save", operationId: randomUUID(), value: { id: offerId, name: "Материалы", benefits: ["materials"], contentScope: { guideIds: [randomUUID()], materialIds: [] } } }));
     value(await billing.manage(owner, { operation: "paymentOptions.save", operationId: randomUUID(), value: { id: optionId, offerId, months, priceKopecks } }));
     value(await billing.manage(owner, { operation: "offers.publish", operationId: randomUUID(), expectedRevision: 1, id: offerId }));
     return { offerId, optionId };
@@ -198,6 +198,55 @@ describe("Billing catalog, quotes and reservations on PostgreSQL", () => {
     } finally { await admin.end(); }
   });
 });
+/**
+ * Признак «подписка продаётся» читается по всему каталогу, поэтому у него своя база: соседние
+ * проверки файла заводят продаваемые варианты и сделали бы ответ заранее известным.
+ */
+describe("признак продажи подписки на собственном каталоге", () => {
+  let database: TestDatabase;
+  let billing: BillingPricing;
+  const owner = randomUUID();
+  const now = new Date("2026-09-08T12:00:00Z");
+  beforeAll(async () => {
+    database = await createMigratedTestDatabase();
+    await database.prisma.account.create({ data: { id: owner, logtoIssuer: "https://identity.invalid", logtoSubject: owner } });
+    await database.prisma.accountPermission.create({ data: { accountId: owner, permission: "billing:manage" } });
+    billing = new BillingPricing({ prisma: database.prisma, accounts: assembleAccounts({ prisma: database.prisma, emailFingerprintKey: "billing-sale-key-0000000000000000000" }), clock: () => now });
+  });
+  afterAll(async () => { await database.dispose(); });
+  async function offer(input: { readonly benefits: readonly string[]; readonly mode: "subscription" | "one_time"; readonly contentScope?: { guideIds: string[]; materialIds: string[] } }) {
+    const offerId = randomUUID(); const optionId = randomUUID();
+    value(await billing.manage(owner, { operation: "offers.save", operationId: randomUUID(), value: { id: offerId, name: "Предложение", benefits: [...input.benefits],
+      ...(input.contentScope === undefined ? {} : { contentScope: input.contentScope }) } }));
+    value(await billing.manage(owner, { operation: "paymentOptions.save", operationId: randomUUID(), value: { id: optionId, offerId, mode: input.mode, months: 1, priceKopecks: 100_000 } }));
+    return { offerId, optionId, publish: () => billing.manage(owner, { operation: "offers.publish", operationId: randomUUID(), expectedRevision: 1, id: offerId }) };
+  }
+
+  test("разовое предложение продукта и тариф без состава не делают подписку продаваемой", async () => {
+    const guide = randomUUID();
+    expect(await billing.hasOffersForSale()).toBe(false);
+    // Продаётся только продукт: призыв к подписке не должен появиться нигде.
+    const product = await offer({ benefits: [`guide:${guide}`], mode: "one_time" });
+    value(await product.publish());
+    expect(await billing.hasOffersForSale()).toBe(false);
+    // Тариф без состава открыл бы пустоту: каталог не включает его в продажу.
+    const empty = await offer({ benefits: ["materials"], mode: "subscription" });
+    expect(await empty.publish()).toMatchObject({ ok: false, error: { code: "invalid_request" } });
+    const explicitlyEmpty = await offer({ benefits: ["materials", "community"], mode: "subscription", contentScope: { guideIds: [], materialIds: [] } });
+    expect(await explicitlyEmpty.publish()).toMatchObject({ ok: false, error: { code: "invalid_request" } });
+    // Строка, включённая в продажу в обход каталога, не продаётся и не включает признак.
+    await database.prisma.billingOffer.update({ where: { id: empty.offerId }, data: { published: true } });
+    expect(await billing.hasOffersForSale()).toBe(false);
+    expect(await billing.quote(randomUUID(), { operationId: randomUUID(), paymentOptionId: empty.optionId, optionRevision: 1 })).toMatchObject({ error: { code: "not_found" } });
+    expect(value(await billing.offers({ mode: "subscription" })).items).toEqual([]);
+    // Подписка с явным составом продаётся, и только она включает признак.
+    const sold = await offer({ benefits: ["materials"], mode: "subscription", contentScope: { guideIds: [guide], materialIds: [] } });
+    value(await sold.publish());
+    expect(await billing.hasOffersForSale()).toBe(true);
+    expect(value(await billing.offers({ mode: "subscription" })).items.map(item => item.offer.id)).toEqual([sold.offerId]);
+  });
+});
+
 function pick(command: { accountId: string; purchaseRef: string }) { return { accountId: command.accountId, purchaseRef: command.purchaseRef }; }
 
 function required<T>(input: T | undefined): T { if (input === undefined) throw new Error("Missing test fixture"); return input; }
