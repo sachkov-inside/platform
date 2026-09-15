@@ -106,7 +106,7 @@ export const Populated: Story = {
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   name: "Список · широкий экран",
   play: async ({ canvasElement }) => {
-    await listFrameMatches(canvasElement, "desktop");
+    await expectSharedListFrame(canvasElement, "desktop");
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("heading", { name: "Материалы", level: 1 })).toBeVisible();
     await expect(canvas.getByText("35 материалов")).toBeVisible();
@@ -168,7 +168,7 @@ export const Mobile: Story = {
   globals: { viewport: { isRotated: false, value: "mobile390" } },
   name: "Список · мобильный",
   play: async ({ canvasElement }) => {
-    await listFrameMatches(canvasElement, "mobile");
+    await expectSharedListFrame(canvasElement, "mobile");
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("heading", { name: "Материалы", level: 1 })).toBeVisible();
     await expect(canvas.getByRole("link", { name: "Новый материал" })).toBeVisible();
@@ -249,7 +249,7 @@ export const Loading: Story = {
   name: "Загрузка",
   play: async ({ canvasElement }) => {
     await expect(within(canvasElement).getByLabelText("Загрузка списка материалов")).toHaveAttribute("aria-busy", "true");
-    await listFrameMatches(canvasElement, "desktop");
+    await expectSharedListFrame(canvasElement, "desktop");
   },
 };
 
@@ -258,7 +258,7 @@ export const LoadingMobile: Story = {
   render: () => <AuthoringMaterialsLoading />,
   name: "Загрузка · мобильный",
   play: async ({ canvasElement }) => {
-    await listFrameMatches(canvasElement, "mobile");
+    await expectSharedListFrame(canvasElement, "mobile");
   },
 };
 
@@ -277,7 +277,7 @@ export const Unavailable: Story = {
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   name: "Сервис недоступен",
   play: async ({ canvasElement }) => {
-    await listFrameMatches(canvasElement, "desktop", "centered");
+    await expectSharedListFrame(canvasElement, "desktop", "centered");
   },
 };
 
@@ -286,7 +286,7 @@ export const UnavailableMobile: Story = {
   globals: { viewport: { isRotated: false, value: "mobile390" } },
   name: "Сервис недоступен · мобильный",
   play: async ({ canvasElement }) => {
-    await listFrameMatches(canvasElement, "mobile", "centered");
+    await expectSharedListFrame(canvasElement, "mobile", "centered");
   },
 };
 
@@ -306,7 +306,7 @@ export const UnexpectedError: Story = {
  * оболочки, на телефоне — документ. Состояние, которое снова опишет оболочку само, теряет каркас,
  * и проверка это показывает; сдвинутые отступы ловит геометрия первого блока.
  */
-async function listFrameMatches(
+async function expectSharedListFrame(
   canvasElement: HTMLElement,
   viewport: "desktop" | "mobile",
   placement: "flow" | "centered" = "flow",
