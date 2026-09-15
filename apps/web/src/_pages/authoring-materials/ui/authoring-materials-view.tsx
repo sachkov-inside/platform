@@ -63,46 +63,73 @@ export function AuthoringMaterialsView({
     );
   }
   return (
-    <>
-      <main
-        aria-busy={isRefreshing}
-        aria-labelledby="authoring-materials-heading"
-        className="h-full min-h-svh overflow-y-auto bg-background text-foreground md:min-h-0 md:overscroll-y-contain"
-        id="authoring-content"
-        tabIndex={-1}
-      >
-        <div className="mx-auto w-full max-w-[76rem] px-4 py-7 sm:px-7 sm:py-10 lg:px-10 lg:py-12">
-          <header className="flex flex-col gap-5 border-b border-border pb-7 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <h1
-                className="text-3xl font-semibold tracking-[-0.03em] sm:text-4xl"
-                id="authoring-materials-heading"
-              >
-                Материалы
-              </h1>
-            </div>
-            <Button asChild className="min-h-11 shrink-0 sm:self-center">
-              <Link href={authoringDestinationHref("/authoring/materials/new", returnHref)}>
-                <FilePlus2 aria-hidden="true" data-icon="inline-start" />
-                Новый материал
-              </Link>
-            </Button>
-          </header>
-
-          <AuthoringMaterialsFilters
-            {...(onQueryChange === undefined ? {} : { onQueryChange })}
-            query={query}
-            totalItems={state.totalItems}
-          />
-          <AuthoringMaterialsResults
-            {...(onQueryChange === undefined ? {} : { onQueryChange })}
-            query={query}
-            returnHref={returnHref}
-            state={state}
-          />
+    <AuthoringMaterialsFrame busy={isRefreshing} labelledBy="authoring-materials-heading">
+      <header className="flex flex-col gap-5 border-b border-border pb-7 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1
+            className="text-3xl font-semibold tracking-[-0.03em] sm:text-4xl"
+            id="authoring-materials-heading"
+          >
+            Материалы
+          </h1>
         </div>
-      </main>
-    </>
+        <Button asChild className="min-h-11 shrink-0 sm:self-center">
+          <Link href={authoringDestinationHref("/authoring/materials/new", returnHref)}>
+            <FilePlus2 aria-hidden="true" data-icon="inline-start" />
+            Новый материал
+          </Link>
+        </Button>
+      </header>
+
+      <AuthoringMaterialsFilters
+        {...(onQueryChange === undefined ? {} : { onQueryChange })}
+        query={query}
+        totalItems={state.totalItems}
+      />
+      <AuthoringMaterialsResults
+        {...(onQueryChange === undefined ? {} : { onQueryChange })}
+        query={query}
+        returnHref={returnHref}
+        state={state}
+      />
+    </AuthoringMaterialsFrame>
+  );
+}
+
+/**
+ * Каркас авторского списка материалов: область прокрутки маршрута и отступы содержимого. Готовый
+ * список, его загрузка и состояния ошибки берут оболочку отсюда. Пока каждое состояние описывало
+ * её само, у загрузки не было своей области прокрутки и были другие отступы, поэтому в момент
+ * прихода данных менялись и геометрия, и то, что прокручивается.
+ *
+ * Содержимое идёт колонкой на всю высоту области: так состояние ошибки встаёт по центру через
+ * `m-auto`, а при нехватке места остаётся доступным прокрутке.
+ */
+function AuthoringMaterialsFrame({
+  busy = false,
+  children,
+  label,
+  labelledBy,
+}: {
+  readonly busy?: boolean;
+  readonly children: React.ReactNode;
+  readonly label?: string;
+  readonly labelledBy?: string;
+}) {
+  return (
+    <main
+      aria-busy={busy || undefined}
+      aria-label={label}
+      aria-labelledby={labelledBy}
+      className="flex h-full min-h-svh flex-col overflow-y-auto bg-background text-foreground md:min-h-0 md:overscroll-y-contain"
+      data-authoring-materials-frame
+      id="authoring-content"
+      tabIndex={-1}
+    >
+      <div className="mx-auto flex w-full max-w-[76rem] grow flex-col px-4 py-7 sm:px-7 sm:py-10 lg:px-10 lg:py-12">
+        {children}
+      </div>
+    </main>
   );
 }
 
@@ -446,53 +473,47 @@ function AuthoringMaterialsStateView({
   const currentHref = authoringMaterialsHref(query);
   const view = stateView(state);
   return (
-    <>
-      <main
-        className="grid h-full min-h-svh place-items-center bg-background px-5 py-12 text-foreground md:min-h-0"
-        id="authoring-content"
-        tabIndex={-1}
+    <AuthoringMaterialsFrame>
+      <section
+        aria-labelledby="authoring-materials-state-heading"
+        className="m-auto w-full max-w-xl border-y border-border py-10 text-center"
+        role="alert"
       >
-        <section
-          aria-labelledby="authoring-materials-state-heading"
-          className="w-full max-w-xl border-y border-border py-10 text-center"
-          role="alert"
+        {view.icon}
+        <h1
+          className="mt-5 text-2xl font-semibold tracking-[-0.025em]"
+          id="authoring-materials-state-heading"
         >
-          {view.icon}
-          <h1
-            className="mt-5 text-2xl font-semibold tracking-[-0.025em]"
-            id="authoring-materials-state-heading"
-          >
-            {view.heading}
-          </h1>
-          <p className="mx-auto mt-3 max-w-[52ch] text-sm leading-6 text-muted-foreground">
-            {view.description}
+          {view.heading}
+        </h1>
+        <p className="mx-auto mt-3 max-w-[52ch] text-sm leading-6 text-muted-foreground">
+          {view.description}
+        </p>
+        {view.reference === undefined ? null : (
+          <p className="mt-3 font-mono text-[0.6875rem] text-muted-foreground">
+            Код обращения: {view.reference}
           </p>
-          {view.reference === undefined ? null : (
-            <p className="mt-3 font-mono text-[0.6875rem] text-muted-foreground">
-              Код обращения: {view.reference}
-            </p>
-          )}
-          <div className="mt-6 flex flex-wrap justify-center gap-2">
-            {state.kind === "signed_out" ? (
-              <form action="/auth/sign-in" method="post">
-                <Button type="submit">Войти</Button>
-              </form>
-            ) : onRetry === undefined ? (
-              <Button asChild>
-                <Link href={currentHref}>Повторить</Link>
-              </Button>
-            ) : (
-              <Button onClick={onRetry} type="button">
-                Повторить
-              </Button>
-            )}
-            <Button asChild variant="outline">
-              <Link href="/">Материалы</Link>
+        )}
+        <div className="mt-6 flex flex-wrap justify-center gap-2">
+          {state.kind === "signed_out" ? (
+            <form action="/auth/sign-in" method="post">
+              <Button type="submit">Войти</Button>
+            </form>
+          ) : onRetry === undefined ? (
+            <Button asChild>
+              <Link href={currentHref}>Повторить</Link>
             </Button>
-          </div>
-        </section>
-      </main>
-    </>
+          ) : (
+            <Button onClick={onRetry} type="button">
+              Повторить
+            </Button>
+          )}
+          <Button asChild variant="outline">
+            <Link href="/">Материалы</Link>
+          </Button>
+        </div>
+      </section>
+    </AuthoringMaterialsFrame>
   );
 }
 
@@ -534,32 +555,28 @@ function stateView(state: Exclude<AuthoringMaterialsState, { readonly kind: "rea
   }
 }
 
+/**
+ * Список материалов, пока данные ещё идут. Оболочку и отступы состояние берёт оттуда же, откуда
+ * готовый список; своего у него — только серые блоки внутри.
+ */
 export function AuthoringMaterialsLoading() {
   return (
-    <>
-      <main
-        aria-busy="true"
-        aria-label="Загрузка списка материалов"
-        className="min-h-svh bg-background px-4 py-8 text-foreground md:min-h-0 sm:px-7 lg:px-10"
-        id="authoring-content"
-        tabIndex={-1}
-      >
-        <div className="mx-auto w-full max-w-[76rem] animate-pulse motion-reduce:animate-none">
-          <div className="h-10 w-52 rounded-lg bg-muted" />
-          <div className="mt-4 h-5 max-w-xl rounded bg-muted" />
-          <div className="mt-10 h-11 w-full rounded-xl bg-muted" />
-          <div className="mt-8 divide-y divide-border border-y border-border">
-            {[0, 1, 2].map((item) => (
-              <div className="py-6" key={item}>
-                <div className="h-5 w-24 rounded bg-muted" />
-                <div className="mt-3 h-7 w-2/3 rounded bg-muted" />
-                <div className="mt-3 h-4 w-1/2 rounded bg-muted" />
-              </div>
-            ))}
-          </div>
+    <AuthoringMaterialsFrame busy label="Загрузка списка материалов">
+      <div className="animate-pulse motion-reduce:animate-none">
+        <div className="h-10 w-52 rounded-lg bg-muted" />
+        <div className="mt-4 h-5 max-w-xl rounded bg-muted" />
+        <div className="mt-10 h-11 w-full rounded-xl bg-muted" />
+        <div className="mt-8 divide-y divide-border border-y border-border">
+          {[0, 1, 2].map((item) => (
+            <div className="py-6" key={item}>
+              <div className="h-5 w-24 rounded bg-muted" />
+              <div className="mt-3 h-7 w-2/3 rounded bg-muted" />
+              <div className="mt-3 h-4 w-1/2 rounded bg-muted" />
+            </div>
+          ))}
         </div>
-      </main>
-    </>
+      </div>
+    </AuthoringMaterialsFrame>
   );
 }
 

@@ -61,10 +61,7 @@ describe("TelegramMembership", () => {
       ok: true,
       presentation: {
         link: { kind: "unlinked" },
-        membership: {
-          acquisitionUrl: "https://t.me/tribute/inside",
-          kind: "inactive",
-        },
+        membership: { kind: "inactive" },
       },
     });
 
@@ -106,10 +103,7 @@ describe("TelegramMembership", () => {
           kind: "linking",
           linkRef: begun.state.linkRef,
         },
-        membership: {
-          acquisitionUrl: "https://t.me/tribute/inside",
-          kind: "inactive",
-        },
+        membership: { kind: "inactive" },
       },
     });
     const registration = provider.registerRequests[0];
@@ -308,10 +302,7 @@ describe("TelegramMembership", () => {
           kind: "conflict",
           supportUrl: "https://t.me/inside_support",
         },
-        membership: {
-          acquisitionUrl: "https://t.me/tribute/inside",
-          kind: "inactive",
-        },
+        membership: { kind: "inactive" },
       },
     });
     clock.set(new Date("2030-01-01T00:06:00.000Z"));
@@ -541,7 +532,6 @@ function fixture(database: TestDatabase): {
     botStartUrl: "https://t.me/inside_test_bot",
     clock: () => clock.now(),
     linkLifetimeMs: 5 * 60_000,
-    membershipAcquisitionUrl: "https://t.me/tribute/inside",
     membershipSupportUrl: "https://t.me/inside_support",
   });
   return { clock, entitlements, membership, provider };

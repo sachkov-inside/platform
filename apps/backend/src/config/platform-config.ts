@@ -12,7 +12,6 @@ const DEFAULT_LOGTO_JWKS_URL =
   "https://identity.inside.localhost:3301/oidc/jwks";
 const DEFAULT_EMAIL_FINGERPRINT_KEY = "inside-local-email-fingerprint-key";
 const DEFAULT_PUBLIC_SITE_ORIGIN = "http://127.0.0.1:3000";
-const DEFAULT_MEMBERSHIP_ACQUISITION_URL = "https://t.me/tribute";
 const DEFAULT_TELEGRAM_BOT_START_URL = "https://t.me/inside_local_bot";
 const DEFAULT_TELEGRAM_LINKING_ENDPOINT =
   "http://127.0.0.1:3002/integrations/platform/v1/identity-links";
@@ -73,11 +72,6 @@ const identitySchema = z
       message:
         "IDENTITY_EMAIL_FINGERPRINT_KEY must contain at least 32 characters",
     }),
-  })
-  .readonly();
-const contentAccessSchema = z
-  .object({
-    membershipAcquisitionUrl: httpUrlSchema("MEMBERSHIP_ACQUISITION_URL"),
   })
   .readonly();
 const objectStorageBucketSchema = (name: string) =>
@@ -231,7 +225,6 @@ const platformConfigSchema = z
     publicSite: z
       .object({ origin: publicOriginSchema("PUBLIC_SITE_ORIGIN") })
       .readonly(),
-    contentAccess: contentAccessSchema,
     objectStorage: objectStorageSchema,
     kinescope: kinescopeSchema,
     telegramMembership: telegramMembershipSchema,
@@ -278,9 +271,6 @@ const unusedProductionGroups = {
   api: {
     API_HOST: "127.0.0.1",
     API_PORT: "3001",
-  },
-  contentAccess: {
-    MEMBERSHIP_ACQUISITION_URL: "https://unused.invalid/membership",
   },
   identity: {
     IDENTITY_EMAIL_FINGERPRINT_KEY: "unused-email-fingerprint-key-32-chars",
@@ -331,7 +321,7 @@ const unusedProductionGroups = {
 const requiredGroupsByProcess = {
   api: new Set(Object.keys(unusedProductionGroups)),
   "material-assets-worker": new Set(["objectStorage"]),
-  mcp: new Set(["contentAccess", "identity", "kinescope", "objectStorage", "publicSite"]),
+  mcp: new Set(["identity", "kinescope", "objectStorage", "publicSite"]),
   "profile-avatars-worker": new Set(["objectStorage"]),
   "video-deletions-worker": new Set(["kinescope"]),
   "notifications-worker": new Set<string>(),
@@ -445,14 +435,6 @@ export function parsePlatformConfig(
         "IDENTITY_EMAIL_FINGERPRINT_KEY",
         mode,
         DEFAULT_EMAIL_FINGERPRINT_KEY,
-      ),
-    },
-    contentAccess: {
-      membershipAcquisitionUrl: readRuntimeValue(
-        environment,
-        "MEMBERSHIP_ACQUISITION_URL",
-        mode,
-        DEFAULT_MEMBERSHIP_ACQUISITION_URL,
       ),
     },
     objectStorage: {
@@ -727,7 +709,6 @@ function readRuntimeValue(
     | "LOGTO_AUDIENCE"
     | "LOGTO_ISSUER"
     | "LOGTO_JWKS_URL"
-    | "MEMBERSHIP_ACQUISITION_URL"
     | "MATERIAL_ASSET_ORPHAN_GRACE_SECONDS"
     | "KINESCOPE_API_BASE_URL"
     | "KINESCOPE_API_TOKEN"

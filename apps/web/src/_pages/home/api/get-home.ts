@@ -33,8 +33,7 @@ const homeSchema = z
     notes: z.array(publishedMaterialProjectionSchema),
     membership: z.discriminatedUnion("kind", [
       z.object({ kind: z.literal("active") }).strict(),
-      // Существующий backend-контракт содержит статус подписки; главная не показывает её продажу.
-      z.object({ acquisitionUrl: z.string(), kind: z.literal("inactive") }).strict(),
+      z.object({ kind: z.literal("inactive") }).strict(),
       z.object({ kind: z.literal("notOffered") }).strict(),
       z.object({ kind: z.literal("unknown") }).strict(),
     ]),
@@ -78,7 +77,6 @@ export async function getHome(
   return {
     kind: "ready",
     value: {
-      // Адрес покупки не переносится в презентационную модель.
       membership: { kind: parsed.data.membership.kind },
       pinnedSeries: parsed.data.pinnedSeries === null ? null : mapCollection(parsed.data.pinnedSeries),
       guides: parsed.data.guides.map(toMaterialPreview),

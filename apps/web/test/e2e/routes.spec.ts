@@ -648,10 +648,7 @@ function unlinkedAccountPresentation() {
     profile: { kind: "missing" },
     telegramMembership: {
       link: { kind: "unlinked" },
-      membership: {
-        acquisitionUrl: "https://t.me/tribute/inside",
-        kind: "inactive",
-      },
+      membership: { kind: "inactive" },
     },
   };
 }
@@ -665,10 +662,7 @@ function linkingAccountPresentation(linkRef: string) {
         kind: "linking",
         linkRef,
       },
-      membership: {
-        acquisitionUrl: "https://t.me/tribute/inside",
-        kind: "inactive",
-      },
+      membership: { kind: "inactive" },
     },
   };
 }
