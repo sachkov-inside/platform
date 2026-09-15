@@ -66,13 +66,13 @@
     "smoke:enrollments": "node scripts/enrollment-browser-smoke.mjs"
   },
   "dependencies": {
-    "zod": "4.4.3"
+    "zod": "4.6.2"
   },
   "devDependencies": {
-    "@logto/node": "3.1.10",
-    "jose": "6.2.10",
-    "oxc-parser": "0.147.0",
-    "oxlint": "1.80.0",
+    "@logto/node": "3.1.11",
+    "jose": "6.2.12",
+    "oxc-parser": "0.149.0",
+    "oxlint": "1.82.0",
     "oxlint-tsgolint": "7.0.2001",
     "proper-lockfile": "4.1.2",
     "typescript": "7.0.2"
