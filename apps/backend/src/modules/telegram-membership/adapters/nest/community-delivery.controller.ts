@@ -33,10 +33,11 @@ import { CommunityEntitlements } from "../../facets/community-entitlements/commu
 import {
   communityDeliveryViewSchema,
   communityMembersWithoutRightSchema,
+  type CommunityOperatorFailureCode,
 } from "../../facets/community-entitlements/community-delivery.contract.js";
 
 const deliveryFailureStatus: Readonly<
-  Record<"invalid_input" | "forbidden" | "unavailable", number>
+  Record<CommunityOperatorFailureCode, number>
 > = Object.freeze({ forbidden: 403, invalid_input: 400, unavailable: 503 });
 
 @ApiTags("Telegram Community")

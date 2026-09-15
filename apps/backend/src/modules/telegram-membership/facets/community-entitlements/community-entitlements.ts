@@ -16,6 +16,7 @@ import {
   communityMembersWithoutRightSchema,
   type CommunityDeliveryView,
   type CommunityMembersWithoutRight,
+  type CommunityOperatorFailureCode,
 } from "./community-delivery.contract.js";
 import {
   authorizeCommunityDispatch,
@@ -182,7 +183,7 @@ export class CommunityEntitlements {
     | {
         readonly ok: false;
         readonly error: {
-          readonly code: "invalid_input" | "forbidden" | "unavailable";
+          readonly code: CommunityOperatorFailureCode;
         };
       }
   > {
@@ -255,7 +256,7 @@ export class CommunityEntitlements {
     | {
         readonly ok: false;
         readonly error: {
-          readonly code: "invalid_input" | "forbidden" | "unavailable";
+          readonly code: CommunityOperatorFailureCode;
         };
       }
   > {

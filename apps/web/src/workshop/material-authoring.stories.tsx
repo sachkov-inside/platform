@@ -422,23 +422,23 @@ export const DeleteDraftConfirmation: Story = {
   },
 };
 
+const guideRemovalPresentation: MaterialAuthoringPresentation = {
+  ...materialAuthoringPresentation,
+  removalConfirmation: {
+    guides: [
+      {
+        guideId: "96000000-0000-4000-8000-000000000020",
+        holders: 12,
+        name: "Создание Platform Inside",
+      },
+    ],
+    pending: false,
+  },
+};
+
 export const GuideRemovalConfirmation: Story = {
   name: "Подтверждение снятия из купленного продукта",
-  args: {
-    presentation: {
-      ...materialAuthoringPresentation,
-      removalConfirmation: {
-        guides: [
-          {
-            guideId: "96000000-0000-4000-8000-000000000020",
-            holders: 12,
-            name: "Создание Platform Inside",
-          },
-        ],
-        pending: false,
-      },
-    },
-  },
+  args: { presentation: guideRemovalPresentation },
   play: async ({ canvasElement }) => {
     const page = within(canvasElement.ownerDocument.body);
     const dialog = await page.findByRole("dialog", {
@@ -450,10 +450,27 @@ export const GuideRemovalConfirmation: Story = {
     await expect(
       within(dialog).getByRole("button", { name: "Снять из продукта" }),
     ).toBeEnabled();
+    await expect(
+      within(dialog).getByRole("button", { name: "Оставить в продукте" }),
+    ).toBeEnabled();
+  },
+};
+
+export const GuideRemovalCancelled: Story = {
+  name: "Снятие из купленного продукта отменено",
+  args: { presentation: guideRemovalPresentation },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    const dialog = await page.findByRole("dialog", {
+      name: "Снять материал из купленного продукта?",
+    });
     await userEvent.click(
       within(dialog).getByRole("button", { name: "Оставить в продукте" }),
     );
     await expect(noopActions.onCancelGuideRemoval).toHaveBeenCalled();
+    await expect(
+      page.queryByRole("dialog", { name: "Снять материал из купленного продукта?" }),
+    ).toBeNull();
   },
 };
 

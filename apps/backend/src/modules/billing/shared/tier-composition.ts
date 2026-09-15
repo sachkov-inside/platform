@@ -36,9 +36,9 @@ export function productSupportIsOpenEnded(offer: CatalogOffer & { readonly benef
  * пустой состав отдельным кодом, чтобы владелец видел причину.
  */
 export function tierOpenForAssignment(
-  offer: (CatalogOffer & { readonly archived: boolean; readonly availableForAssignment: boolean; readonly contentScope: unknown }) | null,
+  offer: CatalogOffer & { readonly archived: boolean; readonly availableForAssignment: boolean; readonly contentScope: unknown },
 ): boolean {
-  return offer !== null && !offer.archived && offer.availableForAssignment && !tierLacksComposition(offer);
+  return !offer.archived && offer.availableForAssignment && !tierLacksComposition(offer);
 }
 
 /** Подписка продаётся только тарифом с составом; разовое предложение продукта её не включает. */
