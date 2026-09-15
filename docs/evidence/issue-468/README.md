@@ -69,3 +69,36 @@ The Platform diff remains in the isolated task worktree.
    free standalone publication, paid feed lesson, both video paths, access and private bytes.
 
 Do not close #468 or present this checkpoint as the finished authoring workflow.
+
+## Separate owner-requested discussion after #468
+
+Owner request, 2026-09-15: after finishing #468, assess what the product consists of and how its
+parts should be named and modelled. This is a separate product discussion, not an expansion of
+#468 or approval to rename entities now.
+
+Questions to resolve:
+
+- Product composition: main programme, additional learning Materials, practical artifacts and
+  any other included parts. Distinguish the purchased product from its programme.
+- Naming: the current glossary already defines Product as the public umbrella and Guide as its
+  existing Platform domain name. Decide whether a technical rename adds value; Topic remains
+  a Material's subject area, not the product container.
+- Additional Materials outside the main programme: how the author adds them, how the reader
+  finds them, whether they can be grouped, reused across products and linked from lessons.
+- Progress and navigation: whether optional additions affect programme completion, numbering,
+  previous/next and the promise made to an existing buyer.
+- Access: whether additions are included in the product purchase, can also be free or belong
+  to another product. Do not infer a new access or payment model from display grouping.
+- Artifacts: templates, checklists and downloadable files remain distinct from full lessons,
+  videos and explanatory notes.
+
+Current evidence: CONTEXT.md already separates Product/Guide, GuideProgramme, Topic and Guide
+Artifact. Inside Content has `supplementary_materials`, and its package exports
+`supplementaryMaterialIds`; this does not prove end-to-end support. The Platform specification
+currently describes chapters and a separate view of materials outside chapters, while progress
+still counts the whole Guide. Verify actual implementation before proposing a migration.
+
+Initial candidate for discussion, not an accepted decision: Product contains Programme,
+Additional Materials and Artifacts; completing optional additions does not change completion of
+the main programme. First assess this structure against real examples, then choose terminology
+and behaviour with the owner before specification or implementation.
