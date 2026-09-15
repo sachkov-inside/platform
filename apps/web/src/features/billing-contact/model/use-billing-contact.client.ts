@@ -4,9 +4,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
   billingContactQueryOptions,
+  billingContactVerified,
   resetBillingContact,
 } from "./billing-contact-query";
-import { subscribeBillingContactVerified } from "./billing-contact-verified-channel";
 
 /**
  * Чтение подтверждённого контакта для любой поверхности. Кроме самого чтения оно слушает
@@ -19,7 +19,7 @@ export function useBillingContact() {
 
   useEffect(
     () =>
-      subscribeBillingContactVerified(() => {
+      billingContactVerified.subscribe(() => {
         void resetBillingContact(queryClient);
       }),
     [queryClient],

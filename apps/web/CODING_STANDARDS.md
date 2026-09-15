@@ -75,13 +75,15 @@ mutations.
   write changes it, not only on the surface that performed the write. A successful read has no
   refresh interval and two visible windows raise no focus event, so an unannounced change leaves
   the remaining surfaces on a remembered answer until they are opened again. The feature that owns
-  the fact owns both its announcement and the one read hook every surface calls; the verified
-  billing contact in `src/features/billing-contact` is the worked example. The closest executable
-  check is a Playwright case where a second already-open surface shows the written value without a
-  reload, and a negative one where the announcement is unavailable
-  (`test/e2e/account-cabinet.spec.ts`). The rule itself stays prose: finding a fact that several
-  surfaces read means reading its query owner, which is not an import boundary a guardrail can
-  match. It becomes a fitness candidate if those owners gain a shared shape.
+  the fact owns its query key, its named announcement from `src/shared/api/fact-announcement`, one
+  announcement per write command, and the one read hook every surface calls. Worked examples: the
+  verified billing contact (`useBillingContact`), the buyer's billing state (`useCurrentBilling`)
+  and notification channel preferences (`useNotificationPreferences`). The announcement reaches
+  tabs of one browser only; another device needs a server push. The closest executable check is a
+  Playwright case per fact where a second already-open surface shows the written value without a
+  reload, plus a negative one where the announcement is unavailable
+  (`test/e2e/account-cabinet.spec.ts`). The rule itself stays prose: deciding that several surfaces
+  read a fact means reading its query owner, which is not an import boundary a guardrail can match.
 - Interactive writes use `useMutation` → browser adapter → same-origin capability Route Handler →
   generated Nest transport. The shared BFF boundary owns Origin, session, private no-store, timeout,
   and the default 2 MiB limit; a larger limit requires a named narrow override and boundary tests.
