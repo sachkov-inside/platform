@@ -1,3 +1,9 @@
+> **Current workflow update (2026-09-15):** the owner replaced the filesystem watcher below
+> with a one-shot import of a selected Git commit. Historical watcher results remain evidence
+> only. Use `authoring:sync-git-local` as documented in the
+> [local runbook](../../runbooks/local-development.md#local-obsidian-authoring-preview-468).
+> No watcher or Git hook is installed or started. Uncommitted changes are excluded.
+
 # Authoring workflow #468 — implementation in progress
 
 This is an implementation checkpoint, not the acceptance or delivery receipt for #468.
@@ -127,3 +133,19 @@ real local Material, then the original package restored it: both operations appl
 Material and skipped 107, retaining the same ID and URL, with content versions 2 → 3 → 4.
 The Obsidian source bytes were not edited by this rehearsal. The stand and source watcher were
 restarted for owner review. Platform CI and full issue acceptance remain outstanding.
+
+## One-shot Git import acceptance (2026-09-15)
+
+The local stand successfully imported Inside Content commit `af113300047b2e2aa1387b5a97078ba9f5aedf6d`.
+Package SHA-256: `1b314b0f1c5243cdb005d5029c0dffe15d223577adf72a37689d5dbf4b841555`.
+The first Git-based application updated 6 Materials and retained 102; an immediate repeat of the
+same commit updated 0 and retained all 108. The programme still has 105 main Materials and
+3 separate supplementary Materials. The successful commit and package are recorded in the
+local state directory's `last-git-sync.json`. Uncommitted owner comments were excluded.
+
+The exporter needed two portable-snapshot fixes in Inside Content: validating local dependencies
+only for the selected package (`9d74799`) and matching Unicode-equivalent Material paths
+(`af11330`). Selected missing dependencies remain errors. Exporter regression tests: 13 passed;
+Platform authoring tests: 15 passed, including committed/staged/unstaged/untracked isolation,
+old-ref selection and temporary snapshot cleanup. Lint and documentation checks passed.
+The filesystem watcher was removed. Production publication remains outside this acceptance.

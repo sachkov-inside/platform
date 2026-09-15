@@ -66,7 +66,7 @@
     "smoke:enrollments": "node scripts/enrollment-browser-smoke.mjs",
     "test:authoring": "node --test tools/authoring/*.test.mjs",
     "authoring:sync-local": "node tools/authoring/local-sync.mjs",
-    "authoring:watch-local": "node tools/authoring/watch-local.mjs"
+    "authoring:sync-git-local": "node tools/authoring/git-local.mjs"
   },
   "dependencies": {
     "zod": "4.4.3"

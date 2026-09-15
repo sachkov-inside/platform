@@ -743,15 +743,27 @@ configuration continues to disable payment admission; DEMO/production activation
 ### Local Obsidian authoring preview (#468)
 
 The isolated `editor:local` runtime above supports a loopback-only import gateway. Start the
-runtime before `pnpm authoring:sync-local PACKAGE_JSON STATE_DIRECTORY`, or run
-`pnpm authoring:watch-local CONTENT_ROOT GUIDE_ID STATE_DIRECTORY` to export and synchronize
-on saves under Content `guides`, `materials` and `assets`. The watcher requires the existing
-Content `uv` environment and writes immutable packages under its ignored `_local/platform-packages`.
-Refresh the browser after a successful `synced` log entry; automatic browser refresh is not yet wired.
+runtime, then run the one-shot Git import:
 
-This adapter copies source drafts into **locally published** Materials so the actual product and
-reader can be reviewed. Missing access uses the owner's approved `membership` default for this
-acceptance. It has no remote target option. Source IDs and the separate persistent journal preserve
+```bash
+pnpm authoring:sync-git-local CONTENT_REPOSITORY GUIDE_ID STATE_DIRECTORY [REF]
+```
+
+`REF` defaults to `HEAD` and is resolved to one commit SHA before export. The command archives
+that commit into a temporary directory, runs its exporter with frozen dependencies, and applies
+the resulting package to the loopback development runtime. Staged, unstaged and untracked files
+are excluded; no checkout, commit, push, Git hook or file watcher is required or installed.
+The temporary snapshot is removed when the command exits. The immutable packages remain under
+`STATE_DIRECTORY/packages`; `last-git-sync.json` records the last successful commit, package and
+report. Preserve the existing state directory when switching from the previous watcher.
+After an error, rerun the same commit: the operation journal recovers partial application.
+A comment committed into the selected revision still blocks export under the editorial rules.
+Refresh the browser manually after a successful transfer. Draft originals become published copies
+only on this local review runtime; missing access uses the owner-approved `membership` default.
+There is no production target. GitHub Actions publication is a future stage, not triggered by push.
+`authoring:sync-local PACKAGE_JSON STATE_DIRECTORY` remains the low-level package application command.
+
+Source IDs and the separate persistent journal preserve
 Material identities across edits and renames. Do not discard the journal between synchronizations.
 Validation runs before Material changes; invalid Markdown leaves existing Material bodies intact.
 An interrupted batch can be partially applied and is resumed, not rolled back as one transaction.
