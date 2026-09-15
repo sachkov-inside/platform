@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
+import { contactErrorMessage } from "@/features/billing-contact";
 import { notificationErrorMessage } from "@/features/notification-preferences";
 
 const activeSubscription = {
@@ -114,6 +115,25 @@ test("прежний адрес формы email открывает раздел
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Покупки");
   await expect(
     page.getByRole("heading", { name: "Email для чеков и сообщений" }),
+  ).toBeVisible();
+});
+
+test("отказ по расхождению редакции показывает текст из источника отказов", async ({
+  page,
+}) => {
+  await stubAccount(page);
+  // Покупатель прочитал контакт, адрес подтвердили на другом устройстве, а нажали здесь.
+  await page.route("**/api/account/billing/contact/start", (route) =>
+    route.fulfill({ json: { ok: false, code: "revision_conflict" } }),
+  );
+
+  await page.goto("/account/purchases");
+  await page.getByLabel("Email", { exact: true }).fill("buyer@example.test");
+  await page.getByRole("button", { name: "Получить код", exact: true }).click();
+
+  // Ожидание берётся у того же источника, что и экран: копия строки здесь пережила бы смену текста.
+  await expect(
+    page.getByText(contactErrorMessage("revision_conflict"), { exact: true }),
   ).toBeVisible();
 });
 

@@ -72,7 +72,6 @@ try {
       LOGTO_AUDIENCE: audience,
       LOGTO_ISSUER: issuer,
       LOGTO_JWKS_URL: serverUrl(jwksServer, "/jwks"),
-      MEMBERSHIP_ACQUISITION_URL: "https://t.me/tribute/app?startapp=inside",
       NODE_ENV: "test",
       TELEGRAM_BOT_START_URL: "https://t.me/inside_proof_bot",
       TELEGRAM_EVIDENCE_INGRESS_SECRET: evidenceSecret,

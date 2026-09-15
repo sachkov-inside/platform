@@ -39,7 +39,6 @@ export interface TelegramMembershipDependencies {
   readonly botStartUrl: string;
   readonly clock?: () => Date;
   readonly linkLifetimeMs: number;
-  readonly membershipAcquisitionUrl: string;
   readonly membershipEntitlements: MembershipEntitlements;
   readonly subscriptionForSale?: () => Promise<boolean>;
   readonly membershipSupportUrl?: string;
@@ -226,7 +225,6 @@ async function readAccountPresentation(
       ),
       membership: accountMembershipState(
         access,
-        dependencies.membershipAcquisitionUrl,
         subscriptionForSale,
       ),
     },
@@ -297,7 +295,6 @@ function accountLinkState(
 
 function accountMembershipState(
   state: Awaited<ReturnType<MembershipEntitlements["resolveForAccess"]>>,
-  acquisitionUrl: string,
   subscriptionForSale: boolean,
 ): AccountMembershipState {
   switch (state.kind) {
@@ -306,7 +303,7 @@ function accountMembershipState(
     case "expired":
     case "required":
       return subscriptionForSale
-        ? { acquisitionUrl, kind: "inactive" }
+        ? { kind: "inactive" }
         : { kind: "notOffered" };
     case "stale":
       return { kind: "stale" };
@@ -552,7 +549,6 @@ function assertDependencies(
   dependencies: TelegramMembershipDependencies,
 ): void {
   const startUrl = new URL(dependencies.botStartUrl);
-  const acquisitionUrl = new URL(dependencies.membershipAcquisitionUrl);
   const supportUrl =
     dependencies.membershipSupportUrl === undefined
       ? undefined
@@ -566,7 +562,6 @@ function assertDependencies(
     !Number.isInteger(dependencies.linkLifetimeMs) ||
     dependencies.linkLifetimeMs < 60_000 ||
     dependencies.linkLifetimeMs > 10 * 60_000 ||
-    !["http:", "https:"].includes(acquisitionUrl.protocol) ||
     (supportUrl !== undefined && !["http:", "https:"].includes(supportUrl.protocol))
   ) {
     throw new TypeError("Telegram Membership dependencies are invalid");

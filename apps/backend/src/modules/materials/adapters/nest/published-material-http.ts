@@ -61,13 +61,7 @@ export const publishedMaterialReadHttpSchema = z.discriminatedUnion("kind", [
       access: z
         .object({
           availability: z.literal("locked"),
-          cta: z
-            .object({
-              label: z.literal("Получить доступ"),
-              url: z.url(),
-            })
-            .strict()
-            .nullable(),
+          subscriptionOffered: z.boolean(),
         })
         .strict(),
     })

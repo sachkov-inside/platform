@@ -20,7 +20,6 @@ describe("process configuration", () => {
       LOGTO_AUDIENCE: "https://api.example.test",
       LOGTO_JWKS_URL: "https://identity.example.test/oidc/jwks",
       IDENTITY_EMAIL_FINGERPRINT_KEY: "test-email-fingerprint-key-32chars",
-      MEMBERSHIP_ACQUISITION_URL: "https://t.me/tribute/example",
       MEMBERSHIP_SUPPORT_URL: "https://t.me/inside_support",
       TELEGRAM_BOT_START_URL: "https://t.me/inside_test_bot",
       TELEGRAM_EVIDENCE_INGRESS_SECRET:
@@ -45,9 +44,6 @@ describe("process configuration", () => {
         emailFingerprintKey: "test-email-fingerprint-key-32chars",
       },
       publicSite: { origin: "http://127.0.0.1:3000" },
-      contentAccess: {
-        membershipAcquisitionUrl: "https://t.me/tribute/example",
-      },
       kinescope: localKinescopeConfig,
       objectStorage: {
         accessKeyId: "inside-local-access-key",
@@ -78,7 +74,7 @@ describe("process configuration", () => {
     expect(Object.isFrozen(config.database)).toBe(true);
     expect(Object.isFrozen(config.api)).toBe(true);
     expect(Object.isFrozen(config.identity)).toBe(true);
-    expect(Object.isFrozen(config.contentAccess)).toBe(true);
+    expect(Object.isFrozen(config.publicSite)).toBe(true);
     expect(Object.isFrozen(config.kinescope)).toBe(true);
     expect(Object.isFrozen(config.objectStorage)).toBe(true);
     expect(Object.isFrozen(config.objectStorage.buckets)).toBe(true);
@@ -103,9 +99,6 @@ describe("process configuration", () => {
         emailFingerprintKey: "inside-local-email-fingerprint-key",
       },
       publicSite: { origin: "http://127.0.0.1:3000" },
-      contentAccess: {
-        membershipAcquisitionUrl: "https://t.me/tribute",
-      },
       kinescope: localKinescopeConfig,
       objectStorage: {
         accessKeyId: "inside-local-access-key",
@@ -137,7 +130,7 @@ describe("process configuration", () => {
     );
   });
 
-  it("requires production database and listen values", () => {
+  it("requires production values instead of local defaults", () => {
     expect(() =>
       parsePlatformConfig({
         NODE_ENV: "production",
@@ -165,7 +158,7 @@ describe("process configuration", () => {
         IDENTITY_EMAIL_FINGERPRINT_KEY:
           "production-email-fingerprint-key-32chars",
       }),
-    ).toThrow("MEMBERSHIP_ACQUISITION_URL is required in production mode");
+    ).toThrow("OBJECT_STORAGE_ACCESS_KEY_ID is required in production mode");
   });
 
   it("keeps the public site origin bare, because consent addresses append a path", () => {
