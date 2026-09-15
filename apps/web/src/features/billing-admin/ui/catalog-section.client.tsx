@@ -196,9 +196,9 @@ export function CatalogSection({
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="offerAssignable" defaultChecked={editing?.availableForAssignment} /> Доступен для назначения</label>
           {catalogError !== undefined ? <p role="alert">{catalogError}</p> : null}
           <fieldset className="grid max-h-80 gap-2 overflow-y-auto rounded-xl border border-border p-4"><legend className="px-2 text-sm">Точный состав тарифа</legend>
-            {catalogLoading ? <p role="status">Загружаем каталог…</p> : content.map(item => <label className="flex items-start gap-2 text-sm" key={`${item.kind}:${item.id}`}><input type="checkbox" name={item.kind === "guide" ? "offerGuides" : "offerMaterials"} value={item.id} defaultChecked={editing === undefined ? false : (item.kind === "guide" ? editing.tier.contentScope.guideIds : editing.tier.contentScope.materialIds).includes(item.id)} /><span>{item.kind === "guide" ? "Гайд" : "Материал"}: {item.title}{item.available ? "" : " · не опубликован"}</span></label>)}
+            {catalogLoading ? <p role="status">Загружаем каталог…</p> : content.map(item => <label className="flex items-start gap-2 text-sm" key={`${item.kind}:${item.id}`}><input type="checkbox" name={item.kind === "guide" ? "offerGuides" : "offerMaterials"} value={item.id} defaultChecked={editing === undefined ? false : (item.kind === "guide" ? editing.tier.contentScope.guideIds : editing.tier.contentScope.materialIds).includes(item.id)} /><span>{item.kind === "guide" ? "Продукт" : "Материал"}: {item.title}{item.available ? "" : " · не опубликован"}</span></label>)}
           </fieldset>
-          <p className="text-sm text-muted-foreground">Новые шаги выбранного гайда входят в состав. Новый отдельный гайд или материал нужно добавить явно.</p>
+          <p className="text-sm text-muted-foreground">Новые шаги выбранного продукта входят в состав. Новый отдельный продукт или материал нужно добавить явно.</p>
           <AdminField
             hint="Пусто — создание нового предложения."
             inputMode="numeric"
