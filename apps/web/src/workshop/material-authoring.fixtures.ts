@@ -87,6 +87,7 @@ export const materialAuthoringPresentation = {
     access: "membership",
     canDelete: true,
     deleteVideoId: null,
+    detachVideoIds: [],
     difficulty: "intermediate",
     outcomes: [
       "Провести задачу от постановки до мержа",

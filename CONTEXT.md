@@ -174,7 +174,8 @@ locators, status and errors remain Video facts and never enter the document. Its
 distinguishes a Platform Upload, which an author may explicitly delete, from an External
 Attachment, which Platform may only detach. A Platform Upload its Material has not selected, and
 whose outcome Platform has not settled, stays that Material's unselected upload and returns to its
-author; a settled outcome the author already saw is their own decision.
+author; a settled outcome the author already saw, and a Video the author removed, are their own
+decision, whatever the provider reports afterwards.
 _Avoid_: Inline video node, iframe block, provider URL as Material content
 
 **VideoDeletion**:

@@ -23,6 +23,7 @@ import { parseMaterialDocumentFields } from "./parse-material-document-fields";
 const formSchema = z.object({
   access: z.enum(["free", "membership"]),
   deleteVideoId: z.union([z.uuid(), z.literal("none")]).default("none"),
+  detachVideoIds: z.array(z.uuid()),
   difficulty: materialDifficultySchema.or(z.literal("unassigned")),
   outcomes: z
     .array(z.string().trim().max(MATERIAL_OUTCOMES.maxLength))
@@ -114,6 +115,7 @@ function parseForm(
   const parsed = formSchema.safeParse({
     access: formData.get("access"),
     deleteVideoId: formData.get("deleteVideoId") ?? undefined,
+    detachVideoIds: formData.getAll("detachVideoIds"),
     difficulty: formData.get("difficulty"),
     outcomes: formData.getAll("outcome"),
     document: formData.get("document"),
@@ -147,6 +149,7 @@ function parseForm(
     value: {
       access: parsed.data.access,
       deleteVideoId: parsed.data.deleteVideoId === "none" ? null : parsed.data.deleteVideoId,
+      detachVideoIds: parsed.data.detachVideoIds,
       difficulty: parsed.data.difficulty === "unassigned" ? null : parsed.data.difficulty,
       outcomes: parsed.data.outcomes.filter(Boolean),
       document: documentFields.document,
