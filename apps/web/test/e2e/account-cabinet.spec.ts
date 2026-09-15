@@ -523,6 +523,55 @@ test("сохранённый выбор каналов виден во втор�
   await expect(email).toBeChecked();
 });
 
+test("начатая привязка карты видна в разделе «Покупки», открытом второй поверхностью", async ({
+  page,
+  context,
+}) => {
+  // Команда не возвращает нового вида подписки: обе поверхности узнают о привязке только
+  // перечитыванием, а соседняя — только по объявлению.
+  const state = { started: false };
+  const flowRef = "00000000-0000-4000-8000-000000000701";
+  const stubMethod = async (target: Page) => {
+    await stubAccount(target, { grounds: [paidGround], subscription: activeSubscription });
+    await target.route("**/api/account/billing", (route) =>
+      route.fulfill({
+        json: {
+          ok: true,
+          value: {
+            subscription: {
+              ...activeSubscription,
+              pendingMethodChange: state.started ? { flowRef, formUrl: null } : null,
+            },
+            notices: [],
+            grounds: [paidGround],
+            payments: [],
+          },
+        },
+      }),
+    );
+    await target.route("**/api/account/billing/payment-method/change", (route) => {
+      state.started = true;
+      void route.fulfill({
+        json: { ok: true, value: { flowRef, formUrl: null, methodRef: null, state: "started" } },
+      });
+    });
+  };
+  const started = /Начата привязка нового способа оплаты/u;
+
+  await stubMethod(page);
+  await page.goto("/account/purchases");
+  await expect(page.getByRole("button", { name: "Привязать другую карту" })).toBeEnabled();
+  await expect(page.getByText(started)).toHaveCount(0);
+
+  const other = await context.newPage();
+  await stubMethod(other);
+  await other.goto("/account/purchases");
+  await other.getByRole("button", { name: "Привязать другую карту" }).click();
+  await expect(other.getByText(started)).toBeVisible();
+
+  await expect(page.getByText(started)).toBeVisible();
+});
+
 test("без объявлений записавшая поверхность обновляется сама", async ({ context }) => {
   // Браузер без BroadcastChannel: соседние поверхности запись не услышат, но та, где её
   // совершили, обязана показать новый ответ.

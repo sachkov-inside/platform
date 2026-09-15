@@ -84,6 +84,8 @@ mutations.
   reload, plus a negative one where the announcement is unavailable
   (`test/e2e/account-cabinet.spec.ts`). The rule itself stays prose: deciding that several surfaces
   read a fact means reading its query owner, which is not an import boundary a guardrail can match.
+  Its mechanism is a fitness candidate: a guardrail allowing `BroadcastChannel` only in
+  `fact-announcement` lands once enrollment events move onto it (#636).
 - Interactive writes use `useMutation` → browser adapter → same-origin capability Route Handler →
   generated Nest transport. The shared BFF boundary owns Origin, session, private no-store, timeout,
   and the default 2 MiB limit; a larger limit requires a named narrow override and boundary tests.
