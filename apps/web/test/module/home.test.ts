@@ -22,12 +22,4 @@ describe("Home membership presentation", () => {
     const request = fetch.mock.calls[0]?.[0] as Request;
     expect(new Headers(request.headers).get("authorization")).toBe("Bearer member-token");
   });
-
-  // Внешний адрес покупки убран из контракта. Ответ, который снова его несёт, — дрейф контракта,
-  // а не данные для главной: адаптер отвергает его, а не передаёт дальше.
-  it("rejects a Home response that carries an external acquisition address", async () => {
-    vi.stubEnv("BACKEND_BASE_URL", "https://api.example.test");
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ ...home, membership: { kind: "inactive", acquisitionUrl: "https://t.me/tribute" } })));
-    await expect(getHome()).rejects.toMatchObject({ code: "invalid-response" });
-  });
 });

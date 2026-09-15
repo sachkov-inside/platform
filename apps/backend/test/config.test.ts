@@ -130,7 +130,7 @@ describe("process configuration", () => {
     );
   });
 
-  it("requires production database and listen values", () => {
+  it("requires production values instead of local defaults", () => {
     expect(() =>
       parsePlatformConfig({
         NODE_ENV: "production",
