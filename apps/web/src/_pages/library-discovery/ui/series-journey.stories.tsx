@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, userEvent, within } from "storybook/test";
+import { expect, userEvent, waitFor, within } from "storybook/test";
 import { MaterialReadingContext, type MaterialPreview } from "@/entities/material";
 import type { PublishedSeriesResult } from "@/features/library-discovery";
 import { guideOnlyOffer } from "@/workshop/billing.fixtures";
@@ -32,7 +32,7 @@ const meta = {
   ...environment,
   component: GuideProgrammeView,
   title: "Pages/Guide/Programme",
-  parameters: { ...environment.parameters, docs: { description: { component: "Страница программы продукта. Учебный состав из 24 материалов проверяет прогресс, страницы, продолжение и состояния доступа; редакционных и провайдерских утверждений в нём нет." } } },
+  parameters: { ...environment.parameters, docs: { description: { component: "Страница программы продукта. Учебный состав из 24 материалов проверяет прогресс, непрерывный список, продолжение и состояния доступа; редакционных и провайдерских утверждений в нём нет." } } },
   args: { result, learning: { kind: "ready", read: 8, total: 24, continuation: resume } },
   decorators: [(Story, context) => {
     const view = context.args.learning;
@@ -47,14 +47,12 @@ type Story = StoryObj<typeof meta>;
 export const InProgress: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvasElement.querySelectorAll("[data-series-ordinal]")).toHaveLength(12);
+    await expect(canvasElement.querySelectorAll("[data-series-ordinal]")).toHaveLength(24);
     await expect(canvas.queryByRole("button", { name: "Показать в маршруте" })).not.toBeInTheDocument();
-    await expect(canvas.getByRole("button", { name: "Страница 2, продолжение" })).toHaveAttribute("aria-current", "page");
-    await expect(canvas.getByText("Материалы 13–24 из 24")).toBeVisible();
+    await expect(canvas.queryByRole("navigation", { name: "Страницы маршрута" })).not.toBeInTheDocument();
+    await expect(canvas.getByText("Показано 24 из 24 материалов")).toBeVisible();
     await expect(canvasElement.querySelector('[data-series-ordinal="13"]')).toHaveAttribute("aria-current", "step");
     await expect(canvas.getAllByRole("link", { name: "Настройка CI" })[0]).toHaveAttribute("href", expect.stringContaining("page%3D2%26at%3Dseries-material-13"));
-    await userEvent.click(canvas.getByRole("button", { name: "Страница 1" }));
-    await expect(canvas.getByText("Материалы 1–12 из 24")).toBeVisible();
     await expect(canvas.getByRole("img", { name: "Материал 1, изучен" })).toBeVisible();
     await expect(canvasElement.querySelector('[data-series-marker-read="true"] svg')).toBeInTheDocument();
   },
@@ -143,12 +141,10 @@ export const Chapters: Story = {
     await expect(canvas.queryByRole("heading", { name: "Программа продукта" })).not.toBeInTheDocument();
     await expect(canvas.getByRole("tablist", { name: "Разделы продукта" })).toBeVisible();
     await expect(canvas.getAllByRole("tab")).toHaveLength(3);
-    await userEvent.click(canvas.getByRole("button", { name: "Страница 1" }));
     await expect(canvas.getByRole("heading", { level: 3, name: "Основа продукта" })).toBeVisible();
     await expect(canvas.getByRole("list", { name: "Материалы главы «Основа продукта»" }).querySelectorAll("li")).toHaveLength(6);
     await expect(canvas.getByRole("list", { name: "Материалы главы «Основа продукта»" })).toBeVisible();
     await expect(canvas.getByRole("list", { name: "Материалы главы «Данные и доступ»" })).toBeVisible();
-    await userEvent.click(canvas.getByRole("button", { name: /^Страница 2/u }));
     await expect(canvas.getByRole("heading", { level: 3, name: "Что дальше" })).toBeVisible();
     await expect(canvas.getByText("Материалы готовятся")).toBeVisible();
   },
@@ -175,7 +171,7 @@ export const PartiallyGrouped: Story = {
     await expect(canvas.queryByRole("heading", { level: 3, name: "Основа продукта" })).not.toBeInTheDocument();
   },
 };
-export const PartSwitchStartsAtFirstPage: Story = {
+export const PartSwitchStartsAtBeginning: Story = {
   args: {
     learning: { kind: "guest" },
     result: {
@@ -187,13 +183,13 @@ export const PartSwitchStartsAtFirstPage: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.click(canvas.getByRole("button", { name: /^Страница 2/u }));
-    await expect(canvas.getByText("Материалы 13–23 из 23")).toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Показать ещё уроки" }));
+    await expect(canvas.getByText("Показано 23 из 23 материалов")).toBeVisible();
     await userEvent.click(canvas.getByRole("tab", { name: /Дополнительные материалы/u }));
     await expect(canvas.queryByRole("navigation", { name: "Страницы маршрута" })).not.toBeInTheDocument();
     await expect(within(canvas.getByRole("list", { name: "Материалы продукта" })).getAllByRole("listitem")).toHaveLength(1);
     await userEvent.click(canvas.getByRole("tab", { name: /Программа/u }));
-    await expect(canvas.getByText("Материалы 1–12 из 23")).toBeVisible();
+    await expect(canvas.getByText("Показано 12 из 23 материалов")).toBeVisible();
   },
 };
 
@@ -325,6 +321,16 @@ export const DesktopRouteDetails: Story = {
     const heights = cards.map((card) => card.getBoundingClientRect().height);
     await expect(cards).toHaveLength(3);
     await expect(Math.max(...heights)).toBeLessThanOrEqual(144);
+    const card = cards[2];
+    const title = card?.querySelector("h3,h4");
+    const preview = card?.querySelector("[data-series-preview]");
+    const ordinal = card?.querySelector("strong");
+    if (!card || !title || !preview || !ordinal) throw new Error("Missing compact row geometry");
+    const center = (element: Element) => { const box = element.getBoundingClientRect(); return box.top + box.height / 2; };
+    await expect(Math.abs(center(title) - center(card))).toBeLessThan(1);
+    await expect(Math.abs(center(preview) - center(card))).toBeLessThan(1);
+    await expect(preview.getBoundingClientRect().width).toBe(64);
+    await expect(getComputedStyle(ordinal).fontSize).toBe("16px");
     for (const cover of canvasElement.querySelectorAll("article .public-cover-grid")) {
       const box = cover.getBoundingClientRect();
       await expect(box.width / box.height).toBeCloseTo(1, 1);
@@ -477,5 +483,32 @@ export const ProgrammeProgress: Story = {
     await userEvent.keyboard("{ArrowRight}");
     await expect(canvas.getByRole("tab", { name: /Артефакты/u })).toHaveAttribute("aria-selected", "true");
     await expect(canvas.getByText("Здесь появятся файлы, шаблоны и инструменты для работы над проектом.")).toBeVisible();
+  },
+};
+
+export const InfiniteScroll: Story = {
+  args: { result: chapteredResult, learning: { kind: "guest" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const first = canvasElement.querySelector('[data-route-material="series-material-1"]');
+    await expect(canvasElement.querySelectorAll("[data-series-ordinal]")).toHaveLength(12);
+    canvas.getByRole("button", { name: "Показать ещё уроки" }).scrollIntoView({ block: "end" });
+    await waitFor(async () => { await expect(canvasElement.querySelectorAll("[data-series-ordinal]")).toHaveLength(24); });
+    await expect(canvasElement.querySelector('[data-route-material="series-material-1"]')).toBe(first);
+    await expect(canvas.queryByRole("button", { name: "Показать ещё уроки" })).not.toBeInTheDocument();
+    await expect(canvas.getAllByRole("heading", { name: "Основа продукта" })).toHaveLength(1);
+    await expect(canvas.getByRole("heading", { name: "Что дальше" })).toBeVisible();
+  },
+};
+
+export const PartSwitchClearsContinuationPosition: Story = {
+  args: { result: chapteredResult, learning: { kind: "ready", read: 8, total: 24, continuation: resume } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvasElement.querySelectorAll("[data-series-ordinal]")).toHaveLength(24);
+    await userEvent.click(canvas.getByRole("tab", { name: /Дополнительные материалы/u }));
+    await userEvent.click(canvas.getByRole("tab", { name: /Программа/u }));
+    await expect(canvasElement.querySelectorAll("[data-series-ordinal]")).toHaveLength(12);
+    await expect(canvasElement.querySelector('[data-series-ordinal="1"]')).toBeVisible();
   },
 };

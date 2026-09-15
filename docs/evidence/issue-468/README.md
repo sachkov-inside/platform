@@ -149,3 +149,22 @@ only for the selected package (`9d74799`) and matching Unicode-equivalent Materi
 Platform authoring tests: 15 passed, including committed/staged/unstaged/untracked isolation,
 old-ref selection and temporary snapshot cleanup. Lint and documentation checks passed.
 The filesystem watcher was removed. Production publication remains outside this acceptance.
+
+## Continuous programme list (2026-09-15)
+
+Lesson card titles and previews are vertically centered. Ordinals use 16 px type and previews
+are 64 px wide. Numbered pagination is replaced by an IntersectionObserver that reveals the
+next 12 entries, with an accessible “Показать ещё уроки” fallback. The existing composition
+response is progressively revealed on the client; this does not introduce a server cursor API.
+Earlier rows remain mounted, and Reader return, browser Back and reload restore the target row.
+Explicit programme tab selection resets the prefix to the first 12 entries.
+
+Verification: root `pnpm check` passed, final lint passed, and Standards/Spec re-reviews passed.
+Storybook interaction checks cover card geometry, appending entries and tab reset; routing
+regressions retain validation of return URLs. The local real API stand demonstrated 12 → 24
+entries, opening lesson 13, browser Back and reload restoration. After restart, switching from
+Additional Materials to Programme returned to 12 entries. The updated fullstack scenario was
+not separately executed through the fullstack harness. Local synthetic owner access remains
+the scope of this preview; no production acceptance or deployment is implied.
+
+Screenshots: [desktop](programme-continuous-desktop.png), [mobile](programme-continuous-mobile.png).

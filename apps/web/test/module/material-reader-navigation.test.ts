@@ -1,6 +1,8 @@
+import { internalRoute } from "@/shared/routing/internal-route";
 import { describe, expect, it } from "vitest";
 
 import {
+  seriesReaderReturnHref,
   collectionDiscoveryHref,
   materialReaderHref,
   materialReaderOriginHref,
@@ -93,5 +95,17 @@ describe("Material Reader navigation", () => {
         label: "Назад на Главную",
       });
     }
+  });
+});
+
+describe("Series return context", () => {
+  it("retains page, material and navigation origin through a Reader link", () => {
+    const href = seriesReaderReturnHref(internalRoute("/series/platform?from=%2F"), 2, "ci");
+    expect(parseMaterialReaderReturnTarget(href)).toMatchObject({ kind: "series", seriesSlug: "platform", href });
+    expect(materialReaderHref("ci", href)).toContain("page%3D2%26at%3Dci");
+    expect(seriesReaderReturnHref(href, 1)).toBe("/series/platform?from=%2F&page=1");
+  });
+  it.each(["page=0", "page=-1", "page=2&page=3", "page=1e2", "at=bad%22slug", "from=https://evil.example", "other=2"])("rejects invalid Series return context: %s", (query) => {
+    expect(parseMaterialReaderReturnTarget(`/series/platform?${query}`).kind).toBe("home");
   });
 });

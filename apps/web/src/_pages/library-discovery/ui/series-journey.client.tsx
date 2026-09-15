@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, Play, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import type { Route } from "next";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -14,7 +14,7 @@ import { Button } from "@/shared/ui/button";
 import { cn } from "@/shared/lib/utils";
 import { guideChapterRuns } from "@/shared/lib/guide-chapter-runs";
 import { readSeriesPage, seriesReaderReturnHref } from "@/shared/routing/material-reader";
-import { seriesPage, SERIES_PAGE_SIZE } from "../model/series-page";
+const SERIES_BATCH_SIZE = 12;
 
 export type SeriesLearningView =
   | { readonly kind: "guest" }
@@ -58,44 +58,40 @@ export function SeriesJourney({ artifacts = { kind: "ready", artifacts: [] }, re
   const visible = part === undefined ? [] : partItems(part);
   const continuation = learning.kind === "ready" ? learning.continuation : null;
   const resumeIndex = visible.findIndex((item) => item.slug === continuation?.materialSlug && item.availability === "available");
-  const resumePage = resumeIndex < 0 ? undefined : Math.floor(resumeIndex / SERIES_PAGE_SIZE) + 1;
   const restoredIndex = visible.findIndex((item) => item.slug === requestedMaterial);
-  const restoredPage = restoredIndex >= 0
-    ? Math.floor(restoredIndex / SERIES_PAGE_SIZE) + 1
-    : !selection.explicit && search.has("page") ? requestedPage : resumePage ?? 1;
-  const [navigation, setNavigation] = useState({ source: restoredPage, page: restoredPage });
-  if (navigation.source !== restoredPage) setNavigation({ source: restoredPage, page: restoredPage });
-  const page = seriesPage(visible, navigation.source === restoredPage ? navigation.page : restoredPage, resumePage);
-  // The header shows progress; the continuation stays on the actual lesson.
+  const restoredCount = selection.explicit ? 0 : restoredIndex >= 0
+    ? restoredIndex + 1
+    : !selection.explicit && search.has("page") ? requestedPage * SERIES_BATCH_SIZE : resumeIndex + 1;
+  const initialCount = Math.min(visible.length, Math.max(SERIES_BATCH_SIZE, Math.ceil(restoredCount / SERIES_BATCH_SIZE) * SERIES_BATCH_SIZE));
+  const source = `${part?.id ?? "programme"}:${requestedMaterial ?? ""}:${String(requestedPage)}`;
+  const [reveal, setReveal] = useState({ source, count: initialCount });
+  if (reveal.source !== source) setReveal({ source, count: initialCount });
+  const count = Math.min(visible.length, Math.max(initialCount, reveal.source === source ? reveal.count : initialCount));
+  const hasMore = count < visible.length;
+  const sentinel = useRef<HTMLDivElement>(null);
   const next = items.find((item) => item.slug === continuation?.materialSlug && item.availability === "available");
 
   useEffect(() => {
-    if (resumePage === undefined || search.has("page") || search.has("at")) return;
-    if (window.location.pathname === new URL(currentHref, window.location.origin).pathname) {
-      window.history.replaceState(null, "", seriesReaderReturnHref(currentHref, page.number));
-    }
-  }, [currentHref, page.number, resumePage, search]);
+    const node = sentinel.current;
+    if (!hasMore || node === null || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      observer.disconnect();
+      setReveal({ source, count: Math.min(visible.length, count + SERIES_BATCH_SIZE) });
+    }, { rootMargin: "0px 0px 240px 0px" });
+    observer.observe(node);
+    return () => { observer.disconnect(); };
+  }, [count, hasMore, source, visible.length]);
 
+  const returnSlug = selection.explicit ? undefined : requestedMaterial ?? (search.has("page") && requestedPage > 1 ? visible[(requestedPage - 1) * SERIES_BATCH_SIZE]?.slug : undefined);
   useEffect(() => {
-    if (requestedMaterial === null || page.number !== restoredPage) return;
-    const row = routeRef.current?.querySelector<HTMLElement>(`[data-route-material="${CSS.escape(requestedMaterial)}"]`);
-    row?.scrollIntoView({ block: "center" });
-  }, [page.number, requestedMaterial, restoredPage]);
+    if (returnSlug === undefined) return;
+    routeRef.current?.querySelector<HTMLElement>(`[data-route-material="${CSS.escape(returnSlug)}"]`)?.scrollIntoView({ block: "center" });
+  }, [returnSlug]);
 
   function selectPart(id: string) {
     if (id === part?.id) return;
     setSelection({ id, explicit: true });
-    setNavigation({ source: 1, page: 1 });
-  }
-
-  function navigate(number: number) {
-    setNavigation({ source: restoredPage, page: number });
-    const href = seriesReaderReturnHref(currentHref, number);
-    if (window.location.pathname === new URL(currentHref, window.location.origin).pathname) window.history.pushState(null, "", href);
-    requestAnimationFrame(() => {
-      routeRef.current?.focus({ preventScroll: true });
-      routeRef.current?.scrollIntoView({ block: "start" });
-    });
   }
 
   return <>
@@ -135,10 +131,10 @@ export function SeriesJourney({ artifacts = { kind: "ready", artifacts: [] }, re
         {part?.kind === "artifacts" ? <div className="mt-5">{artifacts.kind === "unavailable" ? <p className="py-5 text-sm leading-6 text-muted-foreground" role="status">Артефакты сейчас не загрузились. Попробуй открыть этот раздел позже.</p> : part.artifacts.length === 0 || part.guideId === undefined ? <p className="py-5 text-sm leading-6 text-muted-foreground">Здесь появятся файлы, шаблоны и инструменты для работы над проектом.</p> : <ReaderGuideArtifacts artifacts={part.artifacts} guideId={part.guideId} />}</div> : <>
         {part?.id === "programme" && visible.length === 0 && part.chapters.length === 0 ? <p className="py-10 text-sm leading-6 text-muted-foreground">Программа готовится. Здесь появятся главы и уроки продукта.</p> : null}
         {part?.id === "supplementary" && visible.length === 0 ? <p className="py-10 text-sm leading-6 text-muted-foreground">Здесь появятся дополнительные разборы и полезные материалы к продукту.</p> : null}
-        {page.count > 1 ? <p aria-live="polite" className="mt-6 text-sm tabular-nums text-muted-foreground">Материалы {page.offset + 1}–{page.offset + page.items.length} из {visible.length}</p> : null}
+        {visible.length > SERIES_BATCH_SIZE ? <p aria-live="polite" className="mt-6 text-sm tabular-nums text-muted-foreground">Показано {count} из {visible.length} материалов</p> : null}
         {items.some((item) => item.availability === "unavailable") ? <Button className="mt-4 h-auto min-h-11 max-w-full whitespace-normal" onClick={() => { router.refresh(); }} variant="outline"><RefreshCw aria-hidden="true" />Повторить проверку доступа</Button> : null}
         <div className="mt-5 grid gap-6">
-          {visibleChapterRuns(visible, part?.chapters ?? [], chapterOf, page).map((run) => <section aria-labelledby={run.chapter === null ? undefined : `chapter-${run.chapter.id}`} key={run.chapter?.id ?? `open-${String(run.offset)}`}>
+          {visibleChapterRuns(visible, part?.chapters ?? [], chapterOf, count).map((run) => <section aria-labelledby={run.chapter === null ? undefined : `chapter-${run.chapter.id}`} key={run.chapter?.id ?? `open-${String(run.offset)}`}>
             {run.chapter === null ? null : <header>
               <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
                 <h3 className="min-w-0 flex-1 text-base font-semibold tracking-[-0.02em] [overflow-wrap:anywhere] sm:basis-auto sm:text-lg" id={`chapter-${run.chapter.id}`}>{run.chapter.name}</h3>
@@ -150,8 +146,12 @@ export function SeriesJourney({ artifacts = { kind: "ready", artifacts: [] }, re
               {run.items.map((material, index) => {
                 // Splitting the route into parts renumbers each part; a flat Guide keeps its stored order.
                 const ordinal = result.chapters.length > 0 ? run.offset + index + 1 : material.seriesMemberships.find(({ slug }) => slug === result.reference.slug)?.ordinal ?? run.offset + index + 1;
-                return <li aria-current={next?.slug === material.slug ? "step" : undefined} className="@container/series-entry relative min-w-0 scroll-mt-6 rounded-xl focus-visible:outline-2 focus-visible:outline-ring" data-route-material={material.slug} data-series-ordinal={ordinal} key={material.slug} tabIndex={-1}>
-                  <MaterialCard seriesOrdinal={ordinal} readingStatus={<SeriesMaterialMarker {...(material.materialId === undefined ? {} : { materialId: material.materialId })} ordinal={ordinal} statusOnly />} headingLevel={run.chapter === null ? "h3" : "h4"} material={material} {...(next?.slug === material.slug && continuation !== null ? { resumeLabel: continuation.label } : {})} returnHref={seriesReaderReturnHref(currentHref, page.number, material.slug)} variant="series" />
+                const returnHref = seriesReaderReturnHref(currentHref, Math.floor((run.offset + index) / SERIES_BATCH_SIZE) + 1, material.slug);
+                return <li onClickCapture={(event) => {
+                  if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || !(event.target instanceof Element) || event.target.closest("a") === null) return;
+                  if (window.location.pathname === new URL(currentHref, window.location.origin).pathname) window.history.replaceState(window.history.state, "", returnHref);
+                }} aria-current={next?.slug === material.slug ? "step" : undefined} className="@container/series-entry relative min-w-0 scroll-mt-6 rounded-xl focus-visible:outline-2 focus-visible:outline-ring" data-route-material={material.slug} data-series-ordinal={ordinal} key={material.slug} tabIndex={-1}>
+                  <MaterialCard seriesOrdinal={ordinal} readingStatus={<SeriesMaterialMarker {...(material.materialId === undefined ? {} : { materialId: material.materialId })} ordinal={ordinal} statusOnly />} headingLevel={run.chapter === null ? "h3" : "h4"} material={material} {...(next?.slug === material.slug && continuation !== null ? { resumeLabel: continuation.label } : {})} returnHref={returnHref} variant="series" />
                 </li>;
               })}
             </ol>}
@@ -159,42 +159,24 @@ export function SeriesJourney({ artifacts = { kind: "ready", artifacts: [] }, re
         </div>
         </>}
       </div>
-      {part?.kind === "materials" && page.count > 1 ? <nav aria-label="Страницы маршрута" className="mt-7 flex flex-wrap items-center justify-between gap-3">
-        <Button className="min-h-11" disabled={page.number === 1} onClick={() => { navigate(page.number - 1); }} variant="outline"><ArrowLeft aria-hidden="true" />Назад</Button>
-        <div className="flex flex-wrap items-center gap-1">
-          {page.pages.map((number, index) => number === null ? <span aria-hidden="true" className="px-1 text-muted-foreground" key={`gap-${String(index)}`}>…</span> : <Button aria-current={page.number === number ? "page" : undefined} aria-label={`Страница ${String(number)}${number === resumePage ? ", продолжение" : ""}`} className="min-h-11 min-w-11 tabular-nums" key={number} onClick={() => { navigate(number); }} variant={page.number === number ? "default" : "ghost"}>{number}{number === resumePage ? <Play aria-hidden="true" className="size-3 fill-current" /> : null}</Button>)}
-        </div>
-        <Button className="min-h-11" disabled={page.number === page.count} onClick={() => { navigate(page.number + 1); }} variant="outline">Далее<ArrowRight aria-hidden="true" /></Button>
-      </nav> : null}
+      {part?.kind === "materials" && hasMore ? <div className="mt-6 flex justify-center" ref={sentinel}>
+        <Button onClick={() => { setReveal({ source, count: Math.min(visible.length, count + SERIES_BATCH_SIZE) }); }} variant="outline">Показать ещё уроки</Button>
+      </div> : null}
     </section> : null}
   </>;
 }
 
-/**
- * Chapters group the whole published route, so the runs are built once over the complete
- * composition and then narrowed to the visible page. A chapter that holds nothing appears on the
- * page its position falls on, so the reader still sees that it is part of the Guide.
- */
+/** Preserve complete chapter runs while progressively extending the visible prefix. */
 function visibleChapterRuns(
   items: readonly MaterialPreview[],
   chapters: readonly GuideChapter[],
   chapterOf: (material: MaterialPreview) => string | null,
-  page: { readonly count: number; readonly items: readonly MaterialPreview[]; readonly number: number; readonly offset: number },
+  count: number,
 ): readonly { readonly chapter: GuideChapter | null; readonly items: readonly MaterialPreview[]; readonly offset: number }[] {
-  const from = page.offset;
-  const to = page.offset + page.items.length;
-  return guideChapterRuns(items, chapters, chapterOf)
-    .flatMap((run) => {
-      if (run.items.length === 0) {
-        const trailing = run.offset >= items.length && page.number === page.count;
-        return run.offset >= from && (run.offset < to || trailing) ? [run] : [];
-      }
-      const start = Math.max(run.offset, from);
-      const end = Math.min(run.offset + run.items.length, to);
-      return end > start
-        ? [{ chapter: run.chapter, items: run.items.slice(start - run.offset, end - run.offset), offset: start }]
-        : [];
-    });
+  return guideChapterRuns(items, chapters, chapterOf).flatMap((run) => {
+    if (run.items.length === 0) return run.offset < count || count === items.length ? [run] : [];
+    return run.offset < count ? [{ ...run, items: run.items.slice(0, count - run.offset) }] : [];
+  });
 }
 
 type GuidePart =
@@ -213,7 +195,7 @@ type GuidePart =
       readonly label: string;
     };
 
-/** Only a route part is paginated and numbered; an artifact part has no route. */
+/** Only a material part is progressively revealed and numbered; artifacts have no route. */
 function partItems(part: GuidePart): readonly MaterialPreview[] {
   return part.kind === "materials" ? part.items : [];
 }
