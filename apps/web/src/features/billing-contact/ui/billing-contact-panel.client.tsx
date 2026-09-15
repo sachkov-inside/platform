@@ -12,8 +12,10 @@ import {
   contactErrorMessage,
   type BillingContactState,
 } from "../model/billing-contact";
-import { resetBillingContact } from "../model/billing-contact-query";
-import { announceBillingContactVerified } from "../model/billing-contact-verified-channel";
+import {
+  billingContactVerified,
+  resetBillingContact,
+} from "../model/billing-contact-query";
 import { useBillingContact } from "../model/use-billing-contact.client";
 import { BillingContactForm } from "./billing-contact-form.client";
 
@@ -83,7 +85,7 @@ export function BillingContactPanel({
       // сколько длится перечитывание здесь и остался ли покупатель на этой странице. Свой ответ
       // сбрасывается прямо тут, до показа подтверждённого адреса, и этот путь работает и там,
       // где объявления недоступны.
-      announceBillingContactVerified();
+      billingContactVerified.announce();
       await resetBillingContact(queryClient);
     },
   });

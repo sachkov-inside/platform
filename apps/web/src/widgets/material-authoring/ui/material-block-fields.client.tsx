@@ -1,6 +1,6 @@
 "use client";
 
-import type { Editor } from "@tiptap/react";
+import { useEditorState, type Editor } from "@tiptap/react";
 
 import {
   calloutTones,
@@ -15,8 +15,38 @@ import { Button } from "@/shared/ui/button";
 const titleFieldClass =
   "min-h-9 w-40 min-w-0 rounded-lg border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-56";
 
-function activeTone(editor: Editor): CalloutTone | undefined {
-  return calloutTones.find((tone) => editor.isActive("callout", { kind: tone }));
+/** Всё, что показывает панель текущего блока. Панель пересобирается, когда меняется это, а не на каждой транзакции. */
+type BlockFieldsState =
+  | { readonly kind: "callout"; readonly title: string; readonly tone: CalloutTone }
+  | { readonly kind: "takeaways"; readonly title: string }
+  | {
+      readonly branchMode: GuideMode;
+      readonly branches: number;
+      readonly kind: "variant";
+    }
+  | { readonly kind: "agentPrompt"; readonly title: string }
+  | { readonly kind: "none" };
+
+function blockFieldsState(editor: Editor): BlockFieldsState {
+  const tone = calloutTones.find((candidate) =>
+    editor.isActive("callout", { kind: candidate }),
+  );
+  if (tone !== undefined)
+    return { kind: "callout", title: blockTitle(editor, "callout"), tone };
+  if (editor.isActive("takeaways"))
+    return { kind: "takeaways", title: blockTitle(editor, "takeaways") };
+  const branchMode = guideModes.find((mode) =>
+    editor.isActive("variantOption", { mode }),
+  );
+  if (branchMode !== undefined)
+    return {
+      branchMode,
+      branches: variantUnderCursor(editor.state)?.branchPositions.length ?? 0,
+      kind: "variant",
+    };
+  if (editor.isActive("agentPrompt"))
+    return { kind: "agentPrompt", title: blockTitle(editor, "agentPrompt") };
+  return { kind: "none" };
 }
 
 function blockTitle(editor: Editor, type: string): string {
@@ -31,6 +61,7 @@ function BlockTitleField({
   placeholder,
   required,
   type,
+  value,
 }: {
   readonly disabled: boolean;
   readonly editor: Editor;
@@ -39,6 +70,7 @@ function BlockTitleField({
   /** Обязательное название хранится пустой строкой, необязательное — отсутствует. */
   readonly required: boolean;
   readonly type: string;
+  readonly value: string;
 }) {
   return (
     <input
@@ -52,13 +84,9 @@ function BlockTitleField({
         });
       }}
       placeholder={placeholder}
-      value={blockTitle(editor, type)}
+      value={value}
     />
   );
-}
-
-function activeVariantMode(editor: Editor): GuideMode | undefined {
-  return guideModes.find((mode) => editor.isActive("variantOption", { mode }));
 }
 
 /** Вариантный блок под курсором: сколько в нём веток и где он кончается. */
@@ -96,15 +124,15 @@ function selectBranchMode(
  */
 function VariantFields({
   branchMode,
+  branches,
   disabled,
   editor,
 }: {
   readonly branchMode: GuideMode;
+  readonly branches: number;
   readonly disabled: boolean;
   readonly editor: Editor;
 }) {
-  const variant = variantUnderCursor(editor.state);
-  const branches = variant?.branchPositions.length ?? 0;
   const missing = guideModes.find((mode) => mode !== branchMode);
 
   return (
@@ -136,6 +164,7 @@ function VariantFields({
         <Button
           disabled={disabled}
           onClick={() => {
+            const variant = variantUnderCursor(editor.state);
             if (variant === undefined) return;
             editor
               .chain()
@@ -180,9 +209,12 @@ export function MaterialBlockFields({
   readonly disabled: boolean;
   readonly editor: Editor;
 }) {
-  const tone = activeTone(editor);
+  const fields = useEditorState({
+    editor,
+    selector: ({ editor: current }) => blockFieldsState(current),
+  });
 
-  if (tone !== undefined) {
+  if (fields.kind === "callout") {
     return (
       <div
         aria-label="Врезка"
@@ -194,7 +226,7 @@ export function MaterialBlockFields({
           return (
             <Button
               aria-label={`Вид врезки: ${presentation.label}`}
-              aria-pressed={option === tone}
+              aria-pressed={option === fields.tone}
               disabled={disabled}
               key={option}
               onClick={() => {
@@ -206,7 +238,7 @@ export function MaterialBlockFields({
               size="icon"
               title={presentation.label}
               type="button"
-              variant={option === tone ? "secondary" : "ghost"}
+              variant={option === fields.tone ? "secondary" : "ghost"}
             >
               <presentation.icon aria-hidden="true" />
             </Button>
@@ -219,12 +251,13 @@ export function MaterialBlockFields({
           placeholder="Название, необязательно"
           required={false}
           type="callout"
+          value={fields.title}
         />
       </div>
     );
   }
 
-  if (editor.isActive("takeaways")) {
+  if (fields.kind === "takeaways") {
     return (
       <div aria-label="Итоги" className="mr-auto flex min-w-0 items-center" role="toolbar">
         <BlockTitleField
@@ -234,19 +267,24 @@ export function MaterialBlockFields({
           placeholder="Заголовок итогов"
           required
           type="takeaways"
+          value={fields.title}
         />
       </div>
     );
   }
 
-  const branchMode = activeVariantMode(editor);
-  if (branchMode !== undefined) {
+  if (fields.kind === "variant") {
     return (
-      <VariantFields branchMode={branchMode} disabled={disabled} editor={editor} />
+      <VariantFields
+        branchMode={fields.branchMode}
+        branches={fields.branches}
+        disabled={disabled}
+        editor={editor}
+      />
     );
   }
 
-  if (editor.isActive("agentPrompt")) {
+  if (fields.kind === "agentPrompt") {
     return (
       <div aria-label="Промпт" className="mr-auto flex min-w-0 items-center" role="toolbar">
         <BlockTitleField
@@ -256,6 +294,7 @@ export function MaterialBlockFields({
           placeholder="Заголовок, необязательно"
           required={false}
           type="agentPrompt"
+          value={fields.title}
         />
       </div>
     );
