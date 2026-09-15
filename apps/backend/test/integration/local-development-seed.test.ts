@@ -15,6 +15,7 @@ import {
   assembleMaterials,
   type MaterialMetadataDto,
   type MaterialMetadataSelectionInput,
+  type Materials,
 } from "../../src/modules/materials/index.js";
 import {
   createMigratedTestDatabase,
@@ -22,29 +23,47 @@ import {
 } from "./setup/test-database.js";
 import type { PlatformPrisma } from "../../src/infrastructure/prisma/index.js";
 
+// TEMP #608: provisional budgets while CI phase durations are measured.
+const migratedDatabaseBudgetMs = 120_000;
+const seedRunBudgetMs = 60_000;
+const repeatedSeedBudgetMs = seedRunBudgetMs * 2;
+
+// TEMP #608: phase timing printed into the Integration log; removed before review.
+function measure(label: string, startedAt: number) {
+  console.log(`MEASURE608 ${label} ${String(Math.round(performance.now() - startedAt))}ms`);
+}
+
 describe("local development seed", () => {
   let testDatabase: TestDatabase;
+  let materials: Materials;
 
   beforeAll(async () => {
+    const startedAt = performance.now();
     testDatabase = await createMigratedTestDatabase();
-  });
+    measure("A.hook.migratedDatabase", startedAt);
+    materials = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: {
+        canManage: () => false,
+      },
+    });
+  }, migratedDatabaseBudgetMs);
 
   afterAll(async () => {
     await testDatabase.dispose();
   });
 
   test("publishes a stable multi-page free and closed catalog when repeated", async () => {
+    const startedAt = performance.now();
     const first = await seedLocalDevelopment(testDatabase.prisma);
+    measure("A.body.firstSeed", startedAt);
+    const repeatedAt = performance.now();
     const second = await seedLocalDevelopment(testDatabase.prisma);
+    measure("A.body.repeatedSeed", repeatedAt);
 
     expect(second).toEqual(first);
 
-    const { contentAccess, publishedMaterialReader } = assembleMaterials({
-      prisma: testDatabase.prisma,
-      authorPolicy: {
-        canManage: () => false,
-      },
-    });
+    const { contentAccess, publishedMaterialReader } = materials;
     const catalog = await listPublishedMaterials(
       publishedMaterialReader,
       contentAccess,
@@ -154,7 +173,7 @@ describe("local development seed", () => {
         slug: "demo-295-samostoyatelnaya-zametka",
       }),
     );
-  });
+  }, repeatedSeedBudgetMs);
 });
 
 /**
@@ -169,8 +188,12 @@ describe("local development offer catalog", () => {
   let storefront: BillingPricing;
 
   beforeAll(async () => {
+    const startedAt = performance.now();
     testDatabase = await createMigratedTestDatabase();
+    measure("B.hook.migratedDatabase", startedAt);
+    const seededAt = performance.now();
     await seedLocalDevelopment(testDatabase.prisma);
+    measure("B.hook.seed", seededAt);
     const guide = await testDatabase.prisma.guide.findUniqueOrThrow({
       select: { id: true },
       where: { slug: "platform-inside" },
@@ -188,7 +211,7 @@ describe("local development offer catalog", () => {
         checkPermission: () => Promise.resolve({ ok: true, allowed: false }),
       },
     });
-  });
+  }, migratedDatabaseBudgetMs + seedRunBudgetMs);
 
   afterAll(async () => {
     await testDatabase.dispose();
@@ -317,12 +340,14 @@ describe("local development seed after a demo content change", () => {
   const stepTitle = "Demo · Подготовка приложения к релизу";
   let testDatabase: TestDatabase;
 
-  // Бюджет останавливает зависший прогон, а не измеряет машину: создание базы, миграции и полный
-  // засев не укладываются в десять секунд по умолчанию, когда на машине работает кто-то ещё.
   beforeAll(async () => {
+    const startedAt = performance.now();
     testDatabase = await createMigratedTestDatabase();
+    measure("C.hook.migratedDatabase", startedAt);
+    const seededAt = performance.now();
     await seedLocalDevelopment(testDatabase.prisma);
-  }, 120_000);
+    measure("C.hook.seed", seededAt);
+  }, migratedDatabaseBudgetMs + seedRunBudgetMs);
 
   afterAll(async () => {
     await testDatabase.dispose();
