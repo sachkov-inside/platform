@@ -11,7 +11,6 @@ import {
   materialPreviewHasVideo,
   type MaterialPreview,
 } from "../model/material-preview";
-import { materialDifficultyLabel } from "../model/material-difficulty-label";
 import { materialTaxonomyLabel } from "../model/material-taxonomy-label";
 import { ContentCoverImage } from "./content-cover-image.client";
 import { feedLink } from "../model/feed-link";
@@ -25,6 +24,7 @@ export interface MaterialCardProps {
   readonly returnHref?: Route;
   /** Series-owned context rendered below the row title. */
   readonly rowAnnotation?: React.ReactNode;
+  readonly seriesOrdinal?: number;
   readonly readingStatus?: React.ReactNode;
   /** Existing video card with a short continuation caption supplied by its page. */
   readonly resumeLabel?: string;
@@ -38,6 +38,7 @@ export function MaterialCard({
   material,
   returnHref,
   rowAnnotation,
+  seriesOrdinal,
   readingStatus = material.materialId === undefined ? undefined : <SavedMaterialReadingStatus materialId={material.materialId} format={material.format} />,
   resumeLabel,
   showAccessDetails = false,
@@ -47,7 +48,7 @@ export function MaterialCard({
   const readerHref = materialReaderHref(material.slug, returnHref);
 
   if (variant === "series") {
-    return <SeriesMaterialRow headingLevel={headingLevel} material={material} readerHref={readerHref} current={resumeLabel !== undefined} />;
+    return <SeriesMaterialRow headingLevel={headingLevel} material={material} readerHref={readerHref} resumeLabel={resumeLabel} ordinal={seriesOrdinal} readingStatus={readingStatus} />;
   }
 
   if (variant === "row") {
@@ -246,75 +247,43 @@ function MaterialRow({
   );
 }
 
-function SeriesMaterialRow({ headingLevel: Heading, material, readerHref, current }: {
+/** Compact programme row. Learning outcomes and difficulty remain in the lesson reader. */
+function SeriesMaterialRow({ headingLevel: Heading, material, readerHref, resumeLabel, ordinal, readingStatus }: {
   readonly headingLevel: "h2" | "h3" | "h4";
   readonly material: MaterialPreview;
   readonly readerHref: Route;
-  readonly current: boolean;
+  readonly resumeLabel: string | undefined;
+  readonly ordinal: number | undefined;
+  readonly readingStatus: React.ReactNode;
 }) {
   const duration = materialDuration(material);
-  return (
-    <article
-      className={cn(
-        "group/row relative grid min-w-0 grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-2 rounded-2xl border border-border bg-muted/55 p-3 transition-colors hover:bg-muted focus-within:bg-muted @max-[13rem]/series-entry:grid-cols-1 @min-[40rem]/series-entry:min-h-33 @min-[40rem]/series-entry:grid-cols-[11rem_minmax(0,1fr)_auto_auto] @min-[40rem]/series-entry:gap-4 @min-[40rem]/series-entry:p-4",
-        current && "ring-2 ring-accent/70",
-      )}
-      data-material-id={material.slug}
-      data-material-slug={material.slug}
-      data-material-variant="series"
-    >
-      <span className="relative w-14 @min-[40rem]/series-entry:w-44">
-        <AccessCover compact material={material}>
-          <ContentCoverImage
-            alt=""
-            className="aspect-square min-h-0 rounded-xl @min-[40rem]/series-entry:aspect-video"
-            cover={material.cover ?? null}
-            fallbackKind={materialPreviewHasVideo(material) ? "video" : "material"}
-            fallbackSeed={material.slug}
-            sizes="(min-width: 768px) 11rem, 3.5rem"
-          />
-        </AccessCover>
-        {duration === undefined ? null : <span className="mt-1 flex justify-center @min-[40rem]/series-entry:absolute @min-[40rem]/series-entry:bottom-1.5 @min-[40rem]/series-entry:right-1.5 @min-[40rem]/series-entry:mt-0"><span className="rounded bg-primary/85 px-1.5 py-0.5 text-xs font-medium leading-4 tabular-nums text-white" data-series-duration>{duration}</span></span>}
-      </span>
-      <span className="min-w-0 [overflow-wrap:anywhere]">
-        <span className="text-xs font-semibold text-muted-foreground @min-[40rem]/series-entry:hidden">{materialTaxonomyLabel(material.format)}</span>
-        <Heading className="mt-1 line-clamp-3 text-sm font-semibold leading-5 tracking-[-0.02em] @min-[40rem]/series-entry:mt-0 @min-[40rem]/series-entry:line-clamp-2 @min-[40rem]/series-entry:text-lg @min-[40rem]/series-entry:leading-6">
-          <Link className="no-underline after:absolute after:inset-0 after:rounded-2xl focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring" href={readerHref} prefetch={false}>{material.title}</Link>
+  const locked = material.availability === "locked";
+  const unavailable = material.availability === "unavailable";
+  return <article
+    className={cn("group/row relative min-h-14 min-w-0 rounded-xl bg-muted/65 px-3 py-2 transition-colors hover:bg-muted focus-within:bg-muted sm:px-4", resumeLabel !== undefined && "bg-secondary")}
+    data-material-id={material.slug}
+    data-material-slug={material.slug}
+    data-material-variant="series"
+    data-material-availability={material.availability}
+  >
+    <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 @max-[16rem]/series-entry:grid-cols-[minmax(0,1fr)_auto]">
+      <span className="flex items-baseline gap-1.5 whitespace-nowrap text-xs text-muted-foreground @max-[16rem]/series-entry:col-span-2"><strong className="text-xl font-medium tabular-nums text-foreground">{ordinal}</strong>урок</span>
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="w-14 shrink-0 overflow-hidden rounded-lg @max-[22rem]/series-entry:hidden"><ContentCoverImage alt="" className={cn("aspect-square min-h-0 w-full rounded-lg", locked && "scale-110 blur-[3px]")} cover={material.cover ?? null} fallbackKind={materialPreviewHasVideo(material) ? "video" : "material"} fallbackSeed={material.slug} sizes="3.5rem" /></span>
+        <div className="min-w-0"><Heading className="min-w-0 text-sm font-medium leading-6 [overflow-wrap:anywhere] sm:text-base">
+          <Link className="no-underline after:absolute after:inset-0 after:rounded-xl focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring" href={readerHref} prefetch={false}>{material.title}</Link>
         </Heading>
-        {material.summary.length === 0 ? null : <span className="mt-2 hidden text-sm leading-5 text-body-muted @min-[40rem]/series-entry:line-clamp-1">{material.summary}</span>}
-        <LessonFacts material={material} />
+        {material.access === "free" && material.availability === "available" ? <span className="mt-1 inline-block rounded-md bg-background px-1.5 py-0.5 text-[0.625rem] font-semibold leading-4 text-action">Бесплатно</span> : null}</div>
+      </div>
+      <span className="flex flex-col items-center gap-1 text-xs text-muted-foreground">
+        {duration === undefined ? null : <span className="tabular-nums" data-series-duration>{duration}</span>}
+        {locked ? <><LockKeyhole aria-hidden="true" className="size-4" /><span className="sr-only">Нужен доступ</span></> : unavailable ? <span className="sr-only">Доступ временно не определён</span> : readingStatus}
       </span>
-      <span className="hidden whitespace-nowrap rounded-md bg-background px-2 py-1 text-xs font-medium text-muted-foreground @min-[40rem]/series-entry:inline-flex">{materialTaxonomyLabel(material.format)}</span>
-      <ChevronRight aria-hidden="true" className="size-4 text-muted-foreground @max-[13rem]/series-entry:hidden" />
-    </article>
-  );
-}
-
-/**
- * Сложность шага и что он обещает — рядом с названием, чтобы читатель выбирал шаг, не открывая
- * его. Шаг без этих значений выглядит как прежде.
- */
-function LessonFacts({ material }: { readonly material: MaterialPreview }) {
-  const outcomes = material.outcomes ?? [];
-  if (material.difficulty == null && outcomes.length === 0) return null;
-
-  return (
-    <span className="mt-2 block" data-series-lesson-facts>
-      {material.difficulty == null ? null : (
-        <span
-          className="inline-flex min-h-6 items-center rounded-md bg-background px-2 text-xs font-medium text-muted-foreground"
-          data-material-difficulty={material.difficulty}
-        >
-          {materialDifficultyLabel(material.difficulty)}
-        </span>
-      )}
-      {outcomes.length === 0 ? null : (
-        <span className="mt-1 block text-xs leading-5 text-muted-foreground">
-          Научишься: {outcomes.join(" · ")}
-        </span>
-      )}
+    </div>
+    <span className="mt-1 flex h-6 items-center justify-end text-sm font-semibold text-action" data-series-continuation-slot>
+      {resumeLabel === undefined ? null : "Продолжить"}
     </span>
-  );
+  </article>;
 }
 
 function AccessCover({
