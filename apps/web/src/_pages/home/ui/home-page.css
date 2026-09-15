@@ -65,7 +65,7 @@
   .home-guide-scene { padding: 1.5rem; }
   .home-guide-scene > p { font-size: 1.5rem; }
   .home-feed { margin-top: 2.5rem; }
-  .home-feed-toolbar { flex-wrap: wrap; gap: .5rem; min-height: 6rem; }
+  .home-feed-toolbar { flex-wrap: wrap; gap: .5rem; min-height: 9.25rem; }
   .home-feed-formats { gap: .125rem; flex-basis: 100%; }
   .home-feed-formats button { padding-inline: .75rem; }
   .home-feed-toolbar > form { width: 100%; }
