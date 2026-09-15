@@ -512,6 +512,7 @@ export class ContentLibraryService {
     q,
     canonicalTopic,
     after,
+    feedOnly,
   }: {
     sort?: 'newest' | 'relevance' | 'series' | 'title',
     series?: Array<string>,
@@ -520,6 +521,7 @@ export class ContentLibraryService {
     q?: string,
     canonicalTopic?: string,
     after?: string,
+    feedOnly?: boolean,
   }): CancelablePromise<{
     facets: {
       formats: Array<{
@@ -775,6 +777,7 @@ export class ContentLibraryService {
         'q': q,
         'canonicalTopic': canonicalTopic,
         'after': after,
+        'feedOnly': feedOnly,
       },
       errors: {
         400: `Catalog query is malformed`,

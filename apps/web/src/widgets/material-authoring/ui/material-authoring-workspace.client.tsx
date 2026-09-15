@@ -74,6 +74,7 @@ export function MaterialAuthoringWorkspace({
         presentation={presentation}
       />
       <MaterialAuthoringNotice presentation={presentation} />
+      {presentation.draft.sourcePath === undefined ? null : <p className="mx-auto max-w-[60rem] px-4 pt-4 text-sm text-muted-foreground sm:px-8">Материал редактируется в Inside Content: <span className="break-all">{presentation.draft.sourcePath}</span>. Сохраните оригинал в Obsidian и дождитесь обновления локального просмотра.</p>}
 
       <form
         className="mx-auto grid w-full max-w-[60rem] min-w-0 gap-0 px-4 pb-14 pt-7 sm:px-8"

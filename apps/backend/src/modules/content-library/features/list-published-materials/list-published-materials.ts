@@ -30,6 +30,7 @@ const querySchema = z
     ]),
     after: z.string().min(1).max(512).optional(),
     canonicalTopicSlug: facetSlugSchema.optional(),
+    feedOnly: z.boolean().optional(),
     formatSlugs: facetSlugsSchema.optional(),
     first: z.number().int().min(1).max(24),
     q: z.string().max(120).optional(),
@@ -139,6 +140,7 @@ export async function listPublishedMaterials(
       ? {}
       : { canonicalTopicSlug: normalized.canonicalTopicSlug }),
     first: parsed.data.first,
+    feedOnly: normalized.feedOnly,
     formatSlugs: normalized.formatSlugs,
     seriesSlugs: normalized.seriesSlugs,
     sort: normalized.sort,
@@ -214,6 +216,7 @@ function uniqueProjections(
 
 interface NormalizedCatalogQuery {
   readonly canonicalTopicSlug: string | undefined;
+  readonly feedOnly: boolean;
   readonly formatSlugs: readonly string[];
   readonly q: string | undefined;
   readonly seriesSlugs: readonly string[];
@@ -228,6 +231,7 @@ function normalizeQuery(
   const seriesSlugs = uniqueSorted(query.seriesSlugs ?? []);
   return {
     canonicalTopicSlug: query.canonicalTopicSlug,
+    feedOnly: query.feedOnly ?? false,
     formatSlugs: uniqueSorted(query.formatSlugs ?? []),
     q: q === undefined || q.length === 0 ? undefined : q,
     seriesSlugs,
@@ -291,6 +295,7 @@ function queryFingerprint(query: NormalizedCatalogQuery): string {
 
 function isDefaultQuery(query: NormalizedCatalogQuery): boolean {
   return (
+    !query.feedOnly &&
     query.q === undefined &&
     query.canonicalTopicSlug === undefined &&
     query.formatSlugs.length === 0 &&

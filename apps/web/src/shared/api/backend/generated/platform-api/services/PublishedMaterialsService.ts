@@ -76,6 +76,10 @@ export class PublishedMaterialsService {
         slug: string;
       };
     };
+    videoChapters?: Array<{
+      start: number;
+      title: string;
+    }>;
   } | {
     access: {
       availability: 'locked';

@@ -31,7 +31,7 @@
     "lint": "oxlint --deny-warnings --report-unused-disable-directives --ignore-pattern 'apps/backend/test/guardrails/fixtures/oxlint/**' .",
     "typecheck": "pnpm --recursive --if-present typecheck",
     "guardrails": "node scripts/check-workshop-runtime-boundary.mjs . && node scripts/check-material-blocks-boundary.mjs . && node scripts/check-access-capabilities-boundary.mjs . && pnpm --filter @inside/backend guardrails && pnpm --filter @inside/web guardrails",
-    "test": "pnpm test:tooling && pnpm workshop:contracts:check && pnpm workshop:evaluator:test && pnpm --recursive --if-present test",
+    "test": "pnpm test:tooling && pnpm test:authoring && pnpm workshop:contracts:check && pnpm workshop:evaluator:test && pnpm --recursive --if-present test",
     "test:tooling": "node --test scripts/*.test.mjs",
     "workshop:contracts:check": "pnpm --filter @inside/backend exec tsx scripts/workshop-contract-conformance.ts && go -C tools/workshop-evaluator test ./internal/contracts",
     "workshop:evaluator:generate": "go -C tools/workshop-evaluator run ./internal/contracts/generate -contracts ../../contracts/workshop -output internal/contracts/schemas_gen.go",
@@ -63,7 +63,8 @@
     "dev:notifications-worker": "pnpm --filter @inside/backend dev:notifications-worker",
     "dev:billing-worker": "pnpm --filter @inside/backend dev:billing-worker",
     "dev:bank-double": "pnpm --filter @inside/backend dev:bank-double",
-    "smoke:enrollments": "node scripts/enrollment-browser-smoke.mjs"
+    "smoke:enrollments": "node scripts/enrollment-browser-smoke.mjs",
+    "test:authoring": "node --test tools/authoring/*.test.mjs"
   },
   "dependencies": {
     "zod": "4.4.3"
@@ -71,10 +72,12 @@
   "devDependencies": {
     "@logto/node": "3.1.10",
     "jose": "6.2.10",
+    "markdown-it": "15.0.2",
     "oxc-parser": "0.147.0",
     "oxlint": "1.80.0",
     "oxlint-tsgolint": "7.0.2001",
     "proper-lockfile": "4.1.2",
-    "typescript": "7.0.2"
+    "typescript": "7.0.2",
+    "@inside/material-blocks": "workspace:*"
   }
 }

@@ -1,3 +1,4 @@
+import { videoChaptersSchema } from "../../domain/video-chapters.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
@@ -122,6 +123,9 @@ export async function readPublishedMaterial(
       if (body.value === null) {
         continue;
       }
+      const currentVideo = await dependencies.prisma.material.findFirst({ where: { id: resourceId, contentVersion: BigInt(access.checkedContentVersion), publicationState: "published" }, select: { videoChapters: true } });
+      if (currentVideo === null) continue;
+      const videoChapters = videoChaptersSchema.parse(currentVideo.videoChapters);
       const rendered = dependencies.materialBodyOperations.render(body.value);
       if (!rendered.ok) {
         return internalError();
@@ -161,6 +165,7 @@ export async function readPublishedMaterial(
           projection,
           body: hydrateMaterialAssets(rendered.value, loadedPresentations.value),
           primaryVideo: loadedVideo.value,
+          ...(videoChapters.length === 0 ? {} : { videoChapters }),
         },
       };
     }

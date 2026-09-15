@@ -1,3 +1,4 @@
+import type { VideoChapter } from "../../domain/video-chapters.js";
 import type { PublicationState } from "../../domain/material.js";
 import type { MaterialMetadataValidationError } from "../../domain/material-metadata.js";
 import type {
@@ -24,6 +25,7 @@ export interface SaveMaterialCommand {
   readonly deleteVideoId?: string | null;
   readonly metadata: MaterialMetadataSelectionInput;
   readonly body: unknown;
+  readonly videoChapters?: readonly VideoChapter[];
 }
 
 export type SaveMaterialError =

@@ -1,3 +1,4 @@
+import { authoringSourceSchema, type AuthoringSource } from "../../domain/authoring-source.js";
 import { z } from "zod";
 
 import type {
@@ -24,6 +25,7 @@ import { loadContentCoverProjections } from "./content-cover-projections.js";
 const publicationStateSchema = z.enum(["draft", "published", "unpublished"]);
 
 export interface CurrentMaterial {
+  readonly source: AuthoringSource | null;
   readonly lifecycle: Material;
   readonly metadata: MaterialMetadata;
   readonly body: MaterialBody;
@@ -90,6 +92,7 @@ export async function loadCurrentMaterial(
   return {
     ok: true,
     value: {
+      source: row.sourceId === null ? null : authoringSourceSchema.parse({ id: row.sourceId, path: row.sourcePath, revision: row.sourceRevision, showInFeed: row.showInFeed }),
       lifecycle: Material.restore({
         id: materialId,
         slug: row.slug,
@@ -139,6 +142,7 @@ export function toMaterialDto(
   },
 ): MaterialDto {
   return {
+    ...(material.source === null ? {} : { source: { id: material.source.id, path: material.source.path, revision: material.source.revision, showInFeed: material.source.showInFeed } }),
     materialId: material.lifecycle.id,
     contentVersion: material.lifecycle.contentVersion,
     publicationState: material.lifecycle.publicationState,

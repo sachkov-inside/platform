@@ -1,3 +1,5 @@
+import { lockMaterialForLifecycleChange } from "../../infrastructure/postgres/material-locks.js";
+import { materialId } from "../../domain/material-identifiers.js";
 import { createHash, randomUUID } from "node:crypto";
 
 import { z } from "zod";
@@ -82,6 +84,7 @@ export type DeliverContentCoverResult =
     }>;
 
 export interface ContentCovers {
+  readonly changeImported: (command: ChangeContentCoverCommand, source: { readonly sourceId: string; readonly expectedContentVersion: number }) => Promise<ChangeContentCoverResult>;
   readonly change: (
     command: ChangeContentCoverCommand,
   ) => Promise<ChangeContentCoverResult>;
@@ -122,8 +125,7 @@ export function assembleContentCovers(dependencies: {
   readonly objectStorage: ObjectStorage;
   readonly prisma: MaterialsPrismaClient;
 }): ContentCovers {
-  return {
-    async change(input) {
+  async function change(input: ChangeContentCoverCommand, source?: { readonly sourceId: string; readonly expectedContentVersion: number }): Promise<ChangeContentCoverResult> {
       const parsed = commandSchema.safeParse(input);
       if (!parsed.success) return failure("invalid_cover");
       const authorization = await authorizeManager(
@@ -133,7 +135,7 @@ export function assembleContentCovers(dependencies: {
       if (!authorization.ok) return { ok: false, error: authorization.error };
       try {
         if (parsed.data.kind === "remove") {
-          return await changeCurrentCover(dependencies.prisma, parsed.data, null);
+          return await changeCurrentCover(dependencies.prisma, parsed.data, null, source);
         }
         const processed = await processMaterialAssetBytes({
           body: parsed.data.body,
@@ -207,12 +209,14 @@ export function assembleContentCovers(dependencies: {
           });
           return dependencyUnavailable();
         }
-        return await changeCurrentCover(dependencies.prisma, parsed.data, coverId);
+        return await changeCurrentCover(dependencies.prisma, parsed.data, coverId, source);
       } catch {
         return dependencyUnavailable();
       }
-    },
-
+  }
+  return {
+    change: (input) => change(input),
+    changeImported: (input, source) => change(input, source),
     async deliver(input) {
       const parsed = deliverySchema.safeParse(input);
       if (!parsed.success) return notFound();
@@ -260,6 +264,7 @@ async function changeCurrentCover(
   prisma: MaterialsPrismaClient,
   command: z.infer<typeof commandSchema>,
   nextCoverId: string | null,
+  source?: { readonly sourceId: string; readonly expectedContentVersion: number },
 ): Promise<ChangeContentCoverResult> {
   return prisma.$transaction(async (transaction) => {
     await transaction.$executeRaw(Prisma.sql`
@@ -267,6 +272,13 @@ async function changeCurrentCover(
         hashtextextended(${`${command.owner.kind}:${command.owner.id}`}, 0)
       )
     `);
+    if (command.owner.kind === "material") {
+      const current = await lockMaterialForLifecycleChange(transaction, materialId(command.owner.id));
+      if (current !== undefined && (current.sourceId !== (source?.sourceId ?? null) || (source !== undefined && current.lifecycle.contentVersion !== source.expectedContentVersion))) {
+        if (nextCoverId !== null) await abandonCover(transaction, nextCoverId, "forbidden");
+        return failure("forbidden");
+      }
+    } else if (source !== undefined) return failure("forbidden");
     const currentCoverId = await readCurrentCoverId(transaction, command.owner);
     if (currentCoverId === undefined) {
       if (nextCoverId !== null) await abandonCover(transaction, nextCoverId, "owner_not_found");

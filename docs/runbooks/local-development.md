@@ -739,3 +739,10 @@ signed notification or server reconciliation (owner-approved for #407 on 2026-09
 confirmation still gives a full period; duplicate notifications and fulfillment recovery preserve
 the original saved bounds. No separate time-policy injection is required. Missing terminal
 configuration continues to disable payment admission; DEMO/production activation remains separate.
+
+### Authoring package tooling under development (#468)
+
+`pnpm test:authoring` verifies the portable package reader, Markdown conversion and persistent
+operation journal in `tools/authoring`. These modules are implementation work in progress; they
+are not yet a complete watch/import/release command. Current evidence and remaining acceptance
+are recorded in [the #468 checkpoint](../evidence/issue-468/README.md).

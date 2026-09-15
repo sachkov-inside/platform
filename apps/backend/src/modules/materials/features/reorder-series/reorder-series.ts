@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { MaterialsPrismaTransaction } from "../../../../infrastructure/prisma/index.js";
+import { lockMaterialReferenceChanges, type MaterialsPrismaTransaction } from "../../../../infrastructure/prisma/index.js";
 
 import type { MaterialAuthoringDependencies } from "../../facets/material-authoring/material-authoring.dependencies.js";
 import type { ValidationIssue } from "../../domain/material-body/material-body.js";
@@ -33,7 +33,7 @@ import type {
   ReorderSeriesReceiptDto,
 } from "./reorder-series.contract.js";
 
-const commandSchema = z
+export const reorderSeriesCommandSchema = z
   .object({
     actor: accountId,
     chapters: guideChapterDraftsSchema.optional(),
@@ -60,9 +60,10 @@ const commandSchema = z
 
 export function assembleReorderSeries(
   dependencies: MaterialAuthoringDependencies,
+  sourceId: string | null = null,
 ): ReorderSeriesOperation {
   return async (input) => {
-    const parsed = parseCommand(commandSchema, input);
+    const parsed = parseCommand(reorderSeriesCommandSchema, input);
     if (!parsed.ok) {
       return failure(parsed.error);
     }
@@ -82,6 +83,8 @@ export function assembleReorderSeries(
       dependencies.prisma,
       async (transaction, rollback) => {
         await lockSeries(transaction, [command.seriesId]);
+        const source = await transaction.guide.findUnique({ where: { id: command.seriesId }, select: { sourceId: true } });
+        if (source !== null && source.sourceId !== sourceId) return rollback({ code: "forbidden" });
         const snapshot = await loadSeriesOrderSnapshot(
           transaction,
           command.seriesId,
@@ -90,6 +93,7 @@ export function assembleReorderSeries(
           return rollback({ code: "series_not_found" });
         }
         const currentIds = snapshot.items.map(({ materialId }) => materialId);
+        await lockMaterialReferenceChanges(transaction, [...new Set([...currentIds, ...command.orderedMaterialIds])]);
         const nextChapters: readonly GuideChapterEntry[] =
           command.chapters ?? snapshot.chapters;
         const chapterIds = new Set(nextChapters.map(({ id }) => id));
@@ -144,8 +148,25 @@ export function assembleReorderSeries(
             ? []
             : await transaction.material.findMany({
                 where: { id: { in: [...command.orderedMaterialIds] } },
-                select: { id: true },
+                select: { id: true, sourceId: true },
               });
+        const added = foundMaterials.filter(({ id }) => !currentIds.includes(id));
+        if (added.some((material) => (material.sourceId === null) !== (sourceId === null))) {
+          return rollback({ code: "forbidden" });
+        }
+        const removedIds = currentIds.filter((id) => !command.orderedMaterialIds.includes(id));
+        if (removedIds.length > 0) {
+          const protectedMaterials = await transaction.material.findMany({
+            where: { id: { in: removedIds }, sourceId: { not: null }, publicationState: "published", showInFeed: true, access: { not: "free" } },
+            select: { id: true },
+          });
+          for (const material of protectedMaterials) {
+            const other = await transaction.guideMembership.findFirst({
+              where: { materialId: material.id, seriesId: { not: command.seriesId } }, select: { seriesId: true },
+            });
+            if (other === null) return rollback({ code: "invalid_reference", issues: [{ code: "standalone_feed_material_must_be_free", path: "/orderedMaterialIds" }] });
+          }
+        }
         const foundMaterialIds = new Set(foundMaterials.map(({ id }) => id));
         const missingIndex = command.orderedMaterialIds.findIndex(
           (materialId) => !foundMaterialIds.has(materialId),

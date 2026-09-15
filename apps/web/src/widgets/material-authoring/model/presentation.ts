@@ -25,6 +25,7 @@ export interface MaterialSelectOption {
 }
 
 export interface MaterialDraftPresentation {
+  readonly sourcePath?: string;
   readonly access: "free" | "membership";
   readonly canDelete: boolean;
   readonly cover?: ContentCover | null | undefined;

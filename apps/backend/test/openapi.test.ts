@@ -155,6 +155,12 @@ describe("OpenAPI contract", () => {
         required: false,
         schema: { maxLength: 512, minLength: 1, type: "string" },
       },
+      {
+        in: "query",
+        name: "feedOnly",
+        required: false,
+        schema: { type: "boolean" },
+      },
     ]);
     expect(hasResponseSchema(library, "200", "application/json")).toBe(true);
     for (const status of ["400", "401", "500", "503"] as const) {

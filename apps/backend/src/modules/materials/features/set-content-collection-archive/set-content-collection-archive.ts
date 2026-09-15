@@ -1,3 +1,4 @@
+import { lockSeries } from "../../infrastructure/postgres/series-order.js";
 import { z } from "zod";
 
 import type { MaterialAuthoringDependencies } from "../../facets/material-authoring/material-authoring.dependencies.js";
@@ -37,6 +38,11 @@ export function assembleSetContentCollectionArchive(
     return executeAuthoringTransaction(
       dependencies.prisma,
       async (transaction, rollback) => {
+        if (command.kind !== "topic") {
+          await lockSeries(transaction, [command.collectionId]);
+          const source = await transaction.guide.findUnique({ where: { id: command.collectionId }, select: { sourceId: true } });
+          if (source?.sourceId) return rollback({ code: "forbidden" });
+        }
         const persistence = contentCollectionPersistence(transaction, command.kind);
         const updated = await persistence.setArchive({
           archived: command.archived,

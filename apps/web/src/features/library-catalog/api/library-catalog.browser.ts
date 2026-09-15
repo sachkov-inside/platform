@@ -140,3 +140,10 @@ async function parseCatalogResponse(
   }
   return parsed.data;
 }
+
+export function homeFeedQueryOptions(query: LibrarySearchQuery) {
+  return createLibraryCatalogQueryOptions(({ after, signal }) => {
+    const search = serializeLibrarySearchQuery({ ...query, after: after ?? null }, { includeCursor: true });
+    return requestCatalogPage(search.length === 0 ? "/api/home/materials" : `/api/home/materials?${search}`, signal);
+  }, query, "feed");
+}

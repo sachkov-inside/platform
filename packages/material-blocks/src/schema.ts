@@ -1,3 +1,4 @@
+import Code from "@tiptap/extension-code";
 import { Node, getSchema } from "@tiptap/core";
 import type { Extensions, NodeViewRenderer } from "@tiptap/core";
 import { TableKit } from "@tiptap/extension-table";
@@ -108,11 +109,14 @@ export function materialDocumentExtensions(
 ): Extensions {
   return [
     StarterKit.configure({
+      code: false,
       hardBreak: false,
       heading: { levels: headingLevels },
       link: { HTMLAttributes: { rel: null, target: null }, openOnClick: false },
       underline: false,
     }),
+    // Markdown permits emphasis around inline code; preserve both marks in authoring imports.
+    Code.extend({ excludes: "" }),
     TableKit,
     UniqueID.configure({
       attributeName: "nodeId",

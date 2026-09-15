@@ -1,3 +1,5 @@
+import { videoChaptersSchema } from "../../domain/video-chapters.js";
+import type { AuthoringSource } from "../../domain/authoring-source.js";
 import { randomUUID } from "node:crypto";
 
 import { z } from "zod";
@@ -32,6 +34,7 @@ import {
 } from "../../shared/command-validation.js";
 import { executeIdempotentMaterialMutation } from "../../shared/idempotent-operation.js";
 import { materializeMetadataSelection } from "../../shared/materialize-metadata-selection.js";
+import { canChangeGuideMemberships } from "../../infrastructure/postgres/source-guide-memberships.js";
 import { mapPostgresError } from "../../shared/postgres-error-mapping.js";
 import { requireReferenceIntegrity } from "../../shared/reference-integrity.js";
 import { toDatabaseJson } from "../../infrastructure/postgres/database-json.js";
@@ -55,6 +58,7 @@ const saveMaterialCommand = z
     deleteVideoId: z.uuid().nullable().optional().default(null),
     metadata: z.unknown(),
     body: z.unknown(),
+    videoChapters: videoChaptersSchema.optional(),
   })
   .strict();
 
@@ -65,6 +69,7 @@ type SaveMaterialEffect = {
 
 export function assembleSaveMaterial(
   dependencies: MaterialAuthoringDependencies,
+  source?: AuthoringSource,
 ): SaveMaterialOperation {
   return async (input) => {
     const parsed = parseCommand(saveMaterialCommand, input);
@@ -100,6 +105,7 @@ export function assembleSaveMaterial(
 
     const fingerprint = fingerprintCommand({
       operation: "save_material",
+      source: source ?? null,
       materialId: command.materialId,
       expectedContentVersion: command.expectedContentVersion,
       publicationState: command.publicationState,
@@ -107,6 +113,7 @@ export function assembleSaveMaterial(
       body: body.value,
       primaryVideoId: command.primaryVideoId,
       deleteVideoId: command.deleteVideoId,
+      videoChapters: command.videoChapters ?? null,
     });
     let materializedMetadata: MaterialMetadata | undefined;
     const result = await executeAuthoringTransaction<
@@ -131,6 +138,9 @@ export function assembleSaveMaterial(
               command.materialId,
               selection.value.toValues().seriesIds,
             );
+            if (!await canChangeGuideMemberships(transaction, command.materialId, selection.value.toValues().seriesIds, source?.id ?? null)) {
+              return rollback({ code: "forbidden" });
+            }
             await lockMaterialReferenceChanges(transaction, [command.materialId]);
             const locked = await lockMaterialForLifecycleChange(
               transaction,
@@ -138,6 +148,18 @@ export function assembleSaveMaterial(
             );
             if (locked === undefined) {
               return rollback({ code: "material_not_found" });
+            }
+            if (locked.sourceId !== (source?.id ?? null)) {
+              return rollback({
+                code: "invalid_reference",
+                issues: [{ code: "authoring_source_required", path: "/materialId" }],
+              });
+            }
+            if (source !== undefined && command.deleteVideoId !== null) {
+              return rollback({
+                code: "invalid_reference",
+                issues: [{ code: "import_video_deletion_forbidden", path: "/deleteVideoId" }],
+              });
             }
             if (
               command.deleteVideoId !== null &&
@@ -147,6 +169,14 @@ export function assembleSaveMaterial(
                 code: "invalid_reference",
                 issues: [{ code: "video_deletion_target_mismatch", path: "/deleteVideoId" }],
               });
+            }
+            const videoChapters = command.videoChapters ?? (command.primaryVideoId === locked.primaryVideoId ? locked.videoChapters : []);
+            if (videoChapters.length > 0) {
+              if (command.primaryVideoId === null || dependencies.videos === undefined) return rollback({ code: "invalid_reference", issues: [{ code: "video_chapters_require_video", path: "/videoChapters" }] });
+              const video = await dependencies.videos.loadAuthoringPresentation({ materialId: command.materialId, videoId: command.primaryVideoId });
+              if (!video.ok) return rollback({ code: "dependency_unavailable", retryable: true });
+              const duration = video.value?.durationSeconds;
+              if (duration === undefined || videoChapters.some((chapter) => chapter.start >= duration)) return rollback({ code: "invalid_reference", issues: [{ code: "video_chapter_outside_duration", path: "/videoChapters" }] });
             }
             const selectedValues = selection.value.toValues();
             if (
@@ -259,6 +289,7 @@ export function assembleSaveMaterial(
             await transaction.material.update({
               where: { id: command.materialId },
               data: {
+                ...(source === undefined ? {} : { sourcePath: source.path, sourceRevision: source.revision, showInFeed: source.showInFeed }),
                 slug: materializedMetadata.slug,
                 title: materializedMetadata.title,
                 summary: materializedMetadata.summary,
@@ -275,6 +306,7 @@ export function assembleSaveMaterial(
                 publishedAt: next.value.publishedAt,
                 publishedBy,
                 primaryVideoId: command.primaryVideoId,
+                videoChapters: toDatabaseJson([...videoChapters]),
                 coverId: locked.coverId,
                 updatedAt: savedAt,
               },

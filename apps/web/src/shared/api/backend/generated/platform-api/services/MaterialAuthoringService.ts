@@ -832,6 +832,272 @@ export class MaterialAuthoringService {
     });
   }
   /**
+   * reorderSourceGuide
+   * @returns any
+   * @throws ApiError
+   */
+  public reorderSourceGuide({
+    requestBody,
+  }: {
+    requestBody: {
+      chapterAssignments?: Record<string, string>;
+      chapters?: Array<{
+        id: string;
+        name: string;
+        summary: string;
+      }>;
+      expectedOrderVersion: string;
+      orderedMaterialIds: Array<any>;
+      seriesId: any;
+      sourceId: string;
+      stepGroups?: Record<string, string>;
+    },
+  }): CancelablePromise<{
+    orderVersion: string;
+    seriesId: string;
+  }> {
+    return this.httpRequest.request({
+      method: 'POST',
+      url: '/authoring/import/guides/composition',
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
+   * reserveSourceGuide
+   * @returns any
+   * @throws ApiError
+   */
+  public reserveSourceGuide({
+    requestBody,
+  }: {
+    requestBody: {
+      name: string;
+      slug: string;
+      sourceId: string;
+      summary: string;
+    },
+  }): CancelablePromise<{
+    archived: boolean;
+    cover: {
+      coverId: string;
+      renditions: Array<{
+        height: number;
+        width: number;
+      }>;
+    } | null;
+    id: string;
+    introduction: {
+      audience: string;
+      outcome: string;
+      prerequisites: string;
+      scope: string;
+    } | null;
+    kind: 'guide' | 'series' | 'topic';
+    materialCount: number;
+    name: string;
+    slug: string;
+    summary: string;
+    version: number;
+  }> {
+    return this.httpRequest.request({
+      method: 'POST',
+      url: '/authoring/import/guides/reserve',
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
+   * updateSourceGuide
+   * @returns any
+   * @throws ApiError
+   */
+  public updateSourceGuide({
+    requestBody,
+  }: {
+    requestBody: {
+      collectionId: any;
+      expectedVersion: number;
+      name: string;
+      sourceId: string;
+      summary: string;
+    },
+  }): CancelablePromise<{
+    archived: boolean;
+    cover: {
+      coverId: string;
+      renditions: Array<{
+        height: number;
+        width: number;
+      }>;
+    } | null;
+    id: string;
+    introduction: {
+      audience: string;
+      outcome: string;
+      prerequisites: string;
+      scope: string;
+    } | null;
+    kind: 'guide' | 'series' | 'topic';
+    materialCount: number;
+    name: string;
+    slug: string;
+    summary: string;
+    version: number;
+  }> {
+    return this.httpRequest.request({
+      method: 'POST',
+      url: '/authoring/import/guides/update',
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
+   * Apply one selected source Material with optimistic version checking
+   * @returns any
+   * @throws ApiError
+   */
+  public applySourceMaterial({
+    idempotencyKey,
+    requestBody,
+  }: {
+    idempotencyKey: string,
+    requestBody: {
+      body: {
+        doc: Record<string, any>;
+        schemaVersion: 1;
+      };
+      expectedContentVersion: number;
+      materialId: string;
+      metadata: {
+        access: 'free' | 'membership' | 'workshop';
+        difficulty: 'basic' | 'intermediate' | 'advanced' | null;
+        formatId: 'video' | 'guide' | 'note' | null;
+        outcomes: Array<string>;
+        seriesIds: Array<string>;
+        summary: string | null;
+        tagIds: Array<string>;
+        title: string | null;
+        topicId: string | null;
+      };
+      primaryVideoId: string | null;
+      publicationState: 'draft' | 'published' | 'unpublished';
+      source: {
+        id: string;
+        path: string;
+        revision: string;
+        showInFeed: boolean;
+      };
+      videoChapters?: Array<{
+        start: number;
+        title: string;
+      }>;
+    },
+  }): CancelablePromise<{
+    contentVersion: number;
+    materialId: string;
+    publicationState: 'draft' | 'published' | 'unpublished';
+    publishedAt: string | null;
+  }> {
+    return this.httpRequest.request({
+      method: 'POST',
+      url: '/authoring/import/materials/apply',
+      headers: {
+        'idempotency-key': idempotencyKey,
+      },
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
+   * Identify the receiving runtime before local synchronization
+   * @returns any
+   * @throws ApiError
+   */
+  public readAuthoringImportEnvironment(): CancelablePromise<{
+    mode: 'development' | 'test' | 'production';
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/authoring/import/materials/environment',
+    });
+  }
+  /**
+   * Reserve a stable authoring source identity without publishing
+   * @returns any
+   * @throws ApiError
+   */
+  public reserveSourceMaterial({
+    requestBody,
+  }: {
+    requestBody: {
+      source: {
+        id: string;
+        path: string;
+        revision: string;
+        showInFeed: boolean;
+      };
+    },
+  }): CancelablePromise<{
+    contentVersion: number;
+    materialId: string;
+    publicationState: 'draft' | 'published' | 'unpublished';
+    publishedAt: string | null;
+  }> {
+    return this.httpRequest.request({
+      method: 'POST',
+      url: '/authoring/import/materials/reserve',
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
+   * Validate source content without applying any mutation
+   * @returns any
+   * @throws ApiError
+   */
+  public validateSourceContent({
+    requestBody,
+  }: {
+    requestBody: {
+      body: {
+        doc: Record<string, any>;
+        schemaVersion: 1;
+      };
+      metadata: {
+        access: 'free' | 'membership' | 'workshop';
+        difficulty: 'basic' | 'intermediate' | 'advanced' | null;
+        formatId: 'video' | 'guide' | 'note' | null;
+        outcomes: Array<string>;
+        seriesIds: Array<string>;
+        summary: string | null;
+        tagIds: Array<string>;
+        title: string | null;
+        topicId: string | null;
+      };
+      publicationState: 'draft' | 'published' | 'unpublished';
+      source: {
+        id: string;
+        path: string;
+        revision: string;
+        showInFeed: boolean;
+      };
+      videoChapters?: Array<{
+        start: number;
+        title: string;
+      }>;
+    },
+  }): CancelablePromise<{
+    valid: boolean;
+  }> {
+    return this.httpRequest.request({
+      method: 'POST',
+      url: '/authoring/import/materials/validate',
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
    * List the complete Material authoring corpus
    * @returns any
    * @throws ApiError
@@ -1009,6 +1275,12 @@ export class MaterialAuthoringService {
     primaryVideoId: string | null;
     publicationState: 'draft' | 'published' | 'unpublished';
     publishedAt: string | null;
+    source?: {
+      id: string;
+      path: string;
+      revision: string;
+      showInFeed: boolean;
+    };
     unselectedVideoUpload: {
       durationSeconds?: number;
       failureCode?: string;

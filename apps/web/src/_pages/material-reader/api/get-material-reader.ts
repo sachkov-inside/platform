@@ -46,6 +46,7 @@ const publishedMaterialSchema = z.discriminatedUnion("kind", [
     cacheScope: z.enum(["public", "private-no-store"]),
     projection: projectionSchema,
     body: renderedMaterialBodySchema,
+    videoChapters: z.array(z.object({ start: z.number().int().nonnegative(), title: z.string() }).strict()).optional(),
     primaryVideo: z.object({
       durationSeconds: z.number().int().positive().optional(),
       failureCode: z.string().optional(),
@@ -128,7 +129,7 @@ export async function getMaterialReader(
 
   const material = toMaterialMetadata(parsed.data.projection);
   return parsed.data.kind === "available"
-    ? { kind: "available", material, body: parsed.data.body.blocks, primaryVideo: parsed.data.primaryVideo }
+    ? { kind: "available", material, body: parsed.data.body.blocks, primaryVideo: parsed.data.primaryVideo === null ? null : { ...parsed.data.primaryVideo, ...(parsed.data.videoChapters === undefined ? {} : { chapters: parsed.data.videoChapters }) } }
     : {
         kind: "access",
         material,

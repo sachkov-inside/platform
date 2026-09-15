@@ -65,8 +65,9 @@ export async function getLibraryCatalogPage(
   after: string | undefined,
   accessToken?: string,
   signal?: AbortSignal,
+  feedOnly = false,
 ): Promise<LibraryCatalogPage> {
-  return requestLibraryCatalogPage(query, after, accessToken, signal);
+  return requestLibraryCatalogPage(query, after, accessToken, signal, undefined, feedOnly);
 }
 
 export async function getTopicMaterialCatalogPage(
@@ -91,11 +92,12 @@ async function requestLibraryCatalogPage(
   accessToken?: string,
   signal?: AbortSignal,
   canonicalTopicSlug?: string,
+  feedOnly = false,
 ): Promise<LibraryCatalogPage> {
   let result: Awaited<ReturnType<typeof requestPublishedMaterialCatalog>>;
   try {
     result = await requestPublishedMaterialCatalog(
-      toBackendQuery(query, after, canonicalTopicSlug),
+      { ...toBackendQuery(query, after, canonicalTopicSlug), feedOnly },
       {
         ...(accessToken === undefined ? {} : { accessToken }),
         ...(signal === undefined ? {} : { signal }),

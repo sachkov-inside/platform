@@ -9,6 +9,12 @@ export function stubMaterialAuthoring(
   overrides: Partial<MaterialAuthoring> = {},
 ): MaterialAuthoring {
   return {
+    reserveSourceGuide: () => Promise.resolve(forbiddenAuthoringResult),
+    updateSourceGuide: () => Promise.resolve(forbiddenAuthoringResult),
+    reorderSourceGuide: () => Promise.resolve(forbiddenAuthoringResult),
+    validateSourceContent: () => Promise.resolve(forbiddenAuthoringResult),
+    reserveSourceMaterial: () => Promise.resolve(forbiddenAuthoringResult),
+    applySourceMaterial: () => Promise.resolve(forbiddenAuthoringResult),
     loadHomePin: () => Promise.resolve(forbiddenAuthoringResult),
     setHomePin: () => Promise.resolve(forbiddenAuthoringResult),
     createContentCollection: () => Promise.resolve(forbiddenAuthoringResult),

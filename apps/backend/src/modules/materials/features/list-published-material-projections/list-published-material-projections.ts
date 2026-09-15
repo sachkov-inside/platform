@@ -53,6 +53,7 @@ const querySchema = z
   .object({
     after: cursorSchema.optional(),
     canonicalTopicSlug: facetSlugSchema.optional(),
+    feedOnly: z.boolean().optional(),
     formatSlugs: facetSlugsSchema.optional(),
     first: z.number().int().min(1).max(24),
     q: z
@@ -106,6 +107,7 @@ export async function listPublishedMaterialProjections(
         : { canonicalTopicSlug: parsed.data.canonicalTopicSlug }),
       formatSlugs: parsed.data.formatSlugs ?? [],
       first: parsed.data.first,
+      feedOnly: parsed.data.feedOnly ?? false,
       seriesSlugs: parsed.data.seriesSlugs ?? [],
       sort,
       topicSlugs: parsed.data.topicSlugs ?? [],

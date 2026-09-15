@@ -10,10 +10,11 @@ export function libraryCatalogQueryRootKey() {
   return ["library", "catalog"] as const;
 }
 
-export function libraryCatalogQueryKey(query: LibrarySearchQuery) {
+export function libraryCatalogQueryKey(query: LibrarySearchQuery, scope: "catalog" | "feed" = "catalog") {
   return [
     ...libraryCatalogQueryRootKey(),
     librarySearchQueryIdentity({ ...query, after: null }),
+    ...(scope === "feed" ? ["feed"] as const : []),
   ] as const;
 }
 
@@ -32,6 +33,7 @@ export type LibraryCatalogQueryOptions = ReturnType<
 export function createLibraryCatalogQueryOptions(
   loadPage: LoadLibraryCatalogPage,
   query: LibrarySearchQuery,
+  scope: "catalog" | "feed" = "catalog",
 ) {
   return infiniteQueryOptions<
     LibraryCatalogPage,
@@ -40,7 +42,7 @@ export function createLibraryCatalogQueryOptions(
     LibraryCatalogQueryKey,
     LibraryCatalogPageParam
   >({
-    queryKey: libraryCatalogQueryKey(query),
+    queryKey: libraryCatalogQueryKey(query, scope),
     queryFn: ({ pageParam, signal }) => loadPage({ after: pageParam, signal }),
     initialPageParam: undefined as LibraryCatalogPageParam,
     getNextPageParam: (lastPage) =>
