@@ -184,7 +184,6 @@ function MaterialRow({
   readonly resumeLabel: string | undefined;
   readonly returnHref?: Route;
   readonly rowAnnotation?: React.ReactNode;
-  readonly seriesOrdinal?: number;
   readonly readingStatus?: React.ReactNode;
 }) {
   const Heading = headingLevel;
@@ -281,7 +280,9 @@ function SeriesMaterialRow({ headingLevel: Heading, material, readerHref, resume
         {locked ? <><LockKeyhole aria-hidden="true" className="size-4" /><span className="sr-only">Нужен доступ</span></> : unavailable ? <span className="sr-only">Доступ временно не определён</span> : readingStatus}
       </span>
     </div>
-    {resumeLabel === undefined ? null : <span className="mt-3 flex min-h-10 items-center justify-center rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground">Продолжить</span>}
+    <span className="mt-1 flex h-6 items-center justify-end text-sm font-semibold text-action" data-series-continuation-slot>
+      {resumeLabel === undefined ? null : "Продолжить"}
+    </span>
   </article>;
 }
 
