@@ -22,17 +22,22 @@ export interface CheckoutInclusion {
   readonly detail?: string;
 }
 
-// Сроки называет действующая оферта: `@inside/legal` сверяет их с её текстом.
-const accessTerm = formatYears(oneTimePurchaseTerms.materialsAndChatYears);
-const supportTerm = formatMonths(oneTimePurchaseTerms.supportMonths);
+/**
+ * Сроки действующей оферты словами: «2 года», «6 месяцев». `@inside/legal` сверяет числа с её
+ * текстом; оплата и страница продукта называют сроки этими подписями, а не собирают свои.
+ */
+export const oneTimeTermLabels = {
+  materialsAndChat: formatYears(oneTimePurchaseTerms.materialsAndChatYears),
+  support: formatMonths(oneTimePurchaseTerms.supportMonths),
+} as const;
 
 /**
  * Короткая сводка условий над согласием. Слова утверждены владельцем вместе с офертой (Workspace
  * #189); сводка не добавляет обещаний сверх оферты и не заменяет её текст.
  */
 export const oneTimeTermsSummary: readonly string[] = [
-  `Материалы и чат — ${accessTerm} гарантированно, дальше без гарантии срока.`,
-  `Сопровождение — ${supportTerm}: ответы и помощь в общем чате. Личные встречи, гарантированный срок ответа и обязательная проверка кода не входят.`,
+  `Материалы и чат — ${oneTimeTermLabels.materialsAndChat} гарантированно, дальше без гарантии срока.`,
+  `Сопровождение — ${oneTimeTermLabels.support}: ответы и помощь в общем чате. Личные встречи, гарантированный срок ответа и обязательная проверка кода не входят.`,
   "Отказ до открытия доступа — полный возврат. Позже — за вычетом истекшего времени, но не меньше положенного по закону.",
   "После отказа доступ по этой покупке закрывается.",
   "Если с нашей стороны есть недостатки или нарушения, действуют правила закона. При наличии оснований возвращается вся сумма.",
@@ -61,9 +66,9 @@ export function oneTimePurchaseInclusions(
     {
       kind: "materials",
       caption: "Материалы и общий чат",
-      title: `${accessTerm} гарантированно`,
+      title: `${oneTimeTermLabels.materialsAndChat} гарантированно`,
       detail: "дальше без гарантии срока",
     },
-    { kind: "support", caption: "Сопровождение автора", title: supportTerm },
+    { kind: "support", caption: "Сопровождение автора", title: oneTimeTermLabels.support },
   ];
 }

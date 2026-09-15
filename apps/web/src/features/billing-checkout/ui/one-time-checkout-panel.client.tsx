@@ -57,12 +57,12 @@ export interface OneTimeCheckoutPanelProps {
  */
 
 /**
- * Название принимаемого документа: оферты покупки и подписки называются по документу. После
- * «Принимаю» оферта стоит в винительном падеже.
+ * Название принимаемого документа: оферты покупки и подписки называются по документу, а форму
+ * после «Принимаю» даёт каталог раздела.
  */
 function documentLabel(document: LegalDocument): string {
-  if (document.documentId === "purchase") return "оферту разовой покупки";
-  return legalNavigationEntry(document.documentId)?.navLabel ?? legalDocumentLabel(document.kind);
+  const entry = legalNavigationEntry(document.documentId);
+  return entry?.consentLabel ?? entry?.navLabel ?? legalDocumentLabel(document.kind);
 }
 
 const inclusionIcons = {

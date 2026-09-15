@@ -1,10 +1,9 @@
 import { ArrowLeft, ArrowRight, Check, Clock3, Code2, FileCode2, FolderGit2, GitPullRequest, MessagesSquare, Play, Server, Workflow } from "lucide-react";
-import { oneTimePurchaseTerms } from "@inside/legal/purchase-terms";
 import type { Route } from "next";
 import Link from "next/link";
 
-import { formatMonths, formatYears } from "@/entities/subscription";
 import { AiFirstProcessArtwork, aiFirstGuide } from "@/features/ai-first-guide";
+import { oneTimeTermLabels } from "@/features/billing-checkout";
 import { formatMaterialCount, type PublishedSeriesResult } from "@/features/library-discovery";
 import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 import { guideProgrammeHref } from "@/shared/routing/subscription-route";
@@ -12,8 +11,8 @@ import { guideProgrammeHref } from "@/shared/routing/subscription-route";
 import "./ai-first-guide-view.css";
 
 // Сроки называет действующая оферта разовой покупки: страница повторяет их, а не пишет свои.
-const accessTerm = formatYears(oneTimePurchaseTerms.materialsAndChatYears);
-const supportTerm = formatMonths(oneTimePurchaseTerms.supportMonths);
+const accessTerm = oneTimeTermLabels.materialsAndChat;
+const supportTerm = oneTimeTermLabels.support;
 
 export function AiFirstGuideView({ result, returnTarget, freeEntryHref }: {
   readonly result: Extract<PublishedSeriesResult, { kind: "ready" | "empty" }>;

@@ -2,6 +2,7 @@ export { CheckoutFlow, type CheckoutFlowProps } from "./ui/checkout-flow.client"
 export {
   oneTimePriceSharesLine,
   oneTimePurchaseInclusions,
+  oneTimeTermLabels,
   oneTimeTermsSummary,
   type CheckoutInclusion,
 } from "./model/one-time-terms";
