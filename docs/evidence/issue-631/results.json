@@ -1,0 +1,82 @@
+[
+  {
+    "surface": "payment",
+    "viewport": "desktop",
+    "id": "pages-guide-payment--ready",
+    "label": "Продукт с сопровождением и общим чатом",
+    "overflow": false,
+    "serious": []
+  },
+  {
+    "surface": "cabinet",
+    "viewport": "desktop",
+    "id": "pages-account-purchases--own-grounds-and-payments",
+    "label": "Отдельный продукт",
+    "overflow": false,
+    "serious": []
+  },
+  {
+    "surface": "authoring",
+    "viewport": "desktop",
+    "id": "pages-authoring-коллекции--guides-mobile",
+    "label": "Продукты",
+    "overflow": false,
+    "serious": []
+  },
+  {
+    "surface": "product",
+    "viewport": "desktop",
+    "id": "pages-mobile-first-platform-collections--series-product-desktop",
+    "label": "Что внутри продукта",
+    "overflow": false,
+    "serious": []
+  },
+  {
+    "surface": "reader",
+    "viewport": "desktop",
+    "id": "pages-mobile-first-platform-reader--access-guide-purchase",
+    "label": "Купить продукт",
+    "overflow": false,
+    "serious": []
+  },
+  {
+    "surface": "payment",
+    "viewport": "mobile",
+    "id": "pages-guide-payment--ready",
+    "label": "Продукт с сопровождением и общим чатом",
+    "overflow": false,
+    "serious": []
+  },
+  {
+    "surface": "cabinet",
+    "viewport": "mobile",
+    "id": "pages-account-purchases--own-grounds-and-payments",
+    "label": "Отдельный продукт",
+    "overflow": false,
+    "serious": []
+  },
+  {
+    "surface": "authoring",
+    "viewport": "mobile",
+    "id": "pages-authoring-коллекции--guides-mobile",
+    "label": "Продукты",
+    "overflow": false,
+    "serious": []
+  },
+  {
+    "surface": "product",
+    "viewport": "mobile",
+    "id": "pages-mobile-first-platform-collections--series-product-desktop",
+    "label": "Что внутри продукта",
+    "overflow": false,
+    "serious": []
+  },
+  {
+    "surface": "reader",
+    "viewport": "mobile",
+    "id": "pages-mobile-first-platform-reader--access-guide-purchase",
+    "label": "Купить продукт",
+    "overflow": false,
+    "serious": []
+  }
+]
