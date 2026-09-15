@@ -220,11 +220,13 @@ export const OnlyPlannedChapters: Story = {
 
 export const ShortSeries: Story = { args: { result: { ...result, items: materials.slice(0, 2) }, learning: { kind: "ready", read: 0, total: 2, continuation: null } }, play: async ({ canvasElement }) => { await expect(within(canvasElement).queryByRole("navigation", { name: "Страницы маршрута" })).not.toBeInTheDocument(); } };
 
+const progressResume = { ...resume, materialSlug: "series-material-2" };
+
 function ProgressResolution({ longTitle = false }: { longTitle?: boolean }) {
   const [ready, setReady] = useState(false);
   return <>
     <button onClick={() => { setReady(true); }} type="button">Получить прогресс (проверка)</button>
-    <GuideProgrammeView result={longTitle ? { ...result, items: materials.map((item) => item.slug === resume.materialSlug ? { ...item, title: "Настройка непрерывной интеграции приложения" } : item) } : result} learning={ready ? { kind: "ready", read: 8, total: 24, continuation: resume } : { kind: "loading" }} />
+    <GuideProgrammeView result={longTitle ? { ...result, items: materials.map((item) => item.slug === progressResume.materialSlug ? { ...item, title: "Настройка непрерывной интеграции приложения" } : item) } : result} learning={ready ? { kind: "ready", read: 8, total: 24, continuation: progressResume } : { kind: "loading" }} />
   </>;
 }
 export const LoadingPreservesRoutePosition: Story = {
@@ -232,10 +234,18 @@ export const LoadingPreservesRoutePosition: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    const currentCard = canvasElement.querySelector<HTMLElement>(`[data-route-material="${progressResume.materialSlug}"] article`);
+    const nextLesson = canvasElement.querySelector<HTMLElement>('[data-route-material="series-material-3"]');
+    if (currentCard === null || nextLesson === null) throw new Error("Missing continuation or following lesson");
+    const currentHeight = currentCard.getBoundingClientRect().height;
+    const nextTop = nextLesson.getBoundingClientRect().top;
     const top = canvas.getByRole("list", { name: "Материалы продукта" }).getBoundingClientRect().top;
     // Шапка резервирует место для прогресса, чтобы маршрут не прыгал после загрузки.
     await userEvent.click(canvas.getByRole("button", { name: "Получить прогресс (проверка)" }));
     await expect(Math.abs(canvas.getByRole("list", { name: "Материалы продукта" }).getBoundingClientRect().top - top)).toBeLessThan(1);
+    await expect(within(currentCard).getByText("Продолжить", { exact: true })).toBeVisible();
+    await expect(Math.abs(currentCard.getBoundingClientRect().height - currentHeight)).toBeLessThan(1);
+    await expect(Math.abs(nextLesson.getBoundingClientRect().top - nextTop)).toBeLessThan(1);
   },
 };
 export const DesktopLoadingPreservesRoutePosition: Story = { ...LoadingPreservesRoutePosition, globals: { viewport: { value: "desktop1440", isRotated: false } } };

@@ -10,7 +10,7 @@ Restored the presentation from that working copy: narrow header, product title/c
 progress, persistent section tabs, unnumbered chapter headings, compact square lesson
 previews, internal lesson numbers, read markers and continuation on the current lesson.
 Kept the current purchaseInvitation/ProgrammePurchase interface and disabled-sale behaviour.
-The original checkout was read only. No imported Material IDs, source files or access changed.
+The initial restoration read the original checkout without changing it; the later owner-authorized reconciliation preserved and committed it as documented below. No imported Material IDs, source files or access changed.
 
 Live screenshots use the actual imported AI-first programme (22 chapters, 105 main Materials),
 with the isolated synthetic owner identity. They verify rendering, not buyer entitlements.
@@ -44,3 +44,11 @@ The integration branch starts at main `4c84a549`; the authoring importer itself 
 
 The original snapshot is a preservation receipt, not an assertion that each historical WIP
 choice should override later accepted main behaviour. No production or sales activation is included.
+
+## Verification after review
+
+Both Standards and Spec reviews pass against main `4c84a549` after closing the findings.
+The lesson card reserves the continuation caption while progress loads; the Storybook
+regression verifies stable card height and following-card position at desktop, mobile and
+tablet widths. All 51 focused scenarios pass. Full `pnpm check`, follow-up lint and
+`pnpm docs:check` pass locally. The screenshots above show the final card geometry.
