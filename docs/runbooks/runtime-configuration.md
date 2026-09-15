@@ -138,8 +138,8 @@ it does not rewrite the addresses already stored with earlier consents.
 `MEMBERSHIP_SUPPORT_URL` is an optional backend-owned HTTP(S) destination for Account conflict and
 unsafe Telegram-link recovery. Leave it empty when no approved support channel exists: Account then
 shows owner-handoff copy without rendering a broken link. It is presentation configuration only;
-it never changes link uniqueness, recovery policy or `ContentAccess`. `MEMBERSHIP_ACQUISITION_URL`
-remains the independent destination for obtaining Membership.
+it never changes link uniqueness, recovery policy or `ContentAccess`. Platform has no external
+Membership acquisition setting: purchase starts inside Platform (#529, #540).
 
 ## Optional Telegram communications
 

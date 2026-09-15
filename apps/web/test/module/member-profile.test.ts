@@ -68,10 +68,7 @@ describe("Member Profile web workflow", () => {
           profile: { kind: "missing" },
           telegramMembership: {
             link: { kind: "unlinked" },
-            membership: {
-              acquisitionUrl: "https://t.me/tribute/inside",
-              kind: "inactive",
-            },
+            membership: { kind: "inactive" },
           },
         },
         { status: 200 },
@@ -87,10 +84,7 @@ describe("Member Profile web workflow", () => {
           profile: { kind: "missing" },
           telegramMembership: {
             link: { kind: "unlinked" },
-            membership: {
-              acquisitionUrl: "https://t.me/tribute/inside",
-              kind: "inactive",
-            },
+            membership: { kind: "inactive" },
           },
         },
       });

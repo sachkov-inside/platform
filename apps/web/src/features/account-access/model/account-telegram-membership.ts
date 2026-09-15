@@ -47,9 +47,7 @@ export const accountTelegramMembershipSchema = z
     ]),
     membership: z.discriminatedUnion("kind", [
       z.object({ kind: z.literal("active") }).strict(),
-      z
-        .object({ acquisitionUrl: httpUrlSchema, kind: z.literal("inactive") })
-        .strict(),
+      z.object({ kind: z.literal("inactive") }).strict(),
       z.object({ kind: z.literal("notOffered") }).strict(),
       z.object({ kind: z.literal("stale") }).strict(),
       z.object({ kind: z.literal("unavailable") }).strict(),
