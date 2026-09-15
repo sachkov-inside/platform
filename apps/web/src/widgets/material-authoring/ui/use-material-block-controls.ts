@@ -1,6 +1,6 @@
 "use client";
 
-import type { Node } from "@tiptap/pm/model";
+import type { Node as DocumentNode } from "@tiptap/pm/model";
 import { TextSelection, type Transaction } from "@tiptap/pm/state";
 import type { Editor } from "@tiptap/core";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -15,8 +15,8 @@ interface Offset {
 
 /** Что было прочитано последним замером: по этому транзакция решает, нужен ли следующий. */
 interface Measurement {
-  readonly doc: Node;
-  readonly element: globalThis.Node | null;
+  readonly doc: DocumentNode;
+  readonly element: Node | null;
   readonly position: number;
   readonly toolbarFrom: number | null;
 }
