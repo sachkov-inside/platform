@@ -234,6 +234,7 @@ describe("Platform migrations", () => {
         "0062_reader_guide_mode",
         "0063_subscription_enrollments",
         "0064_tribute_sources",
+        "0065_video_detachment",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -827,6 +828,7 @@ describe("Platform migrations", () => {
         "0062_reader_guide_mode",
         "0063_subscription_enrollments",
         "0064_tribute_sources",
+        "0065_video_detachment",
         ],
       });
 

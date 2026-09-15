@@ -11,6 +11,7 @@ import {
 } from "../../shared/guide-chapters.js";
 import { seriesStepGroupsSchema } from "../../shared/series-step-groups.js";
 import { GUIDE_INTRODUCTION_FIELD_MAX } from "../../facets/material-authoring/content-collection.contract.js";
+import { MATERIAL_DETACHED_VIDEOS_MAX } from "../../features/save-material/save-material.contract.js";
 
 import type {
   CreateDraftError,
@@ -84,6 +85,7 @@ export const saveMaterialBodySchema = z
     publicationState: publicationStateWireSchema,
     primaryVideoId: z.uuid().nullable().default(null),
     deleteVideoId: z.uuid().nullable().default(null),
+    detachVideoIds: z.array(z.uuid()).max(MATERIAL_DETACHED_VIDEOS_MAX).default([]),
     metadata: materialMetadataSelectionSchema,
     body: materialBodySnapshotSchema,
   })

@@ -177,6 +177,7 @@ export function requestMaterialSave(
   input: {
     readonly access: "free" | "membership";
     readonly deleteVideoId: string | null;
+    readonly detachVideoIds: readonly string[];
     readonly difficulty: MaterialDifficulty | null;
     readonly document: Record<string, unknown>;
     readonly expectedContentVersion: number;
@@ -202,6 +203,7 @@ export function requestMaterialSave(
         requestBody: {
           body: { doc: input.document, schemaVersion: 1 },
           deleteVideoId: input.deleteVideoId,
+          detachVideoIds: [...input.detachVideoIds],
           expectedContentVersion: input.expectedContentVersion,
           metadata: {
             access: input.access,

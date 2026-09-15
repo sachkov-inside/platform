@@ -13,6 +13,7 @@ import {
   type MaterialAuthoringPresentation,
   type MaterialDraftField,
 } from "@/widgets/material-authoring";
+import { nextDetachVideoIds } from "@/features/material-video";
 import {
   authoringMaterialsRootHref,
   withAuthoringReturnHref,
@@ -91,13 +92,23 @@ function MaterialAuthoringFixture({
       noopActions.onOpenPreview();
       setPresentation((current) => ({ ...current, mode: "preview" }));
     },
-    onPrimaryVideoChange: (primaryVideo, deleteVideoId) => {
-      noopActions.onPrimaryVideoChange(primaryVideo, deleteVideoId);
+    onPrimaryVideoChange: (primaryVideo, deleteVideoId, detachedVideoId) => {
+      noopActions.onPrimaryVideoChange(
+        primaryVideo,
+        deleteVideoId,
+        detachedVideoId,
+      );
+      const primaryVideoId = primaryVideo?.videoId ?? null;
       markDirty({
         ...presentation.draft,
         deleteVideoId,
+        detachVideoIds: nextDetachVideoIds({
+          detachedVideoId,
+          detachVideoIds: presentation.draft.detachVideoIds,
+          primaryVideoId,
+        }),
         primaryVideo,
-        primaryVideoId: primaryVideo?.videoId ?? null,
+        primaryVideoId,
       });
     },
     onOutcomesChange: (outcomes) => {

@@ -1044,6 +1044,7 @@ export class MaterialAuthoringService {
         schemaVersion: 1;
       };
       deleteVideoId: string | null;
+      detachVideoIds: Array<string>;
       expectedContentVersion: number;
       metadata: {
         access: 'free' | 'membership' | 'workshop';
