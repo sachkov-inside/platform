@@ -50,7 +50,8 @@ describe("one-time offer edition change (real PostgreSQL and real facets; synthe
     await db.prisma.accountPermission.create({ data: { accountId: owner, permission: "platform:admin" } });
     const accounts = assembleAccounts({ prisma: db.prisma, emailFingerprintKey: "synthetic-billing-fingerprint-key-000000" });
     grants = assembleAccessGrants({ prisma: db.prisma, accounts, clock: () => now });
-    pricing = new BillingPricing({ prisma: db.prisma, accounts, clock: () => now });
+    // Процесс с подтверждённым терминалом и адресом для чека: каталог вправе включить разовую продажу.
+    pricing = new BillingPricing({ prisma: db.prisma, accounts, clock: () => now, sale: { payments: true, subscriptions: true } });
   });
   afterAll(async () => db.dispose());
 

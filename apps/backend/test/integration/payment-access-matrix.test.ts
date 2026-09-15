@@ -104,7 +104,7 @@ describe("оплата, выдача прав и доступ к материа�
     accounts = assembleAccounts({ prisma: db.prisma, emailFingerprintKey: "synthetic-matrix-fingerprint-key-00000" });
     grants = assembleAccessGrants({ prisma: db.prisma, accounts, recipientLinks: new TelegramAccountLinks(db.prisma), clock: () => now });
     membership = assembleMembershipEntitlements({ prisma: db.prisma, clock: () => now, workshopEntitlements: assembleWorkshopEntitlements({ prisma: db.prisma, clock: () => now }) });
-    pricing = new BillingPricing({ prisma: db.prisma, accounts, clock: () => now });
+    pricing = new BillingPricing({ prisma: db.prisma, accounts, clock: () => now, sale: { payments: true, subscriptions: true } });
     contact = new BillingContact({ prisma: db.prisma, protection: billingContactProtection(Buffer.alloc(32, 62).toString("base64")),
       documents, now: () => now, sendCode: message => { codes.set(message.challengeRef, message.code); return Promise.resolve(); } });
     materials = assembleMaterials({ prisma: db.prisma, authorPolicy: { canManage: id => id === owner } });

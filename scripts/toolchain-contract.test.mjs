@@ -260,7 +260,8 @@ describe("supported toolchain contract", () => {
     const smoke = read("scripts/production-compose-smoke.sh");
 
     assert.doesNotMatch(smoke, /\|\s*rg(?:\s|$)/u);
-    assert.match(smoke, /for worker in material-assets-worker profile-avatars-worker video-deletions-worker/u);
+    assert.match(smoke, /^application_workers=\(material-assets-worker profile-avatars-worker video-deletions-worker billing-worker notifications-worker\)$/mu);
+    assert.match(smoke, /for worker in "\$\{application_workers\[@\]\}"; do\n\s+worker_state=/u);
     assert.match(smoke, /running:healthy:0/u);
     assert.match(smoke, /did not report release\/schema readiness/u);
   });

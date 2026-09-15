@@ -439,6 +439,21 @@ describe("bank payment contour", () => {
     });
   });
 
+  it("accepts a terminal without card-only confirmations, because only subscription sale depends on them", () => {
+    // Форма банка показывает все способы оплаты: разовой покупке это не мешает; подписку отклоняет billing.
+    const allMethods = { ...demoTerminal, recurringCardConfirmed: false, cardOnlyHostedConfirmed: false };
+    expect(parsePlatformConfig({ ...stand, TBANK_CONFIG_JSON: JSON.stringify(allMethods) }).tbank)
+      .toMatchObject({ recurringCardConfirmed: false, cardOnlyHostedConfirmed: false });
+    expect(parsePlatformConfig({ ...stand, TBANK_CONFIG_JSON: JSON.stringify({ ...allMethods, recurringCardConfirmed: true }) }).tbank)
+      .toMatchObject({ recurringCardConfirmed: true, cardOnlyHostedConfirmed: false });
+    expect(() => parsePlatformConfig({ ...stand, TBANK_CONFIG_JSON: JSON.stringify({ ...allMethods, cardOnlyHostedConfirmed: "yes" }) }))
+      .toThrow("Invalid TBANK_CONFIG_JSON; check the terminal capability and receipt configuration");
+    // Подтверждение — явное утверждение владельца терминала: пропущенное поле не читается как «нет».
+    const { cardOnlyHostedConfirmed: _omitted, ...withoutConfirmation } = demoTerminal;
+    expect(() => parsePlatformConfig({ ...stand, TBANK_CONFIG_JSON: JSON.stringify(withoutConfirmation) }))
+      .toThrow("Invalid TBANK_CONFIG_JSON; check the terminal capability and receipt configuration");
+  });
+
   it("refuses the double in production and refuses a terminal beside it", () => {
     expect(() => parsePlatformProcessConfig({ ...productionWorker, TBANK_PROVIDER_MODE: "test" }, "billing-worker"))
       .toThrow("TBANK_PROVIDER_MODE must be real in production mode");
@@ -460,6 +475,32 @@ describe("notification delivery contour", () => {
     expect(parsePlatformProcessConfig({ ...productionWorker, ...delivery,
       NOTIFICATIONS_PLATFORM_ORIGIN: "https://inside.example.test" }, "notifications-worker").notificationDelivery)
       .toMatchObject({ origin: "https://inside.example.test" });
+  });
+
+  it("keeps the notification dispatch credential apart from every other Telegram direction", () => {
+    // Публичный адрес разрешения отправки защищён только этим credential: чужой не должен к нему подходить.
+    const delivery = { NOTIFICATIONS_PLATFORM_ORIGIN: "http://127.0.0.1:3000" };
+    const communications = { TELEGRAM_COMMUNICATIONS_ENDPOINT: "http://127.0.0.1:3606/integrations/platform/v1/communications",
+      TELEGRAM_COMMUNICATIONS_SECRET: "communications-provider-secret-00000", TELEGRAM_AUTHOR_AUTHORIZATION_SECRET: "author-authorization-secret-0000000",
+      TELEGRAM_COMMUNICATIONS_BOT_IDENTITY: "inside_bot" };
+    const reused = [
+      { TELEGRAM_EVIDENCE_INGRESS_SECRET: "shared-telegram-direction-secret-000000" },
+      { TELEGRAM_LINKING_SECRET: "shared-telegram-direction-secret-000000" },
+      { TELEGRAM_ACTIVATION_INGRESS_SECRET: "shared-telegram-direction-secret-000000" },
+      { TELEGRAM_COMMUNITY_ENTITLEMENT_ENDPOINT: "https://telegram.example.test/integrations/platform/v1/community-entitlements",
+        TELEGRAM_COMMUNITY_ENTITLEMENT_SECRET: "community-provider-secret-0000000000", TELEGRAM_COMMUNITY_DISPATCH_SECRET: "shared-telegram-direction-secret-000000" },
+      { TELEGRAM_COMMUNITY_ENTITLEMENT_ENDPOINT: "https://telegram.example.test/integrations/platform/v1/community-entitlements",
+        TELEGRAM_COMMUNITY_ENTITLEMENT_SECRET: "shared-telegram-direction-secret-000000", TELEGRAM_COMMUNITY_DISPATCH_SECRET: "community-dispatch-secret-0000000000" },
+      { TELEGRAM_SIGN_IN_INTEGRATION_SECRET: "shared-telegram-direction-secret-000000" },
+      { ...communications, TELEGRAM_COMMUNICATIONS_SECRET: "shared-telegram-direction-secret-000000" },
+      { ...communications, TELEGRAM_AUTHOR_AUTHORIZATION_SECRET: "shared-telegram-direction-secret-000000" },
+    ];
+    for (const other of reused) {
+      expect(() => parsePlatformConfig({ ...stand, ...delivery, ...other, NOTIFICATIONS_TELEGRAM_SECRET: "shared-telegram-direction-secret-000000" }))
+        .toThrow("Notification dispatch requires a separate Telegram secret");
+    }
+    expect(parsePlatformConfig({ ...stand, ...delivery, TELEGRAM_EVIDENCE_INGRESS_SECRET: "evidence-direction-secret-00000000000",
+      NOTIFICATIONS_TELEGRAM_SECRET: "notification-direction-secret-000000" }).notificationDelivery).toBeDefined();
   });
 
 });

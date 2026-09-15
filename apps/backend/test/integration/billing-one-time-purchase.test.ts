@@ -42,14 +42,16 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
     await db.prisma.accountPermission.create({ data: { accountId: owner, permission: "platform:admin" } });
     const accounts = assembleAccounts({ prisma: db.prisma, emailFingerprintKey: "synthetic-billing-fingerprint-key-000000" });
     grants = assembleAccessGrants({ prisma: db.prisma, accounts, clock: () => now });
-    pricing = new BillingPricing({ prisma: db.prisma, accounts, clock: () => now });
+    pricing = new BillingPricing({ prisma: db.prisma, accounts, clock: () => now, sale: { payments: true, subscriptions: true } });
     contact = new BillingContact({ prisma: db.prisma, protection: billingContactProtection(Buffer.alloc(32, 42).toString("base64")),
       documents, now: () => now, sendCode: message => { codes.set(message.challengeRef, message.code); return Promise.resolve(); } });
   });
   afterAll(async () => db.dispose());
 
   /** Одно руководство с ценой в каталоге оплаты и покупатель с подтверждённым контактом. */
-  async function scenario(options: { readonly benefitPeriods?: { capability: string; months: number | null }[]; readonly term?: number } = {}) {
+  async function scenario(options: { readonly benefitPeriods?: { capability: string; months: number | null }[]; readonly term?: number;
+    readonly terminal?: ReturnType<typeof syntheticTbankConfig> } = {}) {
+    const terminal = options.terminal ?? config;
     now = new Date("2030-01-31T10:00:00Z");
     const buyer = randomUUID();
     await db.prisma.account.create({ data: { id: buyer, logtoIssuer: "https://identity.example.test", logtoSubject: buyer } });
@@ -76,9 +78,9 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
     let paymentId = String(Math.floor(Math.random() * 1_000_000_000));
     // Банк отвечает про ту сумму, которую у него запросили: сверка отвергает чужую.
     let amountKopecks = guidePrice;
-    const event = (state: string, extra = {}) => ({ TerminalKey: config.terminalKey, OrderId: orderId, PaymentId: paymentId,
+    const event = (state: string, extra = {}) => ({ TerminalKey: terminal.terminalKey, OrderId: orderId, PaymentId: paymentId,
       Amount: amountKopecks, Status: state, Success: true, ErrorCode: "0", ...extra });
-    const bank = new Tbank(config, (url, init) => {
+    const bank = new Tbank(terminal, (url, init) => {
       if (typeof init?.body !== "string" || typeof url !== "string") throw new Error("Unexpected bank request");
       const body = z.object({ OrderId: z.string().optional(), Amount: z.number().optional(), Token: z.string() }).loose().parse(JSON.parse(init.body));
       if (url.endsWith("/Init")) {
@@ -226,6 +228,34 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
     const another = await scenario();
     const first = value(await another.runtime.purchase(another.buyer, await another.command()));
     expect(first.state).toBe("pending");
+  });
+
+  test("форма со всеми способами продаёт руководство без подтверждений «только карта», но не подписку", async () => {
+    // Владелец оставил на форме карту, T-Pay, Mir Pay, SberPay и Долями: привязку дают не все.
+    const allMethods = syntheticTbankConfig({ ...config, recurringCardConfirmed: false, cardOnlyHostedConfirmed: false,
+      endpoints: undefined, caFile: undefined });
+    const s = await scenario({ terminal: allMethods });
+    const purchase = await s.buy();
+    expect(value(await s.runtime.status(s.buyer, purchase.purchaseRef))).toMatchObject({ state: "confirmed", access: "ready" });
+
+    const subscriptionOffer = randomUUID(), subscriptionOption = randomUUID();
+    value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.save",
+      value: { id: subscriptionOffer, name: "Материалы", benefits: ["materials"] } }));
+    value(await pricing.manage(owner, { operationId: randomUUID(), operation: "paymentOptions.save",
+      value: { id: subscriptionOption, offerId: subscriptionOffer, months: 1, priceKopecks: 100_000 } }));
+    value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.publish", expectedRevision: 1, id: subscriptionOffer }));
+    expect((await grants.classifyLegacy(owner, { operationId: randomUUID(), accountId: s.buyer, expectedRevision: 0,
+      classification: "confirmed_new", sourceRef: s.buyer, reason: "Synthetic new buyer", bridgeEnabled: false, tributeStopped: false })).ok).toBe(true);
+    const quote = value(await pricing.quote(s.buyer, { operationId: randomUUID(), paymentOptionId: subscriptionOption, optionRevision: 1 }));
+    const consent = await contact.acceptConsents(s.buyer, { operationId: randomUUID(), contextRef: quote.quoteRef,
+      documents: documents.filter(item => item.kind !== "personal_data")
+        .map(item => ({ kind: item.kind, documentId: item.documentId, version: item.version, digest: item.digest, accepted: true })) });
+    if (!consent.ok) throw new Error(consent.error.code);
+    // Первый платёж подписки прошёл бы, а продлевать было бы нечем: покупка отклоняется до банка.
+    expect(code(await s.runtime.purchase(s.buyer, { operationId: randomUUID(), quoteRef: quote.quoteRef, contactRevision: 1,
+      consentEvidenceRefs: consent.evidenceRefs, acknowledgeExistingAccess: false }))).toBe("method_unavailable");
+    expect(await db.prisma.billingPurchase.count({ where: { accountId: s.buyer } })).toBe(1);
+    expect(s.requests()).toHaveLength(1);
   });
 
   test("витрина руководства спрашивает только своё разовое предложение", async () => {

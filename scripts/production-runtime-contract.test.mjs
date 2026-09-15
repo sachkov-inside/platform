@@ -10,6 +10,21 @@ const productionTemplates = readdirSync(resolve(repositoryRoot, "config/compose/
   .map((name) => read(`config/compose/production/${name}`))
   .join("\n");
 
+// The activation protocol has exactly these operations; a prefix would expose any future sub-route.
+const activationPaths = ["binding", "own-access", "attempts", "evidence"]
+  .map((operation) => `/integrations/telegram/v1/subscription-activation/${operation}`)
+  .join(" ");
+// The bank, Tribute and Telegram call exactly these API callbacks; each Caddy matcher is POST-only.
+const callbackRoutes = [
+  ["tbank_notification", "/billing/tbank/notification"],
+  ["tribute_webhook", "/integrations/tribute/v1/webhook"],
+  ["telegram_activation", activationPaths],
+  ["community_dispatch", "/internal/billing-dispatch/authorize"],
+  ["notification_dispatch", "/internal/notifications/dispatch/authorize"],
+  ["communications_authorize", "/integrations/telegram/v1/communications/authorize"],
+  ["communications_validate", "/integrations/telegram/v1/communications/validate-content"],
+];
+
 const runtime = {
   caddy: read("infra/production/runtime/platform.caddy"),
   compose: read("compose.production.yaml"),
@@ -19,7 +34,7 @@ const runtime = {
 };
 
 describe("production runtime architecture contract", () => {
-  it("runs seven application processes only from manifest-selected images", () => {
+  it("runs nine application processes from manifest-selected images beside a private broker", () => {
     assertRuntimeContract(runtime);
   });
 
@@ -71,6 +86,36 @@ describe("production runtime architecture contract", () => {
     );
   });
 
+  it("publishes each payment and Telegram callback as one exact POST route", () => {
+    for (const [name, path] of callbackRoutes) {
+      assert.throws(
+        () => assertRuntimeContract({ ...runtime, caddy: runtime.caddy.replace(`path ${path}\n`, "path /internal/*\n") }),
+        /must publish only exact POST callbacks/u,
+        `${name} must not widen to a prefix`,
+      );
+      assert.throws(
+        () => assertRuntimeContract({ ...runtime, caddy: runtime.caddy.replace(new RegExp(`(@${name} \\{\\s+)method POST`, "u"), "$1method GET POST") }),
+        /must publish only exact POST callbacks/u,
+        `${name} must stay POST-only`,
+      );
+    }
+  });
+
+  it("keeps the broker private, digest-pinned and TLS-only", () => {
+    assert.throws(
+      () => assertRuntimeContract({ ...runtime, compose: runtime.compose.replace("  rabbitmq:\n", "  rabbitmq:\n    ports: [\"5671:5671\"]\n") }),
+      /broker must not publish a port/u,
+    );
+    assert.throws(
+      () => assertRuntimeContract({ ...runtime, compose: runtime.compose.replace(/image: rabbitmq:[^\n]+/u, "image: rabbitmq:4.2.4-alpine") }),
+      /broker image must be pinned by digest/u,
+    );
+    assert.throws(
+      () => assertRuntimeContract({ ...runtime, compose: runtime.compose.replace("listeners.tcp = none", "listeners.tcp.default = 5672") }),
+      /broker must accept only AMQPS/u,
+    );
+  });
+
   it("rejects a Logto sign-in callback that allows other HTTP methods", () => {
     assert.throws(
       () => assertRuntimeContract({
@@ -95,12 +140,15 @@ function assertRuntimeContract(files) {
     }
   }
   const services = [
+    "rabbitmq",
     "migrations",
     "api",
     "mcp",
     "material-assets-worker",
     "profile-avatars-worker",
     "video-deletions-worker",
+    "billing-worker",
+    "notifications-worker",
     "web",
   ];
   for (const service of services) {
@@ -119,8 +167,20 @@ function assertRuntimeContract(files) {
   );
   assert.equal(
     files.compose.match(/\$\{PLATFORM_RELEASE_ENV_FILE:[^}]+\}/gu)?.length,
-    7,
+    9,
   );
+  // Свой брокер окружения: только внутренняя сеть, точный digest образа и слушатель одного AMQPS.
+  const broker = files.compose.split("\n  rabbitmq:\n")[1]?.split(/\n {2}[a-z][a-z0-9-]*:\n/u)[0] ?? "";
+  if (/^\s+ports:/mu.test(broker)) throw new Error("production broker must not publish a port");
+  if (!/image: rabbitmq:[0-9.]+-alpine@sha256:[0-9a-f]{64}$/mu.test(broker)) {
+    throw new Error("production broker image must be pinned by digest");
+  }
+  if (!/listeners\.tcp = none\n\s+listeners\.ssl\.default = 5671/u.test(files.compose)) {
+    throw new Error("production broker must accept only AMQPS");
+  }
+  for (const worker of ["billing-worker", "notifications-worker"]) {
+    assert.ok(files.compose.includes(`      - \${PLATFORM_CONFIG_DIR:?PLATFORM_CONFIG_DIR is required}/${worker}.env\n`));
+  }
   assert.doesNotMatch(files.compose, /PLATFORM_CONFIG_DIR:[^}]+\}\/runtime\.env/u);
   assert.doesNotMatch(files.compose, /^ {2}(?:postgres|caddy):$/mu);
   assert.match(files.compose, /database:\n {4}external: true\n {4}name: \$\{FOUNDATION_DATABASE_NETWORK:/u);
@@ -153,6 +213,14 @@ function assertRuntimeContract(files) {
     /@telegram_sign_in \{\s+method POST\s+path \/integrations\/telegram\/v1\/sign-in\/linked-identity\s+\}/u,
     "Logto linked-identity callback must allow only POST",
   );
+  // Банк, Tribute и Telegram вызывают ровно эти адреса; каждый адрес защищён своим credential в API.
+  for (const [name, path] of callbackRoutes) {
+    const route = new RegExp(`@${name} \\{\\n\\t\\t\\tmethod POST\\n\\t\\t\\tpath ${escapeRegExp(path)}\\n\\t\\t\\}\\n\\t\\treverse_proxy @${name} \\{\\$PLATFORM_API_UPSTREAM:127\\.0\\.0\\.1:13001\\}`, "u");
+    if (!route.test(files.caddy)) throw new Error(`${name} must publish only exact POST callbacks`);
+  }
+  if (/path \/internal\/\*|path \/billing\/\*|subscription-activation\/\*/u.test(files.caddy)) {
+    throw new Error("payment and Telegram routes must publish only exact POST callbacks");
+  }
   if (!/@unknown_integration path \/integrations\/\*\n\t\trespond @unknown_integration 404/u.test(files.caddy)) {
     throw new Error("unknown integration routes must fail closed");
   }
