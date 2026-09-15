@@ -10,24 +10,27 @@ interface ViewportStory {
  * «мобильная» история перестаёт проверять телефон. Сторож берёт имя тем же путём, что и прогон:
  * `globals.viewport.value`, иначе `parameters.viewport.defaultViewport`. Сверяет он его с
  * `parameters.viewport.options`, которые Storybook уже собрал из preview, meta и самой истории,
- * поэтому списка размеров не повторяет. Встроенные размеры Storybook намеренно не считаются
- * объявленными: у проекта одно объявление размеров.
+ * поэтому списка размеров не повторяет. Объявленным считается только размер из этих options:
+ * общий — в `preview.tsx`, особый — явно в самой истории. Встроенные размеры Storybook туда не входят.
  */
 export function assertDeclaredViewport(story: ViewportStory): void {
-  const parameters = asRecord(story.parameters.viewport);
-  if (parameters.disable === true || parameters.disabled === true) return;
+  const viewport = asRecord(story.parameters.viewport);
+  if (viewport.disable === true || viewport.disabled === true) return;
   const label = `История «${story.title} › ${story.name}»`;
-  const global = story.globals.viewport;
-  if (typeof global === "string") {
+  const viewportGlobal = story.globals.viewport;
+  if (typeof viewportGlobal === "string") {
     throw new Error(
-      `${label} задаёт размер строкой «${global}», а прогон читает только { value: "<имя>" }. Запишите globals.viewport как { value: "${global}", isRotated: false }.`,
+      `${label} задаёт размер строкой «${viewportGlobal}», а прогон читает только { value: "<имя>" }. Запишите globals.viewport как { value: "${viewportGlobal}", isRotated: false }.`,
     );
   }
-  const requested = asRecord(global).value ?? parameters.defaultViewport;
-  const declared = Object.keys(asRecord(parameters.options));
-  if (requested === undefined || (typeof requested === "string" && declared.includes(requested))) return;
+  const requested = asRecord(viewportGlobal).value ?? viewport.defaultViewport;
+  if (requested === undefined) return;
+  const declared = Object.keys(asRecord(viewport.options));
+  if (typeof requested === "string" && declared.includes(requested)) return;
+  const requestedLabel = typeof requested === "string" ? requested : JSON.stringify(requested);
+  const declaredLabel = declared.length > 0 ? declared.join(", ") : "нет";
   throw new Error(
-    `${label} просит размер «${typeof requested === "string" ? requested : JSON.stringify(requested)}», которого нет среди объявленных: ${declared.length > 0 ? declared.join(", ") : "нет"}. Возьмите объявленное имя или объявите размер один раз в parameters.viewport.options.`,
+    `${label} просит размер «${requestedLabel}», которого нет среди объявленных: ${declaredLabel}. Возьмите объявленное имя или объявите размер один раз в parameters.viewport.options.`,
   );
 }
 
