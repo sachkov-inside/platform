@@ -55,7 +55,7 @@ export function GuidePurchaseView({
       </nav>
 
       <h1 className="mt-6 break-words text-2xl font-bold leading-[1.15] tracking-[-0.03em] md:text-3xl">
-        {guide?.name ?? "Руководство"}
+        {guide?.name ?? "Продукт"}
       </h1>
       {guide === null || guide.summary === "" ? null : (
         <p className="mt-3 break-words text-sm leading-6 text-muted-foreground md:text-base">
@@ -77,7 +77,7 @@ export function GuidePurchaseView({
             className="rounded-2xl border border-border bg-card p-6 text-sm leading-6 shadow-card"
             role="status"
           >
-            Это руководство сейчас не продаётся отдельно.
+            Этот продукт сейчас не продаётся отдельно.
           </p>
         ) : viewer === "loading" ? (
           <p className="text-sm text-muted-foreground" role="status">

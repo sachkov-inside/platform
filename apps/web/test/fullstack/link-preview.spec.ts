@@ -21,7 +21,7 @@ test("главная отдаёт карточку ссылки с назван�
   expect(await metaContent(page, "og:image")).toBe(`${String(baseURL)}/social-card`);
 });
 
-test("ссылка на руководство и на материал показывает название, описание и картинку", async ({
+test("ссылка на продукт и на материал показывает название, описание и картинку", async ({
   baseURL,
   page,
   request,
@@ -29,7 +29,7 @@ test("ссылка на руководство и на материал пока
   await page.goto("/guides/platform-inside");
 
   const title = await metaContent(page, "og:title");
-  expect(title).toContain("руководство");
+  expect(title).toContain("продукт");
   expect(await metaContent(page, "og:description")).not.toBe("");
   const image = await metaContent(page, "og:image");
   expect(image).toBe(`${String(baseURL)}/guides/platform-inside/social-card`);
@@ -39,7 +39,7 @@ test("ссылка на руководство и на материал пока
   expect(card.headers()["content-type"]).toBe("image/png");
 });
 
-test("совместимый адрес `/series/` указывает на канонический адрес руководства", async ({
+test("совместимый адрес `/series/` указывает на канонический адрес продукта", async ({
   baseURL,
   page,
 }) => {
@@ -69,14 +69,14 @@ test("закрытый материал отдаёт карточку назва
   // Заголовок отказа зависит от того, что сейчас продаётся: своё руководство или подписка.
   await expect(
     page.getByRole("heading", {
-      name: /^Продолжение (для участников|входит в руководство)$/u,
+      name: /^Продолжение (для участников|входит в продукт)$/u,
     }),
   ).toBeVisible();
   await expect(page.locator("[data-reader-body]")).toHaveCount(0);
   await expect(page.locator('[data-material-reader-state="available"]')).toHaveCount(0);
 });
 
-test("карта сайта перечисляет опубликованные руководства, темы и материалы", async ({
+test("карта сайта перечисляет опубликованные продукты, темы и материалы", async ({
   baseURL,
   request,
 }) => {

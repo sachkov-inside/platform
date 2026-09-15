@@ -49,7 +49,7 @@ const environment = publicPageEnvironment("/");
 const meta = {
   ...environment,
   title: "Features/Reading progress", component: ReadingProof,
-  parameters: { ...environment.parameters, docs: { description: { component: "Отметка «Изучено» в тех же продакшен-модулях, что и на маршрутах: читалка, карточки материала и строка руководства. Сохранение и транспорт живут в приложении; здесь проверяются только состояния и их ошибки." } } },
+  parameters: { ...environment.parameters, docs: { description: { component: "Отметка «Изучено» в тех же продакшен-модулях, что и на маршрутах: читалка, карточки материала и строка продукта. Сохранение и транспорт живут в приложении; здесь проверяются только состояния и их ошибки." } } },
 } satisfies Meta<typeof ReadingProof>;
 export default meta;
 type Story = StoryObj<typeof meta>;

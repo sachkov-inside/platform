@@ -237,6 +237,6 @@ export const AssignmentOnlyTier: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByText("Материалы + сообщество · назначается")).toBeInTheDocument();
-    await expect(canvas.getByRole("checkbox", { name: "Гайд: Инженерная практика" })).toBeInTheDocument();
+    await expect(canvas.getByRole("checkbox", { name: "Продукт: Инженерная практика" })).toBeInTheDocument();
   },
 };

@@ -8,7 +8,7 @@ import { SOCIAL_CARD_SIZE } from "./social-card-content";
 export const SITE_NAME = "Sachkov Inside";
 
 /** Обещание площадки одной строкой: название на карточке главной. */
-export const SITE_TAGLINE = "Материалы, темы и руководства";
+export const SITE_TAGLINE = "Материалы, темы и продукты";
 
 /** Описание главной: то же обещание вместе с названием площадки. */
 const SITE_DESCRIPTION = `${SITE_TAGLINE} ${SITE_NAME}`;

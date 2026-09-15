@@ -26,10 +26,10 @@ export async function generateMetadata({
     await getOptionalPlatformAccessToken(),
   );
   if (result.kind === "not-found") {
-    return hiddenPageMetadata("Руководство не найдено");
+    return hiddenPageMetadata("Продукт не найден");
   }
   if (result.kind === "unavailable") {
-    return unavailablePageMetadata("Руководство недоступно");
+    return unavailablePageMetadata("Продукт недоступен");
   }
   return publicPageMetadata(
     await readPublicSiteOrigin(),

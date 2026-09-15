@@ -2,7 +2,9 @@
 
 Контракт [#448](https://github.com/sachkov-inside/platform/issues/448) реализует принятую
 [модель Workspace](https://github.com/sachkov-inside/workspace/pull/160).
-Guide — самостоятельное «Руководство». Material остаётся самостоятельным и переиспользуемым;
+После [Workspace #181](https://github.com/sachkov-inside/workspace/issues/181) общая пользовательская
+категория Guide называется «Продукт»; определения находятся в [CONTEXT](../../CONTEXT.md).
+Этот документ сохраняет технический контракт перехода Series → Guide. Material остаётся самостоятельным и переиспользуемым;
 его формат `guide` означает «Гайд». Глава руководства и video chapter с таймкодом — разные понятия.
 Новые главы, артефакты и расширенный импорт относятся к #449.
 

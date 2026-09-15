@@ -52,7 +52,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "Оплата руководства одной страницей: что входит, сколько стоит, куда придёт чек и одна кнопка. Цену покупатель видит только здесь — программа лишь приглашает оплатить.",
+          "Оплата продукта одной страницей: что входит, сколько стоит, куда придёт чек и одна кнопка. Цену покупатель видит только здесь — программа лишь приглашает оплатить.",
       },
     },
   },
@@ -68,7 +68,7 @@ export const Ready: Story = {
     await expect(canvas.getByText("Без подписки")).toBeInTheDocument();
     // Купленное руководство само по себе открывает общий чат, и состав называет его.
     await expect(
-      canvas.getByText("Руководство с сопровождением и общим чатом"),
+      canvas.getByText("Продукт с сопровождением и общим чатом"),
     ).toBeInTheDocument();
     await expect(canvas.getByRole("button", { name: /Купить за/u })).toBeEnabled();
     // Согласие на регулярные списания разовой покупке не показывается.
@@ -122,7 +122,7 @@ export const ExistingAccess: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.getByText("Это руководство у вас уже открыто."),
+      canvas.getByText("Этот продукт у вас уже открыт."),
     ).toBeInTheDocument();
     await expect(canvas.getByRole("button", { name: /Купить за/u })).toBeDisabled();
   },

@@ -28,10 +28,10 @@ export function useHomePin() {
 }
 
 function homePinMessage(result: HomePinResult | undefined, saved: boolean): string {
-  if (result?.kind === "ready") return saved ? result.pin.seriesId === null ? "Закреп снят с главной." : "Руководство закреплено на главной." : result.pin.seriesId === null ? "Выберите руководство для первого блока главной." : "Авторский закреп сохранён.";
-  if (result?.kind === "conflict") return "Закреп изменился в другой вкладке. Состояние обновлено; закрепите руководство ещё раз.";
+  if (result?.kind === "ready") return saved ? result.pin.seriesId === null ? "Закреп снят с главной." : "Продукт закреплён на главной." : result.pin.seriesId === null ? "Выберите продукт для первого блока главной." : "Авторский закреп сохранён.";
+  if (result?.kind === "conflict") return "Закреп изменился в другой вкладке. Состояние обновлено; закрепите продукт ещё раз.";
   if (result?.kind === "unauthorized") return "Сессия завершилась. Войдите снова.";
   if (result?.kind === "forbidden") return "Нет права управлять закрепом.";
-  if (result?.kind === "invalid_input") return "Руководство недоступно или в нём нет опубликованных материалов. Обновите состав и повторите действие.";
+  if (result?.kind === "invalid_input") return "Продукт недоступен или в нём нет опубликованных материалов. Обновите состав и повторите действие.";
   return "Закреп временно недоступен. Обновите состояние и повторите действие.";
 }

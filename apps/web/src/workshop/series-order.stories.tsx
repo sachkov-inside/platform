@@ -96,7 +96,7 @@ const meta = {
     },
   },
   component: SeriesOrderManager,
-  title: "Pages/Authoring/Руководства",
+  title: "Pages/Authoring/Продукты",
 } satisfies Meta<typeof SeriesOrderManager>;
 
 export default meta;

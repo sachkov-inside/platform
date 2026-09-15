@@ -14,7 +14,7 @@ test("страница продукта отвечает и не продаёт"
   await expect(page.getByRole("link", { name: /Купить за/u })).toHaveCount(0);
 });
 
-test("программа отвечает по обоим адресам руководства", async ({ page }) => {
+test("программа отвечает по обоим адресам продукта", async ({ page }) => {
   const first = await page.goto(programme);
   expect(first?.status()).toBe(200);
 

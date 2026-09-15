@@ -17,7 +17,7 @@ export function HomeSeriesPinView({ seriesId, archived = false, controls, messag
   readonly onRetry?: () => void;
 }) {
   const selected = controls.pin?.seriesId === seriesId;
-  return <section aria-label="Закреп руководства на главной" className="my-5 grid gap-3 border-b border-border pb-5">
+  return <section aria-label="Закреп продукта на главной" className="my-5 grid gap-3 border-b border-border pb-5">
     <Button type="button" variant="outline" className="min-h-11 w-full sm:w-fit" disabled={!hasError && (controls.pin === null || controls.pending || (archived && !selected))} onClick={() => { if (hasError) onRetry?.(); else controls.onChange(selected ? null : seriesId); }}>
       {hasError ? "Обновить закреп" : selected ? "Снять закреп с главной" : "Закрепить на главной"}
     </Button>

@@ -11,7 +11,7 @@ export function EnrollmentList({ items }: { readonly items: readonly Enrollment[
       {item.state === "suspended_source" ? <p className="text-sm">Источник больше не подтверждает доступ. Для восстановления требуется проверка поддержкой; повторное вступление само по себе доступ не возвращает. Другие приобретённые права сохраняются.</p> : null}
       <dl className="grid grid-cols-[auto_1fr] gap-x-5 gap-y-2 text-sm"><dt>Начало</dt><dd>{formatBillingDate(item.startsAt)}</dd>
         <dt>Срок</dt><dd>{item.endsAt === null ? "Без даты окончания" : `До ${formatBillingDate(item.endsAt)}`}</dd>
-        <dt>Материалы</dt><dd>Руководства: {item.tier.contentScope.guideIds.length}; отдельные материалы: {item.tier.contentScope.materialIds.length}</dd>
+        <dt>Материалы</dt><dd>Продукты: {item.tier.contentScope.guideIds.length}; отдельные материалы: {item.tier.contentScope.materialIds.length}</dd>
         <dt>Поддержка</dt><dd>{item.tier.benefits.includes("support") ? "Входит" : "Не входит"}</dd>
         <dt>Разборы</dt><dd>{item.tier.benefits.includes("reviews") ? "Входят" : "Не входят"}</dd>
         <dt>Сообщество</dt><dd>{item.tier.benefits.includes("community") ? "Входит в тариф" : "Не входит в тариф"}</dd>

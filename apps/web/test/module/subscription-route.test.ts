@@ -6,7 +6,7 @@ import {
   subscriptionRouteTarget,
 } from "@/shared/routing/subscription-route";
 
-it("сохраняет контекст страницы руководства и отбрасывает внешние адреса", () => {
+it("сохраняет контекст страницы продукта и отбрасывает внешние адреса", () => {
   expect(subscriptionRouteTarget("/guides/platform-inside")).toEqual({
     returnTo: "/subscription?from=%2Fguides%2Fplatform-inside",
     originHref: "/guides/platform-inside",
@@ -28,7 +28,7 @@ it("сохраняет контекст страницы руководства 
   });
 });
 
-it("строит ссылку витрины со страницы руководства", () => {
+it("строит ссылку витрины со страницы продукта", () => {
   expect(subscriptionHrefFrom("/guides/platform-inside")).toBe(
     "/subscription?from=%2Fguides%2Fplatform-inside",
   );

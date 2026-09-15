@@ -10,7 +10,7 @@ export function HomePage({ result, feed }: { readonly result: HomeResult; readon
     {result.kind === "ready" && result.value.pinnedSeries !== null
       ? <FeaturedGuide series={result.value.pinnedSeries} />
       : result.kind === "unavailable"
-        ? <p className="py-8 text-muted-foreground" role="status">Не удалось загрузить руководство. Материалы доступны ниже.</p>
+        ? <p className="py-8 text-muted-foreground" role="status">Не удалось загрузить продукт. Материалы доступны ниже.</p>
         : null}
     {feed ?? <Suspense fallback={<HomeFeedLoading />}><HomeFeed /></Suspense>}
   </HomeFrame>;

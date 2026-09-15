@@ -105,12 +105,12 @@ export function SeriesJourney({ artifacts = { kind: "ready", artifacts: [] }, re
 
   return <>
     {result.kind === "ready" || result.chapters.length > 0 || parts.length > materialParts.length || artifacts.kind === "unavailable" ? <section aria-labelledby="series-materials" className="mt-10 scroll-mt-6 focus:outline-none" ref={routeRef} tabIndex={-1}>
-      <h2 className="sr-only" id="series-materials">Материалы руководства</h2>
-      {artifacts.kind === "unavailable" ? <p className="mb-4 rounded-2xl bg-muted px-5 py-4 text-sm leading-6 text-muted-foreground">Раздел артефактов сейчас не открывается. Материалы руководства это не затрагивает.</p> : null}
+      <h2 className="sr-only" id="series-materials">Материалы продукта</h2>
+      {artifacts.kind === "unavailable" ? <p className="mb-4 rounded-2xl bg-muted px-5 py-4 text-sm leading-6 text-muted-foreground">Раздел артефактов сейчас не открывается. Материалы продукта это не затрагивает.</p> : null}
       {/* A third part made the tab row overflow at 320 px with 200% text, so a long
           label now wraps inside its pill instead of pushing the page sideways.
           `GuidePageEnlargedText` in the stories is the check that keeps it true. */}
-      {parts.length > 1 ? <div className="flex max-w-full flex-wrap items-center gap-1 rounded-3xl bg-muted p-1" role="tablist" aria-label="Разделы руководства">
+      {parts.length > 1 ? <div className="flex max-w-full flex-wrap items-center gap-1 rounded-3xl bg-muted p-1" role="tablist" aria-label="Разделы продукта">
         {parts.map((entry) => <button
           aria-controls={`series-part-panel-${entry.id}`}
           aria-selected={entry.id === part?.id}
@@ -153,7 +153,7 @@ export function SeriesJourney({ artifacts = { kind: "ready", artifacts: [] }, re
               </div>
               {run.items.length === 0 ? <p className="mt-3 inline-flex min-h-8 items-center rounded-full bg-muted px-3 text-sm font-medium text-muted-foreground">Материалы готовятся</p> : null}
             </header>}
-            {run.items.length === 0 ? null : <ol aria-label={run.chapter === null ? "Материалы руководства" : `Материалы главы «${run.chapter.name}»`} className={cn("grid gap-4", run.chapter === null ? "" : "mt-5")} data-series-order start={run.offset + 1}>
+            {run.items.length === 0 ? null : <ol aria-label={run.chapter === null ? "Материалы продукта" : `Материалы главы «${run.chapter.name}»`} className={cn("grid gap-4", run.chapter === null ? "" : "mt-5")} data-series-order start={run.offset + 1}>
               {run.items.map((material, index) => {
                 // Splitting the route into parts renumbers each part; a flat Guide keeps its stored order.
                 const ordinal = result.chapters.length > 0 ? run.offset + index + 1 : material.seriesMemberships.find(({ slug }) => slug === result.reference.slug)?.ordinal ?? run.offset + index + 1;

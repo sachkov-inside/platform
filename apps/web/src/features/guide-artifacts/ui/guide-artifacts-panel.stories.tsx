@@ -105,7 +105,7 @@ export const Desktop: Story = {
     await expect(
       canvas.getByText("release-checklist.md · 4.0 КБ"),
     ).toBeVisible();
-    await expect(canvas.getByText(/ещё в 1 руководстве/u)).toBeVisible();
+    await expect(canvas.getByText(/ещё в 1 продукте/u)).toBeVisible();
     await expect(canvas.getByText("https://example.test/board")).toBeVisible();
   },
 };
@@ -167,7 +167,7 @@ export const StillReferenced: Story = {
     if (remove === undefined) throw new Error("Expected a removal action");
     await userEvent.click(remove);
     await expect(await canvas.findByRole("alert")).toHaveTextContent(
-      "Артефакт ещё используется в 2 руководствах.",
+      "Артефакт ещё используется в 2 продуктах.",
     );
   },
 };

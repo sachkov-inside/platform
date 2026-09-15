@@ -25,7 +25,7 @@ const collection = {
   name: "Demo · От проекта до первого релиза",
   slug: "demo-first-release",
   summary:
-    "Учебный пример руководства: собираем приложение, готовим окружение и проверяем первый релиз.",
+    "Учебный пример продукта: собираем приложение, готовим окружение и проверяем первый релиз.",
   version: 1,
 } as const;
 const items = [
@@ -98,7 +98,7 @@ const meta = {
     ),
     ...environment.decorators,
   ],
-  title: "Pages/Authoring/Редактор руководства",
+  title: "Pages/Authoring/Редактор продукта",
 } satisfies Meta<typeof SeriesEditorPageClient>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -106,10 +106,10 @@ export const Desktop: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.getByRole("textbox", { name: "Название руководства" }),
+      canvas.getByRole("textbox", { name: "Название продукта" }),
     ).toHaveValue(collection.name);
     await expect(
-      canvas.getByRole("list", { name: "Материалы руководства" }),
+      canvas.getByRole("list", { name: "Материалы продукта" }),
     ).toBeVisible();
     await expect(canvas.getAllByRole("heading", { level: 1 })).toHaveLength(1);
   },
@@ -138,7 +138,7 @@ export const KeyboardReorder: Story = {
     handle.focus();
     await userEvent.keyboard("{ArrowDown}");
     await expect(
-      canvas.getByRole("list", { name: "Материалы руководства" }).querySelector("li"),
+      canvas.getByRole("list", { name: "Материалы продукта" }).querySelector("li"),
     ).toHaveTextContent("Сборка контейнера");
     await expect(await canvas.findByText("Порядок сохранён.")).toBeVisible();
   },
