@@ -19,6 +19,14 @@ web_image="inside-platform-runtime-web-smoke:$$"
 wrong_release_container="${project_name}-wrong-release"
 contender_container="${project_name}-worker-contender"
 drain_lock_container="${project_name}-worker-drain-lock"
+sale_configuration_container="${project_name}-sale-configuration"
+application_workers=(material-assets-worker profile-avatars-worker video-deletions-worker billing-worker notifications-worker)
+broker_vhost=inside-production-smoke
+broker_url() { printf 'amqps://%s:inside-production-smoke-%s-password@rabbitmq:5671/%s?heartbeat=30' "$1" "$1" "$broker_vhost"; }
+# Disposable 32-byte keys: the smoke never stores a real contact or card binding.
+smoke_encryption_key="$(printf '%032d' 0 | base64)"
+sale_offer_id=00000000-0000-4000-8000-000000000527
+probe_container_memory=512m
 container_exit_poll_attempts=20
 container_log_poll_attempts=30
 worker_health_poll_attempts=20
@@ -50,6 +58,7 @@ export FOUNDATION_DATABASE_PROJECT="$foundation_project"
 export FOUNDATION_POSTGRES_VOLUME="$foundation_volume"
 export PRODUCTION_SMOKE_HTTP_PORT="${PRODUCTION_SMOKE_HTTP_PORT:-38080}"
 export PRODUCTION_SMOKE_HTTPS_PORT="${PRODUCTION_SMOKE_HTTPS_PORT:-38443}"
+export PLATFORM_BROKER_NETWORK="${project_name}-broker"
 
 application_compose=(
   docker compose
@@ -77,7 +86,8 @@ cleanup() {
   docker container rm --force \
     "$wrong_release_container" \
     "$contender_container" \
-    "$drain_lock_container" >/dev/null 2>&1 || true
+    "$drain_lock_container" \
+    "$sale_configuration_container" >/dev/null 2>&1 || true
   if ! "${application_compose[@]}" down --volumes --remove-orphans; then
     echo "Failed to remove production runtime smoke resources" >&2
     cleanup_status=1
@@ -142,9 +152,23 @@ KINESCOPE_WEBHOOK_USERNAME=inside-production-smoke-webhook
 KINESCOPE_WEBHOOK_PASSWORD=inside-production-smoke-webhook-password
 KINESCOPE_PLAYBACK_JWT_SECRET=inside-production-smoke-playback-signing-secret
 KINESCOPE_PLAYBACK_JWT_TTL_SECONDS=60
+TBANK_CONFIG_JSON={"environment":"production","terminalKey":"INSIDEPRODUCTIONSMOKE","password":"inside-production-smoke-terminal-password","bindingEncryptionKey":"$smoke_encryption_key","recurringCardConfirmed":false,"cardOnlyHostedConfirmed":false,"minimumKopecks":100,"maximumKopecks":30000000,"returnUrl":"https://inside.sachkov.dev/subscription/return","notificationUrl":"https://inside.sachkov.dev/billing/tbank/notification","receipt":{"taxation":"usn_income","tax":"none"}}
+BILLING_CONTACT_ENCRYPTION_KEY=$smoke_encryption_key
+BILLING_CONTACT_SMTP_HOST=smtp.production-smoke.invalid
+BILLING_CONTACT_SMTP_PORT=587
+BILLING_CONTACT_FROM=no-reply@inside.production-smoke.invalid
+TRIBUTE_API_KEY=inside-production-smoke-tribute-api-key
+TRIBUTE_SIGNATURE_ENCODING=hex
+NOTIFICATIONS_PLATFORM_ORIGIN=https://inside.production-smoke.invalid
+NOTIFICATIONS_TELEGRAM_SECRET=inside-production-smoke-notification-dispatch-secret
+TELEGRAM_ACTIVATION_INGRESS_SECRET=inside-production-smoke-activation-secret
+TELEGRAM_COMMUNITY_CONTRACT_VERSION=inside.community-entitlement.v2
+TELEGRAM_COMMUNITY_ENTITLEMENT_ENDPOINT=https://telegram.production-smoke.invalid/integrations/platform/v1/community-entitlements
+TELEGRAM_COMMUNITY_ENTITLEMENT_SECRET=inside-production-smoke-community-provider-secret
+TELEGRAM_COMMUNITY_DISPATCH_SECRET=inside-production-smoke-community-dispatch-secret
 EOF
   cat >"$runtime_config_dir/mcp.env" <<EOF
-$(sed '/^API_HOST=/d; /^API_PORT=/d; /^TELEGRAM_/d' "$runtime_config_dir/api.env")
+$(sed '/^API_HOST=/d; /^API_PORT=/d; /^TELEGRAM_/d; /^TRIBUTE_/d; /^NOTIFICATIONS_/d' "$runtime_config_dir/api.env")
 MCP_HOST=0.0.0.0
 MCP_PORT=3002
 MCP_SERVER_URL=https://inside.sachkov.dev/mcp
@@ -180,6 +204,17 @@ KINESCOPE_WEBHOOK_PASSWORD=inside-production-smoke-webhook-password
 KINESCOPE_PLAYBACK_JWT_SECRET=inside-production-smoke-playback-signing-secret
 KINESCOPE_PLAYBACK_JWT_TTL_SECONDS=60
 EOF
+  {
+    printf 'NODE_ENV=production\nDATABASE_URL=postgresql://platform:platform-production-smoke-password@postgres:5432/inside\n'
+    grep -E '^(TBANK_CONFIG_JSON|BILLING_CONTACT_[A-Z_]+|TELEGRAM_COMMUNITY_[A-Z_]+)=' "$runtime_config_dir/api.env"
+  } >"$runtime_config_dir/billing-worker.env"
+  {
+    printf 'NODE_ENV=production\nDATABASE_URL=postgresql://platform:platform-production-smoke-password@postgres:5432/inside\n'
+    printf 'NOTIFICATIONS_BROKER_URLS={"billing":"%s","materials":"%s","notifications":"%s","email":"%s"}\n' \
+      "$(broker_url platform-billing)" "$(broker_url platform-materials)" "$(broker_url platform-notifications)" "$(broker_url platform-email)"
+    printf 'NOTIFICATIONS_BROKER_CA_FILE=/etc/inside/broker-ca.pem\nNOTIFICATIONS_PREFETCH=4\nNOTIFICATIONS_QUARANTINE_CAPACITY=1000\n'
+    grep -E '^(NOTIFICATIONS_PLATFORM_ORIGIN|NOTIFICATIONS_TELEGRAM_SECRET|BILLING_CONTACT_[A-Z_]+)=' "$runtime_config_dir/api.env"
+  } >"$runtime_config_dir/notifications-worker.env"
   cat >"$runtime_config_dir/web.env" <<EOF
 NODE_ENV=production
 BACKEND_BASE_URL=http://api:3001
@@ -190,6 +225,26 @@ LOGTO_APP_SECRET=inside-production-smoke-app-secret
 LOGTO_COOKIE_SECRET=inside-production-smoke-cookie-secret-key
 WEB_BASE_URL=https://inside.sachkov.dev
 EOF
+}
+
+# The same private CA, server certificate and definitions procedure as the production runbook, with
+# disposable values. Definitions come from the candidate image, so broker and worker share one source.
+write_broker_configuration() {
+  local broker_dir="$runtime_config_dir/rabbitmq"
+  local tls_dir="$broker_dir/tls"
+  mkdir -p "$broker_dir"
+  bash infra/production/broker/issue-broker-tls.sh "$tls_dir" 2 2
+  rm "$tls_dir/ca-key.pem"
+  docker run --rm --memory "$probe_container_memory" \
+    --env-file "$runtime_config_dir/notifications-worker.env" \
+    --env "NOTIFICATIONS_TELEGRAM_BROKER_URL=$(broker_url telegram)" \
+    --entrypoint node \
+    "$PRODUCTION_SMOKE_BACKEND_IMAGE" \
+    dist/release/write-notification-broker-definitions.js >"$broker_dir/definitions.json"
+  # Production keeps these root:101 with mode 0640; the disposable smoke copies are world-readable
+  # so the broker user can read them through a bind mount on any Docker host.
+  chmod 0755 "$broker_dir" "$tls_dir"
+  chmod 0644 "$broker_dir/definitions.json" "$tls_dir/ca.pem" "$tls_dir/server.pem" "$tls_dir/server-key.pem"
 }
 
 write_foundation_configuration() {
@@ -318,7 +373,7 @@ wait_for_worker_health() {
   local attempt
   for ((attempt = 1; attempt <= worker_health_poll_attempts; attempt += 1)); do
     local all_match=true
-    for worker in material-assets-worker profile-avatars-worker video-deletions-worker; do
+    for worker in "${application_workers[@]}"; do
       if [[ "$(docker container inspect "$("${application_compose[@]}" ps --quiet "$worker")" --format '{{.State.Health.Status}}')" != "$expected" ]]; then
         all_match=false
       fi
@@ -402,6 +457,7 @@ docker build \
 PRODUCTION_SMOKE_BACKEND_IMAGE="$(docker image inspect "$backend_image" --format '{{.Id}}')"
 PRODUCTION_SMOKE_WEB_IMAGE="$(docker image inspect "$web_image" --format '{{.Id}}')"
 export PRODUCTION_SMOKE_BACKEND_IMAGE PRODUCTION_SMOKE_WEB_IMAGE
+write_broker_configuration
 
 "${foundation_compose[@]}" config --quiet
 "${foundation_compose[@]}" up --detach --build --wait postgres
@@ -465,7 +521,7 @@ docker run --rm \
   --input-type=module \
   --eval "$(<scripts/fixtures/production-runtime/n-minus-one-compatibility.mjs)"
 
-for worker in material-assets-worker profile-avatars-worker video-deletions-worker; do
+for worker in "${application_workers[@]}"; do
   worker_state="$(docker container inspect "$("${application_compose[@]}" ps --quiet "$worker")" --format '{{.State.Status}}:{{.State.Health.Status}}:{{.RestartCount}}')"
   if [[ "$worker_state" != "running:healthy:0" ]]; then
     echo "$worker did not become healthy without restarts: $worker_state" >&2
@@ -478,6 +534,45 @@ for worker in material-assets-worker profile-avatars-worker video-deletions-work
     exit 1
   fi
 done
+
+# The broker imports exactly the environment definitions: five scoped principals, no default user and
+# eight quorum queues. It accepts only TLS that verifies against the environment CA as `rabbitmq`.
+broker_users="$("${application_compose[@]}" exec -T rabbitmq rabbitmqctl list_users --silent --formatter json)"
+broker_queues="$("${application_compose[@]}" exec -T rabbitmq rabbitmqctl list_queues --vhost "$broker_vhost" name type --silent --formatter json)"
+node --input-type=module --eval '
+  const [users, queues] = process.argv.slice(1).map(value => JSON.parse(value));
+  const names = users.map(user => user.user).sort().join(",");
+  if (names !== "platform-billing,platform-email,platform-materials,platform-notifications,telegram") {
+    throw new Error(`Broker imported unexpected principals: ${names}`);
+  }
+  if (queues.length !== 8 || queues.some(queue => queue.type !== "quorum")) throw new Error("Broker queues differ from the topology");
+' "$broker_users" "$broker_queues"
+docker run --rm --memory "$probe_container_memory" \
+  --network "$PLATFORM_BROKER_NETWORK" \
+  --volume "$runtime_config_dir/rabbitmq/tls/ca.pem:/tmp/broker-ca.pem:ro" \
+  --entrypoint node \
+  "$PRODUCTION_SMOKE_BACKEND_IMAGE" \
+  --input-type=module \
+  --eval '
+    import { readFileSync } from "node:fs";
+    import { connect as connectTcp } from "node:net";
+    import { connect as connectTls } from "node:tls";
+    const trusted = await new Promise((resolve, reject) => {
+      const socket = connectTls({ host: "rabbitmq", port: 5671, servername: "rabbitmq", ca: readFileSync("/tmp/broker-ca.pem") },
+        () => { resolve(socket.authorized); socket.end(); });
+      socket.on("error", reject);
+    });
+    if (!trusted) throw new Error("Broker TLS did not verify against the environment CA");
+    const plaintext = await new Promise(resolve => {
+      const socket = connectTcp({ host: "rabbitmq", port: 5672 }, () => { socket.destroy(); resolve("open"); });
+      socket.on("error", error => resolve(error.code));
+    });
+    if (plaintext === "open") throw new Error("Broker accepted plaintext AMQP");
+  '
+echo "Production runtime memory after readiness (name, usage / limit, CPU):"
+# shellcheck disable=SC2046 # one argument per container ID
+docker stats --no-stream --format '{{.Name}} {{.MemUsage}} {{.CPUPerc}}' \
+  $("${application_compose[@]}" ps --quiet) $("${foundation_compose[@]}" ps --quiet postgres)
 
 api_health="$(curl --fail --silent "http://127.0.0.1:${PLATFORM_API_LOOPBACK_PORT}/health/ready")"
 if ! api_schema_marker="$(read_schema_marker "$api_health")" || [[ "$api_health" != *'"release":"v1"'* || "$api_health" != *'"status":"ready"'* ]]; then
@@ -563,11 +658,70 @@ assert_public_status GET /mcp 401
 assert_public_status GET /.well-known/oauth-protected-resource/mcp 200
 assert_public_status GET /integrations/kinescope/v1/unknown 404
 assert_public_status GET /health/ready 404
+# Each payment and Telegram callback reaches the API only as POST and stops at its own credential.
+assert_public_status POST /billing/tbank/notification 400
+assert_public_status POST /integrations/tribute/v1/webhook 401
+assert_public_status POST /integrations/telegram/v1/subscription-activation/binding 401
+assert_public_status POST /internal/billing-dispatch/authorize 401
+assert_public_status POST /internal/notifications/dispatch/authorize 401
+assert_public_status POST /integrations/telegram/v1/communications/authorize 401
+assert_public_status POST /integrations/telegram/v1/communications/validate-content 401
+assert_public_status GET /integrations/telegram/v1/communications/authorize 404
+assert_public_status GET /integrations/tribute/v1/webhook 404
+assert_public_status GET /integrations/telegram/v1/subscription-activation/binding 404
+for internal_path in /internal/billing-dispatch/authorize /internal/notifications/dispatch/authorize /internal/billing-dispatch/unknown; do
+  internal_response="$(curl --cacert "$runtime_config_dir/caddy-root.crt" --noproxy '*' \
+    --resolve "inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" --silent \
+    --write-out '\n%{http_code}' "https://inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}${internal_path}")"
+  # Only the exact POST reaches the API; anything else is the public not-found page, never an API JSON answer.
+  if [[ "${internal_response##*$'\n'}" != "404" || "$internal_response" == \{* ]]; then
+    echo "Expected GET $internal_path to stay outside the API" >&2
+    exit 1
+  fi
+done
 data_after="$(application_data_digest)"
 if [[ "$data_before" != "$data_after" ]]; then
   echo "Basic production smoke changed application/provider data" >&2
   exit 1
 fi
+
+# A process that sells or reconciles payments refuses to start while the catalog sells without it.
+expect_sale_configuration_refusal() {
+  local env_file=$1
+  local entrypoint=$2
+  local expected=$3
+  docker create \
+    --name "$sale_configuration_container" \
+    --memory "$probe_container_memory" \
+    --network "$foundation_network" \
+    --tmpfs /tmp \
+    --env-file "$runtime_config_dir/runtime.env" \
+    --env-file "$env_file" \
+    --entrypoint node \
+    "$PRODUCTION_SMOKE_BACKEND_IMAGE" \
+    "$entrypoint" >/dev/null
+  docker start "$sale_configuration_container" >/dev/null
+  wait_for_container_exit "$sale_configuration_container"
+  if [[ "$(docker container inspect "$sale_configuration_container" --format '{{.State.ExitCode}}')" == "0" ]] ||
+    [[ "$(docker container logs "$sale_configuration_container" 2>&1)" != *"$expected"* ]]; then
+    echo "$entrypoint did not refuse the sale configuration: $expected" >&2
+    docker container logs "$sale_configuration_container" >&2
+    exit 1
+  fi
+  docker container rm "$sale_configuration_container" >/dev/null
+}
+catalog_sql() {
+  "${foundation_compose[@]}" exec -T postgres psql --username postgres --dbname inside --set ON_ERROR_STOP=1 --command "$1" >/dev/null
+}
+catalog_sql "insert into billing.offers (id, revision, name, benefits, published) values ('$sale_offer_id', 1, 'Production smoke sale', array['materials'], true);
+  insert into billing.payment_options (id, revision, offer_id, months, price_kopecks, mode) values ('00000000-0000-4000-8000-000000000528', 1, '$sale_offer_id', 1, 100000, 'one_time');"
+grep -v '^TBANK_CONFIG_JSON=' "$runtime_config_dir/api.env" >"$runtime_config_dir/api-without-terminal.env"
+expect_sale_configuration_refusal "$runtime_config_dir/api-without-terminal.env" dist/entrypoints/api.js \
+  "Sale is enabled in the billing catalog, but TBANK_CONFIG_JSON is not configured"
+catalog_sql "insert into billing.payment_options (id, revision, offer_id, months, price_kopecks, mode) values ('00000000-0000-4000-8000-000000000529', 1, '$sale_offer_id', 1, 100000, 'subscription');"
+expect_sale_configuration_refusal "$runtime_config_dir/billing-worker.env" dist/entrypoints/billing-worker.js \
+  "Subscription sale is enabled in the billing catalog, but the terminal does not confirm recurringCardConfirmed and cardOnlyHostedConfirmed"
+catalog_sql "update billing.offers set published = false where id = '$sale_offer_id';"
 
 original_checksum="$("${foundation_compose[@]}" exec -T postgres psql --username postgres --dbname inside --tuples-only --no-align --command 'select checksum from public.platform_migrations where position = 1;')"
 if [[ ! "$original_checksum" =~ ^[0-9a-f]{64}$ ]]; then
@@ -728,4 +882,4 @@ if [[ "$new_worker_logs" != *'"status":"draining"'* || "$new_worker_logs" != *'"
   exit 1
 fi
 
-echo "Production runtime smoke passed: immutable images -> migration matrix -> readiness -> routes -> worker handoff"
+echo "Production runtime smoke passed: immutable images -> migration matrix -> broker -> readiness -> routes -> sale configuration -> worker handoff"

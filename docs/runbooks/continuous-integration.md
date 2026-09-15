@@ -31,7 +31,7 @@ Four jobs run independently so a failure identifies its owning verification seam
 | `quality` | frozen install, Chromium and `pnpm check` |
 | `integration` | `pnpm test:integration` with Testcontainers-owned PostgreSQL and MinIO |
 | `compose-development` | profile config/build, live smoke, restart persistence and clean shutdown |
-| `compose-production` | isolated seven-process digest-selected runtime proof; pull requests also run clean `pnpm release:images:smoke` |
+| `compose-production` | isolated nine-process digest-selected runtime proof with the environment broker; pull requests also run clean `pnpm release:images:smoke` |
 
 `CI Gate` depends on all four jobs and succeeds only when every result is `success`. The repository
 ruleset requires this exact check name and strict synchronization with `main`; individual job names

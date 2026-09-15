@@ -5,6 +5,7 @@ import { z } from "zod";
 import type { BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { BillingContact } from "../../../accounts/index.js";
 import type { AccessGrants } from "../../../membership-entitlements/index.js";
+import { subscriptionSaleConfirmed } from "../../domain/sale-capability.js";
 import { paymentMode, priceSnapshotSchema } from "../../domain/pricing.js";
 import { subscriptionPeriodEnd } from "../../domain/subscription-period.js";
 import { lockPricing, lockSubscription } from "../../infrastructure/postgres/catalog-lock.js";
@@ -60,6 +61,9 @@ export class BillingPayments {
       if (!quote) return paymentFailure("not_found");
       const mode = paymentMode(priceSnapshotSchema.parse(quote.snapshot).paymentOption);
       const recurring = mode === "subscription";
+      // Подписку продлевает сохранённая привязка. Терминал без обоих подтверждений её не гарантирует:
+      // первый платёж прошёл бы, а продление — нет. Разовая покупка от этого не зависит.
+      if (recurring && !subscriptionSaleConfirmed(bank.config)) return paymentFailure("method_unavailable");
       const [contact, legacy, capabilities] = await Promise.all([
         this.dependencies.contact.read(accountId), this.dependencies.grants.readLegacyClassification(accountId), this.dependencies.grants.resolveCapabilities(accountId),
       ]);

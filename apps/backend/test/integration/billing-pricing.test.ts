@@ -27,8 +27,8 @@ describe("Billing catalog, quotes and reservations on PostgreSQL", () => {
     for (const id of [owner, outsider]) await database.prisma.account.create({ data: { id, logtoIssuer: "https://identity.invalid", logtoSubject: id } });
     await database.prisma.accountPermission.create({ data: { accountId: owner, permission: "platform:admin" } });
     const accounts = assembleAccounts({ prisma: database.prisma, emailFingerprintKey: "billing-test-key-00000000000000000000" });
-    billing = new BillingPricing({ prisma: database.prisma, accounts, clock: () => now });
-    other = new BillingPricing({ prisma: second, accounts, clock: () => now });
+    billing = new BillingPricing({ prisma: database.prisma, accounts, clock: () => now, sale: { payments: true, subscriptions: true } });
+    other = new BillingPricing({ prisma: second, accounts, clock: () => now, sale: { payments: true, subscriptions: true } });
   });
   afterAll(async () => { await second.$disconnect(); await database.dispose(); });
   async function catalog(priceKopecks = 200_000, months = 3) {
@@ -165,6 +165,45 @@ describe("Billing catalog, quotes and reservations on PostgreSQL", () => {
     value(await billing.settle({ ...pick(reservation), state: "sent" }));
     value(await billing.settle({ ...pick(reservation), state: "confirmed" }));
     expect(value(await billing.reserve(reservation))).toEqual(snapshot);
+  });
+
+  test("an unconfirmed terminal refuses to put a subscription on sale but sells a one-time option", async () => {
+    const accounts = assembleAccounts({ prisma: database.prisma, emailFingerprintKey: "billing-test-key-00000000000000000000" });
+    // Процесс без терминала или адреса для чека не включает в продажу ничего, даже разовый вариант.
+    const unconfigured = new BillingPricing({ prisma: database.prisma, accounts, clock: () => now, sale: { payments: false, subscriptions: false } });
+    const unsold = randomUUID(), unsoldCapability = `guide:${randomUUID()}`;
+    value(await unconfigured.manage(owner, { operation: "offers.save", operationId: randomUUID(), value: { id: unsold, name: "Руководство", benefits: [unsoldCapability], benefitPeriods: [{ capability: unsoldCapability, months: null }] } }));
+    value(await unconfigured.manage(owner, { operation: "paymentOptions.save", operationId: randomUUID(), value: { id: randomUUID(), offerId: unsold, mode: "one_time", months: 1, priceKopecks: 100_000 } }));
+    expect(await unconfigured.manage(owner, { operation: "offers.publish", operationId: randomUUID(), expectedRevision: 1, id: unsold }))
+      .toMatchObject({ ok: false, error: { code: "method_unavailable" } });
+    // Все способы формы включены: карта-only и автосписания не подтверждены.
+    const allMethods = new BillingPricing({ prisma: database.prisma, accounts, clock: () => now, sale: { payments: true, subscriptions: false } });
+    const onSale = async (mode: "subscription" | "one_time") => value(await billing.offers({ mode })).items.map(item => item.offer.id);
+    const save = (offerId: string, mode: "subscription" | "one_time", id = randomUUID()) => allMethods.manage(owner, {
+      operation: "paymentOptions.save", operationId: randomUUID(), value: { id, offerId, mode, months: 1, priceKopecks: 100_000 } });
+
+    const subscription = randomUUID();
+    value(await allMethods.manage(owner, { operation: "offers.save", operationId: randomUUID(), value: { id: subscription, name: "Материалы", benefits: ["materials"] } }));
+    value(await save(subscription, "subscription"));
+    expect(await allMethods.manage(owner, { operation: "offers.publish", operationId: randomUUID(), expectedRevision: 1, id: subscription }))
+      .toMatchObject({ ok: false, error: { code: "method_unavailable" } });
+    expect(await onSale("subscription")).not.toContain(subscription);
+
+    const guide = randomUUID(), capability = `guide:${randomUUID()}`;
+    value(await allMethods.manage(owner, { operation: "offers.save", operationId: randomUUID(), value: { id: guide, name: "Руководство", benefits: [capability], benefitPeriods: [{ capability, months: null }] } }));
+    value(await save(guide, "one_time"));
+    expect(value(await allMethods.manage(owner, { operation: "offers.publish", operationId: randomUUID(), expectedRevision: 1, id: guide }))).toMatchObject({ published: true });
+    expect(await onSale("one_time")).toContain(guide);
+    // Продажа подписки не включается и обходным путём — вариантом, добавленным к уже продаваемому предложению.
+    const sneaked = randomUUID();
+    expect(await save(guide, "subscription", sneaked)).toMatchObject({ ok: false, error: { code: "method_unavailable" } });
+    expect(await database.prisma.billingPaymentOption.findUnique({ where: { id: sneaked } })).toBeNull();
+    value(await save(guide, "one_time"));
+
+    // Тот же каталог на подтверждённом терминале включает подписку обычной командой.
+    const confirmed = new BillingPricing({ prisma: database.prisma, accounts, clock: () => now, sale: { payments: true, subscriptions: true } });
+    expect(value(await confirmed.manage(owner, { operation: "offers.publish", operationId: randomUUID(), expectedRevision: 1, id: subscription }))).toMatchObject({ published: true });
+    expect(await onSale("subscription")).toContain(subscription);
   });
 
   test("zero/negative prices, 100% discount and unconfirmed/out-of-range terminal limits fail closed", async () => {

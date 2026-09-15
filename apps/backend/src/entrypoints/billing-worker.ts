@@ -4,7 +4,7 @@ import { PgBoss } from "pg-boss";
 import { PLATFORM_CONFIG, type PlatformConfig } from "../config/platform-config.js";
 import { OperationalReadiness } from "../infrastructure/operational-readiness.js";
 import { runWorker } from "../infrastructure/worker-runtime.js";
-import { TributeConvergence, BillingNotices, BillingOperations, BillingPayments, BillingSubscriptions } from "../modules/billing/index.js";
+import { TributeConvergence, BillingNotices, BillingOperations, BillingPayments, BillingPricing, BillingSubscriptions, SaleConfigurationError } from "../modules/billing/index.js";
 import { COMMUNITY_RECONCILIATION_INTERVAL_MS, CommunityEntitlements } from "../modules/telegram-membership/index.js";
 import { BillingWorkerModule } from "./billing-worker/billing-worker.module.js";
 
@@ -22,6 +22,16 @@ void bootstrap().catch(() => { console.error("Billing worker failed"); process.e
 async function bootstrap(): Promise<void> {
   const application = await NestFactory.createApplicationContext(BillingWorkerModule.forRoot());
   const config = application.get<PlatformConfig>(PLATFORM_CONFIG);
+  try {
+    // Сверка и возвраты без терминала молча ничего не делают: включённая продажа требует настроек.
+    await application.get(BillingPricing).assertSaleConfigured(config);
+  } catch (error) {
+    await application.close();
+    if (error instanceof SaleConfigurationError) {
+      console.error(JSON.stringify({ process: "billing-worker", status: "operator_attention", reason: error.message }));
+    }
+    throw error;
+  }
   const tribute = application.get(TributeConvergence);
   const payments = application.get(BillingPayments);
   const subscriptions = application.get(BillingSubscriptions);

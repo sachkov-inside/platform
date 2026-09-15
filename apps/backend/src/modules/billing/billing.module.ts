@@ -16,6 +16,7 @@ import { PrismaClientProvider, PrismaModule } from "../../infrastructure/prisma/
 import { ACCOUNTS, AccountsModule, type Accounts } from "../accounts/index.js";
 import { BillingNotices } from "./facets/billing-notices/billing-notices.js";
 import { BillingPricing } from "./facets/billing-pricing/billing-pricing.js";
+import { saleCapability } from "./domain/sale-capability.js";
 import { ManageBillingController } from "./adapters/nest/manage-billing.controller.js";
 import { BillingOperations } from "./facets/billing-operations/billing-operations.js";
 import { QuotePurchaseController } from "./features/quote-purchase/quote-purchase.controller.js";
@@ -39,7 +40,8 @@ const BILLING_BANK = Symbol("BillingBank");
     { provide: BillingSubscriptions, inject: [PrismaClientProvider, BillingContact, ACCESS_GRANTS, BILLING_BANK, BillingPayments, BillingNotices],
       useFactory: (prisma: PrismaClientProvider, contact: BillingContact, grants: AccessGrants, bank: Tbank | undefined, payments: BillingPayments, notices: BillingNotices) =>
         new BillingSubscriptions({ prisma, contact, grants, bank, payments, notices }) },
-    { provide: BillingPricing, inject: [PrismaClientProvider, ACCOUNTS], useFactory: (prisma: PrismaClientProvider, accounts: Accounts) => new BillingPricing({ prisma, accounts }) },
+    { provide: BillingPricing, inject: [PrismaClientProvider, ACCOUNTS, PLATFORM_CONFIG],
+      useFactory: (prisma: PrismaClientProvider, accounts: Accounts, config: PlatformConfig) => new BillingPricing({ prisma, accounts, sale: saleCapability(config.tbank, config.billingContact !== undefined) }) },
     { provide: BillingOperations, inject: [PrismaClientProvider, ACCOUNTS, BillingPricing, BillingPayments, BillingSubscriptions, ACCESS_GRANTS, BILLING_BANK, TributeConvergence],
       useFactory: (prisma: PrismaClientProvider, accounts: Accounts, pricing: BillingPricing, payments: BillingPayments,
         subscriptions: BillingSubscriptions, grants: AccessGrants, bank: Tbank | undefined, tribute: TributeConvergence) =>

@@ -4,6 +4,9 @@ status: accepted
 
 # Bind the production runtime to one immutable release and schema identity
 
+The process composition below is refined by [ADR 0025](0025-own-single-node-rabbitmq-broker.md);
+the remaining rules of this decision are unchanged.
+
 Platform deploys one release unit containing seven processes: migrations, API, MCP, web, Material
 Asset worker, Profile Avatar worker and Video deletion worker. Production Compose consumes only the
 backend and web digest references selected from `release-manifest.json`; it never builds application
