@@ -18,7 +18,7 @@ export interface HomeContentDto {
   readonly notes: readonly PublishedMaterialCatalogItemDto[];
   readonly membership:
     | Readonly<{ kind: "active" }>
-    | Readonly<{ acquisitionUrl: string; kind: "inactive" }>
+    | Readonly<{ kind: "inactive" }>
     | Readonly<{ kind: "notOffered" }>
     | Readonly<{ kind: "unknown" }>;
 }
@@ -34,7 +34,6 @@ export async function readHomeContent(
   contentAccess: Pick<ContentAccess, "checkAvailabilityMany">,
   videoCatalog: Pick<Videos, "loadReadyDurations">,
   membershipEntitlements: Pick<MembershipEntitlements, "resolveForAccess">,
-  membershipAcquisitionUrl: string,
   subscriptionForSale: boolean,
   subject: Subject,
 ): Promise<HomeContentResult> {
@@ -65,7 +64,6 @@ export async function readHomeContent(
     publishedMaterialReader.readHomePinnedSeriesId(),
     resolveHomeMembership(
       membershipEntitlements,
-      membershipAcquisitionUrl,
       subscriptionForSale,
       subject,
     ),
@@ -93,18 +91,17 @@ export async function readHomeContent(
 
 async function resolveHomeMembership(
   membershipEntitlements: Pick<MembershipEntitlements, "resolveForAccess">,
-  membershipAcquisitionUrl: string,
   subscriptionForSale: boolean,
   subject: Subject,
 ): Promise<HomeContentDto["membership"]> {
   if (subject.kind === "anonymous") {
-    return subscriptionForSale ? { acquisitionUrl: membershipAcquisitionUrl, kind: "inactive" } : { kind: "notOffered" };
+    return subscriptionForSale ? { kind: "inactive" } : { kind: "notOffered" };
   }
   const state = await membershipEntitlements.resolveForAccess(subject.accountId);
   if (state.kind === "active") return { kind: "active" };
   return state.kind === "required" || state.kind === "expired"
     ? subscriptionForSale
-      ? { acquisitionUrl: membershipAcquisitionUrl, kind: "inactive" }
+      ? { kind: "inactive" }
       : { kind: "notOffered" }
     : { kind: "unknown" };
 }

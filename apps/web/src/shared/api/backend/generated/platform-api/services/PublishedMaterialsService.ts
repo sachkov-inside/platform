@@ -79,10 +79,7 @@ export class PublishedMaterialsService {
   } | {
     access: {
       availability: 'locked';
-      cta: {
-        label: 'Получить доступ';
-        url: string;
-      } | null;
+      subscriptionOffered: boolean;
     };
     cacheScope: 'public' | 'private-no-store';
     kind: 'teaser';
