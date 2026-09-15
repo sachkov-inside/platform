@@ -6,6 +6,7 @@ import { QueryProvider } from "@/_app/ui/query-provider.client";
 import "@fontsource-variable/jetbrains-mono/wght.css";
 import "@fontsource-variable/manrope/wght.css";
 
+import { assertDeclaredViewport } from "./viewport-guard";
 import "./workshop.css";
 
 const withWorkshop: Decorator = (Story, context) => {
@@ -29,6 +30,9 @@ const withWorkshop: Decorator = (Story, context) => {
 };
 
 const preview: Preview = {
+  beforeEach: (context) => {
+    assertDeclaredViewport(context);
+  },
   decorators: [withWorkshop],
   tags: ["autodocs"],
   globalTypes: {
