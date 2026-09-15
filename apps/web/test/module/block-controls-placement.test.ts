@@ -32,7 +32,11 @@ const document = schema.nodeFromJSON({
   type: "doc",
 });
 
-const [, heading, card, afterCard, quote] = [0, 1, 2, 3, 4];
+/** Номера блоков верхнего уровня в документе выше. */
+const heading = 1;
+const card = 2;
+const afterCard = 3;
+const quote = 4;
 
 /** Позиция начала блока верхнего уровня. */
 function start(doc: Node, index: number): number {

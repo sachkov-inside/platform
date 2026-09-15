@@ -4,6 +4,7 @@ import type { Node } from "@tiptap/pm/model";
 import { TextSelection, type Transaction } from "@tiptap/pm/state";
 import type { Editor } from "@tiptap/core";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 
 import { blockMayHaveMoved } from "../model/block-controls-placement";
 
@@ -20,12 +21,16 @@ interface Measurement {
   readonly toolbarFrom: number | null;
 }
 
+const initialAnchor: Offset = { top: 24, left: 0 };
+
 /**
- * Position controls beside a document block without changing the writing layout.
+ * Держит контролы рядом с блоком документа, не меняя вёрстку текста.
  *
  * Положение читается из вёрстки не чаще раза за кадр и только когда оно могло измениться: сменился
- * блок, выделение под панелью форматирования, блоки перед текущим или размер поверхности. Знак,
- * набранный внутри блока, вёрстку не читает и React не будит.
+ * блок, выделение под панелью форматирования, блоки перед текущим, размер поверхности или
+ * документа, состав поверхности. Знак, набранный внутри блока, вёрстку не читает и React не будит.
+ * Замер идёт в кадре, который ещё не нарисован, и применяется синхронно, поэтому контролы встают в
+ * том же кадре, что и правка документа.
  */
 export function useMaterialBlockControls(
   editor: Editor | null,
@@ -35,7 +40,11 @@ export function useMaterialBlockControls(
   const position = useRef(0);
   const measurement = useRef<Measurement | null>(null);
   const frame = useRef<number | null>(null);
-  const [anchor, setAnchor] = useState<Offset>({ top: 24, left: 0 });
+  const shown = useRef<{ anchor: Offset; selection: Offset | null }>({
+    anchor: initialAnchor,
+    selection: null,
+  });
+  const [anchor, setAnchor] = useState<Offset>(initialAnchor);
   const [selection, setSelection] = useState<Offset | null>(null);
 
   /** Все чтения вёрстки одного обновления подряд, без записей между ними. */
@@ -46,27 +55,24 @@ export function useMaterialBlockControls(
     const element = view.nodeDOM(position.current);
     const toolbarFrom = formattingToolbarFrom(editor);
     const bounds = surface.current.getBoundingClientRect();
+    let nextAnchor = shown.current.anchor;
     if (element instanceof HTMLElement) {
       const block = element.getBoundingClientRect();
-      setAnchor(
-        unlessSame({
-          top: block.top - bounds.top,
-          left: Math.max(0, block.left - bounds.left - 36),
-        }),
-      );
+      nextAnchor = {
+        top: block.top - bounds.top,
+        left: Math.max(0, block.left - bounds.left - 36),
+      };
     }
-    if (toolbarFrom === null) setSelection(null);
-    else {
+    let nextSelection: Offset | null = null;
+    if (toolbarFrom !== null) {
       const point = view.coordsAtPos(toolbarFrom);
-      setSelection(
-        unlessSame({
-          top: Math.max(0, point.top - bounds.top - 46),
-          left: Math.min(
-            Math.max(0, point.left - bounds.left),
-            Math.max(0, bounds.width - 150),
-          ),
-        }),
-      );
+      nextSelection = {
+        top: Math.max(0, point.top - bounds.top - 46),
+        left: Math.min(
+          Math.max(0, point.left - bounds.left),
+          Math.max(0, bounds.width - 150),
+        ),
+      };
     }
     measurement.current = {
       doc: state.doc,
@@ -74,6 +80,16 @@ export function useMaterialBlockControls(
       position: position.current,
       toolbarFrom,
     };
+    if (
+      sameOffset(shown.current.anchor, nextAnchor) &&
+      sameOffset(shown.current.selection, nextSelection)
+    )
+      return;
+    shown.current = { anchor: nextAnchor, selection: nextSelection };
+    flushSync(() => {
+      setAnchor(nextAnchor);
+      setSelection(nextSelection);
+    });
   }, [editor]);
 
   const schedule = useCallback(() => {
@@ -123,16 +139,26 @@ export function useMaterialBlockControls(
       refresh();
     };
     editor.on("transaction", onTransaction);
-    const observer = new ResizeObserver(() => {
+    // Вёрстка может сдвинуть блок и без транзакции: загрузилась картинка выше, появилась очередь
+    // загрузок над документом. Высота документа и состав поверхности ловят оба случая.
+    const layout = new ResizeObserver(() => {
       schedule();
     });
-    if (surface.current) observer.observe(surface.current);
+    const overlays = new MutationObserver(() => {
+      schedule();
+    });
+    if (surface.current) {
+      layout.observe(surface.current);
+      overlays.observe(surface.current, { childList: true });
+    }
+    layout.observe(editor.view.dom);
     follow();
     measurement.current = null;
     schedule();
     return () => {
       editor.off("transaction", onTransaction);
-      observer.disconnect();
+      layout.disconnect();
+      overlays.disconnect();
       if (frame.current !== null) cancelAnimationFrame(frame.current);
       frame.current = null;
     };
@@ -194,10 +220,7 @@ function formattingToolbarFrom(editor: Editor): number | null {
     : selection.from;
 }
 
-/** Обновление, которое не будит React, когда смещение не изменилось. */
-function unlessSame(next: Offset) {
-  return (current: Offset | null): Offset =>
-    current !== null && current.top === next.top && current.left === next.left
-      ? current
-      : next;
+function sameOffset(previous: Offset | null, next: Offset | null): boolean {
+  if (previous === null || next === null) return previous === next;
+  return previous.top === next.top && previous.left === next.left;
 }

@@ -4,7 +4,7 @@ import type { JSONContent } from "@tiptap/core";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
-import { useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 
 import {
   MaterialAuthoringWorkspace,
@@ -49,6 +49,16 @@ export function MaterialAuthoringPageClient({
   useLayoutEffect(() => {
     draftRef.current = draft;
   }, [draft]);
+  // Черновик для автосохранения живёт здесь и меняется на каждый знак, а редактор перерисовывается
+  // только когда меняется то, что он показывает. Поэтому обработчик документа один на всё время
+  // страницы и берёт последний черновик из draftRef, а не из рендера, в котором был создан.
+  const onDocumentChange = useCallback((document: JSONContent) => {
+    const current = draftRef.current;
+    if (JSON.stringify(document) === JSON.stringify(current.document)) return;
+    const next = { ...current, document };
+    draftRef.current = next;
+    setDraft(next);
+  }, []);
   const [noticeRevision, setNoticeRevision] = useState(0);
   const [materialResult, setMaterialResult] = useState<
     | Awaited<ReturnType<typeof createMaterialDraft>>
@@ -266,14 +276,7 @@ export function MaterialAuthoringPageClient({
         JSON.stringify(effectiveDraft, null, 2),
       );
     },
-    onDocumentChange: (document: JSONContent) => {
-      if (
-        JSON.stringify(document) === JSON.stringify(effectiveDraft.document)
-      ) {
-        return;
-      }
-      markDirty({ ...effectiveDraft, document });
-    },
+    onDocumentChange,
     onFieldChange: (field: MaterialDraftField, value: string) => {
       if (field === "access") {
         markDirty({

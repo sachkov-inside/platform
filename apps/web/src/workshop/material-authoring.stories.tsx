@@ -1,6 +1,6 @@
 import type { JSONContent } from "@tiptap/core";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { Profiler, useState } from "react";
+import { Profiler, useCallback, useState } from "react";
 import { expect, fn, spyOn, userEvent, waitFor, within } from "storybook/test";
 
 import {
@@ -64,15 +64,23 @@ function MaterialAuthoringFixture({
     }));
   };
 
+  // Редактор перерисовывается только когда меняется то, что он показывает, поэтому обработчик
+  // документа один на всё время истории и берёт черновик из текущего состояния — как страница.
+  const onDocumentChange = useCallback((document: JSONContent) => {
+    noopActions.onDocumentChange(document);
+    setPresentation((current) => ({
+      ...current,
+      draft: { ...current.draft, document },
+      save: { kind: "dirty" },
+    }));
+  }, []);
+
   const actions = {
     onBack: noopActions.onBack,
     onConflictAction: (action) => {
       noopActions.onConflictAction(action);
     },
-    onDocumentChange: (document: JSONContent) => {
-      noopActions.onDocumentChange(document);
-      markDirty({ ...presentation.draft, document });
-    },
+    onDocumentChange,
     onDelete: (input) => {
       noopActions.onDelete(input);
     },
@@ -342,17 +350,42 @@ export const LessonBlocksEditing: Story = {
   },
 };
 
-/** Коммиты React в редакторе, пока автор печатает: истории контролов блока считают их по нулю. */
-const blockControlsCommits = { count: 0 };
+/** Допуск в пикселях между кнопкой «Добавить блок» и верхом блока, у которого она стоит. */
+const controlsTolerance = 2;
+
+/**
+ * Сколько замеров контролов законно случается, пока автор набирает восемь знаков: перенос строки
+ * меняет высоту документа, и контролы перемеряются, потому что блоки ниже сдвинулись. Пересчёт на
+ * каждой транзакции дал бы по замеру на знак.
+ */
+const remeasuresAllowedWhileTyping = 2;
+
+/** Экземпляр Tiptap, который редактор кладёт на свой DOM-узел. */
+interface TiptapEditorInstance {
+  setOptions(options: object): void;
+}
+
+function tiptapEditor(canvasElement: HTMLElement): TiptapEditorInstance {
+  const dom = canvasElement.querySelector(".ProseMirror");
+  const editor: unknown = dom === null ? undefined : Reflect.get(dom, "editor");
+  if (
+    typeof editor !== "object" ||
+    editor === null ||
+    typeof Reflect.get(editor, "setOptions") !== "function"
+  ) {
+    throw new Error("У документа нет экземпляра Tiptap: не к чему подключить счётчик перерисовок");
+  }
+  return editor as TiptapEditorInstance;
+}
 
 /**
  * Контролы блока встают у блока под курсором, стоят на месте, пока автор печатает, и следуют за
- * новым блоком и за указателем. Знак при этом не стоит ни пересборки редактора, ни чтения вёрстки.
+ * новым блоком и за указателем. Знак при этом не стоит ни перерисовки редактора, ни замера контролов.
  *
- * До #602 каждый знак пересобирал редактор целиком (`shouldRerenderOnTransaction`) и заново мерил
- * положение контролов на каждой транзакции. История падает, если вернуть любое из двух: действия
- * здесь ничего не сохраняют, поэтому любой коммит React во время набора — это редактор, а чтение
- * размеров поверхности — это пересчёт контролов.
+ * До #602 каждый знак перерисовывал редактор дважды — сам по себе (`shouldRerenderOnTransaction`)
+ * и вместе со страницей, которая кладёт черновик в состояние для автосохранения, — и заново мерил
+ * контролы на каждой транзакции. История идёт на той же фикстуре, что и страница, и падает, если
+ * вернуть любое из трёх.
  */
 async function expectBlockControlsWithoutKeystrokeCost(canvasElement: HTMLElement) {
   const canvas = within(canvasElement);
@@ -361,6 +394,11 @@ async function expectBlockControlsWithoutKeystrokeCost(canvasElement: HTMLElemen
   if (!(surface instanceof HTMLElement)) {
     throw new Error("У кнопки «Добавить блок» нет поверхности, от которой считается её место");
   }
+  const editorWindow = surface.parentElement;
+  if (!(editorWindow instanceof HTMLElement)) {
+    throw new Error("Поверхность редактора стоит вне окна редактора");
+  }
+  const editor = tiptapEditor(canvasElement);
   const block = (index: number) => {
     const node = canvasElement.querySelectorAll(".ProseMirror > *")[index];
     if (!(node instanceof HTMLElement)) {
@@ -368,79 +406,78 @@ async function expectBlockControlsWithoutKeystrokeCost(canvasElement: HTMLElemen
     }
     return node;
   };
-  const distanceFrom = (target: HTMLElement) =>
+  const controlsOffset = (target: HTMLElement) =>
     Math.abs(plus.getBoundingClientRect().top - target.getBoundingClientRect().top);
+  const expectControlsAt = (target: HTMLElement, message: string) =>
+    waitFor(() => expect(controlsOffset(target), message).toBeLessThan(controlsTolerance));
   const nextFrame = () =>
     new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
   const paragraph = block(2);
   await userEvent.click(paragraph);
-  await waitFor(() =>
-    expect(distanceFrom(paragraph), "Кнопка «Добавить блок» не встала у абзаца под курсором").toBeLessThan(2),
-  );
+  await expectControlsAt(paragraph, "Кнопка «Добавить блок» не встала у абзаца под курсором");
+  // Первый знак переводит черновик в «Не сохранено»: подпись в подвале редактора меняется, и эта
+  // перерисовка законна. Считать начинаем после неё.
+  await userEvent.keyboard(" и");
+  await expect(await within(editorWindow).findByText("Не сохранено")).toBeVisible();
   await nextFrame();
 
-  const window = surface.parentElement;
-  if (!(window instanceof HTMLElement)) {
-    throw new Error("Поверхность редактора стоит вне окна редактора");
-  }
-  blockControlsCommits.count = 0;
+  // `useEditor` отдаёт Tiptap свежие настройки после каждого рендера редактора: вызов — это рендер.
+  const renders = spyOn(editor, "setOptions");
   // ProseMirror на каждом знаке прокручивает курсор в видимую область и для этого читает размеры
   // каждого предка, поверхности и окна редактора поровну. Контролы читают только поверхность,
-  // поэтому их пересчёт — это разница между двумя счётчиками.
+  // поэтому их замеры — это разница между двумя счётчиками.
   const surfaceReads = spyOn(surface, "getBoundingClientRect");
-  const windowReads = spyOn(window, "getBoundingClientRect");
+  const windowReads = spyOn(editorWindow, "getBoundingClientRect");
   try {
-    await userEvent.keyboard(" и её цена");
-    await nextFrame();
+    // Кадр после каждого знака: замер, назначенный на кадр, успевает выполниться и попасть в счёт.
+    for (const key of " её цена") {
+      await userEvent.keyboard(key);
+      await nextFrame();
+    }
     await expect(paragraph).toHaveTextContent("и её цена");
-    // Сначала чтения: пересчёт контролов тоже будит React, и проверка коммитов назвала бы его
-    // пересборкой редактора.
+    // Сначала замеры: пересчёт контролов тоже может перерисовать редактор, и проверка рендеров
+    // назвала бы его не той причиной.
     await expect(
       surfaceReads.mock.calls.length - windowReads.mock.calls.length,
       "Набор в абзаце заново мерил положение контролов: пересчёт снова идёт на каждой транзакции",
-    ).toBe(0);
+    ).toBeLessThanOrEqual(remeasuresAllowedWhileTyping);
     await expect(
-      blockControlsCommits.count,
-      "Набор в абзаце пересобрал редактор: он снова перерисовывается на каждой транзакции",
-    ).toBe(0);
+      renders,
+      "Набор в абзаце перерисовал редактор: он снова перерисовывается на каждой транзакции или вместе со страницей",
+    ).not.toHaveBeenCalled();
+    await expect(
+      controlsOffset(paragraph),
+      "Кнопка «Добавить блок» сдвинулась, пока автор печатал в том же абзаце",
+    ).toBeLessThan(controlsTolerance);
+    // Счётчик рендеров должен что-то видеть: раскрытие на весь экран перерисовывает редактор.
+    await userEvent.click(canvas.getByRole("button", { name: "На весь экран" }));
+    await expect(
+      renders,
+      "Раскрытие редактора не дошло до Tiptap: счётчик перерисовок больше ничего не видит",
+    ).toHaveBeenCalled();
   } finally {
+    renders.mockRestore();
     surfaceReads.mockRestore();
     windowReads.mockRestore();
   }
-  await expect(
-    distanceFrom(paragraph),
-    "Кнопка «Добавить блок» сдвинулась, пока автор печатал в том же абзаце",
-  ).toBeLessThan(2);
+  await userEvent.click(canvas.getByRole("button", { name: "Свернуть редактор" }));
+  await expectControlsAt(paragraph, "Кнопка «Добавить блок» не вернулась к абзацу после свёртывания");
 
+  // Кнопка свёртывания забрала фокус: клик возвращает курсор в абзац, Enter делит его надвое.
+  await userEvent.click(paragraph);
   await userEvent.keyboard("{Enter}");
   const created = block(3);
-  await waitFor(() =>
-    expect(distanceFrom(created), "Кнопка «Добавить блок» не перешла к новому абзацу").toBeLessThan(2),
-  );
+  await expectControlsAt(created, "Кнопка «Добавить блок» не перешла к новому абзацу");
 
   const first = block(0);
   await userEvent.hover(first);
-  await waitFor(() =>
-    expect(distanceFrom(first), "Кнопка «Добавить блок» не перешла к блоку под указателем").toBeLessThan(2),
-  );
+  await expectControlsAt(first, "Кнопка «Добавить блок» не перешла к блоку под указателем");
 }
-
-const withCommitCounter: Story["render"] = ({ presentation }) => (
-  <Profiler
-    id="block-controls"
-    onRender={() => {
-      blockControlsCommits.count += 1;
-    }}
-  >
-    <MaterialAuthoringWorkspace actions={noopActions} presentation={presentation} />
-  </Profiler>
-);
 
 export const BlockControlsTyping: Story = {
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   name: "Редактор · контролы блока",
-  render: withCommitCounter,
   play: async ({ canvasElement }) => {
     await expectBlockControlsWithoutKeystrokeCost(canvasElement);
   },
@@ -449,7 +486,6 @@ export const BlockControlsTyping: Story = {
 export const BlockControlsTypingMobile: Story = {
   globals: { viewport: { isRotated: false, value: "mobile390" } },
   name: "Редактор · контролы блока, мобильный",
-  render: withCommitCounter,
   play: async ({ canvasElement }) => {
     await expectBlockControlsWithoutKeystrokeCost(canvasElement);
     await expectNoHorizontalOverflow(canvasElement);
