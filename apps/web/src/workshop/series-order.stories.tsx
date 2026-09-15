@@ -306,6 +306,38 @@ export const Conflict: Story = {
   },
 };
 
+export const RemovalConfirmation: Story = {
+  name: "Подтверждение снятия из купленного продукта",
+  decorators: [
+    withMutationFetch(() =>
+      Promise.resolve(
+        Response.json({
+          guides: [
+            {
+              guideId: "95000000-0000-4000-8000-000000000010",
+              holders: 3,
+              name: "Создание Platform Inside",
+            },
+          ],
+          kind: "removal_confirmation_required",
+        }),
+      ),
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    await moveFirstItem(canvasElement);
+    const page = within(canvasElement.ownerDocument.body);
+    const dialog = await page.findByRole("dialog", {
+      name: "Снять материал из купленного продукта?",
+    });
+    await expect(dialog).toBeVisible();
+    await expect(within(dialog).getByText("доступ у 3 человека")).toBeVisible();
+    await expect(
+      within(dialog).getByRole("button", { name: "Оставить в продукте" }),
+    ).toBeEnabled();
+  },
+};
+
 export const SaveError: Story = {
   decorators: [withMutationFetch(failedOrderSpy)],
   play: async ({ canvasElement }) => {

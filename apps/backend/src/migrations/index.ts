@@ -1,3 +1,4 @@
+import { name as guideMaterialRemovalsName, statement as guideMaterialRemovalsStatement } from "../modules/materials/infrastructure/postgres/migrations/0065-guide-material-removals.js";
 import { name as tributeName, statement as tributeStatement } from "../modules/membership-entitlements/infrastructure/postgres/migrations/0064-tribute-sources.js";
 import { name as enrollmentName, statement as enrollmentStatement } from "../modules/membership-entitlements/infrastructure/postgres/migrations/0063-subscription-enrollments.js";
 import { name as readerGuideModeName, statement as readerGuideModeStatement } from "../modules/reading-activity/infrastructure/postgres/migrations/0062-reader-guide-mode.js";
@@ -342,6 +343,7 @@ export const platformMigrations = [
   { name: readerGuideModeName, statement: readerGuideModeStatement },
   { name: enrollmentName, statement: enrollmentStatement },
   { name: tributeName, statement: tributeStatement },
+  { name: guideMaterialRemovalsName, statement: guideMaterialRemovalsStatement },
 ] as const;
 
 export function migrateToLatest(

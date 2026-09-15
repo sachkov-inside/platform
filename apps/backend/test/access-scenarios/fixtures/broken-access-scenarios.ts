@@ -5,15 +5,15 @@ import { accessScenarioTable, type AccessScenarioTable } from "../access-scenari
  * пропускает всё подряд: без них зелёная проверка ничего бы не значила.
  */
 
-const { "support/one-time-purchase": _missing, ...cellsWithoutOne } = accessScenarioTable.cells;
+const { "one-time-purchase": _missing, ...supportWithoutPurchase } = accessScenarioTable.cells.support;
 const { "guide-archived": _missingTransition, ...transitionsWithoutOne } = accessScenarioTable.transitions;
 
-/** Пропущена клетка и переход, добавлено несуществующее основание, n/a без причины. */
+/** Пропущены клетка и переход, добавлено несуществующее основание, n/a без причины. */
 export const incompleteAccessScenarioTable: AccessScenarioTable = {
   cells: {
-    ...cellsWithoutOne,
-    "support/gift-certificate": { outcome: "open", term: "lifetime" },
-    "mcp/guest": { outcome: "not-applicable", because: " " },
+    ...accessScenarioTable.cells,
+    "support": { ...supportWithoutPurchase, "gift-certificate": { outcome: "open", term: "lifetime" } },
+    "mcp": { ...accessScenarioTable.cells.mcp, "guest": { outcome: "not-applicable", because: " " } },
   },
   transitions: transitionsWithoutOne,
 };

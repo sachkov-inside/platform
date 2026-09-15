@@ -11,6 +11,7 @@ import type {
   DeleteMaterialDraftResult,
 } from "@/features/material-lifecycle";
 import type { MaterialAuthoringVideo } from "@/features/material-video";
+import type { GuideRemoval } from "@/shared/lib/guide-removal";
 
 export type MaterialSaveState =
   | { readonly kind: "clean" }
@@ -117,6 +118,11 @@ export interface MaterialAuthoringPresentation {
   readonly mode: "editor" | "preview";
   readonly noticeRevision: number;
   readonly preview: MaterialPreviewPresentation | null;
+  /** Снятие опубликованного материала из купленных продуктов ждёт подтверждения автора. */
+  readonly removalConfirmation?: {
+    readonly guides: readonly GuideRemoval[];
+    readonly pending: boolean;
+  } | null;
   readonly save: MaterialSaveState;
   readonly submissionId: string;
   readonly validation: MaterialValidationState;
@@ -132,6 +138,10 @@ export type MaterialDraftField =
 
 export interface MaterialAuthoringActions {
   readonly onBack: () => void;
+  /** Автор оставляет материал в купленных продуктах: снятие отменяется. */
+  readonly onCancelGuideRemoval: () => void;
+  /** Автор подтверждает снятие материала из купленных продуктов. */
+  readonly onConfirmGuideRemoval: () => void;
   readonly onConflictAction: (
     action: "compare" | "copy" | "open_current",
   ) => void;

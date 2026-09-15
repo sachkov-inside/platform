@@ -25,6 +25,7 @@ export type MaterialsPrisma = Pick<
   | "guideArtifactPlacement"
   | "guideArtifactVersion"
   | "guideChapter"
+  | "guideMaterialRemoval"
   | "guideMembership"
   | "tag"
   | "topic"

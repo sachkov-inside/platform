@@ -7,15 +7,16 @@ import { divergentExpectation, incompleteAccessScenarioTable } from "../access-s
 describe("таблица сценариев доступа", () => {
   test("описывает каждую клетку «что открывается × основание» и каждый переход", () => {
     expect(checkAccessScenarioTable(accessScenarioTable)).toEqual([]);
-    expect(Object.keys(accessScenarioTable.cells)).toHaveLength(accessSurfaces.length * accessGrounds.length);
+    const cells = Object.values(accessScenarioTable.cells).flatMap((row) => Object.keys(row));
+    expect(cells).toHaveLength(accessSurfaces.length * accessGrounds.length);
     expect(Object.keys(accessScenarioTable.transitions)).toHaveLength(accessTransitions.length);
   });
 
   test("пропущенная клетка, лишнее имя и неприменимость без причины роняют контроль", () => {
     expect(checkAccessScenarioTable(incompleteAccessScenarioTable)).toEqual([
       "missing cell support/one-time-purchase",
-      "cell mcp/guest is not applicable without a reason",
       "unknown cell support/gift-certificate",
+      "cell mcp/guest is not applicable without a reason",
       "missing transition guide-archived",
     ]);
   });

@@ -424,13 +424,13 @@ describe("delegated Material authoring over MCP", () => {
         value: { archived: true, version: 4 },
       },
     });
-    expect(await callTool("content_collection_list", { kind: "series" })).toMatchObject({
-      structuredContent: {
-        ok: true,
-        // Закрытое руководство фикстуры лежит в том же каталоге коллекций.
-        value: expect.arrayContaining([expect.objectContaining({ archived: true, id: playlist.id })]),
-      },
-    });
+    const listed = await callTool("content_collection_list", { kind: "series" });
+    expect(listed).toMatchObject({ structuredContent: { ok: true } });
+    // Закрытое руководство фикстуры лежит в том же каталоге коллекций: ищем плейлист по id.
+    const collections = z
+      .object({ value: z.array(z.looseObject({ archived: z.boolean(), id: z.string() })) })
+      .parse(listed.structuredContent).value;
+    expect(collections.find(({ id }) => id === playlist.id)).toMatchObject({ archived: true });
   });
 
   test("keeps validation and idempotency failures structured and effect-free", async () => {

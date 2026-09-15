@@ -26,6 +26,9 @@ export async function saveMaterial(
   for (const tagId of input.tagIds) formData.append("tagIds", tagId);
   formData.set("title", input.title);
   formData.set("topicId", input.topicId);
+  for (const guideId of input.confirmedGuideRemovals ?? []) {
+    formData.append("confirmedGuideRemovals", guideId);
+  }
 
   const response = await requestSameOriginMutation(
     "/api/authoring/materials",

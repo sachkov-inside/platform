@@ -117,6 +117,33 @@ describe("Series order web adapters", () => {
       executeReorderSeries(formData, "access-token", conflict),
     ).resolves.toEqual({ kind: "conflict" });
   });
+
+  it("asks to confirm a removal from a bought product and passes the confirmation", async () => {
+    const guides = [{ guideId: seriesId, holders: 3, name: "Купленный продукт" }];
+    const refused = vi.fn().mockResolvedValue({
+      ok: false,
+      problem: { code: "guide_removal_confirmation_required", guides },
+      response: Response.json({}, { status: 409 }),
+    });
+    await expect(
+      executeReorderSeries(validFormData(), "access-token", refused),
+    ).resolves.toEqual({ guides, kind: "removal_confirmation_required" });
+
+    const save = vi.fn().mockResolvedValue({
+      body: { orderVersion: "c".repeat(64), seriesId },
+      ok: true,
+      response: Response.json({}),
+    });
+    const confirmed = validFormData();
+    confirmed.set("confirmedGuideRemovals", JSON.stringify([seriesId]));
+    await expect(executeReorderSeries(confirmed, "access-token", save)).resolves.toMatchObject({ kind: "saved" });
+    expect(save).toHaveBeenCalledWith(
+      expect.objectContaining({ confirmedGuideRemovals: [seriesId] }),
+      "access-token",
+    );
+    confirmed.set("confirmedGuideRemovals", JSON.stringify(["not-a-uuid"]));
+    await expect(executeReorderSeries(confirmed, "access-token", save)).resolves.toEqual({ kind: "error", reference: "series-order-form" });
+  });
 });
 
 function validFormData(): FormData {

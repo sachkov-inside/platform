@@ -21,8 +21,10 @@ import {
   type ContentAccess,
 } from "../content-access/index.js";
 import {
+  ACCESS_GRANTS,
   MEMBERSHIP_ENTITLEMENTS,
   MembershipEntitlementsModule,
+  type AccessGrants,
   type MembershipEntitlements,
 } from "../membership-entitlements/index.js";
 import { AssetsModule, MATERIAL_ASSETS, type MaterialAssets } from "../assets/index.js";
@@ -113,6 +115,7 @@ import {
         MATERIAL_ASSETS,
         VIDEOS,
         WORKSHOP_MATERIAL_PROTECTION,
+        ACCESS_GRANTS,
       ],
       useFactory: (
         prisma: PrismaClientProvider,
@@ -121,6 +124,7 @@ import {
         materialAssets: MaterialAssets,
         videos: Videos,
         workshopMaterialProtection: WorkshopMaterialProtection,
+        grants: AccessGrants,
       ): MaterialAuthoring => {
         const accountPermissions = assembleCurrentAccountPermissions(accounts);
         const authorPolicy: AuthorPolicy = {
@@ -135,6 +139,7 @@ import {
           videos,
           workshopMaterialProtection,
           materialBodyOperations,
+          guideAccessHolders: grants,
         });
       },
     },

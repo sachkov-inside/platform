@@ -1,4 +1,5 @@
 import {
+  accessCellId,
   accessGrounds,
   accessSurfaces,
   accessTransitions,
@@ -8,21 +9,27 @@ import {
 } from "./access-scenarios.js";
 
 /**
- * Контроль полноты таблицы: каждая клетка «что открывается × основание» и каждый переход описаны
- * ровно один раз, лишних имён нет, а неприменимая клетка объясняет почему. Возвращает список
- * нарушений; пустой список означает, что таблица покрывает модель целиком.
+ * Контроль полноты таблицы: каждая клетка «что открывается × основание» и каждый переход описаны,
+ * лишних имён нет, а неприменимая клетка объясняет почему. Возвращает список нарушений; пустой
+ * список означает, что таблица покрывает модель целиком.
  */
 export function checkAccessScenarioTable(table: AccessScenarioTable): readonly string[] {
-  const expectedCells = accessSurfaces.flatMap((surface) => accessGrounds.map((ground) => `${surface}/${ground}`));
   const problems: string[] = [];
-  for (const id of expectedCells) {
-    if (!Object.hasOwn(table.cells, id)) problems.push(`missing cell ${id}`);
+  for (const surface of accessSurfaces) {
+    const row = table.cells[surface];
+    for (const ground of accessGrounds) {
+      if (row === undefined || !Object.hasOwn(row, ground)) problems.push(`missing cell ${accessCellId(surface, ground)}`);
+    }
   }
-  for (const id of Object.keys(table.cells)) {
-    if (!expectedCells.includes(id)) problems.push(`unknown cell ${id}`);
-    const expectation = table.cells[id];
-    if (expectation?.outcome === "not-applicable" && expectation.because.trim().length === 0) {
-      problems.push(`cell ${id} is not applicable without a reason`);
+  for (const [surface, row] of Object.entries(table.cells)) {
+    for (const [ground, expectation] of Object.entries(row)) {
+      const id = accessCellId(surface, ground);
+      if (!(accessSurfaces as readonly string[]).includes(surface) || !(accessGrounds as readonly string[]).includes(ground)) {
+        problems.push(`unknown cell ${id}`);
+      }
+      if (expectation.outcome === "not-applicable" && expectation.because.trim().length === 0) {
+        problems.push(`cell ${id} is not applicable without a reason`);
+      }
     }
   }
   for (const id of accessTransitions) {

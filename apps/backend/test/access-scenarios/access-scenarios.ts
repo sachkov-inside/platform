@@ -3,8 +3,8 @@
  *
  * Это исполняемая форма модели доступа. Каждая клетка «что открывается × основание» и каждый
  * переход имеет стабильное имя (`product-material/one-time-purchase`, `refund`), на которое
- * ссылаются документы. Полнота таблицы проверяется в `pnpm check`
- * (`test/unit/access-scenario-table.test.ts`), а поведение каждой клетки и перехода — сценарием
+ * ссылаются документы. Полноту таблицы держат тип и контроль в `pnpm check`
+ * (`test/unit/access-scenario-table.test.ts`), а поведение каждой клетки и перехода — сценарии
  * через публичные фасады на PostgreSQL (`test/integration/access-scenarios.test.ts`).
  *
  * Меняя правило доступа, меняют ожидание здесь; пропуск клетки не проходит ни typecheck, ни
@@ -53,7 +53,10 @@ export const accessTransitions = [
 ] as const;
 export type AccessTransition = (typeof accessTransitions)[number];
 
-export type AccessCellId = `${AccessSurface}/${AccessGround}`;
+/** Стабильное имя клетки для документов и сообщений о расхождении. */
+export function accessCellId(surface: string, ground: string): string {
+  return `${surface}/${ground}`;
+}
 
 /**
  * Срок открытого доступа: публично, навсегда, пока действует основание, шесть месяцев
@@ -75,57 +78,65 @@ export interface AccessTransitionScenario {
   readonly after: Readonly<Partial<Record<AccessSurface, AccessExpectation>>>;
 }
 
+/** Форма, которую читает контроль полноты: он не доверяет типу и проверяет каждое имя. */
 export interface AccessScenarioTable {
-  readonly cells: Readonly<Record<string, AccessExpectation>>;
+  readonly cells: Readonly<Record<string, Readonly<Record<string, AccessExpectation>>>>;
   readonly transitions: Readonly<Record<string, AccessTransitionScenario>>;
 }
+
+type ByGround = Readonly<Record<AccessGround, AccessExpectation>>;
 
 const open = (term: AccessTerm): AccessExpectation => ({ outcome: "open", term });
 const locked: AccessExpectation = { outcome: "locked" };
 const closed: AccessExpectation = { outcome: "closed" };
 const notApplicable = (because: string): AccessExpectation => ({ outcome: "not-applicable", because });
 
-/** Основание одинаково открывает материал руководства, его программу-замки и артефакты. */
-function productContent(): Record<AccessGround, AccessExpectation> {
+/** Одно ожидание для каждого основания. */
+function everyGround(expectation: AccessExpectation): ByGround {
   return {
-    "guest": locked,
-    "account-without-rights": locked,
-    "one-time-purchase": open("lifetime"),
-    "tier-via-course": open("lifetime"),
-    "tier-via-tribute": open("ground-term"),
-    "manual-assignment": open("ground-term"),
-    "hidden-active-tier": open("ground-term"),
-    "expired-or-revoked": locked,
-    "multiple-grounds": open("lifetime"),
-    "withdrawal-refund": locked,
+    "guest": expectation,
+    "account-without-rights": expectation,
+    "one-time-purchase": expectation,
+    "tier-via-course": expectation,
+    "tier-via-tribute": expectation,
+    "manual-assignment": expectation,
+    "hidden-active-tier": expectation,
+    "expired-or-revoked": expectation,
+    "multiple-grounds": expectation,
+    "withdrawal-refund": expectation,
   };
 }
 
-function cells<const Surface extends AccessSurface>(
-  surface: Surface,
-  byGround: Record<AccessGround, AccessExpectation>,
-): Record<`${Surface}/${AccessGround}`, AccessExpectation> {
-  return Object.fromEntries(
-    accessGrounds.map((ground) => [`${surface}/${ground}`, byGround[ground]]),
-  ) as Record<`${Surface}/${AccessGround}`, AccessExpectation>;
-}
+/** Основание одинаково открывает материал руководства, замки его программы и артефакты. */
+const productContent: ByGround = {
+  "guest": locked,
+  "account-without-rights": locked,
+  "one-time-purchase": open("lifetime"),
+  "tier-via-course": open("lifetime"),
+  "tier-via-tribute": open("ground-term"),
+  "manual-assignment": open("ground-term"),
+  "hidden-active-tier": open("ground-term"),
+  "expired-or-revoked": locked,
+  "multiple-grounds": open("lifetime"),
+  "withdrawal-refund": locked,
+};
 
 const withoutAccount = "Без входа нет Account, у которого это можно проверить";
 
 export const accessScenarioTable = {
   cells: {
     // Публичный материал открыт всем, какое бы основание ни было.
-    ...cells("public-material", Object.fromEntries(accessGrounds.map((ground) => [ground, open("public")])) as Record<AccessGround, AccessExpectation>),
+    "public-material": everyGround(open("public")),
     // Закрытый материал живёт внутри руководства; вне права виден только его тизер.
-    ...cells("product-material", productContent()),
+    "product-material": productContent,
     // Программа руководства видна всем, замки на материалах следуют праву.
-    ...cells("programme", productContent()),
+    "programme": productContent,
     // Закрытый артефакт показывает метаданные, а файл отдаёт только по праву на руководство.
-    ...cells("artifacts", productContent()),
+    "artifacts": productContent,
     // Видео закрытого материала не имеет тизера: без права сессия не выдаётся.
-    ...cells("video", { ...productContent(), "guest": closed, "account-without-rights": closed, "expired-or-revoked": closed, "withdrawal-refund": closed }),
+    "video": { ...productContent, "guest": closed, "account-without-rights": closed, "expired-or-revoked": closed, "withdrawal-refund": closed },
     // Общий чат открывает купленное руководство и тариф с `community`; срок — самое длинное основание.
-    ...cells("community-chat", {
+    "community-chat": {
       "guest": closed,
       "account-without-rights": closed,
       "one-time-purchase": open("lifetime"),
@@ -136,23 +147,16 @@ export const accessScenarioTable = {
       "expired-or-revoked": closed,
       "multiple-grounds": open("lifetime"),
       "withdrawal-refund": closed,
-    }),
+    },
     // Сопровождение даёт только предложение продукта: шесть месяцев с покупки. Тарифы курса и
     // Tribute сопровождения не содержат.
-    ...cells("support", {
-      "guest": closed,
-      "account-without-rights": closed,
+    "support": {
+      ...everyGround(closed),
       "one-time-purchase": open("six-months"),
-      "tier-via-course": closed,
-      "tier-via-tribute": closed,
-      "manual-assignment": closed,
-      "hidden-active-tier": closed,
-      "expired-or-revoked": closed,
       "multiple-grounds": open("six-months"),
-      "withdrawal-refund": closed,
-    }),
+    },
     // Кабинет показывает действующие основания; истёкшее, отозванное и возвращённое не показывает.
-    ...cells("cabinet", {
+    "cabinet": {
       "guest": notApplicable(withoutAccount),
       "account-without-rights": closed,
       "one-time-purchase": open("lifetime"),
@@ -163,18 +167,18 @@ export const accessScenarioTable = {
       "expired-or-revoked": closed,
       "multiple-grounds": open("lifetime"),
       "withdrawal-refund": closed,
-    }),
+    },
     // Автор с `materials:manage` читает закрытый материал независимо от своего основания.
-    ...cells("author", {
-      ...(Object.fromEntries(accessGrounds.map((ground) => [ground, open("permission")])) as Record<AccessGround, AccessExpectation>),
+    "author": {
+      ...everyGround(open("permission")),
       "guest": notApplicable("Автор — это Account с разрешением; у гостя его нет"),
-    }),
+    },
     // MCP читает материал только для Account с `materials:manage`; право читателя его не открывает.
-    ...cells("mcp", {
-      ...(Object.fromEntries(accessGrounds.map((ground) => [ground, closed])) as Record<AccessGround, AccessExpectation>),
+    "mcp": {
+      ...everyGround(closed),
       "guest": notApplicable("MCP принимает только делегированный токен Account"),
-    }),
-  } satisfies Record<AccessCellId, AccessExpectation>,
+    },
+  } satisfies Record<AccessSurface, ByGround>,
   transitions: {
     "expiry": {
       rule: "Истёк срок основания: материалы, артефакты, видео и чат этого основания закрываются, другие основания не затрагиваются.",

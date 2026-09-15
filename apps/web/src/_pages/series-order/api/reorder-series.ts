@@ -3,6 +3,7 @@ import "server-only";
 import { z } from "zod";
 
 import { guideChapterDraftSchema, type ReorderSeriesResult } from "@/features/series-order";
+import { guideRemovalsFromProblem } from "@/shared/lib/guide-removal";
 import {
   requestSeriesReorder,
   type BackendTransportResult,
@@ -50,10 +51,16 @@ export async function executeReorderSeries(
     "chapterAssignments",
     z.record(z.uuid(), z.uuid()),
   );
+  const confirmedGuideRemovals = readJsonField(
+    formData,
+    "confirmedGuideRemovals",
+    z.array(z.uuid()).min(1).max(100),
+  );
   if (
     stepGroups === invalidField ||
     chapters === invalidField ||
-    chapterAssignments === invalidField
+    chapterAssignments === invalidField ||
+    confirmedGuideRemovals === invalidField
   ) {
     return { kind: "error", reference: "series-order-form" };
   }
@@ -67,6 +74,7 @@ export async function executeReorderSeries(
         ...(stepGroups === undefined ? {} : { stepGroups }),
         ...(chapters === undefined ? {} : { chapters }),
         ...(chapterAssignments === undefined ? {} : { chapterAssignments }),
+        ...(confirmedGuideRemovals === undefined ? {} : { confirmedGuideRemovals }),
         seriesId: parsed.data.seriesId,
       },
       accessToken,
@@ -78,7 +86,12 @@ export async function executeReorderSeries(
     if (result.response.status === 401 || result.response.status === 403) {
       return { kind: "unauthorized" };
     }
-    if (result.response.status === 409) return { kind: "conflict" };
+    if (result.response.status === 409) {
+      const removals = guideRemovalsFromProblem(result.problem);
+      return removals === null
+        ? { kind: "conflict" }
+        : { guides: removals, kind: "removal_confirmation_required" };
+    }
     return { kind: "error", reference: "series-order-save" };
   }
   const receipt = receiptSchema.safeParse(result.body);

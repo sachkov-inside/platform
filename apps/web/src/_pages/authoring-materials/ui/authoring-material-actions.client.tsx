@@ -103,6 +103,8 @@ function PublicationNotice({
   readonly result: TransitionMaterialPublicationResult | null;
 }) {
   if (result === null) return null;
+  const removalNeedsEditor =
+    result.kind === "conflict" && result.reason === "guide_removal_confirmation_required";
   if (result.kind === "saved") {
     return (
       <span className="sr-only" role="status">
@@ -119,7 +121,9 @@ function PublicationNotice({
         ? "У аккаунта больше нет права управлять материалами."
         : result.kind === "not_found"
           ? "Материал больше не найден. Обновите список."
-          : result.kind === "conflict"
+          : removalNeedsEditor
+            ? "Материал входит в купленный продукт. Снять его можно в редакторе, подтвердив снятие."
+            : result.kind === "conflict"
             ? "Материал изменился в другой сессии. Обновите список."
             : result.kind === "invalid_input"
               ? "Материал пока нельзя опубликовать."
@@ -132,12 +136,12 @@ function PublicationNotice({
       role="alert"
     >
       <p>{message}</p>
-      {result.kind === "invalid_input" ? (
+      {result.kind === "invalid_input" || removalNeedsEditor ? (
         <Link
           className="mt-2 inline-block font-semibold underline underline-offset-4"
           href={editorHref}
         >
-          Исправить в редакторе
+          {removalNeedsEditor ? "Открыть в редакторе" : "Исправить в редакторе"}
         </Link>
       ) : null}
     </div>

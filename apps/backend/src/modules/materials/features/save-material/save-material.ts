@@ -43,6 +43,11 @@ import { allocateMaterialSlug } from "../../infrastructure/postgres/material-slu
 import { replaceCurrentRelations } from "../../infrastructure/postgres/current-material.js";
 import { lockMaterialSeries } from "../../infrastructure/postgres/series-order.js";
 import { refreshPublishedMaterialSearchProjections } from "../../infrastructure/postgres/published-material-search.js";
+import {
+  heldGuideRemovals,
+  recordGuideRemovals,
+  unconfirmedGuideRemovals,
+} from "../../shared/guide-removal-confirmation.js";
 
 const saveMaterialCommand = z
   .object({
@@ -55,6 +60,7 @@ const saveMaterialCommand = z
     deleteVideoId: z.uuid().nullable().optional().default(null),
     metadata: z.unknown(),
     body: z.unknown(),
+    confirmedGuideRemovals: z.array(z.uuid()).max(100).optional().default([]),
   })
   .strict();
 
@@ -107,6 +113,7 @@ export function assembleSaveMaterial(
       body: body.value,
       primaryVideoId: command.primaryVideoId,
       deleteVideoId: command.deleteVideoId,
+      confirmedGuideRemovals: [...command.confirmedGuideRemovals].sort(),
     });
     let materializedMetadata: MaterialMetadata | undefined;
     const result = await executeAuthoringTransaction<
@@ -249,6 +256,29 @@ export function assembleSaveMaterial(
                 });
               }
             }
+
+            // Опубликованный материал уходит из руководства, где у кого-то есть право, только
+            // подтверждённым снятием: иначе купившие молча потеряли бы часть продукта.
+            const previousGuideIds = (await transaction.publishedMaterialGuideMembership.findMany({
+              where: { materialId: command.materialId },
+              select: { seriesId: true },
+            })).map(({ seriesId }) => seriesId);
+            const nextGuideIds = next.value.publicationState === "published" ? selectedValues.seriesIds : [];
+            const heldRemovals = await heldGuideRemovals(
+              transaction,
+              dependencies.guideAccessHolders,
+              previousGuideIds.filter((guideId) => !nextGuideIds.includes(guideId)),
+            );
+            const unconfirmed = unconfirmedGuideRemovals(heldRemovals, command.confirmedGuideRemovals);
+            if (unconfirmed.length > 0) {
+              return rollback({ code: "guide_removal_confirmation_required", guides: unconfirmed });
+            }
+            await recordGuideRemovals(transaction, {
+              actor: command.actor,
+              operation: "material_save",
+              removals: heldRemovals.map((guide) => ({ guide, materialId: command.materialId })),
+              removedAt: savedAt,
+            });
 
             const entersPublished =
               locked.lifecycle.publicationState !== "published" &&
