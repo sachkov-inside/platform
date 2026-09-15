@@ -1,6 +1,8 @@
 import type { UseQueryOptions } from "@tanstack/react-query";
 import { z } from "zod";
 
+import { guideRemovalSchema } from "@/shared/lib/guide-removal";
+
 export interface GuideChapterPresentation {
   readonly id: string;
   readonly name: string;
@@ -69,6 +71,8 @@ export type CreateSeriesOrderMaterialSearchQueryOptions = (input: {
 export interface ReorderSeriesInput {
   readonly chapters?: readonly GuideChapterPresentation[];
   readonly chapterAssignments?: Readonly<Record<string, string>>;
+  /** Купленный продукт, снятие материалов из которого автор подтвердил. */
+  readonly confirmedGuideRemovals?: readonly string[];
   readonly expectedOrderVersion: string;
   readonly orderedMaterialIds: readonly string[];
   readonly stepGroups?: Readonly<Record<string, string>>;
@@ -87,4 +91,10 @@ export const reorderSeriesResultSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("conflict") }).strict(),
   z.object({ kind: z.literal("unauthorized") }).strict(),
   z.object({ kind: z.literal("error"), reference: z.string() }).strict(),
+  z
+    .object({
+      guides: z.array(guideRemovalSchema).min(1).readonly(),
+      kind: z.literal("removal_confirmation_required"),
+    })
+    .strict(),
 ]);

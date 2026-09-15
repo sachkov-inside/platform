@@ -75,7 +75,7 @@ describe("Billing pricing HTTP", () => {
     const token = await signToken();
     const headers = { authorization: `Bearer ${token}` };
     const offerId = randomUUID(); const optionId = randomUUID();
-    const command = { operation: "offers.save", operationId: randomUUID(), value: { id: offerId, name: "Inside", benefits: ["materials"] } };
+    const command = { operation: "offers.save", operationId: randomUUID(), value: { id: offerId, name: "Inside", benefits: ["materials"], contentScope: { guideIds: [randomUUID()], materialIds: [] } } };
     expect((await server.inject({ method: "GET", url: "/billing/offers" })).json()).toEqual({ items: [], nextCursor: null });
     expect((await server.inject({ method: "POST", url: "/billing/admin", payload: command })).statusCode).toBe(401);
     expect((await server.inject({ method: "POST", url: "/accounts/current/billing/quote", payload: {} })).statusCode).toBe(401);
@@ -108,7 +108,7 @@ describe("Billing pricing HTTP", () => {
 
     // Второй вариант включается отдельно: сначала продан только первый, затем оба.
     const secondOfferId = randomUUID(); const secondOptionId = randomUUID();
-    await server.inject({ method: "POST", url: "/billing/admin", headers, payload: { operation: "offers.save", operationId: randomUUID(), value: { id: secondOfferId, name: "Сопровождение", benefits: ["support"] } } });
+    await server.inject({ method: "POST", url: "/billing/admin", headers, payload: { operation: "offers.save", operationId: randomUUID(), value: { id: secondOfferId, name: "Сопровождение", benefits: ["support"], contentScope: { guideIds: [randomUUID()], materialIds: [] } } } });
     await server.inject({ method: "POST", url: "/billing/admin", headers, payload: { operation: "paymentOptions.save", operationId: randomUUID(), value: { id: secondOptionId, offerId: secondOfferId, months: 1, priceKopecks: 350_000 } } });
     const one = await server.inject({ method: "GET", url: "/billing/offers?limit=100" });
     expect(one.json<{ items: readonly unknown[] }>().items).toHaveLength(1);
@@ -138,7 +138,7 @@ describe("Billing pricing HTTP", () => {
     expect(missing.statusCode).toBe(404);
     expect(missing.headers["content-type"]).toContain("application/problem+json");
     expect(missing.json()).toMatchObject({ code: "not_found" });
-    const decision = { operation: "refunds.decide", operationId: randomUUID(), purchaseRef: randomUUID(), amountKopecks: 0, access: "keep", recurring: "keep", reason: "Недопустимая сумма" };
+    const decision = { operation: "refunds.decide", operationId: randomUUID(), purchaseRef: randomUUID(), amountKopecks: 0, basis: "compensation", recurring: "keep", reason: "Недопустимая сумма" };
     expect((await server.inject({ method: "POST", url: "/billing/admin", headers, payload: decision })).statusCode).toBe(400);
     const grant = { operation: "grants.revoke", operationId: randomUUID(), grantRef: randomUUID(), expectedRevision: 1, reason: "Неизвестное основание" };
     expect((await server.inject({ method: "POST", url: "/billing/admin", headers, payload: grant })).statusCode).toBe(404);

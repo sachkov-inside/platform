@@ -32,6 +32,8 @@ import { authoringPageEnvironment, routeContent } from "./story-environment";
 
 const noopActions = {
   onBack: fn(),
+  onCancelGuideRemoval: fn(),
+  onConfirmGuideRemoval: fn(),
   onConflictAction: fn(),
   onDocumentChange: fn(),
   onDelete: fn(),
@@ -84,6 +86,18 @@ function MaterialAuthoringFixture({
 
   const actions = {
     onBack: noopActions.onBack,
+    onCancelGuideRemoval: () => {
+      noopActions.onCancelGuideRemoval();
+      setPresentation((current) => ({ ...current, removalConfirmation: null }));
+    },
+    onConfirmGuideRemoval: () => {
+      noopActions.onConfirmGuideRemoval();
+      setPresentation((current) => ({
+        ...current,
+        removalConfirmation: null,
+        save: { kind: "saved", savedAtLabel: "сейчас" },
+      }));
+    },
     onConflictAction: (action) => {
       noopActions.onConflictAction(action);
     },
@@ -558,6 +572,58 @@ export const DeleteDraftConfirmation: Story = {
       within(dialog).getByRole("button", { name: "Оставить черновик" }),
     );
     await expect(dialog).not.toBeVisible();
+  },
+};
+
+const guideRemovalPresentation: MaterialAuthoringPresentation = {
+  ...materialAuthoringPresentation,
+  removalConfirmation: {
+    guides: [
+      {
+        guideId: "96000000-0000-4000-8000-000000000020",
+        holders: 12,
+        name: "Создание Platform Inside",
+      },
+    ],
+    pending: false,
+  },
+};
+
+export const GuideRemovalConfirmation: Story = {
+  name: "Подтверждение снятия из купленного продукта",
+  args: { presentation: guideRemovalPresentation },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    const dialog = await page.findByRole("dialog", {
+      name: "Снять материал из купленного продукта?",
+    });
+    await expect(dialog).toBeVisible();
+    await expect(within(dialog).getByText("«Создание Platform Inside»")).toBeVisible();
+    await expect(within(dialog).getByText("доступ у 12 человек")).toBeVisible();
+    await expect(
+      within(dialog).getByRole("button", { name: "Снять из продукта" }),
+    ).toBeEnabled();
+    await expect(
+      within(dialog).getByRole("button", { name: "Оставить в продукте" }),
+    ).toBeEnabled();
+  },
+};
+
+export const GuideRemovalCancelled: Story = {
+  name: "Снятие из купленного продукта отменено",
+  args: { presentation: guideRemovalPresentation },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement.ownerDocument.body);
+    const dialog = await page.findByRole("dialog", {
+      name: "Снять материал из купленного продукта?",
+    });
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Оставить в продукте" }),
+    );
+    await expect(noopActions.onCancelGuideRemoval).toHaveBeenCalled();
+    await expect(
+      page.queryByRole("dialog", { name: "Снять материал из купленного продукта?" }),
+    ).toBeNull();
   },
 };
 

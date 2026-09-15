@@ -1,3 +1,6 @@
+import { name as refundBasisName, statement as refundBasisStatement } from "../modules/billing/infrastructure/postgres/migrations/0066-refund-basis.js";
+import { name as starterTierAccessName, statement as starterTierAccessStatement } from "../modules/membership-entitlements/infrastructure/postgres/migrations/0067-starter-tier-access.js";
+import { name as guideMaterialRemovalsName, statement as guideMaterialRemovalsStatement } from "../modules/materials/infrastructure/postgres/migrations/0065-guide-material-removals.js";
 import { name as tributeName, statement as tributeStatement } from "../modules/membership-entitlements/infrastructure/postgres/migrations/0064-tribute-sources.js";
 import { name as enrollmentName, statement as enrollmentStatement } from "../modules/membership-entitlements/infrastructure/postgres/migrations/0063-subscription-enrollments.js";
 import { name as readerGuideModeName, statement as readerGuideModeStatement } from "../modules/reading-activity/infrastructure/postgres/migrations/0062-reader-guide-mode.js";
@@ -342,6 +345,9 @@ export const platformMigrations = [
   { name: readerGuideModeName, statement: readerGuideModeStatement },
   { name: enrollmentName, statement: enrollmentStatement },
   { name: tributeName, statement: tributeStatement },
+  { name: guideMaterialRemovalsName, statement: guideMaterialRemovalsStatement },
+  { name: refundBasisName, statement: refundBasisStatement },
+  { name: starterTierAccessName, statement: starterTierAccessStatement },
 ] as const;
 
 export function migrateToLatest(

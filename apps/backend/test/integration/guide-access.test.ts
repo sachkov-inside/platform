@@ -69,8 +69,11 @@ describe("independent guide, library, support and shared chat rights", () => {
     expect(await access.authorize(forged)).toMatchObject({ effect: "deny" });
     expect(await access.checkAvailabilityMany({ ...context, subject, operations: [{ itemId: "A", action: "read", resource: { kind: "material", materialId: a } }, { itemId: "B", action: "read", resource: { kind: "material", materialId: b } }] })).toMatchObject({ ok: true, items: [{ availability: "available" }, { availability: "locked" }] });
     expect(await membership.resolveForAccess(accountId(buyer))).toEqual({ kind: "required" });
-    // A library subscription expires independently of a lifetime guide grant.
-    await grant(["materials"], "2030-02-01T00:00:00Z");
+    // A library subscription expires independently of a lifetime guide grant. Materials come from a paid
+    // period or a tier, never from a direct grant.
+    const library = await grants.applyPaidPeriod({ eventRef: randomUUID(), periodRef: randomUUID(), accountId: buyer, revision: 1, revoked: false,
+      terms: { capabilities: ["materials"], contentScope: { guideIds: [guideA, guideB], materialIds: [] }, startsAt: "2030-01-01T00:00:00Z", validUntil: "2030-02-01T00:00:00Z", reason: "Controlled library subscription" } });
+    if (!library.ok) throw new Error("Library period fixture failed");
     expect(await access.authorize({ ...context, subject, action: "read", resource: { kind: "material", materialId: b } })).toMatchObject({ effect: "allow" });
     now = new Date("2030-02-02T00:00:00Z");
     expect(await access.authorize({ ...context, subject, action: "read", resource: { kind: "material", materialId: b } })).toMatchObject({ effect: "deny" });

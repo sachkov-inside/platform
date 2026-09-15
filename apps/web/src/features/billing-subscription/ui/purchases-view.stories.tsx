@@ -61,8 +61,8 @@ export const NoSubscription: Story = {
   args: { subscription: null, notices: [], payments: [] },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    // Купленное руководство и ручная выдача остаются бессрочными без подписки.
-    await expect(canvas.getAllByText("бессрочно").length).toBe(2);
+    // Купленное руководство и ручная выдача действуют без даты окончания и без подписки.
+    await expect(canvas.getAllByText("без даты окончания").length).toBe(2);
     await expect(canvas.getAllByText("Оплаченный доступ").length).toBe(2);
     await expect(
       canvas.getByText("Карта сохраняется при оформлении подписки."),

@@ -11,6 +11,7 @@ import {
 import { loadPublishedSeries } from "@/features/library-discovery.server";
 import { GuideModeProvider, defaultGuideMode } from "@/shared/guide-mode";
 import { loadMaterialReader } from "../api/load-material-reader";
+import { soleSoldGuide } from "../model/purchase-guide";
 import { resolveSeriesReaderContext } from "../model/series-reader-context";
 import {
   homeMaterialReaderReturnTarget,
@@ -63,20 +64,19 @@ export async function MaterialReaderPage({
       : returnTarget;
   if (result.kind === "access") {
     // Руководство, которым человек занят, важнее тарифов: если у него есть своя цена, дальше
-    // идёт его оплата. Иначе человек попадает на витрину и возвращается к этому же материалу.
-    // Материал может входить в несколько руководств, поэтому без пути захода продаётся только
-    // единственное: наугад выбранное руководство открыло бы человеку не то, за чем он пришёл.
-    const memberships = result.material.seriesMemberships;
-    const guideSlug =
-      returnTarget.kind === "series"
-        ? returnTarget.seriesSlug
-        : memberships.length === 1
-          ? memberships[0]?.series.slug
-          : undefined;
+    // идёт его оплата. Без пути захода призыв ведёт к единственному продаваемому продукту среди
+    // продуктов материала: наугад выбранное руководство открыло бы человеку не то, за чем он пришёл.
+    const returnGuideSlug =
+      returnTarget.kind === "series" ? returnTarget.seriesSlug : undefined;
+    const purchaseGuide =
+      returnGuideSlug !== undefined
+        ? { slug: returnGuideSlug, sold: await guideIsSold(returnGuideSlug, accessToken) }
+        : await soleSoldMembership(
+            result.material.seriesMemberships.map(({ series }) => series.slug),
+            accessToken,
+          );
     const invitation = purchaseInvitation({
-      ...(guideSlug === undefined
-        ? {}
-        : { guide: { slug: guideSlug, sold: await guideIsSold(guideSlug, accessToken) } }),
+      ...(purchaseGuide === undefined ? {} : { guide: purchaseGuide }),
       from: currentMaterialHref(slug, effectiveReturnTarget),
       subscriptionOffered: result.subscriptionOffered,
     });
@@ -131,6 +131,18 @@ export async function MaterialReaderPage({
     </GuideModeProvider>
     </VisibleMaterialOpen>
   );
+}
+
+/** Единственное продаваемое руководство материала, если такое есть. */
+async function soleSoldMembership(
+  slugs: readonly string[],
+  accessToken?: string,
+): Promise<{ readonly slug: string; readonly sold: true } | undefined> {
+  const guides = await Promise.all(
+    slugs.map(async (slug) => ({ slug, sold: await guideIsSold(slug, accessToken) })),
+  );
+  const slug = soleSoldGuide(guides);
+  return slug === undefined ? undefined : { slug, sold: true };
 }
 
 /** Руководство продаётся, только когда владелец завёл ему цену; сбой каталога её не выдумывает. */

@@ -47,6 +47,7 @@ for (const access of ["public", "membership"] as const) {
     if (access === "membership") {
       await page.getByRole("combobox", { name: "Доступ" }).click();
       await page.getByRole("option", { name: "Для участников" }).click();
+      await placeInSeededProduct(page);
     }
     await expect(page).toHaveURL(currentMaterialEditorUrl);
     await waitMaterialSaved(page);
@@ -95,12 +96,12 @@ for (const access of ["public", "membership"] as const) {
     ).toBeVisible({ timeout: 15_000 });
 
     if (access === "membership") {
-      // The saved legacy cohort excludes future products. Assign this material explicitly through owner operations.
-      const materialId = new URL(page.url()).pathname.split("/").at(-1);
+      // The member's bridge already opens every product; this all-products tier keeps the scenario independent
+      // of the short bridge evidence lifetime. It does not prove the tier path on its own.
       const tierId = crypto.randomUUID();
       const saved = await fullStackBrowserRequest(page, "/api/authoring/billing/offers/save", "POST", { input: JSON.stringify({
         operationId: crypto.randomUUID(), value: { id: tierId, name: `Media acceptance ${suffix}`, benefits: ["materials"],
-          availableForAssignment: true, contentScope: { guideIds: [], materialIds: [materialId] } } }) });
+          availableForAssignment: true, contentScope: { guideIds: [], materialIds: [], allGuides: true } } }) });
       expect(await saved.json()).toMatchObject({ ok: true });
       const assigned = await fullStackBrowserRequest(page, "/api/authoring/billing/enrollments/assign", "POST", { input: JSON.stringify({
         operationId: crypto.randomUUID(), accountId: recipientAccountId, origin: "manual", sourceRef: `media-proof-${suffix}`,
@@ -623,7 +624,7 @@ test("explicitly requests deletion of a Platform-uploaded Video through autosave
   await captureVideoDeletionEvidence(page, testInfo, "requested");
 });
 
-test("member primary Video denies anonymous and out-of-scope legacy access while authorizing its owner", async ({
+test("member primary Video denies anonymous and non-member access while authorizing its owner", async ({
   context,
   page,
   request,
@@ -637,6 +638,7 @@ test("member primary Video denies anonymous and out-of-scope legacy access while
   await fillPublishableDraft(page, title);
   await page.getByRole("combobox", { name: "Доступ" }).click();
   await page.getByRole("option", { name: "Для участников" }).click();
+  await placeInSeededProduct(page);
   await expect(page).toHaveURL(currentMaterialEditorUrl);
   await waitMaterialSaved(page);
   await expect(page).toHaveURL(currentMaterialEditorUrl);
@@ -676,16 +678,16 @@ test("member primary Video denies anonymous and out-of-scope legacy access while
     },
   );
   expect(anonymousSession.status()).toBe(403);
-  await signInFullStack(context, "MEMBER");
-  const memberSession = await page.request.post(
+  await signInFullStack(context, "NON_MEMBER");
+  const nonMemberSession = await page.request.post(
     "/api/material-video-playback-sessions",
     {
       headers: { origin: new URL(page.url()).origin },
       multipart: { materialId, videoId },
     },
   );
-  // The legacy snapshot predates this new product; membership alone cannot open its video.
-  expect(memberSession.status()).toBe(403);
+  // An Account without a tier, a product or the bridge cannot open the product video.
+  expect(nonMemberSession.status()).toBe(403);
   await signInFullStack(context, "OWNER");
   const ownerSession = await page.request.post("/api/material-video-playback-sessions", {
     headers: { origin: new URL(page.url()).origin }, multipart: { materialId, videoId },
@@ -836,6 +838,7 @@ test("member Material hides bytes from anonymous access and issues only a protec
   await fillPublishableDraft(page, title);
   await page.getByRole("combobox", { name: "Доступ" }).click();
   await page.getByRole("option", { name: "Для участников" }).click();
+  await placeInSeededProduct(page);
   await expect(page).toHaveURL(currentMaterialEditorUrl);
   await waitMaterialSaved(page);
   await expect(page).toHaveURL(currentMaterialEditorUrl);
@@ -1486,6 +1489,13 @@ async function fillPublishableDraft(page: Page, title: string) {
   await page
     .getByRole("textbox", { name: "Содержимое материала" })
     .fill("Текущее сохранённое содержимое из PostgreSQL.");
+}
+
+/** Закрытый материал публикуется только внутри продукта: черновик попадает в засеянный продукт. */
+async function placeInSeededProduct(page: Page) {
+  await page
+    .getByRole("checkbox", { name: "Создание Platform Inside", exact: true })
+    .check();
 }
 
 async function dispatchFileEvent(

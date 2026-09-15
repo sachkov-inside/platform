@@ -21,11 +21,14 @@ describe("Bookmarks on PostgreSQL", () => {
   let bookmarks: Bookmarks;
   let materials: ReturnType<typeof assembleMaterials>;
   let membership: ReturnType<typeof assembleLegacyCohortFixture>;
+  const closedGuideId = randomUUID();
 
   beforeAll(async () => {
     database = await createMigratedTestDatabase();
     second = createPrismaClient(database.url);
     await database.prisma.topic.create({ data: { id: topicId, name: "Bookmarks", slug: "bookmarks" } });
+    // Закрытый материал публикуется только внутри продукта; доступ здесь даёт явный состав моста.
+    await database.prisma.guide.create({ data: { id: closedGuideId, slug: `bookmarks-${closedGuideId}`, name: "Bookmarks closed guide" } });
     materials = assembleMaterials({ prisma: database.prisma, authorPolicy: { canManage: (id) => id === actor } });
     membership = assembleLegacyCohortFixture({
       prisma: database.prisma,
@@ -51,7 +54,7 @@ describe("Bookmarks on PostgreSQL", () => {
   async function material(access: "free" | "membership" = "free") {
     const created = await materials.authoring.createDraft({
       actor, idempotencyKey: randomUUID(),
-      metadata: { title: `Material ${randomUUID()}`, summary: "Bookmark test", topicId, formatId, access, tagIds: [], difficulty: null, outcomes: [], seriesIds: [] },
+      metadata: { title: `Material ${randomUUID()}`, summary: "Bookmark test", topicId, formatId, access, tagIds: [], difficulty: null, outcomes: [], seriesIds: access === "membership" ? [closedGuideId] : [] },
       body: representativeDocument("Bookmark me."),
     });
     if (!created.ok) throw new Error(created.error.code);

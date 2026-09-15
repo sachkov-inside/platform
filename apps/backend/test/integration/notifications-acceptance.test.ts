@@ -389,8 +389,8 @@ describe("приёмка обоих источников Notifications (реал
     const buyerAccount = await member();
     const guideId = await guideCollection();
     const subscription = await offer({ name: "Подписка «Материалы»", benefits: ["materials"], priceKopecks: 100_000 });
-    const guideOffer = await offer({ name: "Руководство «Приёмка»", benefits: [`guide:${guideId}`],
-      mode: "one_time", priceKopecks: 290_000, benefitPeriods: [{ capability: `guide:${guideId}`, months: null }] });
+    const guideOffer = await offer({ name: "Руководство «Приёмка»", benefits: [`guide:${guideId}`, "support"],
+      mode: "one_time", priceKopecks: 290_000, benefitPeriods: [{ capability: `guide:${guideId}`, months: null }, { capability: "support", months: 6 }] });
 
     await buy(subscriber, subscription, { recurring: true });
     await buy(buyerAccount, guideOffer);
@@ -451,8 +451,8 @@ describe("приёмка обоих источников Notifications (реал
 
   test("аудитория первой публикации считает действующие права, и один Account получает одно событие", async () => {
     const guideId = await guideCollection();
-    const guideOffer = await offer({ name: `Руководство ${randomUUID()}`, benefits: [`guide:${guideId}`],
-      mode: "one_time", priceKopecks: 190_000, benefitPeriods: [{ capability: `guide:${guideId}`, months: null }] });
+    const guideOffer = await offer({ name: `Руководство ${randomUUID()}`, benefits: [`guide:${guideId}`, "support"],
+      mode: "one_time", priceKopecks: 190_000, benefitPeriods: [{ capability: `guide:${guideId}`, months: null }, { capability: "support", months: 6 }] });
     const libraryOffer = await offer({ name: `Подписка ${randomUUID()}`, benefits: ["materials"], priceKopecks: 100_000 });
 
     const libraryOnly = await member();
@@ -494,7 +494,7 @@ describe("приёмка обоих источников Notifications (реал
     const preview = success(await operations.execute(owner, {
       operation: "grants.previewBatch", operationId: randomUUID(),
       rows: [{ rowKey: "acceptance", accountId: granted, source: "manual", sourceRef: randomUUID(),
-        terms: { capabilities: ["materials"], startsAt: new Date().toISOString(), validUntil: null,
+        terms: { capabilities: ["support"], startsAt: new Date().toISOString(), validUntil: null,
           reason: "Синтетическая выдача приёмки" } }],
     }));
     if (preview.outcome !== "grantPreview") throw new Error(`Unexpected outcome ${preview.outcome}`);

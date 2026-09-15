@@ -56,11 +56,12 @@ describe("published Material HTTP contract", () => {
         access: "membership",
       },
     });
-    // Локальный seed включает каталог в продажу, поэтому закрытый материал сообщает только, что
-    // подписка продаётся: строгое сравнение не пропустит в ответ адрес покупки.
+    // Локальный seed продаёт только руководство, а подписку не продаёт: разовое предложение
+    // продукта признак продажи подписки не включает (#648). Строгое сравнение не пропустит в ответ
+    // адрес покупки.
     expect(response.json<{ access: object }>().access).toStrictEqual({
       availability: "locked",
-      subscriptionOffered: true,
+      subscriptionOffered: false,
     });
     expect(response.body).not.toContain("schemaVersion");
     expect(response.body).not.toContain("blocks");
@@ -187,7 +188,7 @@ describe("published Material HTTP contract", () => {
     const home = response.json<{
       readonly guides: readonly { readonly slug: string }[];
       readonly notes: readonly { readonly slug: string }[];
-      readonly membership: { readonly kind: "inactive" };
+      readonly membership: { readonly kind: "notOffered" };
       readonly playlists: readonly {
         readonly previewItems: readonly unknown[];
         readonly slug: string;
@@ -199,9 +200,10 @@ describe("published Material HTTP contract", () => {
       }[];
     }>();
     expect(home.topics.map(({ slug }) => slug)).toContain("platform");
-    // Локальный seed включает каталог в продажу, поэтому подписка предлагается. Строгое сравнение
-    // проверяет, что ответ несёт только состояние, без адреса покупки.
-    expect(home.membership).toStrictEqual({ kind: "inactive" });
+    // Локальный seed продаёт только руководство: разовое предложение продукта не делает подписку
+    // продаваемой (#648), поэтому главная к подписке не зовёт. Строгое сравнение проверяет, что
+    // ответ несёт только состояние, без адреса покупки.
+    expect(home.membership).toStrictEqual({ kind: "notOffered" });
     expect(home.playlists).toHaveLength(4);
     expect(home.playlists.map(({ slug }) => slug)).toContain("demo-progress-series");
     expect(home.playlists[0]?.previewItems).toBeInstanceOf(Array);
@@ -483,7 +485,7 @@ describe("published Material HTTP contract", () => {
     const offerId = randomUUID();
     const optionId = randomUUID();
     await testDatabase.prisma.billingOffer.create({
-      data: { id: offerId, revision: 1, name: "Материалы", benefits: ["materials"], published: true },
+      data: { id: offerId, revision: 1, name: "Материалы", benefits: ["materials"], contentScope: { guideIds: [randomUUID()], materialIds: [] }, published: true },
     });
     await testDatabase.prisma.billingPaymentOption.create({
       data: { id: optionId, revision: 1, offerId, months: 1, priceKopecks: 100_000 },

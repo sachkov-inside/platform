@@ -2,6 +2,7 @@ import { lockTelegramAccountBinding } from "../../../../infrastructure/prisma/in
 import type { BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { ownSubscriptionAccessQuerySchema, activationEvidenceSchema, type AccessGrants, type ActivationBindings } from "../../../membership-entitlements/index.js";
 import { lockPricing } from "../../infrastructure/postgres/catalog-lock.js";
+import { tierOpenForAssignment } from "../../shared/tier-composition.js";
 import { bindingLookupQuerySchema, bindingSnapshotSchema } from "../../../membership-entitlements/index.js";
 import type { TelegramAccountLinks } from "../../../telegram-membership/index.js";
 export class SubscriptionActivation {
@@ -58,7 +59,7 @@ export class SubscriptionActivation {
     return this.dependencies.prisma.$transaction(async tx => {
       await lockPricing(tx);
       const row = await tx.billingOffer.findUnique({ where: { id: rule.tierId } });
-      if (row === null || row.archived || !row.availableForAssignment) return { ok: false as const, error: { code: "not_found" as const } };
+      if (row === null || !tierOpenForAssignment(row)) return { ok: false as const, error: { code: "not_found" as const } };
       if (row.revision !== rule.tierRevision) return { ok: false as const, error: { code: "revision_conflict" as const } };
       return this.dependencies.grants.activateSubscription(this.dependencies.bindings, parsed.data, {
         id: row.id, revision: row.revision, name: row.name, benefits: row.benefits, contentScope: row.contentScope,

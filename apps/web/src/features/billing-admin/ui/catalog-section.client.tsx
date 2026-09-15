@@ -161,7 +161,7 @@ export function CatalogSection({
                 name: formText(form.get("offerName")),
                 benefits: [...parsed.capabilities],
                 availableForAssignment: form.get("offerAssignable") === "on",
-                contentScope: { guideIds: form.getAll("offerGuides").map(formText), materialIds: form.getAll("offerMaterials").map(formText) },
+                contentScope: form.get("offerAllGuides") === "on" ? { guideIds: [], materialIds: [], allGuides: true } : { guideIds: form.getAll("offerGuides").map(formText), materialIds: [] },
                 ...(parsed.periods.length === 0
                   ? {}
                   : { benefitPeriods: [...parsed.periods] }),
@@ -195,10 +195,12 @@ export function CatalogSection({
           />
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="offerAssignable" defaultChecked={editing?.availableForAssignment} /> Доступен для назначения</label>
           {catalogError !== undefined ? <p role="alert">{catalogError}</p> : null}
-          <fieldset className="grid max-h-80 gap-2 overflow-y-auto rounded-xl border border-border p-4"><legend className="px-2 text-sm">Точный состав тарифа</legend>
-            {catalogLoading ? <p role="status">Загружаем каталог…</p> : content.map(item => <label className="flex items-start gap-2 text-sm" key={`${item.kind}:${item.id}`}><input type="checkbox" name={item.kind === "guide" ? "offerGuides" : "offerMaterials"} value={item.id} defaultChecked={editing === undefined ? false : (item.kind === "guide" ? editing.tier.contentScope.guideIds : editing.tier.contentScope.materialIds).includes(item.id)} /><span>{item.kind === "guide" ? "Продукт" : "Материал"}: {item.title}{item.available ? "" : " · не опубликован"}</span></label>)}
+          <fieldset className="grid max-h-80 gap-2 overflow-y-auto rounded-xl border border-border p-4"><legend className="px-2 text-sm">Продукты тарифа</legend>
+            <label className="flex items-start gap-2 text-sm font-semibold"><input type="checkbox" name="offerAllGuides" defaultChecked={editing?.tier.contentScope.allGuides === true} /><span>Все продукты платформы, включая новые</span></label>
+            {catalogLoading ? <p role="status">Загружаем каталог…</p> : content.filter(item => item.kind === "guide").map(item => <label className="flex items-start gap-2 text-sm" key={item.id}><input type="checkbox" name="offerGuides" value={item.id} defaultChecked={editing?.tier.contentScope.guideIds.includes(item.id) ?? false} /><span>Продукт: {item.title}{item.available ? "" : " · не опубликован"}</span></label>)}
           </fieldset>
-          <p className="text-sm text-muted-foreground">Новые шаги выбранного продукта входят в состав. Новый отдельный продукт или материал нужно добавить явно.</p>
+          {editing !== undefined && editing.tier.contentScope.materialIds.length > 0 ? <p className="text-sm text-destructive" role="note">В составе этой редакции есть отдельные материалы: {editing.tier.contentScope.materialIds.length}. Отдельный материал в тариф не входит, и новая редакция их не сохранит. Действующие назначения сохраняют свой снимок.</p> : null}
+          <p className="text-sm text-muted-foreground">Новые материалы выбранного продукта входят в состав сами. Новый продукт входит сам только в состав «Все продукты платформы», иначе его добавляют явно. Отдельный материал в тариф не входит.</p>
           <AdminField
             hint="Пусто — создание нового предложения."
             inputMode="numeric"

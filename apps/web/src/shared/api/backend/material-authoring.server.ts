@@ -176,6 +176,7 @@ export function requestCurrentMaterial(
 export function requestMaterialSave(
   input: {
     readonly access: "free" | "membership";
+    readonly confirmedGuideRemovals?: readonly string[];
     readonly deleteVideoId: string | null;
     readonly difficulty: MaterialDifficulty | null;
     readonly document: Record<string, unknown>;
@@ -216,6 +217,9 @@ export function requestMaterialSave(
           },
           publicationState: input.publicationState,
           primaryVideoId: input.primaryVideoId,
+          ...(input.confirmedGuideRemovals === undefined
+            ? {}
+            : { confirmedGuideRemovals: [...input.confirmedGuideRemovals] }),
         },
       }),
     200,
@@ -304,6 +308,7 @@ export function requestSeriesReorder(
       readonly summary: string;
     }[];
     readonly chapterAssignments?: Readonly<Record<string, string>>;
+    readonly confirmedGuideRemovals?: readonly string[];
     readonly expectedOrderVersion: string;
     readonly orderedMaterialIds: readonly string[];
     readonly stepGroups?: Readonly<Record<string, string>>;
@@ -327,6 +332,9 @@ export function requestSeriesReorder(
           ...(input.chapterAssignments === undefined
             ? {}
             : { chapterAssignments: { ...input.chapterAssignments } }),
+          ...(input.confirmedGuideRemovals === undefined
+            ? {}
+            : { confirmedGuideRemovals: [...input.confirmedGuideRemovals] }),
         },
       }),
     200,

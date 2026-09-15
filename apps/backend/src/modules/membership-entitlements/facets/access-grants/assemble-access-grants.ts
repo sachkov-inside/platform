@@ -1,6 +1,7 @@
 import { tributeStateSchema } from "../../domain/tribute-source.js";
 import type { TelegramAccountLinks } from "../../../telegram-membership/index.js";
-import { contentScopeSchema } from "@inside/access-capabilities";
+import { contentScopeSchema, guideCapability } from "@inside/access-capabilities";
+import { Prisma } from "../../../../infrastructure/prisma/index.js";
 import type { ContentScopeCatalog } from "../../../materials/index.js";
 import { enrollmentView, enrollmentBenefitTerms, enrollmentSourceState } from "../../shared/enrollment-view.js";
 import { registerSourceEntitlement } from "../../features/register-source-entitlement/register-source-entitlement.js";
@@ -216,6 +217,51 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       manage(actorId, "billing:manage", () =>
         readClassificationOf(targetAccountId),
       ),
+    /**
+     * Сколько Account сейчас держат действующее право на каждое руководство: купленное
+     * руководство или право на материалы, в составе которого оно есть. Materials спрашивает об
+     * этом перед снятием опубликованного материала из руководства. Прежний мост членства сюда не
+     * входит: он читает замороженный состав миграции и новых руководств не содержит.
+     */
+    async countGuideHolders(guideIds: readonly string[]): Promise<ReadonlyMap<string, number>> {
+      const ids = z.array(z.uuid()).max(100).parse([...new Set(guideIds)]);
+      if (ids.length === 0) return new Map();
+      const now = clock();
+      // Действующие гранты, которые открывают хотя бы одно из руководств; держатели по каждому
+      // руководству считаются ниже, по тем же двум признакам.
+      const rows = z.array(z.object({
+        account_id: z.uuid(),
+        capabilities: z.array(z.string()),
+        guide_ids: z.array(z.string()).nullable(),
+        all_guides: z.boolean().nullable(),
+      })).parse(
+        await prisma.$queryRaw(Prisma.sql`
+          select grant_row.account_id,
+                 grant_row.capabilities,
+                 grant_row.content_scope -> 'guideIds' as guide_ids,
+                 grant_row.content_scope ->> 'allGuides' = 'true' as all_guides
+          from membership_entitlements.access_grants as grant_row
+          where grant_row.revoked_at is null
+            and grant_row.starts_at <= ${now}
+            and (grant_row.valid_until is null or grant_row.valid_until > ${now})
+            and (
+              grant_row.capabilities && ${ids.map(guideCapability)}::text[]
+              or (
+                grant_row.capabilities @> array['materials']::text[]
+                and (coalesce(grant_row.content_scope -> 'guideIds', '[]'::jsonb) ?| ${ids}::text[]
+                  or grant_row.content_scope ->> 'allGuides' = 'true')
+              )
+            )
+        `),
+      );
+      return new Map(ids.map((id) => {
+        const holders = new Set(rows.flatMap((row) =>
+          row.capabilities.includes(guideCapability(id)) ||
+          (row.capabilities.includes("materials") && (row.all_guides === true || (row.guide_ids ?? []).includes(id)))
+            ? [row.account_id] : []));
+        return [id, holders.size];
+      }));
+    },
     /** Собственные основания Account: без полномочия владельца и без операторских полей. */
     async readOwnAccess(targetAccountId: string) {
       try {

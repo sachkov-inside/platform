@@ -157,7 +157,8 @@ describe("ReadingActivity on PostgreSQL", () => {
 
   test("free non-member and revoked member retain private marks; protected marks still require current access", async () => {
     const free = await material();
-    const protectedId = await material([], "membership");
+    // Закрытый материал публикуется только внутри продукта; доступ здесь даёт явный состав моста.
+    const protectedId = await material([await series()], "membership");
     const memberId = checkedAccountId(randomUUID());
     expect(await reading.setReadingState(command(free))).toMatchObject({ ok: true });
     expect(await reading.setReadingState(command(protectedId))).toEqual({ ok: false, error: { code: "access_denied" } });
@@ -181,7 +182,7 @@ describe("ReadingActivity on PostgreSQL", () => {
 
   test("positive Membership evidence expires by time without deleting previous marks", async () => {
     const memberId = checkedAccountId(randomUUID());
-    const id = await material([], "membership");
+    const id = await material([await series()], "membership");
     const checkedAt = new Date();
     const validUntil = new Date(checkedAt.getTime() + 240_000);
     const accepted = await membership.acceptEvidence({ accountId: memberId, deliveryId: randomUUID(), source: "link_time", evidence: {

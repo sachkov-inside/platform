@@ -45,6 +45,7 @@ describe("Prisma schema", () => {
       testDatabase.prisma.publishedMaterial.count(),
       testDatabase.prisma.publishedMaterialTag.count(),
       testDatabase.prisma.publishedMaterialGuideMembership.count(),
+      testDatabase.prisma.guideMaterialRemoval.count(),
       testDatabase.prisma.materialSearchDocument.count(),
       testDatabase.prisma.video.count(),
       testDatabase.prisma.videoUploadAttempt.count(),
@@ -63,6 +64,6 @@ describe("Prisma schema", () => {
       testDatabase.prisma.telegramCommunityProjectionCursor.count(),
     ]);
 
-    expect(counts).toEqual(Array.from({ length: 42 }, () => 0));
+    expect(counts).toEqual(Array.from({ length: 43 }, () => 0));
   });
 });

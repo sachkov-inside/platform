@@ -7,6 +7,7 @@ export {
   accessCapabilitySchema,
   capabilitiesOpenedBy,
   globalAccessCapabilities,
+  withheldAccessCapabilities,
   type AccessCapability,
 } from "@inside/access-capabilities";
 import { accessCapabilitySchema } from "@inside/access-capabilities";

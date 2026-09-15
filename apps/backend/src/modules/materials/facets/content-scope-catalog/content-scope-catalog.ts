@@ -23,12 +23,16 @@ export class ContentScopeCatalog {
     const scope = contentScopeSchema.parse(input);
     const rows = entriesSchema.parse(await this.prisma.$queryRaw(Prisma.sql`
       SELECT 'guide' AS kind, id, name AS title, CASE WHEN archived_at IS NULL THEN slug ELSE NULL END AS slug, archived_at IS NULL AS available
-        FROM materials.series WHERE id = ANY(${scope.guideIds}::uuid[])
+        FROM materials.series WHERE (${scope.allGuides === true}::boolean AND archived_at IS NULL) OR id = ANY(${scope.guideIds}::uuid[])
       UNION ALL
       SELECT 'material' AS kind, id, coalesce(title, 'Материал без названия') AS title,
         CASE WHEN publication_state = 'published' THEN slug ELSE NULL END AS slug, publication_state = 'published' AS available
         FROM materials.materials WHERE id = ANY(${scope.materialIds}::uuid[])
     `));
-    return [...scope.guideIds.map(id => ({ id, kind: "guide" as const })), ...scope.materialIds.map(id => ({ id, kind: "material" as const }))].map(item => rows.find(row => row.id === item.id && row.kind === item.kind) ?? { ...item, title: "Позиция временно недоступна", slug: null, available: false });
+    // Состав «все продукты» называет каждый действующий продукт, включая добавленные после назначения.
+    const guideItems = scope.allGuides === true
+      ? rows.filter(row => row.kind === "guide").map(row => ({ id: row.id, kind: "guide" as const }))
+      : scope.guideIds.map(id => ({ id, kind: "guide" as const }));
+    return [...guideItems, ...scope.materialIds.map(id => ({ id, kind: "material" as const }))].map(item => rows.find(row => row.id === item.id && row.kind === item.kind) ?? { ...item, title: "Позиция временно недоступна", slug: null, available: false });
   }
 }

@@ -63,7 +63,8 @@ export async function projectTributeSource(tx: MembershipEntitlementsPrisma, row
     await tx.accessChange.create({ data: { accountId, actorId, operationId, kind: "tribute_source_changed", reason, recordedAt: now } });
   }
   await tx.sourceEntitlement.update({ where: { id: row.id }, data: { accountId, enrollmentId } });
-  // A classified Tribute source replaces only its legacy compatibility bridge, never independent grants.
-  await tx.legacyClassification.updateMany({ where: { accountId, bridgeEnabled: true }, data: { bridgeEnabled: false, revision: { increment: 1 } } });
+  // Only a confirmed Tribute period replaces the legacy compatibility bridge, never independent grants.
+  // A temporary source is still unverified: the bridge keeps the participant's access until the period is known.
+  if (!temporary) await tx.legacyClassification.updateMany({ where: { accountId, bridgeEnabled: true }, data: { bridgeEnabled: false, revision: { increment: 1 } } });
   return { ok: true as const, enrollmentId };
 }

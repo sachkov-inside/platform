@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 
 import type { PlatformPrisma } from "../infrastructure/prisma/index.js";
-import { ContentScopeCatalog } from "../modules/materials/index.js";
 import { BillingPricing } from "../modules/billing/index.js";
 import { guideCapability } from "@inside/access-capabilities";
 
@@ -32,6 +31,8 @@ interface CatalogOffer {
   readonly offerId: string;
   readonly name: string;
   readonly benefits: readonly string[];
+  /** Явный состав подписки: без него тариф не продаётся. У разовой покупки продукта его нет. */
+  readonly contentScope?: { readonly guideIds: readonly string[]; readonly materialIds: readonly string[] };
   /** Право с собственным сроком: `null` — бессрочно, иначе столько календарных месяцев. */
   readonly benefitPeriods: readonly {
     readonly capability: string;
@@ -52,6 +53,7 @@ function localCatalog(guideId: string): readonly CatalogOffer[] {
       offerId: "72000000-0000-4000-8000-000000000501",
       name: "Материалы",
       benefits: ["materials"],
+      contentScope: { guideIds: [guideId], materialIds: [] },
       benefitPeriods: [],
       option: {
         id: "72000000-0000-4000-8000-000000000511",
@@ -64,6 +66,7 @@ function localCatalog(guideId: string): readonly CatalogOffer[] {
       offerId: "72000000-0000-4000-8000-000000000502",
       name: "Материалы + сопровождение",
       benefits: ["materials", "support"],
+      contentScope: { guideIds: [guideId], materialIds: [] },
       benefitPeriods: [],
       option: {
         id: "72000000-0000-4000-8000-000000000512",
@@ -75,9 +78,10 @@ function localCatalog(guideId: string): readonly CatalogOffer[] {
     {
       offerId: "72000000-0000-4000-8000-000000000503",
       name: "Руководство «Создание Platform Inside»",
-      benefits: [guideCapability(guideId)],
+      benefits: [guideCapability(guideId), "support"],
       // Право разовой покупки выдаётся без даты окончания; договорные сроки называет оферта.
-      benefitPeriods: [{ capability: guideCapability(guideId), months: null }],
+      // Сопровождение по оферте разовой покупки — шесть месяцев с оплаты (#648).
+      benefitPeriods: [{ capability: guideCapability(guideId), months: null }, { capability: "support", months: 6 }],
       option: {
         id: "72000000-0000-4000-8000-000000000513",
         mode: "one_time",
@@ -108,13 +112,7 @@ export async function seedLocalOfferCatalog(
     sale: { payments: true, subscriptions: true },
     accounts: standOwnerPermission(target.actor),
   });
-  const initialTier = await prisma.billingOffer.findUnique({ where: { id: "62000000-0000-4000-8000-000000000624" } });
-  if (initialTier !== null && initialTier.revision === 1) {
-    const content = await new ContentScopeCatalog(prisma).list();
-    await sendCatalogCommand(pricing, target.actor, { operation: "offers.save", operationId: randomUUID(), expectedRevision: 1,
-      value: { id: initialTier.id, name: initialTier.name, benefits: ["materials", "community"], availableForAssignment: true,
-        contentScope: { guideIds: content.filter(item => item.kind === "guide" && item.available).map(item => item.id), materialIds: content.filter(item => item.kind === "material" && item.available).map(item => item.id) } } });
-  }
+  // Стартовый тариф задаёт миграция 0067: все продукты платформы, сопровождение и общая группа.
   const current = await readOwnerCatalog(pricing);
   for (const offer of localCatalog(target.guideId)) {
     const live = current.get(offer.option.id);
@@ -140,6 +138,9 @@ export async function seedLocalOfferCatalog(
         id: offer.offerId,
         name: offer.name,
         benefits: [...offer.benefits],
+        ...(offer.contentScope === undefined ? {} : {
+          contentScope: { guideIds: [...offer.contentScope.guideIds], materialIds: [...offer.contentScope.materialIds] },
+        }),
         benefitPeriods: [...offer.benefitPeriods],
       },
     });
@@ -194,7 +195,9 @@ function matchesDefinition(
   return (
     snapshot.offer.id === offer.offerId &&
     snapshot.offer.name === offer.name &&
-    sameCapabilities(snapshot.offer.benefits, offer.benefits) &&
+    sameMembers(snapshot.offer.benefits, offer.benefits) &&
+    sameMembers(snapshot.offer.contentScope?.guideIds ?? [], offer.contentScope?.guideIds ?? []) &&
+    sameMembers(snapshot.offer.contentScope?.materialIds ?? [], offer.contentScope?.materialIds ?? []) &&
     periods.length === offer.benefitPeriods.length &&
     offer.benefitPeriods.every((period) =>
       periods.some(
@@ -208,7 +211,7 @@ function matchesDefinition(
   );
 }
 
-function sameCapabilities(
+function sameMembers(
   live: readonly string[],
   wanted: readonly string[],
 ): boolean {
