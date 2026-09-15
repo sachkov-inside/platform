@@ -21,6 +21,28 @@
 Проверка геометрии подборки из #558 в «Topic · mobile» на 390 зелёная: ряд хлебных крошек начинается
 на 28 и занимает 40, шапка отстоит от него на 20. Спрятанного дефекта за молчащим размером нет.
 
+## Других необъявленных имён нет
+
+Весь `apps/web` пройден по `globals.viewport` и `parameters.viewport`, включая константы и meta.
+Истории просят только `mobile320`, `mobile390`, `desktop1440` и `tablet768`. Последний
+`series-journey.stories.tsx` объявляет у себя в `parameters.viewport.options`, и сторож его
+принимает. Кроме этих четырёх историй, `mobile360` не просил никто.
+
+## Сторож роняет `pnpm test`
+
+`beforeEach` в `.storybook/preview.tsx` сверяет запрошенное имя с `parameters.viewport.options`.
+Подделка: в `account-section-nav.stories.tsx` имя `mobile390` заменено на `mobile999`, затем
+запущен `pnpm test src/widgets/account-cabinet/ui/account-section-nav.stories.tsx` из `apps/web`.
+Прогон упал, подделка откачена:
+
+```text
+× Mobile List
+История «Components/Account/Section navigation › Mobile List» просит размер «mobile999», которого нет среди объявленных: mobile320, mobile390, desktop1036, desktop1209, desktop1440. Возьмите объявленное имя или объявите размер один раз в parameters.viewport.options.
+Tests  1 failed | 2 passed (3)
+```
+
+До переименования те же четыре истории подборки падали с этим текстом на `mobile360`.
+
 | Файл | Что показывает |
 | --- | --- |
 | `*-390.png` | История на `mobile390`, первый экран 390 × 844 |

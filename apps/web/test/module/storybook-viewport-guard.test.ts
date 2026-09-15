@@ -59,9 +59,15 @@ describe("Storybook viewport guard", () => {
     );
   });
 
-  it("rejects an undeclared legacy string global", () => {
+  it("rejects a string global that the runner does not read", () => {
     expect(() => {
-      assertDeclaredViewport({ ...story, globals: { viewport: "mobile1" }, parameters: declared });
+      assertDeclaredViewport({ ...story, globals: { viewport: "mobile390" }, parameters: declared });
+    }).toThrow("задаёт размер строкой «mobile390»");
+  });
+
+  it("rejects a built-in Storybook size the project did not declare", () => {
+    expect(() => {
+      assertDeclaredViewport({ ...story, globals: { viewport: { value: "mobile1" } }, parameters: declared });
     }).toThrow("«mobile1»");
   });
 
@@ -73,6 +79,26 @@ describe("Storybook viewport guard", () => {
         parameters: { viewport: { ...declared.viewport, defaultViewport: "mobile360" } },
       });
     }).toThrow("«mobile360»");
+  });
+
+  it("ignores a default viewport that the global overrides", () => {
+    expect(() => {
+      assertDeclaredViewport({
+        ...story,
+        globals: { viewport: { value: "mobile390" } },
+        parameters: { viewport: { ...declared.viewport, defaultViewport: "mobile360" } },
+      });
+    }).not.toThrow();
+  });
+
+  it("ignores a story with the viewport disabled", () => {
+    expect(() => {
+      assertDeclaredViewport({
+        ...story,
+        globals: { viewport: { value: "mobile360" } },
+        parameters: { viewport: { ...declared.viewport, disable: true } },
+      });
+    }).not.toThrow();
   });
 
   it("rejects any name when no size is declared", () => {
