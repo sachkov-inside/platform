@@ -68,6 +68,10 @@ const noAssetPreviewBlocks: NonNullable<
 > = [];
 
 interface MaterialDocumentEditorProps {
+  /**
+   * Редактор показывает из состояния сохранения только подпись, и `sameEditorProps` сравнивает
+   * именно её. Покажете из состояния что-то ещё — сравните и это, иначе редактор не перерисуется.
+   */
   readonly saveState?: MaterialAuthoringPresentation["save"];
   readonly contentVersion?: number | null;
   readonly assetPreviewBlocks?: MaterialAuthoringPresentation["draft"]["assetPreviewBlocks"];

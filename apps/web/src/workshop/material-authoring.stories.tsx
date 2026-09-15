@@ -56,24 +56,31 @@ function MaterialAuthoringFixture({
 }) {
   const [presentation, setPresentation] = useState(initialPresentation);
 
-  const markDirty = (draft: MaterialAuthoringPresentation["draft"]) => {
-    setPresentation((current) => ({
-      ...current,
-      draft,
-      save: { kind: "dirty" },
-    }));
-  };
+  // Черновик меняется от текущего состояния, а не от черновика рендера: так обработчики не держат
+  // устаревшую копию, и обработчик документа остаётся одним на всё время истории — как у страницы,
+  // где редактор иначе перерисовывался бы на каждый знак.
+  const markDirty = useCallback(
+    (
+      change: (
+        draft: MaterialAuthoringPresentation["draft"],
+      ) => MaterialAuthoringPresentation["draft"],
+    ) => {
+      setPresentation((current) => ({
+        ...current,
+        draft: change(current.draft),
+        save: { kind: "dirty" },
+      }));
+    },
+    [],
+  );
 
-  // Редактор перерисовывается только когда меняется то, что он показывает, поэтому обработчик
-  // документа один на всё время истории и берёт черновик из текущего состояния — как страница.
-  const onDocumentChange = useCallback((document: JSONContent) => {
-    noopActions.onDocumentChange(document);
-    setPresentation((current) => ({
-      ...current,
-      draft: { ...current.draft, document },
-      save: { kind: "dirty" },
-    }));
-  }, []);
+  const onDocumentChange = useCallback(
+    (document: JSONContent) => {
+      noopActions.onDocumentChange(document);
+      markDirty((draft) => ({ ...draft, document }));
+    },
+    [markDirty],
+  );
 
   const actions = {
     onBack: noopActions.onBack,
@@ -87,13 +94,13 @@ function MaterialAuthoringFixture({
     onFieldChange: (field: MaterialDraftField, value: string) => {
       noopActions.onFieldChange(field, value);
       if (field === "access") {
-        markDirty({
-          ...presentation.draft,
+        markDirty((draft) => ({
+          ...draft,
           access: value === "membership" ? "membership" : "free",
-        });
+        }));
         return;
       }
-      markDirty({ ...presentation.draft, [field]: value });
+      markDirty((draft) => ({ ...draft, [field]: value }));
     },
     onOpenPreview: () => {
       noopActions.onOpenPreview();
@@ -101,16 +108,16 @@ function MaterialAuthoringFixture({
     },
     onPrimaryVideoChange: (primaryVideo, deleteVideoId) => {
       noopActions.onPrimaryVideoChange(primaryVideo, deleteVideoId);
-      markDirty({
-        ...presentation.draft,
+      markDirty((draft) => ({
+        ...draft,
         deleteVideoId,
         primaryVideo,
         primaryVideoId: primaryVideo?.videoId ?? null,
-      });
+      }));
     },
     onOutcomesChange: (outcomes) => {
       noopActions.onOutcomesChange(outcomes);
-      markDirty({ ...presentation.draft, outcomes });
+      markDirty((draft) => ({ ...draft, outcomes }));
     },
     onRetry: () => {
       noopActions.onRetry();
@@ -131,25 +138,21 @@ function MaterialAuthoringFixture({
     },
     onSeriesToggle: (seriesId, checked) => {
       noopActions.onSeriesToggle(seriesId, checked);
-      markDirty({
-        ...presentation.draft,
+      markDirty((draft) => ({
+        ...draft,
         seriesIds: checked
-          ? [...presentation.draft.seriesIds, seriesId]
-          : presentation.draft.seriesIds.filter(
-              (candidate) => candidate !== seriesId,
-            ),
-      });
+          ? [...draft.seriesIds, seriesId]
+          : draft.seriesIds.filter((candidate) => candidate !== seriesId),
+      }));
     },
     onTagToggle: (tagId: string, checked: boolean) => {
       noopActions.onTagToggle(tagId, checked);
-      markDirty({
-        ...presentation.draft,
+      markDirty((draft) => ({
+        ...draft,
         tagIds: checked
-          ? [...presentation.draft.tagIds, tagId]
-          : presentation.draft.tagIds.filter(
-              (candidate) => candidate !== tagId,
-            ),
-      });
+          ? [...draft.tagIds, tagId]
+          : draft.tagIds.filter((candidate) => candidate !== tagId),
+      }));
     },
   } satisfies MaterialAuthoringActions;
 
