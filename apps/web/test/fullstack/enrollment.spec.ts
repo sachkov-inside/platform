@@ -18,7 +18,7 @@ test("owner assigns scoped course and the open cabinet converges through real BF
   await page.getByLabel("Название", { exact: true }).first().fill(tierName);
   await page.getByLabel("Состав", { exact: true }).fill("materials\ncommunity=6");
   await page.getByLabel("Доступен для назначения").check();
-  await page.getByLabel("Гайд: Инженерная практика", { exact: true }).check();
+  await page.getByLabel("Продукт: Инженерная практика", { exact: true }).check();
   await page.getByRole("button", { name: "Сохранить предложение", exact: true }).click();
   await expect(page.getByText("Предложение сохранено, редакция 1.", { exact: true })).toBeVisible();
   const rules = page.getByRole("heading", { name: "Ссылки активации курса и Tribute", exact: true }).locator("..");
