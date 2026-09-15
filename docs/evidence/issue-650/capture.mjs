@@ -20,6 +20,13 @@ for(const [name,width,height] of [['desktop',1440,1024],['mobile',390,844]]){
   await expect(page.getByText(label,{exact:true}).first()).toBeVisible({timeout:30000});
   await page.addStyleTag({content:'[data-agentation-root] { display: none !important; }'});
   await page.screenshot({path:`${out}/${surface}-${name}.png`,fullPage:true});
+  // Длинные страницы нечитаемы целиком: отдельные кадры показывают изменённые места.
+  if(surface==='product') await page.locator('#support').screenshot({path:`${out}/product-support-${name}.png`});
+  if(surface==='offer'){
+   await page.getByRole('heading',{name:'2. Что входит в покупку'}).scrollIntoViewIfNeeded();
+   await page.evaluate(()=>window.scrollBy(0,-16));
+   await page.screenshot({path:`${out}/offer-support-${name}.png`});
+  }
   const axe=await new AxeBuilder({page}).withTags(['wcag2a','wcag2aa','wcag21aa']).analyze();
   const serious=axe.violations.filter(v=>['serious','critical'].includes(v.impact));
   const text=await page.evaluate(()=>document.body.innerText);

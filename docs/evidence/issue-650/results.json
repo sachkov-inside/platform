@@ -1,0 +1,56 @@
+[
+  {
+    "surface": "checkout",
+    "viewport": "desktop",
+    "id": "pages-guide-payment--ready",
+    "label": "Без подписки и доплат",
+    "overflow": false,
+    "oldPromises": [],
+    "serious": []
+  },
+  {
+    "surface": "product",
+    "viewport": "desktop",
+    "id": "pages-guide-ai-first--desktop",
+    "label": "Моя помощь в сообществе",
+    "overflow": false,
+    "oldPromises": [],
+    "serious": []
+  },
+  {
+    "surface": "offer",
+    "viewport": "desktop",
+    "id": "pages-legal-документ--purchase-offer",
+    "label": "Что входит в сопровождение",
+    "overflow": false,
+    "oldPromises": [],
+    "serious": []
+  },
+  {
+    "surface": "checkout",
+    "viewport": "mobile",
+    "id": "pages-guide-payment--ready",
+    "label": "Без подписки и доплат",
+    "overflow": false,
+    "oldPromises": [],
+    "serious": []
+  },
+  {
+    "surface": "product",
+    "viewport": "mobile",
+    "id": "pages-guide-ai-first--desktop",
+    "label": "Моя помощь в сообществе",
+    "overflow": false,
+    "oldPromises": [],
+    "serious": []
+  },
+  {
+    "surface": "offer",
+    "viewport": "mobile",
+    "id": "pages-legal-документ--purchase-offer",
+    "label": "Что входит в сопровождение",
+    "overflow": false,
+    "oldPromises": [],
+    "serious": []
+  }
+]
