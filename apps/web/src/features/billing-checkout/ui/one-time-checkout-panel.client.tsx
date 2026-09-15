@@ -1,5 +1,5 @@
 "use client";
-import { Infinity as InfinityIcon, Play } from "lucide-react";
+import { CalendarClock, MessagesSquare, Play } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useId } from "react";
@@ -23,7 +23,11 @@ import {
 } from "@/entities/subscription";
 import { Button } from "@/shared/ui/button";
 
-import type { CheckoutInclusion } from "./checkout-flow.client";
+import {
+  oneTimePriceSharesLine,
+  oneTimeTermsSummary,
+  type CheckoutInclusion,
+} from "../model/one-time-terms";
 
 export interface OneTimeCheckoutPanelProps {
   readonly snapshot: PriceSnapshot;
@@ -52,10 +56,20 @@ export interface OneTimeCheckoutPanelProps {
  * здесь нет. Возврат из банка успехом не считается: состояние приходит от сервера.
  */
 
-/** Название принимаемого документа: оферты покупки и подписки называются по документу. */
+/**
+ * Название принимаемого документа: оферты покупки и подписки называются по документу, а форму
+ * после «Принимаю» даёт каталог раздела.
+ */
 function documentLabel(document: LegalDocument): string {
-  return legalNavigationEntry(document.documentId)?.navLabel ?? legalDocumentLabel(document.kind);
+  const entry = legalNavigationEntry(document.documentId);
+  return entry?.consentLabel ?? entry?.navLabel ?? legalDocumentLabel(document.kind);
 }
+
+const inclusionIcons = {
+  composition: Play,
+  materials: CalendarClock,
+  support: MessagesSquare,
+} as const satisfies Record<CheckoutInclusion["kind"], unknown>;
 
 export function OneTimeCheckoutPanel({
   snapshot,
@@ -78,6 +92,7 @@ export function OneTimeCheckoutPanel({
   onRetryQuote,
 }: OneTimeCheckoutPanelProps) {
   const headingId = useId();
+  const termsId = useId();
   const acknowledgeId = useId();
   const conditions = quote?.snapshot ?? snapshot;
   const promotion = promotionLabel(conditions);
@@ -104,49 +119,48 @@ export function OneTimeCheckoutPanel({
 
       {inclusions.length === 0 ? null : (
         <ul className="grid gap-3 sm:grid-cols-2">
-          {inclusions.map((inclusion) => (
-            <li
-              className="grid grid-cols-[2.5rem_minmax(0,1fr)] items-center gap-3 rounded-2xl bg-secondary p-4"
-              key={inclusion.title}
-            >
-              <span
-                aria-hidden="true"
-                className="grid size-10 place-items-center rounded-xl bg-background text-foreground"
+          {inclusions.map((inclusion) => {
+            const Icon = inclusionIcons[inclusion.kind];
+            return (
+              <li
+                className={`grid grid-cols-[2.5rem_minmax(0,1fr)] items-center gap-3 rounded-2xl bg-secondary p-4 ${inclusion.kind === "composition" ? "sm:col-span-2" : ""}`}
+                key={inclusion.kind}
               >
-                {inclusion.kind === "term" ? (
-                  <InfinityIcon className="size-5" />
-                ) : (
-                  <Play className="size-5" />
-                )}
-              </span>
-              <span className="min-w-0">
-                <span className="block text-xs uppercase tracking-[0.12em] text-muted-foreground">
-                  {inclusion.caption}
+                <span
+                  aria-hidden="true"
+                  className="grid size-10 place-items-center rounded-xl bg-background text-foreground"
+                >
+                  <Icon className="size-5" />
                 </span>
-                <span className="mt-0.5 block break-words font-semibold leading-6">
-                  {inclusion.title}
+                <span className="min-w-0">
+                  <span className="block text-xs uppercase tracking-[0.12em] text-muted-foreground">
+                    {inclusion.caption}
+                  </span>
+                  <span className="mt-0.5 block break-words font-semibold leading-6">
+                    {inclusion.title}
+                  </span>
+                  {inclusion.detail === undefined ? null : (
+                    <span className="block break-words text-sm leading-5 text-muted-foreground">
+                      {inclusion.detail}
+                    </span>
+                  )}
                 </span>
-                <span className="block break-words text-sm leading-5 text-muted-foreground">
-                  {inclusion.detail}
-                </span>
-              </span>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ul>
       )}
 
       <div className="mt-4 rounded-2xl bg-primary p-5 text-white">
-        <p className="flex flex-wrap items-center gap-2">
-          <span className="font-semibold">Всё включено</span>
-          <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold">
-            Без подписки
-          </span>
-        </p>
+        <p className="font-semibold">Без подписки и доплат</p>
         <p className="mt-2 flex flex-wrap items-baseline gap-x-3">
           <span className="text-3xl font-bold tabular-nums tracking-[-0.04em]">
             {formatKopecks(conditions.firstPriceKopecks)}
           </span>
           <span className="text-sm text-white/70">разово</span>
+        </p>
+        <p className="mt-2 text-sm leading-6 text-white/85">
+          {oneTimePriceSharesLine(conditions.firstPriceKopecks)}
         </p>
         {promotion === undefined ? null : (
           <p className="mt-2 font-mono text-xs text-white/70">{promotion}</p>
@@ -181,6 +195,20 @@ export function OneTimeCheckoutPanel({
         </p>
       ) : null}
 
+      <section
+        aria-labelledby={termsId}
+        className="mt-5 rounded-2xl border border-border p-4 text-sm leading-6"
+      >
+        <h3 className="font-semibold" id={termsId}>
+          Условия покупки
+        </h3>
+        <ul className="mt-2 grid list-disc gap-1.5 pl-5 text-muted-foreground">
+          {oneTimeTermsSummary.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+      </section>
+
       {missingRequired.length > 0 ? (
         <p
           className="mt-5 rounded-xl border border-border bg-muted/50 p-4 text-sm leading-6"
@@ -207,7 +235,7 @@ export function OneTimeCheckoutPanel({
       <LegalDocumentLinks
         className="mt-5"
         label="Документы этой покупки:"
-        keys={["purchase", "privacy"]}
+        keys={["purchase", "terms", "contacts", "privacy"]}
       />
 
       {existingAccess ? (

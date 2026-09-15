@@ -1,7 +1,9 @@
 import { contactsV1 } from "./editions/contacts-v1.js";
+import { contactsV2 } from "./editions/contacts-v2.js";
 import { cookiesV1 } from "./editions/cookies-v1.js";
 import { privacyV2 } from "./editions/privacy-v2.js";
 import { purchaseV1 } from "./editions/purchase-v1.js";
+import { purchaseV3 } from "./editions/purchase-v3.js";
 import { recurringConsentV1 } from "./editions/recurring-consent-v1.js";
 import { subscriptionV1 } from "./editions/subscription-v1.js";
 import { termsV1 } from "./editions/terms-v1.js";
@@ -19,10 +21,12 @@ import {
  */
 export const legalEditions: readonly LegalEdition[] = [
   contactsV1,
+  contactsV2,
   termsV1,
   privacyV2,
   cookiesV1,
   purchaseV1,
+  purchaseV3,
   subscriptionV1,
   recurringConsentV1,
   tributeV1,
@@ -104,10 +108,12 @@ interface ConsentDefinition {
 
 /**
  * A one-time guide purchase accepts its own offer and no recurring consent; a subscription accepts
- * the subscription offer and, separately, the consent to its periodic payments.
+ * the subscription offer and, separately, the consent to its periodic payments. A consent names the
+ * edition in force: evidence accepted on a superseded edition no longer matches this catalogue, so
+ * a purchase started on it must be accepted again before payment.
  */
 const consentDefinitions: readonly ConsentDefinition[] = [
-  { kind: "terms", appliesTo: ["one_time"], edition: purchaseV1 },
+  { kind: "terms", appliesTo: ["one_time"], edition: purchaseV3 },
   { kind: "terms", appliesTo: ["subscription"], edition: subscriptionV1 },
   { kind: "recurring", appliesTo: ["subscription"], edition: recurringConsentV1 },
 ];

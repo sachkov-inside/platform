@@ -61,14 +61,8 @@ const publishedMaterialSchema = z.discriminatedUnion("kind", [
     projection: projectionSchema,
     access: z.object({
       availability: z.literal("locked"),
-      cta: z
-        .object({
-          label: z.literal("Получить доступ"),
-          url: z.url(),
-        })
-        .strict()
-        .nullable(),
-    }),
+      subscriptionOffered: z.boolean(),
+    }).strict(),
   }),
 ]);
 
@@ -133,9 +127,7 @@ export async function getMaterialReader(
     : {
         kind: "access",
         material,
-        // Контракт ещё несёт внешний адрес покупки, но читателю он не показывается: наличие
-        // призыва означает включённую продажу подписки, а ведёт покупка внутрь платформы.
-        subscriptionOffered: parsed.data.access.cta !== null,
+        subscriptionOffered: parsed.data.access.subscriptionOffered,
       };
 }
 

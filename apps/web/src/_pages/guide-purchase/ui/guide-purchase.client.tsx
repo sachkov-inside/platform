@@ -1,6 +1,5 @@
 "use client";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 
 import {
   billingErrorMessage,
@@ -9,8 +8,8 @@ import {
   type PriceSnapshot,
 } from "@/entities/subscription";
 import { useBillingContact } from "@/features/billing-contact";
-import { CheckoutFlow, type CheckoutInclusion } from "@/features/billing-checkout";
-import { currentBillingQueryOptions } from "@/features/billing-subscription";
+import { CheckoutFlow, oneTimePurchaseInclusions } from "@/features/billing-checkout";
+import { useCurrentBilling } from "@/features/billing-subscription";
 import { internalRoute } from "@/shared/routing/internal-route";
 import { cn } from "@/shared/lib/utils";
 
@@ -36,7 +35,7 @@ export function GuidePurchase({
   const [selectedId, setSelectedId] = useState<string | null>(
     offers[0]?.paymentOption.id ?? null,
   );
-  const billing = useQuery(currentBillingQueryOptions());
+  const billing = useCurrentBilling();
   // Подтверждённый контакт и редакции документов нужны самому оформлению, поэтому страница
   // читает их прямо, а не через форму подтверждения: формы здесь больше нет.
   const contact = useBillingContact();
@@ -109,38 +108,14 @@ export function GuidePurchase({
             contact={contactState?.contact ?? null}
             contactHref={contactHref}
             documents={contactState?.documents ?? []}
-            inclusions={inclusionsOf(selected)}
+            inclusions={oneTimePurchaseInclusions(selected)}
+            onDocumentsChanged={() => {
+              void contact.refetch();
+            }}
             snapshot={selected}
           />
         </>
       )}
     </GuidePurchaseView>
   );
-}
-
-/**
- * Что именно получает покупатель — из состава предложения и его сроков, а не из рекламного
- * текста. Бессрочное право названо бессрочным, потому что так оно и выдаётся.
- */
-function inclusionsOf(snapshot: PriceSnapshot): readonly CheckoutInclusion[] {
-  const perpetual = snapshot.offer.benefits.every((capability) => {
-    const period = snapshot.offer.benefitPeriods?.find(
-      (entry) => entry.capability === capability,
-    );
-    return period === undefined || period.months === null;
-  });
-  return [
-    {
-      kind: "term",
-      caption: "Доступ",
-      title: perpetual ? "Навсегда" : "На срок предложения",
-      detail: "без подписки",
-    },
-    {
-      kind: "composition",
-      caption: "Состав",
-      title: offerCompositionLabel(snapshot.offer),
-      detail: snapshot.offer.name,
-    },
-  ];
 }

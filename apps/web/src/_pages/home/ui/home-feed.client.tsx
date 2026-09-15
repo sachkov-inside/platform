@@ -55,12 +55,26 @@ export function HomeFeedView({ initialQuery, createQueryOptions, syncLocation = 
   </section>;
 }
 
+const skeletonBlock = "animate-pulse bg-muted motion-reduce:animate-none";
+
+/** Строки скелета повторяют разметку поста ленты: разделитель, автор, заголовок, текст и обложку. */
 function FeedSkeleton() {
-  return <div aria-hidden="true" className="space-y-8">{[0, 1].map((key) => <div className="h-64 animate-pulse rounded-2xl bg-muted motion-reduce:animate-none" key={key} />)}</div>;
+  return <div aria-hidden="true">{[0, 1].map((key) => <div className="home-feed-post" key={key}>
+    <div className="flex items-center gap-3"><span className={`size-10 shrink-0 rounded-full ${skeletonBlock}`} /><span className={`h-4 w-32 rounded ${skeletonBlock}`} /></div>
+    <div className={`mt-4 h-6 w-3/4 rounded ${skeletonBlock}`} />
+    <div className={`mt-3 h-12 rounded ${skeletonBlock}`} />
+    <div className="home-feed-artwork"><div className={`aspect-video w-full rounded-xl ${skeletonBlock}`} /></div>
+    <div className="mt-4 min-h-11" />
+  </div>)}</div>;
 }
 
+/** Лента до готовности своей границы Suspense: та же панель и те же строки, что у ожидающей ленты. */
 export function HomeFeedLoading() {
-  return <section className="home-feed" aria-busy="true" aria-label="Материалы"><div className="home-feed-toolbar" aria-hidden="true" /><FeedSkeleton /></section>;
+  return <section className="home-feed" aria-busy="true" aria-label="Материалы">
+    <div className="home-feed-toolbar" aria-hidden="true" />
+    <p className="sr-only" role="status">Загружаем материалы…</p>
+    <FeedSkeleton />
+  </section>;
 }
 
 function replaceHomeQuery(query: LibrarySearchQuery) {

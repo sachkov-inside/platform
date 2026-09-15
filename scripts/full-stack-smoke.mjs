@@ -168,8 +168,6 @@ try {
   await runPnpm(fullStackTestArguments(), {
     ...childEnvironment,
     FULLSTACK_API_BASE_URL: apiBaseUrl,
-    FULLSTACK_MEMBERSHIP_ACQUISITION_URL:
-      childEnvironment.MEMBERSHIP_ACQUISITION_URL ?? "https://t.me/tribute",
     FULLSTACK_LOGTO_COOKIE_NAME: fullStackIdentity.cookieName,
     FULLSTACK_LOGTO_MEMBER_SESSION: fullStackMemberSession,
     FULLSTACK_LOGTO_NON_MEMBER_SESSION:

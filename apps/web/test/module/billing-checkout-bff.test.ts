@@ -151,6 +151,27 @@ it("отмечает каждый принятый документ и пере�
   );
 });
 
+it("передаёт браузеру смену редакции оферты, а не недоступность", async () => {
+  // Сервер отказывает в согласии на редакцию, которая уже не действует.
+  fakes.consents.mockResolvedValue(problem("document_changed", 409));
+  const response = await handleBillingConsents(
+    command("/api/account/billing/consents", {
+      operationId,
+      contextRef: savedQuote.quoteRef,
+      documents: [
+        {
+          kind: "terms",
+          documentId: "purchase",
+          version: "1",
+          digest: "a".repeat(64),
+        },
+      ],
+    }),
+  );
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ ok: false, code: "document_changed" });
+});
+
 it("переносит ожидаемый исход покупки без потери смысла", async () => {
   fakes.purchase.mockResolvedValue(problem("existing_access", 409));
   const response = await handleBillingPurchase(

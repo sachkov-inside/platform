@@ -93,7 +93,6 @@ export class TelegramMembershipService {
     membership: ({
       kind: 'active';
     } | {
-      acquisitionUrl: string;
       kind: 'inactive';
     } | {
       kind: 'stale';

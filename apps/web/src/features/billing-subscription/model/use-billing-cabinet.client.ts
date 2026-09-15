@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 
 import {
   billingErrorMessage,
@@ -11,9 +11,11 @@ import {
 } from "@/entities/subscription";
 
 import {
+  currentBillingChanged,
   currentBillingQueryKey,
-  currentBillingQueryOptions,
+  resetCurrentBilling,
 } from "./current-billing";
+import { useCurrentBilling } from "./use-current-billing.client";
 
 export interface BillingCabinet {
   readonly billing: CurrentBilling | null;
@@ -22,10 +24,14 @@ export interface BillingCabinet {
   readonly sessionExpired: boolean;
   readonly error: string | undefined;
   readonly setError: (message: string | undefined) => void;
-  /** Каждая команда возвращает новую revision, и она же становится ожидаемой для следующей. */
+  /**
+   * Команда вернула новый вид подписки. Его revision становится ожидаемой для следующей команды
+   * здесь, а остальные открытые поверхности узнают о записи из объявления.
+   */
   readonly applySubscription: (value: SubscriptionView) => void;
   readonly fail: (code: BillingFailureCode) => void;
-  readonly refresh: () => void;
+  /** Команда изменила состояние, но нового вида не вернула: объявить запись и перечитать. */
+  readonly rereadAfterCommand: () => void;
   /**
    * Исход команды разбирается одинаково: ожидаемая ошибка объясняется словами и перечитывает
    * состояние, успех продолжает работу раздела.
@@ -43,7 +49,7 @@ export interface BillingCabinet {
  */
 export function useBillingCabinet(): BillingCabinet {
   const queryClient = useQueryClient();
-  const query = useQuery(currentBillingQueryOptions());
+  const query = useCurrentBilling();
   const [error, setError] = useState<string>();
 
   const billing = query.data?.ok === true ? query.data.value : null;
@@ -74,11 +80,15 @@ export function useBillingCabinet(): BillingCabinet {
             ? { ok: true, value: { ...current.value, subscription: value } }
             : current,
       );
+      currentBillingChanged.announce();
     },
     fail,
-    refresh: () => {
+    rereadAfterCommand: () => {
       setError(undefined);
-      void query.refetch();
+      // Объявление уходит раньше перечитывания: команда смены способа оплаты сразу уводит
+      // покупателя в банк, и соседние поверхности не должны зависеть от этой страницы.
+      currentBillingChanged.announce();
+      void resetCurrentBilling(queryClient);
     },
     settle: (result, onSuccess, onFailure) => {
       if (!result.ok) {
@@ -97,6 +107,6 @@ export function useBillingCabinet(): BillingCabinet {
  * этот факт, а не всё состояние кабинета.
  */
 export function useBillingSessionExpired(): boolean {
-  const query = useQuery(currentBillingQueryOptions());
+  const query = useCurrentBilling();
   return query.data?.ok === false && query.data.code === "unauthorized";
 }

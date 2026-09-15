@@ -37,6 +37,42 @@ test("адрес редакции остаётся рабочим и не спо
   await expect(page.getByRole("link", { name: "/legal/terms/v1" })).toBeVisible();
 });
 
+test("оферта разовой покупки действует в редакции 3, а первая остаётся по своему адресу", async ({
+  page,
+}) => {
+  const response = await page.goto("/legal/purchase");
+
+  expect(response?.status()).toBe(200);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "Оферта разовой покупки продукта Inside",
+  );
+  await expect(page.getByText(/^Версия 3\. Действует с /u).first()).toBeVisible();
+  // Списки и подразделы редакции 3 отрисованы как разметка, а не как текст с маркерами.
+  await expect(
+    page.getByRole("heading", { level: 3, name: "Что не входит в сопровождение" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("listitem").filter({ hasText: "Личные встречи и созвоны." }),
+  ).toBeVisible();
+
+  const earlier = await page.goto("/legal/purchase/v1");
+  expect(earlier?.status()).toBe(200);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "Оферта разовой покупки руководства Inside",
+  );
+  expect((await page.goto("/legal/purchase/v2"))?.status()).toBe(404);
+});
+
+test("реквизиты называют орган регистрации продавца", async ({ page }) => {
+  await page.goto("/legal/contacts");
+
+  await expect(
+    page.getByRole("cell", {
+      name: "Межрайонная инспекция Федеральной налоговой службы № 46 по г. Москве",
+    }),
+  ).toBeVisible();
+});
+
 test("неизвестный документ отвечает 404, а не пустой страницей", async ({ page }) => {
   const response = await page.goto("/legal/facts-and-applicability");
 
