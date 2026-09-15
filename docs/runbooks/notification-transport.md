@@ -114,11 +114,10 @@ reject-publish backlog, quarantine capacity/retention and node stop/start recove
 is substituted. These tests run in the normal Integration CI job.
 
 A local singleton loses availability when stopped. These tests prove durable recovery, **not HA**.
-The owner decided on 15.09.2026 to run the environment's own single RabbitMQ node on the VPS. It has
-separate environment credentials and TLS, memory and disk limits and durable quorum queues, but it is
-not highly available: while it is stopped, publication waits in the PostgreSQL outboxes and resumes
-after restart. Monitoring and alerts follow the release in #245. Three replicas in independent
-failure domains remain the precondition for any HA claim.
+Production runs the environment's own single RabbitMQ node on the VPS
+([ADR 0025](../adr/0025-own-single-node-rabbitmq-broker.md)): durable, but not highly available.
+While it is stopped, publication waits in the PostgreSQL outboxes and resumes after restart. Three
+replicas in independent failure domains remain the precondition for any HA claim.
 
 `compose.production.yaml` runs the broker and `notifications-worker`. The
 [production release runbook](production-release.md#broker) owns its TLS, principals, definitions and
