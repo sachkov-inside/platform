@@ -1,8 +1,10 @@
+export { CheckoutFlow, type CheckoutFlowProps } from "./ui/checkout-flow.client";
 export {
-  CheckoutFlow,
-  type CheckoutFlowProps,
+  oneTimePriceSharesLine,
+  oneTimePurchaseInclusions,
+  oneTimeTermsSummary,
   type CheckoutInclusion,
-} from "./ui/checkout-flow.client";
+} from "./model/one-time-terms";
 export {
   CheckoutPanel,
   type CheckoutPanelProps,

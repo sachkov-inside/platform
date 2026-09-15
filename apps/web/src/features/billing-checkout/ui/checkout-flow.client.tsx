@@ -22,6 +22,7 @@ import {
   startBillingPurchase,
 } from "../api/billing-checkout.browser";
 import { acceptedPurchaseDocuments, rememberPurchase } from "../model/checkout";
+import type { CheckoutInclusion } from "../model/one-time-terms";
 import { CheckoutPanel } from "./checkout-panel.client";
 import { OneTimeCheckoutPanel } from "./one-time-checkout-panel.client";
 
@@ -34,17 +35,11 @@ export interface CheckoutFlowProps {
   readonly onNavigate?: (paymentUrl: string) => void;
   /** Состав покупки для компактной страницы оплаты: что именно получает покупатель. */
   readonly inclusions?: readonly CheckoutInclusion[];
-}
-
-/**
- * Одна строка состава покупки. `kind` называет, о чём она, — срок или содержимое, — и по нему
- * панель выбирает значок. Разбирать для этого подпись было бы гаданием по тексту.
- */
-export interface CheckoutInclusion {
-  readonly kind: "term" | "composition";
-  readonly caption: string;
-  readonly detail: string;
-  readonly title: string;
+  /**
+   * Сервер не принял согласие, потому что действует другая редакция. Владелец документов
+   * перечитывает их, чтобы покупатель увидел и принял действующую.
+   */
+  readonly onDocumentsChanged?: () => void;
 }
 
 /**
@@ -59,6 +54,7 @@ export function CheckoutFlow({
   onPurchase,
   onNavigate,
   inclusions = [],
+  onDocumentsChanged,
 }: CheckoutFlowProps) {
   const [quote, setQuote] = useState<BillingQuote | null>(null);
   const [accepted, setAccepted] = useState<readonly LegalDocumentKind[]>([]);
@@ -95,13 +91,20 @@ export function CheckoutFlow({
       readonly acknowledgeExistingAccess: boolean;
       readonly accepted: readonly LegalDocumentKind[];
     }) => {
+      const acceptedDocuments = acceptedPurchaseDocuments(
+        documents,
+        input.quote,
+        input.accepted,
+      );
+      // Редакции входят в нагрузку: согласие на новую редакцию — новая операция, а не повтор
+      // прежней, которую сервер иначе отверг бы как ту же операцию с другими данными.
       const consents = await acceptBillingConsents({
         operationId: operationId("consents", {
           quoteRef: input.quote.quoteRef,
-          accepted: input.accepted,
+          documents: acceptedDocuments,
         }),
         contextRef: input.quote.quoteRef,
-        documents: acceptedPurchaseDocuments(documents, input.quote, input.accepted),
+        documents: acceptedDocuments,
       });
       if (!consents.ok) return consents;
       const evidenceRefs = consents.value.evidenceRefs;
@@ -123,6 +126,12 @@ export function CheckoutFlow({
         if (result.code === "legacy_review_required") setLegacyBlocked(true);
         if (result.code === "quote_expired" || result.code === "quote_changed")
           setQuote(null);
+        // Кнопка оплаты доступна только с отмеченными условиями, поэтому отказ по согласию значит,
+        // что принятая редакция больше не действует: отметка снимается, документы перечитываются.
+        if (result.code === "document_changed" || result.code === "consent_required") {
+          setAccepted([]);
+          onDocumentsChanged?.();
+        }
         setError(billingErrorMessage(result.code));
         return;
       }

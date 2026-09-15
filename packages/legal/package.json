@@ -17,6 +17,10 @@
       "types": "./dist/markdown.d.ts",
       "default": "./dist/markdown.js"
     },
+    "./purchase-terms": {
+      "types": "./dist/purchase-terms.d.ts",
+      "default": "./dist/purchase-terms.js"
+    },
     "./seller": {
       "types": "./dist/seller.d.ts",
       "default": "./dist/seller.js"
