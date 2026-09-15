@@ -48,7 +48,7 @@ export type ChangeNotificationPreferencesInput = z.infer<
 export function notificationErrorMessage(code: NotificationFailureCode): string {
   switch (code) {
     case "revision_conflict":
-      return "Настройки изменились в другой вкладке. Обновите данные и повторите.";
+      return "Данные изменились. Повторите действие.";
     case "operation_conflict":
       return "Эта операция уже выполнена с другими данными. Обновите страницу и повторите.";
     case "invalid_input":

@@ -1,6 +1,8 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
+import { notificationErrorMessage } from "@/features/notification-preferences";
+
 const activeSubscription = {
   subscriptionRef: "00000000-0000-4000-8000-000000000501",
   revision: 7,
@@ -521,6 +523,25 @@ test("сохранённый выбор каналов виден во втор�
   await expect(other.getByText("Выбор сохранён.", { exact: true })).toBeVisible();
 
   await expect(email).toBeChecked();
+});
+
+test("отказ по расхождению редакции настроек показывает текст из источника отказов", async ({
+  page,
+}) => {
+  await stubAccount(page);
+  // Настройки прочитаны здесь, а изменены на другом устройстве: объявление туда не доходит.
+  await page.route("**/api/account/notifications/preferences/change", (route) =>
+    route.fulfill({ json: { ok: false, code: "revision_conflict" } }),
+  );
+
+  await page.goto("/account/notifications");
+  await page.getByRole("checkbox", { name: /Email/u }).check();
+  await page.getByRole("button", { name: "Сохранить" }).click();
+
+  // Ожидание берётся у того же источника, что и экран: копия строки здесь пережила бы смену текста.
+  await expect(
+    page.getByText(notificationErrorMessage("revision_conflict"), { exact: true }),
+  ).toBeVisible();
 });
 
 test("начатая привязка карты видна в разделе «Покупки», открытом второй поверхностью", async ({
