@@ -45,7 +45,7 @@ async function change(materialId: string, seriesId: string, publicationState: "p
   if (!result.ok) throw new Error(result.error.code);
 }
 async function home() {
-  const result = await readHomeContent(materials.publishedMaterialReader, materials.contentAccess, emptyCatalogVideos, { resolveForAccess: () => Promise.resolve({ kind: "required" }) }, "https://inside.example.test/join", true, { kind: "anonymous" });
+  const result = await readHomeContent(materials.publishedMaterialReader, materials.contentAccess, emptyCatalogVideos, { resolveForAccess: () => Promise.resolve({ kind: "required" }) }, true, { kind: "anonymous" });
   if (!result.ok) throw new Error(result.error.code);
   return result.value.pinnedSeries;
 }

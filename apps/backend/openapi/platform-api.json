@@ -19217,10 +19217,6 @@
                         {
                           "additionalProperties": false,
                           "properties": {
-                            "acquisitionUrl": {
-                              "format": "uri",
-                              "type": "string"
-                            },
                             "kind": {
                               "enum": [
                                 "inactive"
@@ -19229,7 +19225,6 @@
                             }
                           },
                           "required": [
-                            "acquisitionUrl",
                             "kind"
                           ],
                           "type": "object"
@@ -87680,10 +87675,6 @@
                         {
                           "additionalProperties": false,
                           "properties": {
-                            "acquisitionUrl": {
-                              "format": "uri",
-                              "type": "string"
-                            },
                             "kind": {
                               "enum": [
                                 "inactive"
@@ -87692,7 +87683,6 @@
                             }
                           },
                           "required": [
-                            "acquisitionUrl",
                             "kind"
                           ],
                           "type": "object"
@@ -95536,31 +95526,13 @@
                               ],
                               "type": "string"
                             },
-                            "cta": {
-                              "additionalProperties": false,
-                              "nullable": true,
-                              "properties": {
-                                "label": {
-                                  "enum": [
-                                    "Получить доступ"
-                                  ],
-                                  "type": "string"
-                                },
-                                "url": {
-                                  "format": "uri",
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "label",
-                                "url"
-                              ],
-                              "type": "object"
+                            "subscriptionOffered": {
+                              "type": "boolean"
                             }
                           },
                           "required": [
                             "availability",
-                            "cta"
+                            "subscriptionOffered"
                           ],
                           "type": "object"
                         },

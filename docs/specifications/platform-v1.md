@@ -69,9 +69,9 @@ consequences:
 - PostgreSQL projections обеспечивают bounded Home, единый Library catalog, Topic/Series
   navigation и search; Reader не делает related request;
 - ReadingState не участвует в access decision и сохраняется при окончании Membership;
-- одна Platform-configured Tribute URL является только outbound acquisition destination:
-  Platform не интегрируется с Tribute API/webhooks и не использует click/payment state как
-  MembershipEvidence.
+- Platform не отдаёт внешний адрес покупки: призыв к покупке ведёт на внутреннюю витрину или
+  страницу оплаты руководства (#529, #540), а REST-ответы несут только признак, продаётся ли
+  подписка; неподтверждённый click или payment state не является MembershipEvidence.
 
 Identity provider, отдельная Telegram application и Kinescope являются внешними seams Platform;
 их provider types и credentials не входят в application modules. Production frontend развивается
@@ -490,13 +490,14 @@ membership главу не восстанавливает.
 агентов или деплоя. По передаче #616 иллюстрация содержит пять сцен. Позднее владелец подтвердил
 замедление в 1,25 раза и повторение: полный цикл 24,25 секунды; вне экрана и в скрытой вкладке приостанавливается, reduced motion показывает сцену 5.
 Автор подтвердил закрытое сообщество, ответы на вопросы, видеоразборы и обновление материалов.
-Владелец подтвердил доступ к приобретённым материалам и сообществу без ограничения срока и без
-продлений; помощь автора доступна всё время участия в сообществе. Обсуждаются задачи и решения,
-личные встречи — по договорённости. Опубликованные материалы открываются сразу после покупки.
+Условия страницы повторяют оферту разовой покупки редакции 3 (Workspace #189, #650): материалы
+и сообщество — на 2 года гарантированно, без продлений и доплат, дальше без гарантии срока; помощь
+автора — 6 месяцев с покупки, личные встречи и обязательная проверка кода в неё не входят; общие
+разборы проводятся без обещанной частоты; у бонусных материалов срок появления не назначен, в покупку
+входят уже опубликованные. Сроки страница берёт из `@inside/legal/purchase-terms`, который тест пакета
+сверяет с текстом действующей оферты. Опубликованные материалы открываются сразу после покупки.
 На мобильном анимация предшествует всему тексту hero. Бесплатное количество показывается рядом
-с первым действием и определяется Materials. Цена и сроки ответов ещё не определены.
-Эта итерация меняет описание продукта, не редакцию оферты или механизм выдачи прав;
-условия разовой покупки необходимо согласовать с сопровождением до запуска продаж.
+с первым действием и определяется Materials. Цена ещё не определена; сроки ответов не гарантируются.
 
 `Guide` хранит введение для читателя: `outcome` — что читатель сможет, `audience` — для кого,
 `prerequisites` — что нужно знать заранее, `scope` — что разбираем и что остаётся за границами.
@@ -609,8 +610,9 @@ redirect и cache policy остаются за backend.
    active member или `materials:manage` отображаются unlocked. Free body может быть shared-cacheable.
 2. Material route получает Subject из trusted identity и вызывает single authoritative
    `ContentAccess.authorize(materialId, read)` до загрузки protected body.
-3. Deny возвращает indexable public teaser, единое coarse state `locked` и CTA `Получить доступ` на
-   общую configured Tribute URL; точная internal reason не раскрывается. `materials:manage` даёт
+3. Deny возвращает indexable public teaser, единое coarse state `locked` и признак
+   `subscriptionOffered` — продаётся ли сейчас подписка; адреса покупки в ответе нет, путь
+   покупателя внутри платформы выбирает Web. Точная internal reason не раскрывается. `materials:manage` даёт
    bypass Membership для published reader. Allow условно читает одно body только пока
    Material остаётся `published` с тем же accepted `contentVersion`; concurrent Save заставляет
    запрос повторно авторизоваться или fail closed.
@@ -687,8 +689,9 @@ redirect и cache policy остаются за backend.
    Telegram ID/username, provider identity, evidence или Membership timestamps и не является
    bearer permission: protected operation повторно вызывает `ContentAccess`. Визуально Telegram
    оформлен компактной голубой status-плашкой над отдельной premium-карточкой
-   `Доступ к Sachkov Inside`; inactive card объясняет ценность и ведёт одним CTA на configured
-   acquisition URL, а stale/unavailable не выводятся как основное техническое сообщение.
+   `Доступ к Sachkov Inside`; inactive state не несёт внешнего адреса покупки — вход на внутреннюю
+   витрину кабинет показывает только при включённой продаже, а stale/unavailable не выводятся как
+   основное техническое сообщение.
 7. Begin-link атомарно резервирует не более одной current attempt на Account и возвращает
    short-lived bot deep link только создавшему request; reload продолжает ту же попытку без нового
    provider registration. Обычный expired/replayed outcome разрешает новую попытку. Conflict и

@@ -1,8 +1,9 @@
 /**
  * Published legal editions are stored as their exact accepted text in a narrow Markdown subset:
- * first- and second-level headings, paragraphs and tables, with links, bold and code spans inside
- * a line. The reader renders these blocks, so an unsupported construct must fail here rather than
- * reach a page as literal punctuation in a document that a buyer accepts.
+ * headings up to the third level, paragraphs, tables and flat numbered or bulleted lists, with
+ * links, bold and code spans inside a line. The reader renders these blocks, so an unsupported
+ * construct must fail here rather than reach a page as literal punctuation in a document that a
+ * buyer accepts.
  */
 
 export type LegalInline =
@@ -14,10 +15,17 @@ export type LegalInline =
 export type LegalBlock =
   | {
       readonly kind: "heading";
-      readonly level: 1 | 2;
+      /** Level 3 names a subsection inside a numbered section, such as what a service includes. */
+      readonly level: 1 | 2 | 3;
       readonly content: readonly LegalInline[];
     }
   | { readonly kind: "paragraph"; readonly content: readonly LegalInline[] }
+  | {
+      readonly kind: "list";
+      /** A numbered list keeps its order in the text; a bulleted one only groups items. */
+      readonly ordered: boolean;
+      readonly items: readonly (readonly LegalInline[])[];
+    }
   | {
       readonly kind: "table";
       readonly header: readonly (readonly LegalInline[])[];
@@ -36,8 +44,64 @@ const inlinePattern =
 /** A page link stays a site path; an outside reference is an absolute http(s) address. */
 const pathPattern = /^\/[\p{L}\p{N}\-._~/]*$/u;
 const absolutePattern = /^https?:\/\/\S+$/u;
-/** A list or quote would silently render as running text with its marker, so it fails instead. */
-const unsupportedBlockPattern = /^\s*(?:[-*+]\s|>\s|\d+[.)]\s)/u;
+/** A list item starts at the line start with `- ` or `<number>. ` and carries text. */
+const listItemPattern = /^(?:(?<bullet>-)|(?<number>[0-9]+)\.) (?<text>\S.*)$/u;
+/** Any other list or quote marker would render as running text with its marker, so it fails. */
+const anyListMarkerPattern = /^\s*(?:[-*+]\s|\d+[.)]\s)/u;
+const quotePattern = /^\s*>\s/u;
+
+function assertNoOtherBlockMarker(line: string): void {
+  if (quotePattern.test(line))
+    throw new LegalTextError(`quote blocks are not supported: ${line}`);
+  if (listItemPattern.test(line))
+    throw new LegalTextError(`list must start after a blank line: ${line}`);
+  if (anyListMarkerPattern.test(line))
+    throw new LegalTextError(`unsupported list marker: ${line}`);
+}
+
+/**
+ * Reads one flat list from `start`. Items continue on indented lines; a blank line ends the list.
+ * A numbered list counts from 1 without gaps, so the number a reader sees is the one in the text.
+ */
+function parseList(
+  lines: readonly string[],
+  start: number,
+): { readonly block: LegalBlock; readonly next: number } {
+  const items: string[][] = [];
+  let ordered: boolean | undefined;
+  let index = start;
+  while (index < lines.length) {
+    const line = lines[index] ?? "";
+    if (line.trim().length === 0) break;
+    const item = listItemPattern.exec(line);
+    if (item?.groups !== undefined) {
+      const numbered = item.groups.number !== undefined;
+      if (ordered !== undefined && ordered !== numbered)
+        throw new LegalTextError(`list mixes numbered and bulleted items: ${line}`);
+      ordered = numbered;
+      if (numbered && Number(item.groups.number) !== items.length + 1)
+        throw new LegalTextError(
+          `numbered list must count from 1 without gaps: ${line}`,
+        );
+      items.push([item.groups.text ?? ""]);
+    } else if (/^\s/u.test(line)) {
+      if (anyListMarkerPattern.test(line) || quotePattern.test(line))
+        throw new LegalTextError(`nested lists are not supported: ${line}`);
+      items[items.length - 1]?.push(line.trim());
+    } else {
+      throw new LegalTextError(`list item continuation must be indented: ${line}`);
+    }
+    index += 1;
+  }
+  return {
+    block: {
+      kind: "list",
+      ordered: ordered ?? false,
+      items: items.map((parts) => parseLegalInline(parts.join(" "))),
+    },
+    next: index,
+  };
+}
 
 function assertPlain(fragment: string, line: string): void {
   if (fragment.includes("**"))
@@ -135,14 +199,14 @@ export function parseLegalText(text: string): readonly LegalBlock[] {
       continue;
     }
     if (line.startsWith("#")) {
-      const heading = /^(?<hashes>#{1,2}) (?<title>\S.*)$/u.exec(line);
+      const heading = /^(?<hashes>#{1,3}) (?<title>\S.*)$/u.exec(line);
       const hashes = heading?.groups?.hashes;
       const title = heading?.groups?.title;
       if (hashes === undefined || title === undefined)
         throw new LegalTextError(`unsupported heading: ${line}`);
       blocks.push({
         kind: "heading",
-        level: hashes.length === 1 ? 1 : 2,
+        level: hashes.length === 1 ? 1 : hashes.length === 2 ? 2 : 3,
         content: parseLegalInline(title),
       });
       index += 1;
@@ -157,6 +221,12 @@ export function parseLegalText(text: string): readonly LegalBlock[] {
       blocks.push(parseTable(tableLines));
       continue;
     }
+    if (listItemPattern.test(line)) {
+      const list = parseList(lines, index);
+      blocks.push(list.block);
+      index = list.next;
+      continue;
+    }
     const paragraphLines: string[] = [];
     while (index < lines.length) {
       const current = lines[index] ?? "";
@@ -165,10 +235,7 @@ export function parseLegalText(text: string): readonly LegalBlock[] {
         throw new LegalTextError(
           `paragraph must end with a blank line before: ${current}`,
         );
-      if (unsupportedBlockPattern.test(current))
-        throw new LegalTextError(
-          `list and quote blocks are not supported: ${current}`,
-        );
+      assertNoOtherBlockMarker(current);
       paragraphLines.push(current.trim());
       index += 1;
     }

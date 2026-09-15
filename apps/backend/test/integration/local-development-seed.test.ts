@@ -15,6 +15,7 @@ import {
   assembleMaterials,
   type MaterialMetadataDto,
   type MaterialMetadataSelectionInput,
+  type Materials,
 } from "../../src/modules/materials/index.js";
 import {
   createMigratedTestDatabase,
@@ -22,12 +23,45 @@ import {
 } from "./setup/test-database.js";
 import type { PlatformPrisma } from "../../src/infrastructure/prisma/index.js";
 
+/**
+ * Бюджеты этого файла останавливают зависший засев и не измеряют машину. Они выведены из замера
+ * фаз (#608): файл отдельно локально и прогон Integration на первом коммите PR #643. Создание базы
+ * с миграциями занимает 0,3–0,4 с локально и 0,9–1,0 с в CI. Засев пустой базы — 0,8–1,1 с и
+ * 2,5–2,6 с, повтор по уже засеянной — 0,1 с и 0,3 с. Самый медленный из 29 прогонов Integration
+ * за 12–15.09.2026 шёл не меньше чем в 1,68 раза медленнее замера: тело из двух засевов оборвалось
+ * там на сроке Vitest по умолчанию, 5 с, против 2,97 с в замере. Насколько медленнее он был на
+ * самом деле, не измерено: 1,68 — нижняя граница, и запасы ниже посчитаны от неё.
+ */
+/**
+ * Создание базы с миграциями: 1,0 с в CI и не меньше 1,6 с на медленном раннере; запас почти
+ * шестикратный.
+ */
+const migratedDatabaseBudgetMs = 10_000;
+/**
+ * Один прогон засева в худшем случае — полная запись каталога в пустую базу: 2,6 с в CI и не меньше
+ * 4,3 с на медленном раннере, запас больше чем трёхкратный. Проверка получает этот бюджет на каждый
+ * засев в своём теле, даже на дешёвый повтор: повтор, по ошибке переписывающий каталог, стоит как
+ * первый засев и должен падать на сравнении, а не на сроке. Остальная работа тел — чтения каталога
+ * и Save материалов — своего бюджета не получает, её покрывает запас: у первой проверки она заняла
+ * в CI 0,1 с, а самая тяжёлая из остальных проверок за 29 прогонов шла не дольше 0,8 с вместе со
+ * своим засевом.
+ */
+const seedRunBudgetMs = 15_000;
+
 describe("local development seed", () => {
   let testDatabase: TestDatabase;
+  let materials: Materials;
 
+  // Подготовка вне предмета проверки: база с миграциями и сборка читателя каталога.
   beforeAll(async () => {
     testDatabase = await createMigratedTestDatabase();
-  });
+    materials = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: {
+        canManage: () => false,
+      },
+    });
+  }, migratedDatabaseBudgetMs);
 
   afterAll(async () => {
     await testDatabase.dispose();
@@ -39,12 +73,7 @@ describe("local development seed", () => {
 
     expect(second).toEqual(first);
 
-    const { contentAccess, publishedMaterialReader } = assembleMaterials({
-      prisma: testDatabase.prisma,
-      authorPolicy: {
-        canManage: () => false,
-      },
-    });
+    const { contentAccess, publishedMaterialReader } = materials;
     const catalog = await listPublishedMaterials(
       publishedMaterialReader,
       contentAccess,
@@ -154,7 +183,7 @@ describe("local development seed", () => {
         slug: "demo-295-samostoyatelnaya-zametka",
       }),
     );
-  });
+  }, seedRunBudgetMs * 2);
 });
 
 /**
@@ -188,7 +217,7 @@ describe("local development offer catalog", () => {
         checkPermission: () => Promise.resolve({ ok: true, allowed: false }),
       },
     });
-  });
+  }, migratedDatabaseBudgetMs + seedRunBudgetMs);
 
   afterAll(async () => {
     await testDatabase.dispose();
@@ -230,7 +259,7 @@ describe("local development offer catalog", () => {
     // Повторный seed сходится к тому же описанию, поэтому второго набора не появляется.
     await expect(testDatabase.prisma.billingOffer.count()).resolves.toBe(4);
     await expect(testDatabase.prisma.billingPaymentOption.count()).resolves.toBe(3);
-  });
+  }, seedRunBudgetMs);
 
   test("leaves an offer the owner took off sale off the storefront", async () => {
     const seeded = await seededOffer();
@@ -255,7 +284,7 @@ describe("local development offer catalog", () => {
         operationId: randomUUID(),
       });
     }
-  });
+  }, seedRunBudgetMs);
 
   test("restores a seeded offer left without a payment option", async () => {
     const seeded = await seededOffer();
@@ -277,7 +306,7 @@ describe("local development offer catalog", () => {
     expect(restored?.paymentOption.id).toBe(seeded.paymentOption.id);
     expect(restored?.firstPriceKopecks).toBe(seeded.firstPriceKopecks);
     await expect(testDatabase.prisma.billingPaymentOption.count()).resolves.toBe(3);
-  });
+  }, seedRunBudgetMs);
 
   test("brings a changed price back to the seeded catalog on the next run", async () => {
     const seeded = await seededOffer();
@@ -304,7 +333,7 @@ describe("local development offer catalog", () => {
     );
     expect(restored?.firstPriceKopecks).toBe(seeded.firstPriceKopecks);
     await expect(testDatabase.prisma.billingPaymentOption.count()).resolves.toBe(3);
-  });
+  }, seedRunBudgetMs);
 });
 
 /**
@@ -317,12 +346,10 @@ describe("local development seed after a demo content change", () => {
   const stepTitle = "Demo · Подготовка приложения к релизу";
   let testDatabase: TestDatabase;
 
-  // Бюджет останавливает зависший прогон, а не измеряет машину: создание базы, миграции и полный
-  // засев не укладываются в десять секунд по умолчанию, когда на машине работает кто-то ещё.
   beforeAll(async () => {
     testDatabase = await createMigratedTestDatabase();
     await seedLocalDevelopment(testDatabase.prisma);
-  }, 120_000);
+  }, migratedDatabaseBudgetMs + seedRunBudgetMs);
 
   afterAll(async () => {
     await testDatabase.dispose();
@@ -483,7 +510,7 @@ describe("local development seed after a demo content change", () => {
     await expect(
       testDatabase.prisma.material.count({ where: { title: stepTitle } }),
     ).resolves.toBe(1);
-  });
+  }, seedRunBudgetMs);
 
   /**
    * Один отрицательный набор на все места засева. Он краснеет, как только любое из них перестаёт
@@ -555,7 +582,7 @@ describe("local development seed after a demo content change", () => {
     expect(restored).toEqual(
       titles.map((title) => ({ body: seededBodies.get(title), title })),
     );
-  });
+  }, seedRunBudgetMs);
 
   test("sends no change command when the definition already matches", async () => {
     await seedLocalDevelopment(testDatabase.prisma);
@@ -574,5 +601,5 @@ describe("local development seed after a demo content change", () => {
     await expect(
       testDatabase.prisma.authoringIdempotency.count(),
     ).resolves.toBe(receipts);
-  });
+  }, seedRunBudgetMs * 2);
 });

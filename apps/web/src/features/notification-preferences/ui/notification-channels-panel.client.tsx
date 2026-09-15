@@ -1,14 +1,15 @@
 "use client";
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { useRepeatableOperations } from "@/shared/lib/repeatable-operations.client";
 
 import { changeNotificationPreferences } from "../api/notification-preferences.browser";
 import {
+  notificationPreferencesChanged,
   notificationPreferencesQueryKey,
-  notificationPreferencesQueryOptions,
 } from "../model/notification-preferences-query";
+import { useNotificationPreferences } from "../model/use-notification-preferences.client";
 import {
   notificationErrorMessage,
   type NotificationPreferences,
@@ -24,7 +25,7 @@ import {
  */
 export function NotificationChannelsPanel() {
   const queryClient = useQueryClient();
-  const query = useQuery(notificationPreferencesQueryOptions());
+  const query = useNotificationPreferences();
   const { operationId, completeOperation } = useRepeatableOperations();
   const [draft, setDraft] = useState<Partial<
     Record<NotificationChannel, boolean>
@@ -56,6 +57,7 @@ export function NotificationChannelsPanel() {
       setDraft(null);
       setSaved(true);
       queryClient.setQueryData(notificationPreferencesQueryKey, result);
+      notificationPreferencesChanged.announce();
     },
   });
 

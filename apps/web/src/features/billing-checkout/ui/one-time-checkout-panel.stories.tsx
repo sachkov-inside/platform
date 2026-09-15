@@ -1,7 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, within } from "storybook/test";
 
-import { offerCompositionLabel } from "@/entities/subscription";
 import {
   confirmedGuidePurchase,
   guideOnlyOffer,
@@ -11,19 +10,12 @@ import {
   verifiedContact,
 } from "@/workshop/billing.fixtures";
 
+import { oneTimePurchaseInclusions } from "../model/one-time-terms";
 import { OneTimeCheckoutPanel } from "./one-time-checkout-panel.client";
 import { publicPageEnvironment } from "@/workshop/story-environment";
 
-// Состав читается настоящим кодом: иначе история подтверждала бы свою же строку.
-const inclusions = [
-  { kind: "term", caption: "Доступ", title: "Навсегда", detail: "без подписки" },
-  {
-    kind: "composition",
-    caption: "Состав",
-    title: offerCompositionLabel(guideWithSupportOffer.offer),
-    detail: guideWithSupportOffer.offer.name,
-  },
-] as const;
+// Состав и сроки читаются настоящим кодом: иначе история подтверждала бы свою же строку.
+const inclusions = oneTimePurchaseInclusions(guideWithSupportOffer);
 
 const environment = publicPageEnvironment("/guides/platform-inside/buy");
 
@@ -64,12 +56,33 @@ export const Ready: Story = {
   args: { accepted: ["terms"] },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText("Всё включено")).toBeInTheDocument();
-    await expect(canvas.getByText("Без подписки")).toBeInTheDocument();
+    await expect(canvas.getByText("Без подписки и доплат")).toBeInTheDocument();
+    // Оферта не обещает «всё» и «навсегда»: сроки названы по составляющим.
+    await expect(canvas.queryByText(/Всё включено|Навсегда/u)).not.toBeInTheDocument();
+    await expect(canvas.getByText("2 года гарантированно")).toBeInTheDocument();
+    await expect(canvas.getByText("6 месяцев")).toBeInTheDocument();
     // Купленное руководство само по себе открывает общий чат, и состав называет его.
     await expect(
       canvas.getByText("Продукт с сопровождением и общим чатом"),
     ).toBeInTheDocument();
+    // Распределение цены и сводка условий видны до оплаты.
+    await expect(canvas.getByText(/^Из них поровну: материалы и чат — /u)).toBeInTheDocument();
+    const terms = canvas.getByRole("region", { name: "Условия покупки" });
+    await expect(
+      within(terms).getByText("После отказа доступ по этой покупке закрывается."),
+    ).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("checkbox", { name: /Принимаю оферту разовой покупки/u }),
+    ).toBeChecked();
+    // Футер оболочки ведёт к тем же документам, поэтому ссылки ищутся в самой оплате.
+    const payment = within(canvas.getByRole("region", { name: "Оплата продукта" }));
+    for (const name of [
+      "Оферта разовой покупки",
+      "Условия использования",
+      "Реквизиты и обращения",
+      "Политика данных",
+    ])
+      await expect(payment.getByRole("link", { name })).toBeInTheDocument();
     await expect(canvas.getByRole("button", { name: /Купить за/u })).toBeEnabled();
     // Согласие на регулярные списания разовой покупке не показывается.
     await expect(

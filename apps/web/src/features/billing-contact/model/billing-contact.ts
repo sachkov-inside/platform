@@ -61,7 +61,7 @@ export function contactErrorMessage(code: ContactFailureCode): string {
     case "rate_limited":
       return "Слишком много запросов. Подождите перед отправкой нового кода.";
     case "revision_conflict":
-      return "Email изменён в другой вкладке. Обновите данные и повторите действие.";
+      return "Данные изменились. Повторите действие.";
     case "unauthorized":
     case "forbidden":
       return "Сессия завершилась. Войдите снова.";

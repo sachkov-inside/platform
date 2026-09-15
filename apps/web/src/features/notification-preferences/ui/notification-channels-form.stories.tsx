@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, within } from "storybook/test";
 
+import { notificationErrorMessage } from "../model/notification-preferences";
 import { NotificationChannelsForm } from "./notification-channels-form.client";
 import { accountSectionEnvironment } from "@/workshop/story-environment";
 
@@ -63,7 +64,7 @@ export const Loading: Story = { args: { loading: true } };
 export const SessionExpired: Story = { args: { sessionExpired: true } };
 export const Unavailable: Story = {
   args: {
-    error: "Настройки уведомлений сейчас недоступны. Повторите попытку позже.",
+    error: notificationErrorMessage("unavailable"),
     unavailable: true,
   },
 };
