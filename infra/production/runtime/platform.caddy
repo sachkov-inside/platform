@@ -18,6 +18,53 @@ inside.sachkov.dev {
 		@kinescope_authorize path /integrations/kinescope/v1/authorize
 		reverse_proxy @kinescope_authorize {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}
 
+		# Уведомление банка об оплате и возврате; подлинность проверяет подпись терминала.
+		@tbank_notification {
+			method POST
+			path /billing/tbank/notification
+		}
+		reverse_proxy @tbank_notification {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}
+
+		# Событие Tribute; подлинность проверяет HMAC исходного тела.
+		@tribute_webhook {
+			method POST
+			path /integrations/tribute/v1/webhook
+		}
+		reverse_proxy @tribute_webhook {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}
+
+		# Активация подписки ботом Telegram: ровно четыре операции протокола; отдельный bearer активации.
+		@telegram_activation {
+			method POST
+			path /integrations/telegram/v1/subscription-activation/binding /integrations/telegram/v1/subscription-activation/own-access /integrations/telegram/v1/subscription-activation/attempts /integrations/telegram/v1/subscription-activation/evidence
+		}
+		reverse_proxy @telegram_activation {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}
+
+		# Служебные разрешения для Telegram: у каждого свой bearer, чужой credential получает 401.
+		@community_dispatch {
+			method POST
+			path /internal/billing-dispatch/authorize
+		}
+		reverse_proxy @community_dispatch {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}
+
+		@notification_dispatch {
+			method POST
+			path /internal/notifications/dispatch/authorize
+		}
+		reverse_proxy @notification_dispatch {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}
+
+		# Авторское меню бота: разрешение автора и проверка содержимого; bearer автора communications.
+		@communications_authorize {
+			method POST
+			path /integrations/telegram/v1/communications/authorize
+		}
+		reverse_proxy @communications_authorize {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}
+
+		@communications_validate {
+			method POST
+			path /integrations/telegram/v1/communications/validate-content
+		}
+		reverse_proxy @communications_validate {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}
+
 		@mcp path /mcp
 		reverse_proxy @mcp {$PLATFORM_MCP_UPSTREAM:127.0.0.1:13002}
 

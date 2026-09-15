@@ -12,7 +12,7 @@ of that foundation. Running its local smoke does not contact or mutate productio
 
 ## Runtime topology
 
-`compose.production.yaml` contains exactly seven application processes:
+`compose.production.yaml` contains exactly nine application processes and the environment broker:
 
 1. `migrations` applies the append-only Platform registry and converges the `pg-boss` schema.
 2. `api` serves application HTTP and private operational health.
@@ -20,17 +20,26 @@ of that foundation. Running its local smoke does not contact or mutate productio
 4. `material-assets-worker` consumes Material Asset cleanup jobs.
 5. `profile-avatars-worker` consumes Profile Avatar cleanup jobs.
 6. `video-deletions-worker` consumes explicit Kinescope deletion jobs.
-7. `web` serves the Next.js application and verifies API readiness.
+7. `billing-worker` recovers and renews payments, reconciles refunds and Tribute sources and
+   delivers community entitlements.
+8. `notifications-worker` relays notification outboxes through RabbitMQ and sends email.
+9. `web` serves the Next.js application and verifies API readiness.
 
-All seven use the backend or web image digest selected from one `release-manifest.json`. The backend
-image is multi-command: its command selects migrations, API, MCP or one worker. PostgreSQL and Caddy
-are deliberately absent from application Compose because the foundation owns their lifecycle.
+All nine use the backend or web image digest selected from one `release-manifest.json`. The backend
+image is multi-command: its command selects migrations, API, MCP or one worker. `rabbitmq` is the
+environment's own broker (owner decision 15.09.2026): a digest-pinned public image that outlives
+application releases and is never published outside Docker. PostgreSQL and Caddy are deliberately
+absent from application Compose because the foundation owns their lifecycle. Broker setup, the
+payment contour and the joint rollout are in [production release](production-release.md); queue
+recovery is in [queue recovery](queue-recovery.md).
 
-The stack connects three explicit networks:
+The stack connects four explicit networks:
 
-- `edge` joins the loopback application listeners to the system Caddy;
+- `edge` joins the loopback application listeners to the system Caddy and gives workers egress;
 - internal `application` carries web-to-API traffic;
-- external `database` resolves to `FOUNDATION_DATABASE_NETWORK` from the foundation stack.
+- external `database` resolves to `FOUNDATION_DATABASE_NETWORK` from the foundation stack;
+- internal `broker` (`PLATFORM_BROKER_NETWORK`) carries AMQPS from `notifications-worker` and the
+  Telegram application to `rabbitmq:5671`.
 
 PostgreSQL is not published. API, MCP and web bind only to `127.0.0.1` on the host. Migrations and
 every runtime process use the same non-superuser `platform` database credential. The application
@@ -57,12 +66,15 @@ delivered only to their named processes:
 | File | Required configuration |
 |---|---|
 | `migrations.env` | shared `platform` database URL |
-| `api.env` | database, Logto verifier, Telegram, Object Storage and Kinescope |
-| `mcp.env` | database, MCP listener/public URL, Logto verifier, content access, storage and Kinescope |
+| `api.env` | database, Logto verifier, Telegram, Object Storage, Kinescope, payment terminal, Tribute, billing contact, notification dispatch, community v2, activation and communications |
+| `mcp.env` | database, MCP listener/public URL, Logto verifier, content access, storage, Kinescope, communications, payment terminal and billing contact |
 | `material-assets-worker.env` | database and Object Storage |
 | `profile-avatars-worker.env` | database and Object Storage |
 | `video-deletions-worker.env` | database and Kinescope |
+| `billing-worker.env` | database, payment terminal, billing contact and community v2 |
+| `notifications-worker.env` | database, four broker principals and CA path, reader origin, dispatch secret and billing contact |
 | `web.env` | internal API URL and Logto BFF |
+| `rabbitmq/` | broker TLS (`tls/ca.pem`, `tls/server.pem`, `tls/server-key.pem`) and `definitions.json`, owned `root:101` |
 
 Each process validates only the groups it owns. Missing owned values stop startup. Provider
 reachability is not a global readiness dependency: an external outage degrades its affected flow
@@ -180,6 +192,8 @@ The system Caddy imports `infra/production/runtime/platform.caddy`. It publishes
 - `POST /integrations/telegram/v1/sign-in/linked-identity` for the trusted Logto connector;
 - `/integrations/kinescope/v1/webhook`;
 - `/integrations/kinescope/v1/authorize`;
+- seven exact POST callbacks of the bank, Tribute and Telegram listed with their callers and
+  credentials in [public payment and Telegram routes](production-release.md#public-payment-and-telegram-routes);
 - `/mcp` and `/.well-known/oauth-protected-resource/mcp`.
 
 Unknown `/integrations/*` paths and `/health`, `/health/*`, `/_health/*` return 404 at the public
@@ -324,9 +338,12 @@ recovery journal. Do not edit staged release files, `state.json`, `operation.jso
 
 The isolated proof builds candidate images once with embedded synthetic identity, then supplies
 their exact local image IDs to production Compose. It uses the real foundation PostgreSQL topology
-and proves fresh/upgrade/N-1 migrations, `pg-boss` resume, seven-process readiness, no worker
-overlap, completion of a controlled in-flight job during graceful drain, trusted TLS, the
-positive/negative route matrix and wrong release/schema failure. A before/after database digest
+and proves fresh/upgrade/N-1 migrations, `pg-boss` resume, nine-process readiness, the broker's
+imported principals, quorum queues and verified AMQPS-only listener, no worker overlap, completion
+of a controlled in-flight job during graceful drain, trusted TLS, the positive/negative route matrix
+including the payment and Telegram callbacks, startup refusal of a sale without payment
+configuration and wrong release/schema failure. It prints the memory of every container after
+readiness. A before/after database digest
 proves that page, route and health smoke creates no application data or provider writes.
 
 ```bash

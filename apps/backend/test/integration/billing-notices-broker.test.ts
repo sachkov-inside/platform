@@ -59,7 +59,7 @@ test("подтверждённая оплата доходит до обоих �
 
   const accounts = assembleAccounts({ prisma: database.prisma, emailFingerprintKey: "synthetic-broker-fingerprint-000000" });
   const grants = assembleAccessGrants({ prisma: database.prisma, accounts });
-  const pricing = new BillingPricing({ prisma: database.prisma, accounts });
+  const pricing = new BillingPricing({ prisma: database.prisma, accounts, sale: { payments: true, subscriptions: true } });
   const contact = new BillingContact({ prisma: database.prisma, protection, documents, now: () => new Date(),
     sendCode: message => { codes.set(message.challengeRef, message.code); return Promise.resolve(); } });
   expect(await grants.classifyLegacy(owner, { operationId: randomUUID(), accountId: buyer, expectedRevision: 0,
