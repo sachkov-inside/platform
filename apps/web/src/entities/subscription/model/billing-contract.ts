@@ -205,6 +205,8 @@ export const billingFailureCodeSchema = z.enum([
   "invalid_request", "forbidden", "not_found", "operation_conflict", "revision_conflict",
   "payment_in_progress", "refund_in_progress", "state_conflict", "reservation_conflict",
   "preview_expired", "identity_changed", "contact_required", "consent_required",
+  // Согласие дано на редакцию, которая уже не действует: его нужно принять заново.
+  "document_changed",
   "existing_access", "legacy_review_required", "quote_expired", "quote_changed",
   "unsupported_amount", "method_unavailable", "provider_unavailable", "dependency_unavailable",
   "unauthorized", "unavailable",

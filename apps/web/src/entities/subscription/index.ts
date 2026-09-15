@@ -58,6 +58,7 @@ export {
   formatBillingDateTime,
   formatKopecks,
   formatMonths,
+  formatYears,
   noticeLabel,
   offerCompositionLabel,
   paymentSubjectLabel,
