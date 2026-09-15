@@ -1,17 +1,17 @@
 /**
  * Таблица сценариев доступа к контенту Inside: что открывается и на каком основании.
  *
- * Это исполняемая форма модели доступа. Каждая клетка «что открывается × основание» и каждый
- * переход имеет стабильное имя (`product-material/one-time-purchase`, `refund`), на которое
- * ссылаются документы. Полноту таблицы держат тип и контроль в `pnpm check`
- * (`test/unit/access-scenario-table.test.ts`), а поведение каждой клетки и перехода — сценарии
- * через публичные фасады на PostgreSQL (`test/integration/access-scenarios.test.ts`).
+ * Это исполняемая форма канонической модели доступа (Workspace `product/access-model.md`). Каждая
+ * клетка «что открывается × основание», каждый переход и сценарий публикации имеет то же имя, что
+ * в модели: `product-material/one-time-purchase`, `refund`, `standalone-membership-publication-rejected`.
+ * Полноту держат тип и контроль в `pnpm check` (`test/unit/access-scenario-table.test.ts`), а
+ * поведение — сценарии через публичные фасады на PostgreSQL (`test/integration/access-scenarios.test.ts`).
  *
- * Меняя правило доступа, меняют ожидание здесь; пропуск клетки не проходит ни typecheck, ни
- * контроль полноты, а расхождение с поведением роняет сценарий.
+ * Новое правило доступа сначала меняет модель, затем ожидание здесь; пропуск клетки не проходит ни
+ * typecheck, ни контроль полноты, а расхождение с поведением роняет сценарий.
  */
 
-/** Основание, на котором человек приходит к контенту. */
+/** Основание, на котором человек приходит к контенту. Столбцы модели. */
 export const accessGrounds = [
   "guest",
   "account-without-rights",
@@ -20,13 +20,15 @@ export const accessGrounds = [
   "tier-via-tribute",
   "manual-assignment",
   "hidden-active-tier",
+  "direct",
   "expired-or-revoked",
   "multiple-grounds",
   "withdrawal-refund",
+  "moderation",
 ] as const;
 export type AccessGround = (typeof accessGrounds)[number];
 
-/** Что открывается. */
+/** Что открывается. Строки модели и субъекты «автор» и «агент через MCP». */
 export const accessSurfaces = [
   "public-material",
   "product-material",
@@ -45,13 +47,21 @@ export type AccessSurface = (typeof accessSurfaces)[number];
 export const accessTransitions = [
   "expiry",
   "revocation",
+  "bridge-replaced-by-tribute",
+  "tribute-temporary-source-lost",
   "refund",
-  "tier-composition-change",
-  "tier-archived-with-assignments",
+  "refund-without-withdrawal",
+  "material-added-to-product",
   "material-removed-from-product",
   "guide-archived",
+  "tier-composition-change",
+  "tier-archived-with-assignments",
 ] as const;
 export type AccessTransition = (typeof accessTransitions)[number];
+
+/** Правила публикации, без которых модель «закрытое живёт внутри продуктов» не держится. */
+export const accessPublicationScenarios = ["standalone-membership-publication-rejected"] as const;
+export type AccessPublicationScenario = (typeof accessPublicationScenarios)[number];
 
 /** Стабильное имя клетки для документов и сообщений о расхождении. */
 export function accessCellId(surface: string, ground: string): string {
@@ -59,36 +69,54 @@ export function accessCellId(surface: string, ground: string): string {
 }
 
 /**
- * Срок открытого доступа: публично, навсегда, пока действует основание, шесть месяцев
+ * Срок открытого доступа: публично, без даты окончания, пока действует основание, шесть месяцев
  * сопровождения с покупки или пока у Account есть разрешение автора.
  */
 export type AccessTerm = "public" | "lifetime" | "ground-term" | "six-months" | "permission";
 
+/** Что кабинет показывает человеку о его основаниях. */
+export type CabinetView = "nothing" | "active" | "all-grounds" | "ended" | "purchase-history" | "restriction";
+
 export type AccessExpectation =
   | { readonly outcome: "open"; readonly term: AccessTerm }
-  /** Ресурс виден (карточка, программа, метаданные), но содержимое закрыто. */
+  /** Виден тизер или описание (название, назначение, обложка), но не содержимое. */
   | { readonly outcome: "locked" }
   | { readonly outcome: "closed" }
+  /** Права на чат нет и новый вход закрыт; из чата человека убирает оператор по списку. */
+  | { readonly outcome: "entry-closed" }
+  /** Сопровождение действует на срок назначения, только если `support` есть в правах тарифа. */
+  | { readonly outcome: "by-tier" }
+  | { readonly outcome: "shown"; readonly shows: CabinetView }
   | { readonly outcome: "not-applicable"; readonly because: string };
 
 export interface AccessTransitionScenario {
-  /** Правило перехода словами владельца модели. */
+  /** Правило перехода словами модели. */
   readonly rule: string;
   /** Что открыто после перехода у затронутого основания. */
   readonly after: Readonly<Partial<Record<AccessSurface, AccessExpectation>>>;
+}
+
+export interface AccessPublicationRule {
+  readonly rule: string;
+  /** Код проблемы, которым сервер отклоняет публикацию. */
+  readonly rejectedWith: string;
 }
 
 /** Форма, которую читает контроль полноты: он не доверяет типу и проверяет каждое имя. */
 export interface AccessScenarioTable {
   readonly cells: Readonly<Record<string, Readonly<Record<string, AccessExpectation>>>>;
   readonly transitions: Readonly<Record<string, AccessTransitionScenario>>;
+  readonly publications: Readonly<Record<string, AccessPublicationRule>>;
 }
 
 type ByGround = Readonly<Record<AccessGround, AccessExpectation>>;
 
 const open = (term: AccessTerm): AccessExpectation => ({ outcome: "open", term });
+const shown = (shows: CabinetView): AccessExpectation => ({ outcome: "shown", shows });
 const locked: AccessExpectation = { outcome: "locked" };
 const closed: AccessExpectation = { outcome: "closed" };
+const entryClosed: AccessExpectation = { outcome: "entry-closed" };
+const byTier: AccessExpectation = { outcome: "by-tier" };
 const notApplicable = (because: string): AccessExpectation => ({ outcome: "not-applicable", because });
 
 /** Одно ожидание для каждого основания. */
@@ -101,13 +129,19 @@ function everyGround(expectation: AccessExpectation): ByGround {
     "tier-via-tribute": expectation,
     "manual-assignment": expectation,
     "hidden-active-tier": expectation,
+    "direct": expectation,
     "expired-or-revoked": expectation,
     "multiple-grounds": expectation,
     "withdrawal-refund": expectation,
+    "moderation": expectation,
   };
 }
 
-/** Основание одинаково открывает материал руководства, замки его программы и артефакты. */
+/**
+ * Материал и артефакты продукта X. Прямое право в сценарии — `guide:X` без даты окончания и
+ * отдельное `support` со сроком. Модерационный запрет стоит поверх разовой покупки и материалы не
+ * закрывает.
+ */
 const productContent: ByGround = {
   "guest": locked,
   "account-without-rights": locked,
@@ -116,9 +150,11 @@ const productContent: ByGround = {
   "tier-via-tribute": open("ground-term"),
   "manual-assignment": open("ground-term"),
   "hidden-active-tier": open("ground-term"),
+  "direct": open("lifetime"),
   "expired-or-revoked": locked,
   "multiple-grounds": open("lifetime"),
   "withdrawal-refund": locked,
+  "moderation": open("lifetime"),
 };
 
 const withoutAccount = "Без входа нет Account, у которого это можно проверить";
@@ -127,46 +163,53 @@ export const accessScenarioTable = {
   cells: {
     // Публичный материал открыт всем, какое бы основание ни было.
     "public-material": everyGround(open("public")),
-    // Закрытый материал живёт внутри руководства; вне права виден только его тизер.
+    // Закрытый материал живёт внутри продукта; без права виден только тизер.
     "product-material": productContent,
-    // Программа руководства видна всем, замки на материалах следуют праву.
-    "programme": productContent,
-    // Закрытый артефакт показывает метаданные, а файл отдаёт только по праву на руководство.
+    // Программа и описание продукта видны всем, пока продукт не в архиве.
+    "programme": everyGround(open("public")),
+    // У закрытого артефакта без права видно описание, файл отдаётся только по праву.
     "artifacts": productContent,
-    // Видео закрытого материала не имеет тизера: без права сессия не выдаётся.
+    // Видео закрытого материала не имеет тизера: без права ссылка воспроизведения не выдаётся.
     "video": { ...productContent, "guest": closed, "account-without-rights": closed, "expired-or-revoked": closed, "withdrawal-refund": closed },
-    // Общий чат открывает купленное руководство и тариф с `community`; срок — самое длинное основание.
+    // Чат открывает право на продукт и тариф с `community`. Когда право кончилось, закрыт только
+    // новый вход: автоматических удалений нет, убирает оператор по списку. Запрет модератора закрывает чат.
     "community-chat": {
+      ...productContent,
       "guest": closed,
       "account-without-rights": closed,
-      "one-time-purchase": open("lifetime"),
-      "tier-via-course": open("lifetime"),
-      "tier-via-tribute": open("ground-term"),
-      "manual-assignment": open("ground-term"),
-      "hidden-active-tier": open("ground-term"),
-      "expired-or-revoked": closed,
-      "multiple-grounds": open("lifetime"),
-      "withdrawal-refund": closed,
+      "expired-or-revoked": entryClosed,
+      "withdrawal-refund": entryClosed,
+      "moderation": closed,
     },
-    // Сопровождение даёт только предложение продукта: шесть месяцев с покупки. Тарифы курса и
-    // Tribute сопровождения не содержат.
+    // Сопровождение из предложения продукта — шесть месяцев с покупки; у тарифа — по его правам.
     "support": {
-      ...everyGround(closed),
+      "guest": closed,
+      "account-without-rights": closed,
       "one-time-purchase": open("six-months"),
+      "tier-via-course": byTier,
+      "tier-via-tribute": byTier,
+      "manual-assignment": byTier,
+      "hidden-active-tier": byTier,
+      "direct": open("ground-term"),
+      "expired-or-revoked": closed,
       "multiple-grounds": open("six-months"),
+      "withdrawal-refund": closed,
+      "moderation": open("six-months"),
     },
-    // Кабинет показывает действующие основания; истёкшее, отозванное и возвращённое не показывает.
+    // Кабинет: пусто, действующее основание, все основания, завершённые, покупка в истории, запрет.
     "cabinet": {
       "guest": notApplicable(withoutAccount),
-      "account-without-rights": closed,
-      "one-time-purchase": open("lifetime"),
-      "tier-via-course": open("lifetime"),
-      "tier-via-tribute": open("ground-term"),
-      "manual-assignment": open("ground-term"),
-      "hidden-active-tier": open("ground-term"),
-      "expired-or-revoked": closed,
-      "multiple-grounds": open("lifetime"),
-      "withdrawal-refund": closed,
+      "account-without-rights": shown("nothing"),
+      "one-time-purchase": shown("active"),
+      "tier-via-course": shown("active"),
+      "tier-via-tribute": shown("active"),
+      "manual-assignment": shown("active"),
+      "hidden-active-tier": shown("active"),
+      "direct": shown("active"),
+      "expired-or-revoked": shown("ended"),
+      "multiple-grounds": shown("all-grounds"),
+      "withdrawal-refund": shown("purchase-history"),
+      "moderation": shown("restriction"),
     },
     // Автор с `materials:manage` читает закрытый материал независимо от своего основания.
     "author": {
@@ -181,16 +224,41 @@ export const accessScenarioTable = {
   } satisfies Record<AccessSurface, ByGround>,
   transitions: {
     "expiry": {
-      rule: "Истёк срок основания: материалы, артефакты, видео и чат этого основания закрываются, другие основания не затрагиваются.",
-      after: { "product-material": locked, "video": closed, "community-chat": closed },
+      rule: "На границе срока перестаёт действовать только это основание; новый вход в чат закрыт.",
+      after: { "product-material": locked, "video": closed, "community-chat": entryClosed },
     },
     "revocation": {
-      rule: "Владелец отозвал назначение: доступ закрывается сразу, уже выданная сессия видео больше не принимается.",
-      after: { "product-material": locked, "video": closed, "community-chat": closed },
+      rule: "Владелец отозвал назначение: доступ закрывается сразу, уже выданная ссылка на видео отклоняется.",
+      after: { "product-material": locked, "video": closed, "community-chat": entryClosed },
+    },
+    "bridge-replaced-by-tribute": {
+      rule: "Временный источник Tribute мост не выключает; подтверждённый период выключает его, дальше действует назначение по Tribute.",
+      // Сопровождение моста прекращается: остаётся только то, что даёт тариф назначения по Tribute.
+      after: { "product-material": open("ground-term"), "support": byTier },
+    },
+    "tribute-temporary-source-lost": {
+      rule: "Подтверждённый выход из прежней группы завершает временный источник: права назначения не действуют, новый вход в чат закрыт.",
+      after: { "product-material": locked, "video": closed, "community-chat": entryClosed },
     },
     "refund": {
-      rule: "Возврат по отказу отзывает оплаченные права покупки: материалы, сопровождение и чат закрываются, независимое основание остаётся.",
-      after: { "product-material": locked, "support": closed, "community-chat": closed },
+      rule: "Отказ от договора разовой покупки прекращает право на продукт и сопровождение; новый вход в чат закрыт.",
+      after: { "product-material": locked, "support": closed, "community-chat": entryClosed },
+    },
+    "refund-without-withdrawal": {
+      rule: "Возврат без отказа от договора доступ сам не меняет: владелец отдельно решает судьбу прав.",
+      after: { "product-material": open("lifetime"), "support": open("six-months"), "community-chat": open("lifetime") },
+    },
+    "material-added-to-product": {
+      rule: "Новый материал продукта открывается всем, кому продукт открыт: покупке, составу назначения и прямому праву.",
+      after: { "product-material": open("lifetime") },
+    },
+    "material-removed-from-product": {
+      rule: "Материал уходит из купленного продукта только подтверждённым снятием с записью; после снятия право на продукт его не открывает.",
+      after: { "product-material": locked },
+    },
+    "guide-archived": {
+      rule: "Архивный продукт уходит с витрины; те, кому он открыт, сохраняют программу, материалы и артефакты.",
+      after: { "programme": open("public"), "product-material": open("lifetime"), "artifacts": open("lifetime") },
     },
     "tier-composition-change": {
       rule: "Новая редакция состава тарифа не меняет действующие назначения, пока владелец явно не расширит их.",
@@ -200,13 +268,11 @@ export const accessScenarioTable = {
       rule: "Архив тарифа снимает его с продажи и назначения навсегда, а действующие назначения сохраняют доступ.",
       after: { "product-material": open("ground-term") },
     },
-    "material-removed-from-product": {
-      rule: "Материал уходит из купленного руководства только подтверждённым снятием с записью в журнал; после снятия он закрыт для купивших.",
-      after: { "product-material": locked },
-    },
-    "guide-archived": {
-      rule: "Архивное руководство уходит с витрины, у имеющих право сохраняются программа и материалы.",
-      after: { "programme": open("lifetime"), "product-material": open("lifetime") },
-    },
   } satisfies Record<AccessTransition, AccessTransitionScenario>,
+  publications: {
+    "standalone-membership-publication-rejected": {
+      rule: "Закрытый материал вне продуктов не публикуется: закрытое живёт внутри продуктов, публичное открыто всем.",
+      rejectedWith: "membership_outside_product",
+    },
+  } satisfies Record<AccessPublicationScenario, AccessPublicationRule>,
 } as const satisfies AccessScenarioTable;

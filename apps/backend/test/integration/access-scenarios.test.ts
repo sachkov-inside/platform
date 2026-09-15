@@ -5,7 +5,6 @@ import { accountId as checkedAccountId, assembleAccounts, BillingContact } from 
 import { billingContactProtection } from "../../src/modules/accounts/infrastructure/billing-contact-protection.js";
 import { assembleAccessGrants, assembleMembershipEntitlements, TributeSources, type AccessCapability } from "../../src/modules/membership-entitlements/index.js";
 import { BillingNotices, BillingOperations, BillingPayments, BillingPricing, BillingSubscriptions, TributeConvergence } from "../../src/modules/billing/index.js";
-import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
 import type { OwnerOutcome, OwnerResult } from "../../src/modules/billing/domain/owner-operations.js";
 import { assembleContentAccess, assembleCurrentAccountPermissions, type ContentAccess, type Resource } from "../../src/modules/content-access/index.js";
 import { discoverPublishedMaterials } from "../../src/modules/content-library/index.js";
@@ -15,6 +14,8 @@ import { assembleVideoPlayback } from "../../src/modules/materials/facets/video-
 import { assembleVideos } from "../../src/modules/videos/index.js";
 import { createTestVideoProvider } from "../../src/modules/videos/adapters/kinescope/test-video-provider.js";
 import { assembleWorkshopEntitlements } from "../../src/modules/workshop/index.js";
+import { CommunityEntitlements, TelegramAccountLinks, type CommunitySetCommand } from "../../src/modules/telegram-membership/index.js";
+import type { CommunityDeliveryOutcome, CommunityEntitlementProvider } from "../../src/modules/telegram-membership/ports/community-entitlement-provider.js";
 import type { ObjectStorage, StoredObject } from "../../src/infrastructure/object-storage/index.js";
 import { syntheticTbankConfig } from "../support/bank-terminal.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
@@ -53,32 +54,40 @@ function owned(result: OwnerResult): OwnerOutcome {
   if (!result.ok) throw new Error(result.error.code); return result.result;
 }
 
+interface Participant { readonly account: string; readonly identityRef: string; readonly principalRef: string }
+
 /**
- * Исполнение таблицы сценариев доступа. Мир один на файл: руководство A с закрытым материалом,
- * видео и артефактом, предложение продукта с сопровождением и скрытый назначаемый тариф. Каждое
- * основание получает свой Account настоящим путём — оплатой через синтетический банк или
- * владельческой операцией, — а каждая клетка читается через публичный фасад и сравнивается с
- * ожиданием таблицы одной функцией.
+ * Исполнение таблицы сценариев доступа. Мир один на файл: продукт A с закрытым материалом, видео и
+ * артефактом, предложение продукта с сопровождением, стартовый и скрытый тарифы. Каждое основание
+ * получает свой Account настоящим путём — оплатой через синтетический банк, владельческой операцией,
+ * реестром Tribute, прямым правом, возвратом, запретом в чате, — а каждая клетка читается через
+ * публичный фасад и сравнивается с ожиданием таблицы одной функцией.
  */
-describe("таблица сценариев доступа (реальный PostgreSQL, синтетический банк)", () => {
+describe("таблица сценариев доступа (реальный PostgreSQL, синтетический банк и Telegram)", () => {
   let db: TestDatabase;
   let now = new Date(startedAt);
   const owner = randomUUID();
   let accounts: ReturnType<typeof assembleAccounts>;
+  let links: TelegramAccountLinks;
   let grants: ReturnType<typeof assembleAccessGrants>;
+  let membership: ReturnType<typeof assembleMembershipEntitlements>;
   let pricing: BillingPricing;
   let contact: BillingContact;
   let operations: BillingOperations;
   let payments: BillingPayments;
+  let convergence: TributeConvergence;
+  let community: CommunityEntitlements;
   let bank: BankFixture;
   let materials: ReturnType<typeof assembleMaterials>;
+  let guideArtifacts: ReturnType<typeof assembleGuideArtifacts>;
   let videos: ReturnType<typeof assembleVideos>;
+  let playback: ReturnType<typeof assembleVideoPlayback>;
   let readerAccess: ContentAccess;
   let authorAccess: ContentAccess;
-  let membership: ReturnType<typeof assembleMembershipEntitlements>;
-  let convergence: TributeConvergence;
-  let tributeSubscription = 648_000;
   const codes = new Map<string, string>();
+  const purchases = new Map<string, string>();
+  /** Telegram identity, которым в сценарии модератор запретил вход в чат. */
+  const moderatedIdentities = new Set<string>();
   const objects = new Map<string, StoredObject>();
   const storage: ObjectStorage = {
     putImmutable: input => { objects.set(`${input.namespace}:${input.key}`, { body: input.body, checksumSha256: input.checksumSha256, contentLength: input.body.length, contentType: input.contentType }); return Promise.resolve({ ok: true }); },
@@ -86,30 +95,42 @@ describe("таблица сценариев доступа (реальный Pos
     delete: (namespace, key) => { objects.delete(`${namespace}:${key}`); return Promise.resolve(); },
     signGet: input => Promise.resolve(`https://storage.example.test/${input.key}?ttl=${String(input.ttlSeconds)}`),
   };
+  /** Бот Inside в сценарии: принимает команду и сообщает запрет модератора для выбранных identity. */
+  const provider: CommunityEntitlementProvider = {
+    set: command => Promise.resolve(providerOutcome(command)),
+    status: command => Promise.resolve(providerOutcome(command)),
+  };
+  function providerOutcome(command: CommunitySetCommand): CommunityDeliveryOutcome {
+    return { kind: "result", result: { contractVersion: command.contractVersion, operation: "entitlement.result", operationId: command.operationId,
+      binding: command.binding, entitlementRevision: command.entitlementRevision, access: command.access, status: "accepted",
+      observedMembership: "unknown", updatedAt: command.issuedAt,
+      admissionRestriction: moderatedIdentities.has(command.binding.telegramIdentityRef) ? "moderation" : "none" } };
+  }
   let topicId: string;
   let guideA: string;
   let guideSlug: string;
   let freeMaterial: MaterialId;
   let productMaterial: MaterialId;
   let videoId: string;
+  let providerVideoId: string;
   let artifactId: string;
   let productOptionId: string;
   let tierId: string;
+  let tributeSubscription = 648_000;
   /** Account каждого основания; `null` — гость. Столбец может держать несколько случаев сразу. */
   const grounds = new Map<AccessGround, readonly (string | null)[]>();
-  let providerVideoId: string;
-  let playback: ReturnType<typeof assembleVideoPlayback>;
 
   beforeAll(async () => {
     db = await createMigratedTestDatabase();
     await db.prisma.account.create({ data: { id: owner, logtoIssuer: "https://identity.example.test", logtoSubject: owner } });
     await db.prisma.accountPermission.create({ data: { accountId: owner, permission: "platform:admin" } });
     accounts = assembleAccounts({ prisma: db.prisma, emailFingerprintKey: "synthetic-scenarios-fingerprint-key-00" });
-    const links = new TelegramAccountLinks(db.prisma);
+    links = new TelegramAccountLinks(db.prisma);
     grants = assembleAccessGrants({ prisma: db.prisma, accounts, recipientLinks: links, clock: () => now });
     membership = assembleMembershipEntitlements({ prisma: db.prisma, recipientLinks: links, clock: () => now, workshopEntitlements: assembleWorkshopEntitlements({ prisma: db.prisma, clock: () => now }) });
     // Tribute открывает тариф только через реестр источника: политика, строка реестра и сверка.
     convergence = new TributeConvergence(db.prisma, new TributeSources({ prisma: db.prisma, accounts, links, clock: () => now }));
+    community = new CommunityEntitlements({ accounts, clock: () => now, grants, links, prisma: db.prisma, provider });
     pricing = new BillingPricing({ prisma: db.prisma, accounts, clock: () => now });
     contact = new BillingContact({ prisma: db.prisma, protection: billingContactProtection(Buffer.alloc(32, 72).toString("base64")),
       documents: syntheticConsentDocuments, now: () => now, sendCode: message => { codes.set(message.challengeRef, message.code); return Promise.resolve(); } });
@@ -121,7 +142,7 @@ describe("таблица сценариев доступа (реальный Pos
     operations = new BillingOperations({ prisma: db.prisma, accounts, pricing, payments, subscriptions, grants, bank: client, clock: () => now });
     materials = assembleMaterials({ prisma: db.prisma, authorPolicy: { canManage: id => id === owner }, guideAccessHolders: grants });
     videos = assembleVideos({ prisma: db.prisma, provider: createTestVideoProvider(), projects: { free: "free", membership: "members" }, canManage: () => Promise.resolve(false), clock: () => now });
-    const guideArtifacts = assembleGuideArtifacts({ prisma: db.prisma, objectStorage: storage, authorPolicy: { canManage: id => id === owner } });
+    guideArtifacts = assembleGuideArtifacts({ prisma: db.prisma, objectStorage: storage, authorPolicy: { canManage: id => id === owner } });
     const resources = { materialResourceFacts: assembleMaterialResourceFacts(materials.materialContent), videoResourceFacts: assembleVideoResourceFacts(videos),
       guideArtifactResourceFacts: assembleGuideArtifactResourceFacts(guideArtifacts), membershipEntitlements: membership, clock: () => now };
     // Читатель — Account без разрешения автора. Автор — тот же Account с `materials:manage` из базы.
@@ -140,13 +161,7 @@ describe("таблица сценариев доступа (реальный Pos
       providerVideoId, title: "Видео руководства", origin: "platform_upload", providerStatus: "done", state: "ready",
       readyAt: now, providerVisibleAt: now, providerEmbedLocator: `https://kinescope.io/embed/${providerVideoId}`, durationSeconds: 60 } });
     await db.prisma.material.update({ where: { id: productMaterial }, data: { primaryVideoId: videoId } });
-    const artifactBody = new TextEncoder().encode("# Артефакт руководства\n");
-    const created = await guideArtifacts.create({ actor: owner, guideId: guideA, kind: "file",
-      metadata: { access: "membership", purpose: "Сценарии доступа", title: "Закрытый артефакт" },
-      file: { body: artifactBody, declaredContentType: "text/markdown", declaredSize: artifactBody.byteLength,
-        expectedChecksumSha256: createHash("sha256").update(artifactBody).digest("hex"), filename: "scenario-artifact.md" } });
-    if (!created.ok) throw new Error(created.error.code);
-    artifactId = created.value.artifactId;
+    artifactId = await artifact(guideA);
 
     productOptionId = (await productOffer(guideA)).optionId;
     tierId = await tier([guideA]);
@@ -155,42 +170,80 @@ describe("таблица сценариев доступа (реальный Pos
     grounds.set("account-without-rights", [await account()]);
     grounds.set("one-time-purchase", [await purchased(productOptionId)]);
     grounds.set("tier-via-course", [await assigned("course", null)]);
-    grounds.set("tier-via-tribute", [await tributeMember(groundEndsAt)]);
+    grounds.set("tier-via-tribute", [(await tributeMember(groundEndsAt)).account]);
     grounds.set("manual-assignment", [await assigned("manual", groundEndsAt)]);
-    const hiddenTier = await tier([guideA]);
+    // Скрытый тариф даёт сопровождение; после назначения его закрывают для назначений и архивируют.
+    const hiddenTier = await tier([guideA], ["materials", "community", "support"]);
     grounds.set("hidden-active-tier", [await assigned("manual", groundEndsAt, hiddenTier)]);
-    // Тариф прячется и из продажи, и из назначения: действующее назначение от этого не зависит.
     owned(await operations.execute(owner, { operation: "offers.save", operationId: randomUUID(), expectedRevision: 1,
-      value: { id: hiddenTier, name: "Скрытый тариф", benefits: ["materials", "community"], availableForAssignment: false, contentScope: { guideIds: [guideA], materialIds: [] } } }));
+      value: { id: hiddenTier, name: "Скрытый тариф", benefits: ["materials", "community", "support"], availableForAssignment: false, contentScope: { guideIds: [guideA], materialIds: [] } } }));
+    owned(await operations.execute(owner, { operation: "offers.archive", operationId: randomUUID(), id: hiddenTier, expectedRevision: 2 }));
+    grounds.set("direct", [await directHolder()]);
+
+    // Отозванное и истёкшее основание: пока право действовало, чат получил команду впустить.
     const revoked = await account();
-    await revoke(await assignEnrollment("manual", revoked, groundEndsAt, tierId));
-    // Истёкшее назначение: срок закончился до момента наблюдения.
+    await linkChat(revoked);
+    const revokedEnrollment = await assignEnrollment("manual", revoked, groundEndsAt, tierId);
+    await project(revoked);
+    await revoke(revokedEnrollment);
     const expired = await account();
+    await linkChat(expired);
     await assignEnrollment("manual", expired, "2030-01-01T00:00:00.000Z", tierId, "2029-12-01T00:00:00.000Z");
+    await atMoment("2029-12-15T00:00:00.000Z", () => project(expired));
     grounds.set("expired-or-revoked", [revoked, expired]);
+
     const multiple = await purchased(productOptionId);
     await assignEnrollment("manual", multiple, groundEndsAt, tierId);
     grounds.set("multiple-grounds", [multiple]);
+
     const refunded = await account();
-    await refund(await pay(refunded, productOptionId));
+    await linkChat(refunded);
+    const refundedPurchase = await pay(refunded, productOptionId);
+    await project(refunded);
+    await refund(refundedPurchase, "revoke", guidePriceKopecks);
     grounds.set("withdrawal-refund", [refunded]);
+
+    // Модератор запретил вход: запрет приходит от бота результатом доставки права.
+    const moderated = await purchased(productOptionId);
+    moderatedIdentities.add(await linkChat(moderated));
+    await project(moderated);
+    await community.sweep(100);
+    grounds.set("moderation", [moderated]);
   });
   afterAll(async () => db.dispose());
 
+  // --------------------------------------------------------------------------- мир сценария
+
+  async function atMoment<T>(moment: string, run: () => Promise<T>): Promise<T> {
+    const previous = now;
+    now = new Date(moment);
+    try { return await run(); } finally { now = previous; }
+  }
   async function guide(slug: string): Promise<string> {
     const created = await materials.authoring.createContentCollection({ actor: owner, kind: "guide", name: slug, slug, summary: "" });
     if (!created.ok) throw new Error(created.error.code);
     return created.value.id;
   }
+  function metadataFor(guideIds: readonly string[], access: "free" | "membership", title = `Материал ${randomUUID()}`) {
+    return { title, summary: "Сценарий доступа", access, topicId, formatId: "guide", tagIds: [], difficulty: null, outcomes: [], seriesIds: [...guideIds] };
+  }
   async function material(guideIds: readonly string[], access: "free" | "membership" = "membership"): Promise<MaterialId> {
-    const title = `Материал ${randomUUID()}`;
-    const metadata = { title, summary: "Сценарий доступа", access, topicId, formatId: "guide", tagIds: [], difficulty: null, outcomes: [], seriesIds: [...guideIds] };
-    const created = await materials.authoring.createDraft({ actor: owner, idempotencyKey: randomUUID(), metadata, body: representativeDocument(title) });
+    const metadata = metadataFor(guideIds, access);
+    const created = await materials.authoring.createDraft({ actor: owner, idempotencyKey: randomUUID(), metadata, body: representativeDocument(metadata.title) });
     if (!created.ok) throw new Error(created.error.code);
     const published = await materials.authoring.saveMaterial({ actor: owner, idempotencyKey: randomUUID(), materialId: created.value.materialId,
-      expectedContentVersion: 1, publicationState: "published", metadata, body: representativeDocument(title) });
+      expectedContentVersion: 1, publicationState: "published", metadata, body: representativeDocument(metadata.title) });
     if (!published.ok) throw new Error(published.error.code);
     return checkedMaterialId(created.value.materialId);
+  }
+  async function artifact(guideId: string): Promise<string> {
+    const body = new TextEncoder().encode("# Артефакт руководства\n");
+    const created = await guideArtifacts.create({ actor: owner, guideId, kind: "file",
+      metadata: { access: "membership", purpose: "Сценарии доступа", title: "Закрытый артефакт" },
+      file: { body, declaredContentType: "text/markdown", declaredSize: body.byteLength,
+        expectedChecksumSha256: createHash("sha256").update(body).digest("hex"), filename: "scenario-artifact.md" } });
+    if (!created.ok) throw new Error(created.error.code);
+    return created.value.artifactId;
   }
   async function productOffer(guideId: string) {
     const offerId = randomUUID(), optionId = randomUUID();
@@ -201,10 +254,10 @@ describe("таблица сценариев доступа (реальный Pos
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.publish", expectedRevision: 1, id: offerId }));
     return { offerId, optionId };
   }
-  async function tier(guideIds: readonly string[]): Promise<string> {
+  async function tier(guideIds: readonly string[], benefits: readonly string[] = ["materials", "community"]): Promise<string> {
     const id = randomUUID();
     owned(await operations.execute(owner, { operation: "offers.save", operationId: randomUUID(),
-      value: { id, name: "Материалы + сообщество", benefits: ["materials", "community"], availableForAssignment: true, contentScope: { guideIds: [...guideIds], materialIds: [] } } }));
+      value: { id, name: "Материалы + сообщество", benefits: [...benefits], availableForAssignment: true, contentScope: { guideIds: [...guideIds], materialIds: [] } } }));
     return id;
   }
   async function account(): Promise<string> {
@@ -214,6 +267,15 @@ describe("таблица сценариев доступа (реальный Pos
     if (!start.ok) throw new Error(start.error.code);
     expect(await contact.confirm(id, { operationId: randomUUID(), challengeRef: start.challengeRef, code: codes.get(start.challengeRef) })).toMatchObject({ ok: true });
     return id;
+  }
+  /** Связь Account с Telegram для чата; возвращает identity. */
+  async function linkChat(accountId: string): Promise<string> {
+    const identityRef = `chat-${accountId}`;
+    await linkTelegramAccount(db.prisma, { accountId, identityRef, now });
+    return identityRef;
+  }
+  async function project(accountId: string): Promise<void> {
+    expect(await community.project(accountId)).toMatchObject({ ok: true });
   }
   async function pay(buyer: string, optionId: string): Promise<string> {
     const quote = value(await pricing.quote(buyer, { operationId: randomUUID(), paymentOptionId: optionId, optionRevision: 1 }));
@@ -225,6 +287,7 @@ describe("таблица сценариев доступа (реальный Pos
       consentEvidenceRefs: accepted.evidenceRefs, acknowledgeExistingAccess: true }));
     expect(await payments.notification(bank.notify(bought.purchaseRef, "CONFIRMED"))).toMatchObject({ ok: true });
     value(await payments.recover());
+    purchases.set(buyer, bought.purchaseRef);
     return bought.purchaseRef;
   }
   async function purchased(optionId: string): Promise<string> {
@@ -232,24 +295,46 @@ describe("таблица сценариев доступа (реальный Pos
     await pay(buyer, optionId);
     return buyer;
   }
-  /** Подписчик Tribute: подтверждённая строка реестра с оплаченным сроком прикрепляется к тарифу. */
-  async function tributeMember(endsAt: string): Promise<string> {
-    const recipient = await account();
-    const identityRef = `tribute-${recipient}`;
-    const principalRef = await linkTelegramAccount(db.prisma, { accountId: recipient, identityRef, now });
-    expect(await membership.bindPrincipal({ accountId: checkedAccountId(recipient), principalRef })).toMatchObject({ ok: true });
-    const policyRef = randomUUID();
-    const subscriptionId = ++tributeSubscription;
-    const revision = (await db.prisma.billingOffer.findUniqueOrThrow({ where: { id: tierId } })).revision;
-    value(await convergence.savePolicy(owner, { operationId: randomUUID(), expectedRevision: 0, id: policyRef, subscriptionId, enabled: true,
-      tierId, tierRevision: revision, temporaryUntil: null, reason: "Подтверждённый источник Tribute" }));
-    const row = { rowRef: randomUUID(), policyRef, subscriptionId, identityRef, telegramUserId: String(subscriptionId), verificationRef: randomUUID(),
-      checkedAt: now.toISOString(), mode: "confirmed_period" as const, startsAt: now.toISOString(), endsAt, renewal: "enabled" as const,
-      expectedRevision: 0, reason: "Подтверждённые даты и identity" };
+  /** Участник с подтверждённой связью Telegram и привязанным принципалом: Tribute сверяет его identity. */
+  async function participant(prefix: string): Promise<Participant> {
+    const accountId = await account();
+    const identityRef = `${prefix}-${accountId}`;
+    const principalRef = await linkTelegramAccount(db.prisma, { accountId, identityRef, now });
+    expect(await membership.bindPrincipal({ accountId: checkedAccountId(accountId), principalRef })).toMatchObject({ ok: true });
+    return { account: accountId, identityRef, principalRef };
+  }
+  /** Строка реестра Tribute по политике стартового тарифа: подтверждённый период или временный источник. */
+  async function importTribute(member: Participant, mode: "confirmed_period" | "temporary_membership", endsAt: string,
+    existing?: { readonly policyRef: string; readonly subscriptionId: number }) {
+    let policy = existing;
+    if (policy === undefined) {
+      const policyRef = randomUUID();
+      const subscriptionId = ++tributeSubscription;
+      const revision = (await db.prisma.billingOffer.findUniqueOrThrow({ where: { id: tierId } })).revision;
+      value(await convergence.savePolicy(owner, { operationId: randomUUID(), expectedRevision: 0, id: policyRef, subscriptionId, enabled: true,
+        tierId, tierRevision: revision, temporaryUntil: groundEndsAt, reason: "Подтверждённый источник Tribute" }));
+      policy = { policyRef, subscriptionId };
+    }
+    const source = await db.prisma.sourceEntitlement.findFirst({ where: { origin: "tribute", sourcePolicyRef: policy.policyRef, identityRef: member.identityRef } });
+    const row = { rowRef: randomUUID(), policyRef: policy.policyRef, subscriptionId: policy.subscriptionId, identityRef: member.identityRef,
+      telegramUserId: String(policy.subscriptionId), verificationRef: randomUUID(), checkedAt: now.toISOString(), mode, startsAt: now.toISOString(),
+      endsAt, renewal: "enabled" as const, expectedRevision: source?.revision ?? 0, reason: "Подтверждённые даты и identity" };
     const preview = value(await convergence.preview(owner, { operationId: randomUUID(), batchRef: row.rowRef, rows: [row] }));
     value(await convergence.apply(owner, { operationId: randomUUID(), previewRef: preview.previewRef, selectedRows: [row.rowRef] }));
     await convergence.sweep();
-    return recipient;
+    return policy;
+  }
+  async function tributeMember(endsAt: string): Promise<Participant> {
+    const member = await participant("tribute");
+    await importTribute(member, "confirmed_period", endsAt);
+    return member;
+  }
+  /** Наблюдение бота за прежней группой: принятое свидетельство членства или выхода. */
+  async function observeMembership(member: Participant, decision: "member" | "not_member", version: number) {
+    expect(await membership.acceptEvidence({ accountId: checkedAccountId(member.account), deliveryId: randomUUID(), source: "member_status_event", evidence: {
+      contractVersion: "inside.membership-evidence.v1", principalRef: member.principalRef, telegramIdentityRef: member.identityRef,
+      evidenceRef: randomUUID(), evidenceVersion: version, checkedAt: now.toISOString(), validUntil: new Date(now.getTime() + 240_000).toISOString(),
+      decision, reasonCode: decision === "member" ? "chat_member" : "chat_not_member" } })).toMatchObject({ ok: true });
   }
   async function assignEnrollment(origin: "course" | "manual", recipient: string, endsAt: string | null, tier: string, startsAt = now.toISOString()) {
     const identityRef = `verified-${recipient}`;
@@ -267,13 +352,25 @@ describe("таблица сценариев доступа (реальный Pos
     await assignEnrollment(origin, recipient, endsAt, tier);
     return recipient;
   }
+  /** Прямое право без тарифа: продукт A без даты окончания и отдельное сопровождение до срока. */
+  async function directHolder(): Promise<string> {
+    const holder = await account();
+    const guideRight: AccessCapability = `guide:${guideA}`;
+    const preview = await grants.previewBatch(owner, { operationId: randomUUID(), rows: [
+      { rowKey: "guide", accountId: holder, source: "manual", sourceRef: randomUUID(), terms: { capabilities: [guideRight], startsAt: startedAt, validUntil: null, reason: "Прямое право на продукт" } },
+      { rowKey: "support", accountId: holder, source: "manual", sourceRef: randomUUID(), terms: { capabilities: ["support"], startsAt: startedAt, validUntil: groundEndsAt, reason: "Прямое сопровождение" } },
+    ] });
+    if (!preview.ok) throw new Error(preview.error.code);
+    expect(await grants.applyBatch(owner, { operationId: randomUUID(), previewRef: preview.previewRef, expectedRevision: preview.revision, confirmedRows: ["guide", "support"] })).toMatchObject({ ok: true });
+    return holder;
+  }
   async function revoke(enrollment: { readonly enrollmentId: string; readonly terms: object }) {
     owned(await operations.execute(owner, { operation: "enrollments.change", operationId: randomUUID(), enrollmentId: enrollment.enrollmentId,
       expectedRevision: 1, action: "revoke", terms: enrollment.terms, reason: "Сценарий отзыва" }));
   }
-  async function refund(purchaseRef: string) {
+  async function refund(purchaseRef: string, access: "keep" | "revoke", amountKopecks: number) {
     const decided = owned(await operations.execute(owner, { operation: "refunds.decide", operationId: randomUUID(), purchaseRef,
-      amountKopecks: guidePriceKopecks, access: "revoke", recurring: "keep", reason: "Возврат по отказу от договора" }));
+      amountKopecks, access, recurring: "keep", reason: access === "revoke" ? "Возврат по отказу от договора" : "Возврат без отказа от договора" }));
     if (decided.outcome !== "refundDecision") throw new Error(`Unexpected outcome ${decided.outcome}`);
     expect(owned(await operations.execute(owner, { operation: "refunds.execute", operationId: randomUUID(), decisionRef: decided.value.decisionRef, expectedRevision: 1 })))
       .toMatchObject({ outcome: "refundDecision", value: { state: "executed" } });
@@ -283,6 +380,7 @@ describe("таблица сценариев доступа (реальный Pos
   // ---------------------------------------------------------------- наблюдение через фасады
 
   const open = (term: AccessTerm): AccessObservation => ({ outcome: "open", term });
+  const closed: AccessObservation = { outcome: "closed" };
   const subjectOf = (account: string | null) => account === null
     ? { kind: "anonymous" as const } : { kind: "account" as const, accountId: checkedAccountId(account) };
   function termOf(validUntil: string | null): AccessTerm {
@@ -294,55 +392,83 @@ describe("таблица сценариев доступа (реальный Pos
   /**
    * Решение ContentAccess словами таблицы. Отказ различает сам фасад: `checkAvailabilityMany`
    * отвечает `locked`, когда ресурс виден с замком, и `unavailable`, когда он закрыт целиком.
-   * Видео без тизера наблюдается выдачей сессии: отказ в ней — закрыто.
+   * Видео без тизера наблюдается выдачей ссылки: отказ в ней — закрыто.
    */
   async function decision(access: ContentAccess, account: string | null, resource: Resource): Promise<AccessObservation> {
     const action = actionOf(resource);
     const enforcementPoint = resource.kind === "video" ? "playback_token_issue" : resource.kind === "guideArtifact" ? "guide_artifact_delivery" : "published_material_read";
     const decided = await access.authorize({ subject: subjectOf(account), action, resource, enforcementPoint, correlationId: randomUUID() });
     if (decided.effect === "deny") {
-      if (resource.kind === "video") return { outcome: "closed" };
+      if (resource.kind === "video") return closed;
       const availability = await access.checkAvailabilityMany({ subject: subjectOf(account), enforcementPoint, correlationId: randomUUID(),
         operations: [{ itemId: "cell", resource, action }] });
       if (!availability.ok) throw new Error(availability.error.code);
-      return availability.items[0]?.availability === "locked" ? { outcome: "locked" } : { outcome: "closed" };
+      return availability.items[0]?.availability === "locked" ? { outcome: "locked" } : closed;
     }
     if (!("validUntil" in decided)) return open(decided.reason === "public_resource" ? "public" : "permission");
     return open(termOf(decided.validUntil));
   }
   async function capability(account: string | null, name: "community" | "support"): Promise<AccessObservation> {
-    if (account === null) return { outcome: "closed" };
+    if (account === null) return closed;
     const resolved = await grants.resolveCapabilities(account);
     if (!resolved.ok) throw new Error(resolved.error.code);
     const found = resolved.capabilities.find(entry => entry.capability === name);
-    return found === undefined ? { outcome: "closed" } : open(termOf(found.validUntil));
+    return found === undefined ? closed : open(termOf(found.validUntil));
   }
-  async function programme(account: string | null, slug: string, id: MaterialId): Promise<AccessObservation> {
-    const discovered = value(await discoverPublishedMaterials(materials.publishedMaterialReader, readerAccess, videos, { first: null, kind: "series", slug, subject: subjectOf(account) }));
-    const item = discovered.items.find(entry => entry.materialId === id);
-    if (item === undefined) throw new Error("Programme lost its Material");
-    // Замок программы не несёт срока: он совпадает с решением по самому материалу.
-    if (item.availability === "available") return decision(readerAccess, account, { kind: "material", materialId: id });
-    return item.availability === "locked" ? { outcome: "locked" } : { outcome: "closed" };
+  /** Программа видна, когда её отдаёт чтение программы продукта; замки материалов — отдельная строка. */
+  async function programme(account: string | null, slug: string): Promise<AccessObservation> {
+    const discovered = await discoverPublishedMaterials(materials.publishedMaterialReader, readerAccess, videos, { first: null, kind: "series", slug, subject: subjectOf(account) });
+    return discovered.ok ? open("public") : closed;
+  }
+  async function moderationBlocked(account: string): Promise<boolean> {
+    return (await community.readOwnAdmission(account)).state === "moderation_blocked";
+  }
+  /** Чат: запрет модератора закрывает его; без права вход закрыт, если чат уже впускал человека. */
+  async function communityChat(account: string | null): Promise<AccessObservation> {
+    if (account === null) return closed;
+    if (await moderationBlocked(account)) return closed;
+    const opened = await capability(account, "community");
+    if (opened.outcome === "open") return opened;
+    const delivery = await community.readDelivery(owner, account);
+    if (!delivery.ok) throw new Error(delivery.error.code);
+    return delivery.value.operations.some(operation => operation.access.kind !== "denied") ? { outcome: "entry-closed" } : closed;
+  }
+  /** Сопровождение у тарифа: действует, только если `support` есть в правах действующих назначений. */
+  async function support(account: string | null): Promise<AccessObservation> {
+    const observed = await capability(account, "support");
+    if (account === null) return observed;
+    const active = value(await grants.readOwnEnrollments(account)).filter(enrollment => enrollment.state === "active");
+    if (active.length === 0) return observed;
+    const tierSupport = active.some(enrollment => enrollment.tier.benefits.includes("support"));
+    return (tierSupport ? observed.outcome === "open" : observed.outcome === "closed") ? { outcome: "by-tier" } : observed;
+  }
+  async function cabinet(account: string): Promise<AccessObservation> {
+    if (await moderationBlocked(account)) return { outcome: "shown", shows: "restriction" };
+    const own = value(await grants.readOwnAccess(account));
+    const sources = new Set(own.grounds.filter(ground => ground.active).map(ground => ground.source));
+    if (sources.size > 1) return { outcome: "shown", shows: "all-grounds" };
+    if (sources.size === 1) return { outcome: "shown", shows: "active" };
+    const enrollments = value(await grants.readOwnEnrollments(account));
+    if (enrollments.some(enrollment => enrollment.state === "expired" || enrollment.state === "revoked")) return { outcome: "shown", shows: "ended" };
+    const purchase = purchases.get(account);
+    if (purchase !== undefined && value(await payments.status(account, purchase)).state === "confirmed") return { outcome: "shown", shows: "purchase-history" };
+    return { outcome: "shown", shows: "nothing" };
   }
 
+  interface Target { readonly material: MaterialId; readonly slug: string; readonly artifact: string }
+
   /** Одна клетка: `null` — у основания нет Account, и клетка по таблице неприменима. */
-  async function observe(surface: AccessSurface, account: string | null, material: MaterialId = productMaterial): Promise<AccessObservation | null> {
+  async function observe(surface: AccessSurface, account: string | null, target: Partial<Target> = {}): Promise<AccessObservation | null> {
+    const { material = productMaterial, slug = guideSlug, artifact: artifactRef = artifactId } = target;
     switch (surface) {
       case "public-material": return decision(readerAccess, account, { kind: "material", materialId: freeMaterial });
       case "product-material": return decision(readerAccess, account, { kind: "material", materialId: material });
-      case "programme": return programme(account, guideSlug, material);
-      case "artifacts": return decision(readerAccess, account, { kind: "guideArtifact", artifactId });
+      case "programme": return programme(account, slug);
+      case "artifacts": return decision(readerAccess, account, { kind: "guideArtifact", artifactId: artifactRef });
       case "video": return decision(readerAccess, account, { kind: "video", videoId });
-      case "community-chat": return capability(account, "community");
-      case "support": return capability(account, "support");
-      case "cabinet": {
-        if (account === null) return null;
-        const own = value(await grants.readOwnAccess(account));
-        const active = own.grounds.filter(ground => ground.active);
-        if (active.length === 0) return { outcome: "closed" };
-        return open(active.some(ground => ground.validUntil === null) ? "lifetime" : "ground-term");
-      }
+      case "community-chat": return communityChat(account);
+      case "support": return support(account);
+      case "cabinet": return account === null ? null : cabinet(account);
       case "author": {
         if (account === null) return null;
         await db.prisma.accountPermission.upsert({ where: { accountId_permission: { accountId: account, permission: "materials:manage" } },
@@ -352,7 +478,7 @@ describe("таблица сценариев доступа (реальный Pos
       case "mcp": {
         if (account === null) return null;
         const loaded = await materials.authoring.loadMaterial({ actor: account, materialId: material });
-        return loaded.ok ? open("permission") : { outcome: "closed" };
+        return loaded.ok ? open("permission") : closed;
       }
     }
   }
@@ -380,33 +506,35 @@ describe("таблица сценариев доступа (реальный Pos
 
   // ------------------------------------------------------------------------------- переходы
 
-  async function transitionVerdicts(id: AccessTransition, account: string, material: MaterialId = productMaterial): Promise<readonly string[]> {
+  async function transitionVerdicts(id: AccessTransition, account: string, target: Partial<Target> = {}): Promise<readonly string[]> {
     const after: Readonly<Partial<Record<AccessSurface, AccessExpectation>>> = accessScenarioTable.transitions[id].after;
     const verdicts = [];
     for (const surface of accessSurfaces) {
       const expectation = after[surface];
       if (expectation === undefined) continue;
-      verdicts.push(verdict(`${id}:${surface}`, expectation, await observe(surface, account, material)));
+      verdicts.push(verdict(`${id}:${surface}`, expectation, await observe(surface, account, target)));
     }
     return verdicts.filter((entry): entry is string => entry !== null);
   }
 
   test("expiry", async () => {
     now = new Date(startedAt);
-    const recipient = await tributeMember(groundEndsAt);
-    expect(await observe("product-material", recipient)).toEqual(open("ground-term"));
-    try {
-      now = new Date(groundEndsAt);
-      expect(await transitionVerdicts("expiry", recipient)).toEqual([]);
-    } finally { now = new Date(startedAt); }
+    const member = await tributeMember(groundEndsAt);
+    await project(member.account);
+    expect(await observe("product-material", member.account)).toEqual(open("ground-term"));
+    await atMoment(groundEndsAt, async () => {
+      expect(await transitionVerdicts("expiry", member.account)).toEqual([]);
+    });
   });
 
   test("revocation", async () => {
     now = new Date(startedAt);
     const recipient = await account();
+    await linkChat(recipient);
     const enrollment = await assignEnrollment("manual", recipient, null, tierId);
+    await project(recipient);
     expect(await observe("product-material", recipient)).toEqual(open("lifetime"));
-    // Сессия видео, выданная до отзыва: после отзыва обратный вызов Kinescope её не принимает.
+    // Ссылка на видео, выданная до отзыва: после отзыва обратный вызов Kinescope её не принимает.
     const session = await playback.createSession({ materialId: productMaterial, videoId, subject: subjectOf(recipient), correlationId: randomUUID() });
     const token = session.ok ? session.value.drmAuthToken : null;
     if (typeof token !== "string") throw new Error("Expected a protected playback token");
@@ -416,13 +544,98 @@ describe("таблица сценариев доступа (реальный Pos
     expect(await transitionVerdicts("revocation", recipient)).toEqual([]);
   });
 
+  test("bridge-replaced-by-tribute", async () => {
+    now = new Date(startedAt);
+    const member = await participant("bridge");
+    expect(await grants.classifyLegacy(owner, { operationId: randomUUID(), accountId: member.account, expectedRevision: 0, classification: "confirmed_legacy",
+      sourceRef: `bridge-${member.account}`, reason: "Прежний участник", bridgeEnabled: true, tributeStopped: false })).toMatchObject({ ok: true });
+    // Мост прежних участников открывает продукт A и сопровождение, пока подтверждено членство.
+    await db.prisma.legacyClassification.update({ where: { accountId: member.account },
+      data: { bridgeContentScope: { guideIds: [guideA], materialIds: [] }, bridgeBenefits: ["materials", "community", "support"] } });
+    await observeMembership(member, "member", 1);
+    expect(await observe("support", member.account)).toEqual(open("ground-term"));
+    // Временный источник Tribute ещё не подтверждён: мост продолжает действовать.
+    const policy = await importTribute(member, "temporary_membership", groundEndsAt);
+    expect(await db.prisma.legacyClassification.findUniqueOrThrow({ where: { accountId: member.account } })).toMatchObject({ bridgeEnabled: true });
+    expect(await observe("support", member.account)).toEqual(open("ground-term"));
+    // Подтверждённый период выключает мост: дальше действует назначение по Tribute.
+    await importTribute(member, "confirmed_period", groundEndsAt, policy);
+    expect(await db.prisma.legacyClassification.findUniqueOrThrow({ where: { accountId: member.account } })).toMatchObject({ bridgeEnabled: false });
+    expect(await transitionVerdicts("bridge-replaced-by-tribute", member.account)).toEqual([]);
+  });
+
+  test("tribute-temporary-source-lost", async () => {
+    now = new Date(startedAt);
+    const member = await participant("temporary");
+    await importTribute(member, "temporary_membership", groundEndsAt);
+    await observeMembership(member, "member", 1);
+    expect(await observe("product-material", member.account)).toEqual(open("ground-term"));
+    await project(member.account);
+    await observeMembership(member, "not_member", 2);
+    expect(value(await grants.readOwnEnrollments(member.account))[0]?.state).toBe("suspended_source");
+    expect(await transitionVerdicts("tribute-temporary-source-lost", member.account)).toEqual([]);
+  });
+
   test("refund", async () => {
     now = new Date(startedAt);
     const buyer = await account();
+    await linkChat(buyer);
     const purchaseRef = await pay(buyer, productOptionId);
+    await project(buyer);
     expect(await observe("support", buyer)).toEqual(open("six-months"));
-    await refund(purchaseRef);
+    await refund(purchaseRef, "revoke", guidePriceKopecks);
     expect(await transitionVerdicts("refund", buyer)).toEqual([]);
+  });
+
+  test("refund-without-withdrawal", async () => {
+    now = new Date(startedAt);
+    const buyer = await account();
+    const purchaseRef = await pay(buyer, productOptionId);
+    await refund(purchaseRef, "keep", 100_000);
+    expect(await transitionVerdicts("refund-without-withdrawal", buyer)).toEqual([]);
+  });
+
+  test("material-added-to-product", async () => {
+    now = new Date(startedAt);
+    const holders = [await purchased(productOptionId), await assigned("course", null), await directHolder()];
+    const added = await material([guideA]);
+    const verdicts = [];
+    for (const holder of holders) verdicts.push(...await transitionVerdicts("material-added-to-product", holder, { material: added }));
+    expect(verdicts).toEqual([]);
+  });
+
+  test("material-removed-from-product", async () => {
+    now = new Date(startedAt);
+    const buyer = await purchased(productOptionId);
+    const otherGuide = await guide(`scenario-other-${randomUUID()}`);
+    const removed = await material([guideA, otherGuide]);
+    expect(await observe("product-material", buyer, { material: removed })).toEqual(open("lifetime"));
+    const current = await db.prisma.material.findUniqueOrThrow({ where: { id: removed } });
+    // Команда сохранения несёт выбор автора целиком: тот же материал без купленного руководства.
+    const metadata = metadataFor([otherGuide], "membership", current.title ?? "");
+    const save = (confirmedGuideRemovals: readonly string[]) => materials.authoring.saveMaterial({ actor: owner, idempotencyKey: randomUUID(), materialId: removed,
+      expectedContentVersion: Number(current.contentVersion), publicationState: "published", metadata, body: representativeDocument(current.title ?? ""), confirmedGuideRemovals });
+    expect(await save([])).toMatchObject({ ok: false, error: { code: "guide_removal_confirmation_required" } });
+    expect(await observe("product-material", buyer, { material: removed })).toEqual(open("lifetime"));
+    expect(await save([guideA])).toMatchObject({ ok: true });
+    expect(await transitionVerdicts("material-removed-from-product", buyer, { material: removed })).toEqual([]);
+  });
+
+  test("guide-archived", async () => {
+    now = new Date(startedAt);
+    const archivedSlug = `scenario-archived-${randomUUID()}`;
+    const archived = await guide(archivedSlug);
+    const step = await material([archived]);
+    const archivedArtifact = await artifact(archived);
+    const holder = await account();
+    const guideRight: AccessCapability = `guide:${archived}`;
+    const preview = await grants.previewBatch(owner, { operationId: randomUUID(), rows: [{ rowKey: "guide", accountId: holder, source: "manual", sourceRef: randomUUID(),
+      terms: { capabilities: [guideRight], startsAt: startedAt, validUntil: null, reason: "Покупатель архивного руководства" } }] });
+    if (!preview.ok) throw new Error(preview.error.code);
+    expect(await grants.applyBatch(owner, { operationId: randomUUID(), previewRef: preview.previewRef, expectedRevision: preview.revision, confirmedRows: ["guide"] })).toMatchObject({ ok: true });
+    const version = (await db.prisma.guide.findUniqueOrThrow({ where: { id: archived } })).version;
+    expect(await materials.authoring.setContentCollectionArchive({ actor: owner, archived: true, collectionId: archived, expectedVersion: version, kind: "guide" })).toMatchObject({ ok: true });
+    expect(await transitionVerdicts("guide-archived", holder, { material: step, slug: archivedSlug, artifact: archivedArtifact })).toEqual([]);
   });
 
   test("tier-composition-change", async () => {
@@ -436,12 +649,12 @@ describe("таблица сценариев доступа (реальный Pos
       value: { id: changing, name: "Материалы + сообщество", benefits: ["materials", "community"], availableForAssignment: true, contentScope: { guideIds: [guideA, guideC], materialIds: [] } } }));
     if (saved.outcome !== "catalog") throw new Error(`Unexpected outcome ${saved.outcome}`);
     // Новая редакция тарифа сама по себе ничего не открывает действующему назначению.
-    expect(await observe("product-material", recipient, added)).toEqual({ outcome: "locked" });
-    const preview = owned(await operations.execute(owner, { operation: "enrollments.previewExpansion", operationId: randomUUID(), tierId: changing,
+    expect(await observe("product-material", recipient, { material: added })).toEqual({ outcome: "locked" });
+    const expansion = owned(await operations.execute(owner, { operation: "enrollments.previewExpansion", operationId: randomUUID(), tierId: changing,
       tierRevision: saved.value.revision, targets: [{ enrollmentId: enrollment.enrollmentId, expectedRevision: 1, tierRevision: 1 }], reason: "Расширение состава" }));
-    if (preview.outcome !== "enrollmentExpansionPreview") throw new Error(`Unexpected outcome ${preview.outcome}`);
-    owned(await operations.execute(owner, { operation: "enrollments.applyExpansion", operationId: randomUUID(), previewRef: preview.value.previewRef }));
-    expect(await transitionVerdicts("tier-composition-change", recipient, added)).toEqual([]);
+    if (expansion.outcome !== "enrollmentExpansionPreview") throw new Error(`Unexpected outcome ${expansion.outcome}`);
+    owned(await operations.execute(owner, { operation: "enrollments.applyExpansion", operationId: randomUUID(), previewRef: expansion.value.previewRef }));
+    expect(await transitionVerdicts("tier-composition-change", recipient, { material: added })).toEqual([]);
   });
 
   test("tier-archived-with-assignments", async () => {
@@ -455,40 +668,17 @@ describe("таблица сценариев доступа (реальный Pos
     expect(await transitionVerdicts("tier-archived-with-assignments", recipient)).toEqual([]);
   });
 
-  test("material-removed-from-product", async () => {
-    now = new Date(startedAt);
-    const buyer = await purchased(productOptionId);
-    const otherGuide = await guide(`scenario-other-${randomUUID()}`);
-    const removed = await material([guideA, otherGuide]);
-    expect(await observe("product-material", buyer, removed)).toEqual(open("lifetime"));
-    const current = await db.prisma.material.findUniqueOrThrow({ where: { id: removed } });
-    // Команда сохранения несёт выбор автора целиком: тот же материал без купленного руководства.
-    const metadata = { title: current.title, summary: current.summary, access: "membership" as const, topicId, formatId: "guide",
-      tagIds: [], difficulty: null, outcomes: [], seriesIds: [otherGuide] };
-    const save = (confirmedGuideRemovals: readonly string[]) => materials.authoring.saveMaterial({ actor: owner, idempotencyKey: randomUUID(), materialId: removed,
-      expectedContentVersion: Number(current.contentVersion), publicationState: "published", metadata, body: representativeDocument(current.title ?? ""), confirmedGuideRemovals });
-    expect(await save([])).toMatchObject({ ok: false, error: { code: "guide_removal_confirmation_required" } });
-    expect(await observe("product-material", buyer, removed)).toEqual(open("lifetime"));
-    expect(await save([guideA])).toMatchObject({ ok: true });
-    expect(await transitionVerdicts("material-removed-from-product", buyer, removed)).toEqual([]);
-  });
+  // ---------------------------------------------------------------------------- публикация
 
-  test("guide-archived", async () => {
+  test("standalone-membership-publication-rejected", async () => {
     now = new Date(startedAt);
-    const archivedSlug = `scenario-archived-${randomUUID()}`;
-    const archived = await guide(archivedSlug);
-    const step = await material([archived]);
-    const holder = await account();
-    const preview = await grants.previewBatch(owner, { operationId: randomUUID(), rows: [{ rowKey: "guide", accountId: holder, source: "manual", sourceRef: randomUUID(),
-      terms: { capabilities: [`guide:${archived}`], startsAt: startedAt, validUntil: null, reason: "Покупатель архивного руководства" } }] });
-    if (!preview.ok) throw new Error(preview.error.code);
-    expect(await grants.applyBatch(owner, { operationId: randomUUID(), previewRef: preview.previewRef, expectedRevision: preview.revision, confirmedRows: ["guide"] })).toMatchObject({ ok: true });
-    const version = (await db.prisma.guide.findUniqueOrThrow({ where: { id: archived } })).version;
-    expect(await materials.authoring.setContentCollectionArchive({ actor: owner, archived: true, collectionId: archived, expectedVersion: version, kind: "guide" })).toMatchObject({ ok: true });
-    const archivedProgramme = await programme(holder, archivedSlug, step);
-    const productDecision = await observe("product-material", holder, step);
-    const after = accessScenarioTable.transitions["guide-archived"].after;
-    expect([verdict("guide-archived:programme", after.programme, archivedProgramme), verdict("guide-archived:product-material", after["product-material"], productDecision)]
-      .filter(entry => entry !== null)).toEqual([]);
+    const scenario = accessScenarioTable.publications["standalone-membership-publication-rejected"];
+    const metadata = metadataFor([], "membership");
+    const created = await materials.authoring.createDraft({ actor: owner, idempotencyKey: randomUUID(), metadata, body: representativeDocument(metadata.title) });
+    if (!created.ok) throw new Error(created.error.code);
+    const published = await materials.authoring.saveMaterial({ actor: owner, idempotencyKey: randomUUID(), materialId: created.value.materialId,
+      expectedContentVersion: 1, publicationState: "published", metadata, body: representativeDocument(metadata.title) });
+    expect(published).toMatchObject({ ok: false, error: { code: "invalid_content", issues: [{ code: scenario.rejectedWith }] } });
+    expect(await db.prisma.publishedMaterial.count({ where: { materialId: created.value.materialId } })).toBe(0);
   });
 });

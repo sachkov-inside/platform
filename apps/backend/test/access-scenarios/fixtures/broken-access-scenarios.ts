@@ -8,7 +8,10 @@ import { accessScenarioTable, type AccessScenarioTable } from "../access-scenari
 const { "one-time-purchase": _missing, ...supportWithoutPurchase } = accessScenarioTable.cells.support;
 const { "guide-archived": _missingTransition, ...transitionsWithoutOne } = accessScenarioTable.transitions;
 
-/** Пропущены клетка и переход, добавлено несуществующее основание, n/a без причины. */
+/**
+ * Пропущены клетка, переход и сценарий публикации, добавлено несуществующее основание,
+ * неприменимость без причины.
+ */
 export const incompleteAccessScenarioTable: AccessScenarioTable = {
   cells: {
     ...accessScenarioTable.cells,
@@ -16,6 +19,7 @@ export const incompleteAccessScenarioTable: AccessScenarioTable = {
     "mcp": { ...accessScenarioTable.cells.mcp, "guest": { outcome: "not-applicable", because: " " } },
   },
   transitions: transitionsWithoutOne,
+  publications: {},
 };
 
 /** Ожидание, которое расходится с моделью: возврат по отказу якобы оставляет материал открытым. */

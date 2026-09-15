@@ -1,17 +1,19 @@
 import {
   accessCellId,
   accessGrounds,
+  accessPublicationScenarios,
   accessSurfaces,
   accessTransitions,
   type AccessExpectation,
   type AccessScenarioTable,
   type AccessTerm,
+  type CabinetView,
 } from "./access-scenarios.js";
 
 /**
- * Контроль полноты таблицы: каждая клетка «что открывается × основание» и каждый переход описаны,
- * лишних имён нет, а неприменимая клетка объясняет почему. Возвращает список нарушений; пустой
- * список означает, что таблица покрывает модель целиком.
+ * Контроль полноты таблицы: каждая клетка «что открывается × основание», каждый переход и каждый
+ * сценарий публикации описаны, лишних имён нет, а неприменимая клетка объясняет почему. Возвращает
+ * список нарушений; пустой список означает, что таблица покрывает модель целиком.
  */
 export function checkAccessScenarioTable(table: AccessScenarioTable): readonly string[] {
   const problems: string[] = [];
@@ -40,6 +42,15 @@ export function checkAccessScenarioTable(table: AccessScenarioTable): readonly s
     if (transition.rule.trim().length === 0) problems.push(`transition ${id} has no rule`);
     if (Object.keys(transition.after).length === 0) problems.push(`transition ${id} observes nothing`);
   }
+  for (const id of accessPublicationScenarios) {
+    if (!Object.hasOwn(table.publications, id)) problems.push(`missing publication scenario ${id}`);
+  }
+  for (const [id, publication] of Object.entries(table.publications)) {
+    if (!(accessPublicationScenarios as readonly string[]).includes(id)) problems.push(`unknown publication scenario ${id}`);
+    if (publication.rule.trim().length === 0 || publication.rejectedWith.trim().length === 0) {
+      problems.push(`publication scenario ${id} has no rule or rejection`);
+    }
+  }
   return problems;
 }
 
@@ -47,7 +58,10 @@ export function checkAccessScenarioTable(table: AccessScenarioTable): readonly s
 export type AccessObservation =
   | { readonly outcome: "open"; readonly term: AccessTerm }
   | { readonly outcome: "locked" }
-  | { readonly outcome: "closed" };
+  | { readonly outcome: "closed" }
+  | { readonly outcome: "entry-closed" }
+  | { readonly outcome: "by-tier" }
+  | { readonly outcome: "shown"; readonly shows: CabinetView };
 
 /**
  * Одно сравнение ожидания и наблюдения. Возвращает `null`, если они совпали, иначе объяснение
@@ -61,15 +75,16 @@ export function compareAccessObservation(
   if (expectation.outcome === "not-applicable") {
     return `${id} is not applicable (${expectation.because}) but was observed as ${describe(observation)}`;
   }
-  if (expectation.outcome !== observation.outcome) {
-    return `${id} expected ${describe(expectation)} but observed ${describe(observation)}`;
-  }
-  if (expectation.outcome === "open" && observation.outcome === "open" && expectation.term !== observation.term) {
-    return `${id} expected ${describe(expectation)} but observed ${describe(observation)}`;
-  }
-  return null;
+  return describe(expectation) === describe(observation)
+    ? null
+    : `${id} expected ${describe(expectation)} but observed ${describe(observation)}`;
 }
 
 function describe(value: AccessExpectation | AccessObservation): string {
-  return value.outcome === "open" ? `open (${value.term})` : value.outcome;
+  switch (value.outcome) {
+    case "open": return `open (${value.term})`;
+    case "shown": return `shown (${value.shows})`;
+    case "not-applicable": return "not-applicable";
+    case "locked": case "closed": case "entry-closed": case "by-tier": return value.outcome;
+  }
 }

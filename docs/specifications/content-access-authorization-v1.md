@@ -294,13 +294,18 @@ video locators и иные связанные с body ресурсы в projecti
 
 ## Таблица сценариев доступа (#648)
 
-Исполняемая форма модели доступа — таблица «что открывается × основание» и переходы в
-`apps/backend/test/access-scenarios/access-scenarios.ts`. Строки: публичный материал, материал
-продукта, программа, артефакты, видео, общий чат, сопровождение, кабинет, автор, MCP. Столбцы:
-гость, аккаунт без прав, разовая покупка, тариф через курс, Tribute, ручное назначение, скрытый
-действующий тариф, отозванное основание, несколько оснований, возврат по отказу. Переходы:
-истечение, отзыв, возврат, смена состава тарифа, архив тарифа при назначениях, снятие материала из
-продукта, архив руководства. У каждой клетки стабильное имя `<строка>/<столбец>`.
+Каноническая модель доступа — Workspace `product/access-model.md`; её исполняемая форма —
+таблица «что открывается × основание», переходы и сценарии публикации в
+`apps/backend/test/access-scenarios/access-scenarios.ts`. Имена сценариев совпадают с моделью.
+Строки: `public-material`, `product-material`, `programme`, `artifacts`, `video`, `community-chat`,
+`support`, `cabinet`, `author`, `mcp`. Столбцы: `guest`, `account-without-rights`,
+`one-time-purchase`, `tier-via-course`, `tier-via-tribute`, `manual-assignment`,
+`hidden-active-tier`, `direct`, `expired-or-revoked`, `multiple-grounds`, `withdrawal-refund`,
+`moderation`. Переходы: `expiry`, `revocation`, `bridge-replaced-by-tribute`,
+`tribute-temporary-source-lost`, `refund`, `refund-without-withdrawal`, `material-added-to-product`,
+`material-removed-from-product`, `guide-archived`, `tier-composition-change`,
+`tier-archived-with-assignments`. Публикация: `standalone-membership-publication-rejected`.
+У каждой клетки стабильное имя `<строка>/<столбец>`.
 
 `pnpm check` проверяет полноту таблицы и негативную фикстуру (`test/unit/access-scenario-table.test.ts`);
 `pnpm test:integration` исполняет каждую клетку и переход через `ContentAccess`, программу
