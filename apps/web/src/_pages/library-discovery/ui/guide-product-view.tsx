@@ -67,7 +67,7 @@ export function GuideProductView({
                 {returnTarget.label}
               </Link>
             </li>
-            <li className="sr-only">Руководство</li>
+            <li className="sr-only">Продукт</li>
             <li aria-current="page" className="sr-only">
               {reference.name}
             </li>
@@ -76,7 +76,7 @@ export function GuideProductView({
 
         <header className="mt-3 overflow-hidden rounded-[1.75rem] bg-primary p-4 text-white">
           <p className="text-xs font-bold uppercase tracking-[0.14em] text-white/60">
-            Руководство
+            Продукт
           </p>
           <div className="mt-3 overflow-hidden rounded-2xl">
             <ContentCoverImage
@@ -134,7 +134,7 @@ export function GuideProductView({
         )}
 
         {chapters.length === 0 ? null : (
-          <Section title="Что внутри руководства">
+          <Section title="Что внутри продукта">
             <p className="text-sm leading-6 text-muted-foreground">
               <span className="font-semibold text-foreground">
                 {formatMaterialCount(items.length)}

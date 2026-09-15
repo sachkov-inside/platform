@@ -36,7 +36,7 @@ export function FeaturedGuide({ series }: { readonly series: HomeCollection }) {
       {series.summary && <p>{series.summary}</p>}
       <div className="home-guide-actions">
         <span>{formatMaterialCount(series.count)}</span>
-        <Link className="home-guide-open" href={collectionDiscoveryHref("series", series.slug, "/")}>Открыть руководство <ArrowRight aria-hidden="true" /></Link>
+        <Link className="home-guide-open" href={collectionDiscoveryHref("series", series.slug, "/")}>Открыть продукт <ArrowRight aria-hidden="true" /></Link>
         <GuideContinuation slug={series.slug} />
       </div>
     </div>

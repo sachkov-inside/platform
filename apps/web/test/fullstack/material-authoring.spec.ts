@@ -1289,18 +1289,18 @@ test("author edits series metadata on a dedicated page and returns to the list a
   await signInFullStack(context, "OWNER");
   const title = `Full-stack series ${String(Date.now())}`;
   await page.goto("/authoring/guides");
-  await page.getByRole("button", { name: "Создать руководство" }).click();
+  await page.getByRole("button", { name: "Создать продукт" }).click();
   await page.getByRole("textbox", { name: "Название", exact: true }).fill(title);
   await page.getByRole("textbox", { name: "Адрес", exact: false }).fill(`series-${String(Date.now())}`);
   await page.getByRole("button", { name: "Создать", exact: true }).click();
   await expect(page).toHaveURL(/\/authoring\/guides\/[^/]+$/u);
-  await expect(page.getByRole("heading", { name: "Руководство пока пусто" })).toBeVisible();
-  await page.getByRole("textbox", { name: "Название руководства" }).fill(`${title} · Обновлена`);
+  await expect(page.getByRole("heading", { name: "Продукт пока пуст" })).toBeVisible();
+  await page.getByRole("textbox", { name: "Название продукта" }).fill(`${title} · Обновлена`);
   await page.getByRole("textbox", { name: "Краткое описание" }).fill("Описание сохраняется перед возвратом к списку.");
-  await page.getByRole("button", { name: "Все руководства", exact: true }).click();
+  await page.getByRole("button", { name: "Все продукты", exact: true }).click();
   await expect(page).toHaveURL(/\/authoring\/guides$/u);
   await page.getByRole("link", { name: new RegExp(title, "u") }).click();
-  await expect(page.getByRole("textbox", { name: "Название руководства" })).toHaveValue(`${title} · Обновлена`);
+  await expect(page.getByRole("textbox", { name: "Название продукта" })).toHaveValue(`${title} · Обновлена`);
   await expect(page.getByRole("textbox", { name: "Краткое описание" })).toHaveValue("Описание сохраняется перед возвратом к списку.");
   const orderGate = Promise.withResolvers<undefined>();
   let orderCompleted = false;
@@ -1330,7 +1330,7 @@ test("author edits series metadata on a dedicated page and returns to the list a
   await expect(page.getByRole("button", { name: "Вернуть из архива" })).toBeVisible();
   expect(archivedBeforeOrder).toBe(false);
   await page.reload();
-  await expect(page.getByRole("list", { name: "Материалы руководства" }).getByRole("listitem")).toHaveCount(1);
+  await expect(page.getByRole("list", { name: "Материалы продукта" }).getByRole("listitem")).toHaveCount(1);
   await expect(page.getByRole("button", { name: "Добавить материал" })).toBeDisabled();
   await page.getByRole("button", { name: "Вернуть из архива" }).click();
   await expect(page.getByRole("button", { name: "Добавить материал" })).toBeEnabled();
@@ -1369,7 +1369,7 @@ test("trusted author reorders a PostgreSQL series with keyboard controls", async
   await expect(picker).toBeHidden();
 
   const items = page
-    .getByRole("list", { name: "Материалы руководства" })
+    .getByRole("list", { name: "Материалы продукта" })
     .getByRole("listitem");
   const countAfterAdd = await items.count();
   expect(countAfterAdd).toBeGreaterThan(2);

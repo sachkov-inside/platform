@@ -28,7 +28,7 @@ export const RealDataReady: Story = {
   args: { result: { kind: "ready", value: home }, feed: feed() },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("link", { name: "Открыть руководство" })).toBeInTheDocument();
+    await expect(canvas.getByRole("link", { name: "Открыть продукт" })).toBeInTheDocument();
     await expect(canvas.getByRole("region", { name: "Материалы" })).toBeInTheDocument();
     await expect(canvas.getByRole("group", { name: "Формат материала" })).toBeInTheDocument();
     await expect(await canvas.findByRole("link", { name: "Открыть github.com в новой вкладке" })).toHaveAttribute("href", "https://github.com/sachkov-inside/platform");

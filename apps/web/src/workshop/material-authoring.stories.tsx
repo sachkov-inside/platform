@@ -206,7 +206,7 @@ export const Editing: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.getByRole("group", { name: /^Руководства/u }),
+      canvas.getByRole("group", { name: /^Продукты/u }),
     ).toBeInTheDocument();
     await expect(
       canvas.getByRole("checkbox", { name: "Создание Platform Inside" }),
@@ -857,7 +857,7 @@ export const MobileTextZoom: Story = {
 };
 
 export const SearchableSeries: Story = {
-  name: "Руководства · поиск и продолжение списка",
+  name: "Продукты · поиск и продолжение списка",
   args: {
     presentation: {
       ...materialAuthoringPresentation,
@@ -870,18 +870,18 @@ export const SearchableSeries: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const series = within(canvas.getByLabelText("Выбор руководств"));
+    const series = within(canvas.getByLabelText("Выбор продуктов"));
     await expect(series.getAllByRole("checkbox")).toHaveLength(20);
     const more = series.getByRole("button", { name: "Показать ещё" });
     more.focus();
     await userEvent.keyboard("{Enter}");
     await expect(series.getAllByRole("checkbox").length).toBeGreaterThan(20);
-    await userEvent.type(canvas.getByLabelText("Поиск руководств"), "Руководство 45", { delay: null });
+    await userEvent.type(canvas.getByLabelText("Поиск продуктов"), "Руководство 45", { delay: null });
     await expect(series.getAllByRole("checkbox")).toHaveLength(1);
     await expect(series.getByRole("checkbox", { name: "Руководство 45" })).toBeVisible();
     const page = routeContent(canvasElement);
     await expect(page.getAllByText("Теги", { exact: true })).toHaveLength(1);
-    await expect(page.getAllByText("Руководства", { exact: true })).toHaveLength(1);
+    await expect(page.getAllByText("Продукты", { exact: true })).toHaveLength(1);
   },
 };
 

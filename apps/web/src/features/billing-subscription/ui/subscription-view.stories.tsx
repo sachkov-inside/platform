@@ -152,7 +152,7 @@ export const MaterialsWithoutTelegram: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.getAllByText("Все опубликованные материалы и руководства").length,
+      canvas.getAllByText("Все опубликованные материалы и продукты").length,
     ).toBeGreaterThan(0);
     await expect(canvas.queryByText("Общий чат")).not.toBeInTheDocument();
   },

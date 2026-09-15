@@ -660,7 +660,7 @@ export const Mobile: Story = {
       ).fontSize,
     ).toBe("20px");
     await expect(canvas.queryByRole("list", { name: "Теги материала" })).not.toBeInTheDocument();
-    await expect(canvas.queryByRole("list", { name: "Руководства материала" })).not.toBeInTheDocument();
+    await expect(canvas.queryByRole("list", { name: "Продукты материала" })).not.toBeInTheDocument();
     await expect(canvas.getByRole("link", { name: /Чек-лист проверки repository-owned skill/u })).toBeInTheDocument();
     await expect(canvas.getAllByRole("article")).toHaveLength(1);
     const document = canvasElement.ownerDocument;
@@ -766,12 +766,12 @@ export const PlaylistReturn: Story = {
   args: { mode: "playlist-return" },
   play: async ({ canvasElement }) => {
     const links = within(canvasElement).getAllByRole("link", {
-      name: "Все материалы руководства",
+      name: "Все материалы продукта",
     });
     await expect(links).toHaveLength(1);
     await expect(links[0]).toHaveAttribute("href", "/series/platform-inside");
     const seriesNavigation = within(canvasElement).getByRole("navigation", {
-      name: "Навигация по руководству «Создание Platform Inside»",
+      name: "Навигация по продукту «Создание Platform Inside»",
     });
     const readerBody = canvasElement.querySelector<HTMLElement>("[data-reader-body]");
     const readerFooter = canvasElement.querySelector<HTMLElement>("[data-reader-footer]");
@@ -780,7 +780,7 @@ export const PlaylistReturn: Story = {
       Boolean(readerBody.compareDocumentPosition(seriesNavigation) & Node.DOCUMENT_POSITION_FOLLOWING),
     ).toBe(true);
     await expect(readerFooter.contains(seriesNavigation)).toBe(true);
-    await expect(within(canvasElement).getByRole("link", { name: "Назад к руководству" })).toHaveAttribute("href", "/series/platform-inside");
+    await expect(within(canvasElement).getByRole("link", { name: "Назад к продукту" })).toHaveAttribute("href", "/series/platform-inside");
     await expect(within(canvasElement).queryByText(/· №/u)).not.toBeInTheDocument();
     await expect(
       within(seriesNavigation).getByRole("link", {
@@ -817,7 +817,7 @@ export const AccessRequired: Story = {
     );
     await expect(membershipLink).not.toHaveAttribute("target");
     await expect(canvas.queryByRole("list", { name: "Теги материала" })).not.toBeInTheDocument();
-    await expect(canvas.queryByRole("list", { name: "Руководства материала" })).not.toBeInTheDocument();
+    await expect(canvas.queryByRole("list", { name: "Продукты материала" })).not.toBeInTheDocument();
     await expect(
       canvasElement.querySelector(
         '[data-content-cover-id="02000000-0000-4000-8000-000000000011"]',
@@ -839,9 +839,9 @@ export const AccessGuidePurchase: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.getByRole("heading", { name: "Продолжение входит в руководство" }),
+      canvas.getByRole("heading", { name: "Продолжение входит в продукт" }),
     ).toBeInTheDocument();
-    await expect(canvas.getByRole("link", { name: "Купить руководство" })).toHaveAttribute(
+    await expect(canvas.getByRole("link", { name: "Купить продукт" })).toHaveAttribute(
       "href",
       "/guides/platform-inside/buy",
     );
@@ -858,7 +858,7 @@ export const AccessNotOffered: Story = {
       canvas.getByText("Купить доступ сейчас нельзя, но материал останется здесь."),
     ).toBeVisible();
     await expect(canvas.queryByRole("link", { name: "Получить доступ" })).not.toBeInTheDocument();
-    await expect(canvas.queryByRole("link", { name: "Купить руководство" })).not.toBeInTheDocument();
+    await expect(canvas.queryByRole("link", { name: "Купить продукт" })).not.toBeInTheDocument();
   },
 };
 

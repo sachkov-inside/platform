@@ -23,7 +23,7 @@ function programmeResult(
   result: ComponentProps<typeof LibraryDiscoveryView>["result"],
 ): ComponentProps<typeof GuideProgrammeView>["result"] {
   if (result.discoveryKind !== "series") {
-    throw new Error("Истории программы строятся на результате руководства");
+    throw new Error("Истории программы строятся на результате продукта");
   }
   return result;
 }
@@ -210,7 +210,7 @@ export const SeriesProductDesktop: Story = {
       canvas.getByRole("link", { name: /Открыть программу/u }),
     ).toBeInTheDocument();
     await expect(canvas.queryByRole("link", { name: /Купить за/u })).not.toBeInTheDocument();
-    await expect(canvas.getByText("Что внутри руководства")).toBeInTheDocument();
+    await expect(canvas.getByText("Что внутри продукта")).toBeInTheDocument();
     await expect(
       canvasElement.querySelector(
         '[data-content-cover-id="02000000-0000-4000-8000-000000000063"]',
@@ -248,7 +248,7 @@ export const EmptySeries: Story = {
       chapters: [],
       discoveryKind: "series",
       kind: "empty",
-      reference: { name: "Новая руководство", slug: "new-series", summary: "" },
+      reference: { name: "Новый продукт", slug: "new-series", summary: "" },
       relatedSeries: [],
       topics: [],
     },
@@ -315,7 +315,7 @@ async function expectNoHorizontalOverflow(canvasElement: HTMLElement) {
 
 const connectedStepsResult = {
   ...seriesResult,
-  reference: { cover: null, name: "Релиз своего проекта", slug: "release", summary: "Видео, заметки и последовательные инструкции в одном руководстве." },
+  reference: { cover: null, name: "Релиз своего проекта", slug: "release", summary: "Видео, заметки и последовательные инструкции в одном продукте." },
   items: [
     { title: "Как устроен релиз моего проекта", format: "Видео", formatSlug: "video", summary: "От коммита до работающего сервиса: сборка, конфигурация, публикация и откат релиза." },
     { title: "Подготовка приложения", format: "Гайд", formatSlug: "guide", stepGroup: "От проекта до релиза" },
@@ -325,7 +325,7 @@ const connectedStepsResult = {
     { title: "Первый деплой", format: "Гайд", formatSlug: "guide", stepGroup: "От проекта до релиза" },
   ].map((definition, index) => ({
     ...materials[0], ...definition, slug: `release-${String(index)}`,
-    summary: definition.summary ?? "Материал общего руководства: изучайте в предложенном порядке или возвращайтесь к нужному шагу.",
+    summary: definition.summary ?? "Материал общего продукта: изучайте в предложенном порядке или возвращайтесь к нужному шагу.",
     seriesMemberships: [{ name: "Релиз своего проекта", slug: "release", ordinal: index + 1, stepGroup: definition.stepGroup ?? null }],
   })),
 } satisfies LibraryDiscoveryResult;

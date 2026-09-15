@@ -21,7 +21,7 @@ export function HomeSeriesPinButton({
     <Button
       aria-label={label}
       aria-pressed={pinned}
-      title={archived && !pinned ? "Сначала верните руководство из архива" : label}
+      title={archived && !pinned ? "Сначала верните продукт из архива" : label}
       className={
         pinned
           ? "size-11 shrink-0 text-action"

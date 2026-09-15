@@ -90,7 +90,7 @@ export const GuidesMobile: Story = {
   globals: { viewport: { isRotated: false, value: "mobile390" } },
   play: async ({ canvasElement }) => {
     const button = within(canvasElement).getByRole("button", {
-      name: "Создать руководство",
+      name: "Создать продукт",
     });
     await expect(button).toBeVisible();
     const bounds = button.getBoundingClientRect();

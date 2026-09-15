@@ -32,7 +32,7 @@ const meta = {
   ...environment,
   component: GuideProgrammeView,
   title: "Pages/Guide/Programme",
-  parameters: { ...environment.parameters, docs: { description: { component: "Страница программы руководства. Учебный состав из 24 материалов проверяет прогресс, страницы, продолжение и состояния доступа; редакционных и провайдерских утверждений в нём нет." } } },
+  parameters: { ...environment.parameters, docs: { description: { component: "Страница программы продукта. Учебный состав из 24 материалов проверяет прогресс, страницы, продолжение и состояния доступа; редакционных и провайдерских утверждений в нём нет." } } },
   args: { result, learning: { kind: "ready", read: 8, total: 24, continuation: resume } },
   decorators: [(Story, context) => {
     const view = context.args.learning;
@@ -133,14 +133,14 @@ export const FreeAccount: Story = { args: { result: lockedResult, learning: { ki
 export const ExpiredMembership: Story = { args: { result: lockedResult, learning: { kind: "ready", read: 8, total: 24, continuation: null } } };
 export const Completed: Story = { args: { learning: { kind: "ready", read: 24, total: 24, continuation: null } } };
 // Прогресс не читается: маршрут всё равно открыт, а отдельной сводки над ним больше нет.
-export const ProgressUnavailable: Story = { args: { learning: { kind: "unavailable" } }, play: async ({ canvasElement }) => { await expect(within(canvasElement).getByRole("list", { name: "Материалы руководства" })).toBeVisible(); } };
+export const ProgressUnavailable: Story = { args: { learning: { kind: "unavailable" } }, play: async ({ canvasElement }) => { await expect(within(canvasElement).getByRole("list", { name: "Материалы продукта" })).toBeVisible(); } };
 export const Loading: Story = { args: { learning: { kind: "loading" } } };
 export const AccessUnavailable: Story = { args: { result: { ...result, items: materials.map((material) => ({ ...material, availability: "unavailable" })) }, learning: { kind: "ready", read: 8, total: 24, continuation: null } } };
 export const Chapters: Story = {
   args: { result: chapteredResult },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.queryByRole("heading", { name: "Программа руководства" })).not.toBeInTheDocument();
+    await expect(canvas.queryByRole("heading", { name: "Программа продукта" })).not.toBeInTheDocument();
     await expect(canvas.queryByRole("tablist")).not.toBeInTheDocument();
     await userEvent.click(canvas.getByRole("button", { name: "Страница 1" }));
     await expect(canvas.getByRole("heading", { level: 3, name: "Основа продукта" })).toBeVisible();
@@ -167,9 +167,9 @@ export const PartiallyGrouped: Story = {
     const canvas = within(canvasElement);
     const programme = canvas.getByRole("tab", { name: /Программа/u });
     await expect(programme).toHaveAttribute("aria-selected", "true");
-    await expect(canvas.queryByRole("list", { name: "Материалы руководства" })).not.toBeInTheDocument();
+    await expect(canvas.queryByRole("list", { name: "Материалы продукта" })).not.toBeInTheDocument();
     await userEvent.click(canvas.getByRole("tab", { name: /Дополнительные материалы/u }));
-    const other = canvas.getByRole("list", { name: "Материалы руководства" });
+    const other = canvas.getByRole("list", { name: "Материалы продукта" });
     await expect(within(other).getAllByRole("listitem")).toHaveLength(1);
     await expect(canvas.queryByRole("heading", { level: 3, name: "Основа продукта" })).not.toBeInTheDocument();
   },
@@ -190,7 +190,7 @@ export const PartSwitchStartsAtFirstPage: Story = {
     await expect(canvas.getByText("Материалы 13–23 из 23")).toBeVisible();
     await userEvent.click(canvas.getByRole("tab", { name: /Дополнительные материалы/u }));
     await expect(canvas.queryByRole("navigation", { name: "Страницы маршрута" })).not.toBeInTheDocument();
-    await expect(within(canvas.getByRole("list", { name: "Материалы руководства" })).getAllByRole("listitem")).toHaveLength(1);
+    await expect(within(canvas.getByRole("list", { name: "Материалы продукта" })).getAllByRole("listitem")).toHaveLength(1);
     await userEvent.click(canvas.getByRole("tab", { name: /Программа/u }));
     await expect(canvas.getByText("Материалы 1–12 из 23")).toBeVisible();
   },
@@ -230,10 +230,10 @@ export const LoadingPreservesRoutePosition: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const top = canvas.getByRole("list", { name: "Материалы руководства" }).getBoundingClientRect().top;
+    const top = canvas.getByRole("list", { name: "Материалы продукта" }).getBoundingClientRect().top;
     // Разрешение прогресса не двигает маршрут: сводки над ним больше нет, и сдвигаться нечему.
     await userEvent.click(canvas.getByRole("button", { name: "Получить прогресс (проверка)" }));
-    await expect(Math.abs(canvas.getByRole("list", { name: "Материалы руководства" }).getBoundingClientRect().top - top)).toBeLessThan(1);
+    await expect(Math.abs(canvas.getByRole("list", { name: "Материалы продукта" }).getBoundingClientRect().top - top)).toBeLessThan(1);
   },
 };
 export const DesktopLoadingPreservesRoutePosition: Story = { ...LoadingPreservesRoutePosition, globals: { viewport: { value: "desktop1440", isRotated: false } } };
@@ -280,7 +280,7 @@ export const CompactMobileRoute: Story = {
   args: compactRouteArgs,
   globals: { viewport: { value: "mobile390", isRotated: false } },
   play: async ({ canvasElement }) => {
-    const route = within(canvasElement).getByRole("list", { name: "Материалы руководства" });
+    const route = within(canvasElement).getByRole("list", { name: "Материалы продукта" });
     const rows = within(route);
     await expect(rows.getByText(videoSummary)).not.toBeVisible();
     await expect(rows.queryByText("Продолжить здесь")).not.toBeInTheDocument();
@@ -301,7 +301,7 @@ export const DesktopRouteDetails: Story = {
   args: compactRouteArgs,
   globals: { viewport: { value: "desktop1440", isRotated: false } },
   play: async ({ canvasElement }) => {
-    const route = within(within(canvasElement).getByRole("list", { name: "Материалы руководства" }));
+    const route = within(within(canvasElement).getByRole("list", { name: "Материалы продукта" }));
     await expect(route.getByText(videoSummary)).toBeVisible();
     await expect(route.queryByText("Продолжить здесь")).not.toBeInTheDocument();
     await expect(route.queryByText("Platform")).not.toBeInTheDocument();
@@ -387,7 +387,7 @@ export const GuidePage: Story = {
     // Описания руководства принадлежат странице продукта: программа их не повторяет.
     await expect(canvas.queryByText(introduction.outcome)).not.toBeInTheDocument();
     await userEvent.click(canvas.getByRole("tab", { name: /Артефакты/u }));
-    const section = within(canvas.getByRole("list", { name: "Артефакты руководства" }));
+    const section = within(canvas.getByRole("list", { name: "Артефакты продукта" }));
     await expect(
       section.getByRole("link", { name: "Скачать" }),
     ).toHaveAttribute(
@@ -415,7 +415,7 @@ export const ArtifactSectionUnavailable: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.getByText("Раздел артефактов сейчас не открывается. Материалы руководства это не затрагивает."),
+      canvas.getByText("Раздел артефактов сейчас не открывается. Материалы продукта это не затрагивает."),
     ).toBeVisible();
     await expect(canvas.queryByRole("tab", { name: /Артефакты/u })).not.toBeInTheDocument();
     await expect(canvas.getByRole("heading", { level: 3, name: "Основа продукта" })).toBeVisible();

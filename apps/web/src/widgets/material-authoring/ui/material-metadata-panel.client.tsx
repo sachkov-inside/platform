@@ -390,15 +390,15 @@ function SeriesSelector({
   return (
     <fieldset className="min-w-0">
       <legend className="mb-2 text-sm font-medium">
-        Руководства
+        Продукты
         <span className="ml-1 text-muted-foreground">
           {presentation.draft.seriesIds.length || ""}
         </span>
       </legend>
       <input
-        aria-label="Поиск руководств"
+        aria-label="Поиск продуктов"
         type="search"
-        placeholder="Найти руководство"
+        placeholder="Найти продукт"
         className="mb-2 w-full rounded-xl border border-input bg-transparent px-3 py-2 text-sm"
         value={search}
         onChange={(event) => {
@@ -407,7 +407,7 @@ function SeriesSelector({
         }}
       />
       <div
-        aria-label="Выбор руководств"
+        aria-label="Выбор продуктов"
         className="max-h-52 overflow-y-auto overscroll-contain rounded-xl border border-border p-1"
         onScroll={(event) => {
           const list = event.currentTarget;
@@ -443,7 +443,7 @@ function SeriesSelector({
         })}
         {matching.length === 0 ? (
           <p className="p-2 text-xs text-muted-foreground">
-            {search ? "Руководства не найдены" : "Пока нет руководств"}
+            {search ? "Продукты не найдены" : "Пока нет продуктов"}
           </p>
         ) : null}
         {limit < matching.length ? (

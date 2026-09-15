@@ -19,13 +19,13 @@ export async function generateMetadata({
   return result.kind === "ready" || result.kind === "empty"
     ? {
         title: `Программа · ${result.reference.name}`,
-        description: `Материалы руководства «${result.reference.name}» по главам в авторском порядке.`,
+        description: `Материалы продукта «${result.reference.name}» по главам в авторском порядке.`,
       }
     : {
         title:
           result.kind === "not-found"
-            ? "Руководство не найдено"
-            : "Руководство недоступно",
+            ? "Продукт не найден"
+            : "Продукт недоступен",
       };
 }
 

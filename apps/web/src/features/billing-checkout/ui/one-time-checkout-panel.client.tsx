@@ -99,7 +99,7 @@ export function OneTimeCheckoutPanel({
   return (
     <section aria-labelledby={headingId} className="min-w-0">
       <h2 className="sr-only" id={headingId}>
-        Оплата руководства
+        Оплата продукта
       </h2>
 
       {inclusions.length === 0 ? null : (
@@ -212,7 +212,7 @@ export function OneTimeCheckoutPanel({
 
       {existingAccess ? (
         <div className="mt-5 rounded-xl border border-accent/35 bg-accent/6 p-4 text-sm leading-6">
-          <p className="font-semibold">Это руководство у вас уже открыто.</p>
+          <p className="font-semibold">Этот продукт у вас уже открыт.</p>
           <p className="mt-1 text-muted-foreground">
             Повторная покупка не удваивает право и не продлевает уже открытое.
           </p>

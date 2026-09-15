@@ -15,8 +15,8 @@ interface CollectionKind {
 
 const GUIDE: CollectionKind = {
   canonicalPathOf: guidePath,
-  label: "Руководство",
-  materialsPhrase: "Опубликованные материалы руководства",
+  label: "Продукт",
+  materialsPhrase: "Опубликованные материалы продукта",
 };
 
 const TOPIC: CollectionKind = {

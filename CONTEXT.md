@@ -80,10 +80,14 @@ A managed label used to connect and retrieve Materials across Topics and Formats
 have any number of Tags, including none.
 _Avoid_: Free-form keyword, hashtag
 
+**Product**:
+A standalone Inside learning programme with an authored sequence of reusable Materials, presented
+in Russian as «Продукт»; an individual Product may be named a course, practicum or guide.
+_Avoid_: Subscription, using course/practicum/guide as the universal product category
+
 **Guide**:
-A standalone practical Inside product for a reader task, with an authored sequence of reusable
-Materials. In Russian: «Руководство»; distinct from the Material format «Гайд».
-_Avoid_: Series, Playlist, Topic, Material format guide
+The existing Platform domain name for Product, distinct from the Material format «Гайд».
+_Avoid_: A separate product category, Topic, Material format guide
 
 **GuideProgramme**:
 The reader-facing surface that carries a Guide's Materials, their chapters, access states and
@@ -99,7 +103,7 @@ _Avoid_: Video chapter, Material, separately purchased Guide
 The author's own answer, on the Guide, to what a reader will be able to do, who the Guide is
 written for, what they need beforehand and what it leaves outside. Its four fields carry the
 authoring base wording unchanged, an unwritten field is absent rather than empty, and none of it
-is an access decision. In Russian product language: «О руководстве».
+is an access decision. In Russian product language: «О продукте».
 _Avoid_: Summary, marketing page, access condition, price
 
 **Guide Artifact**:

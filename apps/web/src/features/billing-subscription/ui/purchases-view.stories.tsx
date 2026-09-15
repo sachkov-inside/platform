@@ -45,7 +45,7 @@ export const OwnGroundsAndPayments: Story = {
     await expect(canvas.getAllByText("Оплаченный доступ").length).toBe(2);
     // Ручная выдача переживает подписку и не называется покупкой.
     await expect(canvas.getByText("Выдано вручную")).toBeInTheDocument();
-    await expect(canvas.getAllByText("Отдельное руководство").length).toBe(2);
+    await expect(canvas.getAllByText("Отдельный продукт").length).toBe(2);
     // Общий чат открывает и старший тариф, и каждое право на руководство.
     await expect(canvas.getAllByText("Общий чат").length).toBe(3);
     await expect(canvas.getAllByText(/^операция /u).length).toBe(3);

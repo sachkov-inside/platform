@@ -38,7 +38,7 @@ test("витрина отвечает и объясняет недоступно
   await expect(page.getByRole("status")).toContainText("Тарифы сейчас недоступны");
 });
 
-test("витрина сохраняет исходную страницу руководства", async ({ page }) => {
+test("витрина сохраняет исходную страницу продукта", async ({ page }) => {
   await page.goto("/subscription?from=%2Fguides%2Fplatform-inside");
 
   await expect(

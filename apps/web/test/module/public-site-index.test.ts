@@ -28,7 +28,7 @@ describe("Указатель опубликованных страниц", () =>
     vi.unstubAllGlobals();
   });
 
-  it("собирает руководства, темы и все страницы материалов", async () => {
+  it("собирает продукты, темы и все страницы материалов", async () => {
     vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
     const fetchMock = vi
       .fn()

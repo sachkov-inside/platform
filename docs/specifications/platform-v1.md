@@ -1,5 +1,11 @@
 # Platform v1 application specification
 
+Общая пользовательская категория — «продукт» по [Workspace #181](https://github.com/sachkov-inside/workspace/issues/181).
+Product отображается на существующий Guide, а Series остаётся совместимым техническим именем;
+определения находятся в [CONTEXT](../../CONTEXT.md), коммерческая граница — в
+[brief](../product/platform-mvp-brief.md#продукты-и-подписки). «Руководство» в прежних описаниях
+ниже означает этот же продукт. Авторские названия и Format «Гайд» не меняются.
+
 Текущий переход Series → Guide и сохранённые wire-имена описаны в
 [контракте миграции руководств](guides-migration.md).
 

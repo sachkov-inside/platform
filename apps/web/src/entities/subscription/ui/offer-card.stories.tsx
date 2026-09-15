@@ -30,7 +30,7 @@ export const Materials: Story = {
     const canvas = within(canvasElement);
     await expect(canvas.getByText(/1\s?000\s?₽/u)).toBeInTheDocument();
     await expect(
-      canvas.getByText("Все опубликованные материалы и руководства"),
+      canvas.getByText("Все опубликованные материалы и продукты"),
     ).toBeInTheDocument();
   },
 };
@@ -46,7 +46,7 @@ export const GuideOnly: Story = {
   args: { snapshot: guideOnlyOffer },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText("Отдельное руководство")).toBeInTheDocument();
+    await expect(canvas.getByText("Отдельный продукт")).toBeInTheDocument();
     // Купленное руководство само открывает общий чат, и оба права бессрочны.
     await expect(canvas.getByText("Общий чат")).toBeInTheDocument();
     await expect(canvas.getAllByText("бессрочно").length).toBe(2);
