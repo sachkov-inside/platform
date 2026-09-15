@@ -363,7 +363,8 @@ A versioned description of a chosen access composition, independent of a Guide a
 It can be available for assignment without being published for sale. Its payment option specifies the price, period and sale mode: a subscription charged on a schedule,
 or a one-time purchase that is paid once and creates no schedule. It carries a reversible `published`
 (for-sale) state, separate from permanent archival; while no offer is published, neither the
-subscription nor a separately sold Guide is offered anywhere.
+subscription nor a separately sold Guide is offered anywhere. Archival is final: it withdraws the
+offer from sale and assignment for good, while existing enrollments keep their snapshot.
 _Avoid_: Guide, Order, AccessGrant
 
 **SubscriptionEnrollment**:
@@ -374,7 +375,15 @@ _Avoid_: BillingSubscription, Payment, Telegram membership
 **ContentScope**:
 The explicit set of Guides and individual Materials promised by a tier.
 It includes the evolving published program of an included Guide, without including new separate products automatically.
+A tier with an empty ContentScope is neither assigned nor sold.
 _Avoid_: Global materials access, catalogue, price
+
+**Guide Removal**:
+The confirmed withdrawal of a published Material from a Guide whose buyers or tier holders still
+hold access. The author confirms each such Guide explicitly, and the removal is journaled with the
+number of holders; a Guide without holders needs no confirmation. In Russian product language:
+«снятие из продукта».
+_Avoid_: Unpublish, reorder, access revocation
 
 **ActivationRule**:
 A published or paused path from a verified course source or a confirmed Tribute registry to a selected tier.
