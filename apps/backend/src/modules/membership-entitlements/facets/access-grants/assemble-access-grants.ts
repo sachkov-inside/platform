@@ -227,25 +227,37 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       const ids = z.array(z.uuid()).max(100).parse([...new Set(guideIds)]);
       if (ids.length === 0) return new Map();
       const now = clock();
-      const rows = z.array(z.object({ guide_id: z.uuid(), holders: z.number().int().nonnegative() })).parse(
+      // Действующие гранты, которые открывают хотя бы одно из руководств; держатели по каждому
+      // руководству считаются ниже, по тем же двум признакам.
+      const rows = z.array(z.object({
+        account_id: z.uuid(),
+        capabilities: z.array(z.string()),
+        guide_ids: z.array(z.string()).nullable(),
+      })).parse(
         await prisma.$queryRaw(Prisma.sql`
-          select guide.id as guide_id, count(distinct grant_row.account_id)::integer as holders
-          from unnest(${ids}::uuid[], ${ids.map(guideCapability)}::text[]) as guide(id, capability)
-          join membership_entitlements.access_grants as grant_row
-            on grant_row.revoked_at is null
-           and grant_row.starts_at <= ${now}
-           and (grant_row.valid_until is null or grant_row.valid_until > ${now})
-           and (
-             grant_row.capabilities @> array[guide.capability]
-             or (
-               grant_row.capabilities @> array['materials']::text[]
-               and coalesce(grant_row.content_scope -> 'guideIds', '[]'::jsonb) ? guide.id::text
-             )
-           )
-          group by guide.id
+          select grant_row.account_id,
+                 grant_row.capabilities,
+                 grant_row.content_scope -> 'guideIds' as guide_ids
+          from membership_entitlements.access_grants as grant_row
+          where grant_row.revoked_at is null
+            and grant_row.starts_at <= ${now}
+            and (grant_row.valid_until is null or grant_row.valid_until > ${now})
+            and (
+              grant_row.capabilities && ${ids.map(guideCapability)}::text[]
+              or (
+                grant_row.capabilities @> array['materials']::text[]
+                and coalesce(grant_row.content_scope -> 'guideIds', '[]'::jsonb) ?| ${ids}::text[]
+              )
+            )
         `),
       );
-      return new Map(ids.map((id) => [id, rows.find((row) => row.guide_id === id)?.holders ?? 0]));
+      return new Map(ids.map((id) => {
+        const holders = new Set(rows.flatMap((row) =>
+          row.capabilities.includes(guideCapability(id)) ||
+          (row.capabilities.includes("materials") && (row.guide_ids ?? []).includes(id))
+            ? [row.account_id] : []));
+        return [id, holders.size];
+      }));
     },
     /** Собственные основания Account: без полномочия владельца и без операторских полей. */
     async readOwnAccess(targetAccountId: string) {
