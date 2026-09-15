@@ -673,6 +673,46 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     });
   });
 
+  test("the operator list names only people Telegram still sees in the chat without a current right", async () => {
+    now = new Date(start);
+    const stays = await member();
+    const left = await member();
+    const entitled = await member();
+    for (const account of [stays, left, entitled]) await link(account, `identity-${account}`);
+    await grantCommunity(stays, finish);
+    await grantCommunity(left, finish);
+    await grantCommunity(entitled, null);
+    const provider = new ProviderDouble();
+    const app = community(provider);
+    await app.sweep();
+    for (const account of [stays, left, entitled]) {
+      const [granted] = await operations(account);
+      provider.observe(granted?.operationId ?? "", "applied", "member");
+    }
+    now = new Date(new Date(start).getTime() + 61_000);
+    await app.sweep();
+    // Everyone in the chat still holds a right: the list has nobody to remove.
+    expect(await app.listMembersWithoutRight(owner)).toMatchObject({ ok: true, value: { items: [], truncated: false } });
+
+    // Two finite rights end. Removals stay disabled, so Telegram keeps reporting one of them in the chat.
+    now = new Date(finish);
+    await app.sweep();
+    const [, staysDenied] = await operations(stays);
+    const [, leftDenied] = await operations(left);
+    expect(staysDenied?.access).toEqual({ kind: "denied" });
+    provider.observe(staysDenied?.operationId ?? "", "accepted", "member");
+    provider.observe(leftDenied?.operationId ?? "", "applied", "not_member");
+    now = new Date(new Date(finish).getTime() + 61_000);
+    await app.sweep();
+
+    const listed = await app.listMembersWithoutRight(owner);
+    expect(listed).toMatchObject({
+      ok: true,
+      value: { items: [{ accountId: stays, telegramIdentityRef: `identity-${stays}` }], truncated: false },
+    });
+    expect(await app.listMembersWithoutRight(stays)).toEqual({ ok: false, error: { code: "forbidden" } });
+  });
+
   test("a rejoin under the same right is approved without a new entitlement revision", async () => {
     now = new Date(start);
     const account = await member();

@@ -13,7 +13,9 @@ import {
 } from "../../domain/community-entitlement.js";
 import {
   communityDeliveryViewSchema,
+  communityMembersWithoutRightSchema,
   type CommunityDeliveryView,
+  type CommunityMembersWithoutRight,
 } from "./community-delivery.contract.js";
 import {
   authorizeCommunityDispatch,
@@ -55,6 +57,8 @@ export interface CommunitySweepReport {
 }
 
 const OPERATION_HISTORY_LIMIT = 20;
+/** Сколько Account с наблюдением просматривает один запрос списка оператора. */
+const MEMBERS_WITHOUT_RIGHT_SCAN_LIMIT = 1000;
 
 /**
  * Owns the community half of the Telegram integration: what access the Account should
@@ -233,6 +237,74 @@ export class CommunityEntitlements {
             purpose: row.purpose,
             updatedAt: row.updatedAt.toISOString(),
           })),
+        }),
+      };
+    } catch {
+      return { ok: false, error: { code: "unavailable" } };
+    }
+  }
+
+  /**
+   * Список оператора, пока удаления из чата выключены: Account, которых последнее наблюдение
+   * Telegram всё ещё видит в чате, хотя ни одно действующее право чат не открывает. Platform видит
+   * только привязанные Account, для которых она строила желаемое состояние; участники без
+   * привязки остаются на стороне Telegram. Список ничего не меняет: убирает человека оператор.
+   */
+  async listMembersWithoutRight(actorId: string): Promise<
+    | { readonly ok: true; readonly value: CommunityMembersWithoutRight }
+    | {
+        readonly ok: false;
+        readonly error: {
+          readonly code: "invalid_input" | "forbidden" | "unavailable";
+        };
+      }
+  > {
+    if (!z.uuid().safeParse(actorId).success) {
+      return { ok: false, error: { code: "invalid_input" } };
+    }
+    try {
+      const permission = await this.dependencies.accounts.checkPermission({
+        accountId: actorId,
+        permission: "platform:admin",
+      });
+      if (!permission.ok) return { ok: false, error: { code: "unavailable" } };
+      if (!permission.allowed) {
+        return { ok: false, error: { code: "forbidden" } };
+      }
+      const now = this.clock();
+      // Последнее известное наблюдение каждого Account: более новая операция без результата
+      // ещё ничего не сообщила о присутствии в чате.
+      const observations = await this.dependencies.prisma.telegramCommunityOperation.findMany({
+        where: { observedMembership: { not: null } },
+        orderBy: [{ accountId: "asc" }, { entitlementRevision: "desc" }],
+        distinct: ["accountId"],
+        take: MEMBERS_WITHOUT_RIGHT_SCAN_LIMIT + 1,
+        select: {
+          accountId: true,
+          identityRef: true,
+          observedMembership: true,
+          resultAt: true,
+          updatedAt: true,
+        },
+      });
+      const items = [];
+      for (const row of observations.slice(0, MEMBERS_WITHOUT_RIGHT_SCAN_LIMIT)) {
+        if (row.observedMembership !== "member") continue;
+        const access = await this.dependencies.grants.resolveCapabilities(row.accountId);
+        if (!access.ok) return { ok: false, error: { code: "unavailable" } };
+        if (accessAllows(communityAccessFor(access.capabilities), now)) continue;
+        items.push({
+          accountId: row.accountId,
+          telegramIdentityRef: row.identityRef,
+          observedAt: (row.resultAt ?? row.updatedAt).toISOString(),
+        });
+      }
+      return {
+        ok: true,
+        value: communityMembersWithoutRightSchema.parse({
+          checkedAt: now.toISOString(),
+          items,
+          truncated: observations.length > MEMBERS_WITHOUT_RIGHT_SCAN_LIMIT,
         }),
       };
     } catch {
