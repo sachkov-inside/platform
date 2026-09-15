@@ -1,6 +1,6 @@
-const {createRequire}=require('node:module');
-const fs=require('node:fs');
-const path=require('node:path');
+import { createRequire } from 'node:module';
+import fs from 'node:fs';
+import path from 'node:path';
 const requireWeb=createRequire(path.resolve('apps/web/package.json'));
 const {chromium,expect}=requireWeb('@playwright/test');
 const AxeBuilder=requireWeb('@axe-core/playwright').default;

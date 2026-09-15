@@ -17,7 +17,7 @@ Inside”» рядом с общим «Продукт» ожидаемо. Авт
 ```bash
 pnpm --filter @inside/web exec storybook dev --ci -p 6316
 # Во втором терминале; каталог вывода выбирается отдельно от сохранённых доказательств.
-node docs/evidence/issue-631/capture.cjs /tmp/platform631-new-evidence
+node docs/evidence/issue-631/capture.mjs /tmp/platform631-new-evidence
 ```
 
 Это визуальное доказательство настоящих компонентов с fixture-данными, не реальные продажи,
