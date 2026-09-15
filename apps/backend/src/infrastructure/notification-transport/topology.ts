@@ -2,6 +2,8 @@ import { createHash } from 'node:crypto';
 import { lanes, type NotificationPrincipal } from './wire.js';
 
 export const NOTIFICATION_BROKER_IMAGE = 'rabbitmq:4.2.4-management-alpine';
+/** Ёмкость каждой очереди окружения: сообщения; байты — по 16 KiB на сообщение. Одна для стенда и production. */
+export const NOTIFICATION_QUEUE_CAPACITY = 1_000;
 const exact = (names: string[]) => names.length ? `^(?:${[...new Set(names)].map(name => name.replaceAll('.', '\\.')).join('|')})$` : '^$';
 // Deployment-only declarations. Runtime identities have no configure permission.
 export function notificationTopology(input: {
@@ -27,7 +29,7 @@ export function notificationTopology(input: {
   };
 }
 // Fixed salt/password are explicitly disposable local configuration, never production credentials.
-export function localNotificationTopology(vhost = 'inside-local', queueCapacity = 1_000) {
+export function localNotificationTopology(vhost = 'inside-local', queueCapacity = NOTIFICATION_QUEUE_CAPACITY) {
   const salt = Buffer.from('local-development-only');
   const passwordHash = Buffer.concat([salt.subarray(0, 4), createHash('sha256').update(salt.subarray(0, 4)).update('inside-local-only').digest()]).toString('base64');
   return notificationTopology({ vhost, queueCapacity, principals: {

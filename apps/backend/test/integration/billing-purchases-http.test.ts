@@ -128,7 +128,7 @@ describe("Billing purchases HTTP", () => {
     const now = new Date("2030-01-31T10:00:00Z");
     const accounts = assembleAccounts({ prisma: database.prisma, emailFingerprintKey });
     const grants = assembleAccessGrants({ prisma: database.prisma, accounts, clock: () => now });
-    const pricing = new BillingPricing({ prisma: database.prisma, accounts, clock: () => now });
+    const pricing = new BillingPricing({ prisma: database.prisma, accounts, clock: () => now, sale: { payments: true, subscriptions: true } });
     const codes = new Map<string, string>();
     const contact = new BillingContact({
       prisma: database.prisma,

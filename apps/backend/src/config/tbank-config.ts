@@ -10,7 +10,9 @@ const tbankTerminalSchema = z.strictObject({
   environment: z.enum(["demo", "production"]),
   terminalKey: z.string().min(1).max(64), password: z.string().min(1),
   bindingEncryptionKey: z.string().refine(value => Buffer.from(value, "base64").length === 32),
-  recurringCardConfirmed: z.literal(true), cardOnlyHostedConfirmed: z.literal(true),
+  // Оба подтверждения относятся только к подписке: разовая покупка не сохраняет привязку и продаётся
+  // любым способом формы. Значение обязательно, чтобы «не подтверждено» было заявлено явно.
+  recurringCardConfirmed: z.boolean(), cardOnlyHostedConfirmed: z.boolean(),
   minimumKopecks: z.int().positive(), maximumKopecks: z.int().positive(),
   returnUrl: httpsUrl, notificationUrl: httpsUrl,
   // Смена карты требует отдельно подтверждённой проверки: CheckType=NO не возвращает RebillId.

@@ -19,6 +19,7 @@ const workerProcessSchema = z.enum([
   "profile-avatars-worker",
   "video-deletions-worker",
   "notifications-worker",
+  "billing-worker",
 ]);
 const readinessMarkerSchema = z.object({
   database: z.literal("reachable"),

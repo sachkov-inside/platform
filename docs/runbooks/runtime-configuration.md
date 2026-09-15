@@ -50,8 +50,10 @@ restricted to `root:root` mode `0600`. `compose.env` configures only the stable 
 network names and loopback ports. The deployment state machine derives exact image digests,
 release ordinal and source SHA from the verified manifest and writes a separate generated env file.
 `migrations.env`, `api.env`, `mcp.env`, `material-assets-worker.env`,
-`profile-avatars-worker.env`, `video-deletions-worker.env` and `web.env` are passed only to their
-owning services. PostgreSQL, Logto and Caddy configuration belong to the separate production
+`profile-avatars-worker.env`, `video-deletions-worker.env`, `billing-worker.env`,
+`notifications-worker.env` and `web.env` are passed only to their owning services. The
+`rabbitmq/` directory holds broker TLS and definitions and is mounted only into the broker; its CA
+certificate alone is also mounted into `notifications-worker`. PostgreSQL, Logto and Caddy configuration belong to the separate production
 foundation. Deployment does not rewrite or print server-owned configuration and never adds secrets
 to Git, images, manifests or journals.
 
@@ -92,9 +94,11 @@ during the image build. The web process reads server-only values when its contai
 | Release identity | `PLATFORM_RELEASE_VERSION`, `PLATFORM_SOURCE_SHA` | generated manifest environment and process startup validation |
 | API | `DATABASE_URL`, Logto verifier, Telegram, Object Storage and Kinescope values | `PlatformConfig` |
 | Payment contour | `TBANK_PROVIDER_MODE`, `TBANK_CONFIG_JSON`, `TBANK_CA_FILE`, stand-only `TBANK_TEST_*` | `PlatformConfig.tbank` |
-| MCP | database, MCP endpoint, Logto verifier, content access, Object Storage and Kinescope values | `PlatformConfig` and `McpConfig` |
+| MCP | database, MCP endpoint, Logto verifier, content access, Object Storage, Kinescope, communications, payment terminal and billing contact values | `PlatformConfig` and `McpConfig` |
 | Material/Profile workers | database and Object Storage values | per-process `PlatformConfig` validation |
 | Video deletion worker | database and Kinescope values | per-process `PlatformConfig` validation |
+| Billing worker | database, payment terminal, billing contact and community values | per-process `PlatformConfig` validation and sale configuration at startup |
+| Notifications worker | database, broker URL map and CA, reader origin, dispatch secret and billing contact | `PlatformConfig.notifications` and `PlatformConfig.notificationDelivery` |
 | Web server/BFF | `BACKEND_BASE_URL`, Logto app and cookie values, `WEB_BASE_URL` | `WebRuntimeConfig` |
 | Database foundation | PostgreSQL, Logto database and pgBackRest values | `config/production/foundation/` |
 | Deployment transport | SSH host, restricted user/key and pinned host keys | protected GitHub Environment `Production` |
@@ -128,6 +132,10 @@ production mode rejects that contour outright, and
 `scripts/production-runtime-contract.test.mjs` keeps the stand services and their variables out of
 the production Compose and its environment templates. `BILLING_CONTACT_SMTP_LOCAL_CAPTURE=true`
 declares the stand's mail interceptor in the same way and is rejected in production mode.
+
+`recurringCardConfirmed` and `cardOnlyHostedConfirmed` are required booleans of the terminal. What
+they gate, the catalog and startup refusals and the production terminal values are owned by the
+[production release runbook](production-release.md#payment-contour).
 
 `PUBLIC_SITE_ORIGIN` is the bare origin where the published legal editions are readable, such as
 `https://inside.sachkov.dev`. The consent catalogue appends `/legal/<document>` to it and stores the
@@ -193,7 +201,10 @@ Never reset such attempts merely because the browser offers a retry.
 
 The optional `PlatformConfig.notifications` group belongs to `notifications-worker`. Its URL map,
 CA, prefetch and quarantine limits are defined in the [transport runbook](notification-transport.md).
-The local Compose env file uses disposable scoped principals; production activation remains separate.
+The local Compose env file uses disposable scoped principals; the production broker, its principals
+and definitions are set up by the [production release runbook](production-release.md#broker).
+`NOTIFICATIONS_TELEGRAM_SECRET` authenticates the public dispatch authorization and must differ from
+every other Telegram secret; startup rejects a reused one.
 
 ## Bank certificate chain
 

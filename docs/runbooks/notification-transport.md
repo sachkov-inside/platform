@@ -114,12 +114,14 @@ reject-publish backlog, quarantine capacity/retention and node stop/start recove
 is substituted. These tests run in the normal Integration CI job.
 
 A local singleton loses availability when stopped. These tests prove durable recovery, **not HA**.
-Production requires an explicitly approved broker rollout, separate environment credentials/TLS,
-three quorum replicas in independent failure domains, disk/memory limits, monitoring and a real
-single-node-loss drill with the remaining majority. Three containers on one host do not prove that.
-Production Compose activation, credentials, deploy and real notifications are outside #435.
+The owner decided on 15.09.2026 to run the environment's own single RabbitMQ node on the VPS. It has
+separate environment credentials and TLS, memory and disk limits and durable quorum queues, but it is
+not highly available: while it is stopped, publication waits in the PostgreSQL outboxes and resumes
+after restart. Monitoring and alerts follow the release in #245. Three replicas in independent
+failure domains remain the precondition for any HA claim.
 
-Transport settings do not yet activate a production worker in `compose.production.yaml`. The
-compiled entrypoint is included in the backend image so the later rollout can use the same artifact.
+`compose.production.yaml` runs the broker and `notifications-worker`. The
+[production release runbook](production-release.md#broker) owns its TLS, principals, definitions and
+activation; real deploy and real notifications belong to Workspace #184.
 
 Core, preferences, email effect ledger и операторские API описаны в [Notifications runbook](notifications.md).
