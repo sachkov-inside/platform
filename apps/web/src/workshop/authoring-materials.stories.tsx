@@ -103,8 +103,10 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Populated: Story = {
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
   name: "Список · широкий экран",
   play: async ({ canvasElement }) => {
+    await listFrameMatches(canvasElement, "desktop");
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("heading", { name: "Материалы", level: 1 })).toBeVisible();
     await expect(canvas.getByText("35 материалов")).toBeVisible();
@@ -166,6 +168,7 @@ export const Mobile: Story = {
   globals: { viewport: { isRotated: false, value: "mobile390" } },
   name: "Список · мобильный",
   play: async ({ canvasElement }) => {
+    await listFrameMatches(canvasElement, "mobile");
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("heading", { name: "Материалы", level: 1 })).toBeVisible();
     await expect(canvas.getByRole("link", { name: "Новый материал" })).toBeVisible();
@@ -241,10 +244,21 @@ export const Paginated: Story = {
 };
 
 export const Loading: Story = {
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
   render: () => <AuthoringMaterialsLoading />,
   name: "Загрузка",
   play: async ({ canvasElement }) => {
     await expect(within(canvasElement).getByLabelText("Загрузка списка материалов")).toHaveAttribute("aria-busy", "true");
+    await listFrameMatches(canvasElement, "desktop");
+  },
+};
+
+export const LoadingMobile: Story = {
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+  render: () => <AuthoringMaterialsLoading />,
+  name: "Загрузка · мобильный",
+  play: async ({ canvasElement }) => {
+    await listFrameMatches(canvasElement, "mobile");
   },
 };
 
@@ -260,7 +274,20 @@ export const Forbidden: Story = {
 
 export const Unavailable: Story = {
   args: { state: { kind: "unavailable", reference: "dependency-unavailable" } },
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
   name: "Сервис недоступен",
+  play: async ({ canvasElement }) => {
+    await listFrameMatches(canvasElement, "desktop", "centered");
+  },
+};
+
+export const UnavailableMobile: Story = {
+  ...Unavailable,
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+  name: "Сервис недоступен · мобильный",
+  play: async ({ canvasElement }) => {
+    await listFrameMatches(canvasElement, "mobile", "centered");
+  },
 };
 
 export const MalformedResponse: Story = {
@@ -272,6 +299,47 @@ export const UnexpectedError: Story = {
   args: { state: { kind: "unexpected_error", reference: "request-failed" } },
   name: "Непредвиденная ошибка",
 };
+
+/**
+ * Все состояния списка материалов стоят в одном каркасе: одна и та же область прокрутки и одни и
+ * те же отступы содержимого. На широком экране прокручивается сам каркас на всю высоту колонки
+ * оболочки, на телефоне — документ. Состояние, которое снова опишет оболочку само, теряет каркас,
+ * и проверка это показывает; сдвинутые отступы ловит геометрия первого блока.
+ */
+async function listFrameMatches(
+  canvasElement: HTMLElement,
+  viewport: "desktop" | "mobile",
+  placement: "flow" | "centered" = "flow",
+) {
+  const frame = canvasElement.querySelector("[data-authoring-materials-frame]");
+  if (!(frame instanceof HTMLElement)) throw new Error("Каркас списка материалов не отрисован");
+  const content = frame.firstElementChild;
+  if (content === null) throw new Error("Содержимое каркаса списка материалов не отрисовано");
+  const expected = viewport === "desktop" ? { left: 40, top: 48 } : { left: 16, top: 28 };
+  const frameStyle = getComputedStyle(frame);
+  await expect(frame.tagName).toBe("MAIN");
+  await expect(frameStyle.overflowY).toBe("auto");
+  await expect(getComputedStyle(content).paddingTop).toBe(`${String(expected.top)}px`);
+  await expect(getComputedStyle(content).paddingLeft).toBe(`${String(expected.left)}px`);
+  const frameBox = frame.getBoundingClientRect();
+  if (viewport === "desktop") {
+    const column = frame.parentElement;
+    if (column === null) throw new Error("Колонка оболочки не отрисована");
+    await expect(frameStyle.overscrollBehaviorY).toBe("contain");
+    await expect(Math.round(frameBox.height)).toBe(Math.round(column.getBoundingClientRect().height));
+  }
+  if (placement === "centered") return;
+  const first = content.firstElementChild;
+  if (first === null) throw new Error("Первый блок списка материалов не отрисован");
+  const firstBox = first.getBoundingClientRect();
+  await expect(Math.round(firstBox.top - frameBox.top)).toBe(expected.top);
+  await expect(Math.round(firstBox.left - frameBox.left)).toBe(expected.left);
+  // Отступы содержимого принадлежат каркасу: первый блок не добавляет к ним своих.
+  const firstStyle = getComputedStyle(first);
+  await expect(
+    [firstStyle.marginTop, firstStyle.marginLeft, firstStyle.paddingTop, firstStyle.paddingLeft],
+  ).toEqual(["0px", "0px", "0px", "0px"]);
+}
 
 async function expectNoHorizontalOverflow(canvasElement: HTMLElement) {
   const storyWindow = canvasElement.ownerDocument.defaultView;
