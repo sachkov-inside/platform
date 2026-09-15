@@ -3,7 +3,7 @@ import { useMaterialBlockControls } from "./use-material-block-controls";
 import { materialSaveStateLabel } from "../model/material-save-state-label";
 import { withMaterialNodeIds } from "../model/material-document-identifiers";
 
-import { EditorContent, useEditor } from "@tiptap/react";
+import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import {
   Bold,
   ExternalLink,
@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import {
   useEffect,
+  useMemo,
   useState,
   useRef,
   useCallback,
@@ -61,13 +62,17 @@ import {
   useMaterialAssetUploads,
 } from "./material-asset-upload-controls.client";
 
+const noAssetPreviewBlocks: NonNullable<
+  MaterialAuthoringPresentation["draft"]["assetPreviewBlocks"]
+> = [];
+
 export function MaterialDocumentEditor({
   disabled,
   document,
   materialId,
   onChange,
   contentVersion = null,
-  assetPreviewBlocks = [],
+  assetPreviewBlocks = noAssetPreviewBlocks,
   saveState,
 }: {
   readonly saveState?: MaterialAuthoringPresentation["save"];
@@ -125,7 +130,6 @@ export function MaterialDocumentEditor({
     editable: !disabled,
     extensions: materialEditorExtensions,
     immediatelyRender: false,
-    shouldRerenderOnTransaction: true,
     editorProps: {
       handleKeyDown(view, event) {
         if (
@@ -151,6 +155,31 @@ export function MaterialDocumentEditor({
       onChange(currentEditor.getJSON());
     },
   });
+  // Редактор не пересобирается на каждой транзакции: панели читают из него только то, что
+  // показывают, и React просыпается, когда меняется именно это. Знак, набранный в тексте, не
+  // меняет ни отметок под курсором, ни того, стоит ли курсор в таблице.
+  const active = useEditorState({
+    editor,
+    selector: ({ editor: current }) =>
+      current === null
+        ? null
+        : {
+            bold: current.isActive("bold"),
+            italic: current.isActive("italic"),
+            link: current.isActive("link"),
+            table: current.isActive("table"),
+          },
+  });
+  // Вложения читают контекст: новое значение на каждом рендере перерисовало бы их все.
+  const assetContext = useMemo(
+    () => ({
+      materialId,
+      contentVersion,
+      blocks: assetPreviewBlocks,
+      localImages,
+    }),
+    [assetPreviewBlocks, contentVersion, localImages, materialId],
+  );
   const assetUploads = useMaterialAssetUploads(editor, materialId, imageReady);
   const {
     surface,
@@ -403,7 +432,7 @@ export function MaterialDocumentEditor({
     >
       <div className="sticky top-0 z-30 flex min-h-12 flex-wrap items-center justify-end gap-1 rounded-t-2xl bg-card/95 px-3 py-1">
         <div className="mr-auto flex min-w-0 flex-wrap items-center gap-1">
-          {editor.isActive("table") ? (
+          {active?.table ? (
             <div
               className="flex gap-1"
               role="toolbar"
@@ -533,7 +562,7 @@ export function MaterialDocumentEditor({
             role="toolbar"
           >
             <ToolbarButton
-              active={editor.isActive("bold")}
+              active={active?.bold ?? false}
               disabled={disabled}
               label="Полужирный"
               onClick={() => editor.chain().focus().toggleBold().run()}
@@ -541,7 +570,7 @@ export function MaterialDocumentEditor({
               <Bold aria-hidden="true" />
             </ToolbarButton>
             <ToolbarButton
-              active={editor.isActive("italic")}
+              active={active?.italic ?? false}
               disabled={disabled}
               label="Курсив"
               onClick={() => editor.chain().focus().toggleItalic().run()}
@@ -549,7 +578,7 @@ export function MaterialDocumentEditor({
               <Italic aria-hidden="true" />
             </ToolbarButton>
             <ToolbarButton
-              active={editor.isActive("link")}
+              active={active?.link ?? false}
               disabled={disabled}
               label="Ссылка"
               onClick={() => {
@@ -629,14 +658,7 @@ export function MaterialDocumentEditor({
             Сначала создайте черновик, затем добавляйте файлы и изображения.
           </p>
         ) : null}
-        <EditorAssetContext.Provider
-          value={{
-            materialId,
-            contentVersion,
-            blocks: assetPreviewBlocks,
-            localImages,
-          }}
-        >
+        <EditorAssetContext.Provider value={assetContext}>
           <EditorContent
             onPointerMove={(event) => {
               hover(event.target);

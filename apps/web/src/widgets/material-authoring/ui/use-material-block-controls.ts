@@ -1,76 +1,142 @@
 "use client";
 
+import type { Node } from "@tiptap/pm/model";
 import { TextSelection, type Transaction } from "@tiptap/pm/state";
 import type { Editor } from "@tiptap/core";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-/** Position controls beside a document block without changing the writing layout. */
+import { blockMayHaveMoved } from "../model/block-controls-placement";
+
+interface Offset {
+  readonly top: number;
+  readonly left: number;
+}
+
+/** Что было прочитано последним замером: по этому транзакция решает, нужен ли следующий. */
+interface Measurement {
+  readonly doc: Node;
+  readonly element: globalThis.Node | null;
+  readonly position: number;
+  readonly toolbarFrom: number | null;
+}
+
+/**
+ * Position controls beside a document block without changing the writing layout.
+ *
+ * Положение читается из вёрстки не чаще раза за кадр и только когда оно могло измениться: сменился
+ * блок, выделение под панелью форматирования, блоки перед текущим или размер поверхности. Знак,
+ * набранный внутри блока, вёрстку не читает и React не будит.
+ */
 export function useMaterialBlockControls(
   editor: Editor | null,
   frozen: boolean,
 ) {
   const surface = useRef<HTMLDivElement>(null);
   const position = useRef(0);
-  const [anchor, setAnchor] = useState({ top: 24, left: 0 });
-  const [selection, setSelection] = useState<{
-    top: number;
-    left: number;
-  } | null>(null);
+  const measurement = useRef<Measurement | null>(null);
+  const frame = useRef<number | null>(null);
+  const [anchor, setAnchor] = useState<Offset>({ top: 24, left: 0 });
+  const [selection, setSelection] = useState<Offset | null>(null);
 
-  const place = useCallback(
-    (pos: number) => {
-      if (!editor || !surface.current) return;
-      const element = editor.view.nodeDOM(pos);
-      if (!(element instanceof HTMLElement)) return;
+  /** Все чтения вёрстки одного обновления подряд, без записей между ними. */
+  const measure = useCallback(() => {
+    frame.current = null;
+    if (!editor || editor.isDestroyed || !surface.current) return;
+    const { state, view } = editor;
+    const element = view.nodeDOM(position.current);
+    const toolbarFrom = formattingToolbarFrom(editor);
+    const bounds = surface.current.getBoundingClientRect();
+    if (element instanceof HTMLElement) {
       const block = element.getBoundingClientRect();
-      const bounds = surface.current.getBoundingClientRect();
-      position.current = pos;
-      setAnchor({
-        top: block.top - bounds.top,
-        left: Math.max(0, block.left - bounds.left - 36),
-      });
+      setAnchor(
+        unlessSame({
+          top: block.top - bounds.top,
+          left: Math.max(0, block.left - bounds.left - 36),
+        }),
+      );
+    }
+    if (toolbarFrom === null) setSelection(null);
+    else {
+      const point = view.coordsAtPos(toolbarFrom);
+      setSelection(
+        unlessSame({
+          top: Math.max(0, point.top - bounds.top - 46),
+          left: Math.min(
+            Math.max(0, point.left - bounds.left),
+            Math.max(0, bounds.width - 150),
+          ),
+        }),
+      );
+    }
+    measurement.current = {
+      doc: state.doc,
+      element,
+      position: position.current,
+      toolbarFrom,
+    };
+  }, [editor]);
+
+  const schedule = useCallback(() => {
+    frame.current ??= requestAnimationFrame(measure);
+  }, [measure]);
+
+  /** Замер назначается, только если с прошлого что-то из прочитанного могло измениться. */
+  const refresh = useCallback(() => {
+    if (!editor || editor.isDestroyed || frame.current !== null) return;
+    const previous = measurement.current;
+    const { doc } = editor.state;
+    const toolbarFrom = formattingToolbarFrom(editor);
+    if (
+      previous === null ||
+      previous.position !== position.current ||
+      previous.toolbarFrom !== toolbarFrom ||
+      (toolbarFrom !== null && previous.doc !== doc) ||
+      editor.view.nodeDOM(position.current) !== previous.element ||
+      blockMayHaveMoved(previous.doc, doc, position.current)
+    )
+      schedule();
+  }, [editor, schedule]);
+
+  /** Блок под контролами меняется только на тот, у которого есть DOM-узел. */
+  const retarget = useCallback(
+    (pos: number) => {
+      if (editor?.view.nodeDOM(pos) instanceof HTMLElement)
+        position.current = pos;
     },
     [editor],
   );
 
   useEffect(() => {
     if (!editor) return;
-    const update = (transaction?: Transaction) => {
-      if (!surface.current || editor.isDestroyed) return;
-      const { $from, empty, from } = editor.state.selection;
+    const follow = (transaction?: Transaction) => {
+      if (editor.isDestroyed) return;
       if (frozen) {
         if (transaction?.docChanged)
           position.current = transaction.mapping.map(position.current);
-        place(position.current);
-      } else place($from.depth > 0 ? $from.before(1) : $from.pos);
-      if (empty || !(editor.state.selection instanceof TextSelection))
-        setSelection(null);
-      else {
-        const point = editor.view.coordsAtPos(from);
-        const bounds = surface.current.getBoundingClientRect();
-        setSelection({
-          top: Math.max(0, point.top - bounds.top - 46),
-          left: Math.min(
-            Math.max(0, point.left - bounds.left),
-            Math.max(0, bounds.width - 150),
-          ),
-        });
+      } else {
+        const { $from } = editor.state.selection;
+        retarget($from.depth > 0 ? $from.before(1) : $from.pos);
       }
     };
     const onTransaction = ({ transaction }: { transaction: Transaction }) => {
-      update(transaction);
+      follow(transaction);
+      refresh();
     };
     editor.on("transaction", onTransaction);
     const observer = new ResizeObserver(() => {
-      update();
+      schedule();
     });
     if (surface.current) observer.observe(surface.current);
-    update();
+    follow();
+    measurement.current = null;
+    schedule();
     return () => {
       editor.off("transaction", onTransaction);
       observer.disconnect();
+      if (frame.current !== null) cancelAnimationFrame(frame.current);
+      frame.current = null;
     };
-  }, [editor, frozen, place]);
+  }, [editor, frozen, refresh, retarget, schedule]);
 
   const hover = (target: EventTarget) => {
     if (!editor || frozen || !(target instanceof HTMLElement)) return;
@@ -79,8 +145,9 @@ export function useMaterialBlockControls(
       block = block.parentElement;
     if (block.parentElement !== editor.view.dom) return;
     editor.state.doc.forEach((_node, offset) => {
-      if (editor.view.nodeDOM(offset) === block) place(offset);
+      if (editor.view.nodeDOM(offset) === block) retarget(offset);
     });
+    refresh();
   };
 
   const insertionPosition = () => {
@@ -117,4 +184,20 @@ export function useMaterialBlockControls(
     insertionPosition,
     prepareTextBlock,
   };
+}
+
+/** Начало текстового выделения, над которым стоит панель форматирования, или `null`, если панели нет. */
+function formattingToolbarFrom(editor: Editor): number | null {
+  const { selection } = editor.state;
+  return selection.empty || !(selection instanceof TextSelection)
+    ? null
+    : selection.from;
+}
+
+/** Обновление, которое не будит React, когда смещение не изменилось. */
+function unlessSame(next: Offset) {
+  return (current: Offset | null): Offset =>
+    current !== null && current.top === next.top && current.left === next.left
+      ? current
+      : next;
 }

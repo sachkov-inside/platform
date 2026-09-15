@@ -1,7 +1,7 @@
 import type { JSONContent } from "@tiptap/core";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Profiler, useState } from "react";
-import { expect, fn, userEvent, within } from "storybook/test";
+import { expect, fn, spyOn, userEvent, waitFor, within } from "storybook/test";
 
 import {
   MaterialAuthoringPreviewUnauthorizedState,
@@ -339,6 +339,120 @@ export const LessonBlocksEditing: Story = {
       "true",
     );
     await expect(canvas.getByLabelText("Название врезки")).toHaveValue("Не забудьте");
+  },
+};
+
+/** Коммиты React в редакторе, пока автор печатает: истории контролов блока считают их по нулю. */
+const blockControlsCommits = { count: 0 };
+
+/**
+ * Контролы блока встают у блока под курсором, стоят на месте, пока автор печатает, и следуют за
+ * новым блоком и за указателем. Знак при этом не стоит ни пересборки редактора, ни чтения вёрстки.
+ *
+ * До #602 каждый знак пересобирал редактор целиком (`shouldRerenderOnTransaction`) и заново мерил
+ * положение контролов на каждой транзакции. История падает, если вернуть любое из двух: действия
+ * здесь ничего не сохраняют, поэтому любой коммит React во время набора — это редактор, а чтение
+ * размеров поверхности — это пересчёт контролов.
+ */
+async function expectBlockControlsWithoutKeystrokeCost(canvasElement: HTMLElement) {
+  const canvas = within(canvasElement);
+  const plus = canvas.getByRole("button", { name: "Добавить блок" });
+  const surface = plus.parentElement;
+  if (!(surface instanceof HTMLElement)) {
+    throw new Error("У кнопки «Добавить блок» нет поверхности, от которой считается её место");
+  }
+  const block = (index: number) => {
+    const node = canvasElement.querySelectorAll(".ProseMirror > *")[index];
+    if (!(node instanceof HTMLElement)) {
+      throw new Error(`В документе нет блока ${String(index + 1)}`);
+    }
+    return node;
+  };
+  const distanceFrom = (target: HTMLElement) =>
+    Math.abs(plus.getBoundingClientRect().top - target.getBoundingClientRect().top);
+  const nextFrame = () =>
+    new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+  const paragraph = block(2);
+  await userEvent.click(paragraph);
+  await waitFor(() =>
+    expect(distanceFrom(paragraph), "Кнопка «Добавить блок» не встала у абзаца под курсором").toBeLessThan(2),
+  );
+  await nextFrame();
+
+  const window = surface.parentElement;
+  if (!(window instanceof HTMLElement)) {
+    throw new Error("Поверхность редактора стоит вне окна редактора");
+  }
+  blockControlsCommits.count = 0;
+  // ProseMirror на каждом знаке прокручивает курсор в видимую область и для этого читает размеры
+  // каждого предка, поверхности и окна редактора поровну. Контролы читают только поверхность,
+  // поэтому их пересчёт — это разница между двумя счётчиками.
+  const surfaceReads = spyOn(surface, "getBoundingClientRect");
+  const windowReads = spyOn(window, "getBoundingClientRect");
+  try {
+    await userEvent.keyboard(" и её цена");
+    await nextFrame();
+    await expect(paragraph).toHaveTextContent("и её цена");
+    // Сначала чтения: пересчёт контролов тоже будит React, и проверка коммитов назвала бы его
+    // пересборкой редактора.
+    await expect(
+      surfaceReads.mock.calls.length - windowReads.mock.calls.length,
+      "Набор в абзаце заново мерил положение контролов: пересчёт снова идёт на каждой транзакции",
+    ).toBe(0);
+    await expect(
+      blockControlsCommits.count,
+      "Набор в абзаце пересобрал редактор: он снова перерисовывается на каждой транзакции",
+    ).toBe(0);
+  } finally {
+    surfaceReads.mockRestore();
+    windowReads.mockRestore();
+  }
+  await expect(
+    distanceFrom(paragraph),
+    "Кнопка «Добавить блок» сдвинулась, пока автор печатал в том же абзаце",
+  ).toBeLessThan(2);
+
+  await userEvent.keyboard("{Enter}");
+  const created = block(3);
+  await waitFor(() =>
+    expect(distanceFrom(created), "Кнопка «Добавить блок» не перешла к новому абзацу").toBeLessThan(2),
+  );
+
+  const first = block(0);
+  await userEvent.hover(first);
+  await waitFor(() =>
+    expect(distanceFrom(first), "Кнопка «Добавить блок» не перешла к блоку под указателем").toBeLessThan(2),
+  );
+}
+
+const withCommitCounter: Story["render"] = ({ presentation }) => (
+  <Profiler
+    id="block-controls"
+    onRender={() => {
+      blockControlsCommits.count += 1;
+    }}
+  >
+    <MaterialAuthoringWorkspace actions={noopActions} presentation={presentation} />
+  </Profiler>
+);
+
+export const BlockControlsTyping: Story = {
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
+  name: "Редактор · контролы блока",
+  render: withCommitCounter,
+  play: async ({ canvasElement }) => {
+    await expectBlockControlsWithoutKeystrokeCost(canvasElement);
+  },
+};
+
+export const BlockControlsTypingMobile: Story = {
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+  name: "Редактор · контролы блока, мобильный",
+  render: withCommitCounter,
+  play: async ({ canvasElement }) => {
+    await expectBlockControlsWithoutKeystrokeCost(canvasElement);
+    await expectNoHorizontalOverflow(canvasElement);
   },
 };
 
