@@ -1,6 +1,5 @@
 .home-page { max-width: 64rem; margin-inline: auto; }
 .home-guide { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); overflow: hidden; min-height: 27rem; border-radius: 1rem; background: var(--primary); color: var(--primary-foreground); }
-.home-guide-skeleton { min-height: 27rem; }
 .home-guide-copy { min-width: 0; overflow-wrap: anywhere; padding: 2.5rem; display: flex; flex-direction: column; }
 .home-guide-copy h2 { font-size: clamp(1.75rem, 3.2vw, 2.75rem); line-height: 1.1; font-weight: 700; letter-spacing: -.035em; text-wrap: balance; }
 .home-guide-copy > p { margin-top: 1.25rem; font-size: 1rem; line-height: 1.6; color: color-mix(in srgb, var(--primary-foreground) 78%, var(--primary)); }
@@ -59,7 +58,6 @@
 .home-feed-link-preview:hover .home-feed-link-domain { color: var(--foreground); }
 @media (max-width: 47.999rem) {
   .home-guide { grid-template-columns: 1fr; }
-  .home-guide-skeleton { min-height: 42rem; }
   .home-guide-copy { min-width: 0; overflow-wrap: anywhere; padding: 1.5rem; }
   .home-guide-copy h2 { font-size: 2rem; }
   .home-guide-animation { min-height: 20rem; }
