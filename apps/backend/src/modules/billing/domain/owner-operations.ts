@@ -25,7 +25,9 @@ const listBounds = { cursor: idSchema.optional(), limit: z.int().min(1).max(100)
  */
 export const refundBasisSchema = z.enum(["withdrawal", "compensation"]);
 export type RefundBasis = z.infer<typeof refundBasisSchema>;
-export function refundAccessFor(basis: RefundBasis): "keep" | "revoke" {
+export const refundAccessSchema = z.enum(["keep", "revoke"]);
+export type RefundAccess = z.infer<typeof refundAccessSchema>;
+export function refundAccessFor(basis: RefundBasis): RefundAccess {
   return basis === "withdrawal" ? "revoke" : "keep";
 }
 
@@ -100,9 +102,9 @@ export const paymentEventViewSchema = z.strictObject({
 export const refundDecisionViewSchema = z.strictObject({
   decisionRef: idSchema, purchaseRef: idSchema, accountId: idSchema, actorId: idSchema,
   amountKopecks: moneySchema,
-  /** Прежние решения до #648 основания не имеют: их доступ выбирал владелец. */
+  /** Решение без основания хранит только доступ, который владелец выбрал сам. */
   basis: refundBasisSchema.nullable(),
-  access: z.enum(["keep", "revoke"]), recurring: z.enum(["keep", "cancel"]),
+  access: refundAccessSchema, recurring: z.enum(["keep", "cancel"]),
   reason: z.string(), state: z.enum(["decided", "executing", "executed", "failed"]), revision: revisionSchema,
   createdAt: z.iso.datetime(), updatedAt: z.iso.datetime(),
   attempt: z.strictObject({ refundRef: idSchema, state: z.enum(["sent", "unknown", "confirmed", "failed"]),

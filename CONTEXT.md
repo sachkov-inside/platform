@@ -373,8 +373,9 @@ Course, Tribute, owner assignment and Platform payment are independent origins; 
 _Avoid_: BillingSubscription, Payment, Telegram membership
 
 **ContentScope**:
-The explicit set of Guides and individual Materials promised by a tier.
+The explicit set of Guides promised by a tier.
 It includes the evolving published program of an included Guide, without including new separate products automatically.
+A new ContentScope names no individual Materials; older snapshots may still name them.
 A tier with an empty ContentScope is neither assigned nor sold.
 _Avoid_: Global materials access, catalogue, price
 
@@ -418,7 +419,7 @@ _Avoid_: Retry, paid period, confirmed payment
 
 **Payment**:
 A confirmed transfer associated with one Account and agreed purchase conditions.
-Its refund and the owner's decision about access are separate facts.
+Its refund is a separate fact, and the refund's basis decides whether the purchase's access ends.
 _Avoid_: Browser return, grant, subscription
 
 **RefundDecision**:

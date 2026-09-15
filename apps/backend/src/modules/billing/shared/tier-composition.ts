@@ -22,19 +22,29 @@ export function tierLacksComposition(offer: CatalogOffer & { readonly contentSco
   return !isProductOffer(offer) && isEmptyContentScope(offer.contentScope);
 }
 
-/**
- * Сопровождение в предложении продукта длится ровно столько, сколько обещает оферта разовой покупки:
- * шесть месяцев. Бессрочное или другое по длине право разошлось бы с условиями покупки.
- */
-export function productSupportOffTerm(offer: CatalogOffer & { readonly benefitPeriods: unknown }): boolean {
-  if (!isProductOffer(offer) || !offer.benefits.includes("support")) return false;
+function supportPeriodMonths(offer: { readonly benefitPeriods: unknown }): number | null | undefined {
   const periods = benefitPeriodsSchema.safeParse(offer.benefitPeriods);
-  const support = periods.success ? periods.data.find(period => period.capability === "support") : undefined;
-  return support?.months !== productSupportMonths;
+  return periods.success ? periods.data.find(period => period.capability === "support")?.months : undefined;
 }
 
 /**
- * Что предложение не может выдавать (#648): право, которое не выдаёт ни одно основание, и отдельный
+ * Сопровождение в предложении продукта длится столько, сколько обещает оферта: шесть месяцев.
+ * Черновик без сопровождения сохраняется, а сопровождение с другим сроком — нет.
+ */
+export function productSupportBreaksOfferTerm(offer: CatalogOffer & { readonly benefitPeriods: unknown }): boolean {
+  return isProductOffer(offer) && offer.benefits.includes("support") && supportPeriodMonths(offer) !== productSupportMonths;
+}
+
+/**
+ * Покупка продукта — это материалы продукта и сопровождение. Продаётся только предложение продукта,
+ * которое даёт сопровождение на срок оферты.
+ */
+export function productOfferBreaksOfferTerms(offer: CatalogOffer & { readonly benefitPeriods: unknown }): boolean {
+  return isProductOffer(offer) && (!offer.benefits.includes("support") || supportPeriodMonths(offer) !== productSupportMonths);
+}
+
+/**
+ * Что предложение не может выдавать: право, которое не выдаёт ни одно основание, и отдельный
  * материал в составе. Закрытое живёт внутри продуктов, поэтому состав называет только продукты.
  */
 export function offerGrantsWithheld(offer: CatalogOffer & { readonly contentScope?: unknown }): boolean {
@@ -44,14 +54,14 @@ export function offerGrantsWithheld(offer: CatalogOffer & { readonly contentScop
 }
 
 /**
- * Тариф открыт для нового назначения: существует, не в архиве, назначаемый и с составом. Одно
- * правило для правила активации курса и сверки Tribute; владельческое назначение отвечает на
- * пустой состав отдельным кодом, чтобы владелец видел причину.
+ * Тариф открыт для нового назначения: существует, не в архиве, назначаемый, с составом и без того,
+ * что не выдаётся. Одно правило для правила активации курса и сверки Tribute; владельческое
+ * назначение отвечает на то же отдельным кодом, чтобы владелец видел причину.
  */
 export function tierOpenForAssignment(
   offer: CatalogOffer & { readonly archived: boolean; readonly availableForAssignment: boolean; readonly contentScope: unknown },
 ): boolean {
-  return !offer.archived && offer.availableForAssignment && !tierLacksComposition(offer);
+  return !offer.archived && offer.availableForAssignment && !tierLacksComposition(offer) && !offerGrantsWithheld(offer);
 }
 
 /** Подписка продаётся только тарифом с составом; разовое предложение продукта её не включает. */

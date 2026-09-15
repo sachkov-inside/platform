@@ -358,7 +358,7 @@ describe("владельческие операции billing: платежи, �
     expect(sent).toHaveLength(1);
     expect(sent[0]).toMatchObject({ externalRequestId: executed.attempt?.refundRef, amount: 100_000 });
     expect(sent[0]?.paymentId).toBe(await paymentIdOf(purchaseRef));
-    // Возврат денег не отзывает доступ: это отдельное решение владельца.
+    // Компенсация без отказа от договора доступ не отзывает.
     value(await s.payments.recover());
     expect(await s.capabilities()).toEqual(["community", `guide:${s.guideId}`, "materials", "support"]);
     expect(await db.prisma.accessGrant.findUniqueOrThrow({ where: { id: guideGrant } })).toMatchObject({ revokedAt: null, validUntil: null });
@@ -366,6 +366,11 @@ describe("владельческие операции billing: платежи, �
     const totals = asRefunds(await s.operations.execute(owner, { operation: "refunds.read", operationId: randomUUID(), purchaseRef }));
     expect(totals).toMatchObject({ refundedKopecks: 100_000, refundableKopecks: 0 });
     expect(totals.decisions).toHaveLength(1);
+    // Основание решает доступ: база не принимает расхождения, а решение без основания читается как есть.
+    await expect(db.prisma.billingRefundDecision.update({ where: { id: decided.decisionRef }, data: { access: "revoke" } })).rejects.toThrow();
+    await db.prisma.billingRefundDecision.update({ where: { id: decided.decisionRef }, data: { basis: null } });
+    expect(asRefunds(await s.operations.execute(owner, { operation: "refunds.read", operationId: randomUUID(), purchaseRef })).decisions)
+      .toMatchObject([{ decisionRef: decided.decisionRef, basis: null, access: "keep" }]);
     expect(failure(await s.operations.execute(owner, { operation: "refunds.decide", operationId: randomUUID(), purchaseRef,
       amountKopecks: 100, basis: "compensation", recurring: "keep", reason: "Повторный возврат сверх суммы" }))).toBe("unsupported_amount");
     const audit = asPayment(await s.operations.execute(owner, { operation: "payments.read", operationId: randomUUID(), purchaseRef })).audit;
@@ -541,7 +546,7 @@ describe("владельческие операции billing: платежи, �
       rows: [{ rowKey: "support", accountId: s.buyer, source: "manual", sourceRef: supportRef,
         terms: { capabilities: ["support"], startsAt: "2030-03-01T00:00:00Z", validUntil: "2030-05-01T00:00:00Z", reason: "Ручное сопровождение" } },
       { rowKey: "unknown", accountId: randomUUID(), source: "manual", sourceRef: `unknown-${randomUUID()}`,
-        terms: { capabilities: ["materials"], startsAt: "2030-03-01T00:00:00Z", validUntil: null, reason: "Неизвестный Account" } }] }));
+        terms: { capabilities: ["support"], startsAt: "2030-03-01T00:00:00Z", validUntil: null, reason: "Неизвестный Account" } }] }));
     expect(preview.rows.map(row => row.status)).toEqual(["confirmed", "not_found"]);
     // Предпросмотр ничего не выдаёт.
     expect(await s.capabilities()).toEqual(["community", `guide:${s.guideId}`]);
@@ -633,7 +638,8 @@ describe("владельческие операции billing: платежи, �
       value: { id: randomUUID(), name: "Пустой тариф", benefits: ["materials", "community"], availableForAssignment: true, contentScope: { guideIds: [], materialIds: [] } } }))).toBe("invalid_request");
     // Стартовый тариф миграции 0063, применённой к пустой базе: назначаемый, но без единого материала.
     const tier = await db.prisma.billingOffer.findUniqueOrThrow({ where: { id: "62000000-0000-4000-8000-000000000624" } });
-    expect(tier).toMatchObject({ availableForAssignment: true, revision: 1, contentScope: { guideIds: [], materialIds: [] } });
+    // Стартовый тариф даёт материалы, сопровождение и общую группу (миграция 0067).
+    expect(tier).toMatchObject({ availableForAssignment: true, revision: 1, benefits: ["community", "materials", "support"], contentScope: { guideIds: [], materialIds: [] } });
     const terms = { startsAt: now.toISOString(), endsAt: null, endPolicy: "fixed" };
     expect(failure(await s.operations.execute(owner, { operation: "enrollments.assign", operationId: randomUUID(), accountId: recipient,
       tierId: tier.id, tierRevision: 1, origin: "manual", sourceRef: randomUUID(), terms, billingRef: null, reason: "Назначение до задания состава" }))).toBe("state_conflict");
@@ -643,7 +649,12 @@ describe("владельческие операции billing: платежи, �
     expect(await db.prisma.accessGrant.count({ where: { accountId: recipient } })).toBe(0);
     // Состав задан — тот же тариф назначается.
     const scoped = asCatalog(await s.operations.execute(owner, { operation: "offers.save", operationId: randomUUID(), expectedRevision: 1,
-      value: { id: tier.id, name: tier.name, benefits: ["materials", "community"], availableForAssignment: true, contentScope: { guideIds: [s.guideId], materialIds: [] } } }));
+      value: { id: tier.id, name: tier.name, benefits: ["materials", "community", "support"], availableForAssignment: true, contentScope: { guideIds: [s.guideId], materialIds: [] } } }));
+    // Отдельный материал, записанный в состав в обход каталога, тариф не назначает.
+    await db.prisma.billingOffer.update({ where: { id: tier.id }, data: { contentScope: { guideIds: [s.guideId], materialIds: [randomUUID()] } } });
+    expect(failure(await s.operations.execute(owner, { operation: "enrollments.assign", operationId: randomUUID(), accountId: recipient,
+      tierId: tier.id, tierRevision: scoped.value.revision, origin: "manual", sourceRef: randomUUID(), terms, billingRef: null, reason: "Назначение с отдельным материалом" }))).toBe("state_conflict");
+    await db.prisma.billingOffer.update({ where: { id: tier.id }, data: { contentScope: { guideIds: [s.guideId], materialIds: [] } } });
     expect(success(await s.operations.execute(owner, { operation: "enrollments.assign", operationId: randomUUID(), accountId: recipient,
       tierId: tier.id, tierRevision: scoped.value.revision, origin: "manual", sourceRef: randomUUID(), terms, billingRef: null, reason: "Назначение после задания состава" }))).toMatchObject({ outcome: "enrollment" });
   });

@@ -295,6 +295,8 @@ export function PaymentsSection({
           <AdminSelect
             label="Основание возврата"
             name="refundBasis"
+            placeholder="Выберите основание"
+            required
             options={[
               { value: "withdrawal", label: "Отказ от договора — права прекращаются" },
               { value: "compensation", label: "Компенсация без отказа — доступ сохраняется" },
@@ -369,7 +371,10 @@ export function PaymentsSection({
                   </span>
                   <span>
                     {formatKopecks(decision.amountKopecks)} · основание{" "}
-                    {decision.basis ?? "не указано"} · доступ{" "}
+                    {decision.basis === null
+                      ? "не указано"
+                      : { withdrawal: "отказ от договора", compensation: "компенсация без отказа" }[decision.basis]}{" "}
+                    · доступ{" "}
                     {decision.access} · продление {decision.recurring}
                   </span>
                   {decision.attempt === null ? null : (

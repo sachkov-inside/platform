@@ -10,7 +10,6 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import schema from "../../../../docs/contracts/community-v2/schema.json" with { type: "json" };
 import { contractDigest } from "../../src/infrastructure/contracts/canonical-digest.js";
 import {
-  accountId,
   assembleAccounts,
   bootstrapOwnerAccount,
   type Accounts,
@@ -18,10 +17,8 @@ import {
 import { verifiedAccountSignIn } from "../../src/modules/accounts/facets/accounts/verified-logto-identity.js";
 import {
   assembleAccessGrants,
-  assembleMembershipEntitlements,
   type AccessGrants,
 } from "../../src/modules/membership-entitlements/index.js";
-import { assembleWorkshopEntitlements } from "../../src/modules/workshop/index.js";
 import {
   CommunityEntitlements,
   TelegramAccountLinks,
@@ -166,17 +163,6 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     });
   }
 
-  function membership() {
-    return assembleMembershipEntitlements({
-      prisma: database.prisma,
-      clock: () => now,
-      workshopEntitlements: assembleWorkshopEntitlements({
-        prisma: database.prisma,
-        clock: () => now,
-      }),
-    });
-  }
-
   async function member(): Promise<string> {
     const subject = randomUUID();
     const result = await accounts.establishAccount({
@@ -215,7 +201,7 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
           source: "manual",
           sourceRef: randomUUID(),
           terms: {
-            capabilities: ["materials", "community"],
+            capabilities: ["community"],
             reason: "Synthetic community right",
             startsAt: start,
             validUntil,
@@ -374,10 +360,10 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
       errorCode: "operation_conflict",
     });
 
-    // Materials never wait for the community provider.
-    await expect(membership().resolveForAccess(accountId(account))).resolves.toEqual({
-      kind: "active",
-      validUntil: null,
+    // The right itself never waits for the community provider.
+    expect(await grants.resolveCapabilities(account)).toMatchObject({
+      ok: true,
+      capabilities: [{ capability: "community", validUntil: null }],
     });
   });
 
@@ -459,10 +445,10 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
       ok: true,
       result: { decision: { status: "allowed" } },
     });
-    // Removing a chat member never touches the paid or manual material right.
-    await expect(membership().resolveForAccess(accountId(account))).resolves.toEqual({
-      kind: "active",
-      validUntil: null,
+    // Removing a chat member never touches the right that was granted.
+    expect(await grants.resolveCapabilities(account)).toMatchObject({
+      ok: true,
+      capabilities: [{ capability: "community", validUntil: null }],
     });
 
     const other = await member();
@@ -995,7 +981,7 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     ).rejects.toThrow();
   });
 
-  test("an Account without a verified link keeps its material right and queues nothing", async () => {
+  test("an Account without a verified link keeps its chat right and queues nothing", async () => {
     now = new Date(start);
     const account = await member();
     await grantCommunity(account, null);
@@ -1004,9 +990,9 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
 
     expect(await app.project(account)).toMatchObject({ issued: [] });
     expect(await operations(account)).toHaveLength(0);
-    await expect(membership().resolveForAccess(accountId(account))).resolves.toEqual({
-      kind: "active",
-      validUntil: null,
+    expect(await grants.resolveCapabilities(account)).toMatchObject({
+      ok: true,
+      capabilities: [{ capability: "community", validUntil: null }],
     });
   });
 

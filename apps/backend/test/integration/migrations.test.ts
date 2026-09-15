@@ -237,6 +237,7 @@ describe("Platform migrations", () => {
         "0064_tribute_sources",
         "0065_guide_material_removals",
         "0066_refund_basis",
+        "0067_starter_tier_access",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -832,6 +833,7 @@ describe("Platform migrations", () => {
         "0064_tribute_sources",
         "0065_guide_material_removals",
         "0066_refund_basis",
+        "0067_starter_tier_access",
         ],
       });
 

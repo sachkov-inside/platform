@@ -3,7 +3,7 @@ import type { Accounts } from "../../../accounts/index.js";
 import { Prisma, type BillingPrisma, type BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { failure, idSchema, type PricingResult } from "../../domain/pricing.js";
 import { lockPricing } from "../../infrastructure/postgres/catalog-lock.js";
-import { offerGrantsWithheld, productSupportOffTerm, tierLacksComposition } from "../../shared/tier-composition.js";
+import { offerGrantsWithheld, productOfferBreaksOfferTerms, productSupportBreaksOfferTerm, tierLacksComposition } from "../../shared/tier-composition.js";
 import { catalogOutcomeSchema, manageCatalogSchema, type ManageCatalogCommand } from "./manage-catalog.contract.js";
 
 type Outcome = { id: string; revision: number; archived: boolean; published?: boolean | undefined };
@@ -56,8 +56,9 @@ async function changeCatalog(tx: BillingPrisma, command: ManageCatalogCommand): 
       const scope = command.value.contentScope === undefined && current !== null && "contentScope" in current ? current.contentScope : command.value.contentScope;
       if (assignable && (isEmptyContentScope(scope) || command.value.benefits.some(value => isGuideCapability(value)))) return failure("invalid_request");
       if (new Set(periods.map(value => value.capability)).size !== periods.length || periods.some(value => !command.value.benefits.includes(value.capability))) return failure("invalid_request");
-      if (productSupportOffTerm({ benefits: command.value.benefits, benefitPeriods: periods })) return failure("invalid_request");
-      if (offerGrantsWithheld({ benefits: command.value.benefits, contentScope: command.value.contentScope })) return failure("invalid_request");
+      if (productSupportBreaksOfferTerm({ benefits: command.value.benefits, benefitPeriods: periods })) return failure("invalid_request");
+      // Проверяется состав, который останется у предложения, в том числе унаследованный от прежней редакции.
+      if (offerGrantsWithheld({ benefits: command.value.benefits, contentScope: scope })) return failure("invalid_request");
       const { contentScope, availableForAssignment, ...value } = command.value;
       const data = { ...value, ...(availableForAssignment === undefined ? {} : { availableForAssignment }), ...(contentScope === undefined ? {} : { contentScope: contentScope === null ? Prisma.JsonNull : contentScope }), benefitPeriods: periods, revision, archived: false };
       await tx.billingOffer.upsert({ where: { id }, create: data, update: data });
@@ -71,7 +72,7 @@ async function changeCatalog(tx: BillingPrisma, command: ManageCatalogCommand): 
     case "offers.publish": case "offers.unpublish": {
       if (current === null || current.archived) return failure("not_found");
       const published = command.operation === "offers.publish";
-      if (published && "benefits" in current && (tierLacksComposition(current) || productSupportOffTerm(current) || offerGrantsWithheld(current))) return failure("invalid_request");
+      if (published && "benefits" in current && (tierLacksComposition(current) || productOfferBreaksOfferTerms(current) || offerGrantsWithheld(current))) return failure("invalid_request");
       await tx.billingOffer.update({ where: { id }, data: { revision, published } });
       return { ok: true, value: { id, revision, archived: false, published } };
     }

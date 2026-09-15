@@ -214,10 +214,12 @@ describe("признак продажи подписки на собственн
     billing = new BillingPricing({ prisma: database.prisma, accounts: assembleAccounts({ prisma: database.prisma, emailFingerprintKey: "billing-sale-key-0000000000000000000" }), clock: () => now });
   });
   afterAll(async () => { await database.dispose(); });
-  async function offer(input: { readonly benefits: readonly string[]; readonly mode: "subscription" | "one_time"; readonly contentScope?: { guideIds: string[]; materialIds: string[] } }) {
+  async function offer(input: { readonly benefits: readonly string[]; readonly mode: "subscription" | "one_time"; readonly contentScope?: { guideIds: string[]; materialIds: string[] };
+    readonly benefitPeriods?: { capability: string; months: number | null }[] }) {
     const offerId = randomUUID(); const optionId = randomUUID();
     value(await billing.manage(owner, { operation: "offers.save", operationId: randomUUID(), value: { id: offerId, name: "Предложение", benefits: [...input.benefits],
-      ...(input.contentScope === undefined ? {} : { contentScope: input.contentScope }) } }));
+      ...(input.contentScope === undefined ? {} : { contentScope: input.contentScope }),
+      ...(input.benefitPeriods === undefined ? {} : { benefitPeriods: input.benefitPeriods }) } }));
     value(await billing.manage(owner, { operation: "paymentOptions.save", operationId: randomUUID(), value: { id: optionId, offerId, mode: input.mode, months: 1, priceKopecks: 100_000 } }));
     return { offerId, optionId, publish: () => billing.manage(owner, { operation: "offers.publish", operationId: randomUUID(), expectedRevision: 1, id: offerId }) };
   }
@@ -226,7 +228,7 @@ describe("признак продажи подписки на собственн
     const guide = randomUUID();
     expect(await billing.hasOffersForSale()).toBe(false);
     // Продаётся только продукт: призыв к подписке не должен появиться нигде.
-    const product = await offer({ benefits: [`guide:${guide}`], mode: "one_time" });
+    const product = await offer({ benefits: [`guide:${guide}`, "support"], mode: "one_time", benefitPeriods: [{ capability: "support", months: 6 }] });
     value(await product.publish());
     expect(await billing.hasOffersForSale()).toBe(false);
     // Тариф без состава открыл бы пустоту: каталог не включает его в продажу.

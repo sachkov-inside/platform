@@ -1,3 +1,4 @@
+import { withheldAccessCapabilities } from "@inside/access-capabilities";
 import { z } from "zod";
 import type { MembershipEntitlementsPrismaClient } from "../../infrastructure/prisma.js";
 import { accessCapabilitySchema, accessFailure, type AccessFailure } from "../../domain/access-grant.js";
@@ -45,13 +46,17 @@ export async function readOwnAccess(
   return {
     ok: true,
     value: ownAccessSchema.parse({
-      grounds: grants.map((grant) => ({
-        source: grant.source,
-        capabilities: grant.capabilities,
-        startsAt: grant.startsAt.toISOString(),
-        validUntil: grant.validUntil?.toISOString() ?? null,
-        active: grant.startsAt <= now,
-      })),
+      // Право, которое не выдаёт ни одно основание, кабинет не показывает и в прежних записях.
+      grounds: grants.flatMap((grant) => {
+        const capabilities = grant.capabilities.filter((capability) => !withheldAccessCapabilities.some((withheld) => withheld === capability));
+        return capabilities.length === 0 ? [] : [{
+          source: grant.source,
+          capabilities,
+          startsAt: grant.startsAt.toISOString(),
+          validUntil: grant.validUntil?.toISOString() ?? null,
+          active: grant.startsAt <= now,
+        }];
+      }),
     }),
   };
 }

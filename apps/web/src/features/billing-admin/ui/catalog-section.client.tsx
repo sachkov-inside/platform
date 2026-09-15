@@ -198,6 +198,7 @@ export function CatalogSection({
           <fieldset className="grid max-h-80 gap-2 overflow-y-auto rounded-xl border border-border p-4"><legend className="px-2 text-sm">Продукты тарифа</legend>
             {catalogLoading ? <p role="status">Загружаем каталог…</p> : content.filter(item => item.kind === "guide").map(item => <label className="flex items-start gap-2 text-sm" key={item.id}><input type="checkbox" name="offerGuides" value={item.id} defaultChecked={editing?.tier.contentScope.guideIds.includes(item.id) ?? false} /><span>Продукт: {item.title}{item.available ? "" : " · не опубликован"}</span></label>)}
           </fieldset>
+          {editing !== undefined && editing.tier.contentScope.materialIds.length > 0 ? <p className="text-sm text-destructive" role="note">В составе этой редакции есть отдельные материалы: {editing.tier.contentScope.materialIds.length}. Отдельный материал в тариф не входит, и новая редакция их не сохранит. Действующие назначения сохраняют свой снимок.</p> : null}
           <p className="text-sm text-muted-foreground">Новые материалы выбранного продукта входят в состав сами. Новый продукт нужно добавить явно; отдельный материал в тариф не входит.</p>
           <AdminField
             hint="Пусто — создание нового предложения."

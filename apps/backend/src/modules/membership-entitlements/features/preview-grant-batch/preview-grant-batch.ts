@@ -20,9 +20,9 @@ const grantRowSchema = z
     ...rowTarget,
     source: z.enum(["manual", "legacy"]),
     sourceRef: sourceRefSchema,
-    // Ручная выдача не открывает отдельный материал и не выдаёт право, которого нет ни у одного
-    // основания (#648): закрытое открывается продуктом или составом тарифа.
-    terms: grantTermsSchema.refine(terms => !terms.capabilities.some(capability => withheldAccessCapabilities.includes(capability)) &&
+    // Прямое право не открывает материалы: они открываются только тарифом или продуктом. Поэтому ручная
+    // и перенесённая выдача не выдаёт `materials`, отдельный материал и право, которого нет ни у одного основания.
+    terms: grantTermsSchema.refine(terms => !terms.capabilities.some(capability => capability === "materials" || withheldAccessCapabilities.includes(capability)) &&
       (terms.contentScope?.materialIds.length ?? 0) === 0),
   })
   .strict();

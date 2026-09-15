@@ -61,9 +61,10 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
     const offerId = randomUUID(), optionId = randomUUID();
     // Владелец заводит цену руководства там же, где варианты подписки. Бессрочное право — явный срок.
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.save", value: {
-      id: offerId, name: "Руководство «Синтетика»", benefits: options.supportMonths === undefined ? [capability] : [capability, "support"],
+      // Предложение продукта продаётся только с сопровождением на срок оферты.
+      id: offerId, name: "Руководство «Синтетика»", benefits: [capability, "support"],
       benefitPeriods: options.benefitPeriods ?? [{ capability, months: options.term ?? null },
-        ...(options.supportMonths === undefined ? [] : [{ capability: "support", months: options.supportMonths }])] } }));
+        { capability: "support", months: options.supportMonths ?? 6 }] } }));
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "paymentOptions.save", value: {
       id: optionId, offerId, mode: "one_time", months: 1, priceKopecks: guidePrice } }));
     // Разовая продажа подчиняется тому же тумблеру, что и подписка: пока предложение выключено,
@@ -127,7 +128,7 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
     expect(row.periodEndsAt).toBeNull();
     expect(value(await s.runtime.status(s.buyer, purchase.purchaseRef))).toMatchObject({ state: "confirmed", access: "ready", periodEndsAt: null });
     expect(await db.prisma.billingSubscription.count({ where: { accountId: s.buyer } })).toBe(0);
-    const granted = await db.prisma.accessGrant.findMany({ where: { accountId: s.buyer } });
+    const granted = await db.prisma.accessGrant.findMany({ where: { accountId: s.buyer, capabilities: { has: s.capability } } });
     expect(granted).toHaveLength(1);
     expect(granted[0]?.capabilities).toEqual([s.capability]);
     expect(granted[0]?.validUntil).toBeNull();
@@ -137,13 +138,13 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
   });
 
   test("новая разовая покупка Guide бессрочна даже при старом ограниченном варианте", async () => {
-    const silent = await scenario({ benefitPeriods: [] });
+    // У права на продукт нет своего срока: у разовой покупки нет оплаченного периода, чтобы его унаследовать.
+    const silent = await scenario({ benefitPeriods: [{ capability: "support", months: 6 }] });
     await silent.buy();
-    // Состав без сроков: у разовой покупки нет оплаченного периода, чтобы его унаследовать.
-    expect((await db.prisma.accessGrant.findFirst({ where: { accountId: silent.buyer } }))?.validUntil).toBeNull();
+    expect((await db.prisma.accessGrant.findFirst({ where: { accountId: silent.buyer, capabilities: { has: silent.capability } } }))?.validUntil).toBeNull();
     const yearly = await scenario({ term: 12 });
     await yearly.buy();
-    expect((await db.prisma.accessGrant.findFirst({ where: { accountId: yearly.buyer } }))?.validUntil).toBeNull();
+    expect((await db.prisma.accessGrant.findFirst({ where: { accountId: yearly.buyer, capabilities: { has: yearly.capability } } }))?.validUntil).toBeNull();
   });
 
   test("сопровождение в предложении продукта живёт шесть месяцев с покупки и не бывает бессрочным", async () => {
@@ -196,7 +197,7 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
     const resolved = await grants.resolveCapabilities(s.buyer);
     if (!resolved.ok) throw new Error("resolve");
     // Второе основание существует отдельно, но открытое право остаётся одним и бессрочным.
-    expect(await db.prisma.accessGrant.count({ where: { accountId: s.buyer } })).toBe(2);
+    expect(await db.prisma.accessGrant.count({ where: { accountId: s.buyer, capabilities: { has: s.capability } } })).toBe(2);
     expect(resolved.capabilities.filter(item => item.capability === s.capability)).toEqual([{ capability: s.capability, validUntil: null }]);
     expect(await db.prisma.billingSubscription.count({ where: { accountId: s.buyer } })).toBe(0);
   });

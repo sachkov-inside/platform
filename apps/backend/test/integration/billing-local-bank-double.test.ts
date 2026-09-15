@@ -126,7 +126,8 @@ describe("локальная продажа через двойника банк
     async function beginGuidePurchase(): Promise<{ purchaseRef: string; paymentUrl: string; capability: string }> {
       const guideOffer = randomUUID(), guideOption = randomUUID(), capability = `guide:${randomUUID()}`;
       value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.save",
-        value: { id: guideOffer, name: "Руководство «Стенд»", benefits: [capability], benefitPeriods: [{ capability, months: null }] } }));
+        value: { id: guideOffer, name: "Руководство «Стенд»", benefits: [capability, "support"],
+          benefitPeriods: [{ capability, months: null }, { capability: "support", months: 6 }] } }));
       value(await pricing.manage(owner, { operationId: randomUUID(), operation: "paymentOptions.save",
         value: { id: guideOption, offerId: guideOffer, mode: "one_time", months: 1, priceKopecks: 290_000 } }));
       value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.publish", expectedRevision: 1, id: guideOffer }));
@@ -173,7 +174,7 @@ describe("локальная продажа через двойника банк
     value(await s.payments.recover());
 
     // Купленное руководство открывает и сообщество: стенд воспроизводит тот же состав прав.
-    expect(await s.capabilities()).toEqual(["community", guide.capability]);
+    expect(await s.capabilities()).toEqual(["community", guide.capability, "support"]);
     const row = await s.purchaseRow(guide.purchaseRef);
     expect(row).toMatchObject({ kind: "one_time", state: "confirmed", environment: "local", subscriptionRef: null });
     expect(await s.operations.execute(owner, { operation: "payments.list", operationId: randomUUID(), accountId: s.buyer, kind: "one_time", limit: 10 }))

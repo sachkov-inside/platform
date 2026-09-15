@@ -247,7 +247,7 @@ export const accessScenarioTable = {
       after: { "product-material": locked, "support": closed, "community-chat": entryClosed },
     },
     "refund-without-withdrawal": {
-      rule: "Возврат без отказа от договора доступ сам не меняет: владелец отдельно решает судьбу прав.",
+      rule: "Компенсация без отказа от договора доступ не меняет: право на продукт, сопровождение и общая группа сохраняются.",
       after: { "product-material": open("lifetime"), "support": open("six-months"), "community-chat": open("lifetime") },
     },
     "support-kept-by-other-ground": {
@@ -263,8 +263,8 @@ export const accessScenarioTable = {
       after: { "product-material": locked },
     },
     "guide-archived": {
-      // Сноска 4 модели: скрыть программу архивного продукта от тех, кому он не открыт, и снять его с
-      // продажи при архиве — отдельная задача после релиза. Здесь проверяется только сохранность у имеющих право.
+      // Скрыть программу архивного продукта от тех, кому он не открыт, и снимать его с продажи при
+      // архиве — отдельная задача после релиза (сноска 4 модели); здесь проверяется сохранность у имеющих право.
       rule: "Архивный продукт уходит с витрины; те, кому он открыт, сохраняют программу, материалы и артефакты.",
       after: { "programme": open("public"), "product-material": open("lifetime"), "artifacts": open("lifetime") },
     },

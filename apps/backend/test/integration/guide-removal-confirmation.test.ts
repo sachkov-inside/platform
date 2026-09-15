@@ -107,7 +107,10 @@ describe("снятие материала из купленного руково
   test("состав руководства теряет опубликованный шаг только подтверждением", async () => {
     now = new Date("2030-01-01T00:00:00Z");
     const bought = await guide();
-    await grant({ capabilities: ["materials"], contentScope: { guideIds: [bought], materialIds: [] }, validUntil: null });
+    // Материалы открывает тариф или оплаченный период с продуктом в составе, а не прямое право.
+    const scoped = await grants.applyPaidPeriod({ eventRef: randomUUID(), periodRef: randomUUID(), accountId: buyer, revision: 1, revoked: false,
+      terms: { capabilities: ["materials"], contentScope: { guideIds: [bought], materialIds: [] }, startsAt: "2030-01-01T00:00:00Z", validUntil: null, reason: "Синтетический состав" } });
+    if (!scoped.ok) throw new Error("Scoped period fixture failed");
     const kept = await publish([bought]); const removed = await publish([bought]);
     const order = await materials.authoring.loadSeriesOrder({ actor: owner, seriesId: bought });
     if (!order.ok) throw new Error(order.error.code);

@@ -90,7 +90,8 @@ describe("independent Account access", () => {
           sourceRef: randomUUID(),
           terms: {
             ...terms,
-            capabilities: ["materials", "community"],
+            // Прямое право не открывает материалы: вручную выдаются сопровождение и общая группа.
+            capabilities: ["community", "support"],
             validUntil,
           },
         },
@@ -109,6 +110,12 @@ describe("independent Account access", () => {
     if (result === undefined || !result.ok || !("grantRef" in result))
       throw new Error(JSON.stringify(applied));
     return { ...result, command, applied };
+  }
+  /** Материалы открываются тарифом или покупкой: оплаченный период с материалами и общей группой. */
+  async function paidMaterials(target: string, validUntil: string | null) {
+    const applied = await grants.applyPaidPeriod({ eventRef: randomUUID(), periodRef: randomUUID(), accountId: target, revision: 1, revoked: false,
+      terms: { ...terms, capabilities: [...terms.capabilities], validUntil } });
+    if (!applied.ok) throw new Error(JSON.stringify(applied));
   }
   test("paid inbox replays after projector crash, conflicts on changed payload and serializes concurrent delivery", async () => {
     now = new Date(start);
@@ -167,7 +174,7 @@ describe("independent Account access", () => {
   test("lifetime survives paid refund, negative legacy evidence and expiry; capabilities union independently", async () => {
     now = new Date(start);
     const target = await member();
-    await manual(target);
+    await paidMaterials(target, null);
     const paid = {
       eventRef: randomUUID(),
       periodRef: randomUUID(),
@@ -221,14 +228,14 @@ describe("independent Account access", () => {
       ],
     });
     // Прежняя запись с правом `reviews` его не открывает: ревью не выдаёт ни одно основание (#648).
-    await db.prisma.accessGrant.updateMany({ where: { accountId: target, source: "manual" }, data: { capabilities: ["community", "materials", "reviews"] } });
+    await db.prisma.accessGrant.updateMany({ where: { accountId: target, source: "paid", revokedAt: null }, data: { capabilities: ["community", "materials", "reviews"] } });
     const legacy = await grants.resolveCapabilities(target);
     expect(legacy.ok && legacy.capabilities.map(entry => entry.capability)).toEqual(["community", "materials"]);
   });
   test("half-open intervals, future starts and finite bounds are exact", async () => {
     now = new Date(start);
     const target = await member();
-    await manual(target, end);
+    await paidMaterials(target, end);
     now = new Date(new Date(start).getTime() - 1);
     expect(await membership().resolveForAccess(accountId(target))).toEqual({
       kind: "required",
@@ -259,14 +266,14 @@ describe("independent Account access", () => {
           accountId: target,
           source: "manual",
           sourceRef: randomUUID(),
-          terms: { ...terms, capabilities: [...terms.capabilities] },
+          terms: { ...terms, capabilities: ["community" as const, "support" as const] },
         },
         {
           rowKey: "unresolved",
           accountId: randomUUID(),
           source: "manual",
           sourceRef: randomUUID(),
-          terms: { ...terms, capabilities: [...terms.capabilities] },
+          terms: { ...terms, capabilities: ["community" as const, "support" as const] },
         },
       ],
     });
@@ -313,7 +320,7 @@ describe("independent Account access", () => {
           accountId: target,
           source: "manual" as const,
           sourceRef: randomUUID(),
-          terms: { ...terms, capabilities: [...terms.capabilities] },
+          terms: { ...terms, capabilities: ["community" as const, "support" as const] },
         },
       ],
     };
@@ -327,11 +334,11 @@ describe("independent Account access", () => {
         rows: [...command.rows, ...command.rows],
       }),
     ).toEqual({ ok: false, error: { code: "invalid_input" } });
-    // Ручная выдача не выдаёт ревью и не открывает отдельный материал (#648).
+    // Прямая выдача не открывает материалы, не называет отдельный материал и не выдаёт ревью.
     const [row] = command.rows;
     if (row === undefined) throw new Error("Expected one grant row");
-    for (const forbidden of [{ capabilities: ["reviews" as const] },
-      { capabilities: ["materials" as const], contentScope: { guideIds: [], materialIds: [randomUUID()] } }])
+    for (const forbidden of [{ capabilities: ["reviews" as const] }, { capabilities: ["materials" as const] },
+      { capabilities: ["support" as const], contentScope: { guideIds: [], materialIds: [randomUUID()] } }])
       expect(await grants.previewBatch(owner, { ...command, operationId: randomUUID(),
         rows: [{ ...row, terms: { ...row.terms, ...forbidden } }] })).toEqual({ ok: false, error: { code: "invalid_input" } });
     const preview = await grants.previewBatch(owner, command);
@@ -427,9 +434,13 @@ describe("independent Account access", () => {
       grantRef: finite.grantRef,
       revision: 3,
     });
-    expect(await membership().resolveForAccess(accountId(target))).toEqual({
-      kind: "active",
-      validUntil: null,
+    // Отозвано только срочное основание: бессрочное ручное сопровождение и общая группа остаются.
+    expect(await grants.resolveCapabilities(target)).toMatchObject({
+      ok: true,
+      capabilities: [
+        { capability: "community", validUntil: null },
+        { capability: "support", validUntil: null },
+      ],
     });
   });
   test("new joins never become legacy; explicit cohort and classification remain separate from recurring approval", async () => {

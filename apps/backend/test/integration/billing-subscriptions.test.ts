@@ -125,7 +125,7 @@ describe("подписка: продление, отмена, смена вар�
     const s = await scenario();
     await s.buy();
     const row = { rowKey: "row-1", accountId: s.buyer, source: "manual" as const, sourceRef: randomUUID(),
-      terms: { capabilities: ["materials" as const], startsAt: "2030-01-01T00:00:00.000Z", validUntil: null,
+      terms: { capabilities: ["support" as const], startsAt: "2030-01-01T00:00:00.000Z", validUntil: null,
         reason: "Ручная выдача для проверки" } };
     const preview = await grants.previewBatch(owner, { operationId: randomUUID(), rows: [row] });
     if (!preview.ok) throw new Error(preview.error.code);

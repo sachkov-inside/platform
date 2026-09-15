@@ -115,7 +115,7 @@ export async function seedLocalOfferCatalog(
   if (initialTier !== null && initialTier.revision === 1) {
     const content = await new ContentScopeCatalog(prisma).list();
     await sendCatalogCommand(pricing, target.actor, { operation: "offers.save", operationId: randomUUID(), expectedRevision: 1,
-      value: { id: initialTier.id, name: initialTier.name, benefits: ["materials", "community"], availableForAssignment: true,
+      value: { id: initialTier.id, name: initialTier.name, benefits: ["materials", "community", "support"], availableForAssignment: true,
         // Состав называет только продукты: отдельный материал в тариф не входит (#648).
         contentScope: { guideIds: content.filter(item => item.kind === "guide" && item.available).map(item => item.id), materialIds: [] } } });
   }

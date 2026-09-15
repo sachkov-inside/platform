@@ -15,7 +15,7 @@ import { executeRefund, reconcileRefunds } from "../../features/execute-refund/e
 import { listPayments, paymentView, readPayment, refundDecisionViews } from "../../features/read-payments/read-payments.js";
 import { commandFingerprint } from "../../shared/command-fingerprint.js";
 import { refundTotals } from "../../shared/refund-amounts.js";
-import { tierLacksComposition } from "../../shared/tier-composition.js";
+import { offerGrantsWithheld, tierLacksComposition } from "../../shared/tier-composition.js";
 import type { Tbank } from "../../infrastructure/tbank/tbank.js";
 import type { BillingPayments } from "../billing-payments/billing-payments.js";
 import type { BillingPricing } from "../billing-pricing/billing-pricing.js";
@@ -160,7 +160,7 @@ export class BillingOperations {
           await lockPricing(tx);
           const row = await tx.billingOffer.findUnique({ where: { id: command.value.tierId } });
           if (command.value.published && (row === null || row.archived || !row.availableForAssignment)) return ownerFailure("not_found");
-          if (command.value.published && row !== null && tierLacksComposition(row)) return ownerFailure("state_conflict");
+          if (command.value.published && row !== null && (tierLacksComposition(row) || offerGrantsWithheld(row))) return ownerFailure("state_conflict");
           if (command.value.published && row?.revision !== command.value.tierRevision) return ownerFailure("revision_conflict");
           const { operation: _operation, ...input } = command;
           const result = await grants.manageActivationRule(actorId, input);
@@ -173,6 +173,7 @@ export class BillingOperations {
           const row = await tx.billingOffer.findUnique({ where: { id: command.tierId } });
           if (row === null) return ownerFailure("not_found");
           if (row.revision !== command.tierRevision) return ownerFailure("revision_conflict");
+          if (offerGrantsWithheld(row)) return ownerFailure("state_conflict");
           const { operation: _operation, ...input } = command;
           const result = await grants.previewEnrollmentExpansion(actorId, input, { id: row.id, revision: row.revision, name: row.name, benefits: row.benefits, contentScope: row.contentScope });
           return result.ok ? { ok: true, operationRef, result: { outcome: "enrollmentExpansionPreview", value: result.value } } : ownerAccessFailure(result.error.code);
@@ -211,8 +212,8 @@ export class BillingOperations {
           const row = await tx.billingOffer.findUnique({ where: { id: command.tierId } });
           if (row === null || row.archived || !row.availableForAssignment) return ownerFailure("not_found");
           if (row.revision !== command.tierRevision) return ownerFailure("revision_conflict");
-          // Назначение тарифа без состава дало бы чат без материалов: сначала задаётся состав.
-          if (tierLacksComposition(row)) return ownerFailure("state_conflict");
+          // Тариф без состава дал бы чат без материалов, а отдельный материал и `reviews` не выдаются.
+          if (tierLacksComposition(row) || offerGrantsWithheld(row)) return ownerFailure("state_conflict");
           const tier = tierSnapshotSchema.safeParse({ id: row.id, revision: row.revision, name: row.name,
             benefits: row.benefits, contentScope: row.contentScope });
           if (!tier.success) return ownerFailure("invalid_request");

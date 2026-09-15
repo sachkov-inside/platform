@@ -254,10 +254,11 @@ describe("таблица сценариев доступа (реальный Pos
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.publish", expectedRevision: 1, id: offerId }));
     return { offerId, optionId };
   }
-  async function tier(guideIds: readonly string[], benefits: readonly string[] = ["materials", "community"]): Promise<string> {
+  /** Тариф как стартовый: материалы продуктов, сопровождение и общая группа. */
+  async function tier(guideIds: readonly string[], benefits: readonly string[] = ["materials", "community", "support"]): Promise<string> {
     const id = randomUUID();
     owned(await operations.execute(owner, { operation: "offers.save", operationId: randomUUID(),
-      value: { id, name: "Материалы + сообщество", benefits: [...benefits], availableForAssignment: true, contentScope: { guideIds: [...guideIds], materialIds: [] } } }));
+      value: { id, name: "Стартовый тариф", benefits: [...benefits], availableForAssignment: true, contentScope: { guideIds: [...guideIds], materialIds: [] } } }));
     return id;
   }
   async function account(): Promise<string> {
@@ -433,14 +434,21 @@ describe("таблица сценариев доступа (реальный Pos
     if (!delivery.ok) throw new Error(delivery.error.code);
     return delivery.value.operations.some(operation => operation.access.kind !== "denied") ? { outcome: "entry-closed" } : closed;
   }
-  /** Сопровождение у тарифа: действует, только если `support` есть в правах действующих назначений. */
+  /**
+   * Сопровождение у тарифа: действует на срок назначения, только если `support` есть в правах тарифа.
+   * «По тарифу» — это когда наблюдаемый срок и есть срок назначения; более долгое сопровождение
+   * другого основания видно своим сроком.
+   */
   async function support(account: string | null): Promise<AccessObservation> {
     const observed = await capability(account, "support");
     if (account === null) return observed;
     const active = value(await grants.readOwnEnrollments(account)).filter(enrollment => enrollment.state === "active");
     if (active.length === 0) return observed;
-    const tierSupport = active.some(enrollment => enrollment.tier.benefits.includes("support"));
-    return (tierSupport ? observed.outcome === "open" : observed.outcome === "closed") ? { outcome: "by-tier" } : observed;
+    const withSupport = active.filter(enrollment => enrollment.tier.benefits.includes("support"));
+    if (withSupport.length === 0) return observed.outcome === "closed" ? { outcome: "by-tier" } : observed;
+    const ends = withSupport.map(enrollment => enrollment.endsAt);
+    const tierTerm = ends.includes(null) ? "lifetime" : termOf(ends.filter((end): end is string => end !== null).sort().at(-1) ?? null);
+    return observed.outcome === "open" && observed.term === tierTerm ? { outcome: "by-tier" } : observed;
   }
   async function cabinet(account: string): Promise<AccessObservation> {
     if (await moderationBlocked(account)) return { outcome: "shown", shows: "restriction" };
@@ -549,11 +557,13 @@ describe("таблица сценариев доступа (реальный Pos
     const member = await participant("bridge");
     expect(await grants.classifyLegacy(owner, { operationId: randomUUID(), accountId: member.account, expectedRevision: 0, classification: "confirmed_legacy",
       sourceRef: `bridge-${member.account}`, reason: "Прежний участник", bridgeEnabled: true, tributeStopped: false })).toMatchObject({ ok: true });
-    // Мост прежних участников открывает продукт A и сопровождение, пока подтверждено членство.
+    // Мост прежних участников открывает продукт A и сопровождение, пока подтверждено членство; общую
+    // группу открывает само сопровождение, отдельного `community` у моста нет.
     await db.prisma.legacyClassification.update({ where: { accountId: member.account },
-      data: { bridgeContentScope: { guideIds: [guideA], materialIds: [] }, bridgeBenefits: ["materials", "community", "support"] } });
+      data: { bridgeContentScope: { guideIds: [guideA], materialIds: [] }, bridgeBenefits: ["materials", "support"] } });
     await observeMembership(member, "member", 1);
     expect(await observe("support", member.account)).toEqual(open("ground-term"));
+    expect(await observe("community-chat", member.account)).toEqual(open("ground-term"));
     // Временный источник Tribute ещё не подтверждён: мост продолжает действовать.
     const policy = await importTribute(member, "temporary_membership", groundEndsAt);
     expect(await db.prisma.legacyClassification.findUniqueOrThrow({ where: { accountId: member.account } })).toMatchObject({ bridgeEnabled: true });
@@ -660,7 +670,7 @@ describe("таблица сценариев доступа (реальный Pos
     const recipient = await account();
     const enrollment = await assignEnrollment("manual", recipient, groundEndsAt, changing);
     const saved = owned(await operations.execute(owner, { operation: "offers.save", operationId: randomUUID(), expectedRevision: 1,
-      value: { id: changing, name: "Материалы + сообщество", benefits: ["materials", "community"], availableForAssignment: true, contentScope: { guideIds: [guideA, guideC], materialIds: [] } } }));
+      value: { id: changing, name: "Стартовый тариф", benefits: ["materials", "community", "support"], availableForAssignment: true, contentScope: { guideIds: [guideA, guideC], materialIds: [] } } }));
     if (saved.outcome !== "catalog") throw new Error(`Unexpected outcome ${saved.outcome}`);
     // Новая редакция тарифа сама по себе ничего не открывает действующему назначению.
     expect(await observe("product-material", recipient, { material: added })).toEqual({ outcome: "locked" });
