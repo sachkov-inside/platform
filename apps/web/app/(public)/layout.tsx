@@ -1,7 +1,11 @@
 import type { ReactNode } from "react";
 import { Suspense } from "react";
 
+import { currentLegalEdition } from "@inside/legal";
+
 import { AppShell, QueryProvider } from "@/_app";
+import { StorageNotice } from "@/features/storage-notice";
+import { legalDocumentPath } from "@/shared/routing/public-page-path";
 import { AuthenticationFeedback } from "@/widgets/auth-control";
 import type { Viewport } from "next";
 
@@ -15,6 +19,10 @@ export default function PublicLayout({ children }: { readonly children: ReactNod
           <AuthenticationFeedback />
         </Suspense>
         {children}
+        <StorageNotice
+          edition={currentLegalEdition("cookies").version}
+          policyHref={legalDocumentPath("cookies")}
+        />
       </AppShell>
     </QueryProvider>
   );

@@ -12,19 +12,16 @@ import {
   executeCreateMemberProfile,
   executeUpdateMemberProfile,
 } from "@/_pages/account.operations.server";
-import { getMemberProfile } from "@/_pages/member-profile/api/get-member-profile";
 import {
   profileInitials,
   shouldUseAvatarImage,
 } from "@/entities/member-profile";
 
-const publicProfileId = "d3acb421-85e2-4c79-9dfa-4b2c925e56e8";
 const profile = {
   avatar: null,
   bio: "Строю платформу.",
   createdAt: "2026-08-30T10:00:00.000Z",
   displayName: "Кирилл",
-  publicProfileId,
   status: "active",
   updatedAt: "2026-08-30T10:00:00.000Z",
   version: 2,
@@ -344,7 +341,7 @@ describe("Member Profile web workflow", () => {
     ).resolves.toEqual({ currentVersion: 4, kind: "conflict" });
   });
 
-  it("maps private missing state and fails closed for member projection", async () => {
+  it("maps the private missing state", async () => {
     await expect(
       getPrivateMemberProfile(
         "access-token",
@@ -355,51 +352,6 @@ describe("Member Profile web workflow", () => {
         }),
       ),
     ).resolves.toEqual({ kind: "ready", state: { kind: "missing" } });
-
-    await expect(
-      getMemberProfile(
-        publicProfileId,
-        undefined,
-        vi.fn().mockResolvedValue({
-          ok: false,
-          problem: { code: "profile_not_found" },
-          response: Response.json({}, { status: 404 }),
-        }),
-      ),
-    ).resolves.toEqual({ kind: "not_found" });
-    await expect(
-      getMemberProfile(
-        publicProfileId,
-        "access-token",
-        vi.fn().mockResolvedValue({
-          ok: false,
-          problem: {
-            code: "internal_error",
-            correlationId: "profile-ref",
-            status: 500,
-          },
-          response: Response.json({}, { status: 500 }),
-        }),
-      ),
-    ).resolves.toEqual({ kind: "unavailable", reference: "profile-ref" });
-    await expect(
-      getMemberProfile(
-        publicProfileId,
-        "access-token",
-        vi.fn().mockResolvedValue({
-          body: {
-            profile: {
-              avatar: null,
-              bio: profile.bio,
-              displayName: profile.displayName,
-              publicProfileId,
-            },
-          },
-          ok: true,
-          response: Response.json({}),
-        }),
-      ),
-    ).resolves.toMatchObject({ kind: "ready", profile: { publicProfileId } });
   });
 });
 

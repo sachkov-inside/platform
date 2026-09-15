@@ -4,7 +4,6 @@ import {
   Inject,
   Param,
   Post,
-  UseGuards,
 } from "@nestjs/common";
 import {
   ApiBearerAuth,
@@ -21,7 +20,7 @@ import {
   toOpenApiSchema,
 } from "../../../../infrastructure/http/zod-openapi.js";
 import {
-  AccountGuard,
+  AcceptedTermsEndpoint,
   CurrentAccount,
   accountId,
   type AuthenticatedAccount,
@@ -37,7 +36,7 @@ import {
 @ApiTags("Telegram Membership")
 @ApiBearerAuth("logto")
 @PrivateNoStore()
-@UseGuards(AccountGuard)
+@AcceptedTermsEndpoint()
 @Controller("accounts/current/telegram-link")
 export class TelegramLinkController {
   constructor(

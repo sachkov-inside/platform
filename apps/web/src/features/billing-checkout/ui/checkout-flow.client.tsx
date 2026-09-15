@@ -6,9 +6,10 @@ import { useMutation } from "@tanstack/react-query";
 import {
   acceptBillingConsents,
   billingErrorMessage,
+  checkoutButtonLabel,
+  renewalTermsAtCheckout,
   type BillingQuote,
   type LegalDocument,
-  type LegalDocumentKind,
   paymentMode,
   type PriceSnapshot,
   type PurchaseStatus,
@@ -57,7 +58,6 @@ export function CheckoutFlow({
   onDocumentsChanged,
 }: CheckoutFlowProps) {
   const [quote, setQuote] = useState<BillingQuote | null>(null);
-  const [accepted, setAccepted] = useState<readonly LegalDocumentKind[]>([]);
   const [acknowledge, setAcknowledge] = useState(false);
   const [existingAccess, setExistingAccess] = useState(false);
   const [legacyBlocked, setLegacyBlocked] = useState(false);
@@ -77,7 +77,6 @@ export function CheckoutFlow({
       completeOperation("quote");
       setError(undefined);
       setQuote(result.value);
-      setAccepted([]);
       setExistingAccess(false);
       setLegacyBlocked(false);
     },
@@ -89,13 +88,10 @@ export function CheckoutFlow({
       readonly quote: BillingQuote;
       readonly contactRevision: number;
       readonly acknowledgeExistingAccess: boolean;
-      readonly accepted: readonly LegalDocumentKind[];
     }) => {
-      const acceptedDocuments = acceptedPurchaseDocuments(
-        documents,
-        input.quote,
-        input.accepted,
-      );
+      // Нажатие кнопки оплаты принимает документы этой покупки; журнал запишет подпись кнопки.
+      const acceptedDocuments = acceptedPurchaseDocuments(documents, input.quote);
+      const recurring = paymentMode(input.quote.snapshot) === "subscription";
       // Редакции входят в нагрузку: согласие на новую редакцию — новая операция, а не повтор
       // прежней, которую сервер иначе отверг бы как ту же операцию с другими данными.
       const consents = await acceptBillingConsents({
@@ -104,6 +100,9 @@ export function CheckoutFlow({
           documents: acceptedDocuments,
         }),
         contextRef: input.quote.quoteRef,
+        screen: "checkout",
+        buttonLabel: checkoutButtonLabel(input.quote.snapshot),
+        ...(recurring ? { shownTerms: renewalTermsAtCheckout(input.quote) } : {}),
         documents: acceptedDocuments,
       });
       if (!consents.ok) return consents;
@@ -126,10 +125,9 @@ export function CheckoutFlow({
         if (result.code === "legacy_review_required") setLegacyBlocked(true);
         if (result.code === "quote_expired" || result.code === "quote_changed")
           setQuote(null);
-        // Кнопка оплаты доступна только с отмеченными условиями, поэтому отказ по согласию значит,
-        // что принятая редакция больше не действует: отметка снимается, документы перечитываются.
+        // Отказ по согласию значит, что принятая нажатием редакция больше не действует:
+        // документы перечитываются, и следующее нажатие примет действующую.
         if (result.code === "document_changed" || result.code === "consent_required") {
-          setAccepted([]);
           onDocumentsChanged?.();
         }
         setError(billingErrorMessage(result.code));
@@ -182,7 +180,6 @@ export function CheckoutFlow({
 
   const shared = {
     acknowledgeExistingAccess: acknowledge,
-    accepted,
     contact,
     contactHref,
     documents,
@@ -196,7 +193,6 @@ export function CheckoutFlow({
         quote,
         contactRevision: contact.revision,
         acknowledgeExistingAccess: acknowledge,
-        accepted,
       });
     },
     onRefreshStatus: () => {
@@ -206,13 +202,6 @@ export function CheckoutFlow({
     },
     onToggleAcknowledge: () => {
       setAcknowledge((value) => !value);
-    },
-    onToggleDocument: (kind: LegalDocumentKind) => {
-      setAccepted((value) =>
-        value.includes(kind)
-          ? value.filter((entry) => entry !== kind)
-          : [...value, kind],
-      );
     },
     pending:
       quoteMutation.isPending || payMutation.isPending || statusMutation.isPending,

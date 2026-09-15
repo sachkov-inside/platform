@@ -5,7 +5,6 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest"
 
 import { accountId, type AccountId } from "../../src/modules/accounts/index.js";
 import type { ObjectStorage } from "../../src/infrastructure/object-storage/index.js";
-import type { MembershipAccessState } from "../../src/modules/membership-entitlements/index.js";
 import {
   assembleMemberProfiles,
   assembleProfileAvatarMaintenance,
@@ -51,18 +50,11 @@ describe("MemberProfiles", () => {
   let database: TestDatabase;
   let maintenance: ProfileAvatarMaintenance;
   let profiles: MemberProfiles;
-  const membership = new Map<AccountId, MembershipAccessState>();
 
   beforeAll(async () => {
     database = await createMigratedTestDatabase();
     profiles = assembleMemberProfiles({
       prisma: database.prisma,
-      membershipEntitlements: {
-        resolveForAccess: (targetAccountId) =>
-          Promise.resolve(
-            membership.get(targetAccountId) ?? { kind: "required" },
-          ),
-      },
       objectStorage,
       signedGetTtlSeconds: 60,
     });
@@ -73,7 +65,6 @@ describe("MemberProfiles", () => {
   });
 
   beforeEach(async () => {
-    membership.clear();
     storedObjects.clear();
     deletedObjectKeys.length = 0;
     signedGetRequests.length = 0;
@@ -158,60 +149,20 @@ describe("MemberProfiles", () => {
     ]);
   });
 
-  test("returns only the accepted projection to active members", async () => {
-    const created = await createOwnerProfile(profiles);
-    membership.set(viewerAccountId, {
-      kind: "active",
-      validUntil: "2030-01-01T01:00:00.000Z",
-    });
-
-    const view = await profiles.viewProfile(
-      viewerAccountId,
-      created.publicProfileId,
-    );
-    expect(view).toEqual({
-      ok: true,
-      profile: {
-        publicProfileId: created.publicProfileId,
-        avatar: null,
-        displayName: "Кирилл Сачков",
-        bio: "Инженер и автор.",
-      },
-    });
-    expect(JSON.stringify(view)).not.toMatch(
-      /accountId|email|logto|telegram|permission|evidence|audit/iu,
-    );
-
-    for (const state of [
-      { kind: "required" },
-      { kind: "expired" },
-      { kind: "stale" },
-      { kind: "unavailable" },
-    ] as const) {
-      membership.set(viewerAccountId, state);
-      await expect(
-        profiles.viewProfile(viewerAccountId, created.publicProfileId),
-      ).resolves.toEqual({ ok: false, error: { code: "not_found" } });
-    }
-  });
-
-  test("supports manual disable/restore and hides disabled Profile", async () => {
-    const created = await createOwnerProfile(profiles);
-    membership.set(viewerAccountId, {
-      kind: "active",
-      validUntil: "2030-01-01T01:00:00.000Z",
+  test("supports manual disable/restore of the owner's Profile", async () => {
+    await createOwnerProfile(profiles);
+    // The internal Profile identifier stays for owner moderation; the API no longer returns it.
+    const { publicProfileId } = await database.prisma.memberProfile.findUniqueOrThrow({
+      where: { accountId: ownerAccountId },
     });
 
     await expect(
       moderateMemberProfile(
         database.prisma,
-        created.publicProfileId,
+        publicProfileId,
         "disable",
       ),
     ).resolves.toMatchObject({ ok: true, changed: true, status: "disabled" });
-    await expect(
-      profiles.viewProfile(viewerAccountId, created.publicProfileId),
-    ).resolves.toEqual({ ok: false, error: { code: "not_found" } });
     await expect(profiles.readPrivateProfile(ownerAccountId)).resolves.toMatchObject({
       ok: true,
       value: { kind: "profile", profile: { status: "disabled", version: 2 } },
@@ -219,13 +170,13 @@ describe("MemberProfiles", () => {
     await expect(
       moderateMemberProfile(
         database.prisma,
-        created.publicProfileId,
+        publicProfileId,
         "restore",
       ),
     ).resolves.toMatchObject({ ok: true, changed: true, status: "active" });
   });
 
-  test("replaces and delivers only the current protected avatar to active members", async () => {
+  test("replaces the avatar and delivers only the current one to its owner", async () => {
     const created = await createOwnerProfile(profiles);
     const first = await avatarBody("#d85f39");
     const uploaded = await profiles.changeAvatar({
@@ -244,83 +195,22 @@ describe("MemberProfiles", () => {
       await expect(sharp(body).metadata()).resolves.toMatchObject({ format: "webp" });
     }
 
-    // Свой аватар владелец профиля видит всегда: членство решает доступ к чужим профилям.
+    // Профиль виден только владельцу: подписанный адрес аватара выдаётся только ему.
     await expect(
       profiles.deliverAvatar({
+        accountId: ownerAccountId,
         avatarId: firstAvatarId,
-        publicProfileId: created.publicProfileId,
         size: 320,
-        viewerAccountId: ownerAccountId,
       }),
     ).resolves.toEqual({
       location: "https://storage.example.test/avatar",
       ok: true,
     });
     expect(signedGetRequests.at(-1)?.ttlSeconds).toBe(60);
-    membership.set(ownerAccountId, {
-      kind: "active",
-      validUntil: new Date(Date.now() + 30_000).toISOString(),
-    });
-    await expect(
-      profiles.deliverAvatar({
-        avatarId: firstAvatarId,
-        publicProfileId: created.publicProfileId,
-        size: 320,
-        viewerAccountId: ownerAccountId,
-      }),
-    ).resolves.toEqual({
-      location: "https://storage.example.test/avatar",
-      ok: true,
-    });
-
-    await expect(
-      profiles.deliverAvatar({
-        avatarId: firstAvatarId,
-        publicProfileId: created.publicProfileId,
-        size: 320,
-        viewerAccountId,
-      }),
-    ).resolves.toEqual({ error: { code: "not_found" }, ok: false });
-    membership.set(viewerAccountId, { kind: "expired" });
-    await expect(
-      profiles.deliverAvatar({
-        avatarId: firstAvatarId,
-        publicProfileId: created.publicProfileId,
-        size: 320,
-        viewerAccountId,
-      }),
-    ).resolves.toEqual({ error: { code: "not_found" }, ok: false });
-    membership.set(viewerAccountId, {
-      kind: "active",
-      validUntil: null,
-    });
-    await expect(
-      profiles.deliverAvatar({
-        avatarId: firstAvatarId,
-        publicProfileId: created.publicProfileId,
-        size: 320,
-        viewerAccountId,
-      }),
-    ).resolves.toEqual({
-      location: "https://storage.example.test/avatar",
-      ok: true,
-    });
-    membership.set(viewerAccountId, {
-      kind: "active",
-      validUntil: new Date(Date.now() + 500).toISOString(),
-    });
-    await expect(
-      profiles.deliverAvatar({
-        avatarId: firstAvatarId,
-        publicProfileId: created.publicProfileId,
-        size: 320,
-        viewerAccountId,
-      }),
-    ).resolves.toEqual({ error: { code: "not_found" }, ok: false });
-    membership.set(viewerAccountId, {
-      kind: "active",
-      validUntil: "2030-01-01T01:00:00.000Z",
-    });
+    for (const stranger of [secondAccountId, viewerAccountId])
+      await expect(
+        profiles.deliverAvatar({ accountId: stranger, avatarId: firstAvatarId, size: 320 }),
+      ).resolves.toEqual({ error: { code: "not_found" }, ok: false });
 
     const secondProfile = await profiles.createProfile({
       accountId: secondAccountId,
@@ -347,19 +237,20 @@ describe("MemberProfiles", () => {
     expect(replaced.profile.version).toBe(3);
     expect(replaced.profile.avatar.avatarId).not.toBe(firstAvatarId);
     await expect(
-      profiles.deliverAvatar({
-        avatarId: firstAvatarId,
-        publicProfileId: created.publicProfileId,
-        size: 320,
-        viewerAccountId,
-      }),
+      profiles.deliverAvatar({ accountId: ownerAccountId, avatarId: firstAvatarId, size: 320 }),
     ).resolves.toEqual({ error: { code: "not_found" }, ok: false });
     await expect(
       profiles.deliverAvatar({
+        accountId: ownerAccountId,
         avatarId: replaced.profile.avatar.avatarId,
-        publicProfileId: created.publicProfileId,
+        size: 640,
+      }),
+    ).resolves.toMatchObject({ ok: true });
+    await expect(
+      profiles.deliverAvatar({
+        accountId: secondAccountId,
+        avatarId: replaced.profile.avatar.avatarId,
         size: 320,
-        viewerAccountId: secondAccountId,
       }),
     ).resolves.toEqual({ error: { code: "not_found" }, ok: false });
 
@@ -378,10 +269,9 @@ describe("MemberProfiles", () => {
     });
     await expect(
       profiles.deliverAvatar({
+        accountId: ownerAccountId,
         avatarId: replaced.profile.avatar.avatarId,
-        publicProfileId: created.publicProfileId,
         size: 320,
-        viewerAccountId,
       }),
     ).resolves.toEqual({ error: { code: "not_found" }, ok: false });
     await database.prisma.memberProfile.update({

@@ -1,5 +1,4 @@
 import type {
-  MemberProfileProjection,
   MemberProfileStatus,
   PrivateMemberProfile,
 } from "../facets/member-profiles/member-profiles.interface.js";
@@ -27,7 +26,6 @@ export function privateProfileProjection(
   return status === null || publicProfileId === undefined || avatarId === undefined
     ? null
     : {
-        publicProfileId,
         avatar: avatarId === null ? null : { avatarId },
         displayName: profile.displayName,
         bio: profile.bio,
@@ -38,24 +36,6 @@ export function privateProfileProjection(
       };
 }
 
-export function memberProfileProjection(
-  profile: Pick<
-    StoredMemberProfile,
-    "publicProfileId" | "displayName" | "bio" | "avatarId"
-  >,
-): MemberProfileProjection | null {
-  const publicProfileId = parsePublicProfileId(profile.publicProfileId);
-  const avatarId =
-    profile.avatarId === null ? null : parseProfileAvatarId(profile.avatarId);
-  return publicProfileId === undefined || avatarId === undefined
-    ? null
-    : {
-        publicProfileId,
-        displayName: profile.displayName,
-        bio: profile.bio,
-        avatar: avatarId === null ? null : { avatarId },
-      };
-}
 
 function profileStatus(value: string): MemberProfileStatus | null {
   return value === "active" || value === "disabled" ? value : null;

@@ -79,10 +79,27 @@ export function purchaseConsentPolicy(
 /** Возобновление списаний требует только нового явного согласия на них. */
 export const resumeConsentKinds: readonly LegalDocumentKind[] = ["recurring"];
 
-/** Согласие фиксируется одной командой на конкретный контекст будущей операции. */
+/**
+ * Условия продления, показанные рядом с кнопкой подписки или возобновления: сумма и день
+ * следующего списания и период. Журнал принятия хранит их такими, какими их показала страница.
+ */
+export const shownRenewalTermsSchema = z.strictObject({
+  amountKopecks: z.number().int().positive(),
+  nextChargeOn: z.iso.date(),
+  periodMonths: z.number().int().positive(),
+});
+export type ShownRenewalTerms = z.infer<typeof shownRenewalTermsSchema>;
+
+/**
+ * Документы принимаются нажатием кнопки оплаты одной командой на контекст будущей операции:
+ * экран и подпись нажатой кнопки уходят в журнал принятия вместе с редакциями.
+ */
 export const consentsInputSchema = z.strictObject({
   operationId: z.uuid(),
   contextRef: z.uuid(),
+  screen: z.enum(["checkout", "subscription-resume"]),
+  buttonLabel: z.string().trim().min(1).max(200),
+  shownTerms: shownRenewalTermsSchema.optional(),
   documents: z.array(acceptedDocumentSchema).min(1).max(4),
 });
 export const consentsValueSchema = z.object({

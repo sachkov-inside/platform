@@ -8,6 +8,7 @@ import {
   ensureEmailConnector,
   ensureResource,
   ensureSignInExperience,
+  ensureSignInPhrases,
   mergeEnv,
 } from "./identity-proof-bootstrap.mjs";
 import {
@@ -110,6 +111,31 @@ test("Management API bootstrap forces the Platform light Russian experience", as
     autoDetect: false,
     fallbackLanguage: "ru",
   });
+});
+
+test("sign-in screen links the policy and defers terms to the Platform first sign-in", async () => {
+  let experience;
+  await ensureSignInExperience(async (path, options) => {
+    experience = { path, ...options };
+    return {};
+  });
+  assert.equal(experience.body.agreeToTermsPolicy, "Automatic");
+  assert.equal(experience.body.termsOfUseUrl, null);
+  assert.match(experience.body.privacyPolicyUrl, /^https?:\/\/[^/]+\/legal\/privacy$/u);
+
+  let phrases;
+  await ensureSignInPhrases(async (path, options) => {
+    phrases = { path, ...options };
+    return {};
+  });
+  assert.equal(phrases.path, "/custom-phrases/ru");
+  assert.equal(phrases.method, "PUT");
+  assert.match(phrases.body.description.auto_agreement, /<link><\/link>/u);
+  assert.match(
+    phrases.body.description.auto_agreement,
+    /Условия использования вы примете сразу после входа\./u,
+  );
+  assert.doesNotMatch(phrases.body.description.auto_agreement, /соглаша/u);
 });
 
 test("custom access-token claims expose only a matching fresh email-code interaction", async () => {

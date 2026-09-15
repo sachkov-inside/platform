@@ -93,6 +93,7 @@ async function main() {
   await ensureEmailConnector(api);
   const telegramConnectorId = await ensureTelegramConnector(api);
   await ensureSignInExperience(api);
+  await ensureSignInPhrases(api);
   await ensureJwtCustomizer(api, telegramConnectorId);
   const applicationSecret = await readApplicationSecret(api, application.id);
   await writeRuntimeEnvironment(application.id, applicationSecret);
@@ -273,10 +274,29 @@ export async function ensureSignInExperience(api) {
       },
       signUp: { identifiers: ["email"], password: false, verify: true },
       signInMode: "SignInAndRegister",
+      // Условия использования принимаются кнопкой сразу после входа, на экране Platform (#658).
+      // Здесь только ссылка на политику и предупреждение об этом, без галочки и без ссылки на
+      // условия: иначе строка Logto говорила бы, что человек уже согласился с ними.
+      termsOfUseUrl: null,
+      privacyPolicyUrl: `${webBaseUrl}/legal/privacy`,
+      agreeToTermsPolicy: "Automatic",
       socialSignIn: { skipRequiredIdentifiers: true },
       socialSignInConnectorTargets: process.env.TELEGRAM_SIGN_IN_ENABLED === "true" ? ["inside-telegram"] : [],
     },
   });
+}
+
+/** Текст строки под формой входа. Ссылку `<link></link>` Logto подставляет сам из `privacyPolicyUrl`. */
+export const signInAgreementPhrases = {
+  description: {
+    auto_agreement:
+      "Как мы используем данные — <link></link>. Условия использования вы примете сразу после входа.",
+    privacy_policy: "политика",
+  },
+};
+
+export async function ensureSignInPhrases(api) {
+  await api("/custom-phrases/ru", { method: "PUT", body: signInAgreementPhrases });
 }
 
 async function ensureJwtCustomizer(api, telegramConnectorId) {

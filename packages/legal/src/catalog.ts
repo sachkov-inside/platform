@@ -1,16 +1,19 @@
 import { contactsV1 } from "./editions/contacts-v1.js";
 import { contactsV2 } from "./editions/contacts-v2.js";
 import { cookiesV1 } from "./editions/cookies-v1.js";
+import { cookiesV2 } from "./editions/cookies-v2.js";
 import { privacyV2 } from "./editions/privacy-v2.js";
+import { privacyV3 } from "./editions/privacy-v3.js";
 import { purchaseV1 } from "./editions/purchase-v1.js";
 import { purchaseV3 } from "./editions/purchase-v3.js";
+import { purchaseV4 } from "./editions/purchase-v4.js";
 import { recurringConsentV1 } from "./editions/recurring-consent-v1.js";
 import { subscriptionV1 } from "./editions/subscription-v1.js";
 import { termsV1 } from "./editions/terms-v1.js";
 import { tributeV1 } from "./editions/tribute-v1.js";
 import {
   legalDocumentKeys,
-  legalDocumentPath,
+  legalEditionPath,
   type LegalDocumentKey,
   type LegalEdition,
 } from "./document.js";
@@ -24,9 +27,12 @@ export const legalEditions: readonly LegalEdition[] = [
   contactsV2,
   termsV1,
   privacyV2,
+  privacyV3,
   cookiesV1,
+  cookiesV2,
   purchaseV1,
   purchaseV3,
+  purchaseV4,
   subscriptionV1,
   recurringConsentV1,
   tributeV1,
@@ -95,7 +101,10 @@ export interface ConsentDocument {
   readonly documentId: string;
   readonly version: string;
   readonly digest: string;
-  /** Absolute address of the accepted edition, stored with the consent as shown. */
+  /**
+   * Permanent absolute address of the accepted edition, stored with the acceptance: it keeps
+   * pointing at this exact text after a newer edition takes effect.
+   */
   readonly url: string;
   readonly text: string;
 }
@@ -113,7 +122,7 @@ interface ConsentDefinition {
  * a purchase started on it must be accepted again before payment.
  */
 const consentDefinitions: readonly ConsentDefinition[] = [
-  { kind: "terms", appliesTo: ["one_time"], edition: purchaseV3 },
+  { kind: "terms", appliesTo: ["one_time"], edition: purchaseV4 },
   { kind: "terms", appliesTo: ["subscription"], edition: subscriptionV1 },
   { kind: "recurring", appliesTo: ["subscription"], edition: recurringConsentV1 },
 ];
@@ -126,19 +135,44 @@ const consentDefinitions: readonly ConsentDefinition[] = [
  */
 const BARE_ORIGIN = /^https?:\/\/[a-z0-9.-]+(?::[0-9]{1,5})?$/iu;
 
-/** Consent catalogue with addresses resolved against the public site origin. */
-export function consentDocuments(origin: string): readonly ConsentDocument[] {
+/** The terms of use in force as a first sign-in accepts them: exact text at its permanent address. */
+export interface TermsOfUseDocument {
+  readonly documentId: "terms";
+  readonly version: string;
+  readonly digest: string;
+  readonly url: string;
+  readonly text: string;
+}
+
+export function termsOfUseDocument(origin: string): TermsOfUseDocument {
+  const edition = currentLegalEdition("terms");
+  return {
+    documentId: "terms",
+    version: String(edition.version),
+    digest: edition.digest,
+    url: `${bareOrigin(origin)}${legalEditionPath("terms", edition.version)}`,
+    text: edition.text,
+  };
+}
+
+function bareOrigin(origin: string): string {
   if (!BARE_ORIGIN.test(origin))
     throw new Error(
       `Legal consent catalogue needs a bare public origin, received: ${origin}`,
     );
+  return origin;
+}
+
+/** Consent catalogue with addresses resolved against the public site origin. */
+export function consentDocuments(origin: string): readonly ConsentDocument[] {
+  const base = bareOrigin(origin);
   return consentDefinitions.map((definition) => ({
     kind: definition.kind,
     appliesTo: definition.appliesTo,
     documentId: definition.edition.key,
     version: String(definition.edition.version),
     digest: definition.edition.digest,
-    url: `${origin}${legalDocumentPath(definition.edition.key)}`,
+    url: `${base}${legalEditionPath(definition.edition.key, definition.edition.version)}`,
     text: definition.edition.text,
   }));
 }

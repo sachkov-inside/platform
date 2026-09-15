@@ -13,7 +13,6 @@ const activeProfile = {
   bio: "Развиваю инженерные команды и изучаю agent-first delivery.",
   createdAt: "2026-08-30T10:00:00.000Z",
   displayName: "Кирилл Сачков",
-  publicProfileId: "5d34da22-548e-4b02-b6e8-9c918ad536ef",
   status: "active",
   updatedAt: "2026-08-30T10:00:00.000Z",
   version: 3,
@@ -55,7 +54,11 @@ export const ActiveDesktop: Story = {
       canvas.queryByRole("heading", { name: "Профиль участника" }),
     ).not.toBeInTheDocument();
     await expect(canvas.getByRole("button", { name: "Сохранить" })).toBeDisabled();
-    await expect(canvas.getByText("Ссылка для участников")).toBeInTheDocument();
+    // Профиль виден только владельцу: ссылки для участников нет.
+    await expect(
+      canvas.getByText(/^Профиль заполняется по желанию и виден только вам\./u),
+    ).toBeInTheDocument();
+    await expect(canvas.queryByText(/для участников|\/members\//u)).not.toBeInTheDocument();
     await expect(canvas.queryByText(/жалоб|скачать|удалить профиль/iu)).not.toBeInTheDocument();
     await expect(canvas.getByRole("heading", { name: "Аватар" })).toBeInTheDocument();
     // Ни один раздел не показывает задачи другого.
@@ -118,9 +121,7 @@ export const Missing: Story = {
     await expect(
       canvas.getByRole("button", { name: "Создать профиль" }),
     ).toBeInTheDocument();
-    await expect(
-      canvas.getByText(/получит постоянную ссылку для участников/iu),
-    ).toBeInTheDocument();
+    await expect(canvas.queryByText(/ссылку для участников/iu)).not.toBeInTheDocument();
   },
 };
 

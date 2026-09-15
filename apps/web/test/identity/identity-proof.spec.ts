@@ -144,6 +144,10 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
     if (new URL(page.url()).searchParams.get("authentication") === "failed") {
       throw new Error("Real Logto callback failed");
     }
+    // Первый вход открывает экран условий и возвращает туда, куда человек шёл.
+    await expect(page).toHaveURL(`${webBaseUrl}/welcome?returnTo=%2Flibrary`);
+    await expect(page.getByRole("checkbox")).toHaveCount(0);
+    await page.getByRole("button", { name: "Принять условия и продолжить" }).click();
     await expect(page).toHaveURL(`${webBaseUrl}/library`);
     await expect(
       page.getByRole("button", { exact: true, name: "Выйти" }),

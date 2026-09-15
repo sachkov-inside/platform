@@ -5,7 +5,6 @@ import type { Route } from "next";
 import {
   type ChangeQuote,
   type LegalDocument,
-  type LegalDocumentKind,
   type PriceSnapshot,
   type SubscriptionView,
 } from "@/entities/subscription";
@@ -28,7 +27,6 @@ export interface SubscriptionSectionViewProps
   readonly selectedOptionId: string | null;
   readonly changeQuote: ChangeQuote | null;
   readonly resumeDocuments: readonly LegalDocument[];
-  readonly resumeAccepted: readonly LegalDocumentKind[];
   readonly loading?: boolean;
   readonly pending?: boolean;
   readonly error?: string | undefined;
@@ -47,7 +45,6 @@ export function SubscriptionSectionView({
   selectedOptionId,
   changeQuote,
   resumeDocuments,
-  resumeAccepted,
   loading = false,
   pending = false,
   error,
@@ -55,7 +52,6 @@ export function SubscriptionSectionView({
   storefrontHref,
   onCancelRenewal,
   onResumeRenewal,
-  onToggleResumeDocument,
   onSelectOption,
   onQuoteChange,
   onConfirmChange,
@@ -104,10 +100,8 @@ export function SubscriptionSectionView({
             onQuoteChange={onQuoteChange}
             onResumeRenewal={onResumeRenewal}
             onSelectOption={onSelectOption}
-            onToggleResumeDocument={onToggleResumeDocument}
             options={options}
             pending={pending}
-            resumeAccepted={resumeAccepted}
             resumeDocuments={resumeDocuments}
             selectedOptionId={selectedOptionId}
             storefrontHref={storefrontHref}

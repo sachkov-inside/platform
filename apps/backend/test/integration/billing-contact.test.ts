@@ -4,6 +4,8 @@ import { BillingContact } from "../../src/modules/accounts/facets/billing-contac
 import { billingContactProtection } from "../../src/modules/accounts/infrastructure/billing-contact-protection.js";
 import type { LegalDocument } from "../../src/modules/accounts/facets/billing-contact/billing-contact.contract.js";
 import { syntheticConsentDocument } from "./setup/consent-documents.js";
+import { LegalAcceptances } from "../../src/modules/accounts/facets/legal-acceptances/legal-acceptances.js";
+import { createHash } from "node:crypto";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -320,6 +322,8 @@ describe("Billing contact and consent evidence (real PostgreSQL, synthetic email
     const command = {
       operationId: randomUUID(),
       contextRef: randomUUID(),
+      screen: "checkout",
+      buttonLabel: "Оплатить 2 500 ₽",
       documents: [
         {
           kind: terms.kind,
@@ -344,7 +348,7 @@ describe("Billing contact and consent evidence (real PostgreSQL, synthetic email
     expect(accepted.ok).toBe(true);
     expect(await billing.acceptConsents(owner, command)).toEqual(accepted);
     expect(
-      await database.prisma.billingConsentEvidence.count({
+      await database.prisma.legalAcceptance.count({
         where: { accountId: owner, kind: "recurring" },
       }),
     ).toBe(0);
@@ -363,29 +367,124 @@ describe("Billing contact and consent evidence (real PostgreSQL, synthetic email
       }),
     ).toMatchObject({ error: { code: "document_changed" } });
     const evidence =
-      await database.prisma.billingConsentEvidence.findFirstOrThrow({
+      await database.prisma.legalAcceptance.findFirstOrThrow({
         where: { accountId: owner },
       });
     expect(evidence.documentText).toBe(terms.text);
     const { appliesTo: _catalogueOnly, ...acceptedTerms } = terms;
     expect(await next.readConsent(owner, evidence.id)).toMatchObject({
       ok: true,
-      evidence: { contextRef: command.contextRef, document: acceptedTerms },
+      evidence: {
+        contextRef: command.contextRef,
+        document: acceptedTerms,
+        buttonLabel: "Оплатить 2 500 ₽",
+        shownTerms: null,
+      },
     });
     expect(await next.readConsent(await account(), evidence.id)).toEqual({
       ok: false,
       error: { code: "not_found" },
     });
     await expect(
-      database.prisma.billingConsentEvidence.update({
+      database.prisma.legalAcceptance.update({
         where: { id: evidence.id },
         data: { documentVersion: "test-v2" },
       }),
     ).rejects.toThrow();
     await expect(
-      database.prisma.billingConsentEvidence.delete({
+      database.prisma.legalAcceptance.delete({
         where: { id: evidence.id },
       }),
     ).rejects.toThrow();
+  });
+  test("a pressed payment button records its screen, label and the renewal terms shown next to it", async () => {
+    const owner = await account();
+    await verify(owner, "button@example.test");
+    const terms = document("terms");
+    const recurring = document("recurring");
+    const accepted = (value: LegalDocument) => ({
+      kind: value.kind,
+      documentId: value.documentId,
+      version: value.version,
+      digest: value.digest,
+      accepted: true as const,
+    });
+    const shownTerms = {
+      amountKopecks: 99_000,
+      nextChargeOn: "2026-10-15",
+      periodMonths: 1,
+    };
+    const subscription = {
+      operationId: randomUUID(),
+      contextRef: randomUUID(),
+      screen: "checkout",
+      buttonLabel: "Оформить подписку и оплатить 990 ₽",
+      documents: [accepted(terms), accepted(recurring)],
+    };
+    // Recurring payments are accepted only next to the renewal terms, and only there are terms shown.
+    expect(await billing.acceptConsents(owner, subscription)).toEqual({
+      ok: false,
+      error: { code: "invalid_input" },
+    });
+    expect(
+      await billing.acceptConsents(owner, {
+        ...subscription,
+        documents: [accepted(terms)],
+        shownTerms,
+      }),
+    ).toEqual({ ok: false, error: { code: "invalid_input" } });
+    expect(
+      await billing.acceptConsents(owner, { ...subscription, buttonLabel: " " }),
+    ).toEqual({ ok: false, error: { code: "invalid_input" } });
+
+    const result = await billing.acceptConsents(owner, {
+      ...subscription,
+      shownTerms,
+    });
+    if (!result.ok) throw new Error(result.error.code);
+    const rows = await database.prisma.legalAcceptance.findMany({
+      where: { id: { in: result.evidenceRefs } },
+    });
+    expect(rows).toHaveLength(2);
+    for (const row of rows)
+      expect(row).toMatchObject({
+        contextRef: subscription.contextRef,
+        screen: "checkout",
+        buttonLabel: "Оформить подписку и оплатить 990 ₽",
+        shownTerms,
+        acceptedAt: instant,
+      });
+    expect(
+      await billing.readConsent(owner, result.evidenceRefs[1] ?? ""),
+    ).toMatchObject({ ok: true, evidence: { shownTerms } });
+  });
+
+  test("a first sign-in acceptance never stands in for payment consent evidence", async () => {
+    const owner = await account();
+    const text = "Synthetic terms of use 1, not legal terms";
+    const journal = new LegalAcceptances({
+      prisma: database.prisma,
+      terms: {
+        documentId: "terms",
+        version: "1",
+        digest: createHash("sha256").update(text).digest("hex"),
+        url: "https://example.test/legal/terms/v1",
+        text,
+      },
+      now: () => instant,
+    });
+    const status = await journal.readTermsStatus(owner);
+    if (!status.ok) throw new Error(status.error.code);
+    const firstSignIn = await journal.acceptTerms(owner, {
+      operationId: randomUUID(),
+      version: status.document.version,
+      digest: status.document.digest,
+      buttonLabel: "Принять условия и продолжить",
+    });
+    if (!firstSignIn.ok) throw new Error(firstSignIn.error.code);
+    expect(await billing.readConsent(owner, firstSignIn.acceptanceRef)).toEqual({
+      ok: false,
+      error: { code: "not_found" },
+    });
   });
 });

@@ -1141,20 +1141,26 @@ model BillingContactCommand {
  @@map("billing_contact_commands")
  @@schema("accounts")
 }
-model BillingConsentEvidence {
+model LegalAcceptance {
  id String @id @db.Uuid
  accountId String @map("account_id") @db.Uuid
  operationId String @map("operation_id") @db.Uuid
- contextRef String @map("context_ref") @db.Uuid
+ /// Quote or subscription command the acceptance belongs to; absent only on first sign-in.
+ contextRef String? @map("context_ref") @db.Uuid
  kind String
  documentId String @map("document_id")
  documentVersion String @map("document_version")
  documentDigest String @map("document_digest")
  documentText String @map("document_text")
  documentUrl String @map("document_url")
+ /// `first-sign-in`, `checkout` or `subscription-resume`; absent only on rows written before #658.
+ screen String?
+ buttonLabel String? @map("button_label")
+ shownTerms Json? @map("shown_terms")
  acceptedAt DateTime @map("accepted_at") @db.Timestamptz
- @@unique([accountId, operationId, kind])
- @@map("billing_consent_evidence")
+ @@unique([accountId, operationId, kind], map: "legal_acceptances_account_operation_kind_key")
+ @@index([accountId, acceptedAt], map: "legal_acceptances_account_time")
+ @@map("legal_acceptances")
  @@schema("accounts")
 }
 

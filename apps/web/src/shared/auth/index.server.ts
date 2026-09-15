@@ -8,6 +8,7 @@ export {
   type ResolvedLogtoBffConfig,
 } from "./logto-bff-config.server";
 export { providerCallbackUrl } from "./provider-callback-url.server";
+export { isTelegramSignInToken } from "./telegram-sign-in-token.server";
 export { safePostSignInReturnUri } from "./safe-post-sign-in-return.server";
 export { isSameOriginMutation } from "./same-origin-mutation.server";
 export {

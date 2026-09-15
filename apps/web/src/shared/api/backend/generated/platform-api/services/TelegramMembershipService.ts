@@ -22,6 +22,8 @@ export class TelegramMembershipService {
       url: '/accounts/current/telegram-link',
       errors: {
         401: `Account proof is missing or invalid`,
+        403: `The terms of use in force are not accepted yet`,
+        500: `Terms acceptance could not be checked`,
         503: `Identity verification is unavailable`,
       },
     });
@@ -50,7 +52,9 @@ export class TelegramMembershipService {
       errors: {
         400: `The link reference is invalid`,
         401: `Account proof is missing or invalid`,
+        403: `The terms of use in force are not accepted yet`,
         404: `No link belongs to this Account`,
+        500: `Terms acceptance could not be checked`,
         503: `Identity verification is unavailable`,
       },
     });
@@ -107,6 +111,8 @@ export class TelegramMembershipService {
       url: '/accounts/current/telegram-membership',
       errors: {
         401: `Account proof is missing or invalid`,
+        403: `The terms of use in force are not accepted yet`,
+        500: `Terms acceptance could not be checked`,
         503: `Account Membership presentation is unavailable`,
       },
     });

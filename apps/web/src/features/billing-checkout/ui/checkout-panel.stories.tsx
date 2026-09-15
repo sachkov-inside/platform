@@ -25,13 +25,11 @@ const meta = {
     snapshot: supportOffer,
     quote: null,
     documents: legalDocuments,
-    accepted: [],
     contact: verifiedContact,
     contactHref: "/account/purchases",
     acknowledgeExistingAccess: false,
     purchase: null,
     onQuote: fn(),
-    onToggleDocument: fn(),
     onToggleAcknowledge: fn(),
     onPay: fn(),
     onRefreshStatus: fn(),
@@ -41,7 +39,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "Условия сервера показываются до согласия. Ни один флажок не отмечен заранее, а возврат из банка не считается успехом.",
+          "Условия сервера показываются до оплаты. Оферта и автопродление принимаются нажатием кнопки со строкой условий под ней, отметок нет; возврат из банка не считается успехом.",
       },
     },
   },
@@ -60,23 +58,28 @@ export const BeforeQuote: Story = {
   },
 };
 
-export const ConsentsNotPrechecked: Story = {
+/** Отметок нет: кнопка принимает оферту подписки и автопродление на условиях под ней. */
+export const AcceptanceByButton: Story = {
   args: { quote: savedQuote },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    for (const checkbox of canvas.getAllByRole("checkbox"))
-      await expect(checkbox).not.toBeChecked();
+    await expect(canvas.queryByRole("checkbox")).not.toBeInTheDocument();
     await expect(
-      canvas.getByRole("button", { name: /Оплатить/u }),
-    ).toBeDisabled();
+      canvas.getByText(
+        /^Нажимая «Оформить подписку и оплатить», вы принимаете оферту подписки и разрешаете автопродление: следующее списание .+, затем раз в .+\. Отключить продление можно в кабинете, в разделе «Подписка»\.$/u,
+      ),
+    ).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("button", { name: /^Оформить подписку и оплатить /u }),
+    ).toBeEnabled();
   },
 };
 
 export const ReadyToPay: Story = {
-  args: { quote: savedQuote, accepted: ["terms", "recurring"] },
+  args: { quote: savedQuote },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
-    const pay = canvas.getByRole("button", { name: /Оплатить/u });
+    const pay = canvas.getByRole("button", { name: /оплатить/iu });
     await expect(pay).toBeEnabled();
     await userEvent.click(pay);
     await expect(args.onPay).toHaveBeenCalled();
@@ -91,7 +94,7 @@ export const ContactRequired: Story = {
       canvas.getByRole("link", { name: "Подтвердить email" }),
     ).toBeInTheDocument();
     await expect(
-      canvas.getByRole("button", { name: /Оплатить/u }),
+      canvas.getByRole("button", { name: /оплатить/iu }),
     ).toBeDisabled();
   },
 };
@@ -99,7 +102,6 @@ export const ContactRequired: Story = {
 export const ExistingAccess: Story = {
   args: {
     quote: savedQuote,
-    accepted: ["terms", "recurring"],
     existingAccess: true,
     error: "У вас уже есть доступ к части этого состава.",
   },
@@ -108,13 +110,12 @@ export const ExistingAccess: Story = {
 export const LegacyBlocked: Story = {
   args: {
     quote: savedQuote,
-    accepted: ["terms", "recurring"],
     legacyBlocked: true,
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.queryByRole("button", { name: /Оплатить/u }),
+      canvas.queryByRole("button", { name: /оплатить/iu }),
     ).not.toBeInTheDocument();
   },
 };
@@ -132,7 +133,6 @@ export const LegalNotPublished: Story = {
 export const AwaitingBank: Story = {
   args: {
     quote: savedQuote,
-    accepted: ["terms", "recurring"],
     purchase: pendingPurchase,
   },
 };
@@ -140,13 +140,12 @@ export const AwaitingBank: Story = {
 export const Confirmed: Story = {
   args: {
     quote: savedQuote,
-    accepted: ["terms", "recurring"],
     purchase: confirmedPurchase,
   },
 };
 
 export const Pending: Story = {
-  args: { quote: savedQuote, accepted: ["terms", "recurring"], pending: true },
+  args: { quote: savedQuote, pending: true },
 };
 
 /** Разовая покупка руководства: без согласия на списания, без периода и следующей цены. */
@@ -154,7 +153,6 @@ export const OneTimeGuide: Story = {
   args: {
     snapshot: guideOnlyOffer,
     quote: guideQuote,
-    accepted: ["terms"],
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -168,7 +166,7 @@ export const OneTimeGuide: Story = {
       canvas.getByText(/Это разовый платёж/u),
     ).toBeInTheDocument();
     await expect(
-      canvas.getByRole("button", { name: /Оплатить/u }),
+      canvas.getByRole("button", { name: /оплатить/iu }),
     ).toBeEnabled();
   },
 };
@@ -178,7 +176,6 @@ export const OneTimeExistingAccess: Story = {
   args: {
     snapshot: guideOnlyOffer,
     quote: guideQuote,
-    accepted: ["terms"],
     existingAccess: true,
     error: "У вас уже есть доступ к части этого состава.",
   },
@@ -188,27 +185,27 @@ export const OneTimeExistingAccess: Story = {
       canvas.getByText(/Повторная покупка не удваивает право/u),
     ).toBeInTheDocument();
     await expect(
-      canvas.getByRole("button", { name: /Оплатить/u }),
+      canvas.getByRole("button", { name: /оплатить/iu }),
     ).toBeDisabled();
   },
 };
 
 export const OneTimeMobile: Story = {
-  args: { snapshot: guideOnlyOffer, quote: guideQuote, accepted: ["terms"] },
+  args: { snapshot: guideOnlyOffer, quote: guideQuote },
   globals: { viewport: { isRotated: false, value: "mobile390" } },
 };
 
 export const OneTimeDesktop: Story = {
-  args: { snapshot: guideOnlyOffer, quote: guideQuote, accepted: ["terms"] },
+  args: { snapshot: guideOnlyOffer, quote: guideQuote },
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
 };
 
 export const Mobile: Story = {
-  args: { quote: savedQuote, accepted: ["terms"] },
+  args: { quote: savedQuote },
   globals: { viewport: { isRotated: false, value: "mobile390" } },
 };
 
 export const Desktop: Story = {
-  args: { quote: savedQuote, accepted: ["terms", "recurring"] },
+  args: { quote: savedQuote },
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
 };
