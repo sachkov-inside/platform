@@ -55,10 +55,9 @@ describe("published Material HTTP contract", () => {
         title: "Developer Pipeline без потери контекста",
         access: "membership",
       },
-      // Локальный seed включает каталог в продажу, поэтому закрытый материал сообщает, что подписка
-      // продаётся. Адреса покупки в ответе нет: путь покупателя выбирает Web внутри платформы.
-      access: { availability: "locked", subscriptionOffered: true },
     });
+    // Локальный seed включает каталог в продажу, поэтому закрытый материал сообщает только, что
+    // подписка продаётся: строгое сравнение не пропустит в ответ адрес покупки.
     expect(response.json<{ access: object }>().access).toStrictEqual({
       availability: "locked",
       subscriptionOffered: true,
@@ -200,8 +199,8 @@ describe("published Material HTTP contract", () => {
       }[];
     }>();
     expect(home.topics.map(({ slug }) => slug)).toContain("platform");
-    // Локальный seed включает каталог в продажу, поэтому подписка предлагается. Ответ несёт только
-    // состояние: адреса покупки в нём нет, путь покупателя выбирает Web внутри платформы.
+    // Локальный seed включает каталог в продажу, поэтому подписка предлагается. Строгое сравнение
+    // проверяет, что ответ несёт только состояние, без адреса покупки.
     expect(home.membership).toStrictEqual({ kind: "inactive" });
     expect(home.playlists).toHaveLength(4);
     expect(home.playlists.map(({ slug }) => slug)).toContain("demo-progress-series");

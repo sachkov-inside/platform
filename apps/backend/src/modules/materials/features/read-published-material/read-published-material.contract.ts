@@ -6,10 +6,7 @@ import type { VideoPresentation } from "../../../videos/index.js";
 
 export interface LockedMaterialAccessDto {
   readonly availability: "locked";
-  /**
-   * Продаётся ли сейчас подписка: ложь, когда в каталоге нет ни одного включённого в продажу
-   * варианта. Адреса покупки здесь нет: путь покупателя выбирает Web, и он ведёт внутрь платформы.
-   */
+  /** Продаётся ли подписка: ложь, когда в каталоге нет ни одного включённого в продажу варианта. */
   readonly subscriptionOffered: boolean;
 }
 

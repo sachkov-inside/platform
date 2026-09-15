@@ -129,7 +129,7 @@ Platform не заводит — см. [сессии и principals](identity-pri
 больше не отдаёт (#540), `checkout` — внутренняя оплата, когда её поставит
 [#411](https://github.com/sachkov-inside/platform/issues/411). Вместе с `checkout` появляется
 необязательное `offer_ref` — выбранное предложение и его версия, как того требует
-[Workspace #159](https://github.com/sachkov-inside/workspace/issues/159). Пока оплата внешняя,
+[Workspace #159](https://github.com/sachkov-inside/workspace/issues/159). Для `external`
 предложение Platform неизвестно, и поле остаётся пустым.
 
 Сервер приёма всегда проставляет `session_ref` и класс трафика: без них событие нельзя ни отнести к

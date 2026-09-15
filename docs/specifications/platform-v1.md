@@ -688,8 +688,9 @@ redirect и cache policy остаются за backend.
    Telegram ID/username, provider identity, evidence или Membership timestamps и не является
    bearer permission: protected operation повторно вызывает `ContentAccess`. Визуально Telegram
    оформлен компактной голубой status-плашкой над отдельной premium-карточкой
-   `Доступ к Sachkov Inside`; inactive state не несёт адреса покупки, а stale/unavailable не
-   выводятся как основное техническое сообщение.
+   `Доступ к Sachkov Inside`; inactive state не несёт внешнего адреса покупки — вход на внутреннюю
+   витрину кабинет показывает только при включённой продаже, а stale/unavailable не выводятся как
+   основное техническое сообщение.
 7. Begin-link атомарно резервирует не более одной current attempt на Account и возвращает
    short-lived bot deep link только создавшему request; reload продолжает ту же попытку без нового
    provider registration. Обычный expired/replayed outcome разрешает новую попытку. Conflict и
