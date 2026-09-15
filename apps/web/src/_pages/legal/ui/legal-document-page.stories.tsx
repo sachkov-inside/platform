@@ -1,5 +1,6 @@
 import { currentLegalEdition, parseLegalText } from "@inside/legal";
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { expect, within } from "storybook/test";
 
 import { publicPageEnvironment } from "@/workshop/story-environment";
 
@@ -39,6 +40,32 @@ export const EarlierEdition: Story = {
   },
 };
 
+const purchase = currentLegalEdition("purchase");
+
+/** Оферта разовой покупки: подразделы третьего уровня и списки редакции 3. */
+export const PurchaseOffer: Story = {
+  args: {
+    blocks: parseLegalText(purchase.text),
+    current: purchase,
+    edition: purchase,
+    superseded: [],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("heading", { level: 3, name: "Что входит в сопровождение" }),
+    ).toBeVisible();
+    await expect(canvas.getAllByRole("list").length).toBeGreaterThan(0);
+    // Маркер пункта рисует список, поэтому в тексте его нет.
+    await expect(canvas.queryByText(/^- /u)).not.toBeInTheDocument();
+  },
+};
+
 export const Mobile: Story = {
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
+export const PurchaseOfferMobile: Story = {
+  ...PurchaseOffer,
   globals: { viewport: { value: "mobile390", isRotated: false } },
 };

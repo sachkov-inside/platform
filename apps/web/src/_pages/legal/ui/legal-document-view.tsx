@@ -31,17 +31,25 @@ function LegalBlockView({
   readonly index: number;
 }) {
   if (block.kind === "heading") {
-    return block.level === 1 ? (
-      <h1 className="text-balance text-3xl font-semibold tracking-[-0.035em] sm:text-4xl">
+    if (block.level === 1)
+      return (
+        <h1 className="text-balance text-3xl font-semibold tracking-[-0.035em] sm:text-4xl">
+          <LegalInlineView content={block.content} />
+        </h1>
+      );
+    if (block.level === 2)
+      return (
+        <h2
+          className="mt-5 text-xl font-semibold tracking-[-0.02em] text-foreground md:text-2xl"
+          id={`section-${String(index)}`}
+        >
+          <LegalInlineView content={block.content} />
+        </h2>
+      );
+    return (
+      <h3 className="mt-2 text-base font-semibold text-foreground md:text-lg">
         <LegalInlineView content={block.content} />
-      </h1>
-    ) : (
-      <h2
-        className="mt-5 text-xl font-semibold tracking-[-0.02em] text-foreground md:text-2xl"
-        id={`section-${String(index)}`}
-      >
-        <LegalInlineView content={block.content} />
-      </h2>
+      </h3>
     );
   }
   if (block.kind === "paragraph") {
@@ -49,6 +57,21 @@ function LegalBlockView({
       <p className="max-w-[68ch]">
         <LegalInlineView content={block.content} />
       </p>
+    );
+  }
+  if (block.kind === "list") {
+    // Номер пункта и маркер рисует сам список: разметка приходит без них, а текст остаётся принятым.
+    const ListTag = block.ordered ? "ol" : "ul";
+    return (
+      <ListTag
+        className={`flex max-w-[68ch] flex-col gap-2 pl-6 ${block.ordered ? "list-decimal" : "list-disc"}`}
+      >
+        {block.items.map((item, itemIndex) => (
+          <li className="pl-1" key={`item-${String(itemIndex)}`}>
+            <LegalInlineView content={item} />
+          </li>
+        ))}
+      </ListTag>
     );
   }
   return <LegalTableView header={block.header} rows={block.rows} />;

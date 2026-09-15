@@ -71,7 +71,29 @@ describe("published editions", () => {
   it("answers nothing for a version that was never published", () => {
     expect(findLegalEdition("terms", 99)).toBeUndefined();
     expect(supersededLegalEditions("terms")).toEqual([]);
+    // Номер 2 оферты разовой покупки занят отклонённым проектом и не публикуется.
+    expect(findLegalEdition("purchase", 2)).toBeUndefined();
   });
+
+  it("puts the one-time offer v3 and contacts v2 in force and keeps earlier texts readable", () => {
+    expect(currentLegalEdition("purchase").version).toBe(3);
+    expect(currentLegalEdition("purchase").title).toBe(
+      "Оферта разовой покупки продукта Inside",
+    );
+    expect(supersededLegalEditions("purchase").map((edition) => edition.version)).toEqual([1]);
+    expect(currentLegalEdition("contacts").version).toBe(2);
+    expect(currentLegalEdition("contacts").text).toContain(
+      "Межрайонная инспекция Федеральной налоговой службы № 46 по г. Москве",
+    );
+    expect(supersededLegalEditions("contacts").map((edition) => edition.version)).toEqual([1]);
+  });
+
+  it.each(legalEditions.map((edition) => [edition.key, edition] as const))(
+    "%s carries no draft marker from its source",
+    (_key, edition) => {
+      expect(edition.text).not.toMatch(/Проект\. Не введён|\[дата|<!--/u);
+    },
+  );
 
   it("reads only a version segment", () => {
     expect(legalEditionVersion("v2")).toBe(2);
@@ -112,7 +134,7 @@ describe("consent catalogue", () => {
   it("addresses the accepted edition on the public site", () => {
     const [purchase] = consentDocuments(origin);
     expect(purchase?.url).toBe("https://inside.sachkov.dev/legal/purchase");
-    expect(purchase?.version).toBe("1");
+    expect(purchase?.version).toBe("3");
     expect(purchase?.digest).toBe(currentLegalEdition("purchase").digest);
     expect(purchase?.text).toBe(currentLegalEdition("purchase").text);
   });
@@ -181,11 +203,60 @@ describe("strict text parsing", () => {
     ]);
   });
 
+  it("reads a third-level heading for a subsection", () => {
+    expect(parseLegalText("### Что входит\n")).toEqual([
+      { kind: "heading", level: 3, content: [{ kind: "text", text: "Что входит" }] },
+    ]);
+  });
+
+  it("reads a numbered list whose items continue on indented lines", () => {
+    expect(
+      parseLegalText(
+        "Покупка включает:\n\n1. **Материалы** — тексты\n   и видео.\n2. Общий [чат](/legal/terms).\n",
+      ),
+    ).toEqual([
+      { kind: "paragraph", content: [{ kind: "text", text: "Покупка включает:" }] },
+      {
+        kind: "list",
+        ordered: true,
+        items: [
+          [
+            { kind: "strong", text: "Материалы" },
+            { kind: "text", text: " — тексты и видео." },
+          ],
+          [
+            { kind: "text", text: "Общий " },
+            { kind: "link", text: "чат", href: "/legal/terms" },
+            { kind: "text", text: "." },
+          ],
+        ],
+      },
+    ]);
+  });
+
+  it("reads a bulleted list", () => {
+    expect(parseLegalText("- Первый пункт;\n- второй пункт\n  с продолжением.\n")).toEqual([
+      {
+        kind: "list",
+        ordered: false,
+        items: [
+          [{ kind: "text", text: "Первый пункт;" }],
+          [{ kind: "text", text: "второй пункт с продолжением." }],
+        ],
+      },
+    ]);
+  });
+
   it.each([
-    ["### Третий уровень\n", "unsupported heading"],
-    ["- список\n", "list and quote blocks are not supported"],
-    ["1. пункт\n", "list and quote blocks are not supported"],
-    ["> цитата\n", "list and quote blocks are not supported"],
+    ["#### Четвёртый уровень\n", "unsupported heading"],
+    ["Абзац\n- пункт\n", "list must start after a blank line"],
+    ["- пункт\nбез отступа\n", "list item continuation must be indented"],
+    ["- пункт\n1. другой вид\n", "list mixes numbered and bulleted items"],
+    ["1. первый\n3. третий\n", "numbered list must count from 1 without gaps"],
+    ["2. второй\n", "numbered list must count from 1 without gaps"],
+    ["- пункт\n  - вложенный\n", "nested lists are not supported"],
+    ["> цитата\n", "quote blocks are not supported"],
+    ["* звёздочка\n", "unsupported list marker"],
     ["Файловая [ссылка](contacts-v1.md).\n", "unsupported link target"],
     ["Текст со `непарным маркером.\n", "unbalanced code marker"],
     ["Текст с **непарным маркером.\n", "unbalanced bold marker"],
