@@ -191,7 +191,7 @@ export const SeriesDesktop: Story = {
       "2",
     ]);
     await expect(
-      canvasElement.querySelector('[data-access-cover="locked"]'),
+      canvasElement.querySelector('[data-material-availability="locked"]'),
     ).toBeInTheDocument();
   },
 };
@@ -346,31 +346,16 @@ export const ConnectedStepsDesktop: Story = {
     await expect(canvasElement.querySelectorAll("[data-series-ordinal]")).toHaveLength(6);
     await expect(canvasElement.querySelectorAll("[data-series-step]")).toHaveLength(0);
     const rows = canvasElement.querySelectorAll("[data-series-ordinal]");
-    const markers = canvasElement.querySelectorAll<HTMLElement>("[data-series-marker]");
-    await expect(markers).toHaveLength(6);
-    const firstMarker = markers[0];
-    if (firstMarker === undefined) throw new Error("Missing Series ordinal marker");
-    for (const [index, marker] of [...markers].entries()) {
-      await expect(marker).toHaveTextContent(String(index + 1));
-      const rail = rows[index]?.querySelector("[data-series-rail]")?.getBoundingClientRect();
-      const markerBox = marker.getBoundingClientRect();
-      if (rail === undefined) throw new Error("Missing mixed-Series rail");
-      await expect(Math.abs(rail.x + rail.width / 2 - markerBox.x - markerBox.width / 2)).toBeLessThan(1);
-      const style = getComputedStyle(marker);
-      await expect(style.backgroundColor).toBe(getComputedStyle(firstMarker).backgroundColor);
+    await expect(canvasElement.querySelectorAll("[data-series-marker]")).toHaveLength(0);
+    await expect(canvasElement.querySelectorAll("[data-series-rail]")).toHaveLength(0);
+    for (const [index, row] of [...rows].entries()) {
+      await expect(row).toHaveTextContent(`${String(index + 1)}урок`);
     }
     const guide = canvas.getByRole("heading", { name: "Подготовка приложения" }).closest("article");
     if (guide === null) throw new Error("Missing guide card");
     await expect(within(guide).queryByText("Шаг 1 из 3")).not.toBeInTheDocument();
     for (const summary of [overviewVideo.summary, dockerVideo.summary]) {
-      const element = canvas.getByText(summary);
-      if (canvasElement.ownerDocument.documentElement.clientWidth < 640) {
-        await expect(element).not.toBeVisible();
-        continue;
-      }
-      await expect(element).toBeVisible();
-      const lineHeight = Number.parseFloat(getComputedStyle(element).lineHeight);
-      await expect(element.getBoundingClientRect().height).toBeLessThanOrEqual(lineHeight + 1);
+      await expect(canvas.queryByText(summary)).not.toBeInTheDocument();
     }
     await expectNoHorizontalOverflow(canvasElement);
   },
@@ -381,12 +366,12 @@ export const ConnectedStepsMobile: Story = {
 };
 
 const literalSummary = '<img src=x onerror="alert(1)"> Команда остаётся текстом.';
-export const VideoSummaryIsPlainText: Story = {
+export const VideoSummaryIsNotShown: Story = {
   args: { result: { ...connectedStepsResult, items: [{ ...overviewVideo, summary: literalSummary }] } },
   render: (storyArgs) => <GuideProgrammeView learning={{ kind: "guest" }} result={programmeResult(storyArgs.result)} />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText(literalSummary)).toBeVisible();
+    await expect(canvas.queryByText(literalSummary)).not.toBeInTheDocument();
     await expect(canvasElement.querySelector("img[onerror]")).toBeNull();
     await expect(canvasElement.querySelectorAll("[data-series-rail]")).toHaveLength(0);
     await expect(canvasElement.querySelectorAll("[data-series-step]")).toHaveLength(0);
