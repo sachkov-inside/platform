@@ -342,6 +342,63 @@ export const LessonBlocksEditing: Story = {
   },
 };
 
+/**
+ * ВРЕМЕННО для #602: цена одного знака. Печатает по знаку те же сорок семь знаков, что замерял
+ * #586, и отдельно набор в теле документа. Снимается до мержа.
+ */
+export const KeystrokeCostProbe: Story = {
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
+  name: "Редактор · цена знака (замер #602)",
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    let totalMs = 0;
+    let totalKeys = 0;
+    const measure = async (step: string, text: string, type: () => Promise<unknown>) => {
+      const started = performance.now();
+      await type();
+      const elapsed = performance.now() - started;
+      totalMs += elapsed;
+      totalKeys += text.length;
+      console.error(
+        `[602] ${step}: ${String(Math.round(elapsed))} мс, ${String(text.length)} знаков, ${(elapsed / text.length).toFixed(1)} мс/знак`,
+      );
+    };
+    const openMenu = async () => {
+      await userEvent.click(canvas.getByRole("button", { name: "Добавить блок" }));
+      return canvas.getByRole("dialog", { name: "Добавить блок" });
+    };
+
+    const paragraph = canvasElement.querySelectorAll(".ProseMirror > p")[1];
+    if (!(paragraph instanceof HTMLElement)) throw new Error("В документе нет второго абзаца");
+    await userEvent.click(paragraph);
+    const bodyText = " Автор печатает руководство целиком";
+    await measure("тело документа", bodyText, () => userEvent.keyboard(bodyText));
+    await expect(paragraph).toHaveTextContent(bodyText.trim());
+
+    let menu = await openMenu();
+    await userEvent.click(within(menu).getByRole("button", { name: "Совет" }));
+    await measure("название врезки", "Не забудьте", () =>
+      userEvent.type(inputField(canvasElement, "Название врезки"), "Не забудьте", { delay: null }),
+    );
+    await expect(canvas.getByLabelText("Название врезки")).toHaveValue("Не забудьте");
+
+    menu = await openMenu();
+    await userEvent.click(within(menu).getByRole("button", { name: "Ресурс" }));
+    await measure("название ресурса", "Спецификация", () =>
+      userEvent.type(inputField(canvasElement, "Название ресурса"), "Спецификация", { delay: null }),
+    );
+    await measure("адрес ресурса", "https://example.com/spec", () =>
+      userEvent.type(inputField(canvasElement, "Адрес ресурса"), "https://example.com/spec", {
+        delay: null,
+      }),
+    );
+    await expect(canvas.getByLabelText("Адрес ресурса")).toHaveValue("https://example.com/spec");
+    console.error(
+      `[602] итого: ${String(Math.round(totalMs))} мс, ${String(totalKeys)} знаков, ${(totalMs / totalKeys).toFixed(1)} мс/знак`,
+    );
+  },
+};
+
 /** Незаполненные блоки урока в тёмной теме: автор вставил блок и ещё не написал содержимое. */
 export const ExactPreviewEmptyDark: Story = {
   args: {
