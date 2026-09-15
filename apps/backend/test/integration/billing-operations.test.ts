@@ -631,9 +631,9 @@ describe("владельческие операции billing: платежи, �
     const recipient = await account();
     expect(failure(await s.operations.execute(owner, { operation: "offers.save", operationId: randomUUID(),
       value: { id: randomUUID(), name: "Пустой тариф", benefits: ["materials", "community"], availableForAssignment: true, contentScope: { guideIds: [], materialIds: [] } } }))).toBe("invalid_request");
-    // Так выглядит стартовый тариф миграции на пустой базе: назначаемый, но без единого материала.
-    const tier = await db.prisma.billingOffer.create({ data: { id: randomUUID(), name: "Материалы + сообщество", benefits: ["materials", "community"],
-      availableForAssignment: true, contentScope: { guideIds: [], materialIds: [] }, revision: 1 } });
+    // Стартовый тариф миграции 0063, применённой к пустой базе: назначаемый, но без единого материала.
+    const tier = await db.prisma.billingOffer.findUniqueOrThrow({ where: { id: "62000000-0000-4000-8000-000000000624" } });
+    expect(tier).toMatchObject({ availableForAssignment: true, revision: 1, contentScope: { guideIds: [], materialIds: [] } });
     const terms = { startsAt: now.toISOString(), endsAt: null, endPolicy: "fixed" };
     expect(failure(await s.operations.execute(owner, { operation: "enrollments.assign", operationId: randomUUID(), accountId: recipient,
       tierId: tier.id, tierRevision: 1, origin: "manual", sourceRef: randomUUID(), terms, billingRef: null, reason: "Назначение до задания состава" }))).toBe("state_conflict");

@@ -199,9 +199,9 @@ function matchesDefinition(
   return (
     snapshot.offer.id === offer.offerId &&
     snapshot.offer.name === offer.name &&
-    sameCapabilities(snapshot.offer.benefits, offer.benefits) &&
-    sameCapabilities(snapshot.offer.contentScope?.guideIds ?? [], offer.contentScope?.guideIds ?? []) &&
-    sameCapabilities(snapshot.offer.contentScope?.materialIds ?? [], offer.contentScope?.materialIds ?? []) &&
+    sameMembers(snapshot.offer.benefits, offer.benefits) &&
+    sameMembers(snapshot.offer.contentScope?.guideIds ?? [], offer.contentScope?.guideIds ?? []) &&
+    sameMembers(snapshot.offer.contentScope?.materialIds ?? [], offer.contentScope?.materialIds ?? []) &&
     periods.length === offer.benefitPeriods.length &&
     offer.benefitPeriods.every((period) =>
       periods.some(
@@ -215,7 +215,7 @@ function matchesDefinition(
   );
 }
 
-function sameCapabilities(
+function sameMembers(
   live: readonly string[],
   wanted: readonly string[],
 ): boolean {

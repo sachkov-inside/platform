@@ -30,6 +30,17 @@ export function productSupportIsOpenEnded(offer: CatalogOffer & { readonly benef
   return support?.months === undefined || support.months === null;
 }
 
+/**
+ * Тариф открыт для нового назначения: существует, не в архиве, назначаемый и с составом. Одно
+ * правило для правила активации курса и сверки Tribute; владельческое назначение отвечает на
+ * пустой состав отдельным кодом, чтобы владелец видел причину.
+ */
+export function tierOpenForAssignment(
+  offer: (CatalogOffer & { readonly archived: boolean; readonly availableForAssignment: boolean; readonly contentScope: unknown }) | null,
+): boolean {
+  return offer !== null && !offer.archived && offer.availableForAssignment && !tierLacksComposition(offer);
+}
+
 /** Подписка продаётся только тарифом с составом; разовое предложение продукта её не включает. */
 export function sellsSubscription(offer: CatalogOffer & { readonly contentScope: unknown }): boolean {
   return !isProductOffer(offer) && !tierLacksComposition(offer);

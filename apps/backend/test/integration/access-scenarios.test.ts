@@ -11,6 +11,7 @@ import { assembleContentAccess, assembleCurrentAccountPermissions, type ContentA
 import { discoverPublishedMaterials } from "../../src/modules/content-library/index.js";
 import { assembleGuideArtifactResourceFacts, assembleGuideArtifacts, assembleMaterialResourceFacts, assembleMaterials, materialId as checkedMaterialId, type MaterialId } from "../../src/modules/materials/index.js";
 import { assembleVideoResourceFacts } from "../../src/modules/materials/adapters/content-access/video-resource-facts.js";
+import { assembleVideoPlayback } from "../../src/modules/materials/facets/video-playback/video-playback.js";
 import { assembleVideos } from "../../src/modules/videos/index.js";
 import { createTestVideoProvider } from "../../src/modules/videos/adapters/kinescope/test-video-provider.js";
 import { assembleWorkshopEntitlements } from "../../src/modules/workshop/index.js";
@@ -94,7 +95,10 @@ describe("таблица сценариев доступа (реальный Pos
   let artifactId: string;
   let productOptionId: string;
   let tierId: string;
-  const grounds = new Map<AccessGround, string | null>();
+  /** Account каждого основания; `null` — гость. Столбец может держать несколько случаев сразу. */
+  const grounds = new Map<AccessGround, readonly (string | null)[]>();
+  let providerVideoId: string;
+  let playback: ReturnType<typeof assembleVideoPlayback>;
 
   beforeAll(async () => {
     db = await createMigratedTestDatabase();
@@ -123,6 +127,7 @@ describe("таблица сценариев доступа (реальный Pos
     // Читатель — Account без разрешения автора. Автор — тот же Account с `materials:manage` из базы.
     readerAccess = assembleContentAccess({ ...resources, accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) } });
     authorAccess = assembleContentAccess({ ...resources, accountPermissions: assembleCurrentAccountPermissions(accounts) });
+    playback = assembleVideoPlayback({ contentAccess: readerAccess, videos, jwtSecret: "synthetic-scenarios-playback-key-648", jwtTtlSeconds: 60, clock: () => now });
 
     topicId = randomUUID();
     await db.prisma.topic.create({ data: { id: topicId, slug: "scenario-topic", name: "Сценарии доступа" } });
@@ -130,7 +135,7 @@ describe("таблица сценариев доступа (реальный Pos
     guideA = await guide(guideSlug);
     [freeMaterial, productMaterial] = await Promise.all([material([], "free"), material([guideA])]);
     videoId = randomUUID();
-    const providerVideoId = randomUUID();
+    providerVideoId = randomUUID();
     await db.prisma.video.create({ data: { id: videoId, materialId: productMaterial, createdBy: owner, access: "membership", projectId: "members",
       providerVideoId, title: "Видео руководства", origin: "platform_upload", providerStatus: "done", state: "ready",
       readyAt: now, providerVisibleAt: now, providerEmbedLocator: `https://kinescope.io/embed/${providerVideoId}`, durationSeconds: 60 } });
@@ -146,26 +151,29 @@ describe("таблица сценариев доступа (реальный Pos
     productOptionId = (await productOffer(guideA)).optionId;
     tierId = await tier([guideA]);
 
-    grounds.set("guest", null);
-    grounds.set("account-without-rights", await account());
-    grounds.set("one-time-purchase", await purchased(productOptionId));
-    grounds.set("tier-via-course", await assigned("course", null));
-    grounds.set("tier-via-tribute", await tributeMember(groundEndsAt));
-    grounds.set("manual-assignment", await assigned("manual", groundEndsAt));
+    grounds.set("guest", [null]);
+    grounds.set("account-without-rights", [await account()]);
+    grounds.set("one-time-purchase", [await purchased(productOptionId)]);
+    grounds.set("tier-via-course", [await assigned("course", null)]);
+    grounds.set("tier-via-tribute", [await tributeMember(groundEndsAt)]);
+    grounds.set("manual-assignment", [await assigned("manual", groundEndsAt)]);
     const hiddenTier = await tier([guideA]);
-    grounds.set("hidden-active-tier", await assigned("manual", groundEndsAt, hiddenTier));
+    grounds.set("hidden-active-tier", [await assigned("manual", groundEndsAt, hiddenTier)]);
     // Тариф прячется и из продажи, и из назначения: действующее назначение от этого не зависит.
     owned(await operations.execute(owner, { operation: "offers.save", operationId: randomUUID(), expectedRevision: 1,
       value: { id: hiddenTier, name: "Скрытый тариф", benefits: ["materials", "community"], availableForAssignment: false, contentScope: { guideIds: [guideA], materialIds: [] } } }));
     const revoked = await account();
     await revoke(await assignEnrollment("manual", revoked, groundEndsAt, tierId));
-    grounds.set("expired-or-revoked", revoked);
+    // Истёкшее назначение: срок закончился до момента наблюдения.
+    const expired = await account();
+    await assignEnrollment("manual", expired, "2030-01-01T00:00:00.000Z", tierId, "2029-12-01T00:00:00.000Z");
+    grounds.set("expired-or-revoked", [revoked, expired]);
     const multiple = await purchased(productOptionId);
     await assignEnrollment("manual", multiple, groundEndsAt, tierId);
-    grounds.set("multiple-grounds", multiple);
+    grounds.set("multiple-grounds", [multiple]);
     const refunded = await account();
     await refund(await pay(refunded, productOptionId));
-    grounds.set("withdrawal-refund", refunded);
+    grounds.set("withdrawal-refund", [refunded]);
   });
   afterAll(async () => db.dispose());
 
@@ -243,11 +251,11 @@ describe("таблица сценариев доступа (реальный Pos
     await convergence.sweep();
     return recipient;
   }
-  async function assignEnrollment(origin: "course" | "manual", recipient: string, endsAt: string | null, tier: string) {
+  async function assignEnrollment(origin: "course" | "manual", recipient: string, endsAt: string | null, tier: string, startsAt = now.toISOString()) {
     const identityRef = `verified-${recipient}`;
     if (origin === "course") await linkTelegramAccount(db.prisma, { accountId: recipient, identityRef, now });
     const revision = (await db.prisma.billingOffer.findUniqueOrThrow({ where: { id: tier } })).revision;
-    const terms = { startsAt: now.toISOString(), endsAt, endPolicy: "fixed" };
+    const terms = { startsAt, endsAt, endPolicy: "fixed" };
     const assignedEnrollment = owned(await operations.execute(owner, { operation: "enrollments.assign", operationId: randomUUID(), accountId: recipient,
       tierId: tier, tierRevision: revision, origin, sourceRef: `scenario-${randomUUID()}`, terms, billingRef: null, reason: "Сценарий доступа",
       ...(origin === "course" ? { courseSource: { policyRef: "scenario-course", verifiedIdentityRef: identityRef } } : {}) }));
@@ -280,12 +288,25 @@ describe("таблица сценариев доступа (реальный Pos
   function termOf(validUntil: string | null): AccessTerm {
     return validUntil === null ? "lifetime" : validUntil === supportEndsAt ? "six-months" : "ground-term";
   }
-  /** Решение ContentAccess словами таблицы: `denied` — то, во что превращается отказ на этом ресурсе. */
-  async function decision(access: ContentAccess, account: string | null, resource: Resource, denied: AccessObservation): Promise<AccessObservation> {
-    const action = resource.kind === "video" ? "play" : resource.kind === "guideArtifact" ? "download" : "read";
+  function actionOf(resource: Resource) {
+    return resource.kind === "video" ? "play" as const : resource.kind === "guideArtifact" ? "download" as const : "read" as const;
+  }
+  /**
+   * Решение ContentAccess словами таблицы. Отказ различает сам фасад: `checkAvailabilityMany`
+   * отвечает `locked`, когда ресурс виден с замком, и `unavailable`, когда он закрыт целиком.
+   * Видео без тизера наблюдается выдачей сессии: отказ в ней — закрыто.
+   */
+  async function decision(access: ContentAccess, account: string | null, resource: Resource): Promise<AccessObservation> {
+    const action = actionOf(resource);
     const enforcementPoint = resource.kind === "video" ? "playback_token_issue" : resource.kind === "guideArtifact" ? "guide_artifact_delivery" : "published_material_read";
     const decided = await access.authorize({ subject: subjectOf(account), action, resource, enforcementPoint, correlationId: randomUUID() });
-    if (decided.effect === "deny") return denied;
+    if (decided.effect === "deny") {
+      if (resource.kind === "video") return { outcome: "closed" };
+      const availability = await access.checkAvailabilityMany({ subject: subjectOf(account), enforcementPoint, correlationId: randomUUID(),
+        operations: [{ itemId: "cell", resource, action }] });
+      if (!availability.ok) throw new Error(availability.error.code);
+      return availability.items[0]?.availability === "locked" ? { outcome: "locked" } : { outcome: "closed" };
+    }
     if (!("validUntil" in decided)) return open(decided.reason === "public_resource" ? "public" : "permission");
     return open(termOf(decided.validUntil));
   }
@@ -301,17 +322,18 @@ describe("таблица сценариев доступа (реальный Pos
     const item = discovered.items.find(entry => entry.materialId === id);
     if (item === undefined) throw new Error("Programme lost its Material");
     // Замок программы не несёт срока: он совпадает с решением по самому материалу.
-    return item.availability === "available" ? decision(readerAccess, account, { kind: "material", materialId: id }, { outcome: "locked" }) : { outcome: "locked" };
+    if (item.availability === "available") return decision(readerAccess, account, { kind: "material", materialId: id });
+    return item.availability === "locked" ? { outcome: "locked" } : { outcome: "closed" };
   }
 
   /** Одна клетка: `null` — у основания нет Account, и клетка по таблице неприменима. */
   async function observe(surface: AccessSurface, account: string | null, material: MaterialId = productMaterial): Promise<AccessObservation | null> {
     switch (surface) {
-      case "public-material": return decision(readerAccess, account, { kind: "material", materialId: freeMaterial }, { outcome: "closed" });
-      case "product-material": return decision(readerAccess, account, { kind: "material", materialId: material }, { outcome: "locked" });
+      case "public-material": return decision(readerAccess, account, { kind: "material", materialId: freeMaterial });
+      case "product-material": return decision(readerAccess, account, { kind: "material", materialId: material });
       case "programme": return programme(account, guideSlug, material);
-      case "artifacts": return decision(readerAccess, account, { kind: "guideArtifact", artifactId }, { outcome: "locked" });
-      case "video": return decision(readerAccess, account, { kind: "video", videoId }, { outcome: "closed" });
+      case "artifacts": return decision(readerAccess, account, { kind: "guideArtifact", artifactId });
+      case "video": return decision(readerAccess, account, { kind: "video", videoId });
       case "community-chat": return capability(account, "community");
       case "support": return capability(account, "support");
       case "cabinet": {
@@ -325,7 +347,7 @@ describe("таблица сценариев доступа (реальный Pos
         if (account === null) return null;
         await db.prisma.accountPermission.upsert({ where: { accountId_permission: { accountId: account, permission: "materials:manage" } },
           create: { accountId: account, permission: "materials:manage" }, update: {} });
-        return decision(authorAccess, account, { kind: "material", materialId: material }, { outcome: "locked" });
+        return decision(authorAccess, account, { kind: "material", materialId: material });
       }
       case "mcp": {
         if (account === null) return null;
@@ -346,9 +368,13 @@ describe("таблица сценариев доступа (реальный Pos
     "%s",
     async (id, surface, ground) => {
       now = new Date(startedAt);
-      const account = grounds.get(ground);
-      if (account === undefined) throw new Error(`Ground ${ground} was not prepared`);
-      expect(verdict(id, accessScenarioTable.cells[surface][ground], await observe(surface, account))).toBeNull();
+      const accountsOfGround = grounds.get(ground);
+      if (accountsOfGround === undefined) throw new Error(`Ground ${ground} was not prepared`);
+      const verdicts = [];
+      for (const account of accountsOfGround) {
+        verdicts.push(verdict(id, accessScenarioTable.cells[surface][ground], await observe(surface, account)));
+      }
+      expect(verdicts.filter(entry => entry !== null)).toEqual([]);
     },
   );
 
@@ -380,7 +406,13 @@ describe("таблица сценариев доступа (реальный Pos
     const recipient = await account();
     const enrollment = await assignEnrollment("manual", recipient, null, tierId);
     expect(await observe("product-material", recipient)).toEqual(open("lifetime"));
+    // Сессия видео, выданная до отзыва: после отзыва обратный вызов Kinescope её не принимает.
+    const session = await playback.createSession({ materialId: productMaterial, videoId, subject: subjectOf(recipient), correlationId: randomUUID() });
+    const token = session.ok ? session.value.drmAuthToken : null;
+    if (typeof token !== "string") throw new Error("Expected a protected playback token");
+    expect(await playback.authorizeProvider({ providerVideoId, token })).toBe(true);
     await revoke(enrollment);
+    expect(await playback.authorizeProvider({ providerVideoId, token })).toBe(false);
     expect(await transitionVerdicts("revocation", recipient)).toEqual([]);
   });
 
