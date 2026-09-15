@@ -17,8 +17,8 @@
 показанный текст с `contactErrorMessage("revision_conflict")`, а не с копией строки. Это
 доказательство интерфейса на заглушке BFF, не проверка backend: правило отказа не менялось.
 
-Команда ниже воспроизводит проверку текста; снимков она не создаёт:
+Команда ниже из корня checkout воспроизводит проверку текста; снимков она не создаёт:
 
 ```bash
-PLAYWRIGHT_PORT=3360 pnpm exec playwright test account-cabinet.spec.ts -g "отказ по расхождению редакции"
+PLAYWRIGHT_PORT=3360 pnpm --filter @inside/web exec playwright test account-cabinet.spec.ts -g "отказ по расхождению редакции"
 ```
