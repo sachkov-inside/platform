@@ -344,6 +344,7 @@ describe("Material Authoring action workflow", () => {
       {
         access: "membership",
         deleteVideoId: null,
+        detachVideoIds: [],
         difficulty: "basic",
         document: {
           content: [{ content: [{ text: "Local full state", type: "text" }], type: "paragraph" }],
@@ -382,6 +383,21 @@ describe("Material Authoring action workflow", () => {
     );
   });
 
+  it("passes every Video the author removed as part of the full-state Save", async () => {
+    const dependencies = successfulSaveDependencies();
+    const formData = validSaveFormData();
+    const replacementId = "30000000-0000-4000-8000-000000000009";
+    formData.append("detachVideoIds", videoId);
+    formData.append("detachVideoIds", replacementId);
+
+    await executeSaveMaterial(formData, "access-token", dependencies);
+
+    expect(dependencies.save).toHaveBeenCalledWith(
+      expect.objectContaining({ detachVideoIds: [videoId, replacementId] }),
+      "access-token",
+    );
+  });
+
   it("maps a stale Save to conflict without validating or replacing local input", async () => {
     const dependencies = {
       ...successfulSaveDependencies(),
@@ -406,6 +422,30 @@ describe("Material Authoring action workflow", () => {
     });
     expect(formData.get("title")).toBe("Saved Material");
     expect(formData.get("document")).toContain("Local full state");
+  });
+
+  it("asks to confirm a removal from a bought product and sends the confirmed products", async () => {
+    const guides = [{ guideId: seriesId, holders: 2, name: "Купленный продукт" }];
+    const refused = {
+      ...successfulSaveDependencies(),
+      save: vi.fn().mockResolvedValue({
+        ok: false,
+        problem: { code: "guide_removal_confirmation_required", guides, status: 409 },
+        response: Response.json({}, { status: 409 }),
+      }),
+    } satisfies SaveMaterialDependencies;
+    await expect(
+      executeSaveMaterial(validSaveFormData(), "access-token", refused),
+    ).resolves.toEqual({ guides, kind: "removal_confirmation_required" });
+
+    const dependencies = successfulSaveDependencies();
+    const formData = validSaveFormData();
+    formData.append("confirmedGuideRemovals", seriesId);
+    await executeSaveMaterial(formData, "access-token", dependencies);
+    expect(dependencies.save).toHaveBeenCalledWith(
+      expect.objectContaining({ confirmedGuideRemovals: [seriesId] }),
+      "access-token",
+    );
   });
 
   it("retries dependency failure with the same idempotency key", async () => {

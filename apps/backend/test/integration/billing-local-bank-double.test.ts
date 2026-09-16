@@ -9,7 +9,7 @@ import { assembleAccessGrants } from "../../src/modules/membership-entitlements/
 import { BillingNotices, BillingOperations, BillingPayments, BillingPricing, BillingSubscriptions } from "../../src/modules/billing/index.js";
 import type { OwnerResult } from "../../src/modules/billing/domain/owner-operations.js";
 import { Tbank, type BankRequest } from "../../src/modules/billing/infrastructure/tbank/tbank.js";
-import { syntheticConsentDocuments } from "./setup/consent-documents.js";
+import { pressedPaymentButton, syntheticConsentDocuments } from "./setup/consent-documents.js";
 import { createMigratedTestDatabase, type TestDatabase } from "./setup/test-database.js";
 
 function value<T>(result: { ok: true; value: T } | { ok: false; error: { code: string } }): T {
@@ -76,7 +76,7 @@ describe("локальная продажа через двойника банк
     if (!start.ok) throw new Error(start.error.code);
     expect(await contact.confirm(buyer, { operationId: randomUUID(), challengeRef: start.challengeRef, code: codes.get(start.challengeRef) })).toMatchObject({ ok: true });
     const offerId = randomUUID(), optionId = randomUUID();
-    value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.save", value: { id: offerId, name: "Материалы", benefits: ["materials"] } }));
+    value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.save", value: { id: offerId, name: "Материалы", benefits: ["materials"], contentScope: { guideIds: [randomUUID()], materialIds: [] } } }));
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "paymentOptions.save",
       value: { id: optionId, offerId, months: 1, priceKopecks: 100_000 } }));
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.publish", expectedRevision: 1, id: offerId }));
@@ -112,9 +112,9 @@ describe("локальная продажа через двойника банк
     async function beginPurchase(option = optionId, accepted: readonly string[] = documents.map(document => document.kind)):
       Promise<{ purchaseRef: string; paymentUrl: string }> {
       const quote = value(await pricing.quote(buyer, { operationId: randomUUID(), paymentOptionId: option, optionRevision: 1 }));
-      const consent = await contact.acceptConsents(buyer, { operationId: randomUUID(), contextRef: quote.quoteRef,
+      const consent = await contact.acceptConsents(buyer, pressedPaymentButton({ operationId: randomUUID(), contextRef: quote.quoteRef,
         documents: documents.filter(document => accepted.includes(document.kind))
-          .map(document => ({ kind: document.kind, documentId: document.documentId, version: document.version, digest: document.digest, accepted: true })) });
+          .map(document => ({ kind: document.kind, documentId: document.documentId, version: document.version, digest: document.digest, accepted: true })) }, { snapshot: quote.snapshot }));
       if (!consent.ok) throw new Error(consent.error.code);
       const purchase = value(await payments.purchase(buyer, { operationId: randomUUID(), quoteRef: quote.quoteRef,
         contactRevision: 1, consentEvidenceRefs: consent.evidenceRefs, acknowledgeExistingAccess: false }));
@@ -126,7 +126,8 @@ describe("локальная продажа через двойника банк
     async function beginGuidePurchase(): Promise<{ purchaseRef: string; paymentUrl: string; capability: string }> {
       const guideOffer = randomUUID(), guideOption = randomUUID(), capability = `guide:${randomUUID()}`;
       value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.save",
-        value: { id: guideOffer, name: "Руководство «Стенд»", benefits: [capability], benefitPeriods: [{ capability, months: null }] } }));
+        value: { id: guideOffer, name: "Руководство «Стенд»", benefits: [capability, "support"],
+          benefitPeriods: [{ capability, months: null }, { capability: "support", months: 6 }] } }));
       value(await pricing.manage(owner, { operationId: randomUUID(), operation: "paymentOptions.save",
         value: { id: guideOption, offerId: guideOffer, mode: "one_time", months: 1, priceKopecks: 290_000 } }));
       value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.publish", expectedRevision: 1, id: guideOffer }));
@@ -173,7 +174,7 @@ describe("локальная продажа через двойника банк
     value(await s.payments.recover());
 
     // Купленное руководство открывает и сообщество: стенд воспроизводит тот же состав прав.
-    expect(await s.capabilities()).toEqual(["community", guide.capability]);
+    expect(await s.capabilities()).toEqual(["community", guide.capability, "support"]);
     const row = await s.purchaseRow(guide.purchaseRef);
     expect(row).toMatchObject({ kind: "one_time", state: "confirmed", environment: "local", subscriptionRef: null });
     expect(await s.operations.execute(owner, { operation: "payments.list", operationId: randomUUID(), accountId: s.buyer, kind: "one_time", limit: 10 }))
@@ -262,14 +263,14 @@ describe("локальная продажа через двойника банк
     value(await s.payments.recover());
 
     const partial = asRefundDecision(await s.operations.execute(owner, { operation: "refunds.decide", operationId: randomUUID(),
-      purchaseRef, amountKopecks: 40_000, access: "keep", recurring: "keep", reason: "Стенд: частичный возврат" }));
+      purchaseRef, amountKopecks: 40_000, basis: "compensation", recurring: "keep", reason: "Стенд: частичный возврат" }));
     const partialExecuted = asRefundDecision(await s.operations.execute(owner, { operation: "refunds.execute", operationId: randomUUID(),
       decisionRef: partial.decisionRef, expectedRevision: 1 }));
     expect(partialExecuted).toMatchObject({ state: "executed",
       attempt: { state: "confirmed", amountKopecks: 40_000, observedStatus: "PARTIAL_REFUNDED", errorCode: "0" } });
 
     const rest = asRefundDecision(await s.operations.execute(owner, { operation: "refunds.decide", operationId: randomUUID(),
-      purchaseRef, amountKopecks: 60_000, access: "revoke", recurring: "cancel", reason: "Стенд: возврат остатка" }));
+      purchaseRef, amountKopecks: 60_000, basis: "withdrawal", recurring: "cancel", reason: "Стенд: возврат остатка" }));
     const restExecuted = asRefundDecision(await s.operations.execute(owner, { operation: "refunds.execute", operationId: randomUUID(),
       decisionRef: rest.decisionRef, expectedRevision: 1 }));
     expect(restExecuted).toMatchObject({ state: "executed",

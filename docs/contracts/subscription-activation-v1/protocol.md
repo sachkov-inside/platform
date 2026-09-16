@@ -43,3 +43,10 @@ Platform alone reads the verified registry by policy and identity inside the loc
 Idempotency: a lost response must first replay the identical evidenceRef and payload, even if the binding subsequently changes. Accepted receipts are immutable. After a known pending/unavailable outcome, a user retry may obtain a fresh binding and submit a new evidenceRef to read newly confirmed registry facts. The durable attempt may be reused while its rule revision and retention remain valid. Multiple attempts or links with the same policy and identity use the same source key and Enrollment; neither replay nor repeat lookup changes its term. Own-access always performs current binding validation and presents all independent grounds.
 
 Fixtures named Tribute positive/nonpaid/unknown-period/forwarded/duplicate are wire examples. Their policy relationships are assertions in `scenarios.json`, requiring real Platform PostgreSQL and consumer tests; schema validity alone does not prove access was granted or denied. Provider failures remain unavailable, never a fallback course or unlinked path.
+
+## Content scope `allGuides` (Platform #648)
+
+`contentScope` in tier snapshots accepts an optional `allGuides: true`. It means every Guide of the
+platform, including Guides published later; `guideIds` and `materialIds` stay required and are empty
+for such a scope. The field is additive: a scope without it keeps its previous meaning. The starter tier
+and a Platform subscription use it.

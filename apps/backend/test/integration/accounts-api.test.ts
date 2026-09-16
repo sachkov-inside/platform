@@ -1,4 +1,3 @@
-import { enrollLegacyCohortFixture } from "./setup/legacy-cohort.js";
 import { randomUUID } from "node:crypto";
 import { createServer, type Server } from "node:http";
 
@@ -15,6 +14,7 @@ import {
   type TestDatabase,
 } from "./setup/test-database.js";
 import { declaredServer, type DeclaredServer } from "../support/declared-api.js";
+import { acceptCurrentTerms } from "../support/accept-terms.js";
 
 const issuer = "https://identity.example.test/oidc";
 const audience = "https://api.example.test";
@@ -75,6 +75,7 @@ describe("Accounts API", () => {
     const token = await signToken({ subject: "billing-api-account", email: "billing-api@example.test" });
     await inject("POST", "/accounts", token);
     const headers = { authorization: `Bearer ${token}` };
+    await acceptCurrentTerms(server, headers);
     const injected = await server.inject({ method: "POST", url, headers, payload: { operationId: randomUUID(), expectedRevision: 0, email: "synthetic@example.test", accountId: randomUUID() } });
     expect(injected.statusCode).toBe(400);
     expect(injected.json()).toMatchObject({ code: "invalid_input" });
@@ -88,6 +89,54 @@ describe("Accounts API", () => {
     const disabled = await server.inject({ method: "POST", url, headers, payload: { operationId: randomUUID(), expectedRevision: 0, email: "synthetic@example.test" } });
     expect(disabled.statusCode).toBe(503);
     expect(disabled.json()).toMatchObject({ code: "provider_unavailable" });
+  });
+
+  test("closes the cabinet, purchases and the bot link until the terms of use in force are accepted", async () => {
+    const token = await signToken({ subject: "terms-gate-account", email: "terms-gate@example.test" });
+    expect((await inject("POST", "/accounts", token)).statusCode).toBe(201);
+    const headers = { authorization: `Bearer ${token}` };
+    const gated = [
+      { method: "GET", url: "/accounts/current/billing/contact" },
+      { method: "POST", url: "/accounts/current/billing/quote", payload: {} },
+      { method: "POST", url: "/accounts/current/telegram-link" },
+      { method: "GET", url: "/accounts/current/telegram-membership" },
+      { method: "GET", url: "/account/profile" },
+      { method: "GET", url: "/accounts/current/notifications/preferences" },
+    ] as const;
+    for (const route of gated) {
+      const refused = await server.inject({ ...route, headers });
+      expect(refused.statusCode, route.url).toBe(403);
+      expect(refused.json()).toMatchObject({ code: "terms_acceptance_required" });
+    }
+
+    const status = await inject("GET", "/accounts/current/legal-acceptances/terms", token);
+    expect(status.statusCode).toBe(200);
+    const terms = status.json<{
+      readonly document: { readonly version: string; readonly digest: string; readonly url: string };
+    }>();
+    expect(status.json()).toMatchObject({ ok: true, accepted: false, previouslyAccepted: false });
+    expect(terms.document.url).toMatch(/\/legal\/terms\/v[0-9]+$/u);
+    const accepted = await server.inject({
+      method: "POST",
+      url: "/accounts/current/legal-acceptances/terms",
+      headers,
+      payload: {
+        operationId: randomUUID(),
+        version: terms.document.version,
+        digest: terms.document.digest,
+        buttonLabel: "Принять условия и продолжить",
+      },
+    });
+    expect(accepted.statusCode).toBe(200);
+    expect((await inject("GET", "/account/profile", token)).statusCode).toBe(200);
+    expect(
+      (await inject("GET", "/accounts/current/legal-acceptances", token)).json(),
+    ).toMatchObject({
+      ok: true,
+      documents: [
+        { documentId: "terms", screen: "first-sign-in", buttonLabel: "Принять условия и продолжить", shownTerms: null },
+      ],
+    });
   });
 
   test("establishes and resolves one Account without a Platform session header", async () => {
@@ -452,7 +501,7 @@ describe("Accounts API", () => {
     });
   });
 
-  test("keeps private Account and active-member Profile projections separate", async () => {
+  test("shows the Profile only to its owner and answers no public Profile address", async () => {
     const ownerToken = await signToken({
       subject: "profile-owner-001",
       email: "profile-owner@example.test",
@@ -468,10 +517,9 @@ describe("Accounts API", () => {
     const ownerAccountId = readAccountId(
       (await inject("POST", "/accounts", ownerToken)).json<unknown>(),
     );
-    const viewerAccountId = readAccountId(
-      (await inject("POST", "/accounts", viewerToken)).json<unknown>(),
-    );
+    await inject("POST", "/accounts", viewerToken);
     await inject("POST", "/accounts", nonMemberToken);
+    await acceptCurrentTerms(server, { authorization: `Bearer ${ownerToken}` });
 
     const missing = await inject("GET", "/account/profile", ownerToken);
     expect(missing.statusCode).toBe(200);
@@ -496,74 +544,28 @@ describe("Accounts API", () => {
       version: 1,
     });
 
-    for (const request of [
-      server.inject({
-        method: "GET",
-        url: `/member-profiles/${privateProfile.publicProfileId}`,
-      }),
-      inject(
-        "GET",
-        `/member-profiles/${privateProfile.publicProfileId}`,
-        nonMemberToken,
-      ),
+    expect(created.json()).not.toHaveProperty("profile.publicProfileId");
+    // A Profile has no address for other members: the former member page and its avatar are gone.
+    const stored = await database.prisma.memberProfile.findUniqueOrThrow({
+      where: { accountId: ownerAccountId },
+    });
+    for (const url of [
+      `/member-profiles/${stored.publicProfileId}`,
+      `/member-profiles/${stored.publicProfileId}/avatar/${randomUUID()}/320`,
+      `/member-profiles/${stored.publicProfileId}/reports`,
     ]) {
-      const denied = await request;
-      expect(denied.statusCode).toBe(404);
-      expect(denied.headers["cache-control"]).toBe("private, no-store");
-      expect(denied.json()).toMatchObject({ code: "profile_not_found" });
+      for (const token of [undefined, nonMemberToken, viewerToken, ownerToken]) {
+        const response = await server.inject({
+          method: "GET",
+          url,
+          ...(token === undefined ? {} : { headers: { authorization: `Bearer ${token}` } }),
+        });
+        expect(response.statusCode, url).toBe(404);
+      }
     }
-
-    const checkedAt = new Date();
-    const validUntil = new Date(checkedAt.getTime() + 60 * 60 * 1_000);
-    await enrollLegacyCohortFixture(database.prisma, viewerAccountId);
-    await database.prisma.membershipBinding.create({
-      data: {
-        accountId: viewerAccountId,
-        principalRef: "profile-viewer-principal",
-        linkedAt: checkedAt,
-      },
-    });
-    await database.prisma.membershipProjection.create({
-      data: {
-        accountId: viewerAccountId,
-        principalRef: "profile-viewer-principal",
-        decision: "member",
-        evidenceRef: "profile-viewer-evidence",
-        evidenceVersion: 1n,
-        evidenceFingerprint: "a".repeat(64),
-        checkedAt,
-        validUntil,
-        updatedAt: checkedAt,
-      },
-    });
-
-    const visible = await inject(
-      "GET",
-      `/member-profiles/${privateProfile.publicProfileId}`,
-      viewerToken,
-    );
-    expect(visible.statusCode).toBe(200);
-    expect(visible.headers["cache-control"]).toBe("private, no-store");
-    expect(visible.headers["x-robots-tag"]).toBe("noindex, nofollow");
-    expect(visible.json()).toEqual({
-      profile: {
-        avatar: null,
-        publicProfileId: privateProfile.publicProfileId,
-        displayName: "Кирилл Сачков",
-        bio: "Инженер и автор.",
-      },
-    });
-    expect(JSON.stringify(visible.json())).not.toMatch(
-      /accountId|email|logto|telegram|permission|evidence|audit/iu,
-    );
-
-    const removedReportRoute = await server.inject({
-      method: "POST",
-      url: `/member-profiles/${privateProfile.publicProfileId}/reports`,
-      headers: { authorization: `Bearer ${viewerToken}` },
-      payload: { reason: "unsafe_content" },
-    });
-    expect(removedReportRoute.statusCode).toBe(404);
+    const ownAvatar = await inject("GET", `/account/profile/avatar/${randomUUID()}/320`, ownerToken);
+    expect(ownAvatar.statusCode).toBe(404);
+    expect(ownAvatar.json()).toMatchObject({ code: "profile_not_found" });
 
     const updated = await server.inject({
       method: "PUT",
@@ -596,16 +598,6 @@ describe("Accounts API", () => {
     expect(conflict.json()).toMatchObject({
       code: "conflict",
       currentVersion: 2,
-    });
-
-    const currentProjection = await inject(
-      "GET",
-      `/member-profiles/${privateProfile.publicProfileId}`,
-      viewerToken,
-    );
-    expect(currentProjection.statusCode).toBe(200);
-    expect(currentProjection.json()).toMatchObject({
-      profile: { displayName: "Кирилл", bio: null },
     });
 
     const removedExportRoute = await inject(
@@ -722,7 +714,6 @@ function readMaterialReceipt(value: unknown): {
 }
 
 function readPrivateProfile(value: unknown): {
-  readonly publicProfileId: string;
   readonly displayName: string;
   readonly bio: string | null;
   readonly status: string;
@@ -734,8 +725,6 @@ function readPrivateProfile(value: unknown): {
     !("profile" in value) ||
     typeof value.profile !== "object" ||
     value.profile === null ||
-    !("publicProfileId" in value.profile) ||
-    typeof value.profile.publicProfileId !== "string" ||
     !("displayName" in value.profile) ||
     typeof value.profile.displayName !== "string" ||
     !("bio" in value.profile) ||
@@ -748,7 +737,6 @@ function readPrivateProfile(value: unknown): {
     throw new TypeError("Member Profile API response has no private Profile");
   }
   return {
-    publicProfileId: value.profile.publicProfileId,
     displayName: value.profile.displayName,
     bio: value.profile.bio,
     status: value.profile.status,

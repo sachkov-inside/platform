@@ -18,6 +18,9 @@ export async function reorderSeries(
   if (input.chapterAssignments !== undefined) {
     formData.set("chapterAssignments", JSON.stringify(input.chapterAssignments));
   }
+  if (input.confirmedGuideRemovals !== undefined && input.confirmedGuideRemovals.length > 0) {
+    formData.set("confirmedGuideRemovals", JSON.stringify(input.confirmedGuideRemovals));
+  }
   const result = await requestSameOriginMutation(
     "/api/authoring/guides/order",
     "PUT",

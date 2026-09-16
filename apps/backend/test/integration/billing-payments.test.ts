@@ -19,7 +19,7 @@ import { Tbank, tbankToken } from "../../src/modules/billing/infrastructure/tban
 import { syntheticTbankConfig } from "../support/bank-terminal.js";
 import { createMigratedTestDatabase, type TestDatabase } from "./setup/test-database.js";
 import { eventually } from "./setup/eventually.js";
-import { syntheticConsentDocuments } from "./setup/consent-documents.js";
+import { pressedPaymentButton, syntheticConsentDocuments } from "./setup/consent-documents.js";
 
 // How long a committed database row may take to appear, and how long an unfixed answer would need
 // to arrive. Both are barriers around a committed fact, never a measurement of machine speed.
@@ -67,11 +67,11 @@ describe("subscription payment recovery (real PostgreSQL and real facets; synthe
     if (!start.ok) throw new Error(start.error.code);
     expect(await contact.confirm(buyer, { operationId: randomUUID(), challengeRef: start.challengeRef, code: codes.get(start.challengeRef) })).toMatchObject({ ok: true });
     const offerId = randomUUID(), optionId = randomUUID();
-    value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.save", value: { id: offerId, name: "Synthetic subscription", benefits, ...(benefitPeriods ? { benefitPeriods } : {}) } }));
+    value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.save", value: { id: offerId, name: "Synthetic subscription", benefits, contentScope: { guideIds: [randomUUID()], materialIds: [] }, ...(benefitPeriods ? { benefitPeriods } : {}) } }));
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "paymentOptions.save", value: { id: optionId, offerId, months: 1, priceKopecks: 200_000 } }));
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.publish", expectedRevision: 1, id: offerId }));
     const quote = value(await pricing.quote(buyer, { operationId: randomUUID(), paymentOptionId: optionId, optionRevision: 1 }));
-    const consent = await contact.acceptConsents(buyer, { operationId: randomUUID(), contextRef: quote.quoteRef, documents: documents.map(document => ({ kind: document.kind, documentId: document.documentId, version: document.version, digest: document.digest, accepted: true })) });
+    const consent = await contact.acceptConsents(buyer, pressedPaymentButton({ operationId: randomUUID(), contextRef: quote.quoteRef, documents: documents.map(document => ({ kind: document.kind, documentId: document.documentId, version: document.version, digest: document.digest, accepted: true })) }, { snapshot: quote.snapshot }));
     if (!consent.ok) throw new Error(consent.error.code);
     const command = { operationId: randomUUID(), quoteRef: quote.quoteRef, contactRevision: 1, consentEvidenceRefs: consent.evidenceRefs, acknowledgeExistingAccess: false };
     let requests = 0, initOutcome = "NEW", failInit = false;

@@ -26,6 +26,7 @@ const callbackRoutes = [
 ];
 
 const runtime = {
+  releaseRunbook: read("docs/runbooks/production-release.md"),
   caddy: read("infra/production/runtime/platform.caddy"),
   compose: read("compose.production.yaml"),
   composeEnvironment: read("config/compose/production/compose.env.example"),
@@ -97,6 +98,48 @@ describe("production runtime architecture contract", () => {
         () => assertRuntimeContract({ ...runtime, caddy: runtime.caddy.replace(new RegExp(`(@${name} \\{\\s+)method POST`, "u"), "$1method GET POST") }),
         /must publish only exact POST callbacks/u,
         `${name} must stay POST-only`,
+      );
+    }
+  });
+
+  it("lists every published API and MCP route in the release runbook exactly as Caddy publishes it", () => {
+    const table = "docs/runbooks/production-release.md must list exactly the Caddy API and MCP routes";
+    assert.throws(
+      () => assertRuntimeContract({
+        ...runtime,
+        releaseRunbook: runtime.releaseRunbook.replace(/^\| POST \| `\/internal\/notifications\/dispatch\/authorize` \|[^\n]*\n/mu, ""),
+      }),
+      new RegExp(table, "u"),
+      "a published route missing from the table",
+    );
+    assert.throws(
+      () => assertRuntimeContract({
+        ...runtime,
+        releaseRunbook: runtime.releaseRunbook.replace("| любой | `/integrations/kinescope/v1/webhook` |", "| POST | `/integrations/kinescope/v1/webhook` |"),
+      }),
+      new RegExp(table, "u"),
+      "a method that differs from Caddy",
+    );
+    assert.throws(
+      () => assertRuntimeContract({
+        ...runtime,
+        caddy: runtime.caddy.replace(
+          "\t\t@mcp path /mcp\n",
+          "\t\t@unlisted path /integrations/example/v1/callback\n\t\treverse_proxy @unlisted {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}\n\n\t\t@mcp path /mcp\n",
+        ),
+      }),
+      new RegExp(table, "u"),
+      "a Caddy route that the table does not describe",
+    );
+    for (const [shape, route] of [
+      ["a block matcher without a method", "\t\t@unlisted {\n\t\t\tpath /integrations/example/v1/callback\n\t\t}\n\t\treverse_proxy @unlisted {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}\n"],
+      ["a block matcher with two methods", "\t\t@unlisted {\n\t\t\tmethod GET POST\n\t\t\tpath /integrations/example/v1/callback\n\t\t}\n\t\treverse_proxy @unlisted {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}\n"],
+      ["a path proxied without a named matcher", "\t\treverse_proxy /integrations/example/v1/callback {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}\n"],
+    ]) {
+      assert.throws(
+        () => assertRuntimeContract({ ...runtime, caddy: runtime.caddy.replace("\t\t@mcp path /mcp\n", `${route}\n\t\t@mcp path /mcp\n`) }),
+        /not in a form the runbook route check understands/u,
+        shape,
       );
     }
   });
@@ -225,6 +268,47 @@ function assertRuntimeContract(files) {
     throw new Error("unknown integration routes must fail closed");
   }
   assert.match(files.caddy, /@private_health path \/health \/health\/\* \/_health\/\*/u);
+  // The operator table is checked last, so a broken Caddy rule above reports its own reason first.
+  assert.deepEqual(
+    runbookRoutes(files.releaseRunbook),
+    caddyProxiedRoutes(files.caddy),
+    "docs/runbooks/production-release.md must list exactly the Caddy API and MCP routes",
+  );
+}
+
+/**
+ * Every method and path that Caddy proxies to the API or MCP; `ANY` when the matcher has no method.
+ * A matcher in any other shape fails instead of silently disappearing from both sides of the check.
+ */
+function caddyProxiedRoutes(caddy) {
+  const proxied = new Set([...caddy.matchAll(/reverse_proxy @([a-z_]+) \{\$PLATFORM_(?:API|MCP)_UPSTREAM:/gu)].map(([, name]) => name));
+  const routes = [];
+  const understood = new Set();
+  for (const [, name, method, paths] of caddy.matchAll(/@([a-z_]+) \{\n\t+method ([A-Z]+)\n\t+path ([^\n]+)\n\t+\}/gu)) {
+    if (!proxied.has(name)) continue;
+    understood.add(name);
+    routes.push(...paths.split(" ").map((path) => `${method} ${path}`));
+  }
+  for (const [, name, paths] of caddy.matchAll(/@([a-z_]+) path ([^\n]+)/gu)) {
+    if (!proxied.has(name)) continue;
+    understood.add(name);
+    routes.push(...paths.split(" ").map((path) => `ANY ${path}`));
+  }
+  // Every reverse_proxy except the single web fallback must go through a named matcher parsed above.
+  const directives = caddy.match(/^\s*reverse_proxy /gmu)?.length ?? 0;
+  const unparsed = [...proxied].filter((name) => !understood.has(name));
+  if (unparsed.length > 0 || directives !== proxied.size + 1) {
+    throw new Error(`Caddy API routes are not in a form the runbook route check understands: ${unparsed.join(", ") || "reverse_proxy without a named matcher"}`);
+  }
+  return routes.sort();
+}
+
+/** Rows of the release runbook's public API route table as `METHOD path`; «любой» means any method. */
+function runbookRoutes(runbook) {
+  const section = runbook.split("\n## Public API routes\n")[1]?.split("\n## ")[0] ?? "";
+  return [...section.matchAll(/^\| (POST|любой) \| `([^`]+)` \|/gmu)]
+    .map(([, method, path]) => `${method === "любой" ? "ANY" : method} ${path}`)
+    .sort();
 }
 
 function escapeRegExp(value) {

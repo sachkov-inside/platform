@@ -122,7 +122,7 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
     {
       title: "Save complete Material state",
       description:
-        "Pass primaryVideoId from material_load to preserve the video, or explicitly null to detach without deleting its source. Atomically replace content, metadata, relations, access, and publication state. This may change live content immediately and has no server-side Undo or history.",
+        "Pass primaryVideoId from material_load to preserve the video, or explicitly null to detach without deleting its source. Atomically replace content, metadata, relations, access, and publication state. This may change live content immediately and has no server-side Undo or history. Removing a published Material from a Guide whose buyers hold access fails with guide_removal_confirmation_required until the same save lists those guides in confirmedGuideRemovals after the owner confirms; the removal is journaled.",
       inputSchema: z
         .object({
           idempotencyKey: idempotencyKeyWireSchema,
@@ -132,6 +132,7 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
           publicationState: publicationStateWireSchema,
           metadata: materialMetadataSelectionWireSchema,
           body: materialBodySnapshotWireSchema,
+          confirmedGuideRemovals: z.array(z.uuid()).max(100).optional(),
         })
         .strict(),
       annotations: {
@@ -148,6 +149,7 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
       publicationState: targetState,
       metadata,
       body,
+      confirmedGuideRemovals,
     }) =>
       toToolResult(
         dependencies.authoring.saveMaterial({
@@ -159,6 +161,7 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
           publicationState: targetState,
           metadata,
           body,
+          confirmedGuideRemovals: confirmedGuideRemovals ?? [],
         }),
       ),
   );
@@ -400,7 +403,7 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
     {
       title: "Save complete Guide composition",
       description:
-        "Atomically add, remove, and reorder the complete Guide composition using the latest order version. Chapters are the optional named groups of the main path: send the complete ordered list with stable identifiers and place every Material through chapterAssignments. Each chapter must stay one continuous run.",
+        "Atomically add, remove, and reorder the complete Guide composition using the latest order version. Chapters are the optional named groups of the main path: send the complete ordered list with stable identifiers and place every Material through chapterAssignments. Each chapter must stay one continuous run. Removing a published Material from a Guide whose buyers hold access fails with guide_removal_confirmation_required until confirmedGuideRemovals lists this guideId after the owner confirms; the removal is journaled.",
       inputSchema: z
         .object({
           chapters: guideChapterDraftsSchema.optional(),
@@ -409,6 +412,7 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
           orderedMaterialIds: z.array(materialIdWireSchema),
           stepGroups: seriesStepGroupsSchema.optional(),
           guideId: collectionIdSchema,
+          confirmedGuideRemovals: z.array(z.uuid()).max(100).optional(),
         })
         .strict(),
       annotations: {
@@ -424,6 +428,7 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
       orderedMaterialIds,
       guideId,
       stepGroups,
+      confirmedGuideRemovals,
     }) =>
       toToolResult(
         dependencies.authoring.reorderSeries({
@@ -434,6 +439,7 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
           orderedMaterialIds,
           seriesId: guideId,
           stepGroups,
+          confirmedGuideRemovals: confirmedGuideRemovals ?? [],
         }),
       ),
   );

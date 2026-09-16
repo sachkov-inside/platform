@@ -2,6 +2,7 @@ import type { MaterialsPrismaClient } from "../../../../infrastructure/prisma/in
 import type { ContentAccess } from "../../../content-access/index.js";
 import type { MaterialBodyOperations } from "../../domain/material-body/material-body.js";
 import type { AuthorPolicy } from "../../ports/author-policy.js";
+import type { GuideAccessHolders } from "../../ports/guide-access-holders.js";
 import type { MaterialAssets } from "../../../assets/index.js";
 import type { Videos } from "../../../videos/index.js";
 import type { WorkshopMaterialProtection } from "../../../workshop/index.js";
@@ -12,6 +13,11 @@ export interface MaterialAuthoringDependencies {
   readonly authorPolicy: AuthorPolicy;
   readonly contentAccess: ContentAccess;
   readonly workshopMaterialProtection?: WorkshopMaterialProtection;
+  /**
+   * Держатели права на руководство. Без него сборка не знает ни одного держателя и снятие не
+   * требует подтверждения: так собираются только тесты Materials и seed, приложение передаёт его всегда.
+   */
+  readonly guideAccessHolders?: GuideAccessHolders;
   readonly materialAssets?: Pick<
     MaterialAssets,
     "inspectReferences" | "loadPresentations" | "markUnreferenced"

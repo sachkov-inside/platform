@@ -15,7 +15,9 @@ export {
   legalEditions,
   paymentModes,
   supersededLegalEditions,
+  termsOfUseDocument,
   type ConsentDocument,
+  type TermsOfUseDocument,
   type ConsentKind,
   type PaymentMode,
 } from "./catalog.js";

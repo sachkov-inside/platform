@@ -9,7 +9,7 @@ export interface LegalNavigationEntry {
   readonly key: LegalDocumentKey;
   /** Короткое название для футера и списка: полное живёт в заголовке самой редакции. */
   readonly navLabel: string;
-  /** Название после «Принимаю», когда падеж отличается от `navLabel`. */
+  /** Название в строке «вы принимаете …», когда падеж отличается от `navLabel`. */
   readonly consentLabel?: string;
   readonly group: LegalGroup;
 }
@@ -38,8 +38,18 @@ export const LEGAL_NAVIGATION: readonly LegalNavigationEntry[] = [
     consentLabel: "оферту разовой покупки",
     group: "agreement",
   },
-  { key: "subscription", navLabel: "Оферта подписки", group: "agreement" },
-  { key: "recurring-consent", navLabel: "Согласие на автопродление", group: "agreement" },
+  {
+    key: "subscription",
+    navLabel: "Оферта подписки",
+    consentLabel: "оферту подписки",
+    group: "agreement",
+  },
+  {
+    key: "recurring-consent",
+    navLabel: "Согласие на автопродление",
+    consentLabel: "согласие на автопродление",
+    group: "agreement",
+  },
   { key: "privacy", navLabel: "Политика данных", group: "data" },
   { key: "cookies", navLabel: "Cookies и хранение", group: "data" },
   { key: "contacts", navLabel: "Реквизиты и обращения", group: "seller" },

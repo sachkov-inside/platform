@@ -176,7 +176,9 @@ export function requestCurrentMaterial(
 export function requestMaterialSave(
   input: {
     readonly access: "free" | "membership";
+    readonly confirmedGuideRemovals?: readonly string[];
     readonly deleteVideoId: string | null;
+    readonly detachVideoIds: readonly string[];
     readonly difficulty: MaterialDifficulty | null;
     readonly document: Record<string, unknown>;
     readonly expectedContentVersion: number;
@@ -202,6 +204,7 @@ export function requestMaterialSave(
         requestBody: {
           body: { doc: input.document, schemaVersion: 1 },
           deleteVideoId: input.deleteVideoId,
+          detachVideoIds: [...input.detachVideoIds],
           expectedContentVersion: input.expectedContentVersion,
           metadata: {
             access: input.access,
@@ -216,6 +219,9 @@ export function requestMaterialSave(
           },
           publicationState: input.publicationState,
           primaryVideoId: input.primaryVideoId,
+          ...(input.confirmedGuideRemovals === undefined
+            ? {}
+            : { confirmedGuideRemovals: [...input.confirmedGuideRemovals] }),
         },
       }),
     200,
@@ -304,6 +310,7 @@ export function requestSeriesReorder(
       readonly summary: string;
     }[];
     readonly chapterAssignments?: Readonly<Record<string, string>>;
+    readonly confirmedGuideRemovals?: readonly string[];
     readonly expectedOrderVersion: string;
     readonly orderedMaterialIds: readonly string[];
     readonly stepGroups?: Readonly<Record<string, string>>;
@@ -327,6 +334,9 @@ export function requestSeriesReorder(
           ...(input.chapterAssignments === undefined
             ? {}
             : { chapterAssignments: { ...input.chapterAssignments } }),
+          ...(input.confirmedGuideRemovals === undefined
+            ? {}
+            : { confirmedGuideRemovals: [...input.confirmedGuideRemovals] }),
         },
       }),
     200,

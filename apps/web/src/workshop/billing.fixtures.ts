@@ -149,9 +149,9 @@ export const legalDocuments: readonly LegalDocument[] = [
     kind: "terms",
     appliesTo: ["one_time"],
     documentId: "purchase",
-    version: "3",
+    version: "4",
     digest: "d".repeat(64),
-    url: "https://inside.example.test/legal/purchase",
+    url: "https://inside.example.test/legal/purchase/v4",
     text: "",
   },
   {
@@ -263,7 +263,7 @@ export const billingNotices: readonly NoticeView[] = [
   },
 ];
 
-/** Оплаченный доступ и независимое бессрочное право на руководство живут рядом. */
+/** Оплаченный доступ и независимое право на руководство без даты окончания живут рядом. */
 export const accessGrounds: readonly AccessGround[] = [
   {
     source: "paid",

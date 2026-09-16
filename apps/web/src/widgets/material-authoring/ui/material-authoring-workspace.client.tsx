@@ -10,6 +10,7 @@ import { MaterialCurrentPreview } from "./material-current-preview";
 import { MaterialMetadataPanel } from "./material-metadata-panel.client";
 import { MaterialVideoAuthoring } from "@/features/material-video";
 import { ContentCoverEditor } from "@/features/content-covers";
+import { GuideRemovalConfirmationDialog } from "@/shared/ui/guide-removal-confirmation-dialog.client";
 import {
   MaterialAuthoringSignInActions,
   MaterialAuthoringUnauthorizedState,
@@ -74,7 +75,16 @@ export function MaterialAuthoringWorkspace({
         presentation={presentation}
       />
       <MaterialAuthoringNotice presentation={presentation} />
-      {presentation.draft.sourcePath === undefined ? null : <p className="mx-auto max-w-[60rem] px-4 pt-4 text-sm text-muted-foreground sm:px-8">Материал редактируется в Inside Content: <span className="break-all">{presentation.draft.sourcePath}</span>. Сохраните оригинал в Obsidian и дождитесь обновления локального просмотра.</p>}
+      {presentation.draft.sourcePath === undefined ? null : <p className="mx-auto max-w-[60rem] px-4 pt-4 text-sm text-muted-foreground sm:px-8">Материал редактируется в Inside Content: <span className="break-all">{presentation.draft.sourcePath}</span>. Сохраните оригинал в Obsidian, создайте коммит в Inside Content и выполните локальную синхронизацию из Git.</p>}
+      {presentation.removalConfirmation === undefined ||
+      presentation.removalConfirmation === null ? null : (
+        <GuideRemovalConfirmationDialog
+          guides={presentation.removalConfirmation.guides}
+          onCancel={actions.onCancelGuideRemoval}
+          onConfirm={actions.onConfirmGuideRemoval}
+          pending={presentation.removalConfirmation.pending}
+        />
+      )}
 
       <form
         className="mx-auto grid w-full max-w-[60rem] min-w-0 gap-0 px-4 pb-14 pt-7 sm:px-8"

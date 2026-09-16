@@ -11,18 +11,13 @@ export interface MemberProfileAvatar {
   readonly avatarId: string;
 }
 
+/** The owner's own Profile. Nobody else sees it, so it carries no address for other members. */
 export interface PrivateMemberProfile extends MemberProfileFields {
   readonly avatar: MemberProfileAvatar | null;
-  readonly publicProfileId: string;
   readonly status: MemberProfileStatus;
   readonly version: number;
   readonly createdAt: string;
   readonly updatedAt: string;
-}
-
-export interface MemberProfileProjection extends MemberProfileFields {
-  readonly avatar: MemberProfileAvatar | null;
-  readonly publicProfileId: string;
 }
 
 export type PrivateProfileState =
@@ -123,15 +118,6 @@ export type DeliverProfileAvatarResult =
       error: Readonly<{ code: "not_found" | "dependency_unavailable" }>;
     }>;
 
-export type ViewMemberProfileResult =
-  | Readonly<{ ok: true; profile: MemberProfileProjection }>
-  | Readonly<{
-      ok: false;
-      error:
-        | Readonly<{ code: "not_found" }>
-        | Readonly<{ code: "internal_error"; correlationId: string }>;
-    }>;
-
 export interface MemberProfiles {
   readPrivateProfile(
     accountId: AccountId,
@@ -143,14 +129,10 @@ export interface MemberProfiles {
     command: UpdateMemberProfileCommand,
   ): Promise<MemberProfileResult<PrivateMemberProfile, UpdateMemberProfileError>>;
   changeAvatar(command: ChangeProfileAvatarCommand): Promise<ChangeProfileAvatarResult>;
+  /** The owner's current avatar rendition; another Account's avatar is never delivered. */
   deliverAvatar(input: {
+    readonly accountId: AccountId;
     readonly avatarId: string;
-    readonly publicProfileId: string;
     readonly size: 160 | 320 | 640;
-    readonly viewerAccountId: AccountId;
   }): Promise<DeliverProfileAvatarResult>;
-  viewProfile(
-    viewerAccountId: AccountId,
-    publicProfileId: string,
-  ): Promise<ViewMemberProfileResult>;
 }

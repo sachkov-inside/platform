@@ -251,7 +251,7 @@ describe("local development offer catalog", () => {
       })),
     ).toEqual([
       {
-        benefits: [`guide:${guideId}`],
+        benefits: [`guide:${guideId}`, "support"],
         firstPriceKopecks: 3_000,
         mode: "one_time",
         name: "Руководство «Создание Platform Inside»",

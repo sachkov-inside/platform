@@ -20,6 +20,18 @@ const command = { operationId: idSchema };
 const listBounds = { cursor: idSchema.optional(), limit: z.int().min(1).max(100).default(50) };
 
 /**
+ * Основание возврата. Отказ от договора прекращает права покупки; компенсация без отказа доступ
+ * сохраняет. Судьба доступа выводится из основания и отдельно не выбирается.
+ */
+export const refundBasisSchema = z.enum(["withdrawal", "compensation"]);
+export type RefundBasis = z.infer<typeof refundBasisSchema>;
+export const refundAccessSchema = z.enum(["keep", "revoke"]);
+export type RefundAccess = z.infer<typeof refundAccessSchema>;
+export function refundAccessFor(basis: RefundBasis): RefundAccess {
+  return basis === "withdrawal" ? "revoke" : "keep";
+}
+
+/**
  * Владельческие операции billing: один закрытый набор для admin API и MCP. Каталог сохраняет
  * прежние схемы, платежи и возвраты добавляют собственные. Actor приходит из adapter, не из payload.
  */
@@ -51,7 +63,7 @@ export const ownerOperationSchema = z.discriminatedUnion("operation", [
   z.strictObject({ ...command, operation: z.literal("subscriptions.cancel"), accountId: idSchema,
     expectedRevision: revisionSchema, reason: reasonSchema }),
   z.strictObject({ ...command, operation: z.literal("refunds.decide"), purchaseRef: idSchema,
-    amountKopecks: moneySchema, access: z.enum(["keep", "revoke"]), recurring: z.enum(["keep", "cancel"]), reason: reasonSchema }),
+    amountKopecks: moneySchema, basis: refundBasisSchema, recurring: z.enum(["keep", "cancel"]), reason: reasonSchema }),
   z.strictObject({ ...command, operation: z.literal("refunds.execute"), decisionRef: idSchema, expectedRevision: revisionSchema }),
   z.strictObject({ ...command, operation: z.literal("refunds.read"), purchaseRef: idSchema }),
   z.strictObject({ ...command, operation: z.literal("grants.read"), accountId: idSchema }),
@@ -89,7 +101,10 @@ export const paymentEventViewSchema = z.strictObject({
 });
 export const refundDecisionViewSchema = z.strictObject({
   decisionRef: idSchema, purchaseRef: idSchema, accountId: idSchema, actorId: idSchema,
-  amountKopecks: moneySchema, access: z.enum(["keep", "revoke"]), recurring: z.enum(["keep", "cancel"]),
+  amountKopecks: moneySchema,
+  /** Решение без основания хранит только доступ, который владелец выбрал сам. */
+  basis: refundBasisSchema.nullable(),
+  access: refundAccessSchema, recurring: z.enum(["keep", "cancel"]),
   reason: z.string(), state: z.enum(["decided", "executing", "executed", "failed"]), revision: revisionSchema,
   createdAt: z.iso.datetime(), updatedAt: z.iso.datetime(),
   attempt: z.strictObject({ refundRef: idSchema, state: z.enum(["sent", "unknown", "confirmed", "failed"]),

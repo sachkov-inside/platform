@@ -9,7 +9,7 @@ import type { OwnerOutcome, OwnerResult } from "../../src/modules/billing/domain
 import { Tbank, tbankToken } from "../../src/modules/billing/infrastructure/tbank/tbank.js";
 import { syntheticTbankConfig } from "../support/bank-terminal.js";
 import { createMigratedTestDatabase, type TestDatabase } from "./setup/test-database.js";
-import { syntheticConsentDocuments } from "./setup/consent-documents.js";
+import { pressedPaymentButton, syntheticConsentDocuments, type RenewalSource } from "./setup/consent-documents.js";
 
 function value<T>(result: { ok: true; value: T } | { ok: false; error: { code: string } }): T {
   if (!result.ok) throw new Error(result.error.code); return result.value;
@@ -194,7 +194,9 @@ describe("владельческие операции billing: платежи, �
     expect(await contact.confirm(buyer, { operationId: randomUUID(), challengeRef: start.challengeRef, code: codes.get(start.challengeRef) })).toMatchObject({ ok: true });
     const offerId = randomUUID(), optionId = randomUUID();
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.save",
-      value: { id: offerId, name: "Материалы и сопровождение", benefits: [...options.benefits ?? ["materials", "support"]] } }));
+      value: { id: offerId, name: "Материалы и сопровождение", benefits: [...options.benefits ?? ["materials", "support"]],
+        // Продаваемый тариф открывает только явный состав; разовое предложение продукта его не несёт.
+        ...(options.benefits?.some(benefit => benefit.startsWith("guide:")) === true ? {} : { contentScope: { guideIds: [guideId], materialIds: [] } }) } }));
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "paymentOptions.save",
       value: { id: optionId, offerId, months: 1, priceKopecks: options.priceKopecks ?? 100_000 } }));
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.publish", expectedRevision: 1, id: offerId }));
@@ -208,16 +210,16 @@ describe("владельческие операции billing: платежи, �
     expect(asClassification(await operations.execute(owner, classifyNew(buyer))).value)
       .toMatchObject({ classification: "confirmed_new", revision: 1, recurringAllowed: true });
 
-    async function consentFor(contextRef: string) {
-      const accepted = await contact.acceptConsents(buyer, { operationId: randomUUID(), contextRef,
-        documents: documents.map(document => ({ kind: document.kind, documentId: document.documentId, version: document.version, digest: document.digest, accepted: true })) });
+    async function consentFor(contextRef: string, renewal: RenewalSource, screen: "checkout" | "subscription-resume" = "checkout") {
+      const accepted = await contact.acceptConsents(buyer, pressedPaymentButton({ operationId: randomUUID(), contextRef,
+        documents: documents.map(document => ({ kind: document.kind, documentId: document.documentId, version: document.version, digest: document.digest, accepted: true })) }, renewal, screen));
       if (!accepted.ok) throw new Error(accepted.error.code);
       return accepted.evidenceRefs;
     }
     async function reserve() {
       const quote = value(await pricing.quote(buyer, { operationId: randomUUID(), paymentOptionId: optionId, optionRevision: 1 }));
       return value(await payments.purchase(buyer, { operationId: randomUUID(), quoteRef: quote.quoteRef, contactRevision: 1,
-        consentEvidenceRefs: await consentFor(quote.quoteRef), acknowledgeExistingAccess: false }));
+        consentEvidenceRefs: await consentFor(quote.quoteRef, { snapshot: quote.snapshot }), acknowledgeExistingAccess: false }));
     }
     async function buy() {
       const purchase = await reserve();
@@ -346,8 +348,8 @@ describe("владельческие операции billing: платежи, �
     const purchaseRef = await s.buy();
     const guideGrant = await s.lifetimeGuideGrant();
     const decided = asRefundDecision(await s.operations.execute(owner, { operation: "refunds.decide", operationId: randomUUID(), purchaseRef,
-      amountKopecks: 100_000, access: "keep", recurring: "cancel", reason: "Обращение в поддержку: полный возврат" })).value;
-    expect(decided).toMatchObject({ state: "decided", revision: 1, amountKopecks: 100_000, access: "keep", recurring: "cancel", attempt: null });
+      amountKopecks: 100_000, basis: "compensation", recurring: "cancel", reason: "Обращение в поддержку: полный возврат" })).value;
+    expect(decided).toMatchObject({ state: "decided", revision: 1, amountKopecks: 100_000, basis: "compensation", recurring: "cancel", attempt: null });
     const executed = asRefundDecision(await s.operations.execute(owner, { operation: "refunds.execute", operationId: randomUUID(),
       decisionRef: decided.decisionRef, expectedRevision: 1 })).value;
     expect(executed).toMatchObject({ state: "executed", revision: 3,
@@ -356,7 +358,7 @@ describe("владельческие операции billing: платежи, �
     expect(sent).toHaveLength(1);
     expect(sent[0]).toMatchObject({ externalRequestId: executed.attempt?.refundRef, amount: 100_000 });
     expect(sent[0]?.paymentId).toBe(await paymentIdOf(purchaseRef));
-    // Возврат денег не отзывает доступ: это отдельное решение владельца.
+    // Компенсация без отказа от договора доступ не отзывает.
     value(await s.payments.recover());
     expect(await s.capabilities()).toEqual(["community", `guide:${s.guideId}`, "materials", "support"]);
     expect(await db.prisma.accessGrant.findUniqueOrThrow({ where: { id: guideGrant } })).toMatchObject({ revokedAt: null, validUntil: null });
@@ -364,8 +366,13 @@ describe("владельческие операции billing: платежи, �
     const totals = asRefunds(await s.operations.execute(owner, { operation: "refunds.read", operationId: randomUUID(), purchaseRef }));
     expect(totals).toMatchObject({ refundedKopecks: 100_000, refundableKopecks: 0 });
     expect(totals.decisions).toHaveLength(1);
+    // Основание решает доступ: база не принимает расхождения, а решение без основания читается как есть.
+    await expect(db.prisma.billingRefundDecision.update({ where: { id: decided.decisionRef }, data: { access: "revoke" } })).rejects.toThrow();
+    await db.prisma.billingRefundDecision.update({ where: { id: decided.decisionRef }, data: { basis: null } });
+    expect(asRefunds(await s.operations.execute(owner, { operation: "refunds.read", operationId: randomUUID(), purchaseRef })).decisions)
+      .toMatchObject([{ decisionRef: decided.decisionRef, basis: null, access: "keep" }]);
     expect(failure(await s.operations.execute(owner, { operation: "refunds.decide", operationId: randomUUID(), purchaseRef,
-      amountKopecks: 100, access: "keep", recurring: "keep", reason: "Повторный возврат сверх суммы" }))).toBe("unsupported_amount");
+      amountKopecks: 100, basis: "compensation", recurring: "keep", reason: "Повторный возврат сверх суммы" }))).toBe("unsupported_amount");
     const audit = asPayment(await s.operations.execute(owner, { operation: "payments.read", operationId: randomUUID(), purchaseRef })).audit;
     // Каждая применённая команда сохранила исполнителя, основание и результат; секретов в них нет.
     expect(audit.map(entry => entry.operation)).toEqual(["refunds.decide", "refunds.execute"]);
@@ -379,7 +386,7 @@ describe("владельческие операции billing: платежи, �
     const s = await scenario();
     const purchaseRef = await s.buy();
     const decide = async (reason: string) => asRefundDecision(await s.operations.execute(owner, { operation: "refunds.decide",
-      operationId: randomUUID(), purchaseRef, amountKopecks: 100_000, access: "keep", recurring: "keep", reason })).value;
+      operationId: randomUUID(), purchaseRef, amountKopecks: 100_000, basis: "compensation", recurring: "keep", reason })).value;
     // Решение ничего не резервирует: сумма проверяется в момент отправки под замком платежа.
     const first = await decide("Первое решение о полном возврате");
     const second = await decide("Второе решение о том же платеже");
@@ -397,7 +404,7 @@ describe("владельческие операции billing: платежи, �
     const s = await scenario();
     const purchaseRef = await s.buy();
     const decided = asRefundDecision(await s.operations.execute(owner, { operation: "refunds.decide", operationId: randomUUID(), purchaseRef,
-      amountKopecks: 40_000, access: "keep", recurring: "keep", reason: "Частичный возврат за неиспользованный срок" })).value;
+      amountKopecks: 40_000, basis: "compensation", recurring: "keep", reason: "Частичный возврат за неиспользованный срок" })).value;
     s.bank.failCancel = true;
     const pending = asRefundDecision(await s.operations.execute(owner, { operation: "refunds.execute", operationId: randomUUID(),
       decisionRef: decided.decisionRef, expectedRevision: 1 })).value;
@@ -409,7 +416,7 @@ describe("владельческие операции billing: платежи, �
       decisionRef: decided.decisionRef, expectedRevision: 2 }))).toBe("refund_in_progress");
     // Незавершённая попытка одного решения закрывает отправку и по любому другому решению.
     const parallel = asRefundDecision(await s.operations.execute(owner, { operation: "refunds.decide", operationId: randomUUID(), purchaseRef,
-      amountKopecks: 10_000, access: "keep", recurring: "keep", reason: "Второе решение при незавершённой попытке" })).value;
+      amountKopecks: 10_000, basis: "compensation", recurring: "keep", reason: "Второе решение при незавершённой попытке" })).value;
     expect(failure(await s.operations.execute(owner, { operation: "refunds.execute", operationId: randomUUID(),
       decisionRef: parallel.decisionRef, expectedRevision: 1 }))).toBe("refund_in_progress");
     expect(await db.prisma.billingRefund.count({ where: { purchaseRef } })).toBe(1);
@@ -430,7 +437,7 @@ describe("владельческие операции billing: платежи, �
     const s = await scenario();
     const purchaseRef = await s.buy();
     const decided = asRefundDecision(await s.operations.execute(owner, { operation: "refunds.decide", operationId: randomUUID(), purchaseRef,
-      amountKopecks: 20_000, access: "keep", recurring: "keep", reason: "Возврат с потерей процесса" })).value;
+      amountKopecks: 20_000, basis: "compensation", recurring: "keep", reason: "Возврат с потерей процесса" })).value;
     s.bank.failCancel = true;
     asRefundDecision(await s.operations.execute(owner, { operation: "refunds.execute", operationId: randomUUID(),
       decisionRef: decided.decisionRef, expectedRevision: 1 }));
@@ -450,7 +457,7 @@ describe("владельческие операции billing: платежи, �
     const purchaseRef = await s.buy();
     const guideGrant = await s.lifetimeGuideGrant();
     const decided = asRefundDecision(await s.operations.execute(owner, { operation: "refunds.decide", operationId: randomUUID(), purchaseRef,
-      amountKopecks: 100_000, access: "revoke", recurring: "keep", reason: "Возврат с отзывом оплаченного доступа" })).value;
+      amountKopecks: 100_000, basis: "withdrawal", recurring: "keep", reason: "Возврат с отзывом оплаченного доступа" })).value;
     s.bank.cancelSucceeds = false;
     s.bank.cancelStatus = "REJECTED";
     const rejected = asRefundDecision(await s.operations.execute(owner, { operation: "refunds.execute", operationId: randomUUID(),
@@ -464,7 +471,7 @@ describe("владельческие операции billing: платежи, �
     s.bank.cancelSucceeds = true;
     s.bank.cancelStatus = "REFUNDED";
     const second = asRefundDecision(await s.operations.execute(owner, { operation: "refunds.decide", operationId: randomUUID(), purchaseRef,
-      amountKopecks: 100_000, access: "revoke", recurring: "keep", reason: "Возврат подтверждён после исправления" })).value;
+      amountKopecks: 100_000, basis: "withdrawal", recurring: "keep", reason: "Возврат подтверждён после исправления" })).value;
     expect(asRefundDecision(await s.operations.execute(owner, { operation: "refunds.execute", operationId: randomUUID(),
       decisionRef: second.decisionRef, expectedRevision: 1 })).value).toMatchObject({ state: "executed" });
     value(await s.payments.recover());
@@ -484,16 +491,16 @@ describe("владельческие операции billing: платежи, �
     const purchaseRef = await s.buy();
     for (const amountKopecks of [0, -100, 1.5]) {
       expect(failure(await s.operations.execute(owner, { operation: "refunds.decide", operationId: randomUUID(), purchaseRef,
-        amountKopecks, access: "keep", recurring: "keep", reason: "Недопустимая сумма" }))).toBe("invalid_request");
+        amountKopecks, basis: "compensation", recurring: "keep", reason: "Недопустимая сумма" }))).toBe("invalid_request");
     }
     expect(failure(await s.operations.execute(owner, { operation: "refunds.decide", operationId: randomUUID(), purchaseRef,
-      amountKopecks: 100_001, access: "keep", recurring: "keep", reason: "Больше оплаченного" }))).toBe("unsupported_amount");
+      amountKopecks: 100_001, basis: "compensation", recurring: "keep", reason: "Больше оплаченного" }))).toBe("unsupported_amount");
     expect(failure(await s.operations.execute(owner, { operation: "refunds.decide", operationId: randomUUID(), purchaseRef: randomUUID(),
-      amountKopecks: 1_000, access: "keep", recurring: "keep", reason: "Неизвестный платёж" }))).toBe("not_found");
+      amountKopecks: 1_000, basis: "compensation", recurring: "keep", reason: "Неизвестный платёж" }))).toBe("not_found");
     const other = await scenario();
     const prepared = await other.reserve();
     expect(failure(await other.operations.execute(owner, { operation: "refunds.decide", operationId: randomUUID(), purchaseRef: prepared.purchaseRef,
-      amountKopecks: 1_000, access: "keep", recurring: "keep", reason: "Платёж ещё не подтверждён" }))).toBe("state_conflict");
+      amountKopecks: 1_000, basis: "compensation", recurring: "keep", reason: "Платёж ещё не подтверждён" }))).toBe("state_conflict");
     // Одни полномочия для admin и MCP: и то и другое проходит через этот фасет.
     // platform:admin владельца включает billing:manage, поэтому прежний доступ сохраняется.
     expect(asPayments(await s.operations.execute(administrator, { operation: "payments.list", operationId: randomUUID() })).items.length)
@@ -511,11 +518,11 @@ describe("владельческие операции billing: платежи, �
     const s = await scenario();
     const purchaseRef = await s.buy();
     const command = { operation: "refunds.decide", operationId: randomUUID(), purchaseRef,
-      amountKopecks: 30_000, access: "keep", recurring: "keep", reason: "Повторяемое решение" } as const;
+      amountKopecks: 30_000, basis: "compensation", recurring: "keep", reason: "Повторяемое решение" } as const;
     const first = asRefundDecision(await s.operations.execute(owner, command)).value;
     // Порядок ключей не меняет отпечаток: та же нагрузка узнаётся.
     const repeated = asRefundDecision(await s.operations.execute(owner, { reason: command.reason, recurring: command.recurring,
-      access: command.access, amountKopecks: command.amountKopecks, purchaseRef, operationId: command.operationId,
+      basis: command.basis, amountKopecks: command.amountKopecks, purchaseRef, operationId: command.operationId,
       operation: "refunds.decide" })).value;
     expect(repeated.decisionRef).toBe(first.decisionRef);
     expect(await db.prisma.billingRefundDecision.count({ where: { purchaseRef } })).toBe(1);
@@ -539,7 +546,7 @@ describe("владельческие операции billing: платежи, �
       rows: [{ rowKey: "support", accountId: s.buyer, source: "manual", sourceRef: supportRef,
         terms: { capabilities: ["support"], startsAt: "2030-03-01T00:00:00Z", validUntil: "2030-05-01T00:00:00Z", reason: "Ручное сопровождение" } },
       { rowKey: "unknown", accountId: randomUUID(), source: "manual", sourceRef: `unknown-${randomUUID()}`,
-        terms: { capabilities: ["materials"], startsAt: "2030-03-01T00:00:00Z", validUntil: null, reason: "Неизвестный Account" } }] }));
+        terms: { capabilities: ["support"], startsAt: "2030-03-01T00:00:00Z", validUntil: null, reason: "Неизвестный Account" } }] }));
     expect(preview.rows.map(row => row.status)).toEqual(["confirmed", "not_found"]);
     // Предпросмотр ничего не выдаёт.
     expect(await s.capabilities()).toEqual(["community", `guide:${s.guideId}`]);
@@ -574,7 +581,7 @@ describe("владельческие операции billing: платежи, �
   test("21 a quote accepted before unpublish cannot start a new purchase afterward", async () => {
     const s = await scenario();
     const quote = value(await pricing.quote(s.buyer, { operationId: randomUUID(), paymentOptionId: s.optionId, optionRevision: 1 }));
-    const consentEvidenceRefs = await s.consentFor(quote.quoteRef);
+    const consentEvidenceRefs = await s.consentFor(quote.quoteRef, { snapshot: quote.snapshot });
     asCatalog(await s.operations.execute(owner, { operation: "offers.unpublish", operationId: randomUUID(), id: s.offerId, expectedRevision: 2 }));
     expect(await s.payments.purchase(s.buyer, { operationId: randomUUID(), quoteRef: quote.quoteRef, contactRevision: 1,
       consentEvidenceRefs, acknowledgeExistingAccess: false })).toMatchObject({ ok: false });
@@ -612,9 +619,46 @@ describe("владельческие операции billing: платежи, �
     expect(restored.value).toEqual({ id: s.offerId, revision: 4, archived: false, published: true });
     const withdrawn = asCatalog(await s.operations.execute(owner, { operation: "offers.archive", operationId: randomUUID(),
       id: s.offerId, expectedRevision: 4 }));
-    expect(withdrawn.value).toEqual({ id: s.offerId, revision: 5, archived: true, published: true });
+    // Архив окончателен: он снимает продажу, и ни сохранение, ни включение не возвращают тариф.
+    expect(withdrawn.value).toEqual({ id: s.offerId, revision: 5, archived: true, published: false });
+    expect(failure(await s.operations.execute(owner, { operation: "offers.save", operationId: randomUUID(), expectedRevision: 5,
+      value: { id: s.offerId, name: "Материалы и сопровождение", benefits: ["materials", "support"], contentScope: { guideIds: [s.guideId], materialIds: [] } } }))).toBe("not_found");
+    expect(failure(await s.operations.execute(owner, { operation: "offers.publish", operationId: randomUUID(),
+      id: s.offerId, expectedRevision: 5 }))).toBe("not_found");
+    expect(await db.prisma.billingOffer.findUniqueOrThrow({ where: { id: s.offerId } })).toMatchObject({ revision: 5, archived: true, published: false });
     const detail = asPayment(await s.operations.execute(owner, { operation: "payments.read", operationId: randomUUID(), purchaseRef }));
     expect(detail.value.snapshot.offer).toMatchObject({ id: s.offerId, revision: 2, archived: false });
     expect(value(await s.subscriptions.read(s.buyer)).subscription).toMatchObject({ state: "active", snapshot: { offer: { revision: 2, archived: false } } });
+  });
+
+  test("тариф без состава или с отдельным материалом не назначается, а стартовый тариф назначается сразу", async () => {
+    const s = await scenario();
+    const recipient = await account();
+    expect(failure(await s.operations.execute(owner, { operation: "offers.save", operationId: randomUUID(),
+      value: { id: randomUUID(), name: "Пустой тариф", benefits: ["materials", "community"], availableForAssignment: true, contentScope: { guideIds: [], materialIds: [] } } }))).toBe("invalid_request");
+    // Состав, потерянный в обход каталога, тариф не назначает и к правилу активации не привязывает.
+    const course = asCatalog(await s.operations.execute(owner, { operation: "offers.save", operationId: randomUUID(),
+      value: { id: randomUUID(), name: "Курс", benefits: ["materials", "community", "support"], availableForAssignment: true, contentScope: { guideIds: [s.guideId], materialIds: [] } } }));
+    await db.prisma.billingOffer.update({ where: { id: course.value.id }, data: { contentScope: { guideIds: [], materialIds: [] } } });
+    const terms = { startsAt: now.toISOString(), endsAt: null, endPolicy: "fixed" };
+    const assign = (tierId: string, tierRevision: number, reason: string) => s.operations.execute(owner, { operation: "enrollments.assign", operationId: randomUUID(),
+      accountId: recipient, tierId, tierRevision, origin: "manual", sourceRef: randomUUID(), terms, billingRef: null, reason });
+    expect(failure(await assign(course.value.id, course.value.revision, "Назначение без состава"))).toBe("state_conflict");
+    expect(failure(await s.operations.execute(owner, { operation: "activationRules.save", operationId: randomUUID(), reason: "Правило без состава",
+      value: { id: randomUUID(), code: randomUUID(), name: "Курс", tierId: course.value.id, tierRevision: course.value.revision, sourceRef: `course:${randomUUID()}`, published: true, startsAt: now.toISOString(), endsAt: null } }))).toBe("state_conflict");
+    // Отдельный материал, записанный в состав в обход каталога, тариф тоже не назначает.
+    await db.prisma.billingOffer.update({ where: { id: course.value.id }, data: { contentScope: { guideIds: [s.guideId], materialIds: [randomUUID()] } } });
+    expect(failure(await assign(course.value.id, course.value.revision, "Назначение с отдельным материалом"))).toBe("state_conflict");
+    expect(await db.prisma.subscriptionEnrollment.count({ where: { accountId: recipient } })).toBe(0);
+    expect(await db.prisma.accessGrant.count({ where: { accountId: recipient } })).toBe(0);
+    // Стартовый тариф (миграции 0063 и 0068) открывает все продукты платформы, включая новые, даёт
+    // сопровождение и общую группу и назначается без шага выпуска.
+    const starter = await db.prisma.billingOffer.findUniqueOrThrow({ where: { id: "62000000-0000-4000-8000-000000000624" } });
+    expect(starter).toMatchObject({ availableForAssignment: true, revision: 1, benefits: ["community", "materials", "support"],
+      contentScope: { guideIds: [], materialIds: [], allGuides: true } });
+    expect(success(await assign(starter.id, starter.revision, "Назначение стартового тарифа"))).toMatchObject({ outcome: "enrollment" });
+    const issued = await db.prisma.accessGrant.findMany({ where: { accountId: recipient } });
+    expect(issued.flatMap(grant => grant.capabilities).sort()).toEqual(["community", "materials", "support"]);
+    expect(issued[0]?.contentScope).toEqual({ guideIds: [], materialIds: [], allGuides: true });
   });
 });

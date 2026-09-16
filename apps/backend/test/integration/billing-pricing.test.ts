@@ -33,7 +33,7 @@ describe("Billing catalog, quotes and reservations on PostgreSQL", () => {
   afterAll(async () => { await second.$disconnect(); await database.dispose(); });
   async function catalog(priceKopecks = 200_000, months = 3) {
     const offerId = randomUUID(); const optionId = randomUUID();
-    value(await billing.manage(owner, { operation: "offers.save", operationId: randomUUID(), value: { id: offerId, name: "Материалы", benefits: ["materials"] } }));
+    value(await billing.manage(owner, { operation: "offers.save", operationId: randomUUID(), value: { id: offerId, name: "Материалы", benefits: ["materials"], contentScope: { guideIds: [randomUUID()], materialIds: [] } } }));
     value(await billing.manage(owner, { operation: "paymentOptions.save", operationId: randomUUID(), value: { id: optionId, offerId, months, priceKopecks } }));
     value(await billing.manage(owner, { operation: "offers.publish", operationId: randomUUID(), expectedRevision: 1, id: offerId }));
     return { offerId, optionId };
@@ -172,7 +172,7 @@ describe("Billing catalog, quotes and reservations on PostgreSQL", () => {
     // Процесс без терминала или адреса для чека не включает в продажу ничего, даже разовый вариант.
     const unconfigured = new BillingPricing({ prisma: database.prisma, accounts, clock: () => now, sale: { payments: false, subscriptions: false } });
     const unsold = randomUUID(), unsoldCapability = `guide:${randomUUID()}`;
-    value(await unconfigured.manage(owner, { operation: "offers.save", operationId: randomUUID(), value: { id: unsold, name: "Руководство", benefits: [unsoldCapability], benefitPeriods: [{ capability: unsoldCapability, months: null }] } }));
+    value(await unconfigured.manage(owner, { operation: "offers.save", operationId: randomUUID(), value: { id: unsold, name: "Руководство", benefits: [unsoldCapability, "support"], benefitPeriods: [{ capability: unsoldCapability, months: null }, { capability: "support", months: 6 }] } }));
     value(await unconfigured.manage(owner, { operation: "paymentOptions.save", operationId: randomUUID(), value: { id: randomUUID(), offerId: unsold, mode: "one_time", months: 1, priceKopecks: 100_000 } }));
     expect(await unconfigured.manage(owner, { operation: "offers.publish", operationId: randomUUID(), expectedRevision: 1, id: unsold }))
       .toMatchObject({ ok: false, error: { code: "method_unavailable" } });
@@ -183,14 +183,14 @@ describe("Billing catalog, quotes and reservations on PostgreSQL", () => {
       operation: "paymentOptions.save", operationId: randomUUID(), value: { id, offerId, mode, months: 1, priceKopecks: 100_000 } });
 
     const subscription = randomUUID();
-    value(await allMethods.manage(owner, { operation: "offers.save", operationId: randomUUID(), value: { id: subscription, name: "Материалы", benefits: ["materials"] } }));
+    value(await allMethods.manage(owner, { operation: "offers.save", operationId: randomUUID(), value: { id: subscription, name: "Материалы", benefits: ["materials"], contentScope: { guideIds: [randomUUID()], materialIds: [] } } }));
     value(await save(subscription, "subscription"));
     expect(await allMethods.manage(owner, { operation: "offers.publish", operationId: randomUUID(), expectedRevision: 1, id: subscription }))
       .toMatchObject({ ok: false, error: { code: "method_unavailable" } });
     expect(await onSale("subscription")).not.toContain(subscription);
 
     const guide = randomUUID(), capability = `guide:${randomUUID()}`;
-    value(await allMethods.manage(owner, { operation: "offers.save", operationId: randomUUID(), value: { id: guide, name: "Руководство", benefits: [capability], benefitPeriods: [{ capability, months: null }] } }));
+    value(await allMethods.manage(owner, { operation: "offers.save", operationId: randomUUID(), value: { id: guide, name: "Руководство", benefits: [capability, "support"], benefitPeriods: [{ capability, months: null }, { capability: "support", months: 6 }] } }));
     value(await save(guide, "one_time"));
     expect(value(await allMethods.manage(owner, { operation: "offers.publish", operationId: randomUUID(), expectedRevision: 1, id: guide }))).toMatchObject({ published: true });
     expect(await onSale("one_time")).toContain(guide);
@@ -237,6 +237,74 @@ describe("Billing catalog, quotes and reservations on PostgreSQL", () => {
     } finally { await admin.end(); }
   });
 });
+/**
+ * Признак «подписка продаётся» читается по всему каталогу, поэтому у него своя база: соседние
+ * проверки файла заводят продаваемые варианты и сделали бы ответ заранее известным.
+ */
+describe("признак продажи подписки на собственном каталоге", () => {
+  let database: TestDatabase;
+  let billing: BillingPricing;
+  const owner = randomUUID();
+  const now = new Date("2026-09-08T12:00:00Z");
+  beforeAll(async () => {
+    database = await createMigratedTestDatabase();
+    await database.prisma.account.create({ data: { id: owner, logtoIssuer: "https://identity.invalid", logtoSubject: owner } });
+    await database.prisma.accountPermission.create({ data: { accountId: owner, permission: "billing:manage" } });
+    billing = new BillingPricing({ prisma: database.prisma, accounts: assembleAccounts({ prisma: database.prisma, emailFingerprintKey: "billing-sale-key-0000000000000000000" }), clock: () => now,
+      sale: { payments: true, subscriptions: true } });
+  });
+  afterAll(async () => { await database.dispose(); });
+  async function offer(input: { readonly benefits: readonly string[]; readonly mode: "subscription" | "one_time"; readonly contentScope?: { guideIds: string[]; materialIds: string[] };
+    readonly benefitPeriods?: { capability: string; months: number | null }[] }) {
+    const offerId = randomUUID(); const optionId = randomUUID();
+    value(await billing.manage(owner, { operation: "offers.save", operationId: randomUUID(), value: { id: offerId, name: "Предложение", benefits: [...input.benefits],
+      ...(input.contentScope === undefined ? {} : { contentScope: input.contentScope }),
+      ...(input.benefitPeriods === undefined ? {} : { benefitPeriods: input.benefitPeriods }) } }));
+    value(await billing.manage(owner, { operation: "paymentOptions.save", operationId: randomUUID(), value: { id: optionId, offerId, mode: input.mode, months: 1, priceKopecks: 100_000 } }));
+    return { offerId, optionId, publish: () => billing.manage(owner, { operation: "offers.publish", operationId: randomUUID(), expectedRevision: 1, id: offerId }) };
+  }
+
+  test("разовое предложение продукта и тариф без состава не делают подписку продаваемой", async () => {
+    const guide = randomUUID();
+    expect(await billing.hasOffersForSale()).toBe(false);
+    // Продаётся только продукт: призыв к подписке не должен появиться нигде.
+    const product = await offer({ benefits: [`guide:${guide}`, "support"], mode: "one_time", benefitPeriods: [{ capability: "support", months: 6 }] });
+    value(await product.publish());
+    expect(await billing.hasOffersForSale()).toBe(false);
+    // Тариф без состава открыл бы пустоту: каталог не включает его в продажу.
+    const empty = await offer({ benefits: ["materials"], mode: "subscription" });
+    expect(await empty.publish()).toMatchObject({ ok: false, error: { code: "invalid_request" } });
+    const explicitlyEmpty = await offer({ benefits: ["materials", "community"], mode: "subscription", contentScope: { guideIds: [], materialIds: [] } });
+    expect(await explicitlyEmpty.publish()).toMatchObject({ ok: false, error: { code: "invalid_request" } });
+    // Строка, включённая в продажу в обход каталога, не продаётся и не включает признак.
+    await database.prisma.billingOffer.update({ where: { id: empty.offerId }, data: { published: true } });
+    expect(await billing.hasOffersForSale()).toBe(false);
+    expect(await billing.quote(randomUUID(), { operationId: randomUUID(), paymentOptionId: empty.optionId, optionRevision: 1 })).toMatchObject({ error: { code: "not_found" } });
+    expect(value(await billing.offers({ mode: "subscription" })).items).toEqual([]);
+    // Подписка с явным составом продаётся, и только она включает признак.
+    const sold = await offer({ benefits: ["materials"], mode: "subscription", contentScope: { guideIds: [guide], materialIds: [] } });
+    value(await sold.publish());
+    expect(await billing.hasOffersForSale()).toBe(true);
+    expect(value(await billing.offers({ mode: "subscription" })).items.map(item => item.offer.id)).toEqual([sold.offerId]);
+  });
+
+  test("предложение не выдаёт ревью и не открывает отдельный материал", async () => {
+    const guide = randomUUID();
+    const save = (benefits: readonly string[], contentScope?: { guideIds: string[]; materialIds: string[] }) => billing.manage(owner, { operation: "offers.save",
+      operationId: randomUUID(), value: { id: randomUUID(), name: "Запрещённый состав", benefits: [...benefits], ...(contentScope === undefined ? {} : { contentScope }) } });
+    // Ревью не выдаёт ни покупка, ни тариф.
+    expect(await save([`guide:${guide}`, "reviews"])).toMatchObject({ ok: false, error: { code: "invalid_request" } });
+    expect(await save(["materials", "reviews"], { guideIds: [guide], materialIds: [] })).toMatchObject({ ok: false, error: { code: "invalid_request" } });
+    // Состав называет только продукты: отдельный материал в тариф не входит.
+    expect(await save(["materials", "community"], { guideIds: [guide], materialIds: [randomUUID()] })).toMatchObject({ ok: false, error: { code: "invalid_request" } });
+    // Строка, записанная в обход каталога, с ревью не продаётся.
+    const sold = await offer({ benefits: ["materials"], mode: "subscription", contentScope: { guideIds: [guide], materialIds: [] } });
+    value(await sold.publish());
+    await database.prisma.billingOffer.update({ where: { id: sold.offerId }, data: { benefits: ["materials", "reviews"] } });
+    expect(await billing.quote(randomUUID(), { operationId: randomUUID(), paymentOptionId: sold.optionId, optionRevision: 1 })).toMatchObject({ error: { code: "not_found" } });
+  });
+});
+
 function pick(command: { accountId: string; purchaseRef: string }) { return { accountId: command.accountId, purchaseRef: command.purchaseRef }; }
 
 function required<T>(input: T | undefined): T { if (input === undefined) throw new Error("Missing test fixture"); return input; }

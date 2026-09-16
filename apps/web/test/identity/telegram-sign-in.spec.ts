@@ -198,13 +198,31 @@ test("declined Telegram confirmation remains signed out and offers email", async
 const profileSchema = z.object({
   state: z.object({
     kind: z.literal("profile"),
-    profile: z.object({ publicProfileId: z.string(), displayName: z.string() }),
+    profile: z.object({ createdAt: z.string(), displayName: z.string() }),
   }),
 });
+/**
+ * Экран первого входа закрывает профиль, привязку и покупки, пока условия не приняты. Повторный
+ * вход того же аккаунта экран пропускает, поэтому шаг безопасно повторять.
+ */
+async function acceptTermsIfAsked(page: Page) {
+  const probe = await page.context().newPage();
+  try {
+    await probe.goto("/welcome?returnTo=%2F");
+    const accept = probe.getByRole("button", { name: "Принять условия и продолжить" });
+    if (new URL(probe.url()).pathname === "/welcome" && (await accept.count()) > 0) {
+      await accept.click();
+      await probe.waitForURL((url) => url.pathname !== "/welcome");
+    }
+  } finally {
+    await probe.close();
+  }
+}
 async function profileId(page: Page) {
+  await acceptTermsIfAsked(page);
   return profileSchema.parse(
     await (await page.request.get("/api/account/profile")).json(),
-  ).state.profile.publicProfileId;
+  ).state.profile.createdAt;
 }
 async function createProfile(page: Page) {
   const response = await page.request.post("/api/account/profile", {

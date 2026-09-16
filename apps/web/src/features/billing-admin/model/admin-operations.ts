@@ -88,7 +88,7 @@ export const decideRefundInputSchema = z.strictObject({
   operationId,
   purchaseRef: z.uuid(),
   amountKopecks: money,
-  access: z.enum(["keep", "revoke"]),
+  basis: z.enum(["withdrawal", "compensation"]),
   recurring: z.enum(["keep", "cancel"]),
   reason,
 });
@@ -219,6 +219,7 @@ export const refundDecisionViewSchema = z.object({
   accountId: z.uuid(),
   actorId: z.uuid(),
   amountKopecks: money,
+  basis: z.enum(["withdrawal", "compensation"]).nullable(),
   access: z.enum(["keep", "revoke"]),
   recurring: z.enum(["keep", "cancel"]),
   reason: z.string(),

@@ -37,8 +37,8 @@ describe("sale configuration at process start (real PostgreSQL)", () => {
   async function offer(mode: "subscription" | "one_time", options: { publish?: boolean; archiveOption?: boolean } = {}) {
     const offerId = randomUUID(), optionId = randomUUID(), capability = `guide:${randomUUID()}`;
     value(await pricing.manage(owner, { operation: "offers.save", operationId: randomUUID(), value: mode === "one_time"
-      ? { id: offerId, name: "Руководство", benefits: [capability], benefitPeriods: [{ capability, months: null }] }
-      : { id: offerId, name: "Материалы", benefits: ["materials"] } }));
+      ? { id: offerId, name: "Руководство", benefits: [capability, "support"], benefitPeriods: [{ capability, months: null }, { capability: "support", months: 6 }] }
+      : { id: offerId, name: "Материалы", benefits: ["materials"], contentScope: { guideIds: [randomUUID()], materialIds: [] } } }));
     value(await pricing.manage(owner, { operation: "paymentOptions.save", operationId: randomUUID(), value: { id: optionId, offerId, mode, months: 1, priceKopecks: 100_000 } }));
     if (options.archiveOption) value(await pricing.manage(owner, { operation: "paymentOptions.archive", operationId: randomUUID(), expectedRevision: 1, id: optionId }));
     if (options.publish ?? true) value(await pricing.manage(owner, { operation: "offers.publish", operationId: randomUUID(), expectedRevision: 1, id: offerId }));

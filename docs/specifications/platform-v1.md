@@ -62,10 +62,11 @@ consequences:
   из принятого evidence;
 - Identity Provider доказывает Logto Identity, но только Platform сопоставляет её с Account и
   решает permissions, Membership и content access;
-- private Account не является member-visible projection, а Member Profile не является
-  identity, Membership или authorization input;
-- Member Profile доступен только active members; anonymous visitor, non-member и crawler не
-  получают projection или sensitive Account/identity/link/evidence/security data;
+- Member Profile не является identity, Membership или authorization input и виден только
+  владельцу Account: member-visible projection, public route и выдача avatar другим Account
+  отсутствуют (#658);
+- до принятия действующей редакции условий использования Account не открывает кабинет, покупки
+  и связку с ботом; каждое принятие пишется в неизменяемый журнал принятия (#658);
 - PostgreSQL projections обеспечивают bounded Home, единый Library catalog, Topic/Series
   navigation и search; Reader не делает related request;
 - ReadingState не участвует в access decision и сохраняется при окончании Membership;
@@ -494,7 +495,7 @@ membership главу не восстанавливает.
 агентов или деплоя. По передаче #616 иллюстрация содержит пять сцен. Позднее владелец подтвердил
 замедление в 1,25 раза и повторение: полный цикл 24,25 секунды; вне экрана и в скрытой вкладке приостанавливается, reduced motion показывает сцену 5.
 Автор подтвердил закрытое сообщество, ответы на вопросы, видеоразборы и обновление материалов.
-Условия страницы повторяют оферту разовой покупки редакции 3 (Workspace #189, #650): материалы
+Условия страницы повторяют действующую оферту разовой покупки (редакция 4; Workspace #189, #200, #650, #658): материалы
 и сообщество — на 2 года гарантированно, без продлений и доплат, дальше без гарантии срока; помощь
 автора — 6 месяцев с покупки, личные встречи и обязательная проверка кода в неё не входят; общие
 разборы проводятся без обещанной частоты; у бонусных материалов срок появления не назначен, в покупку
@@ -652,28 +653,60 @@ redirect и cache policy остаются за backend.
    Owner read/create/edit/avatar change принимает trusted Account, mutation требует
    `expectedVersion`. Self-service export/delete и
    participant reporting не являются частью Profile interface.
-7. Member route `/members/<publicProfileId>` не образует directory/search и получает только
-   `publicProfileId + displayName + bio + opaque current avatarId` после current active Membership
-   check. Avatar rendition endpoint повторяет ту же Membership/Profile/current-avatar проверку и
-   только затем выдаёт краткоживущий protected presigned GET. Membership check относится к чужой
-   проекции: владелец профиля всегда получает собственный current avatar по настроенному TTL,
-   иначе owner-only Account composition не показала бы только что загруженный аватар. Replace/remove немедленно делает
-   старый Platform endpoint недоступным; уже выданный storage credential живёт только до своего
-   bounded TTL и намеренно не получает отдельный revocation path. Anonymous,
-   non-member, expired member, crawler, missing/disabled Profile получают одинаковый `404`
-   и `noindex`; email, AccountId, Logto/Telegram identifiers, permissions, evidence и security/audit
-   state не входят в projection.
-8. Manual owner release operation disable/restore скрывает projection и пишет redacted audit без
-   participant report queue или публичной admin surface. Owner-only Account composition отдельно
-   читает Profile и coarse Telegram/Membership presentation; ни один из contracts не расширяет
-   другой и partial private state не попадает в member projection.
+7. Profile виден только владельцу (решение владельца 15.09.2026, Workspace #185). В #658 удалены
+   member route, `GET member-profiles/:publicProfileId` и выдача avatar другим Account;
+   `publicProfileId` остаётся внутренним идентификатором owner moderation и audit и в API не
+   входит. Собственный avatar владелец читает через `GET account/profile/avatar/:avatarId/:size`:
+   endpoint проверяет Account владельца, активный Profile и current avatar и только затем выдаёт
+   краткоживущий protected presigned GET. Replace/remove немедленно делает старый Platform endpoint
+   недоступным; уже выданный storage credential живёт только до своего bounded TTL и намеренно не
+   получает отдельный revocation path. Другой Account, disabled Profile и прежний avatar получают
+   одинаковый `404`.
+8. Manual owner release operation disable/restore скрывает Profile и avatar и пишет redacted audit
+   без participant report queue или публичной admin surface. Owner-only Account composition
+   отдельно читает Profile и coarse Telegram/Membership presentation; ни один из contracts не
+   расширяет другой.
 9. `profile-avatars-worker` через собственную durable `pg-boss` queue после настраиваемого
    ProfileAvatar storage grace удаляет только tracked unreferenced renditions. Cleanup и concurrent avatar change
    сериализуются Account advisory lock; current или cross-Account resource сохраняется.
 
+### Первый вход, условия и журнал принятия
+
+Путь согласий A (Workspace #185, `product/legal/consents-unified-path.md`), поставка #658.
+
+1. Пока у Account нет записи о принятии действующей редакции `terms`, callback и серверные
+   маршруты кабинета и покупки ведут на `/welcome` с локальным `returnTo`. Экран принимает
+   условия кнопкой «Принять условия и продолжить» со строкой о принятии, о возрасте от 14 лет и
+   ссылками на условия и политику; отметок нет, подтверждённая почта не требуется. Новая редакция
+   условий снова открывает экран, прежнее принятие ничего не открывает.
+2. Nest закрывает кабинет, покупки и связку с ботом guard-ом `AcceptedTermsGuard`: контакт для
+   чеков и согласия при оплате, quote, purchase, управление подпиской и способом оплаты, Telegram
+   link и presentation, community admission, private Profile и avatar, собственные уведомления
+   отвечают `403 terms_acceptance_required`. Статус, принятие и список журнала
+   (`accounts/current/legal-acceptances`) доступны до принятия.
+3. Вход через Telegram создаёт или находит Account и получает подтверждение личности от бота, но
+   membership principal и статус связки `linked` появляются только после принятия. BFF принятия
+   повторно завершает связку, пока жив токен входа; иначе человек подключает Telegram в кабинете.
+4. Журнал принятия — append-only `accounts.legal_acceptances` (прежние billing consent evidence):
+   Account, вид, ключ, версия, digest и текст документа, постоянный адрес `/legal/<ключ>/v<номер>`,
+   экран (`first-sign-in`, `checkout`, `subscription-resume`), подпись нажатой кнопки, для подписки
+   и возобновления — показанные сумма, день следующего списания и период, время сервера. IP и user
+   agent не хранятся. Подпись кнопки первого входа ставит сервер Web. Показанные условия продления
+   записываются такими, какими их показала страница, и billing их не пересчитывает; согласие на
+   списания без них не принимается, а разовая покупка их не передаёт. Запись первого входа не читается
+   как согласие при оплате.
+5. Checkout принимает оферту кнопкой «Оплатить N ₽», подписку — «Оформить подписку и оплатить N ₽»,
+   со строкой о принятии и строкой о согласии законного представителя до 18 лет; список документов
+   покупки (#650) остаётся рядом. Возобновление — кнопка «Возобновить автопродление» со строкой
+   условий следующего списания. Раздел «Аккаунт» показывает блок «Принятые документы» с датой,
+   редакцией и подписью кнопки.
+6. Публичные страницы при первом посещении показывают уведомление о хранении в браузере со
+   ссылкой на `cookies`, без выбора. «Понятно» запоминает номер действующей редакции в
+   `localStorage` `inside.storage-notice.v1`; новая редакция показывает уведомление снова.
+
 ### Membership linking и projection
 
-1. После каждого email-code sign-in, пока Telegram не связан, Platform один раз за authenticated
+1. После каждого sign-in с принятыми условиями, пока Telegram не связан, Platform один раз за authenticated
    browser session открывает центрированное skippable onboarding-окно поверх текущей public
    surface. Первый begin CTA сразу открывает short-lived Telegram `/start`; после возврата browser
    автоматически вызывает confirm. Компактное окно остаётся открытым после успеха, чтобы показать
@@ -767,7 +800,11 @@ redirect и cache policy остаются за backend.
    transfer или `failed` означают, что файл нужно загрузить заново, и повтор проверки не
    предлагается. Кандидатом при открытии Material становится только неустановленный исход:
    установленный результат, Video в состоянии удаления и `external_attachment` не предлагаются,
-   потому что показанный автору результат остаётся его решением.
+   потому что показанный автору результат остаётся его решением. «Убрать» — такое же решение, даже
+   пока Kinescope обрабатывает файл: Save передаёт снятые Video в `detachVideoIds`, в той же
+   transaction Videos записывает `detached_at`, и снятая загрузка больше не становится кандидатом,
+   какой бы ответ сверки ни пришёл позже. Provider object при этом остаётся; удаление — отдельный
+   явный запрос.
 9. Webhook — durable hint: duplicate и out-of-order deliveries попадают в inbox, после чего Platform
    повторно читает provider state. Только `done` с безопасным returned embed locator становится
    `ready`; unknown status становится видимым failed state, а provider outage оставляет event для
@@ -842,7 +879,7 @@ Storybook и реальные маршруты используют один pro
 ### Security и privacy
 
 - protected paths fail closed; identity, Telegram и provider role не заменяют Platform authorization;
-- private Account и member-visible Member Profile используют разные projections; email,
+- Member Profile виден только владельцу и не имеет member или public projection; email,
   provider claims, internal/Telegram identifiers, link/evidence и security/audit state не
   публикуются;
 - cookie session использует `Secure`, `HttpOnly` и explicit `SameSite`; mutations проверяют CSRF и Origin;

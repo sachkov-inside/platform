@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { pressedPaymentButton } from "./setup/consent-documents.js";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { assembleAccounts, BillingContact } from "../../src/modules/accounts/index.js";
@@ -67,7 +68,8 @@ describe("one-time offer edition change (real PostgreSQL and real facets; synthe
     const capability = `guide:${randomUUID()}`;
     const offerId = randomUUID(), optionId = randomUUID();
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.save", value: {
-      id: offerId, name: "Руководство «Синтетика»", benefits: [capability], benefitPeriods: [{ capability, months: null }] } }));
+      id: offerId, name: "Руководство «Синтетика»", benefits: [capability, "support"],
+      benefitPeriods: [{ capability, months: null }, { capability: "support", months: 6 }] } }));
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "paymentOptions.save", value: {
       id: optionId, offerId, mode: "one_time", months: 1, priceKopecks: guidePrice } }));
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.publish", expectedRevision: 1, id: offerId }));
@@ -89,9 +91,9 @@ describe("one-time offer edition change (real PostgreSQL and real facets; synthe
     const paymentsOn = (contact: BillingContact) => new BillingPayments({ prisma: db.prisma, bank, contact, grants, clock: () => now });
     const confirmed = () => { const body = event("CONFIRMED"); return { ...body, Token: tbankToken(body, config.password) }; };
     const quote = async () => value(await pricing.quote(buyer, { operationId: randomUUID(), paymentOptionId: optionId, optionRevision: 1 })).quoteRef;
-    const accept = (contact: BillingContact, quoteRef: string, document: LegalDocument) => contact.acceptConsents(buyer, {
+    const accept = (contact: BillingContact, quoteRef: string, document: LegalDocument) => contact.acceptConsents(buyer, pressedPaymentButton({
       operationId: randomUUID(), contextRef: quoteRef,
-      documents: [{ kind: document.kind, documentId: document.documentId, version: document.version, digest: document.digest, accepted: true }] });
+      documents: [{ kind: document.kind, documentId: document.documentId, version: document.version, digest: document.digest, accepted: true }] }));
     const command = (quoteRef: string, consentEvidenceRefs: readonly string[]) => ({ operationId: randomUUID(), quoteRef,
       contactRevision: 1, consentEvidenceRefs: [...consentEvidenceRefs], acknowledgeExistingAccess: false });
     const acceptedVersions = async (purchaseRef: string) => acceptanceSchema.parse(
@@ -135,7 +137,7 @@ describe("one-time offer edition change (real PostgreSQL and real facets; synthe
     expect(value(await payments.status(s.buyer, purchase.purchaseRef))).toMatchObject({ state: "confirmed", access: "ready" });
     // Позднее подтверждение не переписывает принятую редакцию задним числом.
     expect(await s.acceptedVersions(purchase.purchaseRef)).toEqual(["purchase-v1"]);
-    const granted = await db.prisma.accessGrant.findMany({ where: { accountId: s.buyer } });
+    const granted = await db.prisma.accessGrant.findMany({ where: { accountId: s.buyer, capabilities: { has: s.capability } } });
     expect(granted.map(grant => grant.capabilities)).toEqual([[s.capability]]);
   });
 });

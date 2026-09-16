@@ -18,6 +18,10 @@ export class TelegramCommunityService {
     return this.httpRequest.request({
       method: 'GET',
       url: '/accounts/current/community-admission',
+      errors: {
+        403: `The terms of use in force are not accepted yet`,
+        500: `Terms acceptance could not be checked`,
+      },
     });
   }
   /**
@@ -63,6 +67,25 @@ export class TelegramCommunityService {
     return this.httpRequest.request({
       method: 'GET',
       url: '/community-entitlements/{accountId}',
+    });
+  }
+  /**
+   * List Accounts that Telegram still observes in the community chat without a current right
+   * @returns any
+   * @throws ApiError
+   */
+  public listCommunityMembersWithoutRight(): CancelablePromise<{
+    checkedAt: string;
+    items: Array<{
+      accountId: string;
+      observedAt: string;
+      telegramIdentityRef: string;
+    }>;
+    truncated: boolean;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/community-entitlements/members-without-right',
     });
   }
   /**

@@ -33,7 +33,7 @@ describe("Subscription Enrollment with real PostgreSQL", () => {
   const terms = { startsAt: "2030-01-01T00:00:00.000Z", endsAt: null, endPolicy: "fixed" };
   test("course repeat is one origin, revoke survives retries, restore retains identity and first start", async () => {
     const target = await customer();
-    const tier = { id: randomUUID(), revision: 1, name: "Материалы + сообщество", benefits: ["materials", "community"], contentScope: { guideIds: [randomUUID()], materialIds: [] } };
+    const tier = { id: randomUUID(), revision: 1, name: "Подписка Inside", benefits: ["materials", "community"], contentScope: { guideIds: [randomUUID()], materialIds: [] } };
     const command = { operationId: randomUUID(), accountId: target, origin: "course", sourceRef: `course:${target}`, tierId: tier.id, tierRevision: 1, terms, billingRef: null, reason: "Verified course" };
     const [a, b] = await Promise.all([grants.assignEnrollment(owner, command, tier), grants.assignEnrollment(owner, command, tier)]);
     expect(a).toEqual(b);

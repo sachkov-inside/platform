@@ -15,6 +15,7 @@ import {
 import { assemblePublishedMaterialReader } from "./facets/published-material-reader/assemble-published-material-reader.js";
 import type { PublishedMaterialReader } from "./facets/published-material-reader/published-material-reader.js";
 import type { AuthorPolicy } from "./ports/author-policy.js";
+import type { GuideAccessHolders } from "./ports/guide-access-holders.js";
 import type { Videos } from "../videos/index.js";
 import { materialBodyOperations } from "./infrastructure/tiptap/index.js";
 import type { WorkshopMaterialProtection } from "../workshop/index.js";
@@ -35,6 +36,7 @@ export function assembleMaterials(dependencies: {
     "inspectReferences" | "loadPresentations" | "markUnreferenced"
   >;
   readonly workshopMaterialProtection?: WorkshopMaterialProtection;
+  readonly guideAccessHolders?: GuideAccessHolders;
   readonly videos?: Pick<
     Videos,
     | "inspectPrimaryReference"
@@ -70,6 +72,9 @@ export function assembleMaterials(dependencies: {
       ? {}
       : { materialAssets: dependencies.materialAssets }),
     ...(dependencies.videos === undefined ? {} : { videos: dependencies.videos }),
+    ...(dependencies.guideAccessHolders === undefined
+      ? {}
+      : { guideAccessHolders: dependencies.guideAccessHolders }),
   };
   return Object.freeze({
     authoring: assembleMaterialAuthoring(shared),

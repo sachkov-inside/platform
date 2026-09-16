@@ -27,10 +27,8 @@ const meta = {
     selectedOptionId: null,
     changeQuote: null,
     resumeDocuments: legalDocuments,
-    resumeAccepted: [],
     onCancelRenewal: fn(),
     onResumeRenewal: fn(),
-    onToggleResumeDocument: fn(),
     onSelectOption: fn(),
     onQuoteChange: fn(),
     onConfirmChange: fn(),
@@ -66,18 +64,12 @@ export const Canceled: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByText("Списаний больше не будет")).toBeInTheDocument();
+    await expect(canvas.queryByRole("checkbox")).not.toBeInTheDocument();
     await expect(
-      canvas.getByRole("button", { name: "Возобновить списания" }),
-    ).toBeDisabled();
-  },
-};
-
-export const ResumeConsented: Story = {
-  args: { subscription: canceledSubscription, resumeAccepted: ["recurring"] },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
+      canvas.getByText(/следующее списание .+, затем раз в .+\. Отключить продление можно здесь же\./u),
+    ).toBeInTheDocument();
     await expect(
-      canvas.getByRole("button", { name: "Возобновить списания" }),
+      canvas.getByRole("button", { name: "Возобновить автопродление" }),
     ).toBeEnabled();
   },
 };

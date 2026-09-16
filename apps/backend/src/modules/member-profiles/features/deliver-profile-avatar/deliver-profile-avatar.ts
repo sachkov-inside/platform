@@ -1,33 +1,33 @@
 import type { ObjectStorage } from "../../../../infrastructure/object-storage/index.js";
 import type { AccountId } from "../../../accounts/index.js";
-import type { MembershipEntitlements } from "../../../membership-entitlements/index.js";
 import { parseProfileAvatarId } from "../../domain/profile-avatar-id.js";
-import { parsePublicProfileId } from "../../domain/public-profile-id.js";
 import type { DeliverProfileAvatarResult } from "../../facets/member-profiles/member-profiles.interface.js";
 import type { MemberProfilePersistenceClient } from "../../infrastructure/prisma.js";
 
+/**
+ * A Profile is seen only by its owner (owner decision 15.09.2026, Workspace #185), so the avatar
+ * rendition is signed only for the Account that owns the Profile. There is no member or public
+ * branch: another Account gets the same not-found answer as a missing avatar.
+ */
 export async function deliverProfileAvatar(
   dependencies: {
-    readonly membershipEntitlements: Pick<MembershipEntitlements, "resolveForAccess">;
     readonly objectStorage: ObjectStorage;
     readonly prisma: MemberProfilePersistenceClient;
     readonly signedGetTtlSeconds: number;
   },
   input: {
+    readonly accountId: AccountId;
     readonly avatarId: string;
-    readonly publicProfileId: string;
     readonly size: 160 | 320 | 640;
-    readonly viewerAccountId: AccountId;
   },
 ): Promise<DeliverProfileAvatarResult> {
   const avatarId = parseProfileAvatarId(input.avatarId);
-  const publicProfileId = parsePublicProfileId(input.publicProfileId);
-  if (avatarId === undefined || publicProfileId === undefined) return notFound();
+  if (avatarId === undefined) return notFound();
 
   try {
     const profile = await dependencies.prisma.memberProfile.findUnique({
-      where: { publicProfileId },
-      select: { accountId: true, avatarId: true, status: true },
+      where: { accountId: input.accountId },
+      select: { avatarId: true, status: true },
     });
     if (
       profile === null ||
@@ -36,22 +36,13 @@ export async function deliverProfileAvatar(
     ) {
       return notFound();
     }
-    /**
-     * Членство решает доступ к чужой проекции участника. Свой собственный аватар владелец
-     * профиля видит всегда: владельческая поверхность Account не расширяется этой проверкой.
-     */
-    const ttlSeconds =
-      profile.accountId === input.viewerAccountId
-        ? dependencies.signedGetTtlSeconds
-        : await viewerTtlSeconds(dependencies, input.viewerAccountId);
-    if (ttlSeconds === null) return notFound();
     const rendition = await dependencies.prisma.profileAvatarRendition.findUnique({
       where: { avatarId_size: { avatarId, size: input.size } },
       include: { avatar: { select: { accountId: true, state: true } } },
     });
     if (
       rendition === null ||
-      rendition.avatar.accountId !== profile.accountId ||
+      rendition.avatar.accountId !== input.accountId ||
       rendition.avatar.state !== "ready"
     ) {
       return notFound();
@@ -60,45 +51,12 @@ export async function deliverProfileAvatar(
       contentType: "image/webp",
       key: rendition.protectedObjectKey,
       namespace: "protected",
-      ttlSeconds,
+      ttlSeconds: dependencies.signedGetTtlSeconds,
     });
     return { location, ok: true };
   } catch {
     return { error: { code: "dependency_unavailable" }, ok: false };
   }
-}
-
-/** Чужая проекция открыта только действующему участнику и не переживает его срок. */
-async function viewerTtlSeconds(
-  dependencies: {
-    readonly membershipEntitlements: Pick<MembershipEntitlements, "resolveForAccess">;
-    readonly signedGetTtlSeconds: number;
-  },
-  viewerAccountId: AccountId,
-): Promise<number | null> {
-  const membership = await dependencies.membershipEntitlements.resolveForAccess(
-    viewerAccountId,
-  );
-  if (membership.kind !== "active") return null;
-  return remainingMembershipTtlSeconds(
-    dependencies.signedGetTtlSeconds,
-    membership.validUntil,
-  );
-}
-
-function remainingMembershipTtlSeconds(
-  configuredTtlSeconds: number,
-  validUntil: string | null,
-): number | null {
-  if (validUntil === null) return configuredTtlSeconds;
-  const remainingWholeSeconds = Math.floor(
-    (Date.parse(validUntil) - Date.now()) / 1_000,
-  );
-  const boundedTtlSeconds = Math.min(
-    configuredTtlSeconds,
-    remainingWholeSeconds - 1,
-  );
-  return boundedTtlSeconds >= 1 ? boundedTtlSeconds : null;
 }
 
 function notFound(): DeliverProfileAvatarResult {

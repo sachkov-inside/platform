@@ -517,10 +517,10 @@ test("отмена продления меняет раздел «Подписк
   await stubRenewal(other);
   await other.goto("/account/subscription");
   await other.getByRole("button", { name: "Отменить продление" }).click();
-  await expect(other.getByRole("button", { name: "Возобновить списания" })).toBeVisible();
+  await expect(other.getByRole("button", { name: "Возобновить автопродление" })).toBeVisible();
 
   // Первый раздел не должен предлагать отменить уже отменённое продление.
-  await expect(page.getByRole("button", { name: "Возобновить списания" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Возобновить автопродление" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Отменить продление" })).toHaveCount(0);
 });
 
@@ -625,7 +625,7 @@ test("без объявлений записавшая поверхность о
   await subscription.goto("/account/subscription");
   await subscription.getByRole("button", { name: "Отменить продление" }).click();
   await expect(
-    subscription.getByRole("button", { name: "Возобновить списания" }),
+    subscription.getByRole("button", { name: "Возобновить автопродление" }),
   ).toBeVisible();
 
   const notifications = await context.newPage();

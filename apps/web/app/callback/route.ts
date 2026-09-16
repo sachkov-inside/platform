@@ -2,6 +2,8 @@ import { getAccessToken } from "@logto/next/server-actions";
 import { NextResponse } from "next/server";
 
 import { AudienceBoundLogtoClient } from "@/shared/auth/audience-bound-logto-client.server";
+import { readTermsGate } from "@/features/terms-acceptance.server";
+import { welcomePath } from "@/features/terms-acceptance";
 import { completePlatformSignIn } from "@/shared/auth/complete-platform-sign-in.server";
 import {
   clearLogtoSessionCookie,
@@ -19,18 +21,23 @@ export async function GET(request: Request): Promise<Response> {
     const postRedirectUri = await client.handleSignInCallback(
       providerCallbackUrl(request.url, config.baseUrl),
     );
-    const outcome = await completePlatformSignIn(
-      // The pinned SDK stores the authorization-code token under its default cache key even when
-      // the exchange is audience-bound. Read that exact fresh token before later resource refreshes.
-      await getAccessToken(config),
-    );
-    return outcome === "retryable"
-      ? localRedirect(config.baseUrl, "retryable")
-      : localRedirect(
-          config.baseUrl,
-          undefined,
-          safePostSignInReturnUri(postRedirectUri, config.baseUrl),
-        );
+    // The pinned SDK stores the authorization-code token under its default cache key even when
+    // the exchange is audience-bound. Read that exact fresh token before later resource refreshes.
+    const accessToken = await getAccessToken(config);
+    const outcome = await completePlatformSignIn(accessToken);
+    if (outcome === "retryable") return localRedirect(config.baseUrl, "retryable");
+    const returnUri = safePostSignInReturnUri(postRedirectUri, config.baseUrl);
+    // Until the terms of use in force are accepted, every sign-in lands on the first sign-in screen.
+    const gate = await readTermsGate(accessToken);
+    if (gate.kind === "required") {
+      const target = returnUri === undefined ? "/" : new URL(returnUri);
+      return localRedirect(
+        config.baseUrl,
+        undefined,
+        welcomePath(typeof target === "string" ? target : `${target.pathname}${target.search}`),
+      );
+    }
+    return localRedirect(config.baseUrl, undefined, returnUri);
   } catch {
     await clearLogtoSessionCookie(config);
     return localRedirect(config.baseUrl, "failed");

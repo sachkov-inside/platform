@@ -13,7 +13,6 @@ const profile = {
   bio: "Развиваю инженерные команды.",
   createdAt: "2026-08-30T10:00:00.000Z",
   displayName: "Кирилл Сачков",
-  publicProfileId: "5d34da22-548e-4b02-b6e8-9c918ad536ef",
   status: "active",
   updatedAt: "2026-08-30T10:00:00.000Z",
   version: 3,

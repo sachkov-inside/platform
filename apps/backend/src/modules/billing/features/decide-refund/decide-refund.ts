@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { BillingPrisma, BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
-import { ownerFailure, type OwnerOperation, type OwnerResult } from "../../domain/owner-operations.js";
+import { ownerFailure, refundAccessFor, type OwnerOperation, type OwnerResult } from "../../domain/owner-operations.js";
 import { lockPurchase } from "../../infrastructure/postgres/catalog-lock.js";
 import { refundTotals } from "../../shared/refund-amounts.js";
 import { refundDecisionViews } from "../read-payments/read-payments.js";
@@ -8,8 +8,9 @@ import { refundDecisionViews } from "../read-payments/read-payments.js";
 type DecideRefundCommand = Extract<OwnerOperation, { operation: "refunds.decide" }>;
 
 /**
- * Решение о возврате: сумма, судьба доступа и судьба автопродления записываются раздельно от
- * банковского исполнения. Даже полный возврат не отзывает доступ сам: отзыв — отдельное решение.
+ * Решение о возврате: сумма, основание и судьба автопродления записываются раздельно от
+ * банковского исполнения. Основание решает судьбу доступа (#648): отказ от договора отзывает права
+ * покупки после подтверждённого возврата, компенсация без отказа доступ сохраняет.
  * Решение принадлежит своей команде: повтор того же `operationId` возвращает исходное решение,
  * а не создаёт второе, потому что запись и её идентичность фиксируются одной транзакцией.
  */
@@ -32,7 +33,8 @@ export async function decideRefund(prisma: BillingPrismaClient, actorId: string,
       const decisionRef = randomUUID();
       await tx.billingRefundDecision.create({ data: {
         id: decisionRef, purchaseRef: purchase.id, accountId: purchase.accountId, actorId,
-        operationId: command.operationId, amountKopecks: BigInt(command.amountKopecks), access: command.access,
+        operationId: command.operationId, amountKopecks: BigInt(command.amountKopecks),
+        basis: command.basis, access: refundAccessFor(command.basis),
         recurring: command.recurring, reason: command.reason, state: "decided", revision: 1, createdAt: now, updatedAt: now,
       } });
       return await readDecision(tx, purchase.id, decisionRef, command);
@@ -53,7 +55,7 @@ async function readDecision(tx: BillingPrisma, purchaseRef: string, decisionRef:
   const value = decisions.find(decision => decision.decisionRef === decisionRef);
   if (value === undefined) throw new Error("Saved refund decision is missing");
   // Изменённая нагрузка того же operationId не переписывает принятое решение.
-  if (value.amountKopecks !== command.amountKopecks || value.access !== command.access
+  if (value.amountKopecks !== command.amountKopecks || value.basis !== command.basis
     || value.recurring !== command.recurring || value.reason !== command.reason) return ownerFailure("operation_conflict");
   return { ok: true, operationRef: command.operationId, result: { outcome: "refundDecision", value } };
 }

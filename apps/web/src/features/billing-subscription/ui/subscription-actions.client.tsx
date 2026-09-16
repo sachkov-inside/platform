@@ -3,17 +3,18 @@ import Link from "next/link";
 import type { Route } from "next";
 
 import {
+  AcceptanceNote,
   billingActionClass,
-  ConsentChecklist,
   purchaseConsentPolicy,
-  resumeConsentKinds,
+  renewalTermsLine,
+  renewalTermsOnResume,
+  resumeRenewalButtonLabel,
   formatBillingDate,
   formatBillingDateTime,
   formatKopecks,
   formatMonths,
   type ChangeQuote,
   type LegalDocument,
-  type LegalDocumentKind,
   type PriceSnapshot,
   type SubscriptionView,
 } from "@/entities/subscription";
@@ -25,13 +26,11 @@ export interface SubscriptionActionsProps {
   readonly selectedOptionId: string | null;
   readonly changeQuote: ChangeQuote | null;
   readonly resumeDocuments: readonly LegalDocument[];
-  readonly resumeAccepted: readonly LegalDocumentKind[];
   readonly pending: boolean;
   /** Адрес витрины даётся, только когда подписку продают: иначе звать туда не с чем. */
   readonly storefrontHref?: Route | undefined;
   readonly onCancelRenewal: () => void;
   readonly onResumeRenewal: () => void;
-  readonly onToggleResumeDocument: (kind: LegalDocumentKind) => void;
   readonly onSelectOption: (paymentOptionId: string) => void;
   readonly onQuoteChange: () => void;
   readonly onConfirmChange: () => void;
@@ -39,7 +38,8 @@ export interface SubscriptionActionsProps {
 
 /**
  * Управление подпиской: отмена и возобновление продления и смена варианта. Возобновление
- * требует нового явного согласия на списания.
+ * принимается кнопкой «Возобновить автопродление»: под ней названы сумма, день следующего
+ * списания и период, и журнал записывает их вместе с подписью кнопки.
  */
 export function SubscriptionActions({
   subscription,
@@ -47,16 +47,18 @@ export function SubscriptionActions({
   selectedOptionId,
   changeQuote,
   resumeDocuments,
-  resumeAccepted,
   pending,
   storefrontHref,
   onCancelRenewal,
   onResumeRenewal,
-  onToggleResumeDocument,
   onSelectOption,
   onQuoteChange,
   onConfirmChange,
 }: SubscriptionActionsProps) {
+  const recurringConsent = purchaseConsentPolicy(
+    resumeDocuments,
+    "subscription",
+  ).applicable.find((document) => document.kind === "recurring");
   return (
       <section
         aria-labelledby="billing-actions"
@@ -89,34 +91,37 @@ export function SubscriptionActions({
           <div className="mt-4">
             <p className="text-sm leading-6 text-muted-foreground">
               Возобновить можно внутри оплаченного срока и на прежних
-              условиях. Нужно новое явное согласие на списания.
+              условиях.
             </p>
-            {resumeDocuments.length === 0 ? (
+            {recurringConsent === undefined ? (
               <p className="mt-3 text-sm" role="status">
                 Документы согласия ещё не опубликованы, поэтому возобновить
-                списания нельзя.
+                продление нельзя.
               </p>
-            ) : (
-              <div className="mt-3">
-                <ConsentChecklist
-                  accepted={resumeAccepted}
-                  disabled={pending}
-                  documents={purchaseConsentPolicy(resumeDocuments, "subscription").applicable}
-                  legend="Согласие на списания"
-                  namePrefix="resume-consent"
-                  onToggle={onToggleResumeDocument}
-                  required={resumeConsentKinds}
-                />
-              </div>
-            )}
+            ) : null}
             <Button
               className={`mt-3 ${billingActionClass}`}
-              disabled={pending || !resumeAccepted.includes("recurring")}
+              disabled={pending || recurringConsent === undefined}
               onClick={onResumeRenewal}
               type="button"
             >
-              Возобновить списания
+              {resumeRenewalButtonLabel}
             </Button>
+            {recurringConsent === undefined ? null : (
+              <AcceptanceNote className="mt-3">
+                Нажимая «{resumeRenewalButtonLabel}», вы разрешаете{" "}
+                <a
+                  className="text-action underline underline-offset-4"
+                  href={recurringConsent.url}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  автопродление
+                </a>
+                : {renewalTermsLine(renewalTermsOnResume(subscription))}. Отключить продление
+                можно здесь же.
+              </AcceptanceNote>
+            )}
           </div>
         ) : (
           <p className="mt-4 text-sm leading-6 text-muted-foreground">

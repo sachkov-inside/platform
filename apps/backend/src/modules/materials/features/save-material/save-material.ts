@@ -9,9 +9,10 @@ import {
   lockMaterialReferenceChanges,
 } from "../../../../infrastructure/prisma/index.js";
 
-import type {
-  SaveMaterialError,
-  SaveMaterialOperation,
+import {
+  MATERIAL_DETACHED_VIDEOS_MAX,
+  type SaveMaterialError,
+  type SaveMaterialOperation,
 } from "./save-material.contract.js";
 import type { MaterialAuthoringDependencies } from "../../facets/material-authoring/material-authoring.dependencies.js";
 import type { MaterialMutationReceiptDto } from "../../facets/material-authoring/material-authoring.contract.js";
@@ -38,7 +39,10 @@ import { canChangeGuideMemberships } from "../../infrastructure/postgres/source-
 import { mapPostgresError } from "../../shared/postgres-error-mapping.js";
 import { requireReferenceIntegrity } from "../../shared/reference-integrity.js";
 import { toDatabaseJson } from "../../infrastructure/postgres/database-json.js";
-import { requestVideoDeletion } from "../../../videos/index.js";
+import {
+  recordVideoDetachment,
+  requestVideoDeletion,
+} from "../../../videos/index.js";
 import { materialReaderPath } from "../../domain/announcement.js";
 import { recordMaterialAnnouncement } from "./record-announcement.js";
 import { lockMaterialForLifecycleChange } from "../../infrastructure/postgres/material-locks.js";
@@ -46,6 +50,11 @@ import { allocateMaterialSlug } from "../../infrastructure/postgres/material-slu
 import { replaceCurrentRelations } from "../../infrastructure/postgres/current-material.js";
 import { lockMaterialSeries } from "../../infrastructure/postgres/series-order.js";
 import { refreshPublishedMaterialSearchProjections } from "../../infrastructure/postgres/published-material-search.js";
+import {
+  heldGuideRemovals,
+  recordGuideRemovals,
+  unconfirmedGuideRemovals,
+} from "../../shared/guide-removal-confirmation.js";
 
 const saveMaterialCommand = z
   .object({
@@ -56,9 +65,15 @@ const saveMaterialCommand = z
     publicationState: z.enum(["draft", "published", "unpublished"]),
     primaryVideoId: z.uuid().nullable().optional().default(null),
     deleteVideoId: z.uuid().nullable().optional().default(null),
+    detachVideoIds: z
+      .array(z.uuid())
+      .max(MATERIAL_DETACHED_VIDEOS_MAX)
+      .optional()
+      .default([]),
     metadata: z.unknown(),
     body: z.unknown(),
     videoChapters: videoChaptersSchema.optional(),
+    confirmedGuideRemovals: z.array(z.uuid()).max(100).optional().default([]),
   })
   .strict();
 
@@ -114,6 +129,11 @@ export function assembleSaveMaterial(
       primaryVideoId: command.primaryVideoId,
       deleteVideoId: command.deleteVideoId,
       videoChapters: command.videoChapters ?? null,
+      confirmedGuideRemovals: [...command.confirmedGuideRemovals].sort(),
+      // Absent when empty, so a Save recorded before detachment existed replays with its own key.
+      ...(command.detachVideoIds.length === 0
+        ? {}
+        : { detachVideoIds: command.detachVideoIds }),
     });
     let materializedMetadata: MaterialMetadata | undefined;
     const result = await executeAuthoringTransaction<
@@ -177,6 +197,15 @@ export function assembleSaveMaterial(
               if (!video.ok) return rollback({ code: "dependency_unavailable", retryable: true });
               const duration = video.value?.durationSeconds;
               if (duration === undefined || videoChapters.some((chapter) => chapter.start >= duration)) return rollback({ code: "invalid_reference", issues: [{ code: "video_chapter_outside_duration", path: "/videoChapters" }] });
+            }
+            if (
+              command.primaryVideoId !== null &&
+              command.detachVideoIds.includes(command.primaryVideoId)
+            ) {
+              return rollback({
+                code: "invalid_reference",
+                issues: [{ code: "video_detachment_target_mismatch", path: "/detachVideoIds" }],
+              });
             }
             const selectedValues = selection.value.toValues();
             if (
@@ -280,6 +309,29 @@ export function assembleSaveMaterial(
               }
             }
 
+            // Опубликованный материал уходит из руководства, где у кого-то есть право, только
+            // подтверждённым снятием: иначе купившие молча потеряли бы часть продукта.
+            const previousGuideIds = (await transaction.publishedMaterialGuideMembership.findMany({
+              where: { materialId: command.materialId },
+              select: { seriesId: true },
+            })).map(({ seriesId }) => seriesId);
+            const nextGuideIds = next.value.publicationState === "published" ? selectedValues.seriesIds : [];
+            const heldRemovals = await heldGuideRemovals(
+              transaction,
+              dependencies.guideAccessHolders,
+              previousGuideIds.filter((guideId) => !nextGuideIds.includes(guideId)),
+            );
+            const unconfirmed = unconfirmedGuideRemovals(heldRemovals, command.confirmedGuideRemovals);
+            if (unconfirmed.length > 0) {
+              return rollback({ code: "guide_removal_confirmation_required", guides: unconfirmed });
+            }
+            await recordGuideRemovals(transaction, {
+              actor: command.actor,
+              operation: "material_save",
+              removals: heldRemovals.map((guide) => ({ guide, materialId: command.materialId })),
+              removedAt: savedAt,
+            });
+
             const entersPublished =
               locked.lifecycle.publicationState !== "published" &&
               next.value.publicationState === "published";
@@ -379,6 +431,16 @@ export function assembleSaveMaterial(
                   issues: [{ code: deletion.code, path: "/deleteVideoId" }],
                 });
               }
+            }
+            const detachment = await recordVideoDetachment(transaction, {
+              materialId: command.materialId,
+              videoIds: command.detachVideoIds,
+            }, savedAt);
+            if (!detachment.ok) {
+              return rollback({
+                code: "invalid_reference",
+                issues: [{ code: detachment.code, path: "/detachVideoIds" }],
+              });
             }
             return {
               kind: "material",

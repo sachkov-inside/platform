@@ -122,11 +122,14 @@ export function AdminSelect({
   name,
   options,
   defaultValue,
+  placeholder,
 }: {
   readonly label: string;
   readonly name: string;
   readonly options: readonly { readonly value: string; readonly label: string }[];
   readonly defaultValue?: string;
+  /** Пустой выбор, который нельзя отправить: решение не принимается незаметно по первому варианту. */
+  readonly placeholder?: string;
 }) {
   const id = useId();
   return (
@@ -138,8 +141,14 @@ export function AdminSelect({
         className="min-h-11 w-full rounded-xl border border-input bg-background px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         id={id}
         name={name}
-        defaultValue={defaultValue}
+        defaultValue={defaultValue ?? (placeholder === undefined ? undefined : "")}
+        required={placeholder !== undefined}
       >
+        {placeholder === undefined ? null : (
+          <option disabled value="">
+            {placeholder}
+          </option>
+        )}
         {options.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
@@ -202,7 +211,7 @@ export function onAdminSubmit(
 export const reasonMaxLength = 1000;
 
 export const capabilityHint =
-  "Известные права: materials, community, reviews, support и guide:<uuid>.";
+  "Известные права: materials, community, support и guide:<uuid>. Право reviews не выдаётся.";
 
 export function optionalFormNumber(
   value: FormDataEntryValue | null,

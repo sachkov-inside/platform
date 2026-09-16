@@ -39,3 +39,24 @@ export const communityDeliveryViewSchema = z.strictObject({
 });
 
 export type CommunityDeliveryView = z.infer<typeof communityDeliveryViewSchema>;
+
+/** Отказ операторского чтения сообщества: неверный ввод, нет права, недоступна зависимость. */
+export type CommunityOperatorFailureCode = "invalid_input" | "forbidden" | "unavailable";
+
+/**
+ * Список оператора: кого Telegram по последнему наблюдению видит в общем чате, хотя действующего
+ * права на чат у Account нет. `truncated` говорит, что просмотрены не все Account с наблюдением.
+ */
+export const communityMembersWithoutRightSchema = z.strictObject({
+  checkedAt: instant,
+  items: z.array(
+    z.strictObject({
+      accountId: z.uuid(),
+      telegramIdentityRef: z.string(),
+      observedAt: instant,
+    }),
+  ),
+  truncated: z.boolean(),
+});
+
+export type CommunityMembersWithoutRight = z.infer<typeof communityMembersWithoutRightSchema>;

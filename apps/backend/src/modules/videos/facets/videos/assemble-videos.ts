@@ -489,6 +489,9 @@ export function assembleVideos(dependencies: {
             // A resolved upload was already shown to its author, who may have detached it on
             // purpose. Only an outcome Platform never settled is still waiting to be recovered.
             state: { in: ["uploading", "processing"] },
+            // An upload the author removed before it settled is their decision too, whatever
+            // Kinescope reports later.
+            detachedAt: null,
           },
         });
         return {

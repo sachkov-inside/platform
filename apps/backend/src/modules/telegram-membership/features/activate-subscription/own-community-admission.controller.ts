@@ -1,14 +1,14 @@
-import { Controller, Get, Inject, UseFilters, UseGuards } from "@nestjs/common";
+import { Controller, Get, Inject, UseFilters } from "@nestjs/common";
 import { ApiTags, ApiBearerAuth, ApiOkResponse, ApiOperation, ApiResponse } from "@nestjs/swagger";
 import { PrivateNoStore } from "../../../../infrastructure/http/http-cache-policy.js";
 import { problemDetailsContent, toOpenApiSchema } from "../../../../infrastructure/http/zod-openapi.js";
-import { AccountGuard, AccountProblemDetailsFilter, CurrentAccount, accountProblemSchema, type AuthenticatedAccount } from "../../../accounts/index.js";
+import { AcceptedTermsEndpoint, AccountProblemDetailsFilter, CurrentAccount, accountProblemSchema, type AuthenticatedAccount } from "../../../accounts/index.js";
 import { CommunityEntitlements } from "../../facets/community-entitlements/community-entitlements.js";
 import { ownAdmissionSchema } from "../../domain/community-entitlement.js";
 @ApiTags("Telegram community")
 @ApiBearerAuth("logto")
 @PrivateNoStore()
-@UseGuards(AccountGuard)
+@AcceptedTermsEndpoint()
 @UseFilters(AccountProblemDetailsFilter)
 @ApiResponse({ status: 401, content: problemDetailsContent(accountProblemSchema) })
 @Controller("accounts/current/community-admission")

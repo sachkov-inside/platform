@@ -36,6 +36,6 @@ test("preview, transaction rollback, preserved legacy scope and late fulfillment
     expect(await membership.resolveForAccess(accountId(owner), [included])).toMatchObject({ kind: "active" });
     expect(await membership.resolveForAccess(accountId(owner), [excluded])).not.toMatchObject({ kind: "active" });
     expect(await db.prisma.billingPurchase.count()).toBe(0);
-    expect(await db.prisma.billingConsentEvidence.count()).toBe(0);
+    expect(await db.prisma.legalAcceptance.count()).toBe(0);
   } finally { await pool.end(); await db.dispose(); }
 });

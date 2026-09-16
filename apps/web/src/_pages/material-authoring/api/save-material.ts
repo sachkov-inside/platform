@@ -5,6 +5,7 @@ import {
   materialDifficultySchema,
 } from "@/shared/api/material-lesson-facts";
 import { materialFormatSchema } from "@/shared/api/material-format";
+import { guideRemovalsFromProblem } from "@/shared/lib/guide-removal";
 
 
 import { randomUUID } from "node:crypto";
@@ -22,7 +23,9 @@ import type { SaveMaterialResult } from "../model/save-material";
 import { parseMaterialDocumentFields } from "./parse-material-document-fields";
 const formSchema = z.object({
   access: z.enum(["free", "membership"]),
+  confirmedGuideRemovals: z.array(z.uuid()).max(100),
   deleteVideoId: z.union([z.uuid(), z.literal("none")]).default("none"),
+  detachVideoIds: z.array(z.uuid()),
   difficulty: materialDifficultySchema.or(z.literal("unassigned")),
   outcomes: z
     .array(z.string().trim().max(MATERIAL_OUTCOMES.maxLength))
@@ -113,7 +116,9 @@ function parseForm(
   | { readonly issues: readonly MaterialValidationIssue[]; readonly ok: false } {
   const parsed = formSchema.safeParse({
     access: formData.get("access"),
+    confirmedGuideRemovals: formData.getAll("confirmedGuideRemovals"),
     deleteVideoId: formData.get("deleteVideoId") ?? undefined,
+    detachVideoIds: formData.getAll("detachVideoIds"),
     difficulty: formData.get("difficulty"),
     outcomes: formData.getAll("outcome"),
     document: formData.get("document"),
@@ -146,7 +151,11 @@ function parseForm(
     ok: true,
     value: {
       access: parsed.data.access,
+      ...(parsed.data.confirmedGuideRemovals.length === 0
+        ? {}
+        : { confirmedGuideRemovals: parsed.data.confirmedGuideRemovals }),
       deleteVideoId: parsed.data.deleteVideoId === "none" ? null : parsed.data.deleteVideoId,
+      detachVideoIds: parsed.data.detachVideoIds,
       difficulty: parsed.data.difficulty === "unassigned" ? null : parsed.data.difficulty,
       outcomes: parsed.data.outcomes.filter(Boolean),
       document: documentFields.document,
@@ -177,6 +186,10 @@ function mapSaveProblem(
   }
   if (result.response.status === 404 && problem.data.code === "material_not_found") {
     return { kind: "not_found" };
+  }
+  const removals = result.response.status === 409 ? guideRemovalsFromProblem(result.problem) : null;
+  if (removals !== null) {
+    return { guides: removals, kind: "removal_confirmation_required" };
   }
   if (
     result.response.status === 409 &&
@@ -218,6 +231,12 @@ function mapBackendIssue(issue: { readonly code: string; readonly path: string }
   if (issue.code === "outcomes_too_few") {
     return {
       message: `Оставьте «Чему научишься» пустым или напишите ${String(MATERIAL_OUTCOMES.minPublishedCount)}–${String(MATERIAL_OUTCOMES.maxCount)} пункта.`,
+      path: issue.path,
+    };
+  }
+  if (issue.code === "membership_outside_product") {
+    return {
+      message: "Закрытый материал публикуется только внутри продукта: добавьте его в руководство или откройте всем.",
       path: issue.path,
     };
   }

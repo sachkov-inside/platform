@@ -65,6 +65,7 @@ export class BillingService {
             }>;
             benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
             contentScope?: {
+              allGuides?: boolean;
               guideIds: Array<string>;
               materialIds: Array<string>;
             } | null;
@@ -111,6 +112,7 @@ export class BillingService {
           }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope?: {
+            allGuides?: boolean;
             guideIds: Array<string>;
             materialIds: Array<string>;
           } | null;
@@ -138,6 +140,10 @@ export class BillingService {
     return this.httpRequest.request({
       method: 'GET',
       url: '/accounts/current/billing',
+      errors: {
+        403: `The terms of use in force are not accepted yet`,
+        500: `Terms acceptance could not be checked`,
+      },
     });
   }
   /**
@@ -178,6 +184,7 @@ export class BillingService {
       tier: {
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
         contentScope: {
+          allGuides?: boolean;
           guideIds: Array<string>;
           materialIds: Array<string>;
         };
@@ -190,6 +197,10 @@ export class BillingService {
     return this.httpRequest.request({
       method: 'GET',
       url: '/accounts/current/billing/enrollments',
+      errors: {
+        403: `The terms of use in force are not accepted yet`,
+        500: `Terms acceptance could not be checked`,
+      },
     });
   }
   /**
@@ -215,6 +226,10 @@ export class BillingService {
       url: '/accounts/current/billing/payment-method/change',
       body: requestBody,
       mediaType: 'application/json',
+      errors: {
+        403: `The terms of use in force are not accepted yet`,
+        500: `Terms acceptance could not be checked`,
+      },
     });
   }
   /**
@@ -256,6 +271,7 @@ export class BillingService {
           }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope?: {
+            allGuides?: boolean;
             guideIds: Array<string>;
             materialIds: Array<string>;
           } | null;
@@ -302,6 +318,7 @@ export class BillingService {
         }>;
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
         contentScope?: {
+          allGuides?: boolean;
           guideIds: Array<string>;
           materialIds: Array<string>;
         } | null;
@@ -330,6 +347,10 @@ export class BillingService {
       url: '/accounts/current/billing/payment-method/revoke',
       body: requestBody,
       mediaType: 'application/json',
+      errors: {
+        403: `The terms of use in force are not accepted yet`,
+        500: `Terms acceptance could not be checked`,
+      },
     });
   }
   /**
@@ -366,6 +387,7 @@ export class BillingService {
         }>;
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
         contentScope?: {
+          allGuides?: boolean;
           guideIds: Array<string>;
           materialIds: Array<string>;
         } | null;
@@ -399,6 +421,10 @@ export class BillingService {
       url: '/accounts/current/billing/purchase',
       body: requestBody,
       mediaType: 'application/json',
+      errors: {
+        403: `The terms of use in force are not accepted yet`,
+        500: `Terms acceptance could not be checked`,
+      },
     });
   }
   /**
@@ -429,6 +455,7 @@ export class BillingService {
         }>;
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
         contentScope?: {
+          allGuides?: boolean;
           guideIds: Array<string>;
           materialIds: Array<string>;
         } | null;
@@ -463,6 +490,10 @@ export class BillingService {
       path: {
         'purchaseRef': purchaseRef,
       },
+      errors: {
+        403: `The terms of use in force are not accepted yet`,
+        500: `Terms acceptance could not be checked`,
+      },
     });
   }
   /**
@@ -495,6 +526,7 @@ export class BillingService {
         }>;
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
         contentScope?: {
+          allGuides?: boolean;
           guideIds: Array<string>;
           materialIds: Array<string>;
         } | null;
@@ -527,6 +559,10 @@ export class BillingService {
       url: '/accounts/current/billing/quote',
       body: requestBody,
       mediaType: 'application/json',
+      errors: {
+        403: `The terms of use in force are not accepted yet`,
+        500: `Terms acceptance could not be checked`,
+      },
     });
   }
   /**
@@ -567,6 +603,7 @@ export class BillingService {
           }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope?: {
+            allGuides?: boolean;
             guideIds: Array<string>;
             materialIds: Array<string>;
           } | null;
@@ -613,6 +650,7 @@ export class BillingService {
         }>;
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
         contentScope?: {
+          allGuides?: boolean;
           guideIds: Array<string>;
           materialIds: Array<string>;
         } | null;
@@ -641,6 +679,10 @@ export class BillingService {
       url: '/accounts/current/billing/subscription/cancel',
       body: requestBody,
       mediaType: 'application/json',
+      errors: {
+        403: `The terms of use in force are not accepted yet`,
+        500: `Terms acceptance could not be checked`,
+      },
     });
   }
   /**
@@ -676,6 +718,7 @@ export class BillingService {
           }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope?: {
+            allGuides?: boolean;
             guideIds: Array<string>;
             materialIds: Array<string>;
           } | null;
@@ -730,6 +773,7 @@ export class BillingService {
             }>;
             benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
             contentScope?: {
+              allGuides?: boolean;
               guideIds: Array<string>;
               materialIds: Array<string>;
             } | null;
@@ -776,6 +820,7 @@ export class BillingService {
           }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope?: {
+            allGuides?: boolean;
             guideIds: Array<string>;
             materialIds: Array<string>;
           } | null;
@@ -805,6 +850,10 @@ export class BillingService {
       url: '/accounts/current/billing/subscription/change',
       body: requestBody,
       mediaType: 'application/json',
+      errors: {
+        403: `The terms of use in force are not accepted yet`,
+        500: `Terms acceptance could not be checked`,
+      },
     });
   }
   /**
@@ -845,6 +894,7 @@ export class BillingService {
           }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope?: {
+            allGuides?: boolean;
             guideIds: Array<string>;
             materialIds: Array<string>;
           } | null;
@@ -891,6 +941,7 @@ export class BillingService {
         }>;
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
         contentScope?: {
+          allGuides?: boolean;
           guideIds: Array<string>;
           materialIds: Array<string>;
         } | null;
@@ -919,6 +970,10 @@ export class BillingService {
       url: '/accounts/current/billing/subscription/change/cancel',
       body: requestBody,
       mediaType: 'application/json',
+      errors: {
+        403: `The terms of use in force are not accepted yet`,
+        500: `Terms acceptance could not be checked`,
+      },
     });
   }
   /**
@@ -953,6 +1008,7 @@ export class BillingService {
           }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope?: {
+            allGuides?: boolean;
             guideIds: Array<string>;
             materialIds: Array<string>;
           } | null;
@@ -996,6 +1052,7 @@ export class BillingService {
           }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope?: {
+            allGuides?: boolean;
             guideIds: Array<string>;
             materialIds: Array<string>;
           } | null;
@@ -1029,6 +1086,10 @@ export class BillingService {
       url: '/accounts/current/billing/subscription/change/quote',
       body: requestBody,
       mediaType: 'application/json',
+      errors: {
+        403: `The terms of use in force are not accepted yet`,
+        500: `Terms acceptance could not be checked`,
+      },
     });
   }
   /**
@@ -1070,6 +1131,7 @@ export class BillingService {
           }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope?: {
+            allGuides?: boolean;
             guideIds: Array<string>;
             materialIds: Array<string>;
           } | null;
@@ -1116,6 +1178,7 @@ export class BillingService {
         }>;
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
         contentScope?: {
+          allGuides?: boolean;
           guideIds: Array<string>;
           materialIds: Array<string>;
         } | null;
@@ -1144,6 +1207,10 @@ export class BillingService {
       url: '/accounts/current/billing/subscription/resume',
       body: requestBody,
       mediaType: 'application/json',
+      errors: {
+        403: `The terms of use in force are not accepted yet`,
+        500: `Terms acceptance could not be checked`,
+      },
     });
   }
   /**
@@ -1234,6 +1301,7 @@ export class BillingService {
         }>;
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
         contentScope?: {
+          allGuides?: boolean;
           guideIds: Array<string>;
           materialIds: Array<string>;
         } | null;
@@ -1407,8 +1475,8 @@ export class BillingService {
       operationId: string;
       reason: string;
     } | {
-      access: 'keep' | 'revoke';
       amountKopecks: number;
+      basis: 'withdrawal' | 'compensation';
       operation: 'refunds.decide';
       operationId: string;
       purchaseRef: string;
@@ -1452,6 +1520,7 @@ export class BillingService {
         terms: {
           capabilities: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope?: {
+            allGuides?: boolean;
             guideIds: Array<string>;
             materialIds: Array<string>;
           };
@@ -1542,6 +1611,7 @@ export class BillingService {
           tier: {
             benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
             contentScope: {
+              allGuides?: boolean;
               guideIds: Array<string>;
               materialIds: Array<string>;
             };
@@ -1576,6 +1646,7 @@ export class BillingService {
             tier: {
               benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
               contentScope: {
+                allGuides?: boolean;
                 guideIds: Array<string>;
                 materialIds: Array<string>;
               };
@@ -1606,6 +1677,7 @@ export class BillingService {
         tier: {
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope: {
+            allGuides?: boolean;
             guideIds: Array<string>;
             materialIds: Array<string>;
           };
@@ -1636,6 +1708,7 @@ export class BillingService {
           tier: {
             benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
             contentScope: {
+              allGuides?: boolean;
               guideIds: Array<string>;
               materialIds: Array<string>;
             };
@@ -1675,6 +1748,7 @@ export class BillingService {
             tier: {
               benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
               contentScope: {
+                allGuides?: boolean;
                 guideIds: Array<string>;
                 materialIds: Array<string>;
               };
@@ -1715,6 +1789,7 @@ export class BillingService {
           tier: {
             benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
             contentScope: {
+              allGuides?: boolean;
               guideIds: Array<string>;
               materialIds: Array<string>;
             };
@@ -1793,6 +1868,7 @@ export class BillingService {
         tier: {
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope: {
+            allGuides?: boolean;
             guideIds: Array<string>;
             materialIds: Array<string>;
           };
@@ -1838,6 +1914,7 @@ export class BillingService {
         tier: {
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope: {
+            allGuides?: boolean;
             guideIds: Array<string>;
             materialIds: Array<string>;
           };
@@ -1879,6 +1956,7 @@ export class BillingService {
         tier: {
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope: {
+            allGuides?: boolean;
             guideIds: Array<string>;
             materialIds: Array<string>;
           };
@@ -1925,6 +2003,7 @@ export class BillingService {
         tier: {
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope: {
+            allGuides?: boolean;
             guideIds: Array<string>;
             materialIds: Array<string>;
           };
@@ -1956,6 +2035,7 @@ export class BillingService {
           }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope?: {
+            allGuides?: boolean;
             guideIds: Array<string>;
             materialIds: Array<string>;
           } | null;
@@ -2012,6 +2092,7 @@ export class BillingService {
             }>;
             benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
             contentScope?: {
+              allGuides?: boolean;
               guideIds: Array<string>;
               materialIds: Array<string>;
             } | null;
@@ -2066,6 +2147,7 @@ export class BillingService {
           state: 'sent' | 'unknown' | 'confirmed' | 'failed';
           updatedAt: string;
         } | null;
+        basis: 'withdrawal' | 'compensation' | null;
         createdAt: string;
         decisionRef: string;
         purchaseRef: string;
@@ -2108,6 +2190,7 @@ export class BillingService {
             }>;
             benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
             contentScope?: {
+              allGuides?: boolean;
               guideIds: Array<string>;
               materialIds: Array<string>;
             } | null;
@@ -2168,6 +2251,7 @@ export class BillingService {
             }>;
             benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
             contentScope?: {
+              allGuides?: boolean;
               guideIds: Array<string>;
               materialIds: Array<string>;
             } | null;
@@ -2227,6 +2311,7 @@ export class BillingService {
               }>;
               benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
               contentScope?: {
+                allGuides?: boolean;
                 guideIds: Array<string>;
                 materialIds: Array<string>;
               } | null;
@@ -2273,6 +2358,7 @@ export class BillingService {
             }>;
             benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
             contentScope?: {
+              allGuides?: boolean;
               guideIds: Array<string>;
               materialIds: Array<string>;
             } | null;
@@ -2311,6 +2397,7 @@ export class BillingService {
           state: 'sent' | 'unknown' | 'confirmed' | 'failed';
           updatedAt: string;
         } | null;
+        basis: 'withdrawal' | 'compensation' | null;
         createdAt: string;
         decisionRef: string;
         purchaseRef: string;
@@ -2334,6 +2421,7 @@ export class BillingService {
           state: 'sent' | 'unknown' | 'confirmed' | 'failed';
           updatedAt: string;
         } | null;
+        basis: 'withdrawal' | 'compensation' | null;
         createdAt: string;
         decisionRef: string;
         purchaseRef: string;
@@ -2452,6 +2540,7 @@ export class BillingService {
         }>;
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
         contentScope?: {
+          allGuides?: boolean;
           guideIds: Array<string>;
           materialIds: Array<string>;
         } | null;

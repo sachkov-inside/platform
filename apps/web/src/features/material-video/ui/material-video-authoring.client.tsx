@@ -34,6 +34,7 @@ import {
   awaitsReconciliation,
   phaseForReconciledVideo,
   phaseForVideo,
+  replacedUploadToDetach,
   resolveInitialVideoAuthoring,
   type MaterialAuthoringVideo,
   type MaterialVideo,
@@ -60,6 +61,7 @@ export function MaterialVideoAuthoring({
   readonly onChange: (
     primaryVideo: MaterialAuthoringVideo | null,
     deleteVideoId: string | null,
+    detachedVideoId: string | null,
   ) => void;
   readonly primaryVideo: MaterialAuthoringVideo | null;
   readonly unselectedUpload: MaterialAuthoringVideo | null;
@@ -113,8 +115,10 @@ export function MaterialVideoAuthoring({
   });
 
   const latestOnChange = useRef(onChange);
+  const latestSelection = useRef({ deleteVideoId, primaryVideo });
   useEffect(() => {
     latestOnChange.current = onChange;
+    latestSelection.current = { deleteVideoId, primaryVideo };
   });
 
   const applyVideoResult = useCallback(
@@ -136,7 +140,7 @@ export function MaterialVideoAuthoring({
         }
         uploadTransfer.current = null;
         setRecoveredVideoId(null);
-        latestOnChange.current(result.value, deleteVideoId);
+        latestOnChange.current(result.value, deleteVideoId, null);
       }
       setPhase(next);
     },
@@ -196,8 +200,25 @@ export function MaterialVideoAuthoring({
     );
   }
 
+  // Runs after a request resolves, so the selection comes from the latest render, not the closure.
+  const detachReplacedUpload = (
+    replaced: MaterialAuthoringVideo | null,
+    startedVideoId: string,
+  ) => {
+    const { deleteVideoId: currentDeleteVideoId, primaryVideo: currentPrimary } =
+      latestSelection.current;
+    const detachedVideoId = replacedUploadToDetach({
+      primaryVideoId: currentPrimary?.videoId ?? null,
+      replaced,
+      startedVideoId,
+    });
+    if (detachedVideoId !== null)
+      latestOnChange.current(currentPrimary, currentDeleteVideoId, detachedVideoId);
+  };
+
   const upload = async (file: File) => {
     const revision = ++operation.current;
+    const replaced = video;
     setPhase("uploading");
     setRecoveredVideoId(null);
     setProgress(0);
@@ -227,6 +248,7 @@ export function MaterialVideoAuthoring({
       ...browserAttempt,
       videoId: initialized.value.video.videoId,
     };
+    detachReplacedUpload(replaced, initialized.value.video.videoId);
     setVideo(initialized.value.video);
     if (
       new URL(initialized.value.uploadEndpoint).hostname.endsWith(".invalid")
@@ -257,9 +279,12 @@ export function MaterialVideoAuthoring({
 
   const attach = async () => {
     const revision = ++operation.current;
+    const replaced = video;
     setPhase("processing");
     const result = await attachVideo({ access, materialId, providerVideoId });
-    if (revision === operation.current) applyVideoResult(result);
+    if (revision !== operation.current) return;
+    if (result.kind === "ready") detachReplacedUpload(replaced, result.value.videoId);
+    applyVideoResult(result);
   };
 
   const activeVideo = video ?? primaryVideo;
@@ -289,7 +314,7 @@ export function MaterialVideoAuthoring({
         setVideo(retainedVideo);
         setRecoveredVideoId(null);
         setPhase(phaseForVideo(retainedVideo));
-        onChange(retainedVideo, activeVideo.videoId);
+        onChange(retainedVideo, activeVideo.videoId, null);
       }}
       onFileSelected={(file) => {
         const revision = operation.current + 1;
@@ -315,7 +340,7 @@ export function MaterialVideoAuthoring({
         setVideo(null);
         setRecoveredVideoId(null);
         setPhase("idle");
-        onChange(null, null);
+        onChange(null, null, activeVideo?.videoId ?? null);
       }}
       onRetryDeletion={() => {
         if (deletionVideo === null) return;

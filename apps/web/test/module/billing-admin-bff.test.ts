@@ -141,7 +141,7 @@ it("отклоняет решение о возврате без основан�
       operationId,
       purchaseRef,
       amountKopecks: 100,
-      access: "keep",
+      basis: "compensation",
       recurring: "keep",
       reason: "   ",
     }),

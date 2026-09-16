@@ -53,7 +53,7 @@ import {
   type TestDatabase,
 } from "./setup/test-database.js";
 import { providerStand, type ProviderStand } from "./setup/telegram-provider-stand.js";
-import { syntheticConsentDocuments } from "./setup/consent-documents.js";
+import { pressedPaymentButton, syntheticConsentDocuments } from "./setup/consent-documents.js";
 
 // Каждое ожидание заканчивается на зафиксированном факте; бюджет только ограничивает зависший прогон.
 const barrierBudgetMs = 45_000;
@@ -311,12 +311,12 @@ describe("приёмка обоих источников Notifications (реал
   /** Подтверждённая оплата настоящим путём: расчёт, согласия, команда и ответ банка. */
   async function buy(account: string, optionId: string, options: { readonly recurring?: boolean } = {}) {
     const quote = value(await pricing.quote(account, { operationId: randomUUID(), paymentOptionId: optionId, optionRevision: 1 }));
-    const accepted = await contact.acceptConsents(account, {
+    const accepted = await contact.acceptConsents(account, pressedPaymentButton({
       operationId: randomUUID(), contextRef: quote.quoteRef,
       documents: documents.filter((document) => options.recurring === true || document.kind === "terms")
         .map((document) => ({ kind: document.kind, documentId: document.documentId,
           version: document.version, digest: document.digest, accepted: true })),
-    });
+    }, { snapshot: quote.snapshot }));
     if (!accepted.ok) throw new Error(accepted.error.code);
     const purchase = value(await payments.purchase(account, {
       operationId: randomUUID(), quoteRef: quote.quoteRef, contactRevision: 1,
@@ -389,8 +389,8 @@ describe("приёмка обоих источников Notifications (реал
     const buyerAccount = await member();
     const guideId = await guideCollection();
     const subscription = await offer({ name: "Подписка «Материалы»", benefits: ["materials"], priceKopecks: 100_000 });
-    const guideOffer = await offer({ name: "Руководство «Приёмка»", benefits: [`guide:${guideId}`],
-      mode: "one_time", priceKopecks: 290_000, benefitPeriods: [{ capability: `guide:${guideId}`, months: null }] });
+    const guideOffer = await offer({ name: "Руководство «Приёмка»", benefits: [`guide:${guideId}`, "support"],
+      mode: "one_time", priceKopecks: 290_000, benefitPeriods: [{ capability: `guide:${guideId}`, months: null }, { capability: "support", months: 6 }] });
 
     await buy(subscriber, subscription, { recurring: true });
     await buy(buyerAccount, guideOffer);
@@ -451,8 +451,8 @@ describe("приёмка обоих источников Notifications (реал
 
   test("аудитория первой публикации считает действующие права, и один Account получает одно событие", async () => {
     const guideId = await guideCollection();
-    const guideOffer = await offer({ name: `Руководство ${randomUUID()}`, benefits: [`guide:${guideId}`],
-      mode: "one_time", priceKopecks: 190_000, benefitPeriods: [{ capability: `guide:${guideId}`, months: null }] });
+    const guideOffer = await offer({ name: `Руководство ${randomUUID()}`, benefits: [`guide:${guideId}`, "support"],
+      mode: "one_time", priceKopecks: 190_000, benefitPeriods: [{ capability: `guide:${guideId}`, months: null }, { capability: "support", months: 6 }] });
     const libraryOffer = await offer({ name: `Подписка ${randomUUID()}`, benefits: ["materials"], priceKopecks: 100_000 });
 
     const libraryOnly = await member();
@@ -494,7 +494,7 @@ describe("приёмка обоих источников Notifications (реал
     const preview = success(await operations.execute(owner, {
       operation: "grants.previewBatch", operationId: randomUUID(),
       rows: [{ rowKey: "acceptance", accountId: granted, source: "manual", sourceRef: randomUUID(),
-        terms: { capabilities: ["materials"], startsAt: new Date().toISOString(), validUntil: null,
+        terms: { capabilities: ["support"], startsAt: new Date().toISOString(), validUntil: null,
           reason: "Синтетическая выдача приёмки" } }],
     }));
     if (preview.outcome !== "grantPreview") throw new Error(`Unexpected outcome ${preview.outcome}`);

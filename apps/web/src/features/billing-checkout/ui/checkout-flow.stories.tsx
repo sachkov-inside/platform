@@ -52,29 +52,26 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 /**
- * Согласие дано на редакцию, которую сервер уже заменил: отметка снимается, покупатель видит
- * причину, документы перечитываются, а оплата не начинается.
+ * Кнопка приняла редакцию, которую сервер уже заменил: покупатель видит причину, документы
+ * перечитываются, а оплата не начинается.
  */
 export const EditionChangedBeforePayment: Story = {
   beforeEach: editionReplaced,
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
-    const consent = await canvas.findByRole("checkbox", {
-      name: /Принимаю оферту разовой покупки/u,
-    });
-    await userEvent.click(consent);
-    const pay = canvas.getByRole("button", { name: /Купить за/u });
+    await expect(canvas.queryByRole("checkbox")).not.toBeInTheDocument();
+    const pay = await canvas.findByRole("button", { name: /^Оплатить /u });
     await waitFor(() => expect(pay).toBeEnabled());
     await userEvent.click(pay);
 
     await expect(await canvas.findByRole("alert")).toHaveTextContent(
       "Условия покупки обновились",
     );
-    await expect(consent).not.toBeChecked();
     await expect(args.onDocumentsChanged).toHaveBeenCalledTimes(1);
     // Отказ по согласию наступает до оплаты: команда покупки не отправлялась.
     await expect(requestPath).toHaveBeenCalledWith("/api/account/billing/consents");
     await expect(requestPath).not.toHaveBeenCalledWith("/api/account/billing/purchase");
-    await expect(canvas.getByRole("button", { name: /Купить за/u })).toBeDisabled();
+    // Следующее нажатие примет перечитанную действующую редакцию.
+    await expect(canvas.getByRole("button", { name: /^Оплатить /u })).toBeEnabled();
   },
 };

@@ -3,7 +3,10 @@ import { BillingContact } from "./facets/billing-contact/billing-contact.js";
 import { BillingContactController } from "./features/billing-contact/billing-contact.controller.js";
 import { billingContactProtection } from "./infrastructure/billing-contact-protection.js";
 import { assembleBillingContactSender } from "./infrastructure/send-billing-contact-code.js";
-import { consentDocuments } from "@inside/legal";
+import { consentDocuments, termsOfUseDocument } from "@inside/legal";
+import { LegalAcceptances } from "./facets/legal-acceptances/legal-acceptances.js";
+import { LegalAcceptancesController } from "./features/legal-acceptances/legal-acceptances.controller.js";
+import { AcceptedTermsGuard } from "./adapters/nest/accepted-terms.guard.js";
 import { Module } from "@nestjs/common";
 
 import {
@@ -30,7 +33,7 @@ import {
 
 @Module({
   imports: [PrismaModule],
-  controllers: [EstablishAccountController, ResolveAccountController, BillingContactController],
+  controllers: [EstablishAccountController, ResolveAccountController, BillingContactController, LegalAcceptancesController],
   providers: [
     { provide: NotificationAccounts, inject: [PrismaClientProvider, PLATFORM_CONFIG],
       useFactory: (prisma: PrismaClientProvider, config: PlatformConfig) => new NotificationAccounts(prisma,
@@ -70,10 +73,23 @@ import {
           jwksUrl: config.identity.jwksUrl,
         }),
     },
+    {
+      provide: LegalAcceptances,
+      inject: [PrismaClientProvider, PLATFORM_CONFIG],
+      useFactory: (prisma: PrismaClientProvider, config: PlatformConfig) => new LegalAcceptances({
+        prisma,
+        // The first sign-in accepts the exact terms of use edition in force.
+        terms: termsOfUseDocument(config.publicSite.origin),
+        now: () => new Date(),
+      }),
+    },
     AccountGuard,
+    AcceptedTermsGuard,
     OptionalAccountGuard,
   ],
   exports: [
+    LegalAcceptances,
+    AcceptedTermsGuard,
     BillingContact,
     NotificationAccounts,
     ACCOUNTS,

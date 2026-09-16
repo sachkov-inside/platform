@@ -30,6 +30,15 @@ import {
   reasonMaxLength,
 } from "./admin-form.client";
 
+/** Основание возврата словами владельца и его последствие: одна карта для выбора и для истории решений. */
+const refundBases = {
+  withdrawal: { label: "отказ от договора", consequence: "права прекращаются" },
+  compensation: { label: "компенсация без отказа", consequence: "доступ сохраняется" },
+} as const;
+const refundBasisOptions = (["withdrawal", "compensation"] as const).map((value) => {
+  const { label, consequence } = refundBases[value];
+  return { value, label: `${label.charAt(0).toUpperCase()}${label.slice(1)} — ${consequence}` };
+});
 export interface PaymentsSectionProps {
   readonly payments: readonly PaymentView[];
   readonly paymentsCursor: string | null;
@@ -267,7 +276,7 @@ export function PaymentsSection({
       </AdminSection>
 
       <AdminSection
-        description="Решение фиксирует сумму, судьбу доступа и автопродления. Исполнение наследует основание своего решения и не принимает новую сумму."
+        description="Решение фиксирует сумму, основание возврата и судьбу автопродления. Отказ от договора прекращает права покупки после подтверждённого возврата, компенсация без отказа доступ сохраняет. Исполнение наследует решение и не принимает новую сумму."
         title="Возвраты"
       >
         <form
@@ -276,7 +285,7 @@ export function PaymentsSection({
             onDecideRefund({
               purchaseRef: formText(form.get("refundPurchase")),
               amountKopecks: Number(formText(form.get("refundAmount"))),
-              access: formText(form.get("refundAccess")) as "keep" | "revoke",
+              basis: formText(form.get("refundBasis")) as "withdrawal" | "compensation",
               recurring: formText(form.get("refundRecurring")) as
                 | "keep"
                 | "cancel",
@@ -293,12 +302,10 @@ export function PaymentsSection({
             required
           />
           <AdminSelect
-            label="Доступ"
-            name="refundAccess"
-            options={[
-              { value: "keep", label: "Сохранить" },
-              { value: "revoke", label: "Отозвать" },
-            ]}
+            label="Основание возврата"
+            name="refundBasis"
+            placeholder="Выберите основание"
+            options={refundBasisOptions}
           />
           <AdminSelect
             label="Автопродление"
@@ -368,7 +375,11 @@ export function PaymentsSection({
                     {decision.state}
                   </span>
                   <span>
-                    {formatKopecks(decision.amountKopecks)} · доступ{" "}
+                    {formatKopecks(decision.amountKopecks)} · основание{" "}
+                    {decision.basis === null
+                      ? "не указано"
+                      : refundBases[decision.basis].label}{" "}
+                    · доступ{" "}
                     {decision.access} · продление {decision.recurring}
                   </span>
                   {decision.attempt === null ? null : (

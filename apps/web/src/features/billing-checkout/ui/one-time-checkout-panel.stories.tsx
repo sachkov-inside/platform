@@ -27,13 +27,11 @@ const meta = {
     snapshot: guideOnlyOffer,
     quote: guideQuote,
     documents: legalDocuments,
-    accepted: [],
     contact: verifiedContact,
     contactHref: "/account/email",
     acknowledgeExistingAccess: false,
     purchase: null,
     inclusions,
-    onToggleDocument: fn(),
     onToggleAcknowledge: fn(),
     onPay: fn(),
     onRefreshStatus: fn(),
@@ -53,7 +51,6 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Ready: Story = {
-  args: { accepted: ["terms"] },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByText("Без подписки и доплат")).toBeInTheDocument();
@@ -71,9 +68,14 @@ export const Ready: Story = {
     await expect(
       within(terms).getByText("После отказа доступ по этой покупке закрывается."),
     ).toBeInTheDocument();
+    // Оферта принимается нажатием кнопки: отметки нет, строка под кнопкой называет документ.
+    await expect(canvas.queryByRole("checkbox")).not.toBeInTheDocument();
     await expect(
-      canvas.getByRole("checkbox", { name: /Принимаю оферту разовой покупки/u }),
-    ).toBeChecked();
+      canvas.getByText("Нажимая «Оплатить», вы принимаете оферту разовой покупки."),
+    ).toBeInTheDocument();
+    await expect(
+      canvas.getByText("До 18 лет покупку оформляйте с согласия законного представителя."),
+    ).toBeInTheDocument();
     // Футер оболочки ведёт к тем же документам, поэтому ссылки ищутся в самой оплате.
     const payment = within(canvas.getByRole("region", { name: "Оплата продукта" }));
     for (const name of [
@@ -83,7 +85,7 @@ export const Ready: Story = {
       "Политика данных",
     ])
       await expect(payment.getByRole("link", { name })).toBeInTheDocument();
-    await expect(canvas.getByRole("button", { name: /Купить за/u })).toBeEnabled();
+    await expect(canvas.getByRole("button", { name: /^Оплатить /u })).toBeEnabled();
     // Согласие на регулярные списания разовой покупке не показывается.
     await expect(
       canvas.queryByText("Согласие на регулярные списания"),
@@ -91,17 +93,8 @@ export const Ready: Story = {
   },
 };
 
-export const ConsentNotAccepted: Story = {
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    for (const checkbox of canvas.getAllByRole("checkbox"))
-      await expect(checkbox).not.toBeChecked();
-    await expect(canvas.getByRole("button", { name: /Купить за/u })).toBeDisabled();
-  },
-};
-
 export const ContactRequired: Story = {
-  args: { accepted: ["terms"], contact: null },
+  args: { contact: null },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     // Формы подтверждения здесь нет: страница объясняет предел и ведёт в кабинет.
@@ -112,7 +105,7 @@ export const ContactRequired: Story = {
       canvas.getByRole("link", { name: "Подтвердить его в кабинете" }),
     ).toBeInTheDocument();
     await expect(canvas.queryByLabelText("Email")).not.toBeInTheDocument();
-    await expect(canvas.getByRole("button", { name: /Купить за/u })).toBeDisabled();
+    await expect(canvas.getByRole("button", { name: /^Оплатить /u })).toBeDisabled();
   },
 };
 
@@ -128,7 +121,6 @@ export const QuotePending: Story = {
 
 export const ExistingAccess: Story = {
   args: {
-    accepted: ["terms"],
     existingAccess: true,
     error: "У вас уже есть доступ к части этого состава.",
   },
@@ -137,12 +129,12 @@ export const ExistingAccess: Story = {
     await expect(
       canvas.getByText("Этот продукт у вас уже открыт."),
     ).toBeInTheDocument();
-    await expect(canvas.getByRole("button", { name: /Купить за/u })).toBeDisabled();
+    await expect(canvas.getByRole("button", { name: /^Оплатить /u })).toBeDisabled();
   },
 };
 
 export const Confirmed: Story = {
-  args: { accepted: ["terms"], purchase: confirmedGuidePurchase },
+  args: { purchase: confirmedGuidePurchase },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByText("Доступ открыт.")).toBeInTheDocument();
@@ -150,11 +142,9 @@ export const Confirmed: Story = {
 };
 
 export const Mobile: Story = {
-  args: { accepted: ["terms"] },
   globals: { viewport: { isRotated: false, value: "mobile390" } },
 };
 
 export const Desktop: Story = {
-  args: { accepted: ["terms"] },
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
 };

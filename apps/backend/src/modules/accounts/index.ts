@@ -39,3 +39,8 @@ export { platformPermissions } from "./domain/platform-permission.js";
 export { NotificationAccounts } from "./facets/notification-accounts/notification-accounts.js";
 
 export { BillingContact } from "./facets/billing-contact/billing-contact.js";
+export { LegalAcceptances } from "./facets/legal-acceptances/legal-acceptances.js";
+export {
+  AcceptedTermsEndpoint,
+  AcceptedTermsGuard,
+} from "./adapters/nest/accepted-terms.guard.js";

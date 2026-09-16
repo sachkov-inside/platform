@@ -22,8 +22,11 @@ describe("Home feed public note excerpts", () => {
     const created = await authoring.createDraft({ actor, idempotencyKey: "feed-note-draft", metadata, body: noteBody("Short complete note") });
     if (!created.ok) throw new Error(created.error.code);
     let version = created.value.contentVersion;
+    // Закрытая заметка публикуется только внутри продукта.
+    const closedGuideId = "74000000-0000-4000-8000-000000000098";
+    await database.prisma.guide.create({ data: { id: closedGuideId, slug: "feed-excerpt-closed-guide", name: "Feed excerpt closed guide" } });
     const publish = async (text: string, access: "free" | "membership", key: string, href?: string) => {
-      const result = await authoring.saveMaterial({ actor, idempotencyKey: key, materialId: created.value.materialId, expectedContentVersion: version, publicationState: "published", metadata: { ...metadata, access }, body: noteBody(text, href), primaryVideoId: null, deleteVideoId: null });
+      const result = await authoring.saveMaterial({ actor, idempotencyKey: key, materialId: created.value.materialId, expectedContentVersion: version, publicationState: "published", metadata: { ...metadata, access, seriesIds: access === "membership" ? [closedGuideId] : [] }, body: noteBody(text, href), primaryVideoId: null, deleteVideoId: null });
       if (!result.ok) throw new Error(result.error.code);
       version = result.value.contentVersion;
     };

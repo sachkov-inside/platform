@@ -90,6 +90,20 @@ export type InvalidPublicationTransitionError = {
   readonly currentState: PublicationState;
   readonly targetState: PublicationState;
 };
+/** Руководство с держателями права, из которого операция убрала бы опубликованный материал. */
+export interface HeldGuideRemoval {
+  readonly guideId: string;
+  readonly name: string;
+  readonly holders: number;
+}
+/**
+ * Снять опубликованный материал из купленного руководства можно только подтверждением: команда
+ * повторяется с перечисленными руководствами, а снятие записывается в журнал.
+ */
+export type GuideRemovalConfirmationRequiredError = {
+  readonly code: "guide_removal_confirmation_required";
+  readonly guides: readonly HeldGuideRemoval[];
+};
 export type DraftDeletionForbiddenError = {
   readonly code: "draft_deletion_forbidden";
 };

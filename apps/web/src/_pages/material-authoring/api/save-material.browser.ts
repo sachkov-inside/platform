@@ -12,6 +12,8 @@ export async function saveMaterial(
   const formData = new FormData();
   formData.set("access", input.access);
   formData.set("deleteVideoId", input.deleteVideoId ?? "none");
+  for (const videoId of input.detachVideoIds)
+    formData.append("detachVideoIds", videoId);
   formData.set("document", JSON.stringify(input.document));
   formData.set("expectedContentVersion", String(input.expectedContentVersion));
   formData.set("difficulty", input.difficulty);
@@ -26,6 +28,9 @@ export async function saveMaterial(
   for (const tagId of input.tagIds) formData.append("tagIds", tagId);
   formData.set("title", input.title);
   formData.set("topicId", input.topicId);
+  for (const guideId of input.confirmedGuideRemovals ?? []) {
+    formData.append("confirmedGuideRemovals", guideId);
+  }
 
   const response = await requestSameOriginMutation(
     "/api/authoring/materials",

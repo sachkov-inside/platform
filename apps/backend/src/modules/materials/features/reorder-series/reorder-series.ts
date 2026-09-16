@@ -26,6 +26,11 @@ import {
 } from "../../shared/guide-order-version.js";
 import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
 import { seriesStepGroupsSchema } from "../../shared/series-step-groups.js";
+import {
+  heldGuideRemovals,
+  recordGuideRemovals,
+  unconfirmedGuideRemovals,
+} from "../../shared/guide-removal-confirmation.js";
 import { guideChapterPlacementIssues } from "./guide-chapter-placement.js";
 import type {
   ReorderSeriesError,
@@ -42,6 +47,7 @@ export const reorderSeriesCommandSchema = z
     orderedMaterialIds: z.array(entityId),
     stepGroups: seriesStepGroupsSchema.optional(),
     seriesId: entityId,
+    confirmedGuideRemovals: z.array(z.uuid()).max(100).optional().default([]),
   })
   .strict()
   .refine(
@@ -198,12 +204,32 @@ export function assembleReorderSeries(
         if (chapterIssues.length > 0) {
           return rollback({ code: "invalid_reference", issues: chapterIssues });
         }
+        // Опубликованный материал уходит из руководства с держателями права только подтверждением.
+        const removedMaterialIds = (await transaction.publishedMaterialGuideMembership.findMany({
+          where: { seriesId: command.seriesId },
+          select: { materialId: true },
+        }))
+          .map(({ materialId }) => materialId)
+          .filter((materialId) => !command.orderedMaterialIds.includes(materialId));
+        const heldRemovals = removedMaterialIds.length === 0
+          ? []
+          : await heldGuideRemovals(transaction, dependencies.guideAccessHolders, [command.seriesId]);
+        const unconfirmed = unconfirmedGuideRemovals(heldRemovals, command.confirmedGuideRemovals);
+        if (unconfirmed.length > 0) {
+          return rollback({ code: "guide_removal_confirmation_required", guides: unconfirmed });
+        }
         await replaceGuideComposition(transaction, {
           chapterAssignments: nextAssignments,
           chapters: nextChapters,
           guideId: command.seriesId,
           orderedMaterialIds: command.orderedMaterialIds,
           stepGroups: nextGroups,
+        });
+        await recordGuideRemovals(transaction, {
+          actor: command.actor,
+          operation: "guide_composition",
+          removals: heldRemovals.flatMap((guide) => removedMaterialIds.map((materialId) => ({ guide, materialId }))),
+          removedAt: new Date(),
         });
         return {
           seriesId: command.seriesId,

@@ -68,7 +68,7 @@ describe("course activation HTTP authority with real PostgreSQL", () => {
     now = new Date("2030-01-01T00:00:00.000Z");
     const id = randomUUID(); const identityRef = `telegram:${randomUUID()}`; const policy = `course:${id}`;
     await db.prisma.account.create({ data: { id, logtoIssuer: "https://activation.example.test", logtoSubject: id } });
-    const tier = await db.prisma.billingOffer.create({ data: { id: randomUUID(), name: "Материалы + сообщество", benefits: ["materials", "community"], availableForAssignment: true, contentScope: { guideIds: [randomUUID()], materialIds: [] }, revision: 1 } });
+    const tier = await db.prisma.billingOffer.create({ data: { id: randomUUID(), name: "Подписка Inside", benefits: ["materials", "community"], availableForAssignment: true, contentScope: { guideIds: [randomUUID()], materialIds: [] }, revision: 1 } });
     const rule = { id: randomUUID(), code: randomUUID(), name: "Курс", tierId: tier.id, tierRevision: 1, sourceRef: policy, published: true, startsAt: now.toISOString(), endsAt: null };
     expect(await grants.manageActivationRule(owner, { operationId: randomUUID(), value: rule, reason: "Confirmed course source" })).toMatchObject({ ok: true });
     return { id, identityRef, policy, tier, rule };
