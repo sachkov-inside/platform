@@ -12,4 +12,4 @@ export const updateSourceGuideBodySchema = z.object(updateContentCollectionComma
 export const reorderSourceGuideBodySchema = z.object(reorderSeriesCommandSchema.shape).omit({ actor: true }).extend({ sourceId });
 export type ReserveSourceGuideOperation = (command: z.infer<typeof reserveSourceGuideBodySchema> & { readonly actor: string }) => Promise<CreateContentCollectionResult>;
 export type UpdateSourceGuideOperation = (command: z.infer<typeof updateSourceGuideBodySchema> & { readonly actor: string }) => Promise<UpdateContentCollectionResult>;
-export type ReorderSourceGuideOperation = (command: z.infer<typeof reorderSourceGuideBodySchema> & { readonly actor: string }) => Promise<ReorderSeriesResult>;
+export type ReorderSourceGuideOperation = (command: z.input<typeof reorderSourceGuideBodySchema> & { readonly actor: string }) => Promise<ReorderSeriesResult>;

@@ -4,6 +4,7 @@ import { pathToFileURL } from "node:url";
 import { loadPackage, canonical, checksum } from "./package.mjs";
 import { convertMarkdown, sourceUuid } from "./markdown.mjs";
 import { withJournal, applyJournaled } from "./journal.mjs";
+import { parseLocalResponse, assetReceiptSchema } from "./local-boundaries.mjs";
 
 // This adapter is deliberately tied to the isolated review gateway. It has no remote target mode.
 export const reviewOrigin = "http://127.0.0.1:4396";
@@ -18,7 +19,8 @@ export async function localRequest(path, body, key) {
   return result;
 }
 
-export async function syncLocal(packagePath, stateDirectory, { request = localRequest, defaultAccess = "membership" } = {}) {
+export async function syncLocal(packagePath, stateDirectory, { request: transport = localRequest, defaultAccess = "membership" } = {}) {
+  const request = async (path, body, key) => parseLocalResponse(path, await transport(path, body, key));
   if (!["free", "membership"].includes(defaultAccess)) throw new Error("Explicit local access must be free or membership");
   const pkg = await loadPackage(packagePath);
   const environment = await request("/authoring/import/materials/environment");
@@ -126,7 +128,7 @@ export async function syncLocal(packagePath, stateDirectory, { request = localRe
             form.set("file", new Blob([bytes], { type: asset.mimeType }), asset.path.split("/").at(-1));
             const result = await fetch(`${reviewOrigin}/__local-api/authoring/materials/${current.materialId}/assets`, { method: "POST", headers: { "idempotency-key": key }, body: form, redirect: "error", signal: AbortSignal.timeout(30_000) });
             if (!result.ok) throw new Error(`Asset upload: ${result.status}`);
-            uploaded = await result.json(); journal.operations[key] = uploaded; await persist();
+            uploaded = assetReceiptSchema.parse(await result.json()); journal.operations[key] = uploaded; await persist();
           }
           images.set(assetId, uploaded.assetId);
         }

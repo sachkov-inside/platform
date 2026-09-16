@@ -117,8 +117,9 @@ export async function readPublishedMaterial(
       if (body.value === null) {
         continue;
       }
-      const currentVideo = await dependencies.prisma.material.findFirst({ where: { id: resourceId, contentVersion: BigInt(access.checkedContentVersion), publicationState: "published" }, select: { videoChapters: true } });
-      if (currentVideo === null) continue;
+      // Chapters belong to the same checked version as the body; a newer Save restarts the read.
+      const currentVideo = await dependencies.prisma.material.findUnique({ where: { id: resourceId }, select: { contentVersion: true, publicationState: true, videoChapters: true } });
+      if (currentVideo === null || currentVideo.publicationState !== "published" || currentVideo.contentVersion !== BigInt(access.checkedContentVersion)) continue;
       const videoChapters = videoChaptersSchema.parse(currentVideo.videoChapters);
       const rendered = dependencies.materialBodyOperations.render(body.value);
       if (!rendered.ok) {

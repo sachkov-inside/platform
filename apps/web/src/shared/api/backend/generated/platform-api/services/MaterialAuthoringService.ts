@@ -847,6 +847,7 @@ export class MaterialAuthoringService {
         name: string;
         summary: string;
       }>;
+      confirmedGuideRemovals: Array<string>;
       expectedOrderVersion: string;
       orderedMaterialIds: Array<any>;
       seriesId: any;

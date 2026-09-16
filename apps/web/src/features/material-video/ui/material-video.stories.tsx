@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
-import { expect, fn, userEvent, within } from "storybook/test";
+import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
 import {
   MaterialVideoAuthoringView,
@@ -26,6 +26,7 @@ type VideoStoryMode =
   | "authoring-uploading"
   | "authoring-upload_not_authorized"
   | "authoring-upload_outcome_unknown"
+  | "player-chapters"
   | "player-error"
   | "player-ready";
 
@@ -57,10 +58,12 @@ const actions = {
 
 function MaterialVideoStateBoard({ mode }: { readonly mode: VideoStoryMode }) {
   const [watched, setWatched] = useState(false);
-  if (mode === "player-ready") {
+  if (mode === "player-ready" || mode === "player-chapters") {
     return (
       <div className="mx-auto max-w-5xl p-5 sm:p-8">
         <MaterialVideoPlayerView
+          chapters={mode === "player-chapters" ? [{ start: 0, title: "Введение" }, { start: 75, title: "Проверка результата" }] : []}
+          activeChapter={mode === "player-chapters" ? 75 : null}
           onLoad={actions.onLoad}
           onToggleWatched={() => {
             setWatched((current) => !current);
@@ -407,5 +410,35 @@ export const UploadOutcomeUnknown: Story = {
         "Результат загрузки не подтверждён. Нужна проверка в Kinescope перед повтором.",
       ),
     ).toBeVisible();
+  },
+};
+
+export const PlayerChapters: Story = {
+  name: "Player · chapters and current timestamp",
+  args: { mode: "player-chapters" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const navigation = within(canvas.getByRole("navigation", { name: "Главы видео" }));
+    const chapter = navigation.getByRole("link", { name: "1:15 Проверка результата" });
+    await expect(chapter).toHaveAttribute("aria-current", "true");
+    await expect(navigation.getByRole("link", { name: "0:00 Введение" })).not.toHaveAttribute("aria-current");
+    await expect(chapter).toHaveAttribute("href", "#t=75");
+    const view = canvasElement.ownerDocument.defaultView;
+    if (view === null) throw new Error("Story canvas has no window");
+    const originalUrl = view.location.href;
+    const onHashChange = fn();
+    // The test runner frame must not navigate; the component handler still runs first.
+    const stayOnPage = (event: MouseEvent) => { event.preventDefault(); };
+    try {
+      view.history.replaceState(null, "", "#t=75");
+      view.addEventListener("click", stayOnPage);
+      view.addEventListener("hashchange", onHashChange);
+      await userEvent.click(chapter);
+      await waitFor(async () => { await expect(onHashChange).toHaveBeenCalled(); });
+    } finally {
+      view.removeEventListener("hashchange", onHashChange);
+      view.removeEventListener("click", stayOnPage);
+      view.history.replaceState(null, "", originalUrl);
+    }
   },
 };

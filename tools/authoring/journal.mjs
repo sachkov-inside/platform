@@ -2,6 +2,7 @@ import { mkdir, readFile, open, rename } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import lockfile from "proper-lockfile";
 import { canonical, checksum } from "./package.mjs";
+import { parseJournal } from "./local-boundaries.mjs";
 
 export async function writeAtomic(path, value) {
   const temporary = `${path}.${process.pid}.tmp`;
@@ -18,7 +19,7 @@ export async function withJournal(directory, target, operation) {
   try {
     const path = join(root, "journal.json");
     let journal;
-    try { journal = JSON.parse(await readFile(path, "utf8")); }
+    try { journal = parseJournal(JSON.parse(await readFile(path, "utf8"))); }
     catch (error) {
       if (error.code !== "ENOENT") throw error;
       journal = { schemaVersion: 1, target, materials: {}, guides: {}, operations: {} };

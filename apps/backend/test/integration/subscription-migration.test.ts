@@ -17,7 +17,8 @@ test("preview, transaction rollback, preserved legacy scope and late fulfillment
     await runMigrationsToLatest(db.url, platformMigrations.slice(0, migrationIndex));
     const owner = randomUUID(), included = randomUUID(), excluded = randomUUID(), grant = randomUUID();
     await db.prisma.account.create({ data: { id: owner, logtoIssuer: "https://migration.example.test", logtoSubject: owner } });
-    await db.prisma.guide.create({ data: { id: included, name: "Обещанный гайд", slug: included } });
+    // The generated client already targets later Guide columns, so the historical row uses SQL.
+    await pool.query("INSERT INTO materials.series(id, slug, name) VALUES ($1, $2, 'Обещанный гайд')", [included, included]);
     await pool.query(`INSERT INTO membership_entitlements.access_grants(id, account_id, source, source_ref, capabilities, starts_at, valid_until, revision, reason) VALUES ($1,$2,'manual','historical',ARRAY['materials','support','reviews'],'2030-01-01',NULL,1,'Historical promise')`, [grant, owner]);
     const before = (await pool.query("SELECT * FROM membership_entitlements.access_grants WHERE id=$1", [grant])).rows;
     // Read-only preview names the whole current Guide cohort before schema changes.

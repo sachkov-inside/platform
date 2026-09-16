@@ -37,3 +37,20 @@ test("soft line breaks merge adjacent equal-mark text without dropping author wo
   assert.equal(content[2].text, "\nthird line.");
   assert.deepEqual(JSON.parse(JSON.stringify(materialDocumentSchemaV1.nodeFromJSON(doc).toJSON())), doc);
 });
+
+test("callout fences retain literal headers and adjacent callouts stay separate", () => {
+  for (const marker of ["```", "~~~", "````", "~~~~"]) {
+    const other = marker[0] === "`" ? "~~~" : "```";
+    const literal = [other, marker.slice(0, -1), `${marker} not a closing fence`, "[!info] Literal header", "Literal text"].join("\n");
+    const body = `${marker}markdown\n${literal}\n${marker}${marker[0]}\n`;
+    const quoted = body.trimEnd().split("\n").map((line) => `> ${line}`).join("\n");
+    const doc = convert(`> [!example]- Example\n${quoted}\n> [!tip] Adjacent\n> Following text\n`);
+    assert.deepEqual(doc.content.map((node) => node.type), ["callout", "callout"]);
+    assert.equal(doc.content[0].attrs.kind, "example");
+    assert.equal(doc.content[0].content.length, 1);
+    assert.equal(doc.content[0].content[0].type, "codeBlock");
+    assert.equal(doc.content[0].content[0].content[0].text, `${literal}\n`);
+    assert.equal(doc.content[1].attrs.kind, "tip");
+    assert.equal(doc.content[1].content[0].content[0].text, "Following text");
+  }
+});

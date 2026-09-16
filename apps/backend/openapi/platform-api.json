@@ -37756,6 +37756,16 @@
                     "maxItems": 200,
                     "type": "array"
                   },
+                  "confirmedGuideRemovals": {
+                    "default": [],
+                    "items": {
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                      "type": "string"
+                    },
+                    "maxItems": 100,
+                    "type": "array"
+                  },
                   "expectedOrderVersion": {
                     "pattern": "^[a-f0-9]{64}$",
                     "type": "string"
@@ -37783,6 +37793,7 @@
                   "expectedOrderVersion",
                   "orderedMaterialIds",
                   "seriesId",
+                  "confirmedGuideRemovals",
                   "sourceId"
                 ],
                 "type": "object"
@@ -37853,6 +37864,34 @@
                       "maximum": 9007199254740991,
                       "minimum": 0,
                       "type": "integer"
+                    },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
                     },
                     "issues": {
                       "items": {
@@ -37944,6 +37983,34 @@
                       "minimum": 0,
                       "type": "integer"
                     },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -38033,6 +38100,34 @@
                       "maximum": 9007199254740991,
                       "minimum": 0,
                       "type": "integer"
+                    },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
                     },
                     "issues": {
                       "items": {
@@ -38124,6 +38219,34 @@
                       "minimum": 0,
                       "type": "integer"
                     },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -38213,6 +38336,34 @@
                       "maximum": 9007199254740991,
                       "minimum": 0,
                       "type": "integer"
+                    },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
                     },
                     "issues": {
                       "items": {
@@ -38304,6 +38455,34 @@
                       "minimum": 0,
                       "type": "integer"
                     },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -38394,6 +38573,34 @@
                       "minimum": 0,
                       "type": "integer"
                     },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -38483,6 +38690,34 @@
                       "maximum": 9007199254740991,
                       "minimum": 0,
                       "type": "integer"
+                    },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
                     },
                     "issues": {
                       "items": {
@@ -38765,6 +39000,34 @@
                       "minimum": 0,
                       "type": "integer"
                     },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -38854,6 +39117,34 @@
                       "maximum": 9007199254740991,
                       "minimum": 0,
                       "type": "integer"
+                    },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
                     },
                     "issues": {
                       "items": {
@@ -38945,6 +39236,34 @@
                       "minimum": 0,
                       "type": "integer"
                     },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -39034,6 +39353,34 @@
                       "maximum": 9007199254740991,
                       "minimum": 0,
                       "type": "integer"
+                    },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
                     },
                     "issues": {
                       "items": {
@@ -39125,6 +39472,34 @@
                       "minimum": 0,
                       "type": "integer"
                     },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -39214,6 +39589,34 @@
                       "maximum": 9007199254740991,
                       "minimum": 0,
                       "type": "integer"
+                    },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
                     },
                     "issues": {
                       "items": {
@@ -39305,6 +39708,34 @@
                       "minimum": 0,
                       "type": "integer"
                     },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -39394,6 +39825,34 @@
                       "maximum": 9007199254740991,
                       "minimum": 0,
                       "type": "integer"
+                    },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
                     },
                     "issues": {
                       "items": {
@@ -39679,6 +40138,34 @@
                       "minimum": 0,
                       "type": "integer"
                     },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -39768,6 +40255,34 @@
                       "maximum": 9007199254740991,
                       "minimum": 0,
                       "type": "integer"
+                    },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
                     },
                     "issues": {
                       "items": {
@@ -39859,6 +40374,34 @@
                       "minimum": 0,
                       "type": "integer"
                     },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -39948,6 +40491,34 @@
                       "maximum": 9007199254740991,
                       "minimum": 0,
                       "type": "integer"
+                    },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
                     },
                     "issues": {
                       "items": {
@@ -40039,6 +40610,34 @@
                       "minimum": 0,
                       "type": "integer"
                     },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -40128,6 +40727,34 @@
                       "maximum": 9007199254740991,
                       "minimum": 0,
                       "type": "integer"
+                    },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
                     },
                     "issues": {
                       "items": {
@@ -40219,6 +40846,34 @@
                       "minimum": 0,
                       "type": "integer"
                     },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -40308,6 +40963,34 @@
                       "maximum": 9007199254740991,
                       "minimum": 0,
                       "type": "integer"
+                    },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
                     },
                     "issues": {
                       "items": {
@@ -40680,6 +41363,34 @@
                       "minimum": 0,
                       "type": "integer"
                     },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -40769,6 +41480,34 @@
                       "maximum": 9007199254740991,
                       "minimum": 0,
                       "type": "integer"
+                    },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
                     },
                     "issues": {
                       "items": {
@@ -40860,6 +41599,34 @@
                       "minimum": 0,
                       "type": "integer"
                     },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -40949,6 +41716,34 @@
                       "maximum": 9007199254740991,
                       "minimum": 0,
                       "type": "integer"
+                    },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
                     },
                     "issues": {
                       "items": {
@@ -41040,6 +41835,34 @@
                       "minimum": 0,
                       "type": "integer"
                     },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -41129,6 +41952,34 @@
                       "maximum": 9007199254740991,
                       "minimum": 0,
                       "type": "integer"
+                    },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
                     },
                     "issues": {
                       "items": {
@@ -41220,6 +42071,34 @@
                       "minimum": 0,
                       "type": "integer"
                     },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -41309,6 +42188,34 @@
                       "maximum": 9007199254740991,
                       "minimum": 0,
                       "type": "integer"
+                    },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
                     },
                     "issues": {
                       "items": {
@@ -41441,6 +42348,34 @@
                       "minimum": 0,
                       "type": "integer"
                     },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -41530,6 +42465,34 @@
                       "maximum": 9007199254740991,
                       "minimum": 0,
                       "type": "integer"
+                    },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
                     },
                     "issues": {
                       "items": {
@@ -41621,6 +42584,34 @@
                       "minimum": 0,
                       "type": "integer"
                     },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -41710,6 +42701,34 @@
                       "maximum": 9007199254740991,
                       "minimum": 0,
                       "type": "integer"
+                    },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
                     },
                     "issues": {
                       "items": {
@@ -41908,6 +42927,34 @@
                       "minimum": 0,
                       "type": "integer"
                     },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -41997,6 +43044,34 @@
                       "maximum": 9007199254740991,
                       "minimum": 0,
                       "type": "integer"
+                    },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
                     },
                     "issues": {
                       "items": {
@@ -42088,6 +43163,34 @@
                       "minimum": 0,
                       "type": "integer"
                     },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -42177,6 +43280,34 @@
                       "maximum": 9007199254740991,
                       "minimum": 0,
                       "type": "integer"
+                    },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
                     },
                     "issues": {
                       "items": {
@@ -42268,6 +43399,34 @@
                       "minimum": 0,
                       "type": "integer"
                     },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -42357,6 +43516,34 @@
                       "maximum": 9007199254740991,
                       "minimum": 0,
                       "type": "integer"
+                    },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
                     },
                     "issues": {
                       "items": {
@@ -42448,6 +43635,34 @@
                       "minimum": 0,
                       "type": "integer"
                     },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -42537,6 +43752,34 @@
                       "maximum": 9007199254740991,
                       "minimum": 0,
                       "type": "integer"
+                    },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
                     },
                     "issues": {
                       "items": {
@@ -42856,6 +44099,34 @@
                       "minimum": 0,
                       "type": "integer"
                     },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -42945,6 +44216,34 @@
                       "maximum": 9007199254740991,
                       "minimum": 0,
                       "type": "integer"
+                    },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
                     },
                     "issues": {
                       "items": {
@@ -43036,6 +44335,34 @@
                       "minimum": 0,
                       "type": "integer"
                     },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -43125,6 +44452,34 @@
                       "maximum": 9007199254740991,
                       "minimum": 0,
                       "type": "integer"
+                    },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
                     },
                     "issues": {
                       "items": {
@@ -43216,6 +44571,34 @@
                       "minimum": 0,
                       "type": "integer"
                     },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -43305,6 +44688,34 @@
                       "maximum": 9007199254740991,
                       "minimum": 0,
                       "type": "integer"
+                    },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
                     },
                     "issues": {
                       "items": {
@@ -43396,6 +44807,34 @@
                       "minimum": 0,
                       "type": "integer"
                     },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "issues": {
                       "items": {
                         "additionalProperties": false,
@@ -43485,6 +44924,34 @@
                       "maximum": 9007199254740991,
                       "minimum": 0,
                       "type": "integer"
+                    },
+                    "guides": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "guideId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                            "type": "string"
+                          },
+                          "holders": {
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "guideId",
+                          "name",
+                          "holders"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
                     },
                     "issues": {
                       "items": {

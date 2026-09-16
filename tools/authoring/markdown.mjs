@@ -11,11 +11,19 @@ parser.block.ruler.before("blockquote", "inside_callout", (state, start, end, si
   if (match === null) return false;
   if (silent) return true;
   const lines = [];
+  let fence = null;
   let next = start + 1;
   for (; next < end; next += 1) {
     const line = state.src.slice(state.bMarks[next] + state.tShift[next], state.eMarks[next]);
-    if (!line.startsWith(">") || calloutHeader.test(line)) break;
-    lines.push(line.replace(/^> ?/u, ""));
+    if (!line.startsWith(">") || fence === null && calloutHeader.test(line)) break;
+    const content = line.replace(/^> ?/u, "");
+    const marker = /^ {0,3}(`{3,}|~{3,})(.*)$/u.exec(content);
+    if (fence === null) {
+      if (marker && (marker[1][0] !== "`" || !marker[2].includes("`"))) fence = marker[1];
+    } else if (marker && marker[1][0] === fence[0] && marker[1].length >= fence.length && /^\s*$/u.test(marker[2])) {
+      fence = null;
+    }
+    lines.push(content);
   }
   const token = state.push("inside_callout", "", 0);
   token.map = [start, next];
