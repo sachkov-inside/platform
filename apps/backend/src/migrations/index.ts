@@ -1,5 +1,5 @@
-import { name as legalAcceptancesName, statement as legalAcceptancesStatement } from "../modules/accounts/infrastructure/postgres/migrations/0067-legal-acceptances.js";
 import { name as videoDetachmentName, statement as videoDetachmentStatement } from "../modules/videos/infrastructure/postgres/migrations/0065-video-detachment.js";
+import { name as legalAcceptancesName, statement as legalAcceptancesStatement } from "../modules/accounts/infrastructure/postgres/migrations/0067-legal-acceptances.js";
 import { name as tributeName, statement as tributeStatement } from "../modules/membership-entitlements/infrastructure/postgres/migrations/0064-tribute-sources.js";
 import { name as enrollmentName, statement as enrollmentStatement } from "../modules/membership-entitlements/infrastructure/postgres/migrations/0063-subscription-enrollments.js";
 import { name as readerGuideModeName, statement as readerGuideModeStatement } from "../modules/reading-activity/infrastructure/postgres/migrations/0062-reader-guide-mode.js";
@@ -344,8 +344,8 @@ export const platformMigrations = [
   { name: readerGuideModeName, statement: readerGuideModeStatement },
   { name: enrollmentName, statement: enrollmentStatement },
   { name: tributeName, statement: tributeStatement },
-  { name: videoDetachmentName, statement: videoDetachmentStatement },
   { name: legalAcceptancesName, statement: legalAcceptancesStatement },
+  { name: videoDetachmentName, statement: videoDetachmentStatement },
 ] as const;
 
 export function migrateToLatest(
