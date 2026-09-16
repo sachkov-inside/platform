@@ -7,6 +7,10 @@ export {
   type RequestVideoDeletionResult,
 } from "./features/request-video-deletion/request-video-deletion.js";
 export {
+  recordVideoDetachment,
+  type RecordVideoDetachmentResult,
+} from "./features/record-video-detachment/record-video-detachment.js";
+export {
   assembleVideoDeletionMaintenance,
   VIDEO_DELETION_MAINTENANCE,
   type VideoDeletionMaintenance,

@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   awaitsReconciliation,
   phaseForReconciledVideo,
+  nextDetachVideoIds,
+  replacedUploadToDetach,
   resolveInitialVideoAuthoring,
   retainUnselectedUpload,
   type MaterialAuthoringVideo,
@@ -75,37 +77,87 @@ describe("Interrupted upload recovery", () => {
     expect(phaseForReconciledVideo(video, video.videoId)).toBe("ready");
   });
 
-  it("stops carrying an adopted upload once the draft selects or deletes a Video", () => {
+  it("stops carrying an adopted upload once the draft selects, deletes or removes a Video", () => {
     const upload = uploadedVideo("processing");
-    expect(
+    const retained = (input: {
+      readonly deleteVideoId?: string | null;
+      readonly detachVideoIds?: readonly string[];
+      readonly primaryVideoId?: string | null;
+    }) =>
       retainUnselectedUpload({
-        deleteVideoId: null,
-        primaryVideoId: upload.videoId,
+        deleteVideoId: input.deleteVideoId ?? null,
+        detachVideoIds: input.detachVideoIds ?? [],
+        primaryVideoId: input.primaryVideoId ?? null,
         unselectedUpload: upload,
-      }),
-    ).toBeNull();
-    expect(
-      retainUnselectedUpload({
-        deleteVideoId: upload.videoId,
-        primaryVideoId: null,
-        unselectedUpload: upload,
-      }),
-    ).toBeNull();
+      });
+    expect(retained({ primaryVideoId: upload.videoId })).toBeNull();
+    expect(retained({ deleteVideoId: upload.videoId })).toBeNull();
+    expect(retained({ detachVideoIds: [upload.videoId] })).toBeNull();
     // Agrees with resolveInitialVideoAuthoring: any selected Video ends the recovery.
+    expect(retained({ primaryVideoId: otherVideo.videoId })).toBeNull();
+    expect(retained({ detachVideoIds: [otherVideo.videoId] })).toEqual(upload);
+    expect(retained({})).toEqual(upload);
+  });
+
+  it("records «Убрать» until a Save carries it, and forgets it once that Video is selected", () => {
+    const removed = uploadedVideo("processing").videoId;
     expect(
-      retainUnselectedUpload({
-        deleteVideoId: null,
-        primaryVideoId: otherVideo.videoId,
-        unselectedUpload: upload,
+      nextDetachVideoIds({
+        detachedVideoId: removed,
+        detachVideoIds: [],
+        primaryVideoId: null,
+      }),
+    ).toEqual([removed]);
+    // Removing the replacement too keeps both decisions, each once.
+    expect(
+      nextDetachVideoIds({
+        detachedVideoId: otherVideo.videoId,
+        detachVideoIds: [removed, otherVideo.videoId],
+        primaryVideoId: null,
+      }),
+    ).toEqual([removed, otherVideo.videoId]);
+    // Choosing a Video that was removed earlier withdraws that removal only.
+    expect(
+      nextDetachVideoIds({
+        detachedVideoId: null,
+        detachVideoIds: [removed, otherVideo.videoId],
+        primaryVideoId: removed,
+      }),
+    ).toEqual([otherVideo.videoId]);
+  });
+
+  it("treats an unselected upload as removed only once a different Video has replaced it", () => {
+    const replaced = uploadedVideo("processing");
+    // A replacement that never started leaves the upload recoverable.
+    expect(
+      replacedUploadToDetach({ replaced, primaryVideoId: null, startedVideoId: null }),
+    ).toBeNull();
+    // Choosing the same file again resumes that upload instead of replacing it.
+    expect(
+      replacedUploadToDetach({
+        replaced,
+        primaryVideoId: null,
+        startedVideoId: replaced.videoId,
+      }),
+    ).toBeNull();
+    // The selected Video is replaced through ordinary selection, not removal.
+    expect(
+      replacedUploadToDetach({
+        replaced,
+        primaryVideoId: replaced.videoId,
+        startedVideoId: otherVideo.videoId,
       }),
     ).toBeNull();
     expect(
-      retainUnselectedUpload({
-        deleteVideoId: null,
+      replacedUploadToDetach({ replaced: null, primaryVideoId: null, startedVideoId: otherVideo.videoId }),
+    ).toBeNull();
+    expect(
+      replacedUploadToDetach({
+        replaced,
         primaryVideoId: null,
-        unselectedUpload: upload,
+        startedVideoId: otherVideo.videoId,
       }),
-    ).toEqual(upload);
+    ).toBe(replaced.videoId);
   });
 
   it("keeps asking Kinescope about an adopted upload until it settles", () => {

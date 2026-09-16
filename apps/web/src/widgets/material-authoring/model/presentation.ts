@@ -31,6 +31,8 @@ export interface MaterialDraftPresentation {
   readonly document: JSONContent;
   readonly assetPreviewBlocks?: readonly RenderedBlock[];
   readonly deleteVideoId: string | null;
+  /** Видео, которые автор убрал после последнего сохранения; Save записывает это решение. */
+  readonly detachVideoIds: readonly string[];
   /** Сложность урока; `unassigned`, пока автор её не выбрал. */
   readonly difficulty: string;
   readonly formatId: string;
@@ -143,6 +145,7 @@ export interface MaterialAuthoringActions {
   readonly onPrimaryVideoChange: (
     primaryVideo: MaterialAuthoringVideo | null,
     deleteVideoId: string | null,
+    detachedVideoId: string | null,
   ) => void;
   readonly onRetry: () => void;
   readonly onReturnToEditor: () => void;

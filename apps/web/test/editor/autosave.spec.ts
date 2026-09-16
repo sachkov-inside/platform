@@ -375,6 +375,151 @@ test("a late video response cannot restore a video removed during processing", a
   await expect(page.getByText("Основное видео не выбрано")).toBeVisible();
 });
 
+test("a late video response cannot bring back a video replaced during processing", async ({
+  page,
+}) => {
+  await createDraft(page, "замена видео");
+  let release: (() => void) | undefined;
+  const gate = new Promise<void>((done) => {
+    release = done;
+  });
+  let holdNext = true;
+  await page.route(
+    "**/api/authoring/material-video-reconciliations",
+    async (route) => {
+      const held = holdNext;
+      holdNext = false;
+      const response = await route.fetch();
+      if (held) await gate;
+      await route.fulfill({ response });
+    },
+  );
+  const videoInput = page.getByLabel("Видео для загрузки");
+  const requested = page.waitForRequest(
+    "**/api/authoring/material-video-reconciliations",
+  );
+  await videoInput.setInputFiles({
+    name: "previous.mp4",
+    mimeType: "video/mp4",
+    buffer: Buffer.from("Local test video"),
+  });
+  await requested;
+  await page.getByRole("button", { name: "Убрать", exact: true }).click();
+  await videoInput.setInputFiles({
+    name: "replacement.mp4",
+    mimeType: "video/mp4",
+    buffer: Buffer.from("Local replacement video"),
+  });
+  // The replacement settles through the ordinary reconciliation poll.
+  await expect(page.getByText("Видео готово")).toBeVisible({ timeout: 20_000 });
+  const completed = page.waitForResponse(
+    "**/api/authoring/material-video-reconciliations",
+  );
+  release?.();
+  await completed;
+  // The late answer must change nothing; the persisted facts after reload decide.
+  await page
+    .getByLabel("Краткое описание", { exact: true })
+    .fill("Правка после замены видео");
+  await saved(page);
+  await page.reload();
+  await expect(page.getByText("replacement", { exact: true })).toBeVisible();
+  await expect(page.getByText("previous", { exact: true })).toHaveCount(0);
+  // Removing the replacement must not hand the earlier, still unsettled upload back.
+  await page.getByRole("button", { name: "Убрать", exact: true }).click();
+  await saved(page);
+  await page.reload();
+  await expect(page.getByText("Основное видео не выбрано")).toBeVisible();
+});
+
+test("a video replaced after a failed check does not return over its replacement", async ({
+  page,
+}) => {
+  await createDraft(page, "замена после ошибки");
+  let failNext = true;
+  await page.route(
+    "**/api/authoring/material-video-reconciliations",
+    async (route) => {
+      if (failNext) {
+        failNext = false;
+        await route.fulfill({ status: 503, body: "" });
+        return;
+      }
+      await route.continue();
+    },
+  );
+  const videoInput = page.getByLabel("Видео для загрузки");
+  await videoInput.setInputFiles({
+    name: "previous.mp4",
+    mimeType: "video/mp4",
+    buffer: Buffer.from("Local test video"),
+  });
+  // Kinescope still owns the first upload, but the failed check lets the author pick another file.
+  await expect(page.getByText("Нужна повторная попытка")).toBeVisible();
+  await videoInput.setInputFiles({
+    name: "replacement.mp4",
+    mimeType: "video/mp4",
+    buffer: Buffer.from("Local replacement video"),
+  });
+  await expect(page.getByText("Видео готово")).toBeVisible({ timeout: 20_000 });
+  await page
+    .getByLabel("Краткое описание", { exact: true })
+    .fill("Правка после замены видео");
+  await saved(page);
+  await page.reload();
+  await expect(page.getByText("replacement", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Убрать", exact: true }).click();
+  await saved(page);
+  await page.reload();
+  await expect(page.getByText("Основное видео не выбрано")).toBeVisible();
+});
+
+test("a replacement that fails to start leaves the unsettled upload recoverable", async ({
+  page,
+}) => {
+  await createDraft(page, "неудачная замена");
+  let failNext = true;
+  await page.route(
+    "**/api/authoring/material-video-reconciliations",
+    async (route) => {
+      if (failNext) {
+        failNext = false;
+        await route.fulfill({ status: 503, body: "" });
+        return;
+      }
+      await route.continue();
+    },
+  );
+  const videoInput = page.getByLabel("Видео для загрузки");
+  await videoInput.setInputFiles({
+    name: "previous.mp4",
+    mimeType: "video/mp4",
+    buffer: Buffer.from("Local test video"),
+  });
+  await expect(page.getByText("Нужна повторная попытка")).toBeVisible();
+  await page.route("**/api/authoring/material-video-uploads", (route) =>
+    route.fulfill({ status: 503, body: "" }),
+  );
+  const refused = page.waitForResponse(
+    "**/api/authoring/material-video-uploads",
+  );
+  await videoInput.setInputFiles({
+    name: "unstarted.mp4",
+    mimeType: "video/mp4",
+    buffer: Buffer.from("Local replacement video"),
+  });
+  await refused;
+  await expect(page.getByText("previous", { exact: true })).toBeVisible();
+  await page
+    .getByLabel("Краткое описание", { exact: true })
+    .fill("Правка после неудачной замены");
+  await saved(page);
+  await page.unrouteAll();
+  await page.reload();
+  // The author never removed the first upload, so it still returns to them.
+  await expect(page.getByText("previous", { exact: true })).toBeVisible();
+});
+
 test("paragraph controls insert at the hovered block without changing content on cancel", async ({
   page,
 }) => {

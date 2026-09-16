@@ -11,6 +11,7 @@ export {
 } from "./ui/material-video-authoring.client";
 export {
   isVideoWatchedPosition,
+  nextDetachVideoIds,
   resolveVideoPlaybackProgress,
   retainUnselectedUpload,
   type MaterialAuthoringVideo,

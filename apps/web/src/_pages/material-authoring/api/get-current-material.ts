@@ -148,6 +148,7 @@ export async function getCurrentMaterial(
       outcomes: parsed.data.metadata.outcomes,
       materialId: parsed.data.materialId,
       deleteVideoId: null,
+      detachVideoIds: [],
       latestVideoDeletion: parsed.data.latestVideoDeletion,
       primaryVideo: parsed.data.primaryVideo,
       primaryVideoId: parsed.data.primaryVideoId,

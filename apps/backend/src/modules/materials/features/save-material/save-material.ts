@@ -7,9 +7,10 @@ import {
   lockMaterialReferenceChanges,
 } from "../../../../infrastructure/prisma/index.js";
 
-import type {
-  SaveMaterialError,
-  SaveMaterialOperation,
+import {
+  MATERIAL_DETACHED_VIDEOS_MAX,
+  type SaveMaterialError,
+  type SaveMaterialOperation,
 } from "./save-material.contract.js";
 import type { MaterialAuthoringDependencies } from "../../facets/material-authoring/material-authoring.dependencies.js";
 import type { MaterialMutationReceiptDto } from "../../facets/material-authoring/material-authoring.contract.js";
@@ -35,7 +36,10 @@ import { materializeMetadataSelection } from "../../shared/materialize-metadata-
 import { mapPostgresError } from "../../shared/postgres-error-mapping.js";
 import { requireReferenceIntegrity } from "../../shared/reference-integrity.js";
 import { toDatabaseJson } from "../../infrastructure/postgres/database-json.js";
-import { requestVideoDeletion } from "../../../videos/index.js";
+import {
+  recordVideoDetachment,
+  requestVideoDeletion,
+} from "../../../videos/index.js";
 import { materialReaderPath } from "../../domain/announcement.js";
 import { recordMaterialAnnouncement } from "./record-announcement.js";
 import { lockMaterialForLifecycleChange } from "../../infrastructure/postgres/material-locks.js";
@@ -53,6 +57,11 @@ const saveMaterialCommand = z
     publicationState: z.enum(["draft", "published", "unpublished"]),
     primaryVideoId: z.uuid().nullable().optional().default(null),
     deleteVideoId: z.uuid().nullable().optional().default(null),
+    detachVideoIds: z
+      .array(z.uuid())
+      .max(MATERIAL_DETACHED_VIDEOS_MAX)
+      .optional()
+      .default([]),
     metadata: z.unknown(),
     body: z.unknown(),
   })
@@ -107,6 +116,10 @@ export function assembleSaveMaterial(
       body: body.value,
       primaryVideoId: command.primaryVideoId,
       deleteVideoId: command.deleteVideoId,
+      // Absent when empty, so a Save recorded before detachment existed replays with its own key.
+      ...(command.detachVideoIds.length === 0
+        ? {}
+        : { detachVideoIds: command.detachVideoIds }),
     });
     let materializedMetadata: MaterialMetadata | undefined;
     const result = await executeAuthoringTransaction<
@@ -146,6 +159,15 @@ export function assembleSaveMaterial(
               return rollback({
                 code: "invalid_reference",
                 issues: [{ code: "video_deletion_target_mismatch", path: "/deleteVideoId" }],
+              });
+            }
+            if (
+              command.primaryVideoId !== null &&
+              command.detachVideoIds.includes(command.primaryVideoId)
+            ) {
+              return rollback({
+                code: "invalid_reference",
+                issues: [{ code: "video_detachment_target_mismatch", path: "/detachVideoIds" }],
               });
             }
             const selectedValues = selection.value.toValues();
@@ -347,6 +369,16 @@ export function assembleSaveMaterial(
                   issues: [{ code: deletion.code, path: "/deleteVideoId" }],
                 });
               }
+            }
+            const detachment = await recordVideoDetachment(transaction, {
+              materialId: command.materialId,
+              videoIds: command.detachVideoIds,
+            }, savedAt);
+            if (!detachment.ok) {
+              return rollback({
+                code: "invalid_reference",
+                issues: [{ code: detachment.code, path: "/detachVideoIds" }],
+              });
             }
             return {
               kind: "material",

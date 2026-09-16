@@ -54,6 +54,7 @@ export async function MaterialAuthoringPage({ returnHref }: { readonly returnHre
       canDelete: false,
       contentVersion: null,
       deleteVideoId: null,
+      detachVideoIds: [],
       difficulty: "unassigned",
       document: { content: [{ type: "paragraph" }], type: "doc" },
       formatId: "unassigned",
