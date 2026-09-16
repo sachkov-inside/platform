@@ -60,7 +60,7 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
   async function setup(mode: "confirmed_period" | "temporary_membership" = "confirmed_period") {
     now = new Date("2030-01-01T00:00:00.000Z");
     const policyRef = randomUUID(), identityRef = randomUUID(), guideId = randomUUID();
-    const tier = await db.prisma.billingOffer.create({ data: { id: randomUUID(), name: "Материалы + сообщество", benefits: ["materials", "community"],
+    const tier = await db.prisma.billingOffer.create({ data: { id: randomUUID(), name: "Подписка Inside", benefits: ["materials", "community"],
       contentScope: { guideIds: [guideId], materialIds: [] }, availableForAssignment: true, revision: 1 } });
     const subscriptionId = ++subscriptionSequence;
     value(await convergence.savePolicy(owner, { operationId: randomUUID(), expectedRevision: 0, id: policyRef, subscriptionId, enabled: true,

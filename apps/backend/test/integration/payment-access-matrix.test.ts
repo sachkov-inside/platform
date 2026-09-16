@@ -235,7 +235,7 @@ describe("оплата, выдача прав и доступ к материа�
   }
   /** Старший тариф: общий чат объявлен прямо в его составе. */
   function seniorOffer() {
-    return offer({ name: "Материалы и сообщество", benefits: ["materials", "community"], priceKopecks: subscriptionPriceKopecks });
+    return offer({ name: "Подписка Inside", benefits: ["materials", "community"], priceKopecks: subscriptionPriceKopecks });
   }
   /** Проекция сообщества: желаемое состояние считается здесь, а исполняет его бот. */
   function communityProjection() {

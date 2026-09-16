@@ -651,7 +651,7 @@ describe("владельческие операции billing: платежи, �
     expect(failure(await assign(course.value.id, course.value.revision, "Назначение с отдельным материалом"))).toBe("state_conflict");
     expect(await db.prisma.subscriptionEnrollment.count({ where: { accountId: recipient } })).toBe(0);
     expect(await db.prisma.accessGrant.count({ where: { accountId: recipient } })).toBe(0);
-    // Стартовый тариф (миграции 0063 и 0067) открывает все продукты платформы, включая новые, даёт
+    // Стартовый тариф (миграции 0063 и 0068) открывает все продукты платформы, включая новые, даёт
     // сопровождение и общую группу и назначается без шага выпуска.
     const starter = await db.prisma.billingOffer.findUniqueOrThrow({ where: { id: "62000000-0000-4000-8000-000000000624" } });
     expect(starter).toMatchObject({ availableForAssignment: true, revision: 1, benefits: ["community", "materials", "support"],

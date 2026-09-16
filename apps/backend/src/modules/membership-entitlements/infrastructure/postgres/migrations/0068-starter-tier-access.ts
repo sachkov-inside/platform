@@ -1,4 +1,4 @@
-export const name = "0067_starter_tier_access";
+export const name = "0068_starter_tier_access";
 
 const allGuides = `'{"guideIds":[],"materialIds":[],"allGuides":true}'::jsonb`;
 
@@ -6,11 +6,13 @@ const allGuides = `'{"guideIds":[],"materialIds":[],"allGuides":true}'::jsonb`;
  * Стартовый тариф даёт то же, что подписка: материалы всех продуктов платформы, включая новые,
  * сопровождение и общую группу. Тариф правится на месте, пока его никому не назначили: снимков
  * этой редакции ещё нет. Мост прежних участников открывает тот же состав, а не снимок каталога на
- * дату миграции 0063, и не несёт `reviews`, которое не выдаёт ни одно основание.
+ * дату миграции 0063, и не несёт `reviews`, которое не выдаёт ни одно основание. Решение владельца
+ * от 15.09.2026 (Workspace #183, «кабинет и тариф») переименовывает тариф в «Подписка Inside».
  */
 export const statement = `
 UPDATE billing.offers
-   SET benefits = ARRAY['community','materials','support']::text[],
+   SET name = 'Подписка Inside',
+       benefits = ARRAY['community','materials','support']::text[],
        content_scope = ${allGuides}
  WHERE id = '62000000-0000-4000-8000-000000000624'::uuid
    AND NOT EXISTS (

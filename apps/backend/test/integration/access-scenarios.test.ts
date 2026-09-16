@@ -32,7 +32,7 @@ import {
 } from "../access-scenarios/access-scenarios.js";
 import { compareAccessObservation, type AccessObservation } from "../access-scenarios/check-access-scenarios.js";
 import { BankFixture } from "./setup/bank.js";
-import { syntheticConsentDocuments } from "./setup/consent-documents.js";
+import { pressedPaymentButton, syntheticConsentDocuments } from "./setup/consent-documents.js";
 import { linkTelegramAccount } from "./setup/telegram-link.js";
 import { createMigratedTestDatabase, type TestDatabase } from "./setup/test-database.js";
 
@@ -282,9 +282,9 @@ describe("таблица сценариев доступа (реальный Pos
   }
   async function pay(buyer: string, optionId: string): Promise<string> {
     const quote = value(await pricing.quote(buyer, { operationId: randomUUID(), paymentOptionId: optionId, optionRevision: 1 }));
-    const accepted = await contact.acceptConsents(buyer, { operationId: randomUUID(), contextRef: quote.quoteRef,
+    const accepted = await contact.acceptConsents(buyer, pressedPaymentButton({ operationId: randomUUID(), contextRef: quote.quoteRef,
       documents: syntheticConsentDocuments.filter(document => document.kind === "terms")
-        .map(document => ({ kind: document.kind, documentId: document.documentId, version: document.version, digest: document.digest, accepted: true })) });
+        .map(document => ({ kind: document.kind, documentId: document.documentId, version: document.version, digest: document.digest, accepted: true })) }));
     if (!accepted.ok) throw new Error(accepted.error.code);
     const bought = value(await payments.purchase(buyer, { operationId: randomUUID(), quoteRef: quote.quoteRef, contactRevision: 1,
       consentEvidenceRefs: accepted.evidenceRefs, acknowledgeExistingAccess: true }));

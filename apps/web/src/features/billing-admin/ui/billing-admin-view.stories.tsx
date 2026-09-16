@@ -232,11 +232,11 @@ export const Desktop: Story = {
 export const AssignmentOnlyTier: Story = {
   args: {
     content: [{ kind: "guide", id: "62000000-0000-4000-8000-000000000004", title: "Инженерная практика", slug: "engineering-practice", available: true }],
-    tiers: [{ tier: { id: "62000000-0000-4000-8000-000000000003", revision: 2, name: "Материалы + сообщество", benefits: ["materials", "community"], contentScope: { guideIds: ["62000000-0000-4000-8000-000000000004"], materialIds: [] } }, availableForAssignment: true, published: false, archived: false }],
+    tiers: [{ tier: { id: "62000000-0000-4000-8000-000000000003", revision: 2, name: "Подписка Inside", benefits: ["materials", "community"], contentScope: { guideIds: ["62000000-0000-4000-8000-000000000004"], materialIds: [] } }, availableForAssignment: true, published: false, archived: false }],
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText("Материалы + сообщество · назначается")).toBeInTheDocument();
+    await expect(canvas.getByText("Подписка Inside · назначается")).toBeInTheDocument();
     await expect(canvas.getByRole("checkbox", { name: "Продукт: Инженерная практика" })).toBeInTheDocument();
   },
 };

@@ -112,7 +112,7 @@ export async function seedLocalOfferCatalog(
     sale: { payments: true, subscriptions: true },
     accounts: standOwnerPermission(target.actor),
   });
-  // Стартовый тариф задаёт миграция 0067: все продукты платформы, сопровождение и общая группа.
+  // Стартовый тариф задаёт миграция 0068: все продукты платформы, сопровождение и общая группа.
   const current = await readOwnerCatalog(pricing);
   for (const offer of localCatalog(target.guideId)) {
     const live = current.get(offer.option.id);
