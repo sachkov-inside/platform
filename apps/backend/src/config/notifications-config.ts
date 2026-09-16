@@ -1,20 +1,22 @@
 import { z } from 'zod';
 
-const brokerUrl = z.url().refine(value => {
+export const brokerUrlSchema = z.url().refine(value => {
   const url = new URL(value);
   return ['amqp:', 'amqps:'].includes(url.protocol) && url.username.length > 0 && url.password.length > 0 &&
     url.pathname.length > 1 && !['/', '/%2f'].includes(url.pathname.toLowerCase()) && !url.hash;
 }, 'Notifications broker requires credentials and a non-default environment vhost');
+/** Все principals окружения — разные имена на одном брокере и одном vhost. */
+export function oneBrokerEnvironment(urls: readonly string[]): boolean {
+  const parsed = urls.map(url => new URL(url));
+  return new Set(parsed.map(url => url.username)).size === parsed.length &&
+    new Set(parsed.map(url => `${url.protocol}//${url.host}${url.pathname}`)).size === 1;
+}
 export const notificationsConfigSchema = z.object({
-  urls: z.object({ billing: brokerUrl, materials: brokerUrl, notifications: brokerUrl, email: brokerUrl }).strict(),
+  urls: z.object({ billing: brokerUrlSchema, materials: brokerUrlSchema, notifications: brokerUrlSchema, email: brokerUrlSchema }).strict(),
   caFile: z.string().min(1).optional(),
   prefetch: z.coerce.number().int().min(1).max(32).default(4),
   quarantineCapacity: z.coerce.number().int().min(1).max(100_000).default(1_000),
-}).refine(value => {
-  const urls = Object.values(value.urls).map(url => new URL(url));
-  return new Set(urls.map(url => url.username)).size === urls.length &&
-    new Set(urls.map(url => `${url.protocol}//${url.host}${url.pathname}`)).size === 1;
-}, 'Notifications principals must be distinct on one environment vhost');
+}).refine(value => oneBrokerEnvironment(Object.values(value.urls)), 'Notifications principals must be distinct on one environment vhost');
 export type NotificationsConfig = z.infer<typeof notificationsConfigSchema>;
 export function parseNotificationsConfig(environment: NodeJS.ProcessEnv): NotificationsConfig | undefined {
   if (!environment.NOTIFICATIONS_BROKER_URLS) return undefined;

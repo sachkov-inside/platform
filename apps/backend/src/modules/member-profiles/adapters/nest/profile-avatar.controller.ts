@@ -9,7 +9,6 @@ import {
   Param,
   Put,
   Req,
-  UseGuards,
 } from "@nestjs/common";
 import {
   ApiBearerAuth,
@@ -28,10 +27,8 @@ import { z } from "zod";
 import { AssetDeliveryCache } from "../../../../infrastructure/http/http-cache-policy.js";
 import { problemDetailsContent, toOpenApiSchema } from "../../../../infrastructure/http/zod-openapi.js";
 import {
-  AccountGuard,
+  AcceptedTermsEndpoint,
   CurrentAccount,
-  OptionalAccountGuard,
-  OptionalCurrentAccount,
   accountId,
   type AuthenticatedAccount,
 } from "../../../accounts/index.js";
@@ -61,7 +58,7 @@ const avatarSizeSchema = z.union([z.literal(160), z.literal(320), z.literal(640)
 
 @MemberProfileEndpoint()
 @ApiBearerAuth("logto")
-@UseGuards(AccountGuard)
+@AcceptedTermsEndpoint()
 @Controller("account/profile/avatar")
 export class PrivateProfileAvatarController {
   constructor(@Inject(MEMBER_PROFILES) private readonly profiles: MemberProfiles) {}
@@ -165,20 +162,15 @@ export class PrivateProfileAvatarController {
     if (!result.ok) throwAvatarError(result.error);
     return { profile: result.profile };
   }
-}
 
-@MemberProfileEndpoint()
-@ApiBearerAuth("logto")
-@UseGuards(OptionalAccountGuard)
-@Controller("member-profiles")
-export class ProfileAvatarDeliveryController {
-  constructor(@Inject(MEMBER_PROFILES) private readonly profiles: MemberProfiles) {}
-
-  @Get(":publicProfileId/avatar/:avatarId/:size")
+  /**
+   * The owner's own avatar for the cabinet. A Profile is visible only to its owner, so there is no
+   * address through which another member or a guest can read it.
+   */
+  @Get(":avatarId/:size")
   @Header("X-Robots-Tag", "noindex, nofollow")
   @AssetDeliveryCache()
-  @ApiOperation({ operationId: "readProfileAvatar", summary: "Read a current Profile avatar rendition through current membership" })
-  @ApiParam({ name: "publicProfileId", schema: { type: "string", format: "uuid" } })
+  @ApiOperation({ operationId: "readOwnProfileAvatar", summary: "Read a current avatar rendition of the current Account owner Profile" })
   @ApiParam({ name: "avatarId", schema: { type: "string", format: "uuid" } })
   @ApiParam({ name: "size", schema: { type: "integer", enum: [160, 320, 640] } })
   @ApiFoundResponse({
@@ -189,25 +181,18 @@ export class ProfileAvatarDeliveryController {
   @ApiResponse({ status: 404, content: problemDetailsContent(avatarProblemSchema(404)) })
   @ApiResponse({ status: 503, content: problemDetailsContent(avatarProblemSchema(503)) })
   async read(
-    @OptionalCurrentAccount() account: AuthenticatedAccount | undefined,
-    @Param("publicProfileId") publicProfileId: string,
+    @CurrentAccount() account: AuthenticatedAccount,
     @Param("avatarId") avatarId: string,
     @Param("size") rawSize: string,
   ) {
     const size = avatarSizeSchema.safeParse(Number(rawSize));
-    if (
-      account === undefined ||
-      !uuidSchema.safeParse(publicProfileId).success ||
-      !uuidSchema.safeParse(avatarId).success ||
-      !size.success
-    ) {
+    if (!uuidSchema.safeParse(avatarId).success || !size.success) {
       throw avatarProblem(404, "profile_not_found", "Profile avatar is not available");
     }
     const result = await this.profiles.deliverAvatar({
+      accountId: accountId(account.accountId),
       avatarId,
-      publicProfileId,
       size: size.data,
-      viewerAccountId: accountId(account.accountId),
     });
     if (!result.ok) {
       if (result.error.code === "dependency_unavailable") {
@@ -222,6 +207,7 @@ export class ProfileAvatarDeliveryController {
     };
   }
 }
+
 
 function field(file: MultipartFile, name: string): string | undefined {
   const value = file.fields[name];

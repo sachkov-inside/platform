@@ -17,7 +17,7 @@ import { brokerAdmin, queueDepth } from "./setup/broker.js";
 import { distinctClock } from "./setup/distinct-clock.js";
 import { eventually } from "./setup/eventually.js";
 import { createMigratedTestDatabase } from "./setup/test-database.js";
-import { syntheticConsentDocuments } from "./setup/consent-documents.js";
+import { pressedPaymentButton, syntheticConsentDocuments } from "./setup/consent-documents.js";
 
 function value<T>(result: { ok: true; value: T } | { ok: false; error: { code: string } }): T {
   if (!result.ok) throw new Error(result.error.code); return result.value;
@@ -59,7 +59,7 @@ test("подтверждённая оплата доходит до обоих �
 
   const accounts = assembleAccounts({ prisma: database.prisma, emailFingerprintKey: "synthetic-broker-fingerprint-000000" });
   const grants = assembleAccessGrants({ prisma: database.prisma, accounts });
-  const pricing = new BillingPricing({ prisma: database.prisma, accounts });
+  const pricing = new BillingPricing({ prisma: database.prisma, accounts, sale: { payments: true, subscriptions: true } });
   const contact = new BillingContact({ prisma: database.prisma, protection, documents, now: () => new Date(),
     sendCode: message => { codes.set(message.challengeRef, message.code); return Promise.resolve(); } });
   expect(await grants.classifyLegacy(owner, { operationId: randomUUID(), accountId: buyer, expectedRevision: 0,
@@ -105,8 +105,8 @@ test("подтверждённая оплата доходит до обоих �
     report: () => undefined });
 
   const quote = value(await pricing.quote(buyer, { operationId: randomUUID(), paymentOptionId: optionId, optionRevision: 1 }));
-  const accepted = await contact.acceptConsents(buyer, { operationId: randomUUID(), contextRef: quote.quoteRef,
-    documents: documents.map(document => ({ kind: document.kind, documentId: document.documentId, version: document.version, digest: document.digest, accepted: true })) });
+  const accepted = await contact.acceptConsents(buyer, pressedPaymentButton({ operationId: randomUUID(), contextRef: quote.quoteRef,
+    documents: documents.map(document => ({ kind: document.kind, documentId: document.documentId, version: document.version, digest: document.digest, accepted: true })) }, { snapshot: quote.snapshot }));
   if (!accepted.ok) throw new Error(accepted.error.code);
   const purchase = value(await payments.purchase(buyer, { operationId: randomUUID(), quoteRef: quote.quoteRef, contactRevision: 1,
     consentEvidenceRefs: accepted.evidenceRefs, acknowledgeExistingAccess: false }));

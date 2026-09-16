@@ -7,7 +7,6 @@ import {
   Inject,
   Param,
   Post,
-  UseGuards,
 } from "@nestjs/common";
 import { ApiBody, ApiOperation, ApiParam, ApiResponse } from "@nestjs/swagger";
 import { toOpenApiSchema } from "../../../../infrastructure/http/zod-openapi.js";
@@ -15,7 +14,7 @@ import {
   AccountEndpoint,
   ApiAccountErrors,
 } from "../../adapters/nest/account-endpoint.js";
-import { AccountGuard } from "../../adapters/nest/account.guard.js";
+import { AcceptedTermsEndpoint } from "../../adapters/nest/accepted-terms.guard.js";
 import { CurrentAccount } from "../../adapters/nest/current-account.js";
 import type { AuthenticatedAccount } from "../../facets/accounts/accounts.interface.js";
 import { BillingContact } from "../../facets/billing-contact/billing-contact.js";
@@ -57,7 +56,7 @@ function response<Result extends { readonly ok: boolean }>(
 
 @Controller("accounts/current/billing")
 @AccountEndpoint()
-@UseGuards(AccountGuard)
+@AcceptedTermsEndpoint()
 export class BillingContactController {
   constructor(
     @Inject(BillingContact) private readonly billingContact: BillingContact,

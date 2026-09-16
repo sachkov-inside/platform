@@ -117,12 +117,14 @@ it("сохраняет расчёт под собственным operationId и
   );
 });
 
-it("отмечает каждый принятый документ и передаёт контекст расчёта", async () => {
+it("передаёт принятые кнопкой документы, её подпись, экран и контекст расчёта", async () => {
   fakes.consents.mockResolvedValue(ok({ ok: true, evidenceRefs: evidence }));
   await handleBillingConsents(
     command("/api/account/billing/consents", {
       operationId,
       contextRef: savedQuote.quoteRef,
+      screen: "checkout",
+      buttonLabel: "Оплатить 2 500 ₽",
       documents: [
         {
           kind: "terms",
@@ -137,6 +139,8 @@ it("отмечает каждый принятый документ и пере�
     {
       operationId,
       contextRef: savedQuote.quoteRef,
+      screen: "checkout",
+      buttonLabel: "Оплатить 2 500 ₽",
       documents: [
         {
           kind: "terms",
@@ -158,6 +162,8 @@ it("передаёт браузеру смену редакции оферты, 
     command("/api/account/billing/consents", {
       operationId,
       contextRef: savedQuote.quoteRef,
+      screen: "checkout",
+      buttonLabel: "Оплатить 2 500 ₽",
       documents: [
         {
           kind: "terms",

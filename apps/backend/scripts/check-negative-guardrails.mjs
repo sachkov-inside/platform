@@ -61,7 +61,7 @@ expectFailure(
     "accessGrant",
     "legacyClassification",
     "billingContact",
-    "billingConsentEvidence",
+    "legalAcceptance",
     "notificationEmailAttempt",
     "telegramCommunityOperation",
     "material.published",

@@ -42,16 +42,6 @@ export function requestMemberProfileUpdate(
   );
 }
 
-export function requestMemberProfileProjection(
-  publicProfileId: string,
-  accessToken?: string,
-): Promise<BackendTransportResult> {
-  return executeGeneratedRequest(
-    (request) => new MemberProfilesService(request).viewMemberProfile({ publicProfileId }),
-    200,
-    accessToken === undefined ? {} : { accessToken },
-  );
-}
 
 export function requestProfileAvatarMutation(input: {
   readonly accessToken: string;
@@ -77,20 +67,17 @@ export function requestProfileAvatarMutation(input: {
   return fetch(`${readBackendBaseUrl()}/account/profile/avatar`, init);
 }
 
-export function requestProfileAvatarDelivery(input: {
-  readonly accessToken?: string;
+/** The current Account owner's avatar rendition; the backend answers only to the owner. */
+export function requestOwnProfileAvatarDelivery(input: {
+  readonly accessToken: string;
   readonly avatarId: string;
-  readonly publicProfileId: string;
   readonly signal: AbortSignal;
   readonly size: string;
 }): Promise<Response> {
-  const path = `/member-profiles/${encodeURIComponent(input.publicProfileId)}/avatar/${encodeURIComponent(input.avatarId)}/${encodeURIComponent(input.size)}`;
+  const path = `/account/profile/avatar/${encodeURIComponent(input.avatarId)}/${encodeURIComponent(input.size)}`;
   return fetch(`${readBackendBaseUrl()}${path}`, {
     cache: "no-store",
-    headers:
-      input.accessToken === undefined
-        ? {}
-        : { authorization: `Bearer ${input.accessToken}` },
+    headers: { authorization: `Bearer ${input.accessToken}` },
     redirect: "manual",
     signal: AbortSignal.any([
       input.signal,

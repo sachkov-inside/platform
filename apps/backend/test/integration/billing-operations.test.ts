@@ -9,7 +9,7 @@ import type { OwnerOutcome, OwnerResult } from "../../src/modules/billing/domain
 import { Tbank, tbankToken } from "../../src/modules/billing/infrastructure/tbank/tbank.js";
 import { syntheticTbankConfig } from "../support/bank-terminal.js";
 import { createMigratedTestDatabase, type TestDatabase } from "./setup/test-database.js";
-import { syntheticConsentDocuments } from "./setup/consent-documents.js";
+import { pressedPaymentButton, syntheticConsentDocuments, type RenewalSource } from "./setup/consent-documents.js";
 
 function value<T>(result: { ok: true; value: T } | { ok: false; error: { code: string } }): T {
   if (!result.ok) throw new Error(result.error.code); return result.value;
@@ -163,7 +163,7 @@ describe("владельческие операции billing: платежи, �
     await db.prisma.accountPermission.create({ data: { accountId: outsider, permission: "materials:manage" } });
     accounts = assembleAccounts({ prisma: db.prisma, emailFingerprintKey: "synthetic-owner-fingerprint-key-0000000" });
     grants = assembleAccessGrants({ prisma: db.prisma, accounts, clock: () => now });
-    pricing = new BillingPricing({ prisma: db.prisma, accounts, clock: () => now });
+    pricing = new BillingPricing({ prisma: db.prisma, accounts, clock: () => now, sale: { payments: true, subscriptions: true } });
     contact = new BillingContact({ prisma: db.prisma, protection: billingContactProtection(Buffer.alloc(32, 62).toString("base64")),
       documents, now: () => now, sendCode: message => { codes.set(message.challengeRef, message.code); return Promise.resolve(); } });
   });
@@ -208,16 +208,16 @@ describe("владельческие операции billing: платежи, �
     expect(asClassification(await operations.execute(owner, classifyNew(buyer))).value)
       .toMatchObject({ classification: "confirmed_new", revision: 1, recurringAllowed: true });
 
-    async function consentFor(contextRef: string) {
-      const accepted = await contact.acceptConsents(buyer, { operationId: randomUUID(), contextRef,
-        documents: documents.map(document => ({ kind: document.kind, documentId: document.documentId, version: document.version, digest: document.digest, accepted: true })) });
+    async function consentFor(contextRef: string, renewal: RenewalSource, screen: "checkout" | "subscription-resume" = "checkout") {
+      const accepted = await contact.acceptConsents(buyer, pressedPaymentButton({ operationId: randomUUID(), contextRef,
+        documents: documents.map(document => ({ kind: document.kind, documentId: document.documentId, version: document.version, digest: document.digest, accepted: true })) }, renewal, screen));
       if (!accepted.ok) throw new Error(accepted.error.code);
       return accepted.evidenceRefs;
     }
     async function reserve() {
       const quote = value(await pricing.quote(buyer, { operationId: randomUUID(), paymentOptionId: optionId, optionRevision: 1 }));
       return value(await payments.purchase(buyer, { operationId: randomUUID(), quoteRef: quote.quoteRef, contactRevision: 1,
-        consentEvidenceRefs: await consentFor(quote.quoteRef), acknowledgeExistingAccess: false }));
+        consentEvidenceRefs: await consentFor(quote.quoteRef, { snapshot: quote.snapshot }), acknowledgeExistingAccess: false }));
     }
     async function buy() {
       const purchase = await reserve();
@@ -574,7 +574,7 @@ describe("владельческие операции billing: платежи, �
   test("21 a quote accepted before unpublish cannot start a new purchase afterward", async () => {
     const s = await scenario();
     const quote = value(await pricing.quote(s.buyer, { operationId: randomUUID(), paymentOptionId: s.optionId, optionRevision: 1 }));
-    const consentEvidenceRefs = await s.consentFor(quote.quoteRef);
+    const consentEvidenceRefs = await s.consentFor(quote.quoteRef, { snapshot: quote.snapshot });
     asCatalog(await s.operations.execute(owner, { operation: "offers.unpublish", operationId: randomUUID(), id: s.offerId, expectedRevision: 2 }));
     expect(await s.payments.purchase(s.buyer, { operationId: randomUUID(), quoteRef: quote.quoteRef, contactRevision: 1,
       consentEvidenceRefs, acknowledgeExistingAccess: false })).toMatchObject({ ok: false });

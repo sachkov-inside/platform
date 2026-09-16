@@ -7,12 +7,10 @@ import type { MemberProfileAvatar } from "../model/member-profile";
 export function ProfileAvatar({
   avatar,
   displayName,
-  publicProfileId,
   size = "large",
 }: {
   readonly avatar: MemberProfileAvatar | null;
   readonly displayName: string;
-  readonly publicProfileId?: string;
   readonly size?: "large" | "small";
 }) {
   const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null);
@@ -20,10 +18,11 @@ export function ProfileAvatar({
     size === "large"
       ? "size-20 shrink-0 text-xl sm:size-24 sm:text-2xl"
       : "size-12 shrink-0 text-sm";
+  // Аватар видит только владелец профиля, поэтому картинка идёт через его собственный адрес.
   const imageUrl =
-    avatar === null || publicProfileId === undefined
+    avatar === null
       ? null
-      : `/api/member-profiles/${encodeURIComponent(publicProfileId)}/avatar/${encodeURIComponent(avatar.avatarId)}/320`;
+      : `/api/account/profile/avatar/${encodeURIComponent(avatar.avatarId)}/320`;
 
   if (shouldUseAvatarImage(imageUrl, failedImageUrl)) {
     return (

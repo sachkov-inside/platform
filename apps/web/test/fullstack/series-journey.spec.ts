@@ -10,7 +10,7 @@ import {
 import { evidenceDirectory, prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 
 // Руководство разделено на продукт, программу и оплату (#509). Место чтения возвращает карточка
-// материала в программе и `at=` в адресе: сводки прогресса, полосы и кнопки «Продолжить» здесь нет.
+// материала в программе и `at=` в адресе; шапка показывает личный прогресс.
 const snapshots = evidenceDirectory("issue-529");
 
 test("guide product leads to the programme and the programme keeps the Reader return position", async ({ page, context }, testInfo) => {
@@ -24,9 +24,9 @@ test("guide product leads to the programme and the programme keeps the Reader re
   await page.getByRole("link", { name: "Открыть программу", exact: true }).click();
   await expect(page).toHaveURL(/\/guides\/demo-series-harness\/programme/u);
 
-  // Сводки прогресса, полосы и отдельной кнопки продолжения в программе нет: решение 12.09.2026.
+  // Личный прогресс находится в шапке, продолжение — на карточке материала.
   await expect(page.locator('[data-guide-programme="demo-series-harness"]:visible')).toBeVisible();
-  await expect(page.getByRole("progressbar")).toHaveCount(0);
+  await expect(page.getByRole("progressbar", { name: "Прогресс продукта" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Продолжить", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Показать в маршруте" })).toHaveCount(0);
 
@@ -48,7 +48,7 @@ test("guide product leads to the programme and the programme keeps the Reader re
   // Гость видит состав и замки, но не получает ни прогресса, ни обещания чужого продолжения.
   await context.clearCookies();
   await page.goto("/guides/platform-inside/programme");
-  await expect(page.getByRole("main").getByText("Для участников", { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole("main").getByText("Нужен доступ", { exact: true }).first()).toBeVisible();
   await expect(page.getByRole("progressbar")).toHaveCount(0);
   await expect(page.locator('[aria-current="step"]')).toHaveCount(0);
   await page.screenshot({ path: resolve(snapshots, `programme-guest-${testInfo.project.name}.png`), fullPage: true });

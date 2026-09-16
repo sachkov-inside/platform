@@ -14,7 +14,7 @@ import { encodeNotification } from "../../src/infrastructure/notification-transp
 import { syntheticTbankConfig } from "../support/bank-terminal.js";
 import { BankFixture } from "./setup/bank.js";
 import { createMigratedTestDatabase, type TestDatabase } from "./setup/test-database.js";
-import { syntheticConsentDocuments } from "./setup/consent-documents.js";
+import { pressedPaymentButton, syntheticConsentDocuments, type RenewalSource } from "./setup/consent-documents.js";
 
 function value<T>(result: { ok: true; value: T } | { ok: false; error: { code: string } }): T {
   if (!result.ok) throw new Error(result.error.code); return result.value;
@@ -49,7 +49,7 @@ describe("служебные сообщения подписки (реальны
     await db.prisma.accountPermission.create({ data: { accountId: owner, permission: "platform:admin" } });
     accounts = assembleAccounts({ prisma: db.prisma, emailFingerprintKey: "synthetic-notice-fingerprint-000000" });
     grants = assembleAccessGrants({ prisma: db.prisma, accounts, clock: () => now });
-    pricing = new BillingPricing({ prisma: db.prisma, accounts, clock: () => now });
+    pricing = new BillingPricing({ prisma: db.prisma, accounts, clock: () => now, sale: { payments: true, subscriptions: true } });
     contact = new BillingContact({ prisma: db.prisma, protection, documents, now: () => now,
       sendCode: message => { codes.set(message.challengeRef, message.code); return Promise.resolve(); } });
   });
@@ -145,16 +145,16 @@ describe("служебные сообщения подписки (реальны
       if (!found) throw new Error(`Нет подготовленной команды ${kind}`);
       return found;
     }
-    async function consentFor(contextRef: string) {
-      const accepted = await contact.acceptConsents(buyer, { operationId: randomUUID(), contextRef,
-        documents: documents.map(document => ({ kind: document.kind, documentId: document.documentId, version: document.version, digest: document.digest, accepted: true })) });
+    async function consentFor(contextRef: string, renewal: RenewalSource, screen: "checkout" | "subscription-resume" = "checkout") {
+      const accepted = await contact.acceptConsents(buyer, pressedPaymentButton({ operationId: randomUUID(), contextRef,
+        documents: documents.map(document => ({ kind: document.kind, documentId: document.documentId, version: document.version, digest: document.digest, accepted: true })) }, renewal, screen));
       if (!accepted.ok) throw new Error(accepted.error.code);
       return accepted.evidenceRefs;
     }
     async function buy() {
       const quote = value(await pricing.quote(buyer, { operationId: randomUUID(), paymentOptionId: optionId, optionRevision: 1 }));
       const purchase = value(await payments.purchase(buyer, { operationId: randomUUID(), quoteRef: quote.quoteRef, contactRevision: 1,
-        consentEvidenceRefs: await consentFor(quote.quoteRef), acknowledgeExistingAccess: false }));
+        consentEvidenceRefs: await consentFor(quote.quoteRef, { snapshot: quote.snapshot }), acknowledgeExistingAccess: false }));
       expect(await payments.notification(bank.notify(purchase.purchaseRef, "AUTHORIZED", { RebillId: "synthetic-card" }))).toMatchObject({ ok: true });
       expect(await payments.notification(bank.notify(purchase.purchaseRef, "CONFIRMED"))).toMatchObject({ ok: true });
       value(await payments.recover());

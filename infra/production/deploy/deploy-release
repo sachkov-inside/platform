@@ -178,6 +178,38 @@ load_release_environment() {
   export PLATFORM_CONFIG_DIR="$config_dir"
 }
 
+worker_services=(material-assets-worker profile-avatars-worker video-deletions-worker billing-worker notifications-worker)
+process_services=(api mcp material-assets-worker profile-avatars-worker video-deletions-worker billing-worker notifications-worker web)
+# The pinned RabbitMQ image runs the broker as gid 101; it reads its TLS key and definitions by group.
+readonly broker_group_id=101
+
+# A release published before the broker declares fewer services. Every lifecycle command names only
+# the requested services that the selected release's Compose file actually declares.
+declared_services() {
+  local selected_compose_file="$1"
+  shift
+  local declared service
+  declared="$(docker compose --env-file "$config_dir/compose.env" --file "$selected_compose_file" config --services)"
+  for service in "$@"; do
+    if grep -Fqx "$service" <<<"$declared"; then
+      printf '%s ' "$service"
+    fi
+  done
+}
+
+stop_workers() {
+  local selected_compose_file="$1"
+  local declared
+  local services
+  declared="$(declared_services "$selected_compose_file" "${worker_services[@]}")"
+  if [[ -z "$declared" ]]; then
+    return
+  fi
+  read -r -a services <<<"$declared"
+  docker compose --env-file "$config_dir/compose.env" --file "$selected_compose_file" \
+    stop --timeout 20 "${services[@]}"
+}
+
 activate_caddy() {
   local source="$1"
   local temporary="$runtime_dir/caddy/active.caddy.tmp.$$"
@@ -500,9 +532,11 @@ fi
 for name in \
   compose.env \
   api.env \
+  billing-worker.env \
   material-assets-worker.env \
   mcp.env \
   migrations.env \
+  notifications-worker.env \
   profile-avatars-worker.env \
   video-deletions-worker.env \
   web.env; do
@@ -520,6 +554,24 @@ for name in \
     file_owner="$(stat -c %u "$path")"
     if [[ "$file_mode" != 600 || "$file_owner" != 0 ]]; then
       echo "Server-owned runtime configuration must be root-owned mode 0600: $name" >&2
+      exit 1
+    fi
+  fi
+done
+
+for name in definitions.json tls/ca.pem tls/server.pem tls/server-key.pem; do
+  path="$config_dir/rabbitmq/$name"
+  if [[ ! -r "$path" || -L "$path" ]]; then
+    echo "Missing server-owned broker configuration: $path" >&2
+    exit 1
+  fi
+  if [[ -z "${INSIDE_DEPLOY_TEST_ROOT:-}" ]]; then
+    case "$name" in
+      tls/ca.pem | tls/server.pem) expected_mode=644 ;;
+      *) expected_mode=640 ;;
+    esac
+    if [[ "$(stat -c %u:%g "$path")" != "0:$broker_group_id" || "$(stat -c %a "$path")" != "$expected_mode" ]]; then
+      echo "Server-owned broker configuration must be root:$broker_group_id mode 0$expected_mode: $name" >&2
       exit 1
     fi
   fi
@@ -757,6 +809,10 @@ write_operation running "$phase"
 fail_if_requested pull
 docker pull "$backend_image"
 docker pull "$web_image"
+candidate_broker="$(declared_services "$compose_file" rabbitmq)"
+if [[ -n "$candidate_broker" ]]; then
+  docker compose --env-file "$config_dir/compose.env" --file "$compose_file" pull rabbitmq
+fi
 
 phase=schema
 write_operation running "$phase"
@@ -769,29 +825,17 @@ write_operation running "$phase"
 fail_if_requested workers
 if [[ "$recovery_phase" =~ ^(start|readiness|smoke|routes|journal)$ ]]; then
   load_release_environment "$manifest"
-  docker compose \
-    --env-file "$config_dir/compose.env" \
-    --file "$compose_file" \
-    stop --timeout 20 \
-    material-assets-worker profile-avatars-worker video-deletions-worker
+  stop_workers "$compose_file"
 fi
 if [[ "$repair_forward" == true ]]; then
   load_release_environment "$repair_forward_manifest"
-  docker compose \
-    --env-file "$config_dir/compose.env" \
-    --file "$repair_forward_compose_file" \
-    stop --timeout 20 \
-    material-assets-worker profile-avatars-worker video-deletions-worker
+  stop_workers "$repair_forward_compose_file"
 fi
 if [[ -f "$state_file" ]]; then
   old_version="$(jq --raw-output .current.version "$state_file")"
   old_release_dir="$host_root/srv/inside/releases/$old_version"
   load_release_environment "$old_release_dir/release-manifest.json"
-  docker compose \
-    --env-file "$config_dir/compose.env" \
-    --file "$old_release_dir/runtime/compose.production.yaml" \
-    stop --timeout 20 \
-    material-assets-worker profile-avatars-worker video-deletions-worker
+  stop_workers "$old_release_dir/runtime/compose.production.yaml"
 fi
 load_release_environment "$manifest"
 
@@ -808,9 +852,21 @@ phase=start
 recovery_phase="$phase"
 write_operation running "$phase"
 fail_if_requested start
+# The broker outlives releases; it is healthy before notifications-worker connects to it.
+candidate_broker="$(declared_services "$compose_file" rabbitmq)"
+if [[ -n "$candidate_broker" ]]; then
+  docker compose --env-file "$config_dir/compose.env" --file "$compose_file" \
+    up --detach --wait --no-deps rabbitmq
+fi
+# An assignment keeps a failed service listing fatal; an empty list would otherwise start everything.
+candidate_process_list="$(declared_services "$compose_file" "${process_services[@]}")"
+if [[ -z "$candidate_process_list" ]]; then
+  echo "The release Compose file declares no application processes" >&2
+  exit 1
+fi
+read -r -a candidate_processes <<<"$candidate_process_list"
 docker compose --env-file "$config_dir/compose.env" --file "$compose_file" \
-  up --detach --wait --no-deps \
-  api mcp material-assets-worker profile-avatars-worker video-deletions-worker web
+  up --detach --wait --no-deps "${candidate_processes[@]}"
 
 phase=readiness
 recovery_phase="$phase"

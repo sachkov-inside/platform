@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { pressedPaymentButton } from "./setup/consent-documents.js";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
 import { assembleAccounts, BillingContact } from "../../src/modules/accounts/index.js";
@@ -50,7 +51,8 @@ describe("one-time offer edition change (real PostgreSQL and real facets; synthe
     await db.prisma.accountPermission.create({ data: { accountId: owner, permission: "platform:admin" } });
     const accounts = assembleAccounts({ prisma: db.prisma, emailFingerprintKey: "synthetic-billing-fingerprint-key-000000" });
     grants = assembleAccessGrants({ prisma: db.prisma, accounts, clock: () => now });
-    pricing = new BillingPricing({ prisma: db.prisma, accounts, clock: () => now });
+    // Процесс с подтверждённым терминалом и адресом для чека: каталог вправе включить разовую продажу.
+    pricing = new BillingPricing({ prisma: db.prisma, accounts, clock: () => now, sale: { payments: true, subscriptions: true } });
   });
   afterAll(async () => db.dispose());
 
@@ -88,9 +90,9 @@ describe("one-time offer edition change (real PostgreSQL and real facets; synthe
     const paymentsOn = (contact: BillingContact) => new BillingPayments({ prisma: db.prisma, bank, contact, grants, clock: () => now });
     const confirmed = () => { const body = event("CONFIRMED"); return { ...body, Token: tbankToken(body, config.password) }; };
     const quote = async () => value(await pricing.quote(buyer, { operationId: randomUUID(), paymentOptionId: optionId, optionRevision: 1 })).quoteRef;
-    const accept = (contact: BillingContact, quoteRef: string, document: LegalDocument) => contact.acceptConsents(buyer, {
+    const accept = (contact: BillingContact, quoteRef: string, document: LegalDocument) => contact.acceptConsents(buyer, pressedPaymentButton({
       operationId: randomUUID(), contextRef: quoteRef,
-      documents: [{ kind: document.kind, documentId: document.documentId, version: document.version, digest: document.digest, accepted: true }] });
+      documents: [{ kind: document.kind, documentId: document.documentId, version: document.version, digest: document.digest, accepted: true }] }));
     const command = (quoteRef: string, consentEvidenceRefs: readonly string[]) => ({ operationId: randomUUID(), quoteRef,
       contactRevision: 1, consentEvidenceRefs: [...consentEvidenceRefs], acknowledgeExistingAccess: false });
     const acceptedVersions = async (purchaseRef: string) => acceptanceSchema.parse(

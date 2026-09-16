@@ -653,6 +653,17 @@ export function parsePlatformConfig(
     }
   }
 
+  // Разрешение отправки уведомления публикуется на edge и защищено только этим credential, поэтому он
+  // не совпадает ни с одним другим направлением Telegram.
+  const notificationDispatchSecret = config.data.notificationDelivery?.telegramSecret;
+  if (notificationDispatchSecret !== undefined && [config.data.telegramMembership.linkingSecret,
+    config.data.telegramMembership.evidenceIngressSecret, config.data.telegramMembership.activationIngressSecret,
+    config.data.identity.telegramSignInIntegrationSecret, config.data.communityEntitlements?.dispatchSecret,
+    config.data.communityEntitlements?.providerSecret, config.data.communications?.secret,
+    config.data.communications?.authorizationSecret].includes(notificationDispatchSecret)) {
+    throw new Error("Notification dispatch requires a separate Telegram secret");
+  }
+
   if (config.data.identity.telegramSignInEnabled) {
     if (!config.data.identity.telegramSignInIntegrationSecret || !environment.TELEGRAM_SIGN_IN_PROVIDER_URL) {
       throw new Error("Telegram sign-in requires TELEGRAM_SIGN_IN_PROVIDER_URL and TELEGRAM_SIGN_IN_INTEGRATION_SECRET");

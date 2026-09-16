@@ -1,5 +1,11 @@
 import { paymentModes } from "@inside/legal";
 import { z } from "zod";
+
+import {
+  acceptanceScreenSchema,
+  buttonLabelSchema,
+  shownRenewalTermsSchema,
+} from "../legal-acceptances/legal-acceptances.contract.js";
 export const billingEmailSchema = z
   .string()
   .trim()
@@ -46,9 +52,17 @@ export const legalDocumentSchema = z.strictObject({
   digest: z.string().length(64),
 });
 export type LegalDocument = z.infer<typeof legalDocumentSchema>;
+/**
+ * Documents accepted by pressing a payment button. The screen and the label of that button go into
+ * the acceptance journal; a subscription or its resumption also records the renewal terms shown
+ * next to the button, and billing stores them as shown and does not re-derive them.
+ */
 export const acceptConsentsSchema = z.strictObject({
   operationId: z.uuid(),
   contextRef: z.uuid(),
+  screen: acceptanceScreenSchema.exclude(["first-sign-in"]),
+  buttonLabel: buttonLabelSchema,
+  shownTerms: shownRenewalTermsSchema.optional(),
   documents: z
     .array(
       z.strictObject({
@@ -133,6 +147,9 @@ export const consentEvidenceSchema = z.object({
   contextRef: z.uuid(),
   acceptedAt: z.iso.datetime(),
   document: acceptedLegalDocumentSchema,
+  /** Absent only on evidence recorded before the journal named buttons (Platform #658). */
+  buttonLabel: z.string().nullable(),
+  shownTerms: shownRenewalTermsSchema.nullable(),
 });
 export const readConsentResultSchema = z.union([
   z.object({ ok: z.literal(true), evidence: consentEvidenceSchema }),

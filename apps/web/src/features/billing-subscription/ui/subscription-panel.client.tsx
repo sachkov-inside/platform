@@ -7,10 +7,12 @@ import { useMutation } from "@tanstack/react-query";
 import {
   acceptBillingConsents,
   purchaseConsentPolicy,
+  renewalTermsOnResume,
+  resumeRenewalButtonLabel,
   type ChangeQuote,
   type LegalDocument,
-  type LegalDocumentKind,
   type PriceSnapshot,
+  type SubscriptionView,
 } from "@/entities/subscription";
 import { useRepeatableOperations } from "@/shared/lib/repeatable-operations.client";
 
@@ -47,9 +49,6 @@ export function SubscriptionPanel({
   const { operationId, completeOperation } = useRepeatableOperations();
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
   const [changeQuote, setChangeQuote] = useState<ChangeQuote | null>(null);
-  const [resumeAccepted, setResumeAccepted] = useState<
-    readonly LegalDocumentKind[]
-  >([]);
   const { subscription } = cabinet;
 
   const cancelRenewal = useMutation({
@@ -61,23 +60,24 @@ export function SubscriptionPanel({
   });
   const resumeRenewal = useMutation({
     retry: false,
-    mutationFn: async (input: {
-      readonly expectedRevision: number;
-      readonly accepted: readonly LegalDocumentKind[];
-    }) => {
+    mutationFn: async (input: { readonly subscription: SubscriptionView }) => {
+      const shownTerms = renewalTermsOnResume(input.subscription);
       const commandId = operationId("resume", {
-        expectedRevision: input.expectedRevision,
-        accepted: input.accepted,
+        expectedRevision: input.subscription.revision,
+        shownTerms,
       });
-      // Возобновление списаний — действие подписки, поэтому документы сужаются её областью
-      // применения: вид не различает оферты разовой покупки и подписки, и без этого в команду
-      // ушли бы обе сразу.
+      // Кнопка «Возобновить автопродление» принимает только согласие на списания: оферта подписки
+      // уже принята при оформлении. Документы сужаются областью подписки, потому что вид не
+      // различает оферты разовой покупки и подписки.
       const selected = purchaseConsentPolicy(resumeDocuments, "subscription").applicable.filter(
-        (document) => input.accepted.includes(document.kind),
+        (document) => document.kind === "recurring",
       );
       const consents = await acceptBillingConsents({
         operationId: operationId("resume-consents", { commandId }),
         contextRef: commandId,
+        screen: "subscription-resume",
+        buttonLabel: resumeRenewalButtonLabel,
+        shownTerms,
         documents: selected.map((document) => ({
           kind: document.kind,
           documentId: document.documentId,
@@ -88,13 +88,12 @@ export function SubscriptionPanel({
       if (!consents.ok) return consents;
       return await resumeBillingRenewal({
         operationId: commandId,
-        expectedRevision: input.expectedRevision,
+        expectedRevision: input.subscription.revision,
         consentEvidenceRefs: [...consents.value.evidenceRefs],
       });
     },
     onSuccess: (result) => {
       cabinet.settle(result, (value) => {
-        setResumeAccepted([]);
         cabinet.applySubscription(value);
       });
     },
@@ -190,21 +189,11 @@ export function SubscriptionPanel({
       onResumeRenewal={() => {
         if (subscription === null) return;
         cabinet.setError(undefined);
-        resumeRenewal.mutate({
-          expectedRevision: subscription.revision,
-          accepted: resumeAccepted,
-        });
+        resumeRenewal.mutate({ subscription });
       }}
       onSelectOption={(paymentOptionId) => {
         setSelectedOptionId(paymentOptionId);
         setChangeQuote(null);
-      }}
-      onToggleResumeDocument={(kind) => {
-        setResumeAccepted((value) =>
-          value.includes(kind)
-            ? value.filter((entry) => entry !== kind)
-            : [...value, kind],
-        );
       }}
       options={options}
       pending={
@@ -214,7 +203,6 @@ export function SubscriptionPanel({
         confirmChange.isPending ||
         dropChange.isPending
       }
-      resumeAccepted={resumeAccepted}
       resumeDocuments={resumeDocuments}
       selectedOptionId={selectedOptionId}
       sessionExpired={cabinet.sessionExpired}

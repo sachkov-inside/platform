@@ -24,7 +24,7 @@ import { representativeDocument } from "../fixtures/material-body/representative
 import { BankFixture } from "./setup/bank.js";
 import { linkTelegramAccount } from "./setup/telegram-link.js";
 import { createMigratedTestDatabase, type TestDatabase } from "./setup/test-database.js";
-import { syntheticConsentDocuments } from "./setup/consent-documents.js";
+import { pressedPaymentButton, syntheticConsentDocuments } from "./setup/consent-documents.js";
 
 function value<T>(result: { ok: true; value: T } | { ok: false; error: { code: string } }): T {
   if (!result.ok) throw new Error(result.error.code); return result.value;
@@ -104,7 +104,7 @@ describe("оплата, выдача прав и доступ к материа�
     accounts = assembleAccounts({ prisma: db.prisma, emailFingerprintKey: "synthetic-matrix-fingerprint-key-00000" });
     grants = assembleAccessGrants({ prisma: db.prisma, accounts, recipientLinks: new TelegramAccountLinks(db.prisma), clock: () => now });
     membership = assembleMembershipEntitlements({ prisma: db.prisma, clock: () => now, workshopEntitlements: assembleWorkshopEntitlements({ prisma: db.prisma, clock: () => now }) });
-    pricing = new BillingPricing({ prisma: db.prisma, accounts, clock: () => now });
+    pricing = new BillingPricing({ prisma: db.prisma, accounts, clock: () => now, sale: { payments: true, subscriptions: true } });
     contact = new BillingContact({ prisma: db.prisma, protection: billingContactProtection(Buffer.alloc(32, 62).toString("base64")),
       documents, now: () => now, sendCode: message => { codes.set(message.challengeRef, message.code); return Promise.resolve(); } });
     materials = assembleMaterials({ prisma: db.prisma, authorPolicy: { canManage: id => id === owner } });
@@ -286,9 +286,9 @@ describe("оплата, выдача прав и доступ к материа�
   /** Расчёт и согласия одной покупки: подписка принимает списания, разовая — только оферту. */
   async function command(account: string, optionId: string, options: { readonly recurring?: boolean } = {}) {
     const quote = value(await pricing.quote(account, { operationId: randomUUID(), paymentOptionId: optionId, optionRevision: 1 }));
-    const accepted = await contact.acceptConsents(account, { operationId: randomUUID(), contextRef: quote.quoteRef,
+    const accepted = await contact.acceptConsents(account, pressedPaymentButton({ operationId: randomUUID(), contextRef: quote.quoteRef,
       documents: documents.filter(document => options.recurring === true || document.kind === "terms")
-        .map(document => ({ kind: document.kind, documentId: document.documentId, version: document.version, digest: document.digest, accepted: true })) });
+        .map(document => ({ kind: document.kind, documentId: document.documentId, version: document.version, digest: document.digest, accepted: true })) }, { snapshot: quote.snapshot }));
     if (!accepted.ok) throw new Error(accepted.error.code);
     return { operationId: randomUUID(), quoteRef: quote.quoteRef, contactRevision: 1,
       consentEvidenceRefs: accepted.evidenceRefs, acknowledgeExistingAccess: false };

@@ -32,6 +32,10 @@ export class NotificationsService {
       query: {
         'after': after,
       },
+      errors: {
+        403: `The terms of use in force are not accepted yet`,
+        500: `Terms acceptance could not be checked`,
+      },
     });
   }
   /**
@@ -47,6 +51,10 @@ export class NotificationsService {
     return this.httpRequest.request({
       method: 'GET',
       url: '/accounts/current/notifications/preferences',
+      errors: {
+        403: `The terms of use in force are not accepted yet`,
+        500: `Terms acceptance could not be checked`,
+      },
     });
   }
   /**
@@ -79,6 +87,10 @@ export class NotificationsService {
       url: '/accounts/current/notifications/preferences',
       body: requestBody,
       mediaType: 'application/json',
+      errors: {
+        403: `The terms of use in force are not accepted yet`,
+        500: `Terms acceptance could not be checked`,
+      },
     });
   }
   /**

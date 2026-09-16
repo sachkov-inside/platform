@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { acceptCurrentTerms } from "../support/accept-terms.js";
 import { createServer, type Server } from "node:http";
 
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
@@ -15,7 +16,7 @@ import { BillingPayments, BillingPricing } from "../../src/modules/billing/index
 import { syntheticTbankConfig } from "../support/bank-terminal.js";
 import { declaredServer, type DeclaredServer } from "../support/declared-api.js";
 import { BankFixture } from "./setup/bank.js";
-import { syntheticConsentDocuments } from "./setup/consent-documents.js";
+import { pressedPaymentButton, syntheticConsentDocuments } from "./setup/consent-documents.js";
 import { createTestDatabase, type TestDatabase } from "./setup/test-database.js";
 
 const issuer = "https://identity.example.test/oidc";
@@ -89,7 +90,9 @@ describe("Billing purchases HTTP", () => {
     const headers = { authorization: `Bearer ${buyerToken}` };
     const strangerHeaders = { authorization: `Bearer ${strangerToken}` };
     expect((await server.inject({ method: "POST", url: "/accounts", headers })).statusCode).toBe(201);
+    await acceptCurrentTerms(server, headers);
     expect((await server.inject({ method: "POST", url: "/accounts", headers: strangerHeaders })).statusCode).toBe(201);
+    await acceptCurrentTerms(server, strangerHeaders);
     const ownerToken = await signToken("purchase-owner-001", "owner@example.test");
     expect((await server.inject({ method: "POST", url: "/accounts", headers: { authorization: `Bearer ${ownerToken}` } })).statusCode).toBe(201);
     const buyer = await accountIdOf("purchase-buyer-001");
@@ -128,7 +131,7 @@ describe("Billing purchases HTTP", () => {
     const now = new Date("2030-01-31T10:00:00Z");
     const accounts = assembleAccounts({ prisma: database.prisma, emailFingerprintKey });
     const grants = assembleAccessGrants({ prisma: database.prisma, accounts, clock: () => now });
-    const pricing = new BillingPricing({ prisma: database.prisma, accounts, clock: () => now });
+    const pricing = new BillingPricing({ prisma: database.prisma, accounts, clock: () => now, sale: { payments: true, subscriptions: true } });
     const codes = new Map<string, string>();
     const contact = new BillingContact({
       prisma: database.prisma,
@@ -149,8 +152,8 @@ describe("Billing purchases HTTP", () => {
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "paymentOptions.save", value: { id: optionId, offerId, months: 1, priceKopecks: 200_000 } }));
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.publish", expectedRevision: 1, id: offerId }));
     const quote = value(await pricing.quote(buyer, { operationId: randomUUID(), paymentOptionId: optionId, optionRevision: 1 }));
-    const consent = await contact.acceptConsents(buyer, { operationId: randomUUID(), contextRef: quote.quoteRef,
-      documents: syntheticConsentDocuments.map((document) => ({ kind: document.kind, documentId: document.documentId, version: document.version, digest: document.digest, accepted: true })) });
+    const consent = await contact.acceptConsents(buyer, pressedPaymentButton({ operationId: randomUUID(), contextRef: quote.quoteRef,
+      documents: syntheticConsentDocuments.map((document) => ({ kind: document.kind, documentId: document.documentId, version: document.version, digest: document.digest, accepted: true })) }, { snapshot: quote.snapshot }));
     if (!consent.ok) throw new Error(consent.error.code);
     const payments = new BillingPayments({ prisma: database.prisma, bank: new BankFixture(terminal).client(), contact, grants, clock: () => now });
     const started = value(await payments.purchase(buyer, { operationId: randomUUID(), quoteRef: quote.quoteRef,

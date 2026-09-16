@@ -10,15 +10,9 @@ export interface MemberProfileAvatar {
 export interface PrivateMemberProfile extends MemberProfileFields {
   readonly avatar: MemberProfileAvatar | null;
   readonly createdAt: string;
-  readonly publicProfileId: string;
   readonly status: "active" | "disabled";
   readonly updatedAt: string;
   readonly version: number;
-}
-
-export interface MemberProfileProjectionData extends MemberProfileFields {
-  readonly avatar: MemberProfileAvatar | null;
-  readonly publicProfileId: string;
 }
 
 export type PrivateMemberProfileState =

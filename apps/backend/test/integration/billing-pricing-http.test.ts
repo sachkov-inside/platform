@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { acceptCurrentTerms } from "../support/accept-terms.js";
 import { createServer, type Server } from "node:http";
 
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
@@ -50,6 +51,11 @@ describe("Billing pricing HTTP", () => {
         LOGTO_AUDIENCE: audience,
         LOGTO_JWKS_URL: `http://127.0.0.1:${String(address.port)}/jwks`,
         IDENTITY_EMAIL_FINGERPRINT_KEY: "accounts-api-test-email-fingerprint-key",
+        // Каталог включает продажу только в процессе с терминалом и адресом для чека.
+        TBANK_PROVIDER_MODE: "test",
+        BILLING_CONTACT_ENCRYPTION_KEY: Buffer.alloc(32, 9).toString("base64"),
+        BILLING_CONTACT_SMTP_HOST: "127.0.0.1",
+        BILLING_CONTACT_FROM: "inside@example.test",
       }),
       { logger: false },
     );
@@ -75,6 +81,7 @@ describe("Billing pricing HTTP", () => {
     expect((await server.inject({ method: "POST", url: "/billing/admin", payload: command })).statusCode).toBe(401);
     expect((await server.inject({ method: "POST", url: "/accounts/current/billing/quote", payload: {} })).statusCode).toBe(401);
     expect((await server.inject({ method: "POST", url: "/accounts", headers })).statusCode).toBe(201);
+    await acceptCurrentTerms(server, headers);
     expect((await server.inject({ method: "POST", url: "/billing/admin", headers, payload: command })).statusCode).toBe(403);
     const account = await database.prisma.account.findUniqueOrThrow({ where: { logtoIssuer_logtoSubject: { logtoIssuer: issuer, logtoSubject: "human-api-001" } } });
     await database.prisma.accountPermission.create({ data: { accountId: account.id, permission: "platform:admin" } });
@@ -121,6 +128,7 @@ describe("Billing pricing HTTP", () => {
     const server = declaredServer(app.getHttpAdapter().getInstance());
     const headers = { authorization: `Bearer ${await signToken({ subject: "billing-manager-001", email: "manager@example.test" })}` };
     expect((await server.inject({ method: "POST", url: "/accounts", headers })).statusCode).toBe(201);
+    await acceptCurrentTerms(server, headers);
     const manager = await database.prisma.account.findUniqueOrThrow({ where: { logtoIssuer_logtoSubject: { logtoIssuer: issuer, logtoSubject: "billing-manager-001" } } });
     const payments = { operation: "payments.list", operationId: randomUUID() };
     expect((await server.inject({ method: "POST", url: "/billing/admin", headers, payload: payments })).statusCode).toBe(403);
@@ -149,10 +157,12 @@ describe("Billing pricing HTTP", () => {
     const server = declaredServer(app.getHttpAdapter().getInstance());
     const headers = { authorization: `Bearer ${await signToken({ subject: "billing-classifier-001", email: "classifier@example.test" })}` };
     expect((await server.inject({ method: "POST", url: "/accounts", headers })).statusCode).toBe(201);
+    await acceptCurrentTerms(server, headers);
     const owner = await database.prisma.account.findUniqueOrThrow({ where: { logtoIssuer_logtoSubject: { logtoIssuer: issuer, logtoSubject: "billing-classifier-001" } } });
     await database.prisma.accountPermission.create({ data: { accountId: owner.id, permission: "billing:manage" } });
     const buyerHeaders = { authorization: `Bearer ${await signToken({ subject: "billing-buyer-001", email: "buyer@example.test" })}` };
     expect((await server.inject({ method: "POST", url: "/accounts", headers: buyerHeaders })).statusCode).toBe(201);
+    await acceptCurrentTerms(server, buyerHeaders);
     const buyer = await database.prisma.account.findUniqueOrThrow({ where: { logtoIssuer_logtoSubject: { logtoIssuer: issuer, logtoSubject: "billing-buyer-001" } } });
 
     const unknownRead = { operation: "grants.readClassification", operationId: randomUUID(), accountId: buyer.id };

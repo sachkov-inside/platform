@@ -109,7 +109,7 @@ test("shows private Account Telegram and Membership presentation without disclos
   expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
 });
 
-test("creates or edits the Account Profile and preserves the member projection", async ({
+test("creates or edits the Account Profile that only its owner sees", async ({
   context,
   page,
 }, testInfo) => {
@@ -198,9 +198,11 @@ test("creates or edits the Account Profile and preserves the member projection",
   await expect(page.getByRole("link", { name: /Скачать JSON/u })).toHaveCount(0);
   await expect(page.getByText("Граница", { exact: true })).toHaveCount(0);
 
-  const publicPathCode = page.locator("code").filter({ hasText: "/members/" });
-  const publicPath = await publicPathCode.textContent();
-  expect(publicPath).toMatch(/^\/members\/[0-9a-f-]+$/u);
+  // Профиль виден только владельцу: ссылки для участников и страницы участника нет.
+  await expect(page.getByText("виден только вам", { exact: false })).toBeVisible();
+  await expect(page.locator("code").filter({ hasText: "/members/" })).toHaveCount(0);
+  expect((await page.goto("/members/5d34da22-548e-4b02-b6e8-9c918ad536ef"))?.status()).toBe(404);
+  await page.goto("/account");
 
   const accessibility = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
@@ -221,9 +223,6 @@ test("creates or edits the Account Profile and preserves the member projection",
   await prepareEvidenceDirectory("issue-189");
   const screenshotName =
     testInfo.project.name === "mobile-chromium" ? "mobile.png" : "desktop.png";
-  await publicPathCode.evaluate((element) => {
-    element.textContent = "/members/<opaque-public-id>";
-  });
   await page.screenshot({ path: resolve(reviewDirectory, screenshotName) });
   await page.screenshot({ path: resolve(snapshots, screenshotName) });
   if (testInfo.project.name === "desktop-chromium") {
@@ -241,23 +240,6 @@ test("creates or edits the Account Profile and preserves the member projection",
   const removedExportRoute = await page.request.get("/account/export-profile");
   expect(removedExportRoute.status()).toBe(404);
 
-  if (publicPath === null) throw new Error("Profile projection path is missing");
-  const memberPage = await page.goto(publicPath);
-  expect(memberPage?.status()).toBe(200);
-  // Проекция участника осталась только здесь: раздел «Профиль» кабинета её больше не повторяет.
-  const projection = page
-    .getByRole("article")
-    .filter({ hasText: "Участник сообщества" });
-  await expect(
-    projection.getByRole("heading", { level: 1, name: displayName }),
-  ).toBeVisible();
-  await expect(projection.getByText(bio)).toBeVisible();
-  await expect(page.getByAltText(`Аватар: ${displayName}`)).toHaveCount(0);
-  await expect(page.getByRole("img", { name: `Аватар: ${displayName}` })).toBeVisible();
-  await expect(page.locator('head meta[name="robots"]').first()).toHaveAttribute(
-    "content",
-    /noindex/u,
-  );
 
 });
 

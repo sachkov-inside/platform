@@ -6,8 +6,10 @@ import { useId } from "react";
 
 import { LegalDocumentLinks, legalNavigationEntry } from "@/entities/legal-document";
 import {
+  AcceptanceNote,
   billingActionClass,
-  ConsentChecklist,
+  checkoutButtonLabel,
+  checkoutActionName,
   legalDocumentLabel,
   attemptStateLabel,
   formatKopecks,
@@ -16,7 +18,6 @@ import {
   purchaseConsentPolicy,
   type BillingQuote,
   type LegalDocument,
-  type LegalDocumentKind,
   type PriceSnapshot,
   type PurchaseStatus,
   type VerifiedContact,
@@ -33,7 +34,6 @@ export interface OneTimeCheckoutPanelProps {
   readonly snapshot: PriceSnapshot;
   readonly quote: BillingQuote | null;
   readonly documents: readonly LegalDocument[];
-  readonly accepted: readonly LegalDocumentKind[];
   readonly contact: VerifiedContact | null;
   readonly contactHref: Route;
   readonly acknowledgeExistingAccess: boolean;
@@ -43,7 +43,6 @@ export interface OneTimeCheckoutPanelProps {
   readonly error?: string | undefined;
   readonly purchase: PurchaseStatus | null;
   readonly inclusions?: readonly CheckoutInclusion[];
-  readonly onToggleDocument: (kind: LegalDocumentKind) => void;
   readonly onToggleAcknowledge: () => void;
   readonly onPay: () => void;
   readonly onRefreshStatus: () => void;
@@ -52,6 +51,7 @@ export interface OneTimeCheckoutPanelProps {
 
 /**
  * Оплата руководства одной страницей: что входит, сколько стоит, куда придёт чек и одна кнопка.
+ * Оферта принимается нажатием «Оплатить»: строка под кнопкой говорит об этом, отметок нет.
  * Цена показывается сразу — расчёт сервер сохраняет сам, поэтому отдельного шага «рассчитать»
  * здесь нет. Возврат из банка успехом не считается: состояние приходит от сервера.
  */
@@ -75,7 +75,6 @@ export function OneTimeCheckoutPanel({
   snapshot,
   quote,
   documents,
-  accepted,
   contact,
   contactHref,
   acknowledgeExistingAccess,
@@ -85,7 +84,6 @@ export function OneTimeCheckoutPanel({
   error,
   purchase,
   inclusions = [],
-  onToggleDocument,
   onToggleAcknowledge,
   onPay,
   onRefreshStatus,
@@ -107,7 +105,6 @@ export function OneTimeCheckoutPanel({
     quote !== null &&
     contact !== null &&
     missingRequired.length === 0 &&
-    required.every((kind) => accepted.includes(kind)) &&
     !legacyBlocked &&
     (!existingAccess || acknowledgeExistingAccess);
 
@@ -216,21 +213,7 @@ export function OneTimeCheckoutPanel({
         >
           Условия продажи ещё не опубликованы, поэтому принять оплату нельзя.
         </p>
-      ) : (
-        <div className="mt-5">
-          <ConsentChecklist
-            accepted={accepted}
-            disabled={pending}
-            documents={applicable}
-            labelFor={documentLabel}
-            legend="Перед оплатой"
-            markOptional
-            namePrefix="one-time-consent"
-            onToggle={onToggleDocument}
-            required={required}
-          />
-        </div>
-      )}
+      ) : null}
 
       <LegalDocumentLinks
         className="mt-5"
@@ -265,10 +248,19 @@ export function OneTimeCheckoutPanel({
         size="lg"
         type="button"
       >
-        {pending
-          ? "Готовим оплату…"
-          : `Купить за ${formatKopecks(conditions.firstPriceKopecks)}`}
+        {pending ? "Готовим оплату…" : checkoutButtonLabel(conditions)}
       </Button>
+
+      {missingRequired.length > 0 ? null : (
+        <AcceptanceNote className="mt-3" underage>
+          Нажимая «{checkoutActionName(conditions)}», вы принимаете{" "}
+          {applicable
+            .filter((document) => required.includes(document.kind))
+            .map(documentLabel)
+            .join(" и ")}
+          .
+        </AcceptanceNote>
+      )}
 
       {purchase === null ? null : (
         <div className="mt-6 border-t border-border pt-5 text-sm leading-6">

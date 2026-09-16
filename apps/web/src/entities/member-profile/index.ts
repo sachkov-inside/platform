@@ -10,7 +10,6 @@ export {
 export type {
   MemberProfileAvatar,
   MemberProfileFields,
-  MemberProfileProjectionData,
   PrivateMemberProfile,
   PrivateMemberProfileResult,
   PrivateMemberProfileState,
@@ -21,7 +20,6 @@ export {
   displayNameLengthIsValid,
   memberProfileTextLength,
 } from "./model/profile-fields";
-export { MemberProfileProjection } from "./ui/member-profile-projection";
 export {
   ProfileAvatar,
   profileInitials,
