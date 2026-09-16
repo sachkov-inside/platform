@@ -8,7 +8,7 @@ import { BillingPayments, BillingPricing } from "../../src/modules/billing/index
 import { Tbank, tbankToken } from "../../src/modules/billing/infrastructure/tbank/tbank.js";
 import { syntheticTbankConfig } from "../support/bank-terminal.js";
 import { createMigratedTestDatabase, type TestDatabase } from "./setup/test-database.js";
-import { syntheticConsentDocument, syntheticConsentDocuments } from "./setup/consent-documents.js";
+import { pressedPaymentButton, syntheticConsentDocument, syntheticConsentDocuments } from "./setup/consent-documents.js";
 
 function value<T>(result: { ok: true; value: T } | { ok: false; error: { code: string } }): T {
   if (!result.ok) throw new Error(result.error.code); return result.value;
@@ -101,9 +101,9 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
     type Consent = "terms" | "recurring" | "personal_data";
     async function command(accepted: readonly Consent[] = ["terms"], acknowledgeExistingAccess = false) {
       const quote = value(await pricing.quote(buyer, { operationId: randomUUID(), paymentOptionId: optionId, optionRevision: 1 }));
-      const consent = await contact.acceptConsents(buyer, { operationId: randomUUID(), contextRef: quote.quoteRef,
+      const consent = await contact.acceptConsents(buyer, pressedPaymentButton({ operationId: randomUUID(), contextRef: quote.quoteRef,
         documents: documents.filter(document => accepted.some(kind => kind === document.kind))
-          .map(document => ({ kind: document.kind, documentId: document.documentId, version: document.version, digest: document.digest, accepted: true })) });
+          .map(document => ({ kind: document.kind, documentId: document.documentId, version: document.version, digest: document.digest, accepted: true })) }, { snapshot: quote.snapshot }));
       if (!consent.ok) throw new Error(consent.error.code);
       return { operationId: randomUUID(), quoteRef: quote.quoteRef, contactRevision: 1,
         consentEvidenceRefs: consent.evidenceRefs, acknowledgeExistingAccess };
@@ -242,9 +242,9 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
       classification: "confirmed_new", sourceRef: s.buyer, reason: "Synthetic new buyer", bridgeEnabled: false, tributeStopped: false });
     expect(classification.ok).toBe(true);
     const quote = value(await pricing.quote(s.buyer, { operationId: randomUUID(), paymentOptionId: subscriptionOption, optionRevision: 1 }));
-    const consent = await contact.acceptConsents(s.buyer, { operationId: randomUUID(), contextRef: quote.quoteRef,
+    const consent = await contact.acceptConsents(s.buyer, pressedPaymentButton({ operationId: randomUUID(), contextRef: quote.quoteRef,
       documents: documents.filter(item => item.kind !== "personal_data")
-        .map(item => ({ kind: item.kind, documentId: item.documentId, version: item.version, digest: item.digest, accepted: true })) });
+        .map(item => ({ kind: item.kind, documentId: item.documentId, version: item.version, digest: item.digest, accepted: true })) }, { snapshot: quote.snapshot }));
     if (!consent.ok) throw new Error(consent.error.code);
     // Разовая покупка не заняла место подписки: оформить её всё ещё можно.
     expect(value(await s.runtime.purchase(s.buyer, { operationId: randomUUID(), quoteRef: quote.quoteRef, contactRevision: 1,
@@ -276,9 +276,9 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
     expect((await grants.classifyLegacy(owner, { operationId: randomUUID(), accountId: s.buyer, expectedRevision: 0,
       classification: "confirmed_new", sourceRef: s.buyer, reason: "Synthetic new buyer", bridgeEnabled: false, tributeStopped: false })).ok).toBe(true);
     const quote = value(await pricing.quote(s.buyer, { operationId: randomUUID(), paymentOptionId: subscriptionOption, optionRevision: 1 }));
-    const consent = await contact.acceptConsents(s.buyer, { operationId: randomUUID(), contextRef: quote.quoteRef,
+    const consent = await contact.acceptConsents(s.buyer, pressedPaymentButton({ operationId: randomUUID(), contextRef: quote.quoteRef,
       documents: documents.filter(item => item.kind !== "personal_data")
-        .map(item => ({ kind: item.kind, documentId: item.documentId, version: item.version, digest: item.digest, accepted: true })) });
+        .map(item => ({ kind: item.kind, documentId: item.documentId, version: item.version, digest: item.digest, accepted: true })) }, { snapshot: quote.snapshot }));
     if (!consent.ok) throw new Error(consent.error.code);
     // Первый платёж подписки прошёл бы, а продлевать было бы нечем: покупка отклоняется до банка.
     expect(code(await s.runtime.purchase(s.buyer, { operationId: randomUUID(), quoteRef: quote.quoteRef, contactRevision: 1,

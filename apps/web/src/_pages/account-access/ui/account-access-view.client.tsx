@@ -3,10 +3,15 @@ import {
   AccountTelegramPanel,
   type AccountTelegramMembership,
 } from "@/features/account-access";
+import {
+  AcceptedDocumentsPanel,
+  type AcceptedDocumentsPanelProps,
+} from "@/features/accepted-documents";
 import { Button } from "@/shared/ui/button";
 import { AccountSectionHeader } from "@/widgets/account-cabinet";
 
 export interface AccountAccessViewProps {
+  readonly acceptedDocuments: AcceptedDocumentsPanelProps;
   readonly link: AccountTelegramMembership["link"] | null;
   readonly loading?: boolean;
   readonly sessionExpired?: boolean;
@@ -15,10 +20,11 @@ export interface AccountAccessViewProps {
 }
 
 /**
- * Раздел «Аккаунт»: связь с Telegram и выход. Что открыто и до какого срока объясняет раздел
- * «Покупки» — здесь этот вопрос не решается.
+ * Раздел «Аккаунт»: принятые документы, связь с Telegram и выход. Что открыто и до какого срока
+ * объясняет раздел «Покупки» — здесь этот вопрос не решается.
  */
 export function AccountAccessView({
+  acceptedDocuments,
   link,
   loading = false,
   sessionExpired = false,
@@ -56,6 +62,7 @@ export function AccountAccessView({
         </div>
       ) : (
         <div className="grid gap-6">
+          <AcceptedDocumentsPanel {...acceptedDocuments} />
           <AccountTelegramPanel link={link} onRefresh={onTelegramRefresh} />
           <section
             aria-labelledby="account-session"

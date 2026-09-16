@@ -1,4 +1,6 @@
 import { TelegramAccountSignIn } from "../../src/modules/telegram-membership/features/complete-telegram-sign-in/telegram-account-sign-in.js";
+/** The first sign-in screen is already passed in these scenarios. */
+const acceptedTerms = { checkTerms: () => Promise.resolve({ ok: true as const, accepted: true }) };
 import { verifiedTelegramAccountSignIn } from "../../src/modules/accounts/facets/accounts/verified-logto-identity.js";
 import { assembleMembershipEntitlements } from "../../src/modules/membership-entitlements/index.js";
 import { assembleWorkshopEntitlements } from "../../src/modules/workshop/index.js";
@@ -318,6 +320,7 @@ describe("communications permission and confirmed author HTTP authorization", ()
       }),
     });
     const signIn = new TelegramAccountSignIn({
+    terms: acceptedTerms,
       accounts,
       prisma: database.prisma,
       membershipEntitlements: entitlements,

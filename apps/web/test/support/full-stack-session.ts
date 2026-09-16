@@ -56,7 +56,10 @@ export async function signInFullStack(
 ): Promise<void> {
   await addFullStackSessionCookie(context, role);
   const state = await fullStackSessionState(context);
-  if (state === "authenticated") return;
+  if (state === "authenticated") {
+    await passFirstSignInScreen(context);
+    return;
+  }
   // Гостевое состояние означает, что приложение сессию не приняло: её не удалось продлить.
   // Всё остальное — недоступность зависимости, и называть её истёкшей сессией было бы новым
   // ложным следом вместо убранного.
@@ -67,6 +70,24 @@ export async function signInFullStack(
       : `Full-stack session ${role} could not be checked: /auth/status reported ${state}. ` +
         "The application or its API is unavailable; the session itself may be fine.",
   );
+}
+
+/**
+ * Экран первого входа закрывает кабинет и покупки, пока действующая редакция условий не принята.
+ * Сценарии проходят его настоящей кнопкой; уже принятые условия экран сразу пропускает.
+ */
+async function passFirstSignInScreen(context: BrowserContext): Promise<void> {
+  const page = await context.newPage();
+  try {
+    await page.goto(`${fullStackBaseUrl()}/welcome?returnTo=%2F`);
+    const accept = page.getByRole("button", { name: "Принять условия и продолжить" });
+    if (new URL(page.url()).pathname === "/welcome" && (await accept.count()) > 0) {
+      await accept.click();
+      await page.waitForURL((url) => url.pathname !== "/welcome");
+    }
+  } finally {
+    await page.close();
+  }
 }
 
 /** Что приложение думает о текущей сессии: `authenticated`, `guest` или `unavailable`. */

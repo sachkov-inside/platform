@@ -78,7 +78,9 @@ export {
   legalDocumentSchema,
   purchaseConsentPolicy,
   resumeConsentKinds,
+  shownRenewalTermsSchema,
   type AcceptedDocument,
+  type ShownRenewalTerms,
   type ConsentPolicy,
   type ConsentsInput,
   type LegalDocument,
@@ -91,10 +93,17 @@ export {
   readBillingEndpoint,
   type BillingCommandResult,
 } from "./api/billing-result.browser";
+export { AcceptanceNote } from "./ui/acceptance-note";
 export {
-  ConsentChecklist,
-  type ConsentChecklistProps,
-} from "./ui/consent-checklist.client";
+  checkoutButtonLabel,
+  checkoutActionName,
+  moscowDay,
+  renewalTermsAtCheckout,
+  renewalTermsLine,
+  renewalTermsOnResume,
+  resumeRenewalButtonLabel,
+  underageNotice,
+} from "./model/acceptance";
 
 export { tierSchema, enrollmentSchema, enrollmentsSchema, enrollmentSourceLabels, enrollmentStateLabels, type Enrollment } from "./model/enrollment";
 

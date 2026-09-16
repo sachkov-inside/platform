@@ -42,7 +42,7 @@ export const EarlierEdition: Story = {
 
 const purchase = currentLegalEdition("purchase");
 
-/** Оферта разовой покупки: подразделы третьего уровня и списки редакции 3. */
+/** Оферта разовой покупки: подразделы третьего уровня и списки действующей редакции. */
 export const PurchaseOffer: Story = {
   args: {
     blocks: parseLegalText(purchase.text),

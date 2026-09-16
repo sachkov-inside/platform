@@ -7,6 +7,7 @@ import {
 import {
   accountId,
   type Accounts,
+  type LegalAcceptances,
   type VerifiedAccountSignIn,
 } from "../../../accounts/index.js";
 import type { MembershipEntitlements } from "../../../membership-entitlements/index.js";
@@ -27,6 +28,8 @@ interface Dependencies {
   readonly prisma: TelegramMembershipPrismaClient;
   readonly provider: TelegramSignInProvider;
   readonly membershipEntitlements: MembershipEntitlements;
+  /** The first sign-in screen gates the bot link: it completes only once the terms are accepted. */
+  readonly terms: Pick<LegalAcceptances, "checkTerms">;
 }
 export class TelegramAccountSignIn {
   constructor(private readonly dependencies: Dependencies) {}
@@ -100,6 +103,23 @@ export class TelegramAccountSignIn {
         link.providerIdentityRef !== bound.telegramIdentityRef
       )
         return { ok: false, error: { code: "identity_conflict" } } as const;
+      // Бот подтвердил личность, но связка завершается только после принятия действующих условий
+      // на экране первого входа: до этого у аккаунта нет ни членства, ни связанного Telegram.
+      // Подтверждённая личность остаётся в попытке, и повторное завершение после принятия
+      // доводит ту же связку, не создавая новой.
+      const terms = await this.dependencies.terms.checkTerms(account.accountId);
+      if (!terms.ok)
+        return { ok: false, error: { code: "unavailable" } } as const;
+      if (!terms.accepted) {
+        await prisma.telegramLinkTransaction.update({
+          where: { linkRef: link.linkRef },
+          data: {
+            providerIdentityRef: bound.telegramIdentityRef,
+            updatedAt: new Date(),
+          },
+        });
+        return { ok: true, account } as const;
+      }
       const principal = await membershipEntitlements.bindPrincipal({
         accountId: accountId(account.accountId),
         principalRef: link.principalRef,

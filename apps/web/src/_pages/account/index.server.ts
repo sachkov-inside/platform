@@ -12,3 +12,4 @@ export { executeBeginTelegramLink } from "./api/begin-telegram-link";
 export { executeConfirmTelegramLink } from "./api/confirm-telegram-link";
 export { getPrivateMemberProfile } from "./api/get-private-member-profile";
 export { proxyProfileAvatarMutation } from "./api/profile-avatar-bff.server";
+export { proxyOwnProfileAvatarDelivery } from "./api/profile-avatar-delivery-bff.server";

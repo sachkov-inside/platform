@@ -18,6 +18,10 @@ export class TelegramCommunityService {
     return this.httpRequest.request({
       method: 'GET',
       url: '/accounts/current/community-admission',
+      errors: {
+        403: `The terms of use in force are not accepted yet`,
+        500: `Terms acceptance could not be checked`,
+      },
     });
   }
   /**

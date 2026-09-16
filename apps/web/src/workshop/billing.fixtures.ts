@@ -149,9 +149,9 @@ export const legalDocuments: readonly LegalDocument[] = [
     kind: "terms",
     appliesTo: ["one_time"],
     documentId: "purchase",
-    version: "3",
+    version: "4",
     digest: "d".repeat(64),
-    url: "https://inside.example.test/legal/purchase",
+    url: "https://inside.example.test/legal/purchase/v4",
     text: "",
   },
   {

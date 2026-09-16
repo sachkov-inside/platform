@@ -128,7 +128,7 @@ AMQPS на `5671`. Топологию он читает из определен�
    | Порт и vhost | `5671`, `inside-production` |
    | CA | копия `/etc/inside/runtime/rabbitmq/tls/ca.pem` в `/etc/inside/telegram/broker-ca.pem` |
    | Principal | `telegram`: `configure ^$`, запись только `inside.results.telegram.v1`, чтение только двух очередей `telegram.notifications.*.v1` |
-   | Ёмкость очередей | 1000 сообщений и 16 MiB на очередь, `reject-publish` |
+   | Ёмкость очередей | 1000 сообщений и 16384000 байт (1000 × 16 KiB) на очередь, `reject-publish` |
 
 6. **Смена пароля или сертификата.** Обновите URL и файлы, заново выпустите определения и
    пересоздайте только брокер, затем `notifications-worker`. Импорт определений добавляет и обновляет,
@@ -180,21 +180,33 @@ AMQPS на `5671`. Топологию он читает из определен�
 Проверка выполняется только при запуске. Продажу включают после проверок выпуска, и снимают её
 («выключить из продажи») раньше, чем убирают настройки оплаты.
 
-## Public payment and Telegram routes
+## Public API routes
 
-`infra/production/runtime/platform.caddy` публикует ровно эти семь адресов и только методом POST.
-Любой другой метод уходит на web и получает обычную страницу 404; неизвестный `/integrations/*`
-получает пустой 404. Подлинность проверяет API, у каждого адреса свой credential.
+`infra/production/runtime/platform.caddy` проксирует в API и MCP ровно эти адреса, по строке на путь.
+Метод «любой» значит, что Caddy метод не ограничивает. На POST-адресе любой другой метод уходит на web
+и получает обычную страницу 404. Остальное поведение edge описано в
+[production delivery](production-delivery.md#проверки-готовности-и-маршрутизация).
+Подлинность проверяет API или MCP, у каждого направления свой credential. Таблицу сверяет с Caddy
+`scripts/production-runtime-contract.test.mjs`: расхождение метода или пути роняет проверку.
 
-| Маршрут | Кто вызывает | Credential | Без него |
-|---|---|---|---|
-| `POST /billing/tbank/notification` | банк | подпись `Token` паролем терминала | `400 invalid_notification` |
-| `POST /integrations/tribute/v1/webhook` | Tribute | HMAC тела в `trbt-signature` | `401 invalid_signature` (без настроек — `503`) |
-| `POST /integrations/telegram/v1/subscription-activation/*` | бот Telegram | bearer `TELEGRAM_ACTIVATION_INGRESS_SECRET` | `401 unauthorized` |
-| `POST /internal/billing-dispatch/authorize` | Telegram | bearer `TELEGRAM_COMMUNITY_DISPATCH_SECRET` | `401 unauthorized` |
-| `POST /internal/notifications/dispatch/authorize` | Telegram | bearer `NOTIFICATIONS_TELEGRAM_SECRET` | `401 unauthorized` |
-| `POST /integrations/telegram/v1/communications/authorize` | авторское меню бота | bearer `TELEGRAM_AUTHOR_AUTHORIZATION_SECRET` | `401 unauthorized` |
-| `POST /integrations/telegram/v1/communications/validate-content` | авторское меню бота | bearer `TELEGRAM_AUTHOR_AUTHORIZATION_SECRET` | `401 unauthorized` |
+| Метод | Путь | Кто вызывает | Credential | Без него |
+|---|---|---|---|---|
+| любой | `/integrations/telegram/v1/membership-evidence` | Telegram | bearer `TELEGRAM_EVIDENCE_INGRESS_SECRET` | `401` |
+| POST | `/integrations/telegram/v1/sign-in/linked-identity` | коннектор Logto | bearer `TELEGRAM_SIGN_IN_INTEGRATION_SECRET` | `401` |
+| любой | `/integrations/kinescope/v1/webhook` | Kinescope | Basic `KINESCOPE_WEBHOOK_USERNAME` и `KINESCOPE_WEBHOOK_PASSWORD` | `401 invalid_basic_credentials` |
+| любой | `/integrations/kinescope/v1/authorize` | Kinescope DRM | Basic `KINESCOPE_CALLBACK_USERNAME` и `KINESCOPE_CALLBACK_PASSWORD` | `401 invalid_basic_credentials` |
+| POST | `/billing/tbank/notification` | банк | подпись `Token` паролем терминала | `400 invalid_notification` |
+| POST | `/integrations/tribute/v1/webhook` | Tribute | HMAC тела в `trbt-signature` | `401 invalid_signature` (без настроек — `503`) |
+| POST | `/integrations/telegram/v1/subscription-activation/binding` | бот Telegram | bearer `TELEGRAM_ACTIVATION_INGRESS_SECRET` | `401 unauthorized` |
+| POST | `/integrations/telegram/v1/subscription-activation/own-access` | бот Telegram | bearer `TELEGRAM_ACTIVATION_INGRESS_SECRET` | `401 unauthorized` |
+| POST | `/integrations/telegram/v1/subscription-activation/attempts` | бот Telegram | bearer `TELEGRAM_ACTIVATION_INGRESS_SECRET` | `401 unauthorized` |
+| POST | `/integrations/telegram/v1/subscription-activation/evidence` | бот Telegram | bearer `TELEGRAM_ACTIVATION_INGRESS_SECRET` | `401 unauthorized` |
+| POST | `/internal/billing-dispatch/authorize` | Telegram | bearer `TELEGRAM_COMMUNITY_DISPATCH_SECRET` | `401 unauthorized` |
+| POST | `/internal/notifications/dispatch/authorize` | Telegram | bearer `NOTIFICATIONS_TELEGRAM_SECRET` | `401 unauthorized` |
+| POST | `/integrations/telegram/v1/communications/authorize` | авторское меню бота | bearer `TELEGRAM_AUTHOR_AUTHORIZATION_SECRET` | `401 unauthorized` |
+| POST | `/integrations/telegram/v1/communications/validate-content` | авторское меню бота | bearer `TELEGRAM_AUTHOR_AUTHORIZATION_SECRET` | `401 unauthorized` |
+| любой | `/mcp` | MCP-клиенты | bearer Logto с аудиторией MCP | `401` |
+| любой | `/.well-known/oauth-protected-resource/mcp` | MCP-клиенты | нет: публичные метаданные | `200` |
 
 Edge не ограничивает адрес отправителя: адрес исходящих запросов Telegram и банка репозиторию не
 известен. Ограничение по сети — отдельное решение.
@@ -217,9 +229,10 @@ Telegram ([Telegram #45](https://github.com/sachkov-inside/inside-telegram/issue
 5. **Platform.** `deploy vN` ([production delivery](production-delivery.md#run-deployment-or-rollback)):
    образы выпуска и `rabbitmq`, миграции, брокер с определениями, где есть principal `telegram`, затем
    `api`, `mcp`, пять воркеров и `web`, readiness и маршруты Caddy. Сеть `broker` создаётся здесь.
-   Проверка: [процессы](#checks-after-rollout) и семь маршрутов из [таблицы](#public-payment-and-telegram-routes).
+   Проверка: [процессы](#checks-after-rollout) и маршруты из [таблицы](#public-api-routes).
    `notifications-worker` с этого шага публикует и в очереди Telegram. До шага 11 их никто не читает:
-   при 1000 сообщений очередь отклоняет публикацию, и команды ждут в outbox PostgreSQL без потерь.
+   заполненная до своей [ёмкости](notification-transport.md#local-operation) очередь отклоняет
+   публикацию, и команды ждут в outbox PostgreSQL без потерь.
 6. **Telegram.** Миграции и запуск приложения Telegram с сетью брокера. Platform ничего не меняет.
 7. **Webhook.** Сторона Telegram.
 8. **Привязка и Evidence.** Владелец привязывает Telegram из сессии Platform; маршрут
@@ -257,11 +270,14 @@ docker ps --filter label=com.docker.compose.project=inside-platform-production \
 
 **Оплата жива.**
 
-- Неподписанный POST доходит до API и отклоняется, а не попадает на web:
+- Неподписанный POST доходит до API и отклоняется, а не попадает на web: тело и код одного ответа —
+  problem details с `"code":"invalid_notification"` и `400`. Страница web на этом адресе значила бы, что
+  маршрута в Caddy нет.
 
   ```bash
-  curl --silent --request POST --output /dev/null --write-out '%{http_code}\n' \
-    https://inside.sachkov.dev/billing/tbank/notification   # 400
+  curl --silent --request POST --write-out '\n%{http_code}\n' \
+    https://inside.sachkov.dev/billing/tbank/notification
+  # тело с "code":"invalid_notification", затем 400
   ```
 
 - `api` и `billing-worker` запустились без отказа конфигурации продажи; в логе `billing-worker` нет
@@ -287,13 +303,21 @@ docker ps --filter label=com.docker.compose.project=inside-platform-production \
 **Воронки идут.**
 
 - `/authoring/communications/broadcasts` показывает статистику и `trackingBacklog` без `unavailable`.
-- Разрешение автора без bearer отвечает `401`, неизвестный токен перехода — `404`:
+- Разрешение автора без bearer отвечает `401` с `"code":"unauthorized"`. Переход проверяется токеном
+  правильного формата, но несуществующим — 43 символа `A`, как в шаге 12 совместной выкладки в
+  `docs/operations/production.md` Telegram. Web передаёт такой токен в backend, backend спрашивает
+  provider, и `404` с телом «Ссылка не найдена.» означает, что provider ответил. Токен неверного формата
+  web отсекает сам: тоже `404`, но с телом «Ссылка недействительна.», поэтому он работу provider не
+  доказывает. `503` с телом «Переход временно недоступен. Попробуйте ещё раз.» — provider недоступен
+  или не задан `TELEGRAM_TRACKING_ORIGIN`. Обе команды печатают тело и код одного ответа:
 
   ```bash
-  curl --silent --request POST --output /dev/null --write-out '%{http_code}\n' \
-    https://inside.sachkov.dev/integrations/telegram/v1/communications/authorize   # 401
-  curl --silent --output /dev/null --write-out '%{http_code}\n' \
-    'https://inside.sachkov.dev/communications/visit?token=invalid'               # 404
+  curl --silent --request POST --write-out '\n%{http_code}\n' \
+    https://inside.sachkov.dev/integrations/telegram/v1/communications/authorize
+  # тело с "code":"unauthorized", затем 401
+  curl --silent --write-out '\n%{http_code}\n' \
+    "https://inside.sachkov.dev/communications/visit?token=$(printf 'A%.0s' $(seq 43))"
+  # Ссылка не найдена., затем 404
   ```
 
 - Запуск воронки и доставка людям проверяются на стороне Telegram в #184.

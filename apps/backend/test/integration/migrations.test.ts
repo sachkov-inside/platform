@@ -56,10 +56,10 @@ const accountTables = [
   "account_audit_events",
   "account_permissions",
   "accounts",
-  "billing_consent_evidence",
   "billing_contact_challenges",
   "billing_contact_commands",
   "billing_contacts",
+  "legal_acceptances",
 ] as const;
 
 const membershipEntitlementTables = [
@@ -235,9 +235,10 @@ describe("Platform migrations", () => {
         "0062_reader_guide_mode",
         "0063_subscription_enrollments",
         "0064_tribute_sources",
+        "0067_legal_acceptances",
         "0065_guide_material_removals",
         "0066_refund_basis",
-        "0067_starter_tier_access",
+        "0068_starter_tier_access",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -831,9 +832,10 @@ describe("Platform migrations", () => {
         "0062_reader_guide_mode",
         "0063_subscription_enrollments",
         "0064_tribute_sources",
+        "0067_legal_acceptances",
         "0065_guide_material_removals",
         "0066_refund_basis",
-        "0067_starter_tier_access",
+        "0068_starter_tier_access",
         ],
       });
 

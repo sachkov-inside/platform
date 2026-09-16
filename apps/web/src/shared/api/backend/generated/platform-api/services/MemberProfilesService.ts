@@ -22,7 +22,6 @@ export class MemberProfilesService {
       bio: string | null;
       createdAt: string;
       displayName: string;
-      publicProfileId: string;
       status: 'active' | 'disabled';
       updatedAt: string;
       version: number;
@@ -31,6 +30,9 @@ export class MemberProfilesService {
     return this.httpRequest.request({
       method: 'GET',
       url: '/account/profile',
+      errors: {
+        403: `The terms of use in force are not accepted yet`,
+      },
     });
   }
   /**
@@ -53,7 +55,6 @@ export class MemberProfilesService {
       bio: string | null;
       createdAt: string;
       displayName: string;
-      publicProfileId: string;
       status: 'active' | 'disabled';
       updatedAt: string;
       version: number;
@@ -64,6 +65,9 @@ export class MemberProfilesService {
       url: '/account/profile',
       body: requestBody,
       mediaType: 'application/json',
+      errors: {
+        403: `The terms of use in force are not accepted yet`,
+      },
     });
   }
   /**
@@ -87,7 +91,6 @@ export class MemberProfilesService {
       bio: string | null;
       createdAt: string;
       displayName: string;
-      publicProfileId: string;
       status: 'active' | 'disabled';
       updatedAt: string;
       version: number;
@@ -98,6 +101,9 @@ export class MemberProfilesService {
       url: '/account/profile',
       body: requestBody,
       mediaType: 'application/json',
+      errors: {
+        403: `The terms of use in force are not accepted yet`,
+      },
     });
   }
   /**
@@ -119,7 +125,6 @@ export class MemberProfilesService {
       bio: string | null;
       createdAt: string;
       displayName: string;
-      publicProfileId: string;
       status: 'active' | 'disabled';
       updatedAt: string;
       version: number;
@@ -130,6 +135,9 @@ export class MemberProfilesService {
       url: '/account/profile/avatar',
       body: requestBody,
       mediaType: 'application/json',
+      errors: {
+        403: `The terms of use in force are not accepted yet`,
+      },
     });
   }
   /**
@@ -158,7 +166,6 @@ export class MemberProfilesService {
       bio: string | null;
       createdAt: string;
       displayName: string;
-      publicProfileId: string;
       status: 'active' | 'disabled';
       updatedAt: string;
       version: number;
@@ -169,59 +176,33 @@ export class MemberProfilesService {
       url: '/account/profile/avatar',
       formData: formData,
       mediaType: 'multipart/form-data',
-    });
-  }
-  /**
-   * View the accepted Profile projection as an active member
-   * @returns any
-   * @throws ApiError
-   */
-  public viewMemberProfile({
-    publicProfileId,
-  }: {
-    publicProfileId: string,
-  }): CancelablePromise<{
-    profile: {
-      avatar: {
-        avatarId: string;
-      } | null;
-      bio: string | null;
-      displayName: string;
-      publicProfileId: string;
-    };
-  }> {
-    return this.httpRequest.request({
-      method: 'GET',
-      url: '/member-profiles/{publicProfileId}',
-      path: {
-        'publicProfileId': publicProfileId,
+      errors: {
+        403: `The terms of use in force are not accepted yet`,
       },
     });
   }
   /**
-   * Read a current Profile avatar rendition through current membership
+   * Read a current avatar rendition of the current Account owner Profile
    * @returns void
    * @throws ApiError
    */
-  public readProfileAvatar({
+  public readOwnProfileAvatar({
     size,
     avatarId,
-    publicProfileId,
   }: {
     size: 160 | 320 | 640,
     avatarId: string,
-    publicProfileId: string,
   }): CancelablePromise<void> {
     return this.httpRequest.request({
       method: 'GET',
-      url: '/member-profiles/{publicProfileId}/avatar/{avatarId}/{size}',
+      url: '/account/profile/avatar/{avatarId}/{size}',
       path: {
         'size': size,
         'avatarId': avatarId,
-        'publicProfileId': publicProfileId,
       },
       errors: {
         302: `Short-lived protected avatar redirect`,
+        403: `The terms of use in force are not accepted yet`,
       },
     });
   }

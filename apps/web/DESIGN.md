@@ -260,12 +260,25 @@ not define a second layout or terminology.
 
 - **Status:** composition replaced in issue #494 by owner decision; the two-column editor and the
   separate member projection from issue #189 are history, not an alternative.
-- **Composition:** раздел «Профиль» — одна карточка: аватар, имя, о себе и постоянная ссылка для
-  участников. Профиль показан сразу и правится на месте; отдельного предпросмотра рядом нет,
-  потому что поля и есть то, что видят участники. Мобильный порядок тот же, в одну колонку.
-- **Actions:** Profile create/edit and the opaque member link are the complete self-service surface;
-  complaint, export and delete controls are absent.
-- **Copy:** подписи объясняют только приватность, ограничения полей и текущую видимость.
+- **Composition:** раздел «Профиль» — одна карточка: аватар, имя и о себе. Профиль виден только
+  владельцу (#658): ссылки для участников и страницы участника нет. Профиль показан сразу и
+  правится на месте. Мобильный порядок тот же, в одну колонку.
+- **Actions:** Profile create/edit and avatar change are the complete self-service surface;
+  member link, complaint, export and delete controls are absent.
+- **Copy:** подписи объясняют только приватность («виден только вам») и ограничения полей.
+
+### First Sign-in, Payment Acceptance and Storage Notice
+
+- **Status:** production-owned from issue #658, following the accepted prototype of option A
+  (Workspace #185); owner production visual GO is not yet recorded.
+- **Composition:** `/welcome` — узкая колонка: надпись «Аккаунт создан» (или «Условия
+  обновились»), заголовок, одна карточка с кнопкой «Принять условия и продолжить» во всю ширину и
+  строкой о принятии под ней. Оплата и возобновление ставят такую же строку прямо под кнопкой.
+  Уведомление о хранении — плавающая карточка у нижнего края над мобильным доком.
+- **State:** отметок согласия нет нигде; кнопка — единственное действие принятия. Уведомление о
+  хранении не рисуется на сервере и не сдвигает страницу.
+- **Copy:** строка называет, что принимается нажатием, и отдельной строкой — возраст до 18 лет у
+  оплаты. Раздел «Аккаунт» перечисляет принятые документы: дата, подпись кнопки, редакция.
 
 ### Account Cabinet Sections
 

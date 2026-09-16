@@ -140,6 +140,10 @@ export class BillingService {
     return this.httpRequest.request({
       method: 'GET',
       url: '/accounts/current/billing',
+      errors: {
+        403: `The terms of use in force are not accepted yet`,
+        500: `Terms acceptance could not be checked`,
+      },
     });
   }
   /**
@@ -193,6 +197,10 @@ export class BillingService {
     return this.httpRequest.request({
       method: 'GET',
       url: '/accounts/current/billing/enrollments',
+      errors: {
+        403: `The terms of use in force are not accepted yet`,
+        500: `Terms acceptance could not be checked`,
+      },
     });
   }
   /**
@@ -218,6 +226,10 @@ export class BillingService {
       url: '/accounts/current/billing/payment-method/change',
       body: requestBody,
       mediaType: 'application/json',
+      errors: {
+        403: `The terms of use in force are not accepted yet`,
+        500: `Terms acceptance could not be checked`,
+      },
     });
   }
   /**
@@ -335,6 +347,10 @@ export class BillingService {
       url: '/accounts/current/billing/payment-method/revoke',
       body: requestBody,
       mediaType: 'application/json',
+      errors: {
+        403: `The terms of use in force are not accepted yet`,
+        500: `Terms acceptance could not be checked`,
+      },
     });
   }
   /**
@@ -405,6 +421,10 @@ export class BillingService {
       url: '/accounts/current/billing/purchase',
       body: requestBody,
       mediaType: 'application/json',
+      errors: {
+        403: `The terms of use in force are not accepted yet`,
+        500: `Terms acceptance could not be checked`,
+      },
     });
   }
   /**
@@ -469,6 +489,10 @@ export class BillingService {
       url: '/accounts/current/billing/purchases/{purchaseRef}',
       path: {
         'purchaseRef': purchaseRef,
+      },
+      errors: {
+        403: `The terms of use in force are not accepted yet`,
+        500: `Terms acceptance could not be checked`,
       },
     });
   }
@@ -535,6 +559,10 @@ export class BillingService {
       url: '/accounts/current/billing/quote',
       body: requestBody,
       mediaType: 'application/json',
+      errors: {
+        403: `The terms of use in force are not accepted yet`,
+        500: `Terms acceptance could not be checked`,
+      },
     });
   }
   /**
@@ -651,6 +679,10 @@ export class BillingService {
       url: '/accounts/current/billing/subscription/cancel',
       body: requestBody,
       mediaType: 'application/json',
+      errors: {
+        403: `The terms of use in force are not accepted yet`,
+        500: `Terms acceptance could not be checked`,
+      },
     });
   }
   /**
@@ -818,6 +850,10 @@ export class BillingService {
       url: '/accounts/current/billing/subscription/change',
       body: requestBody,
       mediaType: 'application/json',
+      errors: {
+        403: `The terms of use in force are not accepted yet`,
+        500: `Terms acceptance could not be checked`,
+      },
     });
   }
   /**
@@ -934,6 +970,10 @@ export class BillingService {
       url: '/accounts/current/billing/subscription/change/cancel',
       body: requestBody,
       mediaType: 'application/json',
+      errors: {
+        403: `The terms of use in force are not accepted yet`,
+        500: `Terms acceptance could not be checked`,
+      },
     });
   }
   /**
@@ -1046,6 +1086,10 @@ export class BillingService {
       url: '/accounts/current/billing/subscription/change/quote',
       body: requestBody,
       mediaType: 'application/json',
+      errors: {
+        403: `The terms of use in force are not accepted yet`,
+        500: `Terms acceptance could not be checked`,
+      },
     });
   }
   /**
@@ -1163,6 +1207,10 @@ export class BillingService {
       url: '/accounts/current/billing/subscription/resume',
       body: requestBody,
       mediaType: 'application/json',
+      errors: {
+        403: `The terms of use in force are not accepted yet`,
+        500: `Terms acceptance could not be checked`,
+      },
     });
   }
   /**

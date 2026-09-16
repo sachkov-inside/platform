@@ -188,13 +188,9 @@ curl --fail --silent http://127.0.0.1:13000/_health/ready
 The system Caddy imports `infra/production/runtime/platform.caddy`. It publishes only:
 
 - web at `inside.sachkov.dev`;
-- `/integrations/telegram/v1/membership-evidence`;
-- `POST /integrations/telegram/v1/sign-in/linked-identity` for the trusted Logto connector;
-- `/integrations/kinescope/v1/webhook`;
-- `/integrations/kinescope/v1/authorize`;
-- seven exact POST callbacks of the bank, Tribute and Telegram listed with their callers and
-  credentials in [public payment and Telegram routes](production-release.md#public-payment-and-telegram-routes);
-- `/mcp` and `/.well-known/oauth-protected-resource/mcp`.
+- the API and MCP routes listed with method, caller and credential in
+  [public API routes](production-release.md#public-api-routes); a contract test keeps that table equal
+  to the Caddy fragment.
 
 Unknown `/integrations/*` paths and `/health`, `/health/*`, `/_health/*` return 404 at the public
 edge. PostgreSQL and direct service ports remain private. A wrong TLS hostname must fail certificate
@@ -205,7 +201,7 @@ validation.
 The production connector uses the existing HTTPS origins: `platformUrl` is
 `https://inside.sachkov.dev`, `providerUrl` is `https://telegram.sachkov.dev`, and
 `issuer` is `https://auth.sachkov.dev/oidc`. These are server-to-server calls. The
-Platform route above accepts only POST; the backend also requires the separate
+Platform `sign-in/linked-identity` route accepts only POST; the backend also requires the separate
 sign-in integration secret and an enabled sign-in configuration. The Web BFF calls
 `/integrations/telegram/v1/sign-in/complete` through its internal backend transport;
 that endpoint remains closed at the public edge.

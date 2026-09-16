@@ -15,7 +15,7 @@ import type { LogtoAccessTokenVerifier } from "../../infrastructure/idp/logto/lo
 import { bearerToken, throwAccountError, throwProofError } from "./account-http.js";
 import { currentAccountRequestProperty } from "./current-account.js";
 
-type AuthenticatedRequest = FastifyRequest & {
+export type AuthenticatedRequest = FastifyRequest & {
   [currentAccountRequestProperty]?: AuthenticatedAccount;
 };
 
@@ -52,11 +52,11 @@ export class OptionalAccountGuard implements CanActivate {
   }
 }
 
-async function authenticateRequest(
+export async function authenticateRequest(
   request: AuthenticatedRequest,
   accounts: Accounts,
   tokenVerifier: LogtoAccessTokenVerifier,
-): Promise<void> {
+): Promise<AuthenticatedAccount> {
   const proof = await tokenVerifier.verifyAccount(
     bearerToken(headerValue(request.headers.authorization)),
   );
@@ -66,6 +66,7 @@ async function authenticateRequest(
   if (!result.ok) throwAccountError(result.error);
 
   request[currentAccountRequestProperty] = result.account;
+  return result.account;
 }
 
 function headerValue(value: string | readonly string[] | undefined): string | undefined {

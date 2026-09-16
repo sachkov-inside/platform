@@ -2,10 +2,14 @@
 version: 1
 slug: "route-account"
 primary_target: "route:/account"
-related_targets: ["route:/members/[publicProfileId]", "apps/web/app/layout.tsx"]
+related_targets: ["apps/web/app/layout.tsx"]
 ---
 
 # Account and Member Profile
+
+> Superseded in part by #658 (owner decision 15.09.2026, Workspace #185): the Profile is visible only
+> to its owner. The member projection, `/members/[publicProfileId]` and the member copy-link below
+> are history; `apps/web/DESIGN.md` owns the current composition.
 
 Mode: Operate. A signed-in Account owner completes first-entry naming, edits or removes Profile data, exports it, and can verify the exact projection an active member receives. An active member reads that projection and may report unsafe text.
 

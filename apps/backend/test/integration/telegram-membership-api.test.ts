@@ -1,4 +1,5 @@
 import { enrollLegacyCohortFixture } from "./setup/legacy-cohort.js";
+import { acceptCurrentTerms } from "../support/accept-terms.js";
 import {
   createServer,
   type IncomingMessage,
@@ -282,8 +283,13 @@ describe("Telegram Membership API", () => {
     });
   }
 
-  function establish(token: string) {
-    return authenticated("POST", "/accounts", token);
+  /** Establishes the Account and passes the first sign-in screen: the bot link opens only after it. */
+  async function establish(token: string) {
+    const established = await authenticated("POST", "/accounts", token);
+    await acceptCurrentTerms(declaredServer(app.getHttpAdapter().getInstance()), {
+      authorization: `Bearer ${token}`,
+    });
+    return established;
   }
 
   function deliver(

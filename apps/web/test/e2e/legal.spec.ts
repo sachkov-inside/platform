@@ -37,7 +37,7 @@ test("адрес редакции остаётся рабочим и не спо
   await expect(page.getByRole("link", { name: "/legal/terms/v1" })).toBeVisible();
 });
 
-test("оферта разовой покупки действует в редакции 3, а первая остаётся по своему адресу", async ({
+test("оферта разовой покупки действует в редакции 4, а прежние остаются по своим адресам", async ({
   page,
 }) => {
   const response = await page.goto("/legal/purchase");
@@ -46,14 +46,18 @@ test("оферта разовой покупки действует в реда�
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     "Оферта разовой покупки продукта Inside",
   );
-  await expect(page.getByText(/^Версия 3\. Действует с /u).first()).toBeVisible();
-  // Списки и подразделы редакции 3 отрисованы как разметка, а не как текст с маркерами.
+  await expect(page.getByText(/^Версия 4\. Действует с /u).first()).toBeVisible();
+  // Списки и подразделы оферты отрисованы как разметка, а не как текст с маркерами.
   await expect(
     page.getByRole("heading", { level: 3, name: "Что не входит в сопровождение" }),
   ).toBeVisible();
   await expect(
     page.getByRole("listitem").filter({ hasText: "Личные встречи и созвоны." }),
   ).toBeVisible();
+
+  const third = await page.goto("/legal/purchase/v3");
+  expect(third?.status()).toBe(200);
+  await expect(page.getByText(/^Версия 3\. Действует с /u).first()).toBeVisible();
 
   const earlier = await page.goto("/legal/purchase/v1");
   expect(earlier?.status()).toBe(200);

@@ -13,7 +13,6 @@ const privateProfileSchema = fieldsSchema
   .extend({
     avatar: avatarSchema.nullable(),
     createdAt: z.iso.datetime(),
-    publicProfileId: z.uuid(),
     status: z.enum(["active", "disabled"]),
     updatedAt: z.iso.datetime(),
     version: z.number().int().positive(),

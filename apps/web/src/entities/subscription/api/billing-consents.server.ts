@@ -20,6 +20,9 @@ export function handleBillingConsents(request: Request): Promise<Response> {
           {
             operationId: input.operationId,
             contextRef: input.contextRef,
+            screen: input.screen,
+            buttonLabel: input.buttonLabel,
+            ...(input.shownTerms === undefined ? {} : { shownTerms: input.shownTerms }),
             documents: input.documents.map((document) => ({
               ...document,
               accepted: true,

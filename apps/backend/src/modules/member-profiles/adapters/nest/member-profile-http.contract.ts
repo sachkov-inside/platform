@@ -14,7 +14,6 @@ export const memberProfileAvatarSchema = z
 export const privateMemberProfileSchema = memberProfileFieldsSchema
   .extend({
     avatar: memberProfileAvatarSchema.nullable(),
-    publicProfileId: z.uuid(),
     status: z.enum(["active", "disabled"]),
     version: z.number().int().positive(),
     createdAt: z.iso.datetime(),
@@ -29,13 +28,6 @@ export const privateProfileStateSchema = z.discriminatedUnion("kind", [
     .strict(),
 ]);
 
-export const memberProfileProjectionSchema = memberProfileFieldsSchema
-  .extend({
-    avatar: memberProfileAvatarSchema.nullable(),
-    publicProfileId: z.uuid(),
-  })
-  .strict();
-
 export const memberProfileMutationBodySchema = z
   .object({ displayName: z.string(), bio: z.string().optional().nullable() })
   .strict();
@@ -46,10 +38,6 @@ export const updateMemberProfileBodySchema = memberProfileMutationBodySchema
 
 export const memberProfileResponseSchema = z
   .object({ profile: privateMemberProfileSchema })
-  .strict();
-
-export const memberProfileProjectionResponseSchema = z
-  .object({ profile: memberProfileProjectionSchema })
   .strict();
 
 export const profileValidationIssueSchema = z

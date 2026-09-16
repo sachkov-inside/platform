@@ -15,6 +15,7 @@ import {
   LegalTextError,
   parseLegalText,
   supersededLegalEditions,
+  termsOfUseDocument,
 } from "./index.js";
 
 const origin = "https://inside.sachkov.dev";
@@ -75,12 +76,15 @@ describe("published editions", () => {
     expect(findLegalEdition("purchase", 2)).toBeUndefined();
   });
 
-  it("puts the one-time offer v3 and contacts v2 in force and keeps earlier texts readable", () => {
-    expect(currentLegalEdition("purchase").version).toBe(3);
+  it("puts the one-time offer v4 and contacts v2 in force and keeps earlier texts readable", () => {
+    expect(currentLegalEdition("purchase").version).toBe(4);
+    expect(currentLegalEdition("purchase").text).toContain(
+      "в личных сообщениях или по электронной почте",
+    );
     expect(currentLegalEdition("purchase").title).toBe(
       "Оферта разовой покупки продукта Inside",
     );
-    expect(supersededLegalEditions("purchase").map((edition) => edition.version)).toEqual([1]);
+    expect(supersededLegalEditions("purchase").map((edition) => edition.version)).toEqual([3, 1]);
     expect(currentLegalEdition("contacts").version).toBe(2);
     expect(currentLegalEdition("contacts").text).toContain(
       "Межрайонная инспекция Федеральной налоговой службы № 46 по г. Москве",
@@ -88,10 +92,25 @@ describe("published editions", () => {
     expect(supersededLegalEditions("contacts").map((edition) => edition.version)).toEqual([1]);
   });
 
+  it("puts privacy v3 and cookies v2 in force together with the accepted consent path", () => {
+    expect(currentLegalEdition("privacy").version).toBe(3);
+    expect(currentLegalEdition("privacy").text).toContain(
+      "профиль виден только ему самому",
+    );
+    expect(supersededLegalEditions("privacy").map((edition) => edition.version)).toEqual([2]);
+    expect(currentLegalEdition("cookies").version).toBe(2);
+    expect(currentLegalEdition("cookies").text).toContain(
+      "localStorage `inside.storage-notice.v1`",
+    );
+    expect(supersededLegalEditions("cookies").map((edition) => edition.version)).toEqual([1]);
+  });
+
   it.each(legalEditions.map((edition) => [edition.key, edition] as const))(
     "%s carries no draft marker from its source",
     (_key, edition) => {
-      expect(edition.text).not.toMatch(/Проект\. Не введён|\[дата|<!--/u);
+      expect(edition.text).not.toMatch(
+        /Проект\. Не введён|Проект редакции|Не введён в действие|\[дата|<!--/u,
+      );
     },
   );
 
@@ -103,7 +122,29 @@ describe("published editions", () => {
   });
 });
 
+describe("terms of use acceptance", () => {
+  it("offers the terms in force at their permanent address", () => {
+    const terms = termsOfUseDocument(origin);
+    const edition = currentLegalEdition("terms");
+    expect(terms).toEqual({
+      documentId: "terms",
+      version: String(edition.version),
+      digest: edition.digest,
+      url: `${origin}/legal/terms/v${String(edition.version)}`,
+      text: edition.text,
+    });
+    expect(() => termsOfUseDocument(`${origin}/`)).toThrow("bare public origin");
+  });
+});
+
 describe("consent catalogue", () => {
+  it("addresses each accepted document by its permanent edition address", () => {
+    for (const document of consentDocuments(origin))
+      expect(document.url).toBe(
+        `${origin}/legal/${document.documentId}/v${document.version}`,
+      );
+  });
+
   it("gives each payment mode one offer and no policy checkbox", () => {
     const documents = consentDocuments(origin);
     const oneTime = documents.filter((document) =>
@@ -133,8 +174,8 @@ describe("consent catalogue", () => {
 
   it("addresses the accepted edition on the public site", () => {
     const [purchase] = consentDocuments(origin);
-    expect(purchase?.url).toBe("https://inside.sachkov.dev/legal/purchase");
-    expect(purchase?.version).toBe("3");
+    expect(purchase?.url).toBe("https://inside.sachkov.dev/legal/purchase/v4");
+    expect(purchase?.version).toBe("4");
     expect(purchase?.digest).toBe(currentLegalEdition("purchase").digest);
     expect(purchase?.text).toBe(currentLegalEdition("purchase").text);
   });
