@@ -527,18 +527,18 @@ migration pipeline в Platform нет.
 - AI-поиск и отдельный autonomous content generation workflow вне user-delegated MCP Save.
 
 Текущий фокус — самостоятельные Materials, связанные смешанные Guide и подписка на опубликованный
-контент. Отдельная Мастерская с Tracks, Laboratories и Production Cases отложена. Сохранённые
+контент. Отдельная Мастерская с Tracks, Laboratories и Production Cases снята с плана 16.09.2026. Сохранённые
 Workshop foundations и отдельный WorkshopEntitlement не означают, что этот продукт уже предлагается
 участнику, и не превращают Guide в Workshop Track.
-[Отложенный контракт](../specifications/workshop-tracks.md) сохраняет принятые границы будущей работы;
-её возобновление требует отдельной постановки задачи.
+[Снятый контракт](../specifications/workshop-tracks.md) сохраняет принятые границы как историю;
+возобновление направления требует новой постановки задачи.
 
 ## Связанные application-документы
 
 - [Platform v1 application specification](../specifications/platform-v1.md) владеет modules,
   logical schema, flows, application NFR, production foundation order и ADR inputs.
 - [Workshop Tracks and Laboratories application specification](../specifications/workshop-tracks.md)
-  сохраняет отложенные Track/Laboratory model, access, progress и Kafka slice.
+  сохраняет снятые с плана Track/Laboratory model, access, progress и Kafka slice.
 - [Superseded case-first foundation](../specifications/production-workshop-v1.md) сохраняет ссылки
   на уже реализованные Workshop/Assignment/evaluator foundations без объявления их текущим
   product contract.

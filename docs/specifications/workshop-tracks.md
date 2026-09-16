@@ -1,9 +1,9 @@
 # Workshop Tracks and Laboratories application specification
 
-Статус: **deferred**. Сохранённый repository-local contract для
-[Platform #275](https://github.com/sachkov-inside/platform/issues/275) и первого Kafka Track из
-[#274](https://github.com/sachkov-inside/platform/issues/274). Он реализует подтверждённую shared
-границу [Workspace #108](https://github.com/sachkov-inside/workspace/issues/108).
+Статус: **снят с плана**. 16.09.2026 владелец снял Мастерскую и первый Kafka Track с плана и
+удалил их задачи. Документ сохраняется как историческая запись repository-local contract. Он
+реализовывал подтверждённую shared границу
+[Workspace #108](https://github.com/sachkov-inside/workspace/issues/108).
 
 Дата исходного контракта: 2026-09-04. Отложен в текущем этапе Materials/Series.
 Текущий scope задаёт [MVP brief](../product/platform-mvp-brief.md); этот документ не является
@@ -20,7 +20,7 @@ Workshop Tracks соединяют Materials, Laboratories и Production Cases �
 Этот документ владеет Platform-specific model, authoring/publication boundary, access semantics,
 learner progress и requirements первого Kafka-среза. Shared product promise и cross-repository
 термины принадлежат Workspace. Physical schema, API shapes и component composition появляются в
-implementation tickets #279–#282 и не угадываются здесь заранее.
+implementation tickets и не угадываются здесь заранее.
 
 Прежняя [case-first application specification](./production-workshop-v1.md) больше не является
 текущим продуктовым контрактом. Уже реализованные foundations остаются доступными, но их повторное
@@ -256,12 +256,12 @@ Public target использует единый reusable visual marker во вс
 не имитирует бесплатный preview body. Recommended order не изображается как технически locked
 progression.
 
-Первая composition выбирается в prototype #273 после завершения visual foundation #271 / PR #272.
-Production pages поставляет #281.
+Первая composition выбирается в отдельном prototype после завершения visual foundation #271 / PR #272.
+Production pages поставляет отдельная frontend-задача.
 
 ## 7. First Kafka Track specimen
 
-Первый Track должен выдержать настоящие данные из #276 и #277:
+Первый Track должен выдержать настоящие данные content specimen и CaseSpec:
 
 1. authored Kafka learning outcome и prerequisites;
 2. explicit Material references, добавляемые по мере публикации Materials;
@@ -275,14 +275,14 @@ cluster operations, tuning и capacity planning не входят.
 
 Production Case требует спроектировать и реализовать асинхронную notification feature с provider
 failures, duplicates, retries, poison messages, ordering, compatibility и observability. Exact
-fictional domain и constraints принадлежат #277.
+fictional domain и constraints принадлежат CaseSpec.
 
 ## 8. Deferred evaluation boundary
 
 `Assignment`, `Attempt`, `AttemptResult`, source archive и Go evaluator существуют как foundations
 прежнего case-first slice. Они не являются автоматическим contract первого Kafka Case.
 
-После accepted CaseSpec #277 задача #278 должна определить:
+После accepted CaseSpec отдельное research должно определить:
 
 - форму design artifact и границу qualitative judgement;
 - observable behavioural scenarios;
@@ -307,18 +307,7 @@ fictional domain и constraints принадлежат #277.
 
 ## 10. Delivery graph
 
-| Issue | Role | Opens |
-|---|---|---|
-| #275 | This accepted application contract | #279, #280 and revised #273 |
-| #276 | Real Kafka Track/Laboratory content specimen | #279 and #273 |
-| #277 | Real notification CaseSpec | #278, #279 and #282 |
-| #278 | Evaluation research and owner decision | refined #282 |
-| #279 | Versioned import/publication/read model and Laboratory progress backend | #282 and #281 |
-| #280 | Subscription grants and public access | #281 |
-| #273 | Visual prototype after #271/#272 | #281 |
-| #282 | C#/Python variants, evaluation backend and typed states | #281 |
-| #281 | Full Workshop/Track/Laboratory/Case frontend on real APIs | #283 |
-| #283 | Aggregate end-to-end acceptance | parent #274 completion |
+Граф задач удалён вместе с задачами 16.09.2026. Возобновление Workshop начинается с новой задачи.
 
 ## 11. Acceptance and stopping condition
 
@@ -326,4 +315,4 @@ fictional domain и constraints принадлежат #277.
 conflicting case-first document явно superseded, `pnpm docs:check` проходит, а implementation graph
 содержит owner-approved dependencies.
 
-Issue #275 не меняет runtime. Первый product slice завершён только aggregate acceptance #283.
+Эта specification не меняет runtime. Первый product slice завершается только aggregate end-to-end acceptance.
