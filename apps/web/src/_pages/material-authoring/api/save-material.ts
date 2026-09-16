@@ -25,6 +25,7 @@ const formSchema = z.object({
   access: z.enum(["free", "membership"]),
   confirmedGuideRemovals: z.array(z.uuid()).max(100),
   deleteVideoId: z.union([z.uuid(), z.literal("none")]).default("none"),
+  detachVideoIds: z.array(z.uuid()),
   difficulty: materialDifficultySchema.or(z.literal("unassigned")),
   outcomes: z
     .array(z.string().trim().max(MATERIAL_OUTCOMES.maxLength))
@@ -117,6 +118,7 @@ function parseForm(
     access: formData.get("access"),
     confirmedGuideRemovals: formData.getAll("confirmedGuideRemovals"),
     deleteVideoId: formData.get("deleteVideoId") ?? undefined,
+    detachVideoIds: formData.getAll("detachVideoIds"),
     difficulty: formData.get("difficulty"),
     outcomes: formData.getAll("outcome"),
     document: formData.get("document"),
@@ -153,6 +155,7 @@ function parseForm(
         ? {}
         : { confirmedGuideRemovals: parsed.data.confirmedGuideRemovals }),
       deleteVideoId: parsed.data.deleteVideoId === "none" ? null : parsed.data.deleteVideoId,
+      detachVideoIds: parsed.data.detachVideoIds,
       difficulty: parsed.data.difficulty === "unassigned" ? null : parsed.data.difficulty,
       outcomes: parsed.data.outcomes.filter(Boolean),
       document: documentFields.document,

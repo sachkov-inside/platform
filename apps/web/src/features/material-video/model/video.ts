@@ -68,13 +68,53 @@ export function resolveInitialVideoAuthoring(input: {
  */
 export function retainUnselectedUpload(input: {
   readonly deleteVideoId: string | null;
+  readonly detachVideoIds: readonly string[];
   readonly primaryVideoId: string | null;
   readonly unselectedUpload: MaterialAuthoringVideo | null;
 }): MaterialAuthoringVideo | null {
   if (input.unselectedUpload === null || input.primaryVideoId !== null) return null;
-  return input.unselectedUpload.videoId === input.deleteVideoId
+  const { videoId } = input.unselectedUpload;
+  return videoId === input.deleteVideoId || input.detachVideoIds.includes(videoId)
     ? null
     : input.unselectedUpload;
+}
+
+/**
+ * «Убрать» is recorded until a Save carries it, because only the author knows that a Video still
+ * processing in Kinescope is unwanted: without the record a later visit would recover that upload
+ * and select it once the provider reports it ready. Selecting a Video withdraws its removal.
+ */
+export function nextDetachVideoIds(input: {
+  readonly detachedVideoId: string | null;
+  readonly detachVideoIds: readonly string[];
+  readonly primaryVideoId: string | null;
+}): readonly string[] {
+  const kept = input.detachVideoIds.filter(
+    (videoId) =>
+      videoId !== input.primaryVideoId && videoId !== input.detachedVideoId,
+  );
+  return input.detachedVideoId === null ||
+    input.detachedVideoId === input.primaryVideoId
+    ? kept
+    : [...kept, input.detachedVideoId];
+}
+
+/**
+ * Starting a different Video over an upload the Material never selected leaves that upload behind,
+ * which is the author's removal. A replacement that never started, the same upload resumed from its
+ * browser attempt, and the selected Video, replaced by ordinary selection, are not removals.
+ */
+export function replacedUploadToDetach(input: {
+  readonly primaryVideoId: string | null;
+  readonly replaced: MaterialAuthoringVideo | null;
+  readonly startedVideoId: string | null;
+}): string | null {
+  const { replaced, startedVideoId } = input;
+  if (replaced === null || startedVideoId === null) return null;
+  return replaced.videoId === startedVideoId ||
+    replaced.videoId === input.primaryVideoId
+    ? null
+    : replaced.videoId;
 }
 
 /**

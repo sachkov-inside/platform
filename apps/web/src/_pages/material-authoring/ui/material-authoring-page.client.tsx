@@ -13,7 +13,10 @@ import {
   type MaterialDraftField,
 } from "@/widgets/material-authoring/editor";
 import { deleteMaterialDraft } from "@/features/material-lifecycle";
-import { retainUnselectedUpload } from "@/features/material-video";
+import {
+  nextDetachVideoIds,
+  retainUnselectedUpload,
+} from "@/features/material-video";
 import {
   flushPendingEdits,
   useAutosave,
@@ -195,6 +198,10 @@ export function MaterialAuthoringPageClient({
           draftRef.current.deleteVideoId === snapshot.deleteVideoId
             ? null
             : draftRef.current.deleteVideoId,
+        // Only what this Save carried is recorded; a removal made meanwhile waits for the next one.
+        detachVideoIds: draftRef.current.detachVideoIds.filter(
+          (videoId) => !input.detachVideoIds.includes(videoId),
+        ),
       };
       draftRef.current = next;
       setDraft(next);
@@ -334,21 +341,29 @@ export function MaterialAuthoringPageClient({
           );
       });
     },
-    onPrimaryVideoChange: (primaryVideo, deleteVideoId) => {
+    onPrimaryVideoChange: (primaryVideo, deleteVideoId, detachedVideoId) => {
       const deletionCandidate =
         deleteVideoId !== null &&
         draftRef.current.primaryVideo?.videoId === deleteVideoId
           ? draftRef.current.primaryVideo
           : draftRef.current.latestVideoDeletion;
+      const primaryVideoId = primaryVideo?.videoId ?? null;
+      const detachVideoIds = nextDetachVideoIds({
+        detachedVideoId,
+        detachVideoIds: draftRef.current.detachVideoIds,
+        primaryVideoId,
+      });
       markDirty({
         ...draftRef.current,
         deleteVideoId,
+        detachVideoIds,
         latestVideoDeletion: deletionCandidate,
         primaryVideo,
-        primaryVideoId: primaryVideo?.videoId ?? null,
+        primaryVideoId,
         unselectedVideoUpload: retainUnselectedUpload({
           deleteVideoId,
-          primaryVideoId: primaryVideo?.videoId ?? null,
+          detachVideoIds,
+          primaryVideoId,
           unselectedUpload: draftRef.current.unselectedVideoUpload,
         }),
       });

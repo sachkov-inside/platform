@@ -344,6 +344,7 @@ describe("Material Authoring action workflow", () => {
       {
         access: "membership",
         deleteVideoId: null,
+        detachVideoIds: [],
         difficulty: "basic",
         document: {
           content: [{ content: [{ text: "Local full state", type: "text" }], type: "paragraph" }],
@@ -378,6 +379,21 @@ describe("Material Authoring action workflow", () => {
 
     expect(dependencies.save).toHaveBeenCalledWith(
       expect.objectContaining({ deleteVideoId: videoId }),
+      "access-token",
+    );
+  });
+
+  it("passes every Video the author removed as part of the full-state Save", async () => {
+    const dependencies = successfulSaveDependencies();
+    const formData = validSaveFormData();
+    const replacementId = "30000000-0000-4000-8000-000000000009";
+    formData.append("detachVideoIds", videoId);
+    formData.append("detachVideoIds", replacementId);
+
+    await executeSaveMaterial(formData, "access-token", dependencies);
+
+    expect(dependencies.save).toHaveBeenCalledWith(
+      expect.objectContaining({ detachVideoIds: [videoId, replacementId] }),
       "access-token",
     );
   });

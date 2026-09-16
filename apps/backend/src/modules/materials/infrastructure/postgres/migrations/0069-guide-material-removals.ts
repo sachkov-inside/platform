@@ -1,4 +1,4 @@
-export const name = "0065_guide_material_removals";
+export const name = "0069_guide_material_removals";
 
 /**
  * Журнал подтверждённых снятий опубликованного материала из руководства, у которого были

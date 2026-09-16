@@ -49,6 +49,7 @@ export interface SaveMaterialInput {
   /** Купленные продукты, снятие материала из которых автор подтвердил. */
   readonly confirmedGuideRemovals?: readonly string[];
   readonly deleteVideoId: string | null;
+  readonly detachVideoIds: readonly string[];
   readonly difficulty: string;
   readonly document: JSONContent;
   readonly expectedContentVersion: number;

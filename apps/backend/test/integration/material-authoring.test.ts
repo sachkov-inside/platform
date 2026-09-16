@@ -8,6 +8,7 @@ import {
   type Videos,
 } from "../../src/modules/videos/index.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
+import { distinctClock } from "./setup/distinct-clock.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -1164,6 +1165,226 @@ describe("MaterialAuthoring", () => {
         unselectedVideoUpload: null,
       },
     });
+  });
+
+  test("keeps an upload the author removed during processing removed, whatever Kinescope answers later", async () => {
+    const remote = new Map<string, ProviderVideo>();
+    const provider: VideoProvider = {
+      delete: () => Promise.reject(new Error("unused")),
+      find: (input) => Promise.resolve(remote.get(input.id) ?? null),
+      initUpload(input) {
+        const id = crypto.randomUUID();
+        remote.set(id, {
+          embedLocator: null,
+          id,
+          projectId: input.projectId,
+          status: "processing",
+          title: input.title,
+        });
+        return Promise.resolve({ id, uploadEndpoint: `https://uploads.example.test/${id}` });
+      },
+    };
+    const videos = assembleVideos({
+      canManage: () => Promise.resolve(true),
+      // Two attempts of one Material are ordered by when they started.
+      clock: distinctClock(),
+      prisma: testDatabase.prisma,
+      projects: { free: "public-project", membership: "member-project" },
+      provider,
+    });
+    const materials = assembleMaterials({
+      authorPolicy: { canManage: () => Promise.resolve(true) },
+      prisma: testDatabase.prisma,
+      videos,
+    });
+    const metadata = {
+      access: "free" as const,
+      formatId: null,
+      difficulty: null,
+      outcomes: [],
+      seriesIds: [],
+      summary: null,
+      tagIds: [],
+      title: "Removed during processing",
+      topicId: null,
+    };
+    const body = representativeDocument("The author changed their mind mid processing.");
+    const created = await materials.authoring.createDraft({
+      actor,
+      body,
+      idempotencyKey: "create-removed-during-processing",
+      metadata,
+    });
+    if (!created.ok) throw new Error(created.error.code);
+    const materialId = created.value.materialId;
+    const load = () => materials.authoring.loadMaterial({ actor, materialId });
+    const upload = async (title: string) => {
+      const started = await videos.initUpload({
+        access: "free",
+        actor,
+        byteSize: 4_096,
+        filename: `${title}.mp4`,
+        idempotencyKey: `upload-${title}`,
+        materialId,
+        title,
+      });
+      if (!started.ok) throw new Error(started.error.code);
+      return started.value.video.videoId;
+    };
+    const save = (input: {
+      readonly detachVideoIds?: readonly string[];
+      readonly expectedContentVersion: number;
+      readonly key: string;
+      readonly primaryVideoId: string | null;
+    }) => materials.authoring.saveMaterial({
+      actor,
+      body,
+      ...(input.detachVideoIds === undefined ? {} : { detachVideoIds: input.detachVideoIds }),
+      expectedContentVersion: input.expectedContentVersion,
+      idempotencyKey: input.key,
+      materialId,
+      metadata,
+      primaryVideoId: input.primaryVideoId,
+      publicationState: "draft",
+    });
+
+    const removed = await upload("removed");
+    // Negative control: an ordinary autosave during processing is not a removal.
+    await expect(save({
+      expectedContentVersion: 1,
+      key: "autosave-during-processing",
+      primaryVideoId: null,
+    })).resolves.toMatchObject({ ok: true, value: { contentVersion: 2 } });
+    await expect(load()).resolves.toMatchObject({
+      ok: true,
+      value: { unselectedVideoUpload: { videoId: removed } },
+    });
+
+    await expect(save({
+      detachVideoIds: [removed],
+      expectedContentVersion: 2,
+      key: "remove-during-processing",
+      primaryVideoId: null,
+    })).resolves.toMatchObject({ ok: true, value: { contentVersion: 3 } });
+    // The late reconciliation still reports processing; the removal is the last word.
+    await expect(videos.reconcile({ actor, videoId: removed }))
+      .resolves.toMatchObject({ ok: true, value: { state: "processing" } });
+    await expect(load()).resolves.toMatchObject({
+      ok: true,
+      value: { primaryVideo: null, primaryVideoId: null, unselectedVideoUpload: null },
+    });
+
+    // Replacement: the new upload is offered and saved; the removed one never takes its place.
+    const replacement = await upload("replacement");
+    await expect(load()).resolves.toMatchObject({
+      ok: true,
+      value: { unselectedVideoUpload: { videoId: replacement } },
+    });
+    const replacementProviderId = [...remote.values()].find(({ title }) => title === "replacement")?.id ?? "";
+    remote.set(replacementProviderId, {
+      embedLocator: "https://kinescope.io/embed/replacement",
+      id: replacementProviderId,
+      projectId: "public-project",
+      status: "done",
+      title: "replacement",
+    });
+    await expect(videos.reconcile({ actor, videoId: replacement }))
+      .resolves.toMatchObject({ ok: true, value: { state: "ready" } });
+    await expect(save({
+      expectedContentVersion: 3,
+      key: "select-replacement",
+      primaryVideoId: replacement,
+    })).resolves.toMatchObject({ ok: true, value: { contentVersion: 4 } });
+    await expect(save({
+      detachVideoIds: [replacement],
+      expectedContentVersion: 4,
+      key: "remove-replacement",
+      primaryVideoId: null,
+    })).resolves.toMatchObject({ ok: true, value: { contentVersion: 5 } });
+    await expect(load()).resolves.toMatchObject({
+      ok: true,
+      value: { primaryVideoId: null, unselectedVideoUpload: null },
+    });
+  });
+
+  test("refuses a removal that names another Material's Video or the Video it selects", async () => {
+    const provider: VideoProvider = {
+      delete: () => Promise.reject(new Error("unused")),
+      find: (input) => Promise.resolve({
+        embedLocator: `https://kinescope.io/embed/${input.id}`,
+        id: input.id,
+        projectId: input.projectId,
+        status: "done",
+        title: "Attached lesson",
+      }),
+      initUpload: () => Promise.reject(new Error("unused")),
+    };
+    const videos = assembleVideos({
+      canManage: () => Promise.resolve(true),
+      prisma: testDatabase.prisma,
+      projects: { free: "public-project", membership: "member-project" },
+      provider,
+    });
+    const materials = assembleMaterials({
+      authorPolicy: { canManage: () => Promise.resolve(true) },
+      prisma: testDatabase.prisma,
+      videos,
+    });
+    const metadata = {
+      access: "free" as const,
+      formatId: null,
+      difficulty: null,
+      outcomes: [],
+      seriesIds: [],
+      summary: null,
+      tagIds: [],
+      title: "Forged removal",
+      topicId: null,
+    };
+    const body = representativeDocument("Removal names only this Material's Videos.");
+    const create = async (key: string) => {
+      const created = await materials.authoring.createDraft({ actor, body, idempotencyKey: key, metadata });
+      if (!created.ok) throw new Error(created.error.code);
+      const attached = await videos.attachExisting({
+        access: "free",
+        actor,
+        materialId: created.value.materialId,
+        providerVideoId: `external-${crypto.randomUUID()}`,
+      });
+      if (!attached.ok) throw new Error(attached.error.code);
+      return { materialId: created.value.materialId, videoId: attached.value.videoId };
+    };
+    const own = await create("create-forged-removal");
+    const foreign = await create("create-foreign-removal");
+    const save = (detachVideoIds: readonly string[], primaryVideoId: string | null, key: string) =>
+      materials.authoring.saveMaterial({
+        actor,
+        body,
+        detachVideoIds,
+        expectedContentVersion: 1,
+        idempotencyKey: key,
+        materialId: own.materialId,
+        metadata,
+        primaryVideoId,
+        publicationState: "draft",
+      });
+
+    await expect(save([foreign.videoId], null, "detach-foreign-video")).resolves.toEqual({
+      error: {
+        code: "invalid_reference",
+        issues: [{ code: "video_not_found", path: "/detachVideoIds" }],
+      },
+      ok: false,
+    });
+    await expect(save([own.videoId], own.videoId, "detach-selected-video")).resolves.toEqual({
+      error: {
+        code: "invalid_reference",
+        issues: [{ code: "video_detachment_target_mismatch", path: "/detachVideoIds" }],
+      },
+      ok: false,
+    });
+    await expect(materials.authoring.loadMaterial({ actor, materialId: own.materialId }))
+      .resolves.toMatchObject({ ok: true, value: { contentVersion: 1 } });
   });
 
   test("rejects deletion of an externally attached Video without detaching it", async () => {

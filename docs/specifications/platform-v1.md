@@ -796,7 +796,11 @@ redirect и cache policy остаются за backend.
    transfer или `failed` означают, что файл нужно загрузить заново, и повтор проверки не
    предлагается. Кандидатом при открытии Material становится только неустановленный исход:
    установленный результат, Video в состоянии удаления и `external_attachment` не предлагаются,
-   потому что показанный автору результат остаётся его решением.
+   потому что показанный автору результат остаётся его решением. «Убрать» — такое же решение, даже
+   пока Kinescope обрабатывает файл: Save передаёт снятые Video в `detachVideoIds`, в той же
+   transaction Videos записывает `detached_at`, и снятая загрузка больше не становится кандидатом,
+   какой бы ответ сверки ни пришёл позже. Provider object при этом остаётся; удаление — отдельный
+   явный запрос.
 9. Webhook — durable hint: duplicate и out-of-order deliveries попадают в inbox, после чего Platform
    повторно читает provider state. Только `done` с безопасным returned embed locator становится
    `ready`; unknown status становится видимым failed state, а provider outage оставляет event для

@@ -698,6 +698,7 @@ model Video {
   readyAt             DateTime? @map("ready_at") @db.Timestamptz
   lastSyncedAt        DateTime? @map("last_synced_at") @db.Timestamptz
   deletedAt           DateTime? @map("deleted_at") @db.Timestamptz
+  detachedAt          DateTime? @map("detached_at") @db.Timestamptz
   createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt           DateTime  @default(now()) @map("updated_at") @db.Timestamptz
   deletionOperation   VideoDeletionOperation?

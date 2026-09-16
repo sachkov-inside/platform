@@ -1046,6 +1046,7 @@ export class MaterialAuthoringService {
       };
       confirmedGuideRemovals?: Array<string>;
       deleteVideoId: string | null;
+      detachVideoIds: Array<string>;
       expectedContentVersion: number;
       metadata: {
         access: 'free' | 'membership' | 'workshop';
