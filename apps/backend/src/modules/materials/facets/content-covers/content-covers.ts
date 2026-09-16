@@ -87,6 +87,11 @@ export interface ContentCovers {
   readonly change: (
     command: ChangeContentCoverCommand,
   ) => Promise<ChangeContentCoverResult>;
+  /** Changes the cover of a Material or Guide owned by exactly this authoring source. */
+  readonly changeImported: (
+    command: ChangeContentCoverCommand,
+    sourceId: string,
+  ) => Promise<ChangeContentCoverResult>;
   readonly deliver: (input: {
     readonly coverId: string;
     readonly width: number;
@@ -124,7 +129,7 @@ export function assembleContentCovers(dependencies: {
   readonly objectStorage: ObjectStorage;
   readonly prisma: MaterialsPrismaClient;
 }): ContentCovers {
-  async function change(input: ChangeContentCoverCommand): Promise<ChangeContentCoverResult> {
+  async function change(input: ChangeContentCoverCommand, sourceId: string | null): Promise<ChangeContentCoverResult> {
       const parsed = commandSchema.safeParse(input);
       if (!parsed.success) return failure("invalid_cover");
       const authorization = await authorizeManager(
@@ -134,7 +139,7 @@ export function assembleContentCovers(dependencies: {
       if (!authorization.ok) return { ok: false, error: authorization.error };
       try {
         if (parsed.data.kind === "remove") {
-          return await changeCurrentCover(dependencies.prisma, parsed.data, null);
+          return await changeCurrentCover(dependencies.prisma, parsed.data, null, sourceId);
         }
         const processed = await processMaterialAssetBytes({
           body: parsed.data.body,
@@ -208,13 +213,14 @@ export function assembleContentCovers(dependencies: {
           });
           return dependencyUnavailable();
         }
-        return await changeCurrentCover(dependencies.prisma, parsed.data, coverId);
+        return await changeCurrentCover(dependencies.prisma, parsed.data, coverId, sourceId);
       } catch {
         return dependencyUnavailable();
       }
   }
   return {
-    change: (input) => change(input),
+    change: (input) => change(input, null),
+    changeImported: (input, sourceId) => change(input, sourceId),
     async deliver(input) {
       const parsed = deliverySchema.safeParse(input);
       if (!parsed.success) return notFound();
@@ -262,6 +268,7 @@ async function changeCurrentCover(
   prisma: MaterialsPrismaClient,
   command: z.infer<typeof commandSchema>,
   nextCoverId: string | null,
+  sourceId: string | null,
 ): Promise<ChangeContentCoverResult> {
   return prisma.$transaction(async (transaction) => {
     await transaction.$executeRaw(Prisma.sql`
@@ -269,12 +276,11 @@ async function changeCurrentCover(
         hashtextextended(${`${command.owner.kind}:${command.owner.id}`}, 0)
       )
     `);
-    if (command.owner.kind === "material") {
-      const current = await lockMaterialForLifecycleChange(transaction, materialId(command.owner.id));
-      if (current !== undefined && current.sourceId !== null) {
-        if (nextCoverId !== null) await abandonCover(transaction, nextCoverId, "forbidden");
-        return failure("forbidden");
-      }
+    // Imported owners change only through their own source; an import never touches other owners.
+    const ownerSourceId = await readOwnerSourceId(transaction, command.owner);
+    if (ownerSourceId !== undefined && ownerSourceId !== sourceId && (command.owner.kind === "material" || sourceId !== null)) {
+      if (nextCoverId !== null) await abandonCover(transaction, nextCoverId, "forbidden");
+      return failure("forbidden");
     }
     const currentCoverId = await readCurrentCoverId(transaction, command.owner);
     if (currentCoverId === undefined) {
@@ -358,6 +364,20 @@ async function readCurrentCoverId(
           select: { coverId: true },
         })
       )?.coverId;
+  }
+}
+
+async function readOwnerSourceId(
+  transaction: MaterialsPrismaTransaction,
+  owner: ContentCoverOwner,
+): Promise<string | null | undefined> {
+  switch (owner.kind) {
+    case "material":
+      return (await lockMaterialForLifecycleChange(transaction, materialId(owner.id)))?.sourceId;
+    case "series":
+      return (await transaction.guide.findUnique({ where: { id: owner.id }, select: { sourceId: true } }))?.sourceId;
+    case "topic":
+      return (await transaction.topic.findUnique({ where: { id: owner.id }, select: { id: true } })) === null ? undefined : null;
   }
 }
 

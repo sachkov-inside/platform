@@ -6,6 +6,7 @@ import { resolve, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { syncLocal } from "./local-sync.mjs";
 import { writeAtomic } from "./journal.mjs";
+import { resolveLocalTarget } from "./target.mjs";
 
 const execute = promisify(execFile);
 const commandOptions = { timeout: 120_000, maxBuffer: 1024 * 1024 };
@@ -28,14 +29,14 @@ export async function withGitSnapshot(repository, ref, use) {
   }
 }
 
-export async function syncGitLocal(repository, guideId, stateDirectory, ref = "HEAD") {
+export async function syncGitLocal(repository, guideId, stateDirectory, ref = "HEAD", options = {}) {
   const state = resolve(stateDirectory);
   await mkdir(state, { recursive: true });
   return withGitSnapshot(repository, ref, async ({ snapshot, commit }) => {
     process.stderr.write(`Preparing committed content ${commit}\n`);
     const { stdout } = await execute("uv", ["run", "--frozen", "python", "tools/content.py", "export-platform", "--guide", guideId, "--output", join(state, "packages")], { ...commandOptions, cwd: snapshot });
     const packagePath = resolve(stdout.trim(), "package.json");
-    const report = await syncLocal(packagePath, state);
+    const report = await syncLocal(packagePath, state, options);
     const receipt = { commit, guideId, packagePath, completedAt: new Date().toISOString(), ...report };
     await writeAtomic(join(state, "last-git-sync.json"), receipt);
     return receipt;
@@ -43,8 +44,17 @@ export async function syncGitLocal(repository, guideId, stateDirectory, ref = "H
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
-  const [repository, guideId, state, ref = "HEAD", ...extra] = process.argv.slice(2);
-  if (!repository || !guideId || !state || extra.length) throw new Error("Usage: pnpm authoring:sync-git-local CONTENT_REPOSITORY GUIDE_ID STATE_DIRECTORY [REF=HEAD]");
-  const report = await syncGitLocal(repository, guideId, state, ref);
-  console.log(JSON.stringify({ commit: report.commit, packageId: report.packageId, applied: report.applied, unchanged: report.unchanged, guides: report.guides, notices: report.notices.length }, null, 2));
+  const positional = [];
+  const archive = [];
+  let targetName = "editor";
+  const args = process.argv.slice(2);
+  for (let index = 0; index < args.length; index++) {
+    if (args[index] === "--archive") archive.push(args[++index]);
+    else if (args[index] === "--target") targetName = args[++index];
+    else positional.push(args[index]);
+  }
+  const [repository, guideId, state, ref = "HEAD", ...extra] = positional;
+  if (!repository || !guideId || !state || extra.length || archive.includes(undefined)) throw new Error("Usage: pnpm authoring:sync-git-local CONTENT_REPOSITORY GUIDE_ID STATE_DIRECTORY [REF=HEAD] [--target editor|stand] [--archive SOURCE_ID]...");
+  const report = await syncGitLocal(repository, guideId, state, ref, { origin: resolveLocalTarget(targetName), archive });
+  console.log(JSON.stringify({ commit: report.commit, packageId: report.packageId, applied: report.applied, unchanged: report.unchanged, guides: report.guides, archived: report.archived, archiveProposals: report.archiveProposals, notices: report.notices }, null, 2));
 }

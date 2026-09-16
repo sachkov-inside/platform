@@ -24,6 +24,7 @@ const commandSchema = z
 
 export function assembleSetContentCollectionArchive(
   dependencies: MaterialAuthoringDependencies,
+  sourceId: string | null = null,
 ): SetContentCollectionArchiveOperation {
   return async (input) => {
     const parsed = parseCommand(commandSchema, input);
@@ -41,7 +42,7 @@ export function assembleSetContentCollectionArchive(
         if (command.kind !== "topic") {
           await lockSeries(transaction, [command.collectionId]);
           const source = await transaction.guide.findUnique({ where: { id: command.collectionId }, select: { sourceId: true } });
-          if (source?.sourceId) return rollback({ code: "forbidden" });
+          if (source !== null && source.sourceId !== sourceId) return rollback({ code: "forbidden" });
         }
         const persistence = contentCollectionPersistence(transaction, command.kind);
         const updated = await persistence.setArchive({

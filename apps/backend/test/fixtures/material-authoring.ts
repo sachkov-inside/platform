@@ -12,6 +12,7 @@ export function stubMaterialAuthoring(
     reserveSourceGuide: () => Promise.resolve(forbiddenAuthoringResult),
     updateSourceGuide: () => Promise.resolve(forbiddenAuthoringResult),
     reorderSourceGuide: () => Promise.resolve(forbiddenAuthoringResult),
+    archiveSourceGuide: () => Promise.resolve(forbiddenAuthoringResult),
     validateSourceContent: () => Promise.resolve(forbiddenAuthoringResult),
     reserveSourceMaterial: () => Promise.resolve(forbiddenAuthoringResult),
     applySourceMaterial: () => Promise.resolve(forbiddenAuthoringResult),

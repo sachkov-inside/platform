@@ -17,7 +17,7 @@ const manifestSchema = z.object({
     video: z.object({ kinescopeId: z.uuid() }).strict().nullable(), videoChapters: chapters,
     artifacts: z.array(z.object({ sourceId: identifier, title: z.string().min(1), assetId: z.string() }).strict()),
   }).strict()).min(1),
-  guides: z.array(z.object({ sourceId: identifier, title: z.string().min(1), summary: z.string(), complete: z.boolean(), chapters: z.array(z.object({ sourceId: identifier, title: z.string().min(1), summary: z.string(), materialIds: z.array(identifier) }).strict()), materialIds: z.array(identifier), supplementaryMaterialIds: z.array(identifier) }).strict()),
+  guides: z.array(z.object({ sourceId: identifier, title: z.string().min(1), summary: z.string(), introduction: z.object({ audience: z.string(), outcome: z.string(), prerequisites: z.string(), scope: z.string() }).strict().optional(), complete: z.boolean(), chapters: z.array(z.object({ sourceId: identifier, title: z.string().min(1), summary: z.string(), materialIds: z.array(identifier) }).strict()), materialIds: z.array(identifier), supplementaryMaterialIds: z.array(identifier) }).strict()),
   assets: z.array(z.object({ sourceId: z.string(), path: relativePath, sha256: z.hash("sha256"), mimeType: z.string().min(1) }).strict()),
   diagnostics: z.array(z.object({ code: z.string(), path: relativePath, line: z.number().int().positive(), message: z.string() }).strict()),
 }).strict();

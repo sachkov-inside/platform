@@ -833,6 +833,125 @@ export class MaterialAuthoringService {
     });
   }
   /**
+   * Upload or replace the cover of one Material or Guide owned by an authoring source
+   * @returns any
+   * @throws ApiError
+   */
+  public uploadImportedContentCover({
+    ownerId,
+    ownerKind,
+    formData,
+  }: {
+    ownerId: string,
+    ownerKind: 'material' | 'series' | 'topic',
+    formData: {
+      checksumSha256: string;
+      declaredSize: number;
+      expectedCoverId: (string | 'null');
+      file: Blob;
+      sourceId: string;
+    },
+  }): CancelablePromise<{
+    cover: {
+      coverId: string;
+      renditions: Array<{
+        height: number;
+        width: number;
+      }>;
+    } | null;
+  }> {
+    return this.httpRequest.request({
+      method: 'PUT',
+      url: '/authoring/import/content-covers/{ownerKind}/{ownerId}',
+      path: {
+        'ownerId': ownerId,
+        'ownerKind': ownerKind,
+      },
+      formData: formData,
+      mediaType: 'multipart/form-data',
+    });
+  }
+  /**
+   * Create or update one authoring-owned artifact of a source Guide from its package file
+   * @returns any
+   * @throws ApiError
+   */
+  public importSourceGuideArtifact({
+    guideId,
+    formData,
+  }: {
+    guideId: string,
+    formData: {
+      access: 'free' | 'membership';
+      checksumSha256: string;
+      declaredSize: number;
+      file: Blob;
+      guideSourceId: string;
+      purpose: string;
+      sourceId: string;
+      title: string;
+    },
+  }): CancelablePromise<{
+    artifactId: string;
+    outcome: 'created' | 'diverged' | 'missing' | 'unchanged' | 'updated';
+    sourceId: string | null;
+    title: string;
+  }> {
+    return this.httpRequest.request({
+      method: 'POST',
+      url: '/authoring/import/guides/{guideId}/artifacts',
+      path: {
+        'guideId': guideId,
+      },
+      formData: formData,
+      mediaType: 'multipart/form-data',
+    });
+  }
+  /**
+   * archiveSourceGuide
+   * @returns any
+   * @throws ApiError
+   */
+  public archiveSourceGuide({
+    requestBody,
+  }: {
+    requestBody: {
+      archived: boolean;
+      collectionId: string;
+      expectedVersion: number;
+      sourceId: string;
+    },
+  }): CancelablePromise<{
+    archived: boolean;
+    cover: {
+      coverId: string;
+      renditions: Array<{
+        height: number;
+        width: number;
+      }>;
+    } | null;
+    id: string;
+    introduction: {
+      audience: string;
+      outcome: string;
+      prerequisites: string;
+      scope: string;
+    } | null;
+    kind: 'guide' | 'series' | 'topic';
+    materialCount: number;
+    name: string;
+    slug: string;
+    summary: string;
+    version: number;
+  }> {
+    return this.httpRequest.request({
+      method: 'POST',
+      url: '/authoring/import/guides/archive',
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
    * reorderSourceGuide
    * @returns any
    * @throws ApiError
@@ -920,6 +1039,12 @@ export class MaterialAuthoringService {
     requestBody: {
       collectionId: any;
       expectedVersion: number;
+      introduction?: {
+        audience: string;
+        outcome: string;
+        prerequisites: string;
+        scope: string;
+      };
       name: string;
       sourceId: string;
       summary: string;
