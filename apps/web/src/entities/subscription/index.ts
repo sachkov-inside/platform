@@ -52,6 +52,7 @@ export {
   accessSourceLabel,
   attemptStateLabel,
   benefitLines,
+  contentScopeSummary,
   billingErrorMessage,
   capabilityLabel,
   formatBillingDate,

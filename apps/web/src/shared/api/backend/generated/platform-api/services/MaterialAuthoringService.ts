@@ -776,6 +776,7 @@ export class MaterialAuthoringService {
         name: string;
         summary: string;
       }>;
+      confirmedGuideRemovals?: Array<string>;
       expectedOrderVersion: string;
       orderedMaterialIds: Array<string>;
       stepGroups?: Record<string, string>;
@@ -1043,6 +1044,7 @@ export class MaterialAuthoringService {
         doc: Record<string, any>;
         schemaVersion: 1;
       };
+      confirmedGuideRemovals?: Array<string>;
       deleteVideoId: string | null;
       detachVideoIds: Array<string>;
       expectedContentVersion: number;
@@ -1334,6 +1336,7 @@ export class MaterialAuthoringService {
         name: string;
         summary: string;
       }>;
+      confirmedGuideRemovals?: Array<string>;
       expectedOrderVersion: string;
       orderedMaterialIds: Array<string>;
       stepGroups?: Record<string, string>;

@@ -1,3 +1,4 @@
+import { scopeIncludesGuide } from "@inside/access-capabilities";
 import { enrollmentView } from "../../shared/enrollment-view.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -12,7 +13,8 @@ const expansionPreviewLifetimeMilliseconds = 10 * 60 * 1000;
 const appliedSchema = z.strictObject({ ok: z.literal(true), enrollmentIds: z.array(z.uuid()) });
 function includesPrevious(previous: z.infer<typeof tierSnapshotSchema>, next: z.infer<typeof tierSnapshotSchema>) {
   return previous.benefits.every(value => next.benefits.includes(value)) &&
-    previous.contentScope.guideIds.every(id => next.contentScope.guideIds.includes(id)) &&
+    (previous.contentScope.allGuides !== true || next.contentScope.allGuides === true) &&
+    previous.contentScope.guideIds.every(id => scopeIncludesGuide(next.contentScope, id)) &&
     previous.contentScope.materialIds.every(id => next.contentScope.materialIds.includes(id));
 }
 export async function previewEnrollmentExpansion(prisma: MembershipEntitlementsPrismaClient, actorId: string, input: unknown, tierInput: unknown, now: Date) {

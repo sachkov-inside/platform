@@ -60,7 +60,7 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
   async function setup(mode: "confirmed_period" | "temporary_membership" = "confirmed_period") {
     now = new Date("2030-01-01T00:00:00.000Z");
     const policyRef = randomUUID(), identityRef = randomUUID(), guideId = randomUUID();
-    const tier = await db.prisma.billingOffer.create({ data: { id: randomUUID(), name: "Материалы + сообщество", benefits: ["materials", "community"],
+    const tier = await db.prisma.billingOffer.create({ data: { id: randomUUID(), name: "Подписка Inside", benefits: ["materials", "community"],
       contentScope: { guideIds: [guideId], materialIds: [] }, availableForAssignment: true, revision: 1 } });
     const subscriptionId = ++subscriptionSequence;
     value(await convergence.savePolicy(owner, { operationId: randomUUID(), expectedRevision: 0, id: policyRef, subscriptionId, enabled: true,
@@ -421,7 +421,7 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
   test("pending source keeps its promised tier; changing policy cannot bypass archive, while existing terms remain updateable", async () => {
     const context = await setup(); const imported = await apply(context.row);
     await db.prisma.billingOffer.update({ where: { id: context.tier.id }, data: { archived: true } });
-    const replacement = await db.prisma.billingOffer.create({ data: { id: randomUUID(), name: "Replacement", benefits: ["materials"], contentScope: { guideIds: [], materialIds: [] }, availableForAssignment: true, revision: 1 } });
+    const replacement = await db.prisma.billingOffer.create({ data: { id: randomUUID(), name: "Replacement", benefits: ["materials"], contentScope: { guideIds: [randomUUID()], materialIds: [] }, availableForAssignment: true, revision: 1 } });
     value(await convergence.savePolicy(owner, { operationId: randomUUID(), expectedRevision: 1, id: context.row.policyRef, subscriptionId: context.row.subscriptionId,
       enabled: true, tierId: replacement.id, tierRevision: 1, temporaryUntil: null, reason: "New policy for future sources" }));
     const source = imported.result.sources[0]; if (!source) throw new Error("Missing pending source");

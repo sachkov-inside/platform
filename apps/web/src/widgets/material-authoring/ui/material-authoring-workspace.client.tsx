@@ -10,6 +10,7 @@ import { MaterialCurrentPreview } from "./material-current-preview";
 import { MaterialMetadataPanel } from "./material-metadata-panel.client";
 import { MaterialVideoAuthoring } from "@/features/material-video";
 import { ContentCoverEditor } from "@/features/content-covers";
+import { GuideRemovalConfirmationDialog } from "@/shared/ui/guide-removal-confirmation-dialog.client";
 import {
   MaterialAuthoringSignInActions,
   MaterialAuthoringUnauthorizedState,
@@ -74,6 +75,15 @@ export function MaterialAuthoringWorkspace({
         presentation={presentation}
       />
       <MaterialAuthoringNotice presentation={presentation} />
+      {presentation.removalConfirmation === undefined ||
+      presentation.removalConfirmation === null ? null : (
+        <GuideRemovalConfirmationDialog
+          guides={presentation.removalConfirmation.guides}
+          onCancel={actions.onCancelGuideRemoval}
+          onConfirm={actions.onConfirmGuideRemoval}
+          pending={presentation.removalConfirmation.pending}
+        />
+      )}
 
       <form
         className="mx-auto grid w-full max-w-[60rem] min-w-0 gap-0 px-4 pb-14 pt-7 sm:px-8"

@@ -87,9 +87,11 @@ export function OfferCard({
             <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">
               {line.label}
             </span>
-            <span className="font-mono text-xs text-muted-foreground">
-              {line.term}
-            </span>
+            {line.term === null ? null : (
+              <span className="font-mono text-xs text-muted-foreground">
+                {line.term}
+              </span>
+            )}
           </li>
         ))}
       </ul>

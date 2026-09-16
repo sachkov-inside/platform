@@ -1,10 +1,11 @@
-import { contentScopeSchema } from "@inside/access-capabilities";
+import { contentScopeSchema, scopeOpensResource } from "@inside/access-capabilities";
 import type { MembershipAccessState } from "../../facets/membership-entitlements/membership-entitlements.interface.js";
 import type { AccountId } from "../../../accounts/index.js";
 import type { MembershipEntitlementsPrisma } from "../../infrastructure/prisma.js";
 import {
   accessCapabilitySchema,
   capabilitiesOpenedBy,
+  withheldAccessCapabilities,
   type AccessCapability,
 } from "../../domain/access-grant.js";
 
@@ -87,10 +88,11 @@ export function projectAccessCapabilities({ grants, classification, projection, 
     const validUntil = grant.validUntil?.toISOString() ?? null;
     for (const value of grant.capabilities) {
       const granted = accessCapabilitySchema.parse(value);
+      // Прежняя запись может называть право, которое не выдаёт ни одно основание (#648).
+      if (withheldAccessCapabilities.includes(granted)) continue;
       if (granted === "materials" && resource !== undefined) {
         const scope = contentScopeSchema.parse(grant.contentScope ?? { guideIds: [], materialIds: [] });
-        if (!resource.guideIds.some(id => scope.guideIds.includes(id)) &&
-          (resource.materialId === undefined || !scope.materialIds.includes(resource.materialId))) continue;
+        if (!scopeOpensResource(scope, resource)) continue;
       }
       for (const capability of capabilitiesOpenedBy(granted))
         include(capability, validUntil);
@@ -98,12 +100,14 @@ export function projectAccessCapabilities({ grants, classification, projection, 
   }
   if (projection?.decision === "member" && projection.validUntil > now) {
     for (const capability of (classification?.bridgeBenefits ?? ["materials", "community"]).map(value => accessCapabilitySchema.parse(value))) {
+      if (withheldAccessCapabilities.includes(capability)) continue;
       if (capability === "materials" && resource !== undefined) {
         const scope = contentScopeSchema.parse(classification?.bridgeContentScope ?? { guideIds: [], materialIds: [] });
-        if (!resource.guideIds.some(id => scope.guideIds.includes(id)) &&
-          (resource.materialId === undefined || !scope.materialIds.includes(resource.materialId))) continue;
+        if (!scopeOpensResource(scope, resource)) continue;
       }
-      include(capability, projection.validUntil.toISOString());
+      // Мост открывает то же, что и выданное право: сопровождение приводит в общую группу.
+      for (const opened of capabilitiesOpenedBy(capability))
+        include(opened, projection.validUntil.toISOString());
     }
     futureBoundaries.push(projection.validUntil.getTime());
   }
@@ -117,7 +121,7 @@ export function projectAccessCapabilities({ grants, classification, projection, 
     const expired = historicalMaterials.some(grant => {
       if (resource === undefined) return true;
       const scope = contentScopeSchema.parse(grant.contentScope ?? { guideIds: [], materialIds: [] });
-      return resource.guideIds.some(id => scope.guideIds.includes(id)) || (resource.materialId !== undefined && scope.materialIds.includes(resource.materialId));
+      return scopeOpensResource(scope, resource);
     });
     membership = { kind: expired ? "expired" : "required" };
   } else if (projection !== null) {

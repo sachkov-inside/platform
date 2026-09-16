@@ -21,6 +21,7 @@ import {
   flushPendingEdits,
   useAutosave,
 } from "@/shared/lib/autosave/use-autosave";
+import type { GuideRemoval } from "@/shared/lib/guide-removal";
 import { withAuthoringReturnHref } from "@/shared/routing/authoring";
 
 import { withMaterialNodeIds } from "@/widgets/material-authoring/model";
@@ -85,6 +86,12 @@ export function MaterialAuthoringPageClient({
   const [publicationTarget, setPublicationTarget] = useState<
     SaveMaterialInput["publicationState"] | null
   >(null);
+  // Снятие из купленных продуктов: сервер назвал продукты, автор ещё не ответил.
+  const [removalConfirmation, setRemovalConfirmation] = useState<
+    readonly GuideRemoval[] | null
+  >(null);
+  // Подтверждённые продукты уходят только в ближайшее сохранение и сбрасываются после него.
+  const confirmedRemovals = useRef<readonly string[]>([]);
   const effectiveDraft = draft;
   const deletionResult = deletionMutation.data ?? null;
   const deletionPending = deletionMutation.isPending;
@@ -149,11 +156,18 @@ export function MaterialAuthoringPageClient({
           snapshot.publicationTarget ??
           (current.status === "new" ? "draft" : current.status),
         submissionId: crypto.randomUUID(),
+        confirmedGuideRemovals: confirmedRemovals.current,
       };
       retrySaveInput.current = input;
       const result = await saveMutation.mutateAsync(input);
       setMaterialResult(result);
       if (result.kind !== "saved") {
+        if (result.kind === "removal_confirmation_required") {
+          // Повтор не отправляется сам: сначала автор отвечает в диалоге.
+          retrySaveInput.current = null;
+          setRemovalConfirmation(result.guides);
+          return "invalid";
+        }
         if (result.kind === "invalid_input") {
           if (input.publicationState !== current.status)
             setPublicationValidation(result);
@@ -164,6 +178,7 @@ export function MaterialAuthoringPageClient({
         return "failed";
       }
       retrySaveInput.current = null;
+      confirmedRemovals.current = [];
       setPublicationTarget(null);
       const next = {
         ...draftRef.current,
@@ -226,6 +241,8 @@ export function MaterialAuthoringPageClient({
                 }
               : { kind: "none" },
     deletion: { pending: deletionPending, result: deletionResult },
+    removalConfirmation:
+      removalConfirmation === null ? null : { guides: removalConfirmation, pending },
     draft: effectiveDraft,
     mode: "editor",
     noticeRevision,
@@ -364,6 +381,21 @@ export function MaterialAuthoringPageClient({
           returnHref,
         ),
       );
+    },
+    onCancelGuideRemoval: () => {
+      // Материал остаётся в продуктах: возвращаем руководства и отменяем снятие с публикации.
+      const guideIds = (removalConfirmation ?? []).map(({ guideId }) => guideId);
+      setRemovalConfirmation(null);
+      setPublicationTarget(null);
+      markDirty({
+        ...effectiveDraft,
+        seriesIds: [...new Set([...effectiveDraft.seriesIds, ...guideIds])],
+      });
+    },
+    onConfirmGuideRemoval: () => {
+      confirmedRemovals.current = (removalConfirmation ?? []).map(({ guideId }) => guideId);
+      setRemovalConfirmation(null);
+      void autosave.retry();
     },
     onSave: (publicationState) => {
       setPublicationValidation(null);

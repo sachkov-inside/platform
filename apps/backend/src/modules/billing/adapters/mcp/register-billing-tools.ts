@@ -37,7 +37,7 @@ function withoutOperation(shape: z.ZodRawShape): z.ZodObject<z.ZodRawShape> {
 function description(operation: string): string {
   switch (operation) {
     case "refunds.decide":
-      return "Record a refund decision: amount, whether access is kept or revoked, and whether renewal is cancelled. Sends nothing to the bank and never revokes access by itself. Reuse operationId on retry.";
+      return "Record a refund decision: amount, basis and whether renewal is cancelled. Basis withdrawal (the buyer withdrew from the contract) revokes the purchase's access once the refund is confirmed; basis compensation keeps access. Sends nothing to the bank. Reuse operationId on retry.";
     case "refunds.execute":
       return "Send the decided refund to the bank with decisionRef and expectedRevision. This is a real external money operation: the amount comes from the decision and cannot be changed here. A lost response stays unknown and is reconciled by the same attempt, never resent as a new refund.";
     case "refunds.read":

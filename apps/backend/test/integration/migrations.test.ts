@@ -34,6 +34,7 @@ const materialTables = [
   "guide_artifact_versions",
   "guide_artifacts",
   "guide_chapters",
+  "guide_material_removals",
   "home_series_pin",
   "material_related_pins",
   "material_search_documents",
@@ -236,6 +237,9 @@ describe("Platform migrations", () => {
         "0064_tribute_sources",
         "0067_legal_acceptances",
         "0065_video_detachment",
+        "0069_guide_material_removals",
+        "0066_refund_basis",
+        "0068_starter_tier_access",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -831,6 +835,9 @@ describe("Platform migrations", () => {
         "0064_tribute_sources",
         "0067_legal_acceptances",
         "0065_video_detachment",
+        "0069_guide_material_removals",
+        "0066_refund_basis",
+        "0068_starter_tier_access",
         ],
       });
 

@@ -148,7 +148,7 @@ describe("Billing purchases HTTP", () => {
     if (code === undefined) throw new Error("the synthetic contact never received its code");
     succeeds(await contact.confirm(buyer, { operationId: randomUUID(), challengeRef: start.challengeRef, code }));
     const offerId = randomUUID(); const optionId = randomUUID();
-    value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.save", value: { id: offerId, name: "Synthetic subscription", benefits: ["materials"] } }));
+    value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.save", value: { id: offerId, name: "Synthetic subscription", benefits: ["materials"], contentScope: { guideIds: [randomUUID()], materialIds: [] } } }));
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "paymentOptions.save", value: { id: optionId, offerId, months: 1, priceKopecks: 200_000 } }));
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.publish", expectedRevision: 1, id: offerId }));
     const quote = value(await pricing.quote(buyer, { operationId: randomUUID(), paymentOptionId: optionId, optionRevision: 1 }));

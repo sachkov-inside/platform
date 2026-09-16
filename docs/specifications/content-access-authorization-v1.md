@@ -282,10 +282,36 @@ taxonomy и `publishedAt`. Library и внутренний search показыв
 материалы с замком, а внешний индекс может индексировать их teaser. Body, inline media, downloads,
 video locators и иные связанные с body ресурсы в projection не входят. Любой locked teaser
 показывает не больше одного призыва к покупке, и этот призыв ведёт внутрь платформы: на оплату
-руководства, которому владелец завёл цену, иначе на витрину подписки. Когда не продаётся ни
-руководство, ни подписка, призыва нет вовсе. Read API остаётся источником одного факта —
-продаётся ли сейчас подписка; адрес назначения принадлежит Web и не является полем Material,
-а сам призыв не доказывает Membership.
+продукта, в который материал входит (с пути руководства — этого руководства, без пути —
+единственного продаваемого из его руководств), иначе на витрину подписки, только пока подписка
+продаётся. Когда не продаётся ни такой продукт, ни подписка, призыва нет вовсе. Read API остаётся
+источником одного факта — продаётся ли сейчас подписка: его включает только неархивный вариант
+`subscription` у тарифа с непустым составом, разовое предложение продукта его не включает. Адрес
+назначения принадлежит Web и не является полем Material, а сам призыв не доказывает Membership.
+
+Закрытый (`membership`) материал публикуется только внутри хотя бы одного руководства: сохранение с
+публикацией вне продукта отклоняется issue `membership_outside_product`.
+
+## Таблица сценариев доступа (#648)
+
+Каноническая модель доступа — Workspace `product/access-model.md`; её исполняемая форма —
+таблица «что открывается × основание», переходы и сценарии публикации в
+`apps/backend/test/access-scenarios/access-scenarios.ts`. Имена сценариев совпадают с моделью.
+Строки: `public-material`, `product-material`, `programme`, `artifacts`, `video`, `community-chat`,
+`support`, `cabinet`, `author`, `mcp`. Столбцы: `guest`, `account-without-rights`,
+`one-time-purchase`, `tier-via-course`, `tier-via-tribute`, `manual-assignment`,
+`hidden-active-tier`, `direct`, `expired-or-revoked`, `multiple-grounds`, `withdrawal-refund`,
+`moderation`. Переходы: `expiry`, `revocation`, `bridge-replaced-by-tribute`,
+`tribute-temporary-source-lost`, `refund`, `refund-without-withdrawal`,
+`support-kept-by-other-ground`, `material-added-to-product`,
+`material-removed-from-product`, `guide-archived`, `tier-composition-change`,
+`tier-archived-with-assignments`. Публикация: `standalone-membership-publication-rejected`.
+У каждой клетки стабильное имя `<строка>/<столбец>`.
+
+`pnpm check` проверяет полноту таблицы и негативную фикстуру (`test/unit/access-scenario-table.test.ts`);
+`pnpm test:integration` исполняет каждую клетку и переход через `ContentAccess`, программу
+руководства, `AccessGrants` и авторинг на PostgreSQL (`test/integration/access-scenarios.test.ts`).
+Изменение правила доступа начинается с ожидания в таблице.
 
 ## MembershipEntitlements
 

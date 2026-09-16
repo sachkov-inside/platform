@@ -57,7 +57,7 @@ describe("подписка: продление, отмена, смена вар�
     if (!start.ok) throw new Error(start.error.code);
     expect(await contact.confirm(buyer, { operationId: randomUUID(), challengeRef: start.challengeRef, code: codes.get(start.challengeRef) })).toMatchObject({ ok: true });
     const offerId = randomUUID(), optionId = randomUUID();
-    value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.save", value: { id: offerId, name: "Материалы", benefits: ["materials"] } }));
+    value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.save", value: { id: offerId, name: "Материалы", benefits: ["materials"], contentScope: { guideIds: [randomUUID()], materialIds: [] } } }));
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "paymentOptions.save",
       value: { id: optionId, offerId, months: 1, priceKopecks: options.priceKopecks ?? 100_000 } }));
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.publish", expectedRevision: 1, id: offerId }));
@@ -84,7 +84,7 @@ describe("подписка: продление, отмена, смена вар�
     }
     async function offer(name: string, benefits: readonly string[], months: number, priceKopecks: number) {
       const nextOfferId = randomUUID(), nextOptionId = randomUUID();
-      value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.save", value: { id: nextOfferId, name, benefits: [...benefits] } }));
+      value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.save", value: { id: nextOfferId, name, benefits: [...benefits], contentScope: { guideIds: [randomUUID()], materialIds: [] } } }));
       value(await pricing.manage(owner, { operationId: randomUUID(), operation: "paymentOptions.save",
         value: { id: nextOptionId, offerId: nextOfferId, months, priceKopecks } }));
       value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.publish", expectedRevision: 1, id: nextOfferId }));
@@ -125,7 +125,7 @@ describe("подписка: продление, отмена, смена вар�
     const s = await scenario();
     await s.buy();
     const row = { rowKey: "row-1", accountId: s.buyer, source: "manual" as const, sourceRef: randomUUID(),
-      terms: { capabilities: ["materials" as const], startsAt: "2030-01-01T00:00:00.000Z", validUntil: null,
+      terms: { capabilities: ["support" as const], startsAt: "2030-01-01T00:00:00.000Z", validUntil: null,
         reason: "Ручная выдача для проверки" } };
     const preview = await grants.previewBatch(owner, { operationId: randomUUID(), rows: [row] });
     if (!preview.ok) throw new Error(preview.error.code);

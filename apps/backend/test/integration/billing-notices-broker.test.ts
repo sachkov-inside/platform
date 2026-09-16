@@ -69,7 +69,7 @@ test("подтверждённая оплата доходит до обоих �
   expect(await contact.confirm(buyer, { operationId: randomUUID(), challengeRef: started.challengeRef, code: codes.get(started.challengeRef) })).toMatchObject({ ok: true });
 
   const offerId = randomUUID(), optionId = randomUUID();
-  value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.save", value: { id: offerId, name: "Материалы + сопровождение", benefits: ["materials", "support"] } }));
+  value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.save", value: { id: offerId, name: "Материалы + сопровождение", benefits: ["materials", "support"], contentScope: { guideIds: [randomUUID()], materialIds: [] } } }));
   value(await pricing.manage(owner, { operationId: randomUUID(), operation: "paymentOptions.save", value: { id: optionId, offerId, months: 1, priceKopecks: 350_000 } }));
   value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.publish", expectedRevision: 1, id: offerId }));
 

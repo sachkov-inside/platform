@@ -50,7 +50,7 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
 
   /** Одно руководство с ценой в каталоге оплаты и покупатель с подтверждённым контактом. */
   async function scenario(options: { readonly benefitPeriods?: { capability: string; months: number | null }[]; readonly term?: number;
-    readonly terminal?: ReturnType<typeof syntheticTbankConfig> } = {}) {
+    readonly supportMonths?: number; readonly terminal?: ReturnType<typeof syntheticTbankConfig> } = {}) {
     const terminal = options.terminal ?? config;
     now = new Date("2030-01-31T10:00:00Z");
     const buyer = randomUUID();
@@ -63,8 +63,10 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
     const offerId = randomUUID(), optionId = randomUUID();
     // Владелец заводит цену руководства там же, где варианты подписки. Бессрочное право — явный срок.
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.save", value: {
-      id: offerId, name: "Руководство «Синтетика»", benefits: [capability],
-      benefitPeriods: options.benefitPeriods ?? [{ capability, months: options.term ?? null }] } }));
+      // Предложение продукта продаётся только с сопровождением на срок оферты.
+      id: offerId, name: "Руководство «Синтетика»", benefits: [capability, "support"],
+      benefitPeriods: options.benefitPeriods ?? [{ capability, months: options.term ?? null },
+        { capability: "support", months: options.supportMonths ?? 6 }] } }));
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "paymentOptions.save", value: {
       id: optionId, offerId, mode: "one_time", months: 1, priceKopecks: guidePrice } }));
     // Разовая продажа подчиняется тому же тумблеру, что и подписка: пока предложение выключено,
@@ -128,7 +130,7 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
     expect(row.periodEndsAt).toBeNull();
     expect(value(await s.runtime.status(s.buyer, purchase.purchaseRef))).toMatchObject({ state: "confirmed", access: "ready", periodEndsAt: null });
     expect(await db.prisma.billingSubscription.count({ where: { accountId: s.buyer } })).toBe(0);
-    const granted = await db.prisma.accessGrant.findMany({ where: { accountId: s.buyer } });
+    const granted = await db.prisma.accessGrant.findMany({ where: { accountId: s.buyer, capabilities: { has: s.capability } } });
     expect(granted).toHaveLength(1);
     expect(granted[0]?.capabilities).toEqual([s.capability]);
     expect(granted[0]?.validUntil).toBeNull();
@@ -138,13 +140,40 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
   });
 
   test("новая разовая покупка Guide бессрочна даже при старом ограниченном варианте", async () => {
-    const silent = await scenario({ benefitPeriods: [] });
+    // У права на продукт нет своего срока: у разовой покупки нет оплаченного периода, чтобы его унаследовать.
+    const silent = await scenario({ benefitPeriods: [{ capability: "support", months: 6 }] });
     await silent.buy();
-    // Состав без сроков: у разовой покупки нет оплаченного периода, чтобы его унаследовать.
-    expect((await db.prisma.accessGrant.findFirst({ where: { accountId: silent.buyer } }))?.validUntil).toBeNull();
+    expect((await db.prisma.accessGrant.findFirst({ where: { accountId: silent.buyer, capabilities: { has: silent.capability } } }))?.validUntil).toBeNull();
     const yearly = await scenario({ term: 12 });
     await yearly.buy();
-    expect((await db.prisma.accessGrant.findFirst({ where: { accountId: yearly.buyer } }))?.validUntil).toBeNull();
+    expect((await db.prisma.accessGrant.findFirst({ where: { accountId: yearly.buyer, capabilities: { has: yearly.capability } } }))?.validUntil).toBeNull();
+  });
+
+  test("сопровождение в предложении продукта живёт шесть месяцев с покупки и не бывает бессрочным", async () => {
+    const guideId = randomUUID(); const capability = `guide:${guideId}`;
+    // Без срока сопровождение из разовой покупки стало бы бессрочным, а с другим сроком разошлось бы
+    // с офертой: каталог сохраняет только шесть месяцев.
+    for (const benefitPeriods of [[{ capability, months: null }], [{ capability, months: null }, { capability: "support", months: null }],
+      [{ capability, months: null }, { capability: "support", months: 3 }]])
+      expect(code(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.save",
+        value: { id: randomUUID(), name: "Продукт с сопровождением", benefits: [capability, "support"], benefitPeriods } }))).toBe("invalid_request");
+    const s = await scenario({ supportMonths: 6 });
+    await s.buy();
+    const bought = await grants.resolveCapabilities(s.buyer);
+    if (!bought.ok) throw new Error("resolve");
+    // Продукт и чат бессрочны, сопровождение — ровно шесть календарных месяцев с оплаты.
+    expect(bought.capabilities).toEqual([
+      { capability: "community", validUntil: null },
+      { capability: s.capability, validUntil: null },
+      { capability: "support", validUntil: "2030-07-31T10:00:00.000Z" },
+    ]);
+    now = new Date("2030-07-31T10:00:00Z");
+    const later = await grants.resolveCapabilities(s.buyer);
+    if (!later.ok) throw new Error("resolve");
+    expect(later.capabilities.map(item => item.capability)).toEqual(["community", s.capability]);
+    // Прежняя строка без срока сопровождения, записанная в обход каталога, не продаётся.
+    await db.prisma.billingOffer.update({ where: { id: s.offerId }, data: { benefitPeriods: [{ capability: s.capability, months: null }] } });
+    expect(code(await pricing.quote(randomUUID(), { operationId: randomUUID(), paymentOptionId: s.optionId, optionRevision: 1 }))).toBe("not_found");
   });
 
   test("разовая покупка не принимает согласие на списания и требует оферту", async () => {
@@ -170,7 +199,7 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
     const resolved = await grants.resolveCapabilities(s.buyer);
     if (!resolved.ok) throw new Error("resolve");
     // Второе основание существует отдельно, но открытое право остаётся одним и бессрочным.
-    expect(await db.prisma.accessGrant.count({ where: { accountId: s.buyer } })).toBe(2);
+    expect(await db.prisma.accessGrant.count({ where: { accountId: s.buyer, capabilities: { has: s.capability } } })).toBe(2);
     expect(resolved.capabilities.filter(item => item.capability === s.capability)).toEqual([{ capability: s.capability, validUntil: null }]);
     expect(await db.prisma.billingSubscription.count({ where: { accountId: s.buyer } })).toBe(0);
   });
@@ -202,7 +231,7 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
     // Подписка того же покупателя: собственное предложение и своё место жизненного цикла.
     const subscriptionOffer = randomUUID(), subscriptionOption = randomUUID();
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.save",
-      value: { id: subscriptionOffer, name: "Материалы", benefits: ["materials"] } }));
+      value: { id: subscriptionOffer, name: "Материалы", benefits: ["materials"], contentScope: { guideIds: [randomUUID()], materialIds: [] } } }));
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "paymentOptions.save",
       value: { id: subscriptionOption, offerId: subscriptionOffer, months: 1, priceKopecks: 100_000 } }));
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.publish", expectedRevision: 1, id: subscriptionOffer }));
@@ -240,7 +269,7 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
 
     const subscriptionOffer = randomUUID(), subscriptionOption = randomUUID();
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.save",
-      value: { id: subscriptionOffer, name: "Материалы", benefits: ["materials"] } }));
+      value: { id: subscriptionOffer, name: "Материалы", benefits: ["materials"], contentScope: { guideIds: [randomUUID()], materialIds: [] } } }));
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "paymentOptions.save",
       value: { id: subscriptionOption, offerId: subscriptionOffer, months: 1, priceKopecks: 100_000 } }));
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.publish", expectedRevision: 1, id: subscriptionOffer }));

@@ -156,6 +156,7 @@ function isPublicationConflictCode(
   { kind: "conflict" }
 >["reason"] {
   return (
+    code === "guide_removal_confirmation_required" ||
     code === "idempotency_key_reused" ||
     code === "invalid_publication_transition" ||
     code === "stale_content_version"

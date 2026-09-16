@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, within } from "storybook/test";
 import { authoringPageEnvironment } from "@/workshop/story-environment";
 import { TributeOperationsView } from "./tribute-operations-view.client";
-const tier = { id: "62500000-0000-4000-8000-000000000001", revision: 1, name: "Материалы и сообщество", benefits: ["materials" as const, "community" as const], contentScope: { guideIds: [], materialIds: [] } };
+const tier = { id: "62500000-0000-4000-8000-000000000001", revision: 1, name: "Подписка Inside", benefits: ["materials" as const, "community" as const], contentScope: { guideIds: [], materialIds: [] } };
 const environment = authoringPageEnvironment("/authoring/billing");
 const meta = {
   ...environment, title: "Pages/Authoring/Tribute import", component: TributeOperationsView,

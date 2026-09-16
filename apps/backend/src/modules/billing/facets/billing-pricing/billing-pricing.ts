@@ -7,6 +7,7 @@ import { assertSaleConfigured, type SalePaymentConfiguration } from "../../featu
 import { listOffers } from "../../features/list-offers/list-offers.js";
 import { reservePurchase, type ReservePurchase } from "../../features/reserve-purchase/reserve-purchase.js";
 import { settleReservation, type SettleReservation } from "../../features/settle-reservation/settle-reservation.js";
+import { sellsSubscription } from "../../shared/tier-composition.js";
 
 export class BillingPricing {
   private readonly clock: () => Date;
@@ -20,12 +21,16 @@ export class BillingPricing {
   offers(input: unknown) { return listOffers(this.dependencies.prisma, input, this.clock, { publishedOnly: true }); }
   /** Владельческий каталог: весь неархивный каталог вместе с выключенными из продажи предложениями. */
   ownerCatalog(input: unknown) { return listOffers(this.dependencies.prisma, input, this.clock, { publishedOnly: false }); }
-  /** Подписка предлагается тогда, когда продаётся хотя бы один неархивный вариант. */
+  /**
+   * Подписка предлагается тогда, когда продаётся хотя бы один неархивный вариант подписки у тарифа
+   * с составом. Разовое предложение продукта этот признак не включает: оно продаёт руководство.
+   */
   async hasOffersForSale(): Promise<boolean> {
-    const count = await this.dependencies.prisma.billingOffer.count({
-      where: { archived: false, published: true, options: { some: { archived: false } } },
+    const rows = await this.dependencies.prisma.billingOffer.findMany({
+      where: { archived: false, published: true, options: { some: { archived: false, mode: "subscription" } } },
+      select: { benefits: true, contentScope: true },
     });
-    return count > 0;
+    return rows.some(sellsSubscription);
   }
   /** Отказ при запуске, если каталог продаёт, а у процесса нет настроек оплаты для этой продажи. */
   assertSaleConfigured(configuration: SalePaymentConfiguration): Promise<void> { return assertSaleConfigured(this.dependencies.prisma, configuration); }

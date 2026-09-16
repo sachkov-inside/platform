@@ -19,6 +19,8 @@ import { useRef, useState } from "react";
 import type { RefObject } from "react";
 
 import { guideChapterRuns } from "@/shared/lib/guide-chapter-runs";
+import type { GuideRemoval } from "@/shared/lib/guide-removal";
+import { GuideRemovalConfirmationDialog } from "@/shared/ui/guide-removal-confirmation-dialog.client";
 import { useAutosave } from "@/shared/lib/autosave/use-autosave";
 import { cn } from "@/shared/lib/utils";
 import { useLiveSearchValue } from "@/shared/lib/use-live-search-value.client";
@@ -70,6 +72,9 @@ export function SeriesOrderManager({
   const version = useRef(presentation.orderVersion);
   const mutation = useMutation({ mutationFn: reorderSeries });
   const attempted = useRef<Parameters<typeof reorderSeries>[0] | null>(null);
+  // Снятие опубликованных материалов из купленного продукта ждёт ответа автора в диалоге.
+  const [removalConfirmation, setRemovalConfirmation] = useState<readonly GuideRemoval[] | null>(null);
+  const confirmedRemovals = useRef<readonly string[]>([]);
   const autosave = useAutosave({
     value: composition(items, chapters),
     enabled:
@@ -98,12 +103,21 @@ export function SeriesOrderManager({
           ),
         ),
         seriesId: presentation.seriesId,
+        ...(confirmedRemovals.current.length === 0
+          ? {}
+          : { confirmedGuideRemovals: confirmedRemovals.current }),
       };
       attempted.current = input;
       const next = await mutation.mutateAsync(input);
+      if (next.kind === "removal_confirmation_required") {
+        attempted.current = null;
+        setRemovalConfirmation(next.guides);
+        return "invalid";
+      }
       if (next.kind !== "saved") return "failed";
       version.current = next.orderVersion;
       attempted.current = null;
+      confirmedRemovals.current = [];
       return "saved";
     },
   });
@@ -384,6 +398,23 @@ export function SeriesOrderManager({
           result={result}
           seriesId={presentation.seriesId}
         />
+        {removalConfirmation === null ? null : (
+          <GuideRemovalConfirmationDialog
+            guides={removalConfirmation}
+            onCancel={() => {
+              // Материалы остаются в продукте: состав перечитывается с сервера.
+              setRemovalConfirmation(null);
+              mutation.reset();
+              onRefresh();
+            }}
+            onConfirm={() => {
+              confirmedRemovals.current = removalConfirmation.map(({ guideId }) => guideId);
+              setRemovalConfirmation(null);
+              void autosave.retry();
+            }}
+            pending={pending}
+          />
+        )}
 
         <MaterialPickerDialog
           createQueryOptions={createMaterialSearchQueryOptions}
@@ -733,6 +764,9 @@ function actionMessage(
   }
   if (result?.kind === "error") {
     return `Не удалось сохранить. Код обращения: ${result.reference}`;
+  }
+  if (result?.kind === "removal_confirmation_required") {
+    return "Снятие материала из купленного продукта ждёт подтверждения.";
   }
   if (dirty) return "Есть несохранённые изменения.";
   if (result?.kind === "saved") return "Порядок сохранён.";

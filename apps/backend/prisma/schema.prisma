@@ -590,6 +590,20 @@ model PublishedMaterialGuideMembership {
   @@schema("materials")
 }
 
+model GuideMaterialRemoval {
+  id             String   @id @db.Uuid
+  guideId        String   @map("guide_id") @db.Uuid
+  materialId     String   @map("material_id") @db.Uuid
+  actorAccountId String   @map("actor_account_id") @db.Uuid
+  holders        Int
+  operation      String
+  removedAt      DateTime @map("removed_at") @db.Timestamptz
+
+  @@index([guideId, removedAt(sort: Desc)], map: "guide_material_removals_guide_idx")
+  @@map("guide_material_removals")
+  @@schema("materials")
+}
+
 model MaterialRelatedPin {
   sourceMaterialId String @map("source_material_id") @db.Uuid
   targetMaterialId String @map("target_material_id") @db.Uuid
@@ -1593,6 +1607,7 @@ model BillingRefundDecision {
   actorId String @map("actor_id") @db.Uuid
   operationId String @map("operation_id") @db.Uuid
   amountKopecks BigInt @map("amount_kopecks")
+  basis String?
   access String
   recurring String
   reason String @db.VarChar(1000)

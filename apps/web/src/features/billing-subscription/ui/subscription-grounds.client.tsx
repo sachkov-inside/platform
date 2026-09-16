@@ -64,11 +64,11 @@ export function SubscriptionGrounds({
                 <span className="font-semibold">
                   {accessSourceLabel(ground.source)}
                 </span>
-                <span className="font-mono text-xs tabular-nums text-muted-foreground">
-                  {ground.validUntil === null
-                    ? "бессрочно"
-                    : `до ${formatBillingDate(ground.validUntil)}`}
-                </span>
+                {ground.validUntil === null ? null : (
+                  <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                    {`до ${formatBillingDate(ground.validUntil)}`}
+                  </span>
+                )}
               </div>
               <ul className="grid gap-1 leading-6">
                 {accessComposition(ground.capabilities).map((capability) => (

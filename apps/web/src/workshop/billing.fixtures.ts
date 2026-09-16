@@ -263,7 +263,7 @@ export const billingNotices: readonly NoticeView[] = [
   },
 ];
 
-/** Оплаченный доступ и независимое бессрочное право на руководство живут рядом. */
+/** Оплаченный доступ и независимое право на руководство без даты окончания живут рядом. */
 export const accessGrounds: readonly AccessGround[] = [
   {
     source: "paid",

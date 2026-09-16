@@ -47,7 +47,7 @@ export async function refundDecisionViews(tx: BillingPrisma, purchaseRef: string
   const rows = await tx.billingRefundDecision.findMany({ where: { purchaseRef }, orderBy: [{ createdAt: "asc" }, { id: "asc" }], include: { refund: true } });
   return rows.map(row => refundDecisionViewSchema.parse({
     decisionRef: row.id, purchaseRef: row.purchaseRef, accountId: row.accountId, actorId: row.actorId,
-    amountKopecks: Number(row.amountKopecks), access: row.access, recurring: row.recurring, reason: row.reason,
+    amountKopecks: Number(row.amountKopecks), basis: row.basis, access: row.access, recurring: row.recurring, reason: row.reason,
     state: row.state, revision: row.revision, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString(),
     attempt: row.refund === null ? null : { refundRef: row.refund.id, state: row.refund.state,
       amountKopecks: Number(row.refund.amountKopecks), observedStatus: row.refund.observedStatus,

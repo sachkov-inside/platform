@@ -1,3 +1,6 @@
+import { name as refundBasisName, statement as refundBasisStatement } from "../modules/billing/infrastructure/postgres/migrations/0066-refund-basis.js";
+import { name as starterTierAccessName, statement as starterTierAccessStatement } from "../modules/membership-entitlements/infrastructure/postgres/migrations/0068-starter-tier-access.js";
+import { name as guideMaterialRemovalsName, statement as guideMaterialRemovalsStatement } from "../modules/materials/infrastructure/postgres/migrations/0069-guide-material-removals.js";
 import { name as videoDetachmentName, statement as videoDetachmentStatement } from "../modules/videos/infrastructure/postgres/migrations/0065-video-detachment.js";
 import { name as legalAcceptancesName, statement as legalAcceptancesStatement } from "../modules/accounts/infrastructure/postgres/migrations/0067-legal-acceptances.js";
 import { name as tributeName, statement as tributeStatement } from "../modules/membership-entitlements/infrastructure/postgres/migrations/0064-tribute-sources.js";
@@ -346,6 +349,9 @@ export const platformMigrations = [
   { name: tributeName, statement: tributeStatement },
   { name: legalAcceptancesName, statement: legalAcceptancesStatement },
   { name: videoDetachmentName, statement: videoDetachmentStatement },
+  { name: guideMaterialRemovalsName, statement: guideMaterialRemovalsStatement },
+  { name: refundBasisName, statement: refundBasisStatement },
+  { name: starterTierAccessName, statement: starterTierAccessStatement },
 ] as const;
 
 export function migrateToLatest(

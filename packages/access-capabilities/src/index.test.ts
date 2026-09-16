@@ -7,7 +7,11 @@ import {
   capabilitiesOpening,
   globalAccessCapabilities,
   guideCapability,
+  isEmptyContentScope,
   isGuideCapability,
+  isWithheldCapability,
+  scopeIncludesGuide,
+  scopeOpensResource,
 } from "./index.js";
 
 const guide = "guide:5a1c6f10-0b33-4e2f-9a8c-7d4e12b0f001" as const;
@@ -42,7 +46,8 @@ describe("access capabilities", () => {
     expect(accessComposition([guide])).toEqual([guide, "community"]);
     expect(accessComposition([guide, "community"])).toEqual([guide, "community"]);
     expect(accessComposition(["community", guide])).toEqual(["community", guide]);
-    expect(accessComposition(["materials", "support"])).toEqual(["materials", "support"]);
+    expect(accessComposition(["materials", "support"])).toEqual(["materials", "support", "community"]);
+    expect(capabilitiesOpenedBy("support")).toEqual(["support", "community"]);
     expect(accessComposition([])).toEqual([]);
     // Купленное идёт первым, а то, что к нему прилагается, — следом: этот порядок человек читает
     // на витрине, и он не должен зависеть от того, где в наборе стоит право на руководство.
@@ -52,6 +57,28 @@ describe("access capabilities", () => {
   test("the composition never repeats a capability the set already names", () => {
     const second = "guide:5a1c6f10-0b33-4e2f-9a8c-7d4e12b0f002" as const;
     expect(accessComposition([guide, second])).toEqual([guide, second, "community"]);
+  });
+
+  test("a composition without a Guide or a Material opens nothing", () => {
+    const id = "5a1c6f10-0b33-4e2f-9a8c-7d4e12b0f001";
+    expect(isEmptyContentScope(null)).toBe(true);
+    expect(isEmptyContentScope(undefined)).toBe(true);
+    expect(isEmptyContentScope({ guideIds: [], materialIds: [] })).toBe(true);
+    expect(isEmptyContentScope({ guideIds: ["not-a-uuid"], materialIds: [] })).toBe(true);
+    expect(isEmptyContentScope({ guideIds: [id], materialIds: [] })).toBe(false);
+    expect(isEmptyContentScope({ guideIds: [], materialIds: [id] })).toBe(false);
+    expect(isEmptyContentScope({ guideIds: [], materialIds: [], allGuides: true })).toBe(false);
+    // Все продукты платформы включают и тот, что появится позже.
+    expect(scopeIncludesGuide({ guideIds: [], materialIds: [], allGuides: true }, id)).toBe(true);
+    expect(scopeIncludesGuide({ guideIds: [id], materialIds: [] }, id)).toBe(true);
+    expect(scopeIncludesGuide({ guideIds: [], materialIds: [id] }, id)).toBe(false);
+    expect(scopeOpensResource({ guideIds: [], materialIds: [id] }, { guideIds: [], materialId: id })).toBe(true);
+    expect(scopeOpensResource({ guideIds: [], materialIds: [], allGuides: true }, { guideIds: [id] })).toBe(true);
+    expect(scopeOpensResource({ guideIds: [], materialIds: [], allGuides: true }, { guideIds: [] })).toBe(false);
+    // «Все продукты» не перечисляет продукты и материалы.
+    expect(isEmptyContentScope({ guideIds: [id], materialIds: [], allGuides: true })).toBe(true);
+    expect(isWithheldCapability("reviews")).toBe(true);
+    expect(isWithheldCapability("support")).toBe(false);
   });
 
   // Срок участия в чате держится всем, что чат открывает: и объявленным правом участия, и каждым

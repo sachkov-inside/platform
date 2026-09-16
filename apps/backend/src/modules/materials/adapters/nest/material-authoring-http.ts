@@ -88,6 +88,8 @@ export const saveMaterialBodySchema = z
     detachVideoIds: z.array(z.uuid()).max(MATERIAL_DETACHED_VIDEOS_MAX).default([]),
     metadata: materialMetadataSelectionSchema,
     body: materialBodySnapshotSchema,
+    /** Руководства с держателями права, снятие из которых автор подтвердил. */
+    confirmedGuideRemovals: z.array(z.uuid()).max(100).optional(),
   })
   .strict();
 
@@ -142,6 +144,8 @@ export const reorderSeriesBodySchema = z
     expectedOrderVersion: seriesOrderVersionSchema,
     orderedMaterialIds: z.array(materialIdSchema),
     stepGroups: seriesStepGroupsSchema.optional(),
+    /** Руководство с держателями права, снятие материалов из которого автор подтвердил. */
+    confirmedGuideRemovals: z.array(z.uuid()).max(100).optional(),
   })
   .strict()
   .refine(
@@ -268,6 +272,9 @@ export const materialAuthoringProblemSchema = z.looseObject({
   currentVersion: z.number().int().positive().optional(),
   currentState: publicationStateWireSchema.optional(),
   targetState: publicationStateWireSchema.optional(),
+  guides: z
+    .array(z.strictObject({ guideId: z.uuid(), name: z.string(), holders: z.number().int().positive() }))
+    .optional(),
 });
 
 export function parseMaterialAuthoringBody<Schema extends z.ZodType>(
@@ -329,6 +336,7 @@ export function statusForMaterialAuthoringError(
     case "stale_home_pin":
     case "content_collection_slug_conflict":
     case "stale_content_collection_version":
+    case "guide_removal_confirmation_required":
       return 409;
     case "duplicate_tag":
     case "invalid_content":

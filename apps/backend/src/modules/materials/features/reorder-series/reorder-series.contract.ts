@@ -1,5 +1,6 @@
 import type {
   ForbiddenError,
+  GuideRemovalConfirmationRequiredError,
   InvalidContentError,
   InvalidReferenceError,
   SystemError,
@@ -18,6 +19,8 @@ export interface ReorderSeriesCommand {
   readonly orderedMaterialIds: readonly string[];
   readonly stepGroups?: Readonly<Record<string, string>> | undefined;
   readonly seriesId: string;
+  /** Подтверждённое снятие опубликованных материалов из руководства с держателями права. */
+  readonly confirmedGuideRemovals?: readonly string[] | undefined;
 }
 
 export interface ReorderSeriesReceiptDto {
@@ -31,6 +34,7 @@ export type StaleSeriesOrderError = {
 };
 export type ReorderSeriesError =
   | ForbiddenError
+  | GuideRemovalConfirmationRequiredError
   | InvalidContentError
   | InvalidReferenceError
   | SeriesNotFoundError

@@ -424,6 +424,30 @@ describe("Material Authoring action workflow", () => {
     expect(formData.get("document")).toContain("Local full state");
   });
 
+  it("asks to confirm a removal from a bought product and sends the confirmed products", async () => {
+    const guides = [{ guideId: seriesId, holders: 2, name: "Купленный продукт" }];
+    const refused = {
+      ...successfulSaveDependencies(),
+      save: vi.fn().mockResolvedValue({
+        ok: false,
+        problem: { code: "guide_removal_confirmation_required", guides, status: 409 },
+        response: Response.json({}, { status: 409 }),
+      }),
+    } satisfies SaveMaterialDependencies;
+    await expect(
+      executeSaveMaterial(validSaveFormData(), "access-token", refused),
+    ).resolves.toEqual({ guides, kind: "removal_confirmation_required" });
+
+    const dependencies = successfulSaveDependencies();
+    const formData = validSaveFormData();
+    formData.append("confirmedGuideRemovals", seriesId);
+    await executeSaveMaterial(formData, "access-token", dependencies);
+    expect(dependencies.save).toHaveBeenCalledWith(
+      expect.objectContaining({ confirmedGuideRemovals: [seriesId] }),
+      "access-token",
+    );
+  });
+
   it("retries dependency failure with the same idempotency key", async () => {
     const dependencies = {
       ...successfulSaveDependencies(),

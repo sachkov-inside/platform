@@ -368,7 +368,8 @@ A versioned description of a chosen access composition, independent of a Guide a
 It can be available for assignment without being published for sale. Its payment option specifies the price, period and sale mode: a subscription charged on a schedule,
 or a one-time purchase that is paid once and creates no schedule. It carries a reversible `published`
 (for-sale) state, separate from permanent archival; while no offer is published, neither the
-subscription nor a separately sold Guide is offered anywhere.
+subscription nor a separately sold Guide is offered anywhere. Archival is final: it withdraws the
+offer from sale and assignment for good, while existing enrollments keep their snapshot.
 _Avoid_: Guide, Order, AccessGrant
 
 **SubscriptionEnrollment**:
@@ -377,9 +378,19 @@ Course, Tribute, owner assignment and Platform payment are independent origins; 
 _Avoid_: BillingSubscription, Payment, Telegram membership
 
 **ContentScope**:
-The explicit set of Guides and individual Materials promised by a tier.
-It includes the evolving published program of an included Guide, without including new separate products automatically.
+The set of Guides promised by a tier: named Guides, or every Guide of the platform including later ones (allGuides).
+It includes the evolving published program of an included Guide; a scope of named Guides does not include new products automatically.
+The starter tier promises every Guide.
+A new ContentScope names no individual Materials; older snapshots may still name them.
+A tier with an empty ContentScope is neither assigned nor sold.
 _Avoid_: Global materials access, catalogue, price
+
+**Guide Removal**:
+The confirmed withdrawal of a published Material from a Guide whose buyers or tier holders still
+hold access. The author confirms each such Guide explicitly, and the removal is journaled with the
+number of holders; a Guide without holders needs no confirmation. In Russian product language:
+«снятие из продукта».
+_Avoid_: Unpublish, reorder, access revocation
 
 **ActivationRule**:
 A published or paused path from a verified course source or a confirmed Tribute registry to a selected tier.
@@ -414,12 +425,13 @@ _Avoid_: Retry, paid period, confirmed payment
 
 **Payment**:
 A confirmed transfer associated with one Account and agreed purchase conditions.
-Its refund and the owner's decision about access are separate facts.
+Its refund is a separate fact, and the refund's basis decides whether the purchase's access ends.
 _Avoid_: Browser return, grant, subscription
 
 **RefundDecision**:
-The owner's recorded decision about one Payment: how much to return, whether access is kept or
-revoked, and whether renewal stops. It is separate from the bank attempt that executes it, and an
+The owner's recorded decision about one Payment: how much to return, on which basis, and whether
+renewal stops. A withdrawal from the contract revokes the purchase's access once the refund is
+confirmed; a compensation without withdrawal keeps access. It is separate from the bank attempt that executes it, and an
 unresolved or failed attempt is never presented as executed.
 _Avoid_: Refund attempt, access revocation, dispute
 

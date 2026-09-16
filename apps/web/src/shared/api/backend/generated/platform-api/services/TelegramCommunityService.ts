@@ -70,6 +70,25 @@ export class TelegramCommunityService {
     });
   }
   /**
+   * List Accounts that Telegram still observes in the community chat without a current right
+   * @returns any
+   * @throws ApiError
+   */
+  public listCommunityMembersWithoutRight(): CancelablePromise<{
+    checkedAt: string;
+    items: Array<{
+      accountId: string;
+      observedAt: string;
+      telegramIdentityRef: string;
+    }>;
+    truncated: boolean;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/community-entitlements/members-without-right',
+    });
+  }
+  /**
    * Authorize one correlated Telegram community attempt against the current right and link
    * @returns any
    * @throws ApiError

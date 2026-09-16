@@ -57,6 +57,7 @@ export class SubscriptionActivationIntegrationService {
         tier: {
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope: {
+            allGuides?: boolean;
             guideIds: Array<string>;
             materialIds: Array<string>;
           };
@@ -187,6 +188,7 @@ export class SubscriptionActivationIntegrationService {
         tier: {
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope: {
+            allGuides?: boolean;
             guideIds: Array<string>;
             materialIds: Array<string>;
           };
@@ -271,6 +273,7 @@ export class SubscriptionActivationIntegrationService {
         tier: {
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope: {
+            allGuides?: boolean;
             guideIds: Array<string>;
             materialIds: Array<string>;
           };

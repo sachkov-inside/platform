@@ -1,4 +1,4 @@
-import { capabilitiesOpening } from "@inside/access-capabilities";
+import { capabilitiesOpening, type ContentScope } from "@inside/access-capabilities";
 import { accessComposition, isGuideCapability } from "./billing-contract";
 import type {
   AccessCapability,
@@ -95,12 +95,13 @@ export function capabilityLabel(capability: AccessCapability): string {
 export interface BenefitLine {
   readonly capability: AccessCapability;
   readonly label: string;
-  readonly term: string;
+  /** `null`, когда право не ограничено сроком: кабинет и сводки такой срок не называют. */
+  readonly term: string | null;
 }
 
 /**
- * Самый долгий из сроков, которыми держится одно право: неуказанный срок означает бессрочное
- * право и побеждает любой другой. Так же объединяет основания сервер, когда их несколько.
+ * Самый долгий из сроков, которыми держится одно право: неуказанный срок означает право без даты
+ * окончания и побеждает любой другой. Так же объединяет основания сервер, когда их несколько.
  * Набор непустой: его собирают из прав, которые уже нашлись в составе предложения.
  */
 function longestTerm(terms: readonly (number | null)[]): number | null {
@@ -113,12 +114,24 @@ function longestTerm(terms: readonly (number | null)[]): number | null {
 }
 
 /**
+ * Как назвать состав тарифа одной строкой: все продукты платформы или число выбранных продуктов.
+ */
+export function contentScopeSummary(scope: Pick<ContentScope, "guideIds" | "allGuides">): string {
+  return scope.allGuides === true
+    ? "Все продукты платформы, включая новые"
+    : `Продукты: ${String(scope.guideIds.length)}`;
+}
+
+/**
  * Срок конкретного права может отличаться от периода списания: у подписки неуказанный срок
- * наследует период варианта оплаты, у разовой покупки такого периода нет и право бессрочно.
- * Явный `null` означает бессрочное право в обоих случаях. Общий чат, который открывают сами
- * руководства предложения, живёт их сроком: даже когда чат объявлен составом отдельно и на более
- * короткий срок, участие держится дольше. Так же объединяет основания сервер — с той разницей,
- * что он смотрит на все действующие права Account, а предложение отвечает только за свой состав.
+ * наследует период варианта оплаты, у разовой покупки такого периода нет и право выдаётся без
+ * даты окончания. Явный `null` означает то же в обоих случаях. Договорный срок покупки называет
+ * оферта, а не право, поэтому кабинет и сводки прав такой срок не называют — ни «бессрочно», ни
+ * «без даты окончания»: `term` тогда `null`, и вызывающая сторона его не показывает. Общий чат,
+ * который открывают сами руководства предложения, живёт их сроком: даже когда чат объявлен
+ * составом отдельно и на более короткий срок, участие держится дольше. Так же объединяет основания
+ * сервер — с той разницей, что он смотрит на все действующие права Account, а предложение отвечает
+ * только за свой состав.
  */
 export function benefitLines(conditions: {
   readonly offer: BillingOffer;
@@ -141,7 +154,7 @@ export function benefitLines(conditions: {
     return {
       capability,
       label: capabilityLabel(capability),
-      term: term === null ? "бессрочно" : formatMonths(term),
+      term: term === null ? null : formatMonths(term),
     };
   });
 }

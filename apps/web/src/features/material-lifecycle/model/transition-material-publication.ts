@@ -37,6 +37,7 @@ export const transitionMaterialPublicationResultSchema = z.discriminatedUnion(
         currentContentVersion: z.number().int().positive().optional(),
         kind: z.literal("conflict"),
         reason: z.enum([
+          "guide_removal_confirmation_required",
           "idempotency_key_reused",
           "invalid_publication_transition",
           "stale_content_version",

@@ -68,7 +68,8 @@ describe("one-time offer edition change (real PostgreSQL and real facets; synthe
     const capability = `guide:${randomUUID()}`;
     const offerId = randomUUID(), optionId = randomUUID();
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.save", value: {
-      id: offerId, name: "Руководство «Синтетика»", benefits: [capability], benefitPeriods: [{ capability, months: null }] } }));
+      id: offerId, name: "Руководство «Синтетика»", benefits: [capability, "support"],
+      benefitPeriods: [{ capability, months: null }, { capability: "support", months: 6 }] } }));
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "paymentOptions.save", value: {
       id: optionId, offerId, mode: "one_time", months: 1, priceKopecks: guidePrice } }));
     value(await pricing.manage(owner, { operationId: randomUUID(), operation: "offers.publish", expectedRevision: 1, id: offerId }));
@@ -136,7 +137,7 @@ describe("one-time offer edition change (real PostgreSQL and real facets; synthe
     expect(value(await payments.status(s.buyer, purchase.purchaseRef))).toMatchObject({ state: "confirmed", access: "ready" });
     // Позднее подтверждение не переписывает принятую редакцию задним числом.
     expect(await s.acceptedVersions(purchase.purchaseRef)).toEqual(["purchase-v1"]);
-    const granted = await db.prisma.accessGrant.findMany({ where: { accountId: s.buyer } });
+    const granted = await db.prisma.accessGrant.findMany({ where: { accountId: s.buyer, capabilities: { has: s.capability } } });
     expect(granted.map(grant => grant.capabilities)).toEqual([[s.capability]]);
   });
 });

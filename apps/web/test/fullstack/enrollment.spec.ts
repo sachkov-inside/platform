@@ -65,7 +65,8 @@ test("owner assigns scoped course and the open cabinet converges through real BF
   await openSubscription();
   await expect(cabinet).toHaveURL(/\/account\/subscription$/u);
   const card = cabinet.getByRole("article").filter({ has: cabinet.getByRole("heading", { name: tierName, exact: true }) });
-  await expect(card.getByText("Без даты окончания", { exact: true })).toBeVisible();
+  // Право без даты окончания не называет срок: кабинет его не показывает (Workspace #183).
+  await expect(card.getByText("Срок", { exact: true })).toHaveCount(0);
   await expect(card.getByText("Следующего списания нет", { exact: true })).toBeVisible();
   const composition = card.locator("..");
   await composition.getByText("Посмотреть состав", { exact: true }).click();
