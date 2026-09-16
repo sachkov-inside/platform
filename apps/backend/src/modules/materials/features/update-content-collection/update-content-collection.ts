@@ -1,3 +1,4 @@
+import { lockSeries } from "../../infrastructure/postgres/series-order.js";
 import { z } from "zod";
 
 import type { MaterialAuthoringDependencies } from "../../facets/material-authoring/material-authoring.dependencies.js";
@@ -25,7 +26,7 @@ import type {
 
 const introductionField = z.string().trim().max(GUIDE_INTRODUCTION_FIELD_MAX);
 
-const commandSchema = z
+export const updateContentCollectionCommandSchema = z
   .object({
     actor: accountId,
     collectionId: entityId,
@@ -51,9 +52,10 @@ const commandSchema = z
 
 export function assembleUpdateContentCollection(
   dependencies: MaterialAuthoringDependencies,
+  sourceId: string | null = null,
 ): UpdateContentCollectionOperation {
   return async (input) => {
-    const parsed = parseCommand(commandSchema, input);
+    const parsed = parseCommand(updateContentCollectionCommandSchema, input);
     if (!parsed.ok) return failure(parsed.error);
     const command = parsed.value;
     const authorization = await authorizeManager(
@@ -65,6 +67,11 @@ export function assembleUpdateContentCollection(
     return executeAuthoringTransaction(
       dependencies.prisma,
       async (transaction, rollback) => {
+        if (command.kind !== "topic") {
+          await lockSeries(transaction, [command.collectionId]);
+          const currentSource = await transaction.guide.findUnique({ where: { id: command.collectionId }, select: { sourceId: true } });
+          if (currentSource !== null && currentSource.sourceId !== sourceId) return rollback({ code: "forbidden" });
+        }
         const persistence = contentCollectionPersistence(
           transaction,
           command.kind,

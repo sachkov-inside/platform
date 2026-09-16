@@ -260,29 +260,29 @@ function SeriesMaterialRow({ headingLevel: Heading, material, readerHref, resume
   const locked = material.availability === "locked";
   const unavailable = material.availability === "unavailable";
   return <article
-    className={cn("group/row relative min-h-14 min-w-0 rounded-xl bg-muted/65 px-3 py-2 transition-colors hover:bg-muted focus-within:bg-muted sm:px-4", resumeLabel !== undefined && "bg-secondary")}
+    className={cn("group/row relative flex min-h-24 min-w-0 items-center rounded-xl bg-muted/65 px-3 py-3 transition-colors hover:bg-muted focus-within:bg-muted sm:px-4", resumeLabel !== undefined && "bg-secondary")}
     data-material-id={material.slug}
     data-material-slug={material.slug}
     data-material-variant="series"
     data-material-availability={material.availability}
   >
-    <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 @max-[16rem]/series-entry:grid-cols-[minmax(0,1fr)_auto]">
-      <span className="flex items-baseline gap-1.5 whitespace-nowrap text-xs text-muted-foreground @max-[16rem]/series-entry:col-span-2"><strong className="text-xl font-medium tabular-nums text-foreground">{ordinal}</strong>урок</span>
+    <div className="grid w-full min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 @max-[16rem]/series-entry:grid-cols-[minmax(0,1fr)_auto]">
+      <span className="flex items-baseline gap-1.5 whitespace-nowrap text-xs text-muted-foreground @max-[16rem]/series-entry:col-span-2"><strong className="text-base font-medium tabular-nums text-foreground">{ordinal}</strong><span className="sr-only @min-[30rem]/series-entry:not-sr-only">урок</span></span>
       <div className="flex min-w-0 items-center gap-3">
-        <span className="w-14 shrink-0 overflow-hidden rounded-lg @max-[22rem]/series-entry:hidden"><ContentCoverImage alt="" className={cn("aspect-square min-h-0 w-full rounded-lg", locked && "scale-110 blur-[3px]")} cover={material.cover ?? null} fallbackKind={materialPreviewHasVideo(material) ? "video" : "material"} fallbackSeed={material.slug} sizes="3.5rem" /></span>
+        <span data-series-preview className="w-16 shrink-0 overflow-hidden rounded-lg @max-[22rem]/series-entry:hidden"><ContentCoverImage alt="" className={cn("aspect-square min-h-0 w-full rounded-lg", locked && "scale-110 blur-[3px]")} cover={material.cover ?? null} fallbackKind={materialPreviewHasVideo(material) ? "video" : "material"} fallbackSeed={material.slug} sizes="4rem" /></span>
         <div className="min-w-0"><Heading className="min-w-0 text-sm font-medium leading-6 [overflow-wrap:anywhere] sm:text-base">
           <Link className="no-underline after:absolute after:inset-0 after:rounded-xl focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring" href={readerHref} prefetch={false}>{material.title}</Link>
         </Heading>
         {material.access === "free" && material.availability === "available" ? <span className="mt-1 inline-block rounded-md bg-background px-1.5 py-0.5 text-[0.625rem] font-semibold leading-4 text-action">Бесплатно</span> : null}</div>
       </div>
-      <span className="flex flex-col items-center gap-1 text-xs text-muted-foreground">
+      <span className="flex min-w-5 flex-col items-end justify-center @min-[30rem]/series-entry:min-w-20 gap-1 text-xs text-muted-foreground">
         {duration === undefined ? null : <span className="tabular-nums" data-series-duration>{duration}</span>}
         {locked ? <><LockKeyhole aria-hidden="true" className="size-4" /><span className="sr-only">Нужен доступ</span></> : unavailable ? <span className="sr-only">Доступ временно не определён</span> : readingStatus}
+        <span className="flex h-5 items-center text-xs font-semibold text-action" data-series-continuation-slot>
+          {resumeLabel === undefined ? null : <><Play aria-hidden="true" className="size-3.5 fill-current @min-[30rem]/series-entry:hidden" /><span className="sr-only @min-[30rem]/series-entry:not-sr-only">Продолжить</span></>}
+        </span>
       </span>
     </div>
-    <span className="mt-1 flex h-6 items-center justify-end text-sm font-semibold text-action" data-series-continuation-slot>
-      {resumeLabel === undefined ? null : "Продолжить"}
-    </span>
   </article>;
 }
 

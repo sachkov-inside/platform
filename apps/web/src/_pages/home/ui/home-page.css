@@ -43,7 +43,7 @@
 @keyframes guide-scene { 0%, 100% { opacity: 0; transform: translateY(.5rem); } 10%, 85% { opacity: 1; transform: translateY(0); } }
 @keyframes guide-scene-final { from { opacity: 0; transform: translateY(.5rem); } to { opacity: 1; transform: translateY(0); } }
 .home-feed { max-width: 42rem; margin: 2.5rem auto 0; scroll-margin-top: 2rem; }
-.home-feed-toolbar { display: flex; align-items: center; gap: 1rem; min-height: 2.75rem; margin-bottom: 1rem; }
+.home-feed-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; min-height: 2.75rem; margin-bottom: 1rem; }
 .home-feed-formats { display: flex; align-items: center; gap: .5rem; min-width: 0; flex: 1; overflow-x: auto; scrollbar-width: thin; }
 .home-feed-formats button { flex-shrink: 0; min-height: 2.75rem; padding: .5rem .875rem; border-radius: 2rem; font-size: .875rem; font-weight: 500; color: var(--muted-foreground); white-space: nowrap; }
 .home-feed-formats button:first-child { margin-right: .5rem; }
@@ -65,8 +65,8 @@
   .home-guide-scene { padding: 1.5rem; }
   .home-guide-scene > p { font-size: 1.5rem; }
   .home-feed { margin-top: 2.5rem; }
-  .home-feed-toolbar { flex-wrap: wrap; gap: .5rem; min-height: 6rem; }
-  .home-feed-formats { gap: .125rem; }
+  .home-feed-toolbar { flex-wrap: wrap; gap: .5rem; min-height: 9.25rem; }
+  .home-feed-formats { gap: .125rem; flex-basis: 100%; }
   .home-feed-formats button { padding-inline: .75rem; }
   .home-feed-toolbar > form { width: 100%; }
 

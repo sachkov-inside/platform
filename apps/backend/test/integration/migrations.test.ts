@@ -240,6 +240,7 @@ describe("Platform migrations", () => {
         "0069_guide_material_removals",
         "0066_refund_basis",
         "0068_starter_tier_access",
+        "0065_authoring_source",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -838,6 +839,7 @@ describe("Platform migrations", () => {
         "0069_guide_material_removals",
         "0066_refund_basis",
         "0068_starter_tier_access",
+        "0065_authoring_source",
         ],
       });
 

@@ -1,5 +1,6 @@
 export {
   libraryCatalogQueryOptions,
+  homeFeedQueryOptions,
   requestLibraryCatalogPage,
   requestTopicLibraryCatalogPage,
   topicLibraryCatalogQueryOptions,

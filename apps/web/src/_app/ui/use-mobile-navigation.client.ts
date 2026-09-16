@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
 
 import { accountPresentationQueryKey } from "@/features/account-access";
-import { libraryCatalogQueryRootKey, libraryCatalogQueryOptions, parseLibrarySearchParams } from "@/features/library-catalog";
+import { libraryCatalogQueryRootKey, homeFeedQueryOptions, parseLibrarySearchParams } from "@/features/library-catalog";
 
 const rootPaths = ["/", "/bookmarks", "/account"] as const;
 type RootPath = typeof rootPaths[number];
@@ -91,7 +91,7 @@ export function useMobileNavigation(pathname: string, accountId: string | null, 
       if (document.visibilityState !== "visible") return;
       const href = positions.current["/"]?.href ?? "/";
       const query = parseLibrarySearchParams(new URL(href, window.location.origin).searchParams).query;
-      void queryClient.infiniteQuery(libraryCatalogQueryOptions(query)).catch(() => undefined);
+      void queryClient.infiniteQuery(homeFeedQueryOptions(query)).catch(() => undefined);
     }, prefetchDelayMs);
     return () => { window.clearTimeout(timer); };
   }, [authResolved, pathname, queryClient]);

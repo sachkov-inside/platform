@@ -1,3 +1,6 @@
+import type { ReserveSourceGuideOperation, UpdateSourceGuideOperation, ReorderSourceGuideOperation } from "../../features/import-source-guide/import-source-guide.contract.js";
+import type { ValidateSourceOperation } from "../../features/import-source-material/import-source-material.contract.js";
+import type { ReserveSourceOperation, ApplySourceOperation } from "../../features/import-source-material/import-source-material.contract.js";
 import type { LoadHomePinOperation } from "../../features/load-home-pin/load-home-pin.contract.js";
 import type { SetHomePinOperation } from "../../features/set-home-pin/set-home-pin.contract.js";
 import type { CreateDraftOperation } from "../../features/create-draft/create-draft.contract.js";
@@ -17,6 +20,12 @@ import type { SetContentCollectionArchiveOperation } from "../../features/set-co
 import type { UpdateContentCollectionOperation } from "../../features/update-content-collection/update-content-collection.contract.js";
 
 export interface MaterialAuthoring {
+  readonly reserveSourceGuide: ReserveSourceGuideOperation;
+  readonly updateSourceGuide: UpdateSourceGuideOperation;
+  readonly reorderSourceGuide: ReorderSourceGuideOperation;
+  readonly validateSourceContent: ValidateSourceOperation;
+  readonly reserveSourceMaterial: ReserveSourceOperation;
+  readonly applySourceMaterial: ApplySourceOperation;
   readonly loadHomePin: LoadHomePinOperation;
   readonly setHomePin: SetHomePinOperation;
   readonly createContentCollection: CreateContentCollectionOperation;

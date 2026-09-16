@@ -10,6 +10,7 @@ import {
 } from "../../infrastructure/postgres/material-locks.js";
 import { lockMaterialReferenceChanges } from "../../../../infrastructure/prisma/index.js";
 import { lockMaterialSeries } from "../../infrastructure/postgres/series-order.js";
+import { canChangeGuideMemberships } from "../../infrastructure/postgres/source-guide-memberships.js";
 import { authorizeManager } from "../../ports/author-policy.js";
 import {
   executeAuthoringTransaction,
@@ -81,6 +82,9 @@ export function assembleDeleteDraft(
           rollback,
           async () => {
             await lockMaterialSeries(transaction, command.materialId);
+            if (!await canChangeGuideMemberships(transaction, command.materialId, [], null)) {
+              return rollback({ code: "draft_deletion_forbidden" });
+            }
             await lockMaterialReferenceChanges(transaction, [command.materialId]);
             const material = await lockMaterialForLifecycleChange(
               transaction,
@@ -98,7 +102,7 @@ export function assembleDeleteDraft(
                 currentContentVersion: material.lifecycle.contentVersion,
               });
             }
-            if (!material.lifecycle.canDelete()) {
+            if (material.sourceId !== null || !material.lifecycle.canDelete()) {
               return rollback({ code: "draft_deletion_forbidden" });
             }
             if (

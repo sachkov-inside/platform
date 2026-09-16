@@ -1,3 +1,4 @@
+import type { VideoChapter } from "../../domain/video-chapters.js";
 import type { PublicationState } from "../../domain/material.js";
 import type { MaterialMetadataValidationError } from "../../domain/material-metadata.js";
 import type {
@@ -30,6 +31,7 @@ export interface SaveMaterialCommand {
   readonly detachVideoIds?: readonly string[];
   readonly metadata: MaterialMetadataSelectionInput;
   readonly body: unknown;
+  readonly videoChapters?: readonly VideoChapter[];
   /** Руководства с держателями права, снятие опубликованного материала из которых подтверждено. */
   readonly confirmedGuideRemovals?: readonly string[] | undefined;
 }

@@ -1,3 +1,4 @@
+import { videoChaptersSchema, type VideoChapter } from "../../domain/video-chapters.js";
 import { z } from "zod";
 
 import {
@@ -10,6 +11,8 @@ import { materialId, type MaterialId } from "../../domain/material-identifiers.j
 const lockedMaterialRowsSchema = z.array(
   z.object({
     id: z.uuid(),
+    source_id: z.string().nullable(),
+    video_chapters: videoChaptersSchema,
     slug: z.string().nullable(),
     publication_state: z.enum(["draft", "published", "unpublished"]),
     content_version: z.coerce.number().int().positive(),
@@ -23,6 +26,8 @@ const lockedMaterialRowsSchema = z.array(
 );
 
 export interface LockedMaterial {
+  readonly sourceId: string | null;
+  readonly videoChapters: readonly VideoChapter[];
   readonly access: "free" | "membership" | "workshop";
   readonly lifecycle: Material;
   readonly primaryVideoId: string | null;
@@ -38,6 +43,8 @@ export async function lockMaterialForLifecycleChange(
     await transaction.$queryRaw(Prisma.sql`
       select
         id,
+        source_id,
+        video_chapters,
         slug,
         publication_state,
         content_version,
@@ -56,6 +63,8 @@ export async function lockMaterialForLifecycleChange(
   return row === undefined
     ? undefined
     : {
+        sourceId: row.source_id,
+        videoChapters: row.video_chapters,
         access: row.access,
         lifecycle: Material.restore({
           id: materialId(row.id),

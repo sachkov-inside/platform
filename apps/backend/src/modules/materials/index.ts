@@ -237,3 +237,7 @@ export { LoadHomePinController } from "./features/load-home-pin/load-home-pin.co
 export { SetHomePinController } from "./features/set-home-pin/set-home-pin.controller.js";
 
 export { ContentScopeCatalog } from "./facets/content-scope-catalog/content-scope-catalog.js";
+
+export { ImportSourceMaterialController } from "./features/import-source-material/import-source-material.controller.js";
+
+export { ImportSourceGuideController } from "./features/import-source-guide/import-source-guide.controller.js";

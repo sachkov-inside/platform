@@ -74,6 +74,7 @@ export type PublishedMaterialCatalogResult =
   | { readonly ok: false; readonly error: PublishedMaterialCatalogError };
 
 export interface ListPublishedMaterialsQuery {
+  readonly feedOnly?: boolean;
   readonly subject: Subject;
   readonly after?: string;
   readonly canonicalTopicSlug?: string;

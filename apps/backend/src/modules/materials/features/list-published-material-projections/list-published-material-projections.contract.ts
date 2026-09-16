@@ -3,6 +3,7 @@ import type { ContentCoverProjection } from "../../facets/content-covers/content
 import type { Result } from "../../result.js";
 
 export interface ListPublishedMaterialProjectionsQuery {
+  readonly feedOnly?: boolean;
   readonly after?: PublishedMaterialProjectionCursor;
   readonly canonicalTopicSlug?: string;
   readonly formatSlugs?: readonly string[];

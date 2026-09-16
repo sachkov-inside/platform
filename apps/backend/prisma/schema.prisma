@@ -323,6 +323,7 @@ model Tag {
 }
 
 model Guide {
+  sourceId String? @unique(map: "series_source_id_unique") @map("source_id")
   id            String    @id @db.Uuid
   slug          String    @unique(map: "series_slug_unique")
   name          String
@@ -443,6 +444,11 @@ model HomeSeriesPin {
 }
 
 model Material {
+  videoChapters Json @default(dbgenerated("'[]'::jsonb")) @map("video_chapters")
+  sourceId         String?   @unique(map: "materials_source_id_unique") @map("source_id")
+  sourcePath       String?   @map("source_path")
+  sourceRevision   String?   @map("source_revision")
+  showInFeed       Boolean   @default(true) @map("show_in_feed")
   id               String    @id @db.Uuid
   slug             String?   @unique(map: "materials_slug_unique")
   title            String?

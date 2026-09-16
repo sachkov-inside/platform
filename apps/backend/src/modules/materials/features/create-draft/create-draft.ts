@@ -1,3 +1,5 @@
+import { allocateMaterialSlug } from "../../infrastructure/postgres/material-slug.js";
+import type { AuthoringSource } from "../../domain/authoring-source.js";
 import { randomUUID } from "node:crypto";
 
 import { z } from "zod";
@@ -24,6 +26,7 @@ import {
 } from "../../shared/command-validation.js";
 import { executeIdempotentMaterialMutation } from "../../shared/idempotent-operation.js";
 import { materializeMetadataSelection } from "../../shared/materialize-metadata-selection.js";
+import { canChangeGuideMemberships } from "../../infrastructure/postgres/source-guide-memberships.js";
 import { mapPostgresError } from "../../shared/postgres-error-mapping.js";
 import { requireReferenceIntegrity } from "../../shared/reference-integrity.js";
 import { toDatabaseJson } from "../../infrastructure/postgres/database-json.js";
@@ -41,6 +44,7 @@ const createDraftCommand = z
 
 export function assembleCreateDraft(
   dependencies: MaterialAuthoringDependencies,
+  source?: AuthoringSource,
 ): CreateDraftOperation {
   return async (input) => {
     const parsedCommand = parseCommand(createDraftCommand, input);
@@ -68,6 +72,7 @@ export function assembleCreateDraft(
 
     const fingerprint = fingerprintCommand({
       operation: "create_draft",
+      source: source ?? null,
       metadata: selection.value.toValues(),
       body: body.value,
     });
@@ -87,11 +92,15 @@ export function assembleCreateDraft(
           rollback,
           async () => {
             const newMaterialId = materialId(randomUUID());
+            if (!await canChangeGuideMemberships(transaction, newMaterialId, selection.value.toValues().seriesIds, source?.id ?? null)) {
+              return rollback({ code: "forbidden" });
+            }
+            const sourceSlug = source === undefined ? null : await allocateMaterialSlug(transaction, source.id);
             materializedMetadata = await materializeMetadataSelection(
               transaction,
               newMaterialId,
               selection.value,
-              null,
+              sourceSlug,
             );
             await requireReferenceIntegrity(
               transaction,
@@ -102,7 +111,11 @@ export function assembleCreateDraft(
             await transaction.material.create({
               data: {
                 id: newMaterialId,
-                slug: null,
+                sourceId: source?.id ?? null,
+                sourcePath: source?.path ?? null,
+                sourceRevision: source?.revision ?? null,
+                showInFeed: source?.showInFeed ?? true,
+                slug: sourceSlug,
                 title: materializedMetadata.title,
                 summary: materializedMetadata.summary,
                 difficulty: materializedMetadata.difficulty,

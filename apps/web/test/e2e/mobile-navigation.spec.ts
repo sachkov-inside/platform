@@ -26,7 +26,7 @@ test.beforeEach(async ({ page }, testInfo) => {
 
 test("root tabs restore Home feed URL and scroll without a second loading screen", async ({ page }) => {
   let requests = 0;
-  await page.route("**/api/library/materials**", (route) => { requests++; return route.fulfill({ json: catalog }); });
+  await page.route("**/api/home/materials**", (route) => { requests++; return route.fulfill({ json: catalog }); });
   await page.goto("/?q=навигация");
   await expect(page.getByRole("heading", { name: "Навигация 1", exact: true })).toBeVisible();
   await expect(page.getByRole("searchbox")).toHaveValue("навигация");
@@ -51,7 +51,7 @@ test("root tabs restore Home feed URL and scroll without a second loading screen
 
 test("Home feed data is prefetched before the first tab visit", async ({ page }) => {
   let requests = 0;
-  await page.route("**/api/library/materials**", (route) => { requests++; return route.fulfill({ json: catalog }); });
+  await page.route("**/api/home/materials**", (route) => { requests++; return route.fulfill({ json: catalog }); });
   await page.goto("/account");
   await expect.poll(() => requests).toBe(1);
   await navigation(page).getByRole("link", { name: "Главная" }).click();
@@ -60,7 +60,7 @@ test("Home feed data is prefetched before the first tab visit", async ({ page })
 });
 
 test("fast repeated navigation remains clickable during the transition", async ({ page }) => {
-  await page.route("**/api/library/materials**", (route) => route.fulfill({ json: catalog }));
+  await page.route("**/api/home/materials**", (route) => route.fulfill({ json: catalog }));
   await page.goto("/");
   await expect(page.getByRole("searchbox")).toBeVisible();
   // Real pointer input bypasses Playwright's animation-stability wait, as a quick user tap does.
@@ -76,7 +76,7 @@ test("fast repeated navigation remains clickable during the transition", async (
 });
 
 test("public canvas, navigation geometry and reduced motion are consistent", async ({ page }) => {
-  await page.route("**/api/library/materials**", (route) => route.fulfill({ json: catalog }));
+  await page.route("**/api/home/materials**", (route) => route.fulfill({ json: catalog }));
   await page.goto("/account");
   for (const width of [320, 390, 430]) {
     await page.setViewportSize({ width, height: 844 });
@@ -106,7 +106,7 @@ test("background Profile failure retains data but lost authorization removes it"
       telegramMembership: { link: { kind: "linked" }, membership: { kind: "stale" } },
     } });
   });
-  await page.route("**/api/library/materials**", (route) => route.fulfill({ json: catalog }));
+  await page.route("**/api/home/materials**", (route) => route.fulfill({ json: catalog }));
   await page.goto("/account/access");
   await expect(page.getByRole("heading", { name: "Аккаунт", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Выйти из аккаунта" })).toBeVisible();
@@ -133,7 +133,7 @@ test("background Profile failure retains data but lost authorization removes it"
 
 
 test("native Back preserves the latest Home feed filter and scroll for the next tab visit", async ({ page }) => {
-  await page.route("**/api/library/materials**", (route) => route.fulfill({ json: catalog }));
+  await page.route("**/api/home/materials**", (route) => route.fulfill({ json: catalog }));
   await page.goto("/account");
   await navigation(page).getByRole("link", { name: "Главная" }).click();
   await page.getByRole("searchbox").fill("навигация");
@@ -150,7 +150,7 @@ test("native Back preserves the latest Home feed filter and scroll for the next 
 });
 
 test("a newer tab selection wins over an unfinished route request", async ({ page }) => {
-  await page.route("**/api/library/materials**", (route) => route.fulfill({ json: catalog }));
+  await page.route("**/api/home/materials**", (route) => route.fulfill({ json: catalog }));
   await page.goto("/");
   await expect(page.getByRole("searchbox")).toBeVisible();
   let started = false;
@@ -185,7 +185,7 @@ test("changing account identity clears remembered tabs and the old Profile form"
       telegramMembership: { link: { kind: "linked" }, membership: { kind: "active" } },
     } });
   });
-  await page.route("**/api/library/materials**", (route) => route.fulfill({ json: {
+  await page.route("**/api/home/materials**", (route) => route.fulfill({ json: {
     ...catalog,
     facets: { ...catalog.facets, series: Array.from({ length: 5 }, (_, index) => ({
       id: `series-${String(index)}`, slug: `series-${String(index)}`, name: `Продукт ${String(index)}`, count: 1, summary: "Продукт для проверки возврата",
@@ -208,13 +208,13 @@ test("changing account identity clears remembered tabs and the old Profile form"
 });
 
 test("a cold tab shows its destination immediately while the route response is still pending", async ({ page }) => {
-  await page.route("**/api/library/materials**", (route) => route.fulfill({ json: catalog }));
+  await page.route("**/api/home/materials**", (route) => route.fulfill({ json: catalog }));
   await expectImmediateMobileNavigation(page);
 });
 
 
 test("external Home query changes update the selected format and results", async ({ page }) => {
-  await page.route("**/api/library/materials**", (route) => route.fulfill({ json: catalog }));
+  await page.route("**/api/home/materials**", (route) => route.fulfill({ json: catalog }));
   await page.goto("/?format=note");
   // SSR already exposes the selected button; loaded API content proves client navigation is mounted.
   await expect(page.getByRole("heading", { name: "Навигация 1", exact: true })).toBeVisible();

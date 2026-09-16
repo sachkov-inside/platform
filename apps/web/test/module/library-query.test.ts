@@ -2,11 +2,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { QueryClient } from "@tanstack/react-query";
 
 import { GET } from "../../app/api/library/materials/route";
+import { GET as GET_HOME_MATERIALS } from "../../app/api/home/materials/route";
 import { GET as GET_TOPIC_MATERIALS } from "../../app/api/library/topics/[topicSlug]/materials/route";
 import { handleLibraryCatalogRequest } from "@/features/library-catalog.server";
 import { libraryCatalogQueryKey } from "@/features/library-catalog";
 import {
   libraryCatalogQueryOptions,
+  homeFeedQueryOptions,
   requestLibraryCatalogPage,
   topicLibraryCatalogQueryOptions,
 } from "../../src/features/library-catalog/api/library-catalog.browser";
@@ -48,6 +50,30 @@ describe("Library TanStack Query interface", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
+  });
+
+  it("keeps home feed pages out of the full catalog cache", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json(readyCatalog));
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new QueryClient();
+    const feed = homeFeedQueryOptions(defaultQuery);
+    expect(feed.queryKey).not.toEqual(libraryCatalogQueryKey(defaultQuery));
+    await client.infiniteQuery(feed);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/home/materials");
+    expect(client.getQueryData(libraryCatalogQueryKey(defaultQuery))).toBeUndefined();
+  });
+
+  it("binds the home BFF to feed scope and rejects a client override", async () => {
+    vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ facets: { formats: [], series: [], topics: [] }, items: [], nextCursor: null, totalCount: 0 })));
+    const refused = await GET_HOME_MATERIALS(new Request("https://platform-web.example.test/api/home/materials?feedOnly=false"));
+    expect(refused.status).toBe(400);
+    expect(fetch).not.toHaveBeenCalled();
+    const response = await GET_HOME_MATERIALS(new Request("https://platform-web.example.test/api/home/materials"));
+    expect(response.status).toBe(200);
+    const request = vi.mocked(fetch).mock.calls[0]?.[0];
+    if (!(request instanceof Request)) throw new Error("Missing backend request");
+    expect(new URL(request.url).searchParams.get("feedOnly")).toBe("true");
   });
 
   it("keeps global search and material-only filters in the canonical URL", () => {

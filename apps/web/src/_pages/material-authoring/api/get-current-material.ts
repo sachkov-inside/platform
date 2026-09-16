@@ -26,6 +26,7 @@ const seriesMembershipSchema = z
   .strict();
 const currentMaterialSchema = z
   .object({
+    source: z.object({ id: z.string(), path: z.string(), revision: z.hash("sha256"), showInFeed: z.boolean() }).strict().optional(),
     body: z.object({ doc: materialDocumentContentSchema, schemaVersion: z.literal(1) }).strict(),
     contentVersion: z.number().int().positive(),
     cover: contentCoverSchema.nullable(),
@@ -136,8 +137,10 @@ export async function getCurrentMaterial(
 
   return {
     draft: {
+      ...(parsed.data.source === undefined ? {} : { sourcePath: parsed.data.source.path }),
       access: parsed.data.metadata.access,
       canDelete:
+        parsed.data.source === undefined &&
         parsed.data.publicationState === "draft" &&
         parsed.data.firstPublishedAt === null,
       contentVersion: parsed.data.contentVersion,
@@ -152,7 +155,7 @@ export async function getCurrentMaterial(
       latestVideoDeletion: parsed.data.latestVideoDeletion,
       primaryVideo: parsed.data.primaryVideo,
       primaryVideoId: parsed.data.primaryVideoId,
-      readOnly: false,
+      readOnly: parsed.data.source !== undefined,
       seriesIds: parsed.data.metadata.seriesMemberships.map(({ seriesId }) => seriesId),
       status: parsed.data.publicationState,
       summary: parsed.data.metadata.summary ?? "",

@@ -19,6 +19,7 @@ import type {
 } from "../../../features/list-published-material-projections/list-published-material-projections.contract.js";
 
 interface PublishedMaterialProjectionSearchValues {
+  readonly feedOnly: boolean;
   readonly after?: PublishedMaterialProjectionCursor;
   readonly canonicalTopicSlug?: string;
   readonly first: number;
@@ -215,6 +216,7 @@ export async function selectPublishedMaterialProjectionPage(
       filters,
       values.canonicalTopicSlug === undefined ? values.q : undefined,
       values.canonicalTopicSlug === undefined,
+      values.feedOnly,
     ),
   ]);
   const rows = searchedPublishedMaterialProjectionRowSchema
@@ -331,7 +333,7 @@ function searchProjectionQuery(
 function projectionFiltersSql(
   values: PublishedMaterialProjectionSearchValues,
 ): Prisma.Sql {
-  const conditions: Prisma.Sql[] = [Prisma.sql`publication.access <> 'workshop'`];
+  const conditions: Prisma.Sql[] = [projectionScopeSql(values.feedOnly)];
   if (values.q !== undefined) {
     conditions.push(
       Prisma.sql`publication.search_vector @@ ${textSearchQuerySql(values.q)}`,
@@ -436,10 +438,11 @@ async function selectProjectionMetadata(
   filters: Prisma.Sql,
   q: string | undefined,
   useIndependentFacets: boolean,
+  feedOnly: boolean,
 ): Promise<z.infer<typeof projectionMetadataRowSchema>> {
   const filteredPublications = filteredPublicationsSql(filters);
   const independentPublications = useIndependentFacets
-    ? filteredPublicationsSql(Prisma.sql`publication.access <> 'workshop'`)
+    ? filteredPublicationsSql(projectionScopeSql(feedOnly))
     : filteredPublications;
   const facetPublications = independentPublications;
   const seriesPublications = independentPublications;
@@ -1157,4 +1160,13 @@ function projectNoteExcerpt(excerpt: { readonly text: string; readonly truncated
     }
   }
   return { text: excerpt.text, truncated: excerpt.truncated, ...(linkUrl === undefined ? {} : { linkUrl }) };
+}
+
+function projectionScopeSql(feedOnly: boolean): Prisma.Sql {
+  return feedOnly
+    ? Prisma.sql`publication.access <> 'workshop' and exists (
+        select 1 from materials.materials as original
+        where original.id = publication.material_id and original.show_in_feed
+      )`
+    : Prisma.sql`publication.access <> 'workshop'`;
 }

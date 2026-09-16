@@ -1,3 +1,4 @@
+import type { AuthoringSource } from "../../domain/authoring-source.js";
 import type {
   MaterialAccess,
   MaterialDifficulty,
@@ -35,6 +36,7 @@ export interface MaterialMetadataDto
 }
 
 export interface MaterialDto {
+  readonly source?: AuthoringSource;
   readonly materialId: string;
   readonly contentVersion: number;
   readonly publicationState: PublicationState;

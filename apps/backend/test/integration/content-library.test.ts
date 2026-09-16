@@ -708,6 +708,7 @@ describe("ListPublishedMaterials", () => {
             formatSlugs: [],
             first: 12,
             q: "benchmark needle",
+            feedOnly: false,
             seriesSlugs: [],
             sort: "relevance",
             topicSlugs: [],

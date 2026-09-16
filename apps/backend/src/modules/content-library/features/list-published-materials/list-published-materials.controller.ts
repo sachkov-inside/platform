@@ -53,6 +53,7 @@ const queryValueSchema = z.union([z.string(), z.array(z.string()).max(20)]);
 const catalogHttpQuerySchema = z
   .object({
     after: queryValueSchema.optional(),
+    feedOnly: z.enum(["true", "false"]).optional(),
     canonicalTopic: queryValueSchema.optional(),
     format: queryValueSchema.optional(),
     q: queryValueSchema.optional(),
@@ -83,6 +84,7 @@ export class ListPublishedMaterialsController {
   ) {}
 
   @Get("materials")
+  @ApiQuery({ name: "feedOnly", required: false, schema: toOpenApiSchema(z.boolean()) })
   @ApiOperation({
     operationId: "listPublishedMaterials",
     summary: "List safe published Material projections",
@@ -184,6 +186,7 @@ export class ListPublishedMaterialsController {
                 accountId: checkedAccountId(account.accountId),
               },
         first: CATALOG_PAGE_SIZE,
+        feedOnly: parsed.data.feedOnly === "true",
         ...(after === undefined ? {} : { after }),
         ...(canonicalTopic === undefined
           ? {}

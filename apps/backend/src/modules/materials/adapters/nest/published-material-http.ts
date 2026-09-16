@@ -1,3 +1,4 @@
+import { videoChaptersSchema } from "../../domain/video-chapters.js";
 import { z } from "zod";
 
 import { renderedMaterialBodySchema } from "@inside/material-blocks";
@@ -44,6 +45,7 @@ export const publishedMaterialReadHttpSchema = z.discriminatedUnion("kind", [
       kind: z.literal("available"),
       cacheScope: z.enum(["public", "private-no-store"]),
       projection: publishedMaterialProjectionHttpSchema,
+      videoChapters: videoChaptersSchema.optional(),
       primaryVideo: z.object({
         failureCode: z.string().optional(),
         state: z.enum(["uploading", "processing", "ready", "failed"]),

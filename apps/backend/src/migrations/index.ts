@@ -3,6 +3,7 @@ import { name as starterTierAccessName, statement as starterTierAccessStatement 
 import { name as guideMaterialRemovalsName, statement as guideMaterialRemovalsStatement } from "../modules/materials/infrastructure/postgres/migrations/0069-guide-material-removals.js";
 import { name as videoDetachmentName, statement as videoDetachmentStatement } from "../modules/videos/infrastructure/postgres/migrations/0065-video-detachment.js";
 import { name as legalAcceptancesName, statement as legalAcceptancesStatement } from "../modules/accounts/infrastructure/postgres/migrations/0067-legal-acceptances.js";
+import { name as authoringSourceName, statement as authoringSourceStatement } from "../modules/materials/infrastructure/postgres/migrations/0065-authoring-source.js";
 import { name as tributeName, statement as tributeStatement } from "../modules/membership-entitlements/infrastructure/postgres/migrations/0064-tribute-sources.js";
 import { name as enrollmentName, statement as enrollmentStatement } from "../modules/membership-entitlements/infrastructure/postgres/migrations/0063-subscription-enrollments.js";
 import { name as readerGuideModeName, statement as readerGuideModeStatement } from "../modules/reading-activity/infrastructure/postgres/migrations/0062-reader-guide-mode.js";
@@ -352,6 +353,7 @@ export const platformMigrations = [
   { name: guideMaterialRemovalsName, statement: guideMaterialRemovalsStatement },
   { name: refundBasisName, statement: refundBasisStatement },
   { name: starterTierAccessName, statement: starterTierAccessStatement },
+  { name: authoringSourceName, statement: authoringSourceStatement },
 ] as const;
 
 export function migrateToLatest(

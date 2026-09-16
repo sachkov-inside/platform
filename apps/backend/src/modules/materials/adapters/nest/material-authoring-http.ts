@@ -1,3 +1,4 @@
+import { authoringSourceSchema } from "../../domain/authoring-source.js";
 import type { SetHomePinError } from "../../features/set-home-pin/set-home-pin.contract.js";
 import { HttpException } from "@nestjs/common";
 import type { MaterialBodyResourceSummary } from "@inside/material-blocks";
@@ -60,6 +61,7 @@ export const materialMutationReceiptSchema = z
 
 export const materialSchema = z
   .object({
+    source: authoringSourceSchema.optional(),
     materialId: materialIdSchema,
     contentVersion: contentVersionSchema,
     publicationState: publicationStateWireSchema,

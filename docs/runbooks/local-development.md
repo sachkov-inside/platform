@@ -739,3 +739,41 @@ signed notification or server reconciliation (owner-approved for #407 on 2026-09
 confirmation still gives a full period; duplicate notifications and fulfillment recovery preserve
 the original saved bounds. No separate time-policy injection is required. Missing terminal
 configuration continues to disable payment admission; DEMO/production activation remains separate.
+
+### Local Obsidian authoring preview (#468)
+
+The isolated `editor:local` runtime above supports a loopback-only import gateway. Start the
+runtime, then run the one-shot Git import:
+
+```bash
+pnpm authoring:sync-git-local CONTENT_REPOSITORY GUIDE_ID STATE_DIRECTORY [REF]
+```
+
+`REF` defaults to `HEAD` and is resolved to one commit SHA before export. The command archives
+that commit into a temporary directory, runs its exporter with frozen dependencies, and applies
+the resulting package to the loopback development runtime. Staged, unstaged and untracked files
+are excluded; no checkout, commit, push, Git hook or file watcher is required or installed.
+The temporary snapshot is removed when the command exits. The immutable packages remain under
+`STATE_DIRECTORY/packages`; `last-git-sync.json` records the last successful commit, package and
+report. Preserve the existing state directory when switching from the previous watcher.
+After an error, rerun the same commit: the operation journal recovers partial application.
+A comment committed into the selected revision still blocks export under the editorial rules.
+Refresh the browser manually after a successful transfer. Draft originals become published copies
+only on this local review runtime; missing access uses the owner-approved `membership` default.
+There is no production target. GitHub Actions publication is a future stage, not triggered by push.
+`authoring:sync-local PACKAGE_JSON STATE_DIRECTORY` remains the low-level package application command.
+
+Source IDs and the separate persistent journal preserve
+Material identities across edits and renames. Do not discard the journal between synchronizations.
+Validation runs before Material changes; invalid Markdown leaves existing Material bodies intact.
+An interrupted batch can be partially applied and is resumed, not rolled back as one transaction.
+
+Only main programme placements contribute to this local Guide. Supplementary Materials have
+separate reader URLs in `journal.json`'s `lastReport`; their product tab is separate follow-up work.
+If the Guide introduction exceeds the existing 500-character summary contract, the preview uses
+its first paragraph and reports that the full introduction has not been mapped. It remains in the
+package and original. Real video attachment, covers and artifact transfer are still reported as
+pending. This is an author identity preview, not paid-buyer or provider acceptance.
+
+`pnpm test:authoring` verifies package checks, Markdown conversion and operation recovery.
+Remaining #468 work is recorded in [the checkpoint](../evidence/issue-468/README.md).

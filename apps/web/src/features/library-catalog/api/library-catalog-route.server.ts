@@ -35,6 +35,7 @@ async function handleCatalogRequest(
   request: Request,
   accessToken?: string,
   canonicalTopicSlug?: string,
+  feedOnly = false,
 ): Promise<Response> {
   const parsed = parseLibrarySearchParams(new URL(request.url).searchParams, {
     includeCursor: true,
@@ -51,6 +52,8 @@ async function handleCatalogRequest(
             parsed.query,
             parsed.query.after ?? undefined,
             accessToken,
+            undefined,
+            feedOnly,
           )
         : await getTopicMaterialCatalogPage(
             canonicalTopicSlug,
@@ -92,4 +95,8 @@ function invalidLibraryQueryResponse(): Response {
     },
     { status: 400, headers: PRIVATE_NO_STORE_HEADERS },
   );
+}
+
+export async function handleHomeFeedRequest(request: Request, accessToken?: string): Promise<Response> {
+  return handleCatalogRequest(request, accessToken, undefined, true);
 }

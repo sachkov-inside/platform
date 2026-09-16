@@ -1,3 +1,5 @@
+import { lockMaterialForLifecycleChange } from "../../infrastructure/postgres/material-locks.js";
+import { materialId } from "../../domain/material-identifiers.js";
 import { createHash, randomUUID } from "node:crypto";
 
 import { z } from "zod";
@@ -122,8 +124,7 @@ export function assembleContentCovers(dependencies: {
   readonly objectStorage: ObjectStorage;
   readonly prisma: MaterialsPrismaClient;
 }): ContentCovers {
-  return {
-    async change(input) {
+  async function change(input: ChangeContentCoverCommand): Promise<ChangeContentCoverResult> {
       const parsed = commandSchema.safeParse(input);
       if (!parsed.success) return failure("invalid_cover");
       const authorization = await authorizeManager(
@@ -211,8 +212,9 @@ export function assembleContentCovers(dependencies: {
       } catch {
         return dependencyUnavailable();
       }
-    },
-
+  }
+  return {
+    change: (input) => change(input),
     async deliver(input) {
       const parsed = deliverySchema.safeParse(input);
       if (!parsed.success) return notFound();
@@ -267,6 +269,13 @@ async function changeCurrentCover(
         hashtextextended(${`${command.owner.kind}:${command.owner.id}`}, 0)
       )
     `);
+    if (command.owner.kind === "material") {
+      const current = await lockMaterialForLifecycleChange(transaction, materialId(command.owner.id));
+      if (current !== undefined && current.sourceId !== null) {
+        if (nextCoverId !== null) await abandonCover(transaction, nextCoverId, "forbidden");
+        return failure("forbidden");
+      }
+    }
     const currentCoverId = await readCurrentCoverId(transaction, command.owner);
     if (currentCoverId === undefined) {
       if (nextCoverId !== null) await abandonCover(transaction, nextCoverId, "owner_not_found");

@@ -24,6 +24,7 @@ interface MaterialPrimaryVideoProps {
   readonly className?: string;
   readonly materialId: string;
   readonly video: {
+    readonly chapters?: readonly { readonly start: number; readonly title: string }[];
     readonly durationSeconds?: number | undefined;
     readonly failureCode?: string | undefined;
     readonly state: "uploading" | "processing" | "ready" | "failed";
@@ -41,6 +42,7 @@ export function MaterialPrimaryVideo({ className, materialId, video, showWatched
     readonly durationSeconds: number;
     readonly scope: "account" | "anonymous";
   } | null>(null);
+  const [activeChapter, setActiveChapter] = useState<number | null>(null);
   const [phase, setPhase] = useState<PlayerPhase>("loading");
   const [retryAttempt, setRetryAttempt] = useState(0);
   const [measuredDuration, setMeasuredDuration] = useState<number | null>(null);
@@ -118,6 +120,8 @@ export function MaterialPrimaryVideo({ className, materialId, video, showWatched
         const playbackProgress = resolveVideoPlaybackProgress(savedPositionSeconds, duration);
         const resumeSeconds = resolveVideoStartPosition(savedPositionSeconds, duration, window.location.hash);
         let currentTime = resumeSeconds ?? 0;
+        const updateChapter = (seconds: number) => { setActiveChapter(video.chapters?.findLast((chapter) => chapter.start <= seconds)?.start ?? null); };
+        updateChapter(currentTime);
         let pendingSeek: number | null = null;
         let seeking = false;
         const seekToMoment = async (seconds: number) => {
@@ -129,7 +133,7 @@ export function MaterialPrimaryVideo({ className, materialId, video, showWatched
               const target = pendingSeek;
               pendingSeek = null;
               await player.seekTo(target);
-              if (active) currentTime = target;
+              if (active) { currentTime = target; updateChapter(target); }
             }
           } finally {
             seeking = false;
@@ -170,6 +174,7 @@ export function MaterialPrimaryVideo({ className, materialId, video, showWatched
         };
         player.on(player.Events.TimeUpdate, ({ data: { currentTime: nextTime } }) => {
           currentTime = nextTime;
+          updateChapter(nextTime);
           if (Math.abs(currentTime - lastPersisted) >= 15) persist(currentTime);
         });
         player.on(player.Events.Pause, () => { persist(currentTime); });
@@ -194,7 +199,7 @@ export function MaterialPrimaryVideo({ className, materialId, video, showWatched
       removeTimeListener?.();
       void mountedPlayer?.destroy();
     };
-  }, [createPlaybackSession, materialId, persistAccountProgress, retryAttempt, video.durationSeconds, video.state, video.title, video.videoId]);
+  }, [createPlaybackSession, materialId, persistAccountProgress, retryAttempt, video.chapters, video.durationSeconds, video.state, video.title, video.videoId]);
 
   if (video.state !== "ready") {
     return (
@@ -241,6 +246,8 @@ export function MaterialPrimaryVideo({ className, materialId, video, showWatched
   };
 
   return <MaterialVideoPlayerView
+    chapters={video.chapters ?? []}
+    activeChapter={activeChapter}
     onLoad={() => { setPhase("loading"); setRetryAttempt((attempt) => attempt + 1); }}
     onToggleWatched={() => { void toggleWatched(); }}
     {...(className === undefined ? {} : { className })}
@@ -258,6 +265,8 @@ export function MaterialPrimaryVideo({ className, materialId, video, showWatched
 }
 
 export interface MaterialVideoPlayerViewProps {
+  readonly chapters?: readonly { readonly start: number; readonly title: string }[];
+  readonly activeChapter?: number | null;
   readonly showWatchedAction?: boolean;
   readonly className?: string;
   readonly onLoad: () => void;
@@ -272,6 +281,8 @@ export interface MaterialVideoPlayerViewProps {
 
 /** Production player shell shared with Storybook state fixtures. */
 export function MaterialVideoPlayerView({
+  chapters = [],
+  activeChapter = null,
   className,
   onLoad,
   onToggleWatched,
@@ -306,6 +317,11 @@ export function MaterialVideoPlayerView({
           </div>
         )}
       </div>
+      {chapters.length === 0 ? null : <nav className="mt-4" aria-label="Главы видео">
+        <ol className="space-y-1">
+          {chapters.map((chapter) => <li key={chapter.start}><a className="flex min-h-11 items-start gap-3 rounded-lg px-3 py-2 text-sm hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring aria-[current=true]:bg-muted aria-[current=true]:font-semibold" href={`#t=${String(chapter.start)}`} aria-current={activeChapter === chapter.start ? "true" : undefined} onClick={() => { if (window.location.hash === `#t=${String(chapter.start)}`) window.dispatchEvent(new HashChangeEvent("hashchange")); }}><span className="shrink-0 tabular-nums text-muted-foreground">{formatChapterTime(chapter.start)}</span><span>{chapter.title}</span></a></li>)}
+        </ol>
+      </nav>}
       {showWatchedAction ? <div className="mt-3 flex justify-end">
         <Button
           aria-pressed={watched}
@@ -371,4 +387,9 @@ function writeAnonymousProgress(videoId: string, positionSeconds: number, durati
   } catch {
     // Resume is best-effort when storage is unavailable.
   }
+}
+
+function formatChapterTime(seconds: number): string {
+  const minutes = Math.floor(seconds / 60);
+  return `${String(minutes)}:${String(seconds % 60).padStart(2, "0")}`;
 }
