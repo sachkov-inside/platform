@@ -68,6 +68,7 @@
     "authoring:sync-local": "node tools/authoring/local-sync.mjs",
     "authoring:stand-gateway": "NODE_EXTRA_CA_CERTS=.identity-proof/tls/certificate.pem node scripts/authoring-stand-gateway.mjs",
     "authoring:video": "node tools/authoring/video.mjs",
+    "authoring:release": "node tools/authoring/release.mjs",
     "authoring:sync-git-local": "node tools/authoring/git-local.mjs"
   },
   "dependencies": {
