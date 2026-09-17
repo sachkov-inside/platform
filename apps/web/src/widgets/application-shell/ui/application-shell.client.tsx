@@ -117,7 +117,7 @@ export function ApplicationShell({
         className="mobile-scrollbar-hidden flex min-w-0 flex-1 flex-col lg:min-h-0 lg:overflow-y-auto lg:overscroll-y-contain lg:[scrollbar-gutter:stable_both-edges]"
       >
         {/* The page fills the viewport, so a short page still keeps the footer at the bottom. */}
-        <div className="public-page-container mx-auto flex w-full flex-1 flex-col pb-[calc(7rem+env(safe-area-inset-bottom))] pt-6 lg:shrink-0 lg:pb-20 lg:pt-8">
+        <div className="public-page-container mx-auto flex w-full flex-1 flex-col pb-[calc(7rem+env(safe-area-inset-bottom)+var(--storage-notice-space,0px))] pt-6 lg:shrink-0 lg:pb-[calc(5rem+var(--storage-notice-space,0px))] lg:pt-8">
           {/* Pages keep ordinary block flow; only this wrapper is a flex item. */}
           <div className="min-w-0">{children}</div>
           <div className="mt-auto pt-16">
