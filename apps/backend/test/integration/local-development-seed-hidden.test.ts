@@ -18,6 +18,10 @@ describe("local development seed for the owner's stand", () => {
     expect(seeded.length).toBeGreaterThan(0);
     expect(seeded.filter((material) => material.publicationState === "published")).toEqual([]);
     expect(await database.prisma.publishedMaterial.count()).toBe(0);
+    // A hidden demo is never published, so it announces nothing and never records a first publication.
+    expect(await database.prisma.materialAnnouncement.count()).toBe(0);
+    expect(await database.prisma.materialNotificationOutbox.count()).toBe(0);
+    expect(await database.prisma.material.count({ where: { firstPublishedAt: { not: null } } })).toBe(0);
 
     await seedLocalDevelopment(database.prisma, { demo: "hidden" });
     const repeated = await database.prisma.material.findMany({ select: { id: true, publicationState: true, contentVersion: true } });

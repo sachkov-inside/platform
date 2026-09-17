@@ -9,6 +9,8 @@ import { fileURLToPath } from "node:url";
 
 import lockfile from "proper-lockfile";
 
+import { ensureCheckDatabase } from "./check-database.mjs";
+
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const identityCompose = resolve(root, "infra/identity/logto/compose.yaml");
 const platformCompose = resolve(root, "compose.yaml");
@@ -67,6 +69,7 @@ try {
     API_PORT: identityEnvironment.IDENTITY_PROOF_API_PORT,
     NODE_EXTRA_CA_CERTS: resolve(root, ".identity-proof/tls/certificate.pem"),
   };
+  ensureCheckDatabase({ composeProject: platformEnvironment.COMPOSE_PROJECT_NAME });
   await runPnpm(["--filter", "@inside/backend", "db:migrate"], runtimeEnvironment);
   spawnApplication(
     ["--filter", "@inside/backend", "dev:api"],

@@ -2,6 +2,7 @@
 // originals: the AI-first product with its programme, files and videos, featured on Home. It is safe
 // to repeat on any branch; the stand data lives in the shared Compose volumes.
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
@@ -14,6 +15,8 @@ import { ensureSharedIdentityDirectory } from "./shared-identity-directory.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const gatewayStartTimeoutMs = 60_000;
+// The stand's journal of transferred originals; keep it between runs.
+const standStateDirectory = "_local/platform-468/local-stand";
 
 async function isGatewayRunning(origin) {
   try {
@@ -50,11 +53,15 @@ const email = values["owner-email"] ?? stored;
 if (!email) throw new Error("Usage: pnpm local:product --owner-email STAND_AUTHOR_EMAIL (the author signed in to the stand and holds materials:manage)");
 // Linked worktrees sit elsewhere, so the originals are found next to the primary checkout.
 const content = resolve(values.content ?? resolve(dirname(identity), "..", "inside-content"));
+if (!existsSync(resolve(content, "tools/content.py"))) throw new Error(`Inside Content is not at ${content}; pass --content PATH`);
 const origin = resolveLocalTarget("stand");
 const gateway = await isGatewayRunning(origin) ? undefined : startGateway(email);
+for (const signal of ["SIGINT", "SIGTERM"]) {
+  process.once(signal, () => { gateway?.child.kill("SIGTERM"); process.exit(1); });
+}
 try {
   await gateway?.ready;
-  const receipt = await syncGitLocal(content, values.guide, resolve(content, "_local/platform-468/local-stand"), values.ref, { origin, pinHome: true });
+  const receipt = await syncGitLocal(content, values.guide, resolve(content, standStateDirectory), values.ref, { origin, pinHome: true });
   process.stdout.write(`${JSON.stringify({ commit: receipt.commit, applied: receipt.applied, unchanged: receipt.unchanged, homePinned: receipt.homePinned, product: receipt.guides[0]?.url, archiveProposals: receipt.archiveProposals }, null, 2)}\n`);
 } finally {
   gateway?.child.kill("SIGTERM");

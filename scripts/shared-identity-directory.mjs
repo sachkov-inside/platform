@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { lstatSync, readlinkSync, symlinkSync } from "node:fs";
+import { lstatSync, mkdirSync, readlinkSync, symlinkSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 
 // Every checkout of this repository shares one local stand, so it must share the stand's sign-in keys.
@@ -13,6 +13,7 @@ export function ensureSharedIdentityDirectory(root, { git = (args) => execFileSy
   const shared = resolve(primary, ".identity-proof");
   const current = lstatSync(local, { throwIfNoEntry: false });
   if (current === undefined) {
+    mkdirSync(shared, { recursive: true, mode: 0o700 });
     symlinkSync(shared, local, "dir");
     return shared;
   }

@@ -27,10 +27,14 @@ The primary development stack requires Docker with Compose; host Node.js and pnp
 fallback and use the versions pinned in `.node-version` and `packageManager`.
 
 ```bash
-docker compose up --build
+export COMPOSE_PROJECT_NAME=inside-platform-smoke LOCAL_SEED_VIEW=checks
+docker compose up --detach --build --wait
 bash scripts/compose-stack-smoke.sh
-docker compose down
+docker compose down --volumes
 ```
+
+The smoke runs in its own disposable Compose project; the shared `inside-platform` stand keeps the
+owner's product data (see the local product view in the runbook).
 
 Run optional host process adapters through the root `dev:web`, `dev:api` and `dev:mcp` scripts.
 Keep Compose shutdown in the verification path after a successful or failed smoke.

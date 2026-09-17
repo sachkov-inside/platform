@@ -21,7 +21,7 @@ for (const port of [Number(web.port), Number(api.port), 3602]) {
     server.listen(port, "127.0.0.1", () => server.close(accept));
   });
 }
-const databaseUrl = process.env.DATABASE_URL ?? (ensureCheckDatabase({ cwd: root }), checkDatabaseUrl());
+const databaseUrl = process.env.DATABASE_URL ?? (ensureCheckDatabase({ cwd: root }), checkDatabaseUrl(process.env.POSTGRES_HOST_PORT ?? 5432));
 if (new URL(databaseUrl).pathname === "/inside") throw new Error("The Telegram sign-in launcher must not migrate or seed the stand database");
 const environment = {
   ...process.env, DATABASE_URL: databaseUrl, API_HOST: "127.0.0.1", API_PORT: api.port,

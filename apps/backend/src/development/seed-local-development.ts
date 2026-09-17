@@ -281,7 +281,8 @@ export async function seedLocalDevelopment(
   });
 
   await ensureMembershipCatalogMaterial(seed);
-  await ensureRelatedPin(prisma, overview.materialId);
+  // Related pins join readable pages; hidden demo drafts have no public address to pin.
+  if (demo === "published") await ensureRelatedPin(prisma, overview.materialId);
   // Каталог заводится последним: разовое предложение продаёт уже засеянное руководство.
   await seedLocalOfferCatalog(prisma, { actor, guideId: seriesId });
   if (demo === "hidden") await hideSeededMaterials(seed);
@@ -470,6 +471,7 @@ interface SeedContext {
   readonly videos: ReturnType<typeof assembleVideos>;
 }
 
+// Demo Materials published by an earlier run are withdrawn; drafts are already off the reader.
 async function hideSeededMaterials(seed: SeedContext): Promise<void> {
   for (const materialId of seed.seeded) {
     const loaded = await seed.authoring.loadMaterial({ actor, materialId });
@@ -516,9 +518,10 @@ async function ensureSeededMaterial(
   const existing = await prisma.material.findFirst({
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     select: { id: true },
+    // Imported originals belong to their source and are never a seed's demo Material.
     where: definition.slug === undefined
-      ? { title }
-      : { OR: [{ slug: definition.slug }, { title }] },
+      ? { sourceId: null, title }
+      : { sourceId: null, OR: [{ slug: definition.slug }, { title }] },
   });
   let materialId = existing?.id;
   if (materialId === undefined) {
@@ -551,8 +554,12 @@ async function ensureSeededMaterial(
   if (!loaded.ok) {
     throw new Error(`Local seed load failed for ${title}: ${loaded.error.code}`);
   }
-  // A hidden stand keeps an unpublished demo unpublished while its content still follows the seed.
-  const keepHidden = seed.demo === "hidden" && loaded.value.publicationState === "unpublished";
+  // A hidden stand never publishes a demo: new ones stay drafts, withdrawn ones stay unpublished,
+  // so no announcement or reader notification is ever produced for them.
+  const hiddenState = seed.demo === "hidden"
+    ? (loaded.value.publicationState === "unpublished" ? "unpublished" : loaded.value.publicationState === "draft" ? "draft" : undefined)
+    : undefined;
+  const keepHidden = hiddenState !== undefined;
   const { seriesMemberships, slug: _slug, ...currentMetadata } = loaded.value.metadata;
   const current: MaterialMetadataSelectionInput = {
     ...currentMetadata,
@@ -575,7 +582,7 @@ async function ensureSeededMaterial(
     materialId,
     metadata,
     primaryVideoId,
-    publicationState: keepHidden ? "unpublished" : "published",
+    publicationState: hiddenState ?? "published",
   });
   if (!saved.ok) {
     throw new Error(`Local seed Save failed for ${title}: ${saved.error.code}`);

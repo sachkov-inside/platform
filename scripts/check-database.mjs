@@ -9,7 +9,13 @@ export function checkDatabaseUrl(port = 5432) {
 }
 
 export function ensureCheckDatabase({ cwd, composeProject = "inside-platform", run = execFileSync } = {}) {
-  const psql = (sql) => run("docker", ["compose", "--project-name", composeProject, "exec", "-T", "postgres", "psql", "-U", "inside", "-d", "inside", "-Atc", sql], { cwd, encoding: "utf8" }).trim();
+  const psql = (sql) => {
+    try {
+      return run("docker", ["compose", "--project-name", composeProject, "exec", "-T", "postgres", "psql", "-U", "inside", "-d", "inside", "-Atc", sql], { cwd, encoding: "utf8" }).trim();
+    } catch (error) {
+      throw new Error(`Compose PostgreSQL of ${composeProject} is not reachable; start it before this check`, { cause: error });
+    }
+  };
   if (psql(`select 1 from pg_database where datname = '${checkDatabaseName}'`) !== "1") {
     psql(`create database ${checkDatabaseName}`);
   }

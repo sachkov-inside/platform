@@ -94,8 +94,8 @@ services:
       target: seed
     env_file:
       - ./config/compose/local/seed.env
-      # `pnpm local:stand` selects `stand` and hides the demonstration catalogue; checks keep it published.
-      - ./config/compose/local/seed-${LOCAL_SEED_VIEW:-checks}.env
+      # The shared stand hides the demonstration catalogue; the Compose smoke selects `checks`.
+      - ./config/compose/local/seed-${LOCAL_SEED_VIEW:-stand}.env
     depends_on:
       migrations:
         condition: service_completed_successfully

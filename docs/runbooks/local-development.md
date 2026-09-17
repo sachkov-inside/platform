@@ -93,7 +93,8 @@ docker compose up --build
 ```
 
 This one command builds exact Node/pnpm development images, starts PostgreSQL, migrates and seeds
-it once, then starts API, MCP and web. Rebuild the affected service after a source, package
+it once, then starts API, MCP and web. The seed keeps its demonstration Materials unpublished; run
+`pnpm local:stand` and `pnpm local:product` for the product view. Rebuild the affected service after a source, package
 manifest, workspace manifest or lockfile change. For a faster edit loop, use the optional host
 Node.js commands below.
 
@@ -123,11 +124,14 @@ The test provider also exercises deletion without outbound calls. Operational st
 production recovery are documented in the
 [Video deletion runbook](video-deletion.md).
 
-For a detached stack suitable for smoke commands:
+The smoke needs the published demonstration catalogue, so it runs in its own disposable project and
+never touches the shared stand volumes:
 
 ```bash
+export COMPOSE_PROJECT_NAME=inside-platform-smoke LOCAL_SEED_VIEW=checks
 docker compose up --detach --build --wait
 bash scripts/compose-stack-smoke.sh
+docker compose down --volumes
 ```
 
 The smoke proves the live web server adapter can reach API and PostgreSQL, MCP reported
@@ -553,7 +557,8 @@ docker compose up --detach --build --wait
 ```
 
 This does not affect disposable Testcontainers databases. Never use `--volumes` as routine
-shutdown.
+shutdown: it also deletes the owner's product view, which `pnpm local:product` then rebuilds from
+the committed originals (purchases, accounts and progress are lost).
 
 ## Local editor acceptance
 
@@ -756,9 +761,10 @@ shared `inside-platform_*` volumes, so every branch and worktree sees the same c
   the Telegram sign-in launcher) use the `inside_checks` database, never the stand's `inside`,
   unless `DATABASE_URL` is exported explicitly.
 
-- The stand seed reads `config/compose/local/seed-stand.env` (`LOCAL_SEED_DEMO=hidden`): demonstration Materials stay available in the
-  editor but unpublished, so Home and search show only transferred originals. A plain
-  `docker compose up` and CI keep them published for the Compose smoke.
+- The seed reads `config/compose/local/seed-stand.env` (`LOCAL_SEED_DEMO=hidden`) unless
+  `LOCAL_SEED_VIEW=checks` selects `seed-checks.env`: demonstration Materials stay drafts or
+  unpublished in the editor, so Home and search show only transferred originals. Only the
+  disposable Compose smoke project publishes them.
 - Home lists only originals marked `show_in_feed: true`; an empty feed means no original is marked yet.
 
 Keep the volumes: stop the stand with `docker compose --profile identity down` without `-v`.
