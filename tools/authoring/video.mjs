@@ -3,10 +3,25 @@ import { stat } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { pathToFileURL } from "node:url";
+import { parseArgs } from "node:util";
 import { fileChecksum } from "./package.mjs";
 import { withJournal } from "./journal.mjs";
 import { parseLocalResponse } from "./local-boundaries.mjs";
 import { localTransport, loopbackOrigin, resolveLocalTarget } from "./target.mjs";
+
+// Provider processing is polled at this interval until the Video is ready or terminal.
+export const videoReconcileIntervalMs = 3_000;
+
+export async function waitUntilReady(request, videoId, { sleep = delay, attempts, label, onState = async () => {} }) {
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    if (attempt > 0) await sleep(videoReconcileIntervalMs);
+    const video = await request(`/authoring/videos/${videoId}/reconcile`, {}, undefined, { method: "POST" });
+    await onState(video);
+    if (video.state === "ready") return video;
+    if (video.state === "failed" || video.state.startsWith("delet")) throw new Error(`${label}: video is ${video.state}`);
+  }
+  throw new Error(`${label}: video is still processing; rerun the same command later`);
+}
 
 // Real provider transfer needs an explicit owner approval for a concrete file and project.
 export function transferRequired(uploadEndpoint) {
@@ -56,32 +71,22 @@ export async function uploadVideo({ stateDirectory, origin = resolveLocalTarget(
       receipt = { ...receipt, phase: "processing" };
       journal.resources[receiptKey] = receipt; await persist();
     }
-    for (let attempt = 0; receipt.phase !== "ready"; attempt++) {
-      if (attempt >= attempts) throw new Error(`Video for ${sourceId} is still processing; rerun the same command later`);
-      if (attempt > 0) await sleep(3000);
-      const video = await request(`/authoring/videos/${receipt.videoId}/reconcile`, {}, undefined, { method: "POST" });
-      if (video.state === "failed" || video.state.startsWith("delet")) throw new Error(`Video for ${sourceId} is ${video.state}`);
-      if (video.state === "ready") {
-        receipt = { ...receipt, phase: "ready", durationSeconds: video.durationSeconds ?? null };
-        journal.resources[receiptKey] = receipt;
-        journal.resources[`source-video:${sourceId}`] = { videoId: receipt.videoId, providerVideoId: receipt.providerVideoId, sha256 };
-        await persist();
-      }
+    if (receipt.phase !== "ready") {
+      const video = await waitUntilReady(request, receipt.videoId, { sleep, attempts, label: sourceId });
+      receipt = { ...receipt, phase: "ready", durationSeconds: video.durationSeconds ?? null };
+      journal.resources[receiptKey] = receipt;
+      journal.resources[`source-video:${sourceId}`] = { videoId: receipt.videoId, providerVideoId: receipt.providerVideoId, sha256 };
+      await persist();
     }
     return { sourceId, materialId: material.materialId, videoId: receipt.videoId, providerVideoId: receipt.providerVideoId, durationSeconds: receipt.durationSeconds };
   });
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
-  const args = process.argv.slice(2);
-  const option = (name) => { const index = args.indexOf(name); return index === -1 ? undefined : args[index + 1]; };
-  const [command] = args;
-  const stateDirectory = option("--state");
-  const sourceId = option("--source");
-  const file = option("--file");
-  if (command !== "upload" || !stateDirectory || !sourceId || !file) {
+  const { positionals, values } = parseArgs({ allowPositionals: true, options: { state: { type: "string" }, source: { type: "string" }, file: { type: "string" }, title: { type: "string" }, target: { type: "string", default: "editor" } } });
+  if (positionals[0] !== "upload" || positionals.length !== 1 || !values.state || !values.source || !values.file) {
     throw new Error("Usage: pnpm authoring:video upload --state STATE_DIRECTORY --source inside-content:MATERIAL_ID --file RECORDING [--title TITLE] [--target editor|stand]");
   }
-  const result = await uploadVideo({ stateDirectory, sourceId, file, title: option("--title"), origin: resolveLocalTarget(option("--target") ?? "editor") });
+  const result = await uploadVideo({ stateDirectory: values.state, sourceId: values.source, file: values.file, title: values.title, origin: resolveLocalTarget(values.target) });
   process.stdout.write(`${JSON.stringify({ ...result, next: `Record platform_video.kinescope_id: ${result.providerVideoId} in the original, commit it and run the local sync` }, null, 2)}\n`);
 }

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { forwardedPath, parseEnvFile, tokenCache } from "./authoring-stand-gateway.mjs";
+import { forwardedPath, tokenCache } from "./authoring-stand-gateway.mjs";
 
 test("forwards only authoring API paths from a non-browser loopback client", () => {
   const host = "127.0.0.1:4398";
@@ -17,6 +17,7 @@ test("forwards only authoring API paths from a non-browser loopback client", () 
     [host, "/__local-api/authoring/%2e%2e/accounts", undefined],
     [host, "/__local-api/authoring//materials", undefined],
   ]) assert.equal(forwardedPath(candidateHost, url, origin), null, `${candidateHost} ${url}`);
+  assert.equal(forwardedPath(host, "/__local-api/authoring/materials", undefined, "cross-site"), null);
 });
 
 test("reuses an access token until shortly before it expires", async () => {
@@ -28,11 +29,4 @@ test("reuses an access token until shortly before it expires", async () => {
   assert.equal(await token(), "token-1");
   now = 271_000;
   assert.equal(await token(), "token-2");
-});
-
-test("reads the bootstrap env file format", () => {
-  assert.deepEqual(parseEnvFile("LOGTO_ENDPOINT=https://identity.inside.localhost:3301\nAUTHORING_STAND_APP_ID=abc=def\n# note\n"), {
-    LOGTO_ENDPOINT: "https://identity.inside.localhost:3301",
-    AUTHORING_STAND_APP_ID: "abc=def",
-  });
 });

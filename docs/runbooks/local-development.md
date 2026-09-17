@@ -754,7 +754,9 @@ For the stand, the owner signs in once with that email and receives `materials:m
 [owner release bootstrap](#owner-account-release-bootstrap). The stand bootstrap registers the
 stand-only Logto client `Inside Authoring Stand` with token exchange; the gateway creates the
 owner's stand personal access token in `.identity-proof/authoring-owner-pat.json` and exchanges it
-for short API tokens. It forwards only canonical `/authoring/` API paths from non-browser clients.
+for short API tokens, renewing the stored token once when the stand's sign-in database was
+recreated. It forwards only canonical `/authoring/` API paths from non-browser clients; any process
+on this machine can act as the stand owner while it runs, so stop it after the transfer.
 Run the stand from a worktree only with the owner checkout's `.identity-proof/` copied in: a fresh
 bootstrap there would generate new sign-in keys for the owner's stand accounts.
 
@@ -785,6 +787,8 @@ What the transfer applies:
 Imported Materials and Guides change only through these source-scoped routes; ordinary editor,
 API and MCP writes are refused. A missing original appears in `archiveProposals`. It is unpublished
 and removed from the product only when the same command repeats with `--archive SOURCE_ID`.
+Proposals cover Materials previously transferred with the selected product; a standalone original
+is never proposed, because an explicit Material selection does not describe the whole catalog.
 
 A finished recording for a synchronized Material is uploaded with
 `pnpm authoring:video upload --state STATE_DIRECTORY --source inside-content:MATERIAL_ID --file FILE`.

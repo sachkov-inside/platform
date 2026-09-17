@@ -7,6 +7,8 @@ export const localTargets = Object.freeze({
 const readerOrigins = Object.freeze({ editor: localTargets.editor, stand: "http://127.0.0.1:3000" });
 
 const loopbackHosts = new Set(["127.0.0.1", "localhost", "[::1]"]);
+// Large Markdown bodies and file uploads stay within one local request budget.
+const localRequestTimeoutMs = 60_000;
 
 export function loopbackOrigin(value) {
   const url = new URL(value);
@@ -34,7 +36,7 @@ export function localTransport(origin) {
     const response = await fetch(`${base}/__local-api${path}`, {
       method: method ?? (body === undefined ? "GET" : "POST"), redirect: "error",
       headers: { ...(body === undefined || form ? {} : { "content-type": "application/json" }), ...(key ? { "idempotency-key": key } : {}) },
-      ...(body === undefined ? {} : { body: form ? body : JSON.stringify(body) }), signal: AbortSignal.timeout(60_000),
+      ...(body === undefined ? {} : { body: form ? body : JSON.stringify(body) }), signal: AbortSignal.timeout(localRequestTimeoutMs),
     });
     const text = await response.text();
     const result = text === "" ? null : JSON.parse(text);

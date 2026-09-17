@@ -9,21 +9,31 @@ import process from "node:process";
 import { fileURLToPath, URLSearchParams } from "node:url";
 import { z } from "zod";
 
+import { localTargets } from "../tools/authoring/target.mjs";
+
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const gatewayHost = "127.0.0.1";
-const gatewayPort = 4398;
+const gateway = new URL(localTargets.stand);
+// Refresh an access token this long before it expires.
+const tokenRefreshMarginMs = 30_000;
+const tokenExchangeTimeoutMs = 10_000;
+const millisecondsPerSecond = 1_000;
 const patName = "inside-authoring-stand";
 const patPath = resolve(root, ".identity-proof/authoring-owner-pat.json");
 const exchangeType = "urn:ietf:params:oauth:grant-type:token-exchange";
 const patType = "urn:logto:token-type:personal_access_token";
 
-export function parseEnvFile(text) {
-  return Object.fromEntries(text.split(/\r?\n/u).map((line) => /^([A-Z][A-Z0-9_]*)=(.*)$/u.exec(line)).filter((match) => match !== null).map((match) => [match[1], match[2]]));
-}
+const settingsSchema = z.object({
+  LOGTO_ENDPOINT: z.url(),
+  LOGTO_AUDIENCE: z.url(),
+  AUTHORING_STAND_APP_ID: z.string().min(1),
+  AUTHORING_STAND_APP_SECRET: z.string().min(1),
+});
+const storedPatSchema = z.object({ endpoint: z.string(), email: z.string(), userId: z.string(), value: z.string().min(1) });
 
-// Only authoring API paths reach the stand; browser requests and other surfaces are refused.
-export function forwardedPath(host, url, origin) {
-  if (host !== `${gatewayHost}:${String(gatewayPort)}` || origin !== undefined) return null;
+// Only authoring API paths reach the stand, and only from non-browser clients on this machine.
+// Any local process can act as the stand owner through this gateway; it never serves another host.
+export function forwardedPath(host, url, origin, fetchSite) {
+  if (host !== gateway.host || origin !== undefined || fetchSite !== undefined) return null;
   if (!url.startsWith("/__local-api/authoring/")) return null;
   const path = url.slice("/__local-api".length);
   const parsed = new URL(path, "http://gateway.invalid");
@@ -36,9 +46,9 @@ export function forwardedPath(host, url, origin) {
 export function tokenCache(exchange, now = () => Date.now()) {
   let current;
   return async () => {
-    if (current === undefined || current.expiresAt - 30_000 <= now()) {
+    if (current === undefined || current.expiresAt - tokenRefreshMarginMs <= now()) {
       const token = await exchange();
-      current = { value: token.access_token, expiresAt: now() + token.expires_in * 1000 };
+      current = { value: token.access_token, expiresAt: now() + token.expires_in * millisecondsPerSecond };
     }
     return current.value;
   };
@@ -51,10 +61,9 @@ async function writePrivate(path, value) {
   await rename(temporary, path);
 }
 
-async function ownerPersonalAccessToken(settings, email) {
-  const stored = await readFile(patPath, "utf8").then((text) => z.object({ endpoint: z.string(), email: z.string(), userId: z.string(), value: z.string().min(1) }).parse(JSON.parse(text))).catch(() => null);
-  if (stored?.endpoint === settings.LOGTO_ENDPOINT && stored.email === email) return stored.value;
-  process.env.LOGTO_ON_STAND = "true";
+async function ownerPersonalAccessToken(settings, email, { renew }) {
+  const stored = await readFile(patPath, "utf8").then((text) => storedPatSchema.parse(JSON.parse(text))).catch(() => null);
+  if (!renew && stored?.endpoint === settings.LOGTO_ENDPOINT && stored.email === email) return stored.value;
   const bootstrap = await import("./identity-proof-bootstrap.mjs");
   const secret = await bootstrap.retry(() => Promise.resolve(bootstrap.readSeededManagementSecret()));
   const api = bootstrap.createManagementApi(await bootstrap.fetchManagementAccessToken(secret));
@@ -73,12 +82,14 @@ async function main() {
   const args = process.argv.slice(2);
   const email = args[args.indexOf("--owner-email") + 1];
   if (!args.includes("--owner-email") || !email) throw new Error("Usage: pnpm authoring:stand-gateway --owner-email OWNER_EMAIL");
-  const settings = parseEnvFile(await readFile(resolve(root, ".identity-proof/authoring-stand.env"), "utf8").catch(() => {
+  // The bootstrap module reads its stand flag when first imported.
+  process.env.LOGTO_ON_STAND = "true";
+  const { parseEnv } = await import("./identity-proof-bootstrap.mjs");
+  const settings = settingsSchema.parse(parseEnv(await readFile(resolve(root, ".identity-proof/authoring-stand.env"), "utf8").catch(() => {
     throw new Error("Start the stand with pnpm local:stand first: it configures the authoring client");
-  }));
+  })));
   const apiOrigin = `http://127.0.0.1:${process.env.API_HOST_PORT ?? "3001"}`;
-  const pat = await ownerPersonalAccessToken(settings, email);
-  const accessToken = tokenCache(async () => {
+  const exchange = async (pat) => {
     const response = await fetch(`${settings.LOGTO_ENDPOINT}/oidc/token`, {
       method: "POST",
       headers: {
@@ -86,17 +97,32 @@ async function main() {
         "content-type": "application/x-www-form-urlencoded",
       },
       body: new URLSearchParams({ grant_type: exchangeType, subject_token: pat, subject_token_type: patType, resource: settings.LOGTO_AUDIENCE }),
-      signal: AbortSignal.timeout(10_000),
+      signal: AbortSignal.timeout(tokenExchangeTimeoutMs),
     });
-    if (!response.ok) throw new Error(`Stand token exchange failed: ${String(response.status)} ${await response.text()}`);
-    return z.object({ access_token: z.string().min(1), expires_in: z.number().int().positive() }).parse(await response.json());
+    if (!response.ok) return { ok: false, status: response.status, detail: await response.text() };
+    return { ok: true, token: z.object({ access_token: z.string().min(1), expires_in: z.number().int().positive() }).parse(await response.json()) };
+  };
+  let pat = await ownerPersonalAccessToken(settings, email, { renew: false });
+  let first = await exchange(pat);
+  // A stored token dies with a recreated sign-in database; one renewal replaces it.
+  if (!first.ok && first.status === 400) {
+    pat = await ownerPersonalAccessToken(settings, email, { renew: true });
+    first = await exchange(pat);
+  }
+  if (!first.ok) throw new Error(`Stand token exchange failed: ${String(first.status)} ${first.detail}`);
+  let initial = first.token;
+  const accessToken = tokenCache(async () => {
+    if (initial !== undefined) { const token = initial; initial = undefined; return token; }
+    const next = await exchange(pat);
+    if (!next.ok) throw new Error(`Stand token exchange failed: ${String(next.status)} ${next.detail}`);
+    return next.token;
   });
   const environment = await fetch(`${apiOrigin}/authoring/import/materials/environment`, { headers: { authorization: `Bearer ${await accessToken()}` } });
   if (!environment.ok) throw new Error(`Stand API refused the owner token (${String(environment.status)}); run the owner bootstrap for ${email}`);
   if (z.object({ mode: z.string() }).parse(await environment.json()).mode !== "development") throw new Error("The authoring gateway serves only a development stand");
 
   const server = createServer(async (request, response) => {
-    const path = forwardedPath(request.headers.host, request.url ?? "", request.headers.origin);
+    const path = forwardedPath(request.headers.host, request.url ?? "", request.headers.origin, request.headers["sec-fetch-site"]);
     if (path === null) { response.writeHead(403).end(); return; }
     try {
       const headers = { authorization: `Bearer ${await accessToken()}` };
@@ -117,8 +143,8 @@ async function main() {
       response.writeHead(502, { "content-type": "application/json" }).end(JSON.stringify({ title: "Authoring gateway failure", detail: String(error) }));
     }
   });
-  server.listen(gatewayPort, gatewayHost, () => {
-    process.stdout.write(`Authoring gateway for the stand: http://${gatewayHost}:${String(gatewayPort)} (owner ${email}). Stop with Ctrl+C.\n`);
+  server.listen(Number(gateway.port), gateway.hostname, () => {
+    process.stdout.write(`Authoring gateway for the stand: ${gateway.origin} (owner ${email}). Stop with Ctrl+C.\n`);
   });
   for (const signal of ["SIGINT", "SIGTERM"]) process.once(signal, () => { server.close(() => process.exit(0)); });
 }

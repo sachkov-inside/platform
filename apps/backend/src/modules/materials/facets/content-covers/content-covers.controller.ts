@@ -38,6 +38,7 @@ import {
   MaterialAuthoringEndpoint,
 } from "../../adapters/nest/material-authoring-endpoint.js";
 import { contentCoverProjectionHttpSchema } from "../../adapters/nest/content-cover-http.js";
+import { authoringSourceIdSchema } from "../../domain/authoring-source.js";
 import {
   CONTENT_COVERS,
   contentCoverOwnerKindSchema,
@@ -48,11 +49,12 @@ import {
 
 const uuidSchema = z.uuid();
 const checksumSchema = z.hash("sha256");
-const sourceIdSchema = z.string().trim().min(1).max(200);
 const multipartExpectedCoverIdSchema = z.union([
   z.uuid(),
   z.literal("null"),
 ]);
+// declaredSize, checksumSha256 and expectedCoverId; the import route adds sourceId.
+const uploadFieldLimit = 3;
 const changeResponseSchema = z
   .object({ cover: contentCoverProjectionHttpSchema.nullable() })
   .strict();
@@ -109,7 +111,7 @@ export class AuthoringContentCoverController {
     @Param("ownerId") ownerId: string,
     @Req() request: FastifyRequest,
   ) {
-    const upload = await readCoverUpload(request, rawOwnerKind, ownerId, 3);
+    const upload = await readCoverUpload(request, rawOwnerKind, ownerId, uploadFieldLimit);
     const result = await this.covers.change({ actor: account.accountId, ...upload.command });
     if (!result.ok) throwContentCoverError(result.error);
     return result.value;
@@ -163,7 +165,7 @@ async function readCoverUpload(
   request: FastifyRequest,
   rawOwnerKind: string,
   ownerId: string,
-  fields: number,
+  fieldLimit: number,
 ): Promise<{ readonly command: Omit<Extract<ChangeContentCoverCommand, { kind: "upload" }>, "actor">; readonly part: MultipartFile }> {
   const ownerKind = contentCoverOwnerKindSchema.safeParse(rawOwnerKind);
   if (!ownerKind.success || !uuidSchema.safeParse(ownerId).success) {
@@ -173,7 +175,7 @@ async function readCoverUpload(
   try {
     const part = await request.file({
       limits: {
-        fields,
+        fields: fieldLimit,
         fileSize: MATERIAL_ASSET_LIMITS.imageBytes,
         files: 1,
       },
@@ -218,7 +220,7 @@ async function readCoverUpload(
   };
 }
 
-/** Source-scoped cover changes for records owned by an authoring import. */
+/** Source-scoped cover changes for Materials owned by an authoring import. */
 @MaterialAuthoringEndpoint()
 @Controller("authoring/import/content-covers")
 export class ImportContentCoverController {
@@ -226,14 +228,10 @@ export class ImportContentCoverController {
     @Inject(CONTENT_COVERS) private readonly covers: ContentCovers,
   ) {}
 
-  @Put(":ownerKind/:ownerId")
+  @Put("material/:ownerId")
   @ApiOperation({
-    operationId: "uploadImportedContentCover",
-    summary: "Upload or replace the cover of one Material or Guide owned by an authoring source",
-  })
-  @ApiParam({
-    name: "ownerKind",
-    schema: toOpenApiSchema(contentCoverOwnerKindSchema),
+    operationId: "uploadImportedMaterialCover",
+    summary: "Upload or replace the cover of one Material owned by an authoring source",
   })
   @ApiParam({ name: "ownerId", schema: { format: "uuid", type: "string" } })
   @ApiConsumes("multipart/form-data")
@@ -265,12 +263,11 @@ export class ImportContentCoverController {
   @ApiResponse({ status: 503, content: problemDetailsContent(coverProblemSchema(503, "dependency_unavailable", ["Content cover dependency is unavailable"])) })
   async upload(
     @CurrentAccount() account: AuthenticatedAccount,
-    @Param("ownerKind") rawOwnerKind: string,
     @Param("ownerId") ownerId: string,
     @Req() request: FastifyRequest,
   ) {
-    const upload = await readCoverUpload(request, rawOwnerKind, ownerId, 4);
-    const sourceId = sourceIdSchema.safeParse(field(upload.part, "sourceId"));
+    const upload = await readCoverUpload(request, "material", ownerId, uploadFieldLimit + 1);
+    const sourceId = authoringSourceIdSchema.safeParse(field(upload.part, "sourceId"));
     if (!sourceId.success) throw coverProblem(422, "invalid_cover", "Cover metadata is malformed");
     const result = await this.covers.changeImported({ actor: account.accountId, ...upload.command }, sourceId.data);
     if (!result.ok) throwContentCoverError(result.error);

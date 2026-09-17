@@ -35,6 +35,7 @@ import {
   ApiMaterialAuthoringErrors,
   MaterialAuthoringEndpoint,
 } from "../../adapters/nest/material-authoring-endpoint.js";
+import { authoringSourceIdSchema } from "../../domain/authoring-source.js";
 import {
   GUIDE_ARTIFACTS,
   guideArtifactAccessSchema,
@@ -98,7 +99,6 @@ const guideArtifactListSchema = z
   .object({ artifacts: z.array(guideArtifactHttpSchema) })
   .strict();
 const removedArtifactSchema = z.object({ artifactId: z.uuid() }).strict();
-const sourceIdSchema = z.string().trim().min(1).max(200);
 const importOutcomeSchema = z
   .object({
     artifactId: z.uuid(),
@@ -487,8 +487,8 @@ export class GuideArtifactAuthoringController {
       purpose: field(upload.part, "purpose") ?? "",
       title: field(upload.part, "title") ?? "",
     });
-    const sourceId = sourceIdSchema.safeParse(field(upload.part, "sourceId"));
-    const guideSourceId = sourceIdSchema.safeParse(field(upload.part, "guideSourceId"));
+    const sourceId = authoringSourceIdSchema.safeParse(field(upload.part, "sourceId"));
+    const guideSourceId = authoringSourceIdSchema.safeParse(field(upload.part, "guideSourceId"));
     if (!metadata.success || !sourceId.success || !guideSourceId.success) {
       throw guideArtifactProblem(422, "invalid_artifact", "Guide Artifact form is malformed");
     }

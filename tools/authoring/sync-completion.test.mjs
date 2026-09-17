@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { canonical, checksum } from "./package.mjs";
 import { syncLocal } from "./local-sync.mjs";
 import { loopbackOrigin, resolveLocalTarget } from "./target.mjs";
+import { previewRelease } from "./release.mjs";
 
 const uuid = (n) => `${String(n).padStart(8, "0")}-0000-4000-8000-000000000000`;
 const guideId = uuid(900);
@@ -62,7 +63,7 @@ function applicationApi() {
         Object.assign(guide, { name: body.name, summary: body.summary, version: guide.version + 1 });
         return structuredClone(guide);
       }
-      if (path === `/authoring/guides/${guideId}/order`) return { orderVersion: "a".repeat(64) };
+      if (path === `/authoring/guides/${guideId}/order`) return { orderVersion: "a".repeat(64), items: (guide.members ?? []).map((materialId) => ({ materialId, chapterId: null })), chapters: [] };
       if (path === "/authoring/import/guides/composition") { guide.members = body.orderedMaterialIds; return { orderVersion: "b".repeat(64) }; }
       if (path === "/authoring/import/materials/reserve") {
         if (!materials.has(body.source.id)) materials.set(body.source.id, { materialId: uuid(next++), contentVersion: 1, primaryVideoId: null, cover: null, metadata: { slug: body.source.id.split(":")[1] }, source: body.source, publicationState: "draft" });
@@ -179,7 +180,7 @@ test("a missing original is proposed first and unpublished only on explicit requ
 test("a video that never becomes ready stops before Save and resumes with the same record", async (t) => {
   const setup = await fixture(t);
   const api = applicationApi();
-  await assert.rejects(run(setup, api, { videoAttempts: 1 }), /not ready yet/u);
+  await assert.rejects(run(setup, api, { videoAttempts: 1 }), /still processing/u);
   assert.equal(api.materials.get("inside-content:video")?.primaryVideoId ?? null, null);
   await run(setup, api);
   assert.equal(api.count(/videos\/attach$/u), 1);
@@ -226,4 +227,78 @@ test("an uploaded recording is saved with the original's chapters until the orig
   const lesson = api.materials.get("inside-content:lesson");
   assert.equal(lesson.primaryVideoId, uploadedId);
   assert.deepEqual(lesson.videoChapters, [{ start: 0, title: "Старт" }]);
+});
+
+test("a cover change whose response was lost is adopted on the retry", async (t) => {
+  const setup = await fixture(t);
+  const api = applicationApi();
+  await run(setup, api);
+  const bytes = Buffer.from("replacement-cover");
+  await writeFile(join(setup.packagePath, "..", "assets", "cover.png"), bytes);
+  setup.manifest.assets[1].sha256 = checksum(bytes);
+  await setup.write();
+  const original = api.request;
+  let lose = true;
+  const lossy = async (path, body, key, options) => {
+    const result = await original(path, body, key, options);
+    if (lose && path.includes("content-covers")) { lose = false; throw new Error("Connection lost after the cover changed"); }
+    return result;
+  };
+  const conflicting = async (path, body, key, options) => {
+    if (path.includes("content-covers")) {
+      const current = api.materials.get("inside-content:lesson").cover.coverId;
+      if (body.get("expectedCoverId") !== current) throw Object.assign(new Error("409"), { status: 409, body: { code: "conflict", currentCoverId: current } });
+    }
+    return original(path, body, key, options);
+  };
+  await assert.rejects(run(setup, { request: lossy }), /Connection lost/u);
+  const applied = api.materials.get("inside-content:lesson").cover.coverId;
+  await run(setup, { request: conflicting });
+  const journal = JSON.parse(await readFile(join(setup.state, "journal.json"), "utf8"));
+  assert.equal(journal.materials["inside-content:lesson"].coverId, applied);
+  assert.equal(journal.resources[`cover-pending:${api.materials.get("inside-content:lesson").materialId}`], undefined);
+});
+
+test("an archive whose receipt was stored before the crash stays archived", async (t) => {
+  const setup = await fixture(t);
+  const api = applicationApi();
+  await run(setup, api);
+  setup.manifest.materials = setup.manifest.materials.filter((row) => row.sourceId !== "old");
+  setup.manifest.selection.materialIds = ["lesson", "video"];
+  setup.manifest.guides[0].materialIds = ["lesson", "video"];
+  await setup.write();
+  await run(setup, api, { archive: ["old"] });
+  const journalPath = join(setup.state, "journal.json");
+  const journal = JSON.parse(await readFile(journalPath, "utf8"));
+  // Simulate the crash: the operation receipt exists, the cache still shows the published version.
+  Object.assign(journal.materials["inside-content:old"], { archived: false, contentVersion: journal.materials["inside-content:old"].contentVersion - 1 });
+  await writeFile(journalPath, canonical(journal));
+  const report = await run(setup, api);
+  assert.deepEqual(report.archiveProposals, []);
+});
+
+test("release preview reports video, composition and artifact changes that the sync would apply", async (t) => {
+  const setup = await fixture(t);
+  const api = applicationApi();
+  await run(setup, api);
+  const origin = "http://127.0.0.1:4396";
+  const clean = await previewRelease(setup.packagePath, setup.state, { origin, request: api.request });
+  assert.deepEqual(clean.summary, { new: 0, changed: 0, restore: 0, unchanged: 3, conflict: 0 });
+  assert.deepEqual(clean.preview.guides[0], { sourceId: "product", title: "Продукт", materials: 3, artifactChanges: [], change: "unchanged", added: 0, removed: 0, reorderedOrRegrouped: false });
+
+  const journalPath = join(setup.state, "journal.json");
+  const journal = JSON.parse(await readFile(journalPath, "utf8"));
+  journal.resources["source-video:inside-content:lesson"] = { videoId: uuid(556), providerVideoId: "uploaded", sha256: "d".repeat(64) };
+  await writeFile(journalPath, canonical(journal));
+  setup.manifest.materials.push({ ...setup.manifest.materials[2], sourceId: "extra", sourcePath: "extra.md", title: "extra" });
+  setup.manifest.selection.materialIds.push("extra");
+  setup.manifest.guides[0].materialIds = ["video", "lesson", "old", "extra"];
+  setup.manifest.materials[0].artifacts[0].title = "Чек-лист 2";
+  await setup.write();
+  const next = await previewRelease(setup.packagePath, setup.state, { origin, request: api.request });
+  const lesson = next.preview.materials.find((item) => item.sourceId === "lesson");
+  assert.equal(lesson.change, "changed");
+  assert.equal(lesson.videoChange, true);
+  assert.equal(next.preview.materials.find((item) => item.sourceId === "extra").change, "new");
+  assert.deepEqual(next.preview.guides[0], { sourceId: "product", title: "Продукт", materials: 4, artifactChanges: ["checklist"], change: "composition", added: 1, removed: 0, reorderedOrRegrouped: true });
 });

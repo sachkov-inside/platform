@@ -833,17 +833,15 @@ export class MaterialAuthoringService {
     });
   }
   /**
-   * Upload or replace the cover of one Material or Guide owned by an authoring source
+   * Upload or replace the cover of one Material owned by an authoring source
    * @returns any
    * @throws ApiError
    */
-  public uploadImportedContentCover({
+  public uploadImportedMaterialCover({
     ownerId,
-    ownerKind,
     formData,
   }: {
     ownerId: string,
-    ownerKind: 'material' | 'series' | 'topic',
     formData: {
       checksumSha256: string;
       declaredSize: number;
@@ -862,10 +860,9 @@ export class MaterialAuthoringService {
   }> {
     return this.httpRequest.request({
       method: 'PUT',
-      url: '/authoring/import/content-covers/{ownerKind}/{ownerId}',
+      url: '/authoring/import/content-covers/material/{ownerId}',
       path: {
         'ownerId': ownerId,
-        'ownerKind': ownerKind,
       },
       formData: formData,
       mediaType: 'multipart/form-data',
@@ -905,50 +902,6 @@ export class MaterialAuthoringService {
       },
       formData: formData,
       mediaType: 'multipart/form-data',
-    });
-  }
-  /**
-   * archiveSourceGuide
-   * @returns any
-   * @throws ApiError
-   */
-  public archiveSourceGuide({
-    requestBody,
-  }: {
-    requestBody: {
-      archived: boolean;
-      collectionId: string;
-      expectedVersion: number;
-      sourceId: string;
-    },
-  }): CancelablePromise<{
-    archived: boolean;
-    cover: {
-      coverId: string;
-      renditions: Array<{
-        height: number;
-        width: number;
-      }>;
-    } | null;
-    id: string;
-    introduction: {
-      audience: string;
-      outcome: string;
-      prerequisites: string;
-      scope: string;
-    } | null;
-    kind: 'guide' | 'series' | 'topic';
-    materialCount: number;
-    name: string;
-    slug: string;
-    summary: string;
-    version: number;
-  }> {
-    return this.httpRequest.request({
-      method: 'POST',
-      url: '/authoring/import/guides/archive',
-      body: requestBody,
-      mediaType: 'application/json',
     });
   }
   /**

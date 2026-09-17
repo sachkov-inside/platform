@@ -5,9 +5,8 @@ import { authorizeManager } from "../../ports/author-policy.js";
 import { accountId, parseCommand } from "../../shared/command-validation.js";
 import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
 import { assembleReorderSeries } from "../reorder-series/reorder-series.js";
-import { assembleSetContentCollectionArchive } from "../set-content-collection-archive/set-content-collection-archive.js";
 import { assembleUpdateContentCollection } from "../update-content-collection/update-content-collection.js";
-import { archiveSourceGuideBodySchema, reserveSourceGuideBodySchema, reorderSourceGuideBodySchema, updateSourceGuideBodySchema, type ArchiveSourceGuideOperation, type ReserveSourceGuideOperation, type ReorderSourceGuideOperation, type UpdateSourceGuideOperation } from "./import-source-guide.contract.js";
+import { reserveSourceGuideBodySchema, reorderSourceGuideBodySchema, updateSourceGuideBodySchema, type ReserveSourceGuideOperation, type ReorderSourceGuideOperation, type UpdateSourceGuideOperation } from "./import-source-guide.contract.js";
 
 export function assembleReserveSourceGuide(dependencies: MaterialAuthoringDependencies): ReserveSourceGuideOperation {
   return async (input) => {
@@ -40,15 +39,6 @@ export function assembleUpdateSourceGuide(dependencies: MaterialAuthoringDepende
     if (!parsed.ok) return parsed;
     const { sourceId, ...command } = parsed.value;
     return assembleUpdateContentCollection(dependencies, sourceId)({ ...command, kind: "guide" });
-  };
-}
-
-export function assembleArchiveSourceGuide(dependencies: MaterialAuthoringDependencies): ArchiveSourceGuideOperation {
-  return async (input) => {
-    const parsed = parseCommand(archiveSourceGuideBodySchema.extend({ actor: accountId }), input);
-    if (!parsed.ok) return parsed;
-    const { sourceId, ...command } = parsed.value;
-    return assembleSetContentCollectionArchive(dependencies, sourceId)({ ...command, kind: "guide" });
   };
 }
 

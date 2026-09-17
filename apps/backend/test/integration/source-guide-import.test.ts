@@ -39,20 +39,13 @@ describe("authoring source Guide completion", () => {
     return guide.value;
   }
 
-  test("archives only through the owning source", async () => {
+  test("keeps an imported Guide out of ordinary archive and renames it through its source", async () => {
     const guide = await reserveGuide(guideSource, "guide-import");
     const updated = await authoring.updateSourceGuide({ actor, sourceId: guideSource, collectionId: guide.id, expectedVersion: guide.version, name: "Переименованный продукт", summary: guide.summary });
     expect(updated).toMatchObject({ ok: true, value: { name: "Переименованный продукт" } });
     if (!updated.ok) throw new Error(updated.error.code);
+    expect(await authoring.updateSourceGuide({ actor, sourceId: "inside-content:other", collectionId: guide.id, expectedVersion: updated.value.version, name: "Чужой", summary: "" })).toMatchObject({ ok: false, error: { code: "forbidden" } });
     expect(await authoring.setContentCollectionArchive({ actor, kind: "guide", collectionId: guide.id, expectedVersion: updated.value.version, archived: true })).toMatchObject({ ok: false, error: { code: "forbidden" } });
-    expect(await authoring.archiveSourceGuide({ actor, sourceId: "inside-content:other", collectionId: guide.id, expectedVersion: updated.value.version, archived: true })).toMatchObject({ ok: false, error: { code: "forbidden" } });
-    const archived = await authoring.archiveSourceGuide({ actor, sourceId: guideSource, collectionId: guide.id, expectedVersion: updated.value.version, archived: true });
-    expect(archived).toMatchObject({ ok: true, value: { archived: true } });
-    if (!archived.ok) throw new Error(archived.error.code);
-    expect(await authoring.archiveSourceGuide({ actor, sourceId: guideSource, collectionId: guide.id, expectedVersion: archived.value.version, archived: false })).toMatchObject({ ok: true, value: { archived: false } });
-    const plain = await authoring.createContentCollection({ actor, kind: "guide", name: "Обычный продукт", slug: "plain-guide-import", summary: "" });
-    if (!plain.ok) throw new Error(plain.error.code);
-    expect(await authoring.archiveSourceGuide({ actor, sourceId: guideSource, collectionId: plain.value.id, expectedVersion: plain.value.version, archived: true })).toMatchObject({ ok: false, error: { code: "forbidden" } });
   });
 
   test("changes covers only for records owned by the same source", async () => {

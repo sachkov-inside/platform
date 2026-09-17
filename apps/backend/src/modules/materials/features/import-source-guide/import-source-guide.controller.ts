@@ -6,7 +6,7 @@ import { ApiMaterialAuthoringErrors, MaterialAuthoringEndpoint } from "../../ada
 import { contentCollectionSchema, reorderSeriesReceiptSchema, parseMaterialAuthoringBody, throwMaterialAuthoringError } from "../../adapters/nest/material-authoring-http.js";
 import { MATERIAL_AUTHORING } from "../../facets/material-authoring/material-authoring.token.js";
 import type { MaterialAuthoring } from "../../facets/material-authoring/material-authoring.js";
-import { archiveSourceGuideBodySchema, reserveSourceGuideBodySchema, updateSourceGuideBodySchema, reorderSourceGuideBodySchema } from "./import-source-guide.contract.js";
+import { reserveSourceGuideBodySchema, updateSourceGuideBodySchema, reorderSourceGuideBodySchema } from "./import-source-guide.contract.js";
 
 @MaterialAuthoringEndpoint()
 @Controller("authoring/import/guides")
@@ -33,18 +33,6 @@ export class ImportSourceGuideController {
   async update(@CurrentAccount() account: AuthenticatedAccount, @Body() input: unknown) {
     const body = parseMaterialAuthoringBody(updateSourceGuideBodySchema, input);
     const result = await this.authoring.updateSourceGuide({ actor: account.accountId, ...body });
-    if (!result.ok) throwMaterialAuthoringError(result.error);
-    return result.value;
-  }
-
-  @Post("archive")
-  @ApiOperation({ operationId: "archiveSourceGuide", summary: "archiveSourceGuide" })
-  @ApiBody({ schema: toOpenApiSchema(archiveSourceGuideBodySchema) })
-  @ApiOkResponse({ schema: toOpenApiSchema(contentCollectionSchema) })
-  @ApiMaterialAuthoringErrors(400, 401, 403, 404, 409, 422, 500, 503)
-  async archive(@CurrentAccount() account: AuthenticatedAccount, @Body() input: unknown) {
-    const body = parseMaterialAuthoringBody(archiveSourceGuideBodySchema, input);
-    const result = await this.authoring.archiveSourceGuide({ actor: account.accountId, ...body });
     if (!result.ok) throwMaterialAuthoringError(result.error);
     return result.value;
   }

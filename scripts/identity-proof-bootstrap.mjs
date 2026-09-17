@@ -473,7 +473,7 @@ export function mergeEnv(source, updates) {
   return `${merged.join("\n")}\n`;
 }
 
-function parseEnv(source) {
+export function parseEnv(source) {
   return Object.fromEntries(
     source
       .split(/\r?\n/u)

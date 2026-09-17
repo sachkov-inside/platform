@@ -2,11 +2,13 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { pathToFileURL } from "node:url";
+import { parseArgs } from "node:util";
 import { loadPackage, canonical, checksum } from "./package.mjs";
 import { convertMarkdown, sourceUuid } from "./markdown.mjs";
 import { withJournal, applyJournaled } from "./journal.mjs";
 import { parseLocalResponse } from "./local-boundaries.mjs";
 import { localTransport, loopbackOrigin, readerOriginFor, resolveLocalTarget } from "./target.mjs";
+import { waitUntilReady } from "./video.mjs";
 
 // Kept for callers of the isolated editor runtime; every target is loopback-only.
 export const reviewOrigin = resolveLocalTarget("editor");
@@ -17,6 +19,63 @@ const topicNames = { "ai-agents": "AI-агенты", "software-engineering": "Р
 // The revision covers the whole original row and the bytes of every file it references.
 export function materialRevision(manifest, row) {
   return checksum(canonical({ row, assets: manifest.assets.filter((asset) => [...Object.values(row.images), row.coverAssetId, ...row.artifacts.map((item) => item.assetId)].includes(asset.sourceId)) }));
+}
+
+export const sourceKey = (manifest, id) => `${manifest.sourceNamespace}:${id}`;
+
+/** Guides whose programme or supplementary part contains this original. */
+export function productsOf(manifest, row) {
+  return manifest.guides.filter((guide) => [...guide.materialIds, ...guide.supplementaryMaterialIds].includes(row.sourceId));
+}
+
+function materialDigest({ revision, metadata, primaryVideoId, videoChapters }) {
+  return checksum(canonical({ revision, metadata, ...(primaryVideoId ? { primaryVideoId, videoChapters } : {}) }));
+}
+
+/** The Material state an original asks for; a changed digest is what the sync applies. */
+export function desiredMaterial(manifest, row, { topicIds, guideIds, defaultAccess, primaryVideoId }) {
+  const metadata = { title: row.title, summary: row.summary, access: row.access ?? defaultAccess, difficulty: row.difficulty, outcomes: row.outcomes ?? [], topicId: row.topicId === null ? null : topicIds.get(row.topicId), formatId: row.kind, tagIds: [], seriesIds: productsOf(manifest, row).map((guide) => guideIds.get(guide.sourceId)) };
+  const videoChapters = primaryVideoId === null ? [] : row.videoChapters;
+  return { metadata, videoChapters, digest: materialDigest({ revision: materialRevision(manifest, row), metadata, primaryVideoId, videoChapters }) };
+}
+
+export function artifactFingerprint(asset, artifact, access) {
+  return checksum(canonical({ sha256: asset.sha256, title: artifact.title, access }));
+}
+
+/** Artifacts a product carries, each with the Materials that declare it and the access it needs. */
+export function artifactDeclarations(manifest, guide, defaultAccess) {
+  const declared = new Map();
+  for (const id of [...guide.materialIds, ...guide.supplementaryMaterialIds]) {
+    const row = manifest.materials.find((item) => item.sourceId === id);
+    for (const artifact of row.artifacts) {
+      const entry = declared.get(artifact.sourceId) ?? { artifact, owners: [] };
+      if (entry.artifact.assetId !== artifact.assetId || entry.artifact.title !== artifact.title) throw new Error(`${row.sourcePath}: artifact ${artifact.sourceId} differs from another declaration`);
+      entry.owners.push(row);
+      declared.set(artifact.sourceId, entry);
+    }
+  }
+  for (const entry of declared.values()) {
+    const accesses = entry.owners.map((row) => row.access ?? defaultAccess);
+    if (accesses.includes("workshop")) throw new Error(`${entry.owners[0].sourcePath}: workshop Materials cannot carry Guide artifacts`);
+    // One artifact serves every declaring Material, so it is paid when any of them is.
+    entry.access = accesses.includes("membership") ? "membership" : "free";
+  }
+  return declared;
+}
+
+export function normalizeSourceIds(manifest, ids) {
+  return ids.map((id) => (id.includes(":") ? id : sourceKey(manifest, id)));
+}
+
+// A missing original is never an instruction: previously synchronized Materials of the selected products are proposed.
+export function archiveProposalKeys(journal, manifest) {
+  const present = new Set(manifest.materials.map((row) => sourceKey(manifest, row.sourceId)));
+  const selected = new Set(manifest.guides.map((guide) => sourceKey(manifest, guide.sourceId)));
+  return Object.entries(journal.materials)
+    .filter(([key, entry]) => key.startsWith(`${manifest.sourceNamespace}:`) && !present.has(key) && !entry.archived
+      && (!entry.guideSourceIds || entry.guideSourceIds.some((id) => selected.has(id))))
+    .map(([key]) => key);
 }
 
 export async function syncLocal(packagePath, stateDirectory, { origin = reviewOrigin, request: transport, defaultAccess = "membership", archive = [], sleep = delay, videoAttempts = 20 } = {}) {
@@ -34,8 +93,7 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
     const report = { packageId: pkg.id, applied: 0, unchanged: 0, materials: [], guides: [], archived: [], archiveProposals: [], notices: [...pkg.manifest.diagnostics] };
     const rows = new Map(pkg.manifest.materials.map((row) => [row.sourceId, row]));
     const assets = new Map(pkg.manifest.assets.map((asset) => [asset.sourceId, asset]));
-    const sourceId = (id) => `${pkg.manifest.sourceNamespace}:${id}`;
-    const guideSourceIds = (row) => pkg.manifest.guides.filter((guide) => [...guide.materialIds, ...guide.supplementaryMaterialIds].includes(row.sourceId)).map((guide) => sourceId(guide.sourceId));
+    const sourceId = (id) => sourceKey(pkg.manifest, id);
     const source = (row) => ({ id: sourceId(row.sourceId), path: row.sourcePath, revision: materialRevision(pkg.manifest, row), showInFeed: row.showInFeed });
     const readAsset = async (asset) => {
       const bytes = await readFile(resolve(pkg.directory, asset.path));
@@ -57,7 +115,7 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
       const previous = journal.materials[body.source.id];
       if (entry.status === "applied" && previous?.contentVersion >= entry.result.contentVersion) continue;
       const saved = await applyJournaled(context, entry.request, (operation, key) => request(operation.path, operation.body, key));
-      journal.materials[body.source.id] = { ...previous, materialId: saved.materialId, contentVersion: saved.contentVersion, digest: checksum(canonical({ revision: body.source.revision, metadata: body.metadata, ...(body.primaryVideoId ? { primaryVideoId: body.primaryVideoId, videoChapters: body.videoChapters } : {}) })) };
+      journal.materials[body.source.id] = { ...previous, materialId: saved.materialId, contentVersion: saved.contentVersion, digest: materialDigest({ revision: body.source.revision, metadata: body.metadata, primaryVideoId: body.primaryVideoId, videoChapters: body.videoChapters }), archived: body.publicationState === "unpublished" };
       await persist();
     }
 
@@ -82,7 +140,6 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
         topicIds.set(id, created.id);
       }
     }
-    const metadata = (row, seriesIds) => ({ title: row.title, summary: row.summary, access: row.access ?? defaultAccess, difficulty: row.difficulty, outcomes: row.outcomes ?? [], topicId: row.topicId === null ? null : topicIds.get(row.topicId), formatId: row.kind, tagIds: [], seriesIds });
     const convert = (row, links, images) => convertMarkdown(row.markdown, {
       sourceId: sourceId(row.sourceId), sourcePath: row.sourcePath,
       link: (href) => {
@@ -114,12 +171,13 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
 
     // Paid Materials must belong to a product, so validation uses the reserved Guides' real identities.
     // Supplementary originals are Guide members outside chapters: the product's "Additional Materials" part.
-    const programmeMemberships = (row) => pkg.manifest.guides.filter((guide) => [...guide.materialIds, ...guide.supplementaryMaterialIds].includes(row.sourceId)).map((guide) => guides.get(guide.sourceId).id);
+    const guideIds = new Map([...guides].map(([id, guide]) => [id, guide.id]));
+    const desired = (row, primaryVideoId) => desiredMaterial(pkg.manifest, row, { topicIds, guideIds, defaultAccess, primaryVideoId });
     // Validate every document before changing any previously correct Material; only empty Guide shells exist so far.
     for (const row of rows.values()) {
       if (journal.materials[sourceId(row.sourceId)]?.revision === source(row).revision && journal.materials[sourceId(row.sourceId)]?.defaultAccess === defaultAccess) continue;
       try {
-        await request("/authoring/import/materials/validate", { source: source(row), publicationState: "published", metadata: metadata(row, programmeMemberships(row)), body: convert(row, placeholderLinks, placeholderImages), videoChapters: [] });
+        await request("/authoring/import/materials/validate", { source: source(row), publicationState: "published", metadata: desired(row, null).metadata, body: convert(row, placeholderLinks, placeholderImages), videoChapters: [] });
       } catch (error) { throw new Error(`${row.sourcePath}: ${error.message}`, { cause: error }); }
     }
 
@@ -147,15 +205,11 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
       const key = `video:${current.materialId}:${row.video.kinescopeId}`;
       const receipt = journal.resources[key];
       if (receipt?.state === "ready" && receipt.videoId === current.primaryVideoId) return current.primaryVideoId;
-      let video = receipt?.videoId ? null : await request(`/authoring/materials/${current.materialId}/videos/attach`, { access, providerVideoId: row.video.kinescopeId });
-      if (video) { journal.resources[key] = { videoId: video.videoId, state: video.state }; await persist(); }
-      const videoId = video?.videoId ?? receipt.videoId;
-      for (let attempt = 0; (video?.state ?? receipt.state) !== "ready"; attempt++) {
-        if (attempt >= videoAttempts) throw new Error(`${row.sourcePath}: video ${row.video.kinescopeId} is not ready yet; rerun the same commit later`);
-        if (attempt > 0) await sleep(3000);
-        video = await request(`/authoring/videos/${videoId}/reconcile`, {}, undefined, { method: "POST" });
-        journal.resources[key] = { videoId, state: video.state }; await persist();
-        if (video.state === "failed" || video.state.startsWith("delet")) throw new Error(`${row.sourcePath}: provider video ${row.video.kinescopeId} is ${video.state}`);
+      const attached = receipt?.videoId ? null : await request(`/authoring/materials/${current.materialId}/videos/attach`, { access, providerVideoId: row.video.kinescopeId });
+      if (attached) { journal.resources[key] = { videoId: attached.videoId, state: attached.state }; await persist(); }
+      const videoId = attached?.videoId ?? receipt.videoId;
+      if ((attached?.state ?? receipt.state) !== "ready") {
+        await waitUntilReady(request, videoId, { sleep, attempts: videoAttempts, label: `${row.sourcePath} (${row.video.kinescopeId})`, onState: async (video) => { journal.resources[key] = { videoId, state: video.state }; await persist(); } });
       }
       return videoId;
     };
@@ -165,11 +219,8 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
       let current = currentMaterials.get(row.sourceId);
       const revision = source(row).revision;
       const previous = journal.materials[key];
-      const memberships = programmeMemberships(row);
-      const desiredMetadata = metadata(row, memberships);
-      const primaryVideoId = await attachVideo(row, current, desiredMetadata.access);
-      const videoChapters = primaryVideoId === null ? [] : row.videoChapters;
-      const digest = checksum(canonical({ revision, metadata: desiredMetadata, ...(primaryVideoId ? { primaryVideoId, videoChapters } : {}) }));
+      const primaryVideoId = await attachVideo(row, current, row.access ?? defaultAccess);
+      const { metadata: desiredMetadata, videoChapters, digest } = desired(row, primaryVideoId);
       if (previous && current.contentVersion !== previous.contentVersion) throw new Error(`${row.sourcePath}: target changed; reconcile before overwriting`);
       if (previous?.digest === digest && current.contentVersion === previous.contentVersion && !previous.archived) {
         report.unchanged++;
@@ -193,7 +244,7 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
         await persist(); report.applied++;
       }
       const cover = await syncCover(row, current, journal.materials[key]);
-      Object.assign(journal.materials[key], { revision, defaultAccess, access: desiredMetadata.access, primaryVideoId, url: links.get(row.sourceId), guideSourceIds: guideSourceIds(row), ...cover });
+      Object.assign(journal.materials[key], { revision, defaultAccess, access: desiredMetadata.access, primaryVideoId, url: links.get(row.sourceId), guideSourceIds: productsOf(pkg.manifest, row).map((guide) => sourceId(guide.sourceId)), ...cover });
       await persist();
       report.materials.push({ sourceId: row.sourceId, title: row.title, url: `${reader}${links.get(row.sourceId)}` });
       if (row.kind === "video" && primaryVideoId === null) report.notices.push({ code: "video_pending", path: row.sourcePath, message: "Текст перенесён; запись видео ещё не привязана в оригинале" });
@@ -208,9 +259,21 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
       const asset = assets.get(row.coverAssetId);
       if (known.coverSha256 === asset.sha256) return known;
       const bytes = await readAsset(asset);
+      // The cover route has no idempotency key: a pending marker lets a retry adopt a change the lost response hid.
+      const pendingKey = `cover-pending:${current.materialId}`;
+      const pending = journal.resources[pendingKey];
+      journal.resources[pendingKey] = { sha256: asset.sha256, expectedCoverId: known.coverId }; await persist();
       const form = fileForm({ sourceId: sourceId(row.sourceId), expectedCoverId: known.coverId ?? "null" }, bytes, asset);
-      const changed = await request(`/authoring/import/content-covers/material/${current.materialId}`, form, undefined, { method: "PUT" });
-      return { coverId: changed.cover?.coverId ?? null, coverSha256: asset.sha256 };
+      let coverId;
+      try {
+        coverId = (await request(`/authoring/import/content-covers/material/${current.materialId}`, form, undefined, { method: "PUT" })).cover?.coverId ?? null;
+      } catch (error) {
+        // Imported covers change only through this source, so a conflict after an unfinished upload is that upload.
+        if (error.status !== 409 || pending?.sha256 !== asset.sha256 || typeof error.body?.currentCoverId !== "string") throw error;
+        coverId = error.body.currentCoverId;
+      }
+      delete journal.resources[pendingKey];
+      return { coverId, coverSha256: asset.sha256 };
     }
 
     for (const guide of pkg.manifest.guides) {
@@ -230,23 +293,11 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
     // Material artifacts become authoring-owned Guide artifacts linked back to every Material that declares them.
     async function syncArtifacts(guide, current) {
       const guideSource = sourceId(guide.sourceId);
-      const declared = new Map();
-      for (const id of [...guide.materialIds, ...guide.supplementaryMaterialIds]) {
-        const row = rows.get(id);
-        for (const artifact of row.artifacts) {
-          const entry = declared.get(artifact.sourceId) ?? { artifact, rows: [] };
-          if (entry.artifact.assetId !== artifact.assetId || entry.artifact.title !== artifact.title) throw new Error(`${row.sourcePath}: artifact ${artifact.sourceId} differs from another declaration`);
-          entry.rows.push(row);
-          declared.set(artifact.sourceId, entry);
-        }
-      }
-      for (const [artifactSourceId, { artifact, rows: owners }] of declared) {
-        const accesses = owners.map((row) => row.access ?? defaultAccess);
-        if (accesses.includes("workshop")) throw new Error(`${owners[0].sourcePath}: workshop Materials cannot carry Guide artifacts`);
-        const access = accesses.includes("membership") ? "membership" : "free";
+      const declared = artifactDeclarations(pkg.manifest, guide, defaultAccess);
+      for (const [artifactSourceId, { artifact, owners, access }] of declared) {
         const asset = assets.get(artifact.assetId);
         const receiptKey = `artifact:${current.id}:${sourceId(artifactSourceId)}`;
-        const fingerprint = checksum(canonical({ sha256: asset.sha256, title: artifact.title, access }));
+        const fingerprint = artifactFingerprint(asset, artifact, access);
         let receipt = journal.resources[receiptKey];
         if (receipt?.fingerprint !== fingerprint) {
           const bytes = await readAsset(asset);
@@ -272,15 +323,13 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
       }
     }
     for (const row of rows.values()) {
-      if (row.artifacts.length && guideSourceIds(row).length === 0) report.notices.push({ code: "artifacts_need_guide", path: row.sourcePath, message: "Артефакты самостоятельного материала переносятся только вместе с продуктом" });
+      if (row.artifacts.length && productsOf(pkg.manifest, row).length === 0) report.notices.push({ code: "artifacts_need_guide", path: row.sourcePath, message: "Артефакты самостоятельного материала переносятся только вместе с продуктом" });
     }
 
-    // A missing original is never an instruction: it is proposed, and unpublished only when named explicitly.
-    const selectedGuides = new Set(pkg.manifest.guides.map((guide) => sourceId(guide.sourceId)));
-    const requested = new Set(archive.map((id) => (id.includes(":") ? id : sourceId(id))));
-    for (const [key, entry] of Object.entries(journal.materials)) {
-      if (!key.startsWith(`${pkg.manifest.sourceNamespace}:`) || rows.has(key.slice(pkg.manifest.sourceNamespace.length + 1)) || entry.archived) continue;
-      if (entry.guideSourceIds && !entry.guideSourceIds.some((id) => selectedGuides.has(id))) continue;
+    // Proposed Materials are unpublished only when named explicitly.
+    const requested = new Set(normalizeSourceIds(pkg.manifest, archive));
+    for (const key of archiveProposalKeys(journal, pkg.manifest)) {
+      const entry = journal.materials[key];
       if (!requested.has(key)) {
         report.archiveProposals.push({ sourceId: key, url: entry.url ? `${reader}${entry.url}` : null });
         continue;
@@ -305,17 +354,9 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
-  const args = process.argv.slice(2);
-  const archive = [];
-  let targetName = "editor";
-  const positional = [];
-  for (let index = 0; index < args.length; index++) {
-    if (args[index] === "--archive") archive.push(args[++index]);
-    else if (args[index] === "--target") targetName = args[++index];
-    else positional.push(args[index]);
-  }
-  const [packagePath, stateDirectory] = positional;
-  if (!packagePath || !stateDirectory || positional.length > 2 || archive.includes(undefined)) throw new Error("Usage: pnpm authoring:sync-local PACKAGE_JSON STATE_DIRECTORY [--target editor|stand] [--archive SOURCE_ID]...");
-  const report = await syncLocal(packagePath, stateDirectory, { origin: resolveLocalTarget(targetName), archive });
+  const { positionals, values } = parseArgs({ allowPositionals: true, options: { target: { type: "string", default: "editor" }, archive: { type: "string", multiple: true, default: [] } } });
+  if (positionals.length !== 2) throw new Error("Usage: pnpm authoring:sync-local PACKAGE_JSON STATE_DIRECTORY [--target editor|stand] [--archive SOURCE_ID]...");
+  const [packagePath, stateDirectory] = positionals;
+  const report = await syncLocal(packagePath, stateDirectory, { origin: resolveLocalTarget(values.target), archive: values.archive });
   process.stdout.write(`${JSON.stringify({ packageId: report.packageId, applied: report.applied, unchanged: report.unchanged, guides: report.guides, archived: report.archived, archiveProposals: report.archiveProposals, notices: report.notices }, null, 2)}\n`);
 }

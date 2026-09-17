@@ -20,6 +20,10 @@ const artifactSchema = z.object({ artifactId: z.uuid(), materialIds: z.array(z.u
 export const videoSchema = z.object({ videoId: z.uuid(), materialId: z.uuid(), state: z.enum(["uploading", "processing", "ready", "failed", "deletion_requested", "deleting", "deleted", "delete_failed"]), durationSeconds: z.number().int().positive().optional() }).passthrough();
 const videoUploadSchema = z.object({ uploadEndpoint: z.url(), video: videoSchema }).passthrough();
 const orderSchema = z.object({ orderVersion: hash }).passthrough();
+const guideOrderSchema = orderSchema.extend({
+  items: z.array(z.object({ materialId: z.uuid(), chapterId: z.uuid().nullable() }).passthrough()),
+  chapters: z.array(z.object({ id: z.uuid(), name: z.string() }).passthrough()),
+});
 export const assetReceiptSchema = z.object({ assetId: z.uuid() }).passthrough();
 const applyBodySchema = z.object({
   source, materialId: z.uuid(), expectedContentVersion: version,
@@ -47,7 +51,6 @@ export function parseLocalResponse(path, value) {
     case "/authoring/import/materials/apply": schema = materialReceiptSchema; break;
     case "/authoring/import/guides/reserve":
     case "/authoring/import/guides/update": schema = guideSchema; break;
-    case "/authoring/import/guides/archive": schema = guideSchema; break;
     case "/authoring/import/guides/composition": schema = orderSchema; break;
     default:
       if (/^\/authoring\/materials\/[^/]+\/assets$/u.test(path)) schema = assetReceiptSchema;
@@ -59,7 +62,7 @@ export function parseLocalResponse(path, value) {
       else if (/^\/authoring\/import\/guides\/[^/]+\/artifacts$/u.test(path)) schema = artifactOutcomeSchema;
       else if (/^\/authoring\/guides\/[^/]+\/artifacts$/u.test(path)) schema = z.object({ artifacts: z.array(artifactSchema) }).passthrough();
       else if (/^\/authoring\/guide-artifacts\/[^/]+\/materials$/u.test(path)) schema = artifactSchema;
-      else if (path.startsWith("/authoring/guides/") && path.endsWith("/order")) schema = orderSchema;
+      else if (/^\/authoring\/guides\/[^/]+\/order$/u.test(path)) schema = guideOrderSchema;
       else throw new Error(`Unsupported local response boundary: ${path}`);
   }
   return schema.parse(value);
