@@ -186,7 +186,8 @@ Materials validated outside their product, and supplementary originals were not 
 `authoring:release preview` against the stand reported 108 unchanged and refused a production URL.
 
 Automated checks: `pnpm test:authoring` (44), gateway unit tests, focused PostgreSQL integration
-tests for source-scoped covers, artifacts and Guide archive, video upload init and MCP tools.
+tests for source-scoped covers and artifacts, refused ordinary archive of an imported Guide,
+video upload init and MCP tools.
 Inside Content received agent instructions for transfer, recording processing, archive and release.
 Not verified here: real provider playback, buyer access through a purchase, mobile layout.
 

@@ -39,6 +39,20 @@ export function desiredMaterial(manifest, row, { topicIds, guideIds, defaultAcce
   return { metadata, videoChapters, digest: materialDigest({ revision: materialRevision(manifest, row), metadata, primaryVideoId, videoChapters }) };
 }
 
+const guideTeaserLimit = 500;
+
+/** The product teaser: the whole summary when it fits, otherwise its first paragraph. */
+export function guideTeaser(guide) {
+  if (guide.summary.length <= guideTeaserLimit) return { teaser: guide.summary, partial: false };
+  const [first] = guide.summary.split(/\n\s*\n/u);
+  if (first.length > guideTeaserLimit) throw new Error(`Guide ${guide.sourceId}: first paragraph exceeds the ${String(guideTeaserLimit)} character teaser limit`);
+  return { teaser: first, partial: true };
+}
+
+export function guideChapters(manifest, guide) {
+  return guide.chapters.map((chapter) => ({ id: sourceUuid(`${sourceKey(manifest, guide.sourceId)}:chapter:${chapter.sourceId}`), name: chapter.title, summary: chapter.summary }));
+}
+
 export function artifactFingerprint(asset, artifact, access) {
   return checksum(canonical({ sha256: asset.sha256, title: artifact.title, access }));
 }
@@ -74,7 +88,8 @@ export function archiveProposalKeys(journal, manifest) {
   const selected = new Set(manifest.guides.map((guide) => sourceKey(manifest, guide.sourceId)));
   return Object.entries(journal.materials)
     .filter(([key, entry]) => key.startsWith(`${manifest.sourceNamespace}:`) && !present.has(key) && !entry.archived
-      && (!entry.guideSourceIds || entry.guideSourceIds.some((id) => selected.has(id))))
+      // Entries recorded before products were tracked belong to any product selection.
+      && (entry.guideSourceIds ? entry.guideSourceIds.some((id) => selected.has(id)) : selected.size > 0))
     .map(([key]) => key);
 }
 
@@ -119,18 +134,11 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
       await persist();
     }
 
-    const teasers = new Map();
-    const guideTeaser = (guide) => {
-      if (!teasers.has(guide.sourceId)) teasers.set(guide.sourceId, teaserOf(guide));
-      return teasers.get(guide.sourceId);
-    };
-    const teaserOf = (guide) => {
-      if (guide.summary.length <= 500) return guide.summary;
-      const paragraphs = guide.summary.split(/\n\s*\n/u);
-      if (paragraphs[0].length > 500) throw new Error(`Guide ${guide.sourceId}: first paragraph exceeds the 500 character teaser limit`);
+    const teasers = new Map(pkg.manifest.guides.map((guide) => [guide.sourceId, guideTeaser(guide)]));
+    const teaserOf = (guide) => teasers.get(guide.sourceId).teaser;
+    if ([...teasers.values()].some(({ partial }) => partial)) {
       report.notices.push({ code: "guide_description_partial", message: "Кратким описанием продукта стал первый абзац. Страница продукта оформляется в Platform; полное описание остаётся в оригинале." });
-      return paragraphs[0];
-    };
+    }
     const topics = await request("/authoring/collections?kind=topic");
     const topicIds = new Map(topics.map((item) => [item.slug, item.id]));
     for (const id of new Set(pkg.manifest.materials.map((row) => row.topicId).filter(Boolean))) {
@@ -163,7 +171,7 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
     const guides = new Map();
     for (const guide of pkg.manifest.guides) {
       if (!guide.complete) throw new Error("This first local programme adapter requires a complete Guide selection");
-      const current = await request("/authoring/import/guides/reserve", { sourceId: sourceId(guide.sourceId), name: guide.title, slug: guide.sourceId, summary: guideTeaser(guide) });
+      const current = await request("/authoring/import/guides/reserve", { sourceId: sourceId(guide.sourceId), name: guide.title, slug: guide.sourceId, summary: teaserOf(guide) });
       guides.set(guide.sourceId, current);
       journal.guides[sourceId(guide.sourceId)] = { guideId: current.id, slug: current.slug };
     }
@@ -279,12 +287,12 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
     for (const guide of pkg.manifest.guides) {
       const current = guides.get(guide.sourceId);
       const order = await request(`/authoring/guides/${current.id}/order`);
-      const chapters = guide.chapters.map((chapter) => ({ id: sourceUuid(`${sourceId(guide.sourceId)}:chapter:${chapter.sourceId}`), name: chapter.title, summary: chapter.summary }));
+      const chapters = guideChapters(pkg.manifest, guide);
       const chapterAssignments = Object.fromEntries(guide.chapters.flatMap((chapter, index) => chapter.materialIds.map((id) => [currentMaterials.get(id).materialId, chapters[index].id])));
       const orderedMaterialIds = [...guide.materialIds, ...guide.supplementaryMaterialIds].map((id) => currentMaterials.get(id).materialId);
       await request("/authoring/import/guides/composition", { sourceId: sourceId(guide.sourceId), seriesId: current.id, expectedOrderVersion: order.orderVersion, orderedMaterialIds, chapters, chapterAssignments });
-      if (current.name !== guide.title || current.summary !== guideTeaser(guide)) {
-        await request("/authoring/import/guides/update", { sourceId: sourceId(guide.sourceId), collectionId: current.id, expectedVersion: current.version, name: guide.title, summary: guideTeaser(guide) });
+      if (current.name !== guide.title || current.summary !== teaserOf(guide)) {
+        await request("/authoring/import/guides/update", { sourceId: sourceId(guide.sourceId), collectionId: current.id, expectedVersion: current.version, name: guide.title, summary: teaserOf(guide) });
       }
       await syncArtifacts(guide, current);
       report.guides.push({ title: guide.title, url: `${reader}/guides/${current.slug}`, programmeUrl: `${reader}/guides/${current.slug}/programme`, mainMaterials: guide.materialIds.length, supplementaryMaterials: guide.supplementaryMaterialIds.map((id) => ({ sourceId: id, url: `${reader}${links.get(id)}` })) });

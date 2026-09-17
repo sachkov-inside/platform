@@ -10,6 +10,7 @@ import { fileURLToPath, URLSearchParams } from "node:url";
 import { z } from "zod";
 
 import { localTargets } from "../tools/authoring/target.mjs";
+import { readIdentityProofPort } from "./identity-proof-environment.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const gateway = new URL(localTargets.stand);
@@ -88,7 +89,7 @@ async function main() {
   const settings = settingsSchema.parse(parseEnv(await readFile(resolve(root, ".identity-proof/authoring-stand.env"), "utf8").catch(() => {
     throw new Error("Start the stand with pnpm local:stand first: it configures the authoring client");
   })));
-  const apiOrigin = `http://127.0.0.1:${process.env.API_HOST_PORT ?? "3001"}`;
+  const apiOrigin = `http://127.0.0.1:${String(readIdentityProofPort(process.env, "API_HOST_PORT", 3001))}`;
   const exchange = async (pat) => {
     const response = await fetch(`${settings.LOGTO_ENDPOINT}/oidc/token`, {
       method: "POST",

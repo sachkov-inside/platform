@@ -49,6 +49,8 @@ export async function uploadVideo({ stateDirectory, origin = resolveLocalTarget(
     if (!material || material.archived) throw new Error(`Synchronize ${sourceId} before attaching its recording`);
     const receiptKey = `upload:${material.materialId}:${sha256}`;
     let receipt = journal.resources[receiptKey];
+    // A failed provider outcome is known, so the same file may start a fresh attempt.
+    if (receipt?.phase === "failed") receipt = undefined;
     if (receipt === undefined) {
       receipt = { sourceId, idempotencyKey: `video-upload:${randomUUID()}`, byteSize: info.size, filename: basename(path), title: title ?? basename(path), access: material.access ?? "membership", phase: "initializing" };
       journal.resources[receiptKey] = receipt; await persist();
@@ -72,7 +74,13 @@ export async function uploadVideo({ stateDirectory, origin = resolveLocalTarget(
       journal.resources[receiptKey] = receipt; await persist();
     }
     if (receipt.phase !== "ready") {
-      const video = await waitUntilReady(request, receipt.videoId, { sleep, attempts, label: sourceId });
+      let video;
+      try {
+        video = await waitUntilReady(request, receipt.videoId, { sleep, attempts, label: sourceId });
+      } catch (error) {
+        if (/video is (failed|delet)/u.test(error.message)) { journal.resources[receiptKey] = { ...receipt, phase: "failed" }; await persist(); }
+        throw error;
+      }
       receipt = { ...receipt, phase: "ready", durationSeconds: video.durationSeconds ?? null };
       journal.resources[receiptKey] = receipt;
       journal.resources[`source-video:${sourceId}`] = { videoId: receipt.videoId, providerVideoId: receipt.providerVideoId, sha256 };

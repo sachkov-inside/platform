@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { canonical, checksum } from "./package.mjs";
 import { syncLocal } from "./local-sync.mjs";
 import { loopbackOrigin, resolveLocalTarget } from "./target.mjs";
-import { previewRelease } from "./release.mjs";
+import { applyRelease, previewRelease } from "./release.mjs";
 
 const uuid = (n) => `${String(n).padStart(8, "0")}-0000-4000-8000-000000000000`;
 const guideId = uuid(900);
@@ -57,6 +57,7 @@ function applicationApi() {
       if (path === "/authoring/collections?kind=topic") return [];
       if (path === "/authoring/import/materials/validate") return { valid: true };
       if (path === "/authoring/import/guides/reserve") return structuredClone(guide);
+      if (path === "/authoring/collections?kind=guide") return [structuredClone(guide)];
       if (path === "/authoring/import/guides/update") {
         assert.equal(body.expectedVersion, guide.version);
         assert.equal(body.introduction, undefined, "Guide page copy is owned by Platform");
@@ -284,7 +285,16 @@ test("release preview reports video, composition and artifact changes that the s
   const origin = "http://127.0.0.1:4396";
   const clean = await previewRelease(setup.packagePath, setup.state, { origin, request: api.request });
   assert.deepEqual(clean.summary, { new: 0, changed: 0, restore: 0, unchanged: 3, conflict: 0 });
-  assert.deepEqual(clean.preview.guides[0], { sourceId: "product", title: "Продукт", materials: 3, artifactChanges: [], change: "unchanged", added: 0, removed: 0, reorderedOrRegrouped: false });
+  assert.deepEqual(clean.preview.guides[0], { sourceId: "product", title: "Продукт", materials: 3, artifactChanges: [], change: "unchanged", detailsChange: false, chapterTextChanges: 0, added: 0, removed: 0, reorderedOrRegrouped: false });
+
+  // A recording uploaded after the review changes what apply would save, so apply refuses.
+  const reviewedJournal = JSON.parse(await readFile(join(setup.state, "journal.json"), "utf8"));
+  reviewedJournal.resources["source-video:inside-content:old"] = { videoId: uuid(557), providerVideoId: "late", sha256: "e".repeat(64) };
+  await writeFile(join(setup.state, "journal.json"), canonical(reviewedJournal));
+  api.videos.set(uuid(557), { videoId: uuid(557), state: "ready" });
+  await assert.rejects(applyRelease(clean.path, setup.state, { request: api.request }), /changed after the preview/u);
+  delete reviewedJournal.resources["source-video:inside-content:old"];
+  await writeFile(join(setup.state, "journal.json"), canonical(reviewedJournal));
 
   const journalPath = join(setup.state, "journal.json");
   const journal = JSON.parse(await readFile(journalPath, "utf8"));
@@ -300,5 +310,16 @@ test("release preview reports video, composition and artifact changes that the s
   assert.equal(lesson.change, "changed");
   assert.equal(lesson.videoChange, true);
   assert.equal(next.preview.materials.find((item) => item.sourceId === "extra").change, "new");
-  assert.deepEqual(next.preview.guides[0], { sourceId: "product", title: "Продукт", materials: 4, artifactChanges: ["checklist"], change: "composition", added: 1, removed: 0, reorderedOrRegrouped: true });
+  assert.deepEqual(next.preview.guides[0], { sourceId: "product", title: "Продукт", materials: 4, artifactChanges: ["checklist"], change: "composition", detailsChange: false, chapterTextChanges: 0, added: 1, removed: 0, reorderedOrRegrouped: true });
+  setup.manifest.guides[0].title = "Новое имя";
+  await setup.write();
+  const renamed = await previewRelease(setup.packagePath, setup.state, { origin, request: api.request });
+  assert.equal(renamed.preview.guides[0].detailsChange, true);
+
+  // Once the original names its own upload, the preview expects no video change.
+  journal.resources["source-video:inside-content:video"] = { videoId: api.materials.get("inside-content:video").primaryVideoId, providerVideoId: setup.manifest.materials[1].video.kinescopeId, sha256: "f".repeat(64) };
+  delete journal.resources[`video:${api.materials.get("inside-content:video").materialId}:${setup.manifest.materials[1].video.kinescopeId}`];
+  await writeFile(journalPath, canonical(journal));
+  const named = await previewRelease(setup.packagePath, setup.state, { origin, request: api.request });
+  assert.equal(named.preview.materials.find((item) => item.sourceId === "video").change, "unchanged");
 });

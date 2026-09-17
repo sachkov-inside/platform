@@ -6,7 +6,7 @@ import { z } from "zod";
 import { loadPackage, canonical, checksum } from "./package.mjs";
 import { writeAtomic } from "./journal.mjs";
 import { parseJournal, parseLocalResponse } from "./local-boundaries.mjs";
-import { archiveProposalKeys, artifactDeclarations, artifactFingerprint, desiredMaterial, normalizeSourceIds, sourceKey, syncLocal } from "./local-sync.mjs";
+import { archiveProposalKeys, artifactDeclarations, artifactFingerprint, desiredMaterial, guideChapters, guideTeaser, normalizeSourceIds, sourceKey, syncLocal } from "./local-sync.mjs";
 import { loopbackOrigin, localTargets, localTransport, resolveLocalTarget } from "./target.mjs";
 
 // A release applies one reviewed package to one environment. Only local environments are enabled:
@@ -58,9 +58,12 @@ export async function previewRelease(packagePath, stateDirectory, { origin, requ
     const current = await request(`/authoring/materials/${entry.materialId}`);
     expected[key] = current.contentVersion;
     // A named provider record that was never attached here makes the Material change on apply.
+    const uploaded = resources[`source-video:${key}`];
+    // Attaching the provider record of this Material's own upload returns the same Video.
     const attached = row.video === null
-      ? resources[`source-video:${key}`]?.videoId ?? current.primaryVideoId
-      : resources[`video:${entry.materialId}:${row.video.kinescopeId}`]?.videoId ?? `attach:${row.video.kinescopeId}`;
+      ? uploaded?.videoId ?? current.primaryVideoId
+      : resources[`video:${entry.materialId}:${row.video.kinescopeId}`]?.videoId
+        ?? (uploaded?.providerVideoId === row.video.kinescopeId ? uploaded.videoId : `attach:${row.video.kinescopeId}`);
     const { digest } = desiredMaterial(manifest, row, { topicIds, guideIds, defaultAccess: entry.defaultAccess ?? defaultAccess, primaryVideoId: attached });
     const change = current.contentVersion !== entry.contentVersion ? "conflict" : entry.archived ? "restore" : entry.digest !== digest ? "changed" : "unchanged";
     const coverSha = row.coverAssetId === null ? null : assets.get(row.coverAssetId).sha256;
@@ -73,6 +76,7 @@ export async function previewRelease(packagePath, stateDirectory, { origin, requ
     });
   }
   const guides = [];
+  const currentGuides = guideIds.size === 0 ? [] : await request("/authoring/collections?kind=guide");
   for (const guide of manifest.guides) {
     const programme = [...guide.materialIds, ...guide.supplementaryMaterialIds];
     const guideId = guideIds.get(guide.sourceId);
@@ -90,10 +94,15 @@ export async function previewRelease(packagePath, stateDirectory, { origin, requ
     const currentOrder = order.items.map((item) => item.materialId);
     const chapterOf = new Map(guide.chapters.flatMap((chapter) => chapter.materialIds.map((id) => [ids.get(id), chapter.title])));
     const currentChapters = new Map(order.chapters.map((chapter) => [chapter.id, chapter.name]));
+    const stored = currentGuides.find((item) => item.id === guideId);
+    const currentChapterText = new Map(order.chapters.map((chapter) => [chapter.id, canonical({ name: chapter.name, summary: chapter.summary })]));
+    const chapterTextChanges = guideChapters(manifest, guide).filter((chapter) => currentChapterText.has(chapter.id) && currentChapterText.get(chapter.id) !== canonical({ name: chapter.name, summary: chapter.summary })).length;
+    const detailsChange = stored === undefined || stored.name !== guide.title || stored.summary !== guideTeaser(guide).teaser;
     const moved = order.items.filter((item) => (chapterOf.get(item.materialId) ?? null) !== (item.chapterId === null ? null : currentChapters.get(item.chapterId) ?? null)).length;
     guides.push({
       sourceId: guide.sourceId, title: guide.title, materials: programme.length, artifactChanges,
-      change: canonical(desiredOrder) === canonical(currentOrder) && moved === 0 ? "unchanged" : "composition",
+      change: canonical(desiredOrder) === canonical(currentOrder) && moved === 0 && chapterTextChanges === 0 ? (detailsChange ? "details" : "unchanged") : "composition",
+      detailsChange, chapterTextChanges,
       added: desiredOrder.filter((id) => !currentOrder.includes(id)).length,
       removed: currentOrder.filter((id) => !desiredOrder.includes(id)).length,
       reorderedOrRegrouped: canonical(desiredOrder.filter((id) => currentOrder.includes(id))) !== canonical(currentOrder.filter((id) => desiredOrder.includes(id))) || moved > 0,
@@ -128,10 +137,9 @@ export async function applyRelease(previewPath, stateDirectory, { archive = [], 
   if (unapproved.length) throw new Error(`Archive is limited to the reviewed proposals: ${unapproved.join(", ")}`);
   const pkg = await loadPackage(preview.packagePath);
   if (pkg.id !== preview.packageId) throw new Error("Package differs from the reviewed preview");
+  // The recomputed plan must be the reviewed one: versions, local receipts and every listed change.
   const current = await previewRelease(preview.packagePath, stateDirectory, { origin: target, request: transport });
-  if (canonical(current.preview.expected) !== canonical(preview.expected) || canonical(current.preview.archiveProposals) !== canonical(preview.archiveProposals)) {
-    throw new Error("The environment changed after the preview; preview again before releasing");
-  }
+  if (current.preview.fingerprint !== fingerprint) throw new Error("The environment changed after the preview; preview again before releasing");
   return syncLocal(preview.packagePath, stateDirectory, { origin: target, request: transport, archive });
 }
 

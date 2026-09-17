@@ -99,6 +99,8 @@ const guideArtifactListSchema = z
   .object({ artifacts: z.array(guideArtifactHttpSchema) })
   .strict();
 const removedArtifactSchema = z.object({ artifactId: z.uuid() }).strict();
+// guideSourceId, sourceId, title, purpose, access, declaredSize and checksumSha256.
+const sourceImportFieldLimit = 7;
 const importOutcomeSchema = z
   .object({
     artifactId: z.uuid(),
@@ -481,7 +483,7 @@ export class GuideArtifactAuthoringController {
     if (!uuidSchema.safeParse(guideId).success) {
       throw guideArtifactProblem(400, "invalid_artifact", "Guide Artifact request is malformed");
     }
-    const upload = await readUpload(request, 7);
+    const upload = await readUpload(request, sourceImportFieldLimit);
     const metadata = metadataBodySchema.safeParse({
       access: field(upload.part, "access"),
       purpose: field(upload.part, "purpose") ?? "",

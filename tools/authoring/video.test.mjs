@@ -92,3 +92,20 @@ test("a Material that was never synchronized cannot receive a recording", async 
   const setup = await fixture(t);
   await assert.rejects(uploadVideo({ stateDirectory: setup.state, sourceId: "inside-content:other", file: setup.file, request: providerApi().request }), /Synchronize/u);
 });
+
+test("a failed provider outcome lets the same file start a new attempt", async (t) => {
+  const setup = await fixture(t);
+  let state = "failed";
+  const keys = [];
+  const api = { async request(path, body, key) {
+    if (path.endsWith("/environment")) return { mode: "development" };
+    if (path.endsWith("/uploads")) { keys.push(key); return { providerVideoId: `provider-${String(keys.length)}`, uploadEndpoint: "https://uploads.invalid/x", video: { videoId, materialId, state: "uploading" } }; }
+    if (path.endsWith("/reconcile")) return { videoId, materialId, state, durationSeconds: 600 };
+    throw new Error(`Unexpected ${path}`);
+  } };
+  await assert.rejects(upload(setup, api), /video is failed/u);
+  state = "ready";
+  const result = await upload(setup, api);
+  assert.equal(new Set(keys).size, 2);
+  assert.equal(result.providerVideoId, "provider-2");
+});

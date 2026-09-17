@@ -22,7 +22,7 @@ const videoUploadSchema = z.object({ uploadEndpoint: z.url(), video: videoSchema
 const orderSchema = z.object({ orderVersion: hash }).passthrough();
 const guideOrderSchema = orderSchema.extend({
   items: z.array(z.object({ materialId: z.uuid(), chapterId: z.uuid().nullable() }).passthrough()),
-  chapters: z.array(z.object({ id: z.uuid(), name: z.string() }).passthrough()),
+  chapters: z.array(z.object({ id: z.uuid(), name: z.string(), summary: z.string() }).passthrough()),
 });
 export const assetReceiptSchema = z.object({ assetId: z.uuid() }).passthrough();
 const applyBodySchema = z.object({
@@ -45,6 +45,7 @@ export function parseLocalResponse(path, value) {
   switch (path) {
     case "/authoring/import/materials/environment": schema = z.object({ mode: z.enum(["development", "test", "production"]) }).passthrough(); break;
     case "/authoring/collections?kind=topic": schema = z.array(topicSchema); break;
+    case "/authoring/collections?kind=guide": schema = z.array(guideSchema); break;
     case "/authoring/collections": schema = topicSchema; break;
     case "/authoring/import/materials/validate": schema = z.object({ valid: z.literal(true) }).passthrough(); break;
     case "/authoring/import/materials/reserve":
