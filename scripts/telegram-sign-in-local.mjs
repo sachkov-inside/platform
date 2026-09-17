@@ -24,7 +24,7 @@ for (const port of [Number(web.port), Number(api.port), 3602]) {
 const databaseUrl = process.env.DATABASE_URL ?? (ensureCheckDatabase({ cwd: root }), checkDatabaseUrl(process.env.POSTGRES_HOST_PORT ?? 5432));
 if (new URL(databaseUrl).pathname === "/inside") throw new Error("The Telegram sign-in launcher must not migrate or seed the stand database");
 const environment = {
-  ...process.env, DATABASE_URL: databaseUrl, API_HOST: "127.0.0.1", API_PORT: api.port,
+  ...process.env, DATABASE_URL: databaseUrl, LOCAL_SEED_DEMO: "published", API_HOST: "127.0.0.1", API_PORT: api.port,
   MCP_HOST: "127.0.0.1", MCP_PORT: "3602", MCP_SERVER_URL: "http://127.0.0.1:3602/mcp",
   NODE_EXTRA_CA_CERTS: resolve(root, ".identity-proof/tls/certificate.pem"),
 };

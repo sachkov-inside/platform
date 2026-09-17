@@ -22,6 +22,8 @@ describe("local development seed for the owner's stand", () => {
     expect(await database.prisma.materialAnnouncement.count()).toBe(0);
     expect(await database.prisma.materialNotificationOutbox.count()).toBe(0);
     expect(await database.prisma.material.count({ where: { firstPublishedAt: { not: null } } })).toBe(0);
+    // A product without readable Materials is not sold on the owner's stand.
+    expect(await database.prisma.billingOffer.count({ where: { published: true } })).toBe(0);
 
     await seedLocalDevelopment(database.prisma, { demo: "hidden" });
     const repeated = await database.prisma.material.findMany({ select: { id: true, publicationState: true, contentVersion: true } });

@@ -125,13 +125,15 @@ production recovery are documented in the
 [Video deletion runbook](video-deletion.md).
 
 The smoke needs the published demonstration catalogue, so it runs in its own disposable project and
-never touches the shared stand volumes:
+never touches the shared stand volumes. It uses the same ports, so stop the stand first:
 
 ```bash
-export COMPOSE_PROJECT_NAME=inside-platform-smoke LOCAL_SEED_VIEW=checks
-docker compose up --detach --build --wait
-bash scripts/compose-stack-smoke.sh
-docker compose down --volumes
+(
+  export COMPOSE_PROJECT_NAME=inside-platform-smoke LOCAL_SEED_VIEW=checks
+  docker compose up --detach --build --wait
+  bash scripts/compose-stack-smoke.sh
+  docker compose down --volumes
+)
 ```
 
 The smoke proves the live web server adapter can reach API and PostgreSQL, MCP reported
@@ -166,7 +168,7 @@ the rest of the stand. It prints four addresses at the end:
 - the bank double on <http://127.0.0.1:8090>.
 
 The default `docker compose up` without the profile starts as before and needs none of this. The
-stand claims the same machine-wide lock and the same Compose project as `pnpm local:setup`, so it
+stand claims the same machine-wide lock as `pnpm local:setup` and the shared Compose project, so it
 refuses to start while a stack is already running: stop the running one with
 `docker compose --profile identity down` first. Start the stand only through `pnpm local:stand`;
 a bare `docker compose --profile identity up` starts Logto without the bootstrap that configures
@@ -264,8 +266,8 @@ pnpm dev
 ```
 
 Individual adapters are `pnpm dev:web`, `pnpm dev:api` and `pnpm dev:mcp`. `pnpm local:setup` is a
-host-pnpm convenience wrapper around the full detached Compose startup and smoke; it refuses to
-reuse a running singleton stack.
+host-pnpm convenience wrapper that starts the disposable smoke project with the published demo and
+runs the smoke; it refuses to start while any Platform stack owns the ports.
 
 ### MCP authoring
 
@@ -318,11 +320,11 @@ Inspect the running host fallback or Compose stack:
 - local Object Storage console: <http://127.0.0.1:9001>
 - MCP Streamable HTTP endpoint: <http://127.0.0.1:3002/mcp>
 - MCP protected-resource metadata: <http://127.0.0.1:3002/.well-known/oauth-protected-resource/mcp>
-- published Material API: <http://127.0.0.1:3001/materials/kak-ustroen-inside-platform>
+- published Material API (smoke project only): <http://127.0.0.1:3001/materials/kak-ustroen-inside-platform>
 - published catalog API: <http://127.0.0.1:3001/library/materials>
 - Material authoring OpenAPI group: <http://127.0.0.1:3001/openapi#/Material%20authoring>
 - production Library: <http://127.0.0.1:3000/library>
-- production Reader: <http://127.0.0.1:3000/materials/kak-ustroen-inside-platform>
+- production Reader (smoke project only): <http://127.0.0.1:3000/materials/kak-ustroen-inside-platform>
 
 The API health response is:
 

@@ -284,7 +284,7 @@ export async function seedLocalDevelopment(
   // Related pins join readable pages; hidden demo drafts have no public address to pin.
   if (demo === "published") await ensureRelatedPin(prisma, overview.materialId);
   // Каталог заводится последним: разовое предложение продаёт уже засеянное руководство.
-  await seedLocalOfferCatalog(prisma, { actor, guideId: seriesId });
+  await seedLocalOfferCatalog(prisma, { actor, guideId: seriesId, onSale: demo === "published" });
   if (demo === "hidden") await hideSeededMaterials(seed);
 
   return Object.freeze({

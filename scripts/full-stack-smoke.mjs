@@ -40,6 +40,8 @@ childEnvironment.NODE_ENV ??= "development";
 // `release:bootstrap-owner` возьмёт оттуда чужое значение и прогон начнёт зависеть от машины.
 const stackAuthorPermission = "materials:manage";
 Object.assign(childEnvironment, {
+  // The smoke reads the published demonstration catalogue in its own check database.
+  LOCAL_SEED_DEMO: "published",
   OWNER_PERMISSION: stackAuthorPermission,
   PLATFORM_RELEASE_VERSION: "v1",
   PLATFORM_SOURCE_SHA: "1".repeat(40),

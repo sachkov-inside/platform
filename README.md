@@ -38,7 +38,10 @@ A fresh clone needs Docker with Compose; host Node.js is not required for the pr
 docker compose up --build
 ```
 
-This starts PostgreSQL, one-shot migration and development seed jobs, Nest API, MCP and Next web. Open web at
+This starts PostgreSQL, one-shot migration and development seed jobs, Nest API, MCP and Next web.
+The seed keeps its demonstration Materials unpublished; `pnpm local:stand` and `pnpm local:product`
+show the real product view described in the
+[local development runbook](docs/runbooks/local-development.md#local-product-view). Open web at
 <http://127.0.0.1:3000>, API health/OpenAPI at <http://127.0.0.1:3001/health> and
 <http://127.0.0.1:3001/openapi>, and MCP at <http://127.0.0.1:3002/mcp>. Rebuild the affected
 service after a source or dependency change, or use the host `pnpm dev*` commands for a faster
@@ -108,15 +111,21 @@ The local adapter does not provision Logto clients, service identities or produc
 
 ## Docker-only smoke and shutdown
 
+The smoke needs the published demonstration catalogue, so it runs in a disposable project with its own
+volumes and the local ports; stop the shared stand first.
+
 ```bash
-docker compose up --detach --build --wait
-bash scripts/compose-stack-smoke.sh
-docker compose down
+(
+  export COMPOSE_PROJECT_NAME=inside-platform-smoke LOCAL_SEED_VIEW=checks
+  docker compose up --detach --build --wait
+  bash scripts/compose-stack-smoke.sh
+  docker compose down --volumes
+)
 ```
 
 The smoke verifies web → API → PostgreSQL, OpenAPI, MCP protected-resource metadata, the
-unauthenticated fail-closed boundary and the idempotent seeded Material. Normal shutdown preserves
-the named PostgreSQL volume; `docker compose down --volumes`
+unauthenticated fail-closed boundary and the idempotent seeded Material. On the shared stand, normal shutdown preserves
+the named PostgreSQL volume; `docker compose down --volumes` there
 is an explicit destructive reset.
 
 ## Production delivery baseline

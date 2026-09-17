@@ -86,6 +86,8 @@ describe("application CI workflow contract", () => {
       jobBlock("compose-development"),
       /docker compose --profile storybook config --quiet/u,
     );
+    // The clean-stack smoke reads the published demo; the shared stand keeps it hidden.
+    assert.match(jobBlock("compose-development"), /LOCAL_SEED_VIEW: checks/u);
     assert.match(
       jobBlock("compose-development"),
       /docker compose --profile storybook build/u,
