@@ -6,7 +6,7 @@ import { loadPackage, canonical, checksum } from "./package.mjs";
 import { convertMarkdown, sourceUuid } from "./markdown.mjs";
 import { withJournal, applyJournaled } from "./journal.mjs";
 import { parseLocalResponse } from "./local-boundaries.mjs";
-import { localTransport, loopbackOrigin, resolveLocalTarget } from "./target.mjs";
+import { localTransport, loopbackOrigin, readerOriginFor, resolveLocalTarget } from "./target.mjs";
 
 // Kept for callers of the isolated editor runtime; every target is loopback-only.
 export const reviewOrigin = resolveLocalTarget("editor");
@@ -16,6 +16,7 @@ const topicNames = { "ai-agents": "AI-агенты", "software-engineering": "Р
 
 export async function syncLocal(packagePath, stateDirectory, { origin = reviewOrigin, request: transport, defaultAccess = "membership", archive = [], sleep = delay, videoAttempts = 20 } = {}) {
   const target = loopbackOrigin(origin);
+  const reader = readerOriginFor(target);
   const send = transport ?? localTransport(target);
   const request = async (path, body, key, options) => parseLocalResponse(path, await send(path, body, key, options));
   if (!["free", "membership"].includes(defaultAccess)) throw new Error("Explicit local access must be free or membership");
@@ -177,7 +178,7 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
       const cover = await syncCover(row, current, journal.materials[key]);
       Object.assign(journal.materials[key], { revision, defaultAccess, primaryVideoId, url: links.get(row.sourceId), guideSourceIds: guideSourceIds(row), ...cover });
       await persist();
-      report.materials.push({ sourceId: row.sourceId, title: row.title, url: `${target}${links.get(row.sourceId)}` });
+      report.materials.push({ sourceId: row.sourceId, title: row.title, url: `${reader}${links.get(row.sourceId)}` });
       if (row.kind === "video" && primaryVideoId === null) report.notices.push({ code: "video_pending", path: row.sourcePath, message: "Текст перенесён; запись видео ещё не привязана в оригинале" });
     }
 
@@ -206,7 +207,7 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
         await request("/authoring/import/guides/update", { sourceId: sourceId(guide.sourceId), collectionId: current.id, expectedVersion: current.version, name: guide.title, summary: guideTeaser(guide) });
       }
       await syncArtifacts(guide, current);
-      report.guides.push({ title: guide.title, url: `${target}/guides/${current.slug}`, programmeUrl: `${target}/guides/${current.slug}/programme`, mainMaterials: orderedMaterialIds.length, supplementaryMaterials: guide.supplementaryMaterialIds.map((id) => ({ sourceId: id, url: `${target}${links.get(id)}` })) });
+      report.guides.push({ title: guide.title, url: `${reader}/guides/${current.slug}`, programmeUrl: `${reader}/guides/${current.slug}/programme`, mainMaterials: orderedMaterialIds.length, supplementaryMaterials: guide.supplementaryMaterialIds.map((id) => ({ sourceId: id, url: `${reader}${links.get(id)}` })) });
     }
 
     // Material artifacts become authoring-owned Guide artifacts linked back to every Material that declares them.
@@ -264,7 +265,7 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
       if (!key.startsWith(`${pkg.manifest.sourceNamespace}:`) || rows.has(key.slice(pkg.manifest.sourceNamespace.length + 1)) || entry.archived) continue;
       if (entry.guideSourceIds && !entry.guideSourceIds.some((id) => selectedGuides.has(id))) continue;
       if (!requested.has(key)) {
-        report.archiveProposals.push({ sourceId: key, url: entry.url ? `${target}${entry.url}` : null });
+        report.archiveProposals.push({ sourceId: key, url: entry.url ? `${reader}${entry.url}` : null });
         continue;
       }
       requested.delete(key);

@@ -3,6 +3,8 @@ export const localTargets = Object.freeze({
   editor: "http://127.0.0.1:4396",
   stand: "http://127.0.0.1:4398",
 });
+// Where a reader opens the result: the editor gateway serves pages itself, the stand serves them on its web port.
+const readerOrigins = Object.freeze({ editor: localTargets.editor, stand: "http://127.0.0.1:3000" });
 
 const loopbackHosts = new Set(["127.0.0.1", "localhost", "[::1]"]);
 
@@ -17,6 +19,11 @@ export function loopbackOrigin(value) {
 export function resolveLocalTarget(name = "editor") {
   if (!Object.hasOwn(localTargets, name)) throw new Error(`Unknown local authoring target: ${name}`);
   return loopbackOrigin(localTargets[name]);
+}
+
+export function readerOriginFor(origin) {
+  const name = Object.keys(localTargets).find((key) => localTargets[key] === loopbackOrigin(origin));
+  return name === undefined ? loopbackOrigin(origin) : readerOrigins[name];
 }
 
 // JSON bodies are sent as JSON; FormData bodies stay multipart. The gateway adds the owner credential.

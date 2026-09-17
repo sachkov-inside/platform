@@ -33,6 +33,8 @@ const endpoint = `https://identity.inside.localhost:${readIdentityProofPort(proc
 const adminEndpoint = `https://identity.inside.localhost:${readIdentityProofPort(process.env, "IDENTITY_PROOF_LOGTO_ADMIN_PORT", 3302)}`;
 const managementResource = "https://default.logto.app/api";
 const applicationName = "Inside Web";
+// Stand-only client for the loopback authoring gateway; production and proof tenants never get it.
+export const authoringStandApplicationName = "Inside Authoring Stand";
 const smtpConnectorId = "simple-mail-transfer-protocol";
 const platformAccessTokenTtlSeconds = readAccessTokenTtl();
 const mailpitPort = readIdentityProofPort(process.env, "IDENTITY_PROOF_MAILPIT_PORT", 8026);
@@ -97,6 +99,10 @@ async function main() {
   await ensureJwtCustomizer(api, telegramConnectorId);
   const applicationSecret = await readApplicationSecret(api, application.id);
   await writeRuntimeEnvironment(application.id, applicationSecret);
+  if (onStand) {
+    const authoring = await ensureAuthoringStandApplication(api);
+    await writeAuthoringStandEnvironment(authoring.id, await readApplicationSecret(api, authoring.id));
+  }
   if (process.argv.includes("--email-smoke")) {
     await testEmailConnector(api);
   }
@@ -112,7 +118,7 @@ async function main() {
   );
 }
 
-function readSeededManagementSecret() {
+export function readSeededManagementSecret() {
   const query =
     "select secret from applications where tenant_id='admin' and id='m-default'";
   const secret = execFileSync(
@@ -139,7 +145,7 @@ function readSeededManagementSecret() {
   return secret;
 }
 
-async function fetchManagementAccessToken(secret) {
+export async function fetchManagementAccessToken(secret) {
   const body = new URLSearchParams({
     grant_type: "client_credentials",
     resource: managementResource,
@@ -161,7 +167,7 @@ async function fetchManagementAccessToken(secret) {
   return payload.access_token;
 }
 
-function createManagementApi(accessToken) {
+export function createManagementApi(accessToken) {
   return async (path, { method = "GET", body } = {}) => {
     const response = await fetch(`${endpoint}/api${path}`, {
       method,
@@ -226,6 +232,38 @@ export async function ensureApplication(api) {
     }),
     "Logto application update response",
   );
+}
+
+export async function ensureAuthoringStandApplication(api) {
+  const applications = parseManagementPayload(
+    z.array(applicationSchema),
+    await api("/applications"),
+    "Logto applications response",
+  );
+  const current = findSingle(applications, ({ name }) => name === authoringStandApplicationName);
+  // Token exchange turns the owner's stand personal access token into a short API token.
+  const body = {
+    name: authoringStandApplicationName,
+    oidcClientMetadata: { redirectUris: [`${webBaseUrl}/authoring-stand/callback`], postLogoutRedirectUris: [] },
+    customClientMetadata: { allowTokenExchange: true },
+  };
+  return parseManagementPayload(
+    applicationSchema,
+    current === undefined
+      ? await api("/applications", { method: "POST", body: { ...body, type: "Traditional" } })
+      : await api(`/applications/${current.id}`, { method: "PATCH", body }),
+    "Logto authoring stand application response",
+  );
+}
+
+async function writeAuthoringStandEnvironment(applicationId, applicationSecret) {
+  await writeEnvFile(resolve(root, ".identity-proof/authoring-stand.env"), mergeEnv("", {
+    LOGTO_ENDPOINT: endpoint,
+    LOGTO_ADMIN_ENDPOINT: adminEndpoint,
+    LOGTO_AUDIENCE: platformResource,
+    AUTHORING_STAND_APP_ID: applicationId,
+    AUTHORING_STAND_APP_SECRET: applicationSecret,
+  }));
 }
 
 export async function ensureEmailConnector(api) {
@@ -482,7 +520,7 @@ function randomSecret() {
   return randomBytes(32).toString("hex");
 }
 
-async function retry(operation) {
+export async function retry(operation) {
   let lastError;
   for (let attempt = 1; attempt <= bootstrapMaxAttempts; attempt += 1) {
     try {
