@@ -144,7 +144,7 @@ function ListSection({ block, fill }: { readonly block: GuidePageBlockOf<"list">
 
 const supportIcons = [MessagesSquare, Play, GitPullRequest] as const;
 function SupportCards({ block, fill }: { readonly block: GuidePageBlockOf<"cards">; readonly fill: (text: string) => string }) {
-  return <section className="ai-guide-support" id={block.id}>
+  return <section className="ai-guide-support" id={`ai-${block.id}`}>
     <div className="ai-guide-support-intro">{block.eyebrow === "" ? null : <p className="ai-guide-eyebrow">{fill(block.eyebrow)}</p>}<h2>{fill(block.title)}</h2>{block.lead === "" ? null : <p>{fill(block.lead)}</p>}</div>
     <div className="ai-guide-support-details">{block.items.map((item, index) => {
       const Icon = iconAt(supportIcons, index);

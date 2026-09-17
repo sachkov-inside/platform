@@ -6,7 +6,7 @@ import { accountId, parseCommand } from "../../shared/command-validation.js";
 import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
 import { assembleReorderSeries } from "../reorder-series/reorder-series.js";
 import { assembleUpdateContentCollection } from "../update-content-collection/update-content-collection.js";
-import { reserveSourceGuideBodySchema, reorderSourceGuideBodySchema, updateSourceGuideBodySchema, type ReserveSourceGuideOperation, type ReorderSourceGuideOperation, type UpdateSourceGuideOperation } from "./import-source-guide.contract.js";
+import { reserveSourceGuideBodySchema, reorderSourceGuideBodySchema, updateSourceGuideBodySchema, validateSourceGuideBodySchema, type ReserveSourceGuideOperation, type ReorderSourceGuideOperation, type UpdateSourceGuideOperation, type ValidateSourceGuideOperation } from "./import-source-guide.contract.js";
 
 export function assembleReserveSourceGuide(dependencies: MaterialAuthoringDependencies): ReserveSourceGuideOperation {
   return async (input) => {
@@ -30,6 +30,17 @@ export function assembleReserveSourceGuide(dependencies: MaterialAuthoringDepend
       if (result === undefined) throw new Error("Reserved Guide disappeared");
       return { ok: true, value: result };
     } catch (error) { return { ok: false, error: mapPostgresReadError(error) }; }
+  };
+}
+
+/** Только проверка описания и оформления: ничего не читает и не пишет. */
+export function assembleValidateSourceGuide(dependencies: MaterialAuthoringDependencies): ValidateSourceGuideOperation {
+  return async (input) => {
+    const parsed = parseCommand(validateSourceGuideBodySchema.extend({ actor: accountId }), input);
+    if (!parsed.ok) return parsed;
+    const authorized = await authorizeManager(dependencies.authorPolicy, parsed.value.actor);
+    if (!authorized.ok) return authorized;
+    return { ok: true, value: { valid: true } };
   };
 }
 

@@ -4,6 +4,7 @@ import { localTransport } from "./target.mjs";
 const productRowSchema = z.object({
   id: z.uuid(), slug: z.string(), name: z.string(), archived: z.boolean(), materialCount: z.number().int().nonnegative(),
   sourceId: z.string().nullable(), presentation: z.string().nullable(),
+  page: z.unknown().optional(), pageRejected: z.boolean().optional(),
 }).passthrough();
 const pinSchema = z.object({ seriesId: z.uuid().nullable() }).passthrough();
 
@@ -14,12 +15,13 @@ export async function listProducts(request) {
   return z.array(productRowSchema).parse(rows).map((row) => ({
     sourceId: row.sourceId, id: row.id, slug: row.slug, name: row.name, presentation: row.presentation ?? "default",
     pinnedOnHome: row.id === pinned, lessons: row.materialCount, archived: row.archived,
+    page: row.pageRejected === true ? "rejected" : row.page ? "stored" : "none",
   }));
 }
 
 export function formatProducts(products) {
-  const header = ["sourceId", "slug", "presentation", "home", "lessons", "name"];
-  const lines = products.map((item) => [item.sourceId ?? "— (Platform)", item.slug, item.presentation, item.pinnedOnHome ? "pinned" : "", String(item.lessons), `${item.name}${item.archived ? " (archived)" : ""}`]);
+  const header = ["sourceId", "slug", "presentation", "page", "home", "lessons", "name"];
+  const lines = products.map((item) => [item.sourceId ?? "— (Platform)", item.slug, item.presentation, item.page, item.pinnedOnHome ? "pinned" : "", String(item.lessons), `${item.name}${item.archived ? " (archived)" : ""}`]);
   const widths = header.map((title, index) => Math.max(title.length, ...lines.map((line) => line[index].length)));
   return [header, ...lines].map((line) => line.map((cell, index) => cell.padEnd(widths[index])).join("  ").trimEnd()).join("\n");
 }

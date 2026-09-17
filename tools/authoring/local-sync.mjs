@@ -49,9 +49,14 @@ export function guideTeaser(guide) {
   return { teaser: first, partial: true };
 }
 
-/** Everything the source owns about a Guide besides its programme (ADR 0026). */
-export function guideDetails(guide) {
-  return { name: guide.title, summary: guideTeaser(guide).teaser, slug: guide.slug ?? guide.sourceId, presentation: guide.presentation ?? "default", page: guide.page ?? null };
+/**
+ * Everything the source owns about a Guide besides its programme (ADR 0026). The page keeps the
+ * shape Platform stores, so an absent Home card caption is not a change. A package that names no
+ * address leaves the current one alone: an older package must not move a published product.
+ */
+export function guideDetails(guide, current) {
+  const page = guide.page ? { card: guide.page.card ?? null, blocks: guide.page.blocks } : null;
+  return { name: guide.title, summary: guideTeaser(guide).teaser, slug: guide.slug ?? current?.slug ?? guide.sourceId, presentation: guide.presentation ?? "default", page };
 }
 /** Сравнение идёт с тем, что цель уже держит: журнал ничего об описании не помнит. */
 export function guideDetailsMatch(current, details) {
@@ -68,6 +73,23 @@ export function assertKnownPresentations(manifest, environment) {
   for (const guide of manifest.guides) {
     const { presentation } = guideDetails(guide);
     if (!known.includes(presentation)) throw new Error(`Product ${guide.sourceId}: unknown page presentation '${presentation}'; this Platform knows: ${known.join(", ")}`);
+  }
+}
+
+/**
+ * The whole page description is checked before the first write: Platform owns the schema, so the
+ * transfer asks it instead of keeping a fourth copy of the rules.
+ */
+export async function validateGuidePages(manifest, send) {
+  for (const guide of manifest.guides) {
+    const details = guideDetails(guide);
+    await parseLocalResponse(
+      "/authoring/import/guides/validate",
+      await send("/authoring/import/guides/validate", {
+        sourceId: sourceKey(manifest, guide.sourceId),
+        source: { slug: details.slug, presentation: details.presentation, page: details.page },
+      }),
+    );
   }
 }
 
@@ -125,6 +147,7 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
   const environment = await request("/authoring/import/materials/environment");
   if (environment.mode !== "development") throw new Error("Local synchronization requires a development runtime");
   assertKnownPresentations(pkg.manifest, environment);
+  await validateGuidePages(pkg.manifest, send);
   return withJournal(stateDirectory, target, async (context) => {
     const { journal, persist } = context;
     journal.resources ??= {};
@@ -194,8 +217,9 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
     for (const guide of pkg.manifest.guides) {
       if (!guide.complete) throw new Error("This first local programme adapter requires a complete Guide selection");
       const key = sourceId(guide.sourceId);
-      const details = guideDetails(guide);
-      let current = await request("/authoring/import/guides/reserve", { sourceId: key, name: details.name, slug: details.slug, summary: details.summary });
+      const reserved = journal.guides[key];
+      let current = await request("/authoring/import/guides/reserve", { sourceId: key, name: guide.title, slug: guide.slug ?? reserved?.slug ?? guide.sourceId, summary: guideTeaser(guide).teaser });
+      const details = guideDetails(guide, current);
       journal.guides[key] = { ...journal.guides[key], guideId: current.id, slug: current.slug };
       // The page is checked here, before any Material is written; an unchanged product writes nothing.
       if (!guideDetailsMatch(current, details)) {

@@ -47,7 +47,8 @@ export function parseLocalResponse(path, value) {
     case "/authoring/collections?kind=topic": schema = z.array(topicSchema); break;
     case "/authoring/collections?kind=guide": schema = z.array(guideSchema); break;
     case "/authoring/collections": schema = topicSchema; break;
-    case "/authoring/import/materials/validate": schema = z.object({ valid: z.literal(true) }).passthrough(); break;
+    case "/authoring/import/materials/validate":
+    case "/authoring/import/guides/validate": schema = z.object({ valid: z.literal(true) }).passthrough(); break;
     case "/authoring/import/materials/reserve":
     case "/authoring/import/materials/apply": schema = materialReceiptSchema; break;
     case "/authoring/import/guides/reserve":

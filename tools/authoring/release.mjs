@@ -6,7 +6,7 @@ import { z } from "zod";
 import { loadPackage, canonical, checksum } from "./package.mjs";
 import { writeAtomic } from "./journal.mjs";
 import { parseJournal, parseLocalResponse } from "./local-boundaries.mjs";
-import { archiveProposalKeys, artifactDeclarations, artifactFingerprint, assertKnownPresentations, desiredMaterial, guideChapters, guideDetails, guideDetailsMatch, normalizeSourceIds, sourceKey, syncLocal } from "./local-sync.mjs";
+import { archiveProposalKeys, artifactDeclarations, artifactFingerprint, assertKnownPresentations, desiredMaterial, guideChapters, guideDetails, guideDetailsMatch, normalizeSourceIds, sourceKey, syncLocal, validateGuidePages } from "./local-sync.mjs";
 import { loopbackOrigin, localTargets, localTransport, resolveLocalTarget } from "./target.mjs";
 
 // A release applies one reviewed package to one environment. Only local environments are enabled:
@@ -40,6 +40,7 @@ export async function previewRelease(packagePath, stateDirectory, { origin, requ
   const { manifest } = pkg;
   const environment = await request("/authoring/import/materials/environment");
   assertKnownPresentations(manifest, environment);
+  await validateGuidePages(manifest, send);
   const journal = await readJournal(stateDirectory, target);
   const resources = journal.resources ?? {};
   const topics = await request("/authoring/collections?kind=topic");
@@ -92,7 +93,8 @@ export async function previewRelease(packagePath, stateDirectory, { origin, requ
         return receipt?.fingerprint !== artifactFingerprint(assets.get(artifact.assetId), artifact, access);
       })
       .map(([artifactSourceId]) => artifactSourceId);
-    const details = guideDetails(guide);
+    const stored = guideId === undefined ? undefined : currentGuides.find((item) => item.id === guideId);
+    const details = guideDetails(guide, stored);
     if (guideId === undefined) { guides.push({ sourceId: guide.sourceId, title: guide.title, change: "new", materials: programme.length, artifactChanges, slug: details.slug, presentation: details.presentation, page: details.page === null ? "none" : "new" }); continue; }
     const order = await request(`/authoring/guides/${guideId}/order`);
     expected[`${sourceKey(manifest, guide.sourceId)}:order`] = order.orderVersion;
@@ -101,7 +103,6 @@ export async function previewRelease(packagePath, stateDirectory, { origin, requ
     const currentOrder = order.items.map((item) => item.materialId);
     const chapterOf = new Map(guide.chapters.flatMap((chapter) => chapter.materialIds.map((id) => [ids.get(id), chapter.title])));
     const currentChapters = new Map(order.chapters.map((chapter) => [chapter.id, chapter.name]));
-    const stored = currentGuides.find((item) => item.id === guideId);
     const currentChapterText = new Map(order.chapters.map((chapter) => [chapter.id, canonical({ name: chapter.name, summary: chapter.summary })]));
     const chapterTextChanges = guideChapters(manifest, guide).filter((chapter) => currentChapterText.has(chapter.id) && currentChapterText.get(chapter.id) !== canonical({ name: chapter.name, summary: chapter.summary })).length;
     // Цель отдаёт своё описание страницы, поэтому сравнение не зависит от журнала.

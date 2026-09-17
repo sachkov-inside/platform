@@ -57,6 +57,7 @@ function applicationApi() {
       if (path === "/authoring/import/materials/environment") return { mode: "development", presentations: ["default", "ai-first-process"] };
       if (path === "/authoring/collections?kind=topic") return [];
       if (path === "/authoring/import/materials/validate") return { valid: true };
+      if (path === "/authoring/import/guides/validate") { assert.ok(body.source, "validation carries the page"); if (api.rejectValidation) throw Object.assign(new Error(api.rejectValidation), { status: 422 }); return { valid: true }; }
       if (path === "/authoring/import/guides/reserve") return structuredClone(guide);
       if (path === "/authoring/collections?kind=guide") return [structuredClone(guide)];
       if (path === "/authoring/home-pin" && body === undefined) return structuredClone(api.pin);
@@ -185,6 +186,27 @@ test("the product page travels with the Guide: unknown looks stop early, edits w
   assert.equal(updates(), once + 2);
   assert.deepEqual({ id: api.guide.id, slug: api.guide.slug, page: api.guide.page }, { id: guideId, slug: "product-moved", page: edited });
   assert.match(report.guides[0].url, /\/guides\/product-moved$/u);
+});
+
+test("Platform checks the whole description before the first write, and an older package keeps the address", async (t) => {
+  const setup = await fixture(t);
+  const api = applicationApi();
+  api.rejectValidation = "page is too large";
+  await assert.rejects(run(setup, api), /page is too large/u);
+  assert.deepEqual(api.calls.map((call) => call.path), ["/authoring/import/materials/environment", "/authoring/import/guides/validate"]);
+  api.rejectValidation = undefined;
+
+  // Пакет, собранный до появления адреса и подписи карточки, ничего не переносит на новый адрес.
+  api.guide.slug = "product-published";
+  delete setup.manifest.guides[0].slug;
+  setup.manifest.guides[0].page = { blocks: productPage.blocks };
+  await setup.write();
+  await run(setup, api);
+  assert.equal(api.guide.slug, "product-published");
+  const updates = () => api.calls.filter((call) => call.path === "/authoring/import/guides/update").length;
+  const once = updates();
+  await run(setup, api);
+  assert.equal(updates(), once, "a package without a Home card caption stays unchanged");
 });
 
 test("a replaced cover uses the current cover as its expected version", async (t) => {
