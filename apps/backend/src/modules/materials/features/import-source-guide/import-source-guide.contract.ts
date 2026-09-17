@@ -9,7 +9,7 @@ import type { ReorderSeriesResult } from "../reorder-series/reorder-series.contr
 
 const sourceId = z.string().trim().min(1).max(200);
 export const reserveSourceGuideBodySchema = contentCollectionInputSchema.omit({ actor: true, kind: true }).extend({ sourceId });
-export const updateSourceGuideBodySchema = z.object(updateContentCollectionCommandSchema.shape).omit({ actor: true, kind: true }).extend({ sourceId });
+export const updateSourceGuideBodySchema = z.object(updateContentCollectionCommandSchema.shape).omit({ actor: true, kind: true, introduction: true }).extend({ sourceId });
 export const archiveSourceGuideBodySchema = z.object({ sourceId, collectionId: z.uuid(), expectedVersion: z.number().int().positive(), archived: z.boolean() }).strict();
 export const reorderSourceGuideBodySchema = z.object(reorderSeriesCommandSchema.shape).omit({ actor: true }).extend({ sourceId });
 export type ReserveSourceGuideOperation = (command: z.infer<typeof reserveSourceGuideBodySchema> & { readonly actor: string }) => Promise<CreateContentCollectionResult>;

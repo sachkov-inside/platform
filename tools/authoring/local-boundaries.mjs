@@ -13,8 +13,7 @@ const materialSchema = materialReceiptSchema.extend({
   source: source.nullable(), cover: coverSchema.nullable().optional(),
 });
 const topicSchema = z.object({ id: z.uuid(), slug: text }).passthrough();
-const introductionSchema = z.object({ audience: z.string(), outcome: z.string(), prerequisites: z.string(), scope: z.string() }).passthrough();
-const guideSchema = topicSchema.extend({ name: z.string(), summary: z.string(), version, archived: z.boolean().optional(), introduction: introductionSchema.nullable().optional() });
+const guideSchema = topicSchema.extend({ name: z.string(), summary: z.string(), version, archived: z.boolean().optional() });
 const coverChangeSchema = z.object({ cover: coverSchema.nullable() }).passthrough();
 const artifactOutcomeSchema = z.object({ artifactId: z.uuid(), outcome: z.enum(["created", "diverged", "missing", "unchanged", "updated"]), sourceId: z.string().nullable(), title: z.string() }).passthrough();
 const artifactSchema = z.object({ artifactId: z.uuid(), materialIds: z.array(z.uuid()), origin: z.enum(["authoring", "platform"]), sourceId: z.string().nullable(), title: z.string() }).passthrough();

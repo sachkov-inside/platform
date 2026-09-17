@@ -9,7 +9,6 @@ import { loopbackOrigin, resolveLocalTarget } from "./target.mjs";
 
 const uuid = (n) => `${String(n).padStart(8, "0")}-0000-4000-8000-000000000000`;
 const guideId = uuid(900);
-const introduction = { audience: "Кому", outcome: "Что получится", prerequisites: "Что нужно", scope: "Что входит" };
 
 async function fixture(t) {
   const directory = await mkdtemp(join(tmpdir(), "authoring-completion-"));
@@ -27,7 +26,7 @@ async function fixture(t) {
       row("video", { kind: "video", video: { kinescopeId: uuid(777) }, videoChapters: [{ start: 0, title: "Введение" }, { start: 90, title: "Итог" }] }),
       row("old"),
     ],
-    guides: [{ sourceId: "product", title: "Продукт", summary: "Подзаголовок", introduction, complete: true, chapters: [], materialIds: ["lesson", "video", "old"], supplementaryMaterialIds: [] }],
+    guides: [{ sourceId: "product", title: "Продукт", summary: "Подзаголовок", complete: true, chapters: [], materialIds: ["lesson", "video", "old"], supplementaryMaterialIds: [] }],
     assets: [
       { sourceId: "checklist", path: "assets/checklist.md", sha256: checksum(files.checklist), mimeType: "text/markdown" },
       { sourceId: "cover", path: "assets/cover.png", sha256: checksum(files.cover), mimeType: "image/png" },
@@ -46,7 +45,7 @@ function applicationApi() {
   const calls = [];
   const videos = new Map();
   const artifacts = new Map();
-  const guide = { id: guideId, slug: "product", name: "", summary: "", version: 1, introduction: null, archived: false };
+  const guide = { id: guideId, slug: "product", name: "", summary: "", version: 1, archived: false };
   let next = 1;
   const api = {
     calls, materials, videos, artifacts, guide,
@@ -59,7 +58,8 @@ function applicationApi() {
       if (path === "/authoring/import/guides/reserve") return structuredClone(guide);
       if (path === "/authoring/import/guides/update") {
         assert.equal(body.expectedVersion, guide.version);
-        Object.assign(guide, { name: body.name, summary: body.summary, introduction: body.introduction ?? guide.introduction, version: guide.version + 1 });
+        assert.equal(body.introduction, undefined, "Guide page copy is owned by Platform");
+        Object.assign(guide, { name: body.name, summary: body.summary, version: guide.version + 1 });
         return structuredClone(guide);
       }
       if (path === `/authoring/guides/${guideId}/order`) return { orderVersion: "a".repeat(64) };
@@ -119,7 +119,7 @@ function applicationApi() {
 
 const run = (setup, api, options = {}) => syncLocal(setup.packagePath, setup.state, { request: api.request, sleep: async () => {}, ...options });
 
-test("covers, video, artifacts and introduction transfer once and replay as no-ops", async (t) => {
+test("covers, video and artifacts transfer once and replay as no-ops", async (t) => {
   const setup = await fixture(t);
   const api = applicationApi();
   const first = await run(setup, api);
@@ -130,7 +130,7 @@ test("covers, video, artifacts and introduction transfer once and replay as no-o
   const lesson = api.materials.get("inside-content:lesson");
   assert.ok(lesson.cover?.coverId);
   assert.deepEqual(api.artifacts.get("inside-content:checklist").materialIds, [lesson.materialId]);
-  assert.deepEqual(api.guide.introduction, introduction);
+  assert.equal(api.guide.name, "Продукт");
   assert.equal(first.notices.some((notice) => /pending|missing/u.test(notice.code)), false);
 
   const before = api.calls.length;

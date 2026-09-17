@@ -1039,12 +1039,6 @@ export class MaterialAuthoringService {
     requestBody: {
       collectionId: any;
       expectedVersion: number;
-      introduction?: {
-        audience: string;
-        outcome: string;
-        prerequisites: string;
-        scope: string;
-      };
       name: string;
       sourceId: string;
       summary: string;

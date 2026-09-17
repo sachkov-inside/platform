@@ -38,8 +38,8 @@ export function assembleUpdateSourceGuide(dependencies: MaterialAuthoringDepende
   return async (input) => {
     const parsed = parseCommand(updateSourceGuideBodySchema.extend({ actor: accountId }), input);
     if (!parsed.ok) return parsed;
-    const { sourceId, introduction, ...command } = parsed.value;
-    return assembleUpdateContentCollection(dependencies, sourceId)({ ...command, ...(introduction === undefined ? {} : { introduction }), kind: "guide" });
+    const { sourceId, ...command } = parsed.value;
+    return assembleUpdateContentCollection(dependencies, sourceId)({ ...command, kind: "guide" });
   };
 }
 

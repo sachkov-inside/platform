@@ -11,7 +11,6 @@ import { createMigratedTestDatabase, type TestDatabase } from "./setup/test-data
 const actor = randomUUID();
 const guideSource = "inside-content:guide-import";
 const materialSource = { id: "inside-content:guide-import-lesson", path: "lesson.md", revision: "c".repeat(64), showInFeed: false };
-const introduction = { audience: "Кому полезно", outcome: "Что получится", prerequisites: "Что нужно знать", scope: "Что входит" };
 
 describe("authoring source Guide completion", () => {
   let database: TestDatabase;
@@ -40,10 +39,10 @@ describe("authoring source Guide completion", () => {
     return guide.value;
   }
 
-  test("imports the full introduction and archives only through the owning source", async () => {
+  test("archives only through the owning source", async () => {
     const guide = await reserveGuide(guideSource, "guide-import");
-    const updated = await authoring.updateSourceGuide({ actor, sourceId: guideSource, collectionId: guide.id, expectedVersion: guide.version, name: guide.name, summary: guide.summary, introduction });
-    expect(updated).toMatchObject({ ok: true, value: { introduction } });
+    const updated = await authoring.updateSourceGuide({ actor, sourceId: guideSource, collectionId: guide.id, expectedVersion: guide.version, name: "Переименованный продукт", summary: guide.summary });
+    expect(updated).toMatchObject({ ok: true, value: { name: "Переименованный продукт" } });
     if (!updated.ok) throw new Error(updated.error.code);
     expect(await authoring.setContentCollectionArchive({ actor, kind: "guide", collectionId: guide.id, expectedVersion: updated.value.version, archived: true })).toMatchObject({ ok: false, error: { code: "forbidden" } });
     expect(await authoring.archiveSourceGuide({ actor, sourceId: "inside-content:other", collectionId: guide.id, expectedVersion: updated.value.version, archived: true })).toMatchObject({ ok: false, error: { code: "forbidden" } });

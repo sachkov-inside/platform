@@ -13,7 +13,6 @@ export const reviewOrigin = resolveLocalTarget("editor");
 export const localRequest = localTransport(reviewOrigin);
 
 const topicNames = { "ai-agents": "AI-агенты", "software-engineering": "Разработка ПО", "product-development": "Разработка продукта" };
-const emptyIntroduction = { audience: "", outcome: "", prerequisites: "", scope: "" };
 
 export async function syncLocal(packagePath, stateDirectory, { origin = reviewOrigin, request: transport, defaultAccess = "membership", archive = [], sleep = delay, videoAttempts = 20 } = {}) {
   const target = loopbackOrigin(origin);
@@ -60,7 +59,7 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
       if (guide.summary.length <= 500) return guide.summary;
       const paragraphs = guide.summary.split(/\n\s*\n/u);
       if (paragraphs[0].length > 500) throw new Error(`Guide ${guide.sourceId}: first paragraph exceeds the 500 character teaser limit`);
-      report.notices.push({ code: "guide_description_partial", message: "Подзаголовок продукта — первый абзац описания. Остальные абзацы описания остаются в оригинале: на странице продукта показаны поля вступления." });
+      report.notices.push({ code: "guide_description_partial", message: "Кратким описанием продукта стал первый абзац. Страница продукта оформляется в Platform; полное описание остаётся в оригинале." });
       return paragraphs[0];
     };
     const topics = await request("/authoring/collections?kind=topic");
@@ -203,12 +202,9 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
       const chapterAssignments = Object.fromEntries(guide.chapters.flatMap((chapter, index) => chapter.materialIds.map((id) => [currentMaterials.get(id).materialId, chapters[index].id])));
       const orderedMaterialIds = guide.materialIds.map((id) => currentMaterials.get(id).materialId);
       await request("/authoring/import/guides/composition", { sourceId: sourceId(guide.sourceId), seriesId: current.id, expectedOrderVersion: order.orderVersion, orderedMaterialIds, chapters, chapterAssignments });
-      const introduction = guide.introduction ?? null;
-      const introductionChanged = introduction !== null && canonical({ ...emptyIntroduction, ...(current.introduction ?? {}) }) !== canonical({ ...emptyIntroduction, ...introduction });
-      if (current.name !== guide.title || current.summary !== guideTeaser(guide) || introductionChanged) {
-        await request("/authoring/import/guides/update", { sourceId: sourceId(guide.sourceId), collectionId: current.id, expectedVersion: current.version, name: guide.title, summary: guideTeaser(guide), ...(introduction === null ? {} : { introduction }) });
+      if (current.name !== guide.title || current.summary !== guideTeaser(guide)) {
+        await request("/authoring/import/guides/update", { sourceId: sourceId(guide.sourceId), collectionId: current.id, expectedVersion: current.version, name: guide.title, summary: guideTeaser(guide) });
       }
-      if (introduction === null) report.notices.push({ code: "guide_introduction_missing", message: `Пакет продукта ${guide.sourceId} не содержит полей вступления; обновите экспорт Inside Content` });
       await syncArtifacts(guide, current);
       report.guides.push({ title: guide.title, url: `${target}/guides/${current.slug}`, programmeUrl: `${target}/guides/${current.slug}/programme`, mainMaterials: orderedMaterialIds.length, supplementaryMaterials: guide.supplementaryMaterialIds.map((id) => ({ sourceId: id, url: `${target}${links.get(id)}` })) });
     }
