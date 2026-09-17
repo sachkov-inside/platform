@@ -5,11 +5,10 @@ import type { ReactNode } from "react";
 
 import type { GuidePage, GuidePageBlock, GuidePageBlockOf } from "@/entities/guide-page";
 import { AiFirstProcessArtwork } from "@/features/ai-first-guide";
+import { fillOneTimeTerms as fillTerms } from "@/features/billing-checkout";
 import { formatMaterialCount, type PublishedSeriesResult } from "@/features/library-discovery";
 import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 import { guideProgrammeHref } from "@/shared/routing/subscription-route";
-
-import { fillTerms } from "./offer-terms";
 
 import "./ai-first-guide-view.css";
 
@@ -28,6 +27,8 @@ export function AiFirstGuideView({ result, page, returnTarget, freeEntryHref }: 
   const context: BlockContext = { fill: fillTerms, programme: guideProgrammeHref(result.reference.slug), freeEntryHref, freeCount, name: result.reference.name };
   return <article className="ai-guide-page" data-guide-product={result.reference.slug} data-guide-presentation="ai-first-process">
     <nav aria-label="Хлебные крошки"><Link className="ai-guide-back" href={returnTarget.href}><ArrowLeft />{returnTarget.label}</Link></nav>
+    {/* Название продукта — заголовок страницы: его показывает hero, а без hero он всё равно нужен. */}
+    {page.blocks.some(block => block.kind === "hero") ? null : <header className="ai-guide-hero"><div className="ai-guide-hero-copy"><h1>{result.reference.name}</h1></div></header>}
     {page.blocks.map(block => <AiFirstBlock block={block} context={context} key={block.id} />)}
     <div className="ai-guide-sticky"><Link className="ai-guide-button" href={context.programme}>Открыть программу<ArrowRight /></Link></div>
   </article>;

@@ -135,7 +135,10 @@ export function assembleUpdateContentCollection(
         return collection ?? rollback({ code: "content_collection_not_found" });
       },
       (error): UpdateContentCollectionError =>
-        isPostgresUniqueViolation(error, "series_slug_unique")
+        isPostgresUniqueViolation(
+          error,
+          contentCollectionPersistence(dependencies.prisma, command.kind).slugConstraint,
+        )
           ? { code: "content_collection_slug_conflict" }
           : mapPostgresReadError(error),
     );

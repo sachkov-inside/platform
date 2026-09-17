@@ -12,7 +12,7 @@ import {
   requestHomeContent,
 } from "@/shared/api/backend/index.server";
 import { dependencyUnavailableProblemSchema } from "@/shared/api/problem-details";
-import { guidePageSchema, resolveGuidePresentation } from "@/entities/guide-page";
+import { readGuidePageCard, resolveGuidePresentation } from "@/entities/guide-page";
 import type { HomeResult } from "../model/home-view";
 
 const homeCollectionSchema = z
@@ -29,8 +29,10 @@ const homeCollectionSchema = z
 
 const homeSchema = z
   .object({
+    // Подпись карточки разбирается отдельно: её несовпадение с выпуском сайта не должно
+    // отнимать у читателя всю Главную (ADR 0026).
     pinnedSeries: homeCollectionSchema
-      .extend({ presentation: z.string(), card: guidePageSchema.shape.card })
+      .extend({ presentation: z.string(), card: z.unknown() })
       .nullable(),
     guides: z.array(publishedMaterialProjectionSchema),
     notes: z.array(publishedMaterialProjectionSchema),
@@ -86,7 +88,10 @@ export async function getHome(
           ? null
           : {
               ...mapCollection(parsed.data.pinnedSeries),
-              card: parsed.data.pinnedSeries.card,
+              card: readGuidePageCard(
+                parsed.data.pinnedSeries.card,
+                `Home pinned Guide ${parsed.data.pinnedSeries.slug}`,
+              ),
               presentation: resolveGuidePresentation(
                 parsed.data.pinnedSeries.presentation,
                 `Home pinned Guide ${parsed.data.pinnedSeries.slug}`,

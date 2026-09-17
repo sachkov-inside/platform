@@ -1,5 +1,6 @@
 export { CheckoutFlow, type CheckoutFlowProps } from "./ui/checkout-flow.client";
 export {
+  fillOneTimeTerms,
   oneTimePriceSharesLine,
   oneTimePurchaseInclusions,
   oneTimeTermLabels,

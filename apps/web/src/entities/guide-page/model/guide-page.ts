@@ -84,6 +84,19 @@ export function readGuideProductPage(
   return { presentation, page: parsed.success ? parsed.data : null };
 }
 
+/** Подпись карточки Главной читается отдельно от продукта: её ошибка не скрывает сам продукт. */
+export function readGuidePageCard(
+  value: unknown,
+  context: string,
+  warn: PresentationWarning = reportToServerLog,
+): GuidePageCard | null {
+  if (value === null || value === undefined) return null;
+  const parsed = cardSchema.safeParse(value);
+  if (parsed.success) return parsed.data;
+  warn(`[guide-presentation] ${context}: the stored Home card caption does not match this site; it is not shown`);
+  return null;
+}
+
 /** Сроки оферты, которые автор пишет подстановкой: страница повторяет оферту, а не свои числа. */
 export interface OfferTerms {
   readonly access: string;

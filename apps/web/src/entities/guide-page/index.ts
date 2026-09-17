@@ -2,6 +2,7 @@ export {
   fillOfferTerms,
   guidePageSchema,
   guidePresentations,
+  readGuidePageCard,
   readGuideProductPage,
   resolveGuidePresentation,
   type GuidePage,

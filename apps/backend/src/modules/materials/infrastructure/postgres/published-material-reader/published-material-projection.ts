@@ -12,7 +12,7 @@ import type { PublishedMaterialProjectionDto } from "../../../facets/published-m
 import type { ContentCoverProjection } from "../../../facets/content-covers/content-covers.js";
 import type { GuideIntroductionDto, GuideProductPageDto } from "../../../facets/material-authoring/content-collection.contract.js";
 import { loadContentCoverProjections } from "../content-cover-projections.js";
-import { readGuidePageForReader } from "../guide-page-reader.js";
+import { readGuidePage } from "../../../shared/guide-page-reader.js";
 import type {
   PublishedMaterialProjectionCursor,
   PublishedMaterialProjectionPageDto,
@@ -912,7 +912,7 @@ export async function selectPublishedMaterialProjectionsBySeries(
       name: reference.name,
       productPage: {
         presentation: reference.presentation,
-        page: readGuidePageForReader(reference.page, `Guide ${reference.slug}`),
+        page: readGuidePage(reference.page, `Guide ${reference.slug}`),
       },
       slug: reference.slug,
       summary: reference.summary,

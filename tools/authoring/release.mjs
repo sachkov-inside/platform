@@ -6,7 +6,7 @@ import { z } from "zod";
 import { loadPackage, canonical, checksum } from "./package.mjs";
 import { writeAtomic } from "./journal.mjs";
 import { parseJournal, parseLocalResponse } from "./local-boundaries.mjs";
-import { archiveProposalKeys, artifactDeclarations, artifactFingerprint, assertKnownPresentations, desiredMaterial, guideChapters, guideDetails, guidePageDigest, normalizeSourceIds, sourceKey, syncLocal } from "./local-sync.mjs";
+import { archiveProposalKeys, artifactDeclarations, artifactFingerprint, assertKnownPresentations, desiredMaterial, guideChapters, guideDetails, guideDetailsMatch, normalizeSourceIds, sourceKey, syncLocal } from "./local-sync.mjs";
 import { loopbackOrigin, localTargets, localTransport, resolveLocalTarget } from "./target.mjs";
 
 // A release applies one reviewed package to one environment. Only local environments are enabled:
@@ -104,12 +104,11 @@ export async function previewRelease(packagePath, stateDirectory, { origin, requ
     const stored = currentGuides.find((item) => item.id === guideId);
     const currentChapterText = new Map(order.chapters.map((chapter) => [chapter.id, canonical({ name: chapter.name, summary: chapter.summary })]));
     const chapterTextChanges = guideChapters(manifest, guide).filter((chapter) => currentChapterText.has(chapter.id) && currentChapterText.get(chapter.id) !== canonical({ name: chapter.name, summary: chapter.summary })).length;
-    const entry = journal.guides[sourceKey(manifest, guide.sourceId)];
-    // The page is written only by this transfer, so its last recorded digest is what Platform holds.
-    const pageChange = entry.pageDigest !== guidePageDigest(guide);
+    // Цель отдаёт своё описание страницы, поэтому сравнение не зависит от журнала.
+    const pageChange = stored !== undefined && canonical(stored.page ?? null) !== canonical(details.page);
     const slugChange = stored !== undefined && stored.slug !== details.slug ? { from: stored.slug, to: details.slug } : undefined;
     const presentationChange = stored !== undefined && (stored.presentation ?? "default") !== details.presentation ? { from: stored.presentation ?? "default", to: details.presentation } : undefined;
-    const detailsChange = stored === undefined || stored.name !== details.name || stored.summary !== details.summary || pageChange || slugChange !== undefined || presentationChange !== undefined;
+    const detailsChange = stored === undefined || !guideDetailsMatch(stored, details);
     const moved = order.items.filter((item) => (chapterOf.get(item.materialId) ?? null) !== (item.chapterId === null ? null : currentChapters.get(item.chapterId) ?? null)).length;
     guides.push({
       sourceId: guide.sourceId, title: guide.title, materials: programme.length, artifactChanges,

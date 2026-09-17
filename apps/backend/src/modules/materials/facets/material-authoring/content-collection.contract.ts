@@ -23,6 +23,8 @@ export interface ContentCollectionDto {
   readonly kind: ContentCollectionKind;
   readonly materialCount: number;
   readonly name: string;
+  /** Описание страницы Guide из авторского оригинала; `null` — описания нет. */
+  readonly page: GuidePage | null;
   /** Оформление страницы Guide (ADR 0026); у Topic его нет. */
   readonly presentation: string | null;
   readonly slug: string;

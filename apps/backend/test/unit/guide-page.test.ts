@@ -7,6 +7,7 @@ const page = {
   blocks: [
     { id: "hero", kind: "hero", lead: "Помощь — {support_term}, доступ — {access_term}.", highlights: [] },
     { id: "shift", kind: "text", title: "Работа меняется", paragraphs: ["Первый абзац."] },
+    { id: "audience", kind: "cards", eyebrow: "", title: "Кому это нужно", lead: "", items: [{ title: "Новичкам", text: "Текст.", detailLabel: "", detail: "" }], note: "" },
     { id: "programme", kind: "steps", title: "Этапы", lead: "", items: [{ title: "Этап", text: "Текст." }], link: "" },
     { id: "stack", kind: "list", title: "Стек", text: "", items: ["Go"] },
     { id: "trial", kind: "trial", title: "Попробуй", text: "Текст.", link: "" },

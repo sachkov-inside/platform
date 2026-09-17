@@ -7,7 +7,6 @@ import { z } from "zod";
 
 /** Реестр оформлений. Web держит компоненты для каждого значения; новое значение добавляется в оба. */
 export const guidePresentations = ["default", "ai-first-process"] as const;
-export const defaultGuidePresentation = "default" satisfies GuidePresentation;
 export const guidePresentationSchema = z.enum(guidePresentations);
 export type GuidePresentation = z.infer<typeof guidePresentationSchema>;
 

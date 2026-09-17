@@ -53,8 +53,12 @@ export function guideTeaser(guide) {
 export function guideDetails(guide) {
   return { name: guide.title, summary: guideTeaser(guide).teaser, slug: guide.slug ?? guide.sourceId, presentation: guide.presentation ?? "default", page: guide.page ?? null };
 }
-export const guideDetailsDigest = (guide) => checksum(canonical(guideDetails(guide)));
-export const guidePageDigest = (guide) => checksum(canonical(guideDetails(guide).page));
+/** Сравнение идёт с тем, что цель уже держит: журнал ничего об описании не помнит. */
+export function guideDetailsMatch(current, details) {
+  return current.name === details.name && current.summary === details.summary && current.slug === details.slug
+    && (current.presentation ?? "default") === details.presentation
+    && canonical(current.page ?? null) === canonical(details.page);
+}
 
 /** An unknown presentation stops the transfer before its first write. */
 export function assertKnownPresentations(manifest, environment) {
@@ -153,7 +157,7 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
 
     const teasers = new Map(pkg.manifest.guides.map((guide) => [guide.sourceId, guideTeaser(guide)]));
     if ([...teasers.values()].some(({ partial }) => partial)) {
-      report.notices.push({ code: "guide_description_partial", message: "Кратким описанием продукта стал первый абзац. Страница продукта оформляется в Platform; полное описание остаётся в оригинале." });
+      report.notices.push({ code: "guide_description_partial", message: "Кратким описанием продукта стал первый абзац. Полное описание страницы переносится отдельными блоками ключа page." });
     }
     const topics = await request("/authoring/collections?kind=topic");
     const topicIds = new Map(topics.map((item) => [item.slug, item.id]));
@@ -192,13 +196,9 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
       let current = await request("/authoring/import/guides/reserve", { sourceId: key, name: details.name, slug: details.slug, summary: details.summary });
       journal.guides[key] = { ...journal.guides[key], guideId: current.id, slug: current.slug };
       // The page is checked here, before any Material is written; an unchanged product writes nothing.
-      const recorded = journal.guides[key];
-      const digest = guideDetailsDigest(guide);
-      const unchanged = current.name === details.name && current.summary === details.summary && current.slug === details.slug
-        && current.presentation === details.presentation && recorded.detailsDigest === digest && recorded.version === current.version;
-      if (!unchanged) {
+      if (!guideDetailsMatch(current, details)) {
         current = await request("/authoring/import/guides/update", { sourceId: key, collectionId: current.id, expectedVersion: current.version, name: details.name, summary: details.summary, source: { slug: details.slug, presentation: details.presentation, page: details.page } });
-        journal.guides[key] = { ...journal.guides[key], slug: current.slug, version: current.version, detailsDigest: digest, pageDigest: guidePageDigest(guide) };
+        journal.guides[key] = { ...journal.guides[key], slug: current.slug, version: current.version };
       }
       guides.set(guide.sourceId, current);
       await persist();

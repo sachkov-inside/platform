@@ -1,5 +1,6 @@
 import { Prisma, type MaterialsPrisma } from "../../../../infrastructure/prisma/index.js";
-import type { GuideSourceFields } from "../../domain/guide-page.js";
+import type { GuidePage, GuideSourceFields } from "../../domain/guide-page.js";
+import { readGuidePage } from "../../shared/guide-page-reader.js";
 import type {
   ContentCollectionDto,
   ContentCollectionKind,
@@ -19,8 +20,9 @@ interface ContentCollectionRecord {
 }
 
 type GuideRecord = ContentCollectionRecord & GuideIntroductionDto & {
-  readonly sourceId: string | null;
+  readonly page: unknown;
   readonly presentation: string;
+  readonly sourceId: string | null;
 };
 
 interface ContentCollectionPersistence {
@@ -245,10 +247,15 @@ function introductionOf(record: GuideIntroductionDto): GuideIntroductionDto {
 }
 
 function sourceOf(record: GuideRecord): CollectionSource {
-  return { presentation: record.presentation, sourceId: record.sourceId };
+  return {
+    page: readGuidePage(record.page, `Guide ${record.slug}`),
+    presentation: record.presentation,
+    sourceId: record.sourceId,
+  };
 }
 
 interface CollectionSource {
+  readonly page: GuidePage | null;
   readonly presentation: string;
   readonly sourceId: string | null;
 }
@@ -262,6 +269,7 @@ function toDto(
   source: CollectionSource | null,
 ): ContentCollectionDto {
   return {
+    page: source?.page ?? null,
     presentation: source?.presentation ?? null,
     sourceId: source?.sourceId ?? null,
     archived: record.archivedAt !== null,

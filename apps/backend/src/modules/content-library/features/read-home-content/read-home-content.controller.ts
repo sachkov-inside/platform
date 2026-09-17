@@ -30,7 +30,6 @@ import {
   publishedMaterialProblemHttpSchema,
   type PublishedMaterialReader,
 } from "../../../materials/index.js";
-import { guidePageCardSchema } from "../../../materials/index.js";
 import { BillingPricing } from "../../../billing/index.js";
 import { VIDEOS, type Videos } from "../../../videos/index.js";
 import {
@@ -38,6 +37,9 @@ import {
   type MembershipEntitlements,
 } from "../../../membership-entitlements/index.js";
 import { throwContentLibraryError } from "../../adapters/nest/content-library-http-errors.js";
+import {
+  guidePageCardSchema,
+} from "../../../materials/index.js";
 import {
   publishedCatalogFacetHttpSchema,
   publishedCatalogItemHttpSchema,

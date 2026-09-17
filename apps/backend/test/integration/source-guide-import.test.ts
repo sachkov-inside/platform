@@ -92,7 +92,7 @@ describe("authoring source Guide completion", () => {
     const imported = await authoring.updateSourceGuide({ ...request, source: { slug: "page-guide", presentation: "ai-first-process", page } });
     if (!imported.ok) throw new Error(imported.error.code);
     expect(imported.value).toMatchObject({ presentation: "ai-first-process", version: guide.version + 1 });
-    // Repeating the same description writes nothing.
+    // The same description on a stale version is recognised, not reported as a conflict.
     const repeated = await authoring.updateSourceGuide({ ...request, source: { slug: "page-guide", presentation: "ai-first-process", page: structuredClone(page) } });
     expect(repeated).toMatchObject({ ok: true, value: { version: imported.value.version } });
 

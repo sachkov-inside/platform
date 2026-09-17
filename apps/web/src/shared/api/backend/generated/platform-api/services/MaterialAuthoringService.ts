@@ -35,6 +35,59 @@ export class MaterialAuthoringService {
     kind: 'guide' | 'series' | 'topic';
     materialCount: number;
     name: string;
+    page: {
+      blocks: Array<({
+        highlights: Array<string>;
+        id: string;
+        kind: 'hero';
+        lead: string;
+      } | {
+        eyebrow: string;
+        id: string;
+        items: Array<{
+          detail: string;
+          detailLabel: string;
+          text: string;
+          title: string;
+        }>;
+        kind: 'cards';
+        lead: string;
+        note: string;
+        title: string;
+      } | {
+        id: string;
+        kind: 'text';
+        paragraphs: Array<string>;
+        title: string;
+      } | {
+        id: string;
+        items: Array<{
+          text: string;
+          title: string;
+        }>;
+        kind: 'steps';
+        lead: string;
+        link: string;
+        title: string;
+      } | {
+        id: string;
+        items: Array<string>;
+        kind: 'list';
+        text: string;
+        title: string;
+      } | {
+        id: string;
+        kind: 'trial';
+        link: string;
+        text: string;
+        title: string;
+      })>;
+      card: {
+        action: string;
+        eyebrow: string;
+        subtitle: string;
+      } | null;
+    } | null;
     presentation: string | null;
     slug: string;
     sourceId: string | null;
@@ -82,6 +135,59 @@ export class MaterialAuthoringService {
     kind: 'guide' | 'series' | 'topic';
     materialCount: number;
     name: string;
+    page: {
+      blocks: Array<({
+        highlights: Array<string>;
+        id: string;
+        kind: 'hero';
+        lead: string;
+      } | {
+        eyebrow: string;
+        id: string;
+        items: Array<{
+          detail: string;
+          detailLabel: string;
+          text: string;
+          title: string;
+        }>;
+        kind: 'cards';
+        lead: string;
+        note: string;
+        title: string;
+      } | {
+        id: string;
+        kind: 'text';
+        paragraphs: Array<string>;
+        title: string;
+      } | {
+        id: string;
+        items: Array<{
+          text: string;
+          title: string;
+        }>;
+        kind: 'steps';
+        lead: string;
+        link: string;
+        title: string;
+      } | {
+        id: string;
+        items: Array<string>;
+        kind: 'list';
+        text: string;
+        title: string;
+      } | {
+        id: string;
+        kind: 'trial';
+        link: string;
+        text: string;
+        title: string;
+      })>;
+      card: {
+        action: string;
+        eyebrow: string;
+        subtitle: string;
+      } | null;
+    } | null;
     presentation: string | null;
     slug: string;
     sourceId: string | null;
@@ -136,6 +242,59 @@ export class MaterialAuthoringService {
     kind: 'guide' | 'series' | 'topic';
     materialCount: number;
     name: string;
+    page: {
+      blocks: Array<({
+        highlights: Array<string>;
+        id: string;
+        kind: 'hero';
+        lead: string;
+      } | {
+        eyebrow: string;
+        id: string;
+        items: Array<{
+          detail: string;
+          detailLabel: string;
+          text: string;
+          title: string;
+        }>;
+        kind: 'cards';
+        lead: string;
+        note: string;
+        title: string;
+      } | {
+        id: string;
+        kind: 'text';
+        paragraphs: Array<string>;
+        title: string;
+      } | {
+        id: string;
+        items: Array<{
+          text: string;
+          title: string;
+        }>;
+        kind: 'steps';
+        lead: string;
+        link: string;
+        title: string;
+      } | {
+        id: string;
+        items: Array<string>;
+        kind: 'list';
+        text: string;
+        title: string;
+      } | {
+        id: string;
+        kind: 'trial';
+        link: string;
+        text: string;
+        title: string;
+      })>;
+      card: {
+        action: string;
+        eyebrow: string;
+        subtitle: string;
+      } | null;
+    } | null;
     presentation: string | null;
     slug: string;
     sourceId: string | null;
@@ -186,6 +345,59 @@ export class MaterialAuthoringService {
     kind: 'guide' | 'series' | 'topic';
     materialCount: number;
     name: string;
+    page: {
+      blocks: Array<({
+        highlights: Array<string>;
+        id: string;
+        kind: 'hero';
+        lead: string;
+      } | {
+        eyebrow: string;
+        id: string;
+        items: Array<{
+          detail: string;
+          detailLabel: string;
+          text: string;
+          title: string;
+        }>;
+        kind: 'cards';
+        lead: string;
+        note: string;
+        title: string;
+      } | {
+        id: string;
+        kind: 'text';
+        paragraphs: Array<string>;
+        title: string;
+      } | {
+        id: string;
+        items: Array<{
+          text: string;
+          title: string;
+        }>;
+        kind: 'steps';
+        lead: string;
+        link: string;
+        title: string;
+      } | {
+        id: string;
+        items: Array<string>;
+        kind: 'list';
+        text: string;
+        title: string;
+      } | {
+        id: string;
+        kind: 'trial';
+        link: string;
+        text: string;
+        title: string;
+      })>;
+      card: {
+        action: string;
+        eyebrow: string;
+        subtitle: string;
+      } | null;
+    } | null;
     presentation: string | null;
     slug: string;
     sourceId: string | null;
@@ -978,6 +1190,59 @@ export class MaterialAuthoringService {
     kind: 'guide' | 'series' | 'topic';
     materialCount: number;
     name: string;
+    page: {
+      blocks: Array<({
+        highlights: Array<string>;
+        id: string;
+        kind: 'hero';
+        lead: string;
+      } | {
+        eyebrow: string;
+        id: string;
+        items: Array<{
+          detail: string;
+          detailLabel: string;
+          text: string;
+          title: string;
+        }>;
+        kind: 'cards';
+        lead: string;
+        note: string;
+        title: string;
+      } | {
+        id: string;
+        kind: 'text';
+        paragraphs: Array<string>;
+        title: string;
+      } | {
+        id: string;
+        items: Array<{
+          text: string;
+          title: string;
+        }>;
+        kind: 'steps';
+        lead: string;
+        link: string;
+        title: string;
+      } | {
+        id: string;
+        items: Array<string>;
+        kind: 'list';
+        text: string;
+        title: string;
+      } | {
+        id: string;
+        kind: 'trial';
+        link: string;
+        text: string;
+        title: string;
+      })>;
+      card: {
+        action: string;
+        eyebrow: string;
+        subtitle: string;
+      } | null;
+    } | null;
     presentation: string | null;
     slug: string;
     sourceId: string | null;
@@ -1082,6 +1347,59 @@ export class MaterialAuthoringService {
     kind: 'guide' | 'series' | 'topic';
     materialCount: number;
     name: string;
+    page: {
+      blocks: Array<({
+        highlights: Array<string>;
+        id: string;
+        kind: 'hero';
+        lead: string;
+      } | {
+        eyebrow: string;
+        id: string;
+        items: Array<{
+          detail: string;
+          detailLabel: string;
+          text: string;
+          title: string;
+        }>;
+        kind: 'cards';
+        lead: string;
+        note: string;
+        title: string;
+      } | {
+        id: string;
+        kind: 'text';
+        paragraphs: Array<string>;
+        title: string;
+      } | {
+        id: string;
+        items: Array<{
+          text: string;
+          title: string;
+        }>;
+        kind: 'steps';
+        lead: string;
+        link: string;
+        title: string;
+      } | {
+        id: string;
+        items: Array<string>;
+        kind: 'list';
+        text: string;
+        title: string;
+      } | {
+        id: string;
+        kind: 'trial';
+        link: string;
+        text: string;
+        title: string;
+      })>;
+      card: {
+        action: string;
+        eyebrow: string;
+        subtitle: string;
+      } | null;
+    } | null;
     presentation: string | null;
     slug: string;
     sourceId: string | null;

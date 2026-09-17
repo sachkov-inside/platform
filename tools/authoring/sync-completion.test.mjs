@@ -163,6 +163,13 @@ test("the product page travels with the Guide: unknown looks stop early, edits w
   const once = updates();
   await run(setup, api);
   assert.equal(updates(), once, "an unchanged product page writes nothing");
+  // Журнал прежних переносов не помнит описания: повтор сверяется с тем, что держит цель.
+  const journalPath = join(setup.state, "journal.json");
+  const forgotten = JSON.parse(await readFile(journalPath, "utf8"));
+  for (const entry of Object.values(forgotten.guides)) { delete entry.version; }
+  await writeFile(journalPath, canonical(forgotten));
+  await run(setup, api);
+  assert.equal(updates(), once, "a journal written before the page still writes nothing");
 
   const edited = { ...productPage, blocks: [{ ...productPage.blocks[0], lead: "Правка текста." }] };
   setup.manifest.guides[0].page = edited;

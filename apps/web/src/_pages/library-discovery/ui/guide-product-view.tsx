@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 
 import type { GuidePage, GuidePageBlock, GuidePresentation } from "@/entities/guide-page";
 import { ContentCoverImage } from "@/entities/material";
+import { fillOneTimeTerms as fillTerms } from "@/features/billing-checkout";
 import type { ReaderGuideArtifactsResult } from "@/features/guide-artifacts.reader";
 import {
   formatMaterialCount,
@@ -17,7 +18,6 @@ import { Button } from "@/shared/ui/button";
 
 import { AiFirstGuideView } from "./ai-first-guide-view";
 import { formatArtifactCount, formatChapterCount } from "./guide-counts";
-import { fillTerms } from "./offer-terms";
 
 type ResolvedSeriesResult = Extract<PublishedSeriesResult, { kind: "ready" | "empty" }>;
 

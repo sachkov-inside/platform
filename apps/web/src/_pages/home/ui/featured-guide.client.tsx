@@ -8,6 +8,7 @@ import type { ReactNode } from "react";
 import { useMaterialReading } from "@/entities/material";
 import type { GuidePresentation } from "@/entities/guide-page";
 import { AiFirstProcessArtwork } from "@/features/ai-first-guide";
+import { fillOneTimeTerms } from "@/features/billing-checkout";
 import { formatMaterialCount } from "@/features/library-discovery";
 import { loadSeriesContinuation, seriesContinuationQueryKey } from "@/features/reading-progress";
 import { collectionDiscoveryHref, materialReaderHref } from "@/shared/routing/material-reader";
@@ -28,12 +29,12 @@ export function FeaturedGuide({ series }: { readonly series: HomePinnedCollectio
 function AiFirstFeaturedGuide({ series }: { readonly series: HomePinnedCollection }) {
   // Подписи карточки приходят из описания продукта; без них остаются название и краткое описание.
   const card = series.card;
-  const open = card === null || card.action === "" ? "Открыть продукт" : card.action;
+  const open = card === null || card.action === "" ? "Открыть продукт" : fillOneTimeTerms(card.action);
   return <section className="home-guide home-guide-featured-ai" aria-labelledby="featured-title" data-guide-presentation="ai-first-process">
     <div className="home-guide-copy">
-      {card === null || card.eyebrow === "" ? null : <p className="home-guide-eyebrow">{card.eyebrow}</p>}
+      {card === null || card.eyebrow === "" ? null : <p className="home-guide-eyebrow">{fillOneTimeTerms(card.eyebrow)}</p>}
       <h2 id="featured-title">{series.name}</h2>
-      {card === null || card.subtitle === "" ? null : <p className="home-guide-subtitle">{card.subtitle}</p>}
+      {card === null || card.subtitle === "" ? null : <p className="home-guide-subtitle">{fillOneTimeTerms(card.subtitle)}</p>}
       {series.summary && <p className="home-guide-summary">{series.summary}</p>}
       <div className="home-guide-actions">
         <span>{formatMaterialCount(series.count)}</span>

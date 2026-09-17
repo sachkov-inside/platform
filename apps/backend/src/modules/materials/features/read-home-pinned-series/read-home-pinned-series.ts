@@ -1,6 +1,6 @@
 import type { MaterialsPrisma } from "../../../../infrastructure/prisma/index.js";
 import type { GuidePageCard } from "../../domain/guide-page.js";
-import { readGuidePageForReader } from "../../infrastructure/postgres/guide-page-reader.js";
+import { readGuidePage } from "../../shared/guide-page-reader.js";
 import type { SystemError } from "../../facets/material-authoring/material-authoring.contract.js";
 import type { Result } from "../../result.js";
 import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
@@ -20,7 +20,7 @@ export async function readHomePinnedSeries(prisma: MaterialsPrisma): ReturnType<
     if (pin.seriesId === null) return { ok: true, value: null };
     const guide = await prisma.guide.findUnique({ where: { id: pin.seriesId }, select: { page: true, presentation: true, slug: true } });
     if (guide === null) return { ok: true, value: null };
-    const page = readGuidePageForReader(guide.page, `Home pinned Guide ${guide.slug}`);
+    const page = readGuidePage(guide.page, `Home pinned Guide ${guide.slug}`);
     return { ok: true, value: { id: pin.seriesId, presentation: guide.presentation, card: page?.card ?? null } };
   } catch (error) {
     return { ok: false, error: mapPostgresReadError(error) };
