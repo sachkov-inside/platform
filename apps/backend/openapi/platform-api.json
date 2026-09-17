@@ -22477,6 +22477,7 @@
                           },
                           "card": {
                             "additionalProperties": false,
+                            "default": null,
                             "nullable": true,
                             "properties": {
                               "action": {
@@ -22505,6 +22506,9 @@
                           "blocks"
                         ],
                         "type": "object"
+                      },
+                      "pageRejected": {
+                        "type": "boolean"
                       },
                       "presentation": {
                         "nullable": true,
@@ -22538,6 +22542,7 @@
                       "materialCount",
                       "name",
                       "page",
+                      "pageRejected",
                       "presentation",
                       "slug",
                       "sourceId",
@@ -23589,6 +23594,7 @@
                         },
                         "card": {
                           "additionalProperties": false,
+                          "default": null,
                           "nullable": true,
                           "properties": {
                             "action": {
@@ -23617,6 +23623,9 @@
                         "blocks"
                       ],
                       "type": "object"
+                    },
+                    "pageRejected": {
+                      "type": "boolean"
                     },
                     "presentation": {
                       "nullable": true,
@@ -23650,6 +23659,7 @@
                     "materialCount",
                     "name",
                     "page",
+                    "pageRejected",
                     "presentation",
                     "slug",
                     "sourceId",
@@ -24978,6 +24988,7 @@
                         },
                         "card": {
                           "additionalProperties": false,
+                          "default": null,
                           "nullable": true,
                           "properties": {
                             "action": {
@@ -25006,6 +25017,9 @@
                         "blocks"
                       ],
                       "type": "object"
+                    },
+                    "pageRejected": {
+                      "type": "boolean"
                     },
                     "presentation": {
                       "nullable": true,
@@ -25039,6 +25053,7 @@
                     "materialCount",
                     "name",
                     "page",
+                    "pageRejected",
                     "presentation",
                     "slug",
                     "sourceId",
@@ -26453,6 +26468,7 @@
                         },
                         "card": {
                           "additionalProperties": false,
+                          "default": null,
                           "nullable": true,
                           "properties": {
                             "action": {
@@ -26481,6 +26497,9 @@
                         "blocks"
                       ],
                       "type": "object"
+                    },
+                    "pageRejected": {
+                      "type": "boolean"
                     },
                     "presentation": {
                       "nullable": true,
@@ -26514,6 +26533,7 @@
                     "materialCount",
                     "name",
                     "page",
+                    "pageRejected",
                     "presentation",
                     "slug",
                     "sourceId",
@@ -41968,6 +41988,7 @@
                         },
                         "card": {
                           "additionalProperties": false,
+                          "default": null,
                           "nullable": true,
                           "properties": {
                             "action": {
@@ -41996,6 +42017,9 @@
                         "blocks"
                       ],
                       "type": "object"
+                    },
+                    "pageRejected": {
+                      "type": "boolean"
                     },
                     "presentation": {
                       "nullable": true,
@@ -42029,6 +42053,7 @@
                     "materialCount",
                     "name",
                     "page",
+                    "pageRejected",
                     "presentation",
                     "slug",
                     "sourceId",
@@ -43316,6 +43341,7 @@
                           },
                           "card": {
                             "additionalProperties": false,
+                            "default": null,
                             "nullable": true,
                             "properties": {
                               "action": {
@@ -43785,6 +43811,7 @@
                         },
                         "card": {
                           "additionalProperties": false,
+                          "default": null,
                           "nullable": true,
                           "properties": {
                             "action": {
@@ -43813,6 +43840,9 @@
                         "blocks"
                       ],
                       "type": "object"
+                    },
+                    "pageRejected": {
+                      "type": "boolean"
                     },
                     "presentation": {
                       "nullable": true,
@@ -43846,6 +43876,7 @@
                     "materialCount",
                     "name",
                     "page",
+                    "pageRejected",
                     "presentation",
                     "slug",
                     "sourceId",
@@ -105728,6 +105759,7 @@
                                 },
                                 "card": {
                                   "additionalProperties": false,
+                                  "default": null,
                                   "nullable": true,
                                   "properties": {
                                     "action": {
@@ -110825,6 +110857,7 @@
                                 },
                                 "card": {
                                   "additionalProperties": false,
+                                  "default": null,
                                   "nullable": true,
                                   "properties": {
                                     "action": {
@@ -112043,6 +112076,7 @@
                                 },
                                 "card": {
                                   "additionalProperties": false,
+                                  "default": null,
                                   "nullable": true,
                                   "properties": {
                                     "action": {
@@ -113260,6 +113294,7 @@
                                 },
                                 "card": {
                                   "additionalProperties": false,
+                                  "default": null,
                                   "nullable": true,
                                   "properties": {
                                     "action": {

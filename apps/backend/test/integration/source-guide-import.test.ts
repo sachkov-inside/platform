@@ -105,6 +105,16 @@ describe("authoring source Guide completion", () => {
     const home = await readHomeContent(materials.publishedMaterialReader, materials.contentAccess, emptyCatalogVideos, { resolveForAccess: () => Promise.resolve({ kind: "required" }) }, true, { kind: "anonymous" });
     expect(home).toMatchObject({ ok: true, value: { pinnedSeries: { id: guide.id, slug: "page-guide-renamed", presentation: "ai-first-process", card: page.card } } });
 
+    // Описание, которое больше не проходит схему, видно переносу и подлежит замене.
+    await database.prisma.guide.update({ where: { id: guideId }, data: { page: { card: null, blocks: [{ id: "hero", kind: "poster" }] } } });
+    const listed = await authoring.listContentCollections({ actor, kind: "guide" });
+    if (!listed.ok) throw new Error(listed.error.code);
+    expect(listed.value.find((item) => item.id === guideId)).toMatchObject({ page: null, pageRejected: true });
+    const current = listed.value.find((item) => item.id === guideId);
+    if (current === undefined) throw new Error("Expected the imported Guide in the list");
+    const repaired = await authoring.updateSourceGuide({ ...request, expectedVersion: current.version, source: { slug: "page-guide-renamed", presentation: "ai-first-process", page } });
+    expect(repaired).toMatchObject({ ok: true, value: { pageRejected: false } });
+
     const other = await reserveGuide("inside-content:other-page-guide", "other-page-guide");
     expect(await authoring.updateSourceGuide({ actor, sourceId: "inside-content:other-page-guide", collectionId: other.id, expectedVersion: other.version, name: other.name, summary: other.summary, source: { slug: "page-guide-renamed", presentation: "default", page: null } })).toMatchObject({ ok: false, error: { code: "content_collection_slug_conflict" } });
   });

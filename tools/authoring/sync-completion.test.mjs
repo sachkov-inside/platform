@@ -47,7 +47,7 @@ function applicationApi() {
   const calls = [];
   const videos = new Map();
   const artifacts = new Map();
-  const guide = { id: guideId, slug: "product", name: "", summary: "", version: 1, archived: false, presentation: "default", page: null };
+  const guide = { id: guideId, slug: "product", name: "", summary: "", version: 1, archived: false, presentation: "default", page: null, pageRejected: false };
   let next = 1;
   const api = {
     calls, materials, videos, artifacts, guide, pin: { seriesId: uuid(901), version: 3 },
@@ -64,7 +64,7 @@ function applicationApi() {
       if (path === "/authoring/import/guides/update") {
         assert.equal(body.expectedVersion, guide.version);
         assert.equal(body.introduction, undefined, "The editor-owned introduction is never imported");
-        Object.assign(guide, { name: body.name, summary: body.summary, slug: body.source.slug, presentation: body.source.presentation, page: body.source.page, version: guide.version + 1 });
+        Object.assign(guide, { name: body.name, summary: body.summary, slug: body.source.slug, presentation: body.source.presentation, page: body.source.page, pageRejected: false, version: guide.version + 1 });
         return structuredClone(guide);
       }
       if (path === `/authoring/guides/${guideId}/order`) return { orderVersion: "a".repeat(64), items: (guide.members ?? []).map((materialId) => ({ materialId, chapterId: null })), chapters: [] };
@@ -171,12 +171,18 @@ test("the product page travels with the Guide: unknown looks stop early, edits w
   await run(setup, api);
   assert.equal(updates(), once, "a journal written before the page still writes nothing");
 
+  // Нечитаемое описание в цели перезаписывается даже при совпадающем пакете.
+  api.guide.pageRejected = true;
+  await run(setup, api);
+  assert.equal(updates(), once + 1);
+  assert.equal(api.guide.pageRejected, false);
+
   const edited = { ...productPage, blocks: [{ ...productPage.blocks[0], lead: "Правка текста." }] };
   setup.manifest.guides[0].page = edited;
   setup.manifest.guides[0].slug = "product-moved";
   await setup.write();
   const report = await run(setup, api);
-  assert.equal(updates(), once + 1);
+  assert.equal(updates(), once + 2);
   assert.deepEqual({ id: api.guide.id, slug: api.guide.slug, page: api.guide.page }, { id: guideId, slug: "product-moved", page: edited });
   assert.match(report.guides[0].url, /\/guides\/product-moved$/u);
 });

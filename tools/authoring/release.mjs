@@ -105,7 +105,7 @@ export async function previewRelease(packagePath, stateDirectory, { origin, requ
     const currentChapterText = new Map(order.chapters.map((chapter) => [chapter.id, canonical({ name: chapter.name, summary: chapter.summary })]));
     const chapterTextChanges = guideChapters(manifest, guide).filter((chapter) => currentChapterText.has(chapter.id) && currentChapterText.get(chapter.id) !== canonical({ name: chapter.name, summary: chapter.summary })).length;
     // Цель отдаёт своё описание страницы, поэтому сравнение не зависит от журнала.
-    const pageChange = stored !== undefined && canonical(stored.page ?? null) !== canonical(details.page);
+    const pageChange = stored !== undefined && (stored.pageRejected === true || canonical(stored.page ?? null) !== canonical(details.page));
     const slugChange = stored !== undefined && stored.slug !== details.slug ? { from: stored.slug, to: details.slug } : undefined;
     const presentationChange = stored !== undefined && (stored.presentation ?? "default") !== details.presentation ? { from: stored.presentation ?? "default", to: details.presentation } : undefined;
     const detailsChange = stored === undefined || !guideDetailsMatch(stored, details);

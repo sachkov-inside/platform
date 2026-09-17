@@ -1,6 +1,6 @@
 import { Prisma, type MaterialsPrisma } from "../../../../infrastructure/prisma/index.js";
 import type { GuidePage, GuideSourceFields } from "../../domain/guide-page.js";
-import { readGuidePage } from "../../shared/guide-page-reader.js";
+import { readGuidePageState } from "../../shared/guide-page-reader.js";
 import type {
   ContentCollectionDto,
   ContentCollectionKind,
@@ -247,8 +247,10 @@ function introductionOf(record: GuideIntroductionDto): GuideIntroductionDto {
 }
 
 function sourceOf(record: GuideRecord): CollectionSource {
+  const stored = readGuidePageState(record.page, `Guide ${record.slug}`);
   return {
-    page: readGuidePage(record.page, `Guide ${record.slug}`),
+    page: stored.page,
+    pageRejected: stored.rejected,
     presentation: record.presentation,
     sourceId: record.sourceId,
   };
@@ -256,6 +258,7 @@ function sourceOf(record: GuideRecord): CollectionSource {
 
 interface CollectionSource {
   readonly page: GuidePage | null;
+  readonly pageRejected: boolean;
   readonly presentation: string;
   readonly sourceId: string | null;
 }
@@ -270,6 +273,7 @@ function toDto(
 ): ContentCollectionDto {
   return {
     page: source?.page ?? null,
+    pageRejected: source?.pageRejected ?? false,
     presentation: source?.presentation ?? null,
     sourceId: source?.sourceId ?? null,
     archived: record.archivedAt !== null,

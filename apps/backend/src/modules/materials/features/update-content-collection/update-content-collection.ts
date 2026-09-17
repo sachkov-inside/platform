@@ -10,6 +10,7 @@ import {
 } from "../../shared/application-result.js";
 import {
   accountId,
+  collectionSlug,
   entityId,
   parseCommand,
 } from "../../shared/command-validation.js";
@@ -21,7 +22,6 @@ import { contentCollectionPersistence } from "../../infrastructure/postgres/cont
 import { guidePageSchema, guidePresentationSchema, type GuideSourceFields } from "../../domain/guide-page.js";
 import { fingerprintCommand } from "../../shared/canonical-command-fingerprint.js";
 import type { MaterialsPrismaTransaction } from "../../../../infrastructure/prisma/index.js";
-import { contentCollectionInputSchema } from "../create-content-collection/create-content-collection.js";
 import {
   GUIDE_INTRODUCTION_FIELD_MAX,
   type GuideIntroductionDto,
@@ -54,7 +54,7 @@ export const updateContentCollectionCommandSchema = z
       .object({
         page: guidePageSchema.nullable(),
         presentation: guidePresentationSchema,
-        slug: contentCollectionInputSchema.shape.slug,
+        slug: collectionSlug,
       })
       .strict()
       .optional(),

@@ -8,7 +8,7 @@ import type { ReactNode } from "react";
 import { useMaterialReading } from "@/entities/material";
 import type { GuidePresentation } from "@/entities/guide-page";
 import { AiFirstProcessArtwork } from "@/features/ai-first-guide";
-import { fillOneTimeTerms } from "@/features/billing-checkout";
+import { fillOneTimeTerms } from "@/features/billing-checkout.terms";
 import { formatMaterialCount } from "@/features/library-discovery";
 import { loadSeriesContinuation, seriesContinuationQueryKey } from "@/features/reading-progress";
 import { collectionDiscoveryHref, materialReaderHref } from "@/shared/routing/material-reader";
@@ -44,19 +44,21 @@ function AiFirstFeaturedGuide({ series }: { readonly series: HomePinnedCollectio
     </div>
     <div className="home-guide-visual">
       <div className="home-guide-animation home-guide-ai"><AiFirstProcessArtwork /></div>
-      <div className="home-guide-mobile-footer"><span>{formatMaterialCount(series.count)}</span><ArrowRight aria-hidden="true" /><Link href={collectionDiscoveryHref("series", series.slug, "/")} aria-label={open}>Открыть</Link></div>
+      <div className="home-guide-mobile-footer"><span>{formatMaterialCount(series.count)}</span><ArrowRight aria-hidden="true" /><Link href={collectionDiscoveryHref("series", series.slug, "/")}>{open}</Link></div>
     </div>
   </section>;
 }
 
 function DefaultFeaturedGuide({ series }: { readonly series: HomePinnedCollection }) {
+  // Подпись действия приходит из описания продукта, если автор её написал.
+  const open = series.card === null || series.card.action === "" ? "Открыть продукт" : fillOneTimeTerms(series.card.action);
   return <section className="home-guide" aria-labelledby="featured-title">
     <div className="home-guide-copy">
       <h2 id="featured-title">{series.name}</h2>
       {series.summary && <p>{series.summary}</p>}
       <div className="home-guide-actions">
         <span>{formatMaterialCount(series.count)}</span>
-        <Link className="home-guide-open" href={collectionDiscoveryHref("series", series.slug, "/")}>Открыть продукт <ArrowRight aria-hidden="true" /></Link>
+        <Link className="home-guide-open" href={collectionDiscoveryHref("series", series.slug, "/")}>{open} <ArrowRight aria-hidden="true" /></Link>
         <GuideContinuation slug={series.slug} />
       </div>
     </div>

@@ -55,7 +55,9 @@ export function guideDetails(guide) {
 }
 /** Сравнение идёт с тем, что цель уже держит: журнал ничего об описании не помнит. */
 export function guideDetailsMatch(current, details) {
-  return current.name === details.name && current.summary === details.summary && current.slug === details.slug
+  // Нечитаемое описание цели — всегда несовпадение: только перенос может его заменить.
+  return current.pageRejected !== true
+    && current.name === details.name && current.summary === details.summary && current.slug === details.slug
     && (current.presentation ?? "default") === details.presentation
     && canonical(current.page ?? null) === canonical(details.page);
 }

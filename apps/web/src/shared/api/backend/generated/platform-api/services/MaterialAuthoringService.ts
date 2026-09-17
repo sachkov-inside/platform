@@ -88,6 +88,7 @@ export class MaterialAuthoringService {
         subtitle: string;
       } | null;
     } | null;
+    pageRejected: boolean;
     presentation: string | null;
     slug: string;
     sourceId: string | null;
@@ -188,6 +189,7 @@ export class MaterialAuthoringService {
         subtitle: string;
       } | null;
     } | null;
+    pageRejected: boolean;
     presentation: string | null;
     slug: string;
     sourceId: string | null;
@@ -295,6 +297,7 @@ export class MaterialAuthoringService {
         subtitle: string;
       } | null;
     } | null;
+    pageRejected: boolean;
     presentation: string | null;
     slug: string;
     sourceId: string | null;
@@ -398,6 +401,7 @@ export class MaterialAuthoringService {
         subtitle: string;
       } | null;
     } | null;
+    pageRejected: boolean;
     presentation: string | null;
     slug: string;
     sourceId: string | null;
@@ -1243,6 +1247,7 @@ export class MaterialAuthoringService {
         subtitle: string;
       } | null;
     } | null;
+    pageRejected: boolean;
     presentation: string | null;
     slug: string;
     sourceId: string | null;
@@ -1400,6 +1405,7 @@ export class MaterialAuthoringService {
         subtitle: string;
       } | null;
     } | null;
+    pageRejected: boolean;
     presentation: string | null;
     slug: string;
     sourceId: string | null;

@@ -26,14 +26,20 @@ describe("Guide page description", () => {
     ["an unknown key", { ...page, blocks: [{ ...page.blocks[0], price: 1 }] }],
     ["a duplicate block id", { ...page, blocks: [page.blocks[1], page.blocks[1]] }],
     ["a foreign substitution", { ...page, blocks: [{ ...page.blocks[0], lead: "Цена {price}" }] }],
-    ["an unmatched brace", { ...page, blocks: [{ ...page.blocks[0], lead: "Скобка {support_term" }] }],
     ["untrimmed text", { ...page, blocks: [{ ...page.blocks[0], lead: " Лид" }] }],
     ["an empty required title", { ...page, blocks: [{ ...page.blocks[1], title: "" }] }],
     ["no blocks", { ...page, blocks: [] }],
     ["an invalid block id", { ...page, blocks: [{ ...page.blocks[1], id: "Shift" }] }],
+    ["a second hero block", { ...page, blocks: [page.blocks[0], { ...page.blocks[0], id: "hero-again" }] }],
+    ["a description larger than the page limit", { ...page, blocks: [{ ...page.blocks[1], paragraphs: ["а".repeat(3999), "б".repeat(3999), "в".repeat(3999), "г".repeat(3999), "д".repeat(3999)] }] }],
   ])("rejects %s", (_name, value) => {
     expect(guidePageSchema.safeParse(value).success).toBe(false);
     expect(readStoredGuidePage(value)).toBe("invalid");
+  });
+
+  test("an author may write braces and omit the Home card caption", () => {
+    const withBraces = { blocks: [{ ...page.blocks[1], paragraphs: ["Объект { ключ: значение } в коде."] }] };
+    expect(guidePageSchema.parse(withBraces)).toEqual({ ...withBraces, card: null });
   });
 
   test("knows only the presentations the site can draw", () => {

@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 
 import type { GuidePage, GuidePageBlock, GuidePageBlockOf } from "@/entities/guide-page";
 import { AiFirstProcessArtwork } from "@/features/ai-first-guide";
-import { fillOneTimeTerms as fillTerms } from "@/features/billing-checkout";
+import { fillOneTimeTerms as fillTerms } from "@/features/billing-checkout.terms";
 import { formatMaterialCount, type PublishedSeriesResult } from "@/features/library-discovery";
 import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 import { guideProgrammeHref } from "@/shared/routing/subscription-route";
@@ -73,7 +73,7 @@ function Hero({ block, context }: { readonly block: GuidePageBlockOf<"hero">; re
       <p className="ai-guide-intro">{context.fill(block.lead)}</p>
       {block.highlights.length === 0 ? null : <ul className="ai-guide-highlights" aria-label="Формат практикума">{block.highlights.map((highlight, index) => {
         const Icon = iconAt(highlightIcons, index);
-        return <li key={highlight}><Icon aria-hidden="true" />{context.fill(highlight)}</li>;
+        return <li key={`${String(index)}-${highlight}`}><Icon aria-hidden="true" />{context.fill(highlight)}</li>;
       })}</ul>}
       <Link className="ai-guide-button" href={context.programme}>Открыть программу<ArrowRight /></Link>
       {context.freeCount > 0 ? <p className="ai-guide-format">Бесплатно: {formatMaterialCount(context.freeCount)}</p> : null}
@@ -86,7 +86,7 @@ function PlainCards({ block, fill }: { readonly block: GuidePageBlockOf<"cards">
   return <section className="ai-guide-audience">
     <h2>{fill(block.title)}</h2>
     {block.lead === "" ? null : <p className="ai-guide-section-intro">{fill(block.lead)}</p>}
-    <dl>{block.items.map(item => <div key={item.title}><dt><Check />{fill(item.title)}</dt><dd>{fill(item.text)}</dd></div>)}</dl>
+    <dl>{block.items.map((item, index) => <div key={`${String(index)}-${item.title}`}><dt><Check />{fill(item.title)}</dt><dd>{fill(item.text)}</dd></div>)}</dl>
     {block.note === "" ? null : <p className="ai-guide-career">{fill(block.note)}</p>}
   </section>;
 }
@@ -94,7 +94,7 @@ function PlainCards({ block, fill }: { readonly block: GuidePageBlockOf<"cards">
 function TextSection({ block, fill }: { readonly block: GuidePageBlockOf<"text">; readonly fill: (text: string) => string }) {
   return <section className="ai-guide-shift">
     <h2>{fill(block.title)}</h2>
-    <div>{block.paragraphs.map(paragraph => <p key={paragraph}>{fill(paragraph)}</p>)}</div>
+    <div>{block.paragraphs.map((paragraph, index) => <p key={`${String(index)}-${paragraph}`}>{fill(paragraph)}</p>)}</div>
   </section>;
 }
 
@@ -112,9 +112,9 @@ function OutcomeCards({ block, fill }: { readonly block: GuidePageBlockOf<"cards
     <div className="ai-guide-outcome-grid">{block.items.map((item, index) => {
       const Icon = iconAt(outcomeIcons, index);
       const Proof = iconAt(proofIcons, index);
-      return <div key={item.title}>
+      return <div key={`${String(index)}-${item.title}`}>
         {outcomeVisuals[index] ?? null}
-        <div className="ai-guide-result-copy"><h3><Icon aria-hidden="true" />{fill(item.title)}</h3><p>{fill(item.text)}</p>{item.detailLabel === "" && item.detail === "" ? null : <div className="ai-guide-result-proof"><Proof aria-hidden="true" /><span>{fill(item.detailLabel)}<strong>{fill(item.detail)}</strong></span></div>}</div>
+        <div className="ai-guide-result-copy"><h3><Icon aria-hidden="true" />{fill(item.title)}</h3><p>{fill(item.text)}</p>{item.detail === "" ? null : <div className="ai-guide-result-proof"><Proof aria-hidden="true" /><span>{fill(item.detailLabel)}<strong>{fill(item.detail)}</strong></span></div>}</div>
       </div>;
     })}</div>
     {block.note === "" ? null : <p className="ai-guide-career">{fill(block.note)}</p>}
@@ -126,7 +126,7 @@ function StepsSection({ block, context }: { readonly block: GuidePageBlockOf<"st
   return <section className="ai-guide-programme" aria-labelledby={titleId}>
     <h2 id={titleId}>{context.fill(block.title)}</h2>
     {block.lead === "" ? null : <p>{context.fill(block.lead)}</p>}
-    <ol>{block.items.map((stage, index) => <li key={stage.title}><span>{index + 1}</span><div><h3>{context.fill(stage.title)}</h3><p>{context.fill(stage.text)}</p></div></li>)}</ol>
+    <ol>{block.items.map((stage, index) => <li key={`${String(index)}-${stage.title}`}><span>{index + 1}</span><div><h3>{context.fill(stage.title)}</h3><p>{context.fill(stage.text)}</p></div></li>)}</ol>
     {block.link === "" ? null : <Link className="ai-guide-text-link" href={context.programme}>{context.fill(block.link)}<ArrowRight /></Link>}
   </section>;
 }
@@ -134,10 +134,10 @@ function StepsSection({ block, context }: { readonly block: GuidePageBlockOf<"st
 function ListSection({ block, fill }: { readonly block: GuidePageBlockOf<"list">; readonly fill: (text: string) => string }) {
   return <section className="ai-guide-project">
     <div><h2>{fill(block.title)}</h2>{block.text === "" ? null : <p>{fill(block.text)}</p>}</div>
-    <div className="ai-guide-language-map" aria-label="Практикум подходит для разных стеков">
-      <ul className="ai-guide-languages">{block.items.map(language => <li key={language}>{fill(language)}</li>)}</ul>
+    <div className="ai-guide-language-map">
+      <ul className="ai-guide-languages">{block.items.map((language, index) => <li key={`${String(index)}-${language}`}>{fill(language)}</li>)}</ul>
       <div className="ai-guide-language-join" aria-hidden="true" />
-      <div className="ai-guide-language-project"><FolderGit2 aria-hidden="true" /><span>Твой проект<small>Знакомый стек · новые навыки</small></span></div>
+      <div className="ai-guide-language-project" aria-hidden="true"><FolderGit2 /><span>Твой проект<small>Знакомый стек · новые навыки</small></span></div>
     </div>
   </section>;
 }
@@ -148,7 +148,7 @@ function SupportCards({ block, fill }: { readonly block: GuidePageBlockOf<"cards
     <div className="ai-guide-support-intro">{block.eyebrow === "" ? null : <p className="ai-guide-eyebrow">{fill(block.eyebrow)}</p>}<h2>{fill(block.title)}</h2>{block.lead === "" ? null : <p>{fill(block.lead)}</p>}</div>
     <div className="ai-guide-support-details">{block.items.map((item, index) => {
       const Icon = iconAt(supportIcons, index);
-      return <div key={item.title}><Icon aria-hidden="true" /><h3>{fill(item.title)}</h3><p>{fill(item.text)}</p></div>;
+      return <div key={`${String(index)}-${item.title}`}><Icon aria-hidden="true" /><h3>{fill(item.title)}</h3><p>{fill(item.text)}</p></div>;
     })}</div>
   </section>;
 }
@@ -162,6 +162,6 @@ function BonusCards({ block, fill }: { readonly block: GuidePageBlockOf<"cards">
   return <section className="ai-guide-bonuses">
     <h2>{fill(block.title)}</h2>
     {block.lead === "" ? null : <p className="ai-guide-section-intro">{fill(block.lead)}</p>}
-    <div className="ai-guide-bonus-grid">{block.items.map((item, index) => <div key={item.title}>{bonusPreviews[index] ?? null}<h3>{fill(item.title)}</h3><p>{fill(item.text)}</p></div>)}</div>
+    <div className="ai-guide-bonus-grid">{block.items.map((item, index) => <div key={`${String(index)}-${item.title}`}>{bonusPreviews[index] ?? null}<h3>{fill(item.title)}</h3><p>{fill(item.text)}</p></div>)}</div>
   </section>;
 }

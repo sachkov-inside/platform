@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 
 import type { GuidePage, GuidePageBlock, GuidePresentation } from "@/entities/guide-page";
 import { ContentCoverImage } from "@/entities/material";
-import { fillOneTimeTerms as fillTerms } from "@/features/billing-checkout";
+import { fillOneTimeTerms as fillTerms } from "@/features/billing-checkout.terms";
 import type { ReaderGuideArtifactsResult } from "@/features/guide-artifacts.reader";
 import {
   formatMaterialCount,
@@ -296,8 +296,8 @@ function DefaultBlock({
           <Prose value={fillTerms(block.lead)} />
           {block.highlights.length === 0 ? null : (
             <ul className="mt-3 flex flex-wrap gap-2 text-sm">
-              {block.highlights.map((highlight) => (
-                <li className="rounded-full bg-secondary px-3 py-1" key={highlight}>
+              {block.highlights.map((highlight, index) => (
+                <li className="rounded-full bg-secondary px-3 py-1" key={`${String(index)}-${highlight}`}>
                   {fillTerms(highlight)}
                 </li>
               ))}
@@ -310,8 +310,8 @@ function DefaultBlock({
         <Section title={fillTerms(block.title)}>
           {block.lead === "" ? null : <Prose value={fillTerms(block.lead)} />}
           <ul className="mt-4 grid gap-3">
-            {block.items.map((item) => (
-              <li className="rounded-2xl border border-border p-4" key={item.title}>
+            {block.items.map((item, index) => (
+              <li className="rounded-2xl border border-border p-4" key={`${String(index)}-${item.title}`}>
                 <p className="break-words font-semibold leading-6">{fillTerms(item.title)}</p>
                 <p className="mt-1 whitespace-pre-line break-words text-sm leading-6 text-muted-foreground">
                   {fillTerms(item.text)}
@@ -336,8 +336,8 @@ function DefaultBlock({
       return (
         <Section title={fillTerms(block.title)}>
           <div className="grid gap-3">
-            {block.paragraphs.map((paragraph) => (
-              <Prose key={paragraph} value={fillTerms(paragraph)} />
+            {block.paragraphs.map((paragraph, index) => (
+              <Prose key={`${String(index)}-${paragraph}`} value={fillTerms(paragraph)} />
             ))}
           </div>
         </Section>
@@ -348,7 +348,7 @@ function DefaultBlock({
           {block.lead === "" ? null : <Prose value={fillTerms(block.lead)} />}
           <ol className="mt-4 grid gap-4">
             {block.items.map((step, index) => (
-              <li className="grid grid-cols-[2rem_minmax(0,1fr)] gap-3" key={step.title}>
+              <li className="grid grid-cols-[2rem_minmax(0,1fr)] gap-3" key={`${String(index)}-${step.title}`}>
                 <span
                   aria-hidden="true"
                   className={cn(
@@ -375,8 +375,8 @@ function DefaultBlock({
         <Section title={fillTerms(block.title)}>
           {block.text === "" ? null : <Prose value={fillTerms(block.text)} />}
           <ul className="mt-3 flex flex-wrap gap-2 text-sm">
-            {block.items.map((item) => (
-              <li className="rounded-full bg-secondary px-3 py-1" key={item}>
+            {block.items.map((item, index) => (
+              <li className="rounded-full bg-secondary px-3 py-1" key={`${String(index)}-${item}`}>
                 {fillTerms(item)}
               </li>
             ))}

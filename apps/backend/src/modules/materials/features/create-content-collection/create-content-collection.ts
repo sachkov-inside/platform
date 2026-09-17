@@ -4,7 +4,7 @@ import { z } from "zod";
 import type { MaterialAuthoringDependencies } from "../../facets/material-authoring/material-authoring.dependencies.js";
 import { authorizeManager } from "../../ports/author-policy.js";
 import { failure } from "../../shared/application-result.js";
-import { accountId, parseCommand } from "../../shared/command-validation.js";
+import { accountId, collectionSlug, parseCommand } from "../../shared/command-validation.js";
 import {
   isPostgresUniqueViolation,
   mapPostgresReadError,
@@ -17,11 +17,7 @@ export const contentCollectionInputSchema = z
     actor: accountId,
     kind: z.enum(["guide", "series", "topic"]),
     name: z.string().trim().min(1).max(120),
-    slug: z
-      .string()
-      .trim()
-      .max(120)
-      .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u),
+    slug: collectionSlug,
     summary: z.string().trim().max(500),
   })
   .strict();

@@ -179,6 +179,7 @@ export const contentCollectionSchema = z
     materialCount: z.number().int().nonnegative(),
     name: z.string().min(1).max(120),
     page: guidePageSchema.nullable(),
+    pageRejected: z.boolean(),
     presentation: z.string().nullable(),
     slug: z.string().min(1).max(120),
     sourceId: z.string().nullable(),
