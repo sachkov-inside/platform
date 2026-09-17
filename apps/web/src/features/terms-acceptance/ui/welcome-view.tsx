@@ -35,7 +35,7 @@ export function WelcomeView({
   onAccept,
 }: WelcomeViewProps) {
   return (
-    <WelcomeDialog dismissible={unavailable} labelledBy={titleId}>
+    <WelcomeDialog labelledBy={titleId}>
       <div className="p-6 sm:p-7">
         <p className="text-[0.95rem] font-semibold tracking-[-0.02em]">
           Sachkov <span className="text-action">Inside</span>
