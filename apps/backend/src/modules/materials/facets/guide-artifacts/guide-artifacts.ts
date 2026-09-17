@@ -148,6 +148,8 @@ export interface ApplyAuthoringImportCommand {
   readonly actor: string;
   readonly artifacts: readonly AuthoringGuideArtifactSource[];
   readonly guideId: string;
+  /** When present, the Guide must belong to exactly this authoring source. */
+  readonly guideSourceId?: string;
 }
 
 /**

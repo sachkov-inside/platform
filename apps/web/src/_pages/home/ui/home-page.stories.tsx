@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { use } from "react";
-import { expect, waitFor, within } from "storybook/test";
+import { expect, userEvent, waitFor, within } from "storybook/test";
 import { createLibraryCatalogQueryOptions, libraryCatalogQueryKey, type LibraryCatalogPage, type LibrarySearchQuery } from "@/features/library-catalog";
 import { getQueryClient } from "@/shared/api/query-client";
 import { NavigationPendingFrame } from "@/widgets/application-shell";
@@ -20,11 +20,14 @@ const items = [
   { ...note, access: "free" as const, availability: "available" as const, formatSlug: "note", noteExcerpt: { text: "Маленький релиз легче проверить. Один результат, одна проверка — и понятный следующий шаг. Пример проекта — по ссылке ниже.", truncated: false, linkUrl: "https://github.com/sachkov-inside/platform" } },
   ...illustratedHome.guides,
 ];
-function readyPage(state: LibrarySearchQuery): LibraryCatalogPage {
-  return { kind: "ready", items: items.filter((item) => (state.formatSlugs.length === 0 || item.formatSlug === state.formatSlugs[0]) && item.title.toLowerCase().includes(state.q.toLowerCase())), facets: { formats: [], series: [], topics: [] }, nextCursor: null, totalCount: items.length };
+const topic = (slug: string, name: string) => ({ id: `topic-${slug}`, slug, name, count: 2, summary: null });
+const threeTopics = [topic("ai-agents", "AI-агенты"), topic("software-engineering", "Разработка ПО"), topic("product-development", "Разработка продукта")];
+const manyTopics = [...threeTopics, topic("testing", "Тестирование"), topic("security", "Безопасность"), topic("data", "Данные"), topic("operations", "Эксплуатация")];
+function readyPage(state: LibrarySearchQuery, topics = threeTopics): LibraryCatalogPage {
+  return { kind: "ready", items: items.filter((item) => (state.formatSlugs.length === 0 || item.formatSlug === state.formatSlugs[0]) && item.title.toLowerCase().includes(state.q.toLowerCase())), facets: { formats: [], series: [], topics }, nextCursor: null, totalCount: items.length };
 }
-function feed(result?: LibraryCatalogPage) {
-  const options = (state: LibrarySearchQuery) => createLibraryCatalogQueryOptions(() => Promise.resolve(result ?? readyPage(state)), state);
+function feed(result?: LibraryCatalogPage, topics = threeTopics) {
+  const options = (state: LibrarySearchQuery) => createLibraryCatalogQueryOptions(() => Promise.resolve(result ?? readyPage(state, topics)), state);
   return <HomeFeedView initialQuery={query} createQueryOptions={options} />;
 }
 const meta = { ...publicPageEnvironment("/"), component: HomePage, tags: ["autodocs"], title: "Pages/Mobile-first Platform/Home" } satisfies Meta<typeof HomePage>;
@@ -46,6 +49,41 @@ export const RealDataReady: Story = {
     await expect(await canvas.findByRole("link", { name: "Открыть github.com в новой вкладке" })).toHaveAttribute("href", "https://github.com/sachkov-inside/platform");
     await expect(canvas.queryByText("Что даёт подписка")).not.toBeInTheDocument();
     await expect(canvas.queryByText("База знаний")).not.toBeInTheDocument();
+  },
+};
+/** Search on its own row; formats and topics are one chip row, and a second press clears a topic. */
+export const FeedFilters: Story = {
+  args: { result: { kind: "ready", value: home }, feed: feed() },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(await canvas.findByRole("searchbox", { name: "Поиск по материалам" })).toBeVisible();
+    const topics = within(await canvas.findByRole("group", { name: "Тема" }));
+    const agents = topics.getByRole("button", { name: "AI-агенты" });
+    await expect(canvas.queryByRole("button", { name: "Сбросить" })).not.toBeInTheDocument();
+    await userEvent.click(agents);
+    await expect(agents).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(agents);
+    await expect(agents).toHaveAttribute("aria-pressed", "false");
+    const formats = within(canvas.getByRole("group", { name: "Формат материала" }));
+    await userEvent.click(formats.getByRole("button", { name: "Видео" }));
+    await userEvent.click(topics.getByRole("button", { name: "Разработка ПО" }));
+    await userEvent.click(canvas.getByRole("button", { name: "Сбросить" }));
+    await expect(formats.getByRole("button", { name: "Все" })).toHaveAttribute("aria-pressed", "true");
+    await expect(formats.getByRole("button", { name: "Все" })).toHaveFocus();
+    await expect(topics.getByRole("button", { name: "Разработка ПО" })).toHaveAttribute("aria-pressed", "false");
+    await expect(canvas.queryByRole("button", { name: "Сбросить" })).not.toBeInTheDocument();
+  },
+};
+export const FeedFiltersMobile: Story = { ...FeedFilters, globals: mobile.globals };
+/** More than six topics fold into one menu with the chip shape. */
+export const FeedFiltersManyTopics: Story = {
+  args: { result: { kind: "ready", value: home }, feed: feed(undefined, manyTopics) },
+  // Stories share one query cache and one query key; this one needs its own catalogue page.
+  beforeEach: () => { getQueryClient().clear(); },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(await canvas.findByRole("combobox", { name: "Тема" })).toBeVisible();
+    await expect(canvas.queryByRole("group", { name: "Тема" })).not.toBeInTheDocument();
   },
 };
 export const EmptyFeed: Story = { args: { result: { kind: "ready", value: home }, feed: feed({ kind: "empty" }) } };

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { authoringSourceIdSchema } from "../../domain/authoring-source.js";
 import { contentCollectionInputSchema } from "../create-content-collection/create-content-collection.js";
 import { updateContentCollectionCommandSchema } from "../update-content-collection/update-content-collection.js";
 import { reorderSeriesCommandSchema } from "../reorder-series/reorder-series.js";
@@ -6,7 +7,7 @@ import type { CreateContentCollectionResult } from "../create-content-collection
 import type { UpdateContentCollectionResult } from "../update-content-collection/update-content-collection.contract.js";
 import type { ReorderSeriesResult } from "../reorder-series/reorder-series.contract.js";
 
-const sourceId = z.string().trim().min(1).max(200);
+const sourceId = authoringSourceIdSchema;
 export const reserveSourceGuideBodySchema = contentCollectionInputSchema.omit({ actor: true, kind: true }).extend({ sourceId });
 export const updateSourceGuideBodySchema = z.object(updateContentCollectionCommandSchema.shape).omit({ actor: true, kind: true, introduction: true }).extend({ sourceId });
 export const reorderSourceGuideBodySchema = z.object(reorderSeriesCommandSchema.shape).omit({ actor: true }).extend({ sourceId });

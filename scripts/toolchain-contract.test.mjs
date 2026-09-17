@@ -197,6 +197,8 @@ describe("supported toolchain contract", () => {
       "config/compose/local/postgres.env",
       "config/compose/local/migrations.env",
       "config/compose/local/seed.env",
+      "config/compose/local/seed-checks.env",
+      "config/compose/local/seed-stand.env",
       "config/compose/local/api.env",
       "config/compose/local/mcp.env",
       "config/compose/local/material-assets-worker.env",

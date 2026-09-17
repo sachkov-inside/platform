@@ -201,3 +201,28 @@ export const Unavailable: Story = {
   name: "Статус сессии недоступен",
   args: { accountSlot: <HeaderAuthControl state="unavailable" /> },
 };
+
+/** A page with little content keeps the footer at the bottom of the viewport, not under the text. */
+function shortPageFooter(viewport: string): Story {
+  return {
+    globals: { viewport: { isRotated: false, value: viewport } },
+    render: (args) => (
+      <ApplicationShell {...args}>
+        <p>Короткая страница.</p>
+      </ApplicationShell>
+    ),
+    play: async ({ canvasElement }) => {
+      const canvas = within(canvasElement);
+      const footer = canvas.getByRole("contentinfo");
+      const view = canvasElement.ownerDocument.defaultView;
+      if (view === null) throw new Error("Story canvas has no window");
+      const { bottom } = footer.getBoundingClientRect();
+      // Only the page's own bottom padding (and the mobile dock space) may remain below the footer.
+      await expect(bottom).toBeGreaterThan(view.innerHeight - 200);
+      await expect(bottom).toBeLessThanOrEqual(view.innerHeight);
+    },
+  };
+}
+
+export const ShortPageFooterDesktop: Story = { name: "Desktop · подвал внизу короткой страницы", ...shortPageFooter("desktop1440") };
+export const ShortPageFooterMobile: Story = { name: "Mobile · подвал внизу короткой страницы", ...shortPageFooter("mobile390") };

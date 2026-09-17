@@ -216,7 +216,7 @@ export function assembleVideos(dependencies: {
           initializedProviderVideoId.data,
           videoIdSchema.parse(video.id),
         ))) return dependencyUnavailable();
-        return { ok: true, value: { uploadEndpoint: initialized.uploadEndpoint, video: toDto(video) } };
+        return { ok: true, value: { providerVideoId: initializedProviderVideoId.data, uploadEndpoint: initialized.uploadEndpoint, video: toDto(video) } };
       } catch {
         await markUploadOutcomeUnknown(attemptId);
         return uploadOutcomeUnknown();
@@ -622,7 +622,7 @@ export function assembleVideos(dependencies: {
         providerVideoIdSchema.parse(video.providerVideoId),
         videoIdSchema.parse(video.id),
       ))) return dependencyUnavailable();
-      return { ok: true, value: { uploadEndpoint: attempt.uploadEndpoint, video: toDto(video) } };
+      return { ok: true, value: { providerVideoId: video.providerVideoId, uploadEndpoint: attempt.uploadEndpoint, video: toDto(video) } };
     } catch {
       return dependencyUnavailable();
     }

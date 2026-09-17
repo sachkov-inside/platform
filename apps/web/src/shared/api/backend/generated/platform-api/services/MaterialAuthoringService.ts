@@ -833,6 +833,78 @@ export class MaterialAuthoringService {
     });
   }
   /**
+   * Upload or replace the cover of one Material owned by an authoring source
+   * @returns any
+   * @throws ApiError
+   */
+  public uploadImportedMaterialCover({
+    ownerId,
+    formData,
+  }: {
+    ownerId: string,
+    formData: {
+      checksumSha256: string;
+      declaredSize: number;
+      expectedCoverId: (string | 'null');
+      file: Blob;
+      sourceId: string;
+    },
+  }): CancelablePromise<{
+    cover: {
+      coverId: string;
+      renditions: Array<{
+        height: number;
+        width: number;
+      }>;
+    } | null;
+  }> {
+    return this.httpRequest.request({
+      method: 'PUT',
+      url: '/authoring/import/content-covers/material/{ownerId}',
+      path: {
+        'ownerId': ownerId,
+      },
+      formData: formData,
+      mediaType: 'multipart/form-data',
+    });
+  }
+  /**
+   * Create or update one authoring-owned artifact of a source Guide from its package file
+   * @returns any
+   * @throws ApiError
+   */
+  public importSourceGuideArtifact({
+    guideId,
+    formData,
+  }: {
+    guideId: string,
+    formData: {
+      access: 'free' | 'membership';
+      checksumSha256: string;
+      declaredSize: number;
+      file: Blob;
+      guideSourceId: string;
+      purpose: string;
+      sourceId: string;
+      title: string;
+    },
+  }): CancelablePromise<{
+    artifactId: string;
+    outcome: 'created' | 'diverged' | 'missing' | 'unchanged' | 'updated';
+    sourceId: string | null;
+    title: string;
+  }> {
+    return this.httpRequest.request({
+      method: 'POST',
+      url: '/authoring/import/guides/{guideId}/artifacts',
+      path: {
+        'guideId': guideId,
+      },
+      formData: formData,
+      mediaType: 'multipart/form-data',
+    });
+  }
+  /**
    * reorderSourceGuide
    * @returns any
    * @throws ApiError

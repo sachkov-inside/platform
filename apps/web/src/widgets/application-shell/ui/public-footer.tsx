@@ -12,7 +12,7 @@ import { LEGAL_PATH, legalDocumentPath } from "@/shared/routing/public-page-path
  */
 export function PublicFooter() {
   return (
-    <footer className="mt-16 border-t border-border pt-6 text-sm text-muted-foreground">
+    <footer className="border-t border-border pt-6 text-sm text-muted-foreground">
       <nav aria-label="Документы Inside">
         <ul className="flex flex-wrap gap-x-5 gap-y-2">
           {LEGAL_NAVIGATION.map((entry) => (

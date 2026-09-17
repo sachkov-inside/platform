@@ -4,7 +4,7 @@
 > [local runbook](../../runbooks/local-development.md#local-obsidian-authoring-preview-468).
 > No watcher or Git hook is installed or started. Uncommitted changes are excluded.
 
-# Authoring workflow #468 — implementation in progress
+# Authoring workflow #468 — implemented, owner acceptance pending
 
 This is an implementation checkpoint, not the acceptance or delivery receipt for #468.
 
@@ -65,18 +65,19 @@ The Platform diff remains in the isolated task worktree.
 
 ## Remaining implementation and acceptance
 
-1. Complete asset/cover/artifact transfer, durable mapping restore and automatic reader refresh;
-   harden the first local package application and watcher into the full target/release contract.
-2. Complete resumable video intake/transcription/upload orchestration and provider reconciliation;
-   existing source and raw ASR files must remain unchanged. Persist exact attempts before calls.
-3. Complete immutable release preview/apply/resume and explicit archive controls, keeping external
-   operations behind approval of a concrete file/project or release package.
-4. Complete templates and canonical runbooks, full repository checks, both required review axes,
-   draft PR and current-head CI. Preserve the owner checkout and singleton runtime.
-5. Perform desktop/mobile acceptance with the real AI-first selection, genuine images/artifacts,
-   free standalone publication, paid feed lesson, both video paths, access and private bytes.
+Status on 2026-09-17, after the completion slice below:
 
-Do not close #468 or present this checkpoint as the finished authoring workflow.
+1. Implemented: covers, Material artifacts, supplementary placement, archive proposals with
+   explicit unpublishing, existing-record video attachment with chapters, the local upload runner,
+   the full-stand target and the local release preview/apply. Automatic browser refresh was
+   dropped with the watcher: the owner chose a one-shot import on 2026-09-15.
+2. Not enabled: real Kinescope transfer and any release beyond this machine. Both need a separate
+   owner approval of a concrete file/project or credential path.
+3. Owner acceptance remains: one combined local run of the whole platform with the real AI-first
+   product on desktop and mobile — sign-in, purchases, paid and free access, feed, covers,
+   artifacts, video with chapters in test mode, archive proposal and release preview.
+
+Do not close #468 before that acceptance.
 
 ## Separate owner-requested discussion after #468
 
@@ -168,3 +169,37 @@ not separately executed through the fullstack harness. Local synthetic owner acc
 the scope of this preview; no production acceptance or deployment is implied.
 
 Screenshots: [desktop](programme-continuous-desktop.png), [mobile](programme-continuous-mobile.png).
+
+## Completion slice (2026-09-17)
+
+Owner decisions: finish #468 before one combined platform acceptance; Kinescope stays in test
+mode; the AI-first product page copy stays in Platform, so `guide.yaml` introduction fields are not
+imported.
+
+The full stand (`pnpm local:stand`) became an import target through the loopback
+`authoring:stand-gateway`: Logto 1.41 exchanged a stand personal access token for an API token,
+and the API accepted it for a stand test owner granted `materials:manage`. Importing Inside Content
+commit `69c56921e233bc1fa3705e52d7a595fde479a927` applied 108 Materials in 15 seconds; the
+repeat applied none. The programme page showed 22 chapters, 105 programme Materials and 3
+Additional Materials. The live run exposed two defects that are now fixed and covered: paid
+Materials validated outside their product, and supplementary originals were not placed.
+`authoring:release preview` against the stand reported 108 unchanged and refused a production URL.
+
+Automated checks: `pnpm test:authoring` (44), gateway unit tests, focused PostgreSQL integration
+tests for source-scoped covers and artifacts, refused ordinary archive of an imported Guide,
+video upload init and MCP tools.
+Inside Content received agent instructions for transfer, recording processing, archive and release.
+Not verified here: real provider playback, buyer access through a purchase, mobile layout.
+
+After review fixes the stand was started again. A deliberately corrupted stored personal access
+token was renewed automatically; a request carrying `Sec-Fetch-Site` was refused (403) while a
+plain local client succeeded. The test Kinescope adapter reported 600 seconds, which rejected the
+real CI lesson chapters (up to 2185 s); it now reports four hours. `authoring:video upload` then
+attached a test recording to `ci-cd-and-protected-main`, the next transfer applied exactly that
+Material, and the lesson listed its 11 chapters ([screenshot](stand-video-chapters.png)). The
+test player itself answers 404 because the provider record is fictitious.
+
+Found on the stand, outside this change: protected Material images are signed for
+`http://object-storage:9000`, the Compose-internal MinIO host, so the browser cannot load images
+inside lessons. Covers are unaffected because the API delivers them. The combined acceptance needs
+this stand configuration fixed first.

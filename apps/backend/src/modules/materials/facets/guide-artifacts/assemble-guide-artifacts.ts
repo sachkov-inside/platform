@@ -141,6 +141,7 @@ const importSchema = z
       )
       .max(200),
     guideId: uuidSchema,
+    guideSourceId: sourceIdSchema.optional(),
   })
   .strict();
 
@@ -725,10 +726,13 @@ export function assembleGuideArtifacts(dependencies: {
       let namedBySource: readonly ArtifactRow[];
       try {
         const guide = await prisma.guide.findUnique({
-          select: { id: true },
+          select: { id: true, sourceId: true },
           where: { id: command.guideId },
         });
         if (guide === null) return failure({ code: "guide_not_found" });
+        if (command.guideSourceId !== undefined && guide.sourceId !== command.guideSourceId) {
+          return failure({ code: "forbidden" });
+        }
         placed = await loadPlacedArtifacts(prisma, command.guideId, {
           take: IMPORT_ARTIFACT_LIMIT,
         });

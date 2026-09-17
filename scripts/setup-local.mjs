@@ -7,6 +7,10 @@ import { fileURLToPath } from "node:url";
 import lockfile from "proper-lockfile";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+// The smoke needs published demonstration content, so this verified stack is a disposable project
+// beside the shared stand, which keeps the owner's product data.
+const smokeProject = "inside-platform-smoke";
+Object.assign(process.env, { COMPOSE_PROJECT_NAME: smokeProject, LOCAL_SEED_VIEW: "checks" });
 const pnpmPath = process.env.npm_execpath;
 
 if (pnpmPath === undefined) {
@@ -33,7 +37,7 @@ try {
   await runPnpm(["platform:doctor"]);
   if (await isComposeRunning()) {
     throw new Error(
-      "The Platform Compose stack is already running and belongs to another session. Use that owner's handoff or stop it before local:setup.",
+      "A Platform Compose stack is already running and owns the local ports. Use that owner's handoff or stop it before local:setup.",
     );
   }
   shouldCleanupCompose = true;
@@ -41,7 +45,7 @@ try {
   await runPnpm(["compose:smoke"]);
   shouldCleanupCompose = false;
   process.stdout.write(
-    "Local Platform is ready at http://127.0.0.1:3000; use pnpm infra:down when finished.\n",
+    `Verified demo Platform is ready at http://127.0.0.1:3000; stop it with COMPOSE_PROJECT_NAME=${smokeProject} docker compose down --volumes.\n`,
   );
 } catch (error) {
   await shutdown();
@@ -57,11 +61,14 @@ if (interruptedSignal !== undefined) {
 }
 
 async function isComposeRunning() {
-  const result = await runPnpm(
-    ["exec", "docker", "compose", "ps", "--services", "--status", "running"],
-    true,
-  );
-  return result.output.trim().length > 0;
+  for (const project of ["inside-platform", smokeProject]) {
+    const result = await runPnpm(
+      ["exec", "docker", "compose", "--project-name", project, "ps", "--services", "--status", "running"],
+      true,
+    );
+    if (result.output.trim().length > 0) return true;
+  }
+  return false;
 }
 
 async function runPnpm(arguments_, capture = false) {
@@ -119,7 +126,7 @@ function shutdown() {
     await Promise.all([...activeProcesses].map((child) => stopProcess(child)));
     if (shouldCleanupCompose) {
       shouldCleanupCompose = false;
-      await runCleanupPnpm(["infra:down"]).catch(() => undefined);
+      await runCleanupPnpm(["exec", "docker", "compose", "down", "--volumes"]).catch(() => undefined);
     }
   })();
   return shutdownPromise;

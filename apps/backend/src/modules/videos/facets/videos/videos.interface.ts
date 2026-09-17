@@ -87,7 +87,7 @@ type OperationResult<Value, Code extends VideoError["code"]> = VideoResult<
 >;
 
 export type InitVideoUploadResult = OperationResult<
-  { readonly uploadEndpoint: string; readonly video: VideoDto },
+  { readonly providerVideoId: string; readonly uploadEndpoint: string; readonly video: VideoDto },
   | "dependency_unavailable"
   | "forbidden"
   | "idempotency_key_reused"

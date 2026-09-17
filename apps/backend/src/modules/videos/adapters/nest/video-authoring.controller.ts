@@ -47,7 +47,8 @@ import {
 import { videoUploadBodySchema as initBodySchema, videoAttachmentBodySchema as attachmentBodySchema } from "../video-authoring-wire.js";
 
 const videoSchema = videoDtoSchema;
-const initResponseSchema = z.object({ uploadEndpoint: z.url(), video: videoSchema }).strict();
+// The provider record id lets an author reference the same upload from the original.
+const initResponseSchema = z.object({ providerVideoId: z.string().min(1), uploadEndpoint: z.url(), video: videoSchema }).strict();
 
 @ApiTags("Material video authoring")
 @ApiBearerAuth("logto")

@@ -9,7 +9,9 @@ The default stack contains:
 
 - PostgreSQL 18.4 with a persistent named volume;
 - MinIO with separate public-delivery, protected and quarantine buckets; its S3-compatible API is
-  on <http://127.0.0.1:9000> and console is on <http://127.0.0.1:9001>;
+  on <http://127.0.0.1:9000> and console is on <http://127.0.0.1:9001>. Services reach it as
+  `object-storage:9000`, while `OBJECT_STORAGE_SIGNED_GET_ENDPOINT` signs protected browser links for
+  the published `127.0.0.1:9000`;
 - one `migrations` job that applies the schema and one `seed` job that adds deterministic
   development data;
 - Nest API on <http://127.0.0.1:3001> with health and OpenAPI endpoints;
@@ -91,7 +93,8 @@ docker compose up --build
 ```
 
 This one command builds exact Node/pnpm development images, starts PostgreSQL, migrates and seeds
-it once, then starts API, MCP and web. Rebuild the affected service after a source, package
+it once, then starts API, MCP and web. The seed keeps its demonstration Materials unpublished; run
+`pnpm local:stand` and `pnpm local:product` for the product view. Rebuild the affected service after a source, package
 manifest, workspace manifest or lockfile change. For a faster edit loop, use the optional host
 Node.js commands below.
 
@@ -121,11 +124,16 @@ The test provider also exercises deletion without outbound calls. Operational st
 production recovery are documented in the
 [Video deletion runbook](video-deletion.md).
 
-For a detached stack suitable for smoke commands:
+The smoke needs the published demonstration catalogue, so it runs in its own disposable project and
+never touches the shared stand volumes. It uses the same ports, so stop the stand first:
 
 ```bash
-docker compose up --detach --build --wait
-bash scripts/compose-stack-smoke.sh
+(
+  export COMPOSE_PROJECT_NAME=inside-platform-smoke LOCAL_SEED_VIEW=checks
+  docker compose up --detach --build --wait
+  bash scripts/compose-stack-smoke.sh
+  docker compose down --volumes
+)
 ```
 
 The smoke proves the live web server adapter can reach API and PostgreSQL, MCP reported
@@ -160,7 +168,7 @@ the rest of the stand. It prints four addresses at the end:
 - the bank double on <http://127.0.0.1:8090>.
 
 The default `docker compose up` without the profile starts as before and needs none of this. The
-stand claims the same machine-wide lock and the same Compose project as `pnpm local:setup`, so it
+stand claims the same machine-wide lock as `pnpm local:setup` and the shared Compose project, so it
 refuses to start while a stack is already running: stop the running one with
 `docker compose --profile identity down` first. Start the stand only through `pnpm local:stand`;
 a bare `docker compose --profile identity up` starts Logto without the bootstrap that configures
@@ -258,8 +266,8 @@ pnpm dev
 ```
 
 Individual adapters are `pnpm dev:web`, `pnpm dev:api` and `pnpm dev:mcp`. `pnpm local:setup` is a
-host-pnpm convenience wrapper around the full detached Compose startup and smoke; it refuses to
-reuse a running singleton stack.
+host-pnpm convenience wrapper that starts the disposable smoke project with the published demo and
+runs the smoke; it refuses to start while any Platform stack owns the ports.
 
 ### MCP authoring
 
@@ -312,11 +320,10 @@ Inspect the running host fallback or Compose stack:
 - local Object Storage console: <http://127.0.0.1:9001>
 - MCP Streamable HTTP endpoint: <http://127.0.0.1:3002/mcp>
 - MCP protected-resource metadata: <http://127.0.0.1:3002/.well-known/oauth-protected-resource/mcp>
-- published Material API: <http://127.0.0.1:3001/materials/kak-ustroen-inside-platform>
+- published Material API (smoke project only): <http://127.0.0.1:3001/materials/kak-ustroen-inside-platform>
 - published catalog API: <http://127.0.0.1:3001/library/materials>
 - Material authoring OpenAPI group: <http://127.0.0.1:3001/openapi#/Material%20authoring>
-- production Library: <http://127.0.0.1:3000/library>
-- production Reader: <http://127.0.0.1:3000/materials/kak-ustroen-inside-platform>
+- production Reader (smoke project only): <http://127.0.0.1:3000/materials/kak-ustroen-inside-platform>
 
 The API health response is:
 
@@ -551,7 +558,8 @@ docker compose up --detach --build --wait
 ```
 
 This does not affect disposable Testcontainers databases. Never use `--volumes` as routine
-shutdown.
+shutdown: it also deletes the owner's product view, which `pnpm local:product` then rebuilds from
+the committed originals (purchases, accounts and progress are lost).
 
 ## Local editor acceptance
 
@@ -740,40 +748,95 @@ confirmation still gives a full period; duplicate notifications and fulfillment 
 the original saved bounds. No separate time-policy injection is required. Missing terminal
 configuration continues to disable payment admission; DEMO/production activation remains separate.
 
+### Local product view
+
+The stand is where the owner sees the product as production will show it. Its data lives in the
+shared `inside-platform_*` volumes, so every branch and worktree sees the same content and accounts:
+
+- `pnpm local:stand` links a worktree's `.identity-proof` to the primary checkout, so the stand keeps
+  one set of sign-in keys whatever branch starts it.
+- `pnpm local:product [--owner-email EMAIL]` transfers the committed AI-first originals from the
+  sibling `inside-content` checkout and features that product on Home. It starts the authoring
+  gateway for the run when none is running and repeats safely at any time.
+- Host checks that migrate, seed or bootstrap owners (`pnpm smoke:fullstack`, the identity proof,
+  the Telegram sign-in launcher) use the `inside_checks` database, never the stand's `inside`,
+  unless `DATABASE_URL` is exported explicitly.
+
+- The seed reads `config/compose/local/seed-stand.env` (`LOCAL_SEED_DEMO=hidden`) unless
+  `LOCAL_SEED_VIEW=checks` selects `seed-checks.env`: demonstration Materials stay drafts or
+  unpublished in the editor, so Home and search show only transferred originals. They are
+  published only in check databases: the disposable Compose smoke project, `smoke:fullstack`, the
+  Telegram launcher and the editor review.
+- Home lists only originals marked `show_in_feed: true`; an empty feed means no original is marked yet.
+
+Keep the volumes: stop the stand with `docker compose --profile identity down` without `-v`.
+
 ### Local Obsidian authoring preview (#468)
 
-The isolated `editor:local` runtime above supports a loopback-only import gateway. Start the
-runtime, then run the one-shot Git import:
+Originals from Inside Content reach a local Platform through a one-shot import of one Git commit.
+Two loopback targets exist, each with its own state directory:
+
+| Target | Runtime | Gateway |
+|---|---|---|
+| `editor` (default) | `pnpm editor:local` with a synthetic owner | the editor runtime itself on `127.0.0.1:4396` |
+| `stand` | `pnpm local:stand` with sign-in, purchases and mail | `pnpm authoring:stand-gateway --owner-email EMAIL` on `127.0.0.1:4398` |
+
+For the stand, the owner signs in once with that email and receives `materials:manage` through the
+[owner release bootstrap](#owner-account-release-bootstrap). The stand bootstrap registers the
+stand-only Logto client `Inside Authoring Stand` with token exchange; the gateway creates the
+owner's stand personal access token in `.identity-proof/authoring-owner-pat.json` and exchanges it
+for short API tokens, renewing the stored token once when the stand's sign-in database was
+recreated. It forwards only canonical `/authoring/` API paths from non-browser clients; any process
+on this machine can act as the stand owner while it runs, so stop it after the transfer.
+Run the stand from a worktree only with the owner checkout's `.identity-proof/` copied in: a fresh
+bootstrap there would generate new sign-in keys for the owner's stand accounts.
 
 ```bash
-pnpm authoring:sync-git-local CONTENT_REPOSITORY GUIDE_ID STATE_DIRECTORY [REF]
+pnpm authoring:sync-git-local CONTENT_REPOSITORY GUIDE_ID STATE_DIRECTORY [REF] [--target editor|stand] [--archive SOURCE_ID]...
 ```
 
 `REF` defaults to `HEAD` and is resolved to one commit SHA before export. The command archives
 that commit into a temporary directory, runs its exporter with frozen dependencies, and applies
-the resulting package to the loopback development runtime. Staged, unstaged and untracked files
-are excluded; no checkout, commit, push, Git hook or file watcher is required or installed.
-The temporary snapshot is removed when the command exits. The immutable packages remain under
+the resulting package. Staged, unstaged and untracked files are excluded; no checkout, commit,
+push, Git hook or file watcher is involved. Immutable packages remain under
 `STATE_DIRECTORY/packages`; `last-git-sync.json` records the last successful commit, package and
-report. Preserve the existing state directory when switching from the previous watcher.
-After an error, rerun the same commit: the operation journal recovers partial application.
-A comment committed into the selected revision still blocks export under the editorial rules.
-Refresh the browser manually after a successful transfer. Draft originals become published copies
-only on this local review runtime; missing access uses the owner-approved `membership` default.
-There is no production target. GitHub Actions publication is a future stage, not triggered by push.
-`authoring:sync-local PACKAGE_JSON STATE_DIRECTORY` remains the low-level package application command.
+report. After an error, rerun the same commit: the journal resumes partial application.
+Refresh the browser after a transfer; report links point at the reader origin of the target.
 
-Source IDs and the separate persistent journal preserve
-Material identities across edits and renames. Do not discard the journal between synchronizations.
-Validation runs before Material changes; invalid Markdown leaves existing Material bodies intact.
-An interrupted batch can be partially applied and is resumed, not rolled back as one transaction.
+What the transfer applies:
 
-Only main programme placements contribute to this local Guide. Supplementary Materials have
-separate reader URLs in `journal.json`'s `lastReport`; their product tab is separate follow-up work.
-If the Guide introduction exceeds the existing 500-character summary contract, the preview uses
-its first paragraph and reports that the full introduction has not been mapped. It remains in the
-package and original. Real video attachment, covers and artifact transfer are still reported as
-pending. This is an author identity preview, not paid-buyer or provider acceptance.
+- Material text, images, links, access, topic, feed choice and product membership. Paid Materials
+  validate inside their product; `supplementary_materials` join the product after the programme
+  without a chapter, which is its "Additional Materials" part.
+- Material covers through `PUT /authoring/import/content-covers/material/:id`, and Material
+  artifacts as authoring-owned Guide artifacts linked to every declaring Material.
+- An existing provider record named by `platform_video.kinescope_id`: attached, reconciled until
+  ready and saved with the original's video chapters.
+- The Guide name and first-paragraph teaser. The product page copy stays in Platform; the Guide
+  introduction fields are not imported.
 
-`pnpm test:authoring` verifies package checks, Markdown conversion and operation recovery.
-Remaining #468 work is recorded in [the checkpoint](../evidence/issue-468/README.md).
+Imported Materials and Guides change only through these source-scoped routes; ordinary editor,
+API and MCP writes are refused. A missing original appears in `archiveProposals`. It is unpublished
+and removed from the product only when the same command repeats with `--archive SOURCE_ID`.
+Proposals cover Materials previously transferred with the selected product; a standalone original
+is never proposed, because an explicit Material selection does not describe the whole catalog.
+Journal entries written before products were recorded carry no product and are proposed for any
+product selection; confirm each one before naming it with `--archive`.
+`authoring:release preview` marks a Material with a Video whose access changes as a conflict: the
+Video keeps the access it was attached with, so that change needs a separate recording decision.
+
+A finished recording for a synchronized Material is uploaded with
+`pnpm authoring:video upload --state STATE_DIRECTORY --source inside-content:MATERIAL_ID --file FILE`.
+The idempotency key is journaled before the first call; an unknown outcome stops for inspection.
+Only the test Kinescope adapter, whose upload endpoint ends in `.invalid`, is accepted; a real
+provider transfer is refused without a separate owner approval. The next transfer saves the
+recording with the original's chapters; the returned `providerVideoId` belongs in the original.
+
+`pnpm authoring:release preview --package PACKAGE_JSON --target editor|stand --state STATE_DIRECTORY`
+compares a package with the target without writing and saves a fingerprinted preview.
+`pnpm authoring:release apply --preview PREVIEW_JSON --state STATE_DIRECTORY` applies exactly that
+preview and stops on drift, an edited preview or an unreviewed archive request. Non-local targets
+are refused; production publication needs an owner-approved credential path first.
+
+`pnpm test:authoring` verifies package checks, conversion, recovery, covers, artifacts, video,
+archive and release decisions. Evidence is in [the checkpoint](../evidence/issue-468/README.md).

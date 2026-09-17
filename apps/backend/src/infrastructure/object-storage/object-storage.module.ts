@@ -24,6 +24,9 @@ export const OBJECT_STORAGE = Symbol("OBJECT_STORAGE");
           endpoint: config.objectStorage.endpoint,
           forcePathStyle: config.objectStorage.forcePathStyle,
           region: config.objectStorage.region,
+          ...(config.objectStorage.signedGetEndpoint === undefined
+            ? {}
+            : { signedGetEndpoint: config.objectStorage.signedGetEndpoint }),
         };
         if (config.mode === "development") await ensureS3Buckets(storageConfig);
         return createS3ObjectStorage(storageConfig);

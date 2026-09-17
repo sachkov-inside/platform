@@ -38,9 +38,11 @@ import {
   MaterialAuthoringEndpoint,
 } from "../../adapters/nest/material-authoring-endpoint.js";
 import { contentCoverProjectionHttpSchema } from "../../adapters/nest/content-cover-http.js";
+import { authoringSourceIdSchema } from "../../domain/authoring-source.js";
 import {
   CONTENT_COVERS,
   contentCoverOwnerKindSchema,
+  type ChangeContentCoverCommand,
   type ChangeContentCoverResult,
   type ContentCovers,
 } from "./content-covers.js";
@@ -51,6 +53,8 @@ const multipartExpectedCoverIdSchema = z.union([
   z.uuid(),
   z.literal("null"),
 ]);
+// declaredSize, checksumSha256 and expectedCoverId; the import route adds sourceId.
+const uploadFieldLimit = 3;
 const changeResponseSchema = z
   .object({ cover: contentCoverProjectionHttpSchema.nullable() })
   .strict();
@@ -107,55 +111,8 @@ export class AuthoringContentCoverController {
     @Param("ownerId") ownerId: string,
     @Req() request: FastifyRequest,
   ) {
-    const ownerKind = contentCoverOwnerKindSchema.safeParse(rawOwnerKind);
-    if (!ownerKind.success || !uuidSchema.safeParse(ownerId).success) {
-      throw coverProblem(400, "invalid_cover", "Cover owner is malformed");
-    }
-    let file: MultipartFile;
-    try {
-      const part = await request.file({
-        limits: {
-          fields: 3,
-          fileSize: MATERIAL_ASSET_LIMITS.imageBytes,
-          files: 1,
-        },
-      });
-      if (part === undefined) throw new Error("missing file");
-      file = part;
-    } catch {
-      throw coverProblem(422, "invalid_cover", "Cover form is malformed");
-    }
-    let body: Buffer;
-    try {
-      body = await file.toBuffer();
-    } catch {
-      throw coverProblem(413, "invalid_cover", "Cover exceeds the size limit");
-    }
-    if (file.file.truncated) {
-      throw coverProblem(413, "invalid_cover", "Cover exceeds the size limit");
-    }
-    const declaredSize = Number(field(file, "declaredSize"));
-    const checksum = checksumSchema.safeParse(field(file, "checksumSha256"));
-    const expectedCoverId = parseExpectedCoverId(field(file, "expectedCoverId"));
-    if (
-      !Number.isInteger(declaredSize) ||
-      declaredSize < 1 ||
-      !checksum.success ||
-      expectedCoverId === undefined
-    ) {
-      throw coverProblem(422, "invalid_cover", "Cover metadata is malformed");
-    }
-    const result = await this.covers.change({
-      actor: account.accountId,
-      body,
-      declaredContentType: file.mimetype,
-      declaredSize,
-      expectedChecksumSha256: checksum.data,
-      expectedCoverId,
-      filename: file.filename,
-      kind: "upload",
-      owner: { id: ownerId, kind: ownerKind.data },
-    });
+    const upload = await readCoverUpload(request, rawOwnerKind, ownerId, uploadFieldLimit);
+    const result = await this.covers.change({ actor: account.accountId, ...upload.command });
     if (!result.ok) throwContentCoverError(result.error);
     return result.value;
   }
@@ -199,6 +156,120 @@ export class AuthoringContentCoverController {
       kind: "remove",
       owner: { id: ownerId, kind: ownerKind.data },
     });
+    if (!result.ok) throwContentCoverError(result.error);
+    return result.value;
+  }
+}
+
+async function readCoverUpload(
+  request: FastifyRequest,
+  rawOwnerKind: string,
+  ownerId: string,
+  fieldLimit: number,
+): Promise<{ readonly command: Omit<Extract<ChangeContentCoverCommand, { kind: "upload" }>, "actor">; readonly part: MultipartFile }> {
+  const ownerKind = contentCoverOwnerKindSchema.safeParse(rawOwnerKind);
+  if (!ownerKind.success || !uuidSchema.safeParse(ownerId).success) {
+    throw coverProblem(400, "invalid_cover", "Cover owner is malformed");
+  }
+  let file: MultipartFile;
+  try {
+    const part = await request.file({
+      limits: {
+        fields: fieldLimit,
+        fileSize: MATERIAL_ASSET_LIMITS.imageBytes,
+        files: 1,
+      },
+    });
+    if (part === undefined) throw new Error("missing file");
+    file = part;
+  } catch {
+    throw coverProblem(422, "invalid_cover", "Cover form is malformed");
+  }
+  let body: Buffer;
+  try {
+    body = await file.toBuffer();
+  } catch {
+    throw coverProblem(413, "invalid_cover", "Cover exceeds the size limit");
+  }
+  if (file.file.truncated) {
+    throw coverProblem(413, "invalid_cover", "Cover exceeds the size limit");
+  }
+  const declaredSize = Number(field(file, "declaredSize"));
+  const checksum = checksumSchema.safeParse(field(file, "checksumSha256"));
+  const expectedCoverId = parseExpectedCoverId(field(file, "expectedCoverId"));
+  if (
+    !Number.isInteger(declaredSize) ||
+    declaredSize < 1 ||
+    !checksum.success ||
+    expectedCoverId === undefined
+  ) {
+    throw coverProblem(422, "invalid_cover", "Cover metadata is malformed");
+  }
+  return {
+    command: {
+      body,
+      declaredContentType: file.mimetype,
+      declaredSize,
+      expectedChecksumSha256: checksum.data,
+      expectedCoverId,
+      filename: file.filename,
+      kind: "upload",
+      owner: { id: ownerId, kind: ownerKind.data },
+    },
+    part: file,
+  };
+}
+
+/** Source-scoped cover changes for Materials owned by an authoring import. */
+@MaterialAuthoringEndpoint()
+@Controller("authoring/import/content-covers")
+export class ImportContentCoverController {
+  constructor(
+    @Inject(CONTENT_COVERS) private readonly covers: ContentCovers,
+  ) {}
+
+  @Put("material/:ownerId")
+  @ApiOperation({
+    operationId: "uploadImportedMaterialCover",
+    summary: "Upload or replace the cover of one Material owned by an authoring source",
+  })
+  @ApiParam({ name: "ownerId", schema: { format: "uuid", type: "string" } })
+  @ApiConsumes("multipart/form-data")
+  @ApiBody({
+    schema: {
+      type: "object",
+      required: ["sourceId", "declaredSize", "checksumSha256", "expectedCoverId", "file"],
+      properties: {
+        sourceId: { type: "string", minLength: 1, maxLength: 200 },
+        declaredSize: {
+          type: "integer",
+          minimum: 1,
+          maximum: MATERIAL_ASSET_LIMITS.imageBytes,
+        },
+        checksumSha256: toOpenApiSchema(checksumSchema),
+        expectedCoverId: toOpenApiSchema(multipartExpectedCoverIdSchema),
+        file: { type: "string", format: "binary" },
+      },
+    },
+  })
+  @ApiOkResponse({ schema: toOpenApiSchema(changeResponseSchema) })
+  @ApiMaterialAuthoringErrors(401, 500)
+  @ApiResponse({ status: 400, content: problemDetailsContent(coverProblemSchema(400, "invalid_cover", ["Cover owner is malformed"])) })
+  @ApiResponse({ status: 403, content: problemDetailsContent(coverProblemSchema(403, "forbidden", ["Content cover change is forbidden"])) })
+  @ApiResponse({ status: 404, content: problemDetailsContent(coverProblemSchema(404, "owner_not_found", ["Content cover owner was not found"])) })
+  @ApiResponse({ status: 409, content: problemDetailsContent(coverConflictProblemSchema()) })
+  @ApiResponse({ status: 413, content: problemDetailsContent(coverProblemSchema(413, "invalid_cover", ["Cover exceeds the size limit"])) })
+  @ApiResponse({ status: 422, content: problemDetailsContent(coverProblemSchema(422, "invalid_cover", ["Cover form is malformed", "Cover metadata is malformed", "Cover image is not accepted"])) })
+  @ApiResponse({ status: 503, content: problemDetailsContent(coverProblemSchema(503, "dependency_unavailable", ["Content cover dependency is unavailable"])) })
+  async upload(
+    @CurrentAccount() account: AuthenticatedAccount,
+    @Param("ownerId") ownerId: string,
+    @Req() request: FastifyRequest,
+  ) {
+    const upload = await readCoverUpload(request, "material", ownerId, uploadFieldLimit + 1);
+    const sourceId = authoringSourceIdSchema.safeParse(field(upload.part, "sourceId"));
+    if (!sourceId.success) throw coverProblem(422, "invalid_cover", "Cover metadata is malformed");
+    const result = await this.covers.changeImported({ actor: account.accountId, ...upload.command }, sourceId.data);
     if (!result.ok) throwContentCoverError(result.error);
     return result.value;
   }

@@ -185,6 +185,7 @@ export { SetContentCollectionArchiveController } from "./features/set-content-co
 export { UpdateContentCollectionController } from "./features/update-content-collection/update-content-collection.controller.js";
 export {
   AuthoringContentCoverController,
+  ImportContentCoverController,
   ContentCoverDeliveryController,
 } from "./facets/content-covers/content-covers.controller.js";
 export { assembleGuideArtifacts } from "./facets/guide-artifacts/assemble-guide-artifacts.js";

@@ -1,6 +1,7 @@
 .git
 .github
 .env
+.identity-proof
 .env.*
 !.env.example
 config/compose/production/*.env

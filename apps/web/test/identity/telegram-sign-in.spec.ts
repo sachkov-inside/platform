@@ -209,9 +209,11 @@ async function acceptTermsIfAsked(page: Page) {
   const probe = await page.context().newPage();
   try {
     await probe.goto("/welcome?returnTo=%2F");
-    const accept = probe.getByRole("button", { name: "Принять условия и продолжить" });
-    if (new URL(probe.url()).pathname === "/welcome" && (await accept.count()) > 0) {
-      await accept.click();
+    // The dialog is interactive only once it is modal; the server-rendered copy is not yet hydrated.
+    const accept = probe.locator("dialog:modal").getByRole("button", { name: "Принять условия и продолжить" });
+    // An account that already accepted is redirected away; one still here must be able to accept.
+    if (new URL(probe.url()).pathname === "/welcome") {
+      await accept.click({ timeout: 15_000 });
       await probe.waitForURL((url) => url.pathname !== "/welcome");
     }
   } finally {

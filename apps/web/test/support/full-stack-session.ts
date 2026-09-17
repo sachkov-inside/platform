@@ -80,9 +80,11 @@ async function passFirstSignInScreen(context: BrowserContext): Promise<void> {
   const page = await context.newPage();
   try {
     await page.goto(`${fullStackBaseUrl()}/welcome?returnTo=%2F`);
-    const accept = page.getByRole("button", { name: "Принять условия и продолжить" });
-    if (new URL(page.url()).pathname === "/welcome" && (await accept.count()) > 0) {
-      await accept.click();
+    // The dialog is interactive only once it is modal; the server-rendered copy is not yet hydrated.
+    const accept = page.locator("dialog:modal").getByRole("button", { name: "Принять условия и продолжить" });
+    // An account that already accepted is redirected away; one still here must be able to accept.
+    if (new URL(page.url()).pathname === "/welcome") {
+      await accept.click({ timeout: 15_000 });
       await page.waitForURL((url) => url.pathname !== "/welcome");
     }
   } finally {

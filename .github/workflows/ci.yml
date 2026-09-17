@@ -90,6 +90,7 @@ jobs:
     timeout-minutes: 40
     env:
       COMPOSE_PROJECT_NAME: inside-platform-development-${{ github.run_id }}
+      LOCAL_SEED_VIEW: checks
     steps:
       - name: Check out source
         uses: actions/checkout@v7.0.1

@@ -3,8 +3,11 @@ import { spawn, spawnSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { checkDatabaseUrl, ensureCheckDatabase } from "./check-database.mjs";
+import { ensureSharedIdentityDirectory } from "./shared-identity-directory.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+ensureSharedIdentityDirectory(root);
 const web = new URL(process.env.WEB_BASE_URL);
 const api = new URL(process.env.BACKEND_BASE_URL);
 if (web.hostname !== "127.0.0.1" || api.hostname !== "127.0.0.1" || process.env.NODE_ENV !== "development") {
@@ -18,8 +21,10 @@ for (const port of [Number(web.port), Number(api.port), 3602]) {
     server.listen(port, "127.0.0.1", () => server.close(accept));
   });
 }
+const databaseUrl = process.env.DATABASE_URL ?? (ensureCheckDatabase({ cwd: root }), checkDatabaseUrl(process.env.POSTGRES_HOST_PORT ?? 5432));
+if (new URL(databaseUrl).pathname === "/inside") throw new Error("The Telegram sign-in launcher must not migrate or seed the stand database");
 const environment = {
-  ...process.env, API_HOST: "127.0.0.1", API_PORT: api.port,
+  ...process.env, DATABASE_URL: databaseUrl, LOCAL_SEED_DEMO: "published", API_HOST: "127.0.0.1", API_PORT: api.port,
   MCP_HOST: "127.0.0.1", MCP_PORT: "3602", MCP_SERVER_URL: "http://127.0.0.1:3602/mcp",
   NODE_EXTRA_CA_CERTS: resolve(root, ".identity-proof/tls/certificate.pem"),
 };

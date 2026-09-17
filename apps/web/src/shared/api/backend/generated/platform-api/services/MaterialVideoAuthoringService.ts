@@ -59,6 +59,7 @@ export class MaterialVideoAuthoringService {
       title: string;
     },
   }): CancelablePromise<{
+    providerVideoId: string;
     uploadEndpoint: string;
     video: {
       access: 'free' | 'membership' | 'workshop';

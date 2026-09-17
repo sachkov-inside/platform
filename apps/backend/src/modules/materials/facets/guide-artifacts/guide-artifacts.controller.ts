@@ -35,6 +35,7 @@ import {
   ApiMaterialAuthoringErrors,
   MaterialAuthoringEndpoint,
 } from "../../adapters/nest/material-authoring-endpoint.js";
+import { authoringSourceIdSchema } from "../../domain/authoring-source.js";
 import {
   GUIDE_ARTIFACTS,
   guideArtifactAccessSchema,
@@ -98,6 +99,16 @@ const guideArtifactListSchema = z
   .object({ artifacts: z.array(guideArtifactHttpSchema) })
   .strict();
 const removedArtifactSchema = z.object({ artifactId: z.uuid() }).strict();
+// guideSourceId, sourceId, title, purpose, access, declaredSize and checksumSha256.
+const sourceImportFieldLimit = 7;
+const importOutcomeSchema = z
+  .object({
+    artifactId: z.uuid(),
+    outcome: z.enum(["created", "diverged", "missing", "unchanged", "updated"]),
+    sourceId: z.string().nullable(),
+    title: z.string(),
+  })
+  .strict();
 const multipartUploadFields = {
   checksumSha256: toOpenApiSchema(checksumSchema),
   declaredSize: {
@@ -429,6 +440,71 @@ export class GuideArtifactAuthoringController {
     });
     if (!result.ok) throwGuideArtifactError(result.error);
     return result.value;
+  }
+
+  @Post("authoring/import/guides/:guideId/artifacts")
+  @ApiOperation({
+    operationId: "importSourceGuideArtifact",
+    summary: "Create or update one authoring-owned artifact of a source Guide from its package file",
+  })
+  @ApiParam({ name: "guideId", schema: { format: "uuid", type: "string" } })
+  @ApiConsumes("multipart/form-data")
+  @ApiBody({
+    schema: {
+      properties: {
+        ...multipartUploadFields,
+        access: toOpenApiSchema(guideArtifactAccessSchema),
+        guideSourceId: { maxLength: 200, minLength: 1, type: "string" },
+        purpose: { maxLength: 1000, type: "string" },
+        sourceId: { maxLength: 200, minLength: 1, type: "string" },
+        title: { maxLength: 200, minLength: 1, type: "string" },
+      },
+      required: [
+        "guideSourceId",
+        "sourceId",
+        "title",
+        "purpose",
+        "access",
+        "declaredSize",
+        "checksumSha256",
+        "file",
+      ],
+      type: "object",
+    },
+  })
+  @ApiOkResponse({ schema: toOpenApiSchema(importOutcomeSchema) })
+  @ApiMaterialAuthoringErrors(401, 500)
+  @ApiGuideArtifactErrors(400, 403, 404, 409, 413, 422, 503)
+  async importFromSource(
+    @CurrentAccount() account: AuthenticatedAccount,
+    @Param("guideId") guideId: string,
+    @Req() request: FastifyRequest,
+  ) {
+    if (!uuidSchema.safeParse(guideId).success) {
+      throw guideArtifactProblem(400, "invalid_artifact", "Guide Artifact request is malformed");
+    }
+    const upload = await readUpload(request, sourceImportFieldLimit);
+    const metadata = metadataBodySchema.safeParse({
+      access: field(upload.part, "access"),
+      purpose: field(upload.part, "purpose") ?? "",
+      title: field(upload.part, "title") ?? "",
+    });
+    const sourceId = authoringSourceIdSchema.safeParse(field(upload.part, "sourceId"));
+    const guideSourceId = authoringSourceIdSchema.safeParse(field(upload.part, "guideSourceId"));
+    if (!metadata.success || !sourceId.success || !guideSourceId.success) {
+      throw guideArtifactProblem(422, "invalid_artifact", "Guide Artifact form is malformed");
+    }
+    const result = await this.artifacts.applyAuthoringImport({
+      actor: account.accountId,
+      artifacts: [{ ...metadata.data, file: upload.file, sourceId: sourceId.data }],
+      guideId,
+      guideSourceId: guideSourceId.data,
+    });
+    if (!result.ok) throwGuideArtifactError(result.error);
+    // One artifact per request: other authoring artifacts are reported as missing by design and ignored here.
+    const outcome = result.value.outcomes.find((item) => item.sourceId === sourceId.data);
+    if (outcome === undefined) throw guideArtifactProblem(422, "invalid_artifact", "Guide Artifact import has no outcome");
+    return outcome;
   }
 
   @Delete("authoring/guide-artifacts/:artifactId")

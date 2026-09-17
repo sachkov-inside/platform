@@ -16,6 +16,8 @@ const apiBaseUrl = "http://127.0.0.1:4397";
 const identity = await startFullStackIdentity({ apiBaseUrl, webBaseUrl });
 // Never inherit production database/provider/identity configuration from the shell.
 const environment = {
+  // The isolated editor review keeps the published demonstration catalogue in its own database.
+  LOCAL_SEED_DEMO: "published",
   PATH: process.env.PATH,
   HOME: process.env.HOME,
   ...parseEnv(readFileSync(resolve(root, ".env.example"), "utf8")),

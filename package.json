@@ -22,6 +22,7 @@
     "identity:proof:hardening": "node scripts/identity-hardening-proof.mjs",
     "local:setup": "node scripts/setup-local.mjs",
     "local:stand": "node scripts/local-stand.mjs",
+    "local:product": "node scripts/local-product.mjs",
     "build": "pnpm --recursive --if-present build",
     "api:generate": "pnpm --filter @inside/backend openapi:generate && pnpm --filter @inside/web openapi:generate",
     "api:check": "pnpm --filter @inside/backend openapi:check && pnpm --filter @inside/web openapi:check",
@@ -66,6 +67,9 @@
     "smoke:enrollments": "node scripts/enrollment-browser-smoke.mjs",
     "test:authoring": "node --test tools/authoring/*.test.mjs",
     "authoring:sync-local": "node tools/authoring/local-sync.mjs",
+    "authoring:stand-gateway": "NODE_EXTRA_CA_CERTS=.identity-proof/tls/certificate.pem node scripts/authoring-stand-gateway.mjs",
+    "authoring:video": "node tools/authoring/video.mjs",
+    "authoring:release": "node tools/authoring/release.mjs",
     "authoring:sync-git-local": "node tools/authoring/git-local.mjs"
   },
   "dependencies": {

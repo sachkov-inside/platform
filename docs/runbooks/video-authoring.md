@@ -31,8 +31,10 @@ an externally attached recording. The MCP tool intentionally does not expose pro
 `video_init_upload` accepts `materialId`, access, filename, byteSize, title and idempotencyKey.
 It returns the same limited Tus endpoint and Video identity as the editor. The MCP call does not
 transfer bytes. A Tus client transfers the local file outside the model context, followed by
-`video_reconcile` and the same versioned Save. A packaged local-file transfer runner, cancellation
-and batch reports remain #444. Stop on `upload_outcome_unknown` and inspect the attempt/provider
+`video_reconcile` and the same versioned Save. For an imported Material in a local environment,
+`pnpm authoring:video upload` runs this sequence from a file and journals the attempt; see the
+[local authoring runbook](./local-development.md#local-obsidian-authoring-preview-468). It accepts
+only the test adapter; cancellation, batch reports and real provider transfer are not packaged. Stop on `upload_outcome_unknown` and inspect the attempt/provider
 state; do not manufacture a fresh idempotency key for a blind retry.
 
 ## Links to a video moment
@@ -42,9 +44,9 @@ moment, including zero, wins over resume. Invalid, duplicate, negative, fraction
 values fall back to normal resume. Changing the hash on the same page seeks the mounted player.
 The link does not grant playback access: the normal session and DRM authorization still apply.
 
-Structured chapter persistence, a chapter list beside the player, active-chapter highlighting,
-editor controls and Kinescope chapter synchronization remain #444. This change supplies the time
-link mechanism; it does not claim those interfaces or canonical chapter synchronization exist.
+Imported Materials persist video chapters from their original, and the reader lists them beside
+the player with the current chapter highlighted. Editor controls for chapters and Kinescope
+chapter synchronization do not exist.
 A local editorial list is not evidence of chapter accuracy on the provider recording.
 
 ## Verification and remaining acceptance

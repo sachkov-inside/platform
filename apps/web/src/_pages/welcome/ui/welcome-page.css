@@ -1,0 +1,7 @@
+/* The site behind the first sign-in decision: visible, blurred and out of reach. */
+.welcome-backdrop {
+  filter: blur(6px);
+  opacity: 0.7;
+  pointer-events: none;
+  user-select: none;
+}

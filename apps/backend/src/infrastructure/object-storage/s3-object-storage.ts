@@ -22,6 +22,8 @@ export interface S3ObjectStorageConfig {
   readonly endpoint: string;
   readonly forcePathStyle: boolean;
   readonly region: string;
+  /** Origin written into signed GET links; defaults to `endpoint`. Signing needs no connection. */
+  readonly signedGetEndpoint?: string;
 }
 
 type SignGet = (
@@ -45,6 +47,14 @@ export function createS3ObjectStorage(
     forcePathStyle: config.forcePathStyle,
     region: config.region,
   });
+  const signingClient = config.signedGetEndpoint === undefined
+    ? client
+    : new S3Client({
+        credentials: config.credentials,
+        endpoint: config.signedGetEndpoint,
+        forcePathStyle: config.forcePathStyle,
+        region: config.region,
+      });
   const send: SendObjectCommand = overrides.send ?? ((command) => client.send(command));
   const sign = overrides.sign ?? getSignedUrl;
 
@@ -111,7 +121,7 @@ export function createS3ObjectStorage(
         throw new TypeError("Only protected objects use signed GET credentials");
       }
       return sign(
-        client,
+        signingClient,
         new GetObjectCommand({
           Bucket: config.buckets[input.namespace],
           Key: input.key,

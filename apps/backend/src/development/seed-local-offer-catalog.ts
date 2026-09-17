@@ -104,8 +104,9 @@ type CatalogSnapshot = Extract<OwnerCatalogResult, { ok: true }>["value"]["items
  */
 export async function seedLocalOfferCatalog(
   prisma: PlatformPrisma,
-  target: { readonly actor: string; readonly guideId: string },
+  target: { readonly actor: string; readonly guideId: string; readonly onSale?: boolean },
 ): Promise<void> {
+  const onSale = target.onSale ?? true;
   const pricing = new BillingPricing({
     prisma,
     // Стенд продаёт через двойника банка с обоими подтверждениями и перехватчиком писем.
@@ -152,7 +153,7 @@ export async function seedLocalOfferCatalog(
       continue;
     }
     const option = await saveOption(live?.paymentOption.revision);
-    if (option === undefined || live !== undefined || offer.option.mode === "subscription") continue;
+    if (!onSale || option === undefined || live !== undefined || offer.option.mode === "subscription") continue;
     // По умолчанию не продаётся ничего: сохранённое предложение выключено из продажи. Новое
     // предложение стенда включает в продажу отдельная владельческая команда — строкой ниже.
     // Уже заведённому продажу не возвращаем: её состоянием распоряжается владелец.
@@ -161,6 +162,31 @@ export async function seedLocalOfferCatalog(
       operationId: randomUUID(),
       id: offer.offerId,
       expectedRevision: saved.revision,
+    });
+  }
+  if (!onSale) await withdrawDemoOffers(pricing, target.actor, target.guideId);
+}
+
+/**
+ * Стенд со скрытым демо ничего из демонстрационного каталога не продаёт: руководство без
+ * опубликованных материалов купить бессмысленно. Включённую ранее продажу снимает та же команда
+ * владельца, что и в админке.
+ */
+async function withdrawDemoOffers(
+  pricing: BillingPricing,
+  actor: string,
+  guideId: string,
+): Promise<void> {
+  const offerIds = new Set(localCatalog(guideId).map(({ offerId }) => offerId));
+  // The catalogue lists payment options; an offer with several of them is withdrawn once.
+  const offers = new Map([...(await readOwnerCatalog(pricing)).values()].map(({ offer }) => [offer.id, offer]));
+  for (const offer of offers.values()) {
+    if (!offerIds.has(offer.id) || !offer.published) continue;
+    await sendCatalogCommand(pricing, actor, {
+      operation: "offers.unpublish",
+      operationId: randomUUID(),
+      id: offer.id,
+      expectedRevision: offer.revision,
     });
   }
 }
