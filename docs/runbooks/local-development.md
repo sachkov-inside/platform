@@ -9,7 +9,9 @@ The default stack contains:
 
 - PostgreSQL 18.4 with a persistent named volume;
 - MinIO with separate public-delivery, protected and quarantine buckets; its S3-compatible API is
-  on <http://127.0.0.1:9000> and console is on <http://127.0.0.1:9001>;
+  on <http://127.0.0.1:9000> and console is on <http://127.0.0.1:9001>. Services reach it as
+  `object-storage:9000`, while `OBJECT_STORAGE_SIGNED_GET_ENDPOINT` signs protected browser links for
+  the published `127.0.0.1:9000`;
 - one `migrations` job that applies the schema and one `seed` job that adds deterministic
   development data;
 - Nest API on <http://127.0.0.1:3001> with health and OpenAPI endpoints;

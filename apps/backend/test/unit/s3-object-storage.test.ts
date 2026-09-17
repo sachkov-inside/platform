@@ -90,4 +90,27 @@ describe("S3 object storage adapter", () => {
     });
     expect(sign.mock.calls[0]?.[2]).toEqual({ expiresIn: 120 });
   });
+  test("signs browser links for the configured public origin while storage stays internal", async () => {
+    const hosts: string[] = [];
+    const sign = vi
+      .fn<(client: S3Client, command: GetObjectCommand, options: { readonly expiresIn: number }) => Promise<string>>()
+      .mockImplementation(async (client) => {
+        const endpoint = await client.config.endpoint?.();
+        hosts.push(`${endpoint?.hostname ?? ""}:${String(endpoint?.port ?? "")}`);
+        return "https://signed.example/object";
+      });
+    const storage = createS3ObjectStorage(
+      {
+        buckets: { protected: "inside-local-protected", public: "inside-local-public", quarantine: "inside-local-quarantine" },
+        credentials: { accessKeyId: "access", secretAccessKey: "secret" },
+        endpoint: "http://object-storage:9000",
+        forcePathStyle: true,
+        region: "ru-central1",
+        signedGetEndpoint: "http://127.0.0.1:9000",
+      },
+      { send: vi.fn(), sign },
+    );
+    await storage.signGet({ key: "assets/opaque-id/image", namespace: "protected", ttlSeconds: 60 });
+    expect(hosts).toEqual(["127.0.0.1:9000"]);
+  });
 });

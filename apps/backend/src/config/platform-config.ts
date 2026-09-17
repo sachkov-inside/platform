@@ -95,6 +95,8 @@ const objectStorageSchema = z
       })
       .readonly(),
     endpoint: httpUrlSchema("OBJECT_STORAGE_ENDPOINT"),
+    // Browser-facing origin for signed GET links when the service reaches storage by another host.
+    signedGetEndpoint: httpUrlSchema("OBJECT_STORAGE_SIGNED_GET_ENDPOINT").optional(),
     forcePathStyle: z
       .string()
       .regex(/^(?:true|false)$/u, {
@@ -470,6 +472,9 @@ export function parsePlatformConfig(
         mode,
         DEFAULT_OBJECT_STORAGE_ENDPOINT,
       ),
+      ...(environment.OBJECT_STORAGE_SIGNED_GET_ENDPOINT?.trim()
+        ? { signedGetEndpoint: environment.OBJECT_STORAGE_SIGNED_GET_ENDPOINT.trim() }
+        : {}),
       forcePathStyle:
         environment.OBJECT_STORAGE_FORCE_PATH_STYLE?.trim() ||
         (mode === "production" ? "false" : "true"),
