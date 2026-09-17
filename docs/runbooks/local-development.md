@@ -742,38 +742,62 @@ configuration continues to disable payment admission; DEMO/production activation
 
 ### Local Obsidian authoring preview (#468)
 
-The isolated `editor:local` runtime above supports a loopback-only import gateway. Start the
-runtime, then run the one-shot Git import:
+Originals from Inside Content reach a local Platform through a one-shot import of one Git commit.
+Two loopback targets exist, each with its own state directory:
+
+| Target | Runtime | Gateway |
+|---|---|---|
+| `editor` (default) | `pnpm editor:local` with a synthetic owner | the editor runtime itself on `127.0.0.1:4396` |
+| `stand` | `pnpm local:stand` with sign-in, purchases and mail | `pnpm authoring:stand-gateway --owner-email EMAIL` on `127.0.0.1:4398` |
+
+For the stand, the owner signs in once with that email and receives `materials:manage` through the
+[owner release bootstrap](#owner-account-release-bootstrap). The stand bootstrap registers the
+stand-only Logto client `Inside Authoring Stand` with token exchange; the gateway creates the
+owner's stand personal access token in `.identity-proof/authoring-owner-pat.json` and exchanges it
+for short API tokens. It forwards only canonical `/authoring/` API paths from non-browser clients.
+Run the stand from a worktree only with the owner checkout's `.identity-proof/` copied in: a fresh
+bootstrap there would generate new sign-in keys for the owner's stand accounts.
 
 ```bash
-pnpm authoring:sync-git-local CONTENT_REPOSITORY GUIDE_ID STATE_DIRECTORY [REF]
+pnpm authoring:sync-git-local CONTENT_REPOSITORY GUIDE_ID STATE_DIRECTORY [REF] [--target editor|stand] [--archive SOURCE_ID]...
 ```
 
 `REF` defaults to `HEAD` and is resolved to one commit SHA before export. The command archives
 that commit into a temporary directory, runs its exporter with frozen dependencies, and applies
-the resulting package to the loopback development runtime. Staged, unstaged and untracked files
-are excluded; no checkout, commit, push, Git hook or file watcher is required or installed.
-The temporary snapshot is removed when the command exits. The immutable packages remain under
+the resulting package. Staged, unstaged and untracked files are excluded; no checkout, commit,
+push, Git hook or file watcher is involved. Immutable packages remain under
 `STATE_DIRECTORY/packages`; `last-git-sync.json` records the last successful commit, package and
-report. Preserve the existing state directory when switching from the previous watcher.
-After an error, rerun the same commit: the operation journal recovers partial application.
-A comment committed into the selected revision still blocks export under the editorial rules.
-Refresh the browser manually after a successful transfer. Draft originals become published copies
-only on this local review runtime; missing access uses the owner-approved `membership` default.
-There is no production target. GitHub Actions publication is a future stage, not triggered by push.
-`authoring:sync-local PACKAGE_JSON STATE_DIRECTORY` remains the low-level package application command.
+report. After an error, rerun the same commit: the journal resumes partial application.
+Refresh the browser after a transfer; report links point at the reader origin of the target.
 
-Source IDs and the separate persistent journal preserve
-Material identities across edits and renames. Do not discard the journal between synchronizations.
-Validation runs before Material changes; invalid Markdown leaves existing Material bodies intact.
-An interrupted batch can be partially applied and is resumed, not rolled back as one transaction.
+What the transfer applies:
 
-Only main programme placements contribute to this local Guide. Supplementary Materials have
-separate reader URLs in `journal.json`'s `lastReport`; their product tab is separate follow-up work.
-If the Guide introduction exceeds the existing 500-character summary contract, the preview uses
-its first paragraph and reports that the full introduction has not been mapped. It remains in the
-package and original. Real video attachment, covers and artifact transfer are still reported as
-pending. This is an author identity preview, not paid-buyer or provider acceptance.
+- Material text, images, links, access, topic, feed choice and product membership. Paid Materials
+  validate inside their product; `supplementary_materials` join the product after the programme
+  without a chapter, which is its "Additional Materials" part.
+- Material covers through `PUT /authoring/import/content-covers/material/:id`, and Material
+  artifacts as authoring-owned Guide artifacts linked to every declaring Material.
+- An existing provider record named by `platform_video.kinescope_id`: attached, reconciled until
+  ready and saved with the original's video chapters.
+- The Guide name and first-paragraph teaser. The product page copy stays in Platform; the Guide
+  introduction fields are not imported.
 
-`pnpm test:authoring` verifies package checks, Markdown conversion and operation recovery.
-Remaining #468 work is recorded in [the checkpoint](../evidence/issue-468/README.md).
+Imported Materials and Guides change only through these source-scoped routes; ordinary editor,
+API and MCP writes are refused. A missing original appears in `archiveProposals`. It is unpublished
+and removed from the product only when the same command repeats with `--archive SOURCE_ID`.
+
+A finished recording for a synchronized Material is uploaded with
+`pnpm authoring:video upload --state STATE_DIRECTORY --source inside-content:MATERIAL_ID --file FILE`.
+The idempotency key is journaled before the first call; an unknown outcome stops for inspection.
+Only the test Kinescope adapter, whose upload endpoint ends in `.invalid`, is accepted; a real
+provider transfer is refused without a separate owner approval. The next transfer saves the
+recording with the original's chapters; the returned `providerVideoId` belongs in the original.
+
+`pnpm authoring:release preview --package PACKAGE_JSON --target editor|stand --state STATE_DIRECTORY`
+compares a package with the target without writing and saves a fingerprinted preview.
+`pnpm authoring:release apply --preview PREVIEW_JSON --state STATE_DIRECTORY` applies exactly that
+preview and stops on drift, an edited preview or an unreviewed archive request. Non-local targets
+are refused; production publication needs an owner-approved credential path first.
+
+`pnpm test:authoring` verifies package checks, conversion, recovery, covers, artifacts, video,
+archive and release decisions. Evidence is in [the checkpoint](../evidence/issue-468/README.md).
