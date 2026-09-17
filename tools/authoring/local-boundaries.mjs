@@ -9,7 +9,7 @@ const source = z.object({ id: text, path: text, revision: hash, showInFeed: z.bo
 export const materialReceiptSchema = z.object({ materialId: z.uuid(), contentVersion: version }).passthrough();
 const coverSchema = z.object({ coverId: z.uuid() }).passthrough();
 const materialSchema = materialReceiptSchema.extend({
-  primaryVideoId: z.uuid().nullable(), metadata: z.object({ slug: text }).passthrough(),
+  primaryVideoId: z.uuid().nullable(), metadata: z.object({ slug: text, access: z.enum(["free", "membership", "workshop"]).optional() }).passthrough(),
   source: source.nullable(), cover: coverSchema.nullable().optional(),
 });
 const topicSchema = z.object({ id: z.uuid(), slug: text }).passthrough();

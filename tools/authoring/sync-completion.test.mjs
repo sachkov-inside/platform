@@ -77,7 +77,7 @@ function applicationApi() {
         const current = materials.get(body.source.id);
         if (body.expectedContentVersion !== current.contentVersion) throw new Error("stale_content_version");
         if (body.primaryVideoId !== null) assert.equal(videos.get(body.primaryVideoId).state, "ready");
-        Object.assign(current, { contentVersion: current.contentVersion + 1, primaryVideoId: body.primaryVideoId, videoChapters: body.videoChapters, publicationState: body.publicationState, seriesIds: body.metadata.seriesIds });
+        Object.assign(current, { contentVersion: current.contentVersion + 1, primaryVideoId: body.primaryVideoId, videoChapters: body.videoChapters, publicationState: body.publicationState, seriesIds: body.metadata.seriesIds, metadata: { ...current.metadata, access: body.metadata.access } });
         return { materialId: current.materialId, contentVersion: current.contentVersion };
       }
       if ((match = /^\/authoring\/materials\/([^/]+)\/videos\/attach$/u.exec(path))) {
@@ -329,4 +329,11 @@ test("release preview reports video, composition and artifact changes that the s
   assert.equal(video.change, "conflict");
   assert.equal(video.conflictReason, "video_access_change");
   await assert.rejects(applyRelease(accessChanged.path, setup.state, { request: api.request }), /conflicts/u);
+  // A new provider record is attached with the new access, so that change is not a conflict.
+  setup.manifest.materials[1].video = { kinescopeId: uuid(778) };
+  await setup.write();
+  const newRecording = await previewRelease(setup.packagePath, setup.state, { origin, request: api.request });
+  const replaced = newRecording.preview.materials.find((item) => item.sourceId === "video");
+  assert.equal(replaced.change, "changed");
+  assert.equal(replaced.videoChange, true);
 });
