@@ -27,7 +27,9 @@ const standPorts = {
   IDENTITY_PROOF_WEB_PORT: process.env.WEB_HOST_PORT ?? "3000",
   IDENTITY_PROOF_MAILPIT_PORT: process.env.MAIL_CAPTURE_HOST_PORT ?? "8025",
 };
-const environment = { ...process.env, ...standPorts };
+// The stand is always the shared project, even when a shell still names the disposable smoke one.
+const environment = { ...process.env, ...standPorts, COMPOSE_PROJECT_NAME: "inside-platform" };
+const smokeProject = "inside-platform-smoke";
 
 ensureSharedIdentityDirectory(repositoryRoot);
 const releaseStandLock = await acquireStandLock();
@@ -83,10 +85,10 @@ if (interruptedSignal !== undefined) {
 }
 
 async function isComposeRunning() {
-  const result = await compose(["ps", "--services", "--status", "running"], {
-    capture: true,
-  });
-  return result.output.trim().length > 0;
+  const stand = await compose(["ps", "--services", "--status", "running"], { capture: true });
+  // The disposable smoke project holds the same ports.
+  const smoke = await run("docker", ["compose", "--project-name", smokeProject, "ps", "--services", "--status", "running"], { capture: true });
+  return `${stand.output}${smoke.output}`.trim().length > 0;
 }
 
 function compose(arguments_, options = {}) {

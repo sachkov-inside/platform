@@ -323,7 +323,6 @@ Inspect the running host fallback or Compose stack:
 - published Material API (smoke project only): <http://127.0.0.1:3001/materials/kak-ustroen-inside-platform>
 - published catalog API: <http://127.0.0.1:3001/library/materials>
 - Material authoring OpenAPI group: <http://127.0.0.1:3001/openapi#/Material%20authoring>
-- production Library: <http://127.0.0.1:3000/library>
 - production Reader (smoke project only): <http://127.0.0.1:3000/materials/kak-ustroen-inside-platform>
 
 The API health response is:
@@ -765,8 +764,9 @@ shared `inside-platform_*` volumes, so every branch and worktree sees the same c
 
 - The seed reads `config/compose/local/seed-stand.env` (`LOCAL_SEED_DEMO=hidden`) unless
   `LOCAL_SEED_VIEW=checks` selects `seed-checks.env`: demonstration Materials stay drafts or
-  unpublished in the editor, so Home and search show only transferred originals. Only the
-  disposable Compose smoke project publishes them.
+  unpublished in the editor, so Home and search show only transferred originals. They are
+  published only in check databases: the disposable Compose smoke project, `smoke:fullstack`, the
+  Telegram launcher and the editor review.
 - Home lists only originals marked `show_in_feed: true`; an empty feed means no original is marked yet.
 
 Keep the volumes: stop the stand with `docker compose --profile identity down` without `-v`.

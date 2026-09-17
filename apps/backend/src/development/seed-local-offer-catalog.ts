@@ -178,13 +178,15 @@ async function withdrawDemoOffers(
   guideId: string,
 ): Promise<void> {
   const offerIds = new Set(localCatalog(guideId).map(({ offerId }) => offerId));
-  for (const snapshot of (await readOwnerCatalog(pricing)).values()) {
-    if (!offerIds.has(snapshot.offer.id) || !snapshot.offer.published) continue;
+  // The catalogue lists payment options; an offer with several of them is withdrawn once.
+  const offers = new Map([...(await readOwnerCatalog(pricing)).values()].map(({ offer }) => [offer.id, offer]));
+  for (const offer of offers.values()) {
+    if (!offerIds.has(offer.id) || !offer.published) continue;
     await sendCatalogCommand(pricing, actor, {
       operation: "offers.unpublish",
       operationId: randomUUID(),
-      id: snapshot.offer.id,
-      expectedRevision: snapshot.offer.revision,
+      id: offer.id,
+      expectedRevision: offer.revision,
     });
   }
 }
