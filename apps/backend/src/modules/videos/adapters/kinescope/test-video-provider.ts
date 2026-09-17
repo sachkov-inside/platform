@@ -2,6 +2,9 @@ import { randomUUID } from "node:crypto";
 
 import type { ProviderVideo, VideoProvider } from "../../ports/video-provider.js";
 
+// Long enough for chapters of real authored recordings imported into a local runtime.
+export const TEST_VIDEO_DURATION_SECONDS = 4 * 60 * 60;
+
 export function createTestVideoProvider(): VideoProvider {
   const deleted = new Set<string>();
   const videos = new Map<string, ProviderVideo>();
@@ -39,7 +42,7 @@ export function createTestVideoProvider(): VideoProvider {
         if (known.status === "processing") {
           videos.set(input.id, {
             ...known,
-            durationSeconds: known.durationSeconds ?? 600,
+            durationSeconds: known.durationSeconds ?? TEST_VIDEO_DURATION_SECONDS,
             embedLocator: `https://kinescope.io/embed/${input.id}`,
             status: "done",
           });
@@ -47,7 +50,7 @@ export function createTestVideoProvider(): VideoProvider {
         return Promise.resolve(known);
       }
       return Promise.resolve({
-        durationSeconds: 600,
+        durationSeconds: TEST_VIDEO_DURATION_SECONDS,
         embedLocator: `https://kinescope.io/embed/${input.id}`,
         id: input.id,
         projectId: input.projectId,

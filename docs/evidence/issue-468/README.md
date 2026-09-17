@@ -189,3 +189,16 @@ Automated checks: `pnpm test:authoring` (44), gateway unit tests, focused Postgr
 tests for source-scoped covers, artifacts and Guide archive, video upload init and MCP tools.
 Inside Content received agent instructions for transfer, recording processing, archive and release.
 Not verified here: real provider playback, buyer access through a purchase, mobile layout.
+
+After review fixes the stand was started again. A deliberately corrupted stored personal access
+token was renewed automatically; a request carrying `Sec-Fetch-Site` was refused (403) while a
+plain local client succeeded. The test Kinescope adapter reported 600 seconds, which rejected the
+real CI lesson chapters (up to 2185 s); it now reports four hours. `authoring:video upload` then
+attached a test recording to `ci-cd-and-protected-main`, the next transfer applied exactly that
+Material, and the lesson listed its 11 chapters ([screenshot](stand-video-chapters.png)). The
+test player itself answers 404 because the provider record is fictitious.
+
+Found on the stand, outside this change: protected Material images are signed for
+`http://object-storage:9000`, the Compose-internal MinIO host, so the browser cannot load images
+inside lessons. Covers are unaffected because the API delivers them. The combined acceptance needs
+this stand configuration fixed first.
