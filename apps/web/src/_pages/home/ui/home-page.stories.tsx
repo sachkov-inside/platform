@@ -69,6 +69,7 @@ export const FeedFilters: Story = {
     await userEvent.click(topics.getByRole("button", { name: "Разработка ПО" }));
     await userEvent.click(canvas.getByRole("button", { name: "Сбросить" }));
     await expect(formats.getByRole("button", { name: "Все" })).toHaveAttribute("aria-pressed", "true");
+    await expect(formats.getByRole("button", { name: "Все" })).toHaveFocus();
     await expect(topics.getByRole("button", { name: "Разработка ПО" })).toHaveAttribute("aria-pressed", "false");
     await expect(canvas.queryByRole("button", { name: "Сбросить" })).not.toBeInTheDocument();
   },

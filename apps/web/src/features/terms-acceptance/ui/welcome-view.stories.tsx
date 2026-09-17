@@ -82,6 +82,7 @@ export const Unavailable: Story = {
     const card = within(await canvas.findByRole("dialog", { name: "Добро пожаловать" }));
     await expect(card.getByRole("alert")).toHaveTextContent("Условия сейчас не удаётся загрузить");
     await expect(card.queryByRole("button")).not.toBeInTheDocument();
+    await expect(card.getByRole("link", { name: "На главную" })).toHaveAttribute("href", "/");
   },
 };
 

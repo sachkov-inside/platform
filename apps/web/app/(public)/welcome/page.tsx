@@ -18,8 +18,12 @@ export default async function WelcomeRoute({
   return <WelcomePage backdrop={<WelcomeBackdrop />} returnTo={typeof returnTo === "string" ? returnTo : "/"} />;
 }
 
-/** Главная за окном: только закреплённый продукт, без ленты, которая меняла бы адрес страницы. */
+/**
+ * Главная за окном: только закреплённый продукт, без ленты, которая меняла бы адрес страницы.
+ * Это декорация: её сбой не должен мешать принять условия.
+ */
 async function WelcomeBackdrop() {
-  const home = await getHome(await getOptionalPlatformAccessToken());
+  const home = await getHome(await getOptionalPlatformAccessToken()).catch(() => undefined);
+  if (home === undefined) return null;
   return <HomePage feed={<div className="min-h-[60vh]" />} result={home} />;
 }

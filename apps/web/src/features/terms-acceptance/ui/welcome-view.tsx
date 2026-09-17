@@ -35,7 +35,7 @@ export function WelcomeView({
   onAccept,
 }: WelcomeViewProps) {
   return (
-    <WelcomeDialog labelledBy={titleId}>
+    <WelcomeDialog dismissible={unavailable} labelledBy={titleId}>
       <div className="p-6 sm:p-7">
         <p className="text-[0.95rem] font-semibold tracking-[-0.02em]">
           Sachkov <span className="text-action">Inside</span>
@@ -44,9 +44,14 @@ export function WelcomeView({
           {returning ? "Условия обновились" : "Добро пожаловать"}
         </h1>
         {unavailable ? (
-          <p className="mt-4 text-sm leading-6" role="alert">
-            Условия сейчас не удаётся загрузить. Обновите страницу немного позже.
-          </p>
+          <>
+            <p className="mt-4 text-sm leading-6" role="alert">
+              Условия сейчас не удаётся загрузить. Обновите страницу немного позже.
+            </p>
+            <Button asChild className="mt-6 min-h-12 w-full text-base" data-dialog-initial-focus size="lg" variant="outline">
+              <Link href="/">На главную</Link>
+            </Button>
+          </>
         ) : (
           <>
             <p className="mt-3 text-sm leading-6 text-muted-foreground">

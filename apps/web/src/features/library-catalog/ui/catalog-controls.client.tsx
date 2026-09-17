@@ -1,7 +1,6 @@
 "use client";
 
 import { Search, X } from "lucide-react";
-import "./catalog-controls.css";
 
 import { Button } from "@/shared/ui/button";
 import {
@@ -65,11 +64,9 @@ export function LibrarySearchPlaceholder() {
 }
 
 export function LibrarySearchControl({
-  compact = false,
   onQueryChange,
   query,
 }: {
-  readonly compact?: boolean;
   readonly onQueryChange: (query: LibrarySearchQuery) => void;
   readonly query: LibrarySearchQuery;
 }) {
@@ -85,7 +82,7 @@ export function LibrarySearchControl({
         <label className="sr-only" htmlFor="library-search">
           Поиск по материалам
         </label>
-        <div className={compact ? "catalog-search-compact flex min-h-11 items-center gap-2 border-b border-border" : `relative flex ${searchFieldHeight} items-center gap-3 rounded-2xl bg-muted px-4`}>
+        <div className={`relative flex ${searchFieldHeight} items-center gap-3 rounded-2xl bg-muted px-4`}>
           <Search
             aria-hidden="true"
             className="size-5 shrink-0 text-muted-foreground"
@@ -100,7 +97,7 @@ export function LibrarySearchControl({
                 { ...changeLibraryQuery(query, { q: event.currentTarget.value }), q: event.currentTarget.value },
               );
             }}
-            placeholder={compact ? "Поиск" : "Найти материал"}
+            placeholder="Найти материал"
             type="search"
             value={query.q}
           />

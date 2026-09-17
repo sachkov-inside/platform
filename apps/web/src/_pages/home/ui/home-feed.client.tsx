@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import {
   InfiniteMaterialCatalog, LibrarySearchControl, homeFeedQueryOptions,
   libraryHref, parseLibrarySearchParams, useLibraryCatalogQuery, withoutLibraryCursor,
@@ -57,11 +57,13 @@ function FeedFilters({ query, topics, onQueryChange }: {
   readonly onQueryChange: (query: LibrarySearchQuery) => void;
 }) {
   const format = query.formatSlugs[0] ?? null;
-  const filtered = format !== null || query.topicSlug !== null || query.q.length > 0;
+  // Search text has its own clear control; the reset clears the chip filters only.
+  const filtered = format !== null || query.topicSlug !== null;
+  const allFormats = useRef<HTMLButtonElement>(null);
   const chooseTopic = (slug: string | null) => { onQueryChange({ ...query, topicSlug: slug, after: null }); };
   return <div className="home-feed-filters">
     <div className="home-feed-chips" role="group" aria-label="Формат материала">
-      {formats.map(({ slug, label }) => <button key={slug ?? "all"} type="button" aria-pressed={format === slug} onClick={() => { onQueryChange({ ...query, formatSlugs: slug === null ? [] : [slug], after: null }); }}>{label}</button>)}
+      {formats.map(({ slug, label }) => <button key={slug ?? "all"} ref={slug === null ? allFormats : undefined} type="button" aria-pressed={format === slug} onClick={() => { onQueryChange({ ...query, formatSlugs: slug === null ? [] : [slug], after: null }); }}>{label}</button>)}
     </div>
     {topics.length === 0 ? null : <>
       <span aria-hidden="true" className="home-feed-divider" />
@@ -77,7 +79,7 @@ function FeedFilters({ query, topics, onQueryChange }: {
           {topics.map((topic) => <button key={topic.id} type="button" aria-pressed={query.topicSlug === topic.slug} onClick={() => { chooseTopic(query.topicSlug === topic.slug ? null : topic.slug); }}>{topic.name}</button>)}
         </div>}
     </>}
-    {filtered ? <button type="button" className="home-feed-reset" onClick={() => { onQueryChange({ ...query, formatSlugs: [], topicSlug: null, q: "", after: null }); }}>Сбросить</button> : null}
+    {filtered ? <button type="button" className="home-feed-reset" onClick={() => { onQueryChange({ ...query, formatSlugs: [], topicSlug: null, after: null }); allFormats.current?.focus(); }}>Сбросить</button> : null}
   </div>;
 }
 

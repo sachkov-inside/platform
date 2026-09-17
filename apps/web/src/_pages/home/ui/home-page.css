@@ -69,7 +69,6 @@
   .home-guide-scene > p { font-size: 1.5rem; }
   .home-feed { margin-top: 2.5rem; }
   .home-feed-chips button, .home-feed-topic-menu, .home-feed-reset { padding-inline: .75rem; }
-  .home-feed-filters { margin-inline: -1rem; padding-inline: 1rem; }
 
 }
 @media (prefers-reduced-motion: reduce) {

@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
+
+import "./welcome-page.css";
 
 import { safeReturnPath, WelcomeScreen, WelcomeView } from "@/features/terms-acceptance";
 import { readTermsGate } from "@/features/terms-acceptance.server";
@@ -17,7 +19,7 @@ export async function WelcomePage({ returnTo, backdrop }: { readonly returnTo: s
   if (gate.kind === "guest" || gate.kind === "accepted") redirect(internalRoute(target));
   const privacyHref = legalDocumentPath("privacy");
   // The site stays visible behind the decision but cannot be used or read by assistive technology.
-  const behind = backdrop === undefined ? null : <div aria-hidden="true" className="welcome-backdrop" inert>{backdrop}</div>;
+  const behind = backdrop === undefined ? null : <div aria-hidden="true" className="welcome-backdrop" inert><Suspense fallback={null}>{backdrop}</Suspense></div>;
   if (gate.kind === "unavailable")
     return (
       <>
