@@ -337,3 +337,35 @@ test("release preview reports video, composition and artifact changes that the s
   assert.equal(replaced.change, "changed");
   assert.equal(replaced.videoChange, true);
 });
+
+test("release preview separates Video access conflicts from plain access changes", async (t) => {
+  const setup = await fixture(t);
+  const api = applicationApi();
+  await run(setup, api);
+  const origin = "http://127.0.0.1:4396";
+  setup.manifest.materials[1].access = "free";
+  setup.manifest.materials[0].access = "free";
+  await setup.write();
+  const preview = await previewRelease(setup.packagePath, setup.state, { origin, request: api.request });
+  const attached = preview.preview.materials.find((item) => item.sourceId === "video");
+  assert.equal(attached.change, "conflict");
+  assert.equal(attached.conflictReason, "video_access_change");
+  const plain = preview.preview.materials.find((item) => item.sourceId === "lesson");
+  assert.equal(plain.change, "changed");
+  assert.equal(plain.conflictReason, undefined);
+  assert.deepEqual(plain.accessChange, { from: "membership", to: "free" });
+
+  // A legacy journal entry without access still sees the target's current access.
+  const journalPath = join(setup.state, "journal.json");
+  const journal = JSON.parse(await readFile(journalPath, "utf8"));
+  delete journal.materials["inside-content:video"].access;
+  await writeFile(journalPath, canonical(journal));
+  const legacy = await previewRelease(setup.packagePath, setup.state, { origin, request: api.request });
+  assert.equal(legacy.preview.materials.find((item) => item.sourceId === "video").conflictReason, "video_access_change");
+
+  setup.manifest.materials[1].video = { kinescopeId: uuid(779) };
+  await setup.write();
+  const replaced = (await previewRelease(setup.packagePath, setup.state, { origin, request: api.request })).preview.materials.find((item) => item.sourceId === "video");
+  assert.equal(replaced.conflictReason, undefined);
+  assert.deepEqual(replaced.accessChange, { from: "membership", to: "free" });
+});
