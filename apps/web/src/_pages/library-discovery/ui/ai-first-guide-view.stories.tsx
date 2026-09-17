@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
 
-import { aiFirstGuide } from "@/features/ai-first-guide";
 import { homeMaterialReaderReturnTarget, materialReaderHref } from "@/shared/routing/material-reader";
+import { aiFirstProductPage, aiFirstProductSummary } from "@/workshop/guide-page.fixtures";
 import { publicPageEnvironment } from "@/workshop/story-environment";
 
 import { GuideProductView } from "./guide-product-view";
@@ -16,7 +16,7 @@ const meta = {
     returnTarget: homeMaterialReaderReturnTarget,
     result: {
       kind: "empty", discoveryKind: "series", chapters: [], relatedSeries: [], topics: [],
-      reference: { name: "AI-first разработка", slug: aiFirstGuide.slug, summary: aiFirstGuide.description },
+      reference: { name: "AI-first разработка", slug: "working-with-agents", summary: aiFirstProductSummary, productPage: { presentation: "ai-first-process", page: aiFirstProductPage } },
     },
   },
 } satisfies Meta<typeof GuideProductView>;
@@ -33,6 +33,24 @@ export const Desktop: Story = {
   },
 };
 export const Mobile: Story = { globals: { viewport: { value: "mobile390", isRotated: false } } };
+
+/** Оформление продукта стоит в его данных: неизвестное значение показывает общий шаблон. */
+export const UnknownPresentationFallsBackToTheDefaultTemplate: Story = {
+  args: {
+    result: {
+      kind: "empty", discoveryKind: "series", chapters: [], relatedSeries: [], topics: [],
+      reference: {
+        name: "AI-first разработка", slug: "working-with-agents", summary: aiFirstProductSummary,
+        productPage: { presentation: "default", page: aiFirstProductPage },
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole("heading", { level: 2, name: "Кому это нужно" })).toBeVisible();
+    await expect(canvas.getByText("Поддержка 6 месяцев")).toBeVisible();
+  },
+};
 
 export const FreeEntryOpensWholeProgramme: Story = {
   args: { freeEntryHref: materialReaderHref("first-lesson") },

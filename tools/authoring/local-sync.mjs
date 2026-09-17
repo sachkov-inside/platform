@@ -49,6 +49,22 @@ export function guideTeaser(guide) {
   return { teaser: first, partial: true };
 }
 
+/** Everything the source owns about a Guide besides its programme (ADR 0026). */
+export function guideDetails(guide) {
+  return { name: guide.title, summary: guideTeaser(guide).teaser, slug: guide.slug ?? guide.sourceId, presentation: guide.presentation ?? "default", page: guide.page ?? null };
+}
+export const guideDetailsDigest = (guide) => checksum(canonical(guideDetails(guide)));
+export const guidePageDigest = (guide) => checksum(canonical(guideDetails(guide).page));
+
+/** An unknown presentation stops the transfer before its first write. */
+export function assertKnownPresentations(manifest, environment) {
+  const known = environment.presentations ?? ["default"];
+  for (const guide of manifest.guides) {
+    const { presentation } = guideDetails(guide);
+    if (!known.includes(presentation)) throw new Error(`Product ${guide.sourceId}: unknown page presentation '${presentation}'; this Platform knows: ${known.join(", ")}`);
+  }
+}
+
 export function guideChapters(manifest, guide) {
   return guide.chapters.map((chapter) => ({ id: sourceUuid(`${sourceKey(manifest, guide.sourceId)}:chapter:${chapter.sourceId}`), name: chapter.title, summary: chapter.summary }));
 }
@@ -102,6 +118,7 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
   const pkg = await loadPackage(packagePath);
   const environment = await request("/authoring/import/materials/environment");
   if (environment.mode !== "development") throw new Error("Local synchronization requires a development runtime");
+  assertKnownPresentations(pkg.manifest, environment);
   return withJournal(stateDirectory, target, async (context) => {
     const { journal, persist } = context;
     journal.resources ??= {};
@@ -135,7 +152,6 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
     }
 
     const teasers = new Map(pkg.manifest.guides.map((guide) => [guide.sourceId, guideTeaser(guide)]));
-    const teaserOf = (guide) => teasers.get(guide.sourceId).teaser;
     if ([...teasers.values()].some(({ partial }) => partial)) {
       report.notices.push({ code: "guide_description_partial", message: "Кратким описанием продукта стал первый абзац. Страница продукта оформляется в Platform; полное описание остаётся в оригинале." });
     }
@@ -171,11 +187,22 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
     const guides = new Map();
     for (const guide of pkg.manifest.guides) {
       if (!guide.complete) throw new Error("This first local programme adapter requires a complete Guide selection");
-      const current = await request("/authoring/import/guides/reserve", { sourceId: sourceId(guide.sourceId), name: guide.title, slug: guide.sourceId, summary: teaserOf(guide) });
+      const key = sourceId(guide.sourceId);
+      const details = guideDetails(guide);
+      let current = await request("/authoring/import/guides/reserve", { sourceId: key, name: details.name, slug: details.slug, summary: details.summary });
+      journal.guides[key] = { ...journal.guides[key], guideId: current.id, slug: current.slug };
+      // The page is checked here, before any Material is written; an unchanged product writes nothing.
+      const recorded = journal.guides[key];
+      const digest = guideDetailsDigest(guide);
+      const unchanged = current.name === details.name && current.summary === details.summary && current.slug === details.slug
+        && current.presentation === details.presentation && recorded.detailsDigest === digest && recorded.version === current.version;
+      if (!unchanged) {
+        current = await request("/authoring/import/guides/update", { sourceId: key, collectionId: current.id, expectedVersion: current.version, name: details.name, summary: details.summary, source: { slug: details.slug, presentation: details.presentation, page: details.page } });
+        journal.guides[key] = { ...journal.guides[key], slug: current.slug, version: current.version, detailsDigest: digest, pageDigest: guidePageDigest(guide) };
+      }
       guides.set(guide.sourceId, current);
-      journal.guides[sourceId(guide.sourceId)] = { guideId: current.id, slug: current.slug };
+      await persist();
     }
-    await persist();
 
     // Paid Materials must belong to a product, so validation uses the reserved Guides' real identities.
     // Supplementary originals are Guide members outside chapters: the product's "Additional Materials" part.
@@ -291,9 +318,6 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
       const chapterAssignments = Object.fromEntries(guide.chapters.flatMap((chapter, index) => chapter.materialIds.map((id) => [currentMaterials.get(id).materialId, chapters[index].id])));
       const orderedMaterialIds = [...guide.materialIds, ...guide.supplementaryMaterialIds].map((id) => currentMaterials.get(id).materialId);
       await request("/authoring/import/guides/composition", { sourceId: sourceId(guide.sourceId), seriesId: current.id, expectedOrderVersion: order.orderVersion, orderedMaterialIds, chapters, chapterAssignments });
-      if (current.name !== guide.title || current.summary !== teaserOf(guide)) {
-        await request("/authoring/import/guides/update", { sourceId: sourceId(guide.sourceId), collectionId: current.id, expectedVersion: current.version, name: guide.title, summary: teaserOf(guide) });
-      }
       await syncArtifacts(guide, current);
       report.guides.push({ title: guide.title, url: `${reader}/guides/${current.slug}`, programmeUrl: `${reader}/guides/${current.slug}/programme`, mainMaterials: guide.materialIds.length, supplementaryMaterials: guide.supplementaryMaterialIds.map((id) => ({ sourceId: id, url: `${reader}${links.get(id)}` })) });
     }

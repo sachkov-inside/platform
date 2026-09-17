@@ -90,6 +90,62 @@ export class ContentLibraryService {
         scope: string;
       } | null;
       name: string;
+      productPage: {
+        page: {
+          blocks: Array<({
+            highlights: Array<string>;
+            id: string;
+            kind: 'hero';
+            lead: string;
+          } | {
+            eyebrow: string;
+            id: string;
+            items: Array<{
+              detail: string;
+              detailLabel: string;
+              text: string;
+              title: string;
+            }>;
+            kind: 'cards';
+            lead: string;
+            note: string;
+            title: string;
+          } | {
+            id: string;
+            kind: 'text';
+            paragraphs: Array<string>;
+            title: string;
+          } | {
+            id: string;
+            items: Array<{
+              text: string;
+              title: string;
+            }>;
+            kind: 'steps';
+            lead: string;
+            link: string;
+            title: string;
+          } | {
+            id: string;
+            items: Array<string>;
+            kind: 'list';
+            text: string;
+            title: string;
+          } | {
+            id: string;
+            kind: 'trial';
+            link: string;
+            text: string;
+            title: string;
+          })>;
+          card: {
+            action: string;
+            eyebrow: string;
+            subtitle: string;
+          } | null;
+        } | null;
+        presentation: string;
+      } | null;
       slug: string;
       summary: string;
     };
@@ -250,6 +306,11 @@ export class ContentLibraryService {
       };
     }>;
     pinnedSeries: {
+      card: {
+        action: string;
+        eyebrow: string;
+        subtitle: string;
+      } | null;
       count: number;
       cover: {
         coverId: string;
@@ -260,6 +321,7 @@ export class ContentLibraryService {
       } | null;
       id: string;
       name: string;
+      presentation: string;
       previewItems: Array<{
         access: 'free' | 'membership' | 'workshop';
         availability: 'available' | 'locked' | 'unavailable';
@@ -870,6 +932,62 @@ export class ContentLibraryService {
         scope: string;
       } | null;
       name: string;
+      productPage: {
+        page: {
+          blocks: Array<({
+            highlights: Array<string>;
+            id: string;
+            kind: 'hero';
+            lead: string;
+          } | {
+            eyebrow: string;
+            id: string;
+            items: Array<{
+              detail: string;
+              detailLabel: string;
+              text: string;
+              title: string;
+            }>;
+            kind: 'cards';
+            lead: string;
+            note: string;
+            title: string;
+          } | {
+            id: string;
+            kind: 'text';
+            paragraphs: Array<string>;
+            title: string;
+          } | {
+            id: string;
+            items: Array<{
+              text: string;
+              title: string;
+            }>;
+            kind: 'steps';
+            lead: string;
+            link: string;
+            title: string;
+          } | {
+            id: string;
+            items: Array<string>;
+            kind: 'list';
+            text: string;
+            title: string;
+          } | {
+            id: string;
+            kind: 'trial';
+            link: string;
+            text: string;
+            title: string;
+          })>;
+          card: {
+            action: string;
+            eyebrow: string;
+            subtitle: string;
+          } | null;
+        } | null;
+        presentation: string;
+      } | null;
       slug: string;
       summary: string;
     };
@@ -1001,6 +1119,62 @@ export class ContentLibraryService {
         scope: string;
       } | null;
       name: string;
+      productPage: {
+        page: {
+          blocks: Array<({
+            highlights: Array<string>;
+            id: string;
+            kind: 'hero';
+            lead: string;
+          } | {
+            eyebrow: string;
+            id: string;
+            items: Array<{
+              detail: string;
+              detailLabel: string;
+              text: string;
+              title: string;
+            }>;
+            kind: 'cards';
+            lead: string;
+            note: string;
+            title: string;
+          } | {
+            id: string;
+            kind: 'text';
+            paragraphs: Array<string>;
+            title: string;
+          } | {
+            id: string;
+            items: Array<{
+              text: string;
+              title: string;
+            }>;
+            kind: 'steps';
+            lead: string;
+            link: string;
+            title: string;
+          } | {
+            id: string;
+            items: Array<string>;
+            kind: 'list';
+            text: string;
+            title: string;
+          } | {
+            id: string;
+            kind: 'trial';
+            link: string;
+            text: string;
+            title: string;
+          })>;
+          card: {
+            action: string;
+            eyebrow: string;
+            subtitle: string;
+          } | null;
+        } | null;
+        presentation: string;
+      } | null;
       slug: string;
       summary: string;
     };
@@ -1131,6 +1305,62 @@ export class ContentLibraryService {
         scope: string;
       } | null;
       name: string;
+      productPage: {
+        page: {
+          blocks: Array<({
+            highlights: Array<string>;
+            id: string;
+            kind: 'hero';
+            lead: string;
+          } | {
+            eyebrow: string;
+            id: string;
+            items: Array<{
+              detail: string;
+              detailLabel: string;
+              text: string;
+              title: string;
+            }>;
+            kind: 'cards';
+            lead: string;
+            note: string;
+            title: string;
+          } | {
+            id: string;
+            kind: 'text';
+            paragraphs: Array<string>;
+            title: string;
+          } | {
+            id: string;
+            items: Array<{
+              text: string;
+              title: string;
+            }>;
+            kind: 'steps';
+            lead: string;
+            link: string;
+            title: string;
+          } | {
+            id: string;
+            items: Array<string>;
+            kind: 'list';
+            text: string;
+            title: string;
+          } | {
+            id: string;
+            kind: 'trial';
+            link: string;
+            text: string;
+            title: string;
+          })>;
+          card: {
+            action: string;
+            eyebrow: string;
+            subtitle: string;
+          } | null;
+        } | null;
+        presentation: string;
+      } | null;
       slug: string;
       summary: string;
     };

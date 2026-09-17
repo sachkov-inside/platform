@@ -9,7 +9,8 @@ import type { ReorderSeriesResult } from "../reorder-series/reorder-series.contr
 
 const sourceId = authoringSourceIdSchema;
 export const reserveSourceGuideBodySchema = contentCollectionInputSchema.omit({ actor: true, kind: true }).extend({ sourceId });
-export const updateSourceGuideBodySchema = z.object(updateContentCollectionCommandSchema.shape).omit({ actor: true, kind: true, introduction: true }).extend({ sourceId });
+// Адрес, оформление и страница приходят вместе с названием: пакет описывает Guide целиком (ADR 0026).
+export const updateSourceGuideBodySchema = z.object(updateContentCollectionCommandSchema.shape).omit({ actor: true, kind: true, introduction: true, source: true }).extend({ sourceId, source: updateContentCollectionCommandSchema.shape.source.unwrap() });
 export const reorderSourceGuideBodySchema = z.object(reorderSeriesCommandSchema.shape).omit({ actor: true }).extend({ sourceId });
 export type ReserveSourceGuideOperation = (command: z.infer<typeof reserveSourceGuideBodySchema> & { readonly actor: string }) => Promise<CreateContentCollectionResult>;
 export type UpdateSourceGuideOperation = (command: z.infer<typeof updateSourceGuideBodySchema> & { readonly actor: string }) => Promise<UpdateContentCollectionResult>;

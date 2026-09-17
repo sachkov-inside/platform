@@ -95,6 +95,12 @@ progress, and the Guide's own price. It is separate from the product page, which
 and neither prices nor sells it.
 _Avoid_: Guide page, route, catalog
 
+**Product Page Description**:
+The author-written description of a Product, kept in its Inside Content original and transferred to
+Platform as typed blocks. Its `presentation` names which set of page and Home-card components draws
+it; access terms stay substitutions the site fills from the current offer.
+_Avoid_: Guide introduction, landing copy in code, presentation chosen by address
+
 **Guide Chapter**:
 An optional named group in a Guide's main path, without owning copies of Materials.
 _Avoid_: Video chapter, Material, separately purchased Guide

@@ -10,8 +10,15 @@ import { materialDifficultySchema } from "../../../domain/material-metadata.js";
 
 import type { PublishedMaterialProjectionDto } from "../../../facets/published-material-reader/published-material.contract.js";
 import type { ContentCoverProjection } from "../../../facets/content-covers/content-covers.js";
-import type { GuideIntroductionDto } from "../../../facets/material-authoring/content-collection.contract.js";
+import type { GuideIntroductionDto, GuideProductPageDto } from "../../../facets/material-authoring/content-collection.contract.js";
 import { loadContentCoverProjections } from "../content-cover-projections.js";
+import { readStoredGuidePage, type GuidePage } from "../../../domain/guide-page.js";
+
+/** Only validated imports write a page; a stored value that no longer parses is not shown. */
+function storedPage(value: unknown): GuidePage | null {
+  const page = readStoredGuidePage(value);
+  return page === "invalid" ? null : page;
+}
 import type {
   PublishedMaterialProjectionCursor,
   PublishedMaterialProjectionPageDto,
@@ -50,6 +57,8 @@ export interface PublishedMaterialDiscoveryPage {
     /** Author-written Guide introduction; null for every other discovery kind. */
     readonly introduction: GuideIntroductionDto | null;
     readonly name: string;
+    /** Product page presentation and description; null for every other discovery kind. */
+    readonly productPage: GuideProductPageDto | null;
     readonly slug: string;
     readonly summary: string;
     readonly cover: ContentCoverProjection | null;
@@ -755,6 +764,7 @@ export async function selectPublishedMaterialProjectionsByTopic(
       id: reference.id,
       hasModeVariants: false,
       introduction: null,
+      productPage: null,
       name: reference.name,
       slug: reference.slug,
       summary: reference.summary,
@@ -794,6 +804,8 @@ export async function selectPublishedMaterialProjectionsBySeries(
         id: true,
         name: true,
         outcome: true,
+        page: true,
+        presentation: true,
         prerequisites: true,
         scope: true,
         slug: true,
@@ -904,6 +916,10 @@ export async function selectPublishedMaterialProjectionsBySeries(
         scope: reference.scope,
       },
       name: reference.name,
+      productPage: {
+        presentation: reference.presentation,
+        page: storedPage(reference.page),
+      },
       slug: reference.slug,
       summary: reference.summary,
       cover:
@@ -1000,6 +1016,7 @@ export async function selectRelatedPublishedMaterialProjections(
       id: source.materialId,
       hasModeVariants: false,
       introduction: null,
+      productPage: null,
       name: source.title,
       slug: source.slug,
       summary: source.summary,

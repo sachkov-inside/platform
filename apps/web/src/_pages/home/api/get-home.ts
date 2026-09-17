@@ -12,6 +12,7 @@ import {
   requestHomeContent,
 } from "@/shared/api/backend/index.server";
 import { dependencyUnavailableProblemSchema } from "@/shared/api/problem-details";
+import { guidePageSchema, resolveGuidePresentation } from "@/entities/guide-page";
 import type { HomeResult } from "../model/home-view";
 
 const homeCollectionSchema = z
@@ -28,7 +29,9 @@ const homeCollectionSchema = z
 
 const homeSchema = z
   .object({
-    pinnedSeries: homeCollectionSchema.nullable(),
+    pinnedSeries: homeCollectionSchema
+      .extend({ presentation: z.string(), card: guidePageSchema.shape.card })
+      .nullable(),
     guides: z.array(publishedMaterialProjectionSchema),
     notes: z.array(publishedMaterialProjectionSchema),
     membership: z.discriminatedUnion("kind", [
@@ -78,7 +81,17 @@ export async function getHome(
     kind: "ready",
     value: {
       membership: { kind: parsed.data.membership.kind },
-      pinnedSeries: parsed.data.pinnedSeries === null ? null : mapCollection(parsed.data.pinnedSeries),
+      pinnedSeries:
+        parsed.data.pinnedSeries === null
+          ? null
+          : {
+              ...mapCollection(parsed.data.pinnedSeries),
+              card: parsed.data.pinnedSeries.card,
+              presentation: resolveGuidePresentation(
+                parsed.data.pinnedSeries.presentation,
+                `Home pinned Guide ${parsed.data.pinnedSeries.slug}`,
+              ),
+            },
       guides: parsed.data.guides.map(toMaterialPreview),
       notes: parsed.data.notes.map(toMaterialPreview),
       playlists: parsed.data.playlists.map(mapCollection),

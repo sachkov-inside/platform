@@ -332,6 +332,8 @@ model Guide {
   outcome       String    @default("")
   prerequisites String    @default("")
   scope         String    @default("")
+  presentation  String    @default("default")
+  page          Json?
   archivedAt    DateTime? @map("archived_at") @db.Timestamptz
   version       Int       @default(1)
   coverId       String?   @map("cover_id") @db.Uuid

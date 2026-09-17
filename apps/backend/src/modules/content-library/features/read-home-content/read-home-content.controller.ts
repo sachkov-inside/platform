@@ -45,7 +45,12 @@ import { readHomeContent } from "./read-home-content.js";
 
 const homeContentHttpSchema = z
   .object({
-    pinnedSeries: publishedCatalogFacetHttpSchema.nullable(),
+    pinnedSeries: publishedCatalogFacetHttpSchema
+      .extend({
+        presentation: z.string(),
+        card: z.object({ eyebrow: z.string(), subtitle: z.string(), action: z.string() }).strict().nullable(),
+      })
+      .nullable(),
     topics: z.array(publishedCatalogFacetHttpSchema),
     playlists: z.array(publishedCatalogFacetHttpSchema),
     videos: z.array(publishedCatalogItemHttpSchema),
@@ -69,7 +74,7 @@ export class ReadHomeContentController {
     @Inject(PUBLISHED_MATERIAL_READER)
     private readonly publishedMaterialReader: Pick<
       PublishedMaterialReader,
-      "listProjections" | "readHomePinnedSeriesId"
+      "listProjections" | "readHomePinnedSeries"
     >,
     @Inject(CONTENT_ACCESS)
     private readonly contentAccess: Pick<ContentAccess, "checkAvailabilityMany">,

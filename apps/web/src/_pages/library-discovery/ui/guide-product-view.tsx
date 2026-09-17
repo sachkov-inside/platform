@@ -3,8 +3,14 @@ import type { Route } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import {
+  fillOfferTerms,
+  type GuidePage,
+  type GuidePageBlock,
+  type GuidePresentation,
+} from "@/entities/guide-page";
 import { ContentCoverImage } from "@/entities/material";
-import { aiFirstGuide } from "@/features/ai-first-guide";
+import { oneTimeTermLabels } from "@/features/billing-checkout";
 import type { ReaderGuideArtifactsResult } from "@/features/guide-artifacts.reader";
 import {
   formatMaterialCount,
@@ -19,6 +25,38 @@ import { AiFirstGuideView } from "./ai-first-guide-view";
 import { formatArtifactCount, formatChapterCount } from "./guide-counts";
 
 type ResolvedSeriesResult = Extract<PublishedSeriesResult, { kind: "ready" | "empty" }>;
+
+// Сроки называет действующая оферта разовой покупки: автор пишет подстановку, а не число.
+const offerTerms = { access: oneTimeTermLabels.materialsAndChat, support: oneTimeTermLabels.support };
+const fillTerms = (text: string) => fillOfferTerms(text, offerTerms);
+
+interface ProductViewProps {
+  readonly artifacts: ReaderGuideArtifactsResult;
+  readonly result: ResolvedSeriesResult;
+  readonly returnTarget: MaterialReaderReturnTarget;
+  readonly freeEntryHref: Route | undefined;
+  readonly page: GuidePage | null;
+}
+
+/**
+ * Реестр оформлений (ADR 0026): значение поля продукта выбирает, чем рисовать страницу. Особому
+ * оформлению без описания нечего показать, поэтому оно уступает общему шаблону.
+ */
+const productViews: Record<GuidePresentation, (props: ProductViewProps) => ReactNode> = {
+  default: DefaultGuideProductView,
+  "ai-first-process": ({ page, freeEntryHref, ...props }) =>
+    page === null ? (
+      <DefaultGuideProductView {...props} freeEntryHref={freeEntryHref} page={null} />
+    ) : (
+      <AiFirstGuideView
+        fill={fillTerms}
+        page={page}
+        result={props.result}
+        returnTarget={props.returnTarget}
+        {...(freeEntryHref === undefined ? {} : { freeEntryHref })}
+      />
+    ),
+};
 
 /**
  * Страница продукта руководства: она отвечает, о чём это, кому, что получится и что остаётся за
@@ -39,11 +77,29 @@ export function GuideProductView({
   /** Бесплатный вход из обложки. Он ведёт в программу: там читатель сразу видит открытые уроки. */
   readonly freeEntryHref?: Route;
 }) {
-  if (result.reference.slug === aiFirstGuide.slug) {
-    return <AiFirstGuideView result={result} returnTarget={returnTarget} {...(freeEntryHref === undefined ? {} : { freeEntryHref })} />;
-  }
+  const productPage = result.reference.productPage ?? null;
+  const View = productViews[productPage?.presentation ?? "default"];
+  return (
+    <View
+      artifacts={artifacts}
+      freeEntryHref={freeEntryHref}
+      page={productPage?.page ?? null}
+      result={result}
+      returnTarget={returnTarget}
+    />
+  );
+}
+
+/** Общий шаблон: описание продукта, если оно перенесено, иначе введение, которое пишет редактор. */
+function DefaultGuideProductView({
+  artifacts,
+  result,
+  freeEntryHref,
+  returnTarget,
+  page,
+}: ProductViewProps) {
   const { reference } = result;
-  const introduction = reference.introduction ?? null;
+  const introduction = page === null ? reference.introduction ?? null : null;
   const items = result.kind === "ready" ? result.items : [];
   const chapters = result.chapters;
   const guideArtifacts = artifacts.kind === "ready" ? artifacts.artifacts : [];
@@ -117,6 +173,15 @@ export function GuideProductView({
         {meta.length === 0 ? null : (
           <p className="mt-3 text-sm text-muted-foreground">{meta.join(" · ")}</p>
         )}
+
+        {page?.blocks.map((block) => (
+          <DefaultBlock
+            block={block}
+            freeEntryHref={freeEntryHref}
+            key={block.id}
+            programme={guideProgrammeHref(reference.slug)}
+          />
+        ))}
 
         {introduction === null || introduction.audience === "" ? null : (
           <Section title="Кому это нужно">
@@ -222,6 +287,131 @@ export function GuideProductView({
         </div>
       </div>
     </div>
+  );
+}
+
+function DefaultBlock({
+  block,
+  freeEntryHref,
+  programme,
+}: {
+  readonly block: GuidePageBlock;
+  readonly freeEntryHref: Route | undefined;
+  readonly programme: Route;
+}): ReactNode {
+  switch (block.kind) {
+    case "hero":
+      return (
+        <div className="mt-6">
+          <Prose value={fillTerms(block.lead)} />
+          {block.highlights.length === 0 ? null : (
+            <ul className="mt-3 flex flex-wrap gap-2 text-sm">
+              {block.highlights.map((highlight) => (
+                <li className="rounded-full bg-secondary px-3 py-1" key={highlight}>
+                  {fillTerms(highlight)}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      );
+    case "cards":
+      return (
+        <Section title={fillTerms(block.title)}>
+          {block.lead === "" ? null : <Prose value={fillTerms(block.lead)} />}
+          <ul className="mt-4 grid gap-3">
+            {block.items.map((item) => (
+              <li className="rounded-2xl border border-border p-4" key={item.title}>
+                <p className="break-words font-semibold leading-6">{fillTerms(item.title)}</p>
+                <p className="mt-1 whitespace-pre-line break-words text-sm leading-6 text-muted-foreground">
+                  {fillTerms(item.text)}
+                </p>
+                {item.detail === "" ? null : (
+                  <p className="mt-2 text-sm">
+                    {item.detailLabel === "" ? null : (
+                      <span className="text-muted-foreground">{fillTerms(item.detailLabel)}: </span>
+                    )}
+                    {fillTerms(item.detail)}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+          {block.note === "" ? null : (
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">{fillTerms(block.note)}</p>
+          )}
+        </Section>
+      );
+    case "text":
+      return (
+        <Section title={fillTerms(block.title)}>
+          <div className="grid gap-3">
+            {block.paragraphs.map((paragraph) => (
+              <Prose key={paragraph} value={fillTerms(paragraph)} />
+            ))}
+          </div>
+        </Section>
+      );
+    case "steps":
+      return (
+        <Section title={fillTerms(block.title)}>
+          {block.lead === "" ? null : <Prose value={fillTerms(block.lead)} />}
+          <ol className="mt-4 grid gap-4">
+            {block.items.map((step, index) => (
+              <li className="grid grid-cols-[2rem_minmax(0,1fr)] gap-3" key={step.title}>
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "grid size-8 place-items-center rounded-xl text-sm font-semibold tabular-nums",
+                    chapterTone(index),
+                  )}
+                >
+                  {index + 1}
+                </span>
+                <div className="min-w-0">
+                  <p className="break-words font-semibold leading-6">{fillTerms(step.title)}</p>
+                  <p className="mt-1 whitespace-pre-line break-words text-sm leading-6 text-muted-foreground">
+                    {fillTerms(step.text)}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ol>
+          {block.link === "" ? null : <TextLink href={programme} label={fillTerms(block.link)} />}
+        </Section>
+      );
+    case "list":
+      return (
+        <Section title={fillTerms(block.title)}>
+          {block.text === "" ? null : <Prose value={fillTerms(block.text)} />}
+          <ul className="mt-3 flex flex-wrap gap-2 text-sm">
+            {block.items.map((item) => (
+              <li className="rounded-full bg-secondary px-3 py-1" key={item}>
+                {fillTerms(item)}
+              </li>
+            ))}
+          </ul>
+        </Section>
+      );
+    case "trial":
+      return freeEntryHref === undefined ? null : (
+        <Section title={fillTerms(block.title)}>
+          <Prose value={fillTerms(block.text)} />
+          {block.link === "" ? null : <TextLink href={programme} label={fillTerms(block.link)} />}
+        </Section>
+      );
+  }
+}
+
+function TextLink({ href, label }: { readonly href: Route; readonly label: string }) {
+  return (
+    <Link
+      className="mt-4 inline-flex min-h-10 items-center gap-2 font-semibold text-accent-foreground underline-offset-4 hover:underline focus-visible:outline-ring"
+      href={href}
+    >
+      {label}
+      <ArrowRight aria-hidden="true" className="size-4 shrink-0" />
+    </Link>
   );
 }
 

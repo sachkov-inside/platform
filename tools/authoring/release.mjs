@@ -6,7 +6,7 @@ import { z } from "zod";
 import { loadPackage, canonical, checksum } from "./package.mjs";
 import { writeAtomic } from "./journal.mjs";
 import { parseJournal, parseLocalResponse } from "./local-boundaries.mjs";
-import { archiveProposalKeys, artifactDeclarations, artifactFingerprint, desiredMaterial, guideChapters, guideTeaser, normalizeSourceIds, sourceKey, syncLocal } from "./local-sync.mjs";
+import { archiveProposalKeys, artifactDeclarations, artifactFingerprint, assertKnownPresentations, desiredMaterial, guideChapters, guideDetails, guidePageDigest, normalizeSourceIds, sourceKey, syncLocal } from "./local-sync.mjs";
 import { loopbackOrigin, localTargets, localTransport, resolveLocalTarget } from "./target.mjs";
 
 // A release applies one reviewed package to one environment. Only local environments are enabled:
@@ -39,6 +39,7 @@ export async function previewRelease(packagePath, stateDirectory, { origin, requ
   const pkg = await loadPackage(packagePath);
   const { manifest } = pkg;
   const environment = await request("/authoring/import/materials/environment");
+  assertKnownPresentations(manifest, environment);
   const journal = await readJournal(stateDirectory, target);
   const resources = journal.resources ?? {};
   const topics = await request("/authoring/collections?kind=topic");
@@ -91,7 +92,8 @@ export async function previewRelease(packagePath, stateDirectory, { origin, requ
         return receipt?.fingerprint !== artifactFingerprint(assets.get(artifact.assetId), artifact, access);
       })
       .map(([artifactSourceId]) => artifactSourceId);
-    if (guideId === undefined) { guides.push({ sourceId: guide.sourceId, title: guide.title, change: "new", materials: programme.length, artifactChanges }); continue; }
+    const details = guideDetails(guide);
+    if (guideId === undefined) { guides.push({ sourceId: guide.sourceId, title: guide.title, change: "new", materials: programme.length, artifactChanges, slug: details.slug, presentation: details.presentation, page: details.page === null ? "none" : "new" }); continue; }
     const order = await request(`/authoring/guides/${guideId}/order`);
     expected[`${sourceKey(manifest, guide.sourceId)}:order`] = order.orderVersion;
     const ids = new Map(programme.map((id) => [id, journal.materials[sourceKey(manifest, id)]?.materialId]));
@@ -102,12 +104,19 @@ export async function previewRelease(packagePath, stateDirectory, { origin, requ
     const stored = currentGuides.find((item) => item.id === guideId);
     const currentChapterText = new Map(order.chapters.map((chapter) => [chapter.id, canonical({ name: chapter.name, summary: chapter.summary })]));
     const chapterTextChanges = guideChapters(manifest, guide).filter((chapter) => currentChapterText.has(chapter.id) && currentChapterText.get(chapter.id) !== canonical({ name: chapter.name, summary: chapter.summary })).length;
-    const detailsChange = stored === undefined || stored.name !== guide.title || stored.summary !== guideTeaser(guide).teaser;
+    const entry = journal.guides[sourceKey(manifest, guide.sourceId)];
+    // The page is written only by this transfer, so its last recorded digest is what Platform holds.
+    const pageChange = entry.pageDigest !== guidePageDigest(guide);
+    const slugChange = stored !== undefined && stored.slug !== details.slug ? { from: stored.slug, to: details.slug } : undefined;
+    const presentationChange = stored !== undefined && (stored.presentation ?? "default") !== details.presentation ? { from: stored.presentation ?? "default", to: details.presentation } : undefined;
+    const detailsChange = stored === undefined || stored.name !== details.name || stored.summary !== details.summary || pageChange || slugChange !== undefined || presentationChange !== undefined;
     const moved = order.items.filter((item) => (chapterOf.get(item.materialId) ?? null) !== (item.chapterId === null ? null : currentChapters.get(item.chapterId) ?? null)).length;
     guides.push({
       sourceId: guide.sourceId, title: guide.title, materials: programme.length, artifactChanges,
       change: canonical(desiredOrder) === canonical(currentOrder) && moved === 0 && chapterTextChanges === 0 ? (detailsChange ? "details" : "unchanged") : "composition",
-      detailsChange, chapterTextChanges,
+      detailsChange, chapterTextChanges, pageChange,
+      ...(slugChange ? { slugChange } : {}),
+      ...(presentationChange ? { presentationChange } : {}),
       added: desiredOrder.filter((id) => !currentOrder.includes(id)).length,
       removed: currentOrder.filter((id) => !desiredOrder.includes(id)).length,
       reorderedOrRegrouped: canonical(desiredOrder.filter((id) => currentOrder.includes(id))) !== canonical(currentOrder.filter((id) => desiredOrder.includes(id))) || moved > 0,

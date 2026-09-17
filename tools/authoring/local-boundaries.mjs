@@ -13,7 +13,7 @@ const materialSchema = materialReceiptSchema.extend({
   source: source.nullable(), cover: coverSchema.nullable().optional(),
 });
 const topicSchema = z.object({ id: z.uuid(), slug: text }).passthrough();
-const guideSchema = topicSchema.extend({ name: z.string(), summary: z.string(), version, archived: z.boolean().optional() });
+const guideSchema = topicSchema.extend({ name: z.string(), summary: z.string(), version, archived: z.boolean().optional(), presentation: z.string().nullable().optional(), sourceId: z.string().nullable().optional() });
 const coverChangeSchema = z.object({ cover: coverSchema.nullable() }).passthrough();
 const artifactOutcomeSchema = z.object({ artifactId: z.uuid(), outcome: z.enum(["created", "diverged", "missing", "unchanged", "updated"]), sourceId: z.string().nullable(), title: z.string() }).passthrough();
 const artifactSchema = z.object({ artifactId: z.uuid(), materialIds: z.array(z.uuid()), origin: z.enum(["authoring", "platform"]), sourceId: z.string().nullable(), title: z.string() }).passthrough();
@@ -43,7 +43,7 @@ const applyBodySchema = z.object({
 export function parseLocalResponse(path, value) {
   let schema;
   switch (path) {
-    case "/authoring/import/materials/environment": schema = z.object({ mode: z.enum(["development", "test", "production"]) }).passthrough(); break;
+    case "/authoring/import/materials/environment": schema = z.object({ mode: z.enum(["development", "test", "production"]), presentations: z.array(text).optional() }).passthrough(); break;
     case "/authoring/collections?kind=topic": schema = z.array(topicSchema); break;
     case "/authoring/collections?kind=guide": schema = z.array(guideSchema); break;
     case "/authoring/collections": schema = topicSchema; break;

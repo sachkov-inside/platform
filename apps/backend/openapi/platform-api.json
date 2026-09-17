@@ -22184,9 +22184,17 @@
                         "minLength": 1,
                         "type": "string"
                       },
+                      "presentation": {
+                        "nullable": true,
+                        "type": "string"
+                      },
                       "slug": {
                         "maxLength": 120,
                         "minLength": 1,
+                        "type": "string"
+                      },
+                      "sourceId": {
+                        "nullable": true,
                         "type": "string"
                       },
                       "summary": {
@@ -22207,7 +22215,9 @@
                       "kind",
                       "materialCount",
                       "name",
+                      "presentation",
                       "slug",
+                      "sourceId",
                       "summary",
                       "version",
                       "cover"
@@ -22963,9 +22973,17 @@
                       "minLength": 1,
                       "type": "string"
                     },
+                    "presentation": {
+                      "nullable": true,
+                      "type": "string"
+                    },
                     "slug": {
                       "maxLength": 120,
                       "minLength": 1,
+                      "type": "string"
+                    },
+                    "sourceId": {
+                      "nullable": true,
                       "type": "string"
                     },
                     "summary": {
@@ -22986,7 +23004,9 @@
                     "kind",
                     "materialCount",
                     "name",
+                    "presentation",
                     "slug",
+                    "sourceId",
                     "summary",
                     "version",
                     "cover"
@@ -24019,9 +24039,17 @@
                       "minLength": 1,
                       "type": "string"
                     },
+                    "presentation": {
+                      "nullable": true,
+                      "type": "string"
+                    },
                     "slug": {
                       "maxLength": 120,
                       "minLength": 1,
+                      "type": "string"
+                    },
+                    "sourceId": {
+                      "nullable": true,
                       "type": "string"
                     },
                     "summary": {
@@ -24042,7 +24070,9 @@
                     "kind",
                     "materialCount",
                     "name",
+                    "presentation",
                     "slug",
+                    "sourceId",
                     "summary",
                     "version",
                     "cover"
@@ -25161,9 +25191,17 @@
                       "minLength": 1,
                       "type": "string"
                     },
+                    "presentation": {
+                      "nullable": true,
+                      "type": "string"
+                    },
                     "slug": {
                       "maxLength": 120,
                       "minLength": 1,
+                      "type": "string"
+                    },
+                    "sourceId": {
+                      "nullable": true,
                       "type": "string"
                     },
                     "summary": {
@@ -25184,7 +25222,9 @@
                     "kind",
                     "materialCount",
                     "name",
+                    "presentation",
                     "slug",
+                    "sourceId",
                     "summary",
                     "version",
                     "cover"
@@ -40343,9 +40383,17 @@
                       "minLength": 1,
                       "type": "string"
                     },
+                    "presentation": {
+                      "nullable": true,
+                      "type": "string"
+                    },
                     "slug": {
                       "maxLength": 120,
                       "minLength": 1,
+                      "type": "string"
+                    },
+                    "sourceId": {
+                      "nullable": true,
                       "type": "string"
                     },
                     "summary": {
@@ -40366,7 +40414,9 @@
                     "kind",
                     "materialCount",
                     "name",
+                    "presentation",
                     "slug",
+                    "sourceId",
                     "summary",
                     "version",
                     "cover"
@@ -41355,6 +41405,351 @@
                     "minLength": 1,
                     "type": "string"
                   },
+                  "source": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "page": {
+                        "additionalProperties": false,
+                        "nullable": true,
+                        "properties": {
+                          "blocks": {
+                            "items": {
+                              "oneOf": [
+                                {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "highlights": {
+                                      "items": {
+                                        "minLength": 1,
+                                        "type": "string"
+                                      },
+                                      "maxItems": 12,
+                                      "minItems": 0,
+                                      "type": "array"
+                                    },
+                                    "id": {
+                                      "pattern": "^[a-z][a-z0-9-]{0,63}$",
+                                      "type": "string"
+                                    },
+                                    "kind": {
+                                      "enum": [
+                                        "hero"
+                                      ],
+                                      "type": "string"
+                                    },
+                                    "lead": {
+                                      "minLength": 1,
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "kind",
+                                    "lead",
+                                    "highlights"
+                                  ],
+                                  "type": "object"
+                                },
+                                {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "eyebrow": {
+                                      "maxLength": 200,
+                                      "type": "string"
+                                    },
+                                    "id": {
+                                      "pattern": "^[a-z][a-z0-9-]{0,63}$",
+                                      "type": "string"
+                                    },
+                                    "items": {
+                                      "items": {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "detail": {
+                                            "maxLength": 200,
+                                            "type": "string"
+                                          },
+                                          "detailLabel": {
+                                            "maxLength": 200,
+                                            "type": "string"
+                                          },
+                                          "text": {
+                                            "minLength": 1,
+                                            "type": "string"
+                                          },
+                                          "title": {
+                                            "minLength": 1,
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "title",
+                                          "text",
+                                          "detailLabel",
+                                          "detail"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      "maxItems": 12,
+                                      "minItems": 1,
+                                      "type": "array"
+                                    },
+                                    "kind": {
+                                      "enum": [
+                                        "cards"
+                                      ],
+                                      "type": "string"
+                                    },
+                                    "lead": {
+                                      "maxLength": 4000,
+                                      "type": "string"
+                                    },
+                                    "note": {
+                                      "maxLength": 4000,
+                                      "type": "string"
+                                    },
+                                    "title": {
+                                      "minLength": 1,
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "kind",
+                                    "eyebrow",
+                                    "title",
+                                    "lead",
+                                    "items",
+                                    "note"
+                                  ],
+                                  "type": "object"
+                                },
+                                {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "id": {
+                                      "pattern": "^[a-z][a-z0-9-]{0,63}$",
+                                      "type": "string"
+                                    },
+                                    "kind": {
+                                      "enum": [
+                                        "text"
+                                      ],
+                                      "type": "string"
+                                    },
+                                    "paragraphs": {
+                                      "items": {
+                                        "minLength": 1,
+                                        "type": "string"
+                                      },
+                                      "maxItems": 12,
+                                      "minItems": 1,
+                                      "type": "array"
+                                    },
+                                    "title": {
+                                      "minLength": 1,
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "kind",
+                                    "title",
+                                    "paragraphs"
+                                  ],
+                                  "type": "object"
+                                },
+                                {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "id": {
+                                      "pattern": "^[a-z][a-z0-9-]{0,63}$",
+                                      "type": "string"
+                                    },
+                                    "items": {
+                                      "items": {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "text": {
+                                            "minLength": 1,
+                                            "type": "string"
+                                          },
+                                          "title": {
+                                            "minLength": 1,
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "title",
+                                          "text"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      "maxItems": 12,
+                                      "minItems": 1,
+                                      "type": "array"
+                                    },
+                                    "kind": {
+                                      "enum": [
+                                        "steps"
+                                      ],
+                                      "type": "string"
+                                    },
+                                    "lead": {
+                                      "maxLength": 4000,
+                                      "type": "string"
+                                    },
+                                    "link": {
+                                      "maxLength": 200,
+                                      "type": "string"
+                                    },
+                                    "title": {
+                                      "minLength": 1,
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "kind",
+                                    "title",
+                                    "lead",
+                                    "items",
+                                    "link"
+                                  ],
+                                  "type": "object"
+                                },
+                                {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "id": {
+                                      "pattern": "^[a-z][a-z0-9-]{0,63}$",
+                                      "type": "string"
+                                    },
+                                    "items": {
+                                      "items": {
+                                        "minLength": 1,
+                                        "type": "string"
+                                      },
+                                      "maxItems": 12,
+                                      "minItems": 1,
+                                      "type": "array"
+                                    },
+                                    "kind": {
+                                      "enum": [
+                                        "list"
+                                      ],
+                                      "type": "string"
+                                    },
+                                    "text": {
+                                      "maxLength": 4000,
+                                      "type": "string"
+                                    },
+                                    "title": {
+                                      "minLength": 1,
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "kind",
+                                    "title",
+                                    "text",
+                                    "items"
+                                  ],
+                                  "type": "object"
+                                },
+                                {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "id": {
+                                      "pattern": "^[a-z][a-z0-9-]{0,63}$",
+                                      "type": "string"
+                                    },
+                                    "kind": {
+                                      "enum": [
+                                        "trial"
+                                      ],
+                                      "type": "string"
+                                    },
+                                    "link": {
+                                      "maxLength": 200,
+                                      "type": "string"
+                                    },
+                                    "text": {
+                                      "minLength": 1,
+                                      "type": "string"
+                                    },
+                                    "title": {
+                                      "minLength": 1,
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "kind",
+                                    "title",
+                                    "text",
+                                    "link"
+                                  ],
+                                  "type": "object"
+                                }
+                              ]
+                            },
+                            "maxItems": 16,
+                            "minItems": 1,
+                            "type": "array"
+                          },
+                          "card": {
+                            "additionalProperties": false,
+                            "nullable": true,
+                            "properties": {
+                              "action": {
+                                "maxLength": 200,
+                                "type": "string"
+                              },
+                              "eyebrow": {
+                                "maxLength": 200,
+                                "type": "string"
+                              },
+                              "subtitle": {
+                                "maxLength": 200,
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "eyebrow",
+                              "subtitle",
+                              "action"
+                            ],
+                            "type": "object"
+                          }
+                        },
+                        "required": [
+                          "card",
+                          "blocks"
+                        ],
+                        "type": "object"
+                      },
+                      "presentation": {
+                        "enum": [
+                          "default",
+                          "ai-first-process"
+                        ],
+                        "type": "string"
+                      },
+                      "slug": {
+                        "maxLength": 120,
+                        "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "page",
+                      "presentation",
+                      "slug"
+                    ],
+                    "type": "object"
+                  },
                   "sourceId": {
                     "maxLength": 200,
                     "minLength": 1,
@@ -41370,7 +41765,8 @@
                   "expectedVersion",
                   "name",
                   "summary",
-                  "sourceId"
+                  "sourceId",
+                  "source"
                 ],
                 "type": "object"
               }
@@ -41481,9 +41877,17 @@
                       "minLength": 1,
                       "type": "string"
                     },
+                    "presentation": {
+                      "nullable": true,
+                      "type": "string"
+                    },
                     "slug": {
                       "maxLength": 120,
                       "minLength": 1,
+                      "type": "string"
+                    },
+                    "sourceId": {
+                      "nullable": true,
                       "type": "string"
                     },
                     "summary": {
@@ -41504,7 +41908,9 @@
                     "kind",
                     "materialCount",
                     "name",
+                    "presentation",
                     "slug",
+                    "sourceId",
                     "summary",
                     "version",
                     "cover"
@@ -103076,6 +103482,342 @@
                         "name": {
                           "type": "string"
                         },
+                        "productPage": {
+                          "additionalProperties": false,
+                          "nullable": true,
+                          "properties": {
+                            "page": {
+                              "additionalProperties": false,
+                              "nullable": true,
+                              "properties": {
+                                "blocks": {
+                                  "items": {
+                                    "oneOf": [
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "highlights": {
+                                            "items": {
+                                              "minLength": 1,
+                                              "type": "string"
+                                            },
+                                            "maxItems": 12,
+                                            "minItems": 0,
+                                            "type": "array"
+                                          },
+                                          "id": {
+                                            "pattern": "^[a-z][a-z0-9-]{0,63}$",
+                                            "type": "string"
+                                          },
+                                          "kind": {
+                                            "enum": [
+                                              "hero"
+                                            ],
+                                            "type": "string"
+                                          },
+                                          "lead": {
+                                            "minLength": 1,
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "kind",
+                                          "lead",
+                                          "highlights"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "eyebrow": {
+                                            "maxLength": 200,
+                                            "type": "string"
+                                          },
+                                          "id": {
+                                            "pattern": "^[a-z][a-z0-9-]{0,63}$",
+                                            "type": "string"
+                                          },
+                                          "items": {
+                                            "items": {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "detail": {
+                                                  "maxLength": 200,
+                                                  "type": "string"
+                                                },
+                                                "detailLabel": {
+                                                  "maxLength": 200,
+                                                  "type": "string"
+                                                },
+                                                "text": {
+                                                  "minLength": 1,
+                                                  "type": "string"
+                                                },
+                                                "title": {
+                                                  "minLength": 1,
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "title",
+                                                "text",
+                                                "detailLabel",
+                                                "detail"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            "maxItems": 12,
+                                            "minItems": 1,
+                                            "type": "array"
+                                          },
+                                          "kind": {
+                                            "enum": [
+                                              "cards"
+                                            ],
+                                            "type": "string"
+                                          },
+                                          "lead": {
+                                            "maxLength": 4000,
+                                            "type": "string"
+                                          },
+                                          "note": {
+                                            "maxLength": 4000,
+                                            "type": "string"
+                                          },
+                                          "title": {
+                                            "minLength": 1,
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "kind",
+                                          "eyebrow",
+                                          "title",
+                                          "lead",
+                                          "items",
+                                          "note"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "id": {
+                                            "pattern": "^[a-z][a-z0-9-]{0,63}$",
+                                            "type": "string"
+                                          },
+                                          "kind": {
+                                            "enum": [
+                                              "text"
+                                            ],
+                                            "type": "string"
+                                          },
+                                          "paragraphs": {
+                                            "items": {
+                                              "minLength": 1,
+                                              "type": "string"
+                                            },
+                                            "maxItems": 12,
+                                            "minItems": 1,
+                                            "type": "array"
+                                          },
+                                          "title": {
+                                            "minLength": 1,
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "kind",
+                                          "title",
+                                          "paragraphs"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "id": {
+                                            "pattern": "^[a-z][a-z0-9-]{0,63}$",
+                                            "type": "string"
+                                          },
+                                          "items": {
+                                            "items": {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "text": {
+                                                  "minLength": 1,
+                                                  "type": "string"
+                                                },
+                                                "title": {
+                                                  "minLength": 1,
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "title",
+                                                "text"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            "maxItems": 12,
+                                            "minItems": 1,
+                                            "type": "array"
+                                          },
+                                          "kind": {
+                                            "enum": [
+                                              "steps"
+                                            ],
+                                            "type": "string"
+                                          },
+                                          "lead": {
+                                            "maxLength": 4000,
+                                            "type": "string"
+                                          },
+                                          "link": {
+                                            "maxLength": 200,
+                                            "type": "string"
+                                          },
+                                          "title": {
+                                            "minLength": 1,
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "kind",
+                                          "title",
+                                          "lead",
+                                          "items",
+                                          "link"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "id": {
+                                            "pattern": "^[a-z][a-z0-9-]{0,63}$",
+                                            "type": "string"
+                                          },
+                                          "items": {
+                                            "items": {
+                                              "minLength": 1,
+                                              "type": "string"
+                                            },
+                                            "maxItems": 12,
+                                            "minItems": 1,
+                                            "type": "array"
+                                          },
+                                          "kind": {
+                                            "enum": [
+                                              "list"
+                                            ],
+                                            "type": "string"
+                                          },
+                                          "text": {
+                                            "maxLength": 4000,
+                                            "type": "string"
+                                          },
+                                          "title": {
+                                            "minLength": 1,
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "kind",
+                                          "title",
+                                          "text",
+                                          "items"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "id": {
+                                            "pattern": "^[a-z][a-z0-9-]{0,63}$",
+                                            "type": "string"
+                                          },
+                                          "kind": {
+                                            "enum": [
+                                              "trial"
+                                            ],
+                                            "type": "string"
+                                          },
+                                          "link": {
+                                            "maxLength": 200,
+                                            "type": "string"
+                                          },
+                                          "text": {
+                                            "minLength": 1,
+                                            "type": "string"
+                                          },
+                                          "title": {
+                                            "minLength": 1,
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "kind",
+                                          "title",
+                                          "text",
+                                          "link"
+                                        ],
+                                        "type": "object"
+                                      }
+                                    ]
+                                  },
+                                  "maxItems": 16,
+                                  "minItems": 1,
+                                  "type": "array"
+                                },
+                                "card": {
+                                  "additionalProperties": false,
+                                  "nullable": true,
+                                  "properties": {
+                                    "action": {
+                                      "maxLength": 200,
+                                      "type": "string"
+                                    },
+                                    "eyebrow": {
+                                      "maxLength": 200,
+                                      "type": "string"
+                                    },
+                                    "subtitle": {
+                                      "maxLength": 200,
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "eyebrow",
+                                    "subtitle",
+                                    "action"
+                                  ],
+                                  "type": "object"
+                                }
+                              },
+                              "required": [
+                                "card",
+                                "blocks"
+                              ],
+                              "type": "object"
+                            },
+                            "presentation": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "presentation",
+                            "page"
+                          ],
+                          "type": "object"
+                        },
                         "slug": {
                           "type": "string"
                         },
@@ -103088,6 +103830,7 @@
                         "id",
                         "introduction",
                         "name",
+                        "productPage",
                         "slug",
                         "summary",
                         "cover"
@@ -104158,6 +104901,27 @@
                       "additionalProperties": false,
                       "nullable": true,
                       "properties": {
+                        "card": {
+                          "additionalProperties": false,
+                          "nullable": true,
+                          "properties": {
+                            "action": {
+                              "type": "string"
+                            },
+                            "eyebrow": {
+                              "type": "string"
+                            },
+                            "subtitle": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "eyebrow",
+                            "subtitle",
+                            "action"
+                          ],
+                          "type": "object"
+                        },
                         "count": {
                           "maximum": 9007199254740991,
                           "minimum": 0,
@@ -104210,6 +104974,9 @@
                           "type": "string"
                         },
                         "name": {
+                          "type": "string"
+                        },
+                        "presentation": {
                           "type": "string"
                         },
                         "previewItems": {
@@ -104497,7 +105264,9 @@
                         "slug",
                         "summary",
                         "cover",
-                        "previewItems"
+                        "previewItems",
+                        "presentation",
+                        "card"
                       ],
                       "type": "object"
                     },
@@ -107807,6 +108576,342 @@
                         "name": {
                           "type": "string"
                         },
+                        "productPage": {
+                          "additionalProperties": false,
+                          "nullable": true,
+                          "properties": {
+                            "page": {
+                              "additionalProperties": false,
+                              "nullable": true,
+                              "properties": {
+                                "blocks": {
+                                  "items": {
+                                    "oneOf": [
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "highlights": {
+                                            "items": {
+                                              "minLength": 1,
+                                              "type": "string"
+                                            },
+                                            "maxItems": 12,
+                                            "minItems": 0,
+                                            "type": "array"
+                                          },
+                                          "id": {
+                                            "pattern": "^[a-z][a-z0-9-]{0,63}$",
+                                            "type": "string"
+                                          },
+                                          "kind": {
+                                            "enum": [
+                                              "hero"
+                                            ],
+                                            "type": "string"
+                                          },
+                                          "lead": {
+                                            "minLength": 1,
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "kind",
+                                          "lead",
+                                          "highlights"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "eyebrow": {
+                                            "maxLength": 200,
+                                            "type": "string"
+                                          },
+                                          "id": {
+                                            "pattern": "^[a-z][a-z0-9-]{0,63}$",
+                                            "type": "string"
+                                          },
+                                          "items": {
+                                            "items": {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "detail": {
+                                                  "maxLength": 200,
+                                                  "type": "string"
+                                                },
+                                                "detailLabel": {
+                                                  "maxLength": 200,
+                                                  "type": "string"
+                                                },
+                                                "text": {
+                                                  "minLength": 1,
+                                                  "type": "string"
+                                                },
+                                                "title": {
+                                                  "minLength": 1,
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "title",
+                                                "text",
+                                                "detailLabel",
+                                                "detail"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            "maxItems": 12,
+                                            "minItems": 1,
+                                            "type": "array"
+                                          },
+                                          "kind": {
+                                            "enum": [
+                                              "cards"
+                                            ],
+                                            "type": "string"
+                                          },
+                                          "lead": {
+                                            "maxLength": 4000,
+                                            "type": "string"
+                                          },
+                                          "note": {
+                                            "maxLength": 4000,
+                                            "type": "string"
+                                          },
+                                          "title": {
+                                            "minLength": 1,
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "kind",
+                                          "eyebrow",
+                                          "title",
+                                          "lead",
+                                          "items",
+                                          "note"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "id": {
+                                            "pattern": "^[a-z][a-z0-9-]{0,63}$",
+                                            "type": "string"
+                                          },
+                                          "kind": {
+                                            "enum": [
+                                              "text"
+                                            ],
+                                            "type": "string"
+                                          },
+                                          "paragraphs": {
+                                            "items": {
+                                              "minLength": 1,
+                                              "type": "string"
+                                            },
+                                            "maxItems": 12,
+                                            "minItems": 1,
+                                            "type": "array"
+                                          },
+                                          "title": {
+                                            "minLength": 1,
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "kind",
+                                          "title",
+                                          "paragraphs"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "id": {
+                                            "pattern": "^[a-z][a-z0-9-]{0,63}$",
+                                            "type": "string"
+                                          },
+                                          "items": {
+                                            "items": {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "text": {
+                                                  "minLength": 1,
+                                                  "type": "string"
+                                                },
+                                                "title": {
+                                                  "minLength": 1,
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "title",
+                                                "text"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            "maxItems": 12,
+                                            "minItems": 1,
+                                            "type": "array"
+                                          },
+                                          "kind": {
+                                            "enum": [
+                                              "steps"
+                                            ],
+                                            "type": "string"
+                                          },
+                                          "lead": {
+                                            "maxLength": 4000,
+                                            "type": "string"
+                                          },
+                                          "link": {
+                                            "maxLength": 200,
+                                            "type": "string"
+                                          },
+                                          "title": {
+                                            "minLength": 1,
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "kind",
+                                          "title",
+                                          "lead",
+                                          "items",
+                                          "link"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "id": {
+                                            "pattern": "^[a-z][a-z0-9-]{0,63}$",
+                                            "type": "string"
+                                          },
+                                          "items": {
+                                            "items": {
+                                              "minLength": 1,
+                                              "type": "string"
+                                            },
+                                            "maxItems": 12,
+                                            "minItems": 1,
+                                            "type": "array"
+                                          },
+                                          "kind": {
+                                            "enum": [
+                                              "list"
+                                            ],
+                                            "type": "string"
+                                          },
+                                          "text": {
+                                            "maxLength": 4000,
+                                            "type": "string"
+                                          },
+                                          "title": {
+                                            "minLength": 1,
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "kind",
+                                          "title",
+                                          "text",
+                                          "items"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "id": {
+                                            "pattern": "^[a-z][a-z0-9-]{0,63}$",
+                                            "type": "string"
+                                          },
+                                          "kind": {
+                                            "enum": [
+                                              "trial"
+                                            ],
+                                            "type": "string"
+                                          },
+                                          "link": {
+                                            "maxLength": 200,
+                                            "type": "string"
+                                          },
+                                          "text": {
+                                            "minLength": 1,
+                                            "type": "string"
+                                          },
+                                          "title": {
+                                            "minLength": 1,
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "kind",
+                                          "title",
+                                          "text",
+                                          "link"
+                                        ],
+                                        "type": "object"
+                                      }
+                                    ]
+                                  },
+                                  "maxItems": 16,
+                                  "minItems": 1,
+                                  "type": "array"
+                                },
+                                "card": {
+                                  "additionalProperties": false,
+                                  "nullable": true,
+                                  "properties": {
+                                    "action": {
+                                      "maxLength": 200,
+                                      "type": "string"
+                                    },
+                                    "eyebrow": {
+                                      "maxLength": 200,
+                                      "type": "string"
+                                    },
+                                    "subtitle": {
+                                      "maxLength": 200,
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "eyebrow",
+                                    "subtitle",
+                                    "action"
+                                  ],
+                                  "type": "object"
+                                }
+                              },
+                              "required": [
+                                "card",
+                                "blocks"
+                              ],
+                              "type": "object"
+                            },
+                            "presentation": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "presentation",
+                            "page"
+                          ],
+                          "type": "object"
+                        },
                         "slug": {
                           "type": "string"
                         },
@@ -107819,6 +108924,7 @@
                         "id",
                         "introduction",
                         "name",
+                        "productPage",
                         "slug",
                         "summary",
                         "cover"
@@ -108688,6 +109794,342 @@
                         "name": {
                           "type": "string"
                         },
+                        "productPage": {
+                          "additionalProperties": false,
+                          "nullable": true,
+                          "properties": {
+                            "page": {
+                              "additionalProperties": false,
+                              "nullable": true,
+                              "properties": {
+                                "blocks": {
+                                  "items": {
+                                    "oneOf": [
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "highlights": {
+                                            "items": {
+                                              "minLength": 1,
+                                              "type": "string"
+                                            },
+                                            "maxItems": 12,
+                                            "minItems": 0,
+                                            "type": "array"
+                                          },
+                                          "id": {
+                                            "pattern": "^[a-z][a-z0-9-]{0,63}$",
+                                            "type": "string"
+                                          },
+                                          "kind": {
+                                            "enum": [
+                                              "hero"
+                                            ],
+                                            "type": "string"
+                                          },
+                                          "lead": {
+                                            "minLength": 1,
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "kind",
+                                          "lead",
+                                          "highlights"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "eyebrow": {
+                                            "maxLength": 200,
+                                            "type": "string"
+                                          },
+                                          "id": {
+                                            "pattern": "^[a-z][a-z0-9-]{0,63}$",
+                                            "type": "string"
+                                          },
+                                          "items": {
+                                            "items": {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "detail": {
+                                                  "maxLength": 200,
+                                                  "type": "string"
+                                                },
+                                                "detailLabel": {
+                                                  "maxLength": 200,
+                                                  "type": "string"
+                                                },
+                                                "text": {
+                                                  "minLength": 1,
+                                                  "type": "string"
+                                                },
+                                                "title": {
+                                                  "minLength": 1,
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "title",
+                                                "text",
+                                                "detailLabel",
+                                                "detail"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            "maxItems": 12,
+                                            "minItems": 1,
+                                            "type": "array"
+                                          },
+                                          "kind": {
+                                            "enum": [
+                                              "cards"
+                                            ],
+                                            "type": "string"
+                                          },
+                                          "lead": {
+                                            "maxLength": 4000,
+                                            "type": "string"
+                                          },
+                                          "note": {
+                                            "maxLength": 4000,
+                                            "type": "string"
+                                          },
+                                          "title": {
+                                            "minLength": 1,
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "kind",
+                                          "eyebrow",
+                                          "title",
+                                          "lead",
+                                          "items",
+                                          "note"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "id": {
+                                            "pattern": "^[a-z][a-z0-9-]{0,63}$",
+                                            "type": "string"
+                                          },
+                                          "kind": {
+                                            "enum": [
+                                              "text"
+                                            ],
+                                            "type": "string"
+                                          },
+                                          "paragraphs": {
+                                            "items": {
+                                              "minLength": 1,
+                                              "type": "string"
+                                            },
+                                            "maxItems": 12,
+                                            "minItems": 1,
+                                            "type": "array"
+                                          },
+                                          "title": {
+                                            "minLength": 1,
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "kind",
+                                          "title",
+                                          "paragraphs"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "id": {
+                                            "pattern": "^[a-z][a-z0-9-]{0,63}$",
+                                            "type": "string"
+                                          },
+                                          "items": {
+                                            "items": {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "text": {
+                                                  "minLength": 1,
+                                                  "type": "string"
+                                                },
+                                                "title": {
+                                                  "minLength": 1,
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "title",
+                                                "text"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            "maxItems": 12,
+                                            "minItems": 1,
+                                            "type": "array"
+                                          },
+                                          "kind": {
+                                            "enum": [
+                                              "steps"
+                                            ],
+                                            "type": "string"
+                                          },
+                                          "lead": {
+                                            "maxLength": 4000,
+                                            "type": "string"
+                                          },
+                                          "link": {
+                                            "maxLength": 200,
+                                            "type": "string"
+                                          },
+                                          "title": {
+                                            "minLength": 1,
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "kind",
+                                          "title",
+                                          "lead",
+                                          "items",
+                                          "link"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "id": {
+                                            "pattern": "^[a-z][a-z0-9-]{0,63}$",
+                                            "type": "string"
+                                          },
+                                          "items": {
+                                            "items": {
+                                              "minLength": 1,
+                                              "type": "string"
+                                            },
+                                            "maxItems": 12,
+                                            "minItems": 1,
+                                            "type": "array"
+                                          },
+                                          "kind": {
+                                            "enum": [
+                                              "list"
+                                            ],
+                                            "type": "string"
+                                          },
+                                          "text": {
+                                            "maxLength": 4000,
+                                            "type": "string"
+                                          },
+                                          "title": {
+                                            "minLength": 1,
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "kind",
+                                          "title",
+                                          "text",
+                                          "items"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "id": {
+                                            "pattern": "^[a-z][a-z0-9-]{0,63}$",
+                                            "type": "string"
+                                          },
+                                          "kind": {
+                                            "enum": [
+                                              "trial"
+                                            ],
+                                            "type": "string"
+                                          },
+                                          "link": {
+                                            "maxLength": 200,
+                                            "type": "string"
+                                          },
+                                          "text": {
+                                            "minLength": 1,
+                                            "type": "string"
+                                          },
+                                          "title": {
+                                            "minLength": 1,
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "kind",
+                                          "title",
+                                          "text",
+                                          "link"
+                                        ],
+                                        "type": "object"
+                                      }
+                                    ]
+                                  },
+                                  "maxItems": 16,
+                                  "minItems": 1,
+                                  "type": "array"
+                                },
+                                "card": {
+                                  "additionalProperties": false,
+                                  "nullable": true,
+                                  "properties": {
+                                    "action": {
+                                      "maxLength": 200,
+                                      "type": "string"
+                                    },
+                                    "eyebrow": {
+                                      "maxLength": 200,
+                                      "type": "string"
+                                    },
+                                    "subtitle": {
+                                      "maxLength": 200,
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "eyebrow",
+                                    "subtitle",
+                                    "action"
+                                  ],
+                                  "type": "object"
+                                }
+                              },
+                              "required": [
+                                "card",
+                                "blocks"
+                              ],
+                              "type": "object"
+                            },
+                            "presentation": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "presentation",
+                            "page"
+                          ],
+                          "type": "object"
+                        },
                         "slug": {
                           "type": "string"
                         },
@@ -108700,6 +110142,7 @@
                         "id",
                         "introduction",
                         "name",
+                        "productPage",
                         "slug",
                         "summary",
                         "cover"
@@ -109568,6 +111011,342 @@
                         "name": {
                           "type": "string"
                         },
+                        "productPage": {
+                          "additionalProperties": false,
+                          "nullable": true,
+                          "properties": {
+                            "page": {
+                              "additionalProperties": false,
+                              "nullable": true,
+                              "properties": {
+                                "blocks": {
+                                  "items": {
+                                    "oneOf": [
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "highlights": {
+                                            "items": {
+                                              "minLength": 1,
+                                              "type": "string"
+                                            },
+                                            "maxItems": 12,
+                                            "minItems": 0,
+                                            "type": "array"
+                                          },
+                                          "id": {
+                                            "pattern": "^[a-z][a-z0-9-]{0,63}$",
+                                            "type": "string"
+                                          },
+                                          "kind": {
+                                            "enum": [
+                                              "hero"
+                                            ],
+                                            "type": "string"
+                                          },
+                                          "lead": {
+                                            "minLength": 1,
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "kind",
+                                          "lead",
+                                          "highlights"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "eyebrow": {
+                                            "maxLength": 200,
+                                            "type": "string"
+                                          },
+                                          "id": {
+                                            "pattern": "^[a-z][a-z0-9-]{0,63}$",
+                                            "type": "string"
+                                          },
+                                          "items": {
+                                            "items": {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "detail": {
+                                                  "maxLength": 200,
+                                                  "type": "string"
+                                                },
+                                                "detailLabel": {
+                                                  "maxLength": 200,
+                                                  "type": "string"
+                                                },
+                                                "text": {
+                                                  "minLength": 1,
+                                                  "type": "string"
+                                                },
+                                                "title": {
+                                                  "minLength": 1,
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "title",
+                                                "text",
+                                                "detailLabel",
+                                                "detail"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            "maxItems": 12,
+                                            "minItems": 1,
+                                            "type": "array"
+                                          },
+                                          "kind": {
+                                            "enum": [
+                                              "cards"
+                                            ],
+                                            "type": "string"
+                                          },
+                                          "lead": {
+                                            "maxLength": 4000,
+                                            "type": "string"
+                                          },
+                                          "note": {
+                                            "maxLength": 4000,
+                                            "type": "string"
+                                          },
+                                          "title": {
+                                            "minLength": 1,
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "kind",
+                                          "eyebrow",
+                                          "title",
+                                          "lead",
+                                          "items",
+                                          "note"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "id": {
+                                            "pattern": "^[a-z][a-z0-9-]{0,63}$",
+                                            "type": "string"
+                                          },
+                                          "kind": {
+                                            "enum": [
+                                              "text"
+                                            ],
+                                            "type": "string"
+                                          },
+                                          "paragraphs": {
+                                            "items": {
+                                              "minLength": 1,
+                                              "type": "string"
+                                            },
+                                            "maxItems": 12,
+                                            "minItems": 1,
+                                            "type": "array"
+                                          },
+                                          "title": {
+                                            "minLength": 1,
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "kind",
+                                          "title",
+                                          "paragraphs"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "id": {
+                                            "pattern": "^[a-z][a-z0-9-]{0,63}$",
+                                            "type": "string"
+                                          },
+                                          "items": {
+                                            "items": {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "text": {
+                                                  "minLength": 1,
+                                                  "type": "string"
+                                                },
+                                                "title": {
+                                                  "minLength": 1,
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "title",
+                                                "text"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            "maxItems": 12,
+                                            "minItems": 1,
+                                            "type": "array"
+                                          },
+                                          "kind": {
+                                            "enum": [
+                                              "steps"
+                                            ],
+                                            "type": "string"
+                                          },
+                                          "lead": {
+                                            "maxLength": 4000,
+                                            "type": "string"
+                                          },
+                                          "link": {
+                                            "maxLength": 200,
+                                            "type": "string"
+                                          },
+                                          "title": {
+                                            "minLength": 1,
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "kind",
+                                          "title",
+                                          "lead",
+                                          "items",
+                                          "link"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "id": {
+                                            "pattern": "^[a-z][a-z0-9-]{0,63}$",
+                                            "type": "string"
+                                          },
+                                          "items": {
+                                            "items": {
+                                              "minLength": 1,
+                                              "type": "string"
+                                            },
+                                            "maxItems": 12,
+                                            "minItems": 1,
+                                            "type": "array"
+                                          },
+                                          "kind": {
+                                            "enum": [
+                                              "list"
+                                            ],
+                                            "type": "string"
+                                          },
+                                          "text": {
+                                            "maxLength": 4000,
+                                            "type": "string"
+                                          },
+                                          "title": {
+                                            "minLength": 1,
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "kind",
+                                          "title",
+                                          "text",
+                                          "items"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "id": {
+                                            "pattern": "^[a-z][a-z0-9-]{0,63}$",
+                                            "type": "string"
+                                          },
+                                          "kind": {
+                                            "enum": [
+                                              "trial"
+                                            ],
+                                            "type": "string"
+                                          },
+                                          "link": {
+                                            "maxLength": 200,
+                                            "type": "string"
+                                          },
+                                          "text": {
+                                            "minLength": 1,
+                                            "type": "string"
+                                          },
+                                          "title": {
+                                            "minLength": 1,
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "kind",
+                                          "title",
+                                          "text",
+                                          "link"
+                                        ],
+                                        "type": "object"
+                                      }
+                                    ]
+                                  },
+                                  "maxItems": 16,
+                                  "minItems": 1,
+                                  "type": "array"
+                                },
+                                "card": {
+                                  "additionalProperties": false,
+                                  "nullable": true,
+                                  "properties": {
+                                    "action": {
+                                      "maxLength": 200,
+                                      "type": "string"
+                                    },
+                                    "eyebrow": {
+                                      "maxLength": 200,
+                                      "type": "string"
+                                    },
+                                    "subtitle": {
+                                      "maxLength": 200,
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "eyebrow",
+                                    "subtitle",
+                                    "action"
+                                  ],
+                                  "type": "object"
+                                }
+                              },
+                              "required": [
+                                "card",
+                                "blocks"
+                              ],
+                              "type": "object"
+                            },
+                            "presentation": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "presentation",
+                            "page"
+                          ],
+                          "type": "object"
+                        },
                         "slug": {
                           "type": "string"
                         },
@@ -109580,6 +111359,7 @@
                         "id",
                         "introduction",
                         "name",
+                        "productPage",
                         "slug",
                         "summary",
                         "cover"

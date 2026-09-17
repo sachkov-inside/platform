@@ -4,6 +4,7 @@ import { z } from "zod";
 import {
   materialFormatSchema,
   contentCoverProjectionHttpSchema,
+  guidePageSchema,
   publishedMaterialProjectionHttpSchema,
 } from "../../materials/index.js";
 
@@ -58,6 +59,10 @@ const discoveryReferenceHttpSchema = z
     id: z.uuid(),
     introduction: guideIntroductionHttpSchema.nullable(),
     name: z.string(),
+    productPage: z
+      .object({ presentation: z.string(), page: guidePageSchema.nullable() })
+      .strict()
+      .nullable(),
     slug: z.string(),
     summary: z.string(),
     cover: contentCoverProjectionHttpSchema.nullable(),

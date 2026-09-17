@@ -157,6 +157,7 @@ describe("Library discovery server adapter", () => {
           cover: null,
           id: "72000000-0000-4000-8000-000000000002",
           introduction: null,
+          productPage: null,
           hasModeVariants: false,
           name: "Platform",
           slug: "platform",
@@ -205,6 +206,7 @@ describe("Library discovery server adapter", () => {
         cover: null,
         id: "72000000-0000-4000-8000-000000000020",
         introduction: null,
+        productPage: null,
         hasModeVariants: false,
         name: "Как устроен Inside Platform",
         slug: "inside-platform-overview",
@@ -316,6 +318,38 @@ describe("Library discovery server adapter", () => {
       kind: "ready",
       reference: { introduction },
     });
+  });
+
+  it("carries the product page and drops a description this site cannot draw", async () => {
+    const page = { card: null, blocks: [{ id: "hero", kind: "hero", lead: "Лид.", highlights: [] }] };
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const reply = (productPage: unknown) =>
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue(
+          Response.json({
+            chapters: [], hasNext: false, items: [publishedProjection], kind: "series",
+            reference: {
+              cover: null, id: "72000000-0000-4000-8000-000000000002", introduction: null,
+              name: "Platform", slug: "platform", summary: "Материалы о Platform.", productPage,
+            },
+            relatedSeries: [], topics: [],
+          }),
+        ),
+      );
+    vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
+    reply({ presentation: "ai-first-process", page });
+    await expect(getPublishedSeries("platform")).resolves.toMatchObject({
+      reference: { productPage: { presentation: "ai-first-process", page } },
+    });
+    expect(warn).not.toHaveBeenCalled();
+
+    reply({ presentation: "neon-hero", page: { card: null, blocks: [{ id: "hero", kind: "poster" }] } });
+    await expect(getPublishedSeries("platform")).resolves.toMatchObject({
+      reference: { productPage: { presentation: "default", page: null } },
+    });
+    expect(warn).toHaveBeenCalledTimes(2);
+    warn.mockRestore();
   });
 
   it("rejects a successful response outside the runtime contract", async () => {

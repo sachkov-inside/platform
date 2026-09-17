@@ -3,33 +3,52 @@
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, Check, Code2, Terminal } from "lucide-react";
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 import { useMaterialReading } from "@/entities/material";
-import { AiFirstProcessArtwork, aiFirstGuide } from "@/features/ai-first-guide";
+import type { GuidePresentation } from "@/entities/guide-page";
+import { AiFirstProcessArtwork } from "@/features/ai-first-guide";
 import { formatMaterialCount } from "@/features/library-discovery";
 import { loadSeriesContinuation, seriesContinuationQueryKey } from "@/features/reading-progress";
 import { collectionDiscoveryHref, materialReaderHref } from "@/shared/routing/material-reader";
 import { guideProgrammeHref } from "@/shared/routing/subscription-route";
-import type { HomeCollection } from "../model/home-view";
+import type { HomePinnedCollection } from "../model/home-view";
 
-export function FeaturedGuide({ series }: { readonly series: HomeCollection }) {
-  if (series.slug === aiFirstGuide.slug) return <section className="home-guide home-guide-featured-ai" aria-labelledby="featured-title">
+/** Реестр оформлений карточки Главной (ADR 0026): оформление продукта выбирает её вид. */
+const featuredCards: Record<GuidePresentation, (props: { readonly series: HomePinnedCollection }) => ReactNode> = {
+  default: DefaultFeaturedGuide,
+  "ai-first-process": AiFirstFeaturedGuide,
+};
+
+export function FeaturedGuide({ series }: { readonly series: HomePinnedCollection }) {
+  const Card = featuredCards[series.presentation];
+  return <Card series={series} />;
+}
+
+function AiFirstFeaturedGuide({ series }: { readonly series: HomePinnedCollection }) {
+  // Подписи карточки приходят из описания продукта; без них остаются название и краткое описание.
+  const card = series.card;
+  const open = card === null || card.action === "" ? "Открыть продукт" : card.action;
+  return <section className="home-guide home-guide-featured-ai" aria-labelledby="featured-title" data-guide-presentation="ai-first-process">
     <div className="home-guide-copy">
-      <p className="home-guide-eyebrow">Практикум</p>
+      {card === null || card.eyebrow === "" ? null : <p className="home-guide-eyebrow">{card.eyebrow}</p>}
       <h2 id="featured-title">{series.name}</h2>
-      <p className="home-guide-subtitle">Инженерная работа с агентами</p>
+      {card === null || card.subtitle === "" ? null : <p className="home-guide-subtitle">{card.subtitle}</p>}
       {series.summary && <p className="home-guide-summary">{series.summary}</p>}
       <div className="home-guide-actions">
         <span>{formatMaterialCount(series.count)}</span>
-        <Link className="home-guide-open" href={collectionDiscoveryHref("series", series.slug, "/")}>Открыть практикум <ArrowRight aria-hidden="true" /></Link>
+        <Link className="home-guide-open" href={collectionDiscoveryHref("series", series.slug, "/")}>{open} <ArrowRight aria-hidden="true" /></Link>
         <GuideContinuation slug={series.slug} />
       </div>
     </div>
     <div className="home-guide-visual">
       <div className="home-guide-animation home-guide-ai"><AiFirstProcessArtwork /></div>
-      <div className="home-guide-mobile-footer"><span>{formatMaterialCount(series.count)}</span><ArrowRight aria-hidden="true" /><Link href={collectionDiscoveryHref("series", series.slug, "/")} aria-label="Открыть практикум">Открыть</Link></div>
+      <div className="home-guide-mobile-footer"><span>{formatMaterialCount(series.count)}</span><ArrowRight aria-hidden="true" /><Link href={collectionDiscoveryHref("series", series.slug, "/")} aria-label={open}>Открыть</Link></div>
     </div>
   </section>;
+}
+
+function DefaultFeaturedGuide({ series }: { readonly series: HomePinnedCollection }) {
   return <section className="home-guide" aria-labelledby="featured-title">
     <div className="home-guide-copy">
       <h2 id="featured-title">{series.name}</h2>

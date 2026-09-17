@@ -5,13 +5,14 @@ import { createLibraryCatalogQueryOptions, libraryCatalogQueryKey, type LibraryC
 import { getQueryClient } from "@/shared/api/query-client";
 import { NavigationPendingFrame } from "@/widgets/application-shell";
 import { publicPageEnvironment } from "@/workshop/story-environment";
-import { aiFirstGuide } from "@/features/ai-first-guide";
 import { HomePage } from "./home-page";
 import { HomeFeedView } from "./home-feed.client";
 import { HomeLoading } from "./home-loading";
+import { aiFirstProductPage, aiFirstProductSummary } from "@/workshop/guide-page.fixtures";
 import { illustratedHome } from "./illustrated-home.fixture";
 
-const home = { ...illustratedHome, pinnedSeries: illustratedHome.playlists[1] ?? null };
+const pinnedPlaylist = illustratedHome.playlists[1];
+const home = { ...illustratedHome, pinnedSeries: pinnedPlaylist === undefined ? null : { ...pinnedPlaylist, presentation: "default" as const, card: null } };
 const query = { after: null, q: "", sort: "newest", formatSlugs: [], topicSlug: null } as const;
 const note = illustratedHome.notes[0];
 if (note === undefined) throw new Error("Expected a note fixture");
@@ -37,7 +38,7 @@ type Story = StoryObj<typeof meta>;
 interface StoryViewport { readonly globals: { readonly viewport: { readonly value: string; readonly isRotated: false } }; readonly width: number }
 const desktop: StoryViewport = { globals: { viewport: { value: "desktop1440", isRotated: false } }, width: 1440 };
 const mobile: StoryViewport = { globals: { viewport: { value: "mobile390", isRotated: false } }, width: 390 };
-const aiFirstPin = { id: "ai-first-guide", cover: null, previewItems: [], slug: aiFirstGuide.slug, name: "AI-first разработка", summary: aiFirstGuide.description, count: 6 };
+const aiFirstPin = { id: "ai-first-guide", cover: null, previewItems: [], slug: "working-with-agents", name: "AI-first разработка", summary: aiFirstProductSummary, count: 6, presentation: "ai-first-process" as const, card: aiFirstProductPage.card };
 
 export const RealDataReady: Story = {
   args: { result: { kind: "ready", value: home }, feed: feed() },

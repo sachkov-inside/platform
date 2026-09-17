@@ -812,8 +812,11 @@ What the transfer applies:
   artifacts as authoring-owned Guide artifacts linked to every declaring Material.
 - An existing provider record named by `platform_video.kinescope_id`: attached, reconciled until
   ready and saved with the original's video chapters.
-- The Guide name and first-paragraph teaser. The product page copy stays in Platform; the Guide
-  introduction fields are not imported.
+- The Guide name, first-paragraph teaser, page address (`slug`), page presentation and the typed
+  product page description (`guide.yaml`, key `page`; see
+  [ADR 0026](../adr/0026-guide-page-from-source-data.md)). A presentation this Platform does not know
+  stops the transfer before its first write. The editor-owned Guide introduction fields are not
+  imported; editing the page text is a commit in Inside Content plus a transfer, with no web rebuild.
 
 Imported Materials and Guides change only through these source-scoped routes; ordinary editor,
 API and MCP writes are refused. A missing original appears in `archiveProposals`. It is unpublished
@@ -837,6 +840,14 @@ compares a package with the target without writing and saves a fingerprinted pre
 `pnpm authoring:release apply --preview PREVIEW_JSON --state STATE_DIRECTORY` applies exactly that
 preview and stops on drift, an edited preview or an unreviewed archive request. Non-local targets
 are refused; production publication needs an owner-approved credential path first.
+
+```bash
+pnpm authoring:products [--target stand|editor] [--owner-email EMAIL] [--json]
+```
+
+Lists every product of that environment: permanent source key, current address, presentation, Home
+pin and lesson count. For the stand it reuses a running authoring gateway or starts one for the
+listing and stops it afterwards.
 
 `pnpm test:authoring` verifies package checks, conversion, recovery, covers, artifacts, video,
 archive and release decisions. Evidence is in [the checkpoint](../evidence/issue-468/README.md).

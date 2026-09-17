@@ -10,6 +10,7 @@ import { applyRelease, previewRelease } from "./release.mjs";
 
 const uuid = (n) => `${String(n).padStart(8, "0")}-0000-4000-8000-000000000000`;
 const guideId = uuid(900);
+const productPage = { card: null, blocks: [{ id: "hero", kind: "hero", lead: "Лид продукта.", highlights: [] }] };
 
 async function fixture(t) {
   const directory = await mkdtemp(join(tmpdir(), "authoring-completion-"));
@@ -27,7 +28,7 @@ async function fixture(t) {
       row("video", { kind: "video", video: { kinescopeId: uuid(777) }, videoChapters: [{ start: 0, title: "Введение" }, { start: 90, title: "Итог" }] }),
       row("old"),
     ],
-    guides: [{ sourceId: "product", title: "Продукт", summary: "Подзаголовок", complete: true, chapters: [], materialIds: ["lesson", "video", "old"], supplementaryMaterialIds: [] }],
+    guides: [{ sourceId: "product", presentation: "ai-first-process", page: productPage, title: "Продукт", summary: "Подзаголовок", complete: true, chapters: [], materialIds: ["lesson", "video", "old"], supplementaryMaterialIds: [] }],
     assets: [
       { sourceId: "checklist", path: "assets/checklist.md", sha256: checksum(files.checklist), mimeType: "text/markdown" },
       { sourceId: "cover", path: "assets/cover.png", sha256: checksum(files.cover), mimeType: "image/png" },
@@ -46,14 +47,14 @@ function applicationApi() {
   const calls = [];
   const videos = new Map();
   const artifacts = new Map();
-  const guide = { id: guideId, slug: "product", name: "", summary: "", version: 1, archived: false };
+  const guide = { id: guideId, slug: "product", name: "", summary: "", version: 1, archived: false, presentation: "default", page: null };
   let next = 1;
   const api = {
     calls, materials, videos, artifacts, guide, pin: { seriesId: uuid(901), version: 3 },
     count: (pattern) => calls.filter((call) => pattern.test(call.path)).length,
     async request(path, body, key, options = {}) {
       calls.push({ path, key, method: options.method ?? (body === undefined ? "GET" : "POST"), body: body instanceof FormData ? Object.fromEntries([...body.entries()].filter(([name]) => name !== "file")) : structuredClone(body) });
-      if (path === "/authoring/import/materials/environment") return { mode: "development" };
+      if (path === "/authoring/import/materials/environment") return { mode: "development", presentations: ["default", "ai-first-process"] };
       if (path === "/authoring/collections?kind=topic") return [];
       if (path === "/authoring/import/materials/validate") return { valid: true };
       if (path === "/authoring/import/guides/reserve") return structuredClone(guide);
@@ -62,8 +63,8 @@ function applicationApi() {
       if (path === "/authoring/home-pin") { assert.equal(body.expectedVersion, api.pin.version); api.pin = { seriesId: body.seriesId, version: api.pin.version + 1 }; return structuredClone(api.pin); }
       if (path === "/authoring/import/guides/update") {
         assert.equal(body.expectedVersion, guide.version);
-        assert.equal(body.introduction, undefined, "Guide page copy is owned by Platform");
-        Object.assign(guide, { name: body.name, summary: body.summary, version: guide.version + 1 });
+        assert.equal(body.introduction, undefined, "The editor-owned introduction is never imported");
+        Object.assign(guide, { name: body.name, summary: body.summary, slug: body.source.slug, presentation: body.source.presentation, page: body.source.page, version: guide.version + 1 });
         return structuredClone(guide);
       }
       if (path === `/authoring/guides/${guideId}/order`) return { orderVersion: "a".repeat(64), items: (guide.members ?? []).map((materialId) => ({ materialId, chapterId: null })), chapters: [] };
@@ -143,6 +144,34 @@ test("covers, video and artifacts transfer once and replay as no-ops", async (t)
   assert.equal(second.unchanged, 3);
   const repeated = api.calls.slice(before).map((call) => call.path);
   assert.equal(repeated.some((path) => /apply|attach|reconcile|content-covers|artifacts$|materials$|update/u.test(path) && !path.startsWith(`/authoring/guides/${guideId}/artifacts`)), false, repeated.join("\n"));
+});
+
+test("the product page travels with the Guide: unknown looks stop early, edits write once and a new address keeps the product", async (t) => {
+  const setup = await fixture(t);
+  setup.manifest.guides[0].presentation = "neon";
+  await setup.write();
+  const api = applicationApi();
+  await assert.rejects(run(setup, api), /unknown page presentation 'neon'/u);
+  await assert.rejects(previewRelease(setup.packagePath, setup.state, { origin: "http://127.0.0.1:4396", request: api.request }), /unknown page presentation 'neon'/u);
+  assert.deepEqual(api.calls.map((call) => call.path), ["/authoring/import/materials/environment", "/authoring/import/materials/environment"]);
+
+  setup.manifest.guides[0].presentation = "ai-first-process";
+  await setup.write();
+  await run(setup, api);
+  assert.deepEqual({ presentation: api.guide.presentation, page: api.guide.page, slug: api.guide.slug }, { presentation: "ai-first-process", page: productPage, slug: "product" });
+  const updates = () => api.calls.filter((call) => call.path === "/authoring/import/guides/update").length;
+  const once = updates();
+  await run(setup, api);
+  assert.equal(updates(), once, "an unchanged product page writes nothing");
+
+  const edited = { ...productPage, blocks: [{ ...productPage.blocks[0], lead: "Правка текста." }] };
+  setup.manifest.guides[0].page = edited;
+  setup.manifest.guides[0].slug = "product-moved";
+  await setup.write();
+  const report = await run(setup, api);
+  assert.equal(updates(), once + 1);
+  assert.deepEqual({ id: api.guide.id, slug: api.guide.slug, page: api.guide.page }, { id: guideId, slug: "product-moved", page: edited });
+  assert.match(report.guides[0].url, /\/guides\/product-moved$/u);
 });
 
 test("a replaced cover uses the current cover as its expected version", async (t) => {
@@ -287,7 +316,7 @@ test("release preview reports video, composition and artifact changes that the s
   const origin = "http://127.0.0.1:4396";
   const clean = await previewRelease(setup.packagePath, setup.state, { origin, request: api.request });
   assert.deepEqual(clean.summary, { new: 0, changed: 0, restore: 0, unchanged: 3, conflict: 0 });
-  assert.deepEqual(clean.preview.guides[0], { sourceId: "product", title: "Продукт", materials: 3, artifactChanges: [], change: "unchanged", detailsChange: false, chapterTextChanges: 0, added: 0, removed: 0, reorderedOrRegrouped: false });
+  assert.deepEqual(clean.preview.guides[0], { sourceId: "product", title: "Продукт", materials: 3, artifactChanges: [], change: "unchanged", detailsChange: false, chapterTextChanges: 0, pageChange: false, added: 0, removed: 0, reorderedOrRegrouped: false });
 
   // A recording uploaded after the review changes what apply would save, so apply refuses.
   const reviewedJournal = JSON.parse(await readFile(join(setup.state, "journal.json"), "utf8"));
@@ -312,11 +341,20 @@ test("release preview reports video, composition and artifact changes that the s
   assert.equal(lesson.change, "changed");
   assert.equal(lesson.videoChange, true);
   assert.equal(next.preview.materials.find((item) => item.sourceId === "extra").change, "new");
-  assert.deepEqual(next.preview.guides[0], { sourceId: "product", title: "Продукт", materials: 4, artifactChanges: ["checklist"], change: "composition", detailsChange: false, chapterTextChanges: 0, added: 1, removed: 0, reorderedOrRegrouped: true });
+  assert.deepEqual(next.preview.guides[0], { sourceId: "product", title: "Продукт", materials: 4, artifactChanges: ["checklist"], change: "composition", detailsChange: false, chapterTextChanges: 0, pageChange: false, added: 1, removed: 0, reorderedOrRegrouped: true });
   setup.manifest.guides[0].title = "Новое имя";
   await setup.write();
   const renamed = await previewRelease(setup.packagePath, setup.state, { origin, request: api.request });
   assert.equal(renamed.preview.guides[0].detailsChange, true);
+  setup.manifest.guides[0].slug = "product-moved";
+  setup.manifest.guides[0].presentation = "default";
+  setup.manifest.guides[0].page = { ...productPage, blocks: [{ ...productPage.blocks[0], lead: "Новый лид." }] };
+  await setup.write();
+  const redesigned = await previewRelease(setup.packagePath, setup.state, { origin, request: api.request });
+  assert.deepEqual(
+    (({ pageChange, slugChange, presentationChange }) => ({ pageChange, slugChange, presentationChange }))(redesigned.preview.guides[0]),
+    { pageChange: true, slugChange: { from: "product", to: "product-moved" }, presentationChange: { from: "ai-first-process", to: "default" } },
+  );
 
   // Once the original names its own upload, the preview expects no video change.
   journal.resources["source-video:inside-content:video"] = { videoId: api.materials.get("inside-content:video").primaryVideoId, providerVideoId: setup.manifest.materials[1].video.kinescopeId, sha256: "f".repeat(64) };

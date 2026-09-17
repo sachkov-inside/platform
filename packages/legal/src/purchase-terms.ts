@@ -7,7 +7,8 @@
  *
  * Тест сверяет только числа. Новая редакция оферты требует ручной сверки того, что стоит рядом:
  * сводки условий и доли цены на оплате (`apps/web/src/features/billing-checkout/model/one-time-terms.ts`),
- * текстов страницы продукта (`ai-first-guide-view.tsx`) и описаний в `docs/product/platform-mvp-brief.md`
+ * текстов страницы продукта (описание продукта в Inside Content, `guide.yaml`, ключ `page`) и описаний
+ * в `docs/product/platform-mvp-brief.md`
  * и `docs/specifications/platform-v1.md`.
  */
 export const oneTimePurchaseTerms = {

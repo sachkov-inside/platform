@@ -23,7 +23,9 @@ export type {
   ContentCollectionDto,
   ContentCollectionKind,
   GuideIntroductionDto,
+  GuideProductPageDto,
 } from "./facets/material-authoring/content-collection.contract.js";
+export { guidePageSchema, type GuidePage } from "./domain/guide-page.js";
 export type {
   CreateDraftCommand,
   CreateDraftError,

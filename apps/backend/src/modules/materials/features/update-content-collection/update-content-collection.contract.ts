@@ -1,11 +1,13 @@
 import type {
   ContentCollectionNotFoundError,
+  ContentCollectionSlugConflictError,
   ForbiddenError,
   InvalidContentError,
   StaleContentCollectionVersionError,
   SystemError,
 } from "../../facets/material-authoring/material-authoring.contract.js";
 import type { Result } from "../../result.js";
+import type { GuideSourceFields } from "../../infrastructure/postgres/content-collection-persistence.js";
 import type {
   ContentCollectionDto,
   ContentCollectionKind,
@@ -20,11 +22,14 @@ export interface UpdateContentCollectionCommand {
   readonly introduction?: GuideIntroductionDto;
   readonly kind: ContentCollectionKind;
   readonly name: string;
+  /** Только для source-scoped импорта Guide (ADR 0026). */
+  readonly source?: GuideSourceFields;
   readonly summary: string;
 }
 
 export type UpdateContentCollectionError =
   | ContentCollectionNotFoundError
+  | ContentCollectionSlugConflictError
   | ForbiddenError
   | InvalidContentError
   | StaleContentCollectionVersionError

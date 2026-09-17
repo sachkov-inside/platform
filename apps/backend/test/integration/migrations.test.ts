@@ -241,6 +241,7 @@ describe("Platform migrations", () => {
         "0066_refund_basis",
         "0068_starter_tier_access",
         "0065_authoring_source",
+        "0070_guide_page",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -840,6 +841,7 @@ describe("Platform migrations", () => {
         "0066_refund_basis",
         "0068_starter_tier_access",
         "0065_authoring_source",
+        "0070_guide_page",
         ],
       });
 

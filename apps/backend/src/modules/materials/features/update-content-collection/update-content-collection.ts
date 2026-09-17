@@ -13,8 +13,18 @@ import {
   entityId,
   parseCommand,
 } from "../../shared/command-validation.js";
-import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
-import { contentCollectionPersistence } from "../../infrastructure/postgres/content-collection-persistence.js";
+import {
+  isPostgresUniqueViolation,
+  mapPostgresReadError,
+} from "../../shared/postgres-error-mapping.js";
+import {
+  contentCollectionPersistence,
+  type GuideSourceFields,
+} from "../../infrastructure/postgres/content-collection-persistence.js";
+import { guidePageSchema, guidePresentationSchema } from "../../domain/guide-page.js";
+import { fingerprintCommand } from "../../shared/canonical-command-fingerprint.js";
+import type { MaterialsPrismaTransaction } from "../../../../infrastructure/prisma/index.js";
+import { contentCollectionInputSchema } from "../create-content-collection/create-content-collection.js";
 import {
   GUIDE_INTRODUCTION_FIELD_MAX,
   type GuideIntroductionDto,
@@ -42,13 +52,25 @@ export const updateContentCollectionCommandSchema = z
       .optional(),
     kind: z.enum(["guide", "series", "topic"]),
     name: z.string().trim().min(1).max(120),
+    /** Адрес, оформление и страница перенесённого Guide; их пишет только source-scoped импорт. */
+    source: z
+      .object({
+        page: guidePageSchema.nullable(),
+        presentation: guidePresentationSchema,
+        slug: contentCollectionInputSchema.shape.slug,
+      })
+      .strict()
+      .optional(),
     summary: z.string().trim().max(500),
   })
   .strict()
   .refine(
     ({ introduction, kind }) => kind !== "topic" || introduction === undefined,
     { path: ["introduction"] },
-  );
+  )
+  .refine(({ kind, source }) => kind === "guide" || source === undefined, {
+    path: ["source"],
+  });
 
 export function assembleUpdateContentCollection(
   dependencies: MaterialAuthoringDependencies,
@@ -72,6 +94,7 @@ export function assembleUpdateContentCollection(
           const currentSource = await transaction.guide.findUnique({ where: { id: command.collectionId }, select: { sourceId: true } });
           if (currentSource !== null && currentSource.sourceId !== sourceId) return rollback({ code: "forbidden" });
         }
+        if (command.source !== undefined && sourceId === null) return rollback({ code: "forbidden" });
         const persistence = contentCollectionPersistence(
           transaction,
           command.kind,
@@ -84,6 +107,7 @@ export function assembleUpdateContentCollection(
           id: command.collectionId,
           introduction,
           name: command.name,
+          source: command.source,
           summary: command.summary,
         });
         if (updated === 0) {
@@ -92,7 +116,9 @@ export function assembleUpdateContentCollection(
             current?.name === command.name &&
             current.summary === command.summary &&
             (introduction === null ||
-              introductionMatches(current.introduction, introduction))
+              introductionMatches(current.introduction, introduction)) &&
+            (command.source === undefined ||
+              (await sourceMatches(transaction, command.collectionId, command.source)))
           )
             return current;
           return current === undefined
@@ -111,9 +137,29 @@ export function assembleUpdateContentCollection(
         const collection = await persistence.load(command.collectionId);
         return collection ?? rollback({ code: "content_collection_not_found" });
       },
-      (error): UpdateContentCollectionError => mapPostgresReadError(error),
+      (error): UpdateContentCollectionError =>
+        isPostgresUniqueViolation(error, "series_slug_unique")
+          ? { code: "content_collection_slug_conflict" }
+          : mapPostgresReadError(error),
     );
   };
+}
+
+async function sourceMatches(
+  transaction: MaterialsPrismaTransaction,
+  id: string,
+  requested: GuideSourceFields,
+): Promise<boolean> {
+  const current = await transaction.guide.findUnique({
+    where: { id },
+    select: { page: true, presentation: true, slug: true },
+  });
+  return (
+    current !== null &&
+    current.slug === requested.slug &&
+    current.presentation === requested.presentation &&
+    fingerprintCommand(current.page) === fingerprintCommand(requested.page)
+  );
 }
 
 function introductionMatches(
