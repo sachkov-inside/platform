@@ -99,7 +99,7 @@ jobs:
           fi
           ./package-native-artifact.sh "${{ matrix.target }}" "$PWD/dist"
       - name: Publish native artifact and exact checksum
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@v7
         with:
           name: workshop-evaluator-${{ matrix.target }}-${{ github.sha }}
           path: |

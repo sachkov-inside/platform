@@ -136,7 +136,7 @@ jobs:
           docker logout ghcr.io
           docker buildx imagetools inspect "${IMAGE_NAME}@${IMAGE_DIGEST}"
       - name: Upload published image data
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@v7
         with:
           name: release-image-${{ matrix.kind }}
           path: release-data/${{ matrix.kind }}.image.json
