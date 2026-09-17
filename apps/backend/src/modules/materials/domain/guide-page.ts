@@ -7,6 +7,7 @@ import { z } from "zod";
 
 /** Реестр оформлений. Web держит компоненты для каждого значения; новое значение добавляется в оба. */
 export const guidePresentations = ["default", "ai-first-process"] as const;
+export const defaultGuidePresentation = "default" satisfies GuidePresentation;
 export const guidePresentationSchema = z.enum(guidePresentations);
 export type GuidePresentation = z.infer<typeof guidePresentationSchema>;
 
@@ -50,15 +51,25 @@ export const guidePageBlockSchema = z.discriminatedUnion("kind", [
   block("trial", { title: requiredShort, text: requiredLong, link: short }),
 ]);
 
+export const guidePageCardSchema = z.object({ eyebrow: short, subtitle: short, action: short }).strict();
+
 export const guidePageSchema = z
   .object({
-    card: z.object({ eyebrow: short, subtitle: short, action: short }).strict().nullable(),
+    card: guidePageCardSchema.nullable(),
     blocks: z.array(guidePageBlockSchema).min(1).max(GUIDE_PAGE_BLOCKS_MAX),
   })
   .strict()
   .refine(({ blocks }) => new Set(blocks.map(({ id }) => id)).size === blocks.length, { path: ["blocks"], message: "Block ids must be unique" });
 
+export type GuidePageCard = z.infer<typeof guidePageCardSchema>;
 export type GuidePageBlock = z.infer<typeof guidePageBlockSchema>;
+
+/** Поля Guide, которые пишет только перенос из авторского оригинала. */
+export interface GuideSourceFields {
+  readonly page: GuidePage | null;
+  readonly presentation: GuidePresentation;
+  readonly slug: string;
+}
 export type GuidePage = z.infer<typeof guidePageSchema>;
 
 /** Сохранённое описание читается как внешнее значение: неверное не показывается. */

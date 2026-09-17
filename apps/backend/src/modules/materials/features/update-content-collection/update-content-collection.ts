@@ -17,11 +17,8 @@ import {
   isPostgresUniqueViolation,
   mapPostgresReadError,
 } from "../../shared/postgres-error-mapping.js";
-import {
-  contentCollectionPersistence,
-  type GuideSourceFields,
-} from "../../infrastructure/postgres/content-collection-persistence.js";
-import { guidePageSchema, guidePresentationSchema } from "../../domain/guide-page.js";
+import { contentCollectionPersistence } from "../../infrastructure/postgres/content-collection-persistence.js";
+import { guidePageSchema, guidePresentationSchema, type GuideSourceFields } from "../../domain/guide-page.js";
 import { fingerprintCommand } from "../../shared/canonical-command-fingerprint.js";
 import type { MaterialsPrismaTransaction } from "../../../../infrastructure/prisma/index.js";
 import { contentCollectionInputSchema } from "../create-content-collection/create-content-collection.js";

@@ -1,5 +1,6 @@
 import type { MaterialsPrisma } from "../../../../infrastructure/prisma/index.js";
-import { readStoredGuidePage, type GuidePage } from "../../domain/guide-page.js";
+import type { GuidePageCard } from "../../domain/guide-page.js";
+import { readGuidePageForReader } from "../../infrastructure/postgres/guide-page-reader.js";
 import type { SystemError } from "../../facets/material-authoring/material-authoring.contract.js";
 import type { Result } from "../../result.js";
 import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
@@ -8,7 +9,7 @@ import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
 export interface HomePinnedSeries {
   readonly id: string;
   readonly presentation: string;
-  readonly card: GuidePage["card"];
+  readonly card: GuidePageCard | null;
 }
 
 export type ReadHomePinnedSeriesOperation = () => Promise<Result<HomePinnedSeries | null, SystemError>>;
@@ -17,10 +18,10 @@ export async function readHomePinnedSeries(prisma: MaterialsPrisma): ReturnType<
   try {
     const pin = await prisma.homeSeriesPin.findUniqueOrThrow({ where: { id: 1 }, select: { seriesId: true } });
     if (pin.seriesId === null) return { ok: true, value: null };
-    const guide = await prisma.guide.findUnique({ where: { id: pin.seriesId }, select: { page: true, presentation: true } });
+    const guide = await prisma.guide.findUnique({ where: { id: pin.seriesId }, select: { page: true, presentation: true, slug: true } });
     if (guide === null) return { ok: true, value: null };
-    const page = readStoredGuidePage(guide.page);
-    return { ok: true, value: { id: pin.seriesId, presentation: guide.presentation, card: page === null || page === "invalid" ? null : page.card } };
+    const page = readGuidePageForReader(guide.page, `Home pinned Guide ${guide.slug}`);
+    return { ok: true, value: { id: pin.seriesId, presentation: guide.presentation, card: page?.card ?? null } };
   } catch (error) {
     return { ok: false, error: mapPostgresReadError(error) };
   }

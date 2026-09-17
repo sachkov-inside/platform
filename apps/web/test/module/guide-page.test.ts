@@ -28,10 +28,15 @@ describe("Guide product page", () => {
     );
     expect(result).toEqual({ presentation: "ai-first-process", page: null });
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("does not match this site"));
+  });
+
+  test("a product without a description is not a warning: the default template uses the editor fields", () => {
+    const warn = vi.fn();
     expect(readGuideProductPage({ presentation: "default", page: null }, "Guide x", warn)).toEqual({
       presentation: "default",
       page: null,
     });
+    expect(warn).not.toHaveBeenCalled();
   });
 
   test("substitutes only the offer terms the author may write", () => {

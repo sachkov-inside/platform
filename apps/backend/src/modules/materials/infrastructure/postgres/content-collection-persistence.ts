@@ -1,5 +1,5 @@
 import { Prisma, type MaterialsPrisma } from "../../../../infrastructure/prisma/index.js";
-import type { GuidePage, GuidePresentation } from "../../domain/guide-page.js";
+import type { GuideSourceFields } from "../../domain/guide-page.js";
 import type {
   ContentCollectionDto,
   ContentCollectionKind,
@@ -22,13 +22,6 @@ type GuideRecord = ContentCollectionRecord & GuideIntroductionDto & {
   readonly sourceId: string | null;
   readonly presentation: string;
 };
-
-/** Поля, которые пишет только перенос из авторского оригинала (ADR 0026). */
-export interface GuideSourceFields {
-  readonly page: GuidePage | null;
-  readonly presentation: GuidePresentation;
-  readonly slug: string;
-}
 
 interface ContentCollectionPersistence {
   readonly create: (data: {

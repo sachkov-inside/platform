@@ -1,5 +1,5 @@
 import type { ContentAccess, Subject } from "../../../content-access/index.js";
-import type { PublishedMaterialReader } from "../../../materials/index.js";
+import type { GuidePageCard, PublishedMaterialReader } from "../../../materials/index.js";
 import type { Videos } from "../../../videos/index.js";
 import type { MembershipEntitlements } from "../../../membership-entitlements/index.js";
 import type {
@@ -12,7 +12,7 @@ import { listPublishedMaterials } from "../list-published-materials/list-publish
 /** Закреплённый продукт с оформлением его карточки (ADR 0026). */
 export interface HomePinnedSeriesDto extends PublishedMaterialCatalogFacetDto {
   readonly presentation: string;
-  readonly card: { readonly eyebrow: string; readonly subtitle: string; readonly action: string } | null;
+  readonly card: GuidePageCard | null;
 }
 
 export interface HomeContentDto {

@@ -7,7 +7,7 @@ import type {
   SystemError,
 } from "../../facets/material-authoring/material-authoring.contract.js";
 import type { Result } from "../../result.js";
-import type { GuideSourceFields } from "../../infrastructure/postgres/content-collection-persistence.js";
+import type { GuideSourceFields } from "../../domain/guide-page.js";
 import type {
   ContentCollectionDto,
   ContentCollectionKind,

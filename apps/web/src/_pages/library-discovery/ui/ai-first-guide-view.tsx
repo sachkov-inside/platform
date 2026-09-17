@@ -9,22 +9,23 @@ import { formatMaterialCount, type PublishedSeriesResult } from "@/features/libr
 import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 import { guideProgrammeHref } from "@/shared/routing/subscription-route";
 
+import { fillTerms } from "./offer-terms";
+
 import "./ai-first-guide-view.css";
 
 /**
  * Оформление `ai-first-process`: весь текст приходит из описания продукта, а оформление добавляет
  * к известным блокам свои иллюстрации и значки. Блок с другим `id` рисуется по своему виду.
+ * Сроки доступа и помощи подставляет оферта, поэтому в тексте автор пишет только подстановку.
  */
-export function AiFirstGuideView({ result, page, returnTarget, freeEntryHref, fill }: {
+export function AiFirstGuideView({ result, page, returnTarget, freeEntryHref }: {
   readonly result: Extract<PublishedSeriesResult, { kind: "ready" | "empty" }>;
   readonly page: GuidePage;
   readonly returnTarget: MaterialReaderReturnTarget;
   readonly freeEntryHref?: Route;
-  /** Подставляет сроки действующей оферты в авторский текст. */
-  readonly fill: (text: string) => string;
 }) {
   const freeCount = result.kind === "ready" ? result.items.filter(item => item.access === "free" && item.availability === "available").length : 0;
-  const context: BlockContext = { fill, programme: guideProgrammeHref(result.reference.slug), freeEntryHref, freeCount, name: result.reference.name };
+  const context: BlockContext = { fill: fillTerms, programme: guideProgrammeHref(result.reference.slug), freeEntryHref, freeCount, name: result.reference.name };
   return <article className="ai-guide-page" data-guide-product={result.reference.slug} data-guide-presentation="ai-first-process">
     <nav aria-label="Хлебные крошки"><Link className="ai-guide-back" href={returnTarget.href}><ArrowLeft />{returnTarget.label}</Link></nav>
     {page.blocks.map(block => <AiFirstBlock block={block} context={context} key={block.id} />)}
@@ -44,18 +45,21 @@ function AiFirstBlock({ block, context }: { readonly block: GuidePageBlock; read
   switch (block.kind) {
     case "hero": return <Hero block={block} context={context} />;
     case "cards":
-      if (block.id === "outcomes") return <Outcomes block={block} fill={context.fill} />;
-      if (block.id === "support") return <Support block={block} fill={context.fill} />;
-      if (block.id === "bonuses") return <Bonuses block={block} fill={context.fill} />;
-      return <Audience block={block} fill={context.fill} />;
-    case "text": return <Shift block={block} fill={context.fill} />;
-    case "steps": return <Programme block={block} context={context} />;
-    case "list": return <Stack block={block} fill={context.fill} />;
+      if (block.id === "outcomes") return <OutcomeCards block={block} fill={context.fill} />;
+      if (block.id === "support") return <SupportCards block={block} fill={context.fill} />;
+      if (block.id === "bonuses") return <BonusCards block={block} fill={context.fill} />;
+      return <PlainCards block={block} fill={context.fill} />;
+    case "text": return <TextSection block={block} fill={context.fill} />;
+    case "steps": return <StepsSection block={block} context={context} />;
+    case "list": return <ListSection block={block} fill={context.fill} />;
     case "trial": return context.freeEntryHref === undefined ? null : <section className="ai-guide-trial"><h2>{context.fill(block.title)}</h2><p>{context.fill(block.text)}</p>{block.link === "" ? null : <Link className="ai-guide-text-link" href={context.programme}>{context.fill(block.link)}<ArrowRight /></Link>}</section>;
   }
 }
 
-/** Значки идут по порядку пунктов; лишний пункт получает общий. */
+/**
+ * Значки и иллюстрации оформление раздаёт по порядку пунктов блока: порядок в описании продукта
+ * задаёт и порядок картинок, а лишний пункт получает общий значок без иллюстрации.
+ */
 function iconAt(icons: readonly LucideIcon[], index: number): LucideIcon {
   return icons[index] ?? Check;
 }
@@ -77,7 +81,7 @@ function Hero({ block, context }: { readonly block: GuidePageBlockOf<"hero">; re
   </header>;
 }
 
-function Audience({ block, fill }: { readonly block: GuidePageBlockOf<"cards">; readonly fill: (text: string) => string }) {
+function PlainCards({ block, fill }: { readonly block: GuidePageBlockOf<"cards">; readonly fill: (text: string) => string }) {
   return <section className="ai-guide-audience">
     <h2>{fill(block.title)}</h2>
     {block.lead === "" ? null : <p className="ai-guide-section-intro">{fill(block.lead)}</p>}
@@ -86,7 +90,7 @@ function Audience({ block, fill }: { readonly block: GuidePageBlockOf<"cards">; 
   </section>;
 }
 
-function Shift({ block, fill }: { readonly block: GuidePageBlockOf<"text">; readonly fill: (text: string) => string }) {
+function TextSection({ block, fill }: { readonly block: GuidePageBlockOf<"text">; readonly fill: (text: string) => string }) {
   return <section className="ai-guide-shift">
     <h2>{fill(block.title)}</h2>
     <div>{block.paragraphs.map(paragraph => <p key={paragraph}>{fill(paragraph)}</p>)}</div>
@@ -100,7 +104,7 @@ const outcomeVisuals: readonly ReactNode[] = [
   <div className="ai-guide-result-visual ai-guide-result-pipeline" aria-hidden="true" key="pipeline"><Workflow /><strong>От задачи до релиза</strong><div>{["Исследование и план", "Реализация и ревью", "Проверки и релиз"].map(label => <span key={label}><Check />{label}</span>)}</div></div>,
   <div className="ai-guide-result-visual ai-guide-result-project" aria-hidden="true" key="project"><Server /><strong>Проект в production</strong><div><span>Пользователи и доступ</span><span>Данные и AI-функции</span><span>Деплой и наблюдение</span></div></div>,
 ];
-function Outcomes({ block, fill }: { readonly block: GuidePageBlockOf<"cards">; readonly fill: (text: string) => string }) {
+function OutcomeCards({ block, fill }: { readonly block: GuidePageBlockOf<"cards">; readonly fill: (text: string) => string }) {
   return <section className="ai-guide-outcomes">
     <h2>{fill(block.title)}</h2>
     {block.lead === "" ? null : <p className="ai-guide-section-intro ai-guide-promise">{fill(block.lead)}</p>}
@@ -116,7 +120,7 @@ function Outcomes({ block, fill }: { readonly block: GuidePageBlockOf<"cards">; 
   </section>;
 }
 
-function Programme({ block, context }: { readonly block: GuidePageBlockOf<"steps">; readonly context: BlockContext }) {
+function StepsSection({ block, context }: { readonly block: GuidePageBlockOf<"steps">; readonly context: BlockContext }) {
   const titleId = `ai-${block.id}-title`;
   return <section className="ai-guide-programme" aria-labelledby={titleId}>
     <h2 id={titleId}>{context.fill(block.title)}</h2>
@@ -126,7 +130,7 @@ function Programme({ block, context }: { readonly block: GuidePageBlockOf<"steps
   </section>;
 }
 
-function Stack({ block, fill }: { readonly block: GuidePageBlockOf<"list">; readonly fill: (text: string) => string }) {
+function ListSection({ block, fill }: { readonly block: GuidePageBlockOf<"list">; readonly fill: (text: string) => string }) {
   return <section className="ai-guide-project">
     <div><h2>{fill(block.title)}</h2>{block.text === "" ? null : <p>{fill(block.text)}</p>}</div>
     <div className="ai-guide-language-map" aria-label="Практикум подходит для разных стеков">
@@ -138,7 +142,7 @@ function Stack({ block, fill }: { readonly block: GuidePageBlockOf<"list">; read
 }
 
 const supportIcons = [MessagesSquare, Play, GitPullRequest] as const;
-function Support({ block, fill }: { readonly block: GuidePageBlockOf<"cards">; readonly fill: (text: string) => string }) {
+function SupportCards({ block, fill }: { readonly block: GuidePageBlockOf<"cards">; readonly fill: (text: string) => string }) {
   return <section className="ai-guide-support" id={block.id}>
     <div className="ai-guide-support-intro">{block.eyebrow === "" ? null : <p className="ai-guide-eyebrow">{fill(block.eyebrow)}</p>}<h2>{fill(block.title)}</h2>{block.lead === "" ? null : <p>{fill(block.lead)}</p>}</div>
     <div className="ai-guide-support-details">{block.items.map((item, index) => {
@@ -153,7 +157,7 @@ const bonusPreviews: readonly ReactNode[] = [
   <div className="ai-guide-bonus-preview ai-guide-bonus-code" aria-hidden="true" key="code"><FolderGit2 /><span>Код<br /><small>Решения · примеры · разборы</small></span></div>,
   <div className="ai-guide-bonus-preview ai-guide-bonus-questions" aria-hidden="true" key="questions"><MessagesSquare /><span>От вопроса к разбору</span></div>,
 ];
-function Bonuses({ block, fill }: { readonly block: GuidePageBlockOf<"cards">; readonly fill: (text: string) => string }) {
+function BonusCards({ block, fill }: { readonly block: GuidePageBlockOf<"cards">; readonly fill: (text: string) => string }) {
   return <section className="ai-guide-bonuses">
     <h2>{fill(block.title)}</h2>
     {block.lead === "" ? null : <p className="ai-guide-section-intro">{fill(block.lead)}</p>}

@@ -3,14 +3,8 @@ import type { Route } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-import {
-  fillOfferTerms,
-  type GuidePage,
-  type GuidePageBlock,
-  type GuidePresentation,
-} from "@/entities/guide-page";
+import type { GuidePage, GuidePageBlock, GuidePresentation } from "@/entities/guide-page";
 import { ContentCoverImage } from "@/entities/material";
-import { oneTimeTermLabels } from "@/features/billing-checkout";
 import type { ReaderGuideArtifactsResult } from "@/features/guide-artifacts.reader";
 import {
   formatMaterialCount,
@@ -23,12 +17,9 @@ import { Button } from "@/shared/ui/button";
 
 import { AiFirstGuideView } from "./ai-first-guide-view";
 import { formatArtifactCount, formatChapterCount } from "./guide-counts";
+import { fillTerms } from "./offer-terms";
 
 type ResolvedSeriesResult = Extract<PublishedSeriesResult, { kind: "ready" | "empty" }>;
-
-// Сроки называет действующая оферта разовой покупки: автор пишет подстановку, а не число.
-const offerTerms = { access: oneTimeTermLabels.materialsAndChat, support: oneTimeTermLabels.support };
-const fillTerms = (text: string) => fillOfferTerms(text, offerTerms);
 
 interface ProductViewProps {
   readonly artifacts: ReaderGuideArtifactsResult;
@@ -49,7 +40,6 @@ const productViews: Record<GuidePresentation, (props: ProductViewProps) => React
       <DefaultGuideProductView {...props} freeEntryHref={freeEntryHref} page={null} />
     ) : (
       <AiFirstGuideView
-        fill={fillTerms}
         page={page}
         result={props.result}
         returnTarget={props.returnTarget}

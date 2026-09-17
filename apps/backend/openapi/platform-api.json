@@ -104917,12 +104917,15 @@
                           "nullable": true,
                           "properties": {
                             "action": {
+                              "maxLength": 200,
                               "type": "string"
                             },
                             "eyebrow": {
+                              "maxLength": 200,
                               "type": "string"
                             },
                             "subtitle": {
+                              "maxLength": 200,
                               "type": "string"
                             }
                           },

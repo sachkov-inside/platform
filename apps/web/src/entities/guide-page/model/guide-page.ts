@@ -47,16 +47,19 @@ export interface GuideProductPage {
   readonly page: GuidePage | null;
 }
 
-/** Серверный журнал предупреждений; тест подставляет свой. */
+/**
+ * Куда уходит предупреждение о рассинхроне данных и выпуска сайта. Оба чтения описания живут в
+ * серверных адаптерах, поэтому по умолчанию это журнал сервера; тест подставляет свой приёмник.
+ */
 export type PresentationWarning = (message: string) => void;
-const warnOnServer: PresentationWarning = (message) => {
+const reportToServerLog: PresentationWarning = (message) => {
   console.warn(message);
 };
 
 export function resolveGuidePresentation(
   value: string,
   context: string,
-  warn: PresentationWarning = warnOnServer,
+  warn: PresentationWarning = reportToServerLog,
 ): GuidePresentation {
   const known = guidePresentations.find((presentation) => presentation === value);
   if (known !== undefined) return known;
@@ -71,14 +74,14 @@ export function resolveGuidePresentation(
 export function readGuideProductPage(
   value: { readonly presentation: string; readonly page: unknown },
   context: string,
-  warn: PresentationWarning = warnOnServer,
+  warn: PresentationWarning = reportToServerLog,
 ): GuideProductPage {
+  const presentation = resolveGuidePresentation(value.presentation, context, warn);
+  // Продукт без описания — обычное дело: его страницу рисует общий шаблон по полям редактора.
+  if (value.page === null || value.page === undefined) return { presentation, page: null };
   const parsed = guidePageSchema.safeParse(value.page);
   if (!parsed.success) warn(`[guide-presentation] ${context}: the stored page description does not match this site; it is not shown`);
-  return {
-    presentation: resolveGuidePresentation(value.presentation, context, warn),
-    page: parsed.success ? parsed.data : null,
-  };
+  return { presentation, page: parsed.success ? parsed.data : null };
 }
 
 /** Сроки оферты, которые автор пишет подстановкой: страница повторяет оферту, а не свои числа. */

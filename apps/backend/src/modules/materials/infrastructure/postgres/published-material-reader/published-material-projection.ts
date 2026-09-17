@@ -12,13 +12,7 @@ import type { PublishedMaterialProjectionDto } from "../../../facets/published-m
 import type { ContentCoverProjection } from "../../../facets/content-covers/content-covers.js";
 import type { GuideIntroductionDto, GuideProductPageDto } from "../../../facets/material-authoring/content-collection.contract.js";
 import { loadContentCoverProjections } from "../content-cover-projections.js";
-import { readStoredGuidePage, type GuidePage } from "../../../domain/guide-page.js";
-
-/** Only validated imports write a page; a stored value that no longer parses is not shown. */
-function storedPage(value: unknown): GuidePage | null {
-  const page = readStoredGuidePage(value);
-  return page === "invalid" ? null : page;
-}
+import { readGuidePageForReader } from "../guide-page-reader.js";
 import type {
   PublishedMaterialProjectionCursor,
   PublishedMaterialProjectionPageDto,
@@ -918,7 +912,7 @@ export async function selectPublishedMaterialProjectionsBySeries(
       name: reference.name,
       productPage: {
         presentation: reference.presentation,
-        page: storedPage(reference.page),
+        page: readGuidePageForReader(reference.page, `Guide ${reference.slug}`),
       },
       slug: reference.slug,
       summary: reference.summary,

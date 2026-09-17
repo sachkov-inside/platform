@@ -34,8 +34,12 @@ export const Desktop: Story = {
 };
 export const Mobile: Story = { globals: { viewport: { value: "mobile390", isRotated: false } } };
 
-/** Оформление продукта стоит в его данных: неизвестное значение показывает общий шаблон. */
-export const UnknownPresentationFallsBackToTheDefaultTemplate: Story = {
+/**
+ * Тот же продукт с оформлением `default`: общий шаблон показывает те же блоки описания простыми
+ * разделами. Неизвестное оформление адаптер приводит к `default` до этой страницы, и его проверяет
+ * `test/module/guide-page.test.ts`.
+ */
+export const DefaultTemplateShowsTheSameDescription: Story = {
   args: {
     result: {
       kind: "empty", discoveryKind: "series", chapters: [], relatedSeries: [], topics: [],

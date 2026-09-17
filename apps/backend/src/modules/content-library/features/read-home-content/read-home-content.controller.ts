@@ -30,6 +30,7 @@ import {
   publishedMaterialProblemHttpSchema,
   type PublishedMaterialReader,
 } from "../../../materials/index.js";
+import { guidePageCardSchema } from "../../../materials/index.js";
 import { BillingPricing } from "../../../billing/index.js";
 import { VIDEOS, type Videos } from "../../../videos/index.js";
 import {
@@ -48,7 +49,7 @@ const homeContentHttpSchema = z
     pinnedSeries: publishedCatalogFacetHttpSchema
       .extend({
         presentation: z.string(),
-        card: z.object({ eyebrow: z.string(), subtitle: z.string(), action: z.string() }).strict().nullable(),
+        card: guidePageCardSchema.nullable(),
       })
       .nullable(),
     topics: z.array(publishedCatalogFacetHttpSchema),

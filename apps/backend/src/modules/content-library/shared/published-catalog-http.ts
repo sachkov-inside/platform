@@ -59,6 +59,8 @@ const discoveryReferenceHttpSchema = z
     id: z.uuid(),
     introduction: guideIntroductionHttpSchema.nullable(),
     name: z.string(),
+    // Оформление отдаётся строкой, а не перечислением: выпуск сайта и данные расходятся, и читателю
+    // тогда показывают общий шаблон, а не ошибку контракта (ADR 0026).
     productPage: z
       .object({ presentation: z.string(), page: guidePageSchema.nullable() })
       .strict()
