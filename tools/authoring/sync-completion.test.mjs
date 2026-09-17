@@ -49,7 +49,7 @@ function applicationApi() {
   const guide = { id: guideId, slug: "product", name: "", summary: "", version: 1, archived: false };
   let next = 1;
   const api = {
-    calls, materials, videos, artifacts, guide,
+    calls, materials, videos, artifacts, guide, pin: { seriesId: uuid(901), version: 3 },
     count: (pattern) => calls.filter((call) => pattern.test(call.path)).length,
     async request(path, body, key, options = {}) {
       calls.push({ path, key, method: options.method ?? (body === undefined ? "GET" : "POST"), body: body instanceof FormData ? Object.fromEntries([...body.entries()].filter(([name]) => name !== "file")) : structuredClone(body) });
@@ -58,6 +58,8 @@ function applicationApi() {
       if (path === "/authoring/import/materials/validate") return { valid: true };
       if (path === "/authoring/import/guides/reserve") return structuredClone(guide);
       if (path === "/authoring/collections?kind=guide") return [structuredClone(guide)];
+      if (path === "/authoring/home-pin" && body === undefined) return structuredClone(api.pin);
+      if (path === "/authoring/home-pin") { assert.equal(body.expectedVersion, api.pin.version); api.pin = { seriesId: body.seriesId, version: api.pin.version + 1 }; return structuredClone(api.pin); }
       if (path === "/authoring/import/guides/update") {
         assert.equal(body.expectedVersion, guide.version);
         assert.equal(body.introduction, undefined, "Guide page copy is owned by Platform");
@@ -368,4 +370,14 @@ test("release preview separates Video access conflicts from plain access changes
   const replaced = (await previewRelease(setup.packagePath, setup.state, { origin, request: api.request })).preview.materials.find((item) => item.sourceId === "video");
   assert.equal(replaced.conflictReason, undefined);
   assert.deepEqual(replaced.accessChange, { from: "membership", to: "free" });
+});
+
+test("the local product view pins the transferred product on Home once", async (t) => {
+  const setup = await fixture(t);
+  const api = applicationApi();
+  const report = await run(setup, api, { pinHome: true });
+  assert.equal(report.homePinned, guideId);
+  assert.deepEqual(api.pin, { seriesId: guideId, version: 4 });
+  await run(setup, api, { pinHome: true });
+  assert.equal(api.pin.version, 4);
 });

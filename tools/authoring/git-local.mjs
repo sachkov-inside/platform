@@ -45,9 +45,9 @@ export async function syncGitLocal(repository, guideId, stateDirectory, ref = "H
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
-  const { positionals, values } = parseArgs({ allowPositionals: true, options: { target: { type: "string", default: "editor" }, archive: { type: "string", multiple: true, default: [] } } });
+  const { positionals, values } = parseArgs({ allowPositionals: true, options: { target: { type: "string", default: "editor" }, archive: { type: "string", multiple: true, default: [] }, "pin-home": { type: "boolean", default: false } } });
   const [repository, guideId, state, ref = "HEAD", ...extra] = positionals;
-  if (!repository || !guideId || !state || extra.length) throw new Error("Usage: pnpm authoring:sync-git-local CONTENT_REPOSITORY GUIDE_ID STATE_DIRECTORY [REF=HEAD] [--target editor|stand] [--archive SOURCE_ID]...");
-  const report = await syncGitLocal(repository, guideId, state, ref, { origin: resolveLocalTarget(values.target), archive: values.archive });
+  if (!repository || !guideId || !state || extra.length) throw new Error("Usage: pnpm authoring:sync-git-local CONTENT_REPOSITORY GUIDE_ID STATE_DIRECTORY [REF=HEAD] [--target editor|stand] [--archive SOURCE_ID]... [--pin-home]");
+  const report = await syncGitLocal(repository, guideId, state, ref, { origin: resolveLocalTarget(values.target), archive: values.archive, pinHome: values["pin-home"] });
   console.log(JSON.stringify({ commit: report.commit, packageId: report.packageId, applied: report.applied, unchanged: report.unchanged, guides: report.guides, archived: report.archived, archiveProposals: report.archiveProposals, notices: report.notices }, null, 2));
 }

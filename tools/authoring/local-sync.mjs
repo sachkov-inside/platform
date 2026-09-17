@@ -93,7 +93,7 @@ export function archiveProposalKeys(journal, manifest) {
     .map(([key]) => key);
 }
 
-export async function syncLocal(packagePath, stateDirectory, { origin = reviewOrigin, request: transport, defaultAccess = "membership", archive = [], sleep = delay, videoAttempts = 20 } = {}) {
+export async function syncLocal(packagePath, stateDirectory, { origin = reviewOrigin, request: transport, defaultAccess = "membership", archive = [], sleep = delay, videoAttempts = 20, pinHome = false } = {}) {
   const target = loopbackOrigin(origin);
   const reader = readerOriginFor(target);
   const send = transport ?? localTransport(target);
@@ -356,6 +356,14 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
     }
     if (requested.size > 0) throw new Error(`Archive request names Materials that are still in the package or were never synchronized: ${[...requested].join(", ")}`);
     if (report.archiveProposals.length) report.notices.push({ code: "archive_proposed", message: `Оригиналы пропали для ${report.archiveProposals.length} материалов; повторите синхронизацию с --archive, если их нужно снять` });
+    // The local product view features the transferred product on Home, like production will.
+    if (pinHome) {
+      if (pkg.manifest.guides.length !== 1) throw new Error("Pinning Home needs exactly one product in the package");
+      const guideId = guides.get(pkg.manifest.guides[0].sourceId).id;
+      const pin = await request("/authoring/home-pin");
+      if (pin.seriesId !== guideId) await request("/authoring/home-pin", { seriesId: guideId, expectedVersion: pin.version }, undefined, { method: "PUT" });
+      report.homePinned = guideId;
+    }
     journal.lastReport = report; await persist();
     return report;
   });

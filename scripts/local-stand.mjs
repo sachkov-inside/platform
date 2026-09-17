@@ -6,6 +6,7 @@ import { dirname, resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import lockfile from "proper-lockfile";
+import { ensureSharedIdentityDirectory } from "./shared-identity-directory.mjs";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const pnpmPath = process.env.npm_execpath;
@@ -28,6 +29,7 @@ const standPorts = {
 };
 const environment = { ...process.env, ...standPorts };
 
+ensureSharedIdentityDirectory(repositoryRoot);
 const releaseStandLock = await acquireStandLock();
 let shouldCleanupCompose = false;
 let interruptedSignal;

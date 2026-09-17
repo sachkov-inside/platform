@@ -265,6 +265,7 @@ test("identity proof launcher isolates root env, applies ports, and cleans owned
     }),
     runCompose,
     runPnpm,
+    ensureDatabase: () => {},
   });
 
   const migration = calls.find(
@@ -357,6 +358,7 @@ test("identity proof launcher rejects any running Platform service", async () =>
     runIdentityProofSession({
       environment: {},
       readGeneratedEnvironment: async () => ({}),
+      ensureDatabase: () => {},
       runCompose: async (project, arguments_) => {
         composeCalls.push([project, arguments_]);
         return project === "platform" ? "object-storage\n" : "";
@@ -376,6 +378,7 @@ test("identity proof launcher cleans both owned stacks after development stops",
     runIdentityProofSession({
       environment: {},
       readGeneratedEnvironment: async () => ({}),
+      ensureDatabase: () => {},
       runCompose: async (project, arguments_) => {
         calls.push(["compose", project, arguments_]);
         return "";
@@ -402,6 +405,7 @@ test("identity proof launcher stops startup and cleans ownership after interrupt
     runIdentityProofSession({
       environment: {},
       readGeneratedEnvironment: async () => ({}),
+      ensureDatabase: () => {},
       runCompose: async (project, arguments_) => {
         calls.push(["compose", project, arguments_]);
         if (project === "identity" && arguments_[0] === "up") {

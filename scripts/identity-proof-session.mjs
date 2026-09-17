@@ -1,3 +1,4 @@
+import { ensureCheckDatabase } from "./check-database.mjs";
 import { readIdentityProofPort } from "./identity-proof-environment.mjs";
 
 export async function runIdentityProofSession({
@@ -6,6 +7,7 @@ export async function runIdentityProofSession({
   runCompose,
   runPnpm,
   shouldStop = () => false,
+  ensureDatabase = ensureCheckDatabase,
 }) {
   const identityEnvironment = {
     ...environment,
@@ -60,6 +62,7 @@ export async function runIdentityProofSession({
       platformEnvironment,
     );
     assertNotStopped(shouldStop);
+    ensureDatabase({ composeProject: platformEnvironment.COMPOSE_PROJECT_NAME });
     await runPnpm(
       ["--filter", "@inside/backend", "db:migrate"],
       runtimeEnvironment,

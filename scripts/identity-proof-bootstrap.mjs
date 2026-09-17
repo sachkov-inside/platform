@@ -10,6 +10,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath, URLSearchParams } from "node:url";
 import { z } from "zod";
 
+import { checkDatabaseUrl } from "./check-database.mjs";
 import {
   readIdentityProofEndpoints,
   readIdentityProofPort,
@@ -399,7 +400,8 @@ async function writeRuntimeEnvironment(applicationId, applicationSecret) {
   const updates = {
     NODE_ENV: "development",
     TELEGRAM_SIGN_IN_ENABLED: process.env.TELEGRAM_SIGN_IN_ENABLED ?? "false",
-    DATABASE_URL: `postgresql://inside:inside@127.0.0.1:${platformPostgresPort}/inside`,
+    // Identity proof host processes migrate their own database, never the stand's.
+    DATABASE_URL: checkDatabaseUrl(platformPostgresPort),
     BACKEND_BASE_URL: platformResource,
     LOGTO_ENDPOINT: endpoint,
     LOGTO_ISSUER: `${endpoint}/oidc`,

@@ -53,6 +53,7 @@ export function parseLocalResponse(path, value) {
     case "/authoring/import/guides/reserve":
     case "/authoring/import/guides/update": schema = guideSchema; break;
     case "/authoring/import/guides/composition": schema = orderSchema; break;
+    case "/authoring/home-pin": schema = z.object({ seriesId: z.uuid().nullable(), version }).passthrough(); break;
     default:
       if (/^\/authoring\/materials\/[^/]+\/assets$/u.test(path)) schema = assetReceiptSchema;
       else if (/^\/authoring\/materials\/[^/]+\/videos\/attach$/u.test(path)) schema = videoSchema;

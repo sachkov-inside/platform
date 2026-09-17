@@ -3,6 +3,7 @@ import { existsSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { checkDatabaseUrl, ensureCheckDatabase } from "./check-database.mjs";
 import { startFullStackIdentity } from "./full-stack-identity.mjs";
 
 import { signalProcessGroup } from "./process-group-signal.mjs";
@@ -14,9 +15,16 @@ if (pnpmPath === undefined) {
   throw new Error("Run the full-stack smoke through the pinned pnpm CLI");
 }
 
+// Only an explicitly exported DATABASE_URL may point the smoke at another database; a personal `.env`
+// usually names the stand database, which this smoke must never migrate, seed or rewrite.
+const explicitDatabaseUrl = process.env.DATABASE_URL;
 const environmentPath = resolve(repositoryRoot, ".env");
 if (existsSync(environmentPath)) {
   process.loadEnvFile(environmentPath);
+}
+if (explicitDatabaseUrl === undefined) {
+  ensureCheckDatabase({ cwd: repositoryRoot });
+  process.env.DATABASE_URL = checkDatabaseUrl(process.env.POSTGRES_HOST_PORT ?? 5432);
 }
 const apiPort = process.env.API_PORT ?? "3001";
 const apiBaseUrl =

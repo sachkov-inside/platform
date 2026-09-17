@@ -12,6 +12,7 @@ import { z } from "zod";
 
 import { localTargets } from "../tools/authoring/target.mjs";
 import { readIdentityProofPort } from "./identity-proof-environment.mjs";
+import { ensureSharedIdentityDirectory } from "./shared-identity-directory.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const gateway = new URL(localTargets.stand);
@@ -84,6 +85,7 @@ async function main() {
   const { values } = parseArgs({ options: { "owner-email": { type: "string" } } });
   const email = values["owner-email"];
   if (!email) throw new Error("Usage: pnpm authoring:stand-gateway --owner-email OWNER_EMAIL");
+  ensureSharedIdentityDirectory(root);
   // The bootstrap module reads its stand flag when first imported.
   process.env.LOGTO_ON_STAND = "true";
   const { parseEnv } = await import("./identity-proof-bootstrap.mjs");

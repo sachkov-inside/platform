@@ -742,6 +742,22 @@ confirmation still gives a full period; duplicate notifications and fulfillment 
 the original saved bounds. No separate time-policy injection is required. Missing terminal
 configuration continues to disable payment admission; DEMO/production activation remains separate.
 
+### Local product view
+
+The stand is where the owner sees the product as production will show it. Its data lives in the
+shared `inside-platform_*` volumes, so every branch and worktree sees the same content and accounts:
+
+- `pnpm local:stand` links a worktree's `.identity-proof` to the primary checkout, so the stand keeps
+  one set of sign-in keys whatever branch starts it.
+- `pnpm local:product [--owner-email EMAIL]` transfers the committed AI-first originals from the
+  sibling `inside-content` checkout and features that product on Home. It starts the authoring
+  gateway for the run when none is running and repeats safely at any time.
+- Host checks that migrate, seed or bootstrap owners (`pnpm smoke:fullstack`, the identity proof,
+  the Telegram sign-in launcher) use the `inside_checks` database, never the stand's `inside`,
+  unless `DATABASE_URL` is exported explicitly.
+
+Keep the volumes: stop the stand with `docker compose --profile identity down` without `-v`.
+
 ### Local Obsidian authoring preview (#468)
 
 Originals from Inside Content reach a local Platform through a one-shot import of one Git commit.
