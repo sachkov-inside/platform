@@ -322,7 +322,7 @@ describe("Library discovery server adapter", () => {
 
   it("carries the product page and drops a description this site cannot draw", async () => {
     const page = { card: null, blocks: [{ id: "hero", kind: "hero", lead: "Лид.", highlights: [] }] };
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const reply = (productPage: unknown) =>
       vi.stubGlobal(
         "fetch",

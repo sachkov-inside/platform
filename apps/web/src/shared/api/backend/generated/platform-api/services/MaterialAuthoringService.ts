@@ -1159,6 +1159,7 @@ export class MaterialAuthoringService {
    */
   public readAuthoringImportEnvironment(): CancelablePromise<{
     mode: 'development' | 'test' | 'production';
+    presentations: Array<'default' | 'ai-first-process'>;
   }> {
     return this.httpRequest.request({
       method: 'GET',

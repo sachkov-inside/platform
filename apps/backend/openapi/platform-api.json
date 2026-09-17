@@ -44120,10 +44120,21 @@
                         "production"
                       ],
                       "type": "string"
+                    },
+                    "presentations": {
+                      "items": {
+                        "enum": [
+                          "default",
+                          "ai-first-process"
+                        ],
+                        "type": "string"
+                      },
+                      "type": "array"
                     }
                   },
                   "required": [
-                    "mode"
+                    "mode",
+                    "presentations"
                   ],
                   "type": "object"
                 }
