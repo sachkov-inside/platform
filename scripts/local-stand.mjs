@@ -28,7 +28,7 @@ const standPorts = {
   IDENTITY_PROOF_MAILPIT_PORT: process.env.MAIL_CAPTURE_HOST_PORT ?? "8025",
 };
 // The owner's stand shows the real product only; the seed keeps its demo Materials unpublished.
-const environment = { LOCAL_SEED_DEMO: "hidden", ...process.env, ...standPorts };
+const environment = { LOCAL_SEED_VIEW: "stand", ...process.env, ...standPorts };
 
 ensureSharedIdentityDirectory(repositoryRoot);
 const releaseStandLock = await acquireStandLock();
