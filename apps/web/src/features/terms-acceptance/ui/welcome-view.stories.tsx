@@ -23,7 +23,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "Экран первого входа (путь A, Workspace #185): условия использования принимаются одной кнопкой со строкой о принятии, без отметок. До нажатия закрыты кабинет, покупки и связка с ботом.",
+          "Окно первого входа (путь A, Workspace #185) поверх размытого сайта: условия использования принимаются одной кнопкой со строкой о принятии, без отметок. Окно не закрывается без решения; до нажатия закрыты кабинет, покупки и связка с ботом.",
       },
     },
   },
@@ -34,10 +34,12 @@ type Story = StoryObj<typeof meta>;
 export const FirstSignIn: Story = {
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText("Аккаунт создан")).toBeInTheDocument();
-    await expect(
-      canvas.getByRole("heading", { level: 1, name: "Добро пожаловать в Inside" }),
-    ).toBeInTheDocument();
+    const dialog = await canvas.findByRole("dialog", { name: "Добро пожаловать" });
+    await expect(dialog).toHaveAttribute("open");
+    await expect(canvas.getByRole("button", { name: "Принять условия и продолжить" })).toHaveFocus();
+    await expect(canvas.queryByText("Аккаунт создан")).not.toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
+    await expect(dialog).toHaveAttribute("open");
     await expect(canvas.queryByRole("checkbox")).not.toBeInTheDocument();
     await expect(canvas.getByRole("link", { name: "условия использования" })).toHaveAttribute(
       "href",
@@ -55,8 +57,7 @@ export const UpdatedTerms: Story = {
   args: { returning: true },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText("Условия обновились")).toBeInTheDocument();
-    await expect(canvas.queryByText("Аккаунт создан")).not.toBeInTheDocument();
+    await expect(await canvas.findByRole("dialog", { name: "Условия обновились" })).toHaveAttribute("open");
   },
 };
 
@@ -78,7 +79,7 @@ export const Unavailable: Story = {
   args: { unavailable: true },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const card = within(canvas.getByRole("region", { name: "Условия использования" }));
+    const card = within(await canvas.findByRole("dialog", { name: "Добро пожаловать" }));
     await expect(card.getByRole("alert")).toHaveTextContent("Условия сейчас не удаётся загрузить");
     await expect(card.queryByRole("button")).not.toBeInTheDocument();
   },

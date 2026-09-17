@@ -1,0 +1,36 @@
+/* The first sign-in decision sits over the site: the page stays visible but out of reach. */
+.welcome-dialog::backdrop {
+  background: oklch(0.205 0.014 129 / 0.32);
+  backdrop-filter: blur(14px) saturate(1.1);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .welcome-dialog[open] {
+    animation: welcome-dialog-in 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .welcome-dialog[open]::backdrop {
+    animation: welcome-backdrop-in 320ms ease-out;
+  }
+}
+
+@keyframes welcome-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.75rem) scale(0.98);
+  }
+}
+
+@keyframes welcome-backdrop-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Without scripting the dialog cannot open modally; the backdrop page is then simply dimmed. */
+.welcome-backdrop {
+  filter: blur(6px);
+  opacity: 0.7;
+  pointer-events: none;
+  user-select: none;
+}
