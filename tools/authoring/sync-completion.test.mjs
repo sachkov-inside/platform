@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { canonical, checksum } from "./package.mjs";
@@ -193,4 +193,22 @@ test("only loopback HTTP origins are accepted as targets", () => {
   for (const origin of ["https://inside.example", "http://10.0.0.5:4396", "http://127.0.0.1.example.com", "http://user@127.0.0.1:4396", "https://127.0.0.1:4396"]) {
     assert.throws(() => loopbackOrigin(origin), /loopback/u, origin);
   }
+});
+
+test("an uploaded recording is saved with the original's chapters until the original names it", async (t) => {
+  const setup = await fixture(t);
+  const api = applicationApi();
+  await run(setup, api);
+  const journalPath = join(setup.state, "journal.json");
+  const journal = JSON.parse(await readFile(journalPath, "utf8"));
+  const uploadedId = uuid(555);
+  api.videos.set(uploadedId, { videoId: uploadedId, state: "ready", providerVideoId: "uploaded" });
+  journal.resources["source-video:inside-content:lesson"] = { videoId: uploadedId, providerVideoId: "uploaded", sha256: "c".repeat(64) };
+  await writeFile(journalPath, canonical(journal));
+  setup.manifest.materials[0].videoChapters = [{ start: 0, title: "Старт" }];
+  await setup.write();
+  await run(setup, api);
+  const lesson = api.materials.get("inside-content:lesson");
+  assert.equal(lesson.primaryVideoId, uploadedId);
+  assert.deepEqual(lesson.videoChapters, [{ start: 0, title: "Старт" }]);
 });

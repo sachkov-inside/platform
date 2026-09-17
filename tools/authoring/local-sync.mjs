@@ -126,7 +126,11 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
 
     // An existing provider record is attached once; the server refuses to move it to another Material.
     const attachVideo = async (row, current, access) => {
-      if (row.video === null) return current.primaryVideoId;
+      if (row.video === null) {
+        // A recording uploaded by authoring:video stays attached until the original names its provider record.
+        const uploaded = journal.resources[`source-video:${sourceId(row.sourceId)}`];
+        return uploaded?.videoId ?? current.primaryVideoId;
+      }
       const key = `video:${current.materialId}:${row.video.kinescopeId}`;
       const receipt = journal.resources[key];
       if (receipt?.state === "ready" && receipt.videoId === current.primaryVideoId) return current.primaryVideoId;
@@ -176,7 +180,7 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
         await persist(); report.applied++;
       }
       const cover = await syncCover(row, current, journal.materials[key]);
-      Object.assign(journal.materials[key], { revision, defaultAccess, primaryVideoId, url: links.get(row.sourceId), guideSourceIds: guideSourceIds(row), ...cover });
+      Object.assign(journal.materials[key], { revision, defaultAccess, access: desiredMetadata.access, primaryVideoId, url: links.get(row.sourceId), guideSourceIds: guideSourceIds(row), ...cover });
       await persist();
       report.materials.push({ sourceId: row.sourceId, title: row.title, url: `${reader}${links.get(row.sourceId)}` });
       if (row.kind === "video" && primaryVideoId === null) report.notices.push({ code: "video_pending", path: row.sourcePath, message: "Текст перенесён; запись видео ещё не привязана в оригинале" });

@@ -57152,6 +57152,10 @@
                 "schema": {
                   "additionalProperties": false,
                   "properties": {
+                    "providerVideoId": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
                     "uploadEndpoint": {
                       "format": "uri",
                       "type": "string"
@@ -57222,6 +57226,7 @@
                     }
                   },
                   "required": [
+                    "providerVideoId",
                     "uploadEndpoint",
                     "video"
                   ],

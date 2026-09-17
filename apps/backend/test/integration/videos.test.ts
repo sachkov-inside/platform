@@ -78,6 +78,8 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
     const providerVideoId = (await database.prisma.video.findUniqueOrThrow({
       where: { id: initialized.value.video.videoId },
     })).providerVideoId;
+    // The author records this provider id in the original; replay returns the same one.
+    expect(initialized.value.providerVideoId).toBe(providerVideoId);
     remote.set(providerVideoId, {
       embedLocator: null,
       id: providerVideoId,

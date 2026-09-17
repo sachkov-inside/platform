@@ -75,6 +75,7 @@ const cacheSchema = materialReceiptSchema.extend({
   primaryVideoId: z.uuid().nullable().optional(),
   coverId: z.uuid().nullable().optional(), coverSha256: hash.nullable().optional(),
   guideSourceIds: z.array(text).optional(), archived: z.boolean().optional(),
+  access: z.enum(["free", "membership", "workshop"]).optional(),
   url: z.string().startsWith("/materials/").refine((value) => value.slice("/materials/".length).length > 0 && !value.slice("/materials/".length).includes("/")).optional(),
 });
 const journalSchema = z.object({
