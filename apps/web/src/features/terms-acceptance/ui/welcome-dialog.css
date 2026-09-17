@@ -6,8 +6,8 @@
 
 /*
  * The server sends the dialog open but not modal; it already sits over the page with the same dim
- * layer. Only this first appearance animates, so switching to the modal dialog changes nothing
- * visible.
+ * layer. Only this first appearance animates; the switch to the modal dialog adds just the stronger
+ * backdrop blur, which eases in where `@starting-style` is supported.
  */
 .welcome-dialog[open]:not(:modal) {
   position: fixed;
@@ -20,6 +20,16 @@
 @media (prefers-reduced-motion: no-preference) {
   .welcome-dialog[open]:not(:modal) {
     animation: welcome-dialog-in 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .welcome-dialog::backdrop {
+    transition: backdrop-filter 360ms ease-out;
+  }
+
+  @starting-style {
+    .welcome-dialog:modal::backdrop {
+      backdrop-filter: blur(0) saturate(1);
+    }
   }
 }
 
