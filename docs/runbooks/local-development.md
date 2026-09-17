@@ -756,6 +756,11 @@ shared `inside-platform_*` volumes, so every branch and worktree sees the same c
   the Telegram sign-in launcher) use the `inside_checks` database, never the stand's `inside`,
   unless `DATABASE_URL` is exported explicitly.
 
+- The stand seed runs with `LOCAL_SEED_DEMO=hidden`: demonstration Materials stay available in the
+  editor but unpublished, so Home and search show only transferred originals. A plain
+  `docker compose up` and CI keep them published for the Compose smoke.
+- Home lists only originals marked `show_in_feed: true`; an empty feed means no original is marked yet.
+
 Keep the volumes: stop the stand with `docker compose --profile identity down` without `-v`.
 
 ### Local Obsidian authoring preview (#468)

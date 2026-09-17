@@ -94,6 +94,9 @@ services:
       target: seed
     env_file:
       - ./config/compose/local/seed.env
+    environment:
+      # `pnpm local:stand` hides the demonstration catalogue; checks keep it published.
+      LOCAL_SEED_DEMO: ${LOCAL_SEED_DEMO:-published}
     depends_on:
       migrations:
         condition: service_completed_successfully

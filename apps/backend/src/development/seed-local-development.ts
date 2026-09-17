@@ -63,8 +63,16 @@ export interface LocalDevelopmentSeed {
   readonly slug: string;
 }
 
+/**
+ * `published` keeps the demonstration catalogue readable for checks. `hidden` keeps it for the
+ * editor but off the reader surfaces, so the owner's stand shows only the real product; a demo
+ * Material the seed finds unpublished stays unpublished.
+ */
+export type LocalSeedDemo = "hidden" | "published";
+
 export async function seedLocalDevelopment(
   prisma: PlatformPrisma,
+  { demo = "published" }: { readonly demo?: LocalSeedDemo } = {},
 ): Promise<LocalDevelopmentSeed> {
   await ensureReferenceData(prisma);
 
@@ -81,7 +89,7 @@ export async function seedLocalDevelopment(
     },
     videos,
   });
-  const seed: SeedContext = { authoring, prisma, videos };
+  const seed: SeedContext = { authoring, demo, prisma, seeded: new Set(), videos };
   await ensureCatalogContinuationMaterials(seed);
   await ensureHomeMaterials(seed);
   await ensureSeriesReaderScenario(seed);
@@ -276,6 +284,7 @@ export async function seedLocalDevelopment(
   await ensureRelatedPin(prisma, overview.materialId);
   // Каталог заводится последним: разовое предложение продаёт уже засеянное руководство.
   await seedLocalOfferCatalog(prisma, { actor, guideId: seriesId });
+  if (demo === "hidden") await hideSeededMaterials(seed);
 
   return Object.freeze({
     materialId: overview.materialId,
@@ -454,8 +463,27 @@ async function ensureSeriesReaderScenario(seed: SeedContext): Promise<void> {
 /** Всё, чем засев пишет материалы: одна связка вместо трёх параметров у каждой функции. */
 interface SeedContext {
   readonly authoring: ReturnType<typeof assembleMaterials>["authoring"];
+  readonly demo: LocalSeedDemo;
   readonly prisma: PlatformPrisma;
+  /** Every demo Material this run ensured, so a hidden run can take them off the reader. */
+  readonly seeded: Set<string>;
   readonly videos: ReturnType<typeof assembleVideos>;
+}
+
+async function hideSeededMaterials(seed: SeedContext): Promise<void> {
+  for (const materialId of seed.seeded) {
+    const loaded = await seed.authoring.loadMaterial({ actor, materialId });
+    if (!loaded.ok) throw new Error(`Local seed load failed for ${materialId}: ${loaded.error.code}`);
+    if (loaded.value.publicationState !== "published") continue;
+    const hidden = await seed.authoring.transitionPublication({
+      actor,
+      expectedContentVersion: loaded.value.contentVersion,
+      idempotencyKey: `local-seed-hide-${materialId}-${String(loaded.value.contentVersion)}`,
+      materialId,
+      publicationState: "unpublished",
+    });
+    if (!hidden.ok) throw new Error(`Local seed hide failed for ${materialId}: ${hidden.error.code}`);
+  }
 }
 
 interface SeededMaterialDefinition {
@@ -518,17 +546,20 @@ async function ensureSeededMaterial(
     }
     primaryVideoId = attached.value.videoId;
   }
+  seed.seeded.add(materialId);
   const loaded = await authoring.loadMaterial({ actor, materialId });
   if (!loaded.ok) {
     throw new Error(`Local seed load failed for ${title}: ${loaded.error.code}`);
   }
+  // A hidden stand keeps an unpublished demo unpublished while its content still follows the seed.
+  const keepHidden = seed.demo === "hidden" && loaded.value.publicationState === "unpublished";
   const { seriesMemberships, slug: _slug, ...currentMetadata } = loaded.value.metadata;
   const current: MaterialMetadataSelectionInput = {
     ...currentMetadata,
     seriesIds: seriesMemberships.map(({ seriesId: value }) => value),
   };
   const matchesDefinition =
-    loaded.value.publicationState === "published" &&
+    (loaded.value.publicationState === "published" || keepHidden) &&
     loaded.value.primaryVideoId === primaryVideoId &&
     isDeepStrictEqual(comparableMetadata(current), comparableMetadata(metadata)) &&
     isDeepStrictEqual(loaded.value.body, definition.body);
@@ -544,7 +575,7 @@ async function ensureSeededMaterial(
     materialId,
     metadata,
     primaryVideoId,
-    publicationState: "published",
+    publicationState: keepHidden ? "unpublished" : "published",
   });
   if (!saved.ok) {
     throw new Error(`Local seed Save failed for ${title}: ${saved.error.code}`);
