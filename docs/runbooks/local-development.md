@@ -789,6 +789,10 @@ API and MCP writes are refused. A missing original appears in `archiveProposals`
 and removed from the product only when the same command repeats with `--archive SOURCE_ID`.
 Proposals cover Materials previously transferred with the selected product; a standalone original
 is never proposed, because an explicit Material selection does not describe the whole catalog.
+Journal entries written before products were recorded carry no product and are proposed for any
+product selection; confirm each one before naming it with `--archive`.
+`authoring:release preview` marks a Material with a Video whose access changes as a conflict: the
+Video keeps the access it was attached with, so that change needs a separate recording decision.
 
 A finished recording for a synchronized Material is uploaded with
 `pnpm authoring:video upload --state STATE_DIRECTORY --source inside-content:MATERIAL_ID --file FILE`.

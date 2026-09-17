@@ -322,4 +322,11 @@ test("release preview reports video, composition and artifact changes that the s
   await writeFile(journalPath, canonical(journal));
   const named = await previewRelease(setup.packagePath, setup.state, { origin, request: api.request });
   assert.equal(named.preview.materials.find((item) => item.sourceId === "video").change, "unchanged");
+  setup.manifest.materials[1].access = "free";
+  await setup.write();
+  const accessChanged = await previewRelease(setup.packagePath, setup.state, { origin, request: api.request });
+  const video = accessChanged.preview.materials.find((item) => item.sourceId === "video");
+  assert.equal(video.change, "conflict");
+  assert.equal(video.conflictReason, "video_access_change");
+  await assert.rejects(applyRelease(accessChanged.path, setup.state, { request: api.request }), /conflicts/u);
 });

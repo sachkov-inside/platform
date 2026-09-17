@@ -7,6 +7,7 @@ import { createServer } from "node:http";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath, URLSearchParams } from "node:url";
+import { parseArgs } from "node:util";
 import { z } from "zod";
 
 import { localTargets } from "../tools/authoring/target.mjs";
@@ -80,9 +81,9 @@ async function ownerPersonalAccessToken(settings, email, { renew }) {
 }
 
 async function main() {
-  const args = process.argv.slice(2);
-  const email = args[args.indexOf("--owner-email") + 1];
-  if (!args.includes("--owner-email") || !email) throw new Error("Usage: pnpm authoring:stand-gateway --owner-email OWNER_EMAIL");
+  const { values } = parseArgs({ options: { "owner-email": { type: "string" } } });
+  const email = values["owner-email"];
+  if (!email) throw new Error("Usage: pnpm authoring:stand-gateway --owner-email OWNER_EMAIL");
   // The bootstrap module reads its stand flag when first imported.
   process.env.LOGTO_ON_STAND = "true";
   const { parseEnv } = await import("./identity-proof-bootstrap.mjs");

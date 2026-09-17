@@ -64,12 +64,15 @@ export async function previewRelease(packagePath, stateDirectory, { origin, requ
       ? uploaded?.videoId ?? current.primaryVideoId
       : resources[`video:${entry.materialId}:${row.video.kinescopeId}`]?.videoId
         ?? (uploaded?.providerVideoId === row.video.kinescopeId ? uploaded.videoId : `attach:${row.video.kinescopeId}`);
-    const { digest } = desiredMaterial(manifest, row, { topicIds, guideIds, defaultAccess: entry.defaultAccess ?? defaultAccess, primaryVideoId: attached });
-    const change = current.contentVersion !== entry.contentVersion ? "conflict" : entry.archived ? "restore" : entry.digest !== digest ? "changed" : "unchanged";
+    const { digest } = desiredMaterial(manifest, row, { topicIds, guideIds, defaultAccess, primaryVideoId: attached });
+    // A Video keeps the access it was attached with; changing a Material's access needs a new recording decision.
+    const videoAccessConflict = attached !== null && entry.access !== undefined && entry.access !== item.access;
+    const change = current.contentVersion !== entry.contentVersion || videoAccessConflict ? "conflict" : entry.archived ? "restore" : entry.digest !== digest ? "changed" : "unchanged";
     const coverSha = row.coverAssetId === null ? null : assets.get(row.coverAssetId).sha256;
     materials.push({
       ...item, change,
       ...(attached !== current.primaryVideoId ? { videoChange: true } : {}),
+      ...(videoAccessConflict ? { conflictReason: "video_access_change" } : {}),
       ...(coverSha !== null && coverSha !== (entry.coverSha256 ?? null) ? { coverChange: true } : {}),
       ...(current.source?.showInFeed !== undefined && current.source.showInFeed !== row.showInFeed ? { feedChange: { from: current.source.showInFeed, to: row.showInFeed } } : {}),
       ...(entry.access !== undefined && entry.access !== item.access ? { accessChange: { from: entry.access, to: item.access } } : {}),
