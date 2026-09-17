@@ -186,6 +186,21 @@ test("a video that never becomes ready stops before Save and resumes with the sa
   assert.equal(api.videos.size, 1);
 });
 
+test("supplementary originals join the Guide after the programme without a chapter", async (t) => {
+  const setup = await fixture(t);
+  setup.manifest.guides[0].materialIds = ["lesson", "video"];
+  setup.manifest.guides[0].supplementaryMaterialIds = ["old"];
+  await setup.write();
+  const api = applicationApi();
+  const report = await run(setup, api);
+  const ids = ["lesson", "video", "old"].map((id) => api.materials.get(`inside-content:${id}`).materialId);
+  assert.deepEqual(api.guide.members, ids);
+  assert.deepEqual(api.materials.get("inside-content:old").seriesIds, [guideId]);
+  const composition = api.calls.find((call) => call.path === "/authoring/import/guides/composition");
+  assert.deepEqual(composition.body.chapterAssignments, {});
+  assert.equal(report.guides[0].mainMaterials, 2);
+});
+
 test("only loopback HTTP origins are accepted as targets", () => {
   assert.equal(resolveLocalTarget("editor"), "http://127.0.0.1:4396");
   assert.equal(resolveLocalTarget("stand"), "http://127.0.0.1:4398");

@@ -14,6 +14,11 @@ export const localRequest = localTransport(reviewOrigin);
 
 const topicNames = { "ai-agents": "AI-агенты", "software-engineering": "Разработка ПО", "product-development": "Разработка продукта" };
 
+// The revision covers the whole original row and the bytes of every file it references.
+export function materialRevision(manifest, row) {
+  return checksum(canonical({ row, assets: manifest.assets.filter((asset) => [...Object.values(row.images), row.coverAssetId, ...row.artifacts.map((item) => item.assetId)].includes(asset.sourceId)) }));
+}
+
 export async function syncLocal(packagePath, stateDirectory, { origin = reviewOrigin, request: transport, defaultAccess = "membership", archive = [], sleep = delay, videoAttempts = 20 } = {}) {
   const target = loopbackOrigin(origin);
   const reader = readerOriginFor(target);
@@ -31,7 +36,7 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
     const assets = new Map(pkg.manifest.assets.map((asset) => [asset.sourceId, asset]));
     const sourceId = (id) => `${pkg.manifest.sourceNamespace}:${id}`;
     const guideSourceIds = (row) => pkg.manifest.guides.filter((guide) => [...guide.materialIds, ...guide.supplementaryMaterialIds].includes(row.sourceId)).map((guide) => sourceId(guide.sourceId));
-    const source = (row) => ({ id: sourceId(row.sourceId), path: row.sourcePath, revision: checksum(canonical({ row, assets: pkg.manifest.assets.filter((asset) => [...Object.values(row.images), row.coverAssetId, ...row.artifacts.map((item) => item.assetId)].includes(asset.sourceId)) })), showInFeed: row.showInFeed });
+    const source = (row) => ({ id: sourceId(row.sourceId), path: row.sourcePath, revision: materialRevision(pkg.manifest, row), showInFeed: row.showInFeed });
     const readAsset = async (asset) => {
       const bytes = await readFile(resolve(pkg.directory, asset.path));
       if (checksum(bytes) !== asset.sha256) throw new Error("Package asset changed during synchronization");
@@ -56,7 +61,12 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
       await persist();
     }
 
+    const teasers = new Map();
     const guideTeaser = (guide) => {
+      if (!teasers.has(guide.sourceId)) teasers.set(guide.sourceId, teaserOf(guide));
+      return teasers.get(guide.sourceId);
+    };
+    const teaserOf = (guide) => {
       if (guide.summary.length <= 500) return guide.summary;
       const paragraphs = guide.summary.split(/\n\s*\n/u);
       if (paragraphs[0].length > 500) throw new Error(`Guide ${guide.sourceId}: first paragraph exceeds the 500 character teaser limit`);
@@ -93,14 +103,6 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
     });
     const placeholderLinks = new Map([...rows.keys()].map((id) => [id, `/materials/${id}`]));
     const placeholderImages = new Map(pkg.manifest.assets.map((asset) => [asset.sourceId, sourceUuid(asset.sourceId)]));
-    // Validate every document before changing any previously correct Material.
-    for (const row of rows.values()) {
-      if (journal.materials[sourceId(row.sourceId)]?.revision === source(row).revision && journal.materials[sourceId(row.sourceId)]?.defaultAccess === defaultAccess) continue;
-      try {
-        await request("/authoring/import/materials/validate", { source: source(row), publicationState: "published", metadata: metadata(row, []), body: convert(row, placeholderLinks, placeholderImages), videoChapters: [] });
-      } catch (error) { throw new Error(`${row.sourcePath}: ${error.message}`, { cause: error }); }
-    }
-
     const guides = new Map();
     for (const guide of pkg.manifest.guides) {
       if (!guide.complete) throw new Error("This first local programme adapter requires a complete Guide selection");
@@ -109,6 +111,17 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
       journal.guides[sourceId(guide.sourceId)] = { guideId: current.id, slug: current.slug };
     }
     await persist();
+
+    // Paid Materials must belong to a product, so validation uses the reserved Guides' real identities.
+    // Supplementary originals are Guide members outside chapters: the product's "Additional Materials" part.
+    const programmeMemberships = (row) => pkg.manifest.guides.filter((guide) => [...guide.materialIds, ...guide.supplementaryMaterialIds].includes(row.sourceId)).map((guide) => guides.get(guide.sourceId).id);
+    // Validate every document before changing any previously correct Material; only empty Guide shells exist so far.
+    for (const row of rows.values()) {
+      if (journal.materials[sourceId(row.sourceId)]?.revision === source(row).revision && journal.materials[sourceId(row.sourceId)]?.defaultAccess === defaultAccess) continue;
+      try {
+        await request("/authoring/import/materials/validate", { source: source(row), publicationState: "published", metadata: metadata(row, programmeMemberships(row)), body: convert(row, placeholderLinks, placeholderImages), videoChapters: [] });
+      } catch (error) { throw new Error(`${row.sourcePath}: ${error.message}`, { cause: error }); }
+    }
 
     const currentMaterials = new Map();
     const links = new Map();
@@ -152,7 +165,7 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
       let current = currentMaterials.get(row.sourceId);
       const revision = source(row).revision;
       const previous = journal.materials[key];
-      const memberships = pkg.manifest.guides.filter((guide) => guide.materialIds.includes(row.sourceId)).map((guide) => guides.get(guide.sourceId).id);
+      const memberships = programmeMemberships(row);
       const desiredMetadata = metadata(row, memberships);
       const primaryVideoId = await attachVideo(row, current, desiredMetadata.access);
       const videoChapters = primaryVideoId === null ? [] : row.videoChapters;
@@ -205,13 +218,13 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
       const order = await request(`/authoring/guides/${current.id}/order`);
       const chapters = guide.chapters.map((chapter) => ({ id: sourceUuid(`${sourceId(guide.sourceId)}:chapter:${chapter.sourceId}`), name: chapter.title, summary: chapter.summary }));
       const chapterAssignments = Object.fromEntries(guide.chapters.flatMap((chapter, index) => chapter.materialIds.map((id) => [currentMaterials.get(id).materialId, chapters[index].id])));
-      const orderedMaterialIds = guide.materialIds.map((id) => currentMaterials.get(id).materialId);
+      const orderedMaterialIds = [...guide.materialIds, ...guide.supplementaryMaterialIds].map((id) => currentMaterials.get(id).materialId);
       await request("/authoring/import/guides/composition", { sourceId: sourceId(guide.sourceId), seriesId: current.id, expectedOrderVersion: order.orderVersion, orderedMaterialIds, chapters, chapterAssignments });
       if (current.name !== guide.title || current.summary !== guideTeaser(guide)) {
         await request("/authoring/import/guides/update", { sourceId: sourceId(guide.sourceId), collectionId: current.id, expectedVersion: current.version, name: guide.title, summary: guideTeaser(guide) });
       }
       await syncArtifacts(guide, current);
-      report.guides.push({ title: guide.title, url: `${reader}/guides/${current.slug}`, programmeUrl: `${reader}/guides/${current.slug}/programme`, mainMaterials: orderedMaterialIds.length, supplementaryMaterials: guide.supplementaryMaterialIds.map((id) => ({ sourceId: id, url: `${reader}${links.get(id)}` })) });
+      report.guides.push({ title: guide.title, url: `${reader}/guides/${current.slug}`, programmeUrl: `${reader}/guides/${current.slug}/programme`, mainMaterials: guide.materialIds.length, supplementaryMaterials: guide.supplementaryMaterialIds.map((id) => ({ sourceId: id, url: `${reader}${links.get(id)}` })) });
     }
 
     // Material artifacts become authoring-owned Guide artifacts linked back to every Material that declares them.
