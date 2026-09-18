@@ -308,6 +308,11 @@ function DefaultBlock({
     case "cards":
       return (
         <Section title={fillTerms(block.title)}>
+          {block.eyebrow === "" ? null : (
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">
+              {fillTerms(block.eyebrow)}
+            </p>
+          )}
           {block.lead === "" ? null : <Prose value={fillTerms(block.lead)} />}
           <ul className="mt-4 grid gap-3">
             {block.items.map((item, index) => (

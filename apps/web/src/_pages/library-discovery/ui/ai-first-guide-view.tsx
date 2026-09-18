@@ -150,6 +150,7 @@ function SupportCards({ block, fill }: { readonly block: GuidePageBlockOf<"cards
       const Icon = iconAt(supportIcons, index);
       return <div key={`${String(index)}-${item.title}`}><Icon aria-hidden="true" /><h3>{fill(item.title)}</h3><p>{fill(item.text)}</p></div>;
     })}</div>
+    {block.note === "" ? null : <p className="ai-guide-career">{fill(block.note)}</p>}
   </section>;
 }
 
@@ -163,5 +164,6 @@ function BonusCards({ block, fill }: { readonly block: GuidePageBlockOf<"cards">
     <h2>{fill(block.title)}</h2>
     {block.lead === "" ? null : <p className="ai-guide-section-intro">{fill(block.lead)}</p>}
     <div className="ai-guide-bonus-grid">{block.items.map((item, index) => <div key={`${String(index)}-${item.title}`}>{bonusPreviews[index] ?? null}<h3>{fill(item.title)}</h3><p>{fill(item.text)}</p></div>)}</div>
+    {block.note === "" ? null : <p className="ai-guide-career">{fill(block.note)}</p>}
   </section>;
 }

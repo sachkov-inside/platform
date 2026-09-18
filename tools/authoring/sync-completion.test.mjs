@@ -217,6 +217,27 @@ test("Platform checks the whole description before the first write, and an older
   assert.equal(updates(), once, "a package without a Home card caption stays unchanged");
 });
 
+test("a package that names no description leaves the stored page alone", async (t) => {
+  const setup = await fixture(t);
+  const api = applicationApi();
+  await run(setup, api);
+  assert.deepEqual(api.guide.page, productPage);
+  const updates = () => api.calls.filter((call) => call.path === "/authoring/import/guides/update").length;
+  const before = updates();
+
+  delete setup.manifest.guides[0].page;
+  delete setup.manifest.guides[0].presentation;
+  await setup.write();
+  await run(setup, api);
+  assert.deepEqual({ page: api.guide.page, presentation: api.guide.presentation, updates: updates() }, { page: productPage, presentation: "ai-first-process", updates: before });
+
+  // Снять описание можно только явным null.
+  setup.manifest.guides[0].page = null;
+  await setup.write();
+  await run(setup, api);
+  assert.equal(api.guide.page, null);
+});
+
 test("a replaced cover uses the current cover as its expected version", async (t) => {
   const setup = await fixture(t);
   const api = applicationApi();

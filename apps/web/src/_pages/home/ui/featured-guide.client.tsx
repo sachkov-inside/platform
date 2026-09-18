@@ -44,7 +44,7 @@ function AiFirstFeaturedGuide({ series }: { readonly series: HomePinnedCollectio
     </div>
     <div className="home-guide-visual">
       <div className="home-guide-animation home-guide-ai"><AiFirstProcessArtwork /></div>
-      <div className="home-guide-mobile-footer"><span>{formatMaterialCount(series.count)}</span><ArrowRight aria-hidden="true" /><Link href={collectionDiscoveryHref("series", series.slug, "/")}>{open}</Link></div>
+      <div className="home-guide-mobile-footer"><span>{formatMaterialCount(series.count)}</span><ArrowRight aria-hidden="true" /><Link href={collectionDiscoveryHref("series", series.slug, "/")}>Открыть</Link></div>
     </div>
   </section>;
 }

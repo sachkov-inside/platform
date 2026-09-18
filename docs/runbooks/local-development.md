@@ -814,8 +814,8 @@ What the transfer applies:
   ready and saved with the original's video chapters.
 - The Guide name, first-paragraph teaser, page address (`slug`), page presentation and the typed
   product page description (`guide.yaml`, key `page`; see
-  [ADR 0026](../adr/0026-guide-page-from-source-data.md)). A presentation this Platform does not know
-  stops the transfer before its first write. The editor-owned Guide introduction fields are not
+  [ADR 0026](../adr/0026-guide-page-from-source-data.md)). Platform checks the presentation and the whole
+  page description before the transfer's first write, and its refusal names the product. The editor-owned Guide introduction fields are not
   imported; editing the page text is a commit in Inside Content plus a transfer, with no web rebuild.
 
 Imported Materials and Guides change only through these source-scoped routes; ordinary editor,

@@ -55,8 +55,16 @@ export function guideTeaser(guide) {
  * address leaves the current one alone: an older package must not move a published product.
  */
 export function guideDetails(guide, current) {
-  const page = guide.page ? { card: guide.page.card ?? null, blocks: guide.page.blocks } : null;
-  return { name: guide.title.trim(), summary: guideTeaser(guide).teaser.trim(), slug: guide.slug ?? current?.slug ?? guide.sourceId, presentation: guide.presentation ?? "default", page };
+  // Пакет, который не называет описание или оформление, оставляет их прежними: так старый пакет не
+  // стирает страницу. Снять описание можно явным `page: null` в манифесте.
+  const page = guide.page === undefined ? current?.page ?? null : guide.page === null ? null : { card: guide.page.card ?? null, blocks: guide.page.blocks };
+  return {
+    name: guide.title.trim(),
+    summary: guideTeaser(guide).teaser.trim(),
+    slug: guide.slug ?? current?.slug ?? guide.sourceId,
+    presentation: guide.presentation ?? current?.presentation ?? "default",
+    page,
+  };
 }
 /** Сравнение идёт с тем, что цель уже держит: журнал ничего об описании не помнит. */
 export function guideDetailsMatch(current, details) {
@@ -74,8 +82,8 @@ export function guideDetailsMatch(current, details) {
 export async function validateGuidePages(manifest, send) {
   for (const guide of manifest.guides) {
     const details = guideDetails(guide);
-    // Адрес проверяется только когда пакет его называет: иначе продукт остаётся на своём адресе.
-    const source = { presentation: details.presentation, page: details.page, ...(guide.slug === undefined ? {} : { slug: guide.slug }) };
+    // Проверяется адрес, который перенос может записать: у старого пакета это его собственный ключ.
+    const source = { presentation: details.presentation, page: details.page, slug: guide.slug ?? guide.sourceId };
     const path = "/authoring/import/guides/validate";
     try {
       parseLocalResponse(path, await send(path, { sourceId: sourceKey(manifest, guide.sourceId), source }));
@@ -208,6 +216,7 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
     for (const guide of pkg.manifest.guides) {
       if (!guide.complete) throw new Error("This first local programme adapter requires a complete Guide selection");
       const key = sourceId(guide.sourceId);
+      try {
       const reserved = journal.guides[key];
       let current = await request("/authoring/import/guides/reserve", { sourceId: key, name: guide.title.trim(), slug: guide.slug ?? reserved?.slug ?? guide.sourceId, summary: guideTeaser(guide).teaser.trim() });
       const details = guideDetails(guide, current);
@@ -219,6 +228,9 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
       }
       guides.set(guide.sourceId, current);
       await persist();
+      } catch (error) {
+        throw new Error(`Product ${guide.sourceId}: ${error.message}`, { cause: error });
+      }
     }
 
     // Paid Materials must belong to a product, so validation uses the reserved Guides' real identities.
@@ -329,6 +341,7 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
     }
 
     for (const guide of pkg.manifest.guides) {
+      try {
       const current = guides.get(guide.sourceId);
       const order = await request(`/authoring/guides/${current.id}/order`);
       const chapters = guideChapters(pkg.manifest, guide);
@@ -337,6 +350,9 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
       await request("/authoring/import/guides/composition", { sourceId: sourceId(guide.sourceId), seriesId: current.id, expectedOrderVersion: order.orderVersion, orderedMaterialIds, chapters, chapterAssignments });
       await syncArtifacts(guide, current);
       report.guides.push({ title: guide.title, url: `${reader}/guides/${current.slug}`, programmeUrl: `${reader}/guides/${current.slug}/programme`, mainMaterials: guide.materialIds.length, supplementaryMaterials: guide.supplementaryMaterialIds.map((id) => ({ sourceId: id, url: `${reader}${links.get(id)}` })) });
+      } catch (error) {
+        throw new Error(`Product ${guide.sourceId}: ${error.message}`, { cause: error });
+      }
     }
 
     // Material artifacts become authoring-owned Guide artifacts linked back to every Material that declares them.
