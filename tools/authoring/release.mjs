@@ -46,7 +46,8 @@ export async function previewRelease(packagePath, stateDirectory, { origin, requ
   const topicIds = new Map(topics.map((item) => [item.slug, item.id]));
   // Продукт узнаётся и без журнала: цель называет свой sourceId, поэтому новый state-каталог не
   // выдаёт уже перенесённый продукт за новый.
-  const storedGuides = await request("/authoring/collections?kind=guide");
+  // Пакет одного материала не описывает продукт, поэтому и список продуктов ему не нужен.
+  const storedGuides = manifest.guides.length === 0 ? [] : await request("/authoring/collections?kind=guide");
   const guideIds = new Map(manifest.guides.flatMap((guide) => {
     const entry = journal.guides[sourceKey(manifest, guide.sourceId)];
     const stored = storedGuides.find((item) => item.sourceId === sourceKey(manifest, guide.sourceId));

@@ -97,8 +97,9 @@ _Avoid_: Guide page, route, catalog
 
 **Product Page Description**:
 The author-written description of a Product, kept in its Inside Content original and transferred to
-Platform as typed blocks. Its `presentation` names which set of page and Home-card components draws
-it; access terms stay substitutions the site fills from the current offer.
+Platform as typed blocks: an eyebrow, a title, a lead, items with their own captions, and a closing
+note. Its `presentation` names which set of page and Home-card components draws it; access terms
+stay substitutions the site fills from the current offer.
 _Avoid_: Guide introduction, landing copy in code, presentation chosen by address
 
 **Guide Chapter**:
