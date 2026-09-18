@@ -115,6 +115,9 @@ describe("authoring source Guide completion", () => {
     const repaired = await authoring.updateSourceGuide({ ...request, expectedVersion: current.version, source: { slug: "page-guide-renamed", presentation: "ai-first-process", page } });
     expect(repaired).toMatchObject({ ok: true, value: { pageRejected: false } });
 
+    // Первый перенос продукта на занятый адрес — понятный конфликт, а не внутренняя ошибка.
+    expect(await authoring.reserveSourceGuide({ actor, sourceId: "inside-content:taken-address", name: "Чужой адрес", slug: "page-guide-renamed", summary: "" })).toMatchObject({ ok: false, error: { code: "content_collection_slug_conflict" } });
+
     const other = await reserveGuide("inside-content:other-page-guide", "other-page-guide");
     expect(await authoring.updateSourceGuide({ actor, sourceId: "inside-content:other-page-guide", collectionId: other.id, expectedVersion: other.version, name: other.name, summary: other.summary, source: { slug: "page-guide-renamed", presentation: "default", page: null } })).toMatchObject({ ok: false, error: { code: "content_collection_slug_conflict" } });
   });

@@ -3,7 +3,7 @@ import type { MaterialAuthoringDependencies } from "../../facets/material-author
 import { contentCollectionPersistence } from "../../infrastructure/postgres/content-collection-persistence.js";
 import { authorizeManager } from "../../ports/author-policy.js";
 import { accountId, parseCommand } from "../../shared/command-validation.js";
-import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
+import { isPostgresUniqueViolation, mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
 import { assembleReorderSeries } from "../reorder-series/reorder-series.js";
 import { assembleUpdateContentCollection } from "../update-content-collection/update-content-collection.js";
 import { reserveSourceGuideBodySchema, reorderSourceGuideBodySchema, updateSourceGuideBodySchema, validateSourceGuideBodySchema, type ReserveSourceGuideOperation, type ReorderSourceGuideOperation, type UpdateSourceGuideOperation, type ValidateSourceGuideOperation } from "./import-source-guide.contract.js";
@@ -22,8 +22,12 @@ export function assembleReserveSourceGuide(dependencies: MaterialAuthoringDepend
         try {
           current = await dependencies.prisma.guide.create({ data: { id: randomUUID(), sourceId: command.sourceId, name: command.name, slug: command.slug, summary: command.summary } });
         } catch (error) {
+          // Одновременный перенос того же продукта уже создал запись; занятый адрес — другой случай.
           current = await dependencies.prisma.guide.findUnique({ where: { sourceId: command.sourceId } });
-          if (current === null) throw error;
+          if (current === null) {
+            if (isPostgresUniqueViolation(error, persistence.slugConstraint)) return { ok: false, error: { code: "content_collection_slug_conflict" } };
+            throw error;
+          }
         }
       }
       const result = await persistence.load(current.id);

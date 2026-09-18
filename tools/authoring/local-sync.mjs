@@ -56,7 +56,7 @@ export function guideTeaser(guide) {
  */
 export function guideDetails(guide, current) {
   const page = guide.page ? { card: guide.page.card ?? null, blocks: guide.page.blocks } : null;
-  return { name: guide.title, summary: guideTeaser(guide).teaser, slug: guide.slug ?? current?.slug ?? guide.sourceId, presentation: guide.presentation ?? "default", page };
+  return { name: guide.title.trim(), summary: guideTeaser(guide).teaser.trim(), slug: guide.slug ?? current?.slug ?? guide.sourceId, presentation: guide.presentation ?? "default", page };
 }
 /** Сравнение идёт с тем, что цель уже держит: журнал ничего об описании не помнит. */
 export function guideDetailsMatch(current, details) {
@@ -67,15 +67,6 @@ export function guideDetailsMatch(current, details) {
     && canonical(current.page ?? null) === canonical(details.page);
 }
 
-/** An unknown presentation stops the transfer before its first write. */
-export function assertKnownPresentations(manifest, environment) {
-  const known = environment.presentations ?? ["default"];
-  for (const guide of manifest.guides) {
-    const { presentation } = guideDetails(guide);
-    if (!known.includes(presentation)) throw new Error(`Product ${guide.sourceId}: unknown page presentation '${presentation}'; this Platform knows: ${known.join(", ")}`);
-  }
-}
-
 /**
  * The whole page description is checked before the first write: Platform owns the schema, so the
  * transfer asks it instead of keeping a fourth copy of the rules.
@@ -83,13 +74,14 @@ export function assertKnownPresentations(manifest, environment) {
 export async function validateGuidePages(manifest, send) {
   for (const guide of manifest.guides) {
     const details = guideDetails(guide);
-    await parseLocalResponse(
-      "/authoring/import/guides/validate",
-      await send("/authoring/import/guides/validate", {
-        sourceId: sourceKey(manifest, guide.sourceId),
-        source: { slug: details.slug, presentation: details.presentation, page: details.page },
-      }),
-    );
+    // Адрес проверяется только когда пакет его называет: иначе продукт остаётся на своём адресе.
+    const source = { presentation: details.presentation, page: details.page, ...(guide.slug === undefined ? {} : { slug: guide.slug }) };
+    const path = "/authoring/import/guides/validate";
+    try {
+      parseLocalResponse(path, await send(path, { sourceId: sourceKey(manifest, guide.sourceId), source }));
+    } catch (error) {
+      throw new Error(`Product ${guide.sourceId}: Platform rejected its page description or presentation '${details.presentation}'. ${error.message}`, { cause: error });
+    }
   }
 }
 
@@ -146,7 +138,6 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
   const pkg = await loadPackage(packagePath);
   const environment = await request("/authoring/import/materials/environment");
   if (environment.mode !== "development") throw new Error("Local synchronization requires a development runtime");
-  assertKnownPresentations(pkg.manifest, environment);
   await validateGuidePages(pkg.manifest, send);
   return withJournal(stateDirectory, target, async (context) => {
     const { journal, persist } = context;
@@ -218,7 +209,7 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
       if (!guide.complete) throw new Error("This first local programme adapter requires a complete Guide selection");
       const key = sourceId(guide.sourceId);
       const reserved = journal.guides[key];
-      let current = await request("/authoring/import/guides/reserve", { sourceId: key, name: guide.title, slug: guide.slug ?? reserved?.slug ?? guide.sourceId, summary: guideTeaser(guide).teaser });
+      let current = await request("/authoring/import/guides/reserve", { sourceId: key, name: guide.title.trim(), slug: guide.slug ?? reserved?.slug ?? guide.sourceId, summary: guideTeaser(guide).teaser.trim() });
       const details = guideDetails(guide, current);
       journal.guides[key] = { ...journal.guides[key], guideId: current.id, slug: current.slug };
       // The page is checked here, before any Material is written; an unchanged product writes nothing.

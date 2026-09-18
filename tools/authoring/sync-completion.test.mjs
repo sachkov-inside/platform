@@ -54,10 +54,15 @@ function applicationApi() {
     count: (pattern) => calls.filter((call) => pattern.test(call.path)).length,
     async request(path, body, key, options = {}) {
       calls.push({ path, key, method: options.method ?? (body === undefined ? "GET" : "POST"), body: body instanceof FormData ? Object.fromEntries([...body.entries()].filter(([name]) => name !== "file")) : structuredClone(body) });
-      if (path === "/authoring/import/materials/environment") return { mode: "development", presentations: ["default", "ai-first-process"] };
+      if (path === "/authoring/import/materials/environment") return { mode: "development" };
       if (path === "/authoring/collections?kind=topic") return [];
       if (path === "/authoring/import/materials/validate") return { valid: true };
-      if (path === "/authoring/import/guides/validate") { assert.ok(body.source, "validation carries the page"); if (api.rejectValidation) throw Object.assign(new Error(api.rejectValidation), { status: 422 }); return { valid: true }; }
+      if (path === "/authoring/import/guides/validate") {
+        assert.ok(body.source, "validation carries the page");
+        if (api.rejectValidation) throw Object.assign(new Error(api.rejectValidation), { status: 422 });
+        if (!["default", "ai-first-process"].includes(body.source.presentation)) throw Object.assign(new Error(`invalid_content /source/presentation`), { status: 422 });
+        return { valid: true };
+      }
       if (path === "/authoring/import/guides/reserve") return structuredClone(guide);
       if (path === "/authoring/collections?kind=guide") return [structuredClone(guide)];
       if (path === "/authoring/home-pin" && body === undefined) return structuredClone(api.pin);
@@ -152,9 +157,12 @@ test("the product page travels with the Guide: unknown looks stop early, edits w
   setup.manifest.guides[0].presentation = "neon";
   await setup.write();
   const api = applicationApi();
-  await assert.rejects(run(setup, api), /unknown page presentation 'neon'/u);
-  await assert.rejects(previewRelease(setup.packagePath, setup.state, { origin: "http://127.0.0.1:4396", request: api.request }), /unknown page presentation 'neon'/u);
-  assert.deepEqual(api.calls.map((call) => call.path), ["/authoring/import/materials/environment", "/authoring/import/materials/environment"]);
+  await assert.rejects(run(setup, api), /presentation 'neon'/u);
+  await assert.rejects(previewRelease(setup.packagePath, setup.state, { origin: "http://127.0.0.1:4396", request: api.request }), /presentation 'neon'/u);
+  assert.deepEqual(
+    api.calls.map((call) => call.path),
+    ["/authoring/import/materials/environment", "/authoring/import/guides/validate", "/authoring/import/materials/environment", "/authoring/import/guides/validate"],
+  );
 
   setup.manifest.guides[0].presentation = "ai-first-process";
   await setup.write();

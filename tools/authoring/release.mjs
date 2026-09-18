@@ -6,7 +6,7 @@ import { z } from "zod";
 import { loadPackage, canonical, checksum } from "./package.mjs";
 import { writeAtomic } from "./journal.mjs";
 import { parseJournal, parseLocalResponse } from "./local-boundaries.mjs";
-import { archiveProposalKeys, artifactDeclarations, artifactFingerprint, assertKnownPresentations, desiredMaterial, guideChapters, guideDetails, guideDetailsMatch, normalizeSourceIds, sourceKey, syncLocal, validateGuidePages } from "./local-sync.mjs";
+import { archiveProposalKeys, artifactDeclarations, artifactFingerprint, desiredMaterial, guideChapters, guideDetails, guideDetailsMatch, normalizeSourceIds, sourceKey, syncLocal, validateGuidePages } from "./local-sync.mjs";
 import { loopbackOrigin, localTargets, localTransport, resolveLocalTarget } from "./target.mjs";
 
 // A release applies one reviewed package to one environment. Only local environments are enabled:
@@ -39,7 +39,6 @@ export async function previewRelease(packagePath, stateDirectory, { origin, requ
   const pkg = await loadPackage(packagePath);
   const { manifest } = pkg;
   const environment = await request("/authoring/import/materials/environment");
-  assertKnownPresentations(manifest, environment);
   await validateGuidePages(manifest, send);
   const journal = await readJournal(stateDirectory, target);
   const resources = journal.resources ?? {};

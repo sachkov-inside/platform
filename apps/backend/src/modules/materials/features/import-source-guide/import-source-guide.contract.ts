@@ -19,9 +19,11 @@ export const reserveSourceGuideBodySchema = contentCollectionInputSchema.omit({ 
 export const updateSourceGuideBodySchema = z.object(updateContentCollectionCommandSchema.shape).omit({ actor: true, kind: true, introduction: true, source: true }).extend({ sourceId, source: updateContentCollectionCommandSchema.shape.source.unwrap() });
 export const reorderSourceGuideBodySchema = z.object(reorderSeriesCommandSchema.shape).omit({ actor: true }).extend({ sourceId });
 // Описание проверяется до первой записи переноса: пакет с непроходимым описанием отклоняется целиком.
-export const validateSourceGuideBodySchema = z.object({ sourceId, source: updateContentCollectionCommandSchema.shape.source.unwrap() }).strict();
+// `sourceId` называет продукт, чьё описание проверяется: маршрут остаётся source-scoped, как соседи.
+export const validateSourceGuideBodySchema = z.object({ sourceId, source: updateContentCollectionCommandSchema.shape.source.unwrap().partial({ slug: true }) }).strict();
 export type ValidateSourceGuideOperation = (command: z.input<typeof validateSourceGuideBodySchema> & { readonly actor: string }) => Promise<Result<{ readonly valid: true }, ForbiddenError | InvalidContentError | SystemError>>;
 
 export type ReserveSourceGuideOperation = (command: z.infer<typeof reserveSourceGuideBodySchema> & { readonly actor: string }) => Promise<CreateContentCollectionResult>;
+
 export type UpdateSourceGuideOperation = (command: z.infer<typeof updateSourceGuideBodySchema> & { readonly actor: string }) => Promise<UpdateContentCollectionResult>;
 export type ReorderSourceGuideOperation = (command: z.input<typeof reorderSourceGuideBodySchema> & { readonly actor: string }) => Promise<ReorderSeriesResult>;

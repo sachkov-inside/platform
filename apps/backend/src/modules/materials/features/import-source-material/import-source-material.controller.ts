@@ -10,7 +10,6 @@ import { idempotencyKeySchema, materialMutationReceiptSchema, parseMaterialAutho
 import { MATERIAL_AUTHORING } from "../../facets/material-authoring/material-authoring.token.js";
 import type { MaterialAuthoring } from "../../facets/material-authoring/material-authoring.js";
 import { reserveSourceBodySchema, applySourceBodySchema } from "./import-source-material.contract.js";
-import { guidePresentationSchema, guidePresentations } from "../../domain/guide-page.js";
 
 @MaterialAuthoringEndpoint()
 @Controller("authoring/import/materials")
@@ -19,10 +18,9 @@ export class ImportSourceMaterialController {
 
   @Get("environment")
   @ApiOperation({ operationId: "readAuthoringImportEnvironment", summary: "Identify the receiving runtime before local synchronization" })
-  // Перенос сверяет оформления пакета с реестром до первой записи (ADR 0026).
-  @ApiOkResponse({ schema: toOpenApiSchema(z.object({ mode: z.enum(["development", "test", "production"]), presentations: z.array(guidePresentationSchema) }).strict()) })
+  @ApiOkResponse({ schema: toOpenApiSchema(z.object({ mode: z.enum(["development", "test", "production"]) }).strict()) })
   @ApiMaterialAuthoringErrors(401, 403, 500, 503)
-  environment() { return { mode: this.config.mode, presentations: guidePresentations }; }
+  environment() { return { mode: this.config.mode }; }
 
   @Post("validate")
   @ApiOperation({ operationId: "validateSourceContent", summary: "Validate source content without applying any mutation" })

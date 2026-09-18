@@ -43,7 +43,7 @@ const applyBodySchema = z.object({
 export function parseLocalResponse(path, value) {
   let schema;
   switch (path) {
-    case "/authoring/import/materials/environment": schema = z.object({ mode: z.enum(["development", "test", "production"]), presentations: z.array(text).optional() }).passthrough(); break;
+    case "/authoring/import/materials/environment": schema = z.object({ mode: z.enum(["development", "test", "production"]) }).passthrough(); break;
     case "/authoring/collections?kind=topic": schema = z.array(topicSchema); break;
     case "/authoring/collections?kind=guide": schema = z.array(guideSchema); break;
     case "/authoring/collections": schema = topicSchema; break;

@@ -1483,7 +1483,7 @@ export class MaterialAuthoringService {
           } | null;
         } | null;
         presentation: 'default' | 'ai-first-process';
-        slug: string;
+        slug?: string;
       };
       sourceId: string;
     },
@@ -1561,7 +1561,6 @@ export class MaterialAuthoringService {
    */
   public readAuthoringImportEnvironment(): CancelablePromise<{
     mode: 'development' | 'test' | 'production';
-    presentations: Array<'default' | 'ai-first-process'>;
   }> {
     return this.httpRequest.request({
       method: 'GET',

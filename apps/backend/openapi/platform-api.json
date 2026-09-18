@@ -45197,8 +45197,7 @@
                     },
                     "required": [
                       "page",
-                      "presentation",
-                      "slug"
+                      "presentation"
                     ],
                     "type": "object"
                   },
@@ -47204,21 +47203,10 @@
                         "production"
                       ],
                       "type": "string"
-                    },
-                    "presentations": {
-                      "items": {
-                        "enum": [
-                          "default",
-                          "ai-first-process"
-                        ],
-                        "type": "string"
-                      },
-                      "type": "array"
                     }
                   },
                   "required": [
-                    "mode",
-                    "presentations"
+                    "mode"
                   ],
                   "type": "object"
                 }
