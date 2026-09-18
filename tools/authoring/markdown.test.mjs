@@ -18,6 +18,13 @@ test("real authoring constructs preserve variant placement, bold code, tables an
   assert.equal(doc.content[5].content[0].type, "codeBlock");
 });
 
+test("a practice task keeps the reader's own block and drops the repeated name", () => {
+  const doc = convert("> [!todo] Задание\n> Сохрани описание и сделай первый коммит.\n\n> [!todo] Проверка себя\n> Сверь результат с программой.");
+  assert.deepEqual(doc.content.map((node) => node.attrs.kind), ["task", "task"]);
+  assert.equal(doc.content[0].attrs.title, null);
+  assert.equal(doc.content[1].attrs.title, "Проверка себя");
+});
+
 test("unsupported constructs report original path and prevent replacement", () => {
   assert.throws(() => convert("Text\n\n<script>alert(1)</script>"), /chapter\/lesson.md:3: unsupported Markdown block/);
   assert.throws(() => convert("> [!unknown]\n> Text"), /unsupported callout/);

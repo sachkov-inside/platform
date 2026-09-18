@@ -923,6 +923,7 @@ export const LessonBlocks: Story = {
       "Хорошо",
       "Плохо",
       "Определение",
+      "Задание",
     ]) {
       await expect(canvas.getAllByLabelText(new RegExp(`^${label}`, "u")).length).toBeGreaterThan(0);
     }
