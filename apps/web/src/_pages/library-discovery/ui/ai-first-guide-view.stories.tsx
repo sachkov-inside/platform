@@ -75,8 +75,31 @@ export const EveryBlockFieldIsShown: Story = {
   },
 };
 
+const freeLesson = {
+  access: "free" as const,
+  availability: "available" as const,
+  format: "Гайд",
+  seriesMemberships: [{ name: "AI-first разработка", ordinal: 1, slug: "working-with-agents" }],
+  slug: "first-lesson",
+  summary: "Первый открытый урок практикума.",
+  tags: [],
+  title: "С чего начать",
+  topic: "Разработка",
+  topicSlug: "development",
+};
+
+/** Приглашение к бесплатным урокам показывается там, где такие уроки есть. */
 export const FreeEntryOpensWholeProgramme: Story = {
-  args: { freeEntryHref: materialReaderHref("first-lesson") },
+  args: {
+    freeEntryHref: materialReaderHref("first-lesson"),
+    result: {
+      kind: "ready", discoveryKind: "series", chapters: [], relatedSeries: [], topics: [], items: [freeLesson], hasNext: false,
+      reference: {
+        name: "AI-first разработка", slug: "working-with-agents", summary: aiFirstProductSummary,
+        productPage: { presentation: "ai-first-process", page: aiFirstProductPage },
+      },
+    },
+  },
   play: async ({ canvasElement }) => {
     await expect(within(canvasElement).getByRole("link", { name: "Посмотреть бесплатные уроки" })).toHaveAttribute("href", "/guides/working-with-agents/programme");
   },

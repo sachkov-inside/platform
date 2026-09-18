@@ -91,6 +91,7 @@ function DefaultGuideProductView({
   const { reference } = result;
   const introduction = page === null ? reference.introduction ?? null : null;
   const items = result.kind === "ready" ? result.items : [];
+  const freeCount = items.filter((item) => item.access === "free" && item.availability === "available").length;
   const chapters = result.chapters;
   const guideArtifacts = artifacts.kind === "ready" ? artifacts.artifacts : [];
   const meta = [
@@ -167,7 +168,7 @@ function DefaultGuideProductView({
         {page?.blocks.map((block) => (
           <DefaultBlock
             block={block}
-            freeEntryHref={freeEntryHref}
+            freeCount={freeCount}
             key={block.id}
             programme={guideProgrammeHref(reference.slug)}
           />
@@ -282,11 +283,12 @@ function DefaultGuideProductView({
 
 function DefaultBlock({
   block,
-  freeEntryHref,
+  freeCount,
   programme,
 }: {
   readonly block: GuidePageBlock;
-  readonly freeEntryHref: Route | undefined;
+  /** Сколько уроков продукта открыты без покупки: приглашение показывается только при них. */
+  readonly freeCount: number;
   readonly programme: Route;
 }): ReactNode {
   switch (block.kind) {
@@ -387,7 +389,7 @@ function DefaultBlock({
         </Section>
       );
     case "trial":
-      return freeEntryHref === undefined ? null : (
+      return freeCount === 0 ? null : (
         <Section title={fillTerms(block.title)}>
           <Prose value={fillTerms(block.text)} />
           {block.link === "" ? null : <TextLink href={programme} label={fillTerms(block.link)} />}

@@ -38,6 +38,7 @@ interface BlockContext {
   readonly fill: (text: string) => string;
   readonly programme: Route;
   readonly freeEntryHref: Route | undefined;
+  /** Сколько уроков продукта открыты без покупки: приглашение показывается только при них. */
   readonly freeCount: number;
   readonly name: string;
 }
@@ -53,7 +54,7 @@ function AiFirstBlock({ block, context }: { readonly block: GuidePageBlock; read
     case "text": return <TextSection block={block} fill={context.fill} />;
     case "steps": return <StepsSection block={block} context={context} />;
     case "list": return <ListSection block={block} fill={context.fill} />;
-    case "trial": return context.freeEntryHref === undefined ? null : <section className="ai-guide-trial"><h2>{context.fill(block.title)}</h2><p>{context.fill(block.text)}</p>{block.link === "" ? null : <Link className="ai-guide-text-link" href={context.programme}>{context.fill(block.link)}<ArrowRight /></Link>}</section>;
+    case "trial": return context.freeCount === 0 ? null : <section className="ai-guide-trial"><h2>{context.fill(block.title)}</h2><p>{context.fill(block.text)}</p>{block.link === "" ? null : <Link className="ai-guide-text-link" href={context.programme}>{context.fill(block.link)}<ArrowRight /></Link>}</section>;
   }
 }
 
