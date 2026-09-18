@@ -1,4 +1,4 @@
-import type { ReserveSourceGuideOperation, UpdateSourceGuideOperation, ReorderSourceGuideOperation } from "../../features/import-source-guide/import-source-guide.contract.js";
+import type { ReserveSourceGuideOperation, UpdateSourceGuideOperation, ReorderSourceGuideOperation, ValidateSourceGuideOperation } from "../../features/import-source-guide/import-source-guide.contract.js";
 import type { ValidateSourceOperation } from "../../features/import-source-material/import-source-material.contract.js";
 import type { ReserveSourceOperation, ApplySourceOperation } from "../../features/import-source-material/import-source-material.contract.js";
 import type { LoadHomePinOperation } from "../../features/load-home-pin/load-home-pin.contract.js";
@@ -21,6 +21,7 @@ import type { UpdateContentCollectionOperation } from "../../features/update-con
 
 export interface MaterialAuthoring {
   readonly reserveSourceGuide: ReserveSourceGuideOperation;
+  readonly validateSourceGuide: ValidateSourceGuideOperation;
   readonly updateSourceGuide: UpdateSourceGuideOperation;
   readonly reorderSourceGuide: ReorderSourceGuideOperation;
   readonly validateSourceContent: ValidateSourceOperation;

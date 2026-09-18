@@ -70,7 +70,8 @@
     "authoring:stand-gateway": "NODE_EXTRA_CA_CERTS=.identity-proof/tls/certificate.pem node scripts/authoring-stand-gateway.mjs",
     "authoring:video": "node tools/authoring/video.mjs",
     "authoring:release": "node tools/authoring/release.mjs",
-    "authoring:sync-git-local": "node tools/authoring/git-local.mjs"
+    "authoring:sync-git-local": "node tools/authoring/git-local.mjs",
+    "authoring:products": "node scripts/authoring-products.mjs"
   },
   "dependencies": {
     "zod": "4.4.3"

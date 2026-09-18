@@ -1,4 +1,5 @@
-import { assembleReserveSourceGuide, assembleUpdateSourceGuide, assembleReorderSourceGuide } from "../../features/import-source-guide/import-source-guide.js";
+import { assembleReserveSourceGuide,
+  assembleValidateSourceGuide, assembleUpdateSourceGuide, assembleReorderSourceGuide } from "../../features/import-source-guide/import-source-guide.js";
 import { assembleValidateSourceContent } from "../../features/import-source-material/import-source-material.js";
 import { assembleReserveSourceMaterial, assembleApplySourceMaterial } from "../../features/import-source-material/import-source-material.js";
 import { assembleLoadHomePin } from "../../features/load-home-pin/load-home-pin.js";
@@ -28,6 +29,7 @@ export function assembleMaterialAuthoring(
   const saveMaterial = assembleSaveMaterial(dependencies);
   return {
     reserveSourceGuide: assembleReserveSourceGuide(dependencies),
+    validateSourceGuide: assembleValidateSourceGuide(dependencies),
     updateSourceGuide: assembleUpdateSourceGuide(dependencies),
     reorderSourceGuide: assembleReorderSourceGuide(dependencies),
     validateSourceContent: assembleValidateSourceContent(dependencies),

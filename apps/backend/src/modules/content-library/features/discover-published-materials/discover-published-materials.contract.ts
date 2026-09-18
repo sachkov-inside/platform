@@ -3,6 +3,7 @@ import type { PublishedMaterialCatalogItemDto } from "../list-published-material
 import type {
   ContentCoverProjection,
   GuideIntroductionDto,
+  GuideProductPageDto,
 } from "../../../materials/index.js";
 
 export interface DiscoverPublishedMaterialsQuery {
@@ -34,6 +35,8 @@ export interface PublishedMaterialDiscoveryDto {
     /** Author-written Guide introduction; null for every other discovery kind. */
     readonly introduction: GuideIntroductionDto | null;
     readonly name: string;
+    /** Product page presentation and description; null for every other discovery kind. */
+    readonly productPage: GuideProductPageDto | null;
     readonly slug: string;
     readonly summary: string;
     readonly cover: ContentCoverProjection | null;

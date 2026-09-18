@@ -3,6 +3,7 @@ import {
   oneTimePurchaseTerms,
 } from "@inside/legal/purchase-terms";
 
+import { fillOfferTerms } from "@/entities/guide-page";
 import {
   formatKopecks,
   formatMonths,
@@ -30,6 +31,14 @@ export const oneTimeTermLabels = {
   materialsAndChat: formatYears(oneTimePurchaseTerms.materialsAndChatYears),
   support: formatMonths(oneTimePurchaseTerms.supportMonths),
 } as const;
+
+/**
+ * Подстановка сроков в авторский текст описания продукта: автор пишет `{access_term}` и
+ * `{support_term}`, а подписи даёт действующая оферта, поэтому страница не заводит своих чисел.
+ */
+export function fillOneTimeTerms(text: string): string {
+  return fillOfferTerms(text, { access: oneTimeTermLabels.materialsAndChat, support: oneTimeTermLabels.support });
+}
 
 /**
  * Короткая сводка условий над согласием. Слова утверждены владельцем вместе с офертой (Workspace

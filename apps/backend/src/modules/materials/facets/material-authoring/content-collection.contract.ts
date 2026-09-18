@@ -23,9 +23,25 @@ export interface ContentCollectionDto {
   readonly kind: ContentCollectionKind;
   readonly materialCount: number;
   readonly name: string;
+  /** Описание страницы Guide из авторского оригинала; `null` — описания нет или оно нечитаемо. */
+  readonly page: GuidePage | null;
+  /** Сохранённое описание не проходит схему этого выпуска: перенос обязан перезаписать его. */
+  readonly pageRejected: boolean;
+  /** Оформление страницы Guide (ADR 0026); у Topic его нет. */
+  readonly presentation: string | null;
   readonly slug: string;
+  /** Ключ авторского оригинала, если Guide перенесён из Inside Content. */
+  readonly sourceId: string | null;
   readonly summary: string;
   readonly version: number;
   readonly cover: ContentCoverProjection | null;
 }
 import type { ContentCoverProjection } from "../content-covers/content-covers.js";
+import type { GuidePage } from "../../domain/guide-page.js";
+
+/** Оформление и описание страницы Guide из авторского оригинала (ADR 0026). */
+export interface GuideProductPageDto {
+  /** Имя оформления; web показывает общий шаблон для значения, которого не знает. */
+  readonly presentation: string;
+  readonly page: GuidePage | null;
+}

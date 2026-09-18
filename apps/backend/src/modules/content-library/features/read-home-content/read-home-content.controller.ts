@@ -38,6 +38,9 @@ import {
 } from "../../../membership-entitlements/index.js";
 import { throwContentLibraryError } from "../../adapters/nest/content-library-http-errors.js";
 import {
+  guidePageCardSchema,
+} from "../../../materials/index.js";
+import {
   publishedCatalogFacetHttpSchema,
   publishedCatalogItemHttpSchema,
 } from "../../shared/published-catalog-http.js";
@@ -45,7 +48,12 @@ import { readHomeContent } from "./read-home-content.js";
 
 const homeContentHttpSchema = z
   .object({
-    pinnedSeries: publishedCatalogFacetHttpSchema.nullable(),
+    pinnedSeries: publishedCatalogFacetHttpSchema
+      .extend({
+        presentation: z.string(),
+        card: guidePageCardSchema.nullable(),
+      })
+      .nullable(),
     topics: z.array(publishedCatalogFacetHttpSchema),
     playlists: z.array(publishedCatalogFacetHttpSchema),
     videos: z.array(publishedCatalogItemHttpSchema),
@@ -69,7 +77,7 @@ export class ReadHomeContentController {
     @Inject(PUBLISHED_MATERIAL_READER)
     private readonly publishedMaterialReader: Pick<
       PublishedMaterialReader,
-      "listProjections" | "readHomePinnedSeriesId"
+      "listProjections" | "readHomePinnedSeries"
     >,
     @Inject(CONTENT_ACCESS)
     private readonly contentAccess: Pick<ContentAccess, "checkAvailabilityMany">,

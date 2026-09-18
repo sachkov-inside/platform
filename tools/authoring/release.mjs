@@ -6,7 +6,7 @@ import { z } from "zod";
 import { loadPackage, canonical, checksum } from "./package.mjs";
 import { writeAtomic } from "./journal.mjs";
 import { parseJournal, parseLocalResponse } from "./local-boundaries.mjs";
-import { archiveProposalKeys, artifactDeclarations, artifactFingerprint, desiredMaterial, guideChapters, guideTeaser, normalizeSourceIds, sourceKey, syncLocal } from "./local-sync.mjs";
+import { archiveProposalKeys, artifactDeclarations, artifactFingerprint, desiredMaterial, guideChapters, guideDetails, guideDetailsMatch, normalizeSourceIds, sourceKey, syncLocal, validateGuidePages } from "./local-sync.mjs";
 import { loopbackOrigin, localTargets, localTransport, resolveLocalTarget } from "./target.mjs";
 
 // A release applies one reviewed package to one environment. Only local environments are enabled:
@@ -39,13 +39,20 @@ export async function previewRelease(packagePath, stateDirectory, { origin, requ
   const pkg = await loadPackage(packagePath);
   const { manifest } = pkg;
   const environment = await request("/authoring/import/materials/environment");
+  await validateGuidePages(manifest, send);
   const journal = await readJournal(stateDirectory, target);
   const resources = journal.resources ?? {};
   const topics = await request("/authoring/collections?kind=topic");
   const topicIds = new Map(topics.map((item) => [item.slug, item.id]));
+  // Продукт узнаётся и без журнала: цель называет свой sourceId, поэтому новый state-каталог не
+  // выдаёт уже перенесённый продукт за новый.
+  // Пакет одного материала не описывает продукт, поэтому и список продуктов ему не нужен.
+  const storedGuides = manifest.guides.length === 0 ? [] : await request("/authoring/collections?kind=guide");
   const guideIds = new Map(manifest.guides.flatMap((guide) => {
     const entry = journal.guides[sourceKey(manifest, guide.sourceId)];
-    return entry ? [[guide.sourceId, entry.guideId]] : [];
+    const stored = storedGuides.find((item) => item.sourceId === sourceKey(manifest, guide.sourceId) && item.archived !== true);
+    const id = entry?.guideId ?? stored?.id;
+    return id === undefined ? [] : [[guide.sourceId, id]];
   }));
   const assets = new Map(manifest.assets.map((asset) => [asset.sourceId, asset]));
   const materials = [];
@@ -81,7 +88,7 @@ export async function previewRelease(packagePath, stateDirectory, { origin, requ
     });
   }
   const guides = [];
-  const currentGuides = guideIds.size === 0 ? [] : await request("/authoring/collections?kind=guide");
+  const currentGuides = storedGuides;
   for (const guide of manifest.guides) {
     const programme = [...guide.materialIds, ...guide.supplementaryMaterialIds];
     const guideId = guideIds.get(guide.sourceId);
@@ -91,7 +98,9 @@ export async function previewRelease(packagePath, stateDirectory, { origin, requ
         return receipt?.fingerprint !== artifactFingerprint(assets.get(artifact.assetId), artifact, access);
       })
       .map(([artifactSourceId]) => artifactSourceId);
-    if (guideId === undefined) { guides.push({ sourceId: guide.sourceId, title: guide.title, change: "new", materials: programme.length, artifactChanges }); continue; }
+    const stored = guideId === undefined ? undefined : currentGuides.find((item) => item.id === guideId);
+    const details = guideDetails(guide, stored);
+    if (guideId === undefined) { guides.push({ sourceId: guide.sourceId, title: guide.title, change: "new", materials: programme.length, artifactChanges, slug: details.slug, presentation: details.presentation, page: details.page === null ? "none" : "new" }); continue; }
     const order = await request(`/authoring/guides/${guideId}/order`);
     expected[`${sourceKey(manifest, guide.sourceId)}:order`] = order.orderVersion;
     const ids = new Map(programme.map((id) => [id, journal.materials[sourceKey(manifest, id)]?.materialId]));
@@ -99,15 +108,20 @@ export async function previewRelease(packagePath, stateDirectory, { origin, requ
     const currentOrder = order.items.map((item) => item.materialId);
     const chapterOf = new Map(guide.chapters.flatMap((chapter) => chapter.materialIds.map((id) => [ids.get(id), chapter.title])));
     const currentChapters = new Map(order.chapters.map((chapter) => [chapter.id, chapter.name]));
-    const stored = currentGuides.find((item) => item.id === guideId);
     const currentChapterText = new Map(order.chapters.map((chapter) => [chapter.id, canonical({ name: chapter.name, summary: chapter.summary })]));
     const chapterTextChanges = guideChapters(manifest, guide).filter((chapter) => currentChapterText.has(chapter.id) && currentChapterText.get(chapter.id) !== canonical({ name: chapter.name, summary: chapter.summary })).length;
-    const detailsChange = stored === undefined || stored.name !== guide.title || stored.summary !== guideTeaser(guide).teaser;
+    // Цель отдаёт своё описание страницы, поэтому сравнение не зависит от журнала.
+    const pageChange = stored !== undefined && (stored.pageRejected === true || canonical(stored.page ?? null) !== canonical(details.page));
+    const slugChange = stored !== undefined && stored.slug !== details.slug ? { from: stored.slug, to: details.slug } : undefined;
+    const presentationChange = stored !== undefined && (stored.presentation ?? "default") !== details.presentation ? { from: stored.presentation ?? "default", to: details.presentation } : undefined;
+    const detailsChange = stored === undefined || !guideDetailsMatch(stored, details);
     const moved = order.items.filter((item) => (chapterOf.get(item.materialId) ?? null) !== (item.chapterId === null ? null : currentChapters.get(item.chapterId) ?? null)).length;
     guides.push({
       sourceId: guide.sourceId, title: guide.title, materials: programme.length, artifactChanges,
       change: canonical(desiredOrder) === canonical(currentOrder) && moved === 0 && chapterTextChanges === 0 ? (detailsChange ? "details" : "unchanged") : "composition",
-      detailsChange, chapterTextChanges,
+      detailsChange, chapterTextChanges, pageChange,
+      ...(slugChange ? { slugChange } : {}),
+      ...(presentationChange ? { presentationChange } : {}),
       added: desiredOrder.filter((id) => !currentOrder.includes(id)).length,
       removed: currentOrder.filter((id) => !desiredOrder.includes(id)).length,
       reorderedOrRegrouped: canonical(desiredOrder.filter((id) => currentOrder.includes(id))) !== canonical(currentOrder.filter((id) => desiredOrder.includes(id))) || moved > 0,
