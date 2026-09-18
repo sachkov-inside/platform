@@ -6,6 +6,7 @@ import {
   FlaskConical,
   Info,
   Lightbulb,
+  ListChecks,
   TriangleAlert,
   type LucideIcon,
 } from "lucide-react";
@@ -17,6 +18,7 @@ const icons: Readonly<Record<CalloutTone, LucideIcon>> = {
   example: FlaskConical,
   good: CircleCheck,
   note: Info,
+  task: ListChecks,
   tip: Lightbulb,
   warning: TriangleAlert,
 };
