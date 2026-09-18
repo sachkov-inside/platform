@@ -93,7 +93,8 @@ function route(method, url, entitled) {
       guides: lessonsOf(guides[0]).map((lesson) => projection(lesson, entitled)),
       membership: { kind: entitled ? "active" : "unknown" },
       notes: [],
-      pinnedSeries: collection(entitled),
+      // Закреплённый продукт приходит с оформлением и подписями карточки (#671).
+      pinnedSeries: { ...collection(entitled), presentation: "default", card: { action: "Открыть продукт", eyebrow: "Продукт", subtitle: "Синтетический продукт проверок." } },
       playlists: [collection(entitled)],
       topics: [{ count: lessonsOf(guides[0]).length, cover: null, id: topic.id, name: topic.name, previewItems: [], slug: topic.slug, summary: "" }],
       videos: [],
