@@ -36,9 +36,9 @@ Material. In Russian product language: «блок урока».
 _Avoid_: Custom layout, embedded HTML, per-lesson styling
 
 **Callout Kind**:
-The named kind of a callout: note, tip, warning, example, good, bad or definition. The kind is what
-a reader sees as a word, an icon and a color; the optional callout name is the author's own title
-beside it. In Russian product language: «вид врезки».
+The named kind of a callout: note, tip, warning, example, good, bad, definition or task. The kind
+is what a reader sees as a word, an icon and a color; the optional callout name is the author's
+own title beside it. In Russian product language: «вид врезки».
 _Avoid_: Callout color, callout style, callout severity
 
 **Public Material Projection**:

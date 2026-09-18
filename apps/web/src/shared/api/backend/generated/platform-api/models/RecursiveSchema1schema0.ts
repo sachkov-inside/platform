@@ -53,7 +53,7 @@ export type RecursiveSchema1schema0 = ({
   content: Array<RecursiveSchema1schema0>;
   kind: 'callout';
   title?: string;
-  tone: 'note' | 'tip' | 'warning' | 'example' | 'good' | 'bad' | 'definition';
+  tone: 'note' | 'tip' | 'warning' | 'example' | 'good' | 'bad' | 'definition' | 'task';
 } | {
   description?: string;
   kind: 'resource_card';

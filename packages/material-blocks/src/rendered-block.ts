@@ -60,6 +60,7 @@ export type RenderedBlock =
         | "example"
         | "good"
         | "note"
+        | "task"
         | "tip"
         | "warning";
     }

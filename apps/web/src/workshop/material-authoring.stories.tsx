@@ -313,6 +313,7 @@ export const LessonBlocksEditing: Story = {
       "Хорошо",
       "Плохо",
       "Определение",
+      "Задание",
     ]) {
       await expect(within(menu).getByRole("button", { name })).toBeVisible();
     }
