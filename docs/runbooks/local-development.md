@@ -845,8 +845,8 @@ are refused; production publication needs an owner-approved credential path firs
 pnpm authoring:products [--target stand|editor] [--owner-email EMAIL] [--json]
 ```
 
-Lists every product of that environment: permanent source key, current address, presentation, Home
-pin and lesson count. For the stand it reuses a running authoring gateway or starts one for the
+Lists every product of that environment: permanent source key, current address, presentation, the
+state of its page description (`stored`, `none`, `rejected`), Home pin and lesson count. For the stand it reuses a running authoring gateway or starts one for the
 listing and stops it afterwards.
 
 `pnpm test:authoring` verifies package checks, conversion, recovery, covers, artifacts, video,

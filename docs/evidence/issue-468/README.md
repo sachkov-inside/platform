@@ -173,7 +173,7 @@ Screenshots: [desktop](programme-continuous-desktop.png), [mobile](programme-con
 ## Completion slice (2026-09-17)
 
 Owner decisions: finish #468 before one combined platform acceptance; Kinescope stays in test
-mode; the AI-first product page copy stays in Platform, so `guide.yaml` introduction fields are not
+mode; the AI-first product page copy stayed in Platform until #671 moved it into the original, so `guide.yaml` introduction fields are not
 imported.
 
 The full stand (`pnpm local:stand`) became an import target through the loopback

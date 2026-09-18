@@ -10,10 +10,10 @@ export const guidePresentations = ["default", "ai-first-process"] as const;
 export const guidePresentationSchema = z.enum(guidePresentations);
 export type GuidePresentation = z.infer<typeof guidePresentationSchema>;
 
-export const GUIDE_PAGE_SHORT_MAX = 200;
-export const GUIDE_PAGE_LONG_MAX = 4000;
-export const GUIDE_PAGE_BLOCKS_MAX = 16;
-export const GUIDE_PAGE_ITEMS_MAX = 12;
+const GUIDE_PAGE_SHORT_MAX = 200;
+const GUIDE_PAGE_LONG_MAX = 4000;
+const GUIDE_PAGE_BLOCKS_MAX = 16;
+const GUIDE_PAGE_ITEMS_MAX = 12;
 
 /** Сроки оферты подставляет web; другие подстановки автор писать не может. */
 export const guidePageTerms = ["access_term", "support_term"] as const;
@@ -59,7 +59,7 @@ export const guidePageBlockSchema = z.discriminatedUnion("kind", [
 export const guidePageCardSchema = z.object({ eyebrow: short, subtitle: short, action: short }).strict();
 
 /** Описание целиком остаётся обозримым: это страница продукта, а не хранилище текстов. */
-export const GUIDE_PAGE_BYTES_MAX = 32 * 1024;
+const GUIDE_PAGE_BYTES_MAX = 32 * 1024;
 
 export const guidePageSchema = z
   .object({

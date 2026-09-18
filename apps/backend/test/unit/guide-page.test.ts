@@ -29,6 +29,8 @@ describe("Guide page description", () => {
     ["untrimmed text", { ...page, blocks: [{ ...page.blocks[0], lead: " Лид" }] }],
     ["an empty required title", { ...page, blocks: [{ ...page.blocks[1], title: "" }] }],
     ["no blocks", { ...page, blocks: [] }],
+    ["more blocks than the page allows", { ...page, blocks: Array.from({ length: 17 }, (_, index) => ({ ...page.blocks[1], id: `text-${String(index)}` })) }],
+    ["more items than a block allows", { ...page, blocks: [{ ...page.blocks[2], items: Array.from({ length: 13 }, (_, index) => ({ title: `Пункт ${String(index)}`, text: "Текст.", detailLabel: "", detail: "" })) }] }],
     ["an invalid block id", { ...page, blocks: [{ ...page.blocks[1], id: "Shift" }] }],
     ["an item caption without its value", { ...page, blocks: [{ ...page.blocks[2], items: [{ title: "Пункт", text: "Текст.", detailLabel: "В репозитории", detail: "" }] }] }],
     ["a second hero block", { ...page, blocks: [page.blocks[0], { ...page.blocks[0], id: "hero-again" }] }],
