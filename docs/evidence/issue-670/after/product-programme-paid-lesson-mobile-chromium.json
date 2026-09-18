@@ -1,0 +1,20 @@
+{
+  "toPaidLesson": {
+    "highestFooterWhileLoading": 1.1042654028436019,
+    "millisecondsToReady": 1882,
+    "navigationRequests": 1,
+    "routerTransitionMilliseconds": 9,
+    "skeletons": [
+      "material-reader"
+    ]
+  },
+  "toProgramme": {
+    "highestFooterWhileLoading": 1.2417061611374407,
+    "millisecondsToReady": 834,
+    "navigationRequests": 1,
+    "routerTransitionMilliseconds": 27,
+    "skeletons": [
+      "guide-programme"
+    ]
+  }
+}

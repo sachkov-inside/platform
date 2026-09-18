@@ -1,3 +1,5 @@
+import { connection } from "next/server";
+
 import { proxyReaderGuideArtifactFile } from "@/features/guide-artifacts.server";
 
 export async function GET(
@@ -9,6 +11,7 @@ export async function GET(
     }>;
   },
 ): Promise<Response> {
+  await connection();
   const { artifactId, guideId } = await context.params;
   return proxyReaderGuideArtifactFile(request, { artifactId, guideId });
 }

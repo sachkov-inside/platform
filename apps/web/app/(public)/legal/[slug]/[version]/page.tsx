@@ -5,6 +5,9 @@ import { LegalDocumentPage } from "@/_pages/legal";
 import { legalDocumentView, legalEditionParams } from "@/_pages/legal.server";
 import { legalDocumentPath } from "@/shared/routing/public-page-path";
 
+/** Страница пока не разложена на слои: проверка мгновенности с неё снята (ADR 0026). */
+export const instant = false;
+
 interface LegalEditionRouteProps {
   readonly params: Promise<{ readonly slug: string; readonly version: string }>;
 }

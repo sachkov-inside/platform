@@ -1,7 +1,11 @@
+import { connection } from "next/server";
+
 import { readWebRuntimeConfig } from "@/shared/config/index.server";
 import { webReadiness } from "@/shared/config/operational-readiness.server";
 
 export async function GET(): Promise<Response> {
+  // Вне `try`: отказ от предсборки приходит исключением, и перехват выдал бы его за сбой зависимости.
+  await connection();
   try {
     return Response.json(await webReadiness(readWebRuntimeConfig()), {
       headers: { "cache-control": "private, no-store" },

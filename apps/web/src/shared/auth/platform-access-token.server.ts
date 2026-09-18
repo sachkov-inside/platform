@@ -7,6 +7,7 @@ import {
   getAccessTokenRSC,
 } from "@logto/next/server-actions";
 import { cookies } from "next/headers";
+import { connection } from "next/server";
 
 import {
   logtoSessionCookieName,
@@ -31,6 +32,9 @@ export async function getPlatformAccessToken(
 export async function getPlatformAccessTokenRsc(
   config: ResolvedLogtoBffConfig,
 ): Promise<string> {
+  // Рендер с сессией принадлежит запросу: предзагрузка останавливается здесь и не заводит
+  // обновление токена, которое делила бы с настоящим запросом (ADR 0026).
+  await connection();
   return getPlatformAccessTokenWith(config, "rsc", getAccessTokenRSC);
 }
 

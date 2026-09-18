@@ -1,0 +1,32 @@
+{
+  "backHome": {
+    "highestFooterWhileLoading": null,
+    "millisecondsToReady": 42,
+    "navigationRequests": 0,
+    "routerTransitionMilliseconds": 12,
+    "skeletons": []
+  },
+  "repeatHome": {
+    "highestFooterWhileLoading": null,
+    "millisecondsToReady": 64,
+    "navigationRequests": 0,
+    "routerTransitionMilliseconds": 11,
+    "skeletons": []
+  },
+  "repeatProduct": {
+    "highestFooterWhileLoading": null,
+    "millisecondsToReady": 36,
+    "navigationRequests": 0,
+    "routerTransitionMilliseconds": 10,
+    "skeletons": []
+  },
+  "toProduct": {
+    "highestFooterWhileLoading": 1.1082642180094786,
+    "millisecondsToReady": 1851,
+    "navigationRequests": 1,
+    "routerTransitionMilliseconds": 11,
+    "skeletons": [
+      "guide-product"
+    ]
+  }
+}

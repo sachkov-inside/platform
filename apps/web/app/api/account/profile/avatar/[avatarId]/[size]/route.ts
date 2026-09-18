@@ -1,6 +1,6 @@
-import { proxyOwnProfileAvatarDelivery } from "@/_pages/account.server";
+import { connection } from "next/server";
 
-export const dynamic = "force-dynamic";
+import { proxyOwnProfileAvatarDelivery } from "@/_pages/account.server";
 
 export async function GET(
   request: Request,
@@ -11,5 +11,6 @@ export async function GET(
     }>;
   },
 ): Promise<Response> {
+  await connection();
   return proxyOwnProfileAvatarDelivery(request, await context.params);
 }

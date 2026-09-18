@@ -1,0 +1,17 @@
+# Стенд с production-сборкой web: `pnpm local:stand --production-web` (ADR 0026).
+#
+# В режиме разработки Next.js не предзагружает ссылки и компилирует маршрут при первом открытии,
+# поэтому скорость переходов на обычном стенде ничего не говорит о production. Этот файл меняет
+# только сервис web: тот же образ, что уходит в выпуск, с идентичностью выпуска стенда. Данные,
+# вход и остальные сервисы остаются прежними.
+services:
+  web:
+    build:
+      target: web-production
+      args:
+        INSIDE_RELEASE_VERSION: ${STAND_WEB_RELEASE_VERSION:-v1}
+        INSIDE_SOURCE_SHA: ${STAND_WEB_SOURCE_SHA:-1111111111111111111111111111111111111111}
+    environment:
+      NODE_ENV: production
+      PLATFORM_RELEASE_VERSION: ${STAND_WEB_RELEASE_VERSION:-v1}
+      PLATFORM_SOURCE_SHA: ${STAND_WEB_SOURCE_SHA:-1111111111111111111111111111111111111111}

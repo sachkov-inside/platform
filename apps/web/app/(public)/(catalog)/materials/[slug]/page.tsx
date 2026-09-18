@@ -1,16 +1,15 @@
 import type { Metadata } from "next";
 
 import { materialLinkPreview } from "@/_pages/material-reader";
-import { loadMaterialReader, MaterialReaderPage } from "@/_pages/material-reader.server";
-import { getOptionalPlatformAccessToken } from "@/shared/auth/optional-platform-access-token.server";
+import { loadMaterialPreview, MaterialReaderPage } from "@/_pages/material-reader.server";
 import {
   hiddenPageMetadata,
   publicPageMetadata,
   unavailablePageMetadata,
 } from "@/shared/link-preview";
 import { readPublicSiteOrigin } from "@/shared/link-preview/index.server";
-import { parseMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 
+// Явный тип, а не сгенерированный `PageProps`: проверка типами в lint идёт до `next typegen`.
 interface MaterialPageProps {
   readonly params: Promise<{ readonly slug: string }>;
   readonly searchParams: Promise<{
@@ -18,14 +17,18 @@ interface MaterialPageProps {
   }>;
 }
 
+/**
+ * Сколько секунд браузер помнит эту страницу вместе с личной частью: повторный переход в этом окне
+ * идёт без запроса. Решение владельца 17.09.2026 (ADR 0026). Значение — литерал: Next.js читает
+ * конфигурацию сегмента статически.
+ */
+export const unstable_dynamicStaleTime = 60;
+
 export async function generateMetadata({
   params,
 }: MaterialPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const result = await loadMaterialReader(
-    slug,
-    await getOptionalPlatformAccessToken(),
-  );
+  const result = await loadMaterialPreview(slug);
   if (result.kind === "not-found") {
     return hiddenPageMetadata("Материал не найден");
   }
@@ -39,14 +42,7 @@ export async function generateMetadata({
   );
 }
 
-export default async function MaterialRoute({ params, searchParams }: MaterialPageProps) {
-  const [{ slug }, query] = await Promise.all([params, searchParams]);
-  const accessToken = await getOptionalPlatformAccessToken();
-  return (
-    <MaterialReaderPage
-      {...(accessToken === undefined ? {} : { accessToken })}
-      returnTarget={parseMaterialReaderReturnTarget(query.from)}
-      slug={slug}
-    />
-  );
+/** Скелет маршрута даёт `loading.tsx`; страница читает адрес уже под ним (ADR 0026). */
+export default function MaterialRoute({ params, searchParams }: MaterialPageProps) {
+  return <MaterialReaderPage params={params} searchParams={searchParams} />;
 }

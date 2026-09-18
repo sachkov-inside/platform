@@ -52,6 +52,28 @@ const fixtures = [
     ],
   },
   {
+    root: "test/guardrails/fixtures/architecture/prerendered-handler",
+    diagnostics: [
+      "app/api/swallowed/route.ts: a GET Route Handler starts with await connection(), or the build prerenders its answer",
+      "app/api/reexported/route.ts: declare GET in the route file so that it starts with await connection()",
+      "app/api/foreign-connection/route.ts: a GET Route Handler starts with await connection(), or the build prerenders its answer",
+    ],
+  },
+  {
+    root: "test/guardrails/fixtures/architecture/public-cache",
+    diagnostics: [
+      'inline-cache.ts: "use cache" belongs to a *.public-cache.server.ts module that reads the catalog as a guest',
+      "personal.public-cache.server.ts: a cached catalog read cannot see the session; read it as a guest and keep the personal read uncached",
+      'private.public-cache.server.ts: only the shared "use cache" is allowed; a per-session cache would carry protected content into prefetch',
+      "legacy-cache.ts: unstable_cache is a second shared cache outside the guest-read rule; use a *.public-cache.server.ts module",
+      "cookies.public-cache.server.ts: a cached catalog read cannot see the session; read it as a guest and keep the personal read uncached",
+      "sign-in.public-cache.server.ts: a cached catalog read cannot see the session; read it as a guest and keep the personal read uncached",
+      "unbounded.public-cache.server.ts: a cached catalog read sets its tag and lifetime through applyCatalogCachePolicy, or an authoring write cannot expire it",
+      "second-read.public-cache.server.ts: a cached catalog read sets its tag and lifetime through applyCatalogCachePolicy, or an authoring write cannot expire it",
+      'module-directive.public-cache.server.ts: declare "use cache" inside the function, not for the module, so that each cached read carries its own policy',
+    ],
+  },
+  {
     root: "test/guardrails/fixtures/architecture/document-blocks",
     diagnostics: [
       "kit.ts: material document blocks belong to the shared block registry; import them from @inside/material-blocks",

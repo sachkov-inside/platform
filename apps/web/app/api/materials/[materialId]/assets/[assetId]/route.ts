@@ -1,3 +1,5 @@
+import { connection } from "next/server";
+
 import { proxyMaterialAssetDelivery } from "@/features/material-assets.server";
 
 export async function GET(
@@ -9,6 +11,7 @@ export async function GET(
     }>;
   },
 ): Promise<Response> {
+  await connection();
   const { assetId, materialId } = await context.params;
   return proxyMaterialAssetDelivery(
     request,

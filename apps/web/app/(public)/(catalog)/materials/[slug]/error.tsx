@@ -4,10 +4,11 @@ import { MaterialReaderUnexpectedError } from "@/_pages/material-reader";
 import { useSearchParams } from "next/navigation";
 import { parseMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 
-export default function MaterialError({ reset }: { readonly reset: () => void }) {
+/** `retry` перечитывает страницу с сервера; `reset` перерисовал бы тот же сбой без запроса. */
+export default function MaterialError({ retry }: { readonly retry: () => void }) {
   return (
     <MaterialReaderUnexpectedError
-      onRetry={reset}
+      onRetry={retry}
       returnTarget={parseMaterialReaderReturnTarget(
         useSearchParams().get("from"),
       )}

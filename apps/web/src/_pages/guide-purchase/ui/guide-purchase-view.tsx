@@ -44,7 +44,7 @@ export function GuidePurchaseView({
 
   return (
     <div className="mx-auto w-full min-w-0 max-w-[38rem]">
-      <nav aria-label="Путь навигации" className="pt-4">
+      <nav aria-label="Путь навигации" className="pt-4" data-purchase-part="back">
         <Link
           className="inline-flex min-h-11 items-center gap-2 rounded-full bg-secondary px-4 text-sm font-semibold"
           href={programmeHref}
@@ -54,7 +54,10 @@ export function GuidePurchaseView({
         </Link>
       </nav>
 
-      <h1 className="mt-6 break-words text-2xl font-bold leading-[1.15] tracking-[-0.03em] md:text-3xl">
+      <h1
+        className="mt-6 break-words text-2xl font-bold leading-[1.15] tracking-[-0.03em] md:text-3xl"
+        data-purchase-part="title"
+      >
         {guide?.name ?? "Продукт"}
       </h1>
       {guide === null || guide.summary === "" ? null : (

@@ -5,12 +5,12 @@ import {
   SearchX,
   ShieldAlert,
 } from "lucide-react";
-import type { Route } from "next";
 import Link from "next/link";
 
 import type { MaterialReaderMetadata } from "@/_pages/material-reader/model/material-reader-view";
 import type { SeriesReaderContext } from "@/_pages/material-reader/model/series-reader-context";
 import { Button } from "@/shared/ui/button";
+import { RetryPageButton } from "@/shared/ui/retry-page-button.client";
 import {
   homeMaterialReaderReturnTarget,
   type MaterialReaderReturnTarget,
@@ -23,25 +23,78 @@ import {
 
 import { ReaderReturnNavigation } from "./reader-return-navigation.client";
 
+/**
+ * Скелет маршрута: об уроке ещё ничего не известно. Он собран из рамки самого ридера — кнопка
+ * возврата, колонка `43rem`, шапка и текст, — поэтому готовая страница встаёт на его место. Высота
+ * не меньше экрана: подвал ждёт за его краем и не прыгает, когда приходит текст (#670).
+ */
 export function MaterialReaderLoading() {
   return (
     <div
       aria-busy="true"
       aria-label="Материал загружается"
-      className="max-w-[48rem] pt-1 sm:pt-3"
+      className="@container/material-reader min-h-svh"
       data-material-reader-state="loading"
+      data-route-skeleton="material-reader"
     >
-      <div className="animate-pulse rounded-2xl bg-secondary px-6 py-7 shadow-card motion-reduce:animate-none sm:px-8 sm:py-9">
-        <div className="size-12 rounded-xl bg-muted" />
-        <div className="mt-6 h-9 w-full max-w-lg rounded-xl bg-muted sm:h-11" />
-        <div className="mt-4 h-5 w-full max-w-xl rounded-lg bg-muted/80" />
-        <div className="mt-2 h-5 w-4/5 max-w-lg rounded-lg bg-muted/80" />
-        <div className="mt-7 flex gap-3">
-          <div className="h-11 w-32 rounded-xl bg-muted" />
-          <div className="h-11 w-40 rounded-xl bg-muted/80" />
+      <div className="mx-auto mb-6 max-w-[43rem]" data-reader-return="top">
+        <div className="h-11 w-44 max-w-full rounded-full bg-muted" />
+      </div>
+      <div className="mx-auto min-w-0 max-w-[43rem]">
+        <div className="animate-pulse motion-reduce:animate-none" data-reader-header>
+          <div className="h-5 w-64 max-w-full rounded-md bg-muted" />
+          <div className="mt-4 h-[1.75rem] w-4/5 rounded-lg bg-muted md:h-[2.125rem]" />
+          <div className="mt-4 h-7 w-full rounded-md bg-muted/80" />
+          <div className="h-7 w-3/4 rounded-md bg-muted/80" />
         </div>
+        <ReaderBodySkeleton />
       </div>
       <p className="sr-only">Загружаем опубликованный материал</p>
+    </div>
+  );
+}
+
+/**
+ * Общая часть урока уже известна, личная ещё идёт: шапка, возврат и соседи по продукту настоящие,
+ * на месте тела — его скелет. Готовый урок рисует ту же рамку, поэтому шапка не двигается.
+ */
+export function MaterialReaderPending({
+  material,
+  returnTarget = homeMaterialReaderReturnTarget,
+  seriesContext = null,
+}: {
+  readonly material: MaterialReaderMetadata;
+  readonly returnTarget?: MaterialReaderReturnTarget;
+  readonly seriesContext?: SeriesReaderContext | null;
+}) {
+  return (
+    <div
+      className="@container/material-reader min-h-svh"
+      data-material-id={material.materialId}
+      data-material-reader-state="pending"
+    >
+      <ReaderReturnNavigation repeatAtBottom={false} target={returnTarget}>
+        <div className="mx-auto min-w-0 max-w-[43rem]">
+          <MaterialReaderHeader material={material} />
+          <div aria-busy="true" aria-label="Текст материала загружается" data-route-skeleton="material-reader">
+            <ReaderBodySkeleton />
+          </div>
+          <MaterialReaderFooter seriesContext={seriesContext} />
+        </div>
+      </ReaderReturnNavigation>
+    </div>
+  );
+}
+
+/** Строки на месте текста: интервал и отступ сверху повторяют `article` ридера. */
+function ReaderBodySkeleton() {
+  return (
+    <div className="mt-10 grid animate-pulse gap-3 motion-reduce:animate-none" data-reader-body-skeleton>
+      {["w-full", "w-11/12", "w-full", "w-4/5", "w-full", "w-10/12", "w-full", "w-3/5", "w-full", "w-11/12", "w-full", "w-2/3"].map(
+        (width, index) => (
+          <div className={`h-[1.125rem] rounded-md bg-muted/80 md:h-5 ${width}`} key={index} />
+        ),
+      )}
     </div>
   );
 }
@@ -175,19 +228,15 @@ export function MaterialReaderAccess({
 }
 
 export function MaterialReaderUnavailable({
-  retryHref,
   returnTarget = homeMaterialReaderReturnTarget,
 }: {
-  readonly retryHref: Route;
   readonly returnTarget?: MaterialReaderReturnTarget;
 }) {
   return (
     <ReaderStatus
       action={
         <div className="flex flex-wrap gap-3">
-          <Button asChild size="lg">
-            <Link href={retryHref}>Повторить</Link>
-          </Button>
+          <RetryPageButton />
           <Button asChild size="lg" variant="outline">
             <Link href={returnTarget.href}>{returnTarget.label}</Link>
           </Button>

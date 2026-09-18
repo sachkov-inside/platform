@@ -2,7 +2,7 @@
 import { EnrollmentExpansionPanel } from "./enrollment-expansion-panel.client";
 import type { z } from "zod";
 import type { recipientSchema } from "../model/enrollment-operations";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { announceEnrollmentChange, EnrollmentList, billingErrorMessage, type Enrollment } from "@/entities/subscription";
 import { Button } from "@/shared/ui/button";
@@ -13,7 +13,9 @@ import { formText, AdminField, AdminSection } from "./admin-form.client";
 
 import { useOwnerEnrollments } from "../model/use-owner-enrollments.client";
 export function EnrollmentAdminPanel() {
-  const [courseStart] = useState(() => new Date().toISOString());
+  // Время читается при первой отправке, а не при рендере: предсборка не имеет права видеть часы.
+  // Дальше оно не меняется, поэтому повтор той же команды получает тот же `operationId`.
+  const courseStart = useRef<string | undefined>(undefined);
   const [identity, setIdentity] = useState("");
   const [recipient, setRecipient] = useState<z.infer<typeof recipientSchema>>();
   const account = recipient?.accountId ?? "";
@@ -81,7 +83,7 @@ export function EnrollmentAdminPanel() {
       if (!tier) { setError("Выберите тариф, доступный для назначения."); return; }
       const end = formText(data.get("end") ?? ""); const start = formText(data.get("start") ?? "");
       const command = { accountId: target, origin, sourceRef: formText(data.get("sourceRef")), tierId: tier.tier.id, tierRevision: tier.tier.revision,
-        terms: { startsAt: start === "" ? courseStart : new Date(`${start}+03:00`).toISOString(), endsAt: origin === "course" || end === "" ? null : new Date(`${end}+03:00`).toISOString(), endPolicy: origin === "tribute" ? "confirmed_external" : "fixed" },
+        terms: { startsAt: start === "" ? (courseStart.current ??= new Date().toISOString()) : new Date(`${start}+03:00`).toISOString(), endsAt: origin === "course" || end === "" ? null : new Date(`${end}+03:00`).toISOString(), endPolicy: origin === "tribute" ? "confirmed_external" : "fixed" },
         billingRef: null, reason: formText(data.get("reason")), ...(origin === "course" ? { courseSource: { policyRef: formText(data.get("sourceRef")), verifiedIdentityRef: recipient?.identityRef ?? "" } } : {}) };
       const parsed = assignEnrollmentInputSchema.safeParse({ ...command, operationId: repeat.operationId("assign-tier", command) });
       if (!parsed.success) { setError("Проверьте аккаунт, источник, причину и даты назначения."); return; } assign.mutate(parsed.data);

@@ -13,6 +13,7 @@ export {
   MaterialReaderAccess,
   MaterialReaderLoading,
   MaterialReaderNotFound,
+  MaterialReaderPending,
   MaterialReaderUnexpectedError,
   MaterialReaderUnavailable,
 } from "./ui/material-reader-states";

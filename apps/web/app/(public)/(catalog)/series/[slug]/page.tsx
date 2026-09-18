@@ -1,30 +1,32 @@
 import type { Metadata } from "next";
 
 import { guideLinkPreview } from "@/_pages/library-discovery";
-import { loadPublishedSeries } from "@/features/library-discovery.server";
 import { PublishedSeriesPage } from "@/_pages/library-discovery.server";
-import { getOptionalPlatformAccessToken } from "@/shared/auth/optional-platform-access-token.server";
+import { readPublicSeries } from "@/features/library-discovery.server";
 import {
   hiddenPageMetadata,
   publicPageMetadata,
   unavailablePageMetadata,
 } from "@/shared/link-preview";
 import { readPublicSiteOrigin } from "@/shared/link-preview/index.server";
-import { parseMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 
 interface SeriesPageProps {
   readonly params: Promise<{ readonly slug: string }>;
   readonly searchParams: Promise<{ readonly from?: string | readonly string[] }>;
 }
 
+/**
+ * Сколько секунд браузер помнит эту страницу вместе с личной частью: повторный переход в этом окне
+ * идёт без запроса. Решение владельца 17.09.2026 (ADR 0026). Значение — литерал: Next.js читает
+ * конфигурацию сегмента статически.
+ */
+export const unstable_dynamicStaleTime = 60;
+
 export async function generateMetadata({
   params,
 }: SeriesPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const result = await loadPublishedSeries(
-    slug,
-    await getOptionalPlatformAccessToken(),
-  );
+  const result = await readPublicSeries(slug);
   if (result.kind === "not-found") {
     return hiddenPageMetadata("Продукт не найден");
   }
@@ -38,14 +40,7 @@ export async function generateMetadata({
   );
 }
 
-export default async function SeriesRoute({ params, searchParams }: SeriesPageProps) {
-  const [{ slug }, query] = await Promise.all([params, searchParams]);
-  const accessToken = await getOptionalPlatformAccessToken();
-  return (
-    <PublishedSeriesPage
-      {...(accessToken === undefined ? {} : { accessToken })}
-      returnTarget={parseMaterialReaderReturnTarget(query.from)}
-      slug={slug}
-    />
-  );
+/** Скелет маршрута даёт `loading.tsx`; страница читает адрес уже под ним (ADR 0026). */
+export default function SeriesRoute({ params, searchParams }: SeriesPageProps) {
+  return <PublishedSeriesPage params={params} searchParams={searchParams} />;
 }

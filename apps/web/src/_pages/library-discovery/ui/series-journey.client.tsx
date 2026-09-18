@@ -24,7 +24,9 @@ export type SeriesLearningView =
 
 type SeriesResult = Extract<PublishedSeriesResult, { readonly kind: "ready" | "empty" }>;
 
-export function SeriesJourney({ artifacts = { kind: "ready", artifacts: [] }, result, currentHref, learning = { kind: "guest" } }: {
+export function SeriesJourney({ accessPending = false, artifacts = { kind: "ready", artifacts: [] }, result, currentHref, learning = { kind: "guest" } }: {
+  /** Личная часть ещё идёт: строки стоят на общих данных, отметки доступа уточняются. */
+  readonly accessPending?: boolean;
   readonly artifacts?: ReaderGuideArtifactsResult;
   readonly result: SeriesResult;
   readonly currentHref: Route;
@@ -132,7 +134,7 @@ export function SeriesJourney({ artifacts = { kind: "ready", artifacts: [] }, re
         {part?.id === "programme" && visible.length === 0 && part.chapters.length === 0 ? <p className="py-10 text-sm leading-6 text-muted-foreground">Программа готовится. Здесь появятся главы и уроки продукта.</p> : null}
         {part?.id === "supplementary" && visible.length === 0 ? <p className="py-10 text-sm leading-6 text-muted-foreground">Здесь появятся дополнительные разборы и полезные материалы к продукту.</p> : null}
         {visible.length > SERIES_BATCH_SIZE ? <p aria-live="polite" className="mt-6 text-sm tabular-nums text-muted-foreground">Показано {count} из {visible.length} материалов</p> : null}
-        {items.some((item) => item.availability === "unavailable") ? <Button className="mt-4 h-auto min-h-11 max-w-full whitespace-normal" onClick={() => { router.refresh(); }} variant="outline"><RefreshCw aria-hidden="true" />Повторить проверку доступа</Button> : null}
+        {!accessPending && items.some((item) => item.availability === "unavailable") ? <Button className="mt-4 h-auto min-h-11 max-w-full whitespace-normal" onClick={() => { router.refresh(); }} variant="outline"><RefreshCw aria-hidden="true" />Повторить проверку доступа</Button> : null}
         <div className="mt-5 grid gap-6">
           {visibleChapterRuns(visible, part?.chapters ?? [], chapterOf, count).map((run) => <section aria-labelledby={run.chapter === null ? undefined : `chapter-${run.chapter.id}`} key={run.chapter?.id ?? `open-${String(run.offset)}`}>
             {run.chapter === null ? null : <header>
@@ -151,7 +153,7 @@ export function SeriesJourney({ artifacts = { kind: "ready", artifacts: [] }, re
                   if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || !(event.target instanceof Element) || event.target.closest("a") === null) return;
                   if (window.location.pathname === new URL(currentHref, window.location.origin).pathname) window.history.replaceState(window.history.state, "", returnHref);
                 }} aria-current={next?.slug === material.slug ? "step" : undefined} className="@container/series-entry relative min-w-0 scroll-mt-6 rounded-xl focus-visible:outline-2 focus-visible:outline-ring" data-route-material={material.slug} data-series-ordinal={ordinal} key={material.slug} tabIndex={-1}>
-                  <MaterialCard seriesOrdinal={ordinal} readingStatus={<SeriesMaterialMarker {...(material.materialId === undefined ? {} : { materialId: material.materialId })} ordinal={ordinal} statusOnly />} headingLevel={run.chapter === null ? "h3" : "h4"} material={material} {...(next?.slug === material.slug && continuation !== null ? { resumeLabel: continuation.label } : {})} returnHref={returnHref} variant="series" />
+                  <MaterialCard accessPending={accessPending} seriesOrdinal={ordinal} readingStatus={<SeriesMaterialMarker {...(material.materialId === undefined ? {} : { materialId: material.materialId })} ordinal={ordinal} statusOnly />} headingLevel={run.chapter === null ? "h3" : "h4"} material={material} {...(next?.slug === material.slug && continuation !== null ? { resumeLabel: continuation.label } : {})} returnHref={returnHref} variant="series" />
                 </li>;
               })}
             </ol>}

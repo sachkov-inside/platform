@@ -16,6 +16,7 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { cn } from "@/shared/lib/utils";
+import { FullLoadLink } from "@/shared/ui/full-load-link.client";
 
 const materialsHref = "/authoring/materials" as Route;
 
@@ -158,6 +159,30 @@ export function AuthoringShell({ children }: { readonly children: ReactNode }) {
   );
 }
 
+/** Выход из авторской части на сайт отбрасывает память браузера о страницах: см. `FullLoadLink`. */
+function WorkspaceLink({
+  children,
+  className,
+  current,
+  href,
+}: {
+  readonly children: ReactNode;
+  readonly className: string;
+  readonly current: boolean;
+  readonly href: Route;
+}) {
+  const ariaCurrent = current ? "page" : undefined;
+  return href.startsWith("/authoring") ? (
+    <Link aria-current={ariaCurrent} className={className} href={href}>
+      {children}
+    </Link>
+  ) : (
+    <FullLoadLink aria-current={ariaCurrent} className={className} href={href}>
+      {children}
+    </FullLoadLink>
+  );
+}
+
 function AuthoringLink({
   current = false,
   href,
@@ -170,8 +195,8 @@ function AuthoringLink({
   readonly label: string;
 }) {
   return (
-    <Link
-      aria-current={current ? "page" : undefined}
+    <WorkspaceLink
+      current={current}
       className={cn(
         "flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium text-sidebar-foreground/72 no-underline transition-colors motion-reduce:transition-none",
         "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
@@ -183,7 +208,7 @@ function AuthoringLink({
         {icon}
       </span>
       <span>{label}</span>
-    </Link>
+    </WorkspaceLink>
   );
 }
 
@@ -199,8 +224,8 @@ function MobileLink({
   readonly label: string;
 }) {
   return (
-    <Link
-      aria-current={current ? "page" : undefined}
+    <WorkspaceLink
+      current={current}
       className={cn(
         "flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-lg px-2 text-xs font-medium leading-none text-muted-foreground no-underline",
         "transition-colors active:bg-muted motion-reduce:transition-none [&_svg]:size-4.5",
@@ -210,6 +235,6 @@ function MobileLink({
     >
       {children}
       <span>{label}</span>
-    </Link>
+    </WorkspaceLink>
   );
 }

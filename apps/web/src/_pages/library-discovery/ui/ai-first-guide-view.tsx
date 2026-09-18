@@ -1,6 +1,5 @@
 import { ArrowLeft, ArrowRight, Check, Clock3, Code2, FileCode2, FolderGit2, GitPullRequest, MessagesSquare, Play, Server, Workflow, type LucideIcon } from "lucide-react";
 import type { Route } from "next";
-import Link from "next/link";
 import type { ReactNode } from "react";
 
 import type { GuidePage, GuidePageBlock, GuidePageBlockOf } from "@/entities/guide-page";
@@ -9,6 +8,7 @@ import { fillOneTimeTerms as fillTerms } from "@/features/billing-checkout.terms
 import { formatMaterialCount, type PublishedSeriesResult } from "@/features/library-discovery";
 import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 import { guideProgrammeHref } from "@/shared/routing/subscription-route";
+import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 
 import "./ai-first-guide-view.css";
 
@@ -25,11 +25,11 @@ export function AiFirstGuideView({ result, page, returnTarget }: {
   const freeCount = result.kind === "ready" ? result.items.filter(item => item.access === "free" && item.availability === "available").length : 0;
   const context: BlockContext = { fill: fillTerms, programme: guideProgrammeHref(result.reference.slug), freeCount, name: result.reference.name };
   return <article className="ai-guide-page" data-guide-product={result.reference.slug} data-guide-presentation="ai-first-process">
-    <nav aria-label="Хлебные крошки"><Link className="ai-guide-back" href={returnTarget.href}><ArrowLeft />{returnTarget.label}</Link></nav>
+    <nav aria-label="Хлебные крошки"><IntentPrefetchLink className="ai-guide-back" href={returnTarget.href}><ArrowLeft />{returnTarget.label}</IntentPrefetchLink></nav>
     {/* Название продукта — заголовок страницы: его показывает hero, а без hero он всё равно нужен. */}
     {page.blocks.some(block => block.kind === "hero") ? null : <header className="ai-guide-hero"><div className="ai-guide-hero-copy"><h1>{result.reference.name}</h1></div></header>}
     {page.blocks.map(block => <AiFirstBlock block={block} context={context} key={block.id} />)}
-    <div className="ai-guide-sticky"><Link className="ai-guide-button" href={context.programme}>Открыть программу<ArrowRight /></Link></div>
+    <div className="ai-guide-sticky"><IntentPrefetchLink className="ai-guide-button" href={context.programme}>Открыть программу<ArrowRight /></IntentPrefetchLink></div>
   </article>;
 }
 
@@ -52,7 +52,7 @@ function AiFirstBlock({ block, context }: { readonly block: GuidePageBlock; read
     case "text": return <TextSection block={block} fill={context.fill} />;
     case "steps": return <StepsSection block={block} context={context} />;
     case "list": return <ListSection block={block} fill={context.fill} />;
-    case "trial": return context.freeCount === 0 ? null : <section className="ai-guide-trial"><h2>{context.fill(block.title)}</h2><p>{context.fill(block.text)}</p>{block.link === "" ? null : <Link className="ai-guide-text-link" href={context.programme}>{context.fill(block.link)}<ArrowRight /></Link>}</section>;
+    case "trial": return context.freeCount === 0 ? null : <section className="ai-guide-trial"><h2>{context.fill(block.title)}</h2><p>{context.fill(block.text)}</p>{block.link === "" ? null : <IntentPrefetchLink className="ai-guide-text-link" href={context.programme}>{context.fill(block.link)}<ArrowRight /></IntentPrefetchLink>}</section>;
   }
 }
 
@@ -74,7 +74,7 @@ function Hero({ block, context }: { readonly block: GuidePageBlockOf<"hero">; re
         const Icon = iconAt(highlightIcons, index);
         return <li key={`${String(index)}-${highlight}`}><Icon aria-hidden="true" />{context.fill(highlight)}</li>;
       })}</ul>}
-      <Link className="ai-guide-button" href={context.programme}>Открыть программу<ArrowRight /></Link>
+      <IntentPrefetchLink className="ai-guide-button" href={context.programme}>Открыть программу<ArrowRight /></IntentPrefetchLink>
       {context.freeCount > 0 ? <p className="ai-guide-format">Бесплатно: {formatMaterialCount(context.freeCount)}</p> : null}
     </div>
     <div className="ai-guide-artwork"><AiFirstProcessArtwork /></div>
@@ -128,7 +128,7 @@ function StepsSection({ block, context }: { readonly block: GuidePageBlockOf<"st
     <h2 id={titleId}>{context.fill(block.title)}</h2>
     {block.lead === "" ? null : <p>{context.fill(block.lead)}</p>}
     <ol>{block.items.map((stage, index) => <li key={`${String(index)}-${stage.title}`}><span>{index + 1}</span><div><h3>{context.fill(stage.title)}</h3><p>{context.fill(stage.text)}</p></div></li>)}</ol>
-    {block.link === "" ? null : <Link className="ai-guide-text-link" href={context.programme}>{context.fill(block.link)}<ArrowRight /></Link>}
+    {block.link === "" ? null : <IntentPrefetchLink className="ai-guide-text-link" href={context.programme}>{context.fill(block.link)}<ArrowRight /></IntentPrefetchLink>}
   </section>;
 }
 

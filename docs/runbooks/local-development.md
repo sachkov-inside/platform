@@ -167,6 +167,19 @@ the rest of the stand. It prints four addresses at the end:
 - mail on <http://127.0.0.1:8025>, holding both the sign-in codes and the receipt address codes;
 - the bank double on <http://127.0.0.1:8090>.
 
+Web on the stand runs in development mode by default. Development mode does not prefetch links and
+compiles a route on its first open, so it says nothing about how fast page transitions are. To see
+the real speed, start the stand with the production build of web:
+
+```bash
+pnpm local:stand --production-web
+```
+
+Only the `web` service changes: it is built from the `web-production` image target through
+`config/compose/local/production-web.compose.yaml` and serves the same data, sign-in and workers.
+There is no hot reload in this mode; after a code change, stop the stand and start it again with
+the same flag. [ADR 0026](../adr/0026-web-navigation-and-caching.md) owns what is cached and why.
+
 The default `docker compose up` without the profile starts as before and needs none of this. The
 stand claims the same machine-wide lock as `pnpm local:setup` and the shared Compose project, so it
 refuses to start while a stack is already running: stop the running one with
@@ -381,6 +394,22 @@ pnpm check
 
 This covers lint, strict typecheck, backend architecture guardrails, unit/module/Storybook tests,
 Playwright, production builds and the Storybook build without claiming a real database.
+
+Page transitions are checked on a production build, because development mode has no link prefetch
+and no route cache:
+
+```bash
+pnpm --filter @inside/web test:navigation
+```
+
+The suite builds web and starts it with `next start` next to a fake backend from
+`apps/web/test/navigation/fake-backend.mjs`; [ADR 0026](../adr/0026-web-navigation-and-caching.md)
+lists what it proves. It uses ports `3180` and `3190`; override them with `NAVIGATION_WEB_PORT` and
+`FAKE_BACKEND_PORT`. Each run writes its timings and transition snapshots as evidence of issue
+#670 under the rule in [Snapshots as issue evidence](#snapshots-as-issue-evidence). `pnpm check`
+runs the suite through root `pnpm test:navigation`, which reuses the production build the check
+has just made, right after `test:prerendered-handlers` has confirmed that the build prerendered no
+Route Handler.
 
 ```bash
 pnpm check:full

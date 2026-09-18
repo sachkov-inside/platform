@@ -1,6 +1,5 @@
 import { ArrowRight, LockKeyhole, Play } from "lucide-react";
 import type { Route } from "next";
-import Link from "next/link";
 
 import {
   ContentCoverImage,
@@ -9,6 +8,7 @@ import {
   type MaterialPreview,
 } from "@/entities/material";
 import { cn } from "@/shared/lib/utils";
+import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 import { collectionDiscoveryHref } from "@/shared/routing/material-reader";
 import { guideProgrammeHref } from "@/shared/routing/subscription-route";
 
@@ -40,12 +40,11 @@ export function TopicCard({
   readonly topic: TopicCardPresentation;
 }) {
   return (
-    <Link
+    <IntentPrefetchLink
       aria-label={`Открыть тему ${topic.name}`}
       className="group/topic min-w-0 text-left no-underline"
       data-topic-card
       href={collectionDiscoveryHref("topic", topic.slug, returnHref)}
-      prefetch={false}
     >
       <span className="block">
         <ContentCoverImage
@@ -71,7 +70,7 @@ export function TopicCard({
           {formatMaterialCount(topic.count)}
         </span>
       )}
-    </Link>
+    </IntentPrefetchLink>
   );
 }
 
@@ -85,14 +84,13 @@ export function PlaylistCard({
   const previews = playlist.previewItems?.slice(0, 3) ?? [];
 
   return (
-    <Link
+    <IntentPrefetchLink
       aria-label={`${playlist.continuation === undefined ? "Открыть" : "Продолжить"} продукт ${playlist.name}`}
       className="group/playlist flex h-full min-w-0 flex-col overflow-hidden rounded-[2rem] bg-primary p-5 text-left text-white no-underline transition-transform duration-200 hover:-translate-y-0.5 focus-visible:outline-ring motion-reduce:transform-none motion-reduce:transition-none"
       data-playlist-card
       // Начатое руководство продолжается в программе: там материалы и подсвеченное место чтения.
       // Непрочитанное открывается со страницы продукта, где руководство сначала рассказывает о себе.
       href={playlist.continuation === undefined ? collectionDiscoveryHref("series", playlist.slug, returnHref) : guideProgrammeHref(playlist.slug)}
-      prefetch={false}
     >
       <span className="flex items-start justify-between gap-3">
         <span className={cn("inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold", playlist.continuation === undefined ? "bg-white/10 text-white/75" : "bg-accent text-accent-foreground")}>
@@ -157,7 +155,7 @@ export function PlaylistCard({
           );
         })}
       </span>
-    </Link>
+    </IntentPrefetchLink>
   );
 }
 

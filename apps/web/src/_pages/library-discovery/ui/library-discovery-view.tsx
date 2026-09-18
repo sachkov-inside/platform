@@ -20,6 +20,8 @@ import {
 import { PlaylistCard, formatMaterialCount } from "@/features/library-discovery";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
+import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
+import { RetryPageButton } from "@/shared/ui/retry-page-button.client";
 import { PublicSectionHeading } from "@/shared/ui/public-section-heading";
 import { guideProgrammeHref } from "@/shared/routing/subscription-route";
 import {
@@ -112,10 +114,12 @@ function DiscoveryFrame({
     <div
       aria-busy={busy || undefined}
       aria-label={label}
-      className="@container/discovery min-w-0"
+      // Пока страница идёт, каркас не ниже экрана: подвал ждёт за его краем и не прыгает потом.
+      className={cn("@container/discovery min-w-0", busy && "min-h-svh")}
       data-discovery-frame
       data-discovery-kind={kind}
       data-discovery-state={state}
+      data-route-skeleton={busy ? "topic" : undefined}
     >
       {children}
     </div>
@@ -250,13 +254,13 @@ function DiscoveryBreadcrumb({
     <nav aria-label="Хлебные крошки" className={breadcrumbRow}>
       <ol className={`flex ${breadcrumbRowHeight} flex-wrap items-center gap-2 text-sm text-muted-foreground`}>
         <li>
-          <Link
+          <IntentPrefetchLink
             className="inline-flex min-h-10 items-center gap-2 rounded-full bg-muted px-4 font-semibold no-underline hover:text-foreground focus-visible:outline-ring"
             href={returnTarget.href}
           >
             <ArrowLeft aria-hidden="true" className="size-4" />
             {returnTarget.label}
-          </Link>
+          </IntentPrefetchLink>
         </li>
         <li className="sr-only">{kind === "series" ? "Продукт" : "Тема"}</li>
         <li aria-current="page" className="sr-only">{name}</li>
@@ -302,8 +306,8 @@ function discoveryToneClass(seed: string): string {
 }
 
 /**
- * Первый экран подборки, пока данные ещё идут. Оболочку состояние берёт оттуда же, откуда готовый
- * вид; своего у него — только серые блоки внутри.
+ * Первый экран темы, пока данные ещё идут. Оболочку состояние берёт оттуда же, откуда готовый
+ * вид; своего у него — только серые блоки внутри. У продукта и программы скелеты свои (#670).
  */
 export function LibraryDiscoveryLoading() {
   return (
@@ -323,25 +327,11 @@ export function LibraryDiscoveryLoading() {
   );
 }
 
-/**
- * Сбой чтения подборки. Повтор возвращает человека ровно на ту страницу, где он стоял:
- * страница продукта, программа и тема — разные места, и подмена одной другой теряет его шаг.
- */
-export function LibraryDiscoveryUnavailable({
-  retryHref,
-}: {
-  readonly retryHref: Route;
-}) {
+/** Сбой чтения подборки. Повтор перечитывает ту же страницу: продукт, программу или тему. */
+export function LibraryDiscoveryUnavailable() {
   return (
     <DiscoveryStatus
-      action={
-        <Button asChild size="lg">
-          <Link href={retryHref}>
-            <RefreshCw aria-hidden="true" />
-            Повторить
-          </Link>
-        </Button>
-      }
+      action={<RetryPageButton />}
       icon={<ShieldAlert aria-hidden="true" />}
       message="Каталог не отвечает. Попробуйте ещё раз через несколько минут."
       state="unavailable"

@@ -1,7 +1,8 @@
+import { connection } from "next/server";
+
 import { handleAcceptedDocumentsRequest } from "@/features/accepted-documents.server";
 
-export const dynamic = "force-dynamic";
-
-export function GET(): Promise<Response> {
+export async function GET(): Promise<Response> {
+  await connection();
   return handleAcceptedDocumentsRequest();
 }

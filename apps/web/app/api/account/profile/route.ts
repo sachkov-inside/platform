@@ -1,12 +1,13 @@
+import { connection } from "next/server";
+
 import {
   handleAccountProfileRequest,
   handleCreateMemberProfileRequest,
   handleUpdateMemberProfileRequest,
 } from "@/_pages/account.server";
 
-export const dynamic = "force-dynamic";
-
-export function GET(): Promise<Response> {
+export async function GET(): Promise<Response> {
+  await connection();
   return handleAccountProfileRequest();
 }
 

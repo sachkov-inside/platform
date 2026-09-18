@@ -1,6 +1,7 @@
 import "server-only";
 
 import { cookies } from "next/headers";
+import { connection } from "next/server";
 import { cache } from "react";
 
 import { hasLogtoSessionCookie } from "./logto-bff-config.server";
@@ -13,9 +14,15 @@ export async function getOptionalPlatformAccessToken(
     : resolveOptionalPlatformAccessToken(request);
 }
 
-const getOptionalPlatformAccessTokenRsc = cache(() =>
-  resolveOptionalPlatformAccessToken(),
-);
+/**
+ * Чтение сессии в рендере принадлежит запросу, а не предзагрузке: `connection()` останавливает
+ * предзагрузку раньше, чем она дойдёт до обновления токена. Иначе её зависшее обновление попало бы
+ * в общую карту `refreshFlights`, и настоящий запрос той же сессии получил бы его отказ (ADR 0026).
+ */
+const getOptionalPlatformAccessTokenRsc = cache(async () => {
+  await connection();
+  return resolveOptionalPlatformAccessToken();
+});
 
 async function resolveOptionalPlatformAccessToken(
   request?: Request,

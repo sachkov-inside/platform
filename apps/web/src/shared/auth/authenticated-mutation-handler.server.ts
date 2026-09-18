@@ -1,5 +1,6 @@
 import "server-only";
 
+import { expirePublicCatalog, expirePublicCatalogAfter, isCatalogWrite } from "@/shared/api/catalog-cache.server";
 import { MAX_BROWSER_MUTATION_BYTES } from "@/shared/api/mutation-limits";
 import {
   getPlatformAccessToken,
@@ -96,17 +97,20 @@ export async function handleAuthenticatedMutation(
         ? null
         : limitBodyStream(request.body, options.maxBytes, limit);
     try {
-      const response = await (execute as ExecuteStreamingMutation)(
-        body,
-        accessToken,
+      return privateMutationResponse(
+        await (execute as ExecuteStreamingMutation)(body, accessToken),
       );
-      return privateMutationResponse(response);
     } catch {
       return privateMutationResponse(
         options.failureResponse(
           limit.exceeded ? "body_too_large" : "dependency_unavailable",
         ),
       );
+    } finally {
+      // Запись могла состояться и до сбоя ответа, поэтому кеш сбрасывается при любом исходе. В
+      // `finally`, а не в `try`: сбой сброса не должен выдать состоявшуюся запись за недоступность.
+      // Обе ветки возвращают ответ: отложенный сброс Next.js выполняет только при обычном возврате.
+      expirePublicCatalogAfter(request);
     }
   }
 
@@ -120,10 +124,21 @@ export async function handleAuthenticatedMutation(
     return mutationResponse(null, 413);
   }
 
-  return mutationResponse(
-    await (execute as ExecuteMutation)(formData, accessToken),
-    200,
-  );
+  let result: unknown;
+  try {
+    result = await (execute as ExecuteMutation)(formData, accessToken);
+  } catch (error) {
+    // Запись могла состояться до того, как потерялся ответ backend. Отложенный сброс кеша Next.js
+    // выполняет только при обычном возврате обработчика, а с исключением отбрасывает, поэтому сбой
+    // записи каталога отвечает недоступностью. Остальные записи падают, как и раньше.
+    if (!isCatalogWrite(request)) throw error;
+    // Исключение больше не доходит до Next.js, который печатал его сам.
+    console.error(error);
+    expirePublicCatalog();
+    return mutationResponse(null, 503);
+  }
+  expirePublicCatalogAfter(request);
+  return mutationResponse(result, 200);
 }
 
 /** Applies the shared browser-mutation boundary while allowing an anonymous caller. */

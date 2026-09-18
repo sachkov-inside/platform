@@ -1,3 +1,5 @@
+import { connection } from "next/server";
+
 import { proxyContentCoverDelivery } from "@/features/content-covers.server";
 
 export async function GET(
@@ -9,6 +11,7 @@ export async function GET(
     }>;
   },
 ): Promise<Response> {
+  await connection();
   const { coverId, width } = await context.params;
   return proxyContentCoverDelivery(request, coverId, width);
 }

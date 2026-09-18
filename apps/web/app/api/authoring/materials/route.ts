@@ -1,3 +1,5 @@
+import { connection } from "next/server";
+
 import {
   handleCreateMaterialRequest,
   handleSaveMaterialRequest,
@@ -8,7 +10,8 @@ import {
   handleTransitionMaterialPublicationRequest,
 } from "@/features/material-lifecycle.server";
 
-export function GET(request: Request): Promise<Response> {
+export async function GET(request: Request): Promise<Response> {
+  await connection();
   return handleAuthoringMaterialsRequest(request);
 }
 

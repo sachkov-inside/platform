@@ -1,4 +1,7 @@
+import { connection } from "next/server";
+
 import { handleReadBillingContact } from "@/features/billing-contact.server";
-export function GET(): Promise<Response> {
+export async function GET(): Promise<Response> {
+  await connection();
   return handleReadBillingContact();
 }

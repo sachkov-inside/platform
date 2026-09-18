@@ -1,4 +1,4 @@
-import type { ComponentProps } from "react";
+import { Suspense, use, type ComponentProps } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
 
@@ -12,7 +12,7 @@ import {
   LibraryDiscoveryUnavailable,
   LibraryDiscoveryView,
 } from "./library-discovery-view";
-import { topicPath } from "@/shared/routing/public-page-path";
+import { boxOf, desktop, mobile, originOf, settleStoryFrame, stagedLoaders, stagedLoadingOf, type StagedLoading, type StoryViewport } from "@/workshop/loads-in-place";
 import { publicPageEnvironment } from "@/workshop/story-environment";
 
 /**
@@ -258,7 +258,7 @@ export const EmptySeries: Story = {
 
 export const Unavailable: Story = {
   args: { result: topicResult },
-  render: () => <LibraryDiscoveryUnavailable retryHref={topicPath("platform")} />,
+  render: () => <LibraryDiscoveryUnavailable />,
   name: "Unavailable",
 };
 
@@ -292,6 +292,44 @@ async function heroOpensAtTheSamePlace({ canvasElement }: { canvasElement: HTMLE
   await expect(Math.round(breadcrumbBox.height)).toBe(40);
   await expect(Math.round(hero.getBoundingClientRect().top - breadcrumbBox.bottom)).toBe(20);
 }
+
+/** Тема целиком общая (ADR 0026): под скелетом маршрута сразу готовая страница. */
+function StagedTopic({ sequence }: { readonly sequence: StagedLoading }) {
+  return <Suspense fallback={<LibraryDiscoveryLoading />}><TopicPage sequence={sequence} /></Suspense>;
+}
+
+function TopicPage({ sequence }: { readonly sequence: StagedLoading }) {
+  use(sequence.sharedPart);
+  return <LibraryDiscoveryView result={topicResult} />;
+}
+
+/** Ряд возврата и начало шапки темы: высота шапки зависит от названия и описания. */
+const topicFrameOf = (canvasElement: HTMLElement) => ({
+  breadcrumb: boxOf(canvasElement, "[data-discovery-frame] > :nth-child(1)"),
+  hero: originOf(boxOf(canvasElement, "[data-discovery-frame] > :nth-child(2)")),
+});
+
+function topicLoadsInPlace({ globals, width }: StoryViewport): Pick<Story, "globals" | "loaders" | "render" | "play"> {
+  return {
+    globals,
+    loaders: stagedLoaders,
+    render: (_args, { loaded }) => <StagedTopic sequence={stagedLoadingOf(loaded)} />,
+    play: async ({ canvasElement, loaded }) => {
+      await settleStoryFrame(width);
+      const canvas = within(canvasElement);
+      await expect(await canvas.findByLabelText("Подборка загружается")).toHaveAttribute("aria-busy", "true");
+      const skeleton = topicFrameOf(canvasElement);
+
+      stagedLoadingOf(loaded).deliverSharedPart();
+      await canvas.findByRole("heading", { level: 1, name: "Platform" });
+
+      await expect(skeleton).toEqual(topicFrameOf(canvasElement));
+    },
+  };
+}
+
+export const TopicLoadsInPlace: Story = { args: { result: topicResult }, ...topicLoadsInPlace(desktop) };
+export const TopicLoadsInPlaceMobile: Story = { args: { result: topicResult }, ...topicLoadsInPlace(mobile) };
 
 export const NotFound: Story = {
   args: { result: topicResult },

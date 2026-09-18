@@ -2,6 +2,7 @@
 
 import { LibraryDiscoveryUnexpectedError } from "@/_pages/library-discovery";
 
-export default function SeriesError({ reset }: { readonly reset: () => void }) {
-  return <LibraryDiscoveryUnexpectedError onRetry={reset} />;
+/** `retry` перечитывает страницу с сервера; `reset` перерисовал бы тот же сбой без запроса. */
+export default function SeriesError({ retry }: { readonly retry: () => void }) {
+  return <LibraryDiscoveryUnexpectedError onRetry={retry} />;
 }

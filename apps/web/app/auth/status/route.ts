@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { connection, NextResponse } from "next/server";
 
 import {
   requestMaterialAuthoringReferences,
@@ -13,9 +13,9 @@ import {
   readLogtoBffConfig,
 } from "@/shared/auth/index.server";
 
-export const dynamic = "force-dynamic";
-
 export async function GET(): Promise<Response> {
+  // Вне `try`: отказ от предсборки приходит исключением, и перехват выдал бы его за «unavailable».
+  await connection();
   const config = readLogtoBffConfig();
   try {
     const accessToken = await getPlatformAccessToken(config);

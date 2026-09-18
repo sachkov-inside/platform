@@ -2,6 +2,7 @@ import LogtoClient from "@logto/node/edge";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const fakes = vi.hoisted(() => ({
+  connection: vi.fn(() => Promise.resolve()),
   config: {
     endpoint: "https://identity.example.test",
     appId: "inside-web",
@@ -32,6 +33,12 @@ const fakes = vi.hoisted(() => ({
   requestMaterialAuthoringReferences: vi.fn(() =>
     Promise.resolve({ ok: true }),
   ),
+}));
+
+// Обработчики держат ответ вне сборки через `connection()`, а у неё вне запроса Next.js нет области.
+vi.mock("next/server", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  connection: fakes.connection,
 }));
 
 vi.mock("@logto/next/server-actions", () => ({
@@ -260,6 +267,14 @@ describe("Logto BFF route orchestration", () => {
       state: "guest",
     });
     expect(fakes.clearLogtoSessionCookie).toHaveBeenCalledWith(fakes.config);
+  });
+
+  it("holds the status answer out of the build before it can be mistaken for a failure", async () => {
+    // Отказ от предсборки приходит исключением; внутри `try` он превратился бы в «unavailable».
+    fakes.connection.mockRejectedValueOnce(new Error("prerender bailout"));
+
+    await expect(authStatus()).rejects.toThrow("prerender bailout");
+    expect(fakes.getAccessToken).not.toHaveBeenCalled();
   });
 
   it("reports a missing Logto session as a guest", async () => {

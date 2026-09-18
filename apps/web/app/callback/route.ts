@@ -1,5 +1,5 @@
 import { getAccessToken } from "@logto/next/server-actions";
-import { NextResponse } from "next/server";
+import { connection, NextResponse } from "next/server";
 
 import { AudienceBoundLogtoClient } from "@/shared/auth/audience-bound-logto-client.server";
 import { readTermsGate } from "@/features/terms-acceptance.server";
@@ -12,9 +12,9 @@ import {
   safePostSignInReturnUri,
 } from "@/shared/auth/index.server";
 
-export const dynamic = "force-dynamic";
-
 export async function GET(request: Request): Promise<Response> {
+  // Вне `try`: отказ от предсборки приходит исключением, и перехват стёр бы cookie сессии.
+  await connection();
   const config = readLogtoBffConfig();
   try {
     const client = new AudienceBoundLogtoClient(config);

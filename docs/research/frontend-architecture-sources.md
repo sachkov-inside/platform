@@ -205,7 +205,8 @@ requests по умолчанию не cached, а identical fetches внутри 
 - публичная immutable revision может использовать explicit cache/tag; если published Material
   заменяется по тому же URL, cache invalidation вызывается после publish или через secured webhook;
 - не включать `cacheComponents` попутно в feature ticket: в Next 16 это отдельная opt-in caching
-  model и отдельное архитектурное решение
+  model и отдельное архитектурное решение — оно принято в
+  [ADR 0026](../adr/0026-web-navigation-and-caching.md)
   ([Next.js revalidating with Cache Components](https://nextjs.org/docs/app/getting-started/revalidating),
   [previous caching model](https://nextjs.org/docs/app/guides/caching-without-cache-components)).
 

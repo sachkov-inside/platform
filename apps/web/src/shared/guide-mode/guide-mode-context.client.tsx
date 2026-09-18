@@ -24,6 +24,14 @@ export function GuideModeProvider({
   readonly initialMode: GuideMode;
 }) {
   const [mode, setMode] = useState(initialMode);
+  // Покинутый урок Next.js не размонтирует, а прячет, и его состояние переживает уход (ADR 0026).
+  // Режим, выбранный на соседнем уроке, приходит сюда новым значением с сервера: состояние идёт за
+  // ним, иначе вернувшийся читатель увидел бы вариант шага для прежнего режима.
+  const [servedMode, setServedMode] = useState(initialMode);
+  if (servedMode !== initialMode) {
+    setServedMode(initialMode);
+    setMode(initialMode);
+  }
   const value = useMemo<GuideModeState>(() => ({ mode, select: setMode }), [mode]);
   return <GuideModeContext.Provider value={value}>{children}</GuideModeContext.Provider>;
 }

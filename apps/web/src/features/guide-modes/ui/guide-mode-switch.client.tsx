@@ -1,7 +1,8 @@
 "use client";
 
 import { useMutation } from "@tanstack/react-query";
-import { useId, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useId, useRef, useState } from "react";
 
 import { cn } from "@/shared/lib/utils";
 import {
@@ -22,10 +23,24 @@ export function GuideModeSwitch({ signedIn }: { readonly signedIn: boolean }) {
   const { mode, select } = useGuideMode();
   const [failed, setFailed] = useState(false);
   const labelId = useId();
+  const router = useRouter();
+  // Вариант шага выбирает сервер, поэтому страницы, которые браузер помнит в кеше маршрутов,
+  // отрисованы в прежнем режиме. Запомненный выбор их отбрасывает (ADR 0026).
+  const saveBurst = useRef({ inFlight: 0, saved: false });
   const save = useMutation({
     mutationFn: saveReaderGuideMode,
     onSuccess: (result) => {
       setFailed(result.kind !== "saved");
+    },
+    onSettled: (result) => {
+      const burst = saveBurst.current;
+      burst.inFlight -= 1;
+      if (result?.kind === "saved") burst.saved = true;
+      // При быстром переключении туда и обратно страница перечитывается один раз, после последней
+      // записи: ответ на первую принёс бы с сервера режим, который читатель уже сменил.
+      if (burst.inFlight > 0 || !burst.saved) return;
+      burst.saved = false;
+      router.refresh();
     },
     onError: () => {
       setFailed(true);
@@ -59,8 +74,14 @@ export function GuideModeSwitch({ signedIn }: { readonly signedIn: boolean }) {
               if (option === mode) return;
               setFailed(false);
               select(option);
-              if (signedIn) save.mutate(option);
-              else rememberGuestGuideMode(option);
+              if (signedIn) {
+                saveBurst.current.inFlight += 1;
+                save.mutate(option);
+              }
+              else {
+                rememberGuestGuideMode(option);
+                router.refresh();
+              }
             }}
             type="button"
           >

@@ -4,6 +4,9 @@ import { getHome, HomePage } from "@/_pages/home.server";
 import { WelcomePage } from "@/_pages/welcome.server";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/optional-platform-access-token.server";
 
+/** Раздел целиком зависит от сессии и на слои не разложен: проверка мгновенности с него снята (ADR 0026). */
+export const instant = false;
+
 export const metadata: Metadata = {
   title: "Добро пожаловать",
   robots: { follow: false, index: false },

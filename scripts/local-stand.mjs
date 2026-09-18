@@ -27,6 +27,13 @@ const standPorts = {
   IDENTITY_PROOF_WEB_PORT: process.env.WEB_HOST_PORT ?? "3000",
   IDENTITY_PROOF_MAILPIT_PORT: process.env.MAIL_CAPTURE_HOST_PORT ?? "8025",
 };
+// `--production-web` поднимает web production-сборкой: только в ней работают предзагрузка ссылок и
+// кеш маршрутов, по которым владелец оценивает скорость переходов (ADR 0026). По умолчанию web
+// остаётся в режиме разработки с горячей перезагрузкой.
+const productionWeb = process.argv.slice(2).includes("--production-web");
+const composeFiles = productionWeb
+  ? ["--file", "compose.yaml", "--file", "config/compose/local/production-web.compose.yaml"]
+  : [];
 // The stand is always the shared project, even when a shell still names the disposable smoke one.
 const environment = { ...process.env, ...standPorts, COMPOSE_PROJECT_NAME: "inside-platform" };
 const smokeProject = "inside-platform-smoke";
@@ -63,7 +70,7 @@ try {
   process.stdout.write([
     "",
     "Стенд поднят одной командой. Дальше всё в одном окружении:",
-    `  приложение        http://127.0.0.1:${standPorts.IDENTITY_PROOF_WEB_PORT}`,
+    `  приложение        http://127.0.0.1:${standPorts.IDENTITY_PROOF_WEB_PORT}${productionWeb ? " (production-сборка: после правок кода пересоберите стенд)" : ""}`,
     `  вход              https://identity.inside.localhost:${logtoPort}`,
     `  письма            http://127.0.0.1:${standPorts.IDENTITY_PROOF_MAILPIT_PORT}`,
     `  двойник банка     http://127.0.0.1:${process.env.BANK_DOUBLE_HOST_PORT ?? "8090"}`,
@@ -92,7 +99,7 @@ async function isComposeRunning() {
 }
 
 function compose(arguments_, options = {}) {
-  return run("docker", ["compose", "--profile", "identity", ...arguments_], options);
+  return run("docker", ["compose", ...composeFiles, "--profile", "identity", ...arguments_], options);
 }
 
 function runPnpm(arguments_, extraEnvironment = {}) {
