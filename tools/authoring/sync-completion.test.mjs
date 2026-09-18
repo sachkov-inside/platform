@@ -47,7 +47,7 @@ function applicationApi() {
   const calls = [];
   const videos = new Map();
   const artifacts = new Map();
-  const guide = { id: guideId, slug: "product", name: "", summary: "", version: 1, archived: false, presentation: "default", page: null, pageRejected: false };
+  const guide = { id: guideId, slug: "product", sourceId: "inside-content:product", name: "", summary: "", version: 1, archived: false, presentation: "default", page: null, pageRejected: false };
   let next = 1;
   const api = {
     calls, materials, videos, artifacts, guide, pin: { seriesId: uuid(901), version: 3 },
@@ -215,6 +215,17 @@ test("Platform checks the whole description before the first write, and an older
   const once = updates();
   await run(setup, api);
   assert.equal(updates(), once, "a package without a Home card caption stays unchanged");
+});
+
+test("an archived product with the same source key does not lend its address", async (t) => {
+  const setup = await fixture(t);
+  const api = applicationApi();
+  await run(setup, api);
+  api.guide.archived = true;
+  api.guide.slug = "product-archived";
+  const report = await run(setup, api);
+  assert.equal(api.guide.slug, "product-archived", "the address of an archived record is not reused as a decision");
+  assert.deepEqual(report.notices.filter((notice) => notice.code === "guide_archived").length, 1);
 });
 
 test("a package that names no description leaves the stored page alone", async (t) => {

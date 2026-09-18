@@ -50,7 +50,7 @@ export async function previewRelease(packagePath, stateDirectory, { origin, requ
   const storedGuides = manifest.guides.length === 0 ? [] : await request("/authoring/collections?kind=guide");
   const guideIds = new Map(manifest.guides.flatMap((guide) => {
     const entry = journal.guides[sourceKey(manifest, guide.sourceId)];
-    const stored = storedGuides.find((item) => item.sourceId === sourceKey(manifest, guide.sourceId));
+    const stored = storedGuides.find((item) => item.sourceId === sourceKey(manifest, guide.sourceId) && item.archived !== true);
     const id = entry?.guideId ?? stored?.id;
     return id === undefined ? [] : [[guide.sourceId, id]];
   }));

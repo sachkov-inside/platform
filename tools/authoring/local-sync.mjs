@@ -221,7 +221,12 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
       if (!guide.complete) throw new Error("This first local programme adapter requires a complete Guide selection");
       const key = sourceId(guide.sourceId);
       try {
-      const stored = storedGuides.find((item) => item.sourceId === key);
+      // Архивный продукт с тем же ключом адрес не подсказывает, и о нём говорит отчёт.
+      const sameSource = storedGuides.filter((item) => item.sourceId === key);
+      const stored = sameSource.find((item) => item.archived !== true);
+      if (stored === undefined && sameSource.length > 0) {
+        report.notices.push({ code: "guide_archived", message: `Продукт ${guide.sourceId} в Platform архивирован: перенос продолжает его запись, восстановление остаётся решением владельца.` });
+      }
       const reserved = journal.guides[key];
       const address = guide.slug ?? stored?.slug ?? reserved?.slug ?? guide.sourceId;
       let current = await request("/authoring/import/guides/reserve", { sourceId: key, name: guide.title.trim(), slug: address, summary: guideTeaser(guide).teaser.trim() });
