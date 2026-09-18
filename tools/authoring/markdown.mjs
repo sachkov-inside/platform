@@ -1,5 +1,5 @@
 import { materialDocumentSchemaV1 } from "@inside/material-blocks/schema";
-import { addressableMaterialBlockTypes } from "@inside/material-blocks";
+import { addressableMaterialBlockTypes, calloutToneLabels } from "@inside/material-blocks";
 import MarkdownIt from "markdown-it";
 import { createHash } from "node:crypto";
 
@@ -91,9 +91,11 @@ export function convertMarkdown(markdown, { sourcePath, sourceId, link, image })
           if (previous?.type === "variant" && previous.content.length === 1 && previous.content[0].attrs.mode !== mode) previous.content.push(option);
           else append({ type: "variant", content: [option] });
         } else {
-          const kind = { info: "note", note: "note", tip: "tip", warning: "warning", important: "warning", example: "example", good: "good", bad: "bad", definition: "definition" }[token.meta.kind];
+          const kind = { info: "note", note: "note", tip: "tip", warning: "warning", important: "warning", example: "example", good: "good", bad: "bad", definition: "definition", todo: "task" }[token.meta.kind];
           if (!kind) fail(token, `unsupported callout: ${token.meta.kind}`);
-          append({ type: "callout", attrs: { kind, title: token.meta.title }, content });
+          // The reader already sees the kind's own name, so a title repeating it is dropped.
+          const title = token.meta.title === calloutToneLabels[kind] ? null : token.meta.title;
+          append({ type: "callout", attrs: { kind, title }, content });
         }
       } else fail(token, `unsupported Markdown block: ${token.type}`);
     }

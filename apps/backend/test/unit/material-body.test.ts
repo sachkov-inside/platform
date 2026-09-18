@@ -229,6 +229,7 @@ describe("MaterialBodyOperations", () => {
         ]),
       ]),
       documentNode("callout", { kind: "tip", nodeId: testNodeId(12) }, [paragraph(13, "Совет")]),
+      documentNode("callout", { kind: "task", nodeId: testNodeId(18) }, [paragraph(19, "Задание")]),
       documentNode("assetImage", {
         alt: "Схема",
         assetId: testNodeId(14),

@@ -374,7 +374,8 @@
                   "example",
                   "good",
                   "bad",
-                  "definition"
+                  "definition",
+                  "task"
                 ],
                 "type": "string"
               }
@@ -1104,7 +1105,8 @@
                   "example",
                   "good",
                   "bad",
-                  "definition"
+                  "definition",
+                  "task"
                 ],
                 "type": "string"
               }

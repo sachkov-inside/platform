@@ -10,7 +10,8 @@ import { nestedBlocks } from "./nested-blocks.js";
 
 /**
  * Accepted callout kinds. `note`, `tip` and `warning` are the original set and the lesson kinds
- * were added beside them, so a stored callout stays valid without a migration.
+ * were added beside them, so a stored callout stays valid without a migration. `task` carries a
+ * reader's practice step, which the originals mark as its own construct.
  */
 export const calloutTones = [
   "note",
@@ -20,6 +21,7 @@ export const calloutTones = [
   "good",
   "bad",
   "definition",
+  "task",
 ] as const;
 
 const calloutToneSchema = z.enum(calloutTones);
@@ -36,6 +38,7 @@ export const calloutToneLabels: Readonly<Record<CalloutTone, string>> = {
   example: "Пример",
   good: "Хорошо",
   note: "Примечание",
+  task: "Задание",
   tip: "Совет",
   warning: "Важно",
 };
