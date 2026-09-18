@@ -9,7 +9,13 @@ import {
 } from "@/shared/link-preview";
 import { readPublicSiteOrigin } from "@/shared/link-preview/index.server";
 
-type MaterialPageProps = PageProps<"/materials/[slug]">;
+// Явный тип, а не сгенерированный `PageProps`: проверка типами в lint идёт до `next typegen`.
+interface MaterialPageProps {
+  readonly params: Promise<{ readonly slug: string }>;
+  readonly searchParams: Promise<{
+    readonly from?: string | readonly string[] | undefined;
+  }>;
+}
 
 /**
  * Сколько секунд браузер помнит эту страницу вместе с личной частью: повторный переход в этом окне
