@@ -39,12 +39,7 @@ const productViews: Record<GuidePresentation, (props: ProductViewProps) => React
     page === null ? (
       <DefaultGuideProductView {...props} freeEntryHref={freeEntryHref} page={null} />
     ) : (
-      <AiFirstGuideView
-        page={page}
-        result={props.result}
-        returnTarget={props.returnTarget}
-        {...(freeEntryHref === undefined ? {} : { freeEntryHref })}
-      />
+      <AiFirstGuideView page={page} result={props.result} returnTarget={props.returnTarget} />
     ),
 };
 
@@ -92,6 +87,8 @@ function DefaultGuideProductView({
   const introduction = page === null ? reference.introduction ?? null : null;
   const items = result.kind === "ready" ? result.items : [];
   const freeCount = items.filter((item) => item.access === "free" && item.availability === "available").length;
+  // Бесплатный вход обещает открытые уроки, поэтому он показывается там же, где они есть.
+  const freeEntry = freeCount === 0 ? undefined : freeEntryHref;
   const chapters = result.chapters;
   const guideArtifacts = artifacts.kind === "ready" ? artifacts.artifacts : [];
   const meta = [
@@ -138,13 +135,13 @@ function DefaultGuideProductView({
             <p className="text-sm tabular-nums text-white/70">
               {formatMaterialCount(items.length)}
             </p>
-            {freeEntryHref === undefined ? null : (
+            {freeEntry === undefined ? null : (
               <Button
                 asChild
                 className="h-auto min-h-11 max-w-full whitespace-normal rounded-full border-0 bg-white/15 text-white hover:bg-white/25 hover:text-white"
                 variant="outline"
               >
-                <Link href={freeEntryHref}>
+                <Link href={freeEntry}>
                   <Play aria-hidden="true" className="size-4 shrink-0" />
                   Попробовать бесплатно
                 </Link>

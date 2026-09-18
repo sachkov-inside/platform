@@ -17,14 +17,13 @@ import "./ai-first-guide-view.css";
  * к известным блокам свои иллюстрации и значки. Блок с другим `id` рисуется по своему виду.
  * Сроки доступа и помощи подставляет оферта, поэтому в тексте автор пишет только подстановку.
  */
-export function AiFirstGuideView({ result, page, returnTarget, freeEntryHref }: {
+export function AiFirstGuideView({ result, page, returnTarget }: {
   readonly result: Extract<PublishedSeriesResult, { kind: "ready" | "empty" }>;
   readonly page: GuidePage;
   readonly returnTarget: MaterialReaderReturnTarget;
-  readonly freeEntryHref?: Route;
 }) {
   const freeCount = result.kind === "ready" ? result.items.filter(item => item.access === "free" && item.availability === "available").length : 0;
-  const context: BlockContext = { fill: fillTerms, programme: guideProgrammeHref(result.reference.slug), freeEntryHref, freeCount, name: result.reference.name };
+  const context: BlockContext = { fill: fillTerms, programme: guideProgrammeHref(result.reference.slug), freeCount, name: result.reference.name };
   return <article className="ai-guide-page" data-guide-product={result.reference.slug} data-guide-presentation="ai-first-process">
     <nav aria-label="Хлебные крошки"><Link className="ai-guide-back" href={returnTarget.href}><ArrowLeft />{returnTarget.label}</Link></nav>
     {/* Название продукта — заголовок страницы: его показывает hero, а без hero он всё равно нужен. */}
@@ -37,7 +36,6 @@ export function AiFirstGuideView({ result, page, returnTarget, freeEntryHref }: 
 interface BlockContext {
   readonly fill: (text: string) => string;
   readonly programme: Route;
-  readonly freeEntryHref: Route | undefined;
   /** Сколько уроков продукта открыты без покупки: приглашение показывается только при них. */
   readonly freeCount: number;
   readonly name: string;
