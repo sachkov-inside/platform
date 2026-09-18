@@ -10,7 +10,7 @@ persistent authorization audit в v1, и расширенный
 Workshop-specific extension #263 остаётся implemented case-first foundation. Для нового Kafka
 Track обычные Material targets используют только `free | membership`; legacy `workshop`
 requirement и `WorkshopMaterialAccess` применяются только к явно связанным CaseMaterials до
-reuse/supersede decision #278. Laboratory и Production Case delivery принадлежат отдельному
+решения Kafka evaluation research о reuse/supersede. Laboratory и Production Case delivery принадлежат отдельному
 `WorkshopAccess` из [Workshop specification](workshop-tracks.md), а не этому Module.
 
 ## Решение
@@ -118,7 +118,7 @@ caller не передаёт.
 | MCP | Materials tools ещё отсутствуют. | Первый adapter использует user-delegated owner Account и ту же permission; service identity не создаётся. |
 | MaterialAsset | Production upload/read/download adapters реализованы в #180. | Version-bound route передаёт `assetId` в exact Asset/Action allow, сверяет `checkedContentVersion` и current body reference до private locator; Membership presign ограничен `validUntil`. |
 | Video | Owning module и delivery adapter существуют. | Token issue и provider callback повторно используют exact ContentAccess decision; protected credential ограничен validity решения. |
-| Legacy CaseMaterial | Case-first foundation #263 публикует immutable CaseMaterial links и bounded entitlement/reveal state. | Для normal delivery ContentAccess вызывает только узкий `WorkshopMaterialAccess.resolve(accountId, materialId)`; новый Track не использует эту связь для обычных Materials до #278. |
+| Legacy CaseMaterial | Case-first foundation #263 публикует immutable CaseMaterial links и bounded entitlement/reveal state. | Для normal delivery ContentAccess вызывает только узкий `WorkshopMaterialAccess.resolve(accountId, materialId)`; новый Track не использует эту связь для обычных Materials до этого решения. |
 
 ## Subject и authorization facts
 
