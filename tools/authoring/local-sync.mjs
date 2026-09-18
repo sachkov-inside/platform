@@ -49,6 +49,52 @@ export function guideTeaser(guide) {
   return { teaser: first, partial: true };
 }
 
+/**
+ * Everything the source owns about a Guide besides its programme (ADR 0026). The page keeps the
+ * shape Platform stores, so an absent Home card caption is not a change. A package that names no
+ * address leaves the current one alone: an older package must not move a published product.
+ */
+export function guideDetails(guide, current) {
+  // Пакет, который не называет описание или оформление, оставляет их прежними: так старый пакет не
+  // стирает страницу. Снять описание можно явным `page: null` в манифесте.
+  const page = guide.page === undefined ? current?.page ?? null : guide.page === null ? null : { card: guide.page.card ?? null, blocks: guide.page.blocks };
+  return {
+    name: guide.title.trim(),
+    summary: guideTeaser(guide).teaser.trim(),
+    slug: guide.slug ?? current?.slug ?? guide.sourceId,
+    presentation: guide.presentation ?? current?.presentation ?? "default",
+    page,
+  };
+}
+/** Сравнение идёт с тем, что цель уже держит: журнал ничего об описании не помнит. */
+export function guideDetailsMatch(current, details) {
+  // Нечитаемое описание цели — всегда несовпадение: только перенос может его заменить.
+  return current.pageRejected !== true
+    && current.name === details.name && current.summary === details.summary && current.slug === details.slug
+    && (current.presentation ?? "default") === details.presentation
+    && canonical(current.page ?? null) === canonical(details.page);
+}
+
+/**
+ * The whole page description is checked before the first write: Platform owns the schema, so the
+ * transfer asks it instead of keeping a fourth copy of the rules.
+ */
+export async function validateGuidePages(manifest, send) {
+  for (const guide of manifest.guides) {
+    const details = guideDetails(guide);
+    // Адрес проверяется только когда пакет его называет: продукт на своём адресе не должен падать
+    // из-за формы чужого ключа. Новый продукт с непригодным ключом остановит reserve — он идёт до
+    // записи материалов.
+    const source = { presentation: details.presentation, page: details.page, ...(guide.slug === undefined ? {} : { slug: guide.slug }) };
+    const path = "/authoring/import/guides/validate";
+    try {
+      parseLocalResponse(path, await send(path, { sourceId: sourceKey(manifest, guide.sourceId), source }));
+    } catch (error) {
+      throw new Error(`Product ${guide.sourceId}: Platform rejected its page description or presentation '${details.presentation}'. ${error.message}`, { cause: error });
+    }
+  }
+}
+
 export function guideChapters(manifest, guide) {
   return guide.chapters.map((chapter) => ({ id: sourceUuid(`${sourceKey(manifest, guide.sourceId)}:chapter:${chapter.sourceId}`), name: chapter.title, summary: chapter.summary }));
 }
@@ -102,6 +148,7 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
   const pkg = await loadPackage(packagePath);
   const environment = await request("/authoring/import/materials/environment");
   if (environment.mode !== "development") throw new Error("Local synchronization requires a development runtime");
+  await validateGuidePages(pkg.manifest, send);
   return withJournal(stateDirectory, target, async (context) => {
     const { journal, persist } = context;
     journal.resources ??= {};
@@ -135,9 +182,8 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
     }
 
     const teasers = new Map(pkg.manifest.guides.map((guide) => [guide.sourceId, guideTeaser(guide)]));
-    const teaserOf = (guide) => teasers.get(guide.sourceId).teaser;
     if ([...teasers.values()].some(({ partial }) => partial)) {
-      report.notices.push({ code: "guide_description_partial", message: "Кратким описанием продукта стал первый абзац. Страница продукта оформляется в Platform; полное описание остаётся в оригинале." });
+      report.notices.push({ code: "guide_description_partial", message: "Кратким описанием продукта стал первый абзац. Полное описание страницы переносится отдельными блоками ключа page." });
     }
     const topics = await request("/authoring/collections?kind=topic");
     const topicIds = new Map(topics.map((item) => [item.slug, item.id]));
@@ -169,13 +215,34 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
     const placeholderLinks = new Map([...rows.keys()].map((id) => [id, `/materials/${id}`]));
     const placeholderImages = new Map(pkg.manifest.assets.map((asset) => [asset.sourceId, sourceUuid(asset.sourceId)]));
     const guides = new Map();
+    // Цель называет свой адрес и ключ источника, поэтому перенос не выдумывает адрес из ключа.
+    const storedGuides = pkg.manifest.guides.length === 0 ? [] : await request("/authoring/collections?kind=guide");
     for (const guide of pkg.manifest.guides) {
       if (!guide.complete) throw new Error("This first local programme adapter requires a complete Guide selection");
-      const current = await request("/authoring/import/guides/reserve", { sourceId: sourceId(guide.sourceId), name: guide.title, slug: guide.sourceId, summary: teaserOf(guide) });
+      const key = sourceId(guide.sourceId);
+      try {
+      // Архивный продукт с тем же ключом адрес не подсказывает, и о нём говорит отчёт.
+      const sameSource = storedGuides.filter((item) => item.sourceId === key);
+      const stored = sameSource.find((item) => item.archived !== true);
+      if (stored === undefined && sameSource.length > 0) {
+        report.notices.push({ code: "guide_archived", message: `Продукт ${guide.sourceId} в Platform архивирован: перенос продолжает его запись, восстановление остаётся решением владельца.` });
+      }
+      const reserved = journal.guides[key];
+      const address = guide.slug ?? stored?.slug ?? reserved?.slug ?? guide.sourceId;
+      let current = await request("/authoring/import/guides/reserve", { sourceId: key, name: guide.title.trim(), slug: address, summary: guideTeaser(guide).teaser.trim() });
+      const details = guideDetails(guide, current);
+      journal.guides[key] = { ...journal.guides[key], guideId: current.id, slug: current.slug };
+      // The page is checked here, before any Material is written; an unchanged product writes nothing.
+      if (!guideDetailsMatch(current, details)) {
+        current = await request("/authoring/import/guides/update", { sourceId: key, collectionId: current.id, expectedVersion: current.version, name: details.name, summary: details.summary, source: { slug: details.slug, presentation: details.presentation, page: details.page } });
+        journal.guides[key] = { ...journal.guides[key], slug: current.slug, version: current.version };
+      }
       guides.set(guide.sourceId, current);
-      journal.guides[sourceId(guide.sourceId)] = { guideId: current.id, slug: current.slug };
+      await persist();
+      } catch (error) {
+        throw new Error(`Product ${guide.sourceId}: ${error.message}`, { cause: error });
+      }
     }
-    await persist();
 
     // Paid Materials must belong to a product, so validation uses the reserved Guides' real identities.
     // Supplementary originals are Guide members outside chapters: the product's "Additional Materials" part.
@@ -285,17 +352,18 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
     }
 
     for (const guide of pkg.manifest.guides) {
+      try {
       const current = guides.get(guide.sourceId);
       const order = await request(`/authoring/guides/${current.id}/order`);
       const chapters = guideChapters(pkg.manifest, guide);
       const chapterAssignments = Object.fromEntries(guide.chapters.flatMap((chapter, index) => chapter.materialIds.map((id) => [currentMaterials.get(id).materialId, chapters[index].id])));
       const orderedMaterialIds = [...guide.materialIds, ...guide.supplementaryMaterialIds].map((id) => currentMaterials.get(id).materialId);
       await request("/authoring/import/guides/composition", { sourceId: sourceId(guide.sourceId), seriesId: current.id, expectedOrderVersion: order.orderVersion, orderedMaterialIds, chapters, chapterAssignments });
-      if (current.name !== guide.title || current.summary !== teaserOf(guide)) {
-        await request("/authoring/import/guides/update", { sourceId: sourceId(guide.sourceId), collectionId: current.id, expectedVersion: current.version, name: guide.title, summary: teaserOf(guide) });
-      }
       await syncArtifacts(guide, current);
       report.guides.push({ title: guide.title, url: `${reader}/guides/${current.slug}`, programmeUrl: `${reader}/guides/${current.slug}/programme`, mainMaterials: guide.materialIds.length, supplementaryMaterials: guide.supplementaryMaterialIds.map((id) => ({ sourceId: id, url: `${reader}${links.get(id)}` })) });
+      } catch (error) {
+        throw new Error(`Product ${guide.sourceId}: ${error.message}`, { cause: error });
+      }
     }
 
     // Material artifacts become authoring-owned Guide artifacts linked back to every Material that declares them.

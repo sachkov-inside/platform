@@ -6,10 +6,19 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import type { ObjectStorage } from "../../src/infrastructure/object-storage/index.js";
 import { assembleContentCovers, assembleGuideArtifacts, assembleMaterials } from "../../src/modules/materials/index.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
+import { readHomeContent } from "../../src/modules/content-library/features/read-home-content/read-home-content.js";
+import { emptyCatalogVideos } from "../support/catalog-videos.js";
 import { createMigratedTestDatabase, type TestDatabase } from "./setup/test-database.js";
 
 const actor = randomUUID();
 const guideSource = "inside-content:guide-import";
+const page = {
+  card: { eyebrow: "Практикум", subtitle: "Инженерная работа", action: "Открыть практикум" },
+  blocks: [
+    { id: "hero", kind: "hero" as const, lead: "Лид страницы.", highlights: ["Твой стек", "Поддержка {support_term}"] },
+    { id: "audience", kind: "cards" as const, eyebrow: "", title: "Кому это нужно", lead: "", items: [{ title: "Новичкам", text: "Текст.", detailLabel: "", detail: "" }], note: "" },
+  ],
+};
 const materialSource = { id: "inside-content:guide-import-lesson", path: "lesson.md", revision: "c".repeat(64), showInFeed: false };
 
 describe("authoring source Guide completion", () => {
@@ -41,11 +50,76 @@ describe("authoring source Guide completion", () => {
 
   test("keeps an imported Guide out of ordinary archive and renames it through its source", async () => {
     const guide = await reserveGuide(guideSource, "guide-import");
-    const updated = await authoring.updateSourceGuide({ actor, sourceId: guideSource, collectionId: guide.id, expectedVersion: guide.version, name: "Переименованный продукт", summary: guide.summary });
+    const updated = await authoring.updateSourceGuide({ actor, sourceId: guideSource, collectionId: guide.id, expectedVersion: guide.version, name: "Переименованный продукт", summary: guide.summary, source: { slug: guide.slug, presentation: "default", page: null } });
     expect(updated).toMatchObject({ ok: true, value: { name: "Переименованный продукт" } });
     if (!updated.ok) throw new Error(updated.error.code);
-    expect(await authoring.updateSourceGuide({ actor, sourceId: "inside-content:other", collectionId: guide.id, expectedVersion: updated.value.version, name: "Чужой", summary: "" })).toMatchObject({ ok: false, error: { code: "forbidden" } });
+    expect(await authoring.updateSourceGuide({ actor, sourceId: "inside-content:other", collectionId: guide.id, expectedVersion: updated.value.version, name: "Чужой", summary: "", source: { slug: guide.slug, presentation: "default", page: null } })).toMatchObject({ ok: false, error: { code: "forbidden" } });
     expect(await authoring.setContentCollectionArchive({ actor, kind: "guide", collectionId: guide.id, expectedVersion: updated.value.version, archived: true })).toMatchObject({ ok: false, error: { code: "forbidden" } });
+  });
+
+  test("stores the product page only through its source and keeps the product when its address changes", async () => {
+    const sourceId = "inside-content:page-guide";
+    const guideId = randomUUID();
+    await database.prisma.guide.create({ data: { id: guideId, name: "Импортированный продукт", slug: "page-guide", summary: "Подзаголовок" } });
+    const topicId = randomUUID();
+    await database.prisma.topic.create({ data: { id: topicId, name: "Page topic", slug: "page-topic" } });
+    const lesson = await authoring.createDraft({ actor, idempotencyKey: randomUUID(), body: representativeDocument("Lesson"), metadata: { title: "Lesson", summary: "Lesson summary", access: "free", topicId, formatId: "guide", tagIds: [], difficulty: null, outcomes: [], seriesIds: [guideId] } });
+    if (!lesson.ok) throw new Error(lesson.error.code);
+    const published = await authoring.transitionPublication({ actor, idempotencyKey: randomUUID(), materialId: lesson.value.materialId, expectedContentVersion: lesson.value.contentVersion, publicationState: "published" });
+    if (!published.ok) throw new Error(published.error.code);
+    // Imported Guides accept only imported lessons, so the source is attached after composition.
+    await database.prisma.guide.update({ where: { id: guideId }, data: { sourceId } });
+    const guide = await reserveGuide(sourceId, "page-guide");
+    expect(guide).toMatchObject({ id: guideId, sourceId, presentation: "default" });
+    const pin = await authoring.loadHomePin({ actor });
+    if (!pin.ok) throw new Error(pin.error.code);
+    expect(await authoring.setHomePin({ actor, seriesId: guide.id, expectedVersion: pin.value.version })).toMatchObject({ ok: true });
+
+    const request = { actor, sourceId, collectionId: guide.id, expectedVersion: guide.version, name: guide.name, summary: guide.summary };
+    // An ordinary editor write never carries source-owned fields, even for an imported Guide.
+    const { sourceId: _ignored, ...editorRequest } = request;
+    expect(await authoring.updateContentCollection({ ...editorRequest, kind: "guide", source: { slug: "page-guide", presentation: "ai-first-process", page } })).toMatchObject({ ok: false, error: { code: "forbidden" } });
+    for (const invalid of [
+      { slug: "page-guide", presentation: "unknown-look", page },
+      { slug: "page-guide", presentation: "ai-first-process", page: { ...page, blocks: [{ ...page.blocks[0], lead: "Цена {price}" }] } },
+      { slug: "page-guide", presentation: "ai-first-process", page: { ...page, blocks: [page.blocks[0], page.blocks[0]] } },
+      { slug: "page-guide", presentation: "ai-first-process", page: { ...page, blocks: [{ ...page.blocks[0], kind: "video" }] } },
+    ]) {
+      // @ts-expect-error -- the import boundary receives unchecked values
+      expect(await authoring.updateSourceGuide({ ...request, source: invalid })).toMatchObject({ ok: false, error: { code: "invalid_content" } });
+    }
+
+    const imported = await authoring.updateSourceGuide({ ...request, source: { slug: "page-guide", presentation: "ai-first-process", page } });
+    if (!imported.ok) throw new Error(imported.error.code);
+    expect(imported.value).toMatchObject({ presentation: "ai-first-process", version: guide.version + 1 });
+    // The same description on a stale version is recognised, not reported as a conflict.
+    const repeated = await authoring.updateSourceGuide({ ...request, source: { slug: "page-guide", presentation: "ai-first-process", page: structuredClone(page) } });
+    expect(repeated).toMatchObject({ ok: true, value: { version: imported.value.version } });
+
+    const moved = await authoring.updateSourceGuide({ ...request, expectedVersion: imported.value.version, source: { slug: "page-guide-renamed", presentation: "ai-first-process", page } });
+    expect(moved).toMatchObject({ ok: true, value: { id: guide.id, slug: "page-guide-renamed", presentation: "ai-first-process" } });
+    const materials = assembleMaterials({ prisma: database.prisma, authorPolicy });
+    expect(await materials.publishedMaterialReader.discoverProjections({ kind: "series", slug: "page-guide", first: 10 })).toMatchObject({ ok: false });
+    const discovered = await materials.publishedMaterialReader.discoverProjections({ kind: "series", slug: "page-guide-renamed", first: 10 });
+    expect(discovered).toMatchObject({ ok: true, value: { reference: { id: guide.id, productPage: { presentation: "ai-first-process", page } }, items: [{ materialId: lesson.value.materialId }] } });
+    const home = await readHomeContent(materials.publishedMaterialReader, materials.contentAccess, emptyCatalogVideos, { resolveForAccess: () => Promise.resolve({ kind: "required" }) }, true, { kind: "anonymous" });
+    expect(home).toMatchObject({ ok: true, value: { pinnedSeries: { id: guide.id, slug: "page-guide-renamed", presentation: "ai-first-process", card: page.card } } });
+
+    // Описание, которое больше не проходит схему, видно переносу и подлежит замене.
+    await database.prisma.guide.update({ where: { id: guideId }, data: { page: { card: null, blocks: [{ id: "hero", kind: "poster" }] } } });
+    const listed = await authoring.listContentCollections({ actor, kind: "guide" });
+    if (!listed.ok) throw new Error(listed.error.code);
+    expect(listed.value.find((item) => item.id === guideId)).toMatchObject({ page: null, pageRejected: true });
+    const current = listed.value.find((item) => item.id === guideId);
+    if (current === undefined) throw new Error("Expected the imported Guide in the list");
+    const repaired = await authoring.updateSourceGuide({ ...request, expectedVersion: current.version, source: { slug: "page-guide-renamed", presentation: "ai-first-process", page } });
+    expect(repaired).toMatchObject({ ok: true, value: { pageRejected: false } });
+
+    // Первый перенос продукта на занятый адрес — понятный конфликт, а не внутренняя ошибка.
+    expect(await authoring.reserveSourceGuide({ actor, sourceId: "inside-content:taken-address", name: "Чужой адрес", slug: "page-guide-renamed", summary: "" })).toMatchObject({ ok: false, error: { code: "content_collection_slug_conflict" } });
+
+    const other = await reserveGuide("inside-content:other-page-guide", "other-page-guide");
+    expect(await authoring.updateSourceGuide({ actor, sourceId: "inside-content:other-page-guide", collectionId: other.id, expectedVersion: other.version, name: other.name, summary: other.summary, source: { slug: "page-guide-renamed", presentation: "default", page: null } })).toMatchObject({ ok: false, error: { code: "content_collection_slug_conflict" } });
   });
 
   test("changes covers only for records owned by the same source", async () => {

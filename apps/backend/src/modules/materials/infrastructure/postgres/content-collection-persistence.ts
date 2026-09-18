@@ -1,4 +1,6 @@
-import type { MaterialsPrisma } from "../../../../infrastructure/prisma/index.js";
+import { Prisma, type MaterialsPrisma } from "../../../../infrastructure/prisma/index.js";
+import type { GuidePage, GuideSourceFields } from "../../domain/guide-page.js";
+import { readGuidePageState } from "../../shared/guide-page-reader.js";
 import type {
   ContentCollectionDto,
   ContentCollectionKind,
@@ -17,7 +19,11 @@ interface ContentCollectionRecord {
   readonly coverId: string | null;
 }
 
-type GuideRecord = ContentCollectionRecord & GuideIntroductionDto;
+type GuideRecord = ContentCollectionRecord & GuideIntroductionDto & {
+  readonly page: unknown;
+  readonly presentation: string;
+  readonly sourceId: string | null;
+};
 
 interface ContentCollectionPersistence {
   readonly create: (data: {
@@ -39,6 +45,8 @@ interface ContentCollectionPersistence {
     readonly id: string;
     readonly introduction: GuideIntroductionDto | null;
     readonly name: string;
+    /** Только для перенесённого Guide; отсутствие сохраняет текущие значения. */
+    readonly source?: GuideSourceFields | undefined;
     readonly summary: string;
   }) => Promise<number>;
 }
@@ -70,12 +78,13 @@ function topicPersistence(prisma: MaterialsPrisma): ContentCollectionPersistence
       null,
       materialCount,
       record.coverId === null ? null : covers.get(record.coverId) ?? null,
+      null,
     );
   };
   return {
     create: async (data) => {
       const record = await prisma.topic.create({ data });
-      return toDto("topic", record, null, 0, null);
+      return toDto("topic", record, null, 0, null, null);
     },
     list: async () => {
       const [records, counts] = await Promise.all([
@@ -104,6 +113,7 @@ function topicPersistence(prisma: MaterialsPrisma): ContentCollectionPersistence
           null,
           countById.get(record.id) ?? 0,
           record.coverId === null ? null : covers.get(record.coverId) ?? null,
+          null,
         ),
       );
     },
@@ -154,12 +164,13 @@ function guidePersistence(prisma: MaterialsPrisma, kind: "guide" | "series"): Co
       introductionOf(record),
       materialCount,
       record.coverId === null ? null : covers.get(record.coverId) ?? null,
+      sourceOf(record),
     );
   };
   return {
     create: async (data) => {
       const record = await prisma.guide.create({ data });
-      return toDto(kind, record, introductionOf(record), 0, null);
+      return toDto(kind, record, introductionOf(record), 0, null, sourceOf(record));
     },
     list: async () => {
       const [records, counts] = await Promise.all([
@@ -185,6 +196,7 @@ function guidePersistence(prisma: MaterialsPrisma, kind: "guide" | "series"): Co
           introductionOf(record),
           countById.get(record.id) ?? 0,
           record.coverId === null ? null : covers.get(record.coverId) ?? null,
+          sourceOf(record),
         ),
       );
     },
@@ -202,7 +214,7 @@ function guidePersistence(prisma: MaterialsPrisma, kind: "guide" | "series"): Co
         })
       ).count,
     slugConstraint: "series_slug_unique",
-    updateMetadata: async ({ expectedVersion, id, introduction, name, summary }) =>
+    updateMetadata: async ({ expectedVersion, id, introduction, name, source, summary }) =>
       (
         await prisma.guide.updateMany({
           where: { id, version: expectedVersion },
@@ -210,6 +222,13 @@ function guidePersistence(prisma: MaterialsPrisma, kind: "guide" | "series"): Co
             name,
             summary,
             ...(introduction ?? {}),
+            ...(source === undefined
+              ? {}
+              : {
+                  slug: source.slug,
+                  presentation: source.presentation,
+                  page: source.page ?? Prisma.DbNull,
+                }),
             updatedAt: new Date(),
             version: { increment: 1 },
           },
@@ -227,14 +246,36 @@ function introductionOf(record: GuideIntroductionDto): GuideIntroductionDto {
   };
 }
 
+function sourceOf(record: GuideRecord): CollectionSource {
+  const stored = readGuidePageState(record.page, `Guide ${record.slug}`);
+  return {
+    page: stored.page,
+    pageRejected: stored.rejected,
+    presentation: record.presentation,
+    sourceId: record.sourceId,
+  };
+}
+
+interface CollectionSource {
+  readonly page: GuidePage | null;
+  readonly pageRejected: boolean;
+  readonly presentation: string;
+  readonly sourceId: string | null;
+}
+
 function toDto(
   kind: ContentCollectionKind,
   record: ContentCollectionRecord,
   introduction: GuideIntroductionDto | null,
   materialCount: number,
   cover: ContentCoverProjection | null,
+  source: CollectionSource | null,
 ): ContentCollectionDto {
   return {
+    page: source?.page ?? null,
+    pageRejected: source?.pageRejected ?? false,
+    presentation: source?.presentation ?? null,
+    sourceId: source?.sourceId ?? null,
     archived: record.archivedAt !== null,
     id: record.id,
     introduction,

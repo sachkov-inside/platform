@@ -1,5 +1,5 @@
 import type { ContentAccess, Subject } from "../../../content-access/index.js";
-import type { PublishedMaterialReader } from "../../../materials/index.js";
+import type { GuidePageCard, PublishedMaterialReader } from "../../../materials/index.js";
 import type { Videos } from "../../../videos/index.js";
 import type { MembershipEntitlements } from "../../../membership-entitlements/index.js";
 import type {
@@ -9,8 +9,14 @@ import type {
 } from "../list-published-materials/list-published-materials.contract.js";
 import { listPublishedMaterials } from "../list-published-materials/list-published-materials.js";
 
+/** Закреплённый продукт с оформлением его карточки (ADR 0026). */
+export interface HomePinnedSeriesDto extends PublishedMaterialCatalogFacetDto {
+  readonly presentation: string;
+  readonly card: GuidePageCard | null;
+}
+
 export interface HomeContentDto {
-  readonly pinnedSeries: PublishedMaterialCatalogFacetDto | null;
+  readonly pinnedSeries: HomePinnedSeriesDto | null;
   readonly topics: readonly PublishedMaterialCatalogFacetDto[];
   readonly playlists: readonly PublishedMaterialCatalogFacetDto[];
   readonly videos: readonly PublishedMaterialCatalogItemDto[];
@@ -30,14 +36,14 @@ export type HomeContentResult =
 const HOME_MATERIAL_LIMIT = 8;
 
 export async function readHomeContent(
-  publishedMaterialReader: Pick<PublishedMaterialReader, "listProjections" | "readHomePinnedSeriesId">,
+  publishedMaterialReader: Pick<PublishedMaterialReader, "listProjections" | "readHomePinnedSeries">,
   contentAccess: Pick<ContentAccess, "checkAvailabilityMany">,
   videoCatalog: Pick<Videos, "loadReadyDurations">,
   membershipEntitlements: Pick<MembershipEntitlements, "resolveForAccess">,
   subscriptionForSale: boolean,
   subject: Subject,
 ): Promise<HomeContentResult> {
-  const [catalog, videos, guides, notes, pinnedSeriesId, membership] = await Promise.all([
+  const [catalog, videos, guides, notes, pin, membership] = await Promise.all([
     listPublishedMaterials(publishedMaterialReader, contentAccess, videoCatalog, {
       first: 1,
       subject,
@@ -61,7 +67,7 @@ export async function readHomeContent(
       subject,
       sort: "newest",
     }),
-    publishedMaterialReader.readHomePinnedSeriesId(),
+    publishedMaterialReader.readHomePinnedSeries(),
     resolveHomeMembership(
       membershipEntitlements,
       subscriptionForSale,
@@ -74,11 +80,22 @@ export async function readHomeContent(
   if (!catalog.ok || !videos.ok || !guides.ok || !notes.ok) {
     throw new TypeError("Home content result narrowing failed");
   }
-  if (!pinnedSeriesId.ok) return pinnedSeriesId;
+  if (!pin.ok) return pin;
+  const pinnedFacet = pin.value === null ? undefined : catalog.value.facets.series.find((series) => series.id === pin.value?.id && series.count > 0);
   return {
     ok: true,
     value: {
-      pinnedSeries: catalog.value.facets.series.find((series) => series.id === pinnedSeriesId.value && series.count > 0) ?? null,
+      pinnedSeries: pin.value === null || pinnedFacet === undefined ? null : {
+        id: pinnedFacet.id,
+        slug: pinnedFacet.slug,
+        name: pinnedFacet.name,
+        summary: pinnedFacet.summary,
+        count: pinnedFacet.count,
+        cover: pinnedFacet.cover,
+        previewItems: pinnedFacet.previewItems,
+        presentation: pin.value.presentation,
+        card: pin.value.card,
+      },
       topics: catalog.value.facets.topics.slice(0, 8),
       playlists: catalog.value.facets.series.slice(0, 4),
       videos: videos.value.items,

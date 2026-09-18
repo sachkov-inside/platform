@@ -32,6 +32,7 @@ function api() {
     async request(path, body) {
       if (path.endsWith("/environment")) return { mode: "development" };
       if (path === "/authoring/collections?kind=topic") return [];
+      if (path === "/authoring/collections?kind=guide") return [];
       if (path.endsWith("/validate")) return { valid: true };
       if (path === `/authoring/materials/${materialId}`) return structuredClone(material);
       if (path.endsWith("/reserve")) { writes.push(path); material.source = body.source; return structuredClone(material); }

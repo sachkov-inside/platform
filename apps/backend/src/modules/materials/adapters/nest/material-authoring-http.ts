@@ -12,6 +12,7 @@ import {
 } from "../../shared/guide-chapters.js";
 import { seriesStepGroupsSchema } from "../../shared/series-step-groups.js";
 import { GUIDE_INTRODUCTION_FIELD_MAX } from "../../facets/material-authoring/content-collection.contract.js";
+import { guidePageSchema } from "../../domain/guide-page.js";
 import { MATERIAL_DETACHED_VIDEOS_MAX } from "../../features/save-material/save-material.contract.js";
 
 import type {
@@ -177,7 +178,11 @@ export const contentCollectionSchema = z
     kind: contentCollectionKindSchema,
     materialCount: z.number().int().nonnegative(),
     name: z.string().min(1).max(120),
+    page: guidePageSchema.nullable(),
+    pageRejected: z.boolean(),
+    presentation: z.string().nullable(),
     slug: z.string().min(1).max(120),
+    sourceId: z.string().nullable(),
     summary: z.string().max(500),
     version: z.number().int().positive(),
     cover: contentCoverProjectionHttpSchema.nullable(),

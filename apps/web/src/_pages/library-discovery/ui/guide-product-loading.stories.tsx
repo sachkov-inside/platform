@@ -1,9 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { useParams } from "next/navigation";
 import { Suspense, use } from "react";
-import { expect, mocked, within } from "storybook/test";
+import { expect, within } from "storybook/test";
 
-import { aiFirstGuide } from "@/features/ai-first-guide";
 import type { PublishedSeriesResult } from "@/features/library-discovery";
 import { homeMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 import { boxOf, desktop, mobile, originOf, settleStoryFrame, stagedLoaders, stagedLoadingOf, type StagedLoading, type StoryViewport } from "@/workshop/loads-in-place";
@@ -22,11 +20,6 @@ const product = {
     introduction: { audience: "Разработчикам, которые собирают продукт с агентами.", outcome: "Работающее приложение и процесс.", prerequisites: "Базовый опыт разработки.", scope: "Без найма и маркетинга." },
   },
 } satisfies ResolvedSeries;
-const aiFirstProduct = {
-  kind: "empty", discoveryKind: "series", chapters: [], relatedSeries: [], topics: [],
-  reference: { name: "AI-first разработка", slug: aiFirstGuide.slug, summary: aiFirstGuide.description },
-} satisfies ResolvedSeries;
-
 /** Страница продукта целиком общая (ADR 0026), поэтому слоёв два: скелет маршрута и сама страница. */
 function StagedProduct({ result, sequence }: { readonly result: ResolvedSeries; readonly sequence: StagedLoading }) {
   return <Suspense fallback={<GuideProductLoading />}><ProductPage result={result} sequence={sequence} /></Suspense>;
@@ -48,7 +41,7 @@ const meta = {
   ...environment,
   component: GuideProductView,
   title: "Pages/Guide/Product loading",
-  parameters: { ...environment.parameters, docs: { description: { component: "Переход на страницу продукта: скелет повторяет раскладку именно этого продукта, практикум AI-first свёрстан иначе (#670)." } } },
+  parameters: { ...environment.parameters, docs: { description: { component: "Переход на страницу продукта: скелет повторяет раскладку страницы, поэтому готовая страница встаёт на его место (#670)." } } },
   args: { result: product, returnTarget: homeMaterialReaderReturnTarget },
 } satisfies Meta<typeof GuideProductView>;
 export default meta;
@@ -57,11 +50,7 @@ type Story = StoryObj<typeof meta>;
 function loadsInPlace({ globals, width }: StoryViewport, result: ResolvedSeries): Pick<Story, "beforeEach" | "globals" | "loaders" | "render" | "play"> {
   return {
     globals,
-    // При переходе адрес известен клиентскому роутеру: по нему скелет выбирает раскладку продукта.
-    beforeEach: () => {
-      environment.beforeEach();
-      mocked(useParams).mockReturnValue({ slug: result.reference.slug });
-    },
+    beforeEach: environment.beforeEach,
     loaders: stagedLoaders,
     render: (_args, { loaded }) => <StagedProduct result={result} sequence={stagedLoadingOf(loaded)} />,
     play: async ({ canvasElement, loaded }) => {
@@ -81,5 +70,3 @@ function loadsInPlace({ globals, width }: StoryViewport, result: ResolvedSeries)
 
 export const ProductLoadsInPlace: Story = { ...loadsInPlace(desktop, product) };
 export const ProductLoadsInPlaceMobile: Story = { ...loadsInPlace(mobile, product) };
-export const AiFirstLoadsInPlace: Story = { ...loadsInPlace(desktop, aiFirstProduct) };
-export const AiFirstLoadsInPlaceMobile: Story = { ...loadsInPlace(mobile, aiFirstProduct) };

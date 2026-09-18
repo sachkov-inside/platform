@@ -238,6 +238,19 @@ describe("ReadingActivity on PostgreSQL", () => {
     expect(await counts(id)).toEqual([0, 0]);
   });
 
+  test("a transferred Guide keeps reader progress when its address changes", async () => {
+    const seriesId = await series();
+    const lesson = await material([seriesId]);
+    // Imported Guides accept only imported lessons, so the source is attached after composition.
+    await database.prisma.guide.update({ where: { id: seriesId }, data: { sourceId: "inside-content:progress-guide" } });
+    const reserved = await materials.authoring.reserveSourceGuide({ actor, sourceId: "inside-content:progress-guide", name: "Progress", slug: "progress-guide", summary: "" });
+    if (!reserved.ok) throw new Error(reserved.error.code);
+    expect(await reading.setReadingState(command(lesson))).toMatchObject({ ok: true });
+    const moved = await materials.authoring.updateSourceGuide({ actor, sourceId: "inside-content:progress-guide", collectionId: seriesId, expectedVersion: reserved.value.version, name: reserved.value.name, summary: "", source: { slug: "progress-guide-moved", presentation: "default", page: null } });
+    expect(moved).toMatchObject({ ok: true, value: { slug: "progress-guide-moved" } });
+    expect(await reading.getSeriesProgress({ accountId, seriesId })).toMatchObject({ ok: true, value: { read: 1, total: 1, allRead: true } });
+  });
+
   test("shared material, composition changes, publication and archive use the current Series set", async () => {
     const a = await series(); const b = await series();
     expect(await reading.getSeriesProgress({ accountId, seriesId: a })).toMatchObject({ ok: true, value: { read: 0, total: 0, allRead: false } });

@@ -1,3 +1,4 @@
+import type { GuidePageCard, GuidePresentation } from "@/entities/guide-page";
 import type { ContentCover, MaterialPreview } from "@/entities/material";
 
 /** Ready presentation for continuation inside the existing Home sections. */
@@ -16,8 +17,14 @@ export interface HomeCollection {
   readonly summary: string | null;
 }
 
+/** Закреплённый продукт знает, каким оформлением нарисовать свою карточку (ADR 0026). */
+export interface HomePinnedCollection extends HomeCollection {
+  readonly presentation: GuidePresentation;
+  readonly card: GuidePageCard | null;
+}
+
 export interface HomeView {
-  readonly pinnedSeries: HomeCollection | null;
+  readonly pinnedSeries: HomePinnedCollection | null;
   /** Existing backend home projection; purchase calls to action are not rendered here. */
   readonly membership:
     | { readonly kind: "active" }

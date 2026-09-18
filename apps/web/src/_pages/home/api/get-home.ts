@@ -12,6 +12,7 @@ import {
   requestHomeContent,
 } from "@/shared/api/backend/index.server";
 import { dependencyUnavailableProblemSchema } from "@/shared/api/problem-details";
+import { readGuidePageCard, resolveGuidePresentation } from "@/entities/guide-page";
 import type { HomeResult } from "../model/home-view";
 
 const homeCollectionSchema = z
@@ -28,7 +29,11 @@ const homeCollectionSchema = z
 
 const homeSchema = z
   .object({
-    pinnedSeries: homeCollectionSchema.nullable(),
+    // Подпись карточки разбирается отдельно: её несовпадение с выпуском сайта не должно
+    // отнимать у читателя всю Главную (ADR 0026).
+    pinnedSeries: homeCollectionSchema
+      .extend({ presentation: z.string(), card: z.unknown() })
+      .nullable(),
     guides: z.array(publishedMaterialProjectionSchema),
     notes: z.array(publishedMaterialProjectionSchema),
     membership: z.discriminatedUnion("kind", [
@@ -78,7 +83,20 @@ export async function getHome(
     kind: "ready",
     value: {
       membership: { kind: parsed.data.membership.kind },
-      pinnedSeries: parsed.data.pinnedSeries === null ? null : mapCollection(parsed.data.pinnedSeries),
+      pinnedSeries:
+        parsed.data.pinnedSeries === null
+          ? null
+          : {
+              ...mapCollection(parsed.data.pinnedSeries),
+              card: readGuidePageCard(
+                parsed.data.pinnedSeries.card,
+                `Home pinned Guide ${parsed.data.pinnedSeries.slug}`,
+              ),
+              presentation: resolveGuidePresentation(
+                parsed.data.pinnedSeries.presentation,
+                `Home pinned Guide ${parsed.data.pinnedSeries.slug}`,
+              ),
+            },
       guides: parsed.data.guides.map(toMaterialPreview),
       notes: parsed.data.notes.map(toMaterialPreview),
       playlists: parsed.data.playlists.map(mapCollection),

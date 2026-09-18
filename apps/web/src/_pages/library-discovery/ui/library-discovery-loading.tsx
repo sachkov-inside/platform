@@ -1,7 +1,4 @@
-import { Suspense } from "react";
-
 import { GuideProductSkeleton, pulse } from "./guide-product-skeletons";
-import { ProductSkeletonBySlug } from "./product-skeleton-by-slug.client";
 
 /**
  * Скелеты маршрутов продукта и программы (#670). Каждый собран из рамки своей страницы: та же
@@ -51,14 +48,9 @@ export function GuideProgrammeLoading() {
 }
 
 /**
- * Страница продукта. Практикум AI-first свёрстан иначе, чем остальные продукты, поэтому при
- * переходе скелет выбирается по адресу: его знает клиентский роутер, но не общая оболочка
- * маршрута. В ней и при прямом заходе стоит скелет обычного продукта.
+ * Страница продукта. Оформление приходит из описания продукта (#671), а скелет рисуется до
+ * данных, поэтому он один на все продукты: колонка, ряд возврата и шапка с обложкой.
  */
 export function GuideProductLoading() {
-  return (
-    <Suspense fallback={<GuideProductSkeleton />}>
-      <ProductSkeletonBySlug />
-    </Suspense>
-  );
+  return <GuideProductSkeleton />;
 }

@@ -1,4 +1,5 @@
 import { Body, Controller, Inject, Post } from "@nestjs/common";
+import { z } from "zod";
 import { ApiBody, ApiOkResponse, ApiOperation } from "@nestjs/swagger";
 import { toOpenApiSchema } from "../../../../infrastructure/http/zod-openapi.js";
 import { CurrentAccount, type AuthenticatedAccount } from "../../../accounts/index.js";
@@ -6,12 +7,24 @@ import { ApiMaterialAuthoringErrors, MaterialAuthoringEndpoint } from "../../ada
 import { contentCollectionSchema, reorderSeriesReceiptSchema, parseMaterialAuthoringBody, throwMaterialAuthoringError } from "../../adapters/nest/material-authoring-http.js";
 import { MATERIAL_AUTHORING } from "../../facets/material-authoring/material-authoring.token.js";
 import type { MaterialAuthoring } from "../../facets/material-authoring/material-authoring.js";
-import { reserveSourceGuideBodySchema, updateSourceGuideBodySchema, reorderSourceGuideBodySchema } from "./import-source-guide.contract.js";
+import { reserveSourceGuideBodySchema, updateSourceGuideBodySchema, reorderSourceGuideBodySchema, validateSourceGuideBodySchema } from "./import-source-guide.contract.js";
 
 @MaterialAuthoringEndpoint()
 @Controller("authoring/import/guides")
 export class ImportSourceGuideController {
   constructor(@Inject(MATERIAL_AUTHORING) private readonly authoring: MaterialAuthoring) {}
+
+  @Post("validate")
+  @ApiOperation({ operationId: "validateSourceGuide", summary: "validateSourceGuide" })
+  @ApiBody({ schema: toOpenApiSchema(validateSourceGuideBodySchema) })
+  @ApiOkResponse({ schema: toOpenApiSchema(z.object({ valid: z.literal(true) }).strict()) })
+  @ApiMaterialAuthoringErrors(400, 401, 403, 422, 500, 503)
+  async validate(@CurrentAccount() account: AuthenticatedAccount, @Body() input: unknown) {
+    const body = parseMaterialAuthoringBody(validateSourceGuideBodySchema, input);
+    const result = await this.authoring.validateSourceGuide({ actor: account.accountId, ...body });
+    if (!result.ok) throwMaterialAuthoringError(result.error);
+    return result.value;
+  }
 
   @Post("reserve")
   @ApiOperation({ operationId: "reserveSourceGuide", summary: "reserveSourceGuide" })

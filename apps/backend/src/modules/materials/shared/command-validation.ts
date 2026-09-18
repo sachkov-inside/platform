@@ -41,3 +41,10 @@ export function parseCommand<Value>(
     },
   };
 }
+
+/** Адрес коллекции в каталоге: его проверяют и создание, и перенос. */
+export const collectionSlug = z
+  .string()
+  .trim()
+  .max(120)
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u);

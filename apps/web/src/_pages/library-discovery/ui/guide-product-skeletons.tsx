@@ -1,4 +1,4 @@
-/** Скелеты страницы продукта: их рисуют и общая оболочка маршрута, и клиентский выбор по адресу. */
+/** Скелеты страницы продукта: их рисует общая оболочка маршрута до прихода данных. */
 
 /** Пульсация серых блоков; при `prefers-reduced-motion` они стоят неподвижно. */
 export const pulse = "animate-pulse motion-reduce:animate-none";
@@ -25,41 +25,6 @@ export function GuideProductSkeleton() {
         <div className={`mt-3 h-7 w-full rounded-md bg-muted/80 ${pulse}`} />
         <div className={`mt-3 h-5 w-1/3 rounded-md bg-muted/80 ${pulse}`} />
         <SectionSkeleton />
-        <SectionSkeleton />
-      </div>
-      <p className="sr-only">Загружаем страницу продукта</p>
-    </div>
-  );
-}
-
-/** Практикум AI-first: возврат, слева заголовок с действием, справа иллюстрация процесса. */
-export function AiFirstGuideSkeleton() {
-  return (
-    <div
-      aria-busy="true"
-      aria-label="Продукт загружается"
-      className="ai-guide-page min-h-svh"
-      data-route-skeleton="guide-product"
-    >
-      <div className="flex min-h-11 items-center" data-product-part="back">
-        <div className={`h-5 w-40 rounded-md bg-muted ${pulse}`} />
-      </div>
-      <div className="ai-guide-hero" data-product-part="hero">
-        <div className={`ai-guide-hero-copy ${pulse}`}>
-          <div className="h-10 w-4/5 rounded-xl bg-muted md:h-14" />
-          <div className="mt-4 h-6 w-full rounded-md bg-muted/80" />
-          <div className="mt-2 h-6 w-11/12 rounded-md bg-muted/80" />
-          <div className="mt-2 h-6 w-3/5 rounded-md bg-muted/80" />
-          <div className="mt-5 flex flex-wrap gap-2">
-            <div className="h-8 w-28 rounded-full bg-secondary" />
-            <div className="h-8 w-32 rounded-full bg-secondary" />
-            <div className="h-8 w-36 rounded-full bg-secondary" />
-          </div>
-          <div className="mt-6 hidden h-12 w-52 rounded-xl bg-muted md:block" />
-        </div>
-        <div className={`ai-guide-artwork bg-muted ${pulse}`} />
-      </div>
-      <div className="my-12 md:my-16">
         <SectionSkeleton />
       </div>
       <p className="sr-only">Загружаем страницу продукта</p>

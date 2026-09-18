@@ -1,10 +1,10 @@
 import { ArrowLeft, ArrowRight, Check, FileDown, Play, ShieldCheck } from "lucide-react";
 import type { Route } from "next";
-import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 import type { ReactNode } from "react";
 
+import type { GuidePage, GuidePageBlock, GuidePresentation } from "@/entities/guide-page";
 import { ContentCoverImage } from "@/entities/material";
-import { aiFirstGuide } from "@/features/ai-first-guide";
+import { fillOneTimeTerms as fillTerms } from "@/features/billing-checkout.terms";
 import type { ReaderGuideArtifactsResult } from "@/features/guide-artifacts.reader";
 import {
   formatMaterialCount,
@@ -14,11 +14,34 @@ import { cn } from "@/shared/lib/utils";
 import { guideProgrammeHref } from "@/shared/routing/subscription-route";
 import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 import { Button } from "@/shared/ui/button";
+import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 
 import { AiFirstGuideView } from "./ai-first-guide-view";
 import { formatArtifactCount, formatChapterCount } from "./guide-counts";
 
 type ResolvedSeriesResult = Extract<PublishedSeriesResult, { kind: "ready" | "empty" }>;
+
+interface ProductViewProps {
+  readonly artifacts: ReaderGuideArtifactsResult;
+  readonly result: ResolvedSeriesResult;
+  readonly returnTarget: MaterialReaderReturnTarget;
+  readonly freeEntryHref: Route | undefined;
+  readonly page: GuidePage | null;
+}
+
+/**
+ * Реестр оформлений (ADR 0026): значение поля продукта выбирает, чем рисовать страницу. Особому
+ * оформлению без описания нечего показать, поэтому оно уступает общему шаблону.
+ */
+const productViews: Record<GuidePresentation, (props: ProductViewProps) => ReactNode> = {
+  default: DefaultGuideProductView,
+  "ai-first-process": ({ page, freeEntryHref, ...props }) =>
+    page === null ? (
+      <DefaultGuideProductView {...props} freeEntryHref={freeEntryHref} page={null} />
+    ) : (
+      <AiFirstGuideView page={page} result={props.result} returnTarget={props.returnTarget} />
+    ),
+};
 
 /**
  * Страница продукта руководства: она отвечает, о чём это, кому, что получится и что остаётся за
@@ -39,12 +62,33 @@ export function GuideProductView({
   /** Бесплатный вход из обложки. Он ведёт в программу: там читатель сразу видит открытые уроки. */
   readonly freeEntryHref?: Route;
 }) {
-  if (result.reference.slug === aiFirstGuide.slug) {
-    return <AiFirstGuideView result={result} returnTarget={returnTarget} {...(freeEntryHref === undefined ? {} : { freeEntryHref })} />;
-  }
+  const productPage = result.reference.productPage ?? null;
+  const View = productViews[productPage?.presentation ?? "default"];
+  return (
+    <View
+      artifacts={artifacts}
+      freeEntryHref={freeEntryHref}
+      page={productPage?.page ?? null}
+      result={result}
+      returnTarget={returnTarget}
+    />
+  );
+}
+
+/** Общий шаблон: описание продукта, если оно перенесено, иначе введение, которое пишет редактор. */
+function DefaultGuideProductView({
+  artifacts,
+  result,
+  freeEntryHref,
+  returnTarget,
+  page,
+}: ProductViewProps) {
   const { reference } = result;
-  const introduction = reference.introduction ?? null;
+  const introduction = page === null ? reference.introduction ?? null : null;
   const items = result.kind === "ready" ? result.items : [];
+  const freeCount = items.filter((item) => item.access === "free" && item.availability === "available").length;
+  // Бесплатный вход обещает открытые уроки, поэтому он показывается там же, где они есть.
+  const freeEntry = freeCount === 0 ? undefined : freeEntryHref;
   const chapters = result.chapters;
   const guideArtifacts = artifacts.kind === "ready" ? artifacts.artifacts : [];
   const meta = [
@@ -91,13 +135,13 @@ export function GuideProductView({
             <p className="text-sm tabular-nums text-white/70">
               {formatMaterialCount(items.length)}
             </p>
-            {freeEntryHref === undefined ? null : (
+            {freeEntry === undefined ? null : (
               <Button
                 asChild
                 className="h-auto min-h-11 max-w-full whitespace-normal rounded-full border-0 bg-white/15 text-white hover:bg-white/25 hover:text-white"
                 variant="outline"
               >
-                <IntentPrefetchLink href={freeEntryHref}>
+                <IntentPrefetchLink href={freeEntry}>
                   <Play aria-hidden="true" className="size-4 shrink-0" />
                   Попробовать бесплатно
                 </IntentPrefetchLink>
@@ -117,6 +161,15 @@ export function GuideProductView({
         {meta.length === 0 ? null : (
           <p className="mt-3 text-sm text-muted-foreground">{meta.join(" · ")}</p>
         )}
+
+        {page?.blocks.map((block) => (
+          <DefaultBlock
+            block={block}
+            freeCount={freeCount}
+            key={block.id}
+            programme={guideProgrammeHref(reference.slug)}
+          />
+        ))}
 
         {introduction === null || introduction.audience === "" ? null : (
           <Section title="Кому это нужно">
@@ -225,15 +278,152 @@ export function GuideProductView({
   );
 }
 
+function DefaultBlock({
+  block,
+  freeCount,
+  programme,
+}: {
+  readonly block: GuidePageBlock;
+  /** Сколько уроков продукта открыты без покупки: приглашение показывается только при них. */
+  readonly freeCount: number;
+  readonly programme: Route;
+}): ReactNode {
+  switch (block.kind) {
+    case "hero":
+      return (
+        <div className="mt-6">
+          <Prose value={fillTerms(block.lead)} />
+          {block.highlights.length === 0 ? null : (
+            <ul className="mt-3 flex flex-wrap gap-2 text-sm">
+              {block.highlights.map((highlight, index) => (
+                <li className="rounded-full bg-secondary px-3 py-1" key={`${String(index)}-${highlight}`}>
+                  {fillTerms(highlight)}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      );
+    case "cards":
+      return (
+        <Section
+          title={fillTerms(block.title)}
+          {...(block.eyebrow === "" ? {} : { eyebrow: fillTerms(block.eyebrow) })}
+        >
+          {block.lead === "" ? null : <Prose value={fillTerms(block.lead)} />}
+          <ul className="mt-4 grid gap-3">
+            {block.items.map((item, index) => (
+              <li className="rounded-2xl border border-border p-4" key={`${String(index)}-${item.title}`}>
+                <p className="break-words font-semibold leading-6">{fillTerms(item.title)}</p>
+                <p className="mt-1 whitespace-pre-line break-words text-sm leading-6 text-muted-foreground">
+                  {fillTerms(item.text)}
+                </p>
+                {item.detail === "" ? null : (
+                  <p className="mt-2 text-sm">
+                    {item.detailLabel === "" ? null : (
+                      <span className="text-muted-foreground">{fillTerms(item.detailLabel)}: </span>
+                    )}
+                    {fillTerms(item.detail)}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+          {block.note === "" ? null : (
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">{fillTerms(block.note)}</p>
+          )}
+        </Section>
+      );
+    case "text":
+      return (
+        <Section title={fillTerms(block.title)}>
+          <div className="grid gap-3">
+            {block.paragraphs.map((paragraph, index) => (
+              <Prose key={`${String(index)}-${paragraph}`} value={fillTerms(paragraph)} />
+            ))}
+          </div>
+        </Section>
+      );
+    case "steps":
+      return (
+        <Section title={fillTerms(block.title)}>
+          {block.lead === "" ? null : <Prose value={fillTerms(block.lead)} />}
+          <ol className="mt-4 grid gap-4">
+            {block.items.map((step, index) => (
+              <li className="grid grid-cols-[2rem_minmax(0,1fr)] gap-3" key={`${String(index)}-${step.title}`}>
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "grid size-8 place-items-center rounded-xl text-sm font-semibold tabular-nums",
+                    chapterTone(index),
+                  )}
+                >
+                  {index + 1}
+                </span>
+                <div className="min-w-0">
+                  <p className="break-words font-semibold leading-6">{fillTerms(step.title)}</p>
+                  <p className="mt-1 whitespace-pre-line break-words text-sm leading-6 text-muted-foreground">
+                    {fillTerms(step.text)}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ol>
+          {block.link === "" ? null : <TextLink href={programme} label={fillTerms(block.link)} />}
+        </Section>
+      );
+    case "list":
+      return (
+        <Section title={fillTerms(block.title)}>
+          {block.text === "" ? null : <Prose value={fillTerms(block.text)} />}
+          <ul className="mt-3 flex flex-wrap gap-2 text-sm">
+            {block.items.map((item, index) => (
+              <li className="rounded-full bg-secondary px-3 py-1" key={`${String(index)}-${item}`}>
+                {fillTerms(item)}
+              </li>
+            ))}
+          </ul>
+        </Section>
+      );
+    case "trial":
+      return freeCount === 0 ? null : (
+        <Section title={fillTerms(block.title)}>
+          <Prose value={fillTerms(block.text)} />
+          {block.link === "" ? null : <TextLink href={programme} label={fillTerms(block.link)} />}
+        </Section>
+      );
+  }
+}
+
+function TextLink({ href, label }: { readonly href: Route; readonly label: string }) {
+  return (
+    <IntentPrefetchLink
+      className="mt-4 inline-flex min-h-10 items-center gap-2 font-semibold text-accent-foreground underline-offset-4 hover:underline focus-visible:outline-ring"
+      href={href}
+    >
+      {label}
+      <ArrowRight aria-hidden="true" className="size-4 shrink-0" />
+    </IntentPrefetchLink>
+  );
+}
+
 function Section({
   children,
+  eyebrow,
   title,
 }: {
   readonly children: ReactNode;
+  /** Надзаголовок автора: он стоит над названием раздела, как в оформлении продукта. */
+  readonly eyebrow?: string;
   readonly title: string;
 }) {
   return (
     <section className="mt-10">
+      {eyebrow === undefined ? null : (
+        <p className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">
+          {eyebrow}
+        </p>
+      )}
       <h2 className="break-words text-xl font-semibold tracking-[-0.02em] md:text-2xl">
         {title}
       </h2>

@@ -10,6 +10,7 @@ export function stubMaterialAuthoring(
 ): MaterialAuthoring {
   return {
     reserveSourceGuide: () => Promise.resolve(forbiddenAuthoringResult),
+    validateSourceGuide: () => Promise.resolve(forbiddenAuthoringResult),
     updateSourceGuide: () => Promise.resolve(forbiddenAuthoringResult),
     reorderSourceGuide: () => Promise.resolve(forbiddenAuthoringResult),
     validateSourceContent: () => Promise.resolve(forbiddenAuthoringResult),

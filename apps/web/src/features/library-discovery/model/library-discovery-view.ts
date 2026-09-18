@@ -1,3 +1,4 @@
+import type { GuideProductPage } from "@/entities/guide-page";
 import type { ContentCover, MaterialPreview } from "@/entities/material";
 
 export type LibraryDiscoveryKind = "related" | "series" | "topic";
@@ -24,6 +25,8 @@ export interface LibraryDiscoveryReference {
   readonly hasModeVariants?: boolean | undefined;
   readonly introduction?: GuideIntroduction | null | undefined;
   readonly name: string;
+  /** Оформление и описание страницы Guide; у темы и связанных материалов его нет. */
+  readonly productPage?: GuideProductPage | null | undefined;
   readonly slug: string;
   readonly summary: string;
 }

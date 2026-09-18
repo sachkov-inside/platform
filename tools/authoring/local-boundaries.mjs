@@ -13,7 +13,7 @@ const materialSchema = materialReceiptSchema.extend({
   source: source.nullable(), cover: coverSchema.nullable().optional(),
 });
 const topicSchema = z.object({ id: z.uuid(), slug: text }).passthrough();
-const guideSchema = topicSchema.extend({ name: z.string(), summary: z.string(), version, archived: z.boolean().optional() });
+const guideSchema = topicSchema.extend({ name: z.string(), summary: z.string(), version, archived: z.boolean().optional(), presentation: z.string().nullable().optional(), page: z.json().nullable().optional(), pageRejected: z.boolean().optional(), sourceId: z.string().nullable().optional() });
 const coverChangeSchema = z.object({ cover: coverSchema.nullable() }).passthrough();
 const artifactOutcomeSchema = z.object({ artifactId: z.uuid(), outcome: z.enum(["created", "diverged", "missing", "unchanged", "updated"]), sourceId: z.string().nullable(), title: z.string() }).passthrough();
 const artifactSchema = z.object({ artifactId: z.uuid(), materialIds: z.array(z.uuid()), origin: z.enum(["authoring", "platform"]), sourceId: z.string().nullable(), title: z.string() }).passthrough();
@@ -47,7 +47,8 @@ export function parseLocalResponse(path, value) {
     case "/authoring/collections?kind=topic": schema = z.array(topicSchema); break;
     case "/authoring/collections?kind=guide": schema = z.array(guideSchema); break;
     case "/authoring/collections": schema = topicSchema; break;
-    case "/authoring/import/materials/validate": schema = z.object({ valid: z.literal(true) }).passthrough(); break;
+    case "/authoring/import/materials/validate":
+    case "/authoring/import/guides/validate": schema = z.object({ valid: z.literal(true) }).passthrough(); break;
     case "/authoring/import/materials/reserve":
     case "/authoring/import/materials/apply": schema = materialReceiptSchema; break;
     case "/authoring/import/guides/reserve":

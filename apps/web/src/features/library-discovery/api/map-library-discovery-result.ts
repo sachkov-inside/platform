@@ -12,6 +12,7 @@ import {
   type BackendTransportResult,
 } from "@/shared/api/backend/index.server";
 import { dependencyUnavailableProblemSchema } from "@/shared/api/problem-details";
+import { readGuideProductPage } from "@/entities/guide-page";
 
 import type {
   LibraryDiscoveryKind,
@@ -33,6 +34,12 @@ const discoveryReferenceSchema = z
     id: z.string(),
     introduction: guideIntroductionSchema.nullable().default(null),
     name: z.string(),
+    // The page is parsed separately: a description this site cannot draw is dropped, not the Guide.
+    productPage: z
+      .object({ presentation: z.string(), page: z.unknown() })
+      .strict()
+      .nullable()
+      .default(null),
     slug: z.string(),
     summary: z.string(),
   })
@@ -124,6 +131,16 @@ export function mapLibraryDiscoveryResult<
     hasModeVariants: parsed.data.reference.hasModeVariants,
     introduction: parsed.data.reference.introduction,
     name: parsed.data.reference.name,
+    productPage:
+      parsed.data.reference.productPage === null
+        ? null
+        : readGuideProductPage(
+            {
+              presentation: parsed.data.reference.productPage.presentation,
+              page: parsed.data.reference.productPage.page ?? null,
+            },
+            `Guide ${parsed.data.reference.slug}`,
+          ),
     slug: parsed.data.reference.slug,
     summary: parsed.data.reference.summary,
   };

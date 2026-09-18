@@ -1,110 +1,171 @@
-import { ArrowLeft, ArrowRight, Check, Clock3, Code2, FileCode2, FolderGit2, GitPullRequest, MessagesSquare, Play, Server, Workflow } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Clock3, Code2, FileCode2, FolderGit2, GitPullRequest, MessagesSquare, Play, Server, Workflow, type LucideIcon } from "lucide-react";
 import type { Route } from "next";
-import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
+import type { ReactNode } from "react";
 
-import { AiFirstProcessArtwork, aiFirstGuide } from "@/features/ai-first-guide";
-import { oneTimeTermLabels } from "@/features/billing-checkout";
+import type { GuidePage, GuidePageBlock, GuidePageBlockOf } from "@/entities/guide-page";
+import { AiFirstProcessArtwork } from "@/features/ai-first-guide";
+import { fillOneTimeTerms as fillTerms } from "@/features/billing-checkout.terms";
 import { formatMaterialCount, type PublishedSeriesResult } from "@/features/library-discovery";
 import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 import { guideProgrammeHref } from "@/shared/routing/subscription-route";
+import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 
 import "./ai-first-guide-view.css";
 
-// Сроки называет действующая оферта разовой покупки: страница повторяет их, а не пишет свои.
-const accessTerm = oneTimeTermLabels.materialsAndChat;
-const supportTerm = oneTimeTermLabels.support;
-
-export function AiFirstGuideView({ result, returnTarget, freeEntryHref }: {
+/**
+ * Оформление `ai-first-process`: весь текст приходит из описания продукта, а оформление добавляет
+ * к известным блокам свои иллюстрации и значки. Блок с другим `id` рисуется по своему виду.
+ * Сроки доступа и помощи подставляет оферта, поэтому в тексте автор пишет только подстановку.
+ */
+export function AiFirstGuideView({ result, page, returnTarget }: {
   readonly result: Extract<PublishedSeriesResult, { kind: "ready" | "empty" }>;
+  readonly page: GuidePage;
   readonly returnTarget: MaterialReaderReturnTarget;
-  readonly freeEntryHref?: Route;
 }) {
   const freeCount = result.kind === "ready" ? result.items.filter(item => item.access === "free" && item.availability === "available").length : 0;
-  const programme = guideProgrammeHref(result.reference.slug);
-  return <article className="ai-guide-page" data-guide-product={result.reference.slug}>
-    <nav aria-label="Хлебные крошки" data-product-part="back"><IntentPrefetchLink className="ai-guide-back" href={returnTarget.href}><ArrowLeft />{returnTarget.label}</IntentPrefetchLink></nav>
-    <header className="ai-guide-hero" data-product-part="hero">
-      <div className="ai-guide-hero-copy">
-        <h1>{result.reference.name}</h1>
-        <p className="ai-guide-intro">Практикум, на котором ты построишь свой процесс работы с AI-агентами и применишь инженерные навыки на проекте — от задачи до продакшена.</p>
-        <ul className="ai-guide-highlights" aria-label="Формат практикума">
-          <li><Code2 aria-hidden="true" />Твой стек</li>
-          <li><Clock3 aria-hidden="true" />В своём темпе</li>
-          <li><MessagesSquare aria-hidden="true" />Поддержка {supportTerm}</li>
-        </ul>
-        <IntentPrefetchLink className="ai-guide-button" href={programme}>Открыть программу<ArrowRight /></IntentPrefetchLink>
-        {freeCount > 0 ? <p className="ai-guide-format">Бесплатно: {formatMaterialCount(freeCount)}</p> : null}
-      </div>
-      <div className="ai-guide-artwork"><AiFirstProcessArtwork /></div>
-    </header>
-
-    <section className="ai-guide-audience">
-      <h2>Кому это нужно</h2>
-      <dl>{aiFirstGuide.audience.map(item => <div key={item.title}><dt><Check />{item.title}</dt><dd>{item.text}</dd></div>)}</dl>
-    </section>
-
-    <section className="ai-guide-shift">
-      <h2>Работа разработчика меняется</h2>
-      <div><p>Команды уже включают AI в разработку. Вместе с инструментами меняются рабочие процессы: агенту можно поручить исследование, реализацию и проверку изменений.</p><p>Важно уметь управлять этой работой: давать контекст, получать от агента обратную связь, проверять его решения и доводить задачи до релиза. Именно это отличает инженерную работу от вайбкодинга: ты разбираешься в задаче, понимаешь ограничения и отвечаешь за надёжность решения.</p></div>
-    </section>
-
-    <section className="ai-guide-outcomes">
-      <h2>Что получится</h2>
-      <p className="ai-guide-section-intro ai-guide-promise">Доведёшь проект до продакшена и научишься самостоятельно развивать его с AI-агентами: разбирать задачи, выбирать решения, проверять код и выпускать обновления через надёжный пайплайн.</p>
-      <div className="ai-guide-outcome-grid">
-        <div>
-          <div className="ai-guide-result-visual ai-guide-result-harness" aria-hidden="true"><FolderGit2 /><strong>Твой проект</strong><div><span><FileCode2 />Инструкции и контекст</span><span><FileCode2 />Skills и инструменты</span><span><FileCode2 />Решения и проверки</span></div></div>
-          <div className="ai-guide-result-copy"><h3><FolderGit2 aria-hidden="true" />Свой harness</h3><p>Среда агента, которую можно переносить в следующие проекты.</p><div className="ai-guide-result-proof"><FileCode2 aria-hidden="true" /><span>В репозитории<strong>Контекст · инструкции · инструменты</strong></span></div></div>
-        </div>
-        <div>
-          <div className="ai-guide-result-visual ai-guide-result-pipeline" aria-hidden="true"><Workflow /><strong>От задачи до релиза</strong><div>{["Исследование и план", "Реализация и ревью", "Проверки и релиз"].map(label => <span key={label}><Check />{label}</span>)}</div></div>
-          <div className="ai-guide-result-copy"><h3><Workflow aria-hidden="true" />Надёжный пайплайн</h3><p>Ты знаешь, что поручить агенту, когда вмешаться и как принять результат.</p><div className="ai-guide-result-proof"><Check aria-hidden="true" /><span>Перед релизом<strong>Тесты → ревью → CI/CD</strong></span></div></div>
-        </div>
-        <div>
-          <div className="ai-guide-result-visual ai-guide-result-project" aria-hidden="true"><Server /><strong>Проект в production</strong><div><span>Пользователи и доступ</span><span>Данные и AI-функции</span><span>Деплой и наблюдение</span></div></div>
-          <div className="ai-guide-result-copy"><h3><Server aria-hidden="true" />Проект и инженерный опыт</h3><p>Работающий проект, решения которого ты можешь объяснить, проверить и развивать.</p><div className="ai-guide-result-proof"><GitPullRequest aria-hidden="true" /><span>После релиза<strong>Метрики · логи · обновления</strong></span></div></div>
-        </div>
-      </div>
-      <p className="ai-guide-career">Эти навыки пригодятся при поиске работы в backend и fullstack разработке, в работе над продакшен-проектами в команде и в собственных проектах. Они также станут основой для дальнейшего развития в AI engineering.</p>
-    </section>
-
-    <section className="ai-guide-programme" aria-labelledby="ai-programme-title">
-      <h2 id="ai-programme-title">Что внутри практикума</h2>
-      <p>От основ работы агента до самостоятельного релиза.</p>
-      <ol>{aiFirstGuide.stages.map((stage, index) => <li key={stage.title}><span>{index + 1}</span><div><h3>{stage.title}</h3><p>{stage.text}</p></div></li>)}</ol>
-      <IntentPrefetchLink className="ai-guide-text-link" href={programme}>Посмотреть главы и материалы<ArrowRight /></IntentPrefetchLink>
-    </section>
-
-    <section className="ai-guide-project">
-      <div><h2>Работай на знакомом стеке</h2><p>На выбранном стеке ты будешь разрабатывать проект с AI-агентами и учиться принимать инженерные решения.</p></div>
-      <div className="ai-guide-language-map" aria-label="Практикум подходит для разных стеков">
-        <ul className="ai-guide-languages">{["TypeScript", "Python", "C#", "Java", "Go", "Другой язык"].map(language => <li key={language}>{language}</li>)}</ul>
-        <div className="ai-guide-language-join" aria-hidden="true" />
-        <div className="ai-guide-language-project"><FolderGit2 aria-hidden="true" /><span>Твой проект<small>Знакомый стек · новые навыки</small></span></div>
-      </div>
-    </section>
-
-    <section className="ai-guide-support" id="support">
-      <div className="ai-guide-support-intro"><p className="ai-guide-eyebrow">Кирилл Сачков · автор практикума</p><h2>Моё сопровождение и закрытое сообщество</h2><p>После покупки сразу открываются все опубликованные материалы практикума и закрытое сообщество — на {accessTerm} гарантированно, без продлений и доплат; дальше доступ может сохраняться, но без гарантии срока. Моё сопровождение — {supportTerm} с покупки. Проходи материалы в своём темпе и возвращайся к практике, когда удобно.</p></div>
-      <div className="ai-guide-support-details">
-        <div><MessagesSquare aria-hidden="true" /><h3>Моя помощь в сообществе</h3><p>Задавай вопросы и приноси решения на обсуждение. Я помогу разобраться с задачей и выбрать следующий шаг. Моя помощь — {supportTerm} с покупки; личные встречи и обязательная проверка кода в неё не входят.</p></div>
-        <div><Play aria-hidden="true" /><h3>Видео и разборы</h3><p>Показываю свой процесс разработки и объясняю решения на примерах. Сложные темы дополняю разборами и видео.</p></div>
-        <div><GitPullRequest aria-hidden="true" /><h3>Практика вместе с участниками</h3><p>Обсуждай проекты, делись находками и учись на опыте других. Время от времени проводим общие разборы сложных тем.</p></div>
-      </div>
-    </section>
-
-    <section className="ai-guide-bonuses">
-      <h2>Бонусные материалы</h2>
-      <p className="ai-guide-section-intro">Моя практика за пределами основной программы. Эти материалы буду добавлять в практикум по мере подготовки. Срок появления не назначен: в покупку входят уже опубликованные материалы, новые открываются без доплаты.</p>
-      <div className="ai-guide-bonus-grid">
-        <div><div className="ai-guide-bonus-preview ai-guide-bonus-video" aria-hidden="true"><span>Идея</span><ArrowRight /><Play /><ArrowRight /><span>Ролик</span></div><h3>Как я делаю шортсы с AI</h3><p>Разбор моего процесса: от идеи и сценария до сборки ролика с помощью агентов.</p></div>
-        <div><div className="ai-guide-bonus-preview ai-guide-bonus-code" aria-hidden="true"><FolderGit2 /><span>Код<br /><small>Решения · примеры · разборы</small></span></div><h3>Мои проекты и репозитории</h3><p>Доступ к репозиториям с примерами и разборы моих проектов: как они устроены, какие решения я принимаю и как работаю с агентами.</p></div>
-        <div><div className="ai-guide-bonus-preview ai-guide-bonus-questions" aria-hidden="true"><MessagesSquare /><span>От вопроса к разбору</span></div><h3>Разборы по вашим вопросам</h3><p>Вопросы участников помогают дополнять практикум: записываю объяснения, добавляю примеры и улучшаю материалы.</p></div>
-      </div>
-    </section>
-
-    {freeEntryHref === undefined ? null : <section className="ai-guide-trial"><h2>Посмотри, как устроено обучение</h2><p>Открой всю программу и начни с бесплатных уроков. Познакомишься с подходом и решишь, подходит ли тебе практикум.</p><IntentPrefetchLink className="ai-guide-text-link" href={programme}>Посмотреть бесплатные уроки<ArrowRight /></IntentPrefetchLink></section>}
-
-    <div className="ai-guide-sticky"><IntentPrefetchLink className="ai-guide-button" href={programme}>Открыть программу<ArrowRight /></IntentPrefetchLink></div>
+  const context: BlockContext = { fill: fillTerms, programme: guideProgrammeHref(result.reference.slug), freeCount, name: result.reference.name };
+  return <article className="ai-guide-page" data-guide-product={result.reference.slug} data-guide-presentation="ai-first-process">
+    <nav aria-label="Хлебные крошки"><IntentPrefetchLink className="ai-guide-back" href={returnTarget.href}><ArrowLeft />{returnTarget.label}</IntentPrefetchLink></nav>
+    {/* Название продукта — заголовок страницы: его показывает hero, а без hero он всё равно нужен. */}
+    {page.blocks.some(block => block.kind === "hero") ? null : <header className="ai-guide-hero"><div className="ai-guide-hero-copy"><h1>{result.reference.name}</h1></div></header>}
+    {page.blocks.map(block => <AiFirstBlock block={block} context={context} key={block.id} />)}
+    <div className="ai-guide-sticky"><IntentPrefetchLink className="ai-guide-button" href={context.programme}>Открыть программу<ArrowRight /></IntentPrefetchLink></div>
   </article>;
+}
+
+interface BlockContext {
+  readonly fill: (text: string) => string;
+  readonly programme: Route;
+  /** Сколько уроков продукта открыты без покупки: приглашение показывается только при них. */
+  readonly freeCount: number;
+  readonly name: string;
+}
+
+function AiFirstBlock({ block, context }: { readonly block: GuidePageBlock; readonly context: BlockContext }): ReactNode {
+  switch (block.kind) {
+    case "hero": return <Hero block={block} context={context} />;
+    case "cards":
+      if (block.id === "outcomes") return <OutcomeCards block={block} fill={context.fill} />;
+      if (block.id === "support") return <SupportCards block={block} fill={context.fill} />;
+      if (block.id === "bonuses") return <BonusCards block={block} fill={context.fill} />;
+      return <PlainCards block={block} fill={context.fill} />;
+    case "text": return <TextSection block={block} fill={context.fill} />;
+    case "steps": return <StepsSection block={block} context={context} />;
+    case "list": return <ListSection block={block} fill={context.fill} />;
+    case "trial": return context.freeCount === 0 ? null : <section className="ai-guide-trial"><h2>{context.fill(block.title)}</h2><p>{context.fill(block.text)}</p>{block.link === "" ? null : <IntentPrefetchLink className="ai-guide-text-link" href={context.programme}>{context.fill(block.link)}<ArrowRight /></IntentPrefetchLink>}</section>;
+  }
+}
+
+/**
+ * Значки и иллюстрации оформление раздаёт по порядку пунктов блока: порядок в описании продукта
+ * задаёт и порядок картинок, а лишний пункт получает общий значок без иллюстрации.
+ */
+function iconAt(icons: readonly LucideIcon[], index: number): LucideIcon {
+  return icons[index] ?? Check;
+}
+
+const highlightIcons = [Code2, Clock3, MessagesSquare] as const;
+function Hero({ block, context }: { readonly block: GuidePageBlockOf<"hero">; readonly context: BlockContext }) {
+  return <header className="ai-guide-hero">
+    <div className="ai-guide-hero-copy">
+      <h1>{context.name}</h1>
+      <p className="ai-guide-intro">{context.fill(block.lead)}</p>
+      {block.highlights.length === 0 ? null : <ul className="ai-guide-highlights" aria-label="Формат практикума">{block.highlights.map((highlight, index) => {
+        const Icon = iconAt(highlightIcons, index);
+        return <li key={`${String(index)}-${highlight}`}><Icon aria-hidden="true" />{context.fill(highlight)}</li>;
+      })}</ul>}
+      <IntentPrefetchLink className="ai-guide-button" href={context.programme}>Открыть программу<ArrowRight /></IntentPrefetchLink>
+      {context.freeCount > 0 ? <p className="ai-guide-format">Бесплатно: {formatMaterialCount(context.freeCount)}</p> : null}
+    </div>
+    <div className="ai-guide-artwork"><AiFirstProcessArtwork /></div>
+  </header>;
+}
+
+function PlainCards({ block, fill }: { readonly block: GuidePageBlockOf<"cards">; readonly fill: (text: string) => string }) {
+  return <section className="ai-guide-audience">
+    {block.eyebrow === "" ? null : <p className="ai-guide-eyebrow">{fill(block.eyebrow)}</p>}
+    <h2>{fill(block.title)}</h2>
+    {block.lead === "" ? null : <p className="ai-guide-section-intro">{fill(block.lead)}</p>}
+    <dl>{block.items.map((item, index) => <div key={`${String(index)}-${item.title}`}><dt><Check />{fill(item.title)}</dt><dd>{fill(item.text)}{item.detail === "" ? null : <span className="ai-guide-item-detail">{item.detailLabel === "" ? null : <>{fill(item.detailLabel)}: </>}{fill(item.detail)}</span>}</dd></div>)}</dl>
+    {block.note === "" ? null : <p className="ai-guide-career">{fill(block.note)}</p>}
+  </section>;
+}
+
+function TextSection({ block, fill }: { readonly block: GuidePageBlockOf<"text">; readonly fill: (text: string) => string }) {
+  return <section className="ai-guide-shift">
+    <h2>{fill(block.title)}</h2>
+    <div>{block.paragraphs.map((paragraph, index) => <p key={`${String(index)}-${paragraph}`}>{fill(paragraph)}</p>)}</div>
+  </section>;
+}
+
+const outcomeIcons = [FolderGit2, Workflow, Server] as const;
+const proofIcons = [FileCode2, Check, GitPullRequest] as const;
+const outcomeVisuals: readonly ReactNode[] = [
+  <div className="ai-guide-result-visual ai-guide-result-harness" aria-hidden="true" key="harness"><FolderGit2 /><strong>Твой проект</strong><div><span><FileCode2 />Инструкции и контекст</span><span><FileCode2 />Skills и инструменты</span><span><FileCode2 />Решения и проверки</span></div></div>,
+  <div className="ai-guide-result-visual ai-guide-result-pipeline" aria-hidden="true" key="pipeline"><Workflow /><strong>От задачи до релиза</strong><div>{["Исследование и план", "Реализация и ревью", "Проверки и релиз"].map(label => <span key={label}><Check />{label}</span>)}</div></div>,
+  <div className="ai-guide-result-visual ai-guide-result-project" aria-hidden="true" key="project"><Server /><strong>Проект в production</strong><div><span>Пользователи и доступ</span><span>Данные и AI-функции</span><span>Деплой и наблюдение</span></div></div>,
+];
+function OutcomeCards({ block, fill }: { readonly block: GuidePageBlockOf<"cards">; readonly fill: (text: string) => string }) {
+  return <section className="ai-guide-outcomes">
+    {block.eyebrow === "" ? null : <p className="ai-guide-eyebrow">{fill(block.eyebrow)}</p>}
+    <h2>{fill(block.title)}</h2>
+    {block.lead === "" ? null : <p className="ai-guide-section-intro ai-guide-promise">{fill(block.lead)}</p>}
+    <div className="ai-guide-outcome-grid">{block.items.map((item, index) => {
+      const Icon = iconAt(outcomeIcons, index);
+      const Proof = iconAt(proofIcons, index);
+      return <div key={`${String(index)}-${item.title}`}>
+        {outcomeVisuals[index] ?? null}
+        <div className="ai-guide-result-copy"><h3><Icon aria-hidden="true" />{fill(item.title)}</h3><p>{fill(item.text)}</p>{item.detail === "" ? null : <div className="ai-guide-result-proof"><Proof aria-hidden="true" /><span>{fill(item.detailLabel)}<strong>{fill(item.detail)}</strong></span></div>}</div>
+      </div>;
+    })}</div>
+    {block.note === "" ? null : <p className="ai-guide-career">{fill(block.note)}</p>}
+  </section>;
+}
+
+function StepsSection({ block, context }: { readonly block: GuidePageBlockOf<"steps">; readonly context: BlockContext }) {
+  const titleId = `ai-${block.id}-title`;
+  return <section className="ai-guide-programme" aria-labelledby={titleId}>
+    <h2 id={titleId}>{context.fill(block.title)}</h2>
+    {block.lead === "" ? null : <p>{context.fill(block.lead)}</p>}
+    <ol>{block.items.map((stage, index) => <li key={`${String(index)}-${stage.title}`}><span>{index + 1}</span><div><h3>{context.fill(stage.title)}</h3><p>{context.fill(stage.text)}</p></div></li>)}</ol>
+    {block.link === "" ? null : <IntentPrefetchLink className="ai-guide-text-link" href={context.programme}>{context.fill(block.link)}<ArrowRight /></IntentPrefetchLink>}
+  </section>;
+}
+
+function ListSection({ block, fill }: { readonly block: GuidePageBlockOf<"list">; readonly fill: (text: string) => string }) {
+  return <section className="ai-guide-project">
+    <div><h2>{fill(block.title)}</h2>{block.text === "" ? null : <p>{fill(block.text)}</p>}</div>
+    <div className="ai-guide-language-map">
+      <ul className="ai-guide-languages">{block.items.map((language, index) => <li key={`${String(index)}-${language}`}>{fill(language)}</li>)}</ul>
+      <div className="ai-guide-language-join" aria-hidden="true" />
+      <div className="ai-guide-language-project" aria-hidden="true"><FolderGit2 /><span>Твой проект<small>Знакомый стек · новые навыки</small></span></div>
+    </div>
+  </section>;
+}
+
+const supportIcons = [MessagesSquare, Play, GitPullRequest] as const;
+function SupportCards({ block, fill }: { readonly block: GuidePageBlockOf<"cards">; readonly fill: (text: string) => string }) {
+  return <section className="ai-guide-support" id={`ai-${block.id}`}>
+    <div className="ai-guide-support-intro">{block.eyebrow === "" ? null : <p className="ai-guide-eyebrow">{fill(block.eyebrow)}</p>}<h2>{fill(block.title)}</h2>{block.lead === "" ? null : <p>{fill(block.lead)}</p>}</div>
+    <div className="ai-guide-support-details">{block.items.map((item, index) => {
+      const Icon = iconAt(supportIcons, index);
+      return <div key={`${String(index)}-${item.title}`}><Icon aria-hidden="true" /><h3>{fill(item.title)}</h3><p>{fill(item.text)}</p>{item.detail === "" ? null : <p className="ai-guide-item-detail">{item.detailLabel === "" ? null : <>{fill(item.detailLabel)}: </>}{fill(item.detail)}</p>}</div>;
+    })}</div>
+    {block.note === "" ? null : <p className="ai-guide-career">{fill(block.note)}</p>}
+  </section>;
+}
+
+const bonusPreviews: readonly ReactNode[] = [
+  <div className="ai-guide-bonus-preview ai-guide-bonus-video" aria-hidden="true" key="video"><span>Идея</span><ArrowRight /><Play /><ArrowRight /><span>Ролик</span></div>,
+  <div className="ai-guide-bonus-preview ai-guide-bonus-code" aria-hidden="true" key="code"><FolderGit2 /><span>Код<br /><small>Решения · примеры · разборы</small></span></div>,
+  <div className="ai-guide-bonus-preview ai-guide-bonus-questions" aria-hidden="true" key="questions"><MessagesSquare /><span>От вопроса к разбору</span></div>,
+];
+function BonusCards({ block, fill }: { readonly block: GuidePageBlockOf<"cards">; readonly fill: (text: string) => string }) {
+  return <section className="ai-guide-bonuses">
+    {block.eyebrow === "" ? null : <p className="ai-guide-eyebrow">{fill(block.eyebrow)}</p>}
+    <h2>{fill(block.title)}</h2>
+    {block.lead === "" ? null : <p className="ai-guide-section-intro">{fill(block.lead)}</p>}
+    <div className="ai-guide-bonus-grid">{block.items.map((item, index) => <div key={`${String(index)}-${item.title}`}>{bonusPreviews[index] ?? null}<h3>{fill(item.title)}</h3><p>{fill(item.text)}</p>{item.detail === "" ? null : <p className="ai-guide-item-detail">{item.detailLabel === "" ? null : <>{fill(item.detailLabel)}: </>}{fill(item.detail)}</p>}</div>)}</div>
+    {block.note === "" ? null : <p className="ai-guide-career">{fill(block.note)}</p>}
+  </section>;
 }

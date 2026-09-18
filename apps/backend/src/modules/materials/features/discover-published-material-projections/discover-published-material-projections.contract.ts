@@ -1,6 +1,6 @@
 import type { PublishedMaterialProjectionDto } from "../../facets/published-material-reader/published-material.contract.js";
 import type { ContentCoverProjection } from "../../facets/content-covers/content-covers.js";
-import type { GuideIntroductionDto } from "../../facets/material-authoring/content-collection.contract.js";
+import type { GuideIntroductionDto, GuideProductPageDto } from "../../facets/material-authoring/content-collection.contract.js";
 import type { Result } from "../../result.js";
 
 export type PublishedMaterialDiscoveryKind = "related" | "series" | "topic";
@@ -33,6 +33,8 @@ export interface PublishedMaterialDiscoveryPageDto {
     /** Author-written Guide introduction; null for every other discovery kind. */
     readonly introduction: GuideIntroductionDto | null;
     readonly name: string;
+    /** Product page presentation and description; null for every other discovery kind. */
+    readonly productPage: GuideProductPageDto | null;
     readonly slug: string;
     readonly summary: string;
     readonly cover: ContentCoverProjection | null;

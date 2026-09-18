@@ -35,7 +35,63 @@ export class MaterialAuthoringService {
     kind: 'guide' | 'series' | 'topic';
     materialCount: number;
     name: string;
+    page: {
+      blocks: Array<({
+        highlights: Array<string>;
+        id: string;
+        kind: 'hero';
+        lead: string;
+      } | {
+        eyebrow: string;
+        id: string;
+        items: Array<{
+          detail: string;
+          detailLabel: string;
+          text: string;
+          title: string;
+        }>;
+        kind: 'cards';
+        lead: string;
+        note: string;
+        title: string;
+      } | {
+        id: string;
+        kind: 'text';
+        paragraphs: Array<string>;
+        title: string;
+      } | {
+        id: string;
+        items: Array<{
+          text: string;
+          title: string;
+        }>;
+        kind: 'steps';
+        lead: string;
+        link: string;
+        title: string;
+      } | {
+        id: string;
+        items: Array<string>;
+        kind: 'list';
+        text: string;
+        title: string;
+      } | {
+        id: string;
+        kind: 'trial';
+        link: string;
+        text: string;
+        title: string;
+      })>;
+      card: {
+        action: string;
+        eyebrow: string;
+        subtitle: string;
+      } | null;
+    } | null;
+    pageRejected: boolean;
+    presentation: string | null;
     slug: string;
+    sourceId: string | null;
     summary: string;
     version: number;
   }>> {
@@ -80,7 +136,63 @@ export class MaterialAuthoringService {
     kind: 'guide' | 'series' | 'topic';
     materialCount: number;
     name: string;
+    page: {
+      blocks: Array<({
+        highlights: Array<string>;
+        id: string;
+        kind: 'hero';
+        lead: string;
+      } | {
+        eyebrow: string;
+        id: string;
+        items: Array<{
+          detail: string;
+          detailLabel: string;
+          text: string;
+          title: string;
+        }>;
+        kind: 'cards';
+        lead: string;
+        note: string;
+        title: string;
+      } | {
+        id: string;
+        kind: 'text';
+        paragraphs: Array<string>;
+        title: string;
+      } | {
+        id: string;
+        items: Array<{
+          text: string;
+          title: string;
+        }>;
+        kind: 'steps';
+        lead: string;
+        link: string;
+        title: string;
+      } | {
+        id: string;
+        items: Array<string>;
+        kind: 'list';
+        text: string;
+        title: string;
+      } | {
+        id: string;
+        kind: 'trial';
+        link: string;
+        text: string;
+        title: string;
+      })>;
+      card: {
+        action: string;
+        eyebrow: string;
+        subtitle: string;
+      } | null;
+    } | null;
+    pageRejected: boolean;
+    presentation: string | null;
     slug: string;
+    sourceId: string | null;
     summary: string;
     version: number;
   }> {
@@ -132,7 +244,63 @@ export class MaterialAuthoringService {
     kind: 'guide' | 'series' | 'topic';
     materialCount: number;
     name: string;
+    page: {
+      blocks: Array<({
+        highlights: Array<string>;
+        id: string;
+        kind: 'hero';
+        lead: string;
+      } | {
+        eyebrow: string;
+        id: string;
+        items: Array<{
+          detail: string;
+          detailLabel: string;
+          text: string;
+          title: string;
+        }>;
+        kind: 'cards';
+        lead: string;
+        note: string;
+        title: string;
+      } | {
+        id: string;
+        kind: 'text';
+        paragraphs: Array<string>;
+        title: string;
+      } | {
+        id: string;
+        items: Array<{
+          text: string;
+          title: string;
+        }>;
+        kind: 'steps';
+        lead: string;
+        link: string;
+        title: string;
+      } | {
+        id: string;
+        items: Array<string>;
+        kind: 'list';
+        text: string;
+        title: string;
+      } | {
+        id: string;
+        kind: 'trial';
+        link: string;
+        text: string;
+        title: string;
+      })>;
+      card: {
+        action: string;
+        eyebrow: string;
+        subtitle: string;
+      } | null;
+    } | null;
+    pageRejected: boolean;
+    presentation: string | null;
     slug: string;
+    sourceId: string | null;
     summary: string;
     version: number;
   }> {
@@ -180,7 +348,63 @@ export class MaterialAuthoringService {
     kind: 'guide' | 'series' | 'topic';
     materialCount: number;
     name: string;
+    page: {
+      blocks: Array<({
+        highlights: Array<string>;
+        id: string;
+        kind: 'hero';
+        lead: string;
+      } | {
+        eyebrow: string;
+        id: string;
+        items: Array<{
+          detail: string;
+          detailLabel: string;
+          text: string;
+          title: string;
+        }>;
+        kind: 'cards';
+        lead: string;
+        note: string;
+        title: string;
+      } | {
+        id: string;
+        kind: 'text';
+        paragraphs: Array<string>;
+        title: string;
+      } | {
+        id: string;
+        items: Array<{
+          text: string;
+          title: string;
+        }>;
+        kind: 'steps';
+        lead: string;
+        link: string;
+        title: string;
+      } | {
+        id: string;
+        items: Array<string>;
+        kind: 'list';
+        text: string;
+        title: string;
+      } | {
+        id: string;
+        kind: 'trial';
+        link: string;
+        text: string;
+        title: string;
+      })>;
+      card: {
+        action: string;
+        eyebrow: string;
+        subtitle: string;
+      } | null;
+    } | null;
+    pageRejected: boolean;
+    presentation: string | null;
     slug: string;
+    sourceId: string | null;
     summary: string;
     version: number;
   }> {
@@ -970,7 +1194,63 @@ export class MaterialAuthoringService {
     kind: 'guide' | 'series' | 'topic';
     materialCount: number;
     name: string;
+    page: {
+      blocks: Array<({
+        highlights: Array<string>;
+        id: string;
+        kind: 'hero';
+        lead: string;
+      } | {
+        eyebrow: string;
+        id: string;
+        items: Array<{
+          detail: string;
+          detailLabel: string;
+          text: string;
+          title: string;
+        }>;
+        kind: 'cards';
+        lead: string;
+        note: string;
+        title: string;
+      } | {
+        id: string;
+        kind: 'text';
+        paragraphs: Array<string>;
+        title: string;
+      } | {
+        id: string;
+        items: Array<{
+          text: string;
+          title: string;
+        }>;
+        kind: 'steps';
+        lead: string;
+        link: string;
+        title: string;
+      } | {
+        id: string;
+        items: Array<string>;
+        kind: 'list';
+        text: string;
+        title: string;
+      } | {
+        id: string;
+        kind: 'trial';
+        link: string;
+        text: string;
+        title: string;
+      })>;
+      card: {
+        action: string;
+        eyebrow: string;
+        subtitle: string;
+      } | null;
+    } | null;
+    pageRejected: boolean;
+    presentation: string | null;
     slug: string;
+    sourceId: string | null;
     summary: string;
     version: number;
   }> {
@@ -993,6 +1273,63 @@ export class MaterialAuthoringService {
       collectionId: any;
       expectedVersion: number;
       name: string;
+      source: {
+        page: {
+          blocks: Array<({
+            highlights: Array<string>;
+            id: string;
+            kind: 'hero';
+            lead: string;
+          } | {
+            eyebrow: string;
+            id: string;
+            items: Array<{
+              detail: string;
+              detailLabel: string;
+              text: string;
+              title: string;
+            }>;
+            kind: 'cards';
+            lead: string;
+            note: string;
+            title: string;
+          } | {
+            id: string;
+            kind: 'text';
+            paragraphs: Array<string>;
+            title: string;
+          } | {
+            id: string;
+            items: Array<{
+              text: string;
+              title: string;
+            }>;
+            kind: 'steps';
+            lead: string;
+            link: string;
+            title: string;
+          } | {
+            id: string;
+            items: Array<string>;
+            kind: 'list';
+            text: string;
+            title: string;
+          } | {
+            id: string;
+            kind: 'trial';
+            link: string;
+            text: string;
+            title: string;
+          })>;
+          card: {
+            action: string;
+            eyebrow: string;
+            subtitle: string;
+          } | null;
+        } | null;
+        presentation: 'default' | 'ai-first-process';
+        slug: string;
+      };
       sourceId: string;
       summary: string;
     },
@@ -1015,13 +1352,147 @@ export class MaterialAuthoringService {
     kind: 'guide' | 'series' | 'topic';
     materialCount: number;
     name: string;
+    page: {
+      blocks: Array<({
+        highlights: Array<string>;
+        id: string;
+        kind: 'hero';
+        lead: string;
+      } | {
+        eyebrow: string;
+        id: string;
+        items: Array<{
+          detail: string;
+          detailLabel: string;
+          text: string;
+          title: string;
+        }>;
+        kind: 'cards';
+        lead: string;
+        note: string;
+        title: string;
+      } | {
+        id: string;
+        kind: 'text';
+        paragraphs: Array<string>;
+        title: string;
+      } | {
+        id: string;
+        items: Array<{
+          text: string;
+          title: string;
+        }>;
+        kind: 'steps';
+        lead: string;
+        link: string;
+        title: string;
+      } | {
+        id: string;
+        items: Array<string>;
+        kind: 'list';
+        text: string;
+        title: string;
+      } | {
+        id: string;
+        kind: 'trial';
+        link: string;
+        text: string;
+        title: string;
+      })>;
+      card: {
+        action: string;
+        eyebrow: string;
+        subtitle: string;
+      } | null;
+    } | null;
+    pageRejected: boolean;
+    presentation: string | null;
     slug: string;
+    sourceId: string | null;
     summary: string;
     version: number;
   }> {
     return this.httpRequest.request({
       method: 'POST',
       url: '/authoring/import/guides/update',
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
+   * validateSourceGuide
+   * @returns any
+   * @throws ApiError
+   */
+  public validateSourceGuide({
+    requestBody,
+  }: {
+    requestBody: {
+      source: {
+        page: {
+          blocks: Array<({
+            highlights: Array<string>;
+            id: string;
+            kind: 'hero';
+            lead: string;
+          } | {
+            eyebrow: string;
+            id: string;
+            items: Array<{
+              detail: string;
+              detailLabel: string;
+              text: string;
+              title: string;
+            }>;
+            kind: 'cards';
+            lead: string;
+            note: string;
+            title: string;
+          } | {
+            id: string;
+            kind: 'text';
+            paragraphs: Array<string>;
+            title: string;
+          } | {
+            id: string;
+            items: Array<{
+              text: string;
+              title: string;
+            }>;
+            kind: 'steps';
+            lead: string;
+            link: string;
+            title: string;
+          } | {
+            id: string;
+            items: Array<string>;
+            kind: 'list';
+            text: string;
+            title: string;
+          } | {
+            id: string;
+            kind: 'trial';
+            link: string;
+            text: string;
+            title: string;
+          })>;
+          card: {
+            action: string;
+            eyebrow: string;
+            subtitle: string;
+          } | null;
+        } | null;
+        presentation: 'default' | 'ai-first-process';
+        slug?: string;
+      };
+      sourceId: string;
+    },
+  }): CancelablePromise<{
+    valid: boolean;
+  }> {
+    return this.httpRequest.request({
+      method: 'POST',
+      url: '/authoring/import/guides/validate',
       body: requestBody,
       mediaType: 'application/json',
     });
