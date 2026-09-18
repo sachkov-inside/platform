@@ -1,7 +1,8 @@
 "use client";
 import type { Route } from "next";
 import Link from "next/link";
-import { useSyncExternalStore } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import {
@@ -177,6 +178,17 @@ export function PurchaseReturnPanel({ accountHref }: PurchaseReturnPanelProps) {
     },
   });
   const result = query.data;
+  const confirmed = result?.ok === true && result.value.state === "confirmed";
+  const router = useRouter();
+  // Подтверждённая оплата открывает уроки, а страницы, открытые в этой вкладке, пока банк ещё
+  // думал, браузер помнит с замками. Кеш маршрутов сбрасывается один раз, в момент подтверждения:
+  // страница, к которой вернулись из памяти, запускает эффекты заново, поэтому сброс помнит себя.
+  const refreshed = useRef(false);
+  useEffect(() => {
+    if (!confirmed || refreshed.current) return;
+    refreshed.current = true;
+    router.refresh();
+  }, [confirmed, router]);
   return (
     <PurchaseReturnView
       accountHref={accountHref}

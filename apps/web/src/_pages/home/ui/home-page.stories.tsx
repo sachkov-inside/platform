@@ -87,7 +87,15 @@ export const FeedFiltersManyTopics: Story = {
   },
 };
 export const EmptyFeed: Story = { args: { result: { kind: "ready", value: home }, feed: feed({ kind: "empty" }) } };
-export const Unavailable: Story = { args: { result: { kind: "unavailable" }, feed: feed({ kind: "unavailable" }) } };
+export const Unavailable: Story = {
+  args: { result: { kind: "unavailable" }, feed: feed({ kind: "unavailable" }) },
+  play: async ({ canvasElement }) => {
+    // Сбой закрепа браузер помнит окно страницы, поэтому повтор обязан быть на экране (ADR 0026).
+    const pinFailure = within(canvasElement).getByText(/Не удалось загрузить продукт/u).parentElement;
+    if (pinFailure === null) throw new Error("Сообщение о сбое закрепа стоит вне своего блока");
+    await expect(within(pinFailure).getByRole("button", { name: "Повторить" })).toBeVisible();
+  },
+};
 export const NoPinnedGuide: Story = { args: { result: { kind: "ready", value: { ...home, pinnedSeries: null } }, feed: feed() } };
 
 export const AiFirstGuide: Story = {

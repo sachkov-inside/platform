@@ -1,30 +1,32 @@
 import type { Metadata } from "next";
 
 import { topicLinkPreview } from "@/_pages/library-discovery";
-import { loadPublishedTopic } from "@/features/library-discovery.server";
 import { PublishedTopicPage } from "@/_pages/library-discovery.server";
-import { getOptionalPlatformAccessToken } from "@/shared/auth/optional-platform-access-token.server";
+import { readPublicTopic } from "@/features/library-discovery.server";
 import {
   hiddenPageMetadata,
   publicPageMetadata,
   unavailablePageMetadata,
 } from "@/shared/link-preview";
 import { readPublicSiteOrigin } from "@/shared/link-preview/index.server";
-import { parseMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 
 interface TopicPageProps {
   readonly params: Promise<{ readonly slug: string }>;
   readonly searchParams: Promise<{ readonly from?: string | readonly string[] }>;
 }
 
+/**
+ * Сколько секунд браузер помнит эту страницу вместе с личной частью: повторный переход в этом окне
+ * идёт без запроса. Решение владельца 17.09.2026 (ADR 0026). Значение — литерал: Next.js читает
+ * конфигурацию сегмента статически.
+ */
+export const unstable_dynamicStaleTime = 60;
+
 export async function generateMetadata({
   params,
 }: TopicPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const result = await loadPublishedTopic(
-    slug,
-    await getOptionalPlatformAccessToken(),
-  );
+  const result = await readPublicTopic(slug);
   if (result.kind === "not-found") {
     return hiddenPageMetadata("Тема не найдена");
   }
@@ -38,14 +40,7 @@ export async function generateMetadata({
   );
 }
 
-export default async function TopicRoute({ params, searchParams }: TopicPageProps) {
-  const [{ slug }, query] = await Promise.all([params, searchParams]);
-  const accessToken = await getOptionalPlatformAccessToken();
-  return (
-    <PublishedTopicPage
-      {...(accessToken === undefined ? {} : { accessToken })}
-      returnTarget={parseMaterialReaderReturnTarget(query.from)}
-      slug={slug}
-    />
-  );
+/** Скелет маршрута даёт `loading.tsx`; страница читает адрес уже под ним (ADR 0026). */
+export default function TopicRoute({ params, searchParams }: TopicPageProps) {
+  return <PublishedTopicPage params={params} searchParams={searchParams} />;
 }

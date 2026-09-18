@@ -1,0 +1,9 @@
+{
+  "toLesson": {
+    "highestFooterWhileLoading": null,
+    "millisecondsToReady": 87,
+    "navigationRequests": 1,
+    "routerTransitionMilliseconds": 51,
+    "skeletons": []
+  }
+}

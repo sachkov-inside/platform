@@ -121,6 +121,134 @@ function hasDirective(program, directive) {
   );
 }
 
+/** `"use cache"` и его варианты: `"use cache: private"`, `"use cache: remote"`. */
+function isCacheDirective(statement) {
+  return (
+    statement.type === "ExpressionStatement" &&
+    typeof statement.directive === "string" &&
+    statement.directive.startsWith("use cache")
+  );
+}
+
+/**
+ * Кеш-директивы файла: на уровне модуля и внутри функций. Общий кеш держит только гостевое чтение
+ * каталога (ADR 0026), поэтому искать приходится и во вложенных телах.
+ */
+function cacheDirectives(program) {
+  const directives = [];
+  new Visitor({
+    ExpressionStatement(node) {
+      if (isCacheDirective(node)) directives.push(node.directive);
+    },
+  }).visit(program);
+  return directives;
+}
+
+/**
+ * Политика кеша принадлежит функции, а не файлу: у второго кешированного чтения в том же модуле без
+ * неё не было бы ни тега, ни срока, и авторская запись его бы не сбросила.
+ */
+function hasCachedReadWithoutPolicy(program) {
+  let found = false;
+  const check = (node) => {
+    if (node.body?.type !== "BlockStatement" || !node.body.body.some(isCacheDirective)) return;
+    if (!namesIdentifier(node.body, "applyCatalogCachePolicy")) found = true;
+  };
+  new Visitor({
+    ArrowFunctionExpression: check,
+    FunctionDeclaration: check,
+    FunctionExpression: check,
+  }).visit(program);
+  return found;
+}
+
+/** Именованный импорт под своим именем: переименованный или чужой одноимённый правило не выполняет. */
+function importsNamed(program, source, name) {
+  return program.body.some(
+    (statement) =>
+      statement.type === "ImportDeclaration" &&
+      statement.source.value === source &&
+      statement.specifiers.some(
+        (specifier) =>
+          specifier.type === "ImportSpecifier" &&
+          specifier.imported.type === "Identifier" &&
+          specifier.imported.name === name &&
+          specifier.local.name === name,
+      ),
+  );
+}
+
+function namesIdentifier(program, name) {
+  let seen = false;
+  new Visitor({
+    Identifier(node) {
+      if (node.name === name) seen = true;
+    },
+  }).visit(program);
+  return seen;
+}
+
+/**
+ * Модуль с кеш-директивой не должен видеть сессию: ни токена, ни cookie, ни модуля входа. Проверка
+ * ловит прямое нарушение; токен под другим именем или сессия через посредника остаются делом
+ * обзора — их не отличить от обычного кода по форме.
+ */
+function seesTheSession(program) {
+  return (
+    namesIdentifier(program, "accessToken") ||
+    moduleSpecifiers(program).some(
+      (specifier) => specifier.includes("shared/auth") || specifier === "next/headers",
+    )
+  );
+}
+
+/**
+ * Статичные по замыслу `GET`-обработчики: их ответ не зависит ни от запроса, ни от среды. Тот же
+ * перечень держит `check-prerendered-route-handlers.mjs`, который сверяет уже собранный манифест.
+ */
+const prerenderedRouteHandlers = ["app/(public)/social-card/route.tsx"];
+
+/**
+ * `GET`-обработчик, который не коснулся запроса до первого `return`, Next.js предсобирает при
+ * сборке образа — без конфигурации и backend. Перехват исключений делает это незаметным: отказ от
+ * предсборки приходит исключением, и `catch` выдаёт его за сбой зависимости, который застывает в
+ * образе (ADR 0026). Поэтому обработчик объявлен в самом файле маршрута и начинается с
+ * `await connection()`; переэкспорт допустим только из другого файла маршрута.
+ */
+function getHandlerFinding(program) {
+  for (const statement of program.body) {
+    // `export *` может принести `GET` из модуля, который не начинает его с `connection()`.
+    if (statement.type === "ExportAllDeclaration") return "declare";
+    if (statement.type !== "ExportNamedDeclaration") continue;
+    const declaration = statement.declaration;
+    if (declaration?.type === "FunctionDeclaration" && declaration.id?.name === "GET") {
+      const first = declaration.body?.body[0];
+      const startsWithConnection =
+        first?.type === "ExpressionStatement" &&
+        first.expression.type === "AwaitExpression" &&
+        first.expression.argument.type === "CallExpression" &&
+        first.expression.argument.callee.type === "Identifier" &&
+        first.expression.argument.callee.name === "connection";
+      // Одноимённая функция из другого модуля правило не выполняет: нужна `connection` из Next.js.
+      return startsWithConnection && importsNamed(program, "next/server", "connection") ? undefined : "start";
+    }
+    if (
+      declaration?.type === "VariableDeclaration" &&
+      declaration.declarations.some((entry) => entry.id.type === "Identifier" && entry.id.name === "GET")
+    ) {
+      return "declare";
+    }
+    const exportsGet = statement.specifiers.some(
+      (specifier) => specifier.exported.type === "Identifier" && specifier.exported.name === "GET",
+    );
+    if (exportsGet) {
+      const source = statement.source?.value;
+      return typeof source === "string" && /(?:^|\/)route$/u.test(source) ? undefined : "declare";
+    }
+  }
+  return undefined;
+}
+
 const layerRanks = new Map([
   ["shared", 0],
   ["entities", 1],
@@ -485,6 +613,56 @@ const findings = [...parsedFiles].flatMap(([file, program]) => {
   if (declaresDocumentNode(program)) {
     findingsForFile.push(
       `${sourcePath}: material document blocks belong to the shared block registry; add the block there instead of declaring a node here`,
+    );
+  }
+
+  if (
+    /(?:^|\/)app\/(?:.*\/)?route\.tsx?$/u.test(sourcePath) &&
+    !prerenderedRouteHandlers.some((allowed) => sourcePath.endsWith(allowed))
+  ) {
+    const finding = getHandlerFinding(program);
+    if (finding !== undefined) {
+      findingsForFile.push(
+        finding === "start"
+          ? `${sourcePath}: a GET Route Handler starts with await connection(), or the build prerenders its answer`
+          : `${sourcePath}: declare GET in the route file so that it starts with await connection()`,
+      );
+    }
+  }
+
+  const cached = cacheDirectives(program);
+  if (cached.length > 0) {
+    if (!sourcePath.endsWith(".public-cache.server.ts")) {
+      findingsForFile.push(
+        `${sourcePath}: "use cache" belongs to a *.public-cache.server.ts module that reads the catalog as a guest`,
+      );
+    }
+    if (cached.some((directive) => directive !== "use cache")) {
+      findingsForFile.push(
+        `${sourcePath}: only the shared "use cache" is allowed; a per-session cache would carry protected content into prefetch`,
+      );
+    }
+    // Директива на уровне модуля кеширует каждую его функцию и прячет их от проверки политики.
+    if (program.body.some(isCacheDirective)) {
+      findingsForFile.push(
+        `${sourcePath}: declare "use cache" inside the function, not for the module, so that each cached read carries its own policy`,
+      );
+    }
+    if (hasCachedReadWithoutPolicy(program)) {
+      findingsForFile.push(
+        `${sourcePath}: a cached catalog read sets its tag and lifetime through applyCatalogCachePolicy, or an authoring write cannot expire it`,
+      );
+    }
+    if (seesTheSession(program)) {
+      findingsForFile.push(
+        `${sourcePath}: a cached catalog read cannot see the session; read it as a guest and keep the personal read uncached`,
+      );
+    }
+  }
+
+  if (moduleSpecifiers(program).includes("next/cache") && namesIdentifier(program, "unstable_cache")) {
+    findingsForFile.push(
+      `${sourcePath}: unstable_cache is a second shared cache outside the guest-read rule; use a *.public-cache.server.ts module`,
     );
   }
 

@@ -4,6 +4,9 @@ import type { ReactNode } from "react";
 import { QueryProvider } from "@/_app";
 import { AuthoringShell } from "@/widgets/authoring-shell";
 
+/** Раздел целиком зависит от сессии и на слои не разложен: проверка мгновенности с него снята (ADR 0026). */
+export const instant = false;
+
 /** Авторская часть закрыта от индексации целиком, включая будущие разделы. */
 export const metadata: Metadata = { robots: { follow: false, index: false } };
 

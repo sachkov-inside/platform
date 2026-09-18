@@ -3,4 +3,5 @@ export {
   getMaterialReader,
   loadMaterialReader,
   MaterialReaderPage,
+  loadMaterialPreview,
 } from "./material-reader/index.server";

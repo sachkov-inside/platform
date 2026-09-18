@@ -1,1 +1,8 @@
-export { handleEntryList as GET } from "@/_pages/communications.server";
+import { connection } from "next/server";
+
+import { handleEntryList } from "@/_pages/communications.server";
+
+export async function GET(request: Request): Promise<Response> {
+  await connection();
+  return handleEntryList(request);
+}

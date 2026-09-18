@@ -34,7 +34,6 @@ export function bookmarkStatesQueryOptions(input: {
     queryFn: () => getBookmarkStates([input.materialId]),
     enabled: input.signedIn,
     retry: false,
-    staleTime: 0,
   });
 }
 

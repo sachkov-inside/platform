@@ -1,0 +1,34 @@
+{
+  "backHome": {
+    "highestFooterWhileLoading": null,
+    "millisecondsToReady": 737,
+    "navigationRequests": 1,
+    "routerTransitionMilliseconds": null,
+    "skeletons": []
+  },
+  "repeatHome": {
+    "highestFooterWhileLoading": null,
+    "millisecondsToReady": 753,
+    "navigationRequests": 1,
+    "routerTransitionMilliseconds": null,
+    "skeletons": []
+  },
+  "repeatProduct": {
+    "highestFooterWhileLoading": 0.6962890625,
+    "millisecondsToReady": 1820,
+    "navigationRequests": 1,
+    "routerTransitionMilliseconds": null,
+    "skeletons": [
+      "loading"
+    ]
+  },
+  "toProduct": {
+    "highestFooterWhileLoading": 0.6962890625,
+    "millisecondsToReady": 1854,
+    "navigationRequests": 1,
+    "routerTransitionMilliseconds": null,
+    "skeletons": [
+      "loading"
+    ]
+  }
+}

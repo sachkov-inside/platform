@@ -1,11 +1,12 @@
 "use client";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useQueries, useQueryClient } from "@tanstack/react-query";
 import { MaterialReadingContext, type MaterialReadingSnapshot } from "@/entities/material";
 import { clearOtherReadingAccounts } from "../model/reading-cache";
 import { getReadingStates } from "../api/reading.browser";
+import { createReadingStateBatcher } from "../model/reading-state-batcher";
 
-/** One account-scoped batch reader shared by visible Material cards and Reader. */
+/** One account-scoped reader shared by visible Material cards and Reader: cached per Material, read in batches. */
 export function ReadingProgressProvider({ accountId, resolved, children }: { readonly accountId: string | null; readonly resolved: boolean; readonly children: ReactNode }) {
   const queryClient = useQueryClient();
   const [signedOut, setSignedOut] = useState(false);
@@ -21,21 +22,13 @@ export function ReadingProgressProvider({ accountId, resolved, children }: { rea
       else { counts.delete(id); setIds([...counts.keys()].sort()); }
     };
   }, []);
-  const batches = useMemo(() => {
-    const result: string[][] = [];
-    for (let offset = 0; offset < ids.length; offset += 100) result.push(ids.slice(offset, offset + 100));
-    return result;
-  }, [ids]);
-  const results = useQueries({ queries: batches.map((batch) => ({
-    queryKey: ["reading-progress", accountId, "materials", batch],
+  // Запросы одного такта собираются в пакет; у аккаунта свой сборщик, потому что провайдер
+  // пересоздаётся при смене аккаунта.
+  const [loadState] = useState(() => createReadingStateBatcher(getReadingStates));
+  const results = useQueries({ queries: ids.map((id) => ({
+    queryKey: ["reading-progress", accountId, "material", id],
     enabled: resolved && accountId !== null && !signedOut,
-    queryFn: async () => {
-      const result = await getReadingStates(batch);
-      if (result.kind !== "ready") throw new Error(result.kind);
-      if (result.states.length !== batch.length || new Set(result.states.map((state) => state.materialId)).size !== batch.length || result.states.some((state) => !batch.includes(state.materialId))) throw new Error("invalid_response");
-      return result.states;
-    },
-    staleTime: 0,
+    queryFn: () => loadState(id),
     retry: false,
   })) });
   const refresh = useCallback(async () => { await queryClient.invalidateQueries({ queryKey: ["reading-progress"] }); }, [queryClient]);
@@ -54,6 +47,6 @@ export function ReadingProgressProvider({ accountId, resolved, children }: { rea
     return () => { document.removeEventListener("submit", clear, true); };
   }, [queryClient]);
   const states = new Map<string, MaterialReadingSnapshot>();
-  if (resolved && !signedOut && accountId !== null) for (const result of results) for (const state of result.isError ? [] : result.data ?? []) states.set(state.materialId, state);
+  if (resolved && !signedOut && accountId !== null) for (const result of results) if (!result.isError && result.data !== undefined) states.set(result.data.materialId, result.data);
   return <MaterialReadingContext value={{ accountId: signedOut ? null : accountId, resolved, states, register, refresh, failed: results.some((result) => result.isError) }}>{children}</MaterialReadingContext>;
 }

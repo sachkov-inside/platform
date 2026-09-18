@@ -605,11 +605,11 @@ function MaterialReaderState({ mode }: { readonly mode: ReaderStoryMode }) {
         />
       );
     case "access-unavailable":
-      return <MaterialReaderUnavailable retryHref={materialReaderHref(material.slug)} />;
+      return <MaterialReaderUnavailable />;
     case "error":
       return <MaterialReaderUnexpectedError onRetry={() => undefined} />;
     case "unavailable":
-      return <MaterialReaderUnavailable retryHref={materialReaderHref(material.slug)} />;
+      return <MaterialReaderUnavailable />;
   }
 }
 
@@ -869,7 +869,8 @@ export const AccessUnavailable: Story = {
     await expect(
       canvas.getByRole("heading", { name: "Материал временно недоступен" }),
     ).toBeInTheDocument();
-    await expect(canvas.getByRole("link", { name: "Повторить" })).toBeInTheDocument();
+    // Повтор — кнопка, а не ссылка на тот же адрес: ссылку браузер обслужил бы из кеша маршрутов.
+    await expect(canvas.getByRole("button", { name: "Повторить" })).toBeInTheDocument();
   },
 };
 
@@ -880,7 +881,8 @@ export const Unavailable: Story = {
     await expect(
       canvas.getByRole("heading", { name: "Материал временно недоступен" }),
     ).toBeInTheDocument();
-    await expect(canvas.getByRole("link", { name: "Повторить" })).toBeInTheDocument();
+    // Повтор — кнопка, а не ссылка на тот же адрес: ссылку браузер обслужил бы из кеша маршрутов.
+    await expect(canvas.getByRole("button", { name: "Повторить" })).toBeInTheDocument();
   },
 };
 

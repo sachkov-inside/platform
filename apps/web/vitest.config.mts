@@ -11,6 +11,9 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
+      "next/cache": fileURLToPath(
+        new URL("./test/support/next-cache.ts", import.meta.url),
+      ),
       "server-only": fileURLToPath(
         new URL("./test/support/server-only.ts", import.meta.url),
       ),
@@ -24,6 +27,7 @@ export default defineConfig({
           environment: "node",
           include: ["test/module/**/*.test.ts"],
           restoreMocks: true,
+          setupFiles: ["./test/support/request-scope.ts"],
           unstubEnvs: true,
           unstubGlobals: true,
         },

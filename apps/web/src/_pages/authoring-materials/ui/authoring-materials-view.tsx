@@ -16,6 +16,7 @@ import type { Route } from "next";
 
 import { materialTaxonomyLabel } from "@/entities/material";
 import { Button } from "@/shared/ui/button";
+import { FullLoadLink } from "@/shared/ui/full-load-link.client";
 import {
   Select,
   SelectContent,
@@ -509,7 +510,7 @@ function AuthoringMaterialsStateView({
             </Button>
           )}
           <Button asChild variant="outline">
-            <Link href="/">Материалы</Link>
+            <FullLoadLink href="/">Материалы</FullLoadLink>
           </Button>
         </div>
       </section>

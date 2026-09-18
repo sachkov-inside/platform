@@ -1,7 +1,8 @@
+import { connection } from "next/server";
+
 import { handleAccountPresentationRequest } from "@/_pages/account.server";
 
-export const dynamic = "force-dynamic";
-
-export function GET(): Promise<Response> {
+export async function GET(): Promise<Response> {
+  await connection();
   return handleAccountPresentationRequest();
 }

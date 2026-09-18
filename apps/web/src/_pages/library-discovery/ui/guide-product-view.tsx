@@ -1,6 +1,6 @@
 import { ArrowLeft, ArrowRight, Check, FileDown, Play, ShieldCheck } from "lucide-react";
 import type { Route } from "next";
-import Link from "next/link";
+import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 import type { ReactNode } from "react";
 
 import { ContentCoverImage } from "@/entities/material";
@@ -56,16 +56,16 @@ export function GuideProductView({
   return (
     <div className="min-w-0" data-guide-product={reference.slug}>
       <div className="mx-auto w-full min-w-0 max-w-[46rem]">
-        <nav aria-label="Хлебные крошки" className="pt-4">
+        <nav aria-label="Хлебные крошки" className="pt-4" data-product-part="back">
           <ol className="flex min-h-10 flex-wrap items-center gap-2 text-sm text-muted-foreground">
             <li>
-              <Link
+              <IntentPrefetchLink
                 className="inline-flex min-h-10 items-center gap-2 rounded-full bg-secondary px-4 font-semibold no-underline hover:text-foreground focus-visible:outline-ring"
                 href={returnTarget.href}
               >
                 <ArrowLeft aria-hidden="true" className="size-4 shrink-0" />
                 {returnTarget.label}
-              </Link>
+              </IntentPrefetchLink>
             </li>
             <li className="sr-only">Продукт</li>
             <li aria-current="page" className="sr-only">
@@ -74,7 +74,7 @@ export function GuideProductView({
           </ol>
         </nav>
 
-        <header className="mt-3 overflow-hidden rounded-[1.75rem] bg-primary p-4 text-white">
+        <header className="mt-3 overflow-hidden rounded-[1.75rem] bg-primary p-4 text-white" data-product-part="hero">
           <p className="text-xs font-bold uppercase tracking-[0.14em] text-white/60">
             Продукт
           </p>
@@ -97,10 +97,10 @@ export function GuideProductView({
                 className="h-auto min-h-11 max-w-full whitespace-normal rounded-full border-0 bg-white/15 text-white hover:bg-white/25 hover:text-white"
                 variant="outline"
               >
-                <Link href={freeEntryHref}>
+                <IntentPrefetchLink href={freeEntryHref}>
                   <Play aria-hidden="true" className="size-4 shrink-0" />
                   Попробовать бесплатно
-                </Link>
+                </IntentPrefetchLink>
               </Button>
             )}
           </div>
@@ -214,10 +214,10 @@ export function GuideProductView({
       <div className="sticky bottom-[calc(5rem+env(safe-area-inset-bottom))] z-10 mt-10 lg:bottom-4">
         <div className="mx-auto w-full max-w-[46rem] rounded-2xl border border-border bg-background/95 p-2.5 shadow-card backdrop-blur">
           <Button asChild className="h-auto min-h-11 w-full whitespace-normal" size="lg">
-            <Link href={guideProgrammeHref(reference.slug)}>
+            <IntentPrefetchLink href={guideProgrammeHref(reference.slug)}>
               Открыть программу
               <ArrowRight aria-hidden="true" className="size-4 shrink-0" />
-            </Link>
+            </IntentPrefetchLink>
           </Button>
         </div>
       </div>

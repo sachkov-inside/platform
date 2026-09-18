@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, Check, Code2, Terminal } from "lucide-react";
-import Link from "next/link";
+import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 
 import { useMaterialReading } from "@/entities/material";
 import { AiFirstProcessArtwork, aiFirstGuide } from "@/features/ai-first-guide";
@@ -21,13 +21,13 @@ export function FeaturedGuide({ series }: { readonly series: HomeCollection }) {
       {series.summary && <p className="home-guide-summary">{series.summary}</p>}
       <div className="home-guide-actions">
         <span>{formatMaterialCount(series.count)}</span>
-        <Link className="home-guide-open" href={collectionDiscoveryHref("series", series.slug, "/")}>Открыть практикум <ArrowRight aria-hidden="true" /></Link>
+        <IntentPrefetchLink className="home-guide-open" href={collectionDiscoveryHref("series", series.slug, "/")}>Открыть практикум <ArrowRight aria-hidden="true" /></IntentPrefetchLink>
         <GuideContinuation slug={series.slug} />
       </div>
     </div>
     <div className="home-guide-visual">
       <div className="home-guide-animation home-guide-ai"><AiFirstProcessArtwork /></div>
-      <div className="home-guide-mobile-footer"><span>{formatMaterialCount(series.count)}</span><ArrowRight aria-hidden="true" /><Link href={collectionDiscoveryHref("series", series.slug, "/")} aria-label="Открыть практикум">Открыть</Link></div>
+      <div className="home-guide-mobile-footer"><span>{formatMaterialCount(series.count)}</span><ArrowRight aria-hidden="true" /><IntentPrefetchLink href={collectionDiscoveryHref("series", series.slug, "/")} aria-label="Открыть практикум">Открыть</IntentPrefetchLink></div>
     </div>
   </section>;
   return <section className="home-guide" aria-labelledby="featured-title">
@@ -36,7 +36,7 @@ export function FeaturedGuide({ series }: { readonly series: HomeCollection }) {
       {series.summary && <p>{series.summary}</p>}
       <div className="home-guide-actions">
         <span>{formatMaterialCount(series.count)}</span>
-        <Link className="home-guide-open" href={collectionDiscoveryHref("series", series.slug, "/")}>Открыть продукт <ArrowRight aria-hidden="true" /></Link>
+        <IntentPrefetchLink className="home-guide-open" href={collectionDiscoveryHref("series", series.slug, "/")}>Открыть продукт <ArrowRight aria-hidden="true" /></IntentPrefetchLink>
         <GuideContinuation slug={series.slug} />
       </div>
     </div>
@@ -59,7 +59,7 @@ function GuideContinuation({ slug }: { readonly slug: string }) {
 }
 
 function AccountGuideContinuation({ accountId, slug }: { readonly accountId: string; readonly slug: string }) {
-  const query = useQuery({ queryKey: seriesContinuationQueryKey(accountId, slug), queryFn: () => loadSeriesContinuation(slug), staleTime: 0, retry: false });
+  const query = useQuery({ queryKey: seriesContinuationQueryKey(accountId, slug), queryFn: () => loadSeriesContinuation(slug), retry: false });
   const continuation = !query.isError && query.data?.kind === "ready" ? query.data.continuation : null;
-  return continuation === null ? null : <Link href={materialReaderHref(continuation.materialSlug, guideProgrammeHref(slug))}>Продолжить обучение <ArrowRight aria-hidden="true" /></Link>;
+  return continuation === null ? null : <IntentPrefetchLink href={materialReaderHref(continuation.materialSlug, guideProgrammeHref(slug))}>Продолжить обучение <ArrowRight aria-hidden="true" /></IntentPrefetchLink>;
 }

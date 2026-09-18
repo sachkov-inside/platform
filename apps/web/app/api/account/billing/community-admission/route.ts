@@ -1,2 +1,7 @@
+import { connection } from "next/server";
+
 import { handleCurrentCommunityAdmission } from "@/features/billing-subscription.server";
-export function GET(): Promise<Response> { return handleCurrentCommunityAdmission(); }
+export async function GET(): Promise<Response> {
+  await connection();
+  return handleCurrentCommunityAdmission();
+}

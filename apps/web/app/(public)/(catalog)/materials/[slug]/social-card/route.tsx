@@ -1,3 +1,5 @@
+import { connection } from "next/server";
+
 import { notFound } from "next/navigation";
 
 import { materialSocialCard } from "@/_pages/material-reader";
@@ -12,6 +14,7 @@ export async function GET(
   _request: Request,
   context: { readonly params: Promise<{ readonly slug: string }> },
 ): Promise<Response> {
+  await connection();
   const { slug } = await context.params;
   const result = await loadMaterialReader(slug);
   if (result.kind === "not-found" || result.kind === "unavailable") {

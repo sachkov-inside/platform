@@ -195,7 +195,6 @@ function MobileBottomNavigation({
               )}
               href={item.href}
               key={item.href}
-              prefetch={true}
               scroll={onNavigate === undefined}
               onNavigate={(event) => {
                 if (onNavigate === undefined) return;

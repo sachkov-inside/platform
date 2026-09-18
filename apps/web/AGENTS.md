@@ -15,12 +15,15 @@ production UI, Storybook, responsive behaviour, accessibility, or owner-review e
 Read [`ADR 0011`](../../docs/adr/0011-client-owned-library-catalog.md) when changing Library data
 ownership, generated transport, direct RSC calls, or same-origin BFF boundaries. Read
 [`ADR 0012`](../../docs/adr/0012-browser-owned-interactive-mutations.md) when changing interactive
-writes or proposing Server Actions.
+writes or proposing Server Actions. Read
+[`ADR 0026`](../../docs/adr/0026-web-navigation-and-caching.md) when changing a public route, a
+loading state, a `"use cache"` read, link prefetch, a `GET` Route Handler or TanStack freshness.
 
 ## Verification
 
 - Test presentation mapping and query behaviour as focused module tests; represent meaningful UI
   states in Storybook; use Playwright for route behaviour and accessibility.
+- Check page transitions on a production build: `pnpm --filter @inside/web test:navigation`.
 - Run focused web checks while iterating, then root `pnpm check` before handoff. Run the full-stack
   Playwright path when a backend contract, BFF route, query ownership, or production data flow
   changes.

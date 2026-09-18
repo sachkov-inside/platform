@@ -1,5 +1,4 @@
 import { ArrowLeft, ArrowRight, List } from "lucide-react";
-import Link from "next/link";
 import { Fragment, type ReactNode } from "react";
 
 import type {
@@ -16,6 +15,7 @@ import {
   MaterialLessonBlock,
 } from "@/entities/material";
 import { cn } from "@/shared/lib/utils";
+import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 import { Button } from "@/shared/ui/button";
 import { MaterialAssetFile, MaterialAssetImage } from "@/features/material-assets";
 import { MaterialPrimaryVideo } from "@/features/material-video";
@@ -23,6 +23,7 @@ import {
   homeMaterialReaderReturnTarget,
   type MaterialReaderReturnTarget,
 } from "@/shared/routing/material-reader";
+import { topicPath } from "@/shared/routing/public-page-path";
 
 import { ReaderReturnNavigation } from "./reader-return-navigation.client";
 
@@ -129,20 +130,20 @@ export function SeriesReaderNavigation({
       <p className="mt-1 break-words text-sm text-muted-foreground">{context.series.name}</p>
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
         <Button asChild className="h-auto min-h-12 whitespace-normal rounded-xl px-5 py-3 text-center" variant="secondary">
-          <Link href={context.series.href}>Все материалы продукта</Link>
+          <IntentPrefetchLink href={context.series.href}>Все материалы продукта</IntentPrefetchLink>
         </Button>
         {context.next === null ? null : (
           <Button asChild className="h-auto min-h-12 whitespace-normal rounded-xl px-5 py-3 text-center">
-            <Link href={context.next.href}>
+            <IntentPrefetchLink href={context.next.href}>
               Дальше <ArrowRight aria-hidden="true" />
-            </Link>
+            </IntentPrefetchLink>
           </Button>
         )}
       </div>
       {context.previous === null ? null : (
-        <Link className="mt-3 inline-flex min-h-11 items-center gap-2 text-sm text-muted-foreground no-underline hover:text-foreground focus-visible:outline-ring" href={context.previous.href}>
+        <IntentPrefetchLink className="mt-3 inline-flex min-h-11 items-center gap-2 text-sm text-muted-foreground no-underline hover:text-foreground focus-visible:outline-ring" href={context.previous.href}>
           <ArrowLeft aria-hidden="true" className="size-4" /> Предыдущий материал
-        </Link>
+        </IntentPrefetchLink>
       )}
     </nav>
   );
@@ -167,13 +168,12 @@ export function MaterialReaderHeader({
           {materialTaxonomyLabel(material.format.name)}
         </span>
         <span aria-hidden="true">·</span>
-        <Link
+        <IntentPrefetchLink
           className="no-underline hover:text-foreground focus-visible:outline-ring"
-          href={`/topics/${material.topic.slug}`}
-          prefetch={false}
+          href={topicPath(material.topic.slug)}
         >
           {material.topic.name}
-        </Link>
+        </IntentPrefetchLink>
         <span aria-hidden="true">·</span>
         <time dateTime={material.publishedAt}>{publicationDate}</time>
       </div>

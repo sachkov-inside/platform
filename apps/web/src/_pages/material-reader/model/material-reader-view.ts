@@ -58,3 +58,8 @@ export type MaterialReaderResult =
     }
   | { readonly kind: "unavailable" }
   | { readonly kind: "not-found" };
+
+/** Общая часть урока: бесплатный урок целиком, у закрытого — только метаданные (ADR 0026). */
+export type PublicMaterialResult =
+  | Extract<MaterialReaderResult, { readonly kind: "available" | "not-found" | "unavailable" }>
+  | { readonly kind: "teaser"; readonly material: MaterialReaderMetadata };

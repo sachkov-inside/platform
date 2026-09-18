@@ -5,6 +5,9 @@ import { notFound } from "next/navigation";
 import { LegalDocumentPage } from "@/_pages/legal";
 import { legalDocumentView } from "@/_pages/legal.server";
 
+/** Страница пока не разложена на слои: проверка мгновенности с неё снята (ADR 0026). */
+export const instant = false;
+
 interface LegalDocumentRouteProps {
   readonly params: Promise<{ readonly slug: string }>;
 }

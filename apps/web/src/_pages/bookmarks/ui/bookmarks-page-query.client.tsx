@@ -20,7 +20,6 @@ export function BookmarksPageQuery() {
     getNextPageParam: (last) =>
       last.kind === "ready" ? last.nextCursor ?? undefined : undefined,
     retry: false,
-    staleTime: 0,
   });
   const pages = useMemo(() => query.data?.pages ?? [], [query.data]);
 

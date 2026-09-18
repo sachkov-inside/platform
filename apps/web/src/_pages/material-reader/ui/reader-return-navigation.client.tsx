@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowLeft } from "lucide-react";
-import Link from "next/link";
+import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reader";
@@ -28,7 +28,7 @@ export function ReaderReturnNavigation({ children, repeatAtBottom, target }: {
 
   const action = (
     <Button asChild className="h-auto min-h-11 max-w-full whitespace-normal rounded-full border-0 bg-black/5 px-4 text-xs font-semibold shadow-none" variant="outline">
-      <Link href={target.href}><ArrowLeft aria-hidden="true" />{target.label}</Link>
+      <IntentPrefetchLink href={target.href}><ArrowLeft aria-hidden="true" />{target.label}</IntentPrefetchLink>
     </Button>
   );
 

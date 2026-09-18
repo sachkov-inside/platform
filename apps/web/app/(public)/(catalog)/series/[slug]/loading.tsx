@@ -1,4 +1,4 @@
-import { LibraryDiscoveryLoading } from "@/_pages/library-discovery";
+import { GuideProductLoading } from "@/_pages/library-discovery";
 
-/** Series discovery loading state. */
-export default LibraryDiscoveryLoading;
+/** Скелет страницы продукта. */
+export default GuideProductLoading;

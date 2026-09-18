@@ -4,6 +4,9 @@ import type { ReactNode } from "react";
 import { redirectUntilTermsAccepted } from "@/features/terms-acceptance.server";
 import { AccountCabinetFrame } from "@/widgets/account-cabinet.server";
 
+/** Раздел целиком зависит от сессии и на слои не разложен: проверка мгновенности с него снята (ADR 0026). */
+export const instant = false;
+
 /** Личный кабинет закрыт от индексации целиком, включая будущие разделы. */
 export const metadata: Metadata = { robots: { follow: false, index: false } };
 

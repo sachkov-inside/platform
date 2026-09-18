@@ -5,6 +5,7 @@ import { z } from "zod";
 import type {
   MaterialReaderMetadata,
   MaterialReaderResult,
+  PublicMaterialResult,
 } from "@/_pages/material-reader/model/material-reader-view";
 import {
   BackendConnectionError,
@@ -74,15 +75,37 @@ const notFoundSchema = z.object({
 });
 
 /**
- * Loads the current published Material on every RSC render.
+ * Loads the current published Material as the given viewer, or as a guest without a token.
  *
- * The slug is mutable and there is no publish-triggered Next invalidation path yet, so the
- * adapter deliberately uses `no-store`. Protected viewer-specific caching remains forbidden.
+ * The adapter itself never caches. The guest read is cached one level up, in
+ * `public-material.public-cache.server.ts`; a read with a token stays uncached (ADR 0026).
  */
 export async function getMaterialReader(
   slug: string,
   accessToken?: string,
 ): Promise<MaterialReaderResult> {
+  return (await readPublishedMaterial(slug, accessToken)).result;
+}
+
+/**
+ * Урок глазами гостя — то, что можно держать в общем кеше. Тело остаётся только у ответа, который
+ * backend сам пометил `cacheScope: "public"`; предложение о покупке сюда не попадает: оно
+ * принадлежит личной части.
+ */
+export async function getGuestMaterial(slug: string): Promise<PublicMaterialResult> {
+  const { publicScope, result } = await readPublishedMaterial(slug);
+  if (result.kind === "access") return { kind: "teaser", material: result.material };
+  // Гость не должен получать закрытое тело; если контракт это нарушил, в кеш оно всё равно не идёт.
+  if (result.kind === "available" && !publicScope) {
+    return { kind: "teaser", material: result.material };
+  }
+  return result;
+}
+
+async function readPublishedMaterial(
+  slug: string,
+  accessToken?: string,
+): Promise<{ readonly publicScope: boolean; readonly result: MaterialReaderResult }> {
   let result: Awaited<ReturnType<typeof requestPublishedMaterial>>;
   try {
     result = await requestPublishedMaterial(slug, {
@@ -90,7 +113,7 @@ export async function getMaterialReader(
     });
   } catch (error) {
     if (error instanceof BackendConnectionError && error.code === "unavailable") {
-      return { kind: "unavailable" };
+      return { publicScope: false, result: { kind: "unavailable" } };
     }
     throw error;
   }
@@ -99,14 +122,14 @@ export async function getMaterialReader(
     if (!notFoundSchema.safeParse(result.problem).success) {
       throw invalidContract("Published Material 404 response does not match the contract");
     }
-    return { kind: "not-found" };
+    return { publicScope: false, result: { kind: "not-found" } };
   }
 
   if (
     !result.ok &&
     dependencyUnavailableProblemSchema.safeParse(result.problem).success
   ) {
-    return { kind: "unavailable" };
+    return { publicScope: false, result: { kind: "unavailable" } };
   }
 
   if (!result.ok) {
@@ -122,13 +145,16 @@ export async function getMaterialReader(
   }
 
   const material = toMaterialMetadata(parsed.data.projection);
-  return parsed.data.kind === "available"
-    ? { kind: "available", material, body: parsed.data.body.blocks, primaryVideo: parsed.data.primaryVideo === null ? null : { ...parsed.data.primaryVideo, ...(parsed.data.videoChapters === undefined ? {} : { chapters: parsed.data.videoChapters }) } }
-    : {
-        kind: "access",
-        material,
-        subscriptionOffered: parsed.data.access.subscriptionOffered,
-      };
+  return {
+    publicScope: parsed.data.cacheScope === "public",
+    result: parsed.data.kind === "available"
+      ? { kind: "available", material, body: parsed.data.body.blocks, primaryVideo: parsed.data.primaryVideo === null ? null : { ...parsed.data.primaryVideo, ...(parsed.data.videoChapters === undefined ? {} : { chapters: parsed.data.videoChapters }) } }
+      : {
+          kind: "access",
+          material,
+          subscriptionOffered: parsed.data.access.subscriptionOffered,
+        },
+  };
 }
 
 function toMaterialMetadata(

@@ -1,0 +1,20 @@
+{
+  "toPaidLesson": {
+    "highestFooterWhileLoading": 0.46445497630331756,
+    "millisecondsToReady": 1884,
+    "navigationRequests": 1,
+    "routerTransitionMilliseconds": null,
+    "skeletons": [
+      "loading"
+    ]
+  },
+  "toProgramme": {
+    "highestFooterWhileLoading": 1.004739336492891,
+    "millisecondsToReady": 1847,
+    "navigationRequests": 1,
+    "routerTransitionMilliseconds": null,
+    "skeletons": [
+      "loading"
+    ]
+  }
+}

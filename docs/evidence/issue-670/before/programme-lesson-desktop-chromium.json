@@ -1,0 +1,52 @@
+{
+  "backToProgramme": {
+    "highestFooterWhileLoading": 0.6962890625,
+    "millisecondsToReady": 1538,
+    "navigationRequests": 1,
+    "routerTransitionMilliseconds": null,
+    "skeletons": [
+      "loading"
+    ]
+  },
+  "historyBack": {
+    "highestFooterWhileLoading": null,
+    "millisecondsToReady": 14,
+    "navigationRequests": 0,
+    "routerTransitionMilliseconds": null,
+    "skeletons": []
+  },
+  "historyForward": {
+    "highestFooterWhileLoading": null,
+    "millisecondsToReady": 10,
+    "navigationRequests": 0,
+    "routerTransitionMilliseconds": null,
+    "skeletons": []
+  },
+  "repeatLesson": {
+    "highestFooterWhileLoading": 0.6650390625,
+    "millisecondsToReady": 1324,
+    "navigationRequests": 1,
+    "routerTransitionMilliseconds": null,
+    "skeletons": [
+      "loading"
+    ]
+  },
+  "repeatProgramme": {
+    "highestFooterWhileLoading": 0.6962890625,
+    "millisecondsToReady": 1817,
+    "navigationRequests": 1,
+    "routerTransitionMilliseconds": null,
+    "skeletons": [
+      "loading"
+    ]
+  },
+  "toLesson": {
+    "highestFooterWhileLoading": 0.6650390625,
+    "millisecondsToReady": 1359,
+    "navigationRequests": 1,
+    "routerTransitionMilliseconds": null,
+    "skeletons": [
+      "loading"
+    ]
+  }
+}

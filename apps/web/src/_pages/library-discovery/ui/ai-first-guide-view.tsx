@@ -1,6 +1,6 @@
 import { ArrowLeft, ArrowRight, Check, Clock3, Code2, FileCode2, FolderGit2, GitPullRequest, MessagesSquare, Play, Server, Workflow } from "lucide-react";
 import type { Route } from "next";
-import Link from "next/link";
+import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 
 import { AiFirstProcessArtwork, aiFirstGuide } from "@/features/ai-first-guide";
 import { oneTimeTermLabels } from "@/features/billing-checkout";
@@ -22,8 +22,8 @@ export function AiFirstGuideView({ result, returnTarget, freeEntryHref }: {
   const freeCount = result.kind === "ready" ? result.items.filter(item => item.access === "free" && item.availability === "available").length : 0;
   const programme = guideProgrammeHref(result.reference.slug);
   return <article className="ai-guide-page" data-guide-product={result.reference.slug}>
-    <nav aria-label="Хлебные крошки"><Link className="ai-guide-back" href={returnTarget.href}><ArrowLeft />{returnTarget.label}</Link></nav>
-    <header className="ai-guide-hero">
+    <nav aria-label="Хлебные крошки" data-product-part="back"><IntentPrefetchLink className="ai-guide-back" href={returnTarget.href}><ArrowLeft />{returnTarget.label}</IntentPrefetchLink></nav>
+    <header className="ai-guide-hero" data-product-part="hero">
       <div className="ai-guide-hero-copy">
         <h1>{result.reference.name}</h1>
         <p className="ai-guide-intro">Практикум, на котором ты построишь свой процесс работы с AI-агентами и применишь инженерные навыки на проекте — от задачи до продакшена.</p>
@@ -32,7 +32,7 @@ export function AiFirstGuideView({ result, returnTarget, freeEntryHref }: {
           <li><Clock3 aria-hidden="true" />В своём темпе</li>
           <li><MessagesSquare aria-hidden="true" />Поддержка {supportTerm}</li>
         </ul>
-        <Link className="ai-guide-button" href={programme}>Открыть программу<ArrowRight /></Link>
+        <IntentPrefetchLink className="ai-guide-button" href={programme}>Открыть программу<ArrowRight /></IntentPrefetchLink>
         {freeCount > 0 ? <p className="ai-guide-format">Бесплатно: {formatMaterialCount(freeCount)}</p> : null}
       </div>
       <div className="ai-guide-artwork"><AiFirstProcessArtwork /></div>
@@ -72,7 +72,7 @@ export function AiFirstGuideView({ result, returnTarget, freeEntryHref }: {
       <h2 id="ai-programme-title">Что внутри практикума</h2>
       <p>От основ работы агента до самостоятельного релиза.</p>
       <ol>{aiFirstGuide.stages.map((stage, index) => <li key={stage.title}><span>{index + 1}</span><div><h3>{stage.title}</h3><p>{stage.text}</p></div></li>)}</ol>
-      <Link className="ai-guide-text-link" href={programme}>Посмотреть главы и материалы<ArrowRight /></Link>
+      <IntentPrefetchLink className="ai-guide-text-link" href={programme}>Посмотреть главы и материалы<ArrowRight /></IntentPrefetchLink>
     </section>
 
     <section className="ai-guide-project">
@@ -103,8 +103,8 @@ export function AiFirstGuideView({ result, returnTarget, freeEntryHref }: {
       </div>
     </section>
 
-    {freeEntryHref === undefined ? null : <section className="ai-guide-trial"><h2>Посмотри, как устроено обучение</h2><p>Открой всю программу и начни с бесплатных уроков. Познакомишься с подходом и решишь, подходит ли тебе практикум.</p><Link className="ai-guide-text-link" href={programme}>Посмотреть бесплатные уроки<ArrowRight /></Link></section>}
+    {freeEntryHref === undefined ? null : <section className="ai-guide-trial"><h2>Посмотри, как устроено обучение</h2><p>Открой всю программу и начни с бесплатных уроков. Познакомишься с подходом и решишь, подходит ли тебе практикум.</p><IntentPrefetchLink className="ai-guide-text-link" href={programme}>Посмотреть бесплатные уроки<ArrowRight /></IntentPrefetchLink></section>}
 
-    <div className="ai-guide-sticky"><Link className="ai-guide-button" href={programme}>Открыть программу<ArrowRight /></Link></div>
+    <div className="ai-guide-sticky"><IntentPrefetchLink className="ai-guide-button" href={programme}>Открыть программу<ArrowRight /></IntentPrefetchLink></div>
   </article>;
 }

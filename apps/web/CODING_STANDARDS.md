@@ -1,8 +1,8 @@
 # Web coding standards
 
 This file is normative for `apps/web` changes and reviews. The nearest `AGENTS.md` owns routing and
-verification; ADR 0011 owns the current Library/transport boundary and ADR 0012 owns browser
-mutations.
+verification; ADR 0011 owns the current Library/transport boundary, ADR 0012 owns browser
+mutations and ADR 0026 owns navigation and caching.
 
 ## Slices and runtime boundaries
 
@@ -61,6 +61,78 @@ mutations.
   same-origin, capability-owned Next Route Handler and never receives or calls the Nest address.
 - Do not add a universal proxy, generated TanStack hooks/Zod schemas/UI models, or a second
   transport path without a concrete consumer and an explicit architecture decision.
+
+## Navigation and caching
+
+[ADR 0026](../../docs/adr/0026-web-navigation-and-caching.md) owns the rationale and the numbers;
+these are the rules a change follows.
+
+- A public catalog page has layers: the route skeleton in `loading.tsx`, the shared part rendered
+  from a guest read, and, where the page depends on the reader, a personal part inside an inner
+  `<Suspense>` whose fallback is the same page on shared data. The page reads `params` and
+  `searchParams` below the skeleton, never at the top of the route file. The personal part starts
+  with `await connection()` before it touches the session, so link prefetch stops in front of it.
+- A loading state is built from the frame of its own page — the same column, return row and
+  header — and is at least a screen tall, so the footer waits below the fold instead of jumping
+  when the page arrives. A page with a different layout gets its own skeleton instead of borrowing
+  one. Every such page has `LoadsInPlace` stories for 1440 and 390 that compare the geometry of
+  the skeleton, the shared part and the ready page; `src/workshop/loads-in-place.ts` owns their
+  shared helpers.
+- `"use cache"` lives only in a `*.public-cache.server.ts` module, reads the backend without a
+  token, and sets its tag and lifetime through `applyCatalogCachePolicy`. The directive is declared
+  inside the function, never for the whole module, and every cached function calls the policy
+  itself: a second read in the same file would otherwise have neither a tag nor a lifetime. A read made with a token, a
+  closed Material body, per-viewer availability, progress, the guide mode and offers are never
+  cached and so never enter link prefetch. `"use cache: private"` and `unstable_cache` are not
+  used. `check-web-architecture` enforces the module name, the policy call in each cached
+  function, the absence of the session and the directive variant and placement, with the negative
+  fixture `public-cache`. It sees a direct breach only: a
+  token under another name or a session reached through an intermediary stays a review concern,
+  because its shape is ordinary code.
+- A cached read returns a dependency failure as a value, and its entry expires at once: it stays
+  out of the cache, of prefetch and of the shell that the image build prerenders without a backend.
+- Every `GET` Route Handler is declared in its route file and starts with `await connection()`,
+  outside any `try`. Otherwise the image build prerenders its answer without configuration or a
+  backend, and a `catch` that swallows the bail-out freezes an error response into the image.
+  `check-web-architecture` enforces the shape with the negative fixture `prerendered-handler`;
+  `pnpm --filter @inside/web test:prerendered-handlers` checks the built manifest. A handler that
+  is static on purpose is listed in both; the manifest check also allows the `icon.svg` metadata
+  file, which has no handler code.
+- A page or layout that reads the session on the server before it renders is not split into
+  layers and declares `export const instant = false`, which exempts it from the instant-navigation
+  validation; a redirect from a layout needs a real status code, which streaming cannot give. The
+  declaration does not remove a parent's loading boundary: a page nested under another page's
+  address brings its own `loading.tsx`, or it shows that page's skeleton. This rule stays prose:
+  whether a segment depends on the session is a reading of its data, not a shape a guardrail can
+  match.
+- On a catalog surface — cards, lists, lesson navigation, the product and programme pages — link to
+  a lesson, product, programme or topic with `IntentPrefetchLink` from
+  `@/shared/ui/intent-prefetch-link.client`: until touched it prefetches the shared route shell,
+  and intent upgrades it to the shared part of that address. A return row of a catalog page uses
+  it as well: its target is computed and is usually a catalog page. `prefetch={false}` has no place
+  there. Links from the cabinet, purchase pages and state screens stay a plain `<Link>`. The rule
+  stays prose because a guardrail cannot tell a catalog destination from a computed `href`.
+- A catalog page declares `unstable_dynamicStaleTime` as a literal in its route file: for that
+  window the browser keeps the page, personal part included. Other routes declare none and are
+  read again on every transition. On a catalog page a control that must reach the server again —
+  retry after a failure, a change of the guide mode, a confirmed purchase — calls
+  `router.refresh()`; a link to the same address would be served from that memory. A catalog
+  `error.tsx` retries through `retry`, not `reset`, which re-renders the same failure without a
+  request. Leaving the
+  authoring workspace for the site is a full document load for the same reason.
+- A component that reads the clock, randomness or a request value during render breaks the
+  production build under Cache Components. Read it in an event handler or an effect.
+- A page the reader left is hidden, not unmounted, and keeps its client state. State that starts
+  from a server value follows that value when it changes; `GuideModeProvider` is the worked
+  example. A surface that must reset on return resets itself.
+- A server render reads the session only through `@/shared/auth`: that read starts with
+  `connection()`, so a prefetch render stops before it can start a token refresh it would share
+  with a real request.
+- A hydrated or freshly read TanStack query keeps the client default `staleTime`. Freshness after a
+  write comes from invalidating the owner's key and from fact announcements, not from
+  `staleTime: 0`; `selfRefreshingRead` stays for surfaces where a person waits for someone else's
+  change. Reading progress is cached per Material and read through the batching loader.
+- Measure transitions only on a production build: `pnpm --filter @inside/web test:navigation`.
 
 ## Server state and mutations
 

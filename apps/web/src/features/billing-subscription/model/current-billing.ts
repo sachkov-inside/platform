@@ -15,6 +15,12 @@ export const currentBillingQueryKey = ["account", "billing"] as const;
 export const currentBillingChanged = factAnnouncement("inside.account.billing.changed");
 
 /**
+ * Подписка для поверхностей вне billing: состояние покупателя решает, что человеку открыто, поэтому
+ * оболочка по этому объявлению сбрасывает кеш маршрутов (ADR 0026).
+ */
+export const subscribeToCurrentBillingChanges = currentBillingChanged.subscribe;
+
+/**
  * Пока у банка есть незавершённая операция, её исход приходит сам: раздел перечитывает
  * состояние по интервалу, а не ждёт действия владельца аккаунта.
  */

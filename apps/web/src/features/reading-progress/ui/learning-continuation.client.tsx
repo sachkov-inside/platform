@@ -14,7 +14,7 @@ export function LearningContinuation() {
   return !reading.resolved ? <section className="mb-10 min-h-80" aria-label="Продолжить обучение" aria-busy="true" /> : reading.accountId === null ? null : <AccountContinuation key={reading.accountId} accountId={reading.accountId} />;
 }
 function AccountContinuation({ accountId }: { readonly accountId: string }) {
-  const query = useQuery({ queryKey: personalHomeQueryKey(accountId), queryFn: loadPersonalHome, staleTime: 0, retry: false });
+  const query = useQuery({ queryKey: personalHomeQueryKey(accountId), queryFn: loadPersonalHome, retry: false });
   if (query.isError || query.data?.kind !== "ready") return <section className="mb-10 min-h-80" aria-label="Продолжить обучение"><p role="status">{query.isPending ? "Загружаем продолжение обучения…" : "Не удалось загрузить продолжение обучения."}</p></section>;
   return <LearningContinuationView continuation={query.data.continuation} />;
 }

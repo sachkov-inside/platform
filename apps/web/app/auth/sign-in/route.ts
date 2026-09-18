@@ -8,8 +8,6 @@ import {
   safePostSignInReturnUri,
 } from "@/shared/auth/index.server";
 
-export const dynamic = "force-dynamic";
-
 export async function POST(request: Request): Promise<Response> {
   const config = readLogtoBffConfig();
   if (!isSameOriginMutation(request, config.baseUrl)) {

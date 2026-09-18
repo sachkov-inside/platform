@@ -11,6 +11,9 @@ const router = {
 
 export const usePathname = fn((): string => "/");
 
+/** Параметры маршрута: story задаёт их через `mocked(useParams).mockReturnValue(...)`. */
+export const useParams = fn((): Record<string, string | string[]> => ({}));
+
 export function useRouter() {
   return router;
 }

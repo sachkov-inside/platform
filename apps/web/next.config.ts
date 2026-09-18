@@ -47,6 +47,30 @@ const hideDevIndicator = process.env.HIDE_DEV_INDICATOR === "true";
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1"],
+  /**
+   * Навигация и кеширование — ADR 0026. Общая часть публичной страницы читается из `"use cache"`
+   * с профилем `catalog`, личная стримится; `<Link>` предзагружает оболочку маршрута. Окно, в
+   * котором браузер помнит страницу вместе с личной частью, страницы каталога объявляют сами
+   * (`unstable_dynamicStaleTime`); у остальных маршрутов его нет.
+   */
+  cacheComponents: true,
+  partialPrefetching: true,
+  cacheLife: {
+    /**
+     * Общая запись живёт пять минут — столько владелец согласился ждать импорт, который идёт мимо
+     * web. Обработчик кеша Next.js по умолчанию в production отдаёт запись ровно `revalidate`
+     * секунд и дальше ждёт свежую, фонового обновления у него нет; `expire` обязан быть больше.
+     */
+    catalog: { stale: 300, revalidate: 300, expire: 600 },
+    /** Отсутствующий адрес может появиться после публикации, поэтому «не найдено» живёт полминуты. */
+    catalogMissing: { stale: 30, revalidate: 30, expire: 60 },
+    /**
+     * Сбой зависимости в кеше не задерживается. `expire` убирает запись из предсборки, нулевой
+     * `stale` — из предзагрузки по намерению: иначе наведение на ссылку во время сбоя оставило бы
+     * экран «недоступно» в памяти браузера и после того, как backend поднялся.
+     */
+    catalogUnavailable: { stale: 0, revalidate: 0, expire: 1 },
+  },
   ...(hideDevIndicator ? { devIndicators: false as const } : {}),
   logging: {
     incomingRequests: { ignore: [/^\/callback(?:[/?]|$)/u] },

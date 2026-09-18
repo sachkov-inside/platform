@@ -19,6 +19,8 @@ import { ReadingProgressProvider } from "@/features/reading-progress";
 import { useAuthStatus } from "./auth-status-control.client";
 import { PublicNavigationPending } from "./public-navigation-pending";
 import { MobileNavigationLocation } from "./mobile-navigation-location.client";
+import { NavigationTiming } from "./navigation-timing.client";
+import { useAccessChangeRefresh } from "./use-access-change-refresh.client";
 import { useMobileNavigation } from "./use-mobile-navigation.client";
 
 interface AppShellProps {
@@ -29,7 +31,9 @@ interface AppShellProps {
 export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
   const authStatus = useAuthStatus();
-  const mobileNavigation = useMobileNavigation(pathname, authStatus.accountId, authStatus.resolved && authStatus.state !== "unavailable");
+  const accountKnown = authStatus.resolved && authStatus.state !== "unavailable";
+  const mobileNavigation = useMobileNavigation(pathname, authStatus.accountId, accountKnown);
+  useAccessChangeRefresh(authStatus.accountId, accountKnown);
   const navigationItems = navigationItemsFor({
     canManageMaterials: authStatus.canManageMaterials,
   });
@@ -65,6 +69,7 @@ export function AppShell({ children }: AppShellProps) {
     >
       <Suspense fallback={null}>
         <MobileNavigationLocation onChange={mobileNavigation.recordLocation} />
+        <NavigationTiming />
       </Suspense>
       <ReadingProgressProvider key={authStatus.accountId ?? "guest"} accountId={authStatus.accountId} resolved={authStatus.resolved}>
         <div aria-hidden={mobileNavigation.pendingHref !== null || undefined} inert={mobileNavigation.pendingHref !== null} className={mobileNavigation.pendingHref !== null ? "invisible" : undefined}>
