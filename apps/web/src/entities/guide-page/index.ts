@@ -1,6 +1,5 @@
 export {
   fillOfferTerms,
-  guidePageSchema,
   readGuidePageCard,
   readGuideProductPage,
   resolveGuidePresentation,
@@ -10,5 +9,4 @@ export {
   type GuidePageCard,
   type GuidePresentation,
   type GuideProductPage,
-  type OfferTerms,
 } from "./model/guide-page";
