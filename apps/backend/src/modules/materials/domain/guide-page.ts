@@ -41,7 +41,13 @@ export const guidePageBlockSchema = z.discriminatedUnion("kind", [
     eyebrow: short,
     title: requiredShort,
     lead: long,
-    items: list(z.object({ title: requiredShort, text: requiredLong, detailLabel: short, detail: short }).strict()),
+    items: list(
+      z
+        .object({ title: requiredShort, text: requiredLong, detailLabel: short, detail: short })
+        .strict()
+        // Подпись без значения нечего показать, поэтому её не принимают вместо тихой потери.
+        .refine(({ detail, detailLabel }) => detailLabel === "" || detail !== "", { path: ["detail"] }),
+    ),
     note: long,
   }),
   block("text", { title: requiredShort, paragraphs: list(requiredLong) }),

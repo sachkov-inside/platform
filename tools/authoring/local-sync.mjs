@@ -215,12 +215,16 @@ export async function syncLocal(packagePath, stateDirectory, { origin = reviewOr
     const placeholderLinks = new Map([...rows.keys()].map((id) => [id, `/materials/${id}`]));
     const placeholderImages = new Map(pkg.manifest.assets.map((asset) => [asset.sourceId, sourceUuid(asset.sourceId)]));
     const guides = new Map();
+    // Цель называет свой адрес и ключ источника, поэтому перенос не выдумывает адрес из ключа.
+    const storedGuides = pkg.manifest.guides.length === 0 ? [] : await request("/authoring/collections?kind=guide");
     for (const guide of pkg.manifest.guides) {
       if (!guide.complete) throw new Error("This first local programme adapter requires a complete Guide selection");
       const key = sourceId(guide.sourceId);
       try {
+      const stored = storedGuides.find((item) => item.sourceId === key);
       const reserved = journal.guides[key];
-      let current = await request("/authoring/import/guides/reserve", { sourceId: key, name: guide.title.trim(), slug: guide.slug ?? reserved?.slug ?? guide.sourceId, summary: guideTeaser(guide).teaser.trim() });
+      const address = guide.slug ?? stored?.slug ?? reserved?.slug ?? guide.sourceId;
+      let current = await request("/authoring/import/guides/reserve", { sourceId: key, name: guide.title.trim(), slug: address, summary: guideTeaser(guide).teaser.trim() });
       const details = guideDetails(guide, current);
       journal.guides[key] = { ...journal.guides[key], guideId: current.id, slug: current.slug };
       // The page is checked here, before any Material is written; an unchanged product writes nothing.

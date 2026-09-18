@@ -131,4 +131,4 @@
 .ai-guide-language-project small { display: block; margin-top: .25rem; font-size: .7rem; font-weight: 400; color: var(--muted-foreground); }
 
 /* Подпись пункта: она стоит рядом с текстом и не спорит с ним по яркости. */
-.ai-guide-item-detail { display: block; margin-top: .5rem; font-size: .85rem; color: var(--muted-foreground); }
+.ai-guide-page .ai-guide-item-detail { display: block; margin-top: .5rem; font-size: .85rem; line-height: 1.5; color: var(--muted-foreground); }

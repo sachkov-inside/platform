@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
 
 import { homeMaterialReaderReturnTarget, materialReaderHref } from "@/shared/routing/material-reader";
-import { aiFirstProductPage, aiFirstProductSummary } from "@/workshop/guide-page.fixtures";
+import { aiFirstProductPage, aiFirstProductPageWithEveryField, aiFirstProductSummary } from "@/workshop/guide-page.fixtures";
 import { publicPageEnvironment } from "@/workshop/story-environment";
 
 import { GuideProductView } from "./guide-product-view";
@@ -53,6 +53,25 @@ export const DefaultTemplateShowsTheSameDescription: Story = {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("heading", { level: 2, name: "Кому это нужно" })).toBeVisible();
     await expect(canvas.getByText("Поддержка 6 месяцев")).toBeVisible();
+  },
+};
+
+/** Каждое написанное поле блока видно: надзаголовок, подпись пункта и заметка раздела. */
+export const EveryBlockFieldIsShown: Story = {
+  args: {
+    result: {
+      kind: "empty", discoveryKind: "series", chapters: [], relatedSeries: [], topics: [],
+      reference: {
+        name: "AI-first разработка", slug: "working-with-agents", summary: aiFirstProductSummary,
+        productPage: { presentation: "ai-first-process", page: aiFirstProductPageWithEveryField },
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getAllByText("Раздел продукта").length).toBeGreaterThan(0);
+    await expect(canvas.getAllByText("Подпись: Значение подписи").length).toBeGreaterThan(0);
+    await expect(canvas.getAllByText("Заметка раздела.").length).toBeGreaterThan(0);
   },
 };
 

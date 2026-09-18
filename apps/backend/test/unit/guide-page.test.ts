@@ -30,6 +30,7 @@ describe("Guide page description", () => {
     ["an empty required title", { ...page, blocks: [{ ...page.blocks[1], title: "" }] }],
     ["no blocks", { ...page, blocks: [] }],
     ["an invalid block id", { ...page, blocks: [{ ...page.blocks[1], id: "Shift" }] }],
+    ["an item caption without its value", { ...page, blocks: [{ ...page.blocks[2], items: [{ title: "Пункт", text: "Текст.", detailLabel: "В репозитории", detail: "" }] }] }],
     ["a second hero block", { ...page, blocks: [page.blocks[0], { ...page.blocks[0], id: "hero-again" }] }],
     ["a description larger than the page limit", { ...page, blocks: [{ ...page.blocks[1], paragraphs: ["а".repeat(3999), "б".repeat(3999), "в".repeat(3999), "г".repeat(3999), "д".repeat(3999)] }] }],
   ])("rejects %s", (_name, value) => {

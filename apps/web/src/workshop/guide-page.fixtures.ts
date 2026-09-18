@@ -203,3 +203,25 @@ export const aiFirstProductPage = {
 
 export const aiFirstProductSummary =
   "Практикум по инженерной разработке с AI-агентами — от постановки задачи до релиза и поддержки приложения.";
+
+/**
+ * То же описание с заполненными надзаголовком, подписями пунктов и заметкой: оформление и общий
+ * шаблон показывают каждое написанное поле, и это состояние нужно видеть глазами.
+ */
+export const aiFirstProductPageWithEveryField: GuidePage = {
+  ...aiFirstProductPage,
+  blocks: aiFirstProductPage.blocks.map((block) =>
+    block.kind === "cards"
+      ? {
+          ...block,
+          eyebrow: block.eyebrow === "" ? "Раздел продукта" : block.eyebrow,
+          note: block.note === "" ? "Заметка раздела." : block.note,
+          items: block.items.map((item) => ({
+            ...item,
+            detailLabel: item.detailLabel === "" ? "Подпись" : item.detailLabel,
+            detail: item.detail === "" ? "Значение подписи" : item.detail,
+          })),
+        }
+      : block,
+  ),
+};
