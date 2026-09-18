@@ -307,12 +307,10 @@ function DefaultBlock({
       );
     case "cards":
       return (
-        <Section title={fillTerms(block.title)}>
-          {block.eyebrow === "" ? null : (
-            <p className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">
-              {fillTerms(block.eyebrow)}
-            </p>
-          )}
+        <Section
+          title={fillTerms(block.title)}
+          {...(block.eyebrow === "" ? {} : { eyebrow: fillTerms(block.eyebrow) })}
+        >
           {block.lead === "" ? null : <Prose value={fillTerms(block.lead)} />}
           <ul className="mt-4 grid gap-3">
             {block.items.map((item, index) => (
@@ -412,13 +410,21 @@ function TextLink({ href, label }: { readonly href: Route; readonly label: strin
 
 function Section({
   children,
+  eyebrow,
   title,
 }: {
   readonly children: ReactNode;
+  /** Надзаголовок автора: он стоит над названием раздела, как в оформлении продукта. */
+  readonly eyebrow?: string;
   readonly title: string;
 }) {
   return (
     <section className="mt-10">
+      {eyebrow === undefined ? null : (
+        <p className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">
+          {eyebrow}
+        </p>
+      )}
       <h2 className="break-words text-xl font-semibold tracking-[-0.02em] md:text-2xl">
         {title}
       </h2>

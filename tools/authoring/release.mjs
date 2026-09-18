@@ -44,9 +44,14 @@ export async function previewRelease(packagePath, stateDirectory, { origin, requ
   const resources = journal.resources ?? {};
   const topics = await request("/authoring/collections?kind=topic");
   const topicIds = new Map(topics.map((item) => [item.slug, item.id]));
+  // Продукт узнаётся и без журнала: цель называет свой sourceId, поэтому новый state-каталог не
+  // выдаёт уже перенесённый продукт за новый.
+  const storedGuides = await request("/authoring/collections?kind=guide");
   const guideIds = new Map(manifest.guides.flatMap((guide) => {
     const entry = journal.guides[sourceKey(manifest, guide.sourceId)];
-    return entry ? [[guide.sourceId, entry.guideId]] : [];
+    const stored = storedGuides.find((item) => item.sourceId === sourceKey(manifest, guide.sourceId));
+    const id = entry?.guideId ?? stored?.id;
+    return id === undefined ? [] : [[guide.sourceId, id]];
   }));
   const assets = new Map(manifest.assets.map((asset) => [asset.sourceId, asset]));
   const materials = [];
@@ -82,7 +87,7 @@ export async function previewRelease(packagePath, stateDirectory, { origin, requ
     });
   }
   const guides = [];
-  const currentGuides = guideIds.size === 0 ? [] : await request("/authoring/collections?kind=guide");
+  const currentGuides = storedGuides;
   for (const guide of manifest.guides) {
     const programme = [...guide.materialIds, ...guide.supplementaryMaterialIds];
     const guideId = guideIds.get(guide.sourceId);

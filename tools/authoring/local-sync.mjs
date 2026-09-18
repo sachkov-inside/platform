@@ -82,8 +82,10 @@ export function guideDetailsMatch(current, details) {
 export async function validateGuidePages(manifest, send) {
   for (const guide of manifest.guides) {
     const details = guideDetails(guide);
-    // Проверяется адрес, который перенос может записать: у старого пакета это его собственный ключ.
-    const source = { presentation: details.presentation, page: details.page, slug: guide.slug ?? guide.sourceId };
+    // Адрес проверяется только когда пакет его называет: продукт на своём адресе не должен падать
+    // из-за формы чужого ключа. Новый продукт с непригодным ключом остановит reserve — он идёт до
+    // записи материалов.
+    const source = { presentation: details.presentation, page: details.page, ...(guide.slug === undefined ? {} : { slug: guide.slug }) };
     const path = "/authoring/import/guides/validate";
     try {
       parseLocalResponse(path, await send(path, { sourceId: sourceKey(manifest, guide.sourceId), source }));

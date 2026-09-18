@@ -84,9 +84,10 @@ function Hero({ block, context }: { readonly block: GuidePageBlockOf<"hero">; re
 
 function PlainCards({ block, fill }: { readonly block: GuidePageBlockOf<"cards">; readonly fill: (text: string) => string }) {
   return <section className="ai-guide-audience">
+    {block.eyebrow === "" ? null : <p className="ai-guide-eyebrow">{fill(block.eyebrow)}</p>}
     <h2>{fill(block.title)}</h2>
     {block.lead === "" ? null : <p className="ai-guide-section-intro">{fill(block.lead)}</p>}
-    <dl>{block.items.map((item, index) => <div key={`${String(index)}-${item.title}`}><dt><Check />{fill(item.title)}</dt><dd>{fill(item.text)}</dd></div>)}</dl>
+    <dl>{block.items.map((item, index) => <div key={`${String(index)}-${item.title}`}><dt><Check />{fill(item.title)}</dt><dd>{fill(item.text)}{item.detail === "" ? null : <span className="ai-guide-item-detail">{item.detailLabel === "" ? null : <>{fill(item.detailLabel)}: </>}{fill(item.detail)}</span>}</dd></div>)}</dl>
     {block.note === "" ? null : <p className="ai-guide-career">{fill(block.note)}</p>}
   </section>;
 }
@@ -107,6 +108,7 @@ const outcomeVisuals: readonly ReactNode[] = [
 ];
 function OutcomeCards({ block, fill }: { readonly block: GuidePageBlockOf<"cards">; readonly fill: (text: string) => string }) {
   return <section className="ai-guide-outcomes">
+    {block.eyebrow === "" ? null : <p className="ai-guide-eyebrow">{fill(block.eyebrow)}</p>}
     <h2>{fill(block.title)}</h2>
     {block.lead === "" ? null : <p className="ai-guide-section-intro ai-guide-promise">{fill(block.lead)}</p>}
     <div className="ai-guide-outcome-grid">{block.items.map((item, index) => {
@@ -148,7 +150,7 @@ function SupportCards({ block, fill }: { readonly block: GuidePageBlockOf<"cards
     <div className="ai-guide-support-intro">{block.eyebrow === "" ? null : <p className="ai-guide-eyebrow">{fill(block.eyebrow)}</p>}<h2>{fill(block.title)}</h2>{block.lead === "" ? null : <p>{fill(block.lead)}</p>}</div>
     <div className="ai-guide-support-details">{block.items.map((item, index) => {
       const Icon = iconAt(supportIcons, index);
-      return <div key={`${String(index)}-${item.title}`}><Icon aria-hidden="true" /><h3>{fill(item.title)}</h3><p>{fill(item.text)}</p></div>;
+      return <div key={`${String(index)}-${item.title}`}><Icon aria-hidden="true" /><h3>{fill(item.title)}</h3><p>{fill(item.text)}</p>{item.detail === "" ? null : <p className="ai-guide-item-detail">{item.detailLabel === "" ? null : <>{fill(item.detailLabel)}: </>}{fill(item.detail)}</p>}</div>;
     })}</div>
     {block.note === "" ? null : <p className="ai-guide-career">{fill(block.note)}</p>}
   </section>;
@@ -161,9 +163,10 @@ const bonusPreviews: readonly ReactNode[] = [
 ];
 function BonusCards({ block, fill }: { readonly block: GuidePageBlockOf<"cards">; readonly fill: (text: string) => string }) {
   return <section className="ai-guide-bonuses">
+    {block.eyebrow === "" ? null : <p className="ai-guide-eyebrow">{fill(block.eyebrow)}</p>}
     <h2>{fill(block.title)}</h2>
     {block.lead === "" ? null : <p className="ai-guide-section-intro">{fill(block.lead)}</p>}
-    <div className="ai-guide-bonus-grid">{block.items.map((item, index) => <div key={`${String(index)}-${item.title}`}>{bonusPreviews[index] ?? null}<h3>{fill(item.title)}</h3><p>{fill(item.text)}</p></div>)}</div>
+    <div className="ai-guide-bonus-grid">{block.items.map((item, index) => <div key={`${String(index)}-${item.title}`}>{bonusPreviews[index] ?? null}<h3>{fill(item.title)}</h3><p>{fill(item.text)}</p>{item.detail === "" ? null : <p className="ai-guide-item-detail">{item.detailLabel === "" ? null : <>{fill(item.detailLabel)}: </>}{fill(item.detail)}</p>}</div>)}</div>
     {block.note === "" ? null : <p className="ai-guide-career">{fill(block.note)}</p>}
   </section>;
 }
