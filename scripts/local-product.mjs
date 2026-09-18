@@ -23,4 +23,5 @@ const { identity, email } = await standIdentity(values["owner-email"]);
 const content = resolve(values.content ?? resolve(dirname(identity), "..", "inside-content"));
 if (!existsSync(resolve(content, "tools/content.py"))) throw new Error(`Inside Content is not at ${content}; pass --content PATH`);
 const receipt = await withStandGateway(email, (origin) => syncGitLocal(content, values.guide, resolve(content, standStateDirectory), values.ref, { origin, pinHome: true }));
-process.stdout.write(`${JSON.stringify({ commit: receipt.commit, applied: receipt.applied, unchanged: receipt.unchanged, homePinned: receipt.homePinned, product: receipt.guides[0]?.url, archiveProposals: receipt.archiveProposals }, null, 2)}\n`);
+// Уведомления переноса показываются здесь же: иначе «пропажа» продукта осталась бы без объяснения.
+process.stdout.write(`${JSON.stringify({ commit: receipt.commit, applied: receipt.applied, unchanged: receipt.unchanged, homePinned: receipt.homePinned, product: receipt.guides[0]?.url, archiveProposals: receipt.archiveProposals, notices: receipt.notices }, null, 2)}\n`);
