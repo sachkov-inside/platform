@@ -345,7 +345,9 @@ The API health response is:
 ```
 
 `pnpm smoke:health` verifies Nest composition and the documented `tsx watch` API entrypoint.
-`pnpm smoke:fullstack` remains the host-process fallback smoke against Compose PostgreSQL; it
+`pnpm smoke:fullstack` remains the host-process fallback smoke against Compose PostgreSQL (start it
+with `pnpm infra:up`); it gives its processes the stand's local sale contour, because the seed puts a
+Guide on sale and the API refuses to start a sale without a bank and a receipt mailbox. It
 starts the API and a production-built web process, verifies the published Reader on desktop and
 mobile through Playwright, exercises the server-only adapter against the live API, and uses a
 signed delegated owner token to create/reload, publish, Preview and unpublish one stable Material
@@ -789,7 +791,9 @@ shared `inside-platform_*` volumes, so every branch and worktree sees the same c
   gateway for the run when none is running and repeats safely at any time.
 - Host checks that migrate, seed or bootstrap owners (`pnpm smoke:fullstack`, the identity proof,
   the Telegram sign-in launcher) use the `inside_checks` database, never the stand's `inside`,
-  unless `DATABASE_URL` is exported explicitly.
+  unless `DATABASE_URL` is exported explicitly. `pnpm smoke:fullstack` drops and recreates that
+  database at the start of every run, so products, lessons and buyers created by an earlier run
+  never change what the next one sees.
 
 - The seed reads `config/compose/local/seed-stand.env` (`LOCAL_SEED_DEMO=hidden`) unless
   `LOCAL_SEED_VIEW=checks` selects `seed-checks.env`: demonstration Materials stay drafts or

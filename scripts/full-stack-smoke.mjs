@@ -3,7 +3,7 @@ import { existsSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
-import { checkDatabaseUrl, ensureCheckDatabase } from "./check-database.mjs";
+import { checkDatabaseUrl, resetCheckDatabase } from "./check-database.mjs";
 import { startFullStackIdentity } from "./full-stack-identity.mjs";
 
 import { signalProcessGroup } from "./process-group-signal.mjs";
@@ -23,7 +23,7 @@ if (existsSync(environmentPath)) {
   process.loadEnvFile(environmentPath);
 }
 if (explicitDatabaseUrl === undefined) {
-  ensureCheckDatabase({ cwd: repositoryRoot });
+  resetCheckDatabase({ cwd: repositoryRoot });
   process.env.DATABASE_URL = checkDatabaseUrl(process.env.POSTGRES_HOST_PORT ?? 5432);
 }
 const apiPort = process.env.API_PORT ?? "3001";
@@ -35,6 +35,16 @@ const mcpPort = process.env.FULLSTACK_MCP_PORT ?? "3002";
 const mcpServerUrl = `http://127.0.0.1:${mcpPort}/mcp`;
 const childEnvironment = { ...process.env };
 childEnvironment.NODE_ENV ??= "development";
+// Сид включает продажу руководства, а API и billing отказываются стартовать с продажей без банка и
+// адреса для чеков. Прогон ничего не покупает, поэтому ему хватает локального контура стенда:
+// двойник банка по недостижимому адресу и перехват писем. Явные значения окружения важнее.
+childEnvironment.TBANK_PROVIDER_MODE ??= "test";
+childEnvironment.TBANK_TEST_API_BASE_URL ??= "http://127.0.0.1:9/v2";
+childEnvironment.BILLING_CONTACT_ENCRYPTION_KEY ??= "aW5zaWRlLWxvY2FsLWJpbGxpbmctY29udGFjdC1rZXk=";
+childEnvironment.BILLING_CONTACT_SMTP_HOST ??= "127.0.0.1";
+childEnvironment.BILLING_CONTACT_SMTP_PORT ??= "9";
+childEnvironment.BILLING_CONTACT_FROM ??= "no-reply@inside.localhost";
+childEnvironment.BILLING_CONTACT_SMTP_LOCAL_CAPTURE ??= "true";
 // OWNER получает platform:admin для реальных операций каталога/назначения; отдельный MCP автор — только materials:manage.
 // Разрешение делегированных Account стенда принадлежит прогону, а не личному `.env`: иначе
 // `release:bootstrap-owner` возьмёт оттуда чужое значение и прогон начнёт зависеть от машины.

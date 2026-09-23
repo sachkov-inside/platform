@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
-import { fullStackBaseUrl, fullStackBrowserRequest, signInFullStack } from "../support/full-stack-session";
+import { fullStackBaseUrl, fullStackBrowserRequest, fullStackPageRequest, signInFullStack } from "../support/full-stack-session";
 import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 
 const currentMaterialEditorUrl =
@@ -85,14 +85,14 @@ for (const access of ["public", "membership"] as const) {
     await expect(page.getByRole("button", { name: "Удалить…" })).toHaveCount(0);
     await waitMaterialSaved(page);
     await expect(
-      page.locator("header [role=status]").filter({ hasText: "Сохранено" }),
+      page.locator("header [role=status]:visible").filter({ hasText: "Сохранено" }),
     ).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "Опубликовать" }).click();
     await expect(
       page.locator("header").getByText("Опубликован", { exact: true }),
     ).toBeVisible({ timeout: 15_000 });
     await expect(
-      page.locator("header [role=status]").filter({ hasText: "Сохранено" }),
+      page.locator("header [role=status]:visible").filter({ hasText: "Сохранено" }),
     ).toBeVisible({ timeout: 15_000 });
 
     if (access === "membership") {
@@ -139,12 +139,12 @@ for (const access of ["public", "membership"] as const) {
       .getAttribute("data-video-id");
     if (href === null || materialId === null || videoId === null)
       throw new Error("Media references are missing");
-    const memberFile = await page.request.get(href);
+    const memberFile = await (await fullStackPageRequest(page)).get(href);
     expect(memberFile.status()).toBe(200);
     expect(await memberFile.text()).toBe("Media convergence attachment\n");
     expect(memberFile.headers()["content-disposition"]).toContain("attachment");
     expect(memberFile.headers()["x-content-type-options"]).toBe("nosniff");
-    const wrongMaterial = await page.request.post(
+    const wrongMaterial = await (await fullStackPageRequest(page)).post(
       "/api/material-video-playback-sessions",
       {
         headers: { origin: new URL(page.url()).origin },
@@ -259,14 +259,14 @@ for (const access of ["public", "membership"] as const) {
         ).toHaveCount(0);
         await expect(page.locator("iframe")).toHaveCount(0);
         expect(protectedRequests).toEqual([]);
-        const deniedFile = await page.request.get(href, { maxRedirects: 0 });
+        const deniedFile = await (await fullStackPageRequest(page)).get(href, { maxRedirects: 0 });
         expect(deniedFile.status()).toBe(404);
         expect(deniedFile.headers()["cache-control"]).toContain("no-store");
-        const deniedImage = await page.request.get(protectedImageSource, {
+        const deniedImage = await (await fullStackPageRequest(page)).get(protectedImageSource, {
           maxRedirects: 0,
         });
         expect(deniedImage.status()).toBe(404);
-        const deniedPlayback = await page.request.post(
+        const deniedPlayback = await (await fullStackPageRequest(page)).post(
           "/api/material-video-playback-sessions",
           {
             headers: { origin: new URL(page.url()).origin },
@@ -283,12 +283,16 @@ for (const access of ["public", "membership"] as const) {
       ).toBeVisible();
     }
     await signInFullStack(context, "OWNER");
-    await page.goto(`/authoring/materials?search=${encodeURIComponent(title)}`);
-    const row = page.getByRole("listitem").filter({ hasText: title });
-    await row.getByRole("button", { name: "Снять с публикации" }).click();
-    await expect(
-      row.getByText("Снят с публикации", { exact: true }),
-    ).toBeVisible({ timeout: 15_000 });
+    if (access === "membership") {
+      await unpublishFromPurchasedProduct(page, title);
+    } else {
+      await page.goto(`/authoring/materials?search=${encodeURIComponent(title)}`);
+      const row = page.getByRole("listitem").filter({ hasText: title });
+      await row.getByRole("button", { name: "Снять с публикации" }).click();
+      await expect(
+        row.getByText("Снят с публикации", { exact: true }),
+      ).toBeVisible({ timeout: 15_000 });
+    }
   });
 }
 
@@ -336,14 +340,14 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
   await expect(page.getByText("Видео готово")).toBeVisible({ timeout: 15_000 });
   await waitMaterialSaved(page);
   await expect(
-    page.locator("header [role=status]").filter({ hasText: "Сохранено" }),
+    page.locator("header [role=status]:visible").filter({ hasText: "Сохранено" }),
   ).toBeVisible({ timeout: 15_000 });
   await page.getByRole("button", { name: "Опубликовать" }).click();
   await expect(
     page.locator("header").getByText("Опубликован", { exact: true }),
   ).toBeVisible({ timeout: 15_000 });
   await expect(
-    page.locator("header [role=status]").filter({ hasText: "Сохранено" }),
+    page.locator("header [role=status]:visible").filter({ hasText: "Сохранено" }),
   ).toBeVisible({ timeout: 15_000 });
 
   await installPlaybackProviderDouble(page);
@@ -386,7 +390,7 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
   if (typeof materialId !== "string" || typeof videoId !== "string") {
     throw new Error("Video identity evidence is missing");
   }
-  const session = await page.request.post(
+  const session = await (await fullStackPageRequest(page)).post(
     "/api/material-video-playback-sessions",
     {
       headers: { origin: new URL(page.url()).origin },
@@ -414,7 +418,7 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
     videoId,
   });
 
-  const progress = await page.request.put("/api/material-video-progress", {
+  const progress = await (await fullStackPageRequest(page)).put("/api/material-video-progress", {
     headers: { origin: new URL(page.url()).origin },
     multipart: {
       durationSeconds: "120",
@@ -425,7 +429,7 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
   });
   expect(progress.status()).toBe(200);
   await expect(progress.json()).resolves.toEqual({ kind: "saved" });
-  const resumedSession = await page.request.post(
+  const resumedSession = await (await fullStackPageRequest(page)).post(
     "/api/material-video-playback-sessions",
     {
       headers: { origin: new URL(page.url()).origin },
@@ -529,7 +533,7 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
   await expect(page.getByText("Видео готово")).toBeVisible();
   await waitMaterialSaved(page);
   await expect(
-    page.locator("header [role=status]").filter({ hasText: "Сохранено" }),
+    page.locator("header [role=status]:visible").filter({ hasText: "Сохранено" }),
   ).toBeVisible({ timeout: 15_000 });
   await page.goto(`/materials/${slug}`);
   const replacementVideoId = await page
@@ -540,7 +544,7 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
     throw new Error("Replacement Video identity is missing");
   }
   expect(replacementVideoId).not.toBe(videoId);
-  const staleSession = await page.request.post(
+  const staleSession = await (await fullStackPageRequest(page)).post(
     "/api/material-video-playback-sessions",
     {
       headers: { origin: new URL(page.url()).origin },
@@ -548,7 +552,7 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
     },
   );
   expect(staleSession.status()).toBe(403);
-  const replacementSession = await page.request.post(
+  const replacementSession = await (await fullStackPageRequest(page)).post(
     "/api/material-video-playback-sessions",
     {
       headers: { origin: new URL(page.url()).origin },
@@ -595,7 +599,7 @@ test("explicitly requests deletion of a Platform-uploaded Video through autosave
   await expect(page.getByText("Видео готово")).toBeVisible({ timeout: 15_000 });
   await waitMaterialSaved(page);
   await expect(
-    page.locator("header [role=status]").filter({ hasText: "Сохранено" }),
+    page.locator("header [role=status]:visible").filter({ hasText: "Сохранено" }),
   ).toBeVisible({ timeout: 15_000 });
 
   await page.getByRole("button", { name: "Удалить…" }).click();
@@ -616,7 +620,7 @@ test("explicitly requests deletion of a Platform-uploaded Video through autosave
 
   await waitMaterialSaved(page);
   await expect(
-    page.locator("header [role=status]").filter({ hasText: "Сохранено" }),
+    page.locator("header [role=status]:visible").filter({ hasText: "Сохранено" }),
   ).toBeVisible({ timeout: 15_000 });
   await expect(
     page.getByText(`Удаление «delete-me-${suffix}» запрошено.`),
@@ -651,14 +655,14 @@ test("member primary Video denies anonymous and non-member access while authoriz
   await expect(page.getByText("Видео готово")).toBeVisible();
   await waitMaterialSaved(page);
   await expect(
-    page.locator("header [role=status]").filter({ hasText: "Сохранено" }),
+    page.locator("header [role=status]:visible").filter({ hasText: "Сохранено" }),
   ).toBeVisible({ timeout: 15_000 });
   await page.getByRole("button", { name: "Опубликовать" }).click();
   await expect(
     page.locator("header").getByText("Опубликован", { exact: true }),
   ).toBeVisible({ timeout: 15_000 });
   await expect(
-    page.locator("header [role=status]").filter({ hasText: "Сохранено" }),
+    page.locator("header [role=status]:visible").filter({ hasText: "Сохранено" }),
   ).toBeVisible({ timeout: 15_000 });
 
   await page.goto(`/materials/${slug}`);
@@ -679,7 +683,7 @@ test("member primary Video denies anonymous and non-member access while authoriz
   );
   expect(anonymousSession.status()).toBe(403);
   await signInFullStack(context, "NON_MEMBER");
-  const nonMemberSession = await page.request.post(
+  const nonMemberSession = await (await fullStackPageRequest(page)).post(
     "/api/material-video-playback-sessions",
     {
       headers: { origin: new URL(page.url()).origin },
@@ -689,7 +693,7 @@ test("member primary Video denies anonymous and non-member access while authoriz
   // An Account without a tier, a product or the bridge cannot open the product video.
   expect(nonMemberSession.status()).toBe(403);
   await signInFullStack(context, "OWNER");
-  const ownerSession = await page.request.post("/api/material-video-playback-sessions", {
+  const ownerSession = await (await fullStackPageRequest(page)).post("/api/material-video-playback-sessions", {
     headers: { origin: new URL(page.url()).origin }, multipart: { materialId, videoId },
   });
   expect(ownerSession.status()).toBe(200);
@@ -702,12 +706,7 @@ test("member primary Video denies anonymous and non-member access while authoriz
   expect(memberBody.drmAuthToken).toEqual(expect.any(String));
 
   await signInFullStack(context, "OWNER");
-  await page.goto(`/authoring/materials?search=${encodeURIComponent(title)}`);
-  const row = page.getByRole("listitem").filter({ hasText: title });
-  await row.getByRole("button", { name: "Снять с публикации" }).click();
-  await expect(row.getByText("Снят с публикации", { exact: true })).toBeVisible(
-    { timeout: 15_000 },
-  );
+  await unpublishFromPurchasedProduct(page, title);
 });
 
 test("trusted author uploads chooser, paste and drop assets through Preview and public Reader", async ({
@@ -770,7 +769,7 @@ test("trusted author uploads chooser, paste and drop assets through Preview and 
 
   await waitMaterialSaved(page);
   await expect(
-    page.locator("header [role=status]").filter({ hasText: "Сохранено" }),
+    page.locator("header [role=status]:visible").filter({ hasText: "Сохранено" }),
   ).toBeVisible({ timeout: 15_000 });
 
   await page.getByRole("button", { name: "Предпросмотр" }).click();
@@ -787,7 +786,7 @@ test("trusted author uploads chooser, paste and drop assets through Preview and 
     page.locator("header").getByText("Опубликован", { exact: true }),
   ).toBeVisible({ timeout: 15_000 });
   await expect(
-    page.locator("header [role=status]").filter({ hasText: "Сохранено" }),
+    page.locator("header [role=status]:visible").filter({ hasText: "Сохранено" }),
   ).toBeVisible({ timeout: 15_000 });
   await page.goto(`/materials/${slug}`);
   await expect(
@@ -854,14 +853,14 @@ test("member Material hides bytes from anonymous access and issues only a protec
   await expect(upload).toBeVisible({ timeout: 30_000 });
   await waitMaterialSaved(page);
   await expect(
-    page.locator("header [role=status]").filter({ hasText: "Сохранено" }),
+    page.locator("header [role=status]:visible").filter({ hasText: "Сохранено" }),
   ).toBeVisible({ timeout: 15_000 });
   await page.getByRole("button", { name: "Опубликовать" }).click();
   await expect(
     page.locator("header").getByText("Опубликован", { exact: true }),
   ).toBeVisible({ timeout: 15_000 });
   await expect(
-    page.locator("header [role=status]").filter({ hasText: "Сохранено" }),
+    page.locator("header [role=status]:visible").filter({ hasText: "Сохранено" }),
   ).toBeVisible({ timeout: 15_000 });
 
   await page.goto(`/materials/${slug}`);
@@ -872,18 +871,13 @@ test("member Material hides bytes from anonymous access and issues only a protec
   const anonymous = await request.get(href, { maxRedirects: 0 });
   expect(anonymous.status()).toBe(404);
   expect(anonymous.headers()["cache-control"]).toContain("no-store");
-  const manager = await page.request.get(href, { maxRedirects: 0 });
+  const manager = await (await fullStackPageRequest(page)).get(href, { maxRedirects: 0 });
   expect(manager.status()).toBe(302);
   expect(manager.headers()["cache-control"]).toBe("private, no-store");
   const location = manager.headers().location;
   expect(location).toContain("X-Amz-Expires=60");
 
-  await page.goto(`/authoring/materials?search=${encodeURIComponent(title)}`);
-  const row = page.getByRole("listitem").filter({ hasText: title });
-  await row.getByRole("button", { name: "Снять с публикации" }).click();
-  await expect(row.getByText("Снят с публикации", { exact: true })).toBeVisible(
-    { timeout: 15_000 },
-  );
+  await unpublishFromPurchasedProduct(page, title);
 });
 
 test("trusted author creates a PostgreSQL draft and opens its current Preview", async ({
@@ -965,9 +959,10 @@ test("trusted author creates a PostgreSQL draft and opens its current Preview", 
       .getByRole("main")
       .getByText("Текущее сохранённое содержимое из PostgreSQL."),
   ).toBeVisible();
-  await expect(page.getByText("Гайд")).toBeVisible();
-  await expect(page.getByText("Платформа")).toBeVisible();
-  await expect(page.getByText("Full stack")).toBeVisible();
+  // Next keeps earlier routes in the document, hidden (#674): only the visible Preview counts.
+  await expect(page.getByText("Гайд").filter({ visible: true })).toBeVisible();
+  await expect(page.getByText("Платформа").filter({ visible: true })).toBeVisible();
+  await expect(page.getByText("Full stack").filter({ visible: true })).toBeVisible();
   await expect(
     page.getByText("Сохранённый черновик. Материал ещё не опубликован."),
   ).toBeVisible();
@@ -1104,7 +1099,7 @@ test("full-state Save is live and a stale editor preserves local input through l
   await page.getByLabel("Название").fill(winnerTitle);
   await page.getByLabel("Название").press("Enter");
   await expect(
-    page.locator("header [role=status]").filter({ hasText: "Сохранено" }),
+    page.locator("header [role=status]:visible").filter({ hasText: "Сохранено" }),
   ).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole("button", { name: "Сохранить" })).toHaveCount(0);
 
@@ -1143,7 +1138,7 @@ test("full-state Save is live and a stale editor preserves local input through l
     page.locator("header").getByText("Опубликован", { exact: true }),
   ).toBeVisible({ timeout: 15_000 });
   await expect(
-    page.locator("header [role=status]").filter({ hasText: "Сохранено" }),
+    page.locator("header [role=status]:visible").filter({ hasText: "Сохранено" }),
   ).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText(/^v\d+$/u)).toHaveCount(0);
   await expect(
@@ -1166,7 +1161,7 @@ test("full-state Save is live and a stale editor preserves local input through l
     page.locator("header").getByText("Снят с публикации", { exact: true }),
   ).toBeVisible({ timeout: 15_000 });
   await expect(
-    page.locator("header [role=status]").filter({ hasText: "Сохранено" }),
+    page.locator("header [role=status]:visible").filter({ hasText: "Сохранено" }),
   ).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText(/^v\d+$/u)).toHaveCount(0);
   await publicPage.reload();
@@ -1418,9 +1413,12 @@ test("trusted author reorders a PostgreSQL series with keyboard controls", async
     })
     .click();
   await expect(items).toHaveCount(countAfterAdd - 1);
-  await expect(
-    page.getByText("Порядок сохранён.", { exact: true }),
-  ).toBeVisible();
+  // The seeded product has buyers, so removing a published lesson asks for confirmation (#648).
+  const removal = page.getByRole("dialog", { name: "Снять материал из купленного продукта?" });
+  const saved = page.getByText("Порядок сохранён.", { exact: true });
+  await expect(removal.or(saved).first()).toBeVisible();
+  if (await removal.isVisible()) await removal.getByRole("button", { name: "Снять из продукта" }).click();
+  await expect(saved).toBeVisible();
   await expect(page.getByText("Порядок сохранён.")).toBeVisible();
   await page.reload();
   await expect(items.first().locator("p").first()).toHaveText(secondTitle);
@@ -1535,7 +1533,7 @@ async function dispatchFileEvent(
 }
 
 async function waitMaterialSaved(page: Page) {
-  await expect(page.locator("header [role=status]")).toContainText(
+  await expect(page.locator("header [role=status]:visible")).toContainText(
     "Сохранено",
     { timeout: 15_000 },
   );
@@ -1663,5 +1661,23 @@ async function installPlaybackProviderDouble(page: Page): Promise<void> {
         },
       },
     });
+  });
+}
+
+/** Материал купленного продукта снимается только в редакторе с подтверждением (#648). */
+async function unpublishFromPurchasedProduct(page: Page, title: string) {
+  await page.goto(`/authoring/materials?search=${encodeURIComponent(title)}`);
+  await page.getByRole("listitem").filter({ hasText: title }).getByRole("link", { name: "Редактировать" }).click();
+  // The list stays in the document, hidden (#674), and its row buttons share this name: wait for the
+  // editor and use its own header.
+  const editor = page.locator("header:visible").filter({ has: page.getByRole("heading", { level: 1, name: title }) });
+  await expect(editor).toBeVisible();
+  await editor.getByRole("button", { name: "Снять с публикации" }).click();
+  await page
+    .getByRole("dialog", { name: "Снять материал из купленного продукта?" })
+    .getByRole("button", { name: "Снять из продукта" })
+    .click();
+  await expect(page.locator("header:visible").getByText("Снят с публикации", { exact: true })).toBeVisible({
+    timeout: 15_000,
   });
 }

@@ -4,7 +4,7 @@ import { requestSameOriginMutation } from "@/shared/api/same-origin-mutation";
 import { videoSchema, type MaterialVideo } from "../model/video";
 
 const readyEnvelopeSchema = z.object({ kind: z.literal("ready"), value: z.unknown() }).strict();
-const uploadResponseSchema = z.object({ uploadEndpoint: z.url(), video: videoSchema }).strict();
+const uploadResponseSchema = z.object({ providerVideoId: z.string().min(1), uploadEndpoint: z.url(), video: videoSchema }).strict();
 
 export type VideoMutationResult<Value> =
   | { readonly kind: "ready"; readonly value: Value }
