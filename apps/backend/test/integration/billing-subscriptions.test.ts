@@ -108,7 +108,7 @@ describe("подписка: продление, отмена, смена вар�
     expect(cabinet.payments).toEqual([
       { purchaseRef, kind: "initial", state: "confirmed", amountKopecks: 100_000, offerName: "Материалы",
         months: 1, fiscalization: "pending", confirmedAt: "2030-01-31T10:00:00.000Z",
-        periodEndsAt: "2030-02-28T10:00:00.000Z", createdAt: "2030-01-31T10:00:00.000Z" },
+        periodEndsAt: "2030-02-28T10:00:00.000Z", createdAt: "2030-01-31T10:00:00.000Z", refundedKopecks: 0, refundedAt: null },
     ]);
     // Данные провайдера и операторские поля остаются владельческими.
     const [payment] = cabinet.payments;
