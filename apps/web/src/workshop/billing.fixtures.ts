@@ -302,6 +302,8 @@ export const ownPayments: readonly OwnPayment[] = [
     // У разовой покупки оплаченного срока нет: право живёт своим сроком.
     periodEndsAt: null,
     createdAt: "2026-08-20T11:58:00.000Z",
+    refundedKopecks: 0,
+    refundedAt: null,
   },
   {
     purchaseRef: uuid("b01"),
@@ -314,6 +316,8 @@ export const ownPayments: readonly OwnPayment[] = [
     confirmedAt: "2026-09-01T09:05:00.000Z",
     periodEndsAt: "2026-10-01T09:05:00.000Z",
     createdAt: "2026-09-01T09:00:00.000Z",
+    refundedKopecks: 0,
+    refundedAt: null,
   },
   {
     purchaseRef: uuid("b02"),
@@ -326,6 +330,26 @@ export const ownPayments: readonly OwnPayment[] = [
     confirmedAt: null,
     periodEndsAt: null,
     createdAt: "2026-10-01T09:00:00.000Z",
+    refundedKopecks: 0,
+    refundedAt: null,
+  },
+];
+
+/** Разовая покупка, по которой банк подтвердил полный возврат: доступ снят, в истории видна сумма. */
+export const refundedOwnPayments: readonly OwnPayment[] = ownPayments.map((payment) =>
+  payment.kind === "one_time"
+    ? { ...payment, refundedKopecks: payment.amountKopecks, refundedAt: "2026-08-25T10:00:00.000Z" }
+    : payment,
+);
+
+export const refundNotices: readonly NoticeView[] = [
+  {
+    noticeRef: uuid("903"),
+    kind: "refund_resolved",
+    state: "current",
+    occurredAt: "2026-08-25T10:00:00.000Z",
+    amountKopecks: 250_000,
+    dueAt: null,
   },
 ];
 

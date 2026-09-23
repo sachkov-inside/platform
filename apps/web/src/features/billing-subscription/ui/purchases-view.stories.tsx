@@ -6,6 +6,8 @@ import {
   activeSubscription,
   billingNotices,
   ownPayments,
+  refundedOwnPayments,
+  refundNotices,
 } from "@/workshop/billing.fixtures";
 
 import { PurchasesSectionView } from "./purchases-view.client";
@@ -54,6 +56,16 @@ export const OwnGroundsAndPayments: Story = {
     await expect(
       canvas.getByText(/Руководство «Создание Platform Inside» · разовая покупка/u),
     ).toBeInTheDocument();
+  },
+};
+
+/** После подтверждённого возврата покупка остаётся в истории с возвращённой суммой и сообщением. */
+export const RefundedPurchase: Story = {
+  args: { grounds: [], notices: refundNotices, payments: refundedOwnPayments },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText(/Возвращено 2\s?500/u)).toBeInTheDocument();
+    await expect(canvas.getByText("Возврат выполнен")).toBeInTheDocument();
   },
 };
 

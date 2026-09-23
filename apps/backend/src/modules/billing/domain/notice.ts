@@ -65,6 +65,10 @@ export function sameNoticeConditions(left: NoticeConditions, right: NoticeCondit
 export function attemptSourceRef(attemptRef: string): string {
   return `payment:${idSchema.parse(attemptRef)}`;
 }
+/** Один повод на попытку возврата: частичные возвраты одного платежа сообщаются каждый. */
+export function refundSourceRef(refundRef: string): string {
+  return `refund:${idSchema.parse(refundRef)}`;
+}
 /** Один повод на предстоящий период: продление сдвигает период и создаёт следующий повод. */
 export function renewalReminderSourceRef(subscriptionRef: string, periodIndex: number): string {
   return `subscription:${idSchema.parse(subscriptionRef)}:period:${revisionSchema.parse(periodIndex)}`;
