@@ -59,6 +59,8 @@ test("author Home pin persists for guests and members, replaces and removes thro
       await expect(viewer.locator(".home-guide-animation:visible")).toBeVisible();
       await expect(viewer.getByRole("button", { name: "Остановить анимацию" })).toHaveCount(0);
     }
+    // The guide scenes fade in and out for about five seconds; a fading scene reads as low contrast.
+    await guestPage.locator(".home-guide-animation:visible").evaluate((element) => Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished)));
     const scan = await new AxeBuilder({ page: guestPage }).analyze();
     expect(scan.violations.filter((violation) => violation.impact === "serious" || violation.impact === "critical")).toEqual([]);
     await guestPage.screenshot({ path: testInfo.outputPath("home-pin.png") });

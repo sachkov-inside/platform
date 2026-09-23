@@ -153,6 +153,8 @@ test("reading progress supports Note and lets an expired member remove a protect
   const signedOut = page.waitForResponse((response) => response.url().endsWith("/auth/sign-out") && response.request().method() === "POST");
   await page.getByRole("button", { name: "Выйти из аккаунта", exact: true }).click();
   expect((await signedOut).status()).toBe(200);
+  // The sign-out answer navigates on its own; a goto issued before that lands would be overridden.
+  await page.waitForURL((url) => !url.pathname.startsWith("/account") && !url.pathname.startsWith("/auth"));
   await page.goto("/materials/tekst-dlya-proverki-progressa");
   await expect(page.locator("[data-reading-action-state]:visible")).toHaveAttribute("data-reading-action-state", "anonymous");
 });
