@@ -148,6 +148,8 @@ export const ownPaymentSchema = z.object({
   confirmedAt: z.iso.datetime().nullable(),
   periodEndsAt: z.iso.datetime().nullable(),
   createdAt: z.iso.datetime(),
+  refundedKopecks: z.number().int().nonnegative(),
+  refundedAt: z.iso.datetime().nullable(),
 });
 export const currentBillingSchema = z.object({
   subscription: subscriptionViewSchema.nullable(),

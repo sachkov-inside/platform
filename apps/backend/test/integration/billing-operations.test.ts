@@ -433,6 +433,33 @@ describe("владельческие операции billing: платежи, �
       .toMatchObject({ state: "executed", attempt: { state: "confirmed" } });
   });
 
+  test("подтверждённый возврат один раз сообщает покупателю и виден в его истории", async () => {
+    const s = await scenario();
+    const purchaseRef = await s.buy();
+    const refundNotices = () => db.prisma.billingNotice.findMany({ where: { accountId: s.buyer, kind: "refund_resolved" } });
+    const decided = asRefundDecision(await s.operations.execute(owner, { operation: "refunds.decide", operationId: randomUUID(), purchaseRef,
+      amountKopecks: 40_000, basis: "compensation", recurring: "keep", reason: "Частичный возврат с сообщением покупателю" })).value;
+    s.bank.failCancel = true;
+    asRefundDecision(await s.operations.execute(owner, { operation: "refunds.execute", operationId: randomUUID(),
+      decisionRef: decided.decisionRef, expectedRevision: 1 }));
+    // Пока банк не подтвердил возврат, покупателю сообщать не о чем.
+    expect(await refundNotices()).toEqual([]);
+    expect(value(await s.payments.history(s.buyer)).find(payment => payment.purchaseRef === purchaseRef))
+      .toMatchObject({ refundedKopecks: 0, refundedAt: null });
+    s.bank.failCancel = false;
+    expect(await s.operations.reconcileRefunds()).toEqual({ inspected: 1, settled: 1 });
+    expect(await s.operations.reconcileRefunds()).toEqual({ inspected: 0, settled: 0 });
+    const notices = await refundNotices();
+    expect(notices).toHaveLength(1);
+    const [notice] = notices;
+    if (notice === undefined) throw new Error("refund notice missing");
+    expect(notice).toMatchObject({ amountKopecks: 40_000n, state: "current", attemptRef: purchaseRef });
+    expect(await db.prisma.billingNoticeRevision.count({ where: { noticeRef: notice.id } })).toBe(1);
+    const payment = value(await s.payments.history(s.buyer)).find(entry => entry.purchaseRef === purchaseRef);
+    expect(payment).toMatchObject({ state: "confirmed", refundedKopecks: 40_000 });
+    expect(payment?.refundedAt).not.toBeNull();
+  });
+
   test("попытка, оставшаяся отправленной после сбоя процесса, сверяется и не отправляется заново", async () => {
     const s = await scenario();
     const purchaseRef = await s.buy();

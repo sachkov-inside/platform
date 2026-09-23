@@ -2,10 +2,12 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { BillingPrisma, BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { paidPeriodCommandSchema } from "../../../membership-entitlements/index.js";
+import { lifecycleWindow, refundSourceRef } from "../../domain/notice.js";
 import { ownerFailure, type OwnerOperation, type OwnerResult } from "../../domain/owner-operations.js";
 import { priceSnapshotSchema } from "../../domain/pricing.js";
 import { lockPurchase, lockSubscription } from "../../infrastructure/postgres/catalog-lock.js";
 import { refundTerminalStatuses, type BankRefund, type Tbank } from "../../infrastructure/tbank/tbank.js";
+import { recordBillingNotice } from "../../shared/record-notice.js";
 import { advanceSubscription } from "../../shared/subscription-outcome.js";
 import { refundTotals, unsettledRefundStates } from "../../shared/refund-amounts.js";
 import { refundDecisionViews } from "../read-payments/read-payments.js";
@@ -119,6 +121,10 @@ async function sendRefund(dependencies: Dependencies, refundRef: string): Promis
     }
     if (decision.recurring === "cancel") await cancelRenewal(tx, row.purchaseRef, now);
     if (decision.access === "revoke") await revokePaidAccess(tx, row.purchaseRef, decision.id);
+    // Подтверждённый возврат — повод сообщить покупателю; одна попытка возврата — один повод.
+    await recordBillingNotice(tx, { kind: "refund_resolved", accountId: purchase.accountId, sourceRef: refundSourceRef(row.id),
+      attemptRef: row.purchaseRef, title: priceSnapshotSchema.parse(purchase.snapshot).offer.name,
+      amountKopecks: Number(row.amountKopecks), ...lifecycleWindow(now) }, now);
     await tx.billingRefundDecision.update({ where: { id: decision.id },
       data: { state: "executed", revision: decision.revision + 1, updatedAt: now } });
   });

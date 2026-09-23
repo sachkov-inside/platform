@@ -54,6 +54,12 @@ export function BillingHistory({ notices, payments }: BillingHistoryProps) {
                   : ` · ${formatBillingDate(payment.confirmedAt)}`}
                 {payment.fiscalization === "confirmed" ? " · чек отправлен" : ""}
               </span>
+              {payment.refundedKopecks > 0 ? (
+                <span className="text-muted-foreground">
+                  {`Возвращено ${formatKopecks(payment.refundedKopecks)}`}
+                  {payment.refundedAt === null ? "" : ` · ${formatBillingDate(payment.refundedAt)}`}
+                </span>
+              ) : null}
               <span className="font-mono text-xs text-muted-foreground [overflow-wrap:anywhere]">
                 {`операция ${payment.purchaseRef}`}
               </span>
