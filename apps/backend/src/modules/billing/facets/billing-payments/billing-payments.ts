@@ -149,13 +149,19 @@ export class BillingPayments {
     try {
       const rows = await this.dependencies.prisma.billingPurchase.findMany({
         where: { accountId }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: ownPaymentHistoryLimit });
+      const refunds = await this.dependencies.prisma.billingRefund.findMany({
+        where: { purchaseRef: { in: rows.map(row => row.id) }, state: "confirmed" }, select: { purchaseRef: true, amountKopecks: true, updatedAt: true } });
       return { ok: true, value: rows.map(row => {
         const snapshot = priceSnapshotSchema.parse(row.snapshot);
+        const refunded = refunds.filter(refund => refund.purchaseRef === row.id);
+        const refundedAt = refunded.reduce<Date | null>((latest, refund) => latest === null || refund.updatedAt > latest ? refund.updatedAt : latest, null);
         return ownPaymentSchema.parse({
           purchaseRef: row.id, kind: row.kind, state: row.state, amountKopecks: Number(row.amountKopecks),
           offerName: snapshot.offer.name, months: snapshot.paymentOption.months, fiscalization: row.fiscalization,
           confirmedAt: row.confirmedAt?.toISOString() ?? null, periodEndsAt: row.periodEndsAt?.toISOString() ?? null,
           createdAt: row.createdAt.toISOString(),
+          refundedKopecks: Number(refunded.reduce((total, refund) => total + refund.amountKopecks, 0n)),
+          refundedAt: refundedAt?.toISOString() ?? null,
         });
       }) };
     } catch { return paymentFailure("dependency_unavailable"); }
