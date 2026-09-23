@@ -5,7 +5,7 @@ import { deflateSync } from "node:zlib";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
-import { signInFullStack } from "../support/full-stack-session";
+import { fullStackBrowserRequest, fullStackPageRequest, signInFullStack } from "../support/full-stack-session";
 import { evidenceDirectory, prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 
 test("shows private Account Telegram and Membership presentation without disclosure", async ({
@@ -14,14 +14,17 @@ test("shows private Account Telegram and Membership presentation without disclos
 }, testInfo) => {
   await signInFullStack(context, "OWNER");
 
-  const accountStateResponse = await page.request.get("/api/account");
+  // The renewed session cookie is Secure: on 127.0.0.1 only the browser itself sends it.
+  await page.goto("/");
+  const accountStateResponse = await fullStackBrowserRequest(page, "/api/account");
   expect(accountStateResponse.status()).toBe(200);
   const accountState = (await accountStateResponse.json()) as {
     readonly telegramMembership?: unknown;
   };
   expect(accountState.telegramMembership).toEqual({
     link: { kind: "unlinked" },
-    membership: { kind: "inactive" },
+    // No subscription is on sale in the check catalogue, so membership is not offered (#507).
+    membership: { kind: "notOffered" },
   });
 
   const account = await page.goto("/account");
@@ -119,7 +122,7 @@ test("creates or edits the Account Profile that only its owner sees", async ({
   expect(home?.status()).toBe(200);
   await expect(page.getByRole("complementary", { name: "Подписка Inside" })).toHaveCount(0);
 
-  const profileStateResponse = await page.request.get("/api/account/profile");
+  const profileStateResponse = await fullStackBrowserRequest(page, "/api/account/profile");
   expect(profileStateResponse.status()).toBe(200);
   const profileState = (await profileStateResponse.json()) as {
     readonly state?: { readonly kind?: string };
@@ -199,7 +202,7 @@ test("creates or edits the Account Profile that only its owner sees", async ({
   await expect(page.getByText("Граница", { exact: true })).toHaveCount(0);
 
   // Профиль виден только владельцу: ссылки для участников и страницы участника нет.
-  await expect(page.getByText("виден только вам", { exact: false })).toBeVisible();
+  await expect(page.getByText("Профиль заполняется по желанию и виден только вам", { exact: false })).toBeVisible();
   await expect(page.locator("code").filter({ hasText: "/members/" })).toHaveCount(0);
   expect((await page.goto("/members/5d34da22-548e-4b02-b6e8-9c918ad536ef"))?.status()).toBe(404);
   await page.goto("/account");
@@ -237,7 +240,7 @@ test("creates or edits the Account Profile that only its owner sees", async ({
   await expect(page.getByAltText(`Аватар: ${displayName}`)).toHaveCount(0);
   await expect(page.getByRole("img", { name: `Аватар: ${displayName}` }).first()).toBeVisible();
 
-  const removedExportRoute = await page.request.get("/account/export-profile");
+  const removedExportRoute = await (await fullStackPageRequest(page)).get("/account/export-profile");
   expect(removedExportRoute.status()).toBe(404);
 
 

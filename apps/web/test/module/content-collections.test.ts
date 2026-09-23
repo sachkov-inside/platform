@@ -52,6 +52,33 @@ describe("Content collection web adapters", () => {
     expect(request).toHaveBeenCalledWith("topic", "token");
   });
 
+  it("reads the Guide page fields the backend sends with every collection", async () => {
+    // Since #672 each collection carries its page description, presentation and source key.
+    const guide = {
+      ...collection,
+      kind: "series",
+      page: { heading: "Guide" },
+      pageRejected: false,
+      presentation: "default",
+      sourceId: "guides/platform",
+    } as const;
+    const list = vi.fn().mockResolvedValue({ body: [guide], ok: true, response: Response.json({}) });
+    await expect(getContentCollections("series", "token", list)).resolves.toMatchObject({
+      collections: [{ id: collectionId, presentation: "default" }],
+      kind: "ready",
+    });
+    const formData = new FormData();
+    formData.set("kind", "series");
+    formData.set("name", "Platform");
+    formData.set("slug", "platform");
+    formData.set("summary", "Architecture and delivery.");
+    const create = vi.fn().mockResolvedValue({ body: guide, ok: true, response: Response.json({}) });
+    await expect(executeCreateContentCollection(formData, "token", create)).resolves.toMatchObject({
+      kind: "saved",
+      collection: { id: collectionId },
+    });
+  });
+
   it("creates a collection through the focused creation operation", async () => {
     const request = successfulRequest();
     const formData = new FormData();

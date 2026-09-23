@@ -1,4 +1,4 @@
-import type { BrowserContext, Page } from "@playwright/test";
+import { request as playwrightRequest, type APIRequestContext, type BrowserContext, type Page } from "@playwright/test";
 
 /**
  * Роли сквозного набора. Имя роли — это то, чем она является для продукта; в какой переменной
@@ -83,7 +83,12 @@ async function passFirstSignInScreen(context: BrowserContext): Promise<void> {
     // The dialog is interactive only once it is modal; the server-rendered copy is not yet hydrated.
     const accept = page.locator("dialog:modal").getByRole("button", { name: "Принять условия и продолжить" });
     // An account that already accepted is redirected away; one still here must be able to accept.
-    if (new URL(page.url()).pathname === "/welcome") {
+    // The page streams, so the redirect may arrive after `goto` resolves: wait for whichever comes first.
+    const outcome = await Promise.race([
+      accept.waitFor({ timeout: 15_000 }).then(() => "accept" as const),
+      page.waitForURL((url) => url.pathname !== "/welcome", { timeout: 15_000 }).then(() => "left" as const),
+    ]);
+    if (outcome === "accept") {
       await accept.click({ timeout: 15_000 });
       await page.waitForURL((url) => url.pathname !== "/welcome");
     }
@@ -114,4 +119,22 @@ export async function fullStackBrowserRequest(page: Page, path: string, method =
     return { ok: response.ok, status: response.status, body: await response.text() };
   }, { path, method, fields });
   return { ok: () => result.ok, status: () => result.status, json: (): Promise<unknown> => Promise.resolve(JSON.parse(result.body) as unknown) };
+}
+
+/**
+ * HTTP-запросы от имени сессии страницы. Продлённая сессия ставит cookie с `Secure`; браузер шлёт его
+ * на 127.0.0.1, а собственный клиент Playwright — нет, и запрос уходит гостем. Здесь cookie браузера
+ * передаются явно.
+ */
+export async function fullStackPageRequest(page: Page): Promise<APIRequestContext> {
+  // `cookies(url)` for an http URL drops Secure cookies the same way, so the domain is filtered here.
+  const host = new URL(fullStackBaseUrl()).hostname;
+  const cookie = (await page.context().cookies())
+    .filter(({ domain }) => domain.replace(/^\./u, "") === host)
+    .map(({ name, value }) => `${name}=${value}`)
+    .join("; ");
+  return playwrightRequest.newContext({
+    baseURL: fullStackBaseUrl(),
+    extraHTTPHeaders: cookie === "" ? {} : { cookie },
+  });
 }
