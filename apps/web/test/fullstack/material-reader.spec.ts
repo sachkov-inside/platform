@@ -621,6 +621,8 @@ async function expectLibraryNavigationActive(page: Page, testInfo: TestInfo) {
 }
 
 async function expectNoSeriousAccessibilityFindings(page: Page) {
+  // After a client navigation Next.js streams the new <title> separately; scan the settled document.
+  await expect(page).toHaveTitle(/\S/u);
   const accessibility = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
     .analyze();
