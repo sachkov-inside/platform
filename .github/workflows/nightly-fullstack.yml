@@ -5,6 +5,10 @@ on:
   schedule:
     - cron: "17 1 * * *"
   workflow_dispatch:
+  # TEMPORARY verification trigger for #682; removed before merge.
+  push:
+    branches:
+      - chore/682-nightly-fullstack
 
 permissions:
   contents: read
