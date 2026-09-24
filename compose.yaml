@@ -54,8 +54,7 @@ services:
       timeout: 3s
       retries: 30
     volumes:
-      # RustFS keeps its own volume: the former MinIO `object-storage-data` volume has another
-      # on-disk format and owner, so it is left untouched rather than reused.
+      # The former MinIO volume `object-storage-data` has another on-disk format; see platform#700.
       - object-storage-rustfs-data:/data
 
   postgres:

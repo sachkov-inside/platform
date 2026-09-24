@@ -109,9 +109,8 @@ and the production env-file boundary.
 
 The API creates only the three named local buckets in development mode. Objects use random,
 immutable keys and are never written over. The persistent `object-storage-rustfs-data` volume follows
-the same ownership and non-destructive restart rules as PostgreSQL. RustFS replaced MinIO, whose
-image stopped being publicly available; the stand's former `object-storage-data` MinIO volume is left
-untouched and is no longer mounted. Objects uploaded before the switch stay in that volume until
+the same ownership and non-destructive restart rules as PostgreSQL. The stand's former MinIO volume
+`object-storage-data` is no longer mounted and is kept with its objects until
 [platform#700](https://github.com/sachkov-inside/platform/issues/700) moves them.
 
 Local development uses `KINESCOPE_PROVIDER_MODE=test`. It creates deterministic provider facts for
@@ -604,7 +603,7 @@ Start dedicated containers, separate from the singleton Compose stack:
 
 ```bash
 docker run -d --name platform-396-postgres -e POSTGRES_USER=inside -e POSTGRES_PASSWORD=inside -e POSTGRES_DB=inside -p 127.0.0.1:54396:5432 postgres:18.4-alpine3.23
-docker run -d --name platform-396-storage -e RUSTFS_ACCESS_KEY=inside-local-access-key -e RUSTFS_SECRET_KEY=inside-local-secret-key -p 127.0.0.1:9036:9000 rustfs/rustfs:1.0.0@sha256:8cc9801755448b71a786705ce76692c77e14936cccd87cf2fc31842e58f4d1ff
+docker run -d --name platform-396-storage -e RUSTFS_ACCESS_KEY=inside-local-access-key -e RUSTFS_SECRET_KEY=inside-local-secret-key -p 127.0.0.1:9036:9000 "$(docker compose config --images object-storage)"
 pnpm editor:local
 ```
 

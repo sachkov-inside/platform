@@ -106,14 +106,14 @@ describe("application CI workflow contract", () => {
       "insert into ci_smoke.persistence_probe",
     );
     const writeObjectStorageProbe = developmentCompose.indexOf(
-      "mc pipe ci/inside-ci/persistence-probe.txt",
+      "--data-binary survived-restart http://127.0.0.1:9000/inside-ci/persistence-probe.txt",
     );
     const restart = developmentCompose.indexOf("docker compose down");
     const readPostgresProbe = developmentCompose.indexOf(
       "select marker from ci_smoke.persistence_probe",
     );
     const readObjectStorageProbe = developmentCompose.indexOf(
-      "mc cat ci/inside-ci/persistence-probe.txt",
+      "object_storage_marker=\"$(docker compose exec -T object-storage",
     );
     assert.ok(writePostgresProbe > -1 && writePostgresProbe < restart);
     assert.ok(writeObjectStorageProbe > -1 && writeObjectStorageProbe < restart);
