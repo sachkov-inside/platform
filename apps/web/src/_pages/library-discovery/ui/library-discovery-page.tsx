@@ -23,7 +23,7 @@ import {
   LibraryDiscoveryView,
 } from "./library-discovery-view";
 import { PersonalSeries } from "./personal-series.server";
-import { PendingSeries } from "./saved-series.client";
+import { PendingSeries } from "./guide-programme-view";
 
 interface DiscoveryRouteProps {
   readonly params: Promise<{ readonly slug: string }>;

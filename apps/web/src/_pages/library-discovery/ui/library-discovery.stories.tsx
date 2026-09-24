@@ -4,7 +4,7 @@ import { expect, within } from "storybook/test";
 
 import type { LibraryDiscoveryResult } from "@/features/library-discovery";
 import type { MaterialPreview } from "@/entities/material";
-import { GuideProgrammeView } from "./guide-programme-view.client";
+import { GuideProgrammeView } from "./guide-programme-view";
 import {
   LibraryDiscoveryLoading,
   LibraryDiscoveryNotFound,

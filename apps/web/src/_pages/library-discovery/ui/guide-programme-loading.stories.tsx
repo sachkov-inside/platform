@@ -8,9 +8,9 @@ import { guideOnlyOffer } from "@/workshop/billing.fixtures";
 import { boxOf, desktop, mobile, originOf, settleStoryFrame, stagedLoaders, stagedLoadingOf, type StagedLoading, type Box, type StoryViewport } from "@/workshop/loads-in-place";
 import { publicPageEnvironment } from "@/workshop/story-environment";
 
-import { GuideProgrammeView } from "./guide-programme-view.client";
+import { GuideProgrammeView } from "./guide-programme-view";
 import { GuideProgrammeLoading } from "./library-discovery-loading";
-import { PendingSeries } from "./saved-series.client";
+import { PendingSeries } from "./guide-programme-view";
 
 const titles = ["От идеи к первой версии", "Границы продукта", "Сценарии пользователя", "Модель предметной области", "Выбор технической основы", "Первый вертикальный срез", "Хранение данных", "Миграции без потери данных"];
 /** Гостевая доступность — то, что лежит в общем кеше: бесплатное открыто, остальное под замком. */

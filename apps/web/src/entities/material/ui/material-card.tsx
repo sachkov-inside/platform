@@ -16,6 +16,7 @@ import { ContentCoverImage } from "./content-cover-image.client";
 import { feedLink } from "../model/feed-link";
 
 import { SavedMaterialReadingStatus } from "./saved-material-reading-status.client";
+import { SeriesContinuationSlot, SeriesRowArticle } from "./series-continuation.client";
 
 export interface MaterialCardProps {
   /** Match the heading level to the surrounding page outline. */
@@ -54,7 +55,7 @@ export function MaterialCard({
   const readerHref = materialReaderHref(material.slug, returnHref);
 
   if (variant === "series") {
-    return <SeriesMaterialRow accessPending={accessPending} headingLevel={headingLevel} material={material} readerHref={readerHref} resumeLabel={resumeLabel} ordinal={seriesOrdinal} readingStatus={readingStatus} />;
+    return <SeriesMaterialRow accessPending={accessPending} headingLevel={headingLevel} material={material} readerHref={readerHref} ordinal={seriesOrdinal} readingStatus={readingStatus} />;
   }
 
   if (variant === "row") {
@@ -250,13 +251,16 @@ function MaterialRow({
   );
 }
 
-/** Compact programme row. Learning outcomes and difficulty remain in the lesson reader. */
-function SeriesMaterialRow({ accessPending, headingLevel: Heading, material, readerHref, resumeLabel, ordinal, readingStatus }: {
+/**
+ * Compact programme row. Learning outcomes and difficulty remain in the lesson reader. The row renders
+ * on the server; which lesson continues the reader's path arrives in the browser through
+ * `SeriesContinuationProvider`.
+ */
+function SeriesMaterialRow({ accessPending, headingLevel: Heading, material, readerHref, ordinal, readingStatus }: {
   readonly accessPending: boolean;
   readonly headingLevel: "h2" | "h3" | "h4";
   readonly material: MaterialPreview;
   readonly readerHref: Route;
-  readonly resumeLabel: string | undefined;
   readonly ordinal: number | undefined;
   readonly readingStatus: React.ReactNode;
 }) {
@@ -265,12 +269,10 @@ function SeriesMaterialRow({ accessPending, headingLevel: Heading, material, rea
   const pending = accessPending && material.access !== "free";
   const locked = !pending && material.availability === "locked";
   const unavailable = !pending && material.availability === "unavailable";
-  return <article
-    className={cn("group/row relative flex min-h-24 min-w-0 items-center rounded-xl bg-muted/65 px-3 py-3 transition-colors hover:bg-muted focus-within:bg-muted sm:px-4", resumeLabel !== undefined && "bg-secondary")}
-    data-material-id={material.slug}
-    data-material-slug={material.slug}
-    data-material-variant="series"
-    data-material-availability={pending ? "pending" : material.availability}
+  return <SeriesRowArticle
+    availability={pending ? "pending" : material.availability}
+    className="group/row relative flex min-h-24 min-w-0 items-center rounded-xl bg-muted/65 px-3 py-3 transition-colors hover:bg-muted focus-within:bg-muted sm:px-4"
+    slug={material.slug}
   >
     <div className="grid w-full min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 @max-[16rem]/series-entry:grid-cols-[minmax(0,1fr)_auto]">
       <span className="flex items-baseline gap-1.5 whitespace-nowrap text-xs text-muted-foreground @max-[16rem]/series-entry:col-span-2"><strong className="text-base font-medium tabular-nums text-foreground">{ordinal}</strong><span className="sr-only @min-[30rem]/series-entry:not-sr-only">урок</span></span>
@@ -284,12 +286,10 @@ function SeriesMaterialRow({ accessPending, headingLevel: Heading, material, rea
       <span className="flex min-w-5 flex-col items-end justify-center @min-[30rem]/series-entry:min-w-20 gap-1 text-xs text-muted-foreground">
         {duration === undefined ? null : <span className="tabular-nums" data-series-duration>{duration}</span>}
         {pending ? <span aria-hidden="true" className="size-4 animate-pulse rounded-full bg-placeholder/40 motion-reduce:animate-none" data-series-access-pending /> : locked ? <><LockKeyhole aria-hidden="true" className="size-4" /><span className="sr-only">Нужен доступ</span></> : unavailable ? <span className="sr-only">Доступ временно не определён</span> : readingStatus}
-        <span className="flex h-5 items-center text-xs font-semibold text-action" data-series-continuation-slot>
-          {resumeLabel === undefined ? null : <><Play aria-hidden="true" className="size-3.5 fill-current @min-[30rem]/series-entry:hidden" /><span className="sr-only @min-[30rem]/series-entry:not-sr-only">Продолжить</span></>}
-        </span>
+        <SeriesContinuationSlot slug={material.slug} />
       </span>
     </div>
-  </article>;
+  </SeriesRowArticle>;
 }
 
 function AccessCover({

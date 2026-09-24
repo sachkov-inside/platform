@@ -38,6 +38,7 @@ export {
   MaterialTakeaways,
 } from "./ui/material-blocks";
 export { ContentCoverImage } from "./ui/content-cover-image.client";
+export { SeriesContinuationProvider } from "./ui/series-continuation.client";
 
 export { MaterialReadingStatus, materialReadingLabels } from "./ui/material-reading-status";
 

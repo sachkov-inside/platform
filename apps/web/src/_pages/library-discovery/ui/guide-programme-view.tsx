@@ -1,4 +1,3 @@
-"use client";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
@@ -12,20 +11,29 @@ import { guideProductHref, guideProgrammeHref, purchaseInvitation, type Purchase
 import "./guide-programme-view.css";
 
 import { formatChapterCount } from "./guide-counts";
-import { SeriesJourney, type SeriesLearningView } from "./series-journey.client";
+import { SeriesJourney } from "./series-journey";
+import {
+  PendingPurchaseRow,
+  PendingSeriesLearning,
+  ProgrammeProgress,
+  SeriesLearningProvider,
+  type SeriesLearningView,
+} from "./series-learning.client";
 
 type ResolvedSeriesResult = Extract<PublishedSeriesResult, { kind: "ready" | "empty" }>;
 
 /**
  * Программа руководства: главы, материалы и состояния доступа. Продажа живёт здесь одним
  * приглашением: страница продукта продаёт смыслом, цену и оформление показывает страница оплаты.
+ * Программу рисует сервер; прогресс читателя приходит в браузере через `SeriesLearningProvider`,
+ * а `learning` задаёт его явно, когда прогресс уже известен.
  */
 export function GuideProgrammeView({
   artifacts,
   result,
   learning,
   guideOffer = null,
-  pending,
+  pending: accessPending = false,
   subscriptionOffered = false,
 }: {
   readonly artifacts?: ReaderGuideArtifactsResult;
@@ -35,26 +43,23 @@ export function GuideProgrammeView({
   /**
    * Программа нарисована из общих данных, личная часть ещё идёт (ADR 0027): состав и названия
    * настоящие, а замки, счётчик открытого, приглашение к оплате и прогресс уточняются на месте.
-   * `purchaseRowExpected` — держать ли место под строку приглашения, чтобы шапка потом не выросла.
    */
-  readonly pending?: { readonly purchaseRowExpected: boolean };
+  readonly pending?: boolean;
   readonly subscriptionOffered?: boolean;
 }) {
-  const accessPending = pending !== undefined;
   const slug = result.reference.slug;
   const currentHref = guideProgrammeHref(slug);
   const productHref = guideProductHref(slug);
   const items = result.kind === "ready" ? result.items : [];
   const availableCount = items.filter((item) => item.availability === "available").length;
   const purchase = accessPending ? null : programmePurchase({ guideOffer, result, subscriptionOffered });
-  const showsPurchaseRow = pending === undefined ? purchase !== null : pending.purchaseRowExpected;
   const meta = [
     result.chapters.length === 0 ? undefined : formatChapterCount(result.chapters.length),
     formatMaterialCount(items.length),
     accessPending || availableCount === 0 ? undefined : availableCount === items.length ? "всё открыто" : `открыто: ${String(availableCount)}`,
   ].filter((value): value is string => value !== undefined);
 
-  return (
+  const programme = (
     <div
       className="@container/programme mx-auto min-w-0 w-full max-w-[46rem]"
       data-guide-programme={slug}
@@ -74,13 +79,10 @@ export function GuideProgrammeView({
           <div className="w-16 shrink-0 overflow-hidden rounded-lg sm:w-20"><ContentCoverImage alt="" className="aspect-square min-h-0 w-full" cover={result.reference.cover ?? null} fallbackKind="playlist" fallbackSeed={slug} /></div>
           <div className="min-w-0 [overflow-wrap:anywhere]"><h1 className="break-words text-xl font-semibold leading-tight tracking-[-0.025em] sm:text-2xl">{result.reference.name}</h1><p className="mt-2 text-xs leading-5 text-muted-foreground sm:text-sm">{meta.join(" · ")}</p></div>
         </div>
-        {showsPurchaseRow ? <div className="mt-4 flex min-h-11 justify-end" data-programme-purchase-row>{purchase === null ? null : <ProgrammePurchase invitation={purchase} offer={guideOffer} />}</div> : null}
-        {learning === undefined || learning.kind === "guest" ? null : <div className="mt-4 min-h-12 border-t border-border pt-3">
-          {learning.kind === "ready" && learning.total > 0 ? <>
-            <div className="mb-2 flex flex-wrap justify-between gap-x-3 text-xs text-muted-foreground"><span>Изучено {learning.read} из {learning.total}</span><span>{Math.round(100 * learning.read / learning.total)}%</span></div>
-            <progress aria-label="Прогресс продукта" className="block h-1.5 w-full overflow-hidden rounded-full accent-primary" max={learning.total} value={learning.read} />
-          </> : learning.kind === "loading" ? <p className="text-xs text-muted-foreground" role="status">Загружаем прогресс…</p> : learning.kind === "unavailable" ? <p className="text-xs text-muted-foreground">Прогресс сейчас не загрузился. Материалы можно читать.</p> : null}
-        </div>}
+        {accessPending
+          ? <PendingPurchaseRow lockedForGuest={hasLockedItems(result)} slug={slug} />
+          : purchase === null ? null : <div className="mt-4 flex min-h-11 justify-end" data-programme-purchase-row><ProgrammePurchase invitation={purchase} offer={guideOffer} /></div>}
+        <ProgrammeProgress />
       </header>
 
 
@@ -88,11 +90,19 @@ export function GuideProgrammeView({
         accessPending={accessPending}
         {...(artifacts === undefined ? {} : { artifacts })}
         currentHref={currentHref}
-        {...(learning === undefined ? {} : { learning })}
         result={{ ...result, discoveryKind: "series" }}
       />
     </div>
   );
+  return learning === undefined ? programme : <SeriesLearningProvider learning={learning}>{programme}</SeriesLearningProvider>;
+}
+
+/** Программа на общих данных, пока личная часть идёт (ADR 0026). */
+export function PendingSeries({ artifacts, result }: {
+  readonly artifacts: ReaderGuideArtifactsResult;
+  readonly result: ResolvedSeriesResult;
+}) {
+  return <PendingSeriesLearning><GuideProgrammeView artifacts={artifacts} pending result={result} /></PendingSeriesLearning>;
 }
 
 /** Есть ли в программе урок под замком для того, чьими глазами прочитан состав. */
