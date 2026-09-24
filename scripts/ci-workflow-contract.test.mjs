@@ -113,7 +113,7 @@ describe("application CI workflow contract", () => {
       "select marker from ci_smoke.persistence_probe",
     );
     const readObjectStorageProbe = developmentCompose.indexOf(
-      "object_storage_marker=\"$(docker compose exec -T object-storage",
+      "s3 http://127.0.0.1:9000/inside-ci/persistence-probe.txt",
     );
     assert.ok(writePostgresProbe > -1 && writePostgresProbe < restart);
     assert.ok(writeObjectStorageProbe > -1 && writeObjectStorageProbe < restart);
