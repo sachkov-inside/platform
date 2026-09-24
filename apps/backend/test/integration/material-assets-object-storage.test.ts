@@ -1,8 +1,8 @@
 import { createHash, randomUUID } from "node:crypto";
 
 import { CreateBucketCommand, S3Client } from "@aws-sdk/client-s3";
-import { MinioContainer, type StartedMinioContainer } from "@testcontainers/minio";
 import sharp from "sharp";
+import { GenericContainer, type StartedTestContainer, Wait } from "testcontainers";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
 
@@ -21,6 +21,9 @@ const buckets = {
   public: "inside-test-public",
   quarantine: "inside-test-quarantine",
 } as const;
+const objectStorageImage =
+  "rustfs/rustfs:1.0.0@sha256:8cc9801755448b71a786705ce76692c77e14936cccd87cf2fc31842e58f4d1ff";
+const objectStoragePort = 9000;
 const credentials = {
   accessKeyId: "inside-test-access-key",
   secretAccessKey: "inside-test-secret-key",
@@ -32,22 +35,26 @@ const materialAssetLockWaiterRowsSchema = z
   .array(z.object({ waiting: z.number().int().nonnegative() }).strict())
   .length(1);
 
-let minio: StartedMinioContainer;
+let objectStorageServer: StartedTestContainer;
 let storage: ObjectStorage;
 let database: TestDatabase;
 
 beforeAll(async () => {
-  [minio, database] = await Promise.all([
-    new MinioContainer("quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z")
-      .withUsername(credentials.accessKeyId)
-      .withPassword(credentials.secretAccessKey)
+  [objectStorageServer, database] = await Promise.all([
+    new GenericContainer(objectStorageImage)
+      .withEnvironment({
+        RUSTFS_ACCESS_KEY: credentials.accessKeyId,
+        RUSTFS_SECRET_KEY: credentials.secretAccessKey,
+      })
+      .withExposedPorts(objectStoragePort)
+      .withWaitStrategy(Wait.forHttp("/health", objectStoragePort))
       .start(),
     createMigratedTestDatabase(),
   ]);
   const config = {
     buckets,
     credentials,
-    endpoint: minio.getConnectionUrl(),
+    endpoint: `http://${objectStorageServer.getHost()}:${objectStorageServer.getMappedPort(objectStoragePort)}`,
     forcePathStyle: true,
     region: "us-east-1",
   } as const;
@@ -59,10 +66,10 @@ beforeAll(async () => {
 }, 120_000);
 
 afterAll(async () => {
-  await Promise.all([minio.stop(), database.dispose()]);
+  await Promise.all([objectStorageServer.stop(), database.dispose()]);
 });
 
-objectStorageConformance("S3ObjectStorage against MinIO", () => storage);
+objectStorageConformance("S3ObjectStorage against RustFS", () => storage);
 
 describe("MaterialAssets against PostgreSQL and S3", () => {
   test("uploads, verifies, projects, and removes an unreferenced immutable file", async () => {
