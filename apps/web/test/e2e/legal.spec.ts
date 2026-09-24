@@ -114,9 +114,28 @@ test("неизвестный документ и неизвестная реда
     // Редакция из трёх цифр: адрес допустим по форме, но такой редакции нет.
     `/legal/terms/v${String(100 + (now % 900))}`,
   ]) {
-    expect((await request.get(path, { maxRedirects: 0 })).status(), path).toBe(404);
+    const response = await request.get(path, { maxRedirects: 0 });
+
+    expect(response.status(), path).toBe(404);
+    expect(await response.text(), path).toContain("Страница не найдена");
   }
+  // Переход внутри приложения просит RSC по тому же адресу и получает тот же 404.
+  const flight = await request.get(`/legal/unflown-${unseen}`, {
+    headers: { RSC: "1" },
+    maxRedirects: 0,
+  });
+  expect(flight.status()).toBe(404);
 });
+
+/** `proxy` пропускает опубликованные адреса к предсобранным страницам: общий кеш может их хранить. */
+for (const path of ["/legal/terms", "/legal/terms/v1", "/legal/purchase/v4"]) {
+  test(`${path} остаётся статической страницей`, async ({ request }) => {
+    const response = await request.get(path, { maxRedirects: 0 });
+
+    expect(response.status()).toBe(200);
+    expect(response.headers()["cache-control"]).toMatch(/s-maxage=/u);
+  });
+}
 
 test("футер ведёт к документам с любой публичной страницы", async ({ page }) => {
   // Страница «Карта» не зависит от каталога, поэтому проверяет именно футер оболочки.

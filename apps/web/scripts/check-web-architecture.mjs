@@ -194,29 +194,55 @@ function namesIdentifier(program, name) {
  * ловит прямое нарушение; токен под другим именем или сессия через посредника остаются делом
  * обзора — их не отличить от обычного кода по форме.
  */
+function importsTheSession(specifier) {
+  return specifier.includes("shared/auth") || specifier === "next/headers";
+}
+
 function seesTheSession(program) {
   return (
-    namesIdentifier(program, "accessToken") ||
-    moduleSpecifiers(program).some(
-      (specifier) => specifier.includes("shared/auth") || specifier === "next/headers",
-    )
+    namesIdentifier(program, "accessToken") || moduleSpecifiers(program).some(importsTheSession)
   );
 }
 
-/**
- * `proxy` отвечает раньше страницы и работает на каждом подходящем запросе, предзагрузку
- * включая. Он решает по тому, что web знает сам, — сейчас это список опубликованных редакций
- * документов. Чтение backend, сессии или конфигурации среды поставило бы перед каждым ответом
- * запрос, который общая оболочка из кеша как раз убирает (ADR 0027).
- */
+/** `proxy` решает только по тому, что web знает сам (ADR 0027, «Настоящий 404 до начала ответа»). */
 function reachesRequestTimeDependency(specifier) {
   return (
+    importsTheSession(specifier) ||
     specifier.includes("shared/api/backend") ||
-    specifier.includes("shared/auth") ||
     specifier.includes("shared/config") ||
-    specifier === "next/headers" ||
     specifier.startsWith("@logto/")
   );
+}
+
+/** Cookie самого запроса — та же сессия, прочитанная без импорта. */
+function readsRequestCookies(program) {
+  let found = false;
+  new Visitor({
+    MemberExpression(node) {
+      if (memberPropertyName(node) === "cookies") found = true;
+    },
+  }).visit(program);
+  return found;
+}
+
+/** Обходит модули, до которых дотягивается `entry`, и отдаёт каждый вместе с его программой. */
+function reachableModules(entry) {
+  const visited = new Set();
+  const pending = [entry];
+  const reached = [];
+  while (pending.length > 0) {
+    const file = pending.pop();
+    if (file === undefined || visited.has(file)) continue;
+    visited.add(file);
+    const program = parsedFiles.get(file);
+    if (program === undefined) continue;
+    reached.push({ file, program });
+    for (const specifier of moduleSpecifiers(program)) {
+      const dependency = resolveLocalModule(file, specifier, parsedFiles);
+      if (dependency !== undefined) pending.push(dependency);
+    }
+  }
+  return reached;
 }
 
 /**
@@ -736,14 +762,7 @@ const findings = [...parsedFiles].flatMap(([file, program]) => {
 for (const entry of [...parsedFiles.keys()].filter((file) =>
   editorFreeRouteEntries.some((suffix) => scannedPath(file).endsWith(suffix)),
 )) {
-  const visited = new Set();
-  const pending = [entry];
-  while (pending.length > 0) {
-    const file = pending.pop();
-    if (file === undefined || visited.has(file)) continue;
-    visited.add(file);
-    const program = parsedFiles.get(file);
-    if (program === undefined) continue;
+  for (const { file, program } of reachableModules(entry)) {
     for (const specifier of moduleSpecifiers(program)) {
       if (
         specifier.startsWith("@tiptap/") ||
@@ -753,8 +772,6 @@ for (const entry of [...parsedFiles.keys()].filter((file) =>
           `${scannedPath(entry)}: reading and lightweight authoring routes cannot reach the Tiptap editor bundle (via ${scannedPath(file)})`,
         );
       }
-      const dependency = resolveLocalModule(file, specifier, parsedFiles);
-      if (dependency !== undefined) pending.push(dependency);
     }
   }
 }
@@ -764,22 +781,14 @@ for (const entry of [...parsedFiles.keys()].filter(
     /^proxy\.[cm]?tsx?$/u.test(path.basename(file)) &&
     [webRoot, ...scanRoots].map((root) => path.resolve(root)).includes(path.dirname(file)),
 )) {
-  const visited = new Set();
-  const pending = [entry];
-  while (pending.length > 0) {
-    const file = pending.pop();
-    if (file === undefined || visited.has(file)) continue;
-    visited.add(file);
-    const program = parsedFiles.get(file);
-    if (program === undefined) continue;
-    for (const specifier of moduleSpecifiers(program)) {
-      if (reachesRequestTimeDependency(specifier)) {
-        findings.push(
-          `${scannedPath(entry)}: proxy decides from facts web holds itself; it cannot reach the backend, the session or runtime configuration (via ${scannedPath(file)})`,
-        );
-      }
-      const dependency = resolveLocalModule(file, specifier, parsedFiles);
-      if (dependency !== undefined) pending.push(dependency);
+  for (const { file, program } of reachableModules(entry)) {
+    if (
+      moduleSpecifiers(program).some(reachesRequestTimeDependency) ||
+      readsRequestCookies(program)
+    ) {
+      findings.push(
+        `${scannedPath(entry)}: proxy decides from facts web holds itself; it cannot reach the backend, the session or runtime configuration (via ${scannedPath(file)})`,
+      );
     }
   }
 }

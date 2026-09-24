@@ -1,6 +1,5 @@
 /** Серверный вход юридического раздела. */
 export {
-  isLegalPagePath,
   legalDocumentView,
   legalEditionParams,
   legalSectionView,

@@ -1,8 +1,7 @@
 /** Серверный вход раздела: состав страниц документов и списка. */
+export { legalEditionParams } from "./api/legal-address";
 export {
-  isLegalPagePath,
   legalDocumentView,
-  legalEditionParams,
   legalSectionView,
   type LegalDocumentView,
 } from "./api/legal-view.server";

@@ -14,7 +14,7 @@ import { config, proxy } from "../../proxy";
 
 const origin = "https://inside.example.test";
 
-function answer(path: string) {
+function proxyFor(path: string) {
   return proxy(new NextRequest(`${origin}${path}`));
 }
 
@@ -30,7 +30,7 @@ const publishedPaths = [
 it("опубликованный документ и каждая его редакция проходят к странице без подмены", () => {
   for (const { path, slug, version } of publishedPaths) {
     expect(legalDocumentView(slug, version), path).not.toBeNull();
-    expect(answer(path), path).toBeUndefined();
+    expect(proxyFor(path), path).toBeUndefined();
   }
 });
 
@@ -42,7 +42,7 @@ it("неизвестный документ и неизвестная редак
     "/legal/Terms",
     "/legal/terms/v1/extra",
   ]) {
-    const response = answer(path);
+    const response = proxyFor(path);
 
     expect(response !== undefined && isRewrite(response), path).toBe(true);
     expect(response === undefined ? null : getRewrittenUrl(response), path).toBe(
