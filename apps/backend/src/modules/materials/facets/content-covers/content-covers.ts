@@ -6,7 +6,7 @@ import { z } from "zod";
 
 import type { ObjectStorage } from "../../../../infrastructure/object-storage/index.js";
 import {
-  Prisma,
+  lockContentCoverOwner,
   type MaterialsPrismaClient,
   type MaterialsPrismaTransaction,
 } from "../../../../infrastructure/prisma/index.js";
@@ -271,11 +271,7 @@ async function changeCurrentCover(
   sourceId: string | null,
 ): Promise<ChangeContentCoverResult> {
   return prisma.$transaction(async (transaction) => {
-    await transaction.$executeRaw(Prisma.sql`
-      select pg_advisory_xact_lock(
-        hashtextextended(${`${command.owner.kind}:${command.owner.id}`}, 0)
-      )
-    `);
+    await lockContentCoverOwner(transaction, command.owner);
     // Imported owners change only through their own source; an import never touches other owners.
     const ownerSourceId = await readOwnerSourceId(transaction, command.owner);
     if (ownerSourceId !== undefined && ownerSourceId !== sourceId && (command.owner.kind === "material" || sourceId !== null)) {

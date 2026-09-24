@@ -1,12 +1,9 @@
 import {
-  Prisma,
+  lockMaterialSlugAllocation,
   type MaterialsPrismaTransaction,
 } from "../../../../infrastructure/prisma/index.js";
-import { z } from "zod";
 
 const maximumSlugLength = 120;
-const slugAllocationLock = "materials:slug-allocation";
-const advisoryLockRowsSchema = z.array(z.object({ lock: z.string() }).strict()).length(1);
 const cyrillicTransliteration: Readonly<Record<string, string>> = {
   а: "a",
   б: "b",
@@ -62,11 +59,7 @@ export async function allocateMaterialSlug(
   title: string,
 ): Promise<string> {
   const base = materialSlugBase(title);
-  advisoryLockRowsSchema.parse(
-    await transaction.$queryRaw(
-      Prisma.sql`select pg_advisory_xact_lock(hashtextextended(${slugAllocationLock}, 0::bigint))::text as lock`,
-    ),
-  );
+  await lockMaterialSlugAllocation(transaction);
   for (let suffix = 1; ; suffix += 1) {
     const suffixText = suffix === 1 ? "" : `-${String(suffix)}`;
     const candidate = `${base

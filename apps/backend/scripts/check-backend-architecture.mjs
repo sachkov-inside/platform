@@ -244,6 +244,61 @@ function databaseReferenceViolations(sourceFile, program) {
   })];
 }
 
+const advisoryLockCall = /pg_(?:try_)?advisory_/iu;
+const advisoryLockOwners = [
+  // The single source of transaction lock keys: operations exclude each other only through it.
+  "src/infrastructure/prisma/transaction-locks.ts",
+  // Process lifecycle over a dedicated pg session, not capability data access.
+  "src/infrastructure/postgres/migrate-to-latest.ts",
+  "src/infrastructure/worker-runtime.ts",
+];
+// Locks other Modules still write in place. platform#696 moves them and removes this list.
+const legacyAdvisoryLockFiles = [
+  "src/modules/accounts/infrastructure/postgres/advisory-locks.ts",
+  "src/modules/billing/infrastructure/postgres/catalog-lock.ts",
+  "src/modules/member-profiles/features/change-profile-avatar/change-profile-avatar.ts",
+  "src/modules/member-profiles/features/cleanup-profile-avatar-orphans/cleanup-profile-avatar-orphans.ts",
+  "src/modules/membership-entitlements/infrastructure/access-lock.ts",
+  "src/modules/notifications/features/accept-transport-message/accept-transport-message.ts",
+  "src/modules/notifications/infrastructure/locks.ts",
+  "src/modules/reading-activity/features/set-reading-state/reading-locks.ts",
+  "src/modules/telegram-membership/facets/telegram-membership/assemble-telegram-membership.ts",
+  "src/modules/telegram-membership/features/complete-telegram-sign-in/telegram-account-sign-in.ts",
+  "src/modules/telegram-membership/infrastructure/community-lock.ts",
+];
+
+function writesAdvisoryLock(program) {
+  let found = false;
+  new Visitor({
+    Literal(node) {
+      if (typeof node.value === "string" && advisoryLockCall.test(node.value)) found = true;
+    },
+    TemplateLiteral(node) {
+      if (node.quasis.some((quasi) => advisoryLockCall.test(quasi.value.raw))) found = true;
+    },
+  }).visit(program);
+  return found;
+}
+
+function advisoryLockViolations(sourceFile, program) {
+  const sourcePath = scannedPath(sourceFile);
+  if (
+    sourcePath.includes("/infrastructure/postgres/migrations/") ||
+    advisoryLockOwners.includes(sourcePath)
+  ) {
+    return [];
+  }
+  const writesLock = writesAdvisoryLock(program);
+  if (legacyAdvisoryLockFiles.includes(sourcePath)) {
+    return writesLock
+      ? []
+      : [`${sourcePath}: no longer writes an advisory lock; remove it from legacyAdvisoryLockFiles`];
+  }
+  return writesLock
+    ? [`${sourcePath}: advisory lock keys come from src/infrastructure/prisma/transaction-locks.ts`]
+    : [];
+}
+
 if (!statSync(scanRoot).isDirectory()) {
   throw new TypeError(`Architecture scan root is not a directory: ${scanRoot}`);
 }
@@ -261,6 +316,7 @@ const findings = sourceFiles(scanRoot).flatMap((source) => {
       ),
     ),
     ...databaseReferenceViolations(source, program),
+    ...advisoryLockViolations(source, program),
   ];
 });
 

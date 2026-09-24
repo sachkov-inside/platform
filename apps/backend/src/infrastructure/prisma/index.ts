@@ -30,7 +30,8 @@ export { PrismaClientProvider, PrismaModule } from "./prisma.module.js";
 export { Prisma } from "./generated/client.js";
 export {
   lockAccountEntitlementChanges,
+  lockContentCoverOwner,
   lockMaterialReferenceChanges,
+  lockMaterialSlugAllocation,
+  lockTelegramAccountBinding,
 } from "./transaction-locks.js";
-
-export { lockTelegramAccountBinding } from "./transaction-locks.js";

@@ -114,6 +114,7 @@ expectFailure(
     'src/modules/notifications/infrastructure/foreign-schema.ts: database table references must stay inside the owning Module schema (billing.notification_outbox)',
     'src/modules/reading-activity/infrastructure/postgres/foreign-schema.ts: database table references must stay inside the owning Module schema (materials.published_materials)',
     'src/modules/bookmarks/infrastructure/postgres/foreign-schema.ts: database table references must stay inside the owning Module schema (materials.published_materials)',
+    "src/modules/videos/features/handwritten-lock/handwritten-lock.ts: advisory lock keys come from src/infrastructure/prisma/transaction-locks.ts",
   ],
 );
 
