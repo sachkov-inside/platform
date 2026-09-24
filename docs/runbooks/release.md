@@ -64,12 +64,29 @@ gh workflow run deploy.yml --repo sachkov-inside/platform --ref main --field ope
 записывает фазу: повторите ту же команду с той же версией. Если миграции уже изменили базу, а
 выпуск не проходит, — исправление следующим номером (repair forward), не откат.
 
+Типовые отказы и что делать:
+
+| Отказ в логе `deploy.yml` | Причина | Действие |
+|---|---|---|
+| `You have reached your unauthenticated pull rate limit` | лимит Docker Hub на адрес сервера | проверить зеркало: `docker info --format '{{json .RegistryConfig.Mirrors}}'` ([подготовка VPS](production-foundation.md#что-делает-provisioning-script)), затем повторить |
+| `Broken pipe`, код 255 | оборвалось SSH-соединение runner → сервер | посмотреть фазу в `/var/lib/inside/deployments/operation.json` и повторить ту же команду |
+| `A deployment must select the next ordinal` | выбран не следующий номер | выложить номер после текущего из `state.json` |
+
 ## 5. Выпустить и выложить Telegram
 
-Только если в `inside-telegram` есть изменения с прошлого выпуска. Путь тот же:
-`release.yml` → `deploy.yml` в репозитории Telegram, порядок и проверки — в его
-`docs/operations/production.md`, раздел «Выпуск и выкладка». Platform выкладывается первым, если
-новый Telegram зависит от нового контракта Platform.
+Только если в `inside-telegram` есть изменения с прошлого выпуска. Путь тот же, номера у Telegram
+свои:
+
+```bash
+gh workflow run release.yml --repo sachkov-inside/inside-telegram --ref main --field version=vN
+gh workflow run deploy.yml --repo sachkov-inside/inside-telegram --ref main --field operation=deploy --field version=vN
+```
+
+Выкладка Telegram останавливает единственный `app`, применяет миграции, запускает его, ждёт
+`/ready` и ставит фрагмент Caddy выпуска. Откат — `operation=rollback` на предыдущую версию, только
+при том же наборе миграций. Подробности и разовая установка — `docs/operations/production.md`
+Telegram, раздел «Выпуск и выкладка». Platform выкладывается первым, если новый Telegram зависит
+от нового контракта Platform.
 
 ## 6. Проверить
 

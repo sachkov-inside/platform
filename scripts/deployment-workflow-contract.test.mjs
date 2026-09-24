@@ -130,6 +130,9 @@ esac
     assert.match(workflow, /production-runtime\.tar\.gz/u);
     assert.match(workflow, /StrictHostKeyChecking=yes/u);
     assert.match(workflow, /BatchMode=yes/u);
+    // A silent image pull once outlived an idle network path (Workspace #184): keep the session alive.
+    assert.match(workflow, /ServerAliveInterval=15/u);
+    assert.match(workflow, /ConnectionAttempts=3/u);
     assert.match(
       workflow,
       /inside-deploy@\$\{\{ secrets\.PRODUCTION_SSH_HOST \}\}/u,

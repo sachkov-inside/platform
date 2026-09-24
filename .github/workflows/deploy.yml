@@ -138,6 +138,10 @@ jobs:
               -o BatchMode=yes \
               -o IdentitiesOnly=yes \
               -o StrictHostKeyChecking=yes \
+              -o ConnectTimeout=30 \
+              -o ConnectionAttempts=3 \
+              -o ServerAliveInterval=15 \
+              -o ServerAliveCountMax=8 \
               -o "UserKnownHostsFile=$RUNNER_TEMP/inside-known-hosts" \
               "inside-deploy@${{ secrets.PRODUCTION_SSH_HOST }}" \
               "$OPERATION $VERSION $GITHUB_RUN_ID"
