@@ -73,7 +73,9 @@ production smoke проверяет заголовок, который отда�
 - **Клиент.** Первое значение `X-Forwarded-For`; IPv6 считается по сети /64, которую обычно
   получает один абонент. Caddy заменяет недоверенный входящий заголовок адресом соединения, пока
   ни `platform.caddy`, ни Caddyfile хоста не объявляют `trusted_proxies`; это держит контракт
-  `scripts/production-runtime-contract.test.mjs`. Loopback снаружи прийти не может; его не
+  `scripts/production-runtime-contract.test.mjs`. Контракт видит копию в репозитории; файл на
+  сервере ставит `provision-host.sh`, а ручную замену сверяют с ней по
+  [production foundation](../runbooks/production-foundation.md). Loopback снаружи прийти не может; его не
   считают, чтобы проверки production-сборки на хосте не упирались в предел.
 - **Состояние.** Окно в одну минуту, счётчики в памяти процесса с ограниченным числом окон.
   Production запускает один процесс web; перезапуск сбрасывает счёт, и это приемлемо для

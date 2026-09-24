@@ -178,7 +178,7 @@ describe("production runtime architecture contract", () => {
   it("rejects an edge that trusts a client-supplied X-Forwarded-For", () => {
     for (const key of ["caddy", "hostCaddy"]) {
       assert.throws(
-        () => assertRuntimeContract({ ...runtime, [key]: `${runtime[key]}\n# trusted_proxies static private_ranges\n` }),
+        () => assertRuntimeContract({ ...runtime, [key]: `${runtime[key]}\n{\n\tservers {\n\t\ttrusted_proxies static private_ranges\n\t}\n}\n` }),
         /must not trust a client-supplied X-Forwarded-For/u,
       );
     }
@@ -271,12 +271,14 @@ function assertRuntimeContract(files) {
       throw new Error(`web must drop capabilities and bound resources: ${setting}`);
     }
   }
-  for (const [name, caddy] of [["platform.caddy", files.caddy], ["maintenance.caddy", files.maintenanceCaddy], ["host Caddyfile", files.hostCaddy]]) {
-    if (name !== "host Caddyfile" && !/^\theader Strict-Transport-Security "max-age=31536000; includeSubDomains"$/mu.test(caddy)) {
+  for (const [name, caddy] of [["platform.caddy", files.caddy], ["maintenance.caddy", files.maintenanceCaddy]]) {
+    if (!/^\theader Strict-Transport-Security "max-age=31536000; includeSubDomains"$/mu.test(caddy)) {
       throw new Error(`${name} must send HSTS`);
     }
-    // Web считает запросы по X-Forwarded-For только потому, что Caddy не доверяет входящему заголовку.
-    if (/trusted_proxies|client_ip_headers/u.test(caddy)) {
+  }
+  // Web считает запросы по X-Forwarded-For только потому, что Caddy не доверяет входящему заголовку.
+  for (const [name, caddy] of [["platform.caddy", files.caddy], ["host Caddyfile", files.hostCaddy]]) {
+    if (/^\s*(?:trusted_proxies|client_ip_headers)\b/mu.test(caddy)) {
       throw new Error(`${name} must not trust a client-supplied X-Forwarded-For`);
     }
   }

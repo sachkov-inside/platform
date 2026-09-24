@@ -12,6 +12,7 @@ import {
   limitEntryRequest,
   type EntryRateLimiter,
 } from "@/_app/entry-rate-limit";
+import type { WebRuntimeMode } from "@/shared/config/index.server";
 
 import { config as proxyConfig, proxy } from "../../proxy";
 
@@ -33,10 +34,20 @@ function clock(start = 1_000_000) {
   };
 }
 
-/** Отправляет на маршрут команды оплаты ровно на один запрос больше её предела. */
-function overrunBillingCommand(limiter: EntryRateLimiter, path: string, address = client) {
-  return Array.from({ length: entryRequestsPerWindow["billing-command"] + 1 }, () =>
-    limitEntryRequest(limiter, request(path, address), "production"));
+/**
+ * Отправляет на маршрут команды оплаты ровно на один запрос больше её предела. Адрес может меняться
+ * от запроса к запросу.
+ */
+function overrunBillingCommand(
+  limiter: EntryRateLimiter,
+  path: string,
+  { address = () => client, mode = "production" }: {
+    readonly address?: (attempt: number) => string;
+    readonly mode?: WebRuntimeMode;
+  } = {},
+) {
+  return Array.from({ length: entryRequestsPerWindow["billing-command"] + 1 }, (_, attempt) =>
+    limitEntryRequest(limiter, request(path, address(attempt)), mode));
 }
 
 /** Сравнивает matcher с перечнем ограничителя; пустой список — совпадение. */
@@ -81,8 +92,9 @@ describe("entry rate limit", () => {
 
   it("counts one IPv6 /64 as one client", () => {
     const limiter = createEntryRateLimiter(clock().now);
-    const outcomes = Array.from({ length: entryRequestsPerWindow["billing-command"] + 1 }, (_, index) =>
-      limitEntryRequest(limiter, request(purchase, `2001:db8:0:1::${(index + 1).toString(16)}`), "production"));
+    const outcomes = overrunBillingCommand(limiter, purchase, {
+      address: (attempt) => `2001:db8:0:1::${(attempt + 1).toString(16)}`,
+    });
 
     expect(outcomes.at(-1)?.status).toBe(429);
     expect(limitEntryRequest(limiter, request(purchase, "2001:db8:0:2::1"), "production")).toBeUndefined();
@@ -104,12 +116,11 @@ describe("entry rate limit", () => {
     const limiter = createEntryRateLimiter(clock().now);
 
     for (const loopback of ["127.0.0.1", "::1", "::ffff:127.0.0.1"]) {
-      expect(overrunBillingCommand(limiter, purchase, loopback).every((outcome) => outcome === undefined))
-        .toBe(true);
+      expect(overrunBillingCommand(limiter, purchase, { address: () => loopback })
+        .every((outcome) => outcome === undefined)).toBe(true);
     }
-    for (let attempt = 0; attempt <= entryRequestsPerWindow["billing-command"]; attempt += 1) {
-      expect(limitEntryRequest(limiter, request(purchase, client), "development")).toBeUndefined();
-    }
+    expect(overrunBillingCommand(limiter, purchase, { mode: "development" })
+      .every((outcome) => outcome === undefined)).toBe(true);
     expect(classifyEntryRoute("GET", purchase)).toBeUndefined();
     expect(classifyEntryRoute("POST", "/api/account/billing/subscription/cancel")).toBeUndefined();
     expect(classifyEntryRoute("POST", "/callback")).toBeUndefined();
