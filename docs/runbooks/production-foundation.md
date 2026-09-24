@@ -70,6 +70,11 @@ sudo infra/production/host/provision-host.sh
    серверного дефекта обновлением Caddy в #399 HTTP/3 включён по решению владельца.
    HTTP/2 и HTTP/1.1 сохраняют доступность для клиентов и сетей без QUIC. Разрешение
    UDP в firewall само по себе не доказывает работоспособность HTTP/3.
+7. Направляет pull образов Docker Hub (образ брокера) через публичное зеркало `mirror.gcr.io`:
+   `/etc/docker/daemon.json` из `docker-daemon.json`. Анонимный лимит Docker Hub считается по
+   адресу сервера и в Workspace #184 остановил выкладку на шаге `pull`. На работающем сервере файл
+   применяется `systemctl reload docker` без перезапуска контейнеров; проверка —
+   `docker info --format '{{json .RegistryConfig.Mirrors}}'`.
 
 Скрипт не определяет размер VPS, не создаёт SSH key, DNS, buckets или credentials, не запускает
 PostgreSQL/Logto и не включает backup timers. Эти решения и действия выполняются в #244. После
