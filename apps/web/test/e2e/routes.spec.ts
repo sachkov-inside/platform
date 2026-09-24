@@ -118,6 +118,28 @@ test("страница отправляет площадке свои Core Web V
   expect(body.metrics.map((metric) => metric.name)).toContain("TTFB");
 });
 
+test("Manrope объявлен заранее: латиница и кириллица в preload, текст набран им", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Главная");
+  await page.evaluate(() => document.fonts.ready);
+
+  const fonts = await page.evaluate(() => ({
+    bodyFamily: getComputedStyle(document.body).fontFamily,
+    manropeReady: document.fonts.check("16px 'Manrope Variable'", "Главная Home"),
+    preloaded: [...document.querySelectorAll("link[rel='preload'][as='font']")].map(
+      (link) => link.getAttribute("href") ?? "",
+    ),
+  }));
+  expect(fonts.bodyFamily).toMatch(/^"Manrope Variable", "Manrope Fallback"/u);
+  expect(fonts.manropeReady).toBe(true);
+  expect(fonts.preloaded).toEqual([
+    expect.stringMatching(/manrope_cyrillic_wght_normal.*\.woff2$/u),
+    expect.stringMatching(/manrope_latin_wght_normal.*\.woff2$/u),
+  ]);
+});
+
 test("map remains available by direct URL without a primary navigation item", async ({
   page,
 }, testInfo) => {

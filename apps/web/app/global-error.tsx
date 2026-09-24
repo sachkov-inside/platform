@@ -1,7 +1,6 @@
 "use client";
 
-import "@fontsource-variable/manrope/wght.css";
-
+import "@/_app/ui/fonts";
 import { PageUnexpectedError } from "@/_pages/route-states";
 import { useRenderErrorReport } from "@/features/client-telemetry";
 
