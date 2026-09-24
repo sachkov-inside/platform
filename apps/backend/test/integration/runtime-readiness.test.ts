@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { Prisma } from "../../src/infrastructure/prisma/index.js";
 import { OperationalReadiness } from "../../src/infrastructure/operational-readiness.js";
@@ -233,13 +233,14 @@ describe("production runtime readiness", () => {
     await migrateRuntimeDatabase(database.url);
     const failure = Promise.reject(new Error("notification_broker_disconnected"));
     void failure.catch(() => undefined);
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
     await expect(
       runWorker({
-        application: { close: () => Promise.reject(new Error("application_close_failed")) },
+        application: { close: () => Promise.reject(new Error("secret-bearing close failure")) },
         databaseUrl: database.url,
         failed: failure,
-        jobs: { start: () => Promise.resolve(), stop: () => Promise.resolve() },
+        jobs: { start: () => Promise.resolve(), stop: () => Promise.reject(new Error("drain")) },
         process: "notifications-worker",
         readiness: new OperationalReadiness(database.prisma, {
           release: "development",
@@ -248,5 +249,12 @@ describe("production runtime readiness", () => {
         registerJobs: () => Promise.resolve(),
       }),
     ).rejects.toThrow("notification_broker_disconnected");
+    // Оба сбоя названы кодом, без текста ошибки; lease освобождён несмотря на сбой закрытия.
+    expect(logged.mock.calls.map(([line]) => JSON.parse(String(line)) as unknown)).toEqual([
+      { process: "notifications-worker", reason: "worker_drain_failed", status: "operator_attention" },
+      { process: "notifications-worker", reason: "worker_close_failed", status: "operator_attention" },
+    ]);
+    const nextGeneration = await acquireWorkerGenerationLease(database.url, "notifications-worker");
+    await nextGeneration.release();
   });
 });
