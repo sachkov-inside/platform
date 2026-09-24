@@ -183,6 +183,35 @@ export function MaterialAuthoringPreviewNotFoundState({
   );
 }
 
+/**
+ * Сбой любого авторского раздела: авторская оболочка остаётся, повтор перечитывает раздел с сервера,
+ * а код обращения помогает найти запись в журнале.
+ */
+export function MaterialAuthoringRouteError({
+  digest,
+  onRetry,
+}: {
+  readonly digest: string | undefined;
+  readonly onRetry: () => void;
+}) {
+  return (
+    <MaterialAuthoringStateScreen
+      action={
+        <div className="flex flex-wrap justify-center gap-2">
+          <Button onClick={onRetry} type="button">Повторить</Button>
+          <Button asChild variant="outline">
+            <Link href={authoringMaterialsRootHref}>Вернуться к материалам</Link>
+          </Button>
+        </div>
+      }
+      description="Произошла непредвиденная ошибка. Повторите действие или вернитесь к материалам."
+      detail={`Код обращения: ${digest ?? "authoring-boundary"}`}
+      heading="Редактор остановлен"
+      icon={<CloudOff aria-hidden="true" className="mx-auto size-8 text-destructive" />}
+    />
+  );
+}
+
 function MaterialAuthoringStateScreen({
   action,
   description,

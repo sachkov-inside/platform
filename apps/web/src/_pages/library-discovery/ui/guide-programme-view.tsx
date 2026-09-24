@@ -106,7 +106,7 @@ export function PendingSeries({ artifacts, result }: {
 }
 
 /** Есть ли в программе урок под замком для того, чьими глазами прочитан состав. */
-export function hasLockedItems(result: ResolvedSeriesResult): boolean {
+function hasLockedItems(result: ResolvedSeriesResult): boolean {
   return result.kind === "ready" && result.items.some((item) => item.availability === "locked");
 }
 

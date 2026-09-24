@@ -200,7 +200,8 @@ curl --fail --silent http://127.0.0.1:13000/_health/ready
 docker compose -f compose.production.yaml logs web --since 1h | grep '"event":"request-error"'
 ```
 
-Хранилища метрик и трекера ошибок у площадки пока нет: сводные p75 и оповещения — отдельная задача.
+Хранилища метрик и трекера ошибок у площадки пока нет: сводные p75 и оповещения — задача
+[#707](https://github.com/sachkov-inside/platform/issues/707).
 
 The system Caddy imports `infra/production/runtime/platform.caddy`. It publishes only:
 

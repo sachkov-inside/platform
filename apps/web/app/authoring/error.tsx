@@ -1,6 +1,6 @@
 "use client";
 
-import { AuthoringUnexpectedError } from "@/_pages/route-states";
+import { MaterialAuthoringRouteError } from "@/_pages/route-states";
 import { useRenderErrorReport } from "@/features/client-telemetry";
 
 /**
@@ -15,5 +15,5 @@ export default function AuthoringError({
   readonly retry: () => void;
 }) {
   useRenderErrorReport("authoring", error);
-  return <AuthoringUnexpectedError digest={error.digest} onRetry={retry} />;
+  return <MaterialAuthoringRouteError digest={error.digest} onRetry={retry} />;
 }

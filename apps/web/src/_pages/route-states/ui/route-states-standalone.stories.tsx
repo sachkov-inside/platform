@@ -4,7 +4,9 @@ import { expect, fn, within } from "storybook/test";
 import { authoringMaterialsRootHref } from "@/shared/routing/authoring";
 import { authoringPageEnvironment } from "@/workshop/story-environment";
 
-import { AuthoringUnexpectedError, StandalonePageError } from "./route-states";
+import { MaterialAuthoringRouteError } from "@/widgets/material-authoring/route-states";
+
+import { StandalonePageError } from "./route-states";
 
 /** Сбой раскладки раздела или корня: оболочки уже нет, как в `app/error.tsx` и `global-error.tsx`. */
 const meta = {
@@ -45,7 +47,7 @@ export const AuthoringErrorDesktop: Story = {
   ...authoring,
   globals: desktop,
   name: "Authoring error · desktop",
-  render: ({ onRetry }) => <AuthoringUnexpectedError digest="2195732781" onRetry={onRetry} />,
+  render: ({ onRetry }) => <MaterialAuthoringRouteError digest="2195732781" onRetry={onRetry} />,
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
     await expect(page.getByRole("heading", { level: 1, name: "Редактор остановлен" })).toBeVisible();
@@ -57,7 +59,7 @@ export const AuthoringErrorMobile: Story = {
   ...authoring,
   globals: mobile,
   name: "Authoring error · mobile",
-  render: ({ onRetry }) => <AuthoringUnexpectedError digest={undefined} onRetry={onRetry} />,
+  render: ({ onRetry }) => <MaterialAuthoringRouteError digest={undefined} onRetry={onRetry} />,
   play: async ({ canvasElement }) => {
     await expect(within(canvasElement).getByText("Код обращения: authoring-boundary")).toBeVisible();
   },

@@ -9,7 +9,8 @@ export function writeStructuredLog(
   event: string,
   fields: Readonly<Record<string, unknown>>,
 ): void {
-  const line = JSON.stringify({ time: new Date().toISOString(), level, event, ...fields });
+  // Служебные поля идут последними: поле события не может их подменить.
+  const line = JSON.stringify({ ...fields, time: new Date().toISOString(), level, event });
   if (level === "error") console.error(line);
   else console.info(line);
 }

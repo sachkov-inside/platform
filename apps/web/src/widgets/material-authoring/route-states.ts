@@ -2,6 +2,7 @@ export {
   MaterialAuthoringNotFoundState,
   MaterialAuthoringPreviewNotFoundState,
   MaterialAuthoringPreviewUnauthorizedState,
+  MaterialAuthoringRouteError,
   MaterialAuthoringSignInActions,
   MaterialAuthoringUnauthorizedState,
   MaterialAuthoringUnexpectedEditorState,

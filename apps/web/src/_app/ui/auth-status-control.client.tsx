@@ -60,13 +60,9 @@ export function useAuthStatus(): AuthStatusSnapshot {
   return status;
 }
 
+/** Снимки равны, когда совпадает каждое их поле: новое поле снимка сравнивается само. */
 function sameAuthStatus(left: AuthStatusSnapshot, right: AuthStatusSnapshot): boolean {
-  return (
-    left.accountId === right.accountId &&
-    left.canManageMaterials === right.canManageMaterials &&
-    left.resolved === right.resolved &&
-    left.state === right.state
-  );
+  return (Object.keys(left) as (keyof AuthStatusSnapshot)[]).every((key) => left[key] === right[key]);
 }
 
 function loadAuthStatus(): Promise<AuthStatusSnapshot> {
