@@ -17,7 +17,8 @@ ownership, generated transport, direct RSC calls, or same-origin BFF boundaries.
 [`ADR 0012`](../../docs/adr/0012-browser-owned-interactive-mutations.md) when changing interactive
 writes or proposing Server Actions. Read
 [`ADR 0027`](../../docs/adr/0027-web-navigation-and-caching.md) when changing a public route, a
-loading state, a `"use cache"` read, link prefetch, a `GET` Route Handler or TanStack freshness.
+loading state, a `"use cache"` read, link prefetch, a `GET` Route Handler, `proxy.ts` or TanStack
+freshness.
 
 ## Verification
 

@@ -1,5 +1,6 @@
 /** Серверный вход раздела: состав страниц документов и списка. */
 export {
+  isLegalPagePath,
   legalDocumentView,
   legalEditionParams,
   legalSectionView,

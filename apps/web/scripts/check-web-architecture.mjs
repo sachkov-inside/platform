@@ -7,9 +7,9 @@ import { parseSync, Visitor } from "oxc-parser";
 
 const webRoot = fileURLToPath(new URL("..", import.meta.url));
 const requestedRoots = process.argv.slice(2);
-const scanRoots = (requestedRoots.length === 0 ? ["src", "app"] : requestedRoots).map(
-  (root) => path.resolve(webRoot, root),
-);
+const scanRoots = (
+  requestedRoots.length === 0 ? ["src", "app", "proxy.ts"] : requestedRoots
+).map((root) => path.resolve(webRoot, root));
 const backendOperationPaths = new Set(
   Object.keys(
     JSON.parse(
@@ -60,6 +60,7 @@ const runtimeConfigurationNames = new Set([
 ]);
 
 function sourceFiles(directory) {
+  if (statSync(directory).isFile()) return [directory];
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const entryPath = path.join(directory, entry.name);
     if (entry.isDirectory()) return sourceFiles(entryPath);
@@ -199,6 +200,22 @@ function seesTheSession(program) {
     moduleSpecifiers(program).some(
       (specifier) => specifier.includes("shared/auth") || specifier === "next/headers",
     )
+  );
+}
+
+/**
+ * `proxy` отвечает раньше страницы и работает на каждом подходящем запросе, предзагрузку
+ * включая. Он решает по тому, что web знает сам, — сейчас это список опубликованных редакций
+ * документов. Чтение backend, сессии или конфигурации среды поставило бы перед каждым ответом
+ * запрос, который общая оболочка из кеша как раз убирает (ADR 0027).
+ */
+function reachesRequestTimeDependency(specifier) {
+  return (
+    specifier.includes("shared/api/backend") ||
+    specifier.includes("shared/auth") ||
+    specifier.includes("shared/config") ||
+    specifier === "next/headers" ||
+    specifier.startsWith("@logto/")
   );
 }
 
@@ -533,8 +550,8 @@ function resolveLocalModule(importer, specifier, knownFiles) {
 }
 
 for (const scanRoot of scanRoots) {
-  if (!existsSync(scanRoot) || !statSync(scanRoot).isDirectory()) {
-    throw new TypeError(`Architecture scan root is not a directory: ${scanRoot}`);
+  if (!existsSync(scanRoot)) {
+    throw new TypeError(`Architecture scan root does not exist: ${scanRoot}`);
   }
 }
 
@@ -734,6 +751,31 @@ for (const entry of [...parsedFiles.keys()].filter((file) =>
       ) {
         findings.push(
           `${scannedPath(entry)}: reading and lightweight authoring routes cannot reach the Tiptap editor bundle (via ${scannedPath(file)})`,
+        );
+      }
+      const dependency = resolveLocalModule(file, specifier, parsedFiles);
+      if (dependency !== undefined) pending.push(dependency);
+    }
+  }
+}
+
+for (const entry of [...parsedFiles.keys()].filter(
+  (file) =>
+    /^proxy\.[cm]?tsx?$/u.test(path.basename(file)) &&
+    [webRoot, ...scanRoots].map((root) => path.resolve(root)).includes(path.dirname(file)),
+)) {
+  const visited = new Set();
+  const pending = [entry];
+  while (pending.length > 0) {
+    const file = pending.pop();
+    if (file === undefined || visited.has(file)) continue;
+    visited.add(file);
+    const program = parsedFiles.get(file);
+    if (program === undefined) continue;
+    for (const specifier of moduleSpecifiers(program)) {
+      if (reachesRequestTimeDependency(specifier)) {
+        findings.push(
+          `${scannedPath(entry)}: proxy decides from facts web holds itself; it cannot reach the backend, the session or runtime configuration (via ${scannedPath(file)})`,
         );
       }
       const dependency = resolveLocalModule(file, specifier, parsedFiles);

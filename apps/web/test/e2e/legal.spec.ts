@@ -2,15 +2,17 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 /**
- * Неизвестный адрес показывает страницу «не найдено» и закрыт от поиска. Статус ответа здесь не
- * проверяется: production-сборка с Cache Components на первом заходе уже начала ответ со статусом
- * 200, прежде чем страница вызвала `notFound()`, и отдаёт 404 лишь из кеша (#701).
+ * Неизвестный адрес с первого захода отвечает 404, показывает страницу «не найдено» и закрыт от
+ * поиска. Статус ставит `proxy` до начала ответа: страница с параметром отрисовывается потоком, и
+ * её `notFound()` пришёл бы уже после статуса 200 (#701, ADR 0027).
  */
 async function expectNotFound(page: Page, path: string): Promise<void> {
-  await page.goto(path);
+  const response = await page.goto(path);
+
+  expect(response?.status()).toBe(404);
   await expect(page.getByRole("heading", { level: 1, name: "Страница не найдена" })).toBeVisible();
   await expect(page.getByRole("link", { name: "На главную" })).toBeVisible();
-  // Ответ из кеша несёт тег дважды; важно, что поиск закрыт и ни один тег его не открывает.
+  // Важно, что поиск закрыт и ни один тег его не открывает, сколько бы тегов ни было.
   await expect(page.locator('meta[name="robots"][content="noindex"]').first()).toBeAttached();
   await expect(page.locator('meta[name="robots"]:not([content="noindex"])')).toHaveCount(0);
 }
@@ -95,8 +97,25 @@ test("неизвестный документ показывает «не най
   await expectNotFound(page, "/legal/facts-and-applicability");
 });
 
-test.fixme("неизвестный документ отвечает 404 с первого захода (#701)", async ({ request }) => {
-  expect((await request.get("/legal/facts-and-applicability")).status()).toBe(404);
+/**
+ * Прежде 404 приходил только из кеша, со второго захода (#701). Названные адреса могли уже открыть
+ * соседние проверки, поэтому первый заход доказывают адреса, которых этот сервер ещё не видел.
+ */
+test("неизвестный документ и неизвестная редакция отвечают 404 с первого захода", async ({
+  request,
+}, testInfo) => {
+  const now = Date.now();
+  const unseen = `${testInfo.project.name}-${String(now)}`;
+
+  for (const path of [
+    "/legal/facts-and-applicability",
+    "/legal/purchase/v2",
+    `/legal/unpublished-${unseen}`,
+    // Редакция из трёх цифр: адрес допустим по форме, но такой редакции нет.
+    `/legal/terms/v${String(100 + (now % 900))}`,
+  ]) {
+    expect((await request.get(path, { maxRedirects: 0 })).status(), path).toBe(404);
+  }
 });
 
 test("футер ведёт к документам с любой публичной страницы", async ({ page }) => {

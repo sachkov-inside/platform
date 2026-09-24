@@ -129,6 +129,12 @@ these are the rules a change follows.
   `useRenderErrorReport` and recovers with `retry`. An unknown address and `notFound()` render
   `PageNotFound` in the public shell. `test/e2e/routes.spec.ts` checks the Russian 404; the rest
   stays prose, because which boundary a segment reaches is a reading of the route tree.
+- A page with a parameter streams, so its `notFound()` arrives after status 200. Where web itself
+  knows every valid address — today the legal section — `proxy.ts` checks the address before the
+  response and rewrites an unknown one to an unrouted path, which Next.js answers with its own 404.
+  Its `matcher` is a literal, and it reads neither the backend, the session nor runtime
+  configuration: `check-web-architecture` follows its imports, with the negative fixture
+  `proxy-dependencies`. Catalog addresses live in the backend and keep the soft 404 (ADR 0027).
 - A component that reads the clock, randomness or a request value during render breaks the
   production build under Cache Components. Read it in an event handler or an effect.
 - A page the reader left is hidden, not unmounted, and keeps its client state. State that starts

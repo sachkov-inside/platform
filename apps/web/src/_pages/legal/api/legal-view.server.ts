@@ -9,7 +9,12 @@ import {
   type LegalBlock,
   type LegalEdition,
 } from "@inside/legal";
-import { legalDocumentKeys, legalEditionVersion } from "@inside/legal/document";
+import {
+  legalDocumentKeys,
+  legalDocumentPath,
+  legalEditionPath,
+  legalEditionVersion,
+} from "@inside/legal/document";
 
 /**
  * Что страница показывает про документ: разобранный текст запрошенной редакции, действующая
@@ -66,6 +71,24 @@ export function legalEditionParams(): {
     slug: edition.key,
     version: `v${String(edition.version)}`,
   }));
+}
+
+/**
+ * Адреса, по которым раздел отвечает страницей: документ и каждая его редакция. Это те же адреса,
+ * что собираются во время сборки, и те же, для которых `legalDocumentView` находит документ.
+ */
+const legalPagePaths: ReadonlySet<string> = new Set([
+  ...legalDocumentKeys.map((key) => legalDocumentPath(key)),
+  ...legalEditions().map((edition) => legalEditionPath(edition.key, edition.version)),
+]);
+
+/**
+ * Опубликован ли адрес страницы раздела. `proxy` спрашивает это до начала ответа: страница с
+ * неизвестным параметром отрисовывается потоком, и её `notFound()` пришёл бы уже после статуса
+ * 200 (ADR 0027).
+ */
+export function isLegalPagePath(pathname: string): boolean {
+  return legalPagePaths.has(pathname);
 }
 
 function legalEditions(): readonly LegalEdition[] {
