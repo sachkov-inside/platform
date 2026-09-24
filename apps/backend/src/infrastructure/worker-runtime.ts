@@ -162,18 +162,16 @@ export async function runWorker(input: {
   } catch (error) {
     stopFailures.push({ reason: "worker_cleanup_failed", error });
   }
-  if (stopReason === undefined) {
-    const [first] = stopFailures;
-    if (first !== undefined) throw first.error;
-    return;
-  }
+  // Наружу уходит одна ошибка: причина остановки, а без неё — первый сбой. Остальные сбои
+  // называются здесь. Текст ошибки не пишется: он может нести адрес подключения с учётными данными.
+  const thrown = stopReason ?? stopFailures[0];
   for (const failure of stopFailures) {
-    // Текст ошибки не пишется: у воркера он может нести адрес подключения с учётными данными.
+    if (failure === thrown) continue;
     console.error(JSON.stringify({
       process: input.process,
       reason: failure.reason,
       status: "operator_attention",
     }));
   }
-  throw stopReason.error;
+  if (thrown !== undefined) throw thrown.error;
 }

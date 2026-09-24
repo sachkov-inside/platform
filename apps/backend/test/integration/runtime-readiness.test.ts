@@ -226,4 +226,27 @@ describe("production runtime readiness", () => {
     ).rejects.toThrow("notification_broker_disconnected");
     expect(drained).toBe(true);
   });
+
+  test("reports the failure that stopped a worker even when its cleanup fails", async () => {
+    const database = await createTestDatabase();
+    databases.push(database);
+    await migrateRuntimeDatabase(database.url);
+    const failure = Promise.reject(new Error("notification_broker_disconnected"));
+    void failure.catch(() => undefined);
+
+    await expect(
+      runWorker({
+        application: { close: () => Promise.reject(new Error("application_close_failed")) },
+        databaseUrl: database.url,
+        failed: failure,
+        jobs: { start: () => Promise.resolve(), stop: () => Promise.resolve() },
+        process: "notifications-worker",
+        readiness: new OperationalReadiness(database.prisma, {
+          release: "development",
+          sourceSha: "0".repeat(40),
+        }),
+        registerJobs: () => Promise.resolve(),
+      }),
+    ).rejects.toThrow("notification_broker_disconnected");
+  });
 });
