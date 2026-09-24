@@ -111,7 +111,7 @@ jobs:
             --set ON_ERROR_STOP=1 \
             --command "create schema ci_smoke; create table ci_smoke.persistence_probe (marker text primary key); insert into ci_smoke.persistence_probe values ('survived-restart');"
           docker compose exec -T object-storage sh -ec \
-            'mc alias set ci http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null; mc mb --ignore-existing ci/inside-ci >/dev/null; printf survived-restart | mc pipe ci/inside-ci/persistence-probe.txt >/dev/null'
+            's3() { curl --fail --silent --show-error --aws-sigv4 aws:amz:us-east-1:s3 --user "$RUSTFS_ACCESS_KEY:$RUSTFS_SECRET_KEY" "$@"; }; s3 --request PUT http://127.0.0.1:9000/inside-ci >/dev/null; s3 --request PUT --data-binary survived-restart http://127.0.0.1:9000/inside-ci/persistence-probe.txt >/dev/null'
       - name: Prove restart persistence and clean shutdown
         run: |
           docker compose down
@@ -124,7 +124,7 @@ jobs:
             --command "select marker from ci_smoke.persistence_probe;")"
           test "$postgres_marker" = "survived-restart"
           object_storage_marker="$(docker compose exec -T object-storage sh -ec \
-            'mc alias set ci http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null; mc cat ci/inside-ci/persistence-probe.txt')"
+            's3() { curl --fail --silent --show-error --aws-sigv4 aws:amz:us-east-1:s3 --user "$RUSTFS_ACCESS_KEY:$RUSTFS_SECRET_KEY" "$@"; }; s3 http://127.0.0.1:9000/inside-ci/persistence-probe.txt')"
           test "$object_storage_marker" = "survived-restart"
           bash scripts/compose-stack-smoke.sh
           docker compose down --remove-orphans

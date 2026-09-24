@@ -29,7 +29,7 @@ Four jobs run independently so a failure identifies its owning verification seam
 | Job | Repository command or proof |
 |---|---|
 | `quality` | frozen install, Chromium and `pnpm check` |
-| `integration` | `pnpm test:integration` with Testcontainers-owned PostgreSQL and MinIO |
+| `integration` | `pnpm test:integration` with Testcontainers-owned PostgreSQL and RustFS |
 | `compose-development` | profile config/build, live smoke, restart persistence and clean shutdown |
 | `compose-production` | isolated nine-process digest-selected runtime proof with the environment broker; pull requests also run clean `pnpm release:images:smoke` |
 

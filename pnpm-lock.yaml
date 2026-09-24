@@ -139,9 +139,6 @@ importers:
       '@modelcontextprotocol/client':
         specifier: 2.0.0
         version: 2.0.0
-      '@testcontainers/minio':
-        specifier: 12.1.0
-        version: 12.1.0(supports-color@10.2.2)
       '@testcontainers/postgresql':
         specifier: 12.1.0
         version: 12.1.0(supports-color@10.2.2)
@@ -3060,9 +3057,6 @@ packages:
     resolution: {integrity: sha512-TYBea4OuXWD7MhaSHq069TWbFe7rcwWN6kzT7JF0OKi1K6c1gTv2IzD6A6ExJsCMozdkqBWeuIUZmu4KQg0O5A==}
     peerDependencies:
       react: ^18 || ^19
-
-  '@testcontainers/minio@12.1.0':
-    resolution: {integrity: sha512-coIZA1CFNZyLElcAgIxR3YcJxohm/2Q2XbSmM+PhxmzCrjcXgw2BIqoSeh1IBwjdIzndWNayXwmfV7wbQuFYjQ==}
 
   '@testcontainers/postgresql@12.1.0':
     resolution: {integrity: sha512-Pjf2VSVNirEPfz36nidyrVAnZvc2YhajOznY4VgyEsvfTd5qiMNOuPq96drREvxAUtXl5SFLX7vXj7sSq4aTcA==}
@@ -8989,15 +8983,6 @@ snapshots:
     dependencies:
       '@tanstack/query-core': 5.102.8
       react: 19.2.8
-
-  '@testcontainers/minio@12.1.0(supports-color@10.2.2)':
-    dependencies:
-      testcontainers: 12.1.0(supports-color@10.2.2)
-    transitivePeerDependencies:
-      - bare-abort-controller
-      - bare-buffer
-      - react-native-b4a
-      - supports-color
 
   '@testcontainers/postgresql@12.1.0(supports-color@10.2.2)':
     dependencies:
