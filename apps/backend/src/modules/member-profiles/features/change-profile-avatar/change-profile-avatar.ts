@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { Prisma } from "../../../../infrastructure/prisma/index.js";
 import type { ObjectStorage } from "../../../../infrastructure/object-storage/index.js";
+import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { AccountId } from "../../../accounts/index.js";
 import type {
   ChangeProfileAvatarCommand,
@@ -14,7 +15,6 @@ import {
   processProfileAvatar,
   type ProcessedProfileAvatarRendition,
 } from "./process-profile-avatar.js";
-import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 interface PersistenceDependencies {
   readonly objectStorage: ObjectStorage;

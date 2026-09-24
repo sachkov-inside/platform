@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import { z } from "zod";
 
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { WorkshopPrismaClient } from "../../infrastructure/prisma.js";
 import { resolveCurrentCaseVersionAccess } from "../../shared/current-case-version-access.js";
 import { workshopIdempotencyKeySchema } from "../../shared/workshop-validation.js";
@@ -10,7 +11,6 @@ import type {
   WorkshopRevealDto,
   WorkshopRevealResult,
 } from "../../facets/workshop/workshop.interface.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const commandSchema = z
   .object({

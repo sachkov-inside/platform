@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { VideosPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import {
   newVideoId,
@@ -30,7 +31,6 @@ import {
   type Videos,
   type VideoState,
 } from "./videos.interface.js";
-import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const access = videoAccessSchema;
 const initInput = z.object({
@@ -96,23 +96,27 @@ export function assembleVideos(dependencies: {
         dependencies.projects,
         parsed.data.access,
       );
-      const attempts = await Promise.all([
-        dependencies.prisma.videoUploadAttempt.findFirst({
-          where: {
-            createdBy: parsed.data.actor,
-            idempotencyKey: parsed.data.idempotencyKey,
-            materialId: parsed.data.materialId,
-          },
-        }),
-        dependencies.prisma.videoUploadAttempt.findFirst({
-          where: {
-            createdBy: parsed.data.actor,
-            materialId: parsed.data.materialId,
-            status: { in: ["initializing", "unknown"] },
-          },
-        }),
-      ]).catch((error: unknown) => dependencyFailure({ module: "videos", operation: "initUpload" }, error, null));
-      if (attempts === null) return dependencyUnavailable();
+      let attempts;
+      try {
+        attempts = await Promise.all([
+          dependencies.prisma.videoUploadAttempt.findFirst({
+            where: {
+              createdBy: parsed.data.actor,
+              idempotencyKey: parsed.data.idempotencyKey,
+              materialId: parsed.data.materialId,
+            },
+          }),
+          dependencies.prisma.videoUploadAttempt.findFirst({
+            where: {
+              createdBy: parsed.data.actor,
+              materialId: parsed.data.materialId,
+              status: { in: ["initializing", "unknown"] },
+            },
+          }),
+        ]);
+      } catch (error) {
+        return dependencyFailure({ module: "videos", operation: "initUpload" }, error, dependencyUnavailable());
+      }
       const [existing, unresolved] = attempts;
       if (existing !== null) {
         return replayUploadAttempt(existing, parsed.data, projectId);

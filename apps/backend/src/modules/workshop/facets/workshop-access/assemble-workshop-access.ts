@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 
+import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { WorkshopEntitlementState } from "../workshop-entitlements/workshop-entitlements.interface.js";
 import type {
   WorkshopAccess,
@@ -15,7 +16,6 @@ import type {
   WorkshopResourceFacts,
   WorkshopSubject,
 } from "./workshop-access.interface.js";
-import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const MAX_BATCH_SIZE = 100;
 

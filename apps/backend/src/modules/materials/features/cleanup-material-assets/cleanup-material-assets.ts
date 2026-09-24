@@ -1,8 +1,8 @@
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { PlatformConfig } from "../../../../config/platform-config.js";
 import type { MaterialAssets } from "../../../assets/index.js";
 import type { MaterialContent } from "../../facets/material-content/material-content.js";
 import type { ContentCoverMaintenance } from "../cleanup-content-covers/cleanup-content-covers.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export const MATERIAL_ASSET_MAINTENANCE = Symbol("MATERIAL_ASSET_MAINTENANCE");
 

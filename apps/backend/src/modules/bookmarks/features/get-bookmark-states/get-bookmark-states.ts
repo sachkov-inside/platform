@@ -1,8 +1,8 @@
 import { z } from "zod";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { BookmarksPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { BookmarkState } from "../../domain/bookmark.js";
 import { toBookmarkState } from "../../shared/bookmark-state-mapping.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export const getBookmarkStatesSchema = z.object({ materialIds: z.array(z.uuid()).min(1).max(100) }).strict();
 const querySchema = getBookmarkStatesSchema.extend({ accountId: z.uuid() });

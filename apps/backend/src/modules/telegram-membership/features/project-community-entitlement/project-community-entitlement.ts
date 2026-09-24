@@ -3,6 +3,7 @@ import { z } from "zod";
 
 
 import { contractDigest } from "../../../../infrastructure/contracts/canonical-digest.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
   Prisma,
   type TelegramMembershipPrisma,
@@ -21,7 +22,6 @@ import {
 } from "../../domain/community-entitlement.js";
 import type { TelegramAccountLinks } from "../../facets/telegram-account-links/telegram-account-links.js";
 import { lockCommunityWork } from "../../infrastructure/community-lock.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export interface CommunityProjectionDependencies {
   readonly prisma: TelegramMembershipPrismaClient;

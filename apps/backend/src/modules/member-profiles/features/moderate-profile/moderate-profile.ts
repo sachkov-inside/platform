@@ -1,9 +1,9 @@
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import { parseAccountId } from "../../../accounts/index.js";
 import { parsePublicProfileId } from "../../domain/public-profile-id.js";
 import type { MemberProfilePersistenceClient } from "../../infrastructure/prisma.js";
 import { appendMemberProfileAuditEvent } from "../../shared/profile-audit.js";
 import { internalProfileError } from "../../shared/profile-result.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export type ProfileModerationAction = "disable" | "restore";
 

@@ -1,3 +1,4 @@
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
   COMMUNITY_V2_CONTRACT_VERSION,
   COMMUNITY_MAXIMUM_BODY_BYTES,
@@ -13,7 +14,6 @@ import type {
   CommunityEntitlementProvider,
 } from "../../ports/community-entitlement-provider.js";
 import { communityErrorStatus } from "./community-protocol-status.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 /**
  * Speaks `inside.community-entitlement.v1` to the Telegram provider. It checks both the

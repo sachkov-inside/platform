@@ -21,6 +21,7 @@ import {
   problemDetailsContent,
   toOpenApiSchema,
 } from "../../infrastructure/http/zod-openapi.js";
+import { reportDependencyFailure } from "../../infrastructure/observability/index.js";
 import {
   type LivenessReport,
   OperationalReadiness,
@@ -95,6 +96,7 @@ export class HealthController {
     try {
       return await this.readiness.check("api");
     } catch (cause) {
+      reportDependencyFailure({ module: "runtime", operation: "readiness" }, cause);
       throw new ServiceUnavailableException(
         { code: "dependency_unavailable" },
         { cause },

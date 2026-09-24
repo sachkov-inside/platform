@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { ReadingActivityPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { accountId } from "../../../accounts/index.js";
 import type { ContentAccess } from "../../../content-access/index.js";
@@ -7,7 +8,6 @@ import type { PublishedMaterialReader, PublishedSeriesComposition } from "../../
 import type { Videos } from "../../../videos/index.js";
 import type { ContinueMaterial } from "../get-continue-materials/get-continue-materials.js";
 import { loadMaterialResumes } from "../../shared/load-material-resumes.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export interface SeriesContinuation {
   readonly collection: PublishedMaterialCatalogFacetDto;

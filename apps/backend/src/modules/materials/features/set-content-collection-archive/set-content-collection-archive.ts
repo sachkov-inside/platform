@@ -11,7 +11,6 @@ import type {
   SetContentCollectionArchiveError,
   SetContentCollectionArchiveOperation,
 } from "./set-content-collection-archive.contract.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const commandSchema = z
   .object({
@@ -62,7 +61,8 @@ export function assembleSetContentCollectionArchive(
         const collection = await persistence.load(command.collectionId);
         return collection ?? rollback({ code: "content_collection_not_found" });
       },
-      (error): SetContentCollectionArchiveError => dependencyFailure({ module: "materials", operation: "setContentCollectionArchive" }, error, mapPostgresReadError(error)),
+      (error): SetContentCollectionArchiveError => mapPostgresReadError(error),
+      "setContentCollectionArchive",
     );
   };
 }

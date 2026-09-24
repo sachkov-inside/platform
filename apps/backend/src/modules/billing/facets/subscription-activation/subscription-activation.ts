@@ -1,3 +1,4 @@
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import { lockTelegramAccountBinding } from "../../../../infrastructure/prisma/index.js";
 import type { BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { ownSubscriptionAccessQuerySchema, activationEvidenceSchema, type AccessGrants, type ActivationBindings } from "../../../membership-entitlements/index.js";
@@ -5,7 +6,6 @@ import { lockPricing } from "../../infrastructure/postgres/catalog-lock.js";
 import { tierOpenForAssignment } from "../../shared/tier-composition.js";
 import { bindingLookupQuerySchema, bindingSnapshotSchema } from "../../../membership-entitlements/index.js";
 import type { TelegramAccountLinks } from "../../../telegram-membership/index.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 export class SubscriptionActivation {
   constructor(private readonly dependencies: { prisma: BillingPrismaClient; grants: AccessGrants; bindings: ActivationBindings & Pick<TelegramAccountLinks, "findCurrentByIdentity">; readAdmission: (accountId: string) => Promise<{ admissionRestriction: "none" | "moderation" | "external_unknown" | null; state: "checking" | "no_access" | "moderation_blocked" | "ready" }> }) {}
   /** An observation, not a reservation: evidence and own-access still validate the exact binding. */

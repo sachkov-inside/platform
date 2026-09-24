@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { BookmarksPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { accountId } from "../../../accounts/index.js";
 import type { ContentAccess } from "../../../content-access/index.js";
 import { materialId } from "../../../materials/index.js";
 import type { AddBookmarkCommand, AddBookmarkResult } from "./add-bookmark.contract.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const commandSchema = z.object({ accountId: z.uuid(), materialId: z.uuid() }).strict();
 

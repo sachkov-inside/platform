@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 
 import { accountId } from "../../../accounts/index.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import { lockMaterialReferenceChanges } from "../../../../infrastructure/prisma/index.js";
 import type { WorkshopPrismaClient } from "../../infrastructure/prisma.js";
 import type { SourceArchives, StoredSourceArchive } from "../../ports/source-archives.js";
@@ -18,7 +19,6 @@ import type {
   PublishedWorkshopCaseDto,
   PublishWorkshopCaseResult,
 } from "../../facets/workshop/workshop.interface.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const releasePolicySchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("immediate") }).strict(),

@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { PLATFORM_CONFIG, type PlatformConfig } from '../config/platform-config.js';
-import { StructuredNestLogger, generateRequestId, reportProcessFailure, runWithLogContext } from '../infrastructure/observability/index.js';
+import { StructuredNestLogger, generateRequestId, reportProcessFailure, runWithLogContext, writeLog } from '../infrastructure/observability/index.js';
 import { OperationalReadiness } from '../infrastructure/operational-readiness.js';
 import { PrismaClientProvider } from '../infrastructure/prisma/index.js';
 import { runWorker } from '../infrastructure/worker-runtime.js';
@@ -28,7 +28,7 @@ async function bootstrap() {
       { process: 'notifications-worker', queue: 'notifications.inbox', requestId: generateRequestId() },
       () => notifications.sweep(sendEmail),
     ),
-    report: event => console.info(JSON.stringify({ process: 'notifications-worker', ...event })),
+    report: event => writeLog(event.status === 'operator_attention' ? 'warn' : 'info', 'notification_transport', { process: 'notifications-worker', ...event }),
   });
   await runWorker({ application, databaseUrl: config.database.url, jobs: worker, failed: worker.failed,
     process: 'notifications-worker', readiness: application.get(OperationalReadiness), registerJobs: () => Promise.resolve(),

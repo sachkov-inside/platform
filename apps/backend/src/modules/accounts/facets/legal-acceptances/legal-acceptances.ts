@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 
 import { z } from "zod";
 
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { AccountsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { acquireAccountLocks } from "../../infrastructure/postgres/advisory-locks.js";
 import {
@@ -17,7 +18,6 @@ import {
   type TermsAcceptanceCheck,
   type TermsDocument,
 } from "./legal-acceptances.contract.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export interface LegalAcceptancesDependencies {
   readonly prisma: AccountsPrismaClient;

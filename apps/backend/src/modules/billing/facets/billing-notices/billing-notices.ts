@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { NotificationSource } from "../../../notifications/index.js";
 import {
@@ -9,7 +10,6 @@ import {
 import { lockSubscription } from "../../infrastructure/postgres/catalog-lock.js";
 import { recordBillingNotice } from "../../shared/record-notice.js";
 import { paymentFailure, type PaymentResult } from "../../features/purchase-subscription/purchase-subscription.contract.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 type NoticeRow = Awaited<ReturnType<BillingPrismaClient["billingNotice"]["findUniqueOrThrow"]>>;
 type SubscriptionRow = Awaited<ReturnType<BillingPrismaClient["billingSubscription"]["findUniqueOrThrow"]>>;

@@ -2,7 +2,7 @@ import "reflect-metadata";
 import { NestFactory } from "@nestjs/core";
 import { PgBoss } from "pg-boss";
 import { PLATFORM_CONFIG, type PlatformConfig } from "../config/platform-config.js";
-import { StructuredNestLogger, observeJob, reportProcessFailure, reportQueueFailure } from "../infrastructure/observability/index.js";
+import { StructuredNestLogger, observeJob, reportProcessFailure, reportQueueFailure, writeLog } from "../infrastructure/observability/index.js";
 import { OperationalReadiness } from "../infrastructure/operational-readiness.js";
 import { runWorker } from "../infrastructure/worker-runtime.js";
 import { TributeConvergence, BillingNotices, BillingOperations, BillingPayments, BillingPricing, BillingSubscriptions } from "../modules/billing/index.js";
@@ -75,7 +75,7 @@ async function bootstrap(): Promise<void> {
       await jobs.send(tributeQueue, {}, { singletonSeconds: jobIntervalSeconds });
       await jobs.work(tributeQueue, observeJob("billing-worker", tributeQueue, async () => {
         const report = await tribute.sweep(50);
-        if (report.pending > 0) console.warn(JSON.stringify({ process: "billing-worker", queue: tributeQueue, status: "operator_attention", pending: report.pending }));
+        if (report.pending > 0) writeLog("warn", "queue_attention", { status: "operator_attention", pending: report.pending });
       }));
       if (!config.communityEntitlements) return;
       await jobs.createQueue(communityQueue, { deleteAfterSeconds: jobRetentionSeconds, expireInSeconds: jobTimeoutSeconds, retryLimit: 0 });
@@ -85,7 +85,7 @@ async function bootstrap(): Promise<void> {
         const report = await community.sweep(communityBatchSize);
         if (report.backlog.overdue > 0 || report.backlog.rejected > 0 || report.failed > 0) {
           // Overdue or refused community work is operator attention, not a silent retry.
-          console.warn(JSON.stringify({ process: "billing-worker", queue: communityQueue, status: "operator_attention", ...report }));
+          writeLog("warn", "queue_attention", { status: "operator_attention", ...report });
         }
         return report;
       }));

@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import { materialFormatPresentation } from "../../domain/material-format.js";
 
 import type { MaterialAuthoringDependencies } from "../../facets/material-authoring/material-authoring.dependencies.js";
@@ -11,7 +12,6 @@ import type {
   AuthoringMaterialListItemDto,
   ListMaterialsOperation,
 } from "./list-materials.contract.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const publicationStateSchema = z.enum(["draft", "published", "unpublished"]);
 const querySchema = z

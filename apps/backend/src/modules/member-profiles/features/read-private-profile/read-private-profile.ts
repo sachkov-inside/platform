@@ -1,3 +1,4 @@
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { AccountId } from "../../../accounts/index.js";
 import type {
   MemberProfileResult,
@@ -10,7 +11,6 @@ import {
   profileFailure,
 } from "../../shared/profile-result.js";
 import { privateProfileProjection } from "../../shared/profile-projection.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export async function readPrivateProfile(
   prisma: MemberProfilePersistence,

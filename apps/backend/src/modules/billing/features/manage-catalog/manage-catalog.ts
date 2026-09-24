@@ -1,12 +1,12 @@
 import { isEmptyContentScope, isGuideCapability } from "@inside/access-capabilities";
 import type { SaleCapability } from "../../domain/sale-capability.js";
 import type { Accounts } from "../../../accounts/index.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import { Prisma, type BillingPrisma, type BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { failure, idSchema, type PricingResult } from "../../domain/pricing.js";
 import { lockPricing } from "../../infrastructure/postgres/catalog-lock.js";
 import { offerGrantsWithheld, productOfferUnsellable, productSupportTermMismatch, tierLacksComposition } from "../../shared/tier-composition.js";
 import { catalogOutcomeSchema, manageCatalogSchema, type ManageCatalogCommand } from "./manage-catalog.contract.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 type Outcome = { id: string; revision: number; archived: boolean; published?: boolean | undefined };
 type ManageCatalogResult = PricingResult<Outcome,

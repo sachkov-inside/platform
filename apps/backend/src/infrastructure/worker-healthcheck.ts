@@ -9,6 +9,7 @@ import { z } from "zod";
 
 import { parsePlatformDatabaseConfig } from "../config/platform-config.js";
 import { platformMigrations } from "../migrations/index.js";
+import { describeError, writeLog } from "./observability/index.js";
 import { runtimeSchemaReadiness } from "./operational-readiness.js";
 import { verifyMigrationState } from "./postgres/migrate-to-latest.js";
 import { parseRuntimeIdentity, type RuntimeIdentity } from "./runtime-identity.js";
@@ -71,7 +72,7 @@ if (
   import.meta.url === pathToFileURL(process.argv[1]).href
 ) {
   void main().catch((error: unknown) => {
-    console.error(error);
+    writeLog("error", "healthcheck_failed", { error: describeError(error) });
     process.exitCode = 1;
   });
 }

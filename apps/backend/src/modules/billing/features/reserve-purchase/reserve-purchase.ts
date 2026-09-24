@@ -1,9 +1,9 @@
 import { z } from "zod";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { BillingPrisma, BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { failure, idSchema, moneySchema, paymentMode, priceSnapshotSchema, type PriceSnapshot, type PricingResult } from "../../domain/pricing.js";
 import { lockPricing } from "../../infrastructure/postgres/catalog-lock.js";
 import { selectPrice } from "../../shared/select-price.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const reserveSchema = z.strictObject({
   accountId: idSchema, purchaseRef: idSchema, quoteRef: idSchema,

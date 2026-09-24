@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { MaterialAuthoringDependencies } from "../../facets/material-authoring/material-authoring.dependencies.js";
 import { authorizeManager } from "../../ports/author-policy.js";
 import { failure } from "../../shared/application-result.js";
@@ -11,7 +12,6 @@ import {
 } from "../../shared/postgres-error-mapping.js";
 import { contentCollectionPersistence } from "../../infrastructure/postgres/content-collection-persistence.js";
 import type { CreateContentCollectionOperation } from "./create-content-collection.contract.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export const contentCollectionInputSchema = z
   .object({

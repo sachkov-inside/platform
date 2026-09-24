@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { TelegramMembershipPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { Accounts } from "../../../accounts/index.js";
 import type { AccessGrants } from "../../../membership-entitlements/index.js";
@@ -34,7 +35,6 @@ import {
 } from "../../features/project-community-entitlement/project-community-entitlement.js";
 import type { CommunityEntitlementProvider } from "../../ports/community-entitlement-provider.js";
 import type { TelegramAccountLinks } from "../telegram-account-links/telegram-account-links.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export interface CommunityEntitlementsDependencies {
   readonly prisma: TelegramMembershipPrismaClient;

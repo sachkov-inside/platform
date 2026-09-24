@@ -27,7 +27,7 @@ export function assembleNotificationWorker(input: {
     const source = lane === 'billing' ? input.billing : lane === 'materials' ? input.materials : input.transport.outbox;
     while (!abort.signal.aborted) {
       try { await source.relay(lane, envelope => publishNotification(connection, envelope)); }
-      catch { input.report({ status: 'operator_attention', reason: 'publish_not_confirmed', lane }); }
+      catch (error) { input.report({ status: 'operator_attention', reason: 'publish_not_confirmed', lane, error: loggableFailure(error) }); }
       await delay(RELAY_SWEEP_MS, undefined, { signal: abort.signal }).catch(() => undefined);
     }
   }

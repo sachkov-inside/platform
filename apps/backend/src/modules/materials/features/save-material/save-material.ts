@@ -452,6 +452,7 @@ export function assembleSaveMaterial(
           },
         ),
       (unexpected) => mapPostgresError(unexpected, materializedMetadata),
+      "saveMaterial",
     );
     return result.ok ? { ok: true, value: result.value.receipt } : result;
   };

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { BillingPrisma, BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { BillingContact } from "../../../accounts/index.js";
 import type { AccessGrants } from "../../../membership-entitlements/index.js";
@@ -24,7 +25,6 @@ import { commandFingerprint } from "../../shared/command-fingerprint.js";
 import { acceptRecurringConsent } from "../../shared/recurring-consent.js";
 import { advanceSubscription, inFlightStates } from "../../shared/subscription-outcome.js";
 import type { BillingPayments } from "../billing-payments/billing-payments.js";
-import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const changeQuoteLifetimeMs = 15 * 60 * 1_000;
 const changeReceiptSchema = z.strictObject({ subscription: subscriptionViewSchema, attemptRef: z.uuid().nullable() });

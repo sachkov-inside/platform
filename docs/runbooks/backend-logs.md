@@ -16,18 +16,24 @@
 
 События:
 
-- `dependency_failure` — сбой зависимости в Module: `module`, `operation`, `outcome` (код ответа
-  вызывающему), `correlationId` для ответа `internal_error`, `error`;
+- `dependency_failure` — сбой зависимости в Module: `module`, `operation`, `error`; если ответ
+  вызывающему несёт код ошибки — `outcome` с этим кодом и `correlationId` для `internal_error`;
+- `request_failed` — MCP не смог обработать запрос;
 - `request_completed` — завершение HTTP-запроса `api`: `statusCode`, `durationMs`. Успешные проверки
   здоровья не пишутся;
 - `job_failed` — задание воркера завершилось ошибкой, очередь учтёт её как прежде;
+- `queue_attention` — у очереди `billing-worker` есть несопоставленная или просроченная работа;
+- `notification_transport` — наблюдение транспорта уведомлений, с `status` и `reason`;
+- `worker_ready`, `worker_draining`, `worker_stopped`, `process_ready` — жизненный цикл процесса;
 - `queue_unavailable` — `pg-boss` потерял базу или свою схему;
-- `process_failed` — процесс не запустился или остановился с ошибкой и выходит с кодом 1;
+- `process_failed` — процесс не запустился или остановился с ошибкой и выходит с кодом 1
+  (соединение, оставшееся после отказа, держит процесс не дольше пяти секунд);
 - `worker_stop_failed` — сбой шага остановки воркера после основной причины;
 - `nest` — сообщения Nest, в том числе необработанное исключение запроса.
 
-Строки `process_failed`, `queue_unavailable` и `worker_stop_failed` несут
-`"status":"operator_attention"`, как и прежние сигналы воркеров.
+Строки `process_failed`, `queue_unavailable`, `queue_attention`, `worker_stop_failed` и
+тревожные `notification_transport` несут `"status":"operator_attention"`, как и прежние сигналы
+воркеров, поэтому прежние `grep` по этому статусу их находят.
 
 ## Найти запрос
 

@@ -2,6 +2,7 @@ import { videoChaptersSchema } from "../../domain/video-chapters.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { ContentAccess } from "../../../content-access/index.js";
 import type { MaterialAssets } from "../../../assets/index.js";
@@ -17,7 +18,6 @@ import type {
 } from "./read-published-material.contract.js";
 import { hydrateMaterialAssets } from "../../domain/material-body/hydrate-material-assets.js";
 import type { Videos } from "../../../videos/index.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const querySchema = z
   .object({

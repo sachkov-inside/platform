@@ -18,7 +18,7 @@ import {
 
 import type { McpConfig } from "../../config/mcp-config.js";
 import { PRIVATE_NO_STORE_HEADERS } from "../../infrastructure/http/http-cache-policy.js";
-import { generateRequestId, runWithLogContext } from "../../infrastructure/observability/index.js";
+import { generateRequestId, reportDependencyFailure, runWithLogContext } from "../../infrastructure/observability/index.js";
 import type { OperationalReadiness } from "../../infrastructure/operational-readiness.js";
 import {
   assembleDelegatedAccountTokenVerifier,
@@ -148,7 +148,8 @@ async function healthResponse(
     return Response.json(await report(), {
       headers: PRIVATE_NO_STORE_HEADERS,
     });
-  } catch {
+  } catch (error) {
+    reportDependencyFailure({ module: "runtime", operation: "readiness" }, error);
     return Response.json(
       { code: "dependency_unavailable", status: 503 },
       {

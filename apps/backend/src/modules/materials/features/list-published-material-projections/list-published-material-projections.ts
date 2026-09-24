@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { MaterialsPrisma } from "../../../../infrastructure/prisma/index.js";
 import { selectPublishedMaterialProjectionPage } from "../../infrastructure/postgres/published-material-reader/published-material-projection.js";
 import { normalizedUuidSchema } from "../../domain/uuid.js";
@@ -9,7 +10,6 @@ import type {
   PublishedMaterialProjectionSort,
   PublishedMaterialProjectionListResult,
 } from "./list-published-material-projections.contract.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const facetSlugSchema = z
   .string()

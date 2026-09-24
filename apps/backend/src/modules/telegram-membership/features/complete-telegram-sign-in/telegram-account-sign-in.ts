@@ -1,5 +1,6 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { z } from "zod";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
   Prisma,
   type TelegramMembershipPrismaClient,
@@ -11,7 +12,6 @@ import {
   type VerifiedAccountSignIn,
 } from "../../../accounts/index.js";
 import type { MembershipEntitlements } from "../../../membership-entitlements/index.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export interface TelegramSignInProvider {
   bindAccount(

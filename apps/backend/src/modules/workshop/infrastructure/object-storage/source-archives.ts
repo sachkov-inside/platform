@@ -3,12 +3,12 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 
 import type { ObjectStorage } from "../../../../infrastructure/object-storage/index.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type {
   SourceArchives,
   StoreSourceArchiveResult,
   StoredSourceArchive,
 } from "../../ports/source-archives.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const MAX_SOURCE_ARCHIVE_BYTES = 50 * 1024 * 1024;
 const inputSchema = z

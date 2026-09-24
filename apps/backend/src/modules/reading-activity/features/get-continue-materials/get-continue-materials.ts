@@ -1,12 +1,12 @@
 import { loadMaterialResumes } from "../../shared/load-material-resumes.js";
 import { z } from "zod";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { ReadingActivityPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { accountId } from "../../../accounts/index.js";
 import type { ContentAccess } from "../../../content-access/index.js";
 import { readAvailableMaterials, type PublishedMaterialCatalogItemDto } from "../../../content-library/index.js";
 import type { PublishedMaterialSelection } from "../../../materials/index.js";
 import type { Videos } from "../../../videos/index.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 const MAX_RECENT_VISITS = 500;
 const MATERIAL_BATCH_SIZE = 100;
 const CONTINUE_LIMIT = 6;

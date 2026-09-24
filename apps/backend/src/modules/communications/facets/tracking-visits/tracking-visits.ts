@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { HttpCommunicationsProvider } from "../../infrastructure/http-communications-provider.js";
 import type { CommunicationsPrisma } from "../../infrastructure/prisma.js";
-import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export const trackingInputSchema = z.strictObject({
   token: z.string().regex(/^[A-Za-z0-9_-]{32,128}$/u),

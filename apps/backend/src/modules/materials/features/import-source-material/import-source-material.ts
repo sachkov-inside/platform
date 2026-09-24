@@ -1,3 +1,4 @@
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import { MaterialMetadataSelection } from "../../domain/material-metadata.js";
 import { validateSourceBodySchema, type ValidateSourceOperation } from "./import-source-material.contract.js";
 import { createHash } from "node:crypto";
@@ -9,7 +10,6 @@ import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
 import { assembleCreateDraft } from "../create-draft/create-draft.js";
 import { assembleSaveMaterial } from "../save-material/save-material.js";
 import { reserveSourceBodySchema, applySourceBodySchema, type ApplySourceOperation, type ReserveSourceOperation } from "./import-source-material.contract.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const reserveCommand = reserveSourceBodySchema.extend({ actor: accountId });
 const applyCommand = applySourceBodySchema.extend({ actor: accountId, idempotencyKey: idempotencyKeySchema });

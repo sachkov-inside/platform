@@ -1,3 +1,4 @@
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { AccountsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { newAccountId, parseAccountId } from "../../domain/account-identifiers.js";
 import type {
@@ -9,7 +10,6 @@ import { appendAccountAuditEvent } from "../../infrastructure/postgres/account-a
 import { fingerprintEmail, validLogtoIdentity } from "../../shared/account-input.js";
 import { establishTelegramAccount } from "../establish-telegram-account/establish-telegram-account.js";
 import { internalFailure } from "../../shared/internal-failure.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export async function establishAccount(
   prisma: AccountsPrismaClient,

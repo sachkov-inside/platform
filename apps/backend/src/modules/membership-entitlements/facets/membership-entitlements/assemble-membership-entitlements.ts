@@ -1,3 +1,4 @@
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { ActivationBindings } from "../../domain/subscription-activation.js";
 import type { MembershipEntitlementsPrismaClient } from "../../infrastructure/prisma.js";
 import { acceptMembershipEvidence } from "../../features/accept-evidence/accept-evidence.js";
@@ -12,7 +13,6 @@ import type {
 } from "./membership-entitlements.interface.js";
 import type { AccountId } from "../../../accounts/index.js";
 import type { WorkshopEntitlements } from "../../../workshop/index.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export interface MembershipEntitlementsDependencies {
   readonly prisma: MembershipEntitlementsPrismaClient;

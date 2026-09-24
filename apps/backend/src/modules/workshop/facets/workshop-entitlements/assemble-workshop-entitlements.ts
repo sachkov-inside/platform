@@ -1,3 +1,4 @@
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { AccountId } from "../../../accounts/index.js";
 import { applyAcceptedMembershipEvidence } from "../../features/apply-membership-entitlement/apply-membership-entitlement.js";
 import { resolveWorkshopEntitlement } from "../../features/resolve-workshop-entitlement/resolve-workshop-entitlement.js";
@@ -8,7 +9,6 @@ import type {
   WorkshopEntitlementState,
   WorkshopEntitlementTransaction,
 } from "./workshop-entitlements.interface.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export interface WorkshopEntitlementsDependencies {
   readonly prisma: WorkshopEntitlementsPrisma;

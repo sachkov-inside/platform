@@ -1,9 +1,9 @@
 import type { ObjectStorage } from "../../../../infrastructure/object-storage/index.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { AccountId } from "../../../accounts/index.js";
 import { parseProfileAvatarId } from "../../domain/profile-avatar-id.js";
 import type { DeliverProfileAvatarResult } from "../../facets/member-profiles/member-profiles.interface.js";
 import type { MemberProfilePersistenceClient } from "../../infrastructure/prisma.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 /**
  * A Profile is seen only by its owner (owner decision 15.09.2026, Workspace #185), so the avatar

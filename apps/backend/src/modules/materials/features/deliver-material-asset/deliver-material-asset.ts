@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import type { ObjectStorage } from "../../../../infrastructure/object-storage/index.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { Subject, ContentAccess } from "../../../content-access/index.js";
 import type { MaterialAssets } from "../../../assets/index.js";
 import { materialId as checkedMaterialId } from "../../domain/material-identifiers.js";
@@ -10,7 +11,6 @@ import {
   signedDeliveryTtlSeconds,
 } from "../../shared/protected-delivery.js";
 import type { MaterialContent } from "../../facets/material-content/material-content.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export const MATERIAL_ASSET_DELIVERY = Symbol("MATERIAL_ASSET_DELIVERY");
 

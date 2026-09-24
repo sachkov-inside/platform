@@ -1,11 +1,11 @@
 import { z } from "zod";
 
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
   ProviderUploadAuthorizationError,
   type ProviderVideo,
   type VideoProvider,
 } from "../../ports/video-provider.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const initResponseSchema = z.object({
   data: z.object({

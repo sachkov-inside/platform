@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
+import { reportDependencyFailure } from "../../../infrastructure/observability/index.js";
 import type { ContentAccess, Subject } from "../../content-access/index.js";
 import type { PublishedMaterialCatalogItemDto } from "../../content-library/index.js";
 import type { Videos } from "../../videos/index.js";
 import type { ContinueMaterial } from "../features/get-continue-materials/get-continue-materials.js";
-import { reportDependencyFailure } from "../../../infrastructure/observability/index.js";
 
 /** A missing or unavailable Videos dependency never invents a playback position. */
 export async function loadMaterialResumes(dependencies: {

@@ -6,11 +6,11 @@ export async function swallowFailure(read: () => Promise<string>): Promise<strin
   }
 }
 
-export async function ignoreFailure(read: () => Promise<string>): Promise<string | undefined> {
+export async function dropFailure(read: () => Promise<string>): Promise<string> {
   try {
     return await read();
   } catch (error) {
-    return undefined;
+    return error instanceof Error ? "failed" : "unknown";
   }
 }
 
@@ -20,6 +20,16 @@ export function explainedRejection(text: string): unknown {
   } catch {
     // Not a dependency failure: malformed client input is answered as invalid.
     return undefined;
+  }
+}
+
+export function lateExplanation(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    const fallback = undefined;
+    // Not a dependency failure: a marker below the first statement explains nothing.
+    return fallback;
   }
 }
 

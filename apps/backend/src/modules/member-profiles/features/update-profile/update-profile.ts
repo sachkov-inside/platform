@@ -1,3 +1,4 @@
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type {
   MemberProfileResult,
   PrivateMemberProfile,
@@ -13,7 +14,6 @@ import {
   internalProfileError,
   profileFailure,
 } from "../../shared/profile-result.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export async function updateProfile(
   prisma: MemberProfilePersistenceClient,

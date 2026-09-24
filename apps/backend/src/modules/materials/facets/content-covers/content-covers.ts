@@ -5,6 +5,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 
 import type { ObjectStorage } from "../../../../infrastructure/object-storage/index.js";
+import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
   lockContentCoverOwner,
   type MaterialsPrismaClient,
@@ -13,7 +14,6 @@ import {
 import { processMaterialAssetBytes } from "../../../assets/index.js";
 import type { AuthorPolicy } from "../../ports/author-policy.js";
 import { authorizeManager } from "../../ports/author-policy.js";
-import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export const contentCoverOwnerKindSchema = z.enum([
   "material",

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { ReadingActivityPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { accountId } from "../../../accounts/index.js";
 import type { ContentAccess } from "../../../content-access/index.js";
@@ -8,7 +9,6 @@ import { readingOutcomeSchema } from "../../domain/reading-state.js";
 import { toReadingState } from "../../shared/reading-state-mapping.js";
 import { lockReadingCommand, lockReadingPair } from "./reading-locks.js";
 import { setReadingStateSchema, type SetReadingStateCommand, type SetReadingStateResult } from "./set-reading-state.contract.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const commandSchema = setReadingStateSchema.extend({ accountId: z.uuid(), materialId: z.uuid() });
 

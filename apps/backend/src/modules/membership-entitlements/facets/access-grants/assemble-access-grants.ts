@@ -1,6 +1,7 @@
 import { tributeStateSchema } from "../../domain/tribute-source.js";
 import type { TelegramAccountLinks } from "../../../telegram-membership/index.js";
 import { contentScopeSchema, guideCapability } from "@inside/access-capabilities";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import { Prisma } from "../../../../infrastructure/prisma/index.js";
 import type { ContentScopeCatalog } from "../../../materials/index.js";
 import { enrollmentView, enrollmentBenefitTerms, enrollmentSourceState } from "../../shared/enrollment-view.js";
@@ -48,7 +49,6 @@ import {
   type ListAccessGrantsCommand,
 } from "../../features/list-access-grants/list-access-grants.js";
 import { readOwnAccess } from "../../features/read-own-access/read-own-access.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export interface AccessGrantsDependencies {
   readonly prisma: MembershipEntitlementsPrismaClient;

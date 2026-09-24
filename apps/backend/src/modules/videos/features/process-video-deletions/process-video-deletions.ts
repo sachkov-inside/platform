@@ -1,3 +1,4 @@
+import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
   lockMaterialReferenceChanges,
   type VideosPrisma,
@@ -8,7 +9,6 @@ import {
   type VideoOrigin,
 } from "../../facets/videos/videos.interface.js";
 import type { VideoProvider } from "../../ports/video-provider.js";
-import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const VIDEO_DELETION_RETRY_ATTEMPT_LIMIT = 5;
 const VIDEO_DELETION_CLAIM_TIMEOUT_MILLISECONDS = 300_000;

@@ -105,17 +105,23 @@ not dependency wiring.
 - A Module turns a failed dependency into a variant of its result union and records the cause
   through `src/infrastructure/observability`: `return dependencyFailure(scope, error, variant)`,
   or `reportDependencyFailure(scope, error)` where the operation carries on. The scope names the
-  Module and the operation; the record adds the unit of work (`requestId`) and the answer's code.
+  Module and the operation the caller invoked, not a shared helper; the record adds the unit of
+  work (`requestId`) and, when the variant carries an error `code`, that code and its
+  `correlationId`.
 - A race resolved by an idempotency replay or an existing row is an answer, not a failure: record
   the original error only on the branch that still answers with a dependency failure.
 - A `catch` that rejects foreign input rather than a dependency explains itself on its first line
   with `// Not a dependency failure: <reason>`. Prefer a non-throwing parser such as `URL.parse`
-  when one exists. `scripts/check-backend-architecture.mjs` enforces both rules for `catch` clauses
-  and promise `.catch` handlers in `src/modules`.
-- Log only through `writeLog` and pass errors through `describeError`: it keeps the type, code,
-  stack frames and causes, drops the text of Prisma, driver and parser errors that restate the
-  query or input, and redacts credentials, tokens and personal data from the rest. Never log a
-  request body, headers, a full URL or a raw error.
+  when one exists. `scripts/check-backend-architecture.mjs` rejects a `catch` clause or promise
+  `.catch` handler in `src/modules` that drops what it caught: it must call a reporter
+  (`dependencyFailure`, `reportDependencyFailure`, `describeError`, or the notification channel's
+  `loggableFailure`), wrap it as the cause of another error, rethrow, or carry that marker. The
+  check cannot tell a race from a failure; review keeps the replay rule above.
+- Backend processes (`api`, `mcp` and the workers) log only through `writeLog` and pass errors
+  through `describeError`: it keeps the type, code, stack frames and causes, drops the text of
+  Prisma, driver and parser errors that restate the query or input, and redacts credentials,
+  tokens and personal data from the rest. Never log a request body, headers, a full URL or a raw
+  error. One-off scripts under `src/development` and `src/release` print to their operator.
 
 ## Tests against real infrastructure
 

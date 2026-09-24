@@ -82,7 +82,7 @@ async function markWorkerReady(
     encoding: "utf8",
     mode: 0o600,
   });
-  console.info(JSON.stringify(report));
+  writeLog("info", "worker_ready", { ...report });
 }
 
 async function markWorkerDraining(
@@ -90,12 +90,12 @@ async function markWorkerDraining(
   report: ReadinessReport,
 ): Promise<void> {
   await removeWorkerReadiness();
-  console.info(JSON.stringify({
+  writeLog("info", "worker_draining", {
     process,
     release: report.release,
     schema: report.schema,
     status: "draining",
-  }));
+  });
 }
 
 async function markWorkerStopped(
@@ -103,11 +103,11 @@ async function markWorkerStopped(
   report: ReadinessReport | undefined,
 ): Promise<void> {
   await removeWorkerReadiness();
-  console.info(JSON.stringify({
+  writeLog("info", "worker_stopped", {
     process,
     ...(report === undefined ? {} : { release: report.release }),
     status: "stopped",
-  }));
+  });
 }
 
 async function removeWorkerReadiness(): Promise<void> {

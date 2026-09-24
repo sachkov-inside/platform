@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { MaterialAuthoringDependencies } from "../../facets/material-authoring/material-authoring.dependencies.js";
 import { loadSeriesOrderSnapshot } from "../../infrastructure/postgres/series-order.js";
 import { authorizeManager } from "../../ports/author-policy.js";
@@ -8,7 +9,6 @@ import { accountId, entityId, parseCommand } from "../../shared/command-validati
 import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
 import { guideOrderVersion } from "../../shared/guide-order-version.js";
 import type { LoadSeriesOrderOperation } from "./load-series-order.contract.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const querySchema = z
   .object({ actor: accountId, seriesId: entityId })

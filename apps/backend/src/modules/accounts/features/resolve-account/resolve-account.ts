@@ -1,3 +1,4 @@
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { AccountsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { parseAccountId } from "../../domain/account-identifiers.js";
 import type {
@@ -6,7 +7,6 @@ import type {
 } from "../../facets/accounts/accounts.interface.js";
 import { validLogtoIdentity } from "../../shared/account-input.js";
 import { internalFailure } from "../../shared/internal-failure.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export async function resolveAccount(
   prisma: AccountsPrismaClient,

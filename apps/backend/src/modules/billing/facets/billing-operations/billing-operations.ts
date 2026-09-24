@@ -3,6 +3,7 @@ import { z } from "zod";
 import { benefitPeriodsSchema } from "../../domain/pricing.js";
 import { lockPricing } from "../../infrastructure/postgres/catalog-lock.js";
 import { courseSourceRef, tierSnapshotSchema } from "../../../membership-entitlements/index.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { Accounts } from "../../../accounts/index.js";
 import { recurringAllowedFor, type AccessGrants } from "../../../membership-entitlements/index.js";
@@ -20,7 +21,6 @@ import type { Tbank } from "../../infrastructure/tbank/tbank.js";
 import type { BillingPayments } from "../billing-payments/billing-payments.js";
 import type { BillingPricing } from "../billing-pricing/billing-pricing.js";
 import type { BillingSubscriptions } from "../billing-subscriptions/billing-subscriptions.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 interface Dependencies {
   readonly tribute?: TributeConvergence;

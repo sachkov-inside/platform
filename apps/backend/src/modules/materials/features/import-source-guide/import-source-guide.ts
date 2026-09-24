@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { MaterialAuthoringDependencies } from "../../facets/material-authoring/material-authoring.dependencies.js";
 import { contentCollectionPersistence } from "../../infrastructure/postgres/content-collection-persistence.js";
 import { authorizeManager } from "../../ports/author-policy.js";
@@ -7,7 +8,6 @@ import { isPostgresUniqueViolation, mapPostgresReadError } from "../../shared/po
 import { assembleReorderSeries } from "../reorder-series/reorder-series.js";
 import { assembleUpdateContentCollection } from "../update-content-collection/update-content-collection.js";
 import { reserveSourceGuideBodySchema, reorderSourceGuideBodySchema, updateSourceGuideBodySchema, validateSourceGuideBodySchema, type ReserveSourceGuideOperation, type ReorderSourceGuideOperation, type UpdateSourceGuideOperation, type ValidateSourceGuideOperation } from "./import-source-guide.contract.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export function assembleReserveSourceGuide(dependencies: MaterialAuthoringDependencies): ReserveSourceGuideOperation {
   return async (input) => {

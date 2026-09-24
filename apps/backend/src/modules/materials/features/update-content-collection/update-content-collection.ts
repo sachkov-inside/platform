@@ -30,7 +30,6 @@ import type {
   UpdateContentCollectionError,
   UpdateContentCollectionOperation,
 } from "./update-content-collection.contract.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const introductionField = z.string().trim().max(GUIDE_INTRODUCTION_FIELD_MAX);
 
@@ -141,7 +140,8 @@ export function assembleUpdateContentCollection(
           contentCollectionPersistence(dependencies.prisma, command.kind).slugConstraint,
         )
           ? { code: "content_collection_slug_conflict" }
-          : dependencyFailure({ module: "materials", operation: "updateContentCollection" }, error, mapPostgresReadError(error)),
+          : mapPostgresReadError(error),
+      "updateContentCollection",
     );
   };
 }

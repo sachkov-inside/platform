@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import type { ObjectStorage } from "../../../../infrastructure/object-storage/index.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { ContentAccess, Subject } from "../../../content-access/index.js";
 import {
   attachmentDisposition,
@@ -11,7 +12,6 @@ import type {
   GuideArtifacts,
   ReaderGuideArtifact,
 } from "../../facets/guide-artifacts/guide-artifacts.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export const GUIDE_ARTIFACT_DELIVERY = Symbol("GUIDE_ARTIFACT_DELIVERY");
 

@@ -1,7 +1,7 @@
 import { z } from "zod";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { ReadingActivityPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { PublishedSeriesComposition, PublishedSeriesCompositionResult } from "../../../materials/index.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const querySchema = z.object({ accountId: z.uuid(), seriesId: z.uuid() }).strict();
 export const seriesProgressSchema = z.object({

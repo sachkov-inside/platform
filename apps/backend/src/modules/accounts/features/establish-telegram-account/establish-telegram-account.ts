@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { AccountsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { newAccountId } from "../../domain/account-identifiers.js";
 import type { EstablishAccountResult } from "../../facets/accounts/accounts.interface.js";
@@ -7,7 +8,6 @@ import { acquireAccountLocks } from "../../infrastructure/postgres/advisory-lock
 import { appendAccountAuditEvent } from "../../infrastructure/postgres/account-audit.js";
 import { validLogtoIdentity } from "../../shared/account-input.js";
 import { internalFailure } from "../../shared/internal-failure.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export async function establishTelegramAccount(
   prisma: AccountsPrismaClient,

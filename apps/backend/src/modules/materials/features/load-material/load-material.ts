@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type {
   LoadMaterialError,
   LoadMaterialOperation,
@@ -14,7 +15,6 @@ import {
   parseCommand,
 } from "../../shared/command-validation.js";
 import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const loadMaterialQuery = z
   .object({ actor: accountId, materialId: materialIdSchema })

@@ -31,6 +31,6 @@ export function assembleSetHomePin(dependencies: MaterialAuthoringDependencies):
       });
       if (updated.count === 0) return rollback({ code: "stale_home_pin" });
       return { seriesId: command.seriesId, version: command.expectedVersion + 1 };
-    }, mapPostgresReadError);
+    }, mapPostgresReadError, "setHomePin");
   };
 }

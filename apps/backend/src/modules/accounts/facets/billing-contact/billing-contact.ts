@@ -1,6 +1,7 @@
 import { createHash, randomInt, randomUUID } from "node:crypto";
 import { paymentModes } from "@inside/legal";
 import { z } from "zod";
+import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { AccountsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { acquireAccountLocks } from "../../infrastructure/postgres/advisory-locks.js";
 import type { billingContactProtection } from "../../infrastructure/billing-contact-protection.js";
@@ -21,7 +22,6 @@ import {
   type ReadContactResult,
   type StartContactResult,
 } from "./billing-contact.contract.js";
-import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const challengeLifetimeMs = 10 * 60 * 1_000;
 const resendCooldownMs = 60 * 1_000;

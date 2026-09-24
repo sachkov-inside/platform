@@ -1,7 +1,7 @@
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { WorkshopPrisma } from "../../infrastructure/prisma.js";
 import type { LoadWorkshopCaseResult } from "../../facets/workshop/workshop.interface.js";
 import { workshopCaseSlugSchema } from "../../shared/workshop-validation.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export async function loadCurrentWorkshopCase(
   prisma: WorkshopPrisma,

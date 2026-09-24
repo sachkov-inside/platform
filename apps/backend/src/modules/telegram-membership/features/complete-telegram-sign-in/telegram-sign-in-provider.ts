@@ -1,6 +1,6 @@
 import { z } from "zod";
-import type { TelegramSignInProvider } from "./telegram-account-sign-in.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
+import type { TelegramSignInProvider } from "./telegram-account-sign-in.js";
 const responseSchema = z
   .object({
     contractVersion: z.literal("inside.bot-sign-in.v1"),

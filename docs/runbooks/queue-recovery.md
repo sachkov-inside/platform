@@ -35,9 +35,9 @@ docker logs --since 30m inside-platform-production-billing-worker-1 2>&1 \
   | grep -E 'operator_attention|failed|unavailable'
 ```
 
-- `{"queue":"tribute.source-reconciliation","status":"operator_attention","pending":N}` — источники
-  Tribute не сопоставлены;
-- `{"queue":"community.entitlement-delivery","status":"operator_attention",...}` — есть просроченная
+- `{"event":"queue_attention",...,"queue":"tribute.source-reconciliation","status":"operator_attention","pending":N}`
+  — источники Tribute не сопоставлены;
+- `{"event":"queue_attention",...,"queue":"community.entitlement-delivery","status":"operator_attention",...}` — есть просроченная
   (дольше пяти минут), отклонённая или упавшая работа сообщества;
 - `{"event":"queue_unavailable","process":"billing-worker",...}` — `pg-boss` потерял базу; причина
   в поле `error`;

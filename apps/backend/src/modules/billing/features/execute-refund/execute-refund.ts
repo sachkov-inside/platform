@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import { reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { BillingPrisma, BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { paidPeriodCommandSchema } from "../../../membership-entitlements/index.js";
 import { lifecycleWindow, refundSourceRef } from "../../domain/notice.js";
@@ -11,7 +12,6 @@ import { recordBillingNotice } from "../../shared/record-notice.js";
 import { advanceSubscription } from "../../shared/subscription-outcome.js";
 import { refundTotals, unsettledRefundStates } from "../../shared/refund-amounts.js";
 import { refundDecisionViews } from "../read-payments/read-payments.js";
-import { reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 type ExecuteRefundCommand = Extract<OwnerOperation, { operation: "refunds.execute" }>;
 type RefundState = "sent" | "unknown" | "confirmed" | "failed";

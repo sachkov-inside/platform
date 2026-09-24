@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { Prisma, type MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
+import { Prisma, type MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 
 // Return one bounded composition snapshot; never silently truncate progress.
 const MAX_SERIES_MATERIALS = 10_000;

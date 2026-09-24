@@ -1,8 +1,8 @@
 import nodemailer from 'nodemailer';
 import { z } from 'zod';
+import { dependencyFailure } from '../../../infrastructure/observability/index.js';
 import type { PlatformConfig } from '../../../config/platform-config.js';
 import type { SendNotificationEmail } from '../ports/notification-sources.js';
-import { dependencyFailure } from '../../../infrastructure/observability/index.js';
 const smtpTimeoutMs = 10_000;
 export function assembleNotificationEmailSender(config: NonNullable<PlatformConfig['billingContact']>): SendNotificationEmail {
   const transport = nodemailer.createTransport({ host: config.smtpHost, port: config.smtpPort, secure: config.smtpPort === 465,

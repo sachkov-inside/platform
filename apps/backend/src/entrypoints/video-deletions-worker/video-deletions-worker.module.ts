@@ -9,6 +9,7 @@ import {
   PrismaClientProvider,
   PrismaModule,
 } from "../../infrastructure/prisma/index.js";
+import { writeLog } from "../../infrastructure/observability/index.js";
 import { OperationalReadiness } from "../../infrastructure/operational-readiness.js";
 import { RuntimeIdentityModule } from "../../infrastructure/runtime-identity.js";
 import { MaterialContentModule } from "../../modules/materials/index.js";
@@ -40,11 +41,11 @@ export class VideoDeletionsWorkerModule {
           prisma,
           provider: createConfiguredVideoProvider(platformConfig),
           reportFailure(event) {
-            console.error(JSON.stringify({
+            writeLog("error", "video_deletion_failed", {
               process: "video-deletions-worker",
               status: "operator_attention",
               ...event,
-            }));
+            });
           },
         }),
       }],

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { BookmarksPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { accountId } from "../../../accounts/index.js";
 import type { ContentAccess } from "../../../content-access/index.js";
@@ -6,7 +7,6 @@ import { readPublishedCatalogItems } from "../../../content-library/index.js";
 import type { PublishedMaterialSelection } from "../../../materials/index.js";
 import type { Videos } from "../../../videos/index.js";
 import type { ListBookmarksQuery, ListBookmarksResult } from "./list-bookmarks.contract.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const querySchema = z.object({
   accountId: z.uuid(),

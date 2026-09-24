@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { z } from "zod";
 
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import { accountId as checkedAccountId } from "../../../accounts/index.js";
 import type {
   PreviewMaterialOperation,
@@ -16,7 +17,6 @@ import {
 } from "../../shared/command-validation.js";
 import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
 import { hydrateMaterialAssets } from "../../domain/material-body/hydrate-material-assets.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const previewMaterialQuery = z
   .object({ actor: accountId, materialId: materialIdSchema })

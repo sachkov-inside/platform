@@ -110,6 +110,7 @@ export function assembleValidateMaterial(
         };
       },
       mapPostgresValidationError,
+      "validateMaterial",
     );
   };
 }

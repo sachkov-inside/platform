@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { contractDigest } from "../../../../infrastructure/contracts/canonical-digest.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type {
   TelegramMembershipPrisma,
   TelegramMembershipPrismaClient,
@@ -25,7 +26,6 @@ import {
 import type { TelegramAccountLinks } from "../../facets/telegram-account-links/telegram-account-links.js";
 import { lockCommunityWork } from "../../infrastructure/community-lock.js";
 import { hasNewerCommand } from "../../shared/newer-community-command.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export interface CommunityAuthorizationDependencies {
   readonly prisma: TelegramMembershipPrismaClient;

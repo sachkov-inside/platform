@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type {
   ConfirmTelegramLinkRequest,
   RegisterTelegramLinkRequest,
@@ -7,7 +8,6 @@ import type {
   TelegramLinkProviderConfirmation,
   TelegramLinkProviderRegistration,
 } from "../../ports/telegram-link-provider.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const CONTRACT_VERSION = "inside.identity-linking.v1";
 const REQUEST_TIMEOUT_MS = 5_000;

@@ -1,10 +1,10 @@
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { MaterialsPrisma } from "../../../../infrastructure/prisma/index.js";
 import type { GuidePageCard } from "../../domain/guide-page.js";
 import { readGuidePage } from "../../shared/guide-page-reader.js";
 import type { SystemError } from "../../facets/material-authoring/material-authoring.contract.js";
 import type { Result } from "../../result.js";
 import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 /** Закреплённый на Главной продукт и то, чем его оформить (ADR 0026). */
 export interface HomePinnedSeries {

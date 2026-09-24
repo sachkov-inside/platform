@@ -1,11 +1,11 @@
 import { z } from "zod";
 
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { WorkshopPrisma } from "../../infrastructure/prisma.js";
 import type {
   WorkshopMaterialProtection,
   WorkshopMaterialProtectionState,
 } from "./workshop-material-protection.interface.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export function assembleWorkshopMaterialProtection(dependencies: {
   readonly prisma: WorkshopPrisma;
@@ -20,7 +20,7 @@ export function assembleWorkshopMaterialProtection(dependencies: {
         });
         return link === null ? "unprotected" : "protected";
       } catch (error) {
-        return dependencyFailure({ module: "workshop", operation: "resolve" }, error, "unavailable");
+        return dependencyFailure({ module: "workshop", operation: "resolveMaterialProtection" }, error, "unavailable");
       }
     },
   };

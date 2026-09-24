@@ -1,8 +1,8 @@
 import { z } from "zod";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { selectPublishedMaterialProjectionsByIds } from "../../infrastructure/postgres/published-material-reader/published-material-projection.js";
 import type { PublishedMaterialProjectionDto } from "../../facets/published-material-reader/published-material.contract.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 export class PublishedMaterialSelection {
   constructor(private readonly prisma: MaterialsPrismaClient) {}
   async read(materialIds: readonly string[]): Promise<

@@ -2,6 +2,7 @@ import {
   MaterialContentModule,
   PublicContentTargets,
 } from "../materials/index.js";
+import { reportDependencyFailure } from "../../infrastructure/observability/index.js";
 import {
   PrismaModule,
   PrismaClientProvider,
@@ -30,7 +31,6 @@ import { AuthorizeCommunicationsAuthorController } from "./features/authorize-au
 import { ManageCommunicationsController } from "./features/manage-communications/manage-communications.controller.js";
 import { Communications } from "./facets/communications/communications.js";
 import { HttpCommunicationsProvider } from "./infrastructure/http-communications-provider.js";
-import { reportDependencyFailure } from "../../infrastructure/observability/index.js";
 
 const OUTBOX_POLL_INTERVAL_MS = 5_000;
 

@@ -1,7 +1,7 @@
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { TelegramMembershipPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { parseAccountId } from "../../../accounts/index.js";
 import { z } from "zod";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export type ConfirmedTelegramAccountLink = Readonly<{
   accountId: string;

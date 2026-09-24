@@ -8,13 +8,13 @@ import {
 } from "jose";
 import { z } from "zod";
 
+import { dependencyFailure } from "../../../../../infrastructure/observability/index.js";
 import {
   verifiedAccountIdentity,
   verifiedAccountSignIn,
   verifiedTelegramAccountSignIn,
   type VerifiedAccountIdentity,
 } from "../../../facets/accounts/verified-logto-identity.js";
-import { dependencyFailure } from "../../../../../infrastructure/observability/index.js";
 
 const ACCESS_TOKEN_MAX_AGE_MINUTES = 5;
 const MAX_ACCESS_TOKEN_LIFETIME_SECONDS = minutesInSeconds(

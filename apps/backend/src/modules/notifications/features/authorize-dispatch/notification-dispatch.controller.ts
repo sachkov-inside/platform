@@ -6,9 +6,9 @@ import { PLATFORM_CONFIG, type PlatformConfig } from '../../../../config/platfor
 import { bearerCredential, credentialsMatch } from '../../../../infrastructure/http/bearer-credentials.js';
 import { PrivateNoStore } from '../../../../infrastructure/http/http-cache-policy.js';
 import { toOpenApiSchema } from '../../../../infrastructure/http/zod-openapi.js';
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import { authorizeSchema, dispatchResponseSchema } from '../../domain/notification-wire.js';
 import { Notifications } from '../../facets/notifications/notifications.js';
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 const genericError = z.object({ code: z.enum(['malformed', 'unauthorized']) });
 @Controller('internal/notifications/dispatch')
 @ApiBearerAuth('telegram-notifications')

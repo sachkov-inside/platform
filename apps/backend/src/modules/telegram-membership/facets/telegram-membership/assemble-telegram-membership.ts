@@ -2,6 +2,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 
 import { z } from "zod";
 
+import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
   Prisma,
   type TelegramMembershipPrisma,
@@ -26,7 +27,6 @@ import type {
   TelegramLinkState,
   TelegramMembership,
 } from "./telegram-membership.interface.js";
-import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const principalEnvelopeSchema = z.looseObject({
   principalRef: z.string().min(1).max(256),

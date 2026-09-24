@@ -1,7 +1,7 @@
+import { dependencyFailure } from "../../../infrastructure/observability/index.js";
 import type { PlatformConfig } from "../../../config/platform-config.js";
 import { responseSchema } from "../communications-schema.generated.js";
 import { communicationsFailure, type CommunicationsResult, type ProviderRequest, type ProviderResponse } from "../communications-contract.js";
-import { dependencyFailure } from "../../../infrastructure/observability/index.js";
 
 const PROVIDER_REQUEST_TIMEOUT_MS = 5_000;
 // Telegram embeds bot credentials in API/download paths; a plain mention of the

@@ -1,7 +1,7 @@
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { NotificationSource } from "../../../notifications/index.js";
 import { announcementEventSchema } from "../../domain/announcement.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 interface Dependencies {
   readonly prisma: MaterialsPrismaClient;

@@ -1,7 +1,7 @@
 import { Prisma } from "../../../../infrastructure/prisma/index.js";
 import type { ObjectStorage } from "../../../../infrastructure/object-storage/index.js";
-import type { MemberProfilePersistenceClient } from "../../infrastructure/prisma.js";
 import { reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
+import type { MemberProfilePersistenceClient } from "../../infrastructure/prisma.js";
 
 export const PROFILE_AVATAR_MAINTENANCE = Symbol("PROFILE_AVATAR_MAINTENANCE");
 

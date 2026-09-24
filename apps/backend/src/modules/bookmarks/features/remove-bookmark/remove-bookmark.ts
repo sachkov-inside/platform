@@ -1,7 +1,7 @@
 import { z } from "zod";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { BookmarksPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { RemoveBookmarkCommand, RemoveBookmarkResult } from "./remove-bookmark.contract.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const commandSchema = z.object({ accountId: z.uuid(), materialId: z.uuid() }).strict();
 

@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { failure, idSchema, revisionSchema, priceSnapshotSchema, type PricingResult } from "../../domain/pricing.js";
 import { lockPricing } from "../../infrastructure/postgres/catalog-lock.js";
 import { selectPrice } from "../../shared/select-price.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export const quotePurchaseSchema = z.strictObject({ operationId: idSchema, paymentOptionId: idSchema, optionRevision: revisionSchema, promoCode: z.string().trim().min(1).max(100).optional() });
 export const priceQuoteSchema = z.strictObject({ quoteRef: idSchema, snapshot: priceSnapshotSchema, createdAt: z.iso.datetime(), expiresAt: z.iso.datetime() });

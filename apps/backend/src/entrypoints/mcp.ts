@@ -51,11 +51,9 @@ async function bootstrap(): Promise<void> {
   });
 
   try {
-    console.info(
-      JSON.stringify(await application.get(OperationalReadiness).check("mcp")),
-    );
+    writeLog("info", "process_ready", { ...(await application.get(OperationalReadiness).check("mcp")) });
     const endpoint = await server.listen();
-    console.info(`MCP listening on ${endpoint.href}`);
+    writeLog("info", "mcp_listening", { process: "mcp", endpoint: endpoint.href });
     await shutdown.received;
   } finally {
     shutdown.dispose();

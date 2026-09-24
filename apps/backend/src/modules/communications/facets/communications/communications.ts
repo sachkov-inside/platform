@@ -1,3 +1,4 @@
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { TrackingVisits } from "../tracking-visits/tracking-visits.js";
 import type { PublicContentTargets } from "../../../materials/index.js";
 import { validateTargets } from "../../features/validate-targets/validate-targets.js";
@@ -11,7 +12,6 @@ import {
 } from "../../communications-contract.js";
 import { requestSchema } from "../../communications-schema.generated.js";
 import type { HttpCommunicationsProvider } from "../../infrastructure/http-communications-provider.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export class Communications {
   constructor(

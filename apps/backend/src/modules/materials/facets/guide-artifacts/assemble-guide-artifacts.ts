@@ -6,6 +6,7 @@ import type {
   ObjectStorage,
   ObjectStorageNamespace,
 } from "../../../../infrastructure/object-storage/index.js";
+import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type {
   MaterialsPrismaClient,
   MaterialsPrismaTransaction,
@@ -25,7 +26,6 @@ import type {
   UploadedArtifactFile,
 } from "./guide-artifacts.js";
 import { guideArtifactAccessSchema } from "./guide-artifacts.js";
-import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const uuidSchema = z.uuid();
 const titleSchema = z.string().trim().min(1).max(200);

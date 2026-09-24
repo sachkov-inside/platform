@@ -1,11 +1,11 @@
 import { z } from "zod";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import { accountId } from "../../../accounts/index.js";
 import { readAvailableMaterials } from "../../../content-library/index.js";
 import type { PublishedMaterialSelection } from "../../../materials/index.js";
 import type { ContinueMaterial } from "../get-continue-materials/get-continue-materials.js";
 import { getSeriesContinuation, type SeriesContinuation, type SeriesContinuationDependencies } from "../get-series-continuation/get-series-continuation.js";
 import { loadMaterialResumes } from "../../shared/load-material-resumes.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const MAX_RECENT_VISITS = 500;
 const MATERIAL_BATCH_SIZE = 100;

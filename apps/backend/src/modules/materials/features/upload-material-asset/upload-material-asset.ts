@@ -1,9 +1,9 @@
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type {
   MaterialAssets,
   UploadMaterialAssetResult,
 } from "../../../assets/index.js";
 import type { MaterialAuthoring } from "../../facets/material-authoring/material-authoring.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export const MATERIAL_ASSET_AUTHORING = Symbol("MATERIAL_ASSET_AUTHORING");
 

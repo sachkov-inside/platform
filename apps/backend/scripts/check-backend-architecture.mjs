@@ -322,60 +322,57 @@ function handoffDelegateViolations(sourceFile, program) {
   );
 }
 
-// Сбой зависимости в Module записывается с причиной: catch передаёт пойманное значение дальше,
-// обычно в dependencyFailure из src/infrastructure/observability. Отказ разбора чужого ввода —
-// не сбой зависимости; такой catch объясняет себя первой строкой тела.
+// Сбой зависимости в Module записывается с причиной: catch передаёт пойманное значение
+// reporter из src/infrastructure/observability (dependencyFailure, reportDependencyFailure,
+// describeError), каналу наблюдений уведомлений (loggableFailure), делает причиной новой ошибки
+// или бросает дальше. Отказ
+// разбора чужого ввода — не сбой зависимости; такой catch объясняет себя первой строкой тела.
 const inputRejectionMarker = "Not a dependency failure:";
+const reportsFailure = /\b(?:dependencyFailure|reportDependencyFailure|describeError|loggableFailure)\(|\bthrow\b/u;
 
 function swallowedFailureViolations(sourceFile, sourceText, program, comments) {
   const sourcePath = scannedPath(sourceFile);
   if (owningModule(sourcePath) === undefined) return [];
   const violations = [];
   const lineOf = (offset) => sourceText.slice(0, offset).split("\n").length;
-  const explains = (body) =>
-    comments.some(
+  // Метка засчитывается только первой строкой: между началом обработчика и его первым оператором.
+  const explains = (from, body) => {
+    const firstCode = body.type === "BlockStatement" ? (body.body[0]?.start ?? body.end) : body.start;
+    return comments.some(
       (comment) =>
-        comment.start > body.start &&
-        comment.end < body.end &&
+        comment.start > from &&
+        comment.end <= firstCode &&
         comment.value.trim().startsWith(inputRejectionMarker),
     );
-  const references = (body, name) =>
-    new RegExp(`(?<![\\w$.])${name}(?![\\w$])`, "u").test(sourceText.slice(body.start, body.end));
+  };
+  const wrapsCause = (body, param) =>
+    param.type === "Identifier" &&
+    new RegExp(`\\bnew\\s+\\w+\\([^;]*(?<![\\w$.])${param.name}(?![\\w$])`, "u").test(
+      sourceText.slice(body.start, body.end),
+    );
+  const check = (kind, start, param, body) => {
+    if (explains(start, body)) return;
+    const advice = `report it with dependencyFailure or explain it with "// ${inputRejectionMarker}"`;
+    if (param === null || param === undefined) {
+      violations.push(`${sourcePath}:${lineOf(start)}: ${kind} swallows its failure; ${advice}`);
+    } else if (!reportsFailure.test(sourceText.slice(body.start, body.end)) && !wrapsCause(body, param)) {
+      const name = param.type === "Identifier" ? param.name : "its failure";
+      violations.push(`${sourcePath}:${lineOf(start)}: ${kind} drops ${name} without reporting it; ${advice}`);
+    }
+  };
   new Visitor({
     // promise.catch(() => fallback) проглатывает причину так же, как пустой catch.
     CallExpression(node) {
       const handler = node.arguments[0];
       if (
-        memberPropertyName(node.callee) !== "catch" ||
-        (handler?.type !== "ArrowFunctionExpression" && handler?.type !== "FunctionExpression") ||
-        explains(handler.body)
+        memberPropertyName(node.callee) === "catch" &&
+        (handler?.type === "ArrowFunctionExpression" || handler?.type === "FunctionExpression")
       ) {
-        return;
-      }
-      const [param] = handler.params;
-      if (param === undefined) {
-        violations.push(
-          `${sourcePath}:${lineOf(node.start)}: .catch swallows its failure; report it with dependencyFailure or explain it with "// ${inputRejectionMarker}"`,
-        );
-      } else if (param.type === "Identifier" && !references(handler.body, param.name)) {
-        violations.push(
-          `${sourcePath}:${lineOf(node.start)}: .catch ignores ${param.name}; report it with dependencyFailure or explain it with "// ${inputRejectionMarker}"`,
-        );
+        check(".catch", node.start, handler.params[0], handler.body);
       }
     },
     CatchClause(node) {
-      if (explains(node.body)) return;
-      if (node.param === null) {
-        violations.push(
-          `${sourcePath}:${lineOf(node.start)}: catch swallows its failure; report it with dependencyFailure or explain it with "// ${inputRejectionMarker}"`,
-        );
-        return;
-      }
-      if (node.param.type === "Identifier" && !references(node.body, node.param.name)) {
-        violations.push(
-          `${sourcePath}:${lineOf(node.start)}: catch ignores ${node.param.name}; report it with dependencyFailure or explain it with "// ${inputRejectionMarker}"`,
-        );
-      }
+      check("catch", node.start, node.param, node.body);
     },
   }).visit(program);
   return violations;

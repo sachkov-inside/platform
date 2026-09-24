@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 
 import { accountId } from "../../../accounts/index.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import { lockAccountEntitlementChanges } from "../../../../infrastructure/prisma/index.js";
 import type { MembershipEntitlements } from "../../../membership-entitlements/index.js";
 import type { WorkshopPrismaClient } from "../../infrastructure/prisma.js";
@@ -16,7 +17,6 @@ import type {
   GrantWorkshopEntitlementResult,
   WorkshopEntitlementDto,
 } from "../../facets/workshop/workshop.interface.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const commandSchema = z
   .object({

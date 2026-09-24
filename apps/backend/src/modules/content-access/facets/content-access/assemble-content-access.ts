@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 
+import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { WorkshopMaterialAccessState } from "../../../workshop/index.js";
 
 import type {
@@ -20,7 +21,6 @@ import type {
   MaterialResourceFacts,
   MembershipAccessState,
 } from "./content-access.dependencies.js";
-import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const MAX_BATCH_SIZE = 100;
 

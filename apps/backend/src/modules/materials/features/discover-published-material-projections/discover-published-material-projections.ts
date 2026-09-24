@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { MaterialsPrisma } from "../../../../infrastructure/prisma/index.js";
 import {
   selectPublishedMaterialProjectionsBySeries,
@@ -11,7 +12,6 @@ import type {
   DiscoverPublishedMaterialProjectionsQuery,
   PublishedMaterialDiscoveryResult,
 } from "./discover-published-material-projections.contract.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const querySchema = z
   .object({
