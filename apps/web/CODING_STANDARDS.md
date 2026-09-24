@@ -123,6 +123,12 @@ these are the rules a change follows.
   `error.tsx` retries through `retry`, not `reset`, which re-renders the same failure without a
   request. Leaving the
   authoring workspace for the site is a full document load for the same reason.
+- Every page reaches an `error.tsx` inside its shell: `(public)` and `authoring` own a section
+  boundary, catalog pages keep their own, `app/error.tsx` catches a failed section layout and
+  `app/global-error.tsx` the root one. A boundary reports the error through
+  `useRenderErrorReport` and recovers with `retry`. An unknown address and `notFound()` render
+  `PageNotFound` in the public shell. `test/e2e/routes.spec.ts` checks the Russian 404; the rest
+  stays prose, because which boundary a segment reaches is a reading of the route tree.
 - A component that reads the clock, randomness or a request value during render breaks the
   production build under Cache Components. Read it in an event handler or an effect.
 - A page the reader left is hidden, not unmounted, and keeps its client state. State that starts
