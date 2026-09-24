@@ -225,7 +225,9 @@ export function checkDocumentation(repositoryRoot = defaultRepositoryRoot) {
     !rootPackage.scripts.check.startsWith("pnpm check:static &&") ||
     !rootPackage.scripts["check:static"].startsWith("pnpm docs:check &&")
   ) {
-    failures.push("package.json: the root check must start with pnpm docs:check");
+    failures.push(
+      "package.json: the root check must start with pnpm check:static, which starts with pnpm docs:check",
+    );
   }
 
   return failures;

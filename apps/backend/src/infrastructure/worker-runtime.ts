@@ -139,7 +139,9 @@ export async function runWorker(input: {
     stopReason = { error };
   }
   shutdown.dispose();
-  let drainFailure: { readonly error: unknown } | undefined;
+  // Остановка после отказа — его следствие: её собственные сбои называются отдельно и не
+  // подменяют причину, из-за которой воркер остановился.
+  const stopFailures: { readonly reason: string; readonly error: unknown }[] = [];
   try {
     if (readinessReport) await markWorkerDraining(input.process, readinessReport);
     else await removeWorkerReadiness();
@@ -151,22 +153,25 @@ export async function runWorker(input: {
       });
     }
   } catch (error) {
-    drainFailure = { error };
-  } finally {
+    stopFailures.push({ reason: "worker_drain_failed", error });
+  }
+  try {
     await input.application.close();
     await lease?.release();
     await markWorkerStopped(input.process, readinessReport);
+  } catch (error) {
+    stopFailures.push({ reason: "worker_cleanup_failed", error });
   }
   if (stopReason === undefined) {
-    if (drainFailure !== undefined) throw drainFailure.error;
+    const [first] = stopFailures;
+    if (first !== undefined) throw first.error;
     return;
   }
-  // Остановка после отказа — его следствие: её собственный сбой называется отдельно и не
-  // подменяет причину, из-за которой воркер остановился.
-  if (drainFailure !== undefined) {
+  for (const failure of stopFailures) {
+    // Текст ошибки не пишется: у воркера он может нести адрес подключения с учётными данными.
     console.error(JSON.stringify({
       process: input.process,
-      reason: "worker_drain_failed",
+      reason: failure.reason,
       status: "operator_attention",
     }));
   }

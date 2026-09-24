@@ -20,6 +20,7 @@ const release = { release: "v1", sourceSha: "1".repeat(40) };
 const environment = {
   ...process.env,
   BACKEND_BASE_URL: backendBaseUrl,
+  // `instant-navigation.spec.ts` подделывает сессию этими значениями; e2e сессию не читает.
   LOGTO_APP_ID: "inside-web-navigation",
   LOGTO_APP_SECRET: "inside-web-navigation-secret",
   LOGTO_AUDIENCE: backendBaseUrl,
