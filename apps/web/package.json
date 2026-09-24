@@ -11,6 +11,8 @@
     "test": "vitest run --config vitest.config.mts",
     "test:standalone-config": "node --test scripts/check-standalone-runtime-config.test.mjs",
     "test:prerendered-handlers": "node scripts/check-prerendered-route-handlers.mjs",
+    "test:module": "vitest run --config vitest.config.mts --project=module",
+    "test:browser-engines": "vitest run --config vitest.config.mts --project=browser-engines",
     "test:storybook": "vitest run --config vitest.config.mts --project=storybook",
     "test:e2e": "playwright test",
     "test:fullstack": "playwright test --config playwright.fullstack.config.ts",

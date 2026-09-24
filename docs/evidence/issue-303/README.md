@@ -13,7 +13,7 @@ Storybook импортирует её через fixture adapter `Patterns/Ident
 
 ```bash
 pnpm --filter @inside/web exec vitest run --config vitest.config.mts --project=storybook src/workshop/telegram-sign-in.stories.tsx
-pnpm --filter @inside/web exec vitest run --config vitest.config.mts test/module/telegram-sign-in.test.ts
+pnpm --filter @inside/web exec vitest run --config vitest.config.mts test/browser-engines/telegram-sign-in.test.ts
 node --test scripts/telegram-sign-in-theme.test.mjs
 ```
 
@@ -36,7 +36,7 @@ Account или сессию.
 Agentation включён. Для повторения теста с уже запущенными изолированными серверами:
 
 ```bash
-TELEGRAM_UI_ORIGIN=http://localhost:3633 STORYBOOK_UI_ORIGIN=http://localhost:6303 CAPTURE_TELEGRAM_EVIDENCE=1 pnpm --filter @inside/web exec vitest run --config vitest.config.mts test/module/telegram-sign-in.test.ts
+TELEGRAM_UI_ORIGIN=http://localhost:3633 STORYBOOK_UI_ORIGIN=http://localhost:6303 CAPTURE_TELEGRAM_EVIDENCE=1 pnpm --filter @inside/web exec vitest run --config vitest.config.mts test/browser-engines/telegram-sign-in.test.ts
 ```
 
 Результат: все 9 stories и 5 browser checks на собранном Logto/Storybook прошли. Standards и Spec

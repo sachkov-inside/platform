@@ -35,9 +35,12 @@ describe("ordinal release workflow contract", () => {
     );
     assert.match(ci, /^ {4}uses: \.\/\.github\/workflows\/ci\.yml$/mu);
     assert.match(ci, /source_sha: \$\{\{ needs\.plan\.outputs\.source_sha \}\}/u);
+    // Every checkout of the reusable path verifies the captured SHA, however many jobs there are.
+    const checkouts = ciWorkflow.match(/uses: actions\/checkout@/gu)?.length ?? 0;
+    assert.ok(checkouts > 0);
     assert.equal(
       ciWorkflow.match(/ref: \$\{\{ inputs\.source_sha \|\| github\.sha \}\}/gu)?.length,
-      4,
+      checkouts,
     );
     assert.match(
       ciWorkflow,

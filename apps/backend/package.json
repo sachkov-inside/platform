@@ -37,6 +37,8 @@
     "mcp:check": "tsx scripts/mcp-tool-surface.ts --check",
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.mts",
+    "test:integration:parallel": "vitest run --config vitest.integration.config.mts --project integration",
+    "test:integration:serial": "vitest run --config vitest.integration.config.mts --project integration-serial",
     "smoke:mcp-authoring": "tsx scripts/mcp-authoring-smoke.ts",
     "smoke:health": "vitest run --config vitest.smoke.config.mts",
     "communications:generate": "node scripts/generate-communications-contract.mjs",

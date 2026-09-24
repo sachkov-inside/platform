@@ -221,7 +221,10 @@ export function checkDocumentation(repositoryRoot = defaultRepositoryRoot) {
   if (rootPackage.scripts["docs:check"] !== "node scripts/check-agent-documentation.mjs") {
     failures.push("package.json: docs:check must run the agent documentation contract");
   }
-  if (!rootPackage.scripts.check.startsWith("pnpm docs:check &&")) {
+  if (
+    !rootPackage.scripts.check.startsWith("pnpm check:static &&") ||
+    !rootPackage.scripts["check:static"].startsWith("pnpm docs:check &&")
+  ) {
     failures.push("package.json: the root check must start with pnpm docs:check");
   }
 

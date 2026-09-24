@@ -17,24 +17,42 @@ const productionSmoke = readFileSync(
   resolve(repositoryRoot, "scripts/production-compose-smoke.sh"),
   "utf8",
 );
+const setupAction = readFileSync(
+  resolve(repositoryRoot, ".github/actions/setup-platform/action.yml"),
+  "utf8",
+);
+const rootScripts = JSON.parse(
+  readFileSync(resolve(repositoryRoot, "package.json"), "utf8"),
+).scripts;
+/** Каждая часть `pnpm check` идёт своей задачей; порядок совпадает с агрегатом. */
+const checkStages = [
+  ["static", "check:static"],
+  ["unit", "check:unit"],
+  ["ui", "check:ui"],
+  ["web-e2e", "check:web-e2e"],
+];
 const requiredJobs = [
-  "quality",
+  ...checkStages.map(([job]) => job),
   "integration",
+  "integration-serial",
   "compose-development",
   "compose-production",
 ];
 
 describe("application CI workflow contract", () => {
-  it("runs only for main pull requests and reusable workflow calls", () => {
+  it("runs for main pull requests, the merge queue and reusable workflow calls", () => {
     const triggers = topLevelBlock("on");
 
     assert.match(triggers, /^ {2}pull_request:\n {4}branches:\n {6}- main$/mu);
+    // The merge queue proves the combined result before main moves; without this trigger the
+    // queue would wait forever for CI Gate.
+    assert.match(triggers, /^ {2}merge_group:$/mu);
     assert.match(triggers, /^ {2}workflow_call:$/mu);
     assert.doesNotMatch(triggers, /^ {2}push:/mu);
     assert.doesNotMatch(triggers, /pull_request_target/u);
     assert.match(
       topLevelBlock("concurrency"),
-      /github\.event\.pull_request\.number \|\| github\.run_id/u,
+      /github\.event\.pull_request\.number \|\| github\.event\.merge_group\.head_ref \|\| github\.run_id/u,
     );
     assert.match(topLevelBlock("concurrency"), /cancel-in-progress: true/u);
   });
@@ -47,13 +65,19 @@ describe("application CI workflow contract", () => {
   });
 
   it("pins every action to an exact release version", () => {
-    const actionReferences = [
-      ...workflow.matchAll(/^\s+-?\s*uses:\s*([^\s#]+)/gmu),
-    ].map((match) => match[1]);
+    const actionReferences = [workflow, setupAction].flatMap((source) =>
+      [...source.matchAll(/^\s+-?\s*uses:\s*([^\s#]+)/gmu)].map((match) => match[1]),
+    );
+    const remoteReferences = actionReferences.filter(
+      (reference) => !reference.startsWith("./"),
+    );
 
-    assert.ok(actionReferences.length > 0);
-    for (const reference of actionReferences) {
+    assert.ok(remoteReferences.length > 0);
+    for (const reference of remoteReferences) {
       assert.match(reference, /^[^@\s]+@v\d+\.\d+\.\d+$/u);
+    }
+    for (const reference of actionReferences.filter((value) => value.startsWith("./"))) {
+      assert.equal(reference, "./.github/actions/setup-platform");
     }
     for (const action of [
       "actions/checkout",
@@ -68,20 +92,45 @@ describe("application CI workflow contract", () => {
     }
   });
 
-  it("runs all four required checks on pinned GitHub-hosted runners", () => {
+  it("runs every stage of pnpm check as its own job", () => {
+    assert.equal(
+      rootScripts.check,
+      checkStages.map(([, script]) => `pnpm ${script}`).join(" && "),
+    );
+    for (const [job, script] of checkStages) {
+      assert.match(jobBlock(job), new RegExp(`run: pnpm ${escapeRegExp(script)}$`, "mu"));
+      assert.match(jobBlock(job), /uses: \.\/\.github\/actions\/setup-platform$/mu);
+    }
+    assert.doesNotMatch(workflow, /run: pnpm check$/mu);
+    assert.match(jobBlock("ui"), /browsers: chromium webkit$/mu);
+    assert.match(jobBlock("web-e2e"), /browsers: chromium$/mu);
+    // Harness проверяется той версией пакета, что установлена, а не текущим main Workspace.
+    assert.match(jobBlock("static"), /inside-engineering-v\$\{version\}/u);
+    assert.match(jobBlock("static"), /inside-harness" health \.$/mu);
+  });
+
+  it("installs frozen dependencies and cached browser engines in one place", () => {
+    assert.match(setupAction, /run: pnpm install --frozen-lockfile$/mu);
+    assert.match(setupAction, /uses: actions\/cache@/u);
+    assert.match(setupAction, /path: ~\/\.cache\/ms-playwright$/mu);
+    assert.match(setupAction, /key: playwright-.*steps\.playwright\.outputs\.version/u);
+    assert.match(setupAction, /playwright install --with-deps \$BROWSERS$/mu);
+    assert.doesNotMatch(workflow, /pnpm install/u);
+  });
+
+  it("runs every required job on pinned GitHub-hosted runners", () => {
     for (const job of requiredJobs) {
       const body = jobBlock(job);
       assert.match(body, /^ {4}runs-on: ubuntu-24\.04$/mu);
       assert.match(body, /^ {4}timeout-minutes: \d+$/mu);
     }
 
-    assert.match(jobBlock("quality"), /pnpm install --frozen-lockfile/u);
-    assert.match(jobBlock("quality"), /playwright install --with-deps chromium/u);
-    assert.match(jobBlock("quality"), /run: pnpm check/u);
-
-    assert.match(jobBlock("integration"), /pnpm install --frozen-lockfile/u);
-    assert.match(jobBlock("integration"), /run: pnpm test:integration/u);
-    assert.doesNotMatch(jobBlock("integration"), /services:/u);
+    assert.match(jobBlock("integration"), /run: pnpm test:integration:parallel$/mu);
+    assert.match(jobBlock("integration"), /run: pnpm smoke:enrollments$/mu);
+    assert.match(jobBlock("integration-serial"), /run: pnpm test:integration:serial$/mu);
+    for (const job of ["integration", "integration-serial"]) {
+      assert.doesNotMatch(jobBlock(job), /services:/u);
+    }
 
     assert.doesNotMatch(workflow, /^ {2}full-stack:/mu);
     assert.doesNotMatch(workflow, /pnpm smoke:fullstack/u);

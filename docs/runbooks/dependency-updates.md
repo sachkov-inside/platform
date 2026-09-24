@@ -13,7 +13,17 @@ Dependabot checks the pnpm workspace, Docker sources and GitHub Actions weekly. 
 updates are grouped, with Next, Tiptap, Storybook and React families kept atomic. Major updates stay
 in separate pull requests. Security patch/minor updates use their own groups; security majors are
 also separate pull requests. No dependency pull request is auto-merged. Every dependency pull
-request must pass the strict application `CI Gate`; merge remains owner-controlled.
+request must pass the application `CI Gate` and then the merge queue; merge remains
+owner-controlled.
+
+Dependabot does not rebase open pull requests on its own (`rebase-strategy: disabled`): the merge
+queue proves each update against the current `main`, so a rebase after every merge only repeated
+full CI. Comment `@dependabot rebase` when a pull request has a real conflict or needs a fresh run.
+A red dependency pull request is triaged in the same weekly pass, never left to fail again: fix the
+incompatibility in the pull request itself (for example regenerate a drifted contract), or close it
+with the reason and `@dependabot ignore this minor version` or an `ignore` entry here. A bump of a
+managed harness file (such as `.github/workflows/inside-agent-sessions.yml`) is closed here and made
+in the Workspace harness package, because the next harness update would revert it.
 
 `@types/node` stays on the same major as `.node-version`. A Node LTS major change updates the
 runtime, declarations, Docker base and CI as one reviewed migration. Application CI actions stay

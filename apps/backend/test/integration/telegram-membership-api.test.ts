@@ -13,9 +13,8 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import { parsePlatformConfig } from "../../src/config/platform-config.js";
 import { createApiApplication } from "../../src/entrypoints/api/create-api-application.js";
-import { migrateToLatest } from "../../src/migrations/index.js";
 import {
-  createTestDatabase,
+  createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
 import { declaredServer } from "../support/declared-api.js";
@@ -52,8 +51,7 @@ describe("Telegram Membership API", () => {
 
     provider = new ControlledTelegramProvider();
     await provider.start();
-    database = await createTestDatabase();
-    await migrateToLatest(database.url);
+    database = await createMigratedTestDatabase();
     app = await createApiApplication(
       parsePlatformConfig({
         API_HOST: "127.0.0.1",

@@ -92,13 +92,14 @@ describe("supported toolchain contract", () => {
   });
 
   it("hides the development indicator where the mobile dock is used", () => {
-    // Сторожит три звена проводки: убери любое — и перекрытие дока индикатором вернётся молча,
+    // Сторожит звенья проводки: убери любое — и перекрытие дока индикатором вернётся молча,
     // одними лишь плавающими промахами. Причину и выбор держит `apps/web/next.config.ts`.
     const nextConfig = read("apps/web/next.config.ts");
 
     assert.match(nextConfig, /process\.env\.HIDE_DEV_INDICATOR === "true"/u);
     assert.match(nextConfig, /devIndicators: false/u);
-    assert.match(read("apps/web/playwright.config.ts"), /HIDE_DEV_INDICATOR: "true"/u);
+    // Browser checks of `pnpm test:e2e` run on the production build, which has no indicator.
+    assert.match(read("apps/web/playwright.config.ts"), /command: "node test\/support\/production-web\.mjs"/u);
     assert.match(read("config/compose/local/web.env"), /^HIDE_DEV_INDICATOR=true$/mu);
   });
 
@@ -345,6 +346,10 @@ describe("supported toolchain contract", () => {
     for (const [, name, body] of groupBodies) {
       assert.match(body, /^\s{8}update-types: \[minor, patch\]$/mu, `${name} can mix major updates`);
     }
+    // The merge queue keeps main current; automatic rebases re-ran full CI after every merge.
+    const ecosystems = dependabot.match(/^ {2}- package-ecosystem: /gmu)?.length ?? 0;
+    assert.ok(ecosystems > 0);
+    assert.equal(dependabot.match(/^ {4}rebase-strategy: disabled$/gmu)?.length, ecosystems);
   });
 
   it("schema-qualifies Materials tables in the Compose smoke query", () => {
