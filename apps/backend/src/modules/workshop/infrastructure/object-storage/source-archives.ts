@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 
 import type { ObjectStorage } from "../../../../infrastructure/object-storage/index.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type {
   SourceArchives,
   StoreSourceArchiveResult,
@@ -55,8 +56,8 @@ export function assembleSourceArchives(
           return failure("dependency_unavailable");
         }
         return { ok: true, value: archive };
-      } catch {
-        return failure("dependency_unavailable");
+      } catch (error) {
+        return dependencyFailure({ module: "workshop", operation: "store" }, error, failure("dependency_unavailable"));
       }
     },
   };

@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { MaterialsPrisma } from "../../../../infrastructure/prisma/index.js";
 import {
   selectPublishedMaterialProjectionsBySeries,
@@ -49,7 +50,7 @@ export async function discoverPublishedMaterialProjections(
           value: { ...page, kind: parsed.data.kind },
         };
   } catch (error) {
-    return { ok: false, error: mapPostgresReadError(error) };
+    return { ok: false, error: dependencyFailure({ module: "materials", operation: "discoverPublishedMaterialProjections" }, error, mapPostgresReadError(error)) };
   }
 }
 

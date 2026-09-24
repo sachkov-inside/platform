@@ -1,6 +1,7 @@
 import { isEmptyContentScope, isGuideCapability } from "@inside/access-capabilities";
 import type { SaleCapability } from "../../domain/sale-capability.js";
 import type { Accounts } from "../../../accounts/index.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import { Prisma, type BillingPrisma, type BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { failure, idSchema, type PricingResult } from "../../domain/pricing.js";
 import { lockPricing } from "../../infrastructure/postgres/catalog-lock.js";
@@ -35,7 +36,7 @@ export async function manageCatalog(dependencies: { prisma: BillingPrismaClient;
       if (result.ok) await tx.billingPricingCommand.create({ data: { ...key, fingerprint, outcome: result.value } });
       return result;
     });
-  } catch { return failure("dependency_unavailable"); }
+  } catch (error) { return dependencyFailure({ module: "billing", operation: "manageCatalog" }, error, failure("dependency_unavailable")); }
 }
 
 async function changeCatalog(tx: BillingPrisma, command: ManageCatalogCommand, sale: SaleCapability): Promise<ManageCatalogResult> {

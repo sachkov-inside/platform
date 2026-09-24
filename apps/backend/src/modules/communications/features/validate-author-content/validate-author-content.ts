@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { Accounts } from "../../../accounts/index.js";
 import type { PublicContentTargets } from "../../../materials/index.js";
 import type { TelegramAccountLinks } from "../../../telegram-membership/index.js";
@@ -27,7 +28,7 @@ export async function validateAuthorContent(
       dependencies.targets,
     );
     return { ...authorization, status: "ok", targetErrors } as const;
-  } catch {
-    return { status: "unavailable" } as const;
+  } catch (error) {
+    return dependencyFailure({ module: "communications", operation: "validateAuthorContent" }, error, { status: "unavailable" } as const);
   }
 }

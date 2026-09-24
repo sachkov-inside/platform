@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import { z } from 'zod';
+import { dependencyFailure } from '../../../infrastructure/observability/index.js';
 import type { PlatformConfig } from '../../../config/platform-config.js';
 import type { SendNotificationEmail } from '../ports/notification-sources.js';
 const smtpTimeoutMs = 10_000;
@@ -18,7 +19,7 @@ export function assembleNotificationEmailSender(config: NonNullable<PlatformConf
       // Only explicit negative SMTP replies prove non-delivery. Timeout/ambiguous failures stay unknown.
       if (rejected.success && rejected.data.responseCode >= 400 && rejected.data.responseCode < 500) return { state: 'not_sent', retryAfterMs: 5_000 };
       if (rejected.success && rejected.data.responseCode >= 500 && rejected.data.responseCode < 600) return { state: 'failed', reason: 'provider_rejected' };
-      return { state: 'unknown' };
+      return dependencyFailure({ module: 'notifications', operation: 'sendEmail' }, error, { state: 'unknown' });
     }
   };
 }

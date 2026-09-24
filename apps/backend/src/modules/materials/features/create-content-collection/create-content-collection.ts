@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { MaterialAuthoringDependencies } from "../../facets/material-authoring/material-authoring.dependencies.js";
 import { authorizeManager } from "../../ports/author-policy.js";
 import { failure } from "../../shared/application-result.js";
@@ -55,7 +56,7 @@ export function assembleCreateContentCollection(
       return failure(
         isPostgresUniqueViolation(error, constraint)
           ? { code: "content_collection_slug_conflict" }
-          : mapPostgresReadError(error),
+          : dependencyFailure({ module: "materials", operation: "createContentCollection" }, error, mapPostgresReadError(error)),
       );
     }
   };

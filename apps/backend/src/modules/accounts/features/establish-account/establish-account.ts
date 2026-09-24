@@ -1,3 +1,4 @@
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { AccountsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { newAccountId, parseAccountId } from "../../domain/account-identifiers.js";
 import type {
@@ -99,7 +100,7 @@ export async function establishAccount(
       await appendAccountAuditEvent(transaction, "account_created", accountId);
       return { ok: true, account: { accountId } };
     });
-  } catch {
-    return internalFailure();
+  } catch (error) {
+    return dependencyFailure({ module: "accounts", operation: "establishAccount" }, error, internalFailure());
   }
 }

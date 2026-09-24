@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { contractDigest } from "../../../../infrastructure/contracts/canonical-digest.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type {
   TelegramMembershipPrisma,
   TelegramMembershipPrismaClient,
@@ -123,8 +124,8 @@ export async function authorizeCommunityDispatch(
       }
       return decision;
     });
-  } catch {
-    return decided({ status: "unavailable" });
+  } catch (error) {
+    return dependencyFailure({ module: "telegram-membership", operation: "authorizeCommunityDispatch" }, error, decided({ status: "unavailable" }));
   }
 }
 

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { benefitPeriodsSchema } from "../../domain/pricing.js";
 import { lockPricing } from "../../infrastructure/postgres/catalog-lock.js";
 import { courseSourceRef, tierSnapshotSchema } from "../../../membership-entitlements/index.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { Accounts } from "../../../accounts/index.js";
 import { recurringAllowedFor, type AccessGrants } from "../../../membership-entitlements/index.js";
@@ -62,7 +63,7 @@ export class BillingOperations {
       const result = await this.dispatch(actorId, command);
       if (!result.ok) return result;
       return await this.record(actorId, command, digest, result);
-    } catch { return ownerFailure("dependency_unavailable"); }
+    } catch (error) { return dependencyFailure({ module: "billing", operation: "execute" }, error, ownerFailure("dependency_unavailable")); }
   }
 
   /**

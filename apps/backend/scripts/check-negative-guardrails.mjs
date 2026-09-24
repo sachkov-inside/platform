@@ -117,6 +117,11 @@ expectFailure(
     "src/modules/videos/features/handwritten-lock/handwritten-lock.ts: advisory lock keys come from src/infrastructure/prisma/transaction-locks.ts",
     "src/modules/billing/infrastructure/postgres/catalog-lock.ts: no longer writes an advisory lock; remove it from legacyAdvisoryLockFiles",
     "src/modules/materials/features/mark-assets-by-hand/mark-assets-by-hand.ts: materialAsset belongs to another Module; pass the transaction to its owner's function (materialAsset)",
+    "src/modules/example/features/swallow-failure/swallow-failure.ts:4: catch swallows its failure",
+    "src/modules/example/features/swallow-failure/swallow-failure.ts:12: catch drops error without reporting it",
+    "src/modules/example/features/swallow-failure/swallow-failure.ts:29: catch swallows its failure",
+    "src/modules/example/features/swallow-failure/swallow-failure.ts:37: .catch swallows its failure",
+    "src/modules/example/features/swallow-failure/swallow-failure.ts:43: catch drops error without reporting it",
   ],
 );
 

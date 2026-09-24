@@ -1,5 +1,6 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { z } from "zod";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
   Prisma,
   type TelegramMembershipPrismaClient,
@@ -136,8 +137,8 @@ export class TelegramAccountSignIn {
         },
       });
       return { ok: true, account } as const;
-    } catch {
-      return { ok: false, error: { code: "unavailable" } } as const;
+    } catch (error) {
+      return dependencyFailure({ module: "telegram-membership", operation: "complete" }, error, { ok: false, error: { code: "unavailable" } } as const);
     }
   }
 

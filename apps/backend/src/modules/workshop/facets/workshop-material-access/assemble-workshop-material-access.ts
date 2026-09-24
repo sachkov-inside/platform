@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { WorkshopPrisma } from "../../infrastructure/prisma.js";
 import { resolveCurrentCaseVersionAccess } from "../../shared/current-case-version-access.js";
 import type {
@@ -69,8 +70,8 @@ export function assembleWorkshopMaterialAccess(dependencies: {
           }
         }
         return { availability: locked ? "locked" : "unavailable" };
-      } catch {
-        return { availability: "unavailable" };
+      } catch (error) {
+        return dependencyFailure({ module: "workshop", operation: "resolveMaterialAccess" }, error, { availability: "unavailable" });
       }
     },
   };

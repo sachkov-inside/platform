@@ -98,12 +98,14 @@ export class PrivateProfileAvatarController {
       if (part === undefined) throw new Error("missing file");
       file = part;
     } catch {
+      // Not a dependency failure: the client sent a malformed form.
       throw avatarProblem(422, "invalid_avatar", "Avatar form is malformed");
     }
     let body: Buffer;
     try {
       body = await file.toBuffer();
     } catch {
+      // Not a dependency failure: the upload exceeds its size limit.
       throw avatarProblem(413, "image_too_large", "Avatar exceeds the size limit");
     }
     if (file.file.truncated) {
@@ -222,6 +224,7 @@ function parseCrop(value: string | undefined): z.infer<typeof cropSchema> | null
     const result = cropSchema.safeParse(JSON.parse(value));
     return result.success ? result.data : null;
   } catch {
+    // Not a dependency failure: malformed crop JSON from the client means no crop.
     return null;
   }
 }

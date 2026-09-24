@@ -134,6 +134,7 @@ export function assembleDeleteDraft(
           },
         ),
       mapPostgresReadError,
+      "deleteDraft",
     );
     return result.ok
       ? { ok: true, value: { materialId: result.value.materialId } }

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import { accountId } from "../../../accounts/index.js";
 import { readAvailableMaterials } from "../../../content-library/index.js";
 import type { PublishedMaterialSelection } from "../../../materials/index.js";
@@ -49,5 +50,5 @@ export async function getLearningHome(dependencies: SeriesContinuationDependenci
       if (series.value.continuation !== null) return { ok: true, value: { video, series: series.value } };
     }
     return { ok: true, value: { video, series: null } };
-  } catch { return { ok: false, error: { code: "dependency_unavailable" } }; }
+  } catch (error) { return dependencyFailure({ module: "reading-activity", operation: "getLearningHome" }, error, { ok: false, error: { code: "dependency_unavailable" } }); }
 }

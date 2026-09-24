@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { accessCapabilitySchema } from "../../../membership-entitlements/index.js";
 import { failure, idSchema, paymentModeSchema, priceSnapshotSchema, type PricingResult } from "../../domain/pricing.js";
@@ -35,5 +36,5 @@ export async function listOffers(prisma: BillingPrismaClient, input: unknown, cl
       if (price.ok) items.push(price.value);
     }
     return { ok: true, value: { items, nextCursor: rows.length > limit ? page.at(-1)?.id ?? null : null } };
-  } catch { return failure("dependency_unavailable"); }
+  } catch (error) { return dependencyFailure({ module: "billing", operation: "listOffers" }, error, failure("dependency_unavailable")); }
 }

@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 
 import { accountId } from "../../../accounts/index.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import { lockAccountEntitlementChanges } from "../../../../infrastructure/prisma/index.js";
 import type { MembershipEntitlements } from "../../../membership-entitlements/index.js";
 import type { WorkshopPrismaClient } from "../../infrastructure/prisma.js";
@@ -92,16 +93,18 @@ export async function grantWorkshopEntitlement(
         });
         return { ok: true as const, value: toDto(created) };
       });
-    } catch {
-      return await findGrantReplay(
+    } catch (error) {
+      // Гонка с тем же ключом идемпотентности отвечает повтором; сбоем она не считается.
+      const replay = await findGrantReplay(
         dependencies.prisma,
         parsed.data.actorAccountId,
         parsed.data.idempotencyKey,
         fingerprint,
-      ) ?? failure("dependency_unavailable");
+      );
+      return replay ?? dependencyFailure({ module: "workshop", operation: "grantWorkshopEntitlement" }, error, failure("dependency_unavailable"));
     }
-  } catch {
-    return failure("dependency_unavailable");
+  } catch (error) {
+    return dependencyFailure({ module: "workshop", operation: "grantWorkshopEntitlement" }, error, failure("dependency_unavailable"));
   }
 }
 

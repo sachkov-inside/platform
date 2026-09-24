@@ -322,13 +322,84 @@ function handoffDelegateViolations(sourceFile, program) {
   );
 }
 
+// Сбой зависимости в Module записывается с причиной: catch передаёт пойманное значение
+// reporter из src/infrastructure/observability (dependencyFailure, reportDependencyFailure,
+// describeError), каналу наблюдений уведомлений (loggableFailure), делает причиной новой ошибки
+// или бросает дальше. Отказ разбора чужого ввода — не сбой зависимости; такой catch объясняет
+// себя первой строкой тела.
+const inputRejectionMarker = "Not a dependency failure:";
+const reporters = "dependencyFailure|reportDependencyFailure|describeError|loggableFailure";
+
+function swallowedFailureViolations(sourceFile, sourceText, program, comments) {
+  const sourcePath = scannedPath(sourceFile);
+  if (owningModule(sourcePath) === undefined) return [];
+  const violations = [];
+  const lineOf = (offset) => sourceText.slice(0, offset).split("\n").length;
+  // Метка засчитывается только первой строкой: между началом обработчика и его первым оператором.
+  const explains = (from, body) => {
+    const firstCode = body.type === "BlockStatement" ? (body.body[0]?.start ?? body.end) : body.start;
+    return comments.some(
+      (comment) =>
+        comment.start > from &&
+        comment.end <= firstCode &&
+        comment.value.trim().startsWith(inputRejectionMarker),
+    );
+  };
+  // Текст обработчика без комментариев: упоминание reporter в комментарии ничего не записывает.
+  const codeOf = (body) =>
+    comments
+      .filter((comment) => comment.start >= body.start && comment.end <= body.end)
+      .reduceRight(
+        (text, comment) =>
+          text.slice(0, comment.start - body.start) + " ".repeat(comment.end - comment.start) + text.slice(comment.end - body.start),
+        sourceText.slice(body.start, body.end),
+      );
+  // Пойманное значение уходит reporter, становится причиной новой ошибки или бросается дальше.
+  // Условный throw засчитывается: так устроены обработчики гонок, где остальные ветки — ответы.
+  const passesOn = (body, name) => {
+    const caught = `(?<![\\w$.])${name}(?![\\w$])`;
+    return [
+      new RegExp(`\\b(?:${reporters})\\([^;]*${caught}`, "u"),
+      new RegExp(`\\bnew\\s+\\w+\\([^;]*${caught}`, "u"),
+      new RegExp(`\\bthrow\\s+${caught}`, "u"),
+    ].some((pattern) => pattern.test(codeOf(body)));
+  };
+  const check = (kind, start, param, body) => {
+    if (explains(start, body)) return;
+    const advice = `report it with dependencyFailure or explain it with "// ${inputRejectionMarker}"`;
+    if (param === null || param === undefined) {
+      violations.push(`${sourcePath}:${lineOf(start)}: ${kind} swallows its failure; ${advice}`);
+    } else if (param.type !== "Identifier" || !passesOn(body, param.name)) {
+      const name = param.type === "Identifier" ? param.name : "its failure";
+      violations.push(`${sourcePath}:${lineOf(start)}: ${kind} drops ${name} without reporting it; ${advice}`);
+    }
+  };
+  new Visitor({
+    // promise.catch(() => fallback) проглатывает причину так же, как пустой catch.
+    CallExpression(node) {
+      const handler = node.arguments[0];
+      if (
+        memberPropertyName(node.callee) === "catch" &&
+        (handler?.type === "ArrowFunctionExpression" || handler?.type === "FunctionExpression")
+      ) {
+        check(".catch", node.start, handler.params[0], handler.body);
+      }
+    },
+    CatchClause(node) {
+      check("catch", node.start, node.param, node.body);
+    },
+  }).visit(program);
+  return violations;
+}
+
 if (!statSync(scanRoot).isDirectory()) {
   throw new TypeError(`Architecture scan root is not a directory: ${scanRoot}`);
 }
 
 
 const findings = sourceFiles(scanRoot).flatMap((source) => {
-  const { errors, program } = parseSync(source, readFileSync(source, "utf8"));
+  const sourceText = readFileSync(source, "utf8");
+  const { comments, errors, program } = parseSync(source, sourceText);
   if (errors.length > 0) {
     throw new SyntaxError(`Oxc could not parse ${source}: ${errors[0].message}`);
   }
@@ -341,6 +412,7 @@ const findings = sourceFiles(scanRoot).flatMap((source) => {
     ...databaseReferenceViolations(source, program),
     ...advisoryLockViolations(source, program),
     ...handoffDelegateViolations(source, program),
+    ...swallowedFailureViolations(source, sourceText, program, comments),
   ];
 });
 

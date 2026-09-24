@@ -163,6 +163,7 @@ export function assembleVideoPlayback(dependencies: {
         });
         return decision.effect === "allow";
       } catch {
+        // Not a dependency failure: a token that fails verification is refused; dependencies answer here with results, not exceptions.
         return false;
       }
     },
@@ -184,6 +185,7 @@ export function assembleVideoPlayback(dependencies: {
       try {
         subject = { kind: "account", accountId: checkedAccountId(input.accountId) };
       } catch {
+        // Not a dependency failure: the account identifier in the request is malformed.
         return failure("invalid_request");
       }
       const decision = await dependencies.contentAccess.authorize({

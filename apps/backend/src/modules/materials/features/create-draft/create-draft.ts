@@ -147,6 +147,7 @@ export function assembleCreateDraft(
           },
         ),
       (unexpected) => mapPostgresError(unexpected, materializedMetadata),
+      "createDraft",
     );
     return result.ok ? { ok: true, value: result.value.receipt } : result;
   };

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 
+import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { WorkshopMaterialAccessState } from "../../../workshop/index.js";
 
 import type {
@@ -71,14 +72,14 @@ export function assembleContentAccess(
           dependencies,
           input.operations.map(({ resource }) => resource),
         );
-      } catch {
-        return {
+      } catch (error) {
+        return dependencyFailure({ module: "content-access", operation: "checkAvailabilityMany" }, error, {
           ok: true,
           items: input.operations.map(({ itemId }) => ({
             itemId,
             availability: "unavailable" as const,
           })),
-        };
+        });
       }
       const requiredResources = [...resourcesByKey].filter(([key, facts]) => input.operations.some(operation => resourceKey(operation.resource) === key && !isWorkshopDelivery(facts, operation.action) && needsSubjectFacts(facts, operation.action)));
       const subjectFactsByResource = new Map<string, SubjectFacts | undefined>();
@@ -94,7 +95,7 @@ export function assembleContentAccess(
             memberships = dependencies.membershipEntitlements.resolveManyForAccess === undefined
               ? await Promise.all(resources.map(resource => dependencies.membershipEntitlements.resolveForAccess(accountId, resource.guideIds, resource.materialId)))
               : await dependencies.membershipEntitlements.resolveManyForAccess(accountId, resources);
-          } catch { memberships = []; }
+          } catch (error) { reportDependencyFailure({ module: "content-access", operation: "checkAvailabilityMany" }, error); memberships = []; }
           protectedResources.forEach(([key], index) => subjectFactsByResource.set(key, { permission: "denied", membership: memberships[index] ?? { kind: "unavailable" } }));
         }
       }
@@ -130,8 +131,8 @@ export function assembleContentAccess(
       let facts: ResolvedResourceFacts | null;
       try {
         facts = await resolveOneResourceFacts(dependencies, input.resource);
-      } catch {
-        return decision("dependency_unavailable");
+      } catch (error) {
+        return dependencyFailure({ module: "content-access", operation: "authorize" }, error, decision("dependency_unavailable"));
       }
       if (facts === null) {
         return decision("resource_not_found");
@@ -161,8 +162,8 @@ export function assembleContentAccess(
               input.subject.accountId,
               workshopMaterialId,
             );
-          } catch {
-            return decision("dependency_unavailable");
+          } catch (error) {
+            return dependencyFailure({ module: "content-access", operation: "authorize" }, error, decision("dependency_unavailable"));
           }
         }
         const reason = evaluate(
@@ -256,8 +257,8 @@ async function resolveSubjectFacts(
     managesMaterials = await dependencies.accountPermissions.hasMaterialsManage(
       subject.accountId,
     );
-  } catch {
-    return { permission: "unavailable" };
+  } catch (error) {
+    return dependencyFailure({ module: "content-access", operation: "resolveSubjectFacts" }, error, { permission: "unavailable" });
   }
   if (managesMaterials) {
     return { permission: "granted" };
@@ -274,11 +275,11 @@ async function resolveSubjectFacts(
         materialId,
       ),
     };
-  } catch {
-    return {
+  } catch (error) {
+    return dependencyFailure({ module: "content-access", operation: "resolveSubjectFacts" }, error, {
       permission: "denied",
       membership: { kind: "unavailable" },
-    };
+    });
   }
 }
 
@@ -417,8 +418,8 @@ async function resolveWorkshopAccessMany(
             materialId,
           ) ?? { availability: "unavailable" as const },
         ] as const;
-      } catch {
-        return [materialId, { availability: "unavailable" as const }] as const;
+      } catch (error) {
+        return dependencyFailure({ module: "content-access", operation: "resolveWorkshopAccessMany" }, error, [materialId, { availability: "unavailable" as const }] as const);
       }
     }),
   );

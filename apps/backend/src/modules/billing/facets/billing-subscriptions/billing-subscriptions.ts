@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { BillingPrisma, BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { BillingContact } from "../../../accounts/index.js";
 import type { AccessGrants } from "../../../membership-entitlements/index.js";
@@ -63,7 +64,7 @@ export class BillingSubscriptions {
       ]);
       if (!access.ok || !payments.ok) return paymentFailure("dependency_unavailable");
       return { ok: true, value: { subscription, notices, grounds: access.value.grounds, payments: payments.value } };
-    } catch { return paymentFailure("dependency_unavailable"); }
+    } catch (error) { return dependencyFailure({ module: "billing", operation: "read" }, error, paymentFailure("dependency_unavailable")); }
   }
 
   private async currentSubscription(accountId: string): Promise<SubscriptionView | null> {
@@ -138,7 +139,7 @@ export class BillingSubscriptions {
           operationId: command.operationId, fingerprint: digest, baseRevision: row.revision, plan: plan.value, createdAt: now, expiresAt } });
         return { ok: true, value: { changeQuoteRef, baseRevision: row.revision, plan: plan.value, expiresAt: expiresAt.toISOString() } };
       });
-    } catch { return paymentFailure("dependency_unavailable"); }
+    } catch (error) { return dependencyFailure({ module: "billing", operation: "quoteChange" }, error, paymentFailure("dependency_unavailable")); }
   }
 
   async change(accountId: string, input: unknown): Promise<PaymentResult<ChangeResult>> {
@@ -204,10 +205,14 @@ export class BillingSubscriptions {
         await tx.billingSubscriptionCommand.create({ data: { accountId, operationId: command.operationId, fingerprint: digest, result: value, createdAt: now } });
         return value;
       });
-    } catch (error) { return error instanceof CommandFailure ? paymentFailure(error.code) : paymentFailure("dependency_unavailable"); }
+    } catch (error) {
+      return error instanceof CommandFailure
+        ? paymentFailure(error.code)
+        : dependencyFailure({ module: "billing", operation: "change" }, error, paymentFailure("dependency_unavailable"));
+    }
     if (accepted.attemptRef) await payments.dispatch(accepted.attemptRef);
     const payment = accepted.attemptRef ? await payments.status(accountId, accepted.attemptRef) : undefined;
-    const current = await this.currentSubscription(accountId).catch(() => null);
+    const current = await this.currentSubscription(accountId).catch((error: unknown) => dependencyFailure({ module: "billing", operation: "change" }, error, null));
     return { ok: true, value: {
       subscription: current ?? accepted.subscription,
       payment: payment?.ok ? payment.value : null,
@@ -257,11 +262,12 @@ export class BillingSubscriptions {
       });
       if (!prepared.ok) return prepared;
       flowRef = prepared.value;
-    } catch { return paymentFailure("dependency_unavailable"); }
+    } catch (error) { return dependencyFailure({ module: "billing", operation: "changeMethod" }, error, paymentFailure("dependency_unavailable")); }
     try {
       const session = await bank.addCard(accountId);
       await prisma.billingPaymentMethodFlow.update({ where: { id: flowRef }, data: { requestKey: session.requestKey, formUrl: session.formUrl, updatedAt: this.clock() } });
-    } catch {
+    } catch (error) {
+      reportDependencyFailure({ module: "billing", operation: "changeMethod" }, error);
       await prisma.billingPaymentMethodFlow.updateMany({ where: { id: flowRef, state: "started" }, data: { state: "rejected", observedStatus: "session_unavailable", updatedAt: this.clock() } });
       return paymentFailure("provider_unavailable");
     }
@@ -302,7 +308,7 @@ export class BillingSubscriptions {
           continue;
         }
         let observed: Awaited<ReturnType<Tbank["addCardState"]>>;
-        try { observed = await bank.addCardState(row.requestKey); } catch { continue; }
+        try { observed = await bank.addCardState(row.requestKey); } catch (error) { reportDependencyFailure({ module: "billing", operation: "reconcileMethodFlows" }, error); continue; }
         if (!observed.success || observed.errorCode !== "0") {
           await prisma.billingPaymentMethodFlow.updateMany({ where: { id: row.id, state: "started" }, data: { state: "rejected", observedStatus: observed.status, updatedAt: now } });
           continue;
@@ -328,7 +334,7 @@ export class BillingSubscriptions {
         });
       }
       return { ok: true, value: { inspected: rows.length, applied } };
-    } catch { return paymentFailure("dependency_unavailable"); }
+    } catch (error) { return dependencyFailure({ module: "billing", operation: "reconcileMethodFlows" }, error, paymentFailure("dependency_unavailable")); }
   }
 
   private async planChange(tx: BillingPrisma, row: SubscriptionRow, paymentOptionId: string, now: Date): Promise<PaymentResult<ChangePlan>> {
@@ -379,7 +385,7 @@ export class BillingSubscriptions {
         await tx.billingSubscriptionCommand.create({ data: { accountId, operationId, fingerprint: digest, result: value, createdAt: now } });
         return { ok: true, value };
       });
-    } catch { return paymentFailure("dependency_unavailable"); }
+    } catch (error) { return dependencyFailure({ module: "billing", operation: "transition" }, error, paymentFailure("dependency_unavailable")); }
   }
 }
 

@@ -1,3 +1,4 @@
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type {
   CreateMemberProfileError,
   CreateMemberProfileCommand,
@@ -52,17 +53,18 @@ export async function createProfile(
         ? profileFailure(internalProfileError())
         : { ok: true, value: profile };
     });
-  } catch {
+  } catch (error) {
+    // Уже созданный профиль — гонка двух запросов, а не сбой.
     try {
       const existing = await prisma.memberProfile.findUnique({
         where: { accountId: command.accountId },
         select: { accountId: true },
       });
       return existing === null
-        ? profileFailure(internalProfileError())
+        ? dependencyFailure({ module: "member-profiles", operation: "createProfile" }, error, profileFailure(internalProfileError()))
         : profileFailure({ code: "profile_exists" });
-    } catch {
-      return profileFailure(internalProfileError());
+    } catch (lookupError) {
+      return dependencyFailure({ module: "member-profiles", operation: "createProfile" }, lookupError, profileFailure(internalProfileError()));
     }
   }
 }

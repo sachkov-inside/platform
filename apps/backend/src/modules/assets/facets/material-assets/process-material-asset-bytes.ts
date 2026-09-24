@@ -248,6 +248,7 @@ function inferTextContentType(
       ? "application/octet-stream"
       : declaredContentType;
   } catch {
+    // Not a dependency failure: bytes that are not UTF-8 text are served as binary.
     return "application/octet-stream";
   }
 }
@@ -309,6 +310,7 @@ async function processImage(
       },
     };
   } catch {
+    // Not a dependency failure: an image the decoder cannot read is refused as a faulty upload.
     return failure("image_decode_failed");
   }
 }

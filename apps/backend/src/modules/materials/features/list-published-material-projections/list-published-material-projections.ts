@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { MaterialsPrisma } from "../../../../infrastructure/prisma/index.js";
 import { selectPublishedMaterialProjectionPage } from "../../infrastructure/postgres/published-material-reader/published-material-projection.js";
 import { normalizedUuidSchema } from "../../domain/uuid.js";
@@ -120,7 +121,7 @@ export async function listPublishedMaterialProjections(
     });
     return { ok: true, value: page };
   } catch (error) {
-    return { ok: false, error: mapPostgresReadError(error) };
+    return { ok: false, error: dependencyFailure({ module: "materials", operation: "listPublishedMaterialProjections" }, error, mapPostgresReadError(error)) };
   }
 }
 

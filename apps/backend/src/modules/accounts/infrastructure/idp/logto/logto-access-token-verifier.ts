@@ -8,6 +8,7 @@ import {
 } from "jose";
 import { z } from "zod";
 
+import { dependencyFailure } from "../../../../../infrastructure/observability/index.js";
 import {
   verifiedAccountIdentity,
   verifiedAccountSignIn,
@@ -153,7 +154,7 @@ async function verifyToken(
     };
   } catch (error) {
     return isDependencyFailure(error, config.jwksUrl !== undefined)
-      ? { ok: false, error: { code: "dependency_unavailable" } }
+      ? dependencyFailure({ module: "accounts", operation: "verifyToken" }, error, { ok: false, error: { code: "dependency_unavailable" } })
       : invalidProof();
   }
 }

@@ -1,3 +1,4 @@
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { ActivationBindings } from "../../domain/subscription-activation.js";
 import type { MembershipEntitlementsPrismaClient } from "../../infrastructure/prisma.js";
 import { acceptMembershipEvidence } from "../../features/accept-evidence/accept-evidence.js";
@@ -35,8 +36,8 @@ export function assembleMembershipEntitlements(
           command,
           clock(),
         );
-      } catch {
-        return { ok: false, error: { code: "unavailable" } };
+      } catch (error) {
+        return dependencyFailure({ module: "membership-entitlements", operation: "bindPrincipal" }, error, { ok: false, error: { code: "unavailable" } });
       }
     },
     resolveManyForAccess: (accountId, resources) => resolveMembershipForAccessMany(dependencies.prisma, accountId, clock(), resources),
@@ -53,8 +54,8 @@ export function assembleMembershipEntitlements(
           guideIds,
           materialId,
         );
-      } catch {
-        return { kind: "unavailable" };
+      } catch (error) {
+        return dependencyFailure({ module: "membership-entitlements", operation: "resolveForAccess" }, error, { kind: "unavailable" });
       }
     },
     async acceptEvidence(
@@ -68,8 +69,8 @@ export function assembleMembershipEntitlements(
           clock(),
           dependencies.recipientLinks,
         );
-      } catch {
-        return { ok: false, error: { code: "unavailable" } };
+      } catch (error) {
+        return dependencyFailure({ module: "membership-entitlements", operation: "acceptEvidence" }, error, { ok: false, error: { code: "unavailable" } });
       }
     },
   };

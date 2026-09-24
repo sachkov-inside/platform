@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { NotificationSource } from "../../../notifications/index.js";
 import {
@@ -64,7 +65,7 @@ export class BillingNotices {
         ...(notice.amountKopecks === null ? {} : { amountMinor: Number(notice.amountKopecks) }),
         ...(notice.dueAt === null ? {} : { dueAt: notice.dueAt.toISOString() }),
       };
-    } catch { return { status: "unavailable" }; }
+    } catch (error) { return dependencyFailure({ module: "billing", operation: "resolveNotice" }, error, { status: "unavailable" }); }
   }
 
   /**
@@ -108,7 +109,7 @@ export class BillingNotices {
         superseded += count;
       }
       return { ok: true, value: { created, refreshed, superseded } };
-    } catch { return paymentFailure("dependency_unavailable"); }
+    } catch (error) { return dependencyFailure({ module: "billing", operation: "scheduleReminders" }, error, paymentFailure("dependency_unavailable")); }
   }
 
   /** История служебных поводов собственного Account для кабинета. */

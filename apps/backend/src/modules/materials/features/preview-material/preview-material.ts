@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { z } from "zod";
 
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import { accountId as checkedAccountId } from "../../../accounts/index.js";
 import type {
   PreviewMaterialOperation,
@@ -99,7 +100,7 @@ export function assemblePreviewMaterial(
         },
       };
     } catch (error) {
-      return { ok: false, error: mapPostgresReadError(error) };
+      return { ok: false, error: dependencyFailure({ module: "materials", operation: "previewMaterial" }, error, mapPostgresReadError(error)) };
     }
   };
 }

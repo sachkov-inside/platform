@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { lockMaterialReferenceChanges, type AssetsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { ObjectStorage } from "../../../../infrastructure/object-storage/index.js";
+import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 import { processMaterialAssetBytes } from "./process-material-asset-bytes.js";
 import type {
   MaterialAssetDelivery,
@@ -26,7 +27,7 @@ export function assembleMaterialAssets(dependencies: {
   const { objectStorage, prisma } = dependencies;
   const assets: MaterialAssets = {
     async upload(input): Promise<UploadMaterialAssetResult> {
-      return materialAssetUpload(async () => {
+      return materialAssetUpload("upload", async () => {
         const validated = validateUpload(input);
         if (validated === null) {
           return { error: { code: "invalid_upload" }, ok: false };
@@ -95,7 +96,8 @@ export function assembleMaterialAssets(dependencies: {
                     where: { id: assetId },
                   });
                 });
-              } catch {
+              } catch (error) {
+                reportDependencyFailure({ module: "assets", operation: "upload" }, error);
                 await prisma.materialAsset.updateMany({
                   data: {
                     failureCode: "storage_failure",
@@ -304,23 +306,24 @@ export function assembleMaterialAssets(dependencies: {
           });
           await deleteQuarantineBestEffort(objectStorage, quarantineObjectKey);
           return { ok: true, value: toDto(ready) };
-        } catch {
+        } catch (error) {
           try {
             await prisma.materialAsset.updateMany({
               data: { failureCode: "storage_failure", state: "failed", updatedAt: new Date() },
               where: { id: assetId, state: "processing" },
             });
-          } catch {
+          } catch (markError) {
             // The transport-neutral failure below remains authoritative even if
             // the best-effort lifecycle marker cannot be persisted.
+            reportDependencyFailure({ module: "assets", operation: "upload" }, markError);
           }
-          return { error: { code: "dependency_unavailable" }, ok: false };
+          return dependencyFailure({ module: "assets", operation: "upload" }, error, { error: { code: "dependency_unavailable" }, ok: false });
         }
       });
     },
 
     async inspectReferences(materialId, references) {
-      return materialAssetQuery(async () => {
+      return materialAssetQuery("inspectReferences", async () => {
         const unique = uniqueReferences(references);
         if (unique.length === 0) return [];
         const assets = await prisma.materialAsset.findMany({
@@ -339,7 +342,7 @@ export function assembleMaterialAssets(dependencies: {
     },
 
     async loadAccessFacts(assetIds) {
-      return materialAssetQuery(async () => {
+      return materialAssetQuery("loadAccessFacts", async () => {
         if (assetIds.length === 0) return [];
         const rows = await prisma.materialAsset.findMany({
           where: { id: { in: [...new Set(assetIds)] }, state: "ready" },
@@ -354,7 +357,7 @@ export function assembleMaterialAssets(dependencies: {
     },
 
     async loadPresentations(materialId, assetIds) {
-      return materialAssetQuery(async () => {
+      return materialAssetQuery("loadPresentations", async () => {
         if (assetIds.length === 0) return [];
         const rows = await prisma.materialAsset.findMany({
           where: {
@@ -399,7 +402,7 @@ export function assembleMaterialAssets(dependencies: {
     },
 
     async loadDelivery(input) {
-      return materialAssetQuery(async (): Promise<MaterialAssetDelivery | null> => {
+      return materialAssetQuery("loadDelivery", async (): Promise<MaterialAssetDelivery | null> => {
         const asset = await prisma.materialAsset.findFirst({
           where: { id: input.assetId, materialId: input.materialId, state: "ready" },
         });
@@ -450,7 +453,7 @@ export function assembleMaterialAssets(dependencies: {
     },
 
     async cleanupOrphans(input) {
-      return materialAssetQuery(async () => {
+      return materialAssetQuery("cleanupOrphans", async () => {
         const now = input.now ?? new Date();
         const cutoff = new Date(now.getTime() - input.graceMs);
         const candidates = await prisma.materialAsset.findMany({
@@ -529,7 +532,8 @@ export function assembleMaterialAssets(dependencies: {
             }
             await prisma.materialAsset.delete({ where: { id: claimed.asset.id } });
             cleaned += 1;
-          } catch {
+          } catch (error) {
+            reportDependencyFailure({ module: "assets", operation: "cleanupOrphans" }, error);
             retained += 1;
           }
         }
@@ -554,25 +558,27 @@ function validateUpload(input: Parameters<MaterialAssets["upload"]>[0]) {
 }
 
 async function materialAssetQuery<Value>(
+  operationName: keyof MaterialAssets,
   operation: () => Promise<Value>,
 ): Promise<MaterialAssetQueryResult<Value>> {
   try {
     return { ok: true, value: await operation() };
-  } catch {
-    return {
+  } catch (error) {
+    return dependencyFailure({ module: "assets", operation: operationName }, error, {
       error: { code: "dependency_unavailable", retryable: true },
       ok: false,
-    };
+    });
   }
 }
 
 async function materialAssetUpload(
+  operationName: keyof MaterialAssets,
   operation: () => Promise<UploadMaterialAssetResult>,
 ): Promise<UploadMaterialAssetResult> {
   try {
     return await operation();
-  } catch {
-    return { error: { code: "dependency_unavailable" }, ok: false };
+  } catch (error) {
+    return dependencyFailure({ module: "assets", operation: operationName }, error, { error: { code: "dependency_unavailable" }, ok: false });
   }
 }
 
@@ -656,7 +662,12 @@ function trackedObjects(asset: Readonly<{
 }
 
 async function deleteQuarantineBestEffort(storage: ObjectStorage, key: string): Promise<void> {
-  try { await storage.delete("quarantine", key); } catch { /* cleanup retries stale quarantine */ }
+  try {
+    await storage.delete("quarantine", key);
+  } catch (error) {
+    // Cleanup retries a stale quarantine object later.
+    reportDependencyFailure({ module: "assets", operation: "deleteQuarantine" }, error);
+  }
 }
 
 function uniqueReferences(references: readonly MaterialAssetReference[]): readonly MaterialAssetReference[] {

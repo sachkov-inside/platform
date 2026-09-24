@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { NotificationsPrisma, NotificationsPrismaClient } from '../../../../infrastructure/prisma/index.js';
 import { stageNotification } from '../../../../infrastructure/notification-transport/outbox.js';
+import { dependencyFailure } from '../../../../infrastructure/observability/index.js';
 import { deliverySchema, resultSchema, parseWire, COMMAND_LIFETIME_MS, type DeliveryCommand, type DeliveryResult } from '../../domain/notification-wire.js';
 import { lockNotification } from '../../infrastructure/locks.js';
 import type { NotificationDependencies } from '../expand-audience/expand-audience.js';
@@ -95,7 +96,7 @@ export async function dispatchEmail(deps: NotificationDependencies, send: SendNo
     // prove no I/O occurred here; its durable attempt is resolved as not_sent below.
     const outcome = permit.status !== 'allowed' || Date.parse(permit.validUntil) <= deps.now().getTime() || Date.parse(command.notAfter) <= deps.now().getTime()
       ? { state: 'not_sent' as const, retryAfterMs: 0 }
-      : await send({ email, subject: command.subject ?? '', text: command.text, operationId: command.operationId }).catch(() => ({ state: 'unknown' as const }));
+      : await send({ email, subject: command.subject ?? '', text: command.text, operationId: command.operationId }).catch((error: unknown) => dependencyFailure({ module: 'notifications', operation: 'dispatchEmail' }, error, { state: 'unknown' as const }));
     await deps.prisma.$transaction(async transaction => {
       await lockNotification(transaction, `email:${row.deliveryId}`);
       const effect = await transaction.notificationEmailEffect.findUniqueOrThrow({ where: { deliveryId: row.deliveryId } });

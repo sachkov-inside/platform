@@ -1,4 +1,5 @@
 import { isPlatformPermission } from "../../domain/platform-permission.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { AccountsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { parseAccountId } from "../../domain/account-identifiers.js";
 import type {
@@ -34,7 +35,7 @@ export async function checkPermission(
       select: { accountId: true },
     });
     return { ok: true, allowed: grant !== null };
-  } catch {
-    return internalFailure();
+  } catch (error) {
+    return dependencyFailure({ module: "accounts", operation: "checkPermission" }, error, internalFailure());
   }
 }

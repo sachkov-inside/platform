@@ -2,6 +2,7 @@ import {
   MaterialContentModule,
   PublicContentTargets,
 } from "../materials/index.js";
+import { reportDependencyFailure } from "../../infrastructure/observability/index.js";
 import {
   PrismaModule,
   PrismaClientProvider,
@@ -41,7 +42,6 @@ export class TrackingHitPump
   private timer: ReturnType<typeof setTimeout> | undefined;
   private active: Promise<void> | undefined;
   private stopped = false;
-  private readonly logger = new Logger(TrackingHitPump.name);
   constructor(
     @Inject(TrackingVisits) private readonly visits: TrackingVisits,
     @Inject(PLATFORM_CONFIG) private readonly config: PlatformConfig,
@@ -54,10 +54,9 @@ export class TrackingHitPump
     this.timer = setTimeout(() => {
       this.active = this.visits
         .deliverPending()
-        .catch(() => {
-          this.logger.warn(
-            "Tracking hit delivery unavailable; persisted backlog retained",
-          );
+        // The persisted backlog is retained and delivered on the next tick.
+        .catch((error: unknown) => {
+          reportDependencyFailure({ module: "communications", operation: "deliverPending" }, error);
         })
         .finally(() => {
           if (!this.stopped) this.schedule();

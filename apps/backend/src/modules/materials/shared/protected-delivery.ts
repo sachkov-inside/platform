@@ -1,4 +1,5 @@
 import type { ObjectStorage, StoredObject } from "../../../infrastructure/object-storage/index.js";
+import { dependencyFailure } from "../../../infrastructure/observability/index.js";
 
 /**
  * Delivery policy shared by every protected download this module serves.
@@ -49,8 +50,8 @@ export async function readPublicObject(
   let stored: StoredObject | null;
   try {
     stored = await objectStorage.read("public", expected.key);
-  } catch {
-    return { kind: "unavailable" };
+  } catch (error) {
+    return dependencyFailure({ module: "materials", operation: "readPublicObject" }, error, { kind: "unavailable" });
   }
   return stored === null ||
     stored.contentLength !== expected.size ||

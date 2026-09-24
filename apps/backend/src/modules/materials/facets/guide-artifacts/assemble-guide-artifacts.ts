@@ -6,6 +6,7 @@ import type {
   ObjectStorage,
   ObjectStorageNamespace,
 } from "../../../../infrastructure/object-storage/index.js";
+import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type {
   MaterialsPrismaClient,
   MaterialsPrismaTransaction,
@@ -250,8 +251,8 @@ export function assembleGuideArtifacts(dependencies: {
     try {
       const result = await objectStorage.putImmutable(input);
       return result.ok ? { ok: true, value: null } : dependencyUnavailable();
-    } catch {
-      return dependencyUnavailable();
+    } catch (error) {
+      return dependencyFailure({ module: "materials", operation: "putObject" }, error, dependencyUnavailable());
     }
   }
 
@@ -261,10 +262,10 @@ export function assembleGuideArtifacts(dependencies: {
   ): Promise<void> {
     try {
       await objectStorage.delete(namespace, key);
-    } catch {
+    } catch (error) {
       // Quarantine and abandoned objects are immutable and unreferenced; a
       // failed cleanup never blocks the author-visible outcome.
-    }
+     reportDependencyFailure({ module: "materials", operation: "forgetObject" }, error); }
   }
 
   const artifacts: GuideArtifacts = {
@@ -279,8 +280,8 @@ export function assembleGuideArtifacts(dependencies: {
           where: { id: parsed.data.guideId },
         });
         if (guide === null) return failure({ code: "guide_not_found" });
-      } catch {
-        return dependencyUnavailable();
+      } catch (error) {
+        return dependencyFailure({ module: "materials", operation: "create" }, error, dependencyUnavailable());
       }
 
       const artifactId = randomUUID();
@@ -319,7 +320,8 @@ export function assembleGuideArtifacts(dependencies: {
             data: { artifactId, guideId: parsed.data.guideId },
           });
         });
-      } catch {
+      } catch (error) {
+        reportDependencyFailure({ module: "materials", operation: "create" }, error);
         await forgetStoredFile(stored);
         return dependencyUnavailable();
       }
@@ -361,8 +363,8 @@ export function assembleGuideArtifacts(dependencies: {
             where: { id: current.id },
           });
         });
-      } catch {
-        return dependencyUnavailable();
+      } catch (error) {
+        return dependencyFailure({ module: "materials", operation: "update" }, error, dependencyUnavailable());
       }
       return projectOrFail(prisma, parsed.data.artifactId);
     },
@@ -380,8 +382,8 @@ export function assembleGuideArtifacts(dependencies: {
         });
         if (current === null) return failure({ code: "artifact_not_found" });
         currentVersion = current.currentVersion;
-      } catch {
-        return dependencyUnavailable();
+      } catch (error) {
+        return dependencyFailure({ module: "materials", operation: "replaceContent" }, error, dependencyUnavailable());
       }
 
       let stored: StoredArtifactFile | null = null;
@@ -418,7 +420,8 @@ export function assembleGuideArtifacts(dependencies: {
             where: { id: parsed.data.artifactId },
           });
         });
-      } catch {
+      } catch (error) {
+        reportDependencyFailure({ module: "materials", operation: "replaceContent" }, error);
         await forgetStoredFile(stored);
         return dependencyUnavailable();
       }
@@ -444,8 +447,8 @@ export function assembleGuideArtifacts(dependencies: {
           where: { id: parsed.data.artifactId },
         });
         if (changed.count === 0) return failure({ code: "artifact_not_found" });
-      } catch {
-        return dependencyUnavailable();
+      } catch (error) {
+        return dependencyFailure({ module: "materials", operation: "setArchived" }, error, dependencyUnavailable());
       }
       return projectOrFail(prisma, parsed.data.artifactId);
     },
@@ -491,8 +494,8 @@ export function assembleGuideArtifacts(dependencies: {
             where: { id: parsed.data.artifactId },
           });
         });
-      } catch {
-        return dependencyUnavailable();
+      } catch (error) {
+        return dependencyFailure({ module: "materials", operation: "setGuides" }, error, dependencyUnavailable());
       }
       return projectOrFail(prisma, parsed.data.artifactId);
     },
@@ -538,8 +541,8 @@ export function assembleGuideArtifacts(dependencies: {
             where: { id: parsed.data.artifactId },
           });
         });
-      } catch {
-        return dependencyUnavailable();
+      } catch (error) {
+        return dependencyFailure({ module: "materials", operation: "setMaterials" }, error, dependencyUnavailable());
       }
       return projectOrFail(prisma, parsed.data.artifactId);
     },
@@ -567,8 +570,8 @@ export function assembleGuideArtifacts(dependencies: {
         await prisma.guideArtifact.delete({
           where: { id: parsed.data.artifactId },
         });
-      } catch {
-        return dependencyUnavailable();
+      } catch (error) {
+        return dependencyFailure({ module: "materials", operation: "remove" }, error, dependencyUnavailable());
       }
       return { ok: true, value: { artifactId: parsed.data.artifactId } };
     },
@@ -594,8 +597,8 @@ export function assembleGuideArtifacts(dependencies: {
             return projected === null ? [] : [projected];
           }),
         };
-      } catch {
-        return dependencyUnavailable();
+      } catch (error) {
+        return dependencyFailure({ module: "materials", operation: "listForGuide" }, error, dependencyUnavailable());
       }
     },
 
@@ -625,8 +628,8 @@ export function assembleGuideArtifacts(dependencies: {
             return projected === null ? [] : [projected];
           }),
         };
-      } catch {
-        return dependencyUnavailable();
+      } catch (error) {
+        return dependencyFailure({ module: "materials", operation: "listReusable" }, error, dependencyUnavailable());
       }
     },
 
@@ -661,8 +664,8 @@ export function assembleGuideArtifacts(dependencies: {
                 ];
           }),
         };
-      } catch {
-        return dependencyUnavailable();
+      } catch (error) {
+        return dependencyFailure({ module: "materials", operation: "loadForReader" }, error, dependencyUnavailable());
       }
     },
 
@@ -707,8 +710,8 @@ export function assembleGuideArtifacts(dependencies: {
             size: current.byteSize,
           },
         };
-      } catch {
-        return dependencyUnavailable();
+      } catch (error) {
+        return dependencyFailure({ module: "materials", operation: "loadFileDelivery" }, error, dependencyUnavailable());
       }
     },
 
@@ -742,8 +745,8 @@ export function assembleGuideArtifacts(dependencies: {
           sourceIds.length === 0
             ? []
             : await loadArtifactsBySource(prisma, sourceIds);
-      } catch {
-        return dependencyUnavailable();
+      } catch (error) {
+        return dependencyFailure({ module: "materials", operation: "applyAuthoringImport" }, error, dependencyUnavailable());
       }
       // Records authored on Platform stay outside every import decision: an
       // import never matches, changes or archives them.
@@ -870,7 +873,8 @@ export function assembleGuideArtifacts(dependencies: {
               data: { artifactId, guideId: command.guideId },
             });
           });
-        } catch {
+        } catch (error) {
+          reportDependencyFailure({ module: "materials", operation: "createFromSource" }, error);
           await forgetStoredFile(stored);
           return dependencyUnavailable();
         }
@@ -961,7 +965,7 @@ export function assembleGuideArtifacts(dependencies: {
               },
             };
           }
-          return dependencyUnavailable();
+          return dependencyFailure({ module: "materials", operation: "updateFromSource" }, error, dependencyUnavailable());
         }
         if (stored !== null) {
           await forgetObject("quarantine", stored.quarantineObjectKey);
@@ -1123,8 +1127,8 @@ async function projectOrFail(
     return projected === null
       ? failure({ code: "artifact_not_found" })
       : { ok: true, value: projected };
-  } catch {
-    return dependencyUnavailable();
+  } catch (error) {
+    return dependencyFailure({ module: "materials", operation: "projectOrFail" }, error, dependencyUnavailable());
   }
 }
 

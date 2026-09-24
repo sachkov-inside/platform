@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { MaterialAuthoringDependencies } from "../../facets/material-authoring/material-authoring.dependencies.js";
 import { authorizeManager } from "../../ports/author-policy.js";
 import { accountId, parseCommand } from "../../shared/command-validation.js";
@@ -17,7 +18,7 @@ export function assembleLoadHomePin(dependencies: MaterialAuthoringDependencies)
       const pin = await dependencies.prisma.homeSeriesPin.findUniqueOrThrow({ where: { id: 1 }, select: { seriesId: true, version: true } });
       return { ok: true, value: pin };
     } catch (error) {
-      return { ok: false, error: mapPostgresReadError(error) };
+      return { ok: false, error: dependencyFailure({ module: "materials", operation: "loadHomePin" }, error, mapPostgresReadError(error)) };
     }
   };
 }

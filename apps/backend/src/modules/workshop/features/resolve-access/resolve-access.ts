@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { WorkshopPrisma } from "../../infrastructure/prisma.js";
 import type { WorkshopAccessState } from "../../facets/workshop/workshop.interface.js";
 import { workshopScopeSchema } from "../../shared/workshop-validation.js";
@@ -56,7 +57,7 @@ export async function resolveWorkshopAccess(
       select: { id: true },
     });
     return expired === null ? { kind: "required" } : { kind: "expired" };
-  } catch {
-    return { kind: "unavailable" };
+  } catch (error) {
+    return dependencyFailure({ module: "workshop", operation: "resolveWorkshopAccess" }, error, { kind: "unavailable" });
   }
 }

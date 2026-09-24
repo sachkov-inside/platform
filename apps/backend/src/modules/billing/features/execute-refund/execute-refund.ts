@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import { reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { BillingPrisma, BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { paidPeriodCommandSchema } from "../../../membership-entitlements/index.js";
 import { lifecycleWindow, refundSourceRef } from "../../domain/notice.js";
@@ -95,8 +96,9 @@ async function sendRefund(dependencies: Dependencies, refundRef: string): Promis
       paymentId: row.paymentId, amount: Number(row.amountKopecks), externalRequestId: row.id,
       name: snapshot.offer.name, email: z.email().parse(bank.openBinding(`${purchase.id}:contact`, contact.emailCiphertext)),
     });
-  } catch {
+  } catch (error) {
     // Ответ потерян: попытка остаётся неизвестной и сверяется тем же ExternalRequestId.
+    reportDependencyFailure({ module: "billing", operation: "sendRefund" }, error);
     await prisma.billingRefund.updateMany({ where: { id: row.id, state: { in: unsettledRefundStates } },
       data: { state: "unknown", observedStatus: "no_response", updatedAt: dependencies.clock() } });
     return false;

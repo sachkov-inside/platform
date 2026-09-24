@@ -1,6 +1,7 @@
 import { tributeStateSchema } from "../../domain/tribute-source.js";
 import type { TelegramAccountLinks } from "../../../telegram-membership/index.js";
 import { contentScopeSchema, guideCapability } from "@inside/access-capabilities";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import { Prisma } from "../../../../infrastructure/prisma/index.js";
 import type { ContentScopeCatalog } from "../../../materials/index.js";
 import { enrollmentView, enrollmentBenefitTerms, enrollmentSourceState } from "../../shared/enrollment-view.js";
@@ -90,8 +91,8 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
           tributeStopped: row?.tributeStopped === true,
         }),
       };
-    } catch {
-      return accessFailure("unavailable");
+    } catch (error) {
+      return dependencyFailure({ module: "membership-entitlements", operation: "readClassificationOf" }, error, accessFailure("unavailable"));
     }
   }
   async function manage<Result>(
@@ -109,8 +110,8 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       if (!decision.ok) return accessFailure("unavailable");
       if (!decision.allowed) return accessFailure("forbidden");
       return await operation();
-    } catch {
-      return accessFailure("unavailable");
+    } catch (error) {
+      return dependencyFailure({ module: "membership-entitlements", operation: "manage" }, error, accessFailure("unavailable"));
     }
   }
   return Object.freeze({
@@ -167,7 +168,7 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
         const now = clock();
         const rows = await prisma.subscriptionEnrollment.findMany({ where: { accountId: targetAccountId }, orderBy: [{ startsAt: "desc" }, { id: "asc" }] });
         return { ok: true as const, value: await Promise.all(rows.map(async row => { const view = enrollmentView(row, now); if (row.origin === "tribute" && view.state !== "revoked") view.state = await enrollmentSourceState(prisma, row.id, now) ?? view.state; const benefitGrants = await prisma.accessGrant.findMany({ where: { enrollmentId: row.id } }); return { ...view, benefitTerms: enrollmentBenefitTerms(benefitGrants), ...(dependencies.contentCatalog === undefined ? {} : { content: await dependencies.contentCatalog.resolve(view.tier.contentScope) }) }; })) };
-      } catch { return accessFailure("unavailable"); }
+      } catch (error) { return dependencyFailure({ module: "membership-entitlements", operation: "readOwnEnrollments" }, error, accessFailure("unavailable")); }
     },
     async readCompatibilityContentScope() {
       const rows = z.array(z.object({ scope: contentScopeSchema })).parse(await prisma.$queryRaw`SELECT scope FROM membership_entitlements.content_scope_baseline WHERE id = 1`);
@@ -188,8 +189,8 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
     async applyPaidPeriod(command: ApplyPaidPeriodCommand) {
       try {
         return await applyPaidPeriod(prisma, accounts, command, clock());
-      } catch {
-        return accessFailure("unavailable");
+      } catch (error) {
+        return dependencyFailure({ module: "membership-entitlements", operation: "applyPaidPeriod" }, error, accessFailure("unavailable"));
       }
     },
     previewBatch: (actorId: string, command: PreviewGrantBatchCommand) =>
@@ -266,8 +267,8 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
     async readOwnAccess(targetAccountId: string) {
       try {
         return await readOwnAccess(prisma, targetAccountId, clock());
-      } catch {
-        return accessFailure("unavailable");
+      } catch (error) {
+        return dependencyFailure({ module: "membership-entitlements", operation: "readOwnAccess" }, error, accessFailure("unavailable"));
       }
     },
     async resolveCapabilities(targetAccountId: string) {
@@ -284,8 +285,8 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
             );
           return { ok: true as const, capabilities, revision, nextBoundary };
         });
-      } catch {
-        return accessFailure("unavailable");
+      } catch (error) {
+        return dependencyFailure({ module: "membership-entitlements", operation: "resolveCapabilities" }, error, accessFailure("unavailable"));
       }
     },
     /**
@@ -316,8 +317,8 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
           accountIds: [...new Set(rows.map((row) => row.accountId))],
           cursor: rows.at(-1)?.revision ?? parsed.data.afterRevision,
         };
-      } catch {
-        return accessFailure("unavailable");
+      } catch (error) {
+        return dependencyFailure({ module: "membership-entitlements", operation: "readChangedAccounts" }, error, accessFailure("unavailable"));
       }
     },
     /**

@@ -1,3 +1,4 @@
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import { MaterialMetadataSelection } from "../../domain/material-metadata.js";
 import { validateSourceBodySchema, type ValidateSourceOperation } from "./import-source-material.contract.js";
 import { createHash } from "node:crypto";
@@ -46,7 +47,7 @@ export function assembleReserveSourceMaterial(dependencies: MaterialAuthoringDep
       // Another authorized importer may have reserved the same source concurrently.
       return created.ok ? created : (await existing()) ?? created;
     } catch (error) {
-      return { ok: false, error: mapPostgresReadError(error) };
+      return { ok: false, error: dependencyFailure({ module: "materials", operation: "reserveSourceMaterial" }, error, mapPostgresReadError(error)) };
     }
   };
 }

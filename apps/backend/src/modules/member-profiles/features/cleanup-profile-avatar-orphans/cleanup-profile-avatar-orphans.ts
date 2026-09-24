@@ -1,5 +1,6 @@
 import { Prisma } from "../../../../infrastructure/prisma/index.js";
 import type { ObjectStorage } from "../../../../infrastructure/object-storage/index.js";
+import { reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { MemberProfilePersistenceClient } from "../../infrastructure/prisma.js";
 
 export const PROFILE_AVATAR_MAINTENANCE = Symbol("PROFILE_AVATAR_MAINTENANCE");
@@ -96,7 +97,8 @@ export async function cleanupProfileAvatarOrphans(
         where: { id: claimed.avatar.id },
       });
       cleaned += 1;
-    } catch {
+    } catch (error) {
+      reportDependencyFailure({ module: "member-profiles", operation: "cleanupProfileAvatarOrphans" }, error);
       retained += 1;
     }
   }

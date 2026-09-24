@@ -5,6 +5,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 
 import type { ObjectStorage } from "../../../../infrastructure/object-storage/index.js";
+import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
   lockContentCoverOwner,
   type MaterialsPrismaClient,
@@ -202,7 +203,8 @@ export function assembleContentCovers(dependencies: {
             where: { id: coverId },
             data: { uploadConfirmed: true },
           });
-        } catch {
+        } catch (error) {
+          reportDependencyFailure({ module: "materials", operation: "change" }, error);
           await dependencies.prisma.contentCover.updateMany({
             data: {
               failureCode: "storage_failure",
@@ -214,8 +216,8 @@ export function assembleContentCovers(dependencies: {
           return dependencyUnavailable();
         }
         return await changeCurrentCover(dependencies.prisma, parsed.data, coverId, sourceId);
-      } catch {
-        return dependencyUnavailable();
+      } catch (error) {
+        return dependencyFailure({ module: "materials", operation: "change" }, error, dependencyUnavailable());
       }
   }
   return {
@@ -257,8 +259,8 @@ export function assembleContentCovers(dependencies: {
               contentType: object.contentType,
               ok: true,
             };
-      } catch {
-        return { ok: false, error: { code: "dependency_unavailable" } };
+      } catch (error) {
+        return dependencyFailure({ module: "materials", operation: "deliver" }, error, { ok: false, error: { code: "dependency_unavailable" } });
       }
     },
   };

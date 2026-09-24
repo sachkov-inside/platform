@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { ReadingActivityPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { accountId } from "../../../accounts/index.js";
 import { materialId, type MaterialContent } from "../../../materials/index.js";
@@ -40,5 +41,5 @@ export async function recordMaterialOpen(dependencies: {
       await transaction.readingCommand.create({ data: { accountId: command.accountId, commandId: command.commandId, fingerprint, outcome } });
       return { ok: true, value: { ...outcome, replayed: false } };
     });
-  } catch { return { ok: false, error: { code: "dependency_unavailable" } }; }
+  } catch (error) { return dependencyFailure({ module: "reading-activity", operation: "recordMaterialOpen" }, error, { ok: false, error: { code: "dependency_unavailable" } }); }
 }

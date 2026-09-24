@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 
+import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { WorkshopEntitlementState } from "../workshop-entitlements/workshop-entitlements.interface.js";
 import type {
   WorkshopAccess,
@@ -47,7 +48,8 @@ export function assembleWorkshopAccess(
           request.operations.map(({ resource }) => resource),
         );
         factsByResource = uniqueFactsByResource(facts);
-      } catch {
+      } catch (error) {
+        reportDependencyFailure({ module: "workshop", operation: "checkAvailabilityMany" }, error);
         factsByResource = new Map();
       }
 
@@ -70,8 +72,8 @@ export function assembleWorkshopAccess(
       let facts: WorkshopResourceFacts | null;
       try {
         facts = await dependencies.resourceFacts.findOne(request.resource);
-      } catch {
-        return deny("dependency_unavailable");
+      } catch (error) {
+        return dependencyFailure({ module: "workshop", operation: "authorize" }, error, deny("dependency_unavailable"));
       }
       if (facts === null) return deny("resource_not_found");
       if (resourceKey(facts.resource) !== resourceKey(request.resource)) {
@@ -99,8 +101,8 @@ export function assembleWorkshopAccess(
         entitlement = await dependencies.workshopEntitlements.resolveForAccess(
           request.subject.accountId,
         );
-      } catch {
-        return deny("dependency_unavailable");
+      } catch (error) {
+        return dependencyFailure({ module: "workshop", operation: "authorize" }, error, deny("dependency_unavailable"));
       }
       switch (entitlement.kind) {
         case "active":

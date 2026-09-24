@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import { materialFormats } from "../../domain/material-format.js";
 
 import type { MaterialAuthoringDependencies } from "../../facets/material-authoring/material-authoring.dependencies.js";
@@ -58,7 +59,7 @@ export function assembleListAuthoringReferences(
         },
       };
     } catch (error) {
-      return failure(mapPostgresReadError(error));
+      return failure(dependencyFailure({ module: "materials", operation: "listAuthoringReferences" }, error, mapPostgresReadError(error)));
     }
   };
 }

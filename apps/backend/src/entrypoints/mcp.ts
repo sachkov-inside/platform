@@ -8,6 +8,11 @@ import {
   PLATFORM_CONFIG,
   type PlatformConfig,
 } from "../config/platform-config.js";
+import {
+  describeError,
+  reportProcessFailure,
+  writeLog,
+} from "../infrastructure/observability/index.js";
 import { OperationalReadiness } from "../infrastructure/operational-readiness.js";
 import { listenForProcessShutdown } from "../infrastructure/process-shutdown.js";
 import {
@@ -23,10 +28,7 @@ import {
 import { createMcpApplication } from "./create-mcp-application.js";
 import { createMcpHttpServer } from "./mcp/mcp-http-server.js";
 
-void bootstrap().catch((error: unknown) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+void bootstrap().catch((error: unknown) => reportProcessFailure("mcp", error));
 
 async function bootstrap(): Promise<void> {
   const application = await createMcpApplication();
@@ -45,15 +47,13 @@ async function bootstrap(): Promise<void> {
     tokenVerifier: application.get<LogtoAccessTokenVerifier>(
       LOGTO_ACCESS_TOKEN_VERIFIER,
     ),
-    onError: (error) => console.error(error),
+    onError: (error) => writeLog("error", "request_failed", { error: describeError(error) }),
   });
 
   try {
-    console.info(
-      JSON.stringify(await application.get(OperationalReadiness).check("mcp")),
-    );
+    writeLog("info", "process_ready", { ...(await application.get(OperationalReadiness).check("mcp")) });
     const endpoint = await server.listen();
-    console.info(`MCP listening on ${endpoint.href}`);
+    writeLog("info", "mcp_listening", { process: "mcp", endpoint: endpoint.href });
     await shutdown.received;
   } finally {
     shutdown.dispose();

@@ -1,3 +1,4 @@
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { AccountsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { parseAccountId } from "../../domain/account-identifiers.js";
 import type {
@@ -31,7 +32,7 @@ export async function resolveAccount(
     return accountId === undefined
       ? internalFailure()
       : { ok: true, account: { accountId } };
-  } catch {
-    return internalFailure();
+  } catch (error) {
+    return dependencyFailure({ module: "accounts", operation: "resolveAccount" }, error, internalFailure());
   }
 }

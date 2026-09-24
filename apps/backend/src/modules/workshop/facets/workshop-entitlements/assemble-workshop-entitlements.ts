@@ -1,3 +1,4 @@
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { AccountId } from "../../../accounts/index.js";
 import { applyAcceptedMembershipEvidence } from "../../features/apply-membership-entitlement/apply-membership-entitlement.js";
 import { resolveWorkshopEntitlement } from "../../features/resolve-workshop-entitlement/resolve-workshop-entitlement.js";
@@ -35,8 +36,8 @@ export function assembleWorkshopEntitlements(
           accountId,
           clock(),
         );
-      } catch {
-        return { kind: "unavailable" };
+      } catch (error) {
+        return dependencyFailure({ module: "workshop", operation: "resolveForAccess" }, error, { kind: "unavailable" });
       }
     },
   });

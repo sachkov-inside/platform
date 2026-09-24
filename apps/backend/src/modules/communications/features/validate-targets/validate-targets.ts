@@ -25,13 +25,7 @@ export async function validateTargets(
   }
   const errors: z.infer<typeof targetErrorSchema>[] = [];
   for (const value of urls) {
-    const url = (() => {
-      try {
-        return new URL(value.includes("://") ? value : `https://${value}`);
-      } catch {
-        return null;
-      }
-    })();
+    const url = URL.parse(value.includes("://") ? value : `https://${value}`);
     if (!url || url.origin !== origin) continue;
     const segments = url.pathname.split("/").filter(Boolean);
     if (segments[0] !== "materials" && segments[0] !== "series") continue;
@@ -41,6 +35,7 @@ export async function validateTargets(
           ? decodeURIComponent(segments[1] ?? "")
           : "";
       } catch {
+        // Not a dependency failure: a malformed escape in a submitted link names no material.
         return "";
       }
     })();

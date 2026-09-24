@@ -1,3 +1,4 @@
+import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
   lockMaterialReferenceChanges,
   type VideosPrisma,
@@ -129,11 +130,11 @@ export function assembleVideoDeletionMaintenance(dependencies: {
           }
         }
         return { ok: true, value: summary };
-      } catch {
-        return {
+      } catch (error) {
+        return dependencyFailure({ module: "videos", operation: "process" }, error, {
           error: { code: "dependency_unavailable", retryable: true },
           ok: false,
-        };
+        });
       }
     },
   };
@@ -238,7 +239,8 @@ export function assembleVideoDeletionMaintenance(dependencies: {
         id: input.providerVideoId,
         projectId: input.projectId,
       });
-    } catch {
+    } catch (error) {
+      reportDependencyFailure({ module: "videos", operation: "reconcileActiveProviderState" }, error);
       return;
     }
     if (

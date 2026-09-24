@@ -1,3 +1,4 @@
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { AccountId } from "../../../accounts/index.js";
 import type {
   MemberProfileResult,
@@ -25,7 +26,7 @@ export async function readPrivateProfile(
     return profile === null
       ? profileFailure(internalProfileError())
       : { ok: true, value: { kind: "profile", profile } };
-  } catch {
-    return profileFailure(internalProfileError());
+  } catch (error) {
+    return dependencyFailure({ module: "member-profiles", operation: "readPrivateProfile" }, error, profileFailure(internalProfileError()));
   }
 }

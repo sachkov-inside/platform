@@ -62,6 +62,7 @@ export function assembleSetContentCollectionArchive(
         return collection ?? rollback({ code: "content_collection_not_found" });
       },
       (error): SetContentCollectionArchiveError => mapPostgresReadError(error),
+      "setContentCollectionArchive",
     );
   };
 }

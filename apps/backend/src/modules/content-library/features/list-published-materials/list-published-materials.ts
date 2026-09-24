@@ -270,6 +270,7 @@ function decodeCursor(
         }
       : undefined;
   } catch {
+    // Not a dependency failure: a malformed cursor from the client reads as no cursor.
     return undefined;
   }
 }

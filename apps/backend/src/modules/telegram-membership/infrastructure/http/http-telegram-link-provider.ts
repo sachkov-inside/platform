@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type {
   ConfirmTelegramLinkRequest,
   RegisterTelegramLinkRequest,
@@ -128,8 +129,8 @@ export class HttpTelegramLinkProvider implements TelegramLinkProvider {
         return undefined;
       }
       return await response.json();
-    } catch {
-      return undefined;
+    } catch (error) {
+      return dependencyFailure({ module: "telegram-membership", operation: "post" }, error, undefined);
     }
   }
 }

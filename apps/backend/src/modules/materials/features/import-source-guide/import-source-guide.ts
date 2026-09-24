@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { MaterialAuthoringDependencies } from "../../facets/material-authoring/material-authoring.dependencies.js";
 import { contentCollectionPersistence } from "../../infrastructure/postgres/content-collection-persistence.js";
 import { authorizeManager } from "../../ports/author-policy.js";
@@ -33,7 +34,7 @@ export function assembleReserveSourceGuide(dependencies: MaterialAuthoringDepend
       const result = await persistence.load(current.id);
       if (result === undefined) throw new Error("Reserved Guide disappeared");
       return { ok: true, value: result };
-    } catch (error) { return { ok: false, error: mapPostgresReadError(error) }; }
+    } catch (error) { return { ok: false, error: dependencyFailure({ module: "materials", operation: "reserveSourceGuide" }, error, mapPostgresReadError(error)) }; }
   };
 }
 

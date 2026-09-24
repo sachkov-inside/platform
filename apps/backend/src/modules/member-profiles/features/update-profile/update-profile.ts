@@ -1,3 +1,4 @@
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type {
   MemberProfileResult,
   PrivateMemberProfile,
@@ -71,7 +72,7 @@ export async function updateProfile(
         ? profileFailure(internalProfileError())
         : { ok: true, value: profile };
     });
-  } catch {
-    return profileFailure(internalProfileError());
+  } catch (error) {
+    return dependencyFailure({ module: "member-profiles", operation: "updateProfile" }, error, profileFailure(internalProfileError()));
   }
 }

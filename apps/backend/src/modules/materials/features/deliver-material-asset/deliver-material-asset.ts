@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import type { ObjectStorage } from "../../../../infrastructure/object-storage/index.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { Subject, ContentAccess } from "../../../content-access/index.js";
 import type { MaterialAssets } from "../../../assets/index.js";
 import { materialId as checkedMaterialId } from "../../domain/material-identifiers.js";
@@ -82,8 +83,8 @@ export function assembleMaterialAssetDelivery(dependencies: {
       let loaded: Awaited<ReturnType<MaterialAssets["loadDelivery"]>>;
       try {
         loaded = await dependencies.assets.loadDelivery(input);
-      } catch {
-        return dependencyUnavailable();
+      } catch (error) {
+        return dependencyFailure({ module: "materials", operation: "deliver" }, error, dependencyUnavailable());
       }
       if (!loaded.ok) return dependencyUnavailable();
       const asset = loaded.value;
@@ -129,8 +130,8 @@ export function assembleMaterialAssetDelivery(dependencies: {
           namespace: "protected",
           ttlSeconds,
         });
-      } catch {
-        return dependencyUnavailable();
+      } catch (error) {
+        return dependencyFailure({ module: "materials", operation: "deliver" }, error, dependencyUnavailable());
       }
       return {
         ok: true,

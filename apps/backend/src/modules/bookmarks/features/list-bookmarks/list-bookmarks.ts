@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { BookmarksPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { accountId } from "../../../accounts/index.js";
 import type { ContentAccess } from "../../../content-access/index.js";
@@ -70,8 +71,8 @@ export async function listBookmarks(dependencies: {
           : null,
       },
     };
-  } catch {
-    return { ok: false, error: { code: "dependency_unavailable" } };
+  } catch (error) {
+    return dependencyFailure({ module: "bookmarks", operation: "listBookmarks" }, error, { ok: false, error: { code: "dependency_unavailable" } });
   }
 }
 
@@ -87,6 +88,7 @@ function decodeCursor(value: string): BookmarkCursor | null {
       ? { bookmarkedAt: parsed.data.bookmarkedAt, materialId: parsed.data.materialId }
       : null;
   } catch {
+    // Not a dependency failure: a malformed cursor from the client reads as no cursor.
     return null;
   }
 }

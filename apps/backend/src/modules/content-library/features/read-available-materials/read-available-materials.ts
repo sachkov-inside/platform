@@ -1,3 +1,4 @@
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { ContentAccess, Subject } from "../../../content-access/index.js";
 import type { PublishedMaterialSelection } from "../../../materials/index.js";
 import type { Videos } from "../../../videos/index.js";
@@ -42,7 +43,7 @@ async function readProjections(
       try {
         const result = await dependencies.videos.loadReadyDurations(ids);
         return result.ok ? result : { ok: true as const, value: [] };
-      } catch { return { ok: true as const, value: [] }; }
+      } catch (error) { return dependencyFailure({ module: "content-library", operation: "loadReadyDurations" }, error, { ok: true as const, value: [] }); }
     },
   }, subject, selected.value);
 }

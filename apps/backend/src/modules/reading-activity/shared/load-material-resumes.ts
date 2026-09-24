@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { reportDependencyFailure } from "../../../infrastructure/observability/index.js";
 import type { ContentAccess, Subject } from "../../content-access/index.js";
 import type { PublishedMaterialCatalogItemDto } from "../../content-library/index.js";
 import type { Videos } from "../../videos/index.js";
@@ -24,6 +25,6 @@ export async function loadMaterialResumes(dependencies: {
       const duration = material.primaryVideoDurationSeconds;
       if (saved !== undefined && duration !== undefined && saved.positionSeconds > 0) resumes.set(material.materialId, saved.positionSeconds >= duration ? { kind: "reached-end" } : { kind: "position", positionSeconds: saved.positionSeconds });
     }
-  } catch { /* Material access remains usable without a resume claim. */ }
+  } catch (error) { /* Material access remains usable without a resume claim. */  reportDependencyFailure({ module: "reading-activity", operation: "loadMaterialResumes" }, error); }
   return resumes;
 }

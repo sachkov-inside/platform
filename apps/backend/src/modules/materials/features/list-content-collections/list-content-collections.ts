@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { MaterialAuthoringDependencies } from "../../facets/material-authoring/material-authoring.dependencies.js";
 import { authorizeManager } from "../../ports/author-policy.js";
 import { failure } from "../../shared/application-result.js";
@@ -33,7 +34,7 @@ export function assembleListContentCollections(
         ).list(),
       };
     } catch (error) {
-      return failure(mapPostgresReadError(error));
+      return failure(dependencyFailure({ module: "materials", operation: "listContentCollections" }, error, mapPostgresReadError(error)));
     }
   };
 }

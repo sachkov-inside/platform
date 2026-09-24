@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { ReadingActivityPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { accountId } from "../../../accounts/index.js";
 import type { ContentAccess } from "../../../content-access/index.js";
@@ -83,7 +84,7 @@ export async function setReadingState(dependencies: {
       } });
       return { ok: true, value: { ...outcome, replayed: false } };
     });
-  } catch {
-    return { ok: false, error: { code: "dependency_unavailable" } };
+  } catch (error) {
+    return dependencyFailure({ module: "reading-activity", operation: "setReadingState" }, error, { ok: false, error: { code: "dependency_unavailable" } });
   }
 }

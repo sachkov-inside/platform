@@ -3,6 +3,7 @@ import { z } from "zod";
 
 
 import { contractDigest } from "../../../../infrastructure/contracts/canonical-digest.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
   Prisma,
   type TelegramMembershipPrisma,
@@ -225,8 +226,8 @@ export async function projectCommunityEntitlement(
       });
       return { ok: true as const, entitlementRevision, issued };
     });
-  } catch {
-    return { ok: false, error: { code: "unavailable" } };
+  } catch (error) {
+    return dependencyFailure({ module: "telegram-membership", operation: "projectCommunityEntitlement" }, error, { ok: false, error: { code: "unavailable" } });
   }
 }
 

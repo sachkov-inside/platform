@@ -6,6 +6,7 @@ import { PLATFORM_CONFIG, type PlatformConfig } from '../../../../config/platfor
 import { bearerCredential, credentialsMatch } from '../../../../infrastructure/http/bearer-credentials.js';
 import { PrivateNoStore } from '../../../../infrastructure/http/http-cache-policy.js';
 import { toOpenApiSchema } from '../../../../infrastructure/http/zod-openapi.js';
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import { authorizeSchema, dispatchResponseSchema } from '../../domain/notification-wire.js';
 import { Notifications } from '../../facets/notifications/notifications.js';
 const genericError = z.object({ code: z.enum(['malformed', 'unauthorized']) });
@@ -35,7 +36,7 @@ export class NotificationDispatchController {
     }
     const parsed = authorizeSchema.safeParse(body);
     if (!parsed.success || Buffer.byteLength(JSON.stringify(body)) > 16 * 1024) throw new HttpException({ code: 'malformed' }, 400);
-    const result = await this.notifications.authorizeDispatch('telegram', parsed.data).catch(() => ({ ...parsed.data, status: 'error' as const, code: 'unavailable' as const }));
+    const result = await this.notifications.authorizeDispatch('telegram', parsed.data).catch((error: unknown) => dependencyFailure({ module: 'notifications', operation: 'authorizeDispatch' }, error, { ...parsed.data, status: 'error' as const, code: 'unavailable' as const }));
     if (result.status === 'error') throw new HttpException(result, result.code === 'operation_conflict' ? 409 : 503);
     return result;
   }

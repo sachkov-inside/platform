@@ -1,6 +1,7 @@
 import { createHash, randomInt, randomUUID } from "node:crypto";
 import { paymentModes } from "@inside/legal";
 import { z } from "zod";
+import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { AccountsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { acquireAccountLocks } from "../../infrastructure/postgres/advisory-locks.js";
 import type { billingContactProtection } from "../../infrastructure/billing-contact-protection.js";
@@ -87,8 +88,8 @@ export class BillingContact {
         },
         documents: [...this.documents],
       };
-    } catch {
-      return contactFailure("internal_error");
+    } catch (error) {
+      return dependencyFailure({ module: "accounts", operation: "read" }, error, contactFailure("internal_error"));
     }
   }
 
@@ -125,8 +126,8 @@ export class BillingContact {
           }),
         },
       };
-    } catch {
-      return contactFailure("internal_error");
+    } catch (error) {
+      return dependencyFailure({ module: "accounts", operation: "readConsent" }, error, contactFailure("internal_error"));
     }
   }
 
@@ -256,7 +257,8 @@ export class BillingContact {
             data: { delivery: "sent" },
           });
           delivery = "sent";
-        } catch {
+        } catch (error) {
+          reportDependencyFailure({ module: "accounts", operation: "start" }, error);
           delivery = "unknown";
         }
       }
@@ -266,8 +268,8 @@ export class BillingContact {
         expiresAt: reserved.expiresAt,
         delivery,
       };
-    } catch {
-      return contactFailure("internal_error");
+    } catch (error) {
+      return dependencyFailure({ module: "accounts", operation: "start" }, error, contactFailure("internal_error"));
     }
   }
 
@@ -371,8 +373,8 @@ export class BillingContact {
         });
         return result;
       });
-    } catch {
-      return contactFailure("internal_error");
+    } catch (error) {
+      return dependencyFailure({ module: "accounts", operation: "confirm" }, error, contactFailure("internal_error"));
     }
   }
 
@@ -483,8 +485,8 @@ export class BillingContact {
         });
         return result;
       });
-    } catch {
-      return contactFailure("internal_error");
+    } catch (error) {
+      return dependencyFailure({ module: "accounts", operation: "acceptConsents" }, error, contactFailure("internal_error"));
     }
   }
 }

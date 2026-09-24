@@ -1,4 +1,6 @@
+import { dependencyFailure } from "../../../infrastructure/observability/index.js";
 import type { Result } from "../result.js";
+import { isSystemErrorCode } from "./postgres-error-mapping.js";
 import type {
   MaterialsPrismaClient,
   MaterialsPrismaTransaction,
@@ -26,6 +28,7 @@ export async function executeAuthoringTransaction<
     rollback: Rollback<OperationError>,
   ) => Promise<Value>,
   mapUnexpected: (error: unknown) => OperationError,
+  operationName: string,
 ): Promise<Result<Value, OperationError>> {
   class TransactionRollback extends Error {
     constructor(readonly applicationError: OperationError) {
@@ -43,10 +46,13 @@ export async function executeAuthoringTransaction<
     );
     return { ok: true, value };
   } catch (error) {
+    if (error instanceof TransactionRollback) return failure(error.applicationError);
+    const mapped = mapUnexpected(error);
+    // Конфликт и неверная ссылка — ответ автору; сбоем зависимости остаются только системные коды.
     return failure(
-      error instanceof TransactionRollback
-        ? error.applicationError
-        : mapUnexpected(error),
+      isSystemErrorCode(mapped.code)
+        ? dependencyFailure({ module: "materials", operation: operationName }, error, mapped)
+        : mapped,
     );
   }
 }

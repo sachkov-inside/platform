@@ -1,3 +1,4 @@
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { PlatformConfig } from "../../../../config/platform-config.js";
 import type { MaterialAssets } from "../../../assets/index.js";
 import type { MaterialContent } from "../../facets/material-content/material-content.js";
@@ -44,11 +45,11 @@ export function assembleMaterialAssetMaintenance(dependencies: {
           cleaned: result.value.cleaned + covers.cleaned,
           retained: result.value.retained + covers.retained,
         };
-      } catch {
-        return {
+      } catch (error) {
+        return dependencyFailure({ module: "materials", operation: "cleanup" }, error, {
           error: { code: "dependency_unavailable", retryable: true },
           ok: false,
-        };
+        });
       }
     },
   });

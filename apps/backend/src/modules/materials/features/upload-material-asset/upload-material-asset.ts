@@ -1,3 +1,4 @@
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type {
   MaterialAssets,
   UploadMaterialAssetResult,
@@ -35,8 +36,8 @@ export function assembleMaterialAssetAuthoring(dependencies: {
       }
       try {
         return await dependencies.assets.upload(input);
-      } catch {
-        return { error: { code: "dependency_unavailable" }, ok: false };
+      } catch (error) {
+        return dependencyFailure({ module: "materials", operation: "upload" }, error, { error: { code: "dependency_unavailable" }, ok: false });
       }
     },
   };

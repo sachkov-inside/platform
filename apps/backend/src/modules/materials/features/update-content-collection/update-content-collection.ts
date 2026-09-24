@@ -141,6 +141,7 @@ export function assembleUpdateContentCollection(
         )
           ? { code: "content_collection_slug_conflict" }
           : mapPostgresReadError(error),
+      "updateContentCollection",
     );
   };
 }

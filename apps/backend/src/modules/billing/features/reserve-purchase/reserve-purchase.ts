@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { BillingPrisma, BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { failure, idSchema, moneySchema, paymentMode, priceSnapshotSchema, type PriceSnapshot, type PricingResult } from "../../domain/pricing.js";
 import { lockPricing } from "../../infrastructure/postgres/catalog-lock.js";
@@ -25,7 +26,7 @@ export async function reservePurchase(prisma: BillingPrismaClient, input: Reserv
     return await prisma.$transaction(async (tx): Promise<ReservePurchaseResult> => {
       return reservePurchaseInTransaction(tx, command, clock());
     });
-  } catch { return failure("dependency_unavailable"); }
+  } catch (error) { return dependencyFailure({ module: "billing", operation: "reservePurchase" }, error, failure("dependency_unavailable")); }
 }
 
 // Same billing-owned transaction as the durable purchase; never nests a transaction.

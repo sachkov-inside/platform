@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { failure, idSchema, type PricingResult } from "../../domain/pricing.js";
 import { lockPricing } from "../../infrastructure/postgres/catalog-lock.js";
@@ -32,5 +33,5 @@ export async function settleReservation(prisma: BillingPrismaClient, input: Sett
       await tx.billingPromoReservation.update({ where: { purchaseRef: command.purchaseRef }, data: { state: command.state } });
       return { ok: true, value: { state: command.state } };
     });
-  } catch { return failure("dependency_unavailable"); }
+  } catch (error) { return dependencyFailure({ module: "billing", operation: "settleReservation" }, error, failure("dependency_unavailable")); }
 }

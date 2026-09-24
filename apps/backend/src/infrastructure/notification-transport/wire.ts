@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { Ajv } from 'ajv';
 import addFormats from 'ajv-formats';
 import { z } from 'zod';
+import { redactText } from '../observability/index.js';
 import { notificationSchema } from './schema.generated.js';
 
 export const NOTIFICATION_MESSAGE_MAX_BYTES = 16 * 1024;
@@ -72,7 +73,7 @@ const providerErrorSchema = z.object({ name: z.string(), code: z.string().option
 /**
  * Причина отказа для журнала. Своя ошибка называется текстом, а ошибка драйвера базы и отказ
  * разбора JSON — только именем: их текст пересказывает переданный объект или сам разбираемый
- * payload, то есть адрес получателя и содержимое сообщения. Укорочение здесь — предел, а не защита.
+ * payload, то есть адрес получателя и содержимое сообщения. Остальной текст проходит redactText.
  */
 export function loggableFailure(error: unknown): string {
   const provider = providerErrorSchema.safeParse(error);
@@ -81,5 +82,6 @@ export function loggableFailure(error: unknown): string {
   }
   // Отказ разбора JSON цитирует кусок разбираемого текста, поэтому у него остаётся только имя.
   if (error instanceof SyntaxError) return error.name;
-  return (error instanceof Error ? `${error.name}: ${error.message}` : String(error)).slice(0, FAILURE_TEXT_LIMIT);
+  // Адрес брокера с паролем, токены и адреса почты убираются тем же правилом, что в журнале backend.
+  return redactText(error instanceof Error ? `${error.name}: ${error.message}` : String(error)).slice(0, FAILURE_TEXT_LIMIT);
 }

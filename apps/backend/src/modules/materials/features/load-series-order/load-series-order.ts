@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { MaterialAuthoringDependencies } from "../../facets/material-authoring/material-authoring.dependencies.js";
 import { loadSeriesOrderSnapshot } from "../../infrastructure/postgres/series-order.js";
 import { authorizeManager } from "../../ports/author-policy.js";
@@ -44,7 +45,7 @@ export function assembleLoadSeriesOrder(
         },
       };
     } catch (error) {
-      return failure(mapPostgresReadError(error));
+      return failure(dependencyFailure({ module: "materials", operation: "loadSeriesOrder" }, error, mapPostgresReadError(error)));
     }
   };
 }

@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { WorkshopPrisma } from "../../infrastructure/prisma.js";
 import type {
   WorkshopMaterialProtection,
@@ -18,8 +19,8 @@ export function assembleWorkshopMaterialProtection(dependencies: {
           select: { caseVersionId: true },
         });
         return link === null ? "unprotected" : "protected";
-      } catch {
-        return "unavailable";
+      } catch (error) {
+        return dependencyFailure({ module: "workshop", operation: "resolveMaterialProtection" }, error, "unavailable");
       }
     },
   };

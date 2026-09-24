@@ -1,3 +1,4 @@
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import { parseAccountId } from "../../../accounts/index.js";
 import { parsePublicProfileId } from "../../domain/public-profile-id.js";
 import type { MemberProfilePersistenceClient } from "../../infrastructure/prisma.js";
@@ -71,7 +72,7 @@ export async function moderateMemberProfile(
         publicProfileId,
       };
     });
-  } catch {
-    return { ok: false, error: internalProfileError() };
+  } catch (error) {
+    return dependencyFailure({ module: "member-profiles", operation: "moderateMemberProfile" }, error, { ok: false, error: internalProfileError() });
   }
 }

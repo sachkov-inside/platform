@@ -1,3 +1,4 @@
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { MaterialsPrisma } from "../../../../infrastructure/prisma/index.js";
 import type { GuidePageCard } from "../../domain/guide-page.js";
 import { readGuidePage } from "../../shared/guide-page-reader.js";
@@ -23,6 +24,6 @@ export async function readHomePinnedSeries(prisma: MaterialsPrisma): ReturnType<
     const page = readGuidePage(guide.page, `Home pinned Guide ${guide.slug}`);
     return { ok: true, value: { id: pin.seriesId, presentation: guide.presentation, card: page?.card ?? null } };
   } catch (error) {
-    return { ok: false, error: mapPostgresReadError(error) };
+    return { ok: false, error: dependencyFailure({ module: "materials", operation: "readHomePinnedSeries" }, error, mapPostgresReadError(error)) };
   }
 }

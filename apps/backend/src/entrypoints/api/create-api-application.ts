@@ -11,6 +11,11 @@ import {
 
 import type { PlatformConfig } from "../../config/platform-config.js";
 import { hoistZodRecursiveSchemas } from "../../infrastructure/http/zod-openapi.js";
+import {
+  generateRequestId,
+  observeHttpRequests,
+  StructuredNestLogger,
+} from "../../infrastructure/observability/index.js";
 import { ApiModule } from "./api.module.js";
 
 const MAX_HTTP_BODY_BYTES = 2 * 1_024 * 1_024;
@@ -21,9 +26,10 @@ export async function createApiApplication(
 ): Promise<NestFastifyApplication> {
   const app = await NestFactory.create<NestFastifyApplication>(
     ApiModule.forRoot(config),
-    new FastifyAdapter({ bodyLimit: MAX_HTTP_BODY_BYTES }),
-    { ...options, rawBody: true },
+    new FastifyAdapter({ bodyLimit: MAX_HTTP_BODY_BYTES, genReqId: generateRequestId }),
+    { logger: new StructuredNestLogger(), ...options, rawBody: true },
   );
+  observeHttpRequests(app.getHttpAdapter().getInstance(), "api");
   await app.register(multipart, {
     limits: { fields: 4, fileSize: 25 * 1024 * 1024, files: 1, parts: 5 },
   });

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { BookmarksPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { accountId } from "../../../accounts/index.js";
 import type { ContentAccess } from "../../../content-access/index.js";
@@ -40,7 +41,7 @@ export async function addBookmark(dependencies: {
       ok: true,
       value: { materialId: material, bookmarked: true, bookmarkedAt: (row?.bookmarkedAt ?? bookmarkedAt).toISOString() },
     };
-  } catch {
-    return { ok: false, error: { code: "dependency_unavailable" } };
+  } catch (error) {
+    return dependencyFailure({ module: "bookmarks", operation: "addBookmark" }, error, { ok: false, error: { code: "dependency_unavailable" } });
   }
 }

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { failure, idSchema, revisionSchema, priceSnapshotSchema, type PricingResult } from "../../domain/pricing.js";
 import { lockPricing } from "../../infrastructure/postgres/catalog-lock.js";
@@ -37,5 +38,5 @@ export async function quotePurchase(prisma: BillingPrismaClient, accountId: stri
       await tx.billingPriceQuote.create({ data: { ...key, id, fingerprint, snapshot: price.value, promoCode: command.promoCode ?? null, createdAt: now, expiresAt } });
       return { ok: true, value: { quoteRef: id, snapshot: price.value, createdAt: now.toISOString(), expiresAt: expiresAt.toISOString() } };
     });
-  } catch { return failure("dependency_unavailable"); }
+  } catch (error) { return dependencyFailure({ module: "billing", operation: "quotePurchase" }, error, failure("dependency_unavailable")); }
 }

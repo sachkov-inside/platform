@@ -1,3 +1,4 @@
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { TrackingVisits } from "../tracking-visits/tracking-visits.js";
 import type { PublicContentTargets } from "../../../materials/index.js";
 import { validateTargets } from "../../features/validate-targets/validate-targets.js";
@@ -88,8 +89,8 @@ export class Communications {
             this.presentation.publicOrigin,
             this.presentation.targets,
           );
-        } catch {
-          return communicationsFailure("provider_unavailable");
+        } catch (error) {
+          return dependencyFailure({ module: "communications", operation: "execute" }, error, communicationsFailure("provider_unavailable"));
         }
         if (request.operation === "funnels.publish" && targetErrors.length > 0)
           return communicationsFailure("invalid_targets");

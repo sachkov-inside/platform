@@ -5,11 +5,15 @@ import type {
 import { NestFactory } from "@nestjs/core";
 
 import type { PlatformConfig } from "../config/platform-config.js";
+import { StructuredNestLogger } from "../infrastructure/observability/index.js";
 import { McpModule } from "./mcp.module.js";
 
 export function createMcpApplication(
   config?: PlatformConfig,
   options: NestApplicationOptions = {},
 ): Promise<INestApplicationContext> {
-  return NestFactory.createApplicationContext(McpModule.forRoot(config), options);
+  return NestFactory.createApplicationContext(McpModule.forRoot(config), {
+    logger: new StructuredNestLogger(),
+    ...options,
+  });
 }

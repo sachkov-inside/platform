@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { ReadingActivityPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { accountId } from "../../../accounts/index.js";
 import type { ContentAccess } from "../../../content-access/index.js";
@@ -32,7 +33,7 @@ export async function getSeriesContinuation(dependencies: SeriesContinuationDepe
     const series = await discoverPublishedMaterials(dependencies.reader, dependencies.contentAccess, {
       loadReadyDurations: async (ids) => {
         try { const result = await dependencies.videos.loadReadyDurations(ids); return result.ok ? result : { ok: true as const, value: [] }; }
-        catch { return { ok: true as const, value: [] }; }
+        catch (error) { return dependencyFailure({ module: "reading-activity", operation: "loadReadyDurations" }, error, { ok: true as const, value: [] }); }
       },
     }, { kind: "series", slug, first: MAX_SERIES_MATERIALS, subject });
     if (!series.ok) return { ok: false, error: { code: series.error.code === "discovery_not_found" ? "series_not_found" : "dependency_unavailable" } };
@@ -61,5 +62,5 @@ export async function getSeriesContinuation(dependencies: SeriesContinuationDepe
       read: read.size, total: items.length,
       continuation: next === undefined ? null : { materialSlug: next.slug, resume: resumes.get(next.materialId) ?? { kind: "start" } },
     } };
-  } catch { return { ok: false, error: { code: "dependency_unavailable" } }; }
+  } catch (error) { return dependencyFailure({ module: "reading-activity", operation: "getSeriesContinuation" }, error, { ok: false, error: { code: "dependency_unavailable" } }); }
 }

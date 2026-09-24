@@ -1,4 +1,5 @@
 import type { ObjectStorage } from "../../../../infrastructure/object-storage/index.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { AccountId } from "../../../accounts/index.js";
 import { parseProfileAvatarId } from "../../domain/profile-avatar-id.js";
 import type { DeliverProfileAvatarResult } from "../../facets/member-profiles/member-profiles.interface.js";
@@ -54,8 +55,8 @@ export async function deliverProfileAvatar(
       ttlSeconds: dependencies.signedGetTtlSeconds,
     });
     return { location, ok: true };
-  } catch {
-    return { error: { code: "dependency_unavailable" }, ok: false };
+  } catch (error) {
+    return dependencyFailure({ module: "member-profiles", operation: "deliverProfileAvatar" }, error, { error: { code: "dependency_unavailable" }, ok: false });
   }
 }
 

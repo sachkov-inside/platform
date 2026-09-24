@@ -183,12 +183,14 @@ async function readCoverUpload(
     if (part === undefined) throw new Error("missing file");
     file = part;
   } catch {
+    // Not a dependency failure: the client sent a malformed form.
     throw coverProblem(422, "invalid_cover", "Cover form is malformed");
   }
   let body: Buffer;
   try {
     body = await file.toBuffer();
   } catch {
+    // Not a dependency failure: the upload exceeds its size limit.
     throw coverProblem(413, "invalid_cover", "Cover exceeds the size limit");
   }
   if (file.file.truncated) {

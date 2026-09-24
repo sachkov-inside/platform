@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { HttpCommunicationsProvider } from "../../infrastructure/http-communications-provider.js";
 import type { CommunicationsPrisma } from "../../infrastructure/prisma.js";
 
@@ -98,9 +99,10 @@ export class TrackingVisits {
           }, NAVIGATION_PERSISTENCE_BUDGET_MS);
         }),
       ]);
-    } catch {
+    } catch (error) {
       // Navigation survives a failed local insert. Only persisted events can be retried;
       // report this explicit loss without logging the token or visitor information.
+      reportDependencyFailure({ module: "communications", operation: "resolve" }, error);
       this.reportFailure();
     } finally {
       clearTimeout(timer);
@@ -127,8 +129,8 @@ export class TrackingVisits {
           ? Math.max(0, Math.ceil((+this.now() - +oldest.occurredAt) / 1000))
           : 0,
       };
-    } catch {
-      return { kind: "unavailable" };
+    } catch (error) {
+      return dependencyFailure({ module: "communications", operation: "backlog" }, error, { kind: "unavailable" });
     }
   }
 

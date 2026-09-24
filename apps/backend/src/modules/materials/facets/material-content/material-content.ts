@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { MaterialBodyOperations, MaterialBodySnapshot } from "../../domain/material-body/material-body.js";
 import {
@@ -107,7 +108,7 @@ export function assembleMaterialContent(dependencies: {
         if (facts === undefined) {
           return {
             ok: false,
-            error: mapPostgresReadError(new TypeError("invalid Material facts")),
+            error: invalidStoredMaterial("findAccessFacts", "invalid Material facts"),
           };
         }
         const memberships = await dependencies.prisma.publishedMaterialGuideMembership.findMany({
@@ -115,7 +116,7 @@ export function assembleMaterialContent(dependencies: {
         });
         return { ok: true, value: { ...facts, ...(memberships.length ? { guideIds: memberships.map(value => value.seriesId) } : {}) } };
       } catch (error) {
-        return { ok: false, error: mapPostgresReadError(error) };
+        return { ok: false, error: dependencyFailure({ module: "materials", operation: "findAccessFacts" }, error, mapPostgresReadError(error)) };
       }
     },
 
@@ -149,7 +150,7 @@ export function assembleMaterialContent(dependencies: {
         if (facts.some((item) => item === undefined)) {
           return {
             ok: false,
-            error: mapPostgresReadError(new TypeError("invalid Material facts")),
+            error: invalidStoredMaterial("findAccessFactsMany", "invalid Material facts"),
           };
         }
         return {
@@ -159,7 +160,7 @@ export function assembleMaterialContent(dependencies: {
           ),
         };
       } catch (error) {
-        return { ok: false, error: mapPostgresReadError(error) };
+        return { ok: false, error: dependencyFailure({ module: "materials", operation: "findAccessFactsMany" }, error, mapPostgresReadError(error)) };
       }
     },
 
@@ -180,7 +181,7 @@ export function assembleMaterialContent(dependencies: {
         );
         return { ok: true, value: body ?? null };
       } catch (error) {
-        return { ok: false, error: mapPostgresReadError(error) };
+        return { ok: false, error: dependencyFailure({ module: "materials", operation: "loadPublishedBody" }, error, mapPostgresReadError(error)) };
       }
     },
 
@@ -211,16 +212,14 @@ export function assembleMaterialContent(dependencies: {
         });
         if (!body.ok) {
           return {
-            error: mapPostgresReadError(new TypeError("Stored Material body is invalid")),
+            error: invalidStoredMaterial("containsAssetReference", "Stored Material body is invalid"),
             ok: false,
           };
         }
         const extraction = dependencies.materialBodyOperations.extract(body.value);
         if (!extraction.ok) {
           return {
-            error: mapPostgresReadError(
-              new TypeError("Stored Material body cannot be inspected"),
-            ),
+            error: invalidStoredMaterial("containsAssetReference", "Stored Material body cannot be inspected"),
             ok: false,
           };
         }
@@ -231,7 +230,7 @@ export function assembleMaterialContent(dependencies: {
           ),
         };
       } catch (error) {
-        return { error: mapPostgresReadError(error), ok: false };
+        return { error: dependencyFailure({ module: "materials", operation: "containsAssetReference" }, error, mapPostgresReadError(error)), ok: false };
       }
     },
 
@@ -262,7 +261,7 @@ export function assembleMaterialContent(dependencies: {
         ]);
         return { ok: true, value: current !== null || published !== null };
       } catch (error) {
-        return { error: mapPostgresReadError(error), ok: false };
+        return { error: dependencyFailure({ module: "materials", operation: "containsVideoReference" }, error, mapPostgresReadError(error)), ok: false };
       }
     },
   });
@@ -283,4 +282,10 @@ function toAccessFacts(row: unknown): MaterialAccessFacts | undefined {
     contentVersion,
     primaryVideoId: parsed.data.primaryVideoId,
   };
+}
+
+/** Сохранённые факты Material не прошли проверку: это сбой хранилища, а не отказ участнику. */
+function invalidStoredMaterial(operation: string, reason: string): SystemError {
+  const error = new TypeError(reason);
+  return dependencyFailure({ module: "materials", operation }, error, mapPostgresReadError(error));
 }

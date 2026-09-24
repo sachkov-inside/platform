@@ -541,12 +541,14 @@ async function readUpload(
     if (uploaded === undefined) throw new Error("missing file");
     part = uploaded;
   } catch {
+    // Not a dependency failure: the client sent a malformed form.
     throw guideArtifactProblem(422, "invalid_artifact", "Guide Artifact form is malformed");
   }
   let body: Buffer;
   try {
     body = await part.toBuffer();
   } catch {
+    // Not a dependency failure: the upload exceeds its size limit.
     throw guideArtifactProblem(413, "invalid_content", "Guide Artifact exceeds the size limit");
   }
   if (part.file.truncated) {

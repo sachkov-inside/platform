@@ -237,6 +237,7 @@ export function assembleReorderSeries(
         };
       },
       mapPostgresReadError,
+      "reorderSeries",
     );
   };
 }

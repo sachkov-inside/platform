@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
   ProviderUploadAuthorizationError,
   type ProviderVideo,
@@ -39,10 +40,10 @@ export function createKinescopeVideoProvider(config: {
           },
         );
       } catch (error) {
-        return {
+        return dependencyFailure({ module: "videos", operation: "delete" }, error, {
           category: isTimeout(error) ? "timeout" : "network",
           kind: "retryable_failure",
-        };
+        });
       }
       const providerRequestId = readProviderRequestId(response);
       if (response.status === 404) {
@@ -86,12 +87,12 @@ export function createKinescopeVideoProvider(config: {
       try {
         deleteResponseSchema.parse(await response.json());
         return { kind: "deleted", ...providerRequestId };
-      } catch {
-        return {
+      } catch (error) {
+        return dependencyFailure({ module: "videos", operation: "delete" }, error, {
           category: "invalid_response",
           kind: "terminal_failure",
           ...providerRequestId,
-        };
+        });
       }
     },
     async initUpload(input) {

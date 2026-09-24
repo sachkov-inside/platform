@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { Prisma } from "../../../../infrastructure/prisma/index.js";
 import type { ObjectStorage } from "../../../../infrastructure/object-storage/index.js";
+import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { AccountId } from "../../../accounts/index.js";
 import type {
   ChangeProfileAvatarCommand,
@@ -49,8 +50,8 @@ export async function changeProfileAvatar(
       command.expectedVersion,
       processed.renditions,
     );
-  } catch {
-    return { error: { code: "dependency_unavailable" }, ok: false };
+  } catch (error) {
+    return dependencyFailure({ module: "member-profiles", operation: "changeProfileAvatar" }, error, { error: { code: "dependency_unavailable" }, ok: false });
   }
 }
 
@@ -98,7 +99,8 @@ async function uploadAvatar(
     if (outcomes.some((outcome) => outcome.status === "rejected")) {
       throw new Error("Profile avatar storage failed");
     }
-  } catch {
+  } catch (error) {
+    reportDependencyFailure({ module: "member-profiles", operation: "uploadAvatar" }, error);
     await prisma.profileAvatar.updateMany({
       data: { failureCode: "storage_failure", state: "failed", updatedAt: new Date() },
       where: { id: avatarId, state: "processing" },

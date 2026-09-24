@@ -1,5 +1,6 @@
 import { loadMaterialResumes } from "../../shared/load-material-resumes.js";
 import { z } from "zod";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { ReadingActivityPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { accountId } from "../../../accounts/index.js";
 import type { ContentAccess } from "../../../content-access/index.js";
@@ -41,5 +42,5 @@ export async function getContinueMaterials(dependencies: {
     }
     const resumes = await loadMaterialResumes(dependencies, subject, candidates.map((candidate) => candidate.material));
     return { ok: true, value: candidates.map((candidate): ContinueMaterial => ({ ...candidate, resume: resumes.get(candidate.material.materialId) ?? { kind: "start" } })) };
-  } catch { return { ok: false, error: { code: "dependency_unavailable" } }; }
+  } catch (error) { return dependencyFailure({ module: "reading-activity", operation: "getContinueMaterials" }, error, { ok: false, error: { code: "dependency_unavailable" } }); }
 }

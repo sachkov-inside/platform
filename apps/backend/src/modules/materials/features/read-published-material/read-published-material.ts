@@ -2,6 +2,7 @@ import { videoChaptersSchema } from "../../domain/video-chapters.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { ContentAccess } from "../../../content-access/index.js";
 import type { MaterialAssets } from "../../../assets/index.js";
@@ -166,7 +167,7 @@ export async function readPublishedMaterial(
     }
     return internalError();
   } catch (error) {
-    return { ok: false, error: mapPostgresReadError(error) };
+    return { ok: false, error: dependencyFailure({ module: "materials", operation: "readPublishedMaterial" }, error, mapPostgresReadError(error)) };
   }
 }
 

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { selectPublishedMaterialProjectionsByIds } from "../../infrastructure/postgres/published-material-reader/published-material-projection.js";
 import type { PublishedMaterialProjectionDto } from "../../facets/published-material-reader/published-material.contract.js";
@@ -11,6 +12,6 @@ export class PublishedMaterialSelection {
     const parsed = z.array(z.uuid()).max(100).safeParse(materialIds);
     if (!parsed.success) return { ok: false, error: { code: "invalid_request" } };
     try { return { ok: true, value: await selectPublishedMaterialProjectionsByIds(this.prisma, parsed.data) }; }
-    catch { return { ok: false, error: { code: "dependency_unavailable" } }; }
+    catch (error) { return dependencyFailure({ module: "materials", operation: "read" }, error, { ok: false, error: { code: "dependency_unavailable" } }); }
   }
 }

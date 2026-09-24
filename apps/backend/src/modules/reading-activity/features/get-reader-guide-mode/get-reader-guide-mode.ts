@@ -2,6 +2,7 @@ import { defaultGuideMode, guideModeSchema, isGuideMode } from "@inside/material
 import type { GuideMode } from "@inside/material-blocks";
 import { z } from "zod";
 
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { ReadingActivityPrismaClient } from "../../../../infrastructure/prisma/index.js";
 
 export const readerGuideModeSchema = z
@@ -37,7 +38,7 @@ export async function getReaderGuideMode(
       ok: true,
       value: { guideMode: isGuideMode(stored) ? stored : defaultGuideMode },
     };
-  } catch {
-    return { ok: false, error: { code: "dependency_unavailable" } };
+  } catch (error) {
+    return dependencyFailure({ module: "reading-activity", operation: "getReaderGuideMode" }, error, { ok: false, error: { code: "dependency_unavailable" } });
   }
 }

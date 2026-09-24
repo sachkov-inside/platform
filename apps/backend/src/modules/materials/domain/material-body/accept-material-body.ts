@@ -52,11 +52,7 @@ function validateUrl(url: string): boolean {
   if (url.startsWith("/") && !url.startsWith("//") && !url.includes("\\")) {
     return true;
   }
-  try {
-    return new URL(url).protocol === "https:";
-  } catch {
-    return false;
-  }
+  return URL.parse(url)?.protocol === "https:";
 }
 
 function validateTree(doc: JsonObject): readonly ValidationIssue[] {
@@ -218,6 +214,7 @@ export function acceptMaterialBody(
   try {
     serialized = JSON.stringify(input);
   } catch {
+    // Not a dependency failure: a document that cannot be serialized is not JSON.
     return invalid([{ code: "document_is_not_json", path: "" }]);
   }
   if (serialized === undefined) {
@@ -229,6 +226,7 @@ export function acceptMaterialBody(
     try {
       candidate = structuredClone(input);
     } catch {
+      // Not a dependency failure: a document that cannot be cloned is not JSON.
       return invalid([{ code: "document_is_not_json", path: "" }]);
     }
   }
@@ -276,6 +274,7 @@ export function acceptMaterialBody(
       }),
     };
   } catch {
+    // Not a dependency failure: the editor schema refuses this document.
     return invalid([{ code: "invalid_prosemirror_document", path: "/doc" }]);
   }
 }

@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type {
   LoadMaterialError,
   LoadMaterialOperation,
@@ -76,7 +77,7 @@ export function assembleLoadMaterial(
         }),
       };
     } catch (error) {
-      return failure(mapPostgresReadError(error));
+      return failure(dependencyFailure({ module: "materials", operation: "loadMaterial" }, error, mapPostgresReadError(error)));
     }
   };
 }
