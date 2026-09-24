@@ -776,7 +776,7 @@ redirect и cache policy остаются за backend.
    idempotency key и Asset identity, удаляет tracked partial objects и начинает attempt с новым
    object nonce. Antivirus и URL import в v1 отсутствуют.
 2. Один narrow S3-compatible port обслуживает Yandex Object Storage production adapter и тот же
-   conformance contract для MinIO integration. Public, protected и quarantine — разные private
+   conformance contract для RustFS integration. Public, protected и quarantine — разные private
    buckets/namespaces; provider SDK types, storage keys и signed URLs не входят в MaterialBody или
    browser state.
 3. Image finalize безопасно decode-ит AVIF/JPEG/PNG/WebP с bounded pixels, применяет orientation,

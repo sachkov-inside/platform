@@ -8,7 +8,7 @@ not host Node.js or a host `node_modules` directory.
 The default stack contains:
 
 - PostgreSQL 18.4 with a persistent named volume;
-- MinIO with separate public-delivery, protected and quarantine buckets; its S3-compatible API is
+- RustFS with separate public-delivery, protected and quarantine buckets; its S3-compatible API is
   on <http://127.0.0.1:9000> and console is on <http://127.0.0.1:9001>. Services reach it as
   `object-storage:9000`, while `OBJECT_STORAGE_SIGNED_GET_ENDPOINT` signs protected browser links for
   the published `127.0.0.1:9000`;
@@ -57,7 +57,7 @@ removes only its disposable volumes.
 API and web expose real healthchecks. API, MCP and capability workers wait for healthy PostgreSQL
 and a successful seed; web waits for healthy API. Storybook is
 an optional profile on <http://127.0.0.1:6006>. Integration tests continue to use their own
-temporary PostgreSQL and MinIO through Testcontainers and never share the Compose data services.
+temporary PostgreSQL and RustFS through Testcontainers and never share the Compose data services.
 
 The production API exposes health, OpenAPI, the published catalog and the Material Reader endpoint.
 The local MCP adapter exposes delegated Material, Topic, Series, ordered-composition authoring and
@@ -108,8 +108,11 @@ Browser-facing URLs remain on `127.0.0.1`. See the
 and the production env-file boundary.
 
 The API creates only the three named local buckets in development mode. Objects use random,
-immutable keys and are never written over. The persistent `object-storage-data` volume follows the
-same ownership and non-destructive restart rules as PostgreSQL.
+immutable keys and are never written over. The persistent `object-storage-rustfs-data` volume follows
+the same ownership and non-destructive restart rules as PostgreSQL. RustFS replaced MinIO, whose
+image stopped being publicly available; the stand's former `object-storage-data` MinIO volume is left
+untouched and is no longer mounted. Objects uploaded before the switch stay in that volume until
+[platform#700](https://github.com/sachkov-inside/platform/issues/700) moves them.
 
 Local development uses `KINESCOPE_PROVIDER_MODE=test`. It creates deterministic provider facts for
 upload-init, attach, processing reconciliation and playback without a real credential or outbound
@@ -596,12 +599,12 @@ the committed originals (purchases, accounts and progress are lost).
 ## Local editor acceptance
 
 `pnpm editor:local` runs the real editor and API against isolated PostgreSQL at port 54396 and
-MinIO at 9036. It refuses production configuration by constructing its own local environment.
+RustFS at 9036. It refuses production configuration by constructing its own local environment.
 Start dedicated containers, separate from the singleton Compose stack:
 
 ```bash
 docker run -d --name platform-396-postgres -e POSTGRES_USER=inside -e POSTGRES_PASSWORD=inside -e POSTGRES_DB=inside -p 127.0.0.1:54396:5432 postgres:18.4-alpine3.23
-docker run -d --name platform-396-storage -e MINIO_ROOT_USER=inside-local-access-key -e MINIO_ROOT_PASSWORD=inside-local-secret-key -p 127.0.0.1:9036:9000 quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z server /data
+docker run -d --name platform-396-storage -e RUSTFS_ACCESS_KEY=inside-local-access-key -e RUSTFS_SECRET_KEY=inside-local-secret-key -p 127.0.0.1:9036:9000 rustfs/rustfs:1.0.0@sha256:8cc9801755448b71a786705ce76692c77e14936cccd87cf2fc31842e58f4d1ff
 pnpm editor:local
 ```
 

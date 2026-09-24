@@ -42,20 +42,21 @@ services:
     stop_grace_period: 15s
 
   object-storage:
-    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
-    command: ["server", "--console-address", ":9001", "/data"]
+    image: rustfs/rustfs:1.0.0@sha256:8cc9801755448b71a786705ce76692c77e14936cccd87cf2fc31842e58f4d1ff
     env_file:
       - ./config/compose/local/object-storage.env
     ports:
       - "127.0.0.1:${OBJECT_STORAGE_HOST_PORT:-9000}:9000"
       - "127.0.0.1:${OBJECT_STORAGE_CONSOLE_HOST_PORT:-9001}:9001"
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: ["CMD", "curl", "--fail", "--silent", "--output", "/dev/null", "http://127.0.0.1:9000/health"]
       interval: 2s
       timeout: 3s
       retries: 30
     volumes:
-      - object-storage-data:/data
+      # RustFS keeps its own volume: the former MinIO `object-storage-data` volume has another
+      # on-disk format and owner, so it is left untouched rather than reused.
+      - object-storage-rustfs-data:/data
 
   postgres:
     image: postgres:18.4-alpine3.23
@@ -394,7 +395,7 @@ services:
 volumes:
   bank-double-data:
   logto-postgres-data:
-  object-storage-data:
+  object-storage-rustfs-data:
   postgres-data:
   notification-broker-data:
   notification-local-ca:
