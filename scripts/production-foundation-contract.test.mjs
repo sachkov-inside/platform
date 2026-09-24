@@ -19,6 +19,15 @@ const foundation = {
 };
 
 describe("production foundation architecture contract", () => {
+  it("pulls Docker Hub images through the public mirror configured by provisioning", () => {
+    const daemon = JSON.parse(read("infra/production/host/docker-daemon.json"));
+    assert.deepEqual(daemon, { "registry-mirrors": ["https://mirror.gcr.io"] });
+    assert.match(
+      read("infra/production/host/provision-host.sh"),
+      /install -m 644 "\$script_dir\/docker-daemon\.json" \/etc\/docker\/daemon\.json/u,
+    );
+  });
+
   it("names the production Logto build with the current fork revision", () => {
     const { logto } = JSON.parse(read("infra/identity/logto/versions.json"));
     const image = foundation.logtoCompose.match(/^ {2}image: (.+)$/mu)?.[1];

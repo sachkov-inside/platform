@@ -10,6 +10,9 @@ The [production VPS preparation kit](production-foundation.md) owns the long-liv
 Logto, backup and system Caddy foundation. This runbook owns the application runtime layered on top
 of that foundation. Running its local smoke does not contact or mutate production.
 
+The one-pass procedure for the next release — what to check, publish, deploy, verify and roll
+back — is [release](release.md).
+
 ## Runtime topology
 
 `compose.production.yaml` contains exactly nine application processes and the environment broker:
