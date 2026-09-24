@@ -299,6 +299,28 @@ function advisoryLockViolations(sourceFile, program) {
     : [];
 }
 
+// Delegates a Module's capability type lists only to hand its transaction to their owner.
+const handoffDelegates = new Map([
+  ["materials", ["materialAsset", "video", "videoDeletionOperation"]],
+]);
+
+function handoffDelegateViolations(sourceFile, program) {
+  const sourcePath = scannedPath(sourceFile);
+  const delegates = handoffDelegates.get(owningModule(sourcePath) ?? "");
+  if (delegates === undefined) return [];
+  const used = new Set();
+  new Visitor({
+    MemberExpression(node) {
+      const delegate = memberPropertyName(node.object);
+      if (delegates.includes(delegate)) used.add(delegate);
+    },
+  }).visit(program);
+  return [...used].map(
+    (delegate) =>
+      `${sourcePath}: ${delegate} belongs to another Module; pass the transaction to its owner's function (${delegate})`,
+  );
+}
+
 if (!statSync(scanRoot).isDirectory()) {
   throw new TypeError(`Architecture scan root is not a directory: ${scanRoot}`);
 }
@@ -317,6 +339,7 @@ const findings = sourceFiles(scanRoot).flatMap((source) => {
     ),
     ...databaseReferenceViolations(source, program),
     ...advisoryLockViolations(source, program),
+    ...handoffDelegateViolations(source, program),
   ];
 });
 
