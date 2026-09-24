@@ -131,6 +131,7 @@ async function insertReadyImage(materialId: string, uploadedBy: string): Promise
       height: 1,
       objectNonce: randomUUID(),
       quarantineObjectKey: `materials/${materialId}/assets/${id}/quarantine`,
+      protectedObjectKey: `materials/${materialId}/assets/${id}/original`,
       readyAt: now,
       createdAt: now,
       updatedAt: now,
