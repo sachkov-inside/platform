@@ -73,7 +73,7 @@ test("preserves canonical RU/EN search across reload, history and sharing", asyn
   const documentsBeforeFilter = documentRequestCount;
   const filteredResponse = page.waitForResponse(
     (response) =>
-      response.url().includes("/api/library/materials?") &&
+      response.url().includes("/api/home/materials?") &&
       response.url().includes("format=guide") &&
       response.status() === 200,
   );
@@ -108,7 +108,7 @@ test("preserves canonical RU/EN search across reload, history and sharing", asyn
   ).toBeVisible();
 
   await page.getByLabel("Поиск по материалам").fill("nothing can match 404404");
-  await expect(page.getByText("Ничего не найдено. Измените запрос или выберите другой формат.")).toBeVisible();
+  await expect(page.getByText("Ничего не найдено. Измените запрос, тему или формат.")).toBeVisible();
   expect(new URL(page.url()).searchParams.get("q")).toBe(
     "nothing can match 404404",
   );
@@ -384,12 +384,14 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
   await expect(membershipCard).toBeVisible();
   await expect(membershipCard.locator("[data-access-cover]")).toHaveCount(0);
 
-  const bffResponse = await context.request.get(
-    `${process.env.FULLSTACK_WEB_BASE_URL ?? "http://127.0.0.1:3000"}/api/library/materials?q=developer+pipeline`,
-  );
-  expect(bffResponse.status()).toBe(200);
-  expect(bffResponse.headers()["cache-control"]).toBe("private, no-store");
-  await expect(bffResponse.json()).resolves.toMatchObject({
+  // The renewed session cookie is Secure: on 127.0.0.1 only the browser itself sends it.
+  const bffResponse = await page.evaluate(async () => {
+    const response = await fetch("/api/library/materials?q=developer+pipeline");
+    return { status: response.status, cacheControl: response.headers.get("cache-control"), body: (await response.json()) as unknown };
+  });
+  expect(bffResponse.status).toBe(200);
+  expect(bffResponse.cacheControl).toBe("private, no-store");
+  expect(bffResponse.body).toMatchObject({
     kind: "ready",
     items: expect.arrayContaining([
       expect.objectContaining({
@@ -513,15 +515,16 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   await page.getByRole("link", { name: "Открыть программу", exact: true }).click();
   await expect(page).toHaveURL(/\/guides\/platform-inside\/programme/u);
   await expect(page.locator("[data-guide-programme]:visible")).toBeVisible();
-  await expect(page.locator("[data-series-order] [data-series-ordinal]")).toHaveCount(2);
+  // Authoring scenarios add their members-only lessons to this seeded product (#648), so it only grows.
+  await expect(page.locator("[data-series-order] [data-series-ordinal]").nth(1)).toBeVisible();
   await expect(
     page.locator("[data-series-order] [data-series-ordinal]").evaluateAll((items) =>
-      items.map((item) => item.getAttribute("data-series-ordinal")),
+      items.slice(0, 2).map((item) => item.getAttribute("data-series-ordinal")),
     ),
   ).resolves.toEqual(["1", "2"]);
   // У руководства с главами каждый список назван своей главой, поэтому материал ищется в маршруте.
   await expect(page.locator("[data-series-order]").getByText("Как устроен Inside Platform").first()).toBeVisible();
-  await expect(page.getByText("Developer Pipeline без потери контекста")).toBeVisible();
+  await expect(page.getByText("Developer Pipeline без потери контекста").filter({ visible: true })).toBeVisible();
   const representativeSeriesItem = page
     .locator("[data-series-order] [data-series-ordinal]")
     .filter({ hasText: "Как устроен Inside Platform" });
@@ -618,6 +621,8 @@ async function expectLibraryNavigationActive(page: Page, testInfo: TestInfo) {
 }
 
 async function expectNoSeriousAccessibilityFindings(page: Page) {
+  // After a client navigation Next.js streams the new <title> separately; scan the settled document.
+  await expect(page).toHaveTitle(/\S/u);
   const accessibility = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
     .analyze();

@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { resolve } from "node:path";
-import { fullStackBrowserRequest, signInFullStack } from "../support/full-stack-session";
+import { fullStackBrowserRequest, fullStackPageRequest, signInFullStack } from "../support/full-stack-session";
 import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 
 async function dismissOnboarding(page: Page) {
@@ -25,7 +25,7 @@ async function resetSeries(page: Page) {
   }
 }
 async function personal(page: Page) {
-  const response = await page.request.post("/api/personal-home", { headers: { origin: new URL(page.url()).origin }, multipart: {} });
+  const response = await (await fullStackPageRequest(page)).post("/api/personal-home", { headers: { origin: new URL(page.url()).origin }, multipart: {} });
   expect(response.headers()["cache-control"]).toContain("private");
   return response;
 }
@@ -38,6 +38,7 @@ async function screenshot(page: Page, project: string, surface: string) {
   await page.screenshot({ path: resolve(directory, `${project}-inline-${surface}.png`), fullPage: !captureViewport });
 }
 test("profile continuation opens the real series, persists marks and reconciles a lost visible open", async ({ page, context }, testInfo) => {
+  await page.clock.install();
   await signInFullStack(context, "EXPIRED_MEMBER"); await dismissOnboarding(page); await resetSeries(page);
   await page.goto(`/materials/${materialSlugs[0]}`); const otherMark = await unmark(page, "Прочитано");
   await otherMark.click(); await expect(otherMark).toHaveAttribute("aria-pressed", "true");
@@ -75,10 +76,10 @@ test("profile continuation opens the real series, persists marks and reconciles 
   const nextRow = page.getByRole("main").locator('[data-series-ordinal="3"]');
   const rowBefore = await nextRow.boundingBox();
   await page.route("**/api/reading-progress/guide-continuation", async (route) => { await route.fulfill({ status: 503 }); });
-  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await becomeStale(page); await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   // Недоступное продолжение не выдумывает выделенную строку и не двигает маршрут.
   await expect(current).toHaveCount(0); expect(await nextRow.boundingBox()).toEqual(rowBefore);
-  await page.unroute("**/api/reading-progress/guide-continuation"); await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await page.unroute("**/api/reading-progress/guide-continuation"); await becomeStale(page); await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await expect(current.locator("[data-material-slug]")).toHaveAttribute("data-material-slug", "video-pro-developer-pipeline");
   await current.locator('a[href^="/materials/video-pro-developer-pipeline"]').click();
   await expect(page.getByText("Материал 2 из 3", { exact: true })).toBeVisible();
@@ -94,7 +95,7 @@ test("profile continuation opens the real series, persists marks and reconciles 
   await page.goto("/account"); await expect(resumeSeries).toContainText("Прочитано 2 из 3");
   await context.clearCookies(); await page.goto("/account"); await expect(resumeSeries).toHaveCount(0);
   await signInFullStack(context); await page.reload(); await expect(resumeSeries).toContainText("Прочитано 2 из 3");
-  await signInFullStack(context, "EXPIRED_MEMBER"); await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await signInFullStack(context, "EXPIRED_MEMBER"); await becomeStale(page); await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await expect(resumeSeries).toContainText("Прочитано 1 из 3"); await personal(page);
 });
 
@@ -131,11 +132,12 @@ test("profile resumes real Video progress and excludes playback end", async ({ p
 });
 
 test("profile continuation preserves the account form through errors and excludes denied, prefetched and SSR opens", async ({ page, context }) => {
+  await page.clock.install();
   await signInFullStack(context); await dismissOnboarding(page);
   const opens: string[] = [];
   page.on("request", (request) => { if (request.url().endsWith("/api/reading-progress/open")) opens.push(request.url()); });
   await page.goto("/account");
-  await page.request.get("/materials/demo-podgotovka-prilozheniya-k-relizu", { headers: { "next-router-prefetch": "1", rsc: "1" } });
+  await (await fullStackPageRequest(page)).get("/materials/demo-podgotovka-prilozheniya-k-relizu", { headers: { "next-router-prefetch": "1", rsc: "1" } });
   expect(opens).toEqual([]);
   await page.goto("/materials/developer-pipeline-bez-poteri-konteksta");
   await expect(page.locator("[data-reader-body]:visible")).toHaveCount(0); expect(opens).toEqual([]);
@@ -144,7 +146,7 @@ test("profile continuation preserves the account form through errors and exclude
   await expect(field).toBeVisible();
   const before = await field.boundingBox();
   await page.route("**/api/personal-home", async (route) => { await route.fulfill({ status: 503 }); });
-  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await becomeStale(page); await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await expect(page.getByText("Не удалось загрузить продолжение обучения.")).toBeVisible();
   expect((await field.boundingBox())?.y).toBe(before?.y);
   await expect(page.getByRole("link", { name: /^Продолжить продукт/u })).toHaveCount(0);
@@ -193,3 +195,8 @@ test("personal Home retries an already visible open with the same command after 
   const commandId = (body: string) => /name="commandId"\r\n\r\n([^\r]+)/u.exec(body)?.[1];
   expect(commandId(commands[0] ?? "")).toBeTruthy(); expect(commandId(commands[1] ?? "")).toBe(commandId(commands[0] ?? ""));
 });
+
+/** Queries stay fresh for 30 seconds and refetch on focus only after that (ADR 0026, #674). */
+async function becomeStale(page: Page): Promise<void> {
+  await page.clock.fastForward("00:31");
+}

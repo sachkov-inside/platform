@@ -27,10 +27,18 @@ test("tablet Home can scroll through the feed and keeps navigation usable", asyn
 for (const width of [320, 768]) test(`Home feed reflows at ${String(width)}px with doubled text`, async ({ page }) => {
   await page.setViewportSize({ width, height: 900 });
   await page.goto("/");
+  // The storage notice is fixed to the viewport and at doubled text covers the filters (#664).
+  await page.getByRole("region", { name: "Хранение в браузере" }).getByRole("button", { name: "Понятно" }).click();
   await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
+  // The feed replaces its cards when the filter answers; measure the filtered cards, not the old ones.
+  const filtered = page.waitForResponse((response) => response.url().includes("/api/home/materials?") && response.url().includes("format=note"));
   await page.getByRole("button", { name: "Заметки", exact: true }).click();
+  await filtered;
   const note = page.getByRole("article").first();
-  await note.scrollIntoViewIfNeeded();
-  await expect(note).toBeInViewport();
+  // The response resolves before React swaps the cards, so the first card can detach mid-scroll.
+  await expect(async () => {
+    await note.scrollIntoViewIfNeeded({ timeout: 1_000 });
+    await expect(note).toBeInViewport({ timeout: 1_000 });
+  }).toPass();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
 });

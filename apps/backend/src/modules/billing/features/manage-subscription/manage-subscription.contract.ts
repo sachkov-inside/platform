@@ -22,6 +22,8 @@ export const ownPaymentSchema = z.strictObject({
   fiscalization: z.enum(["not_configured", "pending", "confirmed", "failed"]),
   confirmedAt: z.iso.datetime().nullable(), periodEndsAt: z.iso.datetime().nullable(),
   createdAt: z.iso.datetime(),
+  /** Возвращено банком по этому платежу; неподтверждённые попытки не считаются. */
+  refundedKopecks: z.int().nonnegative(), refundedAt: z.iso.datetime().nullable(),
 });
 export type OwnPayment = z.infer<typeof ownPaymentSchema>;
 /**

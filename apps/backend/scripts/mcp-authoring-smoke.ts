@@ -18,6 +18,8 @@ const materialsOnlyAccessToken = requireEnvironment(
 );
 const topicId = "72000000-0000-4000-8000-000000000002";
 const formatId = "guide";
+// Закрытый материал публикуется только внутри продукта (#648): смоук берёт руководство из сида.
+const seededGuideId = "72000000-0000-4000-8000-000000000007";
 const body = {
   schemaVersion: 1,
   doc: {
@@ -140,6 +142,8 @@ try {
       publicationState: "unpublished",
       metadata: metadata("free"),
       body,
+      // Руководство из сида уже куплено в проверочной базе: владелец подтверждает снятие (#648).
+      confirmedGuideRemovals: [seededGuideId],
     }),
     "unpublish Material",
   );
@@ -177,7 +181,7 @@ function metadata(access: "free" | "membership") {
     topicId,
     formatId,
     tagIds: [],
-    seriesIds: [],
+    seriesIds: access === "membership" ? [seededGuideId] : [],
   };
 }
 

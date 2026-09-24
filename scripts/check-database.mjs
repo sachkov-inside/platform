@@ -9,14 +9,26 @@ export function checkDatabaseUrl(port = 5432) {
 }
 
 export function ensureCheckDatabase({ cwd, composeProject = "inside-platform", run = execFileSync } = {}) {
-  const psql = (sql) => {
+  const psql = checkPsql({ cwd, composeProject, run });
+  if (psql(`select 1 from pg_database where datname = '${checkDatabaseName}'`) !== "1") {
+    psql(`create database ${checkDatabaseName}`);
+  }
+}
+
+// A run that asserts on seeded content starts from an empty check database: materials, products and
+// buyers left by earlier runs would otherwise change what the next run sees.
+export function resetCheckDatabase({ cwd, composeProject = "inside-platform", run = execFileSync } = {}) {
+  const psql = checkPsql({ cwd, composeProject, run });
+  psql(`drop database if exists ${checkDatabaseName} with (force)`);
+  psql(`create database ${checkDatabaseName}`);
+}
+
+function checkPsql({ cwd, composeProject, run }) {
+  return (sql) => {
     try {
       return run("docker", ["compose", "--project-name", composeProject, "exec", "-T", "postgres", "psql", "-U", "inside", "-d", "inside", "-Atc", sql], { cwd, encoding: "utf8" }).trim();
     } catch (error) {
       throw new Error(`Compose PostgreSQL of ${composeProject} is not reachable; start it before this check`, { cause: error });
     }
   };
-  if (psql(`select 1 from pg_database where datname = '${checkDatabaseName}'`) !== "1") {
-    psql(`create database ${checkDatabaseName}`);
-  }
 }

@@ -27,7 +27,13 @@ export const contentCollectionSchema = z
     kind: z.enum(["series", "topic"]),
     materialCount: z.number().int().nonnegative(),
     name: z.string(),
+    // Страница Guide из авторского оригинала (#671); список автора её не рисует, поэтому схема
+    // её только пропускает, а не проверяет.
+    page: z.unknown().optional(),
+    pageRejected: z.boolean().optional(),
+    presentation: z.string().nullable().optional(),
     slug: z.string(),
+    sourceId: z.string().nullable().optional(),
     summary: z.string(),
     version: z.number().int().positive(),
   })

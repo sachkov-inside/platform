@@ -15,6 +15,17 @@ describe("Material Video authoring browser contract", () => {
     expect(await initMaterialVideoUpload({ access: "free", byteSize: 42, filename: "video.mp4", materialId, submissionId: videoId, title: "Video" })).toEqual({ kind });
   });
 
+  it("accepts the upload response the backend sends with the provider Video id", async () => {
+    // Since #669 the backend returns providerVideoId next to the upload endpoint.
+    const video = { access: "free", materialId, origin: "platform_upload", state: "uploading", title: "Video", videoId } as const;
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({
+      kind: "ready",
+      value: { providerVideoId: "kinescope-1", uploadEndpoint: "https://uploader.example.test/v2/upload", video },
+    })));
+    await expect(initMaterialVideoUpload({ access: "free", byteSize: 42, filename: "video.mp4", materialId, submissionId: videoId, title: "Video" }))
+      .resolves.toMatchObject({ kind: "ready", value: { uploadEndpoint: "https://uploader.example.test/v2/upload" } });
+  });
+
   it("accepts the ready Video duration returned by reconciliation", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({
       kind: "ready",

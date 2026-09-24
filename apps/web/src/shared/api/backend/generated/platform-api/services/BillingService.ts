@@ -37,6 +37,8 @@ export class BillingService {
       offerName: string;
       periodEndsAt: string | null;
       purchaseRef: string;
+      refundedAt: string | null;
+      refundedKopecks: number;
       state: 'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed';
     }>;
     subscription: {

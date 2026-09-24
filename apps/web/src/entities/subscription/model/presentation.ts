@@ -267,7 +267,7 @@ export function noticeLabel(kind: NoticeKind): string {
     case "access_expired":
       return "Оплаченный срок закончился";
     case "refund_resolved":
-      return "Решение по возврату";
+      return "Возврат выполнен";
   }
 }
 
