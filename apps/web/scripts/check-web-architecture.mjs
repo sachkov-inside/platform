@@ -59,10 +59,10 @@ const runtimeConfigurationNames = new Set([
   "WEB_BASE_URL",
 ]);
 
-function sourceFiles(directory) {
-  if (statSync(directory).isFile()) return [directory];
-  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    const entryPath = path.join(directory, entry.name);
+function sourceFiles(root) {
+  if (statSync(root).isFile()) return [root];
+  return readdirSync(root, { withFileTypes: true }).flatMap((entry) => {
+    const entryPath = path.join(root, entry.name);
     if (entry.isDirectory()) return sourceFiles(entryPath);
     return /\.(?:cts|mts|ts|tsx)$/.test(entry.name) ? [entryPath] : [];
   });
@@ -189,15 +189,15 @@ function namesIdentifier(program, name) {
   return seen;
 }
 
+function importsTheSession(specifier) {
+  return specifier.includes("shared/auth") || specifier === "next/headers";
+}
+
 /**
  * Модуль с кеш-директивой не должен видеть сессию: ни токена, ни cookie, ни модуля входа. Проверка
  * ловит прямое нарушение; токен под другим именем или сессия через посредника остаются делом
  * обзора — их не отличить от обычного кода по форме.
  */
-function importsTheSession(specifier) {
-  return specifier.includes("shared/auth") || specifier === "next/headers";
-}
-
 function seesTheSession(program) {
   return (
     namesIdentifier(program, "accessToken") || moduleSpecifiers(program).some(importsTheSession)
@@ -214,12 +214,23 @@ function reachesRequestTimeDependency(specifier) {
   );
 }
 
-/** Cookie самого запроса — та же сессия, прочитанная без импорта. */
-function readsRequestCookies(program) {
+/**
+ * Сессия и среда, прочитанные без импорта: любое обращение к `.cookies` и к `process.env`. Cookie
+ * из сырого заголовка остаётся делом обзора — по форме это обычное чтение заголовка.
+ */
+function touchesCookiesOrEnvironment(program) {
   let found = false;
   new Visitor({
     MemberExpression(node) {
-      if (memberPropertyName(node) === "cookies") found = true;
+      const property = memberPropertyName(node);
+      if (property === "cookies") found = true;
+      if (
+        property === "env" &&
+        node.object.type === "Identifier" &&
+        node.object.name === "process"
+      ) {
+        found = true;
+      }
     },
   }).visit(program);
   return found;
@@ -784,7 +795,7 @@ for (const entry of [...parsedFiles.keys()].filter(
   for (const { file, program } of reachableModules(entry)) {
     if (
       moduleSpecifiers(program).some(reachesRequestTimeDependency) ||
-      readsRequestCookies(program)
+      touchesCookiesOrEnvironment(program)
     ) {
       findings.push(
         `${scannedPath(entry)}: proxy decides from facts web holds itself; it cannot reach the backend, the session or runtime configuration (via ${scannedPath(file)})`,

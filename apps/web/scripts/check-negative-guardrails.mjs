@@ -57,6 +57,7 @@ const fixtures = [
       "proxy.ts: proxy decides from facts web holds itself; it cannot reach the backend, the session or runtime configuration (via test/guardrails/fixtures/architecture/proxy-dependencies/proxy.ts)",
       "proxy.ts: proxy decides from facts web holds itself; it cannot reach the backend, the session or runtime configuration (via test/guardrails/fixtures/architecture/proxy-dependencies/catalog-address.ts)",
       "proxy.ts: proxy decides from facts web holds itself; it cannot reach the backend, the session or runtime configuration (via test/guardrails/fixtures/architecture/proxy-dependencies/session-cookie.ts)",
+      "proxy.ts: proxy decides from facts web holds itself; it cannot reach the backend, the session or runtime configuration (via test/guardrails/fixtures/architecture/proxy-dependencies/feature-flag.ts)",
     ],
   },
   {
