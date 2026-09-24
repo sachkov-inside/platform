@@ -67,7 +67,7 @@ copies a template migrated once per run, while migration tests start from an emp
 `createTestDatabase`. `integration-serial` holds the files that also own a RabbitMQ broker, kill
 worker processes or write the machine-wide worker readiness file; they run one at a time, so they
 measure behaviour rather than runner load. `scripts/integration-serial-files.test.mjs` fails when a
-file that starts a container of its own, forks a process or runs a worker is missing from that list.
+file that starts a RabbitMQ broker, forks a crash process or runs a worker is missing from that list.
 The default test and hook budgets in the same config only stop a stuck run: a test that needs more
 names its own budget, and a flaky test is fixed by its cause, never by raising a budget or re-running.
 

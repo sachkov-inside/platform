@@ -8,11 +8,19 @@ const backendRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../apps/ba
 const integrationDirectory = "test/integration";
 
 /**
- * Файл integration, который сам поднимает контейнер, форкает процесс или запускает воркер, делит с
- * остальными не только PostgreSQL. Параллельно с набором он меряет загрузку runner, поэтому обязан
- * стоять в последовательном проекте. Список ведётся руками; эта проверка не даёт забыть новый файл.
+ * Файл integration, который поднимает брокер RabbitMQ, форкает аварийный процесс или запускает
+ * воркер, делит с остальными не только PostgreSQL. Параллельно с набором он меряет загрузку runner,
+ * поэтому обязан стоять в последовательном проекте. Контейнер хранилища объектов к этому не
+ * относится: ему не нужны ни брокер, ни сроки смерти процесса. Список ведётся руками; эта проверка
+ * не даёт забыть новый файл.
  */
-const serialMarkers = [/\bGenericContainer\b/u, /\bfork\(/u, /\brunWorker\(/u, /\bWORKER_READINESS_PATH\b/u];
+const serialMarkers = [
+  /\bNOTIFICATION_BROKER_IMAGE\b/u,
+  /setup\/broker\.js/u,
+  /\bfork\(/u,
+  /\brunWorker\(/u,
+  /\bWORKER_READINESS_PATH\b/u,
+];
 
 export function misplacedIntegrationFiles(files, serialFiles) {
   const listed = new Set(serialFiles);
@@ -28,7 +36,7 @@ function listedSerialFiles(config) {
 }
 
 describe("integration serial project", () => {
-  it("holds exactly the files that own containers, processes or workers", () => {
+  it("holds exactly the files that own a broker, crash processes or workers", () => {
     const files = readdirSync(resolve(backendRoot, integrationDirectory))
       .filter((name) => name.endsWith(".test.ts"))
       .map((name) => {
