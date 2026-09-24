@@ -222,6 +222,16 @@ describe("supported toolchain contract", () => {
     }
   });
 
+  it("tests object storage against the image the local stand runs", () => {
+    const composeImage = read("compose.yaml").match(/^ {2}object-storage:\n {4}image: (\S+)$/mu)?.[1];
+    assert.ok(composeImage, "compose.yaml must declare the object-storage image");
+    assert.ok(composeImage.includes("@sha256:"), "object-storage image must be pinned by digest");
+    assert.ok(
+      read("apps/backend/test/integration/material-assets-object-storage.test.ts").includes(`"${composeImage}"`),
+      "the object storage integration test must start the Compose object-storage image",
+    );
+  });
+
   it("keeps the local sale on the stand contour", () => {
     // Контур приложения не виден живым ответом: открытых endpoint с ним нет, а покупка требует
     // входа. Поэтому его держит конфигурация, и она проверяется здесь, а не смоуком стенда.
