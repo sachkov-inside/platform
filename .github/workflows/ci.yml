@@ -215,7 +215,7 @@ jobs:
         with:
           node-version-file: .node-version
       - name: Install pnpm
-        uses: pnpm/action-setup@v6.0.10
+        uses: pnpm/action-setup@v6.1.0
       - name: Run isolated production smoke
         env:
           PRODUCTION_SMOKE_ARTIFACT_DIR: ci-artifacts/compose-production
