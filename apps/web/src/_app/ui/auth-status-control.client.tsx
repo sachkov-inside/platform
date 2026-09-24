@@ -27,6 +27,11 @@ const unavailableStatus: AuthStatusSnapshot = {
 
 let statusFlight: Promise<AuthStatusSnapshot> | undefined;
 
+/**
+ * Статус входа для оболочки. Повторная проверка на `focus` и `pageshow` не сбрасывает уже известный
+ * ответ: пока она идёт, личные блоки стоят на прежнем статусе, а меняются, только когда вход
+ * действительно изменился.
+ */
 export function useAuthStatus(): AuthStatusSnapshot {
   const [status, setStatus] = useState<AuthStatusSnapshot>(initialStatus);
 
@@ -35,9 +40,11 @@ export function useAuthStatus(): AuthStatusSnapshot {
     let generation = 0;
     const refresh = () => {
       const current = ++generation;
-      setStatus((previous) => ({ ...previous, resolved: false }));
       void loadAuthStatus().then((authoritativeStatus) => {
-        if (active && generation === current) setStatus(authoritativeStatus);
+        if (!active || generation !== current) return;
+        setStatus((previous) =>
+          sameAuthStatus(previous, authoritativeStatus) ? previous : authoritativeStatus,
+        );
       });
     };
     refresh();
@@ -51,6 +58,15 @@ export function useAuthStatus(): AuthStatusSnapshot {
   }, []);
 
   return status;
+}
+
+function sameAuthStatus(left: AuthStatusSnapshot, right: AuthStatusSnapshot): boolean {
+  return (
+    left.accountId === right.accountId &&
+    left.canManageMaterials === right.canManageMaterials &&
+    left.resolved === right.resolved &&
+    left.state === right.state
+  );
 }
 
 function loadAuthStatus(): Promise<AuthStatusSnapshot> {
