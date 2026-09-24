@@ -2,21 +2,26 @@ import { z } from "zod";
 
 import {
   MAX_WEB_VITALS_PER_REPORT,
+  RENDER_ERROR_BOUNDARIES,
   RENDER_ERROR_MESSAGE_LENGTH,
-} from "./client-telemetry-routes";
+  REPORT_LABEL_LENGTH,
+  REPORT_PATH_LENGTH,
+  REPORTED_WEB_VITALS,
+  WEB_VITAL_RATINGS,
+} from "./client-telemetry-wire";
 
 /** Отчёт браузера мал: несколько чисел или одно усечённое сообщение. */
 export const MAX_CLIENT_TELEMETRY_BYTES = 16 * 1_024;
 
 /** Путь страницы без запроса: параметры адреса в журнал не попадают. */
-const pagePathSchema = z.string().startsWith("/").max(512).regex(/^[^?#]*$/u);
+const pagePathSchema = z.string().startsWith("/").max(REPORT_PATH_LENGTH).regex(/^[^?#]*$/u);
 
 export const webVitalSchema = z
   .object({
-    id: z.string().min(1).max(128),
-    name: z.enum(["CLS", "FCP", "FID", "INP", "LCP", "TTFB"]),
-    navigationType: z.string().max(32).optional(),
-    rating: z.enum(["good", "needs-improvement", "poor"]).optional(),
+    id: z.string().min(1).max(REPORT_LABEL_LENGTH),
+    name: z.enum(REPORTED_WEB_VITALS),
+    navigationType: z.string().max(REPORT_LABEL_LENGTH).optional(),
+    rating: z.enum(WEB_VITAL_RATINGS).optional(),
     value: z.number().nonnegative(),
   })
   .strict();
@@ -30,10 +35,10 @@ export const webVitalsReportSchema = z
 
 export const renderErrorReportSchema = z
   .object({
-    boundary: z.enum(["authoring", "global", "public", "root"]),
-    digest: z.string().max(128).optional(),
+    boundary: z.enum(RENDER_ERROR_BOUNDARIES),
+    digest: z.string().max(REPORT_LABEL_LENGTH).optional(),
     message: z.string().max(RENDER_ERROR_MESSAGE_LENGTH),
-    name: z.string().max(128),
+    name: z.string().max(REPORT_LABEL_LENGTH),
     route: pagePathSchema,
   })
   .strict();

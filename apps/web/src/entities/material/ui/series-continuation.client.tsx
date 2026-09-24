@@ -4,6 +4,7 @@ import { Play } from "lucide-react";
 import { createContext, use, type ReactNode } from "react";
 
 import { cn } from "@/shared/lib/utils";
+import type { MaterialPreview } from "../model/material-preview";
 
 /**
  * Урок программы, с которого читателю продолжать. Строки программы рисует сервер, а продолжение
@@ -28,7 +29,8 @@ export function SeriesRowArticle({
   className,
   slug,
 }: {
-  readonly availability: string;
+  /** Доступ читателя; `pending`, пока личная часть программы ещё идёт. */
+  readonly availability: MaterialPreview["availability"] | "pending";
   readonly children: ReactNode;
   readonly className: string;
   readonly slug: string;

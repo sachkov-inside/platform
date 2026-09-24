@@ -5,7 +5,6 @@ import { PageNotFound } from "@/_pages/route-states";
 export default function NotFound() {
   return (
     <PublicShell>
-      <title>Страница не найдена · Sachkov Inside</title>
       <PageNotFound />
     </PublicShell>
   );

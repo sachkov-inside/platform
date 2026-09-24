@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
-import "@fontsource-variable/jetbrains-mono/wght.css";
-
 import { DevelopmentFeedbackOverlay } from "@/_app/ui/development-feedback-overlay.client";
 import "@/_app/ui/fonts";
 import { readWebRuntimeMode } from "@/shared/config/index.server";

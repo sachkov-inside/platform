@@ -1,6 +1,6 @@
 "use client";
 
-import { PageUnexpectedError } from "@/_pages/route-states";
+import { StandalonePageError } from "@/_pages/route-states";
 import { useRenderErrorReport } from "@/features/client-telemetry";
 
 /**
@@ -15,9 +15,5 @@ export default function RootError({
   readonly retry: () => void;
 }) {
   useRenderErrorReport("root", error);
-  return (
-    <main className="grid min-h-svh place-items-center bg-background px-5 py-12 text-foreground">
-      <PageUnexpectedError onRetry={retry} />
-    </main>
-  );
+  return <StandalonePageError onRetry={retry} />;
 }

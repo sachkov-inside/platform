@@ -1,7 +1,7 @@
 "use client";
 
 import "@/_app/ui/fonts";
-import { PageUnexpectedError } from "@/_pages/route-states";
+import { StandalonePageError } from "@/_pages/route-states";
 import { useRenderErrorReport } from "@/features/client-telemetry";
 
 import "./globals.css";
@@ -22,9 +22,7 @@ export default function GlobalError({
     <html lang="ru">
       <body>
         <title>Страница недоступна · Sachkov Inside</title>
-        <main className="grid min-h-svh place-items-center bg-background px-5 py-12 text-foreground">
-          <PageUnexpectedError onRetry={retry} />
-        </main>
+        <StandalonePageError onRetry={retry} />
       </body>
     </html>
   );

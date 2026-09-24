@@ -1,1 +1,6 @@
-export { PageNotFound, PageUnexpectedError } from "./ui/route-states";
+export {
+  AuthoringUnexpectedError,
+  PageNotFound,
+  PageUnexpectedError,
+  StandalonePageError,
+} from "./ui/route-states";

@@ -7,8 +7,12 @@ import {
   MAX_WEB_VITALS_PER_REPORT,
   RENDER_ERRORS_ROUTE,
   RENDER_ERROR_MESSAGE_LENGTH,
+  REPORT_LABEL_LENGTH,
+  REPORT_PATH_LENGTH,
+  REPORTED_WEB_VITALS,
   WEB_VITALS_ROUTE,
-} from "../model/client-telemetry-routes";
+  WEB_VITAL_RATINGS,
+} from "../model/client-telemetry-wire";
 
 /** Поля метрики, которые уходят в отчёт; остальное Next.js оставляет себе. */
 export interface ReportedWebVital {
@@ -19,8 +23,13 @@ export interface ReportedWebVital {
   readonly value: number;
 }
 
-const reportedNames = new Set<string>(["CLS", "FCP", "FID", "INP", "LCP", "TTFB"]);
-const reportedRatings = new Set<string>(["good", "needs-improvement", "poor"]);
+function isReportedName(name: string): name is WebVital["name"] {
+  return (REPORTED_WEB_VITALS as readonly string[]).includes(name);
+}
+
+function isRating(rating: string | undefined): rating is NonNullable<WebVital["rating"]> {
+  return rating !== undefined && (WEB_VITAL_RATINGS as readonly string[]).includes(rating);
+}
 
 let pendingVitals: WebVital[] = [];
 let documentRoute: string | undefined;
@@ -32,15 +41,14 @@ let flushesOnHide = false;
  * документ загрузился.
  */
 export function queueWebVital(metric: ReportedWebVital): void {
-  if (!reportedNames.has(metric.name) || pendingVitals.length >= MAX_WEB_VITALS_PER_REPORT) return;
-  documentRoute ??= window.location.pathname;
+  const { name, rating } = metric;
+  if (!isReportedName(name) || pendingVitals.length >= MAX_WEB_VITALS_PER_REPORT) return;
+  documentRoute ??= window.location.pathname.slice(0, REPORT_PATH_LENGTH);
   pendingVitals.push({
-    id: metric.id,
-    name: metric.name as WebVital["name"],
-    ...(metric.navigationType === undefined ? {} : { navigationType: metric.navigationType }),
-    ...(metric.rating === undefined || !reportedRatings.has(metric.rating)
-      ? {}
-      : { rating: metric.rating as NonNullable<WebVital["rating"]> }),
+    id: metric.id.slice(0, REPORT_LABEL_LENGTH),
+    name,
+    ...(metric.navigationType === undefined ? {} : { navigationType: metric.navigationType.slice(0, REPORT_LABEL_LENGTH) }),
+    ...(isRating(rating) ? { rating } : {}),
     value: Math.max(0, metric.value),
   });
   if (flushesOnHide) return;
@@ -65,23 +73,26 @@ export function reportRenderError(
 ): void {
   const report: RenderErrorReport = {
     boundary,
-    ...(error.digest === undefined ? {} : { digest: error.digest.slice(0, 128) }),
+    ...(error.digest === undefined ? {} : { digest: error.digest.slice(0, REPORT_LABEL_LENGTH) }),
     message: error.message.slice(0, RENDER_ERROR_MESSAGE_LENGTH),
-    name: error.name.slice(0, 128),
-    route: window.location.pathname.slice(0, 512),
+    name: error.name.slice(0, REPORT_LABEL_LENGTH),
+    route: window.location.pathname.slice(0, REPORT_PATH_LENGTH),
   };
   sendReport(RENDER_ERRORS_ROUTE, report);
 }
 
-/** Отчёт не должен мешать странице: ни сбой отправки, ни её отсутствие не видны человеку. */
+/**
+ * Отчёт не должен мешать странице: ни сбой отправки, ни её отсутствие не видны человеку. Если
+ * beacon недоступен или отказал, тот же отчёт уходит обычным запросом `keepalive`.
+ */
 function sendReport(route: string, report: RenderErrorReport | WebVitalsReport): void {
+  const body = new Blob([JSON.stringify(report)], { type: "application/json" });
   try {
-    const body = new Blob([JSON.stringify(report)], { type: "application/json" });
     if (navigator.sendBeacon(route, body)) return;
-    void fetch(route, { body, credentials: "same-origin", keepalive: true, method: "POST" }).catch(
-      () => undefined,
-    );
   } catch {
-    // Измерение не должно мешать странице.
+    // Beacon недоступен — ниже тот же отчёт уходит запросом.
   }
+  void fetch(route, { body, credentials: "same-origin", keepalive: true, method: "POST" }).catch(
+    () => undefined,
+  );
 }

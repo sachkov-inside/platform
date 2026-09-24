@@ -30,6 +30,11 @@ export async function handleRenderErrorReport(request: Request): Promise<Respons
   return telemetryResponse(204);
 }
 
+/**
+ * Узкое исключение из общей границы BFF (`handleAuthenticatedMutation`): отчёт присылает и гость,
+ * поэтому сессии здесь нет, а тело — JSON, а не форма. От общей границы остаются проверка Origin,
+ * предел тела — меньший, `MAX_CLIENT_TELEMETRY_BYTES`, — и ответ `no-store, private`.
+ */
 async function readReport<Schema extends z.ZodType>(
   request: Request,
   schema: Schema,

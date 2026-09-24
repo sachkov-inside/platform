@@ -1,11 +1,7 @@
 "use client";
 
-import { CloudOff } from "lucide-react";
-import Link from "next/link";
-
+import { AuthoringUnexpectedError } from "@/_pages/route-states";
 import { useRenderErrorReport } from "@/features/client-telemetry";
-import { authoringMaterialsRootHref } from "@/shared/routing/authoring";
-import { Button } from "@/shared/ui/button";
 
 /**
  * Сбой любого авторского раздела: авторская оболочка остаётся, `retry` перечитывает раздел с
@@ -19,40 +15,5 @@ export default function AuthoringError({
   readonly retry: () => void;
 }) {
   useRenderErrorReport("authoring", error);
-
-  return (
-    <>
-      <main
-        className="grid h-full min-h-svh place-items-center bg-background px-5 py-12 text-foreground md:min-h-0"
-        id="authoring-content"
-        tabIndex={-1}
-      >
-        <section
-          aria-labelledby="material-authoring-error-heading"
-          className="w-full max-w-xl border-y border-border py-10 text-center"
-          role="alert"
-        >
-          <CloudOff aria-hidden="true" className="mx-auto size-8 text-destructive" />
-          <h1
-            className="mt-5 text-2xl font-semibold tracking-[-0.025em]"
-            id="material-authoring-error-heading"
-          >
-            Authoring остановлен
-          </h1>
-          <p className="mx-auto mt-3 max-w-[52ch] text-sm leading-6 text-muted-foreground">
-            Произошла непредвиденная ошибка. Повторите действие или вернитесь к материалам.
-          </p>
-          <p className="mt-3 font-mono text-[0.6875rem] text-muted-foreground">
-            Код обращения: {error.digest ?? "authoring-boundary"}
-          </p>
-          <div className="mt-6 flex flex-wrap justify-center gap-2">
-            <Button onClick={retry} type="button">Повторить</Button>
-            <Button asChild variant="outline">
-              <Link href={authoringMaterialsRootHref}>Вернуться к Materials</Link>
-            </Button>
-          </div>
-        </section>
-      </main>
-    </>
-  );
+  return <AuthoringUnexpectedError digest={error.digest} onRetry={retry} />;
 }
