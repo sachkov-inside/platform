@@ -21,6 +21,7 @@ import {
   type ReadContactResult,
   type StartContactResult,
 } from "./billing-contact.contract.js";
+import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const challengeLifetimeMs = 10 * 60 * 1_000;
 const resendCooldownMs = 60 * 1_000;
@@ -87,8 +88,8 @@ export class BillingContact {
         },
         documents: [...this.documents],
       };
-    } catch {
-      return contactFailure("internal_error");
+    } catch (error) {
+      return dependencyFailure({ module: "accounts", operation: "read" }, error, contactFailure("internal_error"));
     }
   }
 
@@ -125,8 +126,8 @@ export class BillingContact {
           }),
         },
       };
-    } catch {
-      return contactFailure("internal_error");
+    } catch (error) {
+      return dependencyFailure({ module: "accounts", operation: "readConsent" }, error, contactFailure("internal_error"));
     }
   }
 
@@ -256,7 +257,8 @@ export class BillingContact {
             data: { delivery: "sent" },
           });
           delivery = "sent";
-        } catch {
+        } catch (error) {
+          reportDependencyFailure({ module: "accounts", operation: "start" }, error);
           delivery = "unknown";
         }
       }
@@ -266,8 +268,8 @@ export class BillingContact {
         expiresAt: reserved.expiresAt,
         delivery,
       };
-    } catch {
-      return contactFailure("internal_error");
+    } catch (error) {
+      return dependencyFailure({ module: "accounts", operation: "start" }, error, contactFailure("internal_error"));
     }
   }
 
@@ -371,8 +373,8 @@ export class BillingContact {
         });
         return result;
       });
-    } catch {
-      return contactFailure("internal_error");
+    } catch (error) {
+      return dependencyFailure({ module: "accounts", operation: "confirm" }, error, contactFailure("internal_error"));
     }
   }
 
@@ -483,8 +485,8 @@ export class BillingContact {
         });
         return result;
       });
-    } catch {
-      return contactFailure("internal_error");
+    } catch (error) {
+      return dependencyFailure({ module: "accounts", operation: "acceptConsents" }, error, contactFailure("internal_error"));
     }
   }
 }

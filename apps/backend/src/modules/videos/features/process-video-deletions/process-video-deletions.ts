@@ -8,6 +8,7 @@ import {
   type VideoOrigin,
 } from "../../facets/videos/videos.interface.js";
 import type { VideoProvider } from "../../ports/video-provider.js";
+import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const VIDEO_DELETION_RETRY_ATTEMPT_LIMIT = 5;
 const VIDEO_DELETION_CLAIM_TIMEOUT_MILLISECONDS = 300_000;
@@ -129,11 +130,11 @@ export function assembleVideoDeletionMaintenance(dependencies: {
           }
         }
         return { ok: true, value: summary };
-      } catch {
-        return {
+      } catch (error) {
+        return dependencyFailure({ module: "videos", operation: "process" }, error, {
           error: { code: "dependency_unavailable", retryable: true },
           ok: false,
-        };
+        });
       }
     },
   };
@@ -238,7 +239,8 @@ export function assembleVideoDeletionMaintenance(dependencies: {
         id: input.providerVideoId,
         projectId: input.projectId,
       });
-    } catch {
+    } catch (error) {
+      reportDependencyFailure({ module: "videos", operation: "reconcileActiveProviderState" }, error);
       return;
     }
     if (

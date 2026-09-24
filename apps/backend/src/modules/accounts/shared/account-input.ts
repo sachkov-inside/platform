@@ -18,11 +18,7 @@ export function validLogtoIdentity(value: {
   ) {
     return false;
   }
-  try {
-    return new URL(value.issuer).protocol === "https:";
-  } catch {
-    return false;
-  }
+  return URL.parse(value.issuer)?.protocol === "https:";
 }
 
 export function fingerprintEmail(email: string, key: string): string | undefined {

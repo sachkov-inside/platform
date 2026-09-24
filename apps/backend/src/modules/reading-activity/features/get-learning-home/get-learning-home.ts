@@ -5,6 +5,7 @@ import type { PublishedMaterialSelection } from "../../../materials/index.js";
 import type { ContinueMaterial } from "../get-continue-materials/get-continue-materials.js";
 import { getSeriesContinuation, type SeriesContinuation, type SeriesContinuationDependencies } from "../get-series-continuation/get-series-continuation.js";
 import { loadMaterialResumes } from "../../shared/load-material-resumes.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const MAX_RECENT_VISITS = 500;
 const MATERIAL_BATCH_SIZE = 100;
@@ -49,5 +50,5 @@ export async function getLearningHome(dependencies: SeriesContinuationDependenci
       if (series.value.continuation !== null) return { ok: true, value: { video, series: series.value } };
     }
     return { ok: true, value: { video, series: null } };
-  } catch { return { ok: false, error: { code: "dependency_unavailable" } }; }
+  } catch (error) { return dependencyFailure({ module: "reading-activity", operation: "getLearningHome" }, error, { ok: false, error: { code: "dependency_unavailable" } }); }
 }

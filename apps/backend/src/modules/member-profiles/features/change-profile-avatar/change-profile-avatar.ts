@@ -14,6 +14,7 @@ import {
   processProfileAvatar,
   type ProcessedProfileAvatarRendition,
 } from "./process-profile-avatar.js";
+import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 interface PersistenceDependencies {
   readonly objectStorage: ObjectStorage;
@@ -49,8 +50,8 @@ export async function changeProfileAvatar(
       command.expectedVersion,
       processed.renditions,
     );
-  } catch {
-    return { error: { code: "dependency_unavailable" }, ok: false };
+  } catch (error) {
+    return dependencyFailure({ module: "member-profiles", operation: "changeProfileAvatar" }, error, { error: { code: "dependency_unavailable" }, ok: false });
   }
 }
 
@@ -98,7 +99,8 @@ async function uploadAvatar(
     if (outcomes.some((outcome) => outcome.status === "rejected")) {
       throw new Error("Profile avatar storage failed");
     }
-  } catch {
+  } catch (error) {
+    reportDependencyFailure({ module: "member-profiles", operation: "uploadAvatar" }, error);
     await prisma.profileAvatar.updateMany({
       data: { failureCode: "storage_failure", state: "failed", updatedAt: new Date() },
       where: { id: avatarId, state: "processing" },

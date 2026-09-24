@@ -7,6 +7,7 @@ import type {
   TelegramLinkProviderConfirmation,
   TelegramLinkProviderRegistration,
 } from "../../ports/telegram-link-provider.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const CONTRACT_VERSION = "inside.identity-linking.v1";
 const REQUEST_TIMEOUT_MS = 5_000;
@@ -128,8 +129,8 @@ export class HttpTelegramLinkProvider implements TelegramLinkProvider {
         return undefined;
       }
       return await response.json();
-    } catch {
-      return undefined;
+    } catch (error) {
+      return dependencyFailure({ module: "telegram-membership", operation: "post" }, error, undefined);
     }
   }
 }

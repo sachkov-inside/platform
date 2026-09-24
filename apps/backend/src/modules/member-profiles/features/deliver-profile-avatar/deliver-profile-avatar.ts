@@ -3,6 +3,7 @@ import type { AccountId } from "../../../accounts/index.js";
 import { parseProfileAvatarId } from "../../domain/profile-avatar-id.js";
 import type { DeliverProfileAvatarResult } from "../../facets/member-profiles/member-profiles.interface.js";
 import type { MemberProfilePersistenceClient } from "../../infrastructure/prisma.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 /**
  * A Profile is seen only by its owner (owner decision 15.09.2026, Workspace #185), so the avatar
@@ -54,8 +55,8 @@ export async function deliverProfileAvatar(
       ttlSeconds: dependencies.signedGetTtlSeconds,
     });
     return { location, ok: true };
-  } catch {
-    return { error: { code: "dependency_unavailable" }, ok: false };
+  } catch (error) {
+    return dependencyFailure({ module: "member-profiles", operation: "deliverProfileAvatar" }, error, { error: { code: "dependency_unavailable" }, ok: false });
   }
 }
 

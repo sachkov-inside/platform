@@ -14,6 +14,7 @@ import {
   verifiedTelegramAccountSignIn,
   type VerifiedAccountIdentity,
 } from "../../../facets/accounts/verified-logto-identity.js";
+import { dependencyFailure } from "../../../../../infrastructure/observability/index.js";
 
 const ACCESS_TOKEN_MAX_AGE_MINUTES = 5;
 const MAX_ACCESS_TOKEN_LIFETIME_SECONDS = minutesInSeconds(
@@ -153,7 +154,7 @@ async function verifyToken(
     };
   } catch (error) {
     return isDependencyFailure(error, config.jwksUrl !== undefined)
-      ? { ok: false, error: { code: "dependency_unavailable" } }
+      ? dependencyFailure({ module: "accounts", operation: "verifyToken" }, error, { ok: false, error: { code: "dependency_unavailable" } })
       : invalidProof();
   }
 }

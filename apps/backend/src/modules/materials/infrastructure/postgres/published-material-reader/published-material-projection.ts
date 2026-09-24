@@ -1163,12 +1163,9 @@ function toProjection(
 function projectNoteExcerpt(excerpt: { readonly text: string; readonly truncated: boolean; readonly linkUrl?: string | null | undefined }): NonNullable<PublishedMaterialProjectionDto["noteExcerpt"]> {
   let linkUrl: string | undefined;
   if (excerpt.linkUrl != null && excerpt.linkUrl.length <= 2048) {
-    try {
-      const url = new URL(excerpt.linkUrl);
-      if ((url.protocol === "https:" || url.protocol === "http:") && !url.username && !url.password && url.href.length <= 2048) linkUrl = url.href;
-    } catch {
-      // Invalid links do not invalidate the rest of a published note.
-    }
+    // Invalid links do not invalidate the rest of a published note.
+    const url = URL.parse(excerpt.linkUrl);
+    if (url !== null && (url.protocol === "https:" || url.protocol === "http:") && !url.username && !url.password && url.href.length <= 2048) linkUrl = url.href;
   }
   return { text: excerpt.text, truncated: excerpt.truncated, ...(linkUrl === undefined ? {} : { linkUrl }) };
 }

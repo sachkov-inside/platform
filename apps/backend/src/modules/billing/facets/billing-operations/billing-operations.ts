@@ -20,6 +20,7 @@ import type { Tbank } from "../../infrastructure/tbank/tbank.js";
 import type { BillingPayments } from "../billing-payments/billing-payments.js";
 import type { BillingPricing } from "../billing-pricing/billing-pricing.js";
 import type { BillingSubscriptions } from "../billing-subscriptions/billing-subscriptions.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 interface Dependencies {
   readonly tribute?: TributeConvergence;
@@ -62,7 +63,7 @@ export class BillingOperations {
       const result = await this.dispatch(actorId, command);
       if (!result.ok) return result;
       return await this.record(actorId, command, digest, result);
-    } catch { return ownerFailure("dependency_unavailable"); }
+    } catch (error) { return dependencyFailure({ module: "billing", operation: "execute" }, error, ownerFailure("dependency_unavailable")); }
   }
 
   /**

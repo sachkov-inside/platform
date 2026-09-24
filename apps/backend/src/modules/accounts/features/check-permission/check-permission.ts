@@ -6,6 +6,7 @@ import type {
   PlatformPermission,
 } from "../../facets/accounts/accounts.interface.js";
 import { internalFailure } from "../../shared/internal-failure.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export async function checkPermission(
   prisma: AccountsPrismaClient,
@@ -34,7 +35,7 @@ export async function checkPermission(
       select: { accountId: true },
     });
     return { ok: true, allowed: grant !== null };
-  } catch {
-    return internalFailure();
+  } catch (error) {
+    return dependencyFailure({ module: "accounts", operation: "checkPermission" }, error, internalFailure());
   }
 }

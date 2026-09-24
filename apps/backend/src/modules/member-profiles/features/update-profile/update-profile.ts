@@ -13,6 +13,7 @@ import {
   internalProfileError,
   profileFailure,
 } from "../../shared/profile-result.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export async function updateProfile(
   prisma: MemberProfilePersistenceClient,
@@ -71,7 +72,7 @@ export async function updateProfile(
         ? profileFailure(internalProfileError())
         : { ok: true, value: profile };
     });
-  } catch {
-    return profileFailure(internalProfileError());
+  } catch (error) {
+    return dependencyFailure({ module: "member-profiles", operation: "updateProfile" }, error, profileFailure(internalProfileError()));
   }
 }

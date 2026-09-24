@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { ReadingActivityPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { PublishedSeriesComposition, PublishedSeriesCompositionResult } from "../../../materials/index.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const querySchema = z.object({ accountId: z.uuid(), seriesId: z.uuid() }).strict();
 export const seriesProgressSchema = z.object({
@@ -24,7 +25,7 @@ export async function getSeriesProgress(dependencies: {
       where: { accountId: parsed.data.accountId, materialId: { in: [...composition.value] }, isRead: true },
     });
     return { ok: true, value: { seriesId: parsed.data.seriesId.toLowerCase(), total, read, allRead: total > 0 && total === read } };
-  } catch {
-    return { ok: false, error: { code: "dependency_unavailable" } };
+  } catch (error) {
+    return dependencyFailure({ module: "reading-activity", operation: "getSeriesProgress" }, error, { ok: false, error: { code: "dependency_unavailable" } });
   }
 }

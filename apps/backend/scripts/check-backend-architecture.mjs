@@ -322,13 +322,73 @@ function handoffDelegateViolations(sourceFile, program) {
   );
 }
 
+// Сбой зависимости в Module записывается с причиной: catch передаёт пойманное значение дальше,
+// обычно в dependencyFailure из src/infrastructure/observability. Отказ разбора чужого ввода —
+// не сбой зависимости; такой catch объясняет себя первой строкой тела.
+const inputRejectionMarker = "Not a dependency failure:";
+
+function swallowedFailureViolations(sourceFile, sourceText, program, comments) {
+  const sourcePath = scannedPath(sourceFile);
+  if (owningModule(sourcePath) === undefined) return [];
+  const violations = [];
+  const lineOf = (offset) => sourceText.slice(0, offset).split("\n").length;
+  const explains = (body) =>
+    comments.some(
+      (comment) =>
+        comment.start > body.start &&
+        comment.end < body.end &&
+        comment.value.trim().startsWith(inputRejectionMarker),
+    );
+  const references = (body, name) =>
+    new RegExp(`(?<![\\w$.])${name}(?![\\w$])`, "u").test(sourceText.slice(body.start, body.end));
+  new Visitor({
+    // promise.catch(() => fallback) проглатывает причину так же, как пустой catch.
+    CallExpression(node) {
+      const handler = node.arguments[0];
+      if (
+        memberPropertyName(node.callee) !== "catch" ||
+        (handler?.type !== "ArrowFunctionExpression" && handler?.type !== "FunctionExpression") ||
+        explains(handler.body)
+      ) {
+        return;
+      }
+      const [param] = handler.params;
+      if (param === undefined) {
+        violations.push(
+          `${sourcePath}:${lineOf(node.start)}: .catch swallows its failure; report it with dependencyFailure or explain it with "// ${inputRejectionMarker}"`,
+        );
+      } else if (param.type === "Identifier" && !references(handler.body, param.name)) {
+        violations.push(
+          `${sourcePath}:${lineOf(node.start)}: .catch ignores ${param.name}; report it with dependencyFailure or explain it with "// ${inputRejectionMarker}"`,
+        );
+      }
+    },
+    CatchClause(node) {
+      if (explains(node.body)) return;
+      if (node.param === null) {
+        violations.push(
+          `${sourcePath}:${lineOf(node.start)}: catch swallows its failure; report it with dependencyFailure or explain it with "// ${inputRejectionMarker}"`,
+        );
+        return;
+      }
+      if (node.param.type === "Identifier" && !references(node.body, node.param.name)) {
+        violations.push(
+          `${sourcePath}:${lineOf(node.start)}: catch ignores ${node.param.name}; report it with dependencyFailure or explain it with "// ${inputRejectionMarker}"`,
+        );
+      }
+    },
+  }).visit(program);
+  return violations;
+}
+
 if (!statSync(scanRoot).isDirectory()) {
   throw new TypeError(`Architecture scan root is not a directory: ${scanRoot}`);
 }
 
 
 const findings = sourceFiles(scanRoot).flatMap((source) => {
-  const { errors, program } = parseSync(source, readFileSync(source, "utf8"));
+  const sourceText = readFileSync(source, "utf8");
+  const { comments, errors, program } = parseSync(source, sourceText);
   if (errors.length > 0) {
     throw new SyntaxError(`Oxc could not parse ${source}: ${errors[0].message}`);
   }
@@ -341,6 +401,7 @@ const findings = sourceFiles(scanRoot).flatMap((source) => {
     ...databaseReferenceViolations(source, program),
     ...advisoryLockViolations(source, program),
     ...handoffDelegateViolations(source, program),
+    ...swallowedFailureViolations(source, sourceText, program, comments),
   ];
 });
 

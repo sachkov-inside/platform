@@ -9,6 +9,7 @@ import type {
   PublishedMaterialProjectionSort,
   PublishedMaterialProjectionListResult,
 } from "./list-published-material-projections.contract.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const facetSlugSchema = z
   .string()
@@ -120,7 +121,7 @@ export async function listPublishedMaterialProjections(
     });
     return { ok: true, value: page };
   } catch (error) {
-    return { ok: false, error: mapPostgresReadError(error) };
+    return { ok: false, error: dependencyFailure({ module: "materials", operation: "listPublishedMaterialProjections" }, error, mapPostgresReadError(error)) };
   }
 }
 

@@ -3,6 +3,7 @@ import type {
   UploadMaterialAssetResult,
 } from "../../../assets/index.js";
 import type { MaterialAuthoring } from "../../facets/material-authoring/material-authoring.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export const MATERIAL_ASSET_AUTHORING = Symbol("MATERIAL_ASSET_AUTHORING");
 
@@ -35,8 +36,8 @@ export function assembleMaterialAssetAuthoring(dependencies: {
       }
       try {
         return await dependencies.assets.upload(input);
-      } catch {
-        return { error: { code: "dependency_unavailable" }, ok: false };
+      } catch (error) {
+        return dependencyFailure({ module: "materials", operation: "upload" }, error, { error: { code: "dependency_unavailable" }, ok: false });
       }
     },
   };

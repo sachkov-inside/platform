@@ -11,6 +11,7 @@ import {
 } from "../../shared/postgres-error-mapping.js";
 import { contentCollectionPersistence } from "../../infrastructure/postgres/content-collection-persistence.js";
 import type { CreateContentCollectionOperation } from "./create-content-collection.contract.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export const contentCollectionInputSchema = z
   .object({
@@ -55,7 +56,7 @@ export function assembleCreateContentCollection(
       return failure(
         isPostgresUniqueViolation(error, constraint)
           ? { code: "content_collection_slug_conflict" }
-          : mapPostgresReadError(error),
+          : dependencyFailure({ module: "materials", operation: "createContentCollection" }, error, mapPostgresReadError(error)),
       );
     }
   };

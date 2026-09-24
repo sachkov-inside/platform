@@ -1,6 +1,7 @@
 import type { WorkshopPrisma } from "../../infrastructure/prisma.js";
 import type { LoadWorkshopCaseResult } from "../../facets/workshop/workshop.interface.js";
 import { workshopCaseSlugSchema } from "../../shared/workshop-validation.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export async function loadCurrentWorkshopCase(
   prisma: WorkshopPrisma,
@@ -34,7 +35,7 @@ export async function loadCurrentWorkshopCase(
         publishedAt: version.publishedAt.toISOString(),
       },
     };
-  } catch {
-    return { ok: false, error: { code: "dependency_unavailable" } };
+  } catch (error) {
+    return dependencyFailure({ module: "workshop", operation: "loadCurrentWorkshopCase" }, error, { ok: false, error: { code: "dependency_unavailable" } });
   }
 }

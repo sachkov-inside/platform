@@ -8,6 +8,7 @@ import { failure } from "../../shared/application-result.js";
 import { accountId, parseCommand } from "../../shared/command-validation.js";
 import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
 import type { ListAuthoringReferencesOperation } from "./list-authoring-references.contract.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const querySchema = z.object({ actor: accountId }).strict();
 
@@ -58,7 +59,7 @@ export function assembleListAuthoringReferences(
         },
       };
     } catch (error) {
-      return failure(mapPostgresReadError(error));
+      return failure(dependencyFailure({ module: "materials", operation: "listAuthoringReferences" }, error, mapPostgresReadError(error)));
     }
   };
 }

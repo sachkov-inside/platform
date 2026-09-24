@@ -34,6 +34,7 @@ import {
 } from "../../features/project-community-entitlement/project-community-entitlement.js";
 import type { CommunityEntitlementProvider } from "../../ports/community-entitlement-provider.js";
 import type { TelegramAccountLinks } from "../telegram-account-links/telegram-account-links.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export interface CommunityEntitlementsDependencies {
   readonly prisma: TelegramMembershipPrismaClient;
@@ -240,8 +241,8 @@ export class CommunityEntitlements {
           })),
         }),
       };
-    } catch {
-      return { ok: false, error: { code: "unavailable" } };
+    } catch (error) {
+      return dependencyFailure({ module: "telegram-membership", operation: "readDelivery" }, error, { ok: false, error: { code: "unavailable" } });
     }
   }
 
@@ -308,8 +309,8 @@ export class CommunityEntitlements {
           truncated: observations.length > MEMBERS_WITHOUT_RIGHT_SCAN_LIMIT,
         }),
       };
-    } catch {
-      return { ok: false, error: { code: "unavailable" } };
+    } catch (error) {
+      return dependencyFailure({ module: "telegram-membership", operation: "listMembersWithoutRight" }, error, { ok: false, error: { code: "unavailable" } });
     }
   }
 }

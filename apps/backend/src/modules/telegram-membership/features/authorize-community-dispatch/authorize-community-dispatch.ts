@@ -25,6 +25,7 @@ import {
 import type { TelegramAccountLinks } from "../../facets/telegram-account-links/telegram-account-links.js";
 import { lockCommunityWork } from "../../infrastructure/community-lock.js";
 import { hasNewerCommand } from "../../shared/newer-community-command.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export interface CommunityAuthorizationDependencies {
   readonly prisma: TelegramMembershipPrismaClient;
@@ -123,8 +124,8 @@ export async function authorizeCommunityDispatch(
       }
       return decision;
     });
-  } catch {
-    return decided({ status: "unavailable" });
+  } catch (error) {
+    return dependencyFailure({ module: "telegram-membership", operation: "authorizeCommunityDispatch" }, error, decided({ status: "unavailable" }));
   }
 }
 

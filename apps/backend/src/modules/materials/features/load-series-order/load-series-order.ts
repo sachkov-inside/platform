@@ -8,6 +8,7 @@ import { accountId, entityId, parseCommand } from "../../shared/command-validati
 import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
 import { guideOrderVersion } from "../../shared/guide-order-version.js";
 import type { LoadSeriesOrderOperation } from "./load-series-order.contract.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const querySchema = z
   .object({ actor: accountId, seriesId: entityId })
@@ -44,7 +45,7 @@ export function assembleLoadSeriesOrder(
         },
       };
     } catch (error) {
-      return failure(mapPostgresReadError(error));
+      return failure(dependencyFailure({ module: "materials", operation: "loadSeriesOrder" }, error, mapPostgresReadError(error)));
     }
   };
 }

@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { BookmarksPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { BookmarkState } from "../../domain/bookmark.js";
 import { toBookmarkState } from "../../shared/bookmark-state-mapping.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export const getBookmarkStatesSchema = z.object({ materialIds: z.array(z.uuid()).min(1).max(100) }).strict();
 const querySchema = getBookmarkStatesSchema.extend({ accountId: z.uuid() });
@@ -24,7 +25,7 @@ export async function getBookmarkStates(prisma: BookmarksPrismaClient, input: {
     });
     const states = new Map(rows.map((row) => [row.materialId, row]));
     return { ok: true, value: ids.map((id) => toBookmarkState(id, states.get(id) ?? null)) };
-  } catch {
-    return { ok: false, error: { code: "dependency_unavailable" } };
+  } catch (error) {
+    return dependencyFailure({ module: "bookmarks", operation: "getBookmarkStates" }, error, { ok: false, error: { code: "dependency_unavailable" } });
   }
 }

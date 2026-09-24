@@ -6,6 +6,7 @@ import type {
   WorkshopMaterialAccess,
   WorkshopMaterialAccessState,
 } from "./workshop-material-access.interface.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export function assembleWorkshopMaterialAccess(dependencies: {
   readonly prisma: WorkshopPrisma;
@@ -69,8 +70,8 @@ export function assembleWorkshopMaterialAccess(dependencies: {
           }
         }
         return { availability: locked ? "locked" : "unavailable" };
-      } catch {
-        return { availability: "unavailable" };
+      } catch (error) {
+        return dependencyFailure({ module: "workshop", operation: "resolve" }, error, { availability: "unavailable" });
       }
     },
   };

@@ -6,6 +6,7 @@ import { readPublishedCatalogItems } from "../../../content-library/index.js";
 import type { PublishedMaterialSelection } from "../../../materials/index.js";
 import type { Videos } from "../../../videos/index.js";
 import type { ListBookmarksQuery, ListBookmarksResult } from "./list-bookmarks.contract.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const querySchema = z.object({
   accountId: z.uuid(),
@@ -70,8 +71,8 @@ export async function listBookmarks(dependencies: {
           : null,
       },
     };
-  } catch {
-    return { ok: false, error: { code: "dependency_unavailable" } };
+  } catch (error) {
+    return dependencyFailure({ module: "bookmarks", operation: "listBookmarks" }, error, { ok: false, error: { code: "dependency_unavailable" } });
   }
 }
 
@@ -87,6 +88,7 @@ function decodeCursor(value: string): BookmarkCursor | null {
       ? { bookmarkedAt: parsed.data.bookmarkedAt, materialId: parsed.data.materialId }
       : null;
   } catch {
+    // Not a dependency failure: a malformed cursor from the client reads as no cursor.
     return null;
   }
 }

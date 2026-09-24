@@ -6,6 +6,7 @@ import type { ContentAccess } from "../../../content-access/index.js";
 import { readAvailableMaterials, type PublishedMaterialCatalogItemDto } from "../../../content-library/index.js";
 import type { PublishedMaterialSelection } from "../../../materials/index.js";
 import type { Videos } from "../../../videos/index.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 const MAX_RECENT_VISITS = 500;
 const MATERIAL_BATCH_SIZE = 100;
 const CONTINUE_LIMIT = 6;
@@ -41,5 +42,5 @@ export async function getContinueMaterials(dependencies: {
     }
     const resumes = await loadMaterialResumes(dependencies, subject, candidates.map((candidate) => candidate.material));
     return { ok: true, value: candidates.map((candidate): ContinueMaterial => ({ ...candidate, resume: resumes.get(candidate.material.materialId) ?? { kind: "start" } })) };
-  } catch { return { ok: false, error: { code: "dependency_unavailable" } }; }
+  } catch (error) { return dependencyFailure({ module: "reading-activity", operation: "getContinueMaterials" }, error, { ok: false, error: { code: "dependency_unavailable" } }); }
 }

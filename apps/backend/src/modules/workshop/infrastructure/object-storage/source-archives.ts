@@ -8,6 +8,7 @@ import type {
   StoreSourceArchiveResult,
   StoredSourceArchive,
 } from "../../ports/source-archives.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const MAX_SOURCE_ARCHIVE_BYTES = 50 * 1024 * 1024;
 const inputSchema = z
@@ -55,8 +56,8 @@ export function assembleSourceArchives(
           return failure("dependency_unavailable");
         }
         return { ok: true, value: archive };
-      } catch {
-        return failure("dependency_unavailable");
+      } catch (error) {
+        return dependencyFailure({ module: "workshop", operation: "store" }, error, failure("dependency_unavailable"));
       }
     },
   };

@@ -1,6 +1,7 @@
 import type { TelegramMembershipPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { parseAccountId } from "../../../accounts/index.js";
 import { z } from "zod";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export type ConfirmedTelegramAccountLink = Readonly<{
   accountId: string;
@@ -28,7 +29,7 @@ export class TelegramAccountLinks {
       if (row === undefined || row.principalRef === null || row.identityRef === null) return { ok: true as const, state: "not_found" as const };
       return { ok: true as const, state: "found" as const, recipient: { accountId: row.accountId,
         accountRef: row.principalRef, identityRef: row.identityRef, linkRef: row.linkRef, linkRevision: row.revision } };
-    } catch { return { ok: false as const }; }
+    } catch (error) { return dependencyFailure({ module: "telegram-membership", operation: "findCurrentByIdentity" }, error, { ok: false as const }); }
   }
 
   /** Durable binding snapshots for community delivery; null identity is an unlink tombstone. */
@@ -39,7 +40,7 @@ export class TelegramAccountLinks {
         ? await this.prisma.telegramAccountLinkState.findUnique({ where: { accountId: query.accountId } })
         : await this.prisma.telegramAccountLinkHistory.findUnique({ where: { accountId_revision: { accountId: query.accountId, revision: query.revision } } });
       return { ok: true as const, binding: row === null ? null : { linkRef: row.linkRef, linkRevision: row.revision, accountRef: row.principalRef, telegramIdentityRef: row.identityRef } };
-    } catch { return { ok: false as const }; }
+    } catch (error) { return dependencyFailure({ module: "telegram-membership", operation: "readBinding" }, error, { ok: false as const }); }
   }
 
   async find(query: { readonly accountId: string } | { readonly accountRef: string }): Promise<TelegramAccountLinkResult> {
@@ -60,8 +61,8 @@ export class TelegramAccountLinks {
       // Ambiguous persisted ownership must not select an arbitrary author.
       if (rows.length !== 1 || row === undefined || row.providerIdentityRef === null) return { ok: true, link: null };
       return { ok: true, link: { accountId: row.accountId, accountRef: row.principalRef, telegramIdentityRef: row.providerIdentityRef } };
-    } catch {
-      return { ok: false };
+    } catch (error) {
+      return dependencyFailure({ module: "telegram-membership", operation: "find" }, error, { ok: false });
     }
   }
 }

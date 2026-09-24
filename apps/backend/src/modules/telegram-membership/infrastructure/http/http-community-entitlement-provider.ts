@@ -13,6 +13,7 @@ import type {
   CommunityEntitlementProvider,
 } from "../../ports/community-entitlement-provider.js";
 import { communityErrorStatus } from "./community-protocol-status.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 /**
  * Speaks `inside.community-entitlement.v1` to the Telegram provider. It checks both the
@@ -65,14 +66,14 @@ export class HttpCommunityEntitlementProvider
         redirect: "error",
         signal: AbortSignal.timeout(COMMUNITY_REQUEST_TIMEOUT_MS),
       });
-    } catch {
-      return { kind: "unavailable" };
+    } catch (error) {
+      return dependencyFailure({ module: "telegram-membership", operation: "exchange" }, error, { kind: "unavailable" });
     }
     let payload: unknown;
     try {
       payload = await response.json();
-    } catch {
-      return { kind: "unavailable" };
+    } catch (error) {
+      return dependencyFailure({ module: "telegram-membership", operation: "exchange" }, error, { kind: "unavailable" });
     }
     if (response.status === 200) {
       const result = communityResultSchema.safeParse(payload);

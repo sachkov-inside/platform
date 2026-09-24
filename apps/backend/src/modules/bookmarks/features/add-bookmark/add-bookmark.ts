@@ -5,6 +5,7 @@ import { accountId } from "../../../accounts/index.js";
 import type { ContentAccess } from "../../../content-access/index.js";
 import { materialId } from "../../../materials/index.js";
 import type { AddBookmarkCommand, AddBookmarkResult } from "./add-bookmark.contract.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const commandSchema = z.object({ accountId: z.uuid(), materialId: z.uuid() }).strict();
 
@@ -40,7 +41,7 @@ export async function addBookmark(dependencies: {
       ok: true,
       value: { materialId: material, bookmarked: true, bookmarkedAt: (row?.bookmarkedAt ?? bookmarkedAt).toISOString() },
     };
-  } catch {
-    return { ok: false, error: { code: "dependency_unavailable" } };
+  } catch (error) {
+    return dependencyFailure({ module: "bookmarks", operation: "addBookmark" }, error, { ok: false, error: { code: "dependency_unavailable" } });
   }
 }

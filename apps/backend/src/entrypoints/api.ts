@@ -4,7 +4,8 @@ import {
   PLATFORM_CONFIG,
   type PlatformConfig,
 } from "../config/platform-config.js";
-import { BillingPricing, SaleConfigurationError } from "../modules/billing/index.js";
+import { reportProcessFailure } from "../infrastructure/observability/index.js";
+import { BillingPricing } from "../modules/billing/index.js";
 import { createApiApplication } from "./api/create-api-application.js";
 
 async function bootstrap(): Promise<void> {
@@ -21,9 +22,4 @@ async function bootstrap(): Promise<void> {
   }
 }
 
-void bootstrap().catch((error: unknown) => {
-  // Отказ настройки печатается тем же наблюдением, что у воркера; прочие сбои — как прежде.
-  console.error(error instanceof SaleConfigurationError
-    ? JSON.stringify({ process: "api", status: "operator_attention", reason: error.message }) : error);
-  process.exitCode = 1;
-});
+void bootstrap().catch((error: unknown) => reportProcessFailure("api", error));

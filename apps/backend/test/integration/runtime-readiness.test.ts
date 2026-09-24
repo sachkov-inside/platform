@@ -238,7 +238,7 @@ describe("production runtime readiness", () => {
 
     await expect(
       runWorker({
-        application: { close: () => Promise.reject(new Error("secret-bearing close failure")) },
+        application: { close: () => Promise.reject(new Error("close failed for postgresql://inside:db-secret@db:5432/inside")) },
         databaseUrl: database.url,
         failed: failure,
         jobs: { start: () => Promise.resolve(), stop: () => Promise.reject(new Error("drain")) },
@@ -250,11 +250,25 @@ describe("production runtime readiness", () => {
         registerJobs: () => Promise.resolve(),
       }),
     ).rejects.toThrow("notification_broker_disconnected");
-    // Оба сбоя названы кодом, без текста ошибки; lease освобождён несмотря на сбой закрытия.
-    expect(logged.mock.calls.map(([line]) => JSON.parse(String(line)) as unknown)).toEqual([
-      { process: "notifications-worker", reason: "worker_drain_failed", status: "operator_attention" },
-      { process: "notifications-worker", reason: "worker_close_failed", status: "operator_attention" },
-    ]);
+    // Оба сбоя названы кодом и причиной; учётные данные адреса в журнал не попадают, а lease
+    // освобождён несмотря на сбой закрытия.
+    const records = logged.mock.calls.map(([line]) => JSON.parse(String(line)) as unknown);
+    expect(records).toHaveLength(2);
+    expect(records[0]).toMatchObject({
+      event: "worker_stop_failed",
+      process: "notifications-worker",
+      reason: "worker_drain_failed",
+      status: "operator_attention",
+      error: { type: "Error", message: "drain" },
+    });
+    expect(records[1]).toMatchObject({
+      event: "worker_stop_failed",
+      process: "notifications-worker",
+      reason: "worker_close_failed",
+      status: "operator_attention",
+      error: { message: "close failed for postgresql://[redacted]@db:5432/inside" },
+    });
+    expect(JSON.stringify(logged.mock.calls)).not.toContain("db-secret");
     const nextGeneration = await acquireWorkerGenerationLease(database.url, "notifications-worker");
     await nextGeneration.release();
   });

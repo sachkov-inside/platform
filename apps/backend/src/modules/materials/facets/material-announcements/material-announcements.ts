@@ -1,6 +1,7 @@
 import type { MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { NotificationSource } from "../../../notifications/index.js";
 import { announcementEventSchema } from "../../domain/announcement.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 interface Dependencies {
   readonly prisma: MaterialsPrismaClient;
@@ -58,8 +59,8 @@ export class MaterialAnnouncements {
         title: announcement.title,
         readerPath: announcement.readerPath,
       };
-    } catch {
-      return { status: "unavailable" };
+    } catch (error) {
+      return dependencyFailure({ module: "materials", operation: "resolveAnnouncement" }, error, { status: "unavailable" });
     }
   }
 }

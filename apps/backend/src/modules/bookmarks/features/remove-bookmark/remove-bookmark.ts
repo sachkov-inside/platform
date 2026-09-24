@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { BookmarksPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { RemoveBookmarkCommand, RemoveBookmarkResult } from "./remove-bookmark.contract.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const commandSchema = z.object({ accountId: z.uuid(), materialId: z.uuid() }).strict();
 
@@ -17,7 +18,7 @@ export async function removeBookmark(
       where: { accountId: account, materialId: material },
     });
     return { ok: true, value: { materialId: material, bookmarked: false, bookmarkedAt: null } };
-  } catch {
-    return { ok: false, error: { code: "dependency_unavailable" } };
+  } catch (error) {
+    return dependencyFailure({ module: "bookmarks", operation: "removeBookmark" }, error, { ok: false, error: { code: "dependency_unavailable" } });
   }
 }

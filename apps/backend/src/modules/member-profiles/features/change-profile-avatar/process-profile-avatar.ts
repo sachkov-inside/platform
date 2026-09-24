@@ -116,6 +116,7 @@ export async function processProfileAvatar(input: {
     );
     return { ok: true, renditions };
   } catch {
+    // Not a dependency failure: an image the decoder cannot read is refused as a faulty upload.
     return failure("image_decode_failed");
   }
 }

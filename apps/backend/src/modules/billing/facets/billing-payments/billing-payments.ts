@@ -20,6 +20,7 @@ import { renewalPriceSnapshot } from "../../domain/subscription-change.js";
 import { verifyRecurringConsent } from "../../shared/recurring-consent.js";
 import { attemptSourceRef, lifecycleWindow } from "../../domain/notice.js";
 import { recordBillingNotice } from "../../shared/record-notice.js";
+import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const fulfillmentRetryDelayMilliseconds = 60_000;
 // Кабинет показывает обозримую историю; полный журнал платежей остаётся владельческой операцией.
@@ -126,7 +127,7 @@ export class BillingPayments {
       await this.dispatch(prepared.value);
       await this.awaitBankAnswer(prepared.value);
       return await this.status(accountId, prepared.value);
-    } catch { return paymentFailure("dependency_unavailable"); }
+    } catch (error) { return dependencyFailure({ module: "billing", operation: "purchase" }, error, paymentFailure("dependency_unavailable")); }
   }
 
   async status(accountId: string, purchaseRef: string): Promise<PaymentResult<PurchaseStatus>> {
@@ -140,7 +141,7 @@ export class BillingPayments {
         snapshot: row.snapshot, access: row.state !== "confirmed" ? "awaiting_payment" : waiting ? "preparing" : "ready",
         fiscalization: row.fiscalization, confirmedAt: row.confirmedAt?.toISOString() ?? null, periodEndsAt: row.periodEndsAt?.toISOString() ?? null,
       }) };
-    } catch { return paymentFailure("dependency_unavailable"); }
+    } catch (error) { return dependencyFailure({ module: "billing", operation: "status" }, error, paymentFailure("dependency_unavailable")); }
   }
 
   /** История списаний Account: последние попытки, новые сверху, без данных провайдера. */
@@ -164,7 +165,7 @@ export class BillingPayments {
           refundedAt: refundedAt?.toISOString() ?? null,
         });
       }) };
-    } catch { return paymentFailure("dependency_unavailable"); }
+    } catch (error) { return dependencyFailure({ module: "billing", operation: "history" }, error, paymentFailure("dependency_unavailable")); }
   }
 
   async notification(input: unknown): Promise<PaymentResult<true>> {
@@ -196,7 +197,7 @@ export class BillingPayments {
       // Init прошёл, Charge ещё не вызывался: только доказанное NEW разрешает завершить ту же попытку.
       if (accepted.ok && !isQuotedPurchase(kind) && !row.chargeCalled && payment.Status === "NEW") await this.chargeSaved(row.id, paymentId);
       return accepted;
-    } catch { return paymentFailure("provider_unavailable"); }
+    } catch (error) { return dependencyFailure({ module: "billing", operation: "reconcile" }, error, paymentFailure("provider_unavailable")); }
   }
 
   async recover(limit = 50): Promise<PaymentResult<{ inspected: number; applied: number }>> {
@@ -222,7 +223,7 @@ export class BillingPayments {
         }
       }
       return { ok: true, value: { inspected: rows.length, applied } };
-    } catch { return paymentFailure("dependency_unavailable"); }
+    } catch (error) { return dependencyFailure({ module: "billing", operation: "recover" }, error, paymentFailure("dependency_unavailable")); }
   }
 
   /**
@@ -253,7 +254,7 @@ export class BillingPayments {
         return (await tx.billingSubscription.findUniqueOrThrow({ where: { id: subscription.id } })).state === "ended" ? 1 : 0;
       });
       return { ok: true, value: { inspected: due.length, started, blocked, closed } };
-    } catch { return paymentFailure("dependency_unavailable"); }
+    } catch (error) { return dependencyFailure({ module: "billing", operation: "renew" }, error, paymentFailure("dependency_unavailable")); }
   }
 
   /** Одна отправка одной durable попытки; отмена и отзыв привязки проверяются под тем же замком. */
@@ -302,7 +303,8 @@ export class BillingPayments {
       const accepted = await this.accept(payment, isQuotedPurchase(kind) ? payment.PaymentURL : undefined);
       if (!accepted.ok) throw new Error("Bank initialization fact rejected");
       if (!isQuotedPurchase(kind) && !await this.chargeSaved(row.id, payment.PaymentId)) throw new Error("Saved method charge is unresolved");
-    } catch {
+    } catch (error) {
+      reportDependencyFailure({ module: "billing", operation: "dispatch" }, error);
       await prisma.$transaction(async tx => {
         await lockPricing(tx);
         const changed = await tx.billingPurchase.updateMany({ where: { id: row.id, state: { in: ["sent", "pending"] } }, data: { state: "unknown", updatedAt: this.clock() } });
@@ -467,6 +469,6 @@ export class BillingPayments {
         }
         return { ok: true, value: true };
       });
-    } catch { return paymentFailure("dependency_unavailable"); }
+    } catch (error) { return dependencyFailure({ module: "billing", operation: "accept" }, error, paymentFailure("dependency_unavailable")); }
   }
 }

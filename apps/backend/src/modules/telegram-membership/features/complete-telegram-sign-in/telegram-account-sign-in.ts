@@ -11,6 +11,7 @@ import {
   type VerifiedAccountSignIn,
 } from "../../../accounts/index.js";
 import type { MembershipEntitlements } from "../../../membership-entitlements/index.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export interface TelegramSignInProvider {
   bindAccount(
@@ -136,8 +137,8 @@ export class TelegramAccountSignIn {
         },
       });
       return { ok: true, account } as const;
-    } catch {
-      return { ok: false, error: { code: "unavailable" } } as const;
+    } catch (error) {
+      return dependencyFailure({ module: "telegram-membership", operation: "complete" }, error, { ok: false, error: { code: "unavailable" } } as const);
     }
   }
 

@@ -9,6 +9,7 @@ import { appendAccountAuditEvent } from "../../infrastructure/postgres/account-a
 import { fingerprintEmail, validLogtoIdentity } from "../../shared/account-input.js";
 import { establishTelegramAccount } from "../establish-telegram-account/establish-telegram-account.js";
 import { internalFailure } from "../../shared/internal-failure.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export async function establishAccount(
   prisma: AccountsPrismaClient,
@@ -99,7 +100,7 @@ export async function establishAccount(
       await appendAccountAuditEvent(transaction, "account_created", accountId);
       return { ok: true, account: { accountId } };
     });
-  } catch {
-    return internalFailure();
+  } catch (error) {
+    return dependencyFailure({ module: "accounts", operation: "establishAccount" }, error, internalFailure());
   }
 }

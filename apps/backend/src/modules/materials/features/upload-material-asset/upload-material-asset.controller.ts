@@ -92,12 +92,14 @@ export class UploadMaterialAssetController {
       if (part === undefined) throw new Error("missing file");
       file = part;
     } catch {
+      // Not a dependency failure: the client sent a malformed form.
       throw uploadProblem(400, "invalid_upload", "Upload form is malformed");
     }
     let body: Buffer;
     try {
       body = await file.toBuffer();
     } catch {
+      // Not a dependency failure: the upload exceeds its size limit.
       throw uploadProblem(413, "upload_too_large", "Uploaded file exceeds the size limit");
     }
     if (file.file.truncated) {

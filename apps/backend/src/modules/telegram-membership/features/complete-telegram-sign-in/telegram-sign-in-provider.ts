@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { TelegramSignInProvider } from "./telegram-account-sign-in.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 const responseSchema = z
   .object({
     contractVersion: z.literal("inside.bot-sign-in.v1"),
@@ -51,8 +52,8 @@ export class HttpTelegramSignInProvider implements TelegramSignInProvider {
           ? "conflict"
           : "unavailable",
       } as const;
-    } catch {
-      return { status: "unavailable" } as const;
+    } catch (error) {
+      return dependencyFailure({ module: "telegram-membership", operation: "bindAccount" }, error, { status: "unavailable" } as const);
     }
   }
 }

@@ -1,6 +1,7 @@
 import type { PlatformConfig } from "../../../config/platform-config.js";
 import { responseSchema } from "../communications-schema.generated.js";
 import { communicationsFailure, type CommunicationsResult, type ProviderRequest, type ProviderResponse } from "../communications-contract.js";
+import { dependencyFailure } from "../../../infrastructure/observability/index.js";
 
 const PROVIDER_REQUEST_TIMEOUT_MS = 5_000;
 // Telegram embeds bot credentials in API/download paths; a plain mention of the
@@ -42,10 +43,10 @@ export class HttpCommunicationsProvider {
         ("templates" in value && value.templates.some(template => template.botIdentity !== this.config?.botIdentity)) ||
         TELEGRAM_CREDENTIAL_URL.test(JSON.stringify(value))) return communicationsFailure("provider_invalid_response");
       return { ok: true, value };
-    } catch {
+    } catch (error) {
       // A timeout may follow a committed mutation. Never regenerate an operation
       // ID or retry an uncertain external effect here.
-      return communicationsFailure("provider_unavailable");
+      return dependencyFailure({ module: "communications", operation: "execute" }, error, communicationsFailure("provider_unavailable"));
     }
   }
 }

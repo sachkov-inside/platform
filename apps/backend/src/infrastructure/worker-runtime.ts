@@ -8,6 +8,7 @@ import type {
   ReadinessReport,
   RuntimeProcess,
 } from "./operational-readiness.js";
+import { describeError, writeLog } from "./observability/index.js";
 import { listenForProcessShutdown } from "./process-shutdown.js";
 
 export const WORKER_READINESS_PATH = "/tmp/inside-platform-worker-ready.json";
@@ -167,15 +168,16 @@ export async function runWorker(input: {
   await attempt("worker_lease_release_failed", async () => { await lease?.release(); });
   await attempt("worker_stop_mark_failed", () => markWorkerStopped(input.process, readinessReport));
   // Наружу уходит одна ошибка: причина остановки, а без неё — первый сбой. Остальные сбои
-  // называются здесь. Текст ошибки не пишется: он может нести адрес подключения с учётными данными.
+  // называются здесь; текст ошибки проходит describeError, который убирает учётные данные адреса.
   const thrown = stopReason ?? stopFailures[0];
   for (const failure of stopFailures) {
     if (failure === thrown) continue;
-    console.error(JSON.stringify({
+    writeLog("error", "worker_stop_failed", {
       process: input.process,
       reason: failure.reason,
       status: "operator_attention",
-    }));
+      error: describeError(failure.error),
+    });
   }
   if (thrown !== undefined) throw thrown.error;
 }

@@ -17,6 +17,7 @@ import {
   type TermsAcceptanceCheck,
   type TermsDocument,
 } from "./legal-acceptances.contract.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export interface LegalAcceptancesDependencies {
   readonly prisma: AccountsPrismaClient;
@@ -58,8 +59,8 @@ export class LegalAcceptances {
         select: { id: true },
       });
       return { ok: true, accepted: accepted !== null };
-    } catch {
-      return legalAcceptanceFailure("internal_error");
+    } catch (error) {
+      return dependencyFailure({ module: "accounts", operation: "checkTerms" }, error, legalAcceptanceFailure("internal_error"));
     }
   }
 
@@ -78,8 +79,8 @@ export class LegalAcceptances {
         previouslyAccepted: !accepted && rows.length > 0,
         document: this.termsDocument(),
       };
-    } catch {
-      return legalAcceptanceFailure("internal_error");
+    } catch (error) {
+      return dependencyFailure({ module: "accounts", operation: "readTermsStatus" }, error, legalAcceptanceFailure("internal_error"));
     }
   }
 
@@ -144,8 +145,8 @@ export class LegalAcceptances {
         });
         return { ok: true as const, acceptanceRef: id };
       });
-    } catch {
-      return legalAcceptanceFailure("internal_error");
+    } catch (error) {
+      return dependencyFailure({ module: "accounts", operation: "acceptTerms" }, error, legalAcceptanceFailure("internal_error"));
     }
   }
 
@@ -175,8 +176,8 @@ export class LegalAcceptances {
           }),
         ),
       };
-    } catch {
-      return legalAcceptanceFailure("internal_error");
+    } catch (error) {
+      return dependencyFailure({ module: "accounts", operation: "listAccepted" }, error, legalAcceptanceFailure("internal_error"));
     }
   }
 

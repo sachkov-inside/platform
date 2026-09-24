@@ -7,6 +7,7 @@ import { isPostgresUniqueViolation, mapPostgresReadError } from "../../shared/po
 import { assembleReorderSeries } from "../reorder-series/reorder-series.js";
 import { assembleUpdateContentCollection } from "../update-content-collection/update-content-collection.js";
 import { reserveSourceGuideBodySchema, reorderSourceGuideBodySchema, updateSourceGuideBodySchema, validateSourceGuideBodySchema, type ReserveSourceGuideOperation, type ReorderSourceGuideOperation, type UpdateSourceGuideOperation, type ValidateSourceGuideOperation } from "./import-source-guide.contract.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export function assembleReserveSourceGuide(dependencies: MaterialAuthoringDependencies): ReserveSourceGuideOperation {
   return async (input) => {
@@ -33,7 +34,7 @@ export function assembleReserveSourceGuide(dependencies: MaterialAuthoringDepend
       const result = await persistence.load(current.id);
       if (result === undefined) throw new Error("Reserved Guide disappeared");
       return { ok: true, value: result };
-    } catch (error) { return { ok: false, error: mapPostgresReadError(error) }; }
+    } catch (error) { return { ok: false, error: dependencyFailure({ module: "materials", operation: "reserveSourceGuide" }, error, mapPostgresReadError(error)) }; }
   };
 }
 

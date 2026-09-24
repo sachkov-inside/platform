@@ -21,6 +21,7 @@ import {
 } from "../../domain/community-entitlement.js";
 import type { TelegramAccountLinks } from "../../facets/telegram-account-links/telegram-account-links.js";
 import { lockCommunityWork } from "../../infrastructure/community-lock.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export interface CommunityProjectionDependencies {
   readonly prisma: TelegramMembershipPrismaClient;
@@ -225,8 +226,8 @@ export async function projectCommunityEntitlement(
       });
       return { ok: true as const, entitlementRevision, issued };
     });
-  } catch {
-    return { ok: false, error: { code: "unavailable" } };
+  } catch (error) {
+    return dependencyFailure({ module: "telegram-membership", operation: "projectCommunityEntitlement" }, error, { ok: false, error: { code: "unavailable" } });
   }
 }
 

@@ -9,6 +9,7 @@ import {
 import { lockSubscription } from "../../infrastructure/postgres/catalog-lock.js";
 import { recordBillingNotice } from "../../shared/record-notice.js";
 import { paymentFailure, type PaymentResult } from "../../features/purchase-subscription/purchase-subscription.contract.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 type NoticeRow = Awaited<ReturnType<BillingPrismaClient["billingNotice"]["findUniqueOrThrow"]>>;
 type SubscriptionRow = Awaited<ReturnType<BillingPrismaClient["billingSubscription"]["findUniqueOrThrow"]>>;
@@ -64,7 +65,7 @@ export class BillingNotices {
         ...(notice.amountKopecks === null ? {} : { amountMinor: Number(notice.amountKopecks) }),
         ...(notice.dueAt === null ? {} : { dueAt: notice.dueAt.toISOString() }),
       };
-    } catch { return { status: "unavailable" }; }
+    } catch (error) { return dependencyFailure({ module: "billing", operation: "resolveNotice" }, error, { status: "unavailable" }); }
   }
 
   /**
@@ -108,7 +109,7 @@ export class BillingNotices {
         superseded += count;
       }
       return { ok: true, value: { created, refreshed, superseded } };
-    } catch { return paymentFailure("dependency_unavailable"); }
+    } catch (error) { return dependencyFailure({ module: "billing", operation: "scheduleReminders" }, error, paymentFailure("dependency_unavailable")); }
   }
 
   /** История служебных поводов собственного Account для кабинета. */

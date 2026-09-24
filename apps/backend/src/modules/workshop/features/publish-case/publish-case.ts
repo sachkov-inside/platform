@@ -18,6 +18,7 @@ import type {
   PublishedWorkshopCaseDto,
   PublishWorkshopCaseResult,
 } from "../../facets/workshop/workshop.interface.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const releasePolicySchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("immediate") }).strict(),
@@ -231,15 +232,17 @@ export async function publishWorkshopCase(
         });
         return success(workshopCase.id, parsed.data.caseSlug, version);
       });
-    } catch {
-      return await findPublicationReplay(
+    } catch (error) {
+      // Гонка с тем же ключом идемпотентности отвечает повтором; сбоем она не считается.
+      const replay = await findPublicationReplay(
         dependencies.prisma,
         parsed.data,
         fingerprint,
-      ) ?? failure("dependency_unavailable");
+      );
+      return replay ?? dependencyFailure({ module: "workshop", operation: "publishWorkshopCase" }, error, failure("dependency_unavailable"));
     }
-  } catch {
-    return failure("dependency_unavailable");
+  } catch (error) {
+    return dependencyFailure({ module: "workshop", operation: "publishWorkshopCase" }, error, failure("dependency_unavailable"));
   }
 }
 

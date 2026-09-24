@@ -30,6 +30,7 @@ import { AuthorizeCommunicationsAuthorController } from "./features/authorize-au
 import { ManageCommunicationsController } from "./features/manage-communications/manage-communications.controller.js";
 import { Communications } from "./facets/communications/communications.js";
 import { HttpCommunicationsProvider } from "./infrastructure/http-communications-provider.js";
+import { reportDependencyFailure } from "../../infrastructure/observability/index.js";
 
 const OUTBOX_POLL_INTERVAL_MS = 5_000;
 
@@ -41,7 +42,6 @@ export class TrackingHitPump
   private timer: ReturnType<typeof setTimeout> | undefined;
   private active: Promise<void> | undefined;
   private stopped = false;
-  private readonly logger = new Logger(TrackingHitPump.name);
   constructor(
     @Inject(TrackingVisits) private readonly visits: TrackingVisits,
     @Inject(PLATFORM_CONFIG) private readonly config: PlatformConfig,
@@ -54,10 +54,9 @@ export class TrackingHitPump
     this.timer = setTimeout(() => {
       this.active = this.visits
         .deliverPending()
-        .catch(() => {
-          this.logger.warn(
-            "Tracking hit delivery unavailable; persisted backlog retained",
-          );
+        // The persisted backlog is retained and delivered on the next tick.
+        .catch((error: unknown) => {
+          reportDependencyFailure({ module: "communications", operation: "deliverPending" }, error);
         })
         .finally(() => {
           if (!this.stopped) this.schedule();

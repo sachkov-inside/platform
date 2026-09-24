@@ -10,6 +10,7 @@ import {
   signedDeliveryTtlSeconds,
 } from "../../shared/protected-delivery.js";
 import type { MaterialContent } from "../../facets/material-content/material-content.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export const MATERIAL_ASSET_DELIVERY = Symbol("MATERIAL_ASSET_DELIVERY");
 
@@ -82,8 +83,8 @@ export function assembleMaterialAssetDelivery(dependencies: {
       let loaded: Awaited<ReturnType<MaterialAssets["loadDelivery"]>>;
       try {
         loaded = await dependencies.assets.loadDelivery(input);
-      } catch {
-        return dependencyUnavailable();
+      } catch (error) {
+        return dependencyFailure({ module: "materials", operation: "deliver" }, error, dependencyUnavailable());
       }
       if (!loaded.ok) return dependencyUnavailable();
       const asset = loaded.value;
@@ -129,8 +130,8 @@ export function assembleMaterialAssetDelivery(dependencies: {
           namespace: "protected",
           ttlSeconds,
         });
-      } catch {
-        return dependencyUnavailable();
+      } catch (error) {
+        return dependencyFailure({ module: "materials", operation: "deliver" }, error, dependencyUnavailable());
       }
       return {
         ok: true,

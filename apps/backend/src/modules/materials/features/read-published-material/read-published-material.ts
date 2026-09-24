@@ -17,6 +17,7 @@ import type {
 } from "./read-published-material.contract.js";
 import { hydrateMaterialAssets } from "../../domain/material-body/hydrate-material-assets.js";
 import type { Videos } from "../../../videos/index.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const querySchema = z
   .object({
@@ -166,7 +167,7 @@ export async function readPublishedMaterial(
     }
     return internalError();
   } catch (error) {
-    return { ok: false, error: mapPostgresReadError(error) };
+    return { ok: false, error: dependencyFailure({ module: "materials", operation: "readPublishedMaterial" }, error, mapPostgresReadError(error)) };
   }
 }
 

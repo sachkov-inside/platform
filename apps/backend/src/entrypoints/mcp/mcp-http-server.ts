@@ -18,6 +18,7 @@ import {
 
 import type { McpConfig } from "../../config/mcp-config.js";
 import { PRIVATE_NO_STORE_HEADERS } from "../../infrastructure/http/http-cache-policy.js";
+import { generateRequestId, runWithLogContext } from "../../infrastructure/observability/index.js";
 import type { OperationalReadiness } from "../../infrastructure/operational-readiness.js";
 import {
   assembleDelegatedAccountTokenVerifier,
@@ -118,7 +119,10 @@ export function createMcpHttpServer(dependencies: {
       method: request.method ?? "GET",
       url: request.url ?? "/",
     });
-    void nodeHandler(completeRequest, response);
+    runWithLogContext(
+      { process: "mcp", requestId: generateRequestId(), method: completeRequest.method },
+      () => void nodeHandler(completeRequest, response),
+    );
   });
 
   return {

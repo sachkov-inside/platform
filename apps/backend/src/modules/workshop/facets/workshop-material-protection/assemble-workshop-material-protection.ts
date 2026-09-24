@@ -5,6 +5,7 @@ import type {
   WorkshopMaterialProtection,
   WorkshopMaterialProtectionState,
 } from "./workshop-material-protection.interface.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export function assembleWorkshopMaterialProtection(dependencies: {
   readonly prisma: WorkshopPrisma;
@@ -18,8 +19,8 @@ export function assembleWorkshopMaterialProtection(dependencies: {
           select: { caseVersionId: true },
         });
         return link === null ? "unprotected" : "protected";
-      } catch {
-        return "unavailable";
+      } catch (error) {
+        return dependencyFailure({ module: "workshop", operation: "resolve" }, error, "unavailable");
       }
     },
   };

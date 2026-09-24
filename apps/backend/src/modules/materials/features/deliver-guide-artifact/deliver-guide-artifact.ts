@@ -11,6 +11,7 @@ import type {
   GuideArtifacts,
   ReaderGuideArtifact,
 } from "../../facets/guide-artifacts/guide-artifacts.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export const GUIDE_ARTIFACT_DELIVERY = Symbol("GUIDE_ARTIFACT_DELIVERY");
 
@@ -108,8 +109,8 @@ export function assembleGuideArtifactDelivery(dependencies: {
             })),
             subject: query.subject,
           });
-        } catch {
-          return dependencyUnavailable();
+        } catch (error) {
+          return dependencyFailure({ module: "materials", operation: "read" }, error, dependencyUnavailable());
         }
         if (!availability.ok) return dependencyUnavailable();
         for (const item of availability.items) {
@@ -137,8 +138,8 @@ export function assembleGuideArtifactDelivery(dependencies: {
           resource: { artifactId: query.artifactId, kind: "guideArtifact" },
           subject: query.subject,
         });
-      } catch {
-        return dependencyUnavailable();
+      } catch (error) {
+        return dependencyFailure({ module: "materials", operation: "deliver" }, error, dependencyUnavailable());
       }
       if (decision.effect === "deny") {
         return decision.reason === "dependency_unavailable"
@@ -198,8 +199,8 @@ export function assembleGuideArtifactDelivery(dependencies: {
             }),
           },
         };
-      } catch {
-        return dependencyUnavailable();
+      } catch (error) {
+        return dependencyFailure({ module: "materials", operation: "deliver" }, error, dependencyUnavailable());
       }
     },
   };

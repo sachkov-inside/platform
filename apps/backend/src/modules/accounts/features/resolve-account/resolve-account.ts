@@ -6,6 +6,7 @@ import type {
 } from "../../facets/accounts/accounts.interface.js";
 import { validLogtoIdentity } from "../../shared/account-input.js";
 import { internalFailure } from "../../shared/internal-failure.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export async function resolveAccount(
   prisma: AccountsPrismaClient,
@@ -31,7 +32,7 @@ export async function resolveAccount(
     return accountId === undefined
       ? internalFailure()
       : { ok: true, account: { accountId } };
-  } catch {
-    return internalFailure();
+  } catch (error) {
+    return dependencyFailure({ module: "accounts", operation: "resolveAccount" }, error, internalFailure());
   }
 }

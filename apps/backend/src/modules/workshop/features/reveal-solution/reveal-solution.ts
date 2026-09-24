@@ -10,6 +10,7 @@ import type {
   WorkshopRevealDto,
   WorkshopRevealResult,
 } from "../../facets/workshop/workshop.interface.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const commandSchema = z
   .object({
@@ -85,7 +86,8 @@ export async function revealWorkshopSolution(
       });
       return success(created);
     });
-  } catch {
+  } catch (error) {
+    // Гонка с тем же ключом или той же подсказкой отвечает сохранённым раскрытием.
     try {
       const byKey = await dependencies.prisma.workshopSolutionReveal.findUnique({
         where: {
@@ -109,10 +111,10 @@ export async function revealWorkshopSolution(
         },
       });
       return existing === null
-        ? failure("dependency_unavailable")
+        ? dependencyFailure({ module: "workshop", operation: "revealWorkshopSolution" }, error, failure("dependency_unavailable"))
         : success(existing);
-    } catch {
-      return failure("dependency_unavailable");
+    } catch (replayError) {
+      return dependencyFailure({ module: "workshop", operation: "revealWorkshopSolution" }, replayError, failure("dependency_unavailable"));
     }
   }
 }

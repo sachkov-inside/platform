@@ -15,6 +15,7 @@ import type {
   MaterialAssets,
   UploadMaterialAssetResult,
 } from "./material-assets.js";
+import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const uuidSchema = z.uuid();
 const sha256Schema = z.hash("sha256");
@@ -95,7 +96,8 @@ export function assembleMaterialAssets(dependencies: {
                     where: { id: assetId },
                   });
                 });
-              } catch {
+              } catch (error) {
+                reportDependencyFailure({ module: "assets", operation: "upload" }, error);
                 await prisma.materialAsset.updateMany({
                   data: {
                     failureCode: "storage_failure",
@@ -304,15 +306,17 @@ export function assembleMaterialAssets(dependencies: {
           });
           await deleteQuarantineBestEffort(objectStorage, quarantineObjectKey);
           return { ok: true, value: toDto(ready) };
-        } catch {
+        } catch (error) {
+          reportDependencyFailure({ module: "assets", operation: "upload" }, error);
           try {
             await prisma.materialAsset.updateMany({
               data: { failureCode: "storage_failure", state: "failed", updatedAt: new Date() },
               where: { id: assetId, state: "processing" },
             });
-          } catch {
+          } catch (markError) {
             // The transport-neutral failure below remains authoritative even if
             // the best-effort lifecycle marker cannot be persisted.
+            reportDependencyFailure({ module: "assets", operation: "upload" }, markError);
           }
           return { error: { code: "dependency_unavailable" }, ok: false };
         }
@@ -529,7 +533,8 @@ export function assembleMaterialAssets(dependencies: {
             }
             await prisma.materialAsset.delete({ where: { id: claimed.asset.id } });
             cleaned += 1;
-          } catch {
+          } catch (error) {
+            reportDependencyFailure({ module: "assets", operation: "cleanupOrphans" }, error);
             retained += 1;
           }
         }
@@ -558,11 +563,11 @@ async function materialAssetQuery<Value>(
 ): Promise<MaterialAssetQueryResult<Value>> {
   try {
     return { ok: true, value: await operation() };
-  } catch {
-    return {
+  } catch (error) {
+    return dependencyFailure({ module: "assets", operation: "materialAssetQuery" }, error, {
       error: { code: "dependency_unavailable", retryable: true },
       ok: false,
-    };
+    });
   }
 }
 
@@ -571,8 +576,8 @@ async function materialAssetUpload(
 ): Promise<UploadMaterialAssetResult> {
   try {
     return await operation();
-  } catch {
-    return { error: { code: "dependency_unavailable" }, ok: false };
+  } catch (error) {
+    return dependencyFailure({ module: "assets", operation: "materialAssetUpload" }, error, { error: { code: "dependency_unavailable" }, ok: false });
   }
 }
 
@@ -656,7 +661,12 @@ function trackedObjects(asset: Readonly<{
 }
 
 async function deleteQuarantineBestEffort(storage: ObjectStorage, key: string): Promise<void> {
-  try { await storage.delete("quarantine", key); } catch { /* cleanup retries stale quarantine */ }
+  try {
+    await storage.delete("quarantine", key);
+  } catch (error) {
+    // Cleanup retries a stale quarantine object later.
+    reportDependencyFailure({ module: "assets", operation: "deleteQuarantine" }, error);
+  }
 }
 
 function uniqueReferences(references: readonly MaterialAssetReference[]): readonly MaterialAssetReference[] {

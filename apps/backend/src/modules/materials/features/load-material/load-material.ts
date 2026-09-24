@@ -14,6 +14,7 @@ import {
   parseCommand,
 } from "../../shared/command-validation.js";
 import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const loadMaterialQuery = z
   .object({ actor: accountId, materialId: materialIdSchema })
@@ -76,7 +77,7 @@ export function assembleLoadMaterial(
         }),
       };
     } catch (error) {
-      return failure(mapPostgresReadError(error));
+      return failure(dependencyFailure({ module: "materials", operation: "loadMaterial" }, error, mapPostgresReadError(error)));
     }
   };
 }

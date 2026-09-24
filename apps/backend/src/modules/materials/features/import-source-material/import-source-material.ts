@@ -9,6 +9,7 @@ import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
 import { assembleCreateDraft } from "../create-draft/create-draft.js";
 import { assembleSaveMaterial } from "../save-material/save-material.js";
 import { reserveSourceBodySchema, applySourceBodySchema, type ApplySourceOperation, type ReserveSourceOperation } from "./import-source-material.contract.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const reserveCommand = reserveSourceBodySchema.extend({ actor: accountId });
 const applyCommand = applySourceBodySchema.extend({ actor: accountId, idempotencyKey: idempotencyKeySchema });
@@ -46,7 +47,7 @@ export function assembleReserveSourceMaterial(dependencies: MaterialAuthoringDep
       // Another authorized importer may have reserved the same source concurrently.
       return created.ok ? created : (await existing()) ?? created;
     } catch (error) {
-      return { ok: false, error: mapPostgresReadError(error) };
+      return { ok: false, error: dependencyFailure({ module: "materials", operation: "reserveSourceMaterial" }, error, mapPostgresReadError(error)) };
     }
   };
 }

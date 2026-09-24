@@ -8,6 +8,7 @@ import { PLATFORM_CONFIG, type PlatformConfig } from "../../../../config/platfor
 import { PrivateNoStore } from "../../../../infrastructure/http/http-cache-policy.js";
 import { problemDetailsContent, problemDetailsSchema, toOpenApiSchema } from "../../../../infrastructure/http/zod-openapi.js";
 import { TributeConvergence } from "../../facets/tribute-convergence/tribute-convergence.js";
+import { reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export const tributeAcknowledgementSchema = z.strictObject({ ok: z.literal(true), receiptRef: z.uuid(),
   status: z.enum(["applied", "duplicate", "pending_reconciliation", "rejected", "received"]) });
@@ -38,6 +39,6 @@ export class ReceiveTributeController {
     try {
       const result = await this.tribute.receive(raw, request.body);
       return { ok: true as const, receiptRef: result.value.id, status: result.duplicate ? "duplicate" as const : result.value.state };
-    } catch { throw new HttpException({ code: "tribute_unavailable" }, 503); }
+    } catch (error) { reportDependencyFailure({ module: "billing", operation: "receive" }, error); throw new HttpException({ code: "tribute_unavailable" }, 503); }
   }
 }

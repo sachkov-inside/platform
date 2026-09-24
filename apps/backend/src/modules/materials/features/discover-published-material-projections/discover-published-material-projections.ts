@@ -11,6 +11,7 @@ import type {
   DiscoverPublishedMaterialProjectionsQuery,
   PublishedMaterialDiscoveryResult,
 } from "./discover-published-material-projections.contract.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const querySchema = z
   .object({
@@ -49,7 +50,7 @@ export async function discoverPublishedMaterialProjections(
           value: { ...page, kind: parsed.data.kind },
         };
   } catch (error) {
-    return { ok: false, error: mapPostgresReadError(error) };
+    return { ok: false, error: dependencyFailure({ module: "materials", operation: "discoverPublishedMaterialProjections" }, error, mapPostgresReadError(error)) };
   }
 }
 

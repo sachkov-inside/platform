@@ -4,6 +4,7 @@ import type { BillingPrismaClient } from "../../../../infrastructure/prisma/inde
 import { failure, idSchema, revisionSchema, priceSnapshotSchema, type PricingResult } from "../../domain/pricing.js";
 import { lockPricing } from "../../infrastructure/postgres/catalog-lock.js";
 import { selectPrice } from "../../shared/select-price.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export const quotePurchaseSchema = z.strictObject({ operationId: idSchema, paymentOptionId: idSchema, optionRevision: revisionSchema, promoCode: z.string().trim().min(1).max(100).optional() });
 export const priceQuoteSchema = z.strictObject({ quoteRef: idSchema, snapshot: priceSnapshotSchema, createdAt: z.iso.datetime(), expiresAt: z.iso.datetime() });
@@ -37,5 +38,5 @@ export async function quotePurchase(prisma: BillingPrismaClient, accountId: stri
       await tx.billingPriceQuote.create({ data: { ...key, id, fingerprint, snapshot: price.value, promoCode: command.promoCode ?? null, createdAt: now, expiresAt } });
       return { ok: true, value: { quoteRef: id, snapshot: price.value, createdAt: now.toISOString(), expiresAt: expiresAt.toISOString() } };
     });
-  } catch { return failure("dependency_unavailable"); }
+  } catch (error) { return dependencyFailure({ module: "billing", operation: "quotePurchase" }, error, failure("dependency_unavailable")); }
 }

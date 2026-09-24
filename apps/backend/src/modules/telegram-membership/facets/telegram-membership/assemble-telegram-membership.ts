@@ -26,6 +26,7 @@ import type {
   TelegramLinkState,
   TelegramMembership,
 } from "./telegram-membership.interface.js";
+import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const principalEnvelopeSchema = z.looseObject({
   principalRef: z.string().min(1).max(256),
@@ -59,15 +60,15 @@ export function assembleTelegramMembership(
           query.accountId,
           clock(),
         );
-      } catch {
-        return { ok: false, error: { code: "unavailable" } };
+      } catch (error) {
+        return dependencyFailure({ module: "telegram-membership", operation: "readAccountPresentation" }, error, { ok: false, error: { code: "unavailable" } });
       }
     },
     async beginLink(command) {
       try {
         return await beginLink(dependencies, command.accountId, clock());
-      } catch {
-        return failure("unavailable");
+      } catch (error) {
+        return dependencyFailure({ module: "telegram-membership", operation: "beginLink" }, error, failure("unavailable"));
       }
     },
     async confirmLink(command) {
@@ -78,15 +79,15 @@ export function assembleTelegramMembership(
           command.linkRef,
           clock(),
         );
-      } catch {
-        return failure("unavailable");
+      } catch (error) {
+        return dependencyFailure({ module: "telegram-membership", operation: "confirmLink" }, error, failure("unavailable"));
       }
     },
     async acceptEvidence(command) {
       try {
         return await acceptEvidence(dependencies, command);
-      } catch {
-        return { ok: false, error: { code: "unavailable" } };
+      } catch (error) {
+        return dependencyFailure({ module: "telegram-membership", operation: "acceptEvidence" }, error, { ok: false, error: { code: "unavailable" } });
       }
     },
   };
@@ -163,7 +164,8 @@ async function beginLink(
       returnCorrelation,
       tokenDigest,
     });
-  } catch {
+  } catch (error) {
+    reportDependencyFailure({ module: "telegram-membership", operation: "beginLink" }, error);
     registration = { kind: "unavailable" };
   }
 
@@ -397,7 +399,8 @@ async function confirmLink(
       linkTransactionRef: transaction.providerTransactionRef,
       returnCorrelation: transaction.returnCorrelation,
     });
-  } catch {
+  } catch (error) {
+    reportDependencyFailure({ module: "telegram-membership", operation: "confirmLink" }, error);
     confirmation = { kind: "unavailable" };
   }
   if (
@@ -429,7 +432,8 @@ async function confirmLink(
         },
       });
       return success(linkState(linkRef, transaction.expiresAt, "linked"));
-    } catch {
+    } catch (error) {
+      reportDependencyFailure({ module: "telegram-membership", operation: "confirmLink" }, error);
       await updateLinkState(dependencies, linkRef, "conflict", now);
       return success(linkState(linkRef, transaction.expiresAt, "conflict"));
     }

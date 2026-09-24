@@ -8,6 +8,7 @@ import type {
   WorkshopEntitlementState,
   WorkshopEntitlementTransaction,
 } from "./workshop-entitlements.interface.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export interface WorkshopEntitlementsDependencies {
   readonly prisma: WorkshopEntitlementsPrisma;
@@ -35,8 +36,8 @@ export function assembleWorkshopEntitlements(
           accountId,
           clock(),
         );
-      } catch {
-        return { kind: "unavailable" };
+      } catch (error) {
+        return dependencyFailure({ module: "workshop", operation: "resolveForAccess" }, error, { kind: "unavailable" });
       }
     },
   });

@@ -100,6 +100,23 @@ not dependency wiring.
   [`IdP flow specification`](../../docs/specifications/idp-application-flow-v1.md) for Logto, BFF,
   callback, token, cookie, and logout behaviour.
 
+## Dependency failures and logging
+
+- A Module turns a failed dependency into a variant of its result union and records the cause
+  through `src/infrastructure/observability`: `return dependencyFailure(scope, error, variant)`,
+  or `reportDependencyFailure(scope, error)` where the operation carries on. The scope names the
+  Module and the operation; the record adds the unit of work (`requestId`) and the answer's code.
+- A race resolved by an idempotency replay or an existing row is an answer, not a failure: record
+  the original error only on the branch that still answers with a dependency failure.
+- A `catch` that rejects foreign input rather than a dependency explains itself on its first line
+  with `// Not a dependency failure: <reason>`. Prefer a non-throwing parser such as `URL.parse`
+  when one exists. `scripts/check-backend-architecture.mjs` enforces both rules for `catch` clauses
+  and promise `.catch` handlers in `src/modules`.
+- Log only through `writeLog` and pass errors through `describeError`: it keeps the type, code,
+  stack frames and causes, drops the text of Prisma, driver and parser errors that restate the
+  query or input, and redacts credentials, tokens and personal data from the rest. Never log a
+  request body, headers, a full URL or a raw error.
+
 ## Tests against real infrastructure
 
 - Poll a durable fact with `test/integration/setup/eventually.ts`; a scenario that must not depend

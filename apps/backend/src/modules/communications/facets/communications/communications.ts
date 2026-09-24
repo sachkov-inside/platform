@@ -11,6 +11,7 @@ import {
 } from "../../communications-contract.js";
 import { requestSchema } from "../../communications-schema.generated.js";
 import type { HttpCommunicationsProvider } from "../../infrastructure/http-communications-provider.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export class Communications {
   constructor(
@@ -88,8 +89,8 @@ export class Communications {
             this.presentation.publicOrigin,
             this.presentation.targets,
           );
-        } catch {
-          return communicationsFailure("provider_unavailable");
+        } catch (error) {
+          return dependencyFailure({ module: "communications", operation: "execute" }, error, communicationsFailure("provider_unavailable"));
         }
         if (request.operation === "funnels.publish" && targetErrors.length > 0)
           return communicationsFailure("invalid_targets");

@@ -16,6 +16,7 @@ import {
 } from "../../shared/command-validation.js";
 import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
 import { hydrateMaterialAssets } from "../../domain/material-body/hydrate-material-assets.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const previewMaterialQuery = z
   .object({ actor: accountId, materialId: materialIdSchema })
@@ -99,7 +100,7 @@ export function assemblePreviewMaterial(
         },
       };
     } catch (error) {
-      return { ok: false, error: mapPostgresReadError(error) };
+      return { ok: false, error: dependencyFailure({ module: "materials", operation: "previewMaterial" }, error, mapPostgresReadError(error)) };
     }
   };
 }

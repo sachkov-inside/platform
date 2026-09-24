@@ -52,6 +52,7 @@ function withNodeId(
   try {
     candidate = structuredClone(block);
   } catch {
+    // Not a dependency failure: a block that cannot be cloned is not a document block.
     return undefined;
   }
   if (!isUnknownRecord(candidate)) {

@@ -558,6 +558,7 @@ function fingerprint(value: unknown): string {
   try {
     serialized = JSON.stringify(value) ?? "undefined";
   } catch {
+    // Not a dependency failure: a value JSON cannot serialize is fingerprinted by its type.
     serialized = Object.prototype.toString.call(value);
   }
   return createHash("sha256").update(serialized).digest("hex");

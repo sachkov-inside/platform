@@ -7,6 +7,7 @@ import { acquireAccountLocks } from "../../infrastructure/postgres/advisory-lock
 import { appendAccountAuditEvent } from "../../infrastructure/postgres/account-audit.js";
 import { validLogtoIdentity } from "../../shared/account-input.js";
 import { internalFailure } from "../../shared/internal-failure.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export async function establishTelegramAccount(
   prisma: AccountsPrismaClient,
@@ -61,7 +62,7 @@ export async function establishTelegramAccount(
       await appendAccountAuditEvent(transaction, "account_created", accountId);
       return { ok: true, account: { accountId } };
     });
-  } catch {
-    return internalFailure();
+  } catch (error) {
+    return dependencyFailure({ module: "accounts", operation: "establishTelegramAccount" }, error, internalFailure());
   }
 }

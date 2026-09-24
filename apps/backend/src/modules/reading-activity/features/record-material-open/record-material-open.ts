@@ -4,6 +4,7 @@ import { accountId } from "../../../accounts/index.js";
 import { materialId, type MaterialContent } from "../../../materials/index.js";
 import type { ContentAccess } from "../../../content-access/index.js";
 import { lockReadingCommand, lockReadingPair } from "../set-reading-state/reading-locks.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 export const recordMaterialOpenSchema = z.object({ materialId: z.uuid(), contentVersion: z.number().int().positive(), commandId: z.uuid() }).strict();
 const openReceiptSchema = z.object({ openedAt: z.iso.datetime() }).strict();
 export type RecordMaterialOpenInput = z.infer<typeof recordMaterialOpenSchema> & { readonly accountId: string };
@@ -40,5 +41,5 @@ export async function recordMaterialOpen(dependencies: {
       await transaction.readingCommand.create({ data: { accountId: command.accountId, commandId: command.commandId, fingerprint, outcome } });
       return { ok: true, value: { ...outcome, replayed: false } };
     });
-  } catch { return { ok: false, error: { code: "dependency_unavailable" } }; }
+  } catch (error) { return dependencyFailure({ module: "reading-activity", operation: "recordMaterialOpen" }, error, { ok: false, error: { code: "dependency_unavailable" } }); }
 }

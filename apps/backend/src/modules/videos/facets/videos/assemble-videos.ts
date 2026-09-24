@@ -30,6 +30,7 @@ import {
   type Videos,
   type VideoState,
 } from "./videos.interface.js";
+import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const access = videoAccessSchema;
 const initInput = z.object({
@@ -110,7 +111,7 @@ export function assembleVideos(dependencies: {
             status: { in: ["initializing", "unknown"] },
           },
         }),
-      ]).catch(() => null);
+      ]).catch((error: unknown) => dependencyFailure({ module: "videos", operation: "initUpload" }, error, null));
       if (attempts === null) return dependencyUnavailable();
       const [existing, unresolved] = attempts;
       if (existing !== null) {
@@ -136,14 +137,15 @@ export function assembleVideos(dependencies: {
             updatedAt: createdAt,
           },
         });
-      } catch {
+      } catch (error) {
+        // Попытка с тем же ключом, созданная параллельно, отвечает повтором, а не сбоем.
         const concurrent = await dependencies.prisma.videoUploadAttempt.findFirst({
           where: {
             createdBy: parsed.data.actor,
             idempotencyKey: parsed.data.idempotencyKey,
             materialId: parsed.data.materialId,
           },
-        }).catch(() => null);
+        }).catch((lookupError: unknown) => dependencyFailure({ module: "videos", operation: "initUpload" }, lookupError, null));
         if (concurrent !== null) return replayUploadAttempt(concurrent, parsed.data, projectId);
         const concurrentUnresolved = await dependencies.prisma.videoUploadAttempt.findFirst({
           where: {
@@ -151,8 +153,10 @@ export function assembleVideos(dependencies: {
             materialId: parsed.data.materialId,
             status: { in: ["initializing", "unknown"] },
           },
-        }).catch(() => null);
-        return concurrentUnresolved === null ? dependencyUnavailable() : uploadOutcomeUnknown();
+        }).catch((lookupError: unknown) => dependencyFailure({ module: "videos", operation: "initUpload" }, lookupError, null));
+        return concurrentUnresolved === null
+          ? dependencyFailure({ module: "videos", operation: "initUpload" }, error, dependencyUnavailable())
+          : uploadOutcomeUnknown();
       }
       let initialized: Awaited<ReturnType<VideoProvider["initUpload"]>>;
       try {
@@ -168,10 +172,11 @@ export function assembleVideos(dependencies: {
               data: { status: "rejected", failureCode: "upload_not_authorized", updatedAt: now() },
             });
             return uploadNotAuthorized();
-          } catch {
-            return uploadOutcomeUnknown();
+          } catch (markError) {
+            return dependencyFailure({ module: "videos", operation: "initUpload" }, markError, uploadOutcomeUnknown());
           }
         }
+        reportDependencyFailure({ module: "videos", operation: "initUpload" }, error);
         await markUploadOutcomeUnknown(attemptId);
         return uploadOutcomeUnknown();
       }
@@ -217,7 +222,8 @@ export function assembleVideos(dependencies: {
           videoIdSchema.parse(video.id),
         ))) return dependencyUnavailable();
         return { ok: true, value: { providerVideoId: initializedProviderVideoId.data, uploadEndpoint: initialized.uploadEndpoint, video: toDto(video) } };
-      } catch {
+      } catch (error) {
+        reportDependencyFailure({ module: "videos", operation: "initUpload" }, error);
         await markUploadOutcomeUnknown(attemptId);
         return uploadOutcomeUnknown();
       }
@@ -287,8 +293,8 @@ export function assembleVideos(dependencies: {
           videoIdSchema.parse(saved.id),
         ))) return dependencyUnavailable();
         return { ok: true, value: toDto(saved) };
-      } catch {
-        return dependencyUnavailable();
+      } catch (error) {
+        return dependencyFailure({ module: "videos", operation: "attachExisting" }, error, dependencyUnavailable());
       }
     },
 
@@ -338,8 +344,8 @@ export function assembleVideos(dependencies: {
           });
           return { ok: true as const, value: toDto(updated) };
         });
-      } catch {
-        return dependencyUnavailable();
+      } catch (error) {
+        return dependencyFailure({ module: "videos", operation: "retryDeletion" }, error, dependencyUnavailable());
       }
     },
 
@@ -364,8 +370,8 @@ export function assembleVideos(dependencies: {
         const reconciled = await reconcileById(videoIdSchema.parse(local.id));
         if (!reconciled.ok) return reconciled;
         return { ok: true, value: undefined };
-      } catch {
-        return dependencyUnavailable();
+      } catch (error) {
+        return dependencyFailure({ module: "videos", operation: "acceptWebhook" }, error, dependencyUnavailable());
       }
     },
 
@@ -379,8 +385,8 @@ export function assembleVideos(dependencies: {
           return providerMismatch();
         }
         return video.state === "ready" ? { ok: true, value: undefined } : videoNotReady();
-      } catch {
-        return dependencyUnavailable();
+      } catch (error) {
+        return dependencyFailure({ module: "videos", operation: "inspectPrimaryReference" }, error, dependencyUnavailable());
       }
     },
 
@@ -405,8 +411,8 @@ export function assembleVideos(dependencies: {
                 ...(video.failureCode === null ? {} : { failureCode: video.failureCode }),
               },
         };
-      } catch {
-        return dependencyUnavailable();
+      } catch (error) {
+        return dependencyFailure({ module: "videos", operation: "loadPresentation" }, error, dependencyUnavailable());
       }
     },
 
@@ -421,8 +427,8 @@ export function assembleVideos(dependencies: {
           ok: true,
           value: video === null ? null : toAuthoringPresentation(video),
         };
-      } catch {
-        return dependencyUnavailable();
+      } catch (error) {
+        return dependencyFailure({ module: "videos", operation: "loadAuthoringPresentation" }, error, dependencyUnavailable());
       }
     },
 
@@ -447,8 +453,8 @@ export function assembleVideos(dependencies: {
               : [{ durationSeconds, videoId: videoIdSchema.parse(id) }],
           ),
         };
-      } catch {
-        return dependencyUnavailable();
+      } catch (error) {
+        return dependencyFailure({ module: "videos", operation: "loadReadyDurations" }, error, dependencyUnavailable());
       }
     },
 
@@ -469,8 +475,8 @@ export function assembleVideos(dependencies: {
           ok: true,
           value: video === null ? null : toAuthoringPresentation(video),
         };
-      } catch {
-        return dependencyUnavailable();
+      } catch (error) {
+        return dependencyFailure({ module: "videos", operation: "loadLatestDeletion" }, error, dependencyUnavailable());
       }
     },
 
@@ -498,8 +504,8 @@ export function assembleVideos(dependencies: {
           ok: true,
           value: video === null ? null : toAuthoringPresentation(video),
         };
-      } catch {
-        return dependencyUnavailable();
+      } catch (error) {
+        return dependencyFailure({ module: "videos", operation: "loadUnselectedUpload" }, error, dependencyUnavailable());
       }
     },
 
@@ -513,8 +519,8 @@ export function assembleVideos(dependencies: {
           materialId: videoMaterialIdSchema.parse(video.materialId),
           videoId: videoIdSchema.parse(video.id),
         })) };
-      } catch {
-        return dependencyUnavailable();
+      } catch (error) {
+        return dependencyFailure({ module: "videos", operation: "loadAccessFacts" }, error, dependencyUnavailable());
       }
     },
 
@@ -532,8 +538,8 @@ export function assembleVideos(dependencies: {
           providerVideoId: providerVideoIdSchema.parse(video.providerVideoId),
           videoId: videoIdSchema.parse(video.id),
         } };
-      } catch {
-        return dependencyUnavailable();
+      } catch (error) {
+        return dependencyFailure({ module: "videos", operation: "loadPlayback" }, error, dependencyUnavailable());
       }
     },
 
@@ -543,7 +549,7 @@ export function assembleVideos(dependencies: {
       try {
         const rows = await dependencies.prisma.videoPlaybackProgress.findMany({ where: { accountId: parsed.data.accountId, videoId: { in: parsed.data.videoIds } }, select: { videoId: true, positionSeconds: true, durationSeconds: true } });
         return { ok: true, value: rows.map((row) => ({ videoId: videoIdSchema.parse(row.videoId), positionSeconds: row.positionSeconds, durationSeconds: row.durationSeconds })) };
-      } catch { return dependencyUnavailable(); }
+      } catch (error) { return dependencyFailure({ module: "videos", operation: "loadProgressMany" }, error, dependencyUnavailable()); }
     },
     async loadProgress(input) {
       const parsed = progressIdentityInput.safeParse(input);
@@ -553,8 +559,8 @@ export function assembleVideos(dependencies: {
           where: { accountId_videoId: parsed.data },
         });
         return { ok: true, value: progress === null ? null : { positionSeconds: progress.positionSeconds } };
-      } catch {
-        return dependencyUnavailable();
+      } catch (error) {
+        return dependencyFailure({ module: "videos", operation: "loadProgress" }, error, dependencyUnavailable());
       }
     },
 
@@ -573,8 +579,8 @@ export function assembleVideos(dependencies: {
           update: { durationSeconds: parsed.data.durationSeconds, positionSeconds: parsed.data.positionSeconds, updatedAt: now() },
         });
         return { ok: true, value: undefined };
-      } catch {
-        return dependencyUnavailable();
+      } catch (error) {
+        return dependencyFailure({ module: "videos", operation: "saveProgress" }, error, dependencyUnavailable());
       }
     },
   };
@@ -583,8 +589,8 @@ export function assembleVideos(dependencies: {
   async function managerAllowed(actor: VideoAccountId): Promise<boolean> {
     try {
       return await dependencies.canManage(actor);
-    } catch {
-      return false;
+    } catch (error) {
+      return dependencyFailure({ module: "videos", operation: "managerAllowed" }, error, false);
     }
   }
 
@@ -623,8 +629,8 @@ export function assembleVideos(dependencies: {
         videoIdSchema.parse(video.id),
       ))) return dependencyUnavailable();
       return { ok: true, value: { providerVideoId: video.providerVideoId, uploadEndpoint: attempt.uploadEndpoint, video: toDto(video) } };
-    } catch {
-      return dependencyUnavailable();
+    } catch (error) {
+      return dependencyFailure({ module: "videos", operation: "replayUploadAttempt" }, error, dependencyUnavailable());
     }
   }
 
@@ -636,7 +642,9 @@ export function assembleVideos(dependencies: {
         status: "unknown",
         updatedAt: now(),
       },
-    }).catch(() => undefined);
+    }).catch((error: unknown) => {
+      reportDependencyFailure({ module: "videos", operation: "markUploadOutcomeUnknown" }, error);
+    });
   }
 
   async function reconcilePendingWebhooks(providerVideoId: ProviderVideoId, videoId: VideoId): Promise<boolean> {
@@ -648,9 +656,9 @@ export function assembleVideos(dependencies: {
       if (pending === null) return true;
       const reconciled = await reconcileById(videoId);
       return reconciled.ok;
-    } catch {
+    } catch (error) {
       // The durable inbox stays pending for the next browser poll or provider retry.
-      return false;
+      return dependencyFailure({ module: "videos", operation: "reconcilePendingWebhooks" }, error, false);
     }
   }
 
@@ -707,8 +715,8 @@ export function assembleVideos(dependencies: {
         return video;
       });
       return { ok: true, value: toDto(updated) };
-    } catch {
-      return dependencyUnavailable();
+    } catch (error) {
+      return dependencyFailure({ module: "videos", operation: "reconcileById" }, error, dependencyUnavailable());
     }
   }
 

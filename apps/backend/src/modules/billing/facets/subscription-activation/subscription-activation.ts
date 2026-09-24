@@ -5,6 +5,7 @@ import { lockPricing } from "../../infrastructure/postgres/catalog-lock.js";
 import { tierOpenForAssignment } from "../../shared/tier-composition.js";
 import { bindingLookupQuerySchema, bindingSnapshotSchema } from "../../../membership-entitlements/index.js";
 import type { TelegramAccountLinks } from "../../../telegram-membership/index.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 export class SubscriptionActivation {
   constructor(private readonly dependencies: { prisma: BillingPrismaClient; grants: AccessGrants; bindings: ActivationBindings & Pick<TelegramAccountLinks, "findCurrentByIdentity">; readAdmission: (accountId: string) => Promise<{ admissionRestriction: "none" | "moderation" | "external_unknown" | null; state: "checking" | "no_access" | "moderation_blocked" | "ready" }> }) {}
   /** An observation, not a reservation: evidence and own-access still validate the exact binding. */
@@ -22,7 +23,7 @@ export class SubscriptionActivation {
       if (!binding.success) return { ok: false as const, error: { code: "unavailable" as const } };
       if (binding.data.identityRef !== parsed.data.identityRef) return { ok: false as const, error: { code: "identity_conflict" as const } };
       return { ok: true as const, value: { contractVersion: parsed.data.contractVersion, state: "linked" as const, binding: binding.data } };
-    } catch { return { ok: false as const, error: { code: "unavailable" as const } }; }
+    } catch (error) { return dependencyFailure({ module: "billing", operation: "lookupBinding" }, error, { ok: false as const, error: { code: "unavailable" as const } }); }
   }
   async readOwn(input: unknown) {
     const parsed = ownSubscriptionAccessQuerySchema.safeParse(input);
@@ -43,11 +44,11 @@ export class SubscriptionActivation {
   }
   async begin(input: unknown) {
     try { return await this.dependencies.grants.beginActivation(input); }
-    catch { return { ok: false as const, error: { code: "unavailable" as const } }; }
+    catch (error) { return dependencyFailure({ module: "billing", operation: "begin" }, error, { ok: false as const, error: { code: "unavailable" as const } }); }
   }
   async accept(input: unknown) {
     try { return await this.acceptConfirmedInput(input); }
-    catch { return { ok: false as const, error: { code: "unavailable" as const } }; }
+    catch (error) { return dependencyFailure({ module: "billing", operation: "accept" }, error, { ok: false as const, error: { code: "unavailable" as const } }); }
   }
   private async acceptConfirmedInput(input: unknown) {
     const parsed = activationEvidenceSchema.safeParse(input);

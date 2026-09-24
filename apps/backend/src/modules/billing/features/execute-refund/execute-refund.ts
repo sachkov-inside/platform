@@ -11,6 +11,7 @@ import { recordBillingNotice } from "../../shared/record-notice.js";
 import { advanceSubscription } from "../../shared/subscription-outcome.js";
 import { refundTotals, unsettledRefundStates } from "../../shared/refund-amounts.js";
 import { refundDecisionViews } from "../read-payments/read-payments.js";
+import { reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 type ExecuteRefundCommand = Extract<OwnerOperation, { operation: "refunds.execute" }>;
 type RefundState = "sent" | "unknown" | "confirmed" | "failed";
@@ -95,8 +96,9 @@ async function sendRefund(dependencies: Dependencies, refundRef: string): Promis
       paymentId: row.paymentId, amount: Number(row.amountKopecks), externalRequestId: row.id,
       name: snapshot.offer.name, email: z.email().parse(bank.openBinding(`${purchase.id}:contact`, contact.emailCiphertext)),
     });
-  } catch {
+  } catch (error) {
     // Ответ потерян: попытка остаётся неизвестной и сверяется тем же ExternalRequestId.
+    reportDependencyFailure({ module: "billing", operation: "sendRefund" }, error);
     await prisma.billingRefund.updateMany({ where: { id: row.id, state: { in: unsettledRefundStates } },
       data: { state: "unknown", observedStatus: "no_response", updatedAt: dependencies.clock() } });
     return false;

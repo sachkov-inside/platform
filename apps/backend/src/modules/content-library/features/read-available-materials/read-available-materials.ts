@@ -2,6 +2,7 @@ import type { ContentAccess, Subject } from "../../../content-access/index.js";
 import type { PublishedMaterialSelection } from "../../../materials/index.js";
 import type { Videos } from "../../../videos/index.js";
 import { projectPublishedCatalogItems, type PublishedCatalogItemsResult } from "../../shared/project-published-catalog-items.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 export interface PublishedCatalogDependencies {
   readonly selection: Pick<PublishedMaterialSelection, "read">;
@@ -42,7 +43,7 @@ async function readProjections(
       try {
         const result = await dependencies.videos.loadReadyDurations(ids);
         return result.ok ? result : { ok: true as const, value: [] };
-      } catch { return { ok: true as const, value: [] }; }
+      } catch (error) { return dependencyFailure({ module: "content-library", operation: "loadReadyDurations" }, error, { ok: true as const, value: [] }); }
     },
   }, subject, selected.value);
 }

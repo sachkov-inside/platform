@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { Prisma, type MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 // Return one bounded composition snapshot; never silently truncate progress.
 const MAX_SERIES_MATERIALS = 10_000;
@@ -28,8 +29,8 @@ export class PublishedSeriesComposition {
       if (rows.length === 0) return { ok: false, error: { code: "series_not_found" } };
       if (rows.length > MAX_SERIES_MATERIALS) return { ok: false, error: { code: "series_too_large" } };
       return { ok: true, value: rows.flatMap((row) => row.material_id === null ? [] : [row.material_id]) };
-    } catch {
-      return { ok: false, error: { code: "dependency_unavailable" } };
+    } catch (error) {
+      return dependencyFailure({ module: "materials", operation: "read" }, error, { ok: false, error: { code: "dependency_unavailable" } });
     }
   }
 }

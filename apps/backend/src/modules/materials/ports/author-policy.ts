@@ -1,3 +1,4 @@
+import { dependencyFailure } from "../../../infrastructure/observability/index.js";
 export interface AuthorPolicy {
   canManage(accountId: string): boolean | Promise<boolean>;
 }
@@ -19,10 +20,10 @@ export async function authorizeManager(
     return (await policy.canManage(accountId))
       ? { ok: true }
       : { ok: false, error: { code: "forbidden" } };
-  } catch {
-    return {
+  } catch (error) {
+    return dependencyFailure({ module: "materials", operation: "authorizeManager" }, error, {
       ok: false,
       error: { code: "dependency_unavailable", retryable: true },
-    };
+    });
   }
 }

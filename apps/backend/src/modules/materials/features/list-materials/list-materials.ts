@@ -11,6 +11,7 @@ import type {
   AuthoringMaterialListItemDto,
   ListMaterialsOperation,
 } from "./list-materials.contract.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const publicationStateSchema = z.enum(["draft", "published", "unpublished"]);
 const querySchema = z
@@ -111,7 +112,7 @@ export function assembleListMaterials(
       });
       return { ok: true, value };
     } catch (error) {
-      return failure(mapPostgresReadError(error));
+      return failure(dependencyFailure({ module: "materials", operation: "listMaterials" }, error, mapPostgresReadError(error)));
     }
   };
 }

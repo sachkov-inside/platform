@@ -16,6 +16,7 @@ import type {
   GrantWorkshopEntitlementResult,
   WorkshopEntitlementDto,
 } from "../../facets/workshop/workshop.interface.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const commandSchema = z
   .object({
@@ -92,16 +93,18 @@ export async function grantWorkshopEntitlement(
         });
         return { ok: true as const, value: toDto(created) };
       });
-    } catch {
-      return await findGrantReplay(
+    } catch (error) {
+      // Гонка с тем же ключом идемпотентности отвечает повтором; сбоем она не считается.
+      const replay = await findGrantReplay(
         dependencies.prisma,
         parsed.data.actorAccountId,
         parsed.data.idempotencyKey,
         fingerprint,
-      ) ?? failure("dependency_unavailable");
+      );
+      return replay ?? dependencyFailure({ module: "workshop", operation: "grantWorkshopEntitlement" }, error, failure("dependency_unavailable"));
     }
-  } catch {
-    return failure("dependency_unavailable");
+  } catch (error) {
+    return dependencyFailure({ module: "workshop", operation: "grantWorkshopEntitlement" }, error, failure("dependency_unavailable"));
   }
 }
 

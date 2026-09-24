@@ -8,6 +8,7 @@ import { readingOutcomeSchema } from "../../domain/reading-state.js";
 import { toReadingState } from "../../shared/reading-state-mapping.js";
 import { lockReadingCommand, lockReadingPair } from "./reading-locks.js";
 import { setReadingStateSchema, type SetReadingStateCommand, type SetReadingStateResult } from "./set-reading-state.contract.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const commandSchema = setReadingStateSchema.extend({ accountId: z.uuid(), materialId: z.uuid() });
 
@@ -83,7 +84,7 @@ export async function setReadingState(dependencies: {
       } });
       return { ok: true, value: { ...outcome, replayed: false } };
     });
-  } catch {
-    return { ok: false, error: { code: "dependency_unavailable" } };
+  } catch (error) {
+    return dependencyFailure({ module: "reading-activity", operation: "setReadingState" }, error, { ok: false, error: { code: "dependency_unavailable" } });
   }
 }

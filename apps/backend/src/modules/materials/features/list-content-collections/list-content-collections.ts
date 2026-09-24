@@ -7,6 +7,7 @@ import { accountId, parseCommand } from "../../shared/command-validation.js";
 import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
 import { contentCollectionPersistence } from "../../infrastructure/postgres/content-collection-persistence.js";
 import type { ListContentCollectionsOperation } from "./list-content-collections.contract.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 const querySchema = z
   .object({ actor: accountId, kind: z.enum(["guide", "series", "topic"]) })
@@ -33,7 +34,7 @@ export function assembleListContentCollections(
         ).list(),
       };
     } catch (error) {
-      return failure(mapPostgresReadError(error));
+      return failure(dependencyFailure({ module: "materials", operation: "listContentCollections" }, error, mapPostgresReadError(error)));
     }
   };
 }
