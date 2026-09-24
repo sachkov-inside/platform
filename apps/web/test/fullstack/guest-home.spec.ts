@@ -35,7 +35,10 @@ for (const width of [320, 768]) test(`Home feed reflows at ${String(width)}px wi
   await page.getByRole("button", { name: "Заметки", exact: true }).click();
   await filtered;
   const note = page.getByRole("article").first();
-  await note.scrollIntoViewIfNeeded();
-  await expect(note).toBeInViewport();
+  // The response resolves before React swaps the cards, so the first card can detach mid-scroll.
+  await expect(async () => {
+    await note.scrollIntoViewIfNeeded({ timeout: 1_000 });
+    await expect(note).toBeInViewport({ timeout: 1_000 });
+  }).toPass();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
 });

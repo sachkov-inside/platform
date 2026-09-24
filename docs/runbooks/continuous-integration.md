@@ -37,9 +37,31 @@ Four jobs run independently so a failure identifies its owning verification seam
 ruleset requires this exact check name and strict synchronization with `main`; individual job names
 may evolve without changing the branch-protection interface.
 
-The host-process `pnpm smoke:fullstack` is intentionally a local verification seam rather than a
-per-pull-request job. Run `pnpm check:full` locally when a change can affect the browser-to-host
-application path, or before a release candidate is selected.
+The host-process `pnpm smoke:fullstack` is intentionally not a per-pull-request job and not part of
+`CI Gate`; it runs nightly instead (see below). Run `pnpm check:full` locally when a change can
+affect the browser-to-host application path, or before a release candidate is selected.
+
+## Nightly full-stack smoke
+
+`.github/workflows/nightly-fullstack.yml` runs `pnpm smoke:fullstack` on `main` every night at
+01:17 UTC and on demand through `workflow_dispatch`. It is not a required check and never blocks a
+merge. The job mirrors the documented host fallback on a clean `ubuntu-24.04` runner: frozen
+install, Chromium, `cp .env.example .env`, `pnpm infra:up` for Compose PostgreSQL and Object
+Storage, then the smoke with its own `inside_checks` database. The workflow is read-only, reads no
+secrets, and a new run waits for the previous one on the same ref instead of overlapping it.
+
+Where to look:
+
+- Results: the Actions tab, workflow **Nightly full-stack smoke**, or
+  `gh run list --workflow nightly-fullstack.yml`. GitHub e-mails a failed scheduled run to the
+  person who last changed its `cron`.
+- On failure the run keeps Playwright traces and screenshots (`apps/web/test-results`,
+  `apps/web/playwright-report`), the smoke's evidence snapshots, Compose service state and the
+  latest 500 infrastructure log lines for seven days. The job log contains the retained output of
+  the API, MCP and web processes.
+- Run it by hand for a branch: `gh workflow run nightly-fullstack.yml --ref <branch>`.
+
+A red nightly run is a product or smoke defect: open or reopen a Platform issue with the run link.
 
 ## Diagnostics and cleanup
 
@@ -61,7 +83,8 @@ current run.
 
 The executable workflow contract lives in `scripts/ci-workflow-contract.test.mjs` and runs through
 `pnpm test:tooling` and therefore `pnpm check`. It protects triggers, permissions, action pinning,
-commands, job dependencies and artifact retention from configuration drift.
+commands, job dependencies and artifact retention from configuration drift, for both the pull-request
+workflow and the nightly full-stack workflow.
 
 The Workshop artifact matrix has a separate executable contract in
 `scripts/workshop-evaluator-workflow.test.mjs`. Cross-language schema agreement also runs locally

@@ -1,0 +1,67 @@
+name: Nightly full-stack smoke
+
+# Not a pull-request check: the smoke runs nightly on main and on demand, and CI Gate ignores it.
+on:
+  schedule:
+    - cron: "17 1 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: platform-nightly-fullstack-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CI: "true"
+
+jobs:
+  full-stack:
+    name: Full-stack smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6.0.10
+      - name: Install Node.js
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install browser engine
+        run: pnpm --filter @inside/web exec playwright install --with-deps chromium
+      - name: Use local development configuration
+        run: cp .env.example .env
+      - name: Start PostgreSQL and Object Storage
+        run: pnpm infra:up
+      - name: Run full-stack smoke
+        run: pnpm smoke:fullstack
+      - name: Capture infrastructure diagnostics
+        if: ${{ failure() }}
+        run: |
+          mkdir -p ci-artifacts/nightly-fullstack
+          docker compose ps --all >ci-artifacts/nightly-fullstack/compose-ps.txt 2>&1 || true
+          docker compose logs --no-color --tail 500 >ci-artifacts/nightly-fullstack/compose.log 2>&1 || true
+      - name: Upload failure diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: nightly-fullstack-diagnostics-${{ github.run_attempt }}
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+            ci-artifacts/nightly-fullstack
+            ci-artifacts/evidence
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Remove infrastructure
+        if: ${{ always() }}
+        run: docker compose down --volumes --remove-orphans
