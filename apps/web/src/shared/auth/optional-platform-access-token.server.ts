@@ -17,7 +17,7 @@ export async function getOptionalPlatformAccessToken(
 /**
  * Чтение сессии в рендере принадлежит запросу, а не предзагрузке: `connection()` останавливает
  * предзагрузку раньше, чем она дойдёт до обновления токена. Иначе её зависшее обновление попало бы
- * в общую карту `refreshFlights`, и настоящий запрос той же сессии получил бы его отказ (ADR 0026).
+ * в общую карту `refreshFlights`, и настоящий запрос той же сессии получил бы его отказ (ADR 0027).
  */
 const getOptionalPlatformAccessTokenRsc = cache(async () => {
   await connection();

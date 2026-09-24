@@ -28,7 +28,7 @@ const standPorts = {
   IDENTITY_PROOF_MAILPIT_PORT: process.env.MAIL_CAPTURE_HOST_PORT ?? "8025",
 };
 // `--production-web` поднимает web production-сборкой: только в ней работают предзагрузка ссылок и
-// кеш маршрутов, по которым владелец оценивает скорость переходов (ADR 0026). По умолчанию web
+// кеш маршрутов, по которым владелец оценивает скорость переходов (ADR 0027). По умолчанию web
 // остаётся в режиме разработки с горячей перезагрузкой.
 const productionWeb = process.argv.slice(2).includes("--production-web");
 const composeFiles = productionWeb

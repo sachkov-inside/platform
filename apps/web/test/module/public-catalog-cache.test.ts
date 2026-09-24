@@ -28,7 +28,7 @@ function backendAnswers(answer: unknown, status = 200) {
   return fetchBackend;
 }
 
-/** Общий кеш держит только то, что backend отдаёт любому (ADR 0026). */
+/** Общий кеш держит только то, что backend отдаёт любому (ADR 0027). */
 describe("guest Material read kept in the shared cache", () => {
   afterEach(() => {
     vi.unstubAllEnvs();

@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { LegalDocumentPage } from "@/_pages/legal";
 import { legalDocumentView } from "@/_pages/legal.server";
 
-/** Страница пока не разложена на слои: проверка мгновенности с неё снята (ADR 0026). */
+/** Страница пока не разложена на слои: проверка мгновенности с неё снята (ADR 0027). */
 export const instant = false;
 
 interface LegalDocumentRouteProps {

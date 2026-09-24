@@ -6,7 +6,7 @@ import { publicPageMetadata, siteLinkPreview } from "@/shared/link-preview";
 import { readPublicSiteOrigin } from "@/shared/link-preview/index.server";
 
 /**
- * Главная держится в памяти браузера то же окно, что и страницы каталога (ADR 0026). Next.js не
+ * Главная держится в памяти браузера то же окно, что и страницы каталога (ADR 0027). Next.js не
  * даёт объявить его вместе с `instant`, поэтому право блокироваться Главная берёт у раскладки.
  */
 export const unstable_dynamicStaleTime = 60;

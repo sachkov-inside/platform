@@ -38,7 +38,7 @@ async function signInAsMember(context: BrowserContext, baseURL: string) {
 /**
  * Общий кеш сервера один на весь набор и живёт пять минут: без сброса исход проверки зависел бы от
  * того, что открывали до неё — в другом проекте или в прошлой попытке. Сбрасывает его то же, что и
- * в жизни: авторская запись через BFF, здесь — закреп Главной (ADR 0026). Запись идёт отдельным
+ * в жизни: авторская запись через BFF, здесь — закреп Главной (ADR 0027). Запись идёт отдельным
  * клиентом, поэтому браузер проверки остаётся гостем.
  */
 async function expireServerCatalogCache(baseURL: string) {
@@ -130,7 +130,7 @@ function isNavigationRequest(request: Request): boolean {
 
 /**
  * Страница устоялась: её личная часть пришла, занятых мест не осталось. Переход, начатый раньше,
- * ждёт эту часть вместе с задержкой React до 300 мс (ADR 0026), и замер показал бы её, а не переход.
+ * ждёт эту часть вместе с задержкой React до 300 мс (ADR 0027), и замер показал бы её, а не переход.
  */
 async function personalPartLanded(page: Page) {
   await expect(page.locator("#content [data-series-access-pending]:visible, #content [data-material-reader-state='pending']:visible, main [aria-busy='true']:visible")).toHaveCount(0);
@@ -341,7 +341,7 @@ test("намерение предзагружает общую часть уро
   // с ней закончил: иначе задержка достаётся самой предзагрузке, и нажатие её обгоняет.
   const prefetchResponse = await (await prefetched).response();
   // Окно страницы ограничивает и общую часть: браузер держит предзагруженное 60 секунд, а не
-  // пять минут серверного профиля (ADR 0026).
+  // пять минут серверного профиля (ADR 0027).
   expect(prefetchResponse?.headers()["x-nextjs-stale-time"], "предзагруженное живёт окно страницы").toBe("60");
   await setBackendDelay(700);
 

@@ -180,7 +180,7 @@ pnpm local:stand --production-web
 Only the `web` service changes: it is built from the `web-production` image target through
 `config/compose/local/production-web.compose.yaml` and serves the same data, sign-in and workers.
 There is no hot reload in this mode; after a code change, stop the stand and start it again with
-the same flag. [ADR 0026](../adr/0026-web-navigation-and-caching.md) owns what is cached and why.
+the same flag. [ADR 0027](../adr/0027-web-navigation-and-caching.md) owns what is cached and why.
 
 The default `docker compose up` without the profile starts as before and needs none of this. The
 stand claims the same machine-wide lock as `pnpm local:setup` and the shared Compose project, so it
@@ -407,7 +407,7 @@ pnpm --filter @inside/web test:navigation
 ```
 
 The suite builds web and starts it with `next start` next to a fake backend from
-`apps/web/test/navigation/fake-backend.mjs`; [ADR 0026](../adr/0026-web-navigation-and-caching.md)
+`apps/web/test/navigation/fake-backend.mjs`; [ADR 0027](../adr/0027-web-navigation-and-caching.md)
 lists what it proves. It uses ports `3180` and `3190`; override them with `NAVIGATION_WEB_PORT` and
 `FAKE_BACKEND_PORT`. Each run writes its timings and transition snapshots as evidence of issue
 #670 under the rule in [Snapshots as issue evidence](#snapshots-as-issue-evidence). `pnpm check`

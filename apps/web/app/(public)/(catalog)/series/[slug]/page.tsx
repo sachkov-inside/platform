@@ -17,7 +17,7 @@ interface SeriesPageProps {
 
 /**
  * Сколько секунд браузер помнит эту страницу вместе с личной частью: повторный переход в этом окне
- * идёт без запроса. Решение владельца 17.09.2026 (ADR 0026). Значение — литерал: Next.js читает
+ * идёт без запроса. Решение владельца 17.09.2026 (ADR 0027). Значение — литерал: Next.js читает
  * конфигурацию сегмента статически.
  */
 export const unstable_dynamicStaleTime = 60;
@@ -40,7 +40,7 @@ export async function generateMetadata({
   );
 }
 
-/** Скелет маршрута даёт `loading.tsx`; страница читает адрес уже под ним (ADR 0026). */
+/** Скелет маршрута даёт `loading.tsx`; страница читает адрес уже под ним (ADR 0027). */
 export default function SeriesRoute({ params, searchParams }: SeriesPageProps) {
   return <PublishedSeriesPage params={params} searchParams={searchParams} />;
 }

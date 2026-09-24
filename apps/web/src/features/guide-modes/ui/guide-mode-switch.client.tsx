@@ -25,7 +25,7 @@ export function GuideModeSwitch({ signedIn }: { readonly signedIn: boolean }) {
   const labelId = useId();
   const router = useRouter();
   // Вариант шага выбирает сервер, поэтому страницы, которые браузер помнит в кеше маршрутов,
-  // отрисованы в прежнем режиме. Запомненный выбор их отбрасывает (ADR 0026).
+  // отрисованы в прежнем режиме. Запомненный выбор их отбрасывает (ADR 0027).
   const saveBurst = useRef({ inFlight: 0, saved: false });
   const save = useMutation({
     mutationFn: saveReaderGuideMode,

@@ -2,7 +2,7 @@ import "server-only";
 
 import { cacheLife, cacheTag, revalidateTag } from "next/cache";
 
-/** Один тег на весь публичный каталог: авторская запись сбрасывает его целиком (ADR 0026). */
+/** Один тег на весь публичный каталог: авторская запись сбрасывает его целиком (ADR 0027). */
 const CATALOG_CACHE_TAG = "catalog";
 
 /**

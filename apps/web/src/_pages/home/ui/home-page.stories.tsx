@@ -91,7 +91,7 @@ export const EmptyFeed: Story = { args: { result: { kind: "ready", value: home }
 export const Unavailable: Story = {
   args: { result: { kind: "unavailable" }, feed: feed({ kind: "unavailable" }) },
   play: async ({ canvasElement }) => {
-    // Сбой закрепа браузер помнит окно страницы, поэтому повтор обязан быть на экране (ADR 0026).
+    // Сбой закрепа браузер помнит окно страницы, поэтому повтор обязан быть на экране (ADR 0027).
     const pinFailure = within(canvasElement).getByText(/Не удалось загрузить продукт/u).parentElement;
     if (pinFailure === null) throw new Error("Сообщение о сбое закрепа стоит вне своего блока");
     await expect(within(pinFailure).getByRole("button", { name: "Повторить" })).toBeVisible();

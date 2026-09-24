@@ -15,7 +15,7 @@ const MAX_BATCH_SIZE = 100;
 /**
  * Прогресс хранится в кеше по ключу материала, а читается пакетом: идентификаторы, запрошенные в
  * одном такте, уходят одним запросом. Раньше ключом был сам набор карточек, поэтому новый набор
- * перечитывал и то, что уже известно (ADR 0026).
+ * перечитывал и то, что уже известно (ADR 0027).
  */
 export function createReadingStateBatcher(
   loadStates: (materialIds: readonly string[]) => Promise<ReadingStatesResult>,

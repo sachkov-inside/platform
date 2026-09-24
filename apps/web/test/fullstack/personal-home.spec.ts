@@ -196,7 +196,7 @@ test("personal Home retries an already visible open with the same command after 
   expect(commandId(commands[0] ?? "")).toBeTruthy(); expect(commandId(commands[1] ?? "")).toBe(commandId(commands[0] ?? ""));
 });
 
-/** Queries stay fresh for 30 seconds and refetch on focus only after that (ADR 0026, #674). */
+/** Queries stay fresh for 30 seconds and refetch on focus only after that (ADR 0027, #674). */
 async function becomeStale(page: Page): Promise<void> {
   await page.clock.fastForward("00:31");
 }
