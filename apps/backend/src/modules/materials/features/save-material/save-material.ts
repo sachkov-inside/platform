@@ -43,6 +43,7 @@ import {
   recordVideoDetachment,
   requestVideoDeletion,
 } from "../../../videos/index.js";
+import { markUnreferencedMaterialAssets } from "../../../assets/index.js";
 import { materialReaderPath } from "../../domain/announcement.js";
 import { recordMaterialAnnouncement } from "./record-announcement.js";
 import { lockMaterialForLifecycleChange } from "../../infrastructure/postgres/material-locks.js";
@@ -411,14 +412,11 @@ export function assembleSaveMaterial(
                 where: { materialId: command.materialId },
               });
             }
-            if (dependencies.materialAssets !== undefined) {
-              const marked = await dependencies.materialAssets.markUnreferenced({
-                materialId: command.materialId,
-                orphanedAt: savedAt,
-                referencedAssetIds: assetReferences.map(({ assetId }) => assetId),
-              });
-              if (!marked.ok) return rollback(marked.error);
-            }
+            await markUnreferencedMaterialAssets(transaction, {
+              materialId: command.materialId,
+              orphanedAt: savedAt,
+              referencedAssetIds: assetReferences.map(({ assetId }) => assetId),
+            });
             if (command.deleteVideoId !== null) {
               const deletion = await requestVideoDeletion(transaction, {
                 actor: command.actor,
