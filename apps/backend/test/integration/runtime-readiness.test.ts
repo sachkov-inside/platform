@@ -3,7 +3,10 @@ import { afterEach, describe, expect, test } from "vitest";
 import { Prisma } from "../../src/infrastructure/prisma/index.js";
 import { OperationalReadiness } from "../../src/infrastructure/operational-readiness.js";
 import { migrationChecksum } from "../../src/infrastructure/postgres/migrate-to-latest.js";
-import { acquireWorkerGenerationLease } from "../../src/infrastructure/worker-runtime.js";
+import {
+  acquireWorkerGenerationLease,
+  runWorker,
+} from "../../src/infrastructure/worker-runtime.js";
 import { platformMigrations } from "../../src/migrations/index.js";
 import {
   expectedPgBossSchemaVersion,
@@ -188,5 +191,39 @@ describe("production runtime readiness", () => {
       "material-assets-worker",
     );
     await newGeneration.release();
+  });
+
+  test("reports the failure that stopped a worker even when its drain fails", async () => {
+    const database = await createTestDatabase();
+    databases.push(database);
+    await migrateRuntimeDatabase(database.url);
+    const failure = Promise.reject(new Error("notification_broker_disconnected"));
+    // Воркер держит обработчик своего отказа сразу, как `assembleNotificationWorker`.
+    void failure.catch(() => undefined);
+    let drained = false;
+
+    // Остановка после отказа — следствие, а не причина: её собственный срок не должен заменить
+    // собой то, из-за чего воркер остановился.
+    await expect(
+      runWorker({
+        application: { close: () => Promise.resolve() },
+        databaseUrl: database.url,
+        failed: failure,
+        jobs: {
+          start: () => Promise.resolve(),
+          stop() {
+            drained = true;
+            return Promise.reject(new Error("notification_drain_timeout"));
+          },
+        },
+        process: "notifications-worker",
+        readiness: new OperationalReadiness(database.prisma, {
+          release: "development",
+          sourceSha: "0".repeat(40),
+        }),
+        registerJobs: () => Promise.resolve(),
+      }),
+    ).rejects.toThrow("notification_broker_disconnected");
+    expect(drained).toBe(true);
   });
 });

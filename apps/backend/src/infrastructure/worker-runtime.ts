@@ -126,6 +126,7 @@ export async function runWorker(input: {
   let jobsStarted = false;
   let lease: WorkerGenerationLease | undefined;
   let readinessReport: ReadinessReport | undefined;
+  let stopReason: { readonly error: unknown } | undefined;
   try {
     lease = await acquireWorkerGenerationLease(input.databaseUrl, input.process);
     await input.jobs.start();
@@ -134,22 +135,40 @@ export async function runWorker(input: {
     readinessReport = await input.readiness.check(input.process);
     await markWorkerReady(readinessReport);
     await Promise.race([shutdown.received, ...(input.failed ? [input.failed] : [])]);
-  } finally {
-    shutdown.dispose();
+  } catch (error) {
+    stopReason = { error };
+  }
+  shutdown.dispose();
+  let drainFailure: { readonly error: unknown } | undefined;
+  try {
     if (readinessReport) await markWorkerDraining(input.process, readinessReport);
     else await removeWorkerReadiness();
-    try {
-      if (jobsStarted) {
-        await input.jobs.stop({
-          close: true,
-          graceful: true,
-          timeout: WORKER_GRACEFUL_SHUTDOWN_TIMEOUT_MILLISECONDS,
-        });
-      }
-    } finally {
-      await input.application.close();
-      await lease?.release();
-      await markWorkerStopped(input.process, readinessReport);
+    if (jobsStarted) {
+      await input.jobs.stop({
+        close: true,
+        graceful: true,
+        timeout: WORKER_GRACEFUL_SHUTDOWN_TIMEOUT_MILLISECONDS,
+      });
     }
+  } catch (error) {
+    drainFailure = { error };
+  } finally {
+    await input.application.close();
+    await lease?.release();
+    await markWorkerStopped(input.process, readinessReport);
   }
+  if (stopReason === undefined) {
+    if (drainFailure !== undefined) throw drainFailure.error;
+    return;
+  }
+  // Остановка после отказа — его следствие: её собственный сбой называется отдельно и не
+  // подменяет причину, из-за которой воркер остановился.
+  if (drainFailure !== undefined) {
+    console.error(JSON.stringify({
+      process: input.process,
+      reason: "worker_drain_failed",
+      status: "operator_attention",
+    }));
+  }
+  throw stopReason.error;
 }
