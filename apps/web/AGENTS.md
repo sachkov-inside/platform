@@ -16,7 +16,7 @@ Read [`ADR 0011`](../../docs/adr/0011-client-owned-library-catalog.md) when chan
 ownership, generated transport, direct RSC calls, or same-origin BFF boundaries. Read
 [`ADR 0012`](../../docs/adr/0012-browser-owned-interactive-mutations.md) when changing interactive
 writes or proposing Server Actions. Read
-[`ADR 0026`](../../docs/adr/0026-web-navigation-and-caching.md) when changing a public route, a
+[`ADR 0027`](../../docs/adr/0027-web-navigation-and-caching.md) when changing a public route, a
 loading state, a `"use cache"` read, link prefetch, a `GET` Route Handler or TanStack freshness.
 
 ## Verification

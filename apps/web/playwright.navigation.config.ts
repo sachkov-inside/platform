@@ -12,6 +12,8 @@ export default defineConfig({
   testDir: "./test/navigation",
   fullyParallel: false,
   forbidOnly: Boolean(process.env.CI),
+  // Повтор нужен только для следа: тест, прошедший со второй попытки, валит прогон.
+  failOnFlakyTests: Boolean(process.env.CI),
   reporter: [["list"]],
   retries: process.env.CI ? 1 : 0,
   workers: 1,
@@ -43,8 +45,11 @@ export default defineConfig({
       url: `http://127.0.0.1:${backendPort}/__requests`,
     },
     {
-      command: "node test/navigation/production-web.mjs",
-      env: { FAKE_BACKEND_PORT: backendPort, NAVIGATION_WEB_PORT: webPort },
+      command: "node test/support/production-web.mjs",
+      env: {
+        PRODUCTION_WEB_BACKEND_URL: `http://127.0.0.1:${backendPort}`,
+        PRODUCTION_WEB_PORT: webPort,
+      },
       // Лаунчер убирает за собой идентичность выпуска, поэтому ему нужен сигнал, а не SIGKILL.
       gracefulShutdown: { signal: "SIGTERM", timeout: 5_000 },
       reuseExistingServer: false,

@@ -16,7 +16,7 @@ export const currentBillingChanged = factAnnouncement("inside.account.billing.ch
 
 /**
  * Подписка для поверхностей вне billing: состояние покупателя решает, что человеку открыто, поэтому
- * оболочка по этому объявлению сбрасывает кеш маршрутов (ADR 0026).
+ * оболочка по этому объявлению сбрасывает кеш маршрутов (ADR 0027).
  */
 export const subscribeToCurrentBillingChanges = currentBillingChanged.subscribe;
 

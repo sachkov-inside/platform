@@ -293,7 +293,7 @@ async function heroOpensAtTheSamePlace({ canvasElement }: { canvasElement: HTMLE
   await expect(Math.round(hero.getBoundingClientRect().top - breadcrumbBox.bottom)).toBe(20);
 }
 
-/** Тема целиком общая (ADR 0026): под скелетом маршрута сразу готовая страница. */
+/** Тема целиком общая (ADR 0027): под скелетом маршрута сразу готовая страница. */
 function StagedTopic({ sequence }: { readonly sequence: StagedLoading }) {
   return <Suspense fallback={<LibraryDiscoveryLoading />}><TopicPage sequence={sequence} /></Suspense>;
 }

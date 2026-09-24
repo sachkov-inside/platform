@@ -177,7 +177,7 @@ function AuthoringMaterialsFilters({
         <Select
           onValueChange={(value) => {
             // Radix echoes its hidden native select when the list returns from being hidden by
-            // navigation (ADR 0026): an empty or repeated value is not the author's choice.
+            // navigation (ADR 0027): an empty or repeated value is not the author's choice.
             if (!publicationStateOptions.has(value) || value === (query.publicationState ?? "all")) return;
             onQueryChange?.(withPublicationState(query, value));
           }}

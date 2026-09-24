@@ -36,7 +36,7 @@ const noArtifacts: ReaderGuideArtifactsResult = { artifacts: [], kind: "ready" }
 
 /**
  * Тема целиком общая: справка и связанные продукты одинаковы для всех, а материалы темы читает
- * браузер. Страница рисуется из гостевого кеша и личной части не имеет (ADR 0026).
+ * браузер. Страница рисуется из гостевого кеша и личной части не имеет (ADR 0027).
  */
 export async function PublishedTopicPage({ params, searchParams }: DiscoveryRouteProps) {
   const [{ slug }, query] = await Promise.all([params, searchParams]);
@@ -80,7 +80,7 @@ export async function PublishedSeriesPage({ params, searchParams }: DiscoveryRou
 /**
  * Программа руководства: материалы по главам и приглашение к оплате сверху. Состав и названия
  * приходят из гостевого кеша и видны сразу; доступность для читателя, артефакты с адресами,
- * предложение и прогресс — личная часть, она встаёт на место отметок «уточняется» (ADR 0026).
+ * предложение и прогресс — личная часть, она встаёт на место отметок «уточняется» (ADR 0027).
  */
 export async function GuideProgrammePage({
   params,

@@ -11,7 +11,7 @@ export interface StoryViewport {
 export const desktop: StoryViewport = { globals: { viewport: { value: "desktop1440", isRotated: false } }, width: 1440 };
 export const mobile: StoryViewport = { globals: { viewport: { value: "mobile390", isRotated: false } }, width: 390 };
 
-/** Слои маршрута (ADR 0026): под скелетом — общая часть, под ней — личная. */
+/** Слои маршрута (ADR 0027): под скелетом — общая часть, под ней — личная. */
 export class StagedLoading {
   readonly sharedPart: Promise<void>;
   readonly personalPart: Promise<void>;

@@ -204,8 +204,7 @@ test("раздел «Подписка» появляется, когда под�
 
   await subscription.click();
 
-  // Первый заход в раздел компилируется dev-сервером, поэтому барьер здесь шире обычного.
-  await expect(page).toHaveURL(/\/account\/subscription$/u, { timeout: 30_000 });
+  await expect(page).toHaveURL(/\/account\/subscription$/u);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Подписка");
 });
 

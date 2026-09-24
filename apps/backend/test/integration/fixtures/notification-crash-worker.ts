@@ -30,7 +30,16 @@ if (config.phase.includes('confirm')) {
         return channel;
       };
     }
-    await publishNotification(connection, envelope);
+    const published = publishNotification(connection, envelope);
+    if (config.phase === 'before-confirm') {
+      // Процесс, убитый до подтверждения, не узнаёт исход публикации. Подставной обязан так же
+      // стоять на барьере: иначе через `BROKER_CONFIRM_TIMEOUT_MS` его публикация падает по сроку,
+      // relay записывает неудачную попытку с отсрочкой, и процесс выходит сам. Если тест
+      // наблюдает очередь дольше этого срока, он теряет и смерть от SIGKILL, и свою строку outbox.
+      void published.catch(() => undefined);
+      await new Promise(() => undefined);
+    }
+    await published;
     await boundary();
   });
 } else {

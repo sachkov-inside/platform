@@ -20,7 +20,7 @@ const product = {
     introduction: { audience: "Разработчикам, которые собирают продукт с агентами.", outcome: "Работающее приложение и процесс.", prerequisites: "Базовый опыт разработки.", scope: "Без найма и маркетинга." },
   },
 } satisfies ResolvedSeries;
-/** Страница продукта целиком общая (ADR 0026), поэтому слоёв два: скелет маршрута и сама страница. */
+/** Страница продукта целиком общая (ADR 0027), поэтому слоёв два: скелет маршрута и сама страница. */
 function StagedProduct({ result, sequence }: { readonly result: ResolvedSeries; readonly sequence: StagedLoading }) {
   return <Suspense fallback={<GuideProductLoading />}><ProductPage result={result} sequence={sequence} /></Suspense>;
 }

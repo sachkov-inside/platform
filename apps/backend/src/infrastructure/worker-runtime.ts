@@ -126,6 +126,7 @@ export async function runWorker(input: {
   let jobsStarted = false;
   let lease: WorkerGenerationLease | undefined;
   let readinessReport: ReadinessReport | undefined;
+  let stopReason: { readonly error: unknown } | undefined;
   try {
     lease = await acquireWorkerGenerationLease(input.databaseUrl, input.process);
     await input.jobs.start();
@@ -134,22 +135,47 @@ export async function runWorker(input: {
     readinessReport = await input.readiness.check(input.process);
     await markWorkerReady(readinessReport);
     await Promise.race([shutdown.received, ...(input.failed ? [input.failed] : [])]);
-  } finally {
-    shutdown.dispose();
+  } catch (error) {
+    stopReason = { error };
+  }
+  shutdown.dispose();
+  // Остановка после отказа — его следствие: её собственные сбои называются отдельно и не
+  // подменяют причину, из-за которой воркер остановился.
+  const stopFailures: { readonly reason: string; readonly error: unknown }[] = [];
+  // Каждый шаг уборки идёт, даже если предыдущий упал: иначе сбой закрытия держал бы lease.
+  const attempt = async (reason: string, step: () => Promise<void>) => {
+    try {
+      await step();
+    } catch (error) {
+      stopFailures.push({ reason, error });
+    }
+  };
+  try {
     if (readinessReport) await markWorkerDraining(input.process, readinessReport);
     else await removeWorkerReadiness();
-    try {
-      if (jobsStarted) {
-        await input.jobs.stop({
-          close: true,
-          graceful: true,
-          timeout: WORKER_GRACEFUL_SHUTDOWN_TIMEOUT_MILLISECONDS,
-        });
-      }
-    } finally {
-      await input.application.close();
-      await lease?.release();
-      await markWorkerStopped(input.process, readinessReport);
+    if (jobsStarted) {
+      await input.jobs.stop({
+        close: true,
+        graceful: true,
+        timeout: WORKER_GRACEFUL_SHUTDOWN_TIMEOUT_MILLISECONDS,
+      });
     }
+  } catch (error) {
+    stopFailures.push({ reason: "worker_drain_failed", error });
   }
+  await attempt("worker_close_failed", () => input.application.close());
+  await attempt("worker_lease_release_failed", async () => { await lease?.release(); });
+  await attempt("worker_stop_mark_failed", () => markWorkerStopped(input.process, readinessReport));
+  // Наружу уходит одна ошибка: причина остановки, а без неё — первый сбой. Остальные сбои
+  // называются здесь. Текст ошибки не пишется: он может нести адрес подключения с учётными данными.
+  const thrown = stopReason ?? stopFailures[0];
+  for (const failure of stopFailures) {
+    if (failure === thrown) continue;
+    console.error(JSON.stringify({
+      process: input.process,
+      reason: failure.reason,
+      status: "operator_attention",
+    }));
+  }
+  if (thrown !== undefined) throw thrown.error;
 }

@@ -2,7 +2,7 @@
 
 This file is normative for `apps/web` changes and reviews. The nearest `AGENTS.md` owns routing and
 verification; ADR 0011 owns the current Library/transport boundary, ADR 0012 owns browser
-mutations and ADR 0026 owns navigation and caching.
+mutations and ADR 0027 owns navigation and caching.
 
 ## Slices and runtime boundaries
 
@@ -67,7 +67,7 @@ mutations and ADR 0026 owns navigation and caching.
 
 ## Navigation and caching
 
-[ADR 0026](../../docs/adr/0026-web-navigation-and-caching.md) owns the rationale and the numbers;
+[ADR 0027](../../docs/adr/0027-web-navigation-and-caching.md) owns the rationale and the numbers;
 these are the rules a change follows.
 
 - A public catalog page has layers: the route skeleton in `loading.tsx`, the shared part rendered

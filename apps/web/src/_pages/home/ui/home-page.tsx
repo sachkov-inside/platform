@@ -9,7 +9,7 @@ import { HomeFrame } from "./home-frame";
 
 /**
  * Закреп уже в `result`; лента загружается ниже в своей границе Suspense (#562). Сбой закрепа
- * остаётся в памяти браузера на окно страницы (ADR 0026), поэтому рядом стоит повтор, идущий на сервер.
+ * остаётся в памяти браузера на окно страницы (ADR 0027), поэтому рядом стоит повтор, идущий на сервер.
  */
 export function HomePage({ result, feed }: { readonly result: HomeResult; readonly feed?: ReactNode }) {
   return <HomeFrame>

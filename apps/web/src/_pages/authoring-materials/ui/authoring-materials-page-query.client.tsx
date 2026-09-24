@@ -79,7 +79,7 @@ function AuthoringMaterialsQueryView({
 }
 
 function replaceAuthoringMaterialsUrl(query: AuthoringMaterialsQuery): void {
-  // Next keeps a visited list mounted but hidden while another page is open (ADR 0026); only the
+  // Next keeps a visited list mounted but hidden while another page is open (ADR 0027); only the
   // list that is the current page may rewrite the address.
   if (window.location.pathname !== authoringMaterialsRootHref) return;
   const search = serializeAuthoringMaterialsQuery(query);

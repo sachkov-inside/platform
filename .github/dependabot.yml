@@ -10,6 +10,9 @@ updates:
       timezone: Europe/Moscow
     open-pull-requests-limit: 10
     labels: [dependencies]
+    # The merge queue keeps main current, so an open update is rebased only on an explicit
+    # `@dependabot rebase`; automatic rebases re-ran full CI after every merge.
+    rebase-strategy: disabled
     groups:
       next:
         patterns: [next, "@next/*"]
@@ -46,6 +49,9 @@ updates:
       time: "06:15"
       timezone: Europe/Moscow
     labels: [dependencies]
+    # The merge queue keeps main current, so an open update is rebased only on an explicit
+    # `@dependabot rebase`; automatic rebases re-ran full CI after every merge.
+    rebase-strategy: disabled
     groups:
       docker-patch-minor:
         patterns: ["*"]
@@ -63,6 +69,9 @@ updates:
       time: "06:30"
       timezone: Europe/Moscow
     labels: [dependencies]
+    # The merge queue keeps main current, so an open update is rebased only on an explicit
+    # `@dependabot rebase`; automatic rebases re-ran full CI after every merge.
+    rebase-strategy: disabled
     groups:
       actions-patch-minor:
         patterns: ["*"]

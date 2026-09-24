@@ -1,0 +1,43 @@
+name: Set up Platform
+description: >-
+  Installs the pinned pnpm and Node.js, the frozen workspace dependencies and, on request,
+  Playwright browser engines from a cache keyed by the exact Playwright version.
+
+inputs:
+  browsers:
+    description: Space-separated Playwright browser engines to install, or empty for none
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Install pnpm
+      uses: pnpm/action-setup@v6.0.10
+    - name: Install Node.js
+      uses: actions/setup-node@v7.0.0
+      with:
+        node-version-file: .node-version
+        cache: pnpm
+        cache-dependency-path: pnpm-lock.yaml
+    - name: Install dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile
+    - name: Resolve Playwright version
+      id: playwright
+      if: ${{ inputs.browsers != '' }}
+      shell: bash
+      run: echo "version=$(pnpm --filter @inside/web exec playwright --version | awk '{print $2}')" >>"$GITHUB_OUTPUT"
+    - name: Restore Playwright browser engines
+      if: ${{ inputs.browsers != '' }}
+      uses: actions/cache@v6.1.0
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-${{ inputs.browsers }}
+    - name: Install browser engines and system dependencies
+      if: ${{ inputs.browsers != '' }}
+      shell: bash
+      env:
+        BROWSERS: ${{ inputs.browsers }}
+      # A restored cache skips the download; system packages still come from the runner image.
+      run: pnpm --filter @inside/web exec playwright install --with-deps $BROWSERS

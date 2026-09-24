@@ -7,7 +7,6 @@ import {
   createPrismaClient,
   type PlatformPrisma,
 } from "../../../src/infrastructure/prisma/index.js";
-import { migrateToLatest } from "../../../src/migrations/index.js";
 
 export interface TestDatabase {
   readonly prisma: PlatformPrisma;
@@ -15,12 +14,19 @@ export interface TestDatabase {
   dispose(): Promise<void>;
 }
 
-export async function createTestDatabase(): Promise<TestDatabase> {
+export function createTestDatabase(): Promise<TestDatabase> {
+  return createDatabase();
+}
+
+async function createDatabase(template?: string): Promise<TestDatabase> {
   const adminUrl = inject("postgresAdminUrl");
   const databaseName = `inside_test_${randomUUID().replaceAll("-", "")}`;
   const adminPool = new Pool({ connectionString: adminUrl, max: 1 });
-  await adminPool.query(`CREATE DATABASE ${databaseName}`);
-  await adminPool.end();
+  try {
+    await adminPool.query(`CREATE DATABASE ${databaseName}${template === undefined ? "" : ` TEMPLATE ${template}`}`);
+  } finally {
+    await adminPool.end();
+  }
 
   const url = new URL(adminUrl);
   url.pathname = `/${databaseName}`;
@@ -38,8 +44,7 @@ export async function createTestDatabase(): Promise<TestDatabase> {
   };
 }
 
-export async function createMigratedTestDatabase(): Promise<TestDatabase> {
-  const testDatabase = await createTestDatabase();
-  await migrateToLatest(testDatabase.url);
-  return testDatabase;
+/** База со схемой последней миграции: копия шаблона, мигрированного один раз на прогон. */
+export function createMigratedTestDatabase(): Promise<TestDatabase> {
+  return createDatabase(inject("postgresMigratedTemplate"));
 }

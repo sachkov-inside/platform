@@ -194,6 +194,15 @@ test("unlinked Account sees centered onboarding once per authenticated session",
     .getByRole("button", { name: "Закрыть подключение Telegram" })
     .click();
   await expect(dialog).toHaveCount(0);
+  // Закрытый <dialog> исчезает из дерева доступности сразу, а отметку о закрытии пишет его событие
+  // `close`, которое приходит следующей задачей. Перезагрузка раньше неё проверяла бы не то.
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        sessionStorage.getItem("inside.telegram-onboarding.dismissed"),
+      ),
+    )
+    .toBe("true");
   await page.reload();
   await expect(dialog).toHaveCount(0);
 

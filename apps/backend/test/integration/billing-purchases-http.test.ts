@@ -8,7 +8,6 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import { parsePlatformConfig } from "../../src/config/platform-config.js";
 import { createApiApplication } from "../../src/entrypoints/api/create-api-application.js";
-import { migrateToLatest } from "../../src/migrations/index.js";
 import { assembleAccounts, BillingContact } from "../../src/modules/accounts/index.js";
 import { billingContactProtection } from "../../src/modules/accounts/infrastructure/billing-contact-protection.js";
 import { assembleAccessGrants } from "../../src/modules/membership-entitlements/index.js";
@@ -17,7 +16,7 @@ import { syntheticTbankConfig } from "../support/bank-terminal.js";
 import { declaredServer, type DeclaredServer } from "../support/declared-api.js";
 import { BankFixture } from "./setup/bank.js";
 import { pressedPaymentButton, syntheticConsentDocuments } from "./setup/consent-documents.js";
-import { createTestDatabase, type TestDatabase } from "./setup/test-database.js";
+import { createMigratedTestDatabase, type TestDatabase } from "./setup/test-database.js";
 
 const issuer = "https://identity.example.test/oidc";
 const audience = "https://api.example.test";
@@ -58,8 +57,7 @@ describe("Billing purchases HTTP", () => {
     const address = jwksServer.address();
     if (address === null || typeof address === "string") throw new Error("missing JWKS port");
 
-    database = await createTestDatabase();
-    await migrateToLatest(database.url);
+    database = await createMigratedTestDatabase();
     app = await createApiApplication(
       parsePlatformConfig({
         NODE_ENV: "test",

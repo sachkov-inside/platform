@@ -3,12 +3,13 @@
 Platform pull requests into `main` are protected by `.github/workflows/ci.yml`. The workflow has
 read-only repository access, does not read repository or environment secrets and runs only on
 GitHub-hosted `ubuntu-24.04` runners. A new commit cancels an older run for the same pull request.
+The same workflow runs for the `main` merge queue (`merge_group`).
 
 The workflow is also callable through `workflow_call`. The ordinal release workflow invokes this
 same contract with its captured, exact source SHA before it publishes images. Every checkout in the
 reusable path uses that SHA, so a moving branch cannot change the candidate during CI. Direct
-pushes do not start application CI; the protected `main` branch accepts changes only through a
-current pull request with a successful `CI Gate`.
+pushes do not start application CI; the protected `main` branch accepts changes only through the
+merge queue with a successful `CI Gate`.
 
 Changes under `contracts/workshop/`, `tools/workshop-evaluator/` or their workflow also start the
 read-only `.github/workflows/workshop-evaluator.yml`. Its matrix uses native GitHub-hosted
@@ -24,18 +25,64 @@ GitHub Release or provide an auto-update channel.
 
 ## Required checks
 
-Four jobs run independently so a failure identifies its owning verification seam:
+`pnpm check` is the aggregate of four stages, and each stage runs as its own job, so a failure
+names its seam and the stages run in parallel:
 
 | Job | Repository command or proof |
 |---|---|
-| `quality` | frozen install, Chromium and `pnpm check` |
-| `integration` | `pnpm test:integration` with Testcontainers-owned PostgreSQL and RustFS |
+| `static` | `inside-harness health` at the installed harness version, then `pnpm check:static`: documentation contract, workspace packages, OpenAPI drift, lint, typecheck, guardrails |
+| `unit` | `pnpm check:unit`: tooling and authoring `node --test`, Workshop contracts and `go test -race`, backend and package Vitest, web module tests |
+| `ui` | `pnpm check:ui`: browser-engine checks (Chromium and WebKit), Storybook tests and the Storybook build |
+| `web-e2e` | `pnpm check:web-e2e`: one production build, prerendered and standalone checks, then Playwright e2e and page transitions on `next start` of that build |
+| `integration` | `pnpm test:integration:parallel` (PostgreSQL and RustFS via Testcontainers, a migrated template database copied per test database), then `pnpm smoke:enrollments` |
+| `integration-serial` | `pnpm test:integration:serial`: RabbitMQ, SIGKILL crash and worker-process files, one file at a time |
 | `compose-development` | profile config/build, live smoke, restart persistence and clean shutdown |
 | `compose-production` | isolated nine-process digest-selected runtime proof with the environment broker; pull requests also run clean `pnpm release:images:smoke` |
 
-`CI Gate` depends on all four jobs and succeeds only when every result is `success`. The repository
-ruleset requires this exact check name and strict synchronization with `main`; individual job names
-may evolve without changing the branch-protection interface.
+`.github/actions/setup-platform` owns the shared setup: pinned pnpm and Node.js, the frozen
+install and, on request, Playwright browser engines restored from a cache keyed by the exact
+Playwright version. The harness check reads the version from `.inside-harness/product-harness.json`
+and clones the matching `inside-engineering-v<version>` tag of the public Workspace repository, so a
+newer Workspace release cannot fail an unchanged Platform branch.
+
+`CI Gate` depends on every job and succeeds only when every result is `success`. The repository
+ruleset requires this exact check name; individual job names may evolve without changing the
+branch-protection interface.
+
+## Merge queue
+
+`main` merges through the GitHub merge queue (owner decision of 2026-09-24). A pull request needs a
+successful `CI Gate` on its own head; the ruleset no longer requires the branch to be up to date
+with `main`. The queue builds each entry on top of the current `main` plus the entries ahead of it,
+runs this workflow for the `merge_group` event and merges only after that combined `CI Gate`
+succeeds. Freshness is therefore proved once, by the queue, instead of by rebasing every open branch
+after each merge. Add a ready pull request with `gh pr merge <number> --squash` (or the queue button);
+merge approval under `Owner gates` in `WORKFLOW.md` is unchanged.
+
+## Integration suites
+
+Integration tests are split into two Vitest projects in `apps/backend/vitest.integration.config.mts`.
+`integration` runs files in parallel against one PostgreSQL container; `createMigratedTestDatabase`
+copies a template migrated once per run, while migration tests start from an empty database with
+`createTestDatabase`. `integration-serial` holds the files that also own a RabbitMQ broker, kill
+worker processes or write the machine-wide worker readiness file; they run one at a time, so they
+measure behaviour rather than runner load. `scripts/integration-serial-files.test.mjs` fails when a
+file that starts a RabbitMQ broker, forks a crash process or runs a worker is missing from that list.
+The default test and hook budgets in the same config only stop a stuck run: a test that needs more
+names its own budget, and a flaky test is fixed by its cause, never by raising a budget or re-running.
+
+## Suites outside CI
+
+These Playwright suites are deliberate manual proofs and do not run in CI:
+
+| Suite | Why it is manual | How to run |
+|---|---|---|
+| `playwright.editor.config.ts` | needs the real editor, API and isolated PostgreSQL from `pnpm editor:local` | [local development](local-development.md) |
+| `playwright.reading-proof.config.ts` | issue #328 screenshot evidence against a running Storybook; its stories and accessibility run in `ui` | `docs/evidence/issue-328/README.md` |
+| `playwright.identity.config.ts` | needs the Logto identity stand; run by `pnpm identity:proof:hardening` | [local development](local-development.md) |
+
+`scripts/playwright-specs-load.test.mjs` still loads every suite in `unit`, so a broken spec file
+fails CI even when the suite itself is manual.
 
 The host-process `pnpm smoke:fullstack` is intentionally not a per-pull-request job and not part of
 `CI Gate`; it runs nightly instead (see below). Run `pnpm check:full` locally when a change can
@@ -82,8 +129,9 @@ image only once. Release finalization receives only non-secret image identity ar
 current run.
 
 The executable workflow contract lives in `scripts/ci-workflow-contract.test.mjs` and runs through
-`pnpm test:tooling` and therefore `pnpm check`. It protects triggers, permissions, action pinning,
-commands, job dependencies and artifact retention from configuration drift, for both the pull-request
+`pnpm test:tooling` and therefore `pnpm check`. It protects triggers (including `merge_group`),
+permissions, action pinning in the workflow and the setup action, the one-job-per-`check:*`-stage
+mapping, job dependencies and artifact retention from configuration drift, for both the pull-request
 workflow and the nightly full-stack workflow.
 
 The Workshop artifact matrix has a separate executable contract in

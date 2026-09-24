@@ -24,10 +24,24 @@ export default defineConfig({
       {
         extends: true,
         test: {
+          name: "module",
           environment: "node",
           include: ["test/module/**/*.test.ts"],
           restoreMocks: true,
           setupFiles: ["./test/support/request-scope.ts"],
+          unstubEnvs: true,
+          unstubGlobals: true,
+        },
+      },
+      {
+        // Проверки, которые сами запускают настоящие движки браузеров (Chromium и WebKit): им нужны
+        // установленные браузеры, поэтому они идут рядом со Storybook, а не с модульными.
+        extends: true,
+        test: {
+          name: "browser-engines",
+          environment: "node",
+          include: ["test/browser-engines/**/*.test.ts"],
+          restoreMocks: true,
           unstubEnvs: true,
           unstubGlobals: true,
         },

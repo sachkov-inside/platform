@@ -49,7 +49,7 @@ production-исправление не добавляет таймеров ил�
 
 Playwright Chromium/WebKit проверяют состояния, мобильную и desktop геометрию,
 доступность, фокус, polling, timeout и callback в
-`apps/web/test/module/telegram-sign-in.test.ts`. В поставляемом Playwright WebKit
+`apps/web/test/browser-engines/telegram-sign-in.test.ts`. В поставляемом Playwright WebKit
 исходный paint-дефект не воспроизводился; эти тесты не заменяют нативный опыт выше.
 Проверка на iPhone владельца остаётся отдельной приёмкой #382.
 

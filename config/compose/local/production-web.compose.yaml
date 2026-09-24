@@ -1,4 +1,4 @@
-# Стенд с production-сборкой web: `pnpm local:stand --production-web` (ADR 0026).
+# Стенд с production-сборкой web: `pnpm local:stand --production-web` (ADR 0027).
 #
 # В режиме разработки Next.js не предзагружает ссылки и компилирует маршрут при первом открытии,
 # поэтому скорость переходов на обычном стенде ничего не говорит о production. Этот файл меняет

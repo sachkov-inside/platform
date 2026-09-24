@@ -78,7 +78,7 @@ const notFoundSchema = z.object({
  * Loads the current published Material as the given viewer, or as a guest without a token.
  *
  * The adapter itself never caches. The guest read is cached one level up, in
- * `public-material.public-cache.server.ts`; a read with a token stays uncached (ADR 0026).
+ * `public-material.public-cache.server.ts`; a read with a token stays uncached (ADR 0027).
  */
 export async function getMaterialReader(
   slug: string,

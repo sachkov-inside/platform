@@ -26,7 +26,7 @@ function markWebVital(metric: WebVitalMetric): void {
  * Замыкает измерение перехода: `instrumentation-client.ts` ставит отметку в момент нажатия, а здесь,
  * когда новый адрес уже отрисован, записывается длительность `inside:navigation`. Core Web Vitals
  * ложатся рядом отметками `inside:web-vital:*`; их читает набор проверок переходов. Всё остаётся в
- * User Timing браузера (ADR 0026).
+ * User Timing браузера (ADR 0027).
  */
 export function NavigationTiming() {
   const pathname = usePathname();

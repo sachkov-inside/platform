@@ -1,13 +1,12 @@
 import { fork, type ChildProcess } from 'node:child_process';
 import { execFileSync } from 'node:child_process';
-import { once } from 'node:events';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { GenericContainer, Wait, type StartedTestContainer } from 'testcontainers';
 import type { ChannelModel } from 'amqplib';
-import { afterAll, beforeAll, describe, expect, test } from 'vitest';
+import { afterAll, beforeAll, describe, expect, onTestFinished, test } from 'vitest';
 import { z } from 'zod';
 import fixtures from '../../../../docs/contracts/notifications-v1/fixtures.json' with { type: 'json' };
 import { brokerAdmin, queueConsumers, queueDepth, queueLimit } from './setup/broker.js';
@@ -79,18 +78,33 @@ function watchCrashWorker(child: ChildProcess) {
   let wake: (() => void) | undefined;
   let stderr = '';
   let departure: string | undefined;
+  let exit: { readonly code: number | null; readonly signal: NodeJS.Signals | null } | undefined;
   child.stderr?.on('data', chunk => { stderr += String(chunk); });
   child.on('message', message => {
     if (typeof message !== 'string') return;
     reached.add(message);
     wake?.();
   });
-  child.once('close', (code, signal) => {
-    departure = `closed (code ${String(code)}, signal ${String(signal)})`;
-    wake?.();
+  const closed = new Promise<void>(resolve => {
+    child.once('close', (code, signal) => {
+      departure = `closed (code ${String(code)}, signal ${String(signal)})`;
+      exit = { code, signal };
+      wake?.();
+      resolve();
+    });
   });
   const detail = () => stderr.trim() || 'no stderr output';
   return {
+    /**
+     * Смерть на барьере — шаг сценария. Ждём её по `close`, который приходит ровно один раз:
+     * `once(child, 'exit')` после уже случившегося выхода ждал бы вечно, и безымянный срок теста
+     * скрыл бы, что воркер ушёл сам. Возвращает, как именно процесс закончился.
+     */
+    async kill(): Promise<{ readonly signal: NodeJS.Signals | null; readonly description: string }> {
+      if (departure === undefined) child.kill('SIGKILL');
+      await closed;
+      return { signal: exit?.signal ?? null, description: `${String(departure)}: ${detail()}` };
+    },
     async reaches(awaited: CrashWorkerSignal, budgetMs: number): Promise<void> {
       await new Promise<void>((resolve, reject) => {
         const settle = () => {
@@ -181,14 +195,19 @@ describe('Notifications real PostgreSQL / RabbitMQ transport', () => {
     test(`SIGKILL ${phase}: restart retains one durable pending job`, async () => {
       const payload = event();
       const envelope = encodeNotification('billing', payload);
+      // Сценарий владеет своей базой: relay берёт самую старую неопубликованную строку, и строка
+      // упавшего соседа ушла бы вместо своей, повторив одно падение под чужим именем.
+      const scenario = await createMigratedTestDatabase();
+      onTestFinished(() => scenario.dispose());
       const producer = await connect('billing');
-      if (phase.includes('confirm')) await stageBillingNotification(database.prisma, payload);
+      if (phase.includes('confirm')) await stageBillingNotification(scenario.prisma, payload);
       else await publishNotification(producer, envelope);
       const child = fork(new URL('./fixtures/notification-crash-worker.ts', import.meta.url), [], {
         execArgv: ['--import', 'tsx'], stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
-        env: { ...process.env, CRASH_CONFIG: JSON.stringify({ ...config(phase.includes('confirm') ? 'billing' : 'notifications'), databaseUrl: database.url, phase }) },
+        env: { ...process.env, CRASH_CONFIG: JSON.stringify({ ...config(phase.includes('confirm') ? 'billing' : 'notifications'), databaseUrl: scenario.url, phase }) },
       });
       const worker = watchCrashWorker(child);
+      let death: Awaited<ReturnType<typeof worker.kill>> | undefined;
       try {
         // Запуск и проверяемое поведение ждут раздельно: первое зависит от машины, второе — нет.
         await worker.reaches(crashWorkerSignals.ready, crashWorkerStartBudgetMs);
@@ -207,7 +226,9 @@ describe('Notifications real PostgreSQL / RabbitMQ transport', () => {
           // Проверка живёт вне ожидания воркера: её провал должен называться своим именем.
           await eventually(async () => { expect(await queueDepth(admin, 'inside-test', lanes.billing.queue)).toBe(1); }, barrierBudgetMs);
         }
-      } finally { child.kill('SIGKILL'); await once(child, 'exit'); }
+      } finally { death = await worker.kill(); }
+      // Сценарий проверяет смерть от SIGKILL на барьере; самостоятельный выход — другой сценарий.
+      expect(death.signal, `crash worker must die by SIGKILL at the boundary, but ${death.description}`).toBe('SIGKILL');
       // Смерть воркера — это шаг сценария, а снятие его подписки — факт, который этот шаг
       // производит. Пока брокер её держит, очередь отдаёт сообщения мёртвому потребителю.
       await eventually(async () => {
@@ -215,24 +236,27 @@ describe('Notifications real PostgreSQL / RabbitMQ transport', () => {
           'broker still holds the killed worker subscription').toBe(0);
       }, brokerReapBudgetMs);
       if (phase.includes('confirm')) {
-        expect(await database.prisma.billingNotificationOutbox.findUniqueOrThrow({ where: { scope_messageId: { scope: 'billing', messageId: envelope.messageId } } })).toMatchObject({ publishedAt: null });
-        await assembleNotificationOutbox(database.prisma.billingNotificationOutbox, ['billing']).relay('billing', message => publishNotification(producer, message));
+        expect(await scenario.prisma.billingNotificationOutbox.findUniqueOrThrow({ where: { scope_messageId: { scope: 'billing', messageId: envelope.messageId } } })).toMatchObject({ publishedAt: null });
+        await assembleNotificationOutbox(scenario.prisma.billingNotificationOutbox, ['billing']).relay('billing', message => publishNotification(producer, message));
       }
-      const transport = assembleNotificationTransport(database.prisma, 100);
+      const transport = assembleNotificationTransport(scenario.prisma, 100);
       const consumer = await consumeNotificationLane(await connect('notifications'), 'billing', transport, 1);
-      await eventually(async () => {
-        expect(await database.prisma.notificationInbox.findUnique({ where: { scope_messageId: { scope: 'billing', messageId: envelope.messageId } } })).toMatchObject({ payload: envelope.payload, completedAt: null, checkpoint: {} });
-      }, barrierBudgetMs);
-      // Wait for both confirm-window copies to be consumed before moving to the next crash phase.
-      await eventually(async () => { expect(await queueDepth(admin, 'inside-test', lanes.billing.queue)).toBe(0); }, barrierBudgetMs);
-      await consumer.stop();
+      // Подписка восстановления снимается и при провале: оставшись, она разбирала бы очередь
+      // следующего сценария, и одно падение превращалось бы в каскад чужих.
+      try {
+        await eventually(async () => {
+          expect(await scenario.prisma.notificationInbox.findUnique({ where: { scope_messageId: { scope: 'billing', messageId: envelope.messageId } } })).toMatchObject({ payload: envelope.payload, completedAt: null, checkpoint: {} });
+        }, barrierBudgetMs);
+        // Wait for both confirm-window copies to be consumed before moving to the next crash phase.
+        await eventually(async () => { expect(await queueDepth(admin, 'inside-test', lanes.billing.queue)).toBe(0); }, barrierBudgetMs);
+      } finally { await consumer.stop(); }
       // Cancel acknowledgement precedes the quorum queue's observed consumer count on loaded runners.
       // Each crash scenario owns this cleanup barrier; the next scenario still requires zero consumers.
       await eventually(async () => {
         expect(await queueConsumers(admin, 'inside-test', lanes.billing.queue),
           'broker still holds the stopped recovery consumer').toBe(0);
       }, brokerReapBudgetMs);
-      expect(await database.prisma.notificationInbox.count({ where: { messageId: envelope.messageId } })).toBe(1);
+      expect(await scenario.prisma.notificationInbox.count({ where: { messageId: envelope.messageId } })).toBe(1);
     }, crashScenarioTimeoutMs);
   }
 

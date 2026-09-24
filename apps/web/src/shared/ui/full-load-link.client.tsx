@@ -12,7 +12,7 @@ type FullLoadLinkProps = Omit<ComponentProps<typeof Link>, "href" | "onNavigate"
  * Ссылка, переход по которой — полная загрузка документа, а не переход роутера. Нужна там, где
  * память браузера о посещённых страницах обязана быть отброшена: автор уходит из авторской части на
  * сайт и должен увидеть свою правку, а не страницу, которую браузер помнит с прошлой минуты
- * (ADR 0026).
+ * (ADR 0027).
  */
 export function FullLoadLink({ href, ...props }: FullLoadLinkProps) {
   return (

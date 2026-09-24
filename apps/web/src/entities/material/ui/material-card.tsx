@@ -31,7 +31,7 @@ export interface MaterialCardProps {
   readonly showAccessDetails?: boolean;
   /**
    * Доступность читателя ещё уточняется: строка программы нарисована из общих данных, а замок или
-   * отметка чтения встанут на своё место, когда придёт личная часть (ADR 0026).
+   * отметка чтения встанут на своё место, когда придёт личная часть (ADR 0027).
    */
   readonly accessPending?: boolean;
   readonly variant?: "compact" | "default" | "feed" | "row" | "series";

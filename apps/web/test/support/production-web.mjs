@@ -1,9 +1,11 @@
 /**
- * Поднимает production-сборку web для проверок переходов (#670): предзагрузка ссылок и кеш
- * маршрутов работают только в `next start`, поэтому скорость переходов меряется здесь, а не в dev.
+ * Поднимает production-сборку web для браузерных проверок: e2e с подставленным в браузере BFF и
+ * переходы (#670). Предзагрузка ссылок и кеш маршрутов работают только в `next start`, а dev
+ * компилирует маршрут при первом открытии и меряет машину, поэтому обе проверки идут здесь.
  *
  * Сборка требует неизменяемую идентичность выпуска рядом с приложением. Файл пишется на время
- * прогона и убирается при выходе; чужой файл не заменяется.
+ * прогона и убирается при выходе; чужой файл не заменяется. `PRODUCTION_WEB_SKIP_BUILD=1`
+ * запускает уже готовую сборку: так проверки одного прогона делят одну сборку.
  */
 import { spawn } from "node:child_process";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -12,15 +14,16 @@ import { fileURLToPath } from "node:url";
 
 const applicationDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const identityPath = resolve(applicationDirectory, "release-identity.json");
-const port = process.env.NAVIGATION_WEB_PORT ?? "3180";
-const backendPort = process.env.FAKE_BACKEND_PORT ?? "3190";
+const port = required("PRODUCTION_WEB_PORT");
+const backendBaseUrl = required("PRODUCTION_WEB_BACKEND_URL");
 const release = { release: "v1", sourceSha: "1".repeat(40) };
 const environment = {
   ...process.env,
-  BACKEND_BASE_URL: `http://127.0.0.1:${backendPort}`,
+  BACKEND_BASE_URL: backendBaseUrl,
+  // `instant-navigation.spec.ts` подделывает сессию этими значениями; e2e сессию не читает.
   LOGTO_APP_ID: "inside-web-navigation",
   LOGTO_APP_SECRET: "inside-web-navigation-secret",
-  LOGTO_AUDIENCE: `http://127.0.0.1:${backendPort}`,
+  LOGTO_AUDIENCE: backendBaseUrl,
   LOGTO_COOKIE_SECRET: "inside-navigation-logto-cookie-secret-key",
   LOGTO_ENDPOINT: "http://127.0.0.1:1",
   NODE_ENV: "production",
@@ -36,6 +39,12 @@ if (existsSync(identityPath) && readFileSync(identityPath, "utf8") !== identity)
 }
 rmSync(identityPath, { force: true });
 writeFileSync(identityPath, identity, { mode: 0o444 });
+
+function required(name) {
+  const value = process.env[name];
+  if (value === undefined || value === "") throw new Error(`${name} is required`);
+  return value;
+}
 
 let child;
 function cleanup() {
@@ -65,5 +74,5 @@ function run(args) {
   });
 }
 
-if (process.env.NAVIGATION_SKIP_BUILD !== "1") await run(["build"]);
+if (process.env.PRODUCTION_WEB_SKIP_BUILD !== "1") await run(["build"]);
 await run(["start", "--hostname", "127.0.0.1", "--port", port]);
