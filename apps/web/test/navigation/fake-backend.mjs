@@ -7,6 +7,7 @@
  * зависимости, чтобы проверить повтор после восстановления.
  */
 import { createServer } from "node:http";
+import { deflateSync } from "node:zlib";
 
 const port = Number(process.env.FAKE_BACKEND_PORT ?? "3190");
 const guideId = "11111111-1111-4111-8111-111111111111";
@@ -18,9 +19,18 @@ export const protectedBodyMarker = "ЗАКРЫТОЕ-ТЕЛО-УРОКА";
 /** Второй продукт написан для двух режимов прохождения: у его уроков личная часть есть всегда. */
 const modesGuideId = "11111111-1111-4111-8111-111111111112";
 const modesGuideSlug = "navigation-modes";
+/**
+ * Третий продукт с обложкой — для проверки LCP первого экрана (#692). Его нет ни на Главной, ни в
+ * других продуктах, поэтому обложка не добавляет запросов остальным проверкам.
+ */
+const coverGuideId = "11111111-1111-4111-8111-111111111113";
+const coverGuideSlug = "navigation-cover";
+const coverId = "77777777-7777-4777-8777-777777777701";
+const cover = { coverId, renditions: [{ height: 360, width: 640 }, { height: 720, width: 1280 }] };
 const guides = [
-  { hasModeVariants: false, id: guideId, name: "Проверочный продукт", slug: guideSlug },
-  { hasModeVariants: true, id: modesGuideId, name: "Продукт с режимами", slug: modesGuideSlug },
+  { cover: null, hasModeVariants: false, id: guideId, name: "Проверочный продукт", slug: guideSlug },
+  { cover: null, hasModeVariants: true, id: modesGuideId, name: "Продукт с режимами", slug: modesGuideSlug },
+  { cover, hasModeVariants: false, id: coverGuideId, name: "Продукт с обложкой", slug: coverGuideSlug },
 ];
 
 const lessons = [
@@ -127,7 +137,7 @@ function route(method, url, entitled) {
       hasNext: false,
       items: items.map((lesson) => projection(lesson, entitled)),
       kind: "series",
-      reference: { cover: null, hasModeVariants: guide.hasModeVariants, id: guide.id, introduction: { audience: "Тем, кто проверяет переходы.", outcome: "Переходы без чужих скелетов.", prerequisites: "Ничего.", scope: "Несколько уроков." }, name: guide.name, slug: guide.slug, summary: "Синтетический продукт для проверки мгновенных переходов." },
+      reference: { cover: guide.cover, hasModeVariants: guide.hasModeVariants, id: guide.id, introduction: { audience: "Тем, кто проверяет переходы.", outcome: "Переходы без чужих скелетов.", prerequisites: "Ничего.", scope: "Несколько уроков." }, name: guide.name, slug: guide.slug, summary: "Синтетический продукт для проверки мгновенных переходов." },
       relatedSeries: [],
       topics: [{ cover: null, id: topic.id, name: topic.name, slug: topic.slug }],
     });
@@ -170,7 +180,47 @@ function route(method, url, entitled) {
       nextCursor: null,
     });
   }
+  const delivery = /^\/content-covers\/([^/]+)\/(\d+)$/u.exec(path);
+  if (delivery !== null) {
+    const rendition = delivery[1] === coverId ? cover.renditions.find(({ width }) => String(width) === delivery[2]) : undefined;
+    return rendition === undefined ? json({ code: "cover_not_found", status: 404, title: "Cover not found", type: "about:blank" }, 404) : image(rendition);
+  }
   return undefined;
+}
+
+/** Однотонная PNG нужного размера: браузеру важны размер и то, что картинка настоящая. */
+function image({ height, width }) {
+  const crcTable = Array.from({ length: 256 }, (_, n) => {
+    let c = n;
+    for (let k = 0; k < 8; k += 1) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    return c >>> 0;
+  });
+  const crc = (buffer) => {
+    let c = 0xffffffff;
+    for (const byte of buffer) c = crcTable[(c ^ byte) & 0xff] ^ (c >>> 8);
+    return (c ^ 0xffffffff) >>> 0;
+  };
+  const chunk = (type, data) => {
+    const length = Buffer.alloc(4);
+    length.writeUInt32BE(data.length);
+    const typed = Buffer.concat([Buffer.from(type, "ascii"), data]);
+    const checksum = Buffer.alloc(4);
+    checksum.writeUInt32BE(crc(typed));
+    return Buffer.concat([length, typed, checksum]);
+  };
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(width, 0);
+  header.writeUInt32BE(height, 4);
+  header.set([8, 2, 0, 0, 0], 8);
+  const row = Buffer.concat([Buffer.from([0]), Buffer.alloc(width * 3, 0x5a)]);
+  const pixels = deflateSync(Buffer.concat(Array.from({ length: height }, () => row)));
+  const png = Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk("IHDR", header),
+    chunk("IDAT", pixels),
+    chunk("IEND", Buffer.alloc(0)),
+  ]);
+  return { contentType: "image/png", status: 200, value: png };
 }
 
 function json(value, status = 200) {
@@ -220,6 +270,11 @@ const server = createServer(async (request, response) => {
   if (state.delayMs > 0) await new Promise((resolve) => setTimeout(resolve, state.delayMs));
   if (result === undefined) {
     send(404, { code: "not_found", status: 404, title: "Not found", type: "about:blank" });
+    return;
+  }
+  if (result.contentType !== undefined) {
+    response.writeHead(result.status, { "cache-control": "public, max-age=31536000, immutable", "content-type": result.contentType });
+    response.end(result.value);
     return;
   }
   send(result.status, result.value);

@@ -268,6 +268,80 @@ test("подключённый Telegram не оставляет напомина
   ).toHaveCount(0);
 });
 
+test("возврат во вкладку не прячет продолжение обучения, пока вход перепроверяется", async ({
+  page,
+}) => {
+  await stubAccount(page);
+  // Первая проверка входа отвечает сразу, повторная ждёт, пока тест её не отпустит: всё время
+  // перепроверки на экране должно оставаться то, что уже известно.
+  let statusChecks = 0;
+  let releaseRecheck: (() => void) | undefined;
+  await page.route("**/auth/status", async (route) => {
+    statusChecks += 1;
+    if (statusChecks > 1) {
+      await new Promise<void>((release) => {
+        releaseRecheck = release;
+      });
+    }
+    await route.fulfill({
+      json: {
+        accountId: "00000000-0000-4000-8000-000000000701",
+        canManageMaterials: false,
+        state: "authenticated",
+      },
+    });
+  });
+  await page.route("**/api/personal-home", (route) =>
+    route.fulfill({
+      json: {
+        kind: "ready",
+        continuation: {
+          series: {
+            collection: {
+              count: 4,
+              cover: null,
+              id: "00000000-0000-4000-8000-000000000702",
+              name: "Инженерия ИИ",
+              previewItems: [],
+              slug: "ai-engineering",
+              summary: null,
+            },
+            read: 1,
+            total: 4,
+          },
+        },
+      },
+    }),
+  );
+
+  await page.goto("/account");
+  const continuation = page.getByRole("heading", { name: "Продолжить обучение" });
+  await expect(continuation).toBeVisible();
+  await page.evaluate(() => {
+    const record = window as Window & { learningContinuationLost?: boolean };
+    record.learningContinuationLost = false;
+    new MutationObserver(() => {
+      if (document.getElementById("account-learning") === null) {
+        record.learningContinuationLost = true;
+      }
+    }).observe(document.body, { childList: true, subtree: true });
+    window.dispatchEvent(new Event("focus"));
+  });
+
+  await expect.poll(() => releaseRecheck !== undefined).toBe(true);
+  const recheckAnswered = page.waitForResponse("**/auth/status");
+  releaseRecheck?.();
+  await recheckAnswered;
+
+  await expect(continuation).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => (window as Window & { learningContinuationLost?: boolean }).learningContinuationLost,
+    ),
+    "блок не пропадал, пока вход перепроверялся",
+  ).toBe(false);
+});
+
 test("список разделов на телефоне открывается и закрывается сам", async ({
   page,
 }, testInfo) => {

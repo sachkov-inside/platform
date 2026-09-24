@@ -129,6 +129,7 @@ function DefaultGuideProductView({
               cover={reference.cover ?? null}
               fallbackKind="playlist"
               fallbackSeed={reference.slug}
+              priority
             />
           </div>
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">

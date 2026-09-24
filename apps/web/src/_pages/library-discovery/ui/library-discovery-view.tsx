@@ -23,6 +23,7 @@ import { Button } from "@/shared/ui/button";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 import { RetryPageButton } from "@/shared/ui/retry-page-button.client";
 import { PublicSectionHeading } from "@/shared/ui/public-section-heading";
+import { StatusPanel } from "@/shared/ui/status-panel";
 import { guideProgrammeHref } from "@/shared/routing/subscription-route";
 import {
   collectionDiscoveryHref,
@@ -155,6 +156,7 @@ function DiscoveryHero({ result }: { readonly result: PublishedTopicResultResolv
             cover={result.reference.cover}
             fallbackKind="topic"
             fallbackSeed={result.reference.slug}
+            priority
             sizes="8rem"
           />
         ) : (
@@ -394,24 +396,13 @@ function DiscoveryStatus({
   readonly title: string;
 }) {
   return (
-    <section className="max-w-[48rem] pt-1 sm:pt-3" data-discovery-state={state}>
-      <div className="relative isolate overflow-clip rounded-2xl bg-secondary px-6 py-7 shadow-card sm:px-8 sm:py-9">
-        <span
-          aria-hidden="true"
-          className="reader-status-halo absolute -right-10 -top-16 size-48 rounded-full bg-accent/15"
-        />
-        <span className="relative grid size-12 place-items-center rounded-xl bg-background/80 text-accent [&_svg]:size-6">
-          {icon}
-        </span>
-        <h1 className="relative mt-5 max-w-[18ch] text-balance text-3xl font-semibold tracking-[-0.03em] sm:text-4xl">
-          {title}
-        </h1>
-        <p className="relative mt-4 max-w-[60ch] text-pretty leading-7 text-muted-foreground">
-          {message}
-        </p>
-        <div className="relative mt-7">{action}</div>
-      </div>
-    </section>
+    <StatusPanel
+      action={action}
+      icon={icon}
+      message={message}
+      state={{ "data-discovery-state": state }}
+      title={title}
+    />
   );
 }
 

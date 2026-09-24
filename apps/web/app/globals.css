@@ -7,6 +7,20 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/*
+ * Запасной шрифт на время загрузки Manrope: Arial с метриками Manrope. Значения посчитаны по
+ * латинскому файлу Manrope тем же расчётом, что у `adjustFontFallback` в `next/font`; с ними
+ * заголовки не меняют ширину и переносы, когда приходит настоящий шрифт.
+ */
+@font-face {
+  font-family: "Manrope Fallback";
+  src: local("Arial");
+  ascent-override: 106.45%;
+  descent-override: 29.96%;
+  line-gap-override: 0%;
+  size-adjust: 100.14%;
+}
+
 :root {
   --background: oklch(0.965 0.008 112);
   --foreground: oklch(0.205 0.014 129);
@@ -72,7 +86,7 @@
   --motion-duration-fast: 160ms;
   --motion-duration-shell: 240ms;
   --motion-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
-  --font-body: "Manrope Variable", ui-sans-serif, sans-serif;
+  --font-body: "Manrope Variable", "Manrope Fallback", ui-sans-serif, sans-serif;
   --font-utility: "JetBrains Mono Variable", ui-monospace, monospace;
   color-scheme: light;
 }

@@ -188,6 +188,23 @@ curl --fail --silent http://127.0.0.1:13001/health/ready
 curl --fail --silent http://127.0.0.1:13000/_health/ready
 ```
 
+### Журнал web: метрики посещений и сбои
+
+`web` пишет в свой журнал строки JSON с полем `event`: `web-vital` — Core Web Vitals настоящих
+посещений (метрика, значение, оценка и путь страницы без параметров), `client-render-error` —
+ошибка, пойманная границей ошибок в браузере, `request-error` — серверный сбой отрисовки или
+обработчика. У `client-render-error` и `request-error` общий `digest`: это код обращения, который
+видит человек, и по нему серверная запись находится рядом с браузерной. Прочитать события:
+
+```bash
+docker compose -f compose.production.yaml logs web --since 1h | grep '"event":"request-error"'
+```
+
+Хранилища метрик и трекера ошибок у площадки пока нет: сводные p75 и оповещения — задача
+[#707](https://github.com/sachkov-inside/platform/issues/707). Обработчики отчётов проверяют
+источник, схему и размер тела, но частоту пока не ограничивают — задача
+[#708](https://github.com/sachkov-inside/platform/issues/708).
+
 The system Caddy imports `infra/production/runtime/platform.caddy`. It publishes only:
 
 - web at `inside.sachkov.dev`;
