@@ -36,11 +36,11 @@ export function assembleContentCoverMaintenance(dependencies: {
           const initial = await transaction.contentCover.findUnique({ where: candidate });
           if (initial === null) return null;
           const owner = initial.materialId !== null
-            ? { kind: "material", id: initial.materialId }
+            ? { kind: "material" as const, id: initial.materialId }
             : initial.topicId !== null
-              ? { kind: "topic", id: initial.topicId }
+              ? { kind: "topic" as const, id: initial.topicId }
               : initial.seriesId !== null
-                ? { kind: "series", id: initial.seriesId }
+                ? { kind: "series" as const, id: initial.seriesId }
                 : null;
           // content_covers_exactly_one_owner makes an ownerless cover unreachable.
           if (owner === null) return null;

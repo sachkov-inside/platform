@@ -58,9 +58,9 @@ not dependency wiring.
 - An operation that changes another Module's state passes its own transaction to that Module's
   function, as Save does with `requestVideoDeletion` and `markUnreferencedMaterialAssets`. The
   callee never opens a transaction of its own: a rollback must undo the whole operation, and a
-  second pooled connection held under locks can exhaust the pool.
-- Take every transaction advisory lock through `src/infrastructure/prisma/transaction-locks.ts`;
-  operations exclude each other only when they call the same function there.
+  second pooled connection held under locks can exhaust the pool. For that handoff alone the
+  caller's capability-scoped type lists the callee's delegates, as `MaterialsPrisma` lists `video`
+  and `materialAsset`; the caller's own code reaches them only through that function.
 - Keep feature-specific data access with its slice. Extract a named private persistence operation
   only for multiple consumers or one cohesive query that becomes a deeper interface.
 - Convert rows to domain values before crossing `domain/`, public contracts, or `index.ts`.
