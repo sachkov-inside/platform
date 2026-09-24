@@ -201,7 +201,9 @@ docker compose -f compose.production.yaml logs web --since 1h | grep '"event":"r
 ```
 
 Хранилища метрик и трекера ошибок у площадки пока нет: сводные p75 и оповещения — задача
-[#707](https://github.com/sachkov-inside/platform/issues/707).
+[#707](https://github.com/sachkov-inside/platform/issues/707). Обработчики отчётов проверяют
+источник, схему и размер тела, но частоту пока не ограничивают — задача
+[#708](https://github.com/sachkov-inside/platform/issues/708).
 
 The system Caddy imports `infra/production/runtime/platform.caddy`. It publishes only:
 
