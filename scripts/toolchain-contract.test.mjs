@@ -350,6 +350,8 @@ describe("supported toolchain contract", () => {
     const ecosystems = dependabot.match(/^ {2}- package-ecosystem: /gmu)?.length ?? 0;
     assert.ok(ecosystems > 0);
     assert.equal(dependabot.match(/^ {4}rebase-strategy: disabled$/gmu)?.length, ecosystems);
+    // Pins inside composite actions age like workflow pins; Dependabot must visit them too.
+    assert.match(dependabot, /^ {6}- \/\.github\/actions\/\*$/mu);
   });
 
   it("schema-qualifies Materials tables in the Compose smoke query", () => {
