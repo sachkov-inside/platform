@@ -97,7 +97,7 @@ export function GuideProgrammeView({
   return learning === undefined ? programme : <SeriesLearningProvider learning={learning}>{programme}</SeriesLearningProvider>;
 }
 
-/** Программа на общих данных, пока личная часть идёт (ADR 0026). */
+/** Программа на общих данных, пока личная часть идёт (ADR 0027). */
 export function PendingSeries({ artifacts, result }: {
   readonly artifacts: ReaderGuideArtifactsResult;
   readonly result: ResolvedSeriesResult;

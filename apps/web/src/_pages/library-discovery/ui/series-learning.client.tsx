@@ -78,7 +78,7 @@ function AccountSeriesLearning({ accountId, children, resolved, slug }: {
 }
 
 /**
- * Программа на общих данных, пока личная часть идёт (ADR 0026). Вошёл ли человек, браузер уже
+ * Программа на общих данных, пока личная часть идёт (ADR 0027). Вошёл ли человек, браузер уже
  * знает, поэтому место под прогресс занято заранее и шапка не растёт, когда он приходит.
  */
 export function PendingSeriesLearning({ children }: { readonly children: ReactNode }) {
