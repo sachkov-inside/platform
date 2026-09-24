@@ -6,22 +6,21 @@ import {
   classifyEntryRoute,
   createEntryRateLimiter,
   ENTRY_RATE_WINDOW_SECONDS,
-  entryClientAddress,
+  entryClient,
   entryRequestsPerWindow,
   entryRoutePaths,
   limitEntryRequest,
-} from "@/shared/http/entry-rate-limit";
+  type EntryRateLimiter,
+} from "@/_app/entry-rate-limit";
 
 import { config as proxyConfig, proxy } from "../../proxy";
 
 const origin = "https://inside.example.test";
 const client = "203.0.113.7";
+const purchase = "/api/account/billing/purchase";
 
-function request(path: string, init: { method?: string; forwardedFor?: string } = {}): Request {
-  return new Request(`${origin}${path}`, {
-    method: init.method ?? "POST",
-    headers: init.forwardedFor === undefined ? {} : { "x-forwarded-for": init.forwardedFor },
-  });
+function request(path: string, forwardedFor: string, method = "POST"): Request {
+  return new Request(`${origin}${path}`, { method, headers: { "x-forwarded-for": forwardedFor } });
 }
 
 function clock(start = 1_000_000) {
@@ -34,23 +33,29 @@ function clock(start = 1_000_000) {
   };
 }
 
-function exhaust(limiter: ReturnType<typeof createEntryRateLimiter>, path: string, address = client) {
-  const outcomes = [];
-  for (let attempt = 0; attempt <= entryRequestsPerWindow.payment; attempt += 1) {
-    outcomes.push(limitEntryRequest(limiter, request(path, { forwardedFor: address }), "production"));
-  }
-  return outcomes;
+/** Отправляет на маршрут команды оплаты ровно на один запрос больше её предела. */
+function overrunBillingCommand(limiter: EntryRateLimiter, path: string, address = client) {
+  return Array.from({ length: entryRequestsPerWindow["billing-command"] + 1 }, () =>
+    limitEntryRequest(limiter, request(path, address), "production"));
+}
+
+/** Сравнивает matcher с перечнем ограничителя; пустой список — совпадение. */
+function matcherDrift(matcher: readonly string[]): readonly string[] {
+  const expected = new Set<string>(entryRoutePaths);
+  const actual = new Set(matcher);
+  return [
+    ...[...expected].filter((path) => !actual.has(path)).map((path) => `missing ${path}`),
+    ...[...actual].filter((path) => !expected.has(path)).map((path) => `unexpected ${path}`),
+  ];
 }
 
 describe("entry rate limit", () => {
   it("answers 429 with Retry-After once one address exceeds its window", async () => {
     const time = clock();
     const limiter = createEntryRateLimiter(time.now);
-    const outcomes = exhaust(limiter, "/api/account/billing/purchase");
+    const outcomes = overrunBillingCommand(limiter, purchase);
 
-    expect(outcomes.slice(0, entryRequestsPerWindow.payment)).toEqual(
-      Array.from({ length: entryRequestsPerWindow.payment }, () => undefined),
-    );
+    expect(outcomes.slice(0, -1).every((outcome) => outcome === undefined)).toBe(true);
     const limited = outcomes.at(-1);
     expect(limited?.status).toBe(429);
     expect(limited?.headers.get("retry-after")).toBe(String(ENTRY_RATE_WINDOW_SECONDS));
@@ -58,83 +63,77 @@ describe("entry rate limit", () => {
     expect(await limited?.text()).toContain("Слишком много запросов");
 
     time.advanceSeconds(ENTRY_RATE_WINDOW_SECONDS - 15);
-    const stillLimited = limitEntryRequest(
-      limiter,
-      request("/api/account/billing/purchase", { forwardedFor: client }),
-      "production",
-    );
-    expect(stillLimited?.headers.get("retry-after")).toBe("15");
+    expect(limitEntryRequest(limiter, request(purchase, client), "production")?.headers.get("retry-after"))
+      .toBe("15");
 
     time.advanceSeconds(15);
-    expect(
-      limitEntryRequest(limiter, request("/api/account/billing/purchase", { forwardedFor: client }), "production"),
-    ).toBeUndefined();
+    expect(limitEntryRequest(limiter, request(purchase, client), "production")).toBeUndefined();
   });
 
   it("counts each address and each route kind separately", () => {
     const limiter = createEntryRateLimiter(clock().now);
-    exhaust(limiter, "/api/account/billing/contact/start");
+    overrunBillingCommand(limiter, "/api/account/billing/contact/start");
 
-    expect(
-      limitEntryRequest(limiter, request("/api/account/billing/purchase", { forwardedFor: client }), "production")
-        ?.status,
-    ).toBe(429);
-    expect(
-      limitEntryRequest(
-        limiter,
-        request("/api/account/billing/purchase", { forwardedFor: "198.51.100.4" }),
-        "production",
-      ),
-    ).toBeUndefined();
-    expect(limitEntryRequest(limiter, request("/auth/sign-in", { forwardedFor: client }), "production"))
-      .toBeUndefined();
+    expect(limitEntryRequest(limiter, request(purchase, client), "production")?.status).toBe(429);
+    expect(limitEntryRequest(limiter, request(purchase, "198.51.100.4"), "production")).toBeUndefined();
+    expect(limitEntryRequest(limiter, request("/auth/sign-in", client), "production")).toBeUndefined();
+  });
+
+  it("counts one IPv6 /64 as one client", () => {
+    const limiter = createEntryRateLimiter(clock().now);
+    const outcomes = Array.from({ length: entryRequestsPerWindow["billing-command"] + 1 }, (_, index) =>
+      limitEntryRequest(limiter, request(purchase, `2001:db8:0:1::${(index + 1).toString(16)}`), "production"));
+
+    expect(outcomes.at(-1)?.status).toBe(429);
+    expect(limitEntryRequest(limiter, request(purchase, "2001:db8:0:2::1"), "production")).toBeUndefined();
   });
 
   it("keys on the first forwarded address and pools malformed values", () => {
-    expect(entryClientAddress(new Headers({ "x-forwarded-for": "203.0.113.7, 10.0.0.2" }))).toBe(client);
-    expect(entryClientAddress(new Headers({ "x-forwarded-for": "2001:DB8::1" }))).toBe("2001:db8::1");
-    expect(entryClientAddress(new Headers({ "x-forwarded-for": "not-an-address" }))).toBe("unidentified");
-    expect(entryClientAddress(new Headers())).toBe("unidentified");
+    const key = (value?: string) =>
+      entryClient(new Headers(value === undefined ? {} : { "x-forwarded-for": value })).key;
+
+    expect(key("203.0.113.7, 10.0.0.2")).toBe(client);
+    expect(key("::ffff:203.0.113.7")).toBe(client);
+    expect(key("2001:DB8:0:1:aa:bb:cc:dd")).toBe("2001:db8:0:1::/64");
+    expect(key("2001:db8::1")).toBe("2001:db8:0:0::/64");
+    expect(key("not-an-address")).toBe("unidentified");
+    expect(key()).toBe("unidentified");
   });
 
   it("leaves loopback, non-production and unlisted requests alone", () => {
     const limiter = createEntryRateLimiter(clock().now);
 
     for (const loopback of ["127.0.0.1", "::1", "::ffff:127.0.0.1"]) {
-      expect(exhaust(limiter, "/api/account/billing/purchase", loopback).every((outcome) => outcome === undefined))
+      expect(overrunBillingCommand(limiter, purchase, loopback).every((outcome) => outcome === undefined))
         .toBe(true);
     }
-    for (let attempt = 0; attempt <= entryRequestsPerWindow.payment; attempt += 1) {
-      expect(
-        limitEntryRequest(
-          limiter,
-          request("/api/account/billing/purchase", { forwardedFor: client }),
-          "development",
-        ),
-      ).toBeUndefined();
+    for (let attempt = 0; attempt <= entryRequestsPerWindow["billing-command"]; attempt += 1) {
+      expect(limitEntryRequest(limiter, request(purchase, client), "development")).toBeUndefined();
     }
-    expect(classifyEntryRoute("GET", "/api/account/billing/purchase")).toBeUndefined();
+    expect(classifyEntryRoute("GET", purchase)).toBeUndefined();
+    expect(classifyEntryRoute("POST", "/api/account/billing/subscription/cancel")).toBeUndefined();
     expect(classifyEntryRoute("POST", "/callback")).toBeUndefined();
     expect(classifyEntryRoute("GET", "/callback")).toBe("sign-in");
     expect(classifyEntryRoute("HEAD", "/communications/visit")).toBe("public-link");
+    expect(classifyEntryRoute("POST", "/api/web-vitals")).toBe("client-report");
   });
 
   it("evicts the oldest window once the table is full", () => {
-    const time = clock();
-    const limiter = createEntryRateLimiter(time.now);
-    exhaust(limiter, "/api/account/billing/purchase");
+    const limiter = createEntryRateLimiter(clock().now);
+    overrunBillingCommand(limiter, purchase);
 
     for (let index = 0; index < 10_000; index += 1) {
       limiter.take("public-link", ["198.51", String(Math.floor(index / 256)), String(index % 256)].join("."));
     }
     // Самое старое окно вытеснено первым: счёт для исходного адреса начался заново.
-    expect(
-      limitEntryRequest(limiter, request("/api/account/billing/purchase", { forwardedFor: client }), "production"),
-    ).toBeUndefined();
+    expect(limitEntryRequest(limiter, request(purchase, client), "production")).toBeUndefined();
   });
 
   it("matches exactly the routes the limiter classifies", () => {
-    expect([...proxyConfig.matcher].sort()).toEqual([...entryRoutePaths].sort());
+    expect(matcherDrift(proxyConfig.matcher)).toEqual([]);
+    expect(matcherDrift(proxyConfig.matcher.filter((path) => path !== "/callback")))
+      .toEqual(["missing /callback"]);
+    expect(matcherDrift([...proxyConfig.matcher, "/api/account"])).toEqual(["unexpected /api/account"]);
     for (const path of entryRoutePaths) {
       const kinds = ["GET", "HEAD", "POST"].map((method) => classifyEntryRoute(method, path));
       expect(kinds.some((kind) => kind !== undefined), path).toBe(true);

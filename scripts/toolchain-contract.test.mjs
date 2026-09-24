@@ -25,12 +25,7 @@ describe("supported toolchain contract", () => {
           "mu",
         ),
       );
-      // Тег читает человек, digest фиксирует базу: перевыпущенный тег не меняет следующий выпуск.
-      const nodeBases = dockerfile.match(/^FROM node:\S+/gmu) ?? [];
-      assert.ok(nodeBases.length > 1, `${path} must build its production stage from Node`);
-      for (const base of nodeBases) {
-        assert.match(base, /^FROM node:[^\s@]+@sha256:[a-f0-9]{64}$/u, `${path}: ${base}`);
-      }
+      assertNodeBasesPinnedByDigest(path, dockerfile);
       assert.match(
         dockerfile,
         new RegExp(`corepack install --global pnpm@${escapeRegExp(pnpmVersion)}(?:\\s|$)`, "u"),
@@ -145,12 +140,18 @@ describe("supported toolchain contract", () => {
     assert.equal(webPackage.devDependencies["openapi-typescript"], undefined);
     assert.equal(webPackage.dependencies["openapi-fetch"], undefined);
     // Только security overrides из docs/runbooks/dependency-updates.md; новый требует той же записи.
-    const overrides = read("pnpm-workspace.yaml").match(/^overrides:\n((?:(?: {2}.*)?\n)*)/mu);
-    assert.ok(overrides, "pnpm-workspace.yaml must keep the documented security overrides");
-    assert.deepEqual(
-      [...overrides[1].matchAll(/^ {2}([^#\s:][^:]*):/gmu)].map((match) => match[1]),
-      ["fastify", "mysql2", "deepmerge-ts"],
+    assert.deepEqual(overrideNames(read("pnpm-workspace.yaml")), documentedSecurityOverrides);
+  });
+
+  it("rejects a Node base pinned only by tag and an undocumented override", () => {
+    const dockerfile = read("apps/web/Dockerfile");
+    assert.throws(
+      () => assertNodeBasesPinnedByDigest("apps/web/Dockerfile", dockerfile.replace(/@sha256:[a-f0-9]{64} AS web-production/u, " AS web-production")),
+      /apps\/web\/Dockerfile: FROM node:/u,
     );
+    const workspace = read("pnpm-workspace.yaml");
+    assert.notDeepEqual(overrideNames(`${workspace}  left-pad: 1.3.0\n`), documentedSecurityOverrides);
+    assert.deepEqual(overrideNames(workspace.replace(/^overrides:[\s\S]*$/mu, "")), []);
   });
 
   it("uses explicit container version tags", () => {
@@ -388,6 +389,22 @@ describe("supported toolchain contract", () => {
     assert.doesNotMatch(read("package.json"), /compose:dev|--watch/u);
   });
 });
+
+const documentedSecurityOverrides = ["fastify", "mysql2", "deepmerge-ts"];
+
+/** Тег читает человек, digest фиксирует базу: перевыпущенный тег не меняет следующий выпуск. */
+function assertNodeBasesPinnedByDigest(path, dockerfile) {
+  const nodeBases = dockerfile.match(/^FROM node:\S+/gmu) ?? [];
+  assert.ok(nodeBases.length > 1, `${path} must build its production stage from Node`);
+  for (const base of nodeBases) {
+    assert.match(base, /^FROM node:[^\s@]+@sha256:[a-f0-9]{64}$/u, `${path}: ${base}`);
+  }
+}
+
+function overrideNames(workspace) {
+  const overrides = workspace.match(/^overrides:\n((?:(?: {2}.*)?\n)*)/mu);
+  return overrides === null ? [] : [...overrides[1].matchAll(/^ {2}([^#\s:][^:]*):/gmu)].map((match) => match[1]);
+}
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");

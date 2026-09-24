@@ -29,6 +29,7 @@ const runtime = {
   releaseRunbook: read("docs/runbooks/production-release.md"),
   caddy: read("infra/production/runtime/platform.caddy"),
   maintenanceCaddy: read("infra/production/deploy/maintenance.caddy"),
+  hostCaddy: read("infra/production/host/Caddyfile"),
   compose: read("compose.production.yaml"),
   composeEnvironment: read("config/compose/production/compose.env.example"),
   productionTemplates,
@@ -174,6 +175,15 @@ describe("production runtime architecture contract", () => {
     }
   });
 
+  it("rejects an edge that trusts a client-supplied X-Forwarded-For", () => {
+    for (const key of ["caddy", "hostCaddy"]) {
+      assert.throws(
+        () => assertRuntimeContract({ ...runtime, [key]: `${runtime[key]}\n# trusted_proxies static private_ranges\n` }),
+        /must not trust a client-supplied X-Forwarded-For/u,
+      );
+    }
+  });
+
   it("keeps HSTS on the application and the maintenance page", () => {
     for (const key of ["caddy", "maintenanceCaddy"]) {
       assert.throws(
@@ -255,16 +265,19 @@ function assertRuntimeContract(files) {
   }
   assert.equal(files.compose.match(/^ {4}<<: \*backend-runtime$/gmu)?.length, 8);
   const web = files.compose.split("\n  web:\n")[1]?.split("\n\nnetworks:\n")[0] ?? "";
-  for (const [block, name] of [[web, "web"], [broker, "broker"]]) {
-    for (const setting of ["cap_drop: [ALL]", "mem_limit: ", "pids_limit: ", "security_opt: [no-new-privileges:true]"]) {
-      if (!block.includes(`\n    ${setting}`)) {
-        throw new Error(`${name} must drop capabilities and bound resources: ${setting}`);
-      }
+  // Брокер переживает выпуски: `deploy-release` пересоздал бы его при любой правке этого блока.
+  for (const setting of ["cap_drop: [ALL]", "mem_limit: ", "pids_limit: ", "security_opt: [no-new-privileges:true]"]) {
+    if (!web.includes(`\n    ${setting}`)) {
+      throw new Error(`web must drop capabilities and bound resources: ${setting}`);
     }
   }
-  for (const [name, caddy] of [["platform.caddy", files.caddy], ["maintenance.caddy", files.maintenanceCaddy]]) {
-    if (!/^\theader Strict-Transport-Security "max-age=31536000; includeSubDomains"$/mu.test(caddy)) {
+  for (const [name, caddy] of [["platform.caddy", files.caddy], ["maintenance.caddy", files.maintenanceCaddy], ["host Caddyfile", files.hostCaddy]]) {
+    if (name !== "host Caddyfile" && !/^\theader Strict-Transport-Security "max-age=31536000; includeSubDomains"$/mu.test(caddy)) {
       throw new Error(`${name} must send HSTS`);
+    }
+    // Web считает запросы по X-Forwarded-For только потому, что Caddy не доверяет входящему заголовку.
+    if (/trusted_proxies|client_ip_headers/u.test(caddy)) {
+      throw new Error(`${name} must not trust a client-supplied X-Forwarded-For`);
     }
   }
   for (const worker of ["billing-worker", "notifications-worker"]) {

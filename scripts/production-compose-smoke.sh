@@ -653,17 +653,18 @@ if [[ "$home_policy" != *"frame-ancestors 'none'"* || "$home_policy" == *127.0.0
 fi
 # The sign-in entry answers 429 after its per-address budget. Caddy replaces the forged
 # X-Forwarded-For, so rotating it does not reset the count. Cross-origin POSTs stop at 403 and
-# write nothing.
+# write nothing. The budget is entryRequestsPerWindow["sign-in"] in apps/web/src/_app/entry-rate-limit.ts.
+sign_in_budget=60
 sign_in_statuses=""
-for attempt in $(seq 1 31); do
+for attempt in $(seq 1 $((sign_in_budget + 1))); do
   sign_in_statuses+="$(curl --cacert "$runtime_config_dir/caddy-root.crt" --noproxy '*' \
     --resolve "inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" --silent \
     --request POST --header "X-Forwarded-For: 198.51.100.${attempt}" \
     --output /dev/null --write-out '%{http_code} ' \
     "https://inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}/auth/sign-in")"
 done
-if [[ "$sign_in_statuses" != "$(printf '403 %.0s' $(seq 1 30))429 " ]]; then
-  echo "Sign-in rate limit did not engage after 30 requests: $sign_in_statuses" >&2
+if [[ "$sign_in_statuses" != "$(printf '403 %.0s' $(seq 1 "$sign_in_budget"))429 " ]]; then
+  echo "Sign-in rate limit did not engage after $sign_in_budget requests: $sign_in_statuses" >&2
   exit 1
 fi
 # Public Next not-found pages carry HTML; integration 404 responses remain empty and fail closed.

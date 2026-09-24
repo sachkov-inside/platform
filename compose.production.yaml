@@ -44,9 +44,7 @@ services:
       timeout: 10s
       retries: 12
       start_period: 30s
-    cap_drop: [ALL]
     mem_limit: 768m
-    pids_limit: 512
     networks: [broker]
     restart: unless-stopped
     security_opt: [no-new-privileges:true]
