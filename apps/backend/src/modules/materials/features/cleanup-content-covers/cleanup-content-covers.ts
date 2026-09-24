@@ -1,5 +1,5 @@
 import type { ObjectStorage } from "../../../../infrastructure/object-storage/index.js";
-import { Prisma, type MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import { lockContentCoverOwner, type MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 
 const CLEANUP_CLAIM = "cleanup_claimed";
 const CLEANUP_BATCH_SIZE = 100;
@@ -36,13 +36,15 @@ export function assembleContentCoverMaintenance(dependencies: {
           const initial = await transaction.contentCover.findUnique({ where: candidate });
           if (initial === null) return null;
           const owner = initial.materialId !== null
-            ? { kind: "material", id: initial.materialId }
+            ? { kind: "material" as const, id: initial.materialId }
             : initial.topicId !== null
-              ? { kind: "topic", id: initial.topicId }
-              : { kind: "series", id: initial.seriesId };
-          await transaction.$executeRaw(Prisma.sql`
-            select pg_advisory_xact_lock(hashtextextended(${`${owner.kind}:${owner.id}`}, 0))
-          `);
+              ? { kind: "topic" as const, id: initial.topicId }
+              : initial.seriesId !== null
+                ? { kind: "series" as const, id: initial.seriesId }
+                : null;
+          // content_covers_exactly_one_owner makes an ownerless cover unreachable.
+          if (owner === null) return null;
+          await lockContentCoverOwner(transaction, owner);
           const cover = await transaction.contentCover.findUnique({
             where: candidate,
             include: { renditions: true },

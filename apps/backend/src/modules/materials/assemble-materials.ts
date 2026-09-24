@@ -33,7 +33,7 @@ export function assembleMaterials(dependencies: {
   readonly contentAccess?: ContentAccess;
   readonly materialAssets?: Pick<
     MaterialAssets,
-    "inspectReferences" | "loadPresentations" | "markUnreferenced"
+    "inspectReferences" | "loadPresentations"
   >;
   readonly workshopMaterialProtection?: WorkshopMaterialProtection;
   readonly guideAccessHolders?: GuideAccessHolders;

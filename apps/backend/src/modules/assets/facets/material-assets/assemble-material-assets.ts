@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { basename } from "node:path";
 import { z } from "zod";
 
-import { Prisma, type AssetsPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import { lockMaterialReferenceChanges, type AssetsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { ObjectStorage } from "../../../../infrastructure/object-storage/index.js";
 import { processMaterialAssetBytes } from "./process-material-asset-bytes.js";
 import type {
@@ -338,47 +338,6 @@ export function assembleMaterialAssets(dependencies: {
       });
     },
 
-    async markUnreferenced(input) {
-      return materialAssetQuery(async () => {
-        const referencedAssetIds = [...new Set(input.referencedAssetIds)];
-        if (
-          !uuidSchema.safeParse(input.materialId).success ||
-          referencedAssetIds.some((assetId) => !uuidSchema.safeParse(assetId).success) ||
-          Number.isNaN(input.orphanedAt.getTime())
-        ) {
-          throw new TypeError("Invalid MaterialAsset reference boundary");
-        }
-        await prisma.$transaction(async (transaction) => {
-          await transaction.materialAsset.updateMany({
-            data: {
-              currentlyReferenced: false,
-              orphanedAt: input.orphanedAt,
-              updatedAt: input.orphanedAt,
-            },
-            where: {
-              currentlyReferenced: true,
-              materialId: input.materialId,
-              state: "ready",
-              ...(referencedAssetIds.length === 0
-                ? {}
-                : { id: { notIn: referencedAssetIds } }),
-            },
-          });
-          if (referencedAssetIds.length > 0) {
-            await transaction.materialAsset.updateMany({
-              data: { currentlyReferenced: true },
-              where: {
-                currentlyReferenced: false,
-                id: { in: referencedAssetIds },
-                materialId: input.materialId,
-                state: "ready",
-              },
-            });
-          }
-        });
-      });
-    },
-
     async loadAccessFacts(assetIds) {
       return materialAssetQuery(async () => {
         if (assetIds.length === 0) return [];
@@ -516,9 +475,7 @@ export function assembleMaterialAssets(dependencies: {
               asset.orphanedAt > cutoff ||
               asset.updatedAt > cutoff
             ) return null;
-            await transaction.$executeRaw(Prisma.sql`
-              select pg_advisory_xact_lock(hashtextextended(${asset.materialId}, 0))
-            `);
+            await lockMaterialReferenceChanges(transaction, [asset.materialId]);
             if (
               asset.state === "ready" &&
               await input.isReferenced({
