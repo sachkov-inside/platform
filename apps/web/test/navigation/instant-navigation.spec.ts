@@ -588,3 +588,26 @@ test("смена режима прохождения сбрасывает стр
   await expect(step("own")).toBeVisible();
   await expect(step("example")).toHaveCount(0);
 });
+
+test("обложка первого экрана продукта грузится сразу и даёт LCP в пределах «хорошо»", async ({ page }) => {
+  await page.goto("/guides/navigation-cover");
+
+  const cover = page.locator("[data-product-part='hero'] img");
+  await expect(cover).toHaveAttribute("fetchpriority", "high");
+  await expect(cover).toHaveAttribute("loading", "eager");
+  // Факт, которого ждёт проверка, — картинка обложки действительно отрисована.
+  await expect.poll(() => cover.evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0)).toBe(true);
+
+  const lcp = await page.evaluate(() => new Promise<{ readonly heroCover: boolean; readonly startTime: number }>((resolve) => {
+    new PerformanceObserver((list, observer) => {
+      const entry = list.getEntries().at(-1);
+      if (entry === undefined) return;
+      observer.disconnect();
+      const element = "element" in entry && entry.element instanceof Element ? entry.element : null;
+      resolve({ heroCover: element?.tagName === "IMG" && element.closest("[data-product-part='hero']") !== null, startTime: entry.startTime });
+    }).observe({ buffered: true, type: "largest-contentful-paint" });
+  }));
+  expect(lcp.heroCover, "крупнейший элемент первого экрана — обложка продукта").toBe(true);
+  // Порог «хорошо» у LCP — 2,5 секунды.
+  expect(lcp.startTime).toBeLessThan(2_500);
+});

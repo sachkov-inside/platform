@@ -26,6 +26,7 @@ export function ContentCoverImage({
   cover,
   fallbackKind = "material",
   fallbackSeed = alt,
+  priority = false,
   sizes = "(min-width: 768px) 28rem, 100vw",
 }: {
   readonly alt: string;
@@ -33,6 +34,11 @@ export function ContentCoverImage({
   readonly cover: ContentCover | null;
   readonly fallbackKind?: ContentCoverFallbackKind;
   readonly fallbackSeed?: string;
+  /**
+   * Обложка первого экрана — вероятный элемент LCP: она грузится сразу и раньше скриптов.
+   * Остальные ждут, пока до них дойдёт прокрутка.
+   */
+  readonly priority?: boolean;
   readonly sizes?: string;
 }) {
   const [failedCoverId, setFailedCoverId] = useState<string | null>(null);
@@ -80,8 +86,9 @@ export function ContentCoverImage({
           alt={alt}
           className="absolute inset-0 size-full object-cover object-center"
           decoding="async"
+          fetchPriority={priority ? "high" : undefined}
           height={selected.height}
-          loading="lazy"
+          loading={priority ? "eager" : "lazy"}
           onError={() => {
             setFailedCoverId(cover.coverId);
           }}

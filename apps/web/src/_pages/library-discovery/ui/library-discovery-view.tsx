@@ -156,6 +156,7 @@ function DiscoveryHero({ result }: { readonly result: PublishedTopicResultResolv
             cover={result.reference.cover}
             fallbackKind="topic"
             fallbackSeed={result.reference.slug}
+            priority
             sizes="8rem"
           />
         ) : (
