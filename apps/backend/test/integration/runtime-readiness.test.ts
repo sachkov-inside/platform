@@ -23,6 +23,7 @@ describe("production runtime readiness", () => {
   const databases: TestDatabase[] = [];
 
   afterEach(async () => {
+    vi.restoreAllMocks();
     await Promise.all(databases.splice(0).map((database) => database.dispose()));
   });
 
