@@ -1,11 +1,11 @@
 # Dependency update policy
 
 Platform tracks the latest supported production-stable toolchain, not Current, preview or nightly
-releases. Every package, runtime and upstream container image uses an explicit version. Platform
-Dockerfiles and Compose files use readable version tags for upstream images. Application image
-publication and immutable release identity are intentionally absent from the current teaching
-baseline and will be introduced by the CI/CD course. The isolated Logto proof keeps its own
-digest-pinned provenance contract.
+releases. Every package, runtime and upstream container image uses an explicit version. The Node
+base of the application Dockerfiles is pinned by tag and multi-platform digest, so a re-published
+tag cannot change the next release; Compose files use readable version tags for other upstream
+images. Third-party GitHub Actions are pinned by release commit SHA with the version in a comment.
+The isolated Logto proof keeps its own digest-pinned provenance contract.
 
 ## Automated updates
 
@@ -26,18 +26,37 @@ managed harness file (such as `.github/workflows/inside-agent-sessions.yml`) is 
 in the Workspace harness package, because the next harness update would revert it.
 
 `@types/node` stays on the same major as `.node-version`. A Node LTS major change updates the
-runtime, declarations, Docker base and CI as one reviewed migration. Application CI actions stay
-pinned to exact release version tags and are advanced only by reviewed Dependabot pull requests.
+runtime, declarations, Docker base and CI as one reviewed migration. Actions and the Node base
+digest are advanced only by reviewed Dependabot pull requests, which update the SHA or digest
+together with its version comment or tag. Managed harness workflows are pinned in the Workspace
+package ([workspace#211](https://github.com/sachkov-inside/workspace/issues/211)).
 
 Repository dependency changes preserve:
 
 - exact manifest pins and one `pnpm-lock.yaml`;
 - explicit non-`latest` image tags for upstream Platform runtime dependencies;
 - `minimumReleaseAge: 1440` supply-chain quarantine;
-- strict peer dependencies without overrides;
+- strict peer dependencies; overrides only under Security overrides below;
 - atomic package-family updates;
 - `pnpm check`, Docker image/config checks and the Compose clean/repeat smoke in CI;
 - local `pnpm check:full` when the update can affect the browser-to-host application path.
+
+## Security overrides
+
+`pnpm audit --prod` stays free of moderate and higher advisories. Fix an advisory by updating the
+direct dependency first. When the fix exists only in a transitive package that a parent pins
+exactly, and the parent has no fixed release on our major line, `pnpm-workspace.yaml` may override
+that one package to the fixed version. Each override names its parent and removal condition in a
+comment, and `scripts/toolchain-contract.test.mjs` lists the allowed set, so a new override is a
+reviewed change of both. Current overrides (#688):
+
+| Package | Pinned by | Remove when |
+|---|---|---|
+| `fastify` | `@nestjs/platform-fastify` 11.x | Platform moves to Nest 12 (ESM) or Nest 11 ships fastify ≥ 5.12.1 |
+| `mysql2` | `prisma` 7.10.0 | a stable Prisma release pins mysql2 ≥ 3.23.1 |
+| `deepmerge-ts` | `@prisma/config` 7.10.0 | a stable Prisma release uses deepmerge-ts ≥ 8 |
+
+Overrides never force a peer range onto an incompatible tool; the TypeScript 7 rule below stands.
 
 ## Current baseline
 

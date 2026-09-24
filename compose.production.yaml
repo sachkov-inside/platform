@@ -1,10 +1,18 @@
 name: ${PLATFORM_COMPOSE_PROJECT:?PLATFORM_COMPOSE_PROJECT is required}
 
+# Процессы приложения не нуждаются в привилегиях ядра и пишут только маркер готовности воркера в
+# `/tmp`. Пределы памяти и процессов — предохранитель от утечки или fork в одном процессе, а не
+# бюджет: в покое процесс занимает около 250 MiB (docs/runbooks/production-release.md).
 x-backend-runtime: &backend-runtime
   image: ${PLATFORM_BACKEND_IMAGE_REPOSITORY:?backend repository is required}@sha256:${PLATFORM_BACKEND_IMAGE_DIGEST:?backend sha256 digest is required}
   pull_policy: never
   init: true
+  cap_drop: [ALL]
+  mem_limit: 512m
+  pids_limit: 256
+  read_only: true
   security_opt: [no-new-privileges:true]
+  tmpfs: [/tmp]
 
 x-worker-healthcheck: &worker-healthcheck
   test:
@@ -36,7 +44,9 @@ services:
       timeout: 10s
       retries: 12
       start_period: 30s
+    cap_drop: [ALL]
     mem_limit: 768m
+    pids_limit: 512
     networks: [broker]
     restart: unless-stopped
     security_opt: [no-new-privileges:true]
@@ -107,6 +117,8 @@ services:
 
   material-assets-worker:
     <<: *backend-runtime
+    # Декодирует загруженные изображения до ограничения sharp по пикселям; нужен запас сверх покоя.
+    mem_limit: 768m
     command: ["node", "dist/entrypoints/material-assets-worker.js"]
     env_file:
       - ${PLATFORM_RELEASE_ENV_FILE:?PLATFORM_RELEASE_ENV_FILE is required}
@@ -118,7 +130,6 @@ services:
     networks: [edge, application, database]
     restart: unless-stopped
     stop_grace_period: 20s
-    tmpfs: [/tmp]
 
   profile-avatars-worker:
     <<: *backend-runtime
@@ -133,7 +144,6 @@ services:
     networks: [edge, application, database]
     restart: unless-stopped
     stop_grace_period: 20s
-    tmpfs: [/tmp]
 
   video-deletions-worker:
     <<: *backend-runtime
@@ -148,7 +158,6 @@ services:
     networks: [edge, application, database]
     restart: unless-stopped
     stop_grace_period: 20s
-    tmpfs: [/tmp]
 
   # Сверка и продление оплаты, возвраты, Tribute и доставка права на сообщество. Выходит в банк и
   # Telegram через `edge`.
@@ -165,7 +174,6 @@ services:
     networks: [edge, application, database]
     restart: unless-stopped
     stop_grace_period: 20s
-    tmpfs: [/tmp]
 
   # Письма и команды Telegram из outbox через брокер. Доверяет только CA брокера окружения.
   notifications-worker:
@@ -183,7 +191,6 @@ services:
     networks: [edge, application, database, broker]
     restart: unless-stopped
     stop_grace_period: 20s
-    tmpfs: [/tmp]
     volumes:
       - ${PLATFORM_CONFIG_DIR:?PLATFORM_CONFIG_DIR is required}/rabbitmq/tls/ca.pem:/etc/inside/broker-ca.pem:ro
 
@@ -207,9 +214,13 @@ services:
       retries: 18
       start_period: 10s
     init: true
+    cap_drop: [ALL]
+    mem_limit: 512m
+    pids_limit: 256
     networks: [edge, application]
     ports:
       - "127.0.0.1:${PLATFORM_WEB_LOOPBACK_PORT:?PLATFORM_WEB_LOOPBACK_PORT is required}:3000"
+    # Без read_only: Next сохраняет пересобранные страницы кеша в каталог сборки приложения.
     restart: unless-stopped
     security_opt: [no-new-privileges:true]
     stop_grace_period: 15s

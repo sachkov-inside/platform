@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
@@ -21,6 +21,13 @@ const setupAction = readFileSync(
   resolve(repositoryRoot, ".github/actions/setup-platform/action.yml"),
   "utf8",
 );
+/**
+ * Сторонний action закреплён коммитом: тег можно перезаписать, и чужой код выполнится с токеном
+ * задачи. Комментарий хранит версию для человека и для Dependabot.
+ */
+const commitPinnedAction = /^[^@\s]+@[0-9a-f]{40} # v\d+\.\d+\.\d+$/u;
+const actionReferenceLines = (source) =>
+  [...source.matchAll(/^\s+-?\s*uses:\s*(.+)$/gmu)].map((match) => match[1].trim());
 const rootScripts = JSON.parse(
   readFileSync(resolve(repositoryRoot, "package.json"), "utf8"),
 ).scripts;
@@ -64,17 +71,15 @@ describe("application CI workflow contract", () => {
     assert.doesNotMatch(workflow, /packages:\s*write/u);
   });
 
-  it("pins every action to an exact release version", () => {
-    const actionReferences = [workflow, setupAction].flatMap((source) =>
-      [...source.matchAll(/^\s+-?\s*uses:\s*([^\s#]+)/gmu)].map((match) => match[1]),
-    );
+  it("pins every action to a release commit", () => {
+    const actionReferences = [workflow, setupAction].flatMap(actionReferenceLines);
     const remoteReferences = actionReferences.filter(
       (reference) => !reference.startsWith("./"),
     );
 
     assert.ok(remoteReferences.length > 0);
     for (const reference of remoteReferences) {
-      assert.match(reference, /^[^@\s]+@v\d+\.\d+\.\d+$/u);
+      assert.match(reference, commitPinnedAction);
     }
     for (const reference of actionReferences.filter((value) => value.startsWith("./"))) {
       assert.equal(reference, "./.github/actions/setup-platform");
@@ -247,12 +252,10 @@ describe("nightly full-stack workflow contract", () => {
     assert.equal(topLevelBlock("permissions", nightlyWorkflow).trim(), "contents: read");
     assert.doesNotMatch(nightlyWorkflow, /^ {2,}permissions:/mu);
     assert.doesNotMatch(nightlyWorkflow, /secrets\./u);
-    const actionReferences = [
-      ...nightlyWorkflow.matchAll(/^\s+-?\s*uses:\s*([^\s#]+)/gmu),
-    ].map((match) => match[1]);
+    const actionReferences = actionReferenceLines(nightlyWorkflow);
     assert.ok(actionReferences.length > 0);
     for (const reference of actionReferences) {
-      assert.match(reference, /^[^@\s]+@v\d+\.\d+\.\d+$/u);
+      assert.match(reference, commitPinnedAction);
     }
   });
 
@@ -319,3 +322,37 @@ function jobBlock(job, source = workflow) {
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 }
+
+describe("repository-owned workflow supply chain", () => {
+  // Управляемые файлы harness закрепляются в пакете Workspace (workspace#211) и приходят раскаткой.
+  const managedFiles = new Set(
+    JSON.parse(
+      readFileSync(resolve(repositoryRoot, ".inside-harness/product-harness.json"), "utf8"),
+    ).managedFiles,
+  );
+  const ownedSources = [
+    ...readdirSync(resolve(repositoryRoot, ".github/workflows")).map(
+      (name) => `.github/workflows/${name}`,
+    ),
+    ...readdirSync(resolve(repositoryRoot, ".github/actions")).map(
+      (name) => `.github/actions/${name}/action.yml`,
+    ),
+  ].filter((path) => !managedFiles.has(path));
+
+  it("pins every third-party action in every owned workflow to a release commit", () => {
+    assert.ok(ownedSources.includes(".github/workflows/release.yml"));
+    for (const path of ownedSources) {
+      const references = actionReferenceLines(
+        readFileSync(resolve(repositoryRoot, path), "utf8"),
+      ).filter((reference) => !reference.startsWith("./"));
+      for (const reference of references) {
+        assert.match(reference, commitPinnedAction, `${path}: ${reference}`);
+      }
+    }
+  });
+
+  it("rejects a tag-only reference", () => {
+    assert.doesNotMatch("actions/checkout@v7.0.1", commitPinnedAction);
+    assert.doesNotMatch(`actions/checkout@${"a".repeat(40)}`, commitPinnedAction);
+  });
+});

@@ -58,7 +58,7 @@ test("Workshop evaluator artifacts are pinned and checksum-addressed", () => {
   assert.match(workflow, /workshop-evaluator-checksum --file .* --verify/u);
   assert.match(workflow, /package-native-artifact\.sh/u);
   assert.match(workflow, /workshop-evaluator-\$\{\{ matrix\.target \}\}\.tar\.gz/u);
-  assert.match(workflow, /actions\/upload-artifact@v7\.0\.1/u);
+  assert.match(workflow, /actions\/upload-artifact@[0-9a-f]{40} # v\d+\.\d+\.\d+$/mu);
   assert.doesNotMatch(workflow, /@[vV](?:latest|\d+)\s*$/mu);
   assert.doesNotMatch(workflow, /auto.?update/iu);
 });

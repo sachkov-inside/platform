@@ -1,4 +1,9 @@
 inside.sachkov.dev {
+	# Браузер год помнит площадку как HTTPS-only, и набранный http:// адрес не уходит в открытую сеть.
+	# includeSubDomains касается только имён под inside.sachkov.dev: auth и telegram — соседние
+	# домены. Preload не включён: он необратим на месяцы и требует политики для всего sachkov.dev.
+	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
 	route {
 		@private_health path /health /health/* /_health/*
 		respond @private_health 404

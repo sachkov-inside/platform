@@ -638,6 +638,34 @@ if ! cmp -s apps/web/public/images/kirill-mini-app.webp "$runtime_config_dir/hom
   echo "Bundled creator avatar differs from the approved bundled asset" >&2
   exit 1
 fi
+# The edge pins HTTPS for a year and the production CSP names no local development origin.
+home_headers="$(curl --cacert "$runtime_config_dir/caddy-root.crt" --fail --noproxy '*' \
+  --resolve "inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" --silent \
+  --dump-header - --output /dev/null "https://inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}/")"
+if ! grep -qi '^strict-transport-security: max-age=31536000; includeSubDomains' <<<"$home_headers"; then
+  echo "Caddy did not send HSTS" >&2
+  exit 1
+fi
+home_policy="$(grep -i '^content-security-policy:' <<<"$home_headers" || true)"
+if [[ "$home_policy" != *"frame-ancestors 'none'"* || "$home_policy" == *127.0.0.1* || "$home_policy" == *localhost* ]]; then
+  echo "Production CSP is missing or names a local origin: $home_policy" >&2
+  exit 1
+fi
+# The sign-in entry answers 429 after its per-address budget. Caddy replaces the forged
+# X-Forwarded-For, so rotating it does not reset the count. Cross-origin POSTs stop at 403 and
+# write nothing.
+sign_in_statuses=""
+for attempt in $(seq 1 31); do
+  sign_in_statuses+="$(curl --cacert "$runtime_config_dir/caddy-root.crt" --noproxy '*' \
+    --resolve "inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" --silent \
+    --request POST --header "X-Forwarded-For: 198.51.100.${attempt}" \
+    --output /dev/null --write-out '%{http_code} ' \
+    "https://inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}/auth/sign-in")"
+done
+if [[ "$sign_in_statuses" != "$(printf '403 %.0s' $(seq 1 30))429 " ]]; then
+  echo "Sign-in rate limit did not engage after 30 requests: $sign_in_statuses" >&2
+  exit 1
+fi
 # Public Next not-found pages carry HTML; integration 404 responses remain empty and fail closed.
 retired_library_status="$(curl --cacert "$runtime_config_dir/caddy-root.crt" --noproxy '*' \
   --resolve "inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" \

@@ -13,3 +13,12 @@ allowBuilds:
   prisma: true
   protobufjs: false
   ssh2: false
+# Security overrides only: each replaces an exact transitive pin that has a published advisory and
+# no fixed release of its parent on our major. Remove an entry once the named parent ships the fix
+# (docs/runbooks/dependency-updates.md, Security overrides).
+overrides:
+  # @nestjs/platform-fastify 11.x pins fastify 5.11.3; Nest 12 is an ESM migration of its own.
+  fastify: 5.12.5
+  # prisma 7.10.0 pins mysql2 3.15.3 and, through @prisma/config, deepmerge-ts 7.1.5.
+  mysql2: 3.24.4
+  deepmerge-ts: 8.0.2

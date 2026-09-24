@@ -20,8 +20,17 @@ describe("supported toolchain contract", () => {
 
       assert.match(
         dockerfile,
-        new RegExp(`^FROM node:${escapeRegExp(nodeVersion)}-alpine\\d+\\.\\d+ AS toolchain$`, "mu"),
+        new RegExp(
+          `^FROM node:${escapeRegExp(nodeVersion)}-alpine\\d+\\.\\d+@sha256:[a-f0-9]{64} AS toolchain$`,
+          "mu",
+        ),
       );
+      // Тег читает человек, digest фиксирует базу: перевыпущенный тег не меняет следующий выпуск.
+      const nodeBases = dockerfile.match(/^FROM node:\S+/gmu) ?? [];
+      assert.ok(nodeBases.length > 1, `${path} must build its production stage from Node`);
+      for (const base of nodeBases) {
+        assert.match(base, /^FROM node:[^\s@]+@sha256:[a-f0-9]{64}$/u, `${path}: ${base}`);
+      }
       assert.match(
         dockerfile,
         new RegExp(`corepack install --global pnpm@${escapeRegExp(pnpmVersion)}(?:\\s|$)`, "u"),
@@ -103,15 +112,6 @@ describe("supported toolchain contract", () => {
     assert.match(read("config/compose/local/web.env"), /^HIDE_DEV_INDICATOR=true$/mu);
   });
 
-  it("allows local previews and protected image delivery through the Web CSP", () => {
-    const nextConfig = read("apps/web/next.config.ts");
-
-    assert.match(
-      nextConfig,
-      /"img-src 'self' data: blob: http:\/\/127\.0\.0\.1:\* http:\/\/localhost:9000 https:\/\/storage\.yandexcloud\.net/u,
-    );
-  });
-
   it("uses only the Oxc lint and parser toolchain", () => {
     assert.equal(
       rootPackage.scripts.lint,
@@ -144,7 +144,13 @@ describe("supported toolchain contract", () => {
     );
     assert.equal(webPackage.devDependencies["openapi-typescript"], undefined);
     assert.equal(webPackage.dependencies["openapi-fetch"], undefined);
-    assert.doesNotMatch(read("pnpm-workspace.yaml"), /^overrides:/mu);
+    // Только security overrides из docs/runbooks/dependency-updates.md; новый требует той же записи.
+    const overrides = read("pnpm-workspace.yaml").match(/^overrides:\n((?:(?: {2}.*)?\n)*)/mu);
+    assert.ok(overrides, "pnpm-workspace.yaml must keep the documented security overrides");
+    assert.deepEqual(
+      [...overrides[1].matchAll(/^ {2}([^#\s:][^:]*):/gmu)].map((match) => match[1]),
+      ["fastify", "mysql2", "deepmerge-ts"],
+    );
   });
 
   it("uses explicit container version tags", () => {

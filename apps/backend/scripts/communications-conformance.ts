@@ -84,11 +84,11 @@ const app = await createApiApplication(
     LOGTO_AUDIENCE: audience,
     LOGTO_JWKS_URL: `${jwksUrl}/jwks`,
     TELEGRAM_COMMUNICATIONS_ENDPOINT: `${provider}/integrations/platform/v1/communications`,
-    TELEGRAM_COMMUNICATIONS_SECRET: "synthetic_communications_secret",
+    TELEGRAM_COMMUNICATIONS_SECRET: "synthetic_communications_secret_conformance",
     TELEGRAM_COMMUNICATIONS_BOT_IDENTITY: "synthetic-bot",
     TELEGRAM_COMMUNICATIONS_PUBLIC_ORIGIN: origin,
     TELEGRAM_TRACKING_ORIGIN: origin,
-    TELEGRAM_AUTHOR_AUTHORIZATION_SECRET: "synthetic_authorization_secret",
+    TELEGRAM_AUTHOR_AUTHORIZATION_SECRET: "synthetic_authorization_secret_conformance",
   }),
   { logger: false },
 );
@@ -227,7 +227,7 @@ async function entry(text = "/start", user = 42) {
   const response = await fetch(`${provider}/webhooks/telegram`, {
     method: "POST",
     headers: {
-      "x-telegram-bot-api-secret-token": "synthetic_webhook",
+      "x-telegram-bot-api-secret-token": "synthetic_webhook_secret_conformance",
       "content-type": "application/json",
     },
     body: JSON.stringify({
