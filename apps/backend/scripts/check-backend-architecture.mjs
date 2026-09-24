@@ -299,7 +299,8 @@ function advisoryLockViolations(sourceFile, program) {
     : [];
 }
 
-// Delegates a Module's capability type lists only to hand its transaction to their owner.
+// Delegates a Module's capability type lists only to hand its transaction to their owner. Keep in
+// step with the foreign delegates of that type in src/infrastructure/prisma/prisma-client.ts.
 const handoffDelegates = new Map([
   ["materials", ["materialAsset", "video", "videoDeletionOperation"]],
 ]);

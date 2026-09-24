@@ -59,8 +59,8 @@ not dependency wiring.
   function, as Save does with `requestVideoDeletion` and `markUnreferencedMaterialAssets`. The
   callee never opens a transaction of its own: a rollback must undo the whole operation, and a
   second pooled connection held under locks can exhaust the pool. For that handoff alone the
-  caller's capability-scoped type lists the callee's delegates, as `MaterialsPrisma` lists `video`
-  and `materialAsset`; the caller's own code reaches them only through that function, which
+  caller's capability-scoped type lists the callee's delegates, as `MaterialsPrisma` lists the Videos
+  and Assets delegates; the caller's own code reaches them only through that function, which
   `scripts/check-backend-architecture.mjs` enforces. Opening no transaction in the callee stays a
   review rule: a nested `$transaction` is also the correct shape for a standalone operation.
 - Keep feature-specific data access with its slice. Extract a named private persistence operation
