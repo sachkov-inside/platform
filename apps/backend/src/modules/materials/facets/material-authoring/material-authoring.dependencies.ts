@@ -20,7 +20,7 @@ export interface MaterialAuthoringDependencies {
   readonly guideAccessHolders?: GuideAccessHolders;
   readonly materialAssets?: Pick<
     MaterialAssets,
-    "inspectReferences" | "loadPresentations" | "markUnreferenced"
+    "inspectReferences" | "loadPresentations"
   >;
   readonly videos?: Pick<
     Videos,

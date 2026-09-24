@@ -12,6 +12,7 @@ export type MaterialsPrisma = Pick<
   | "materialAnnouncementRevision"
   | "materialNotificationOutbox"
   | "material"
+  | "materialAsset"
   | "materialRelatedPin"
   | "homeSeriesPin"
   | "materialSearchDocument"

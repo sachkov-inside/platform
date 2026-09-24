@@ -1,5 +1,5 @@
 import {
-  Prisma,
+  lockMaterialReferenceChanges,
   type VideosPrisma,
   type VideosPrismaClient,
 } from "../../../../infrastructure/prisma/index.js";
@@ -153,9 +153,7 @@ export function assembleVideoDeletionMaintenance(dependencies: {
         where: { id: operationId },
       });
       if (initial === null) return null;
-      await transaction.$executeRaw(Prisma.sql`
-        select pg_advisory_xact_lock(hashtextextended(${initial.materialId}, 0))
-      `);
+      await lockMaterialReferenceChanges(transaction, [initial.materialId]);
       const operation = await transaction.videoDeletionOperation.findUnique({
         include: { video: true },
         where: { id: operationId },
