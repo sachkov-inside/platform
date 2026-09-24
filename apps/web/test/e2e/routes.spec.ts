@@ -54,6 +54,70 @@ test("root remains the canonical Home route", async ({ page }) => {
   );
 });
 
+test("неизвестный адрес отвечает 404 по-русски внутри оболочки", async ({
+  page,
+}, testInfo) => {
+  const response = await page.goto("/does-not-exist");
+
+  expect(response?.status()).toBe(404);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Страница не найдена");
+  await expect(page).toHaveTitle("Страница не найдена · Sachkov Inside");
+  await expect(page.getByText("This page could not be found")).toHaveCount(0);
+  await expect(
+    getPrimaryNavigation(page, testInfo.project.name).getByRole("link", {
+      name: "Главная",
+      exact: true,
+    }),
+  ).toBeVisible();
+
+  await page.getByRole("link", { name: "На главную" }).click();
+  await expect(page).toHaveURL(/\/$/u);
+
+  const results = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+  expect(
+    results.violations.filter(
+      (violation) => violation.impact === "serious" || violation.impact === "critical",
+    ),
+  ).toEqual([]);
+});
+
+test("страница отправляет площадке свои Core Web Vitals, когда её скрывают", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Главная");
+  // Первые метрики загрузки приходят сами; отчёт уходит, когда вкладка перестаёт быть видна.
+  await page.waitForFunction(
+    () => performance.getEntriesByName("inside:web-vital:TTFB", "mark").length > 0,
+  );
+
+  // Тело beacon видно только в перехвате; сам запрос идёт дальше, к настоящему обработчику.
+  let sentReport = "null";
+  await page.route("**/api/web-vitals", async (route) => {
+    sentReport = route.request().postDataBuffer()?.toString("utf8") ?? "null";
+    await route.continue();
+  });
+  const answered = page.waitForResponse(
+    (response) => new URL(response.url()).pathname === "/api/web-vitals",
+  );
+  await page.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+
+  // Ответ настоящего обработчика: отчёт прошёл проверку источника и схемы и записан в журнал.
+  const response = await answered;
+  expect(response.status()).toBe(204);
+  const body = JSON.parse(sentReport) as {
+    readonly metrics: readonly { readonly name: string; readonly value: number }[];
+    readonly route: string;
+  };
+  expect(body.route).toBe("/");
+  expect(body.metrics.map((metric) => metric.name)).toContain("TTFB");
+});
+
 test("map remains available by direct URL without a primary navigation item", async ({
   page,
 }, testInfo) => {

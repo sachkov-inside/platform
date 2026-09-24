@@ -11,6 +11,7 @@ import type { MaterialReaderMetadata } from "@/_pages/material-reader/model/mate
 import type { SeriesReaderContext } from "@/_pages/material-reader/model/series-reader-context";
 import { Button } from "@/shared/ui/button";
 import { RetryPageButton } from "@/shared/ui/retry-page-button.client";
+import { StatusPanel } from "@/shared/ui/status-panel";
 import {
   homeMaterialReaderReturnTarget,
   type MaterialReaderReturnTarget,
@@ -291,32 +292,12 @@ function ReaderStatus({
   readonly title: string;
 }) {
   return (
-    <section
-      className="max-w-[48rem] pt-1 sm:pt-3"
-      data-material-reader-state={state}
-    >
-      <div className="relative isolate overflow-clip rounded-2xl bg-secondary px-6 py-7 shadow-card sm:px-8 sm:py-9">
-        <StatusHalo />
-        <span className="relative grid size-12 place-items-center rounded-xl bg-background/80 text-accent [&_svg]:size-6">
-          {icon}
-        </span>
-        <h1 className="relative mt-5 max-w-[18ch] text-balance text-3xl font-semibold tracking-[-0.03em] sm:text-4xl">
-          {title}
-        </h1>
-        <p className="relative mt-4 max-w-[60ch] text-pretty leading-7 text-muted-foreground">
-          {message}
-        </p>
-        <div className="relative mt-7">{action}</div>
-      </div>
-    </section>
-  );
-}
-
-function StatusHalo() {
-  return (
-    <span
-      aria-hidden="true"
-      className="reader-status-halo absolute -right-10 -top-16 size-48 rounded-full bg-accent/15"
+    <StatusPanel
+      action={action}
+      icon={icon}
+      message={message}
+      state={{ "data-material-reader-state": state }}
+      title={title}
     />
   );
 }

@@ -2,21 +2,23 @@
 
 import { CloudOff } from "lucide-react";
 import Link from "next/link";
-import { useEffect } from "react";
 
+import { useRenderErrorReport } from "@/features/client-telemetry";
 import { authoringMaterialsRootHref } from "@/shared/routing/authoring";
 import { Button } from "@/shared/ui/button";
 
-export default function ErrorPage({
+/**
+ * Сбой любого авторского раздела: авторская оболочка остаётся, `retry` перечитывает раздел с
+ * сервера, а повторная отрисовка без запроса показала бы тот же сбой.
+ */
+export default function AuthoringError({
   error,
-  reset,
+  retry,
 }: {
   readonly error: Error & { readonly digest?: string };
-  readonly reset: () => void;
+  readonly retry: () => void;
 }) {
-  useEffect(() => {
-    console.error(error);
-  }, [error]);
+  useRenderErrorReport("authoring", error);
 
   return (
     <>
@@ -44,7 +46,7 @@ export default function ErrorPage({
             Код обращения: {error.digest ?? "authoring-boundary"}
           </p>
           <div className="mt-6 flex flex-wrap justify-center gap-2">
-            <Button onClick={reset} type="button">Повторить</Button>
+            <Button onClick={retry} type="button">Повторить</Button>
             <Button asChild variant="outline">
               <Link href={authoringMaterialsRootHref}>Вернуться к Materials</Link>
             </Button>

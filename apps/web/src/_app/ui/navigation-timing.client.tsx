@@ -4,15 +4,13 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useReportWebVitals } from "next/web-vitals";
 import { useEffect } from "react";
 
-/** Поля метрики, которые уходят в отметку; остальное Next.js оставляет себе. */
-interface WebVitalMetric {
-  readonly name: string;
-  readonly rating?: string;
-  readonly value: number;
-}
+import { queueWebVital, type ReportedWebVital } from "@/features/client-telemetry";
 
-/** Ссылка на колбэк обязана быть стабильной: хук подписывается заново на каждую новую функцию. */
-function markWebVital(metric: WebVitalMetric): void {
+/**
+ * Ссылка на колбэк обязана быть стабильной: хук подписывается заново на каждую новую функцию.
+ * Метрика ложится отметкой в User Timing и уходит в отчёт площадке.
+ */
+function recordWebVital(metric: ReportedWebVital): void {
   try {
     performance.mark(`inside:web-vital:${metric.name}`, {
       detail: { rating: metric.rating, value: metric.value },
@@ -20,19 +18,20 @@ function markWebVital(metric: WebVitalMetric): void {
   } catch {
     // Измерение не должно мешать странице.
   }
+  queueWebVital(metric);
 }
 
 /**
  * Замыкает измерение перехода: `instrumentation-client.ts` ставит отметку в момент нажатия, а здесь,
  * когда новый адрес уже отрисован, записывается длительность `inside:navigation`. Core Web Vitals
- * ложатся рядом отметками `inside:web-vital:*`; их читает набор проверок переходов. Всё остаётся в
- * User Timing браузера (ADR 0027).
+ * ложатся рядом отметками `inside:web-vital:*`, их читает набор проверок переходов, и одним
+ * отчётом уходят в журнал самой площадки, когда страницу скрывают (ADR 0027).
  */
 export function NavigationTiming() {
   const pathname = usePathname();
   const search = useSearchParams().toString();
 
-  useReportWebVitals(markWebVital);
+  useReportWebVitals(recordWebVital);
 
   useEffect(() => {
     try {

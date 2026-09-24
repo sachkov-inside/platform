@@ -8,7 +8,8 @@ import { expect, test, type Page } from "@playwright/test";
  */
 async function expectNotFound(page: Page, path: string): Promise<void> {
   await page.goto(path);
-  await expect(page.getByRole("heading", { level: 1, name: "404" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Страница не найдена" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "На главную" })).toBeVisible();
   // Ответ из кеша несёт тег дважды; важно, что поиск закрыт и ни один тег его не открывает.
   await expect(page.locator('meta[name="robots"][content="noindex"]').first()).toBeAttached();
   await expect(page.locator('meta[name="robots"]:not([content="noindex"])')).toHaveCount(0);
