@@ -121,6 +121,7 @@ expectFailure(
     "src/modules/example/features/swallow-failure/swallow-failure.ts:12: catch drops error without reporting it",
     "src/modules/example/features/swallow-failure/swallow-failure.ts:29: catch swallows its failure",
     "src/modules/example/features/swallow-failure/swallow-failure.ts:37: .catch swallows its failure",
+    "src/modules/example/features/swallow-failure/swallow-failure.ts:43: catch drops error without reporting it",
   ],
 );
 

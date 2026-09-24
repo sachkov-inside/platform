@@ -14,6 +14,6 @@ export function readGuidePage(value: unknown, context: string): GuidePage | null
 export function readGuidePageState(value: unknown, context: string): { readonly page: GuidePage | null; readonly rejected: boolean } {
   const page = readStoredGuidePage(value);
   if (page !== "invalid") return { page, rejected: false };
-  writeLog("warn", "stored_page_rejected", { area: "guide_page", status: "operator_attention", context });
+  writeLog("warn", "stored_page_rejected", { area: "guide_page", status: "operator_attention", reason: "stored_page_rejected", context });
   return { page: null, rejected: true };
 }

@@ -328,7 +328,7 @@ function handoffDelegateViolations(sourceFile, program) {
 // или бросает дальше. Отказ
 // разбора чужого ввода — не сбой зависимости; такой catch объясняет себя первой строкой тела.
 const inputRejectionMarker = "Not a dependency failure:";
-const reportsFailure = /\b(?:dependencyFailure|reportDependencyFailure|describeError|loggableFailure)\(|\bthrow\b/u;
+const reporters = "dependencyFailure|reportDependencyFailure|describeError|loggableFailure";
 
 function swallowedFailureViolations(sourceFile, sourceText, program, comments) {
   const sourcePath = scannedPath(sourceFile);
@@ -345,17 +345,31 @@ function swallowedFailureViolations(sourceFile, sourceText, program, comments) {
         comment.value.trim().startsWith(inputRejectionMarker),
     );
   };
-  const wrapsCause = (body, param) =>
-    param.type === "Identifier" &&
-    new RegExp(`\\bnew\\s+\\w+\\([^;]*(?<![\\w$.])${param.name}(?![\\w$])`, "u").test(
-      sourceText.slice(body.start, body.end),
-    );
+  // Текст обработчика без комментариев: упоминание reporter в комментарии ничего не записывает.
+  const codeOf = (body) =>
+    comments
+      .filter((comment) => comment.start >= body.start && comment.end <= body.end)
+      .reduceRight(
+        (text, comment) =>
+          text.slice(0, comment.start - body.start) + " ".repeat(comment.end - comment.start) + text.slice(comment.end - body.start),
+        sourceText.slice(body.start, body.end),
+      );
+  // Пойманное значение уходит reporter, становится причиной новой ошибки или бросается дальше.
+  // Условный throw засчитывается: так устроены обработчики гонок, где остальные ветки — ответы.
+  const passesOn = (body, name) => {
+    const caught = `(?<![\\w$.])${name}(?![\\w$])`;
+    return [
+      new RegExp(`\\b(?:${reporters})\\([^;]*${caught}`, "u"),
+      new RegExp(`\\bnew\\s+\\w+\\([^;]*${caught}`, "u"),
+      new RegExp(`\\bthrow\\s+${caught}`, "u"),
+    ].some((pattern) => pattern.test(codeOf(body)));
+  };
   const check = (kind, start, param, body) => {
     if (explains(start, body)) return;
     const advice = `report it with dependencyFailure or explain it with "// ${inputRejectionMarker}"`;
     if (param === null || param === undefined) {
       violations.push(`${sourcePath}:${lineOf(start)}: ${kind} swallows its failure; ${advice}`);
-    } else if (!reportsFailure.test(sourceText.slice(body.start, body.end)) && !wrapsCause(body, param)) {
+    } else if (param.type !== "Identifier" || !passesOn(body, param.name)) {
       const name = param.type === "Identifier" ? param.name : "its failure";
       violations.push(`${sourcePath}:${lineOf(start)}: ${kind} drops ${name} without reporting it; ${advice}`);
     }

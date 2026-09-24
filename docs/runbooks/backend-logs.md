@@ -12,18 +12,21 @@
 | `requestId` | единица работы: HTTP-запрос `api` и `mcp` или один запуск задания воркера |
 | `method`, `route` | метод и шаблон маршрута HTTP-запроса, без параметров и адреса целиком |
 | `queue` | очередь задания воркера |
-| `error` | `type`, `code`, `message`, `stack`, вложенные `cause` и `errors` |
+| `error` | `type`, `code`, `message`, `stack`, вложенные `cause` и `errors`; у `notification_transport` — строка «тип: текст» после того же редактирования |
 
 События:
 
-- `dependency_failure` — сбой зависимости в Module: `module`, `operation`, `error`; если ответ
+- `dependency_failure` — сбой зависимости в Module (`module: runtime` — проверка готовности
+  процесса): `module`, `operation`, `error`; если ответ
   вызывающему несёт код ошибки — `outcome` с этим кодом и `correlationId` для `internal_error`;
 - `request_failed` — MCP не смог обработать запрос;
 - `request_completed` — завершение HTTP-запроса `api`: `statusCode`, `durationMs`. Успешные проверки
   здоровья не пишутся;
 - `job_failed` — задание воркера завершилось ошибкой, очередь учтёт её как прежде;
 - `queue_attention` — у очереди `billing-worker` есть несопоставленная или просроченная работа;
-- `notification_transport` — наблюдение транспорта уведомлений, с `status` и `reason`;
+- `notification_transport` — наблюдение транспорта уведомлений, с `status` и `reason`; уровень
+  `error`, если у наблюдения есть причина. Проход разбора входящих и его наблюдения несут общий
+  `requestId`;
 - `worker_ready`, `worker_draining`, `worker_stopped`, `process_ready` — жизненный цикл процесса;
 - `queue_unavailable` — `pg-boss` потерял базу или свою схему;
 - `process_failed` — процесс не запустился или остановился с ошибкой и выходит с кодом 1

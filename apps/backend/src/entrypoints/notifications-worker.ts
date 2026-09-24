@@ -23,14 +23,21 @@ async function bootstrap() {
     config: config.notifications,
     billing: assembleBillingNotificationOutbox(prisma), materials: assembleMaterialsNotificationOutbox(prisma),
     transport: notifications.transport,
-    // Каждый проход разбора входящих — своя единица работы в журнале.
-    processInbox: () => runWithLogContext(
+    processInbox: () => notifications.sweep(sendEmail),
+    // Каждый проход разбора входящих вместе с его наблюдениями — своя единица работы в журнале.
+    runInboxSweep: sweep => runWithLogContext(
       { process: 'notifications-worker', queue: 'notifications.inbox', requestId: generateRequestId() },
-      () => notifications.sweep(sendEmail),
+      sweep,
     ),
-    report: event => writeLog(event.status === 'operator_attention' ? 'warn' : 'info', 'notification_transport', { process: 'notifications-worker', ...event }),
+    report: event => writeLog(transportLogLevel(event), 'notification_transport', { process: 'notifications-worker', ...event }),
   });
   await runWorker({ application, databaseUrl: config.database.url, jobs: worker, failed: worker.failed,
     process: 'notifications-worker', readiness: application.get(OperationalReadiness), registerJobs: () => Promise.resolve(),
   });
+}
+
+// Наблюдение с причиной — сбой, остальные сигналы оператору — предупреждение.
+function transportLogLevel(event: Readonly<Record<string, unknown>>): 'info' | 'warn' | 'error' {
+  if (event.error !== undefined) return 'error';
+  return event.status === 'operator_attention' ? 'warn' : 'info';
 }

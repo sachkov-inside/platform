@@ -558,7 +558,7 @@ function validateUpload(input: Parameters<MaterialAssets["upload"]>[0]) {
 }
 
 async function materialAssetQuery<Value>(
-  operationName: string,
+  operationName: keyof MaterialAssets,
   operation: () => Promise<Value>,
 ): Promise<MaterialAssetQueryResult<Value>> {
   try {
@@ -572,7 +572,7 @@ async function materialAssetQuery<Value>(
 }
 
 async function materialAssetUpload(
-  operationName: string,
+  operationName: keyof MaterialAssets,
   operation: () => Promise<UploadMaterialAssetResult>,
 ): Promise<UploadMaterialAssetResult> {
   try {

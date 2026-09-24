@@ -85,6 +85,17 @@ export function mapPostgresError(
   return mapPostgresReadError(error);
 }
 
+// Системные коды — ответ на сбой хранилища, а не на конфликт данных. Новый код SystemError
+// без записи здесь не соберётся.
+const systemErrorCodes = {
+  dependency_unavailable: true,
+  internal_error: true,
+} as const satisfies Record<SystemError["code"], true>;
+
+export function isSystemErrorCode(code: string): code is SystemError["code"] {
+  return Object.hasOwn(systemErrorCodes, code);
+}
+
 export function mapPostgresReadError(error: unknown): SystemError {
   if (isRetryablePostgresError(error)) {
     return { code: "dependency_unavailable", retryable: true };

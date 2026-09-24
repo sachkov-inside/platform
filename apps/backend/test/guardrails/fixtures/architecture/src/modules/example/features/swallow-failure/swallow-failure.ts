@@ -36,3 +36,12 @@ export function lateExplanation(text: string): unknown {
 export async function swallowRejection(read: () => Promise<string>): Promise<string | null> {
   return read().catch(() => null);
 }
+
+export async function replaceFailure(read: () => Promise<string>): Promise<string> {
+  try {
+    return await read();
+  } catch (error) {
+    // reportDependencyFailure(scope, error) in a comment records nothing.
+    throw new Error("replaced");
+  }
+}

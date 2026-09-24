@@ -11,6 +11,8 @@ const OBSERVATION_INTERVAL_MS = 60_000;
 const BACKLOG_ALERT_MS = 5 * 60 * 1_000;
 export function assembleNotificationWorker(input: {
   processInbox?: () => Promise<readonly SweepObservation[]>;
+  /** Один проход разбора входящих вместе с записью его наблюдений — одна единица работы журнала. */
+  runInboxSweep?: (sweep: () => Promise<void>) => Promise<void>;
   config: NotificationsConfig; transport: NotificationTransport;
   billing: NotificationOutbox; materials: NotificationOutbox;
   report: (event: Record<string, unknown>) => void;
@@ -60,9 +62,11 @@ export function assembleNotificationWorker(input: {
           while (!abort.signal.aborted) {
             // Разбор входящих переживает собственный отказ: одна строка не имеет права остановить
             // остальные. Причина называется здесь, потому что дальше её уже никто не увидит.
-            try {
-              for (const observation of (await input.processInbox?.()) ?? []) input.report({ status: 'operator_attention', ...observation });
-            } catch (error) { input.report({ status: 'operator_attention', reason: 'inbox_sweep_failed', error: loggableFailure(error) }); }
+            await (input.runInboxSweep ?? (sweep => sweep()))(async () => {
+              try {
+                for (const observation of (await input.processInbox?.()) ?? []) input.report({ status: 'operator_attention', ...observation });
+              } catch (error) { input.report({ status: 'operator_attention', reason: 'inbox_sweep_failed', error: loggableFailure(error) }); }
+            });
             await delay(RELAY_SWEEP_MS, undefined, { signal: abort.signal }).catch(() => undefined);
           }
         })());

@@ -113,15 +113,19 @@ not dependency wiring.
 - A `catch` that rejects foreign input rather than a dependency explains itself on its first line
   with `// Not a dependency failure: <reason>`. Prefer a non-throwing parser such as `URL.parse`
   when one exists. `scripts/check-backend-architecture.mjs` rejects a `catch` clause or promise
-  `.catch` handler in `src/modules` that drops what it caught: it must call a reporter
-  (`dependencyFailure`, `reportDependencyFailure`, `describeError`, or the notification channel's
-  `loggableFailure`), wrap it as the cause of another error, rethrow, or carry that marker. The
-  check cannot tell a race from a failure; review keeps the replay rule above.
+  `.catch` handler in `src/modules` that drops what it caught: the caught value must reach a
+  reporter (`dependencyFailure`, `reportDependencyFailure`, `describeError`, or the notification
+  channel's `loggableFailure`), become the cause of another error, or be rethrown; otherwise the
+  handler carries that marker. A conditional rethrow counts, as in a race handler whose other
+  branches answer; the check cannot tell a race from a failure, so review keeps the replay rule
+  above.
 - Backend processes (`api`, `mcp` and the workers) log only through `writeLog` and pass errors
   through `describeError`: it keeps the type, code, stack frames and causes, drops the text of
   Prisma, driver and parser errors that restate the query or input, and redacts credentials,
-  tokens and personal data from the rest. Never log a request body, headers, a full URL or a raw
-  error. One-off scripts under `src/development` and `src/release` print to their operator.
+  tokens and personal data from the rest. Never log a request body, headers, a request URL or a
+  raw error. The notification transport keeps its observation `error` as the redacted
+  `loggableFailure` string that its inbox rows also store. One-off scripts under `src/development`
+  and `src/release` print to their operator.
 
 ## Tests against real infrastructure
 

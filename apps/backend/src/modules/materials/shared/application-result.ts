@@ -1,5 +1,6 @@
-import type { Result } from "../result.js";
 import { dependencyFailure } from "../../../infrastructure/observability/index.js";
+import type { Result } from "../result.js";
+import { isSystemErrorCode } from "./postgres-error-mapping.js";
 import type {
   MaterialsPrismaClient,
   MaterialsPrismaTransaction,
@@ -49,7 +50,7 @@ export async function executeAuthoringTransaction<
     const mapped = mapUnexpected(error);
     // Конфликт и неверная ссылка — ответ автору; сбоем зависимости остаются только системные коды.
     return failure(
-      mapped.code === "dependency_unavailable" || mapped.code === "internal_error"
+      isSystemErrorCode(mapped.code)
         ? dependencyFailure({ module: "materials", operation: operationName }, error, mapped)
         : mapped,
     );
