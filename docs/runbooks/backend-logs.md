@@ -27,15 +27,19 @@
 - `notification_transport` — наблюдение транспорта уведомлений, с `status` и `reason`; уровень
   `error`, если у наблюдения есть причина. Проход разбора входящих и его наблюдения несут общий
   `requestId`;
-- `worker_ready`, `worker_draining`, `worker_stopped`, `process_ready` — жизненный цикл процесса;
+- `video_deletion_failed` — удаление видео у провайдера не завершилось окончательно;
+- `stored_page_rejected` — сохранённое описание страницы руководства не прочиталось;
+- `healthcheck_failed` — проверка готовности воркера в контейнере не прошла;
+- `worker_ready`, `worker_draining`, `worker_stopped`, `process_ready`, `mcp_listening` — жизненный
+  цикл процесса;
 - `queue_unavailable` — `pg-boss` потерял базу или свою схему;
 - `process_failed` — процесс не запустился или остановился с ошибкой и выходит с кодом 1
   (соединение, оставшееся после отказа, держит процесс не дольше пяти секунд);
 - `worker_stop_failed` — сбой шага остановки воркера после основной причины;
 - `nest` — сообщения Nest, в том числе необработанное исключение запроса.
 
-Строки `process_failed`, `queue_unavailable`, `queue_attention`, `worker_stop_failed` и
-тревожные `notification_transport` несут `"status":"operator_attention"`, как и прежние сигналы
+Строки `process_failed`, `queue_unavailable`, `queue_attention`, `worker_stop_failed`,
+`video_deletion_failed`, `stored_page_rejected` и тревожные `notification_transport` несут `"status":"operator_attention"`, как и прежние сигналы
 воркеров, поэтому прежние `grep` по этому статусу их находят.
 
 ## Найти запрос

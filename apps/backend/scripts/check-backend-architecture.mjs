@@ -325,8 +325,8 @@ function handoffDelegateViolations(sourceFile, program) {
 // Сбой зависимости в Module записывается с причиной: catch передаёт пойманное значение
 // reporter из src/infrastructure/observability (dependencyFailure, reportDependencyFailure,
 // describeError), каналу наблюдений уведомлений (loggableFailure), делает причиной новой ошибки
-// или бросает дальше. Отказ
-// разбора чужого ввода — не сбой зависимости; такой catch объясняет себя первой строкой тела.
+// или бросает дальше. Отказ разбора чужого ввода — не сбой зависимости; такой catch объясняет
+// себя первой строкой тела.
 const inputRejectionMarker = "Not a dependency failure:";
 const reporters = "dependencyFailure|reportDependencyFailure|describeError|loggableFailure";
 
