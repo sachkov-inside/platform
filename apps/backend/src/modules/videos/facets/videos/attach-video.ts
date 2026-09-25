@@ -73,10 +73,10 @@ export async function attachExistingVideo(
         },
       });
       await markPendingWebhooksReconciled(
-        context,
         transaction,
         parsed.data.providerVideoId,
         reconciliationCutoff,
+        context.now(),
       );
       return video;
     });

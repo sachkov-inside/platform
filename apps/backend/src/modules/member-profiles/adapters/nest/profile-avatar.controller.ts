@@ -25,6 +25,7 @@ import type { FastifyRequest } from "fastify";
 import { z } from "zod";
 
 import { AssetDeliveryCache } from "../../../../infrastructure/http/http-cache-policy.js";
+import { problemType } from "../../../../infrastructure/http/problem-details.js";
 import { problemDetailsContent, toOpenApiSchema } from "../../../../infrastructure/http/zod-openapi.js";
 import {
   AcceptedTermsEndpoint,
@@ -266,7 +267,7 @@ function throwAvatarError(
 
 function avatarProblem(status: number, code: string, title: string): HttpException {
   return new HttpException(
-    { code, status, title, type: `urn:inside:problem:${code.replaceAll("_", "-")}` },
+    { code, status, title, type: problemType(code) },
     status,
   );
 }

@@ -27,7 +27,7 @@ export interface StoredArtifactFile {
 export interface GuideArtifactFiles {
   store(artifactId: string, file: UploadedArtifactFile): Promise<GuideArtifactResult<StoredArtifactFile>>;
   /** The version row is committed: the quarantine copy has no further use. */
-  release(stored: StoredArtifactFile | null): Promise<void>;
+  forgetQuarantine(stored: StoredArtifactFile | null): Promise<void>;
   /** No row names the stored objects: forget all of them. */
   discard(stored: StoredArtifactFile | null): Promise<void>;
 }
@@ -125,7 +125,7 @@ export function assembleGuideArtifactFiles(objectStorage: ObjectStorage): GuideA
       };
     },
 
-    async release(stored) {
+    async forgetQuarantine(stored) {
       if (stored !== null) await forgetObject("quarantine", stored.quarantineObjectKey);
     },
 

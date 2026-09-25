@@ -380,17 +380,32 @@ function swallowedFailureViolations(sourceFile, sourceText, program, comments) {
 // import, a re-export or a dynamic import(). The dependency graph stays acyclic, so a Module
 // loads, composes and changes without the Modules that depend on it.
 const importKindRank = { type: 0, dynamic: 1, value: 2 };
-// Edges that still close a cycle, each with the strongest import kind it may keep; a stronger
-// import on that edge counts again. ADR 0029 records why they remain and what removes them.
+// Every edge of the one known cycle among eight Modules, each with the strongest import kind it
+// may keep; a stronger import, or any other edge that lies on a cycle, fails. The type-only and
+// dynamic edges are the ones to invert; ADR 0029 records why each remains and what removes it.
 const legacyCycleEdges = new Map([
+  ["billing -> membership-entitlements", "value"],
   ["billing -> notifications", "type"],
   ["billing -> telegram-membership", "type"],
   ["content-access -> materials", "type"],
   ["content-access -> membership-entitlements", "type"],
   ["content-access -> workshop", "type"],
+  ["materials -> billing", "value"],
+  ["materials -> content-access", "value"],
+  ["materials -> membership-entitlements", "value"],
   ["materials -> notifications", "type"],
+  ["materials -> videos", "value"],
+  ["materials -> workshop", "value"],
   ["membership-entitlements -> materials", "dynamic"],
   ["membership-entitlements -> telegram-membership", "dynamic"],
+  ["membership-entitlements -> workshop", "value"],
+  ["notifications -> billing", "value"],
+  ["notifications -> content-access", "value"],
+  ["notifications -> materials", "value"],
+  ["notifications -> telegram-membership", "value"],
+  ["telegram-membership -> billing", "value"],
+  ["telegram-membership -> membership-entitlements", "value"],
+  ["videos -> content-access", "value"],
   ["workshop -> materials", "type"],
   ["workshop -> membership-entitlements", "type"],
 ]);
@@ -527,55 +542,63 @@ function stronglyConnectedComponents(graph) {
   return components.filter((component) => component.length > 1);
 }
 
-// The shortest cycle through the first Module of a component, for a readable diagnostic.
-function cycleThrough(graph, component) {
-  const members = new Set(component);
-  const start = [...component].sort()[0];
-  const previous = new Map();
+// The shortest path between two Modules, for a readable diagnostic.
+function shortestPath(graph, start, goal) {
+  const previous = new Map([[start, start]]);
   const queue = [start];
   while (queue.length > 0) {
     const node = queue.shift();
+    if (node === goal) break;
     for (const next of [...(graph.get(node) ?? [])].sort()) {
-      if (!members.has(next)) continue;
-      if (next === start) {
-        const cycle = [start];
-        for (let step = node; step !== start; step = previous.get(step)) cycle.splice(1, 0, step);
-        return [...cycle, start];
-      }
-      if (!previous.has(next)) {
-        previous.set(next, node);
-        queue.push(next);
-      }
+      if (previous.has(next)) continue;
+      previous.set(next, node);
+      queue.push(next);
     }
   }
-  return [start, start];
+  const path = [goal];
+  while (path[0] !== start) path.unshift(previous.get(path[0]));
+  return path;
 }
 
+// An edge lies on a cycle when both Modules share a strongly connected component of the complete
+// graph. Only a listed edge at its allowed kind may; a new edge that closes a cycle through listed
+// edges fails, and a listed edge that left every cycle must leave the list.
 function moduleCycleViolations(moduleEdges) {
   const graph = new Map();
+  const counted = [];
   for (const [edge, kinds] of moduleEdges) {
-    const allowance = legacyCycleEdges.get(edge);
-    const counts = [...kinds.keys()].some(
-      (kind) => allowance === undefined || importKindRank[kind] > importKindRank[allowance],
-    );
-    if (!counts) continue;
     const [from, to] = edge.split(" -> ");
     graph.set(from, new Set([...(graph.get(from) ?? []), to]));
+    const allowance = legacyCycleEdges.get(edge);
+    if ([...kinds.keys()].some(
+      (kind) => allowance === undefined || importKindRank[kind] > importKindRank[allowance],
+    )) counted.push([from, to]);
   }
-  const violations = stronglyConnectedComponents(graph).map((component) => {
-    const cycle = cycleThrough(graph, component);
-    const evidence = cycle.slice(1).map((to, step) => {
-      const edge = `${cycle[step]} -> ${to}`;
-      const kinds = moduleEdges.get(edge);
-      const strongest = [...kinds.keys()].sort((left, right) => importKindRank[right] - importKindRank[left])[0];
-      return `${edge}: ${kinds.get(strongest)}`;
+  const componentOf = new Map();
+  for (const component of stronglyConnectedComponents(graph)) {
+    for (const member of component) componentOf.set(member, component);
+  }
+  const violations = counted
+    .filter(([from, to]) => componentOf.has(from) && componentOf.get(from) === componentOf.get(to))
+    .map(([from, to]) => {
+      const cycle = [from, ...shortestPath(graph, to, from)];
+      const evidence = cycle.slice(1).map((next, step) => {
+        const edge = `${cycle[step]} -> ${next}`;
+        const kinds = moduleEdges.get(edge);
+        const strongest = [...kinds.keys()].sort((left, right) => importKindRank[right] - importKindRank[left])[0];
+        return `${edge}: ${kinds.get(strongest)}${step > 0 && legacyCycleEdges.has(edge) ? " (listed)" : ""}`;
+      });
+      return `Module dependency cycle ${cycle.join(" -> ")}; depend on a lower Module or invert the edge through a port (${evidence.join("; ")})`;
     });
-    return `Module dependency cycle ${cycle.join(" -> ")}; depend on a lower Module or invert the edge through a port (${evidence.join("; ")})`;
-  });
   for (const [edge, allowance] of legacyCycleEdges) {
     const kinds = moduleEdges.get(edge);
     if (kinds === undefined) {
       violations.push(`${edge}: no longer imports; remove it from legacyCycleEdges`);
+      continue;
+    }
+    const [from, to] = edge.split(" -> ");
+    if (!componentOf.has(from) || componentOf.get(from) !== componentOf.get(to)) {
+      violations.push(`${edge}: no longer lies on a cycle; remove it from legacyCycleEdges`);
       continue;
     }
     const strongest = Math.max(...[...kinds.keys()].map((kind) => importKindRank[kind]));

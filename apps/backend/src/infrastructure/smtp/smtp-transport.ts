@@ -4,6 +4,12 @@ import type { PlatformConfig } from "../../config/platform-config.js";
 
 const smtpTimeoutMs = 10_000;
 
+/** The SMTP fields of the platform configuration; Billing Contact owns them today. */
+export type SmtpConfig = Pick<
+  NonNullable<PlatformConfig["billingContact"]>,
+  "from" | "localInsecure" | "smtpHost" | "smtpPassword" | "smtpPort" | "smtpUser"
+>;
+
 export interface SmtpMessage {
   readonly to: string;
   readonly subject: string;
@@ -18,7 +24,7 @@ export interface SmtpMessage {
  * raw reply for the caller to interpret; a failure rejects with the transport error.
  */
 export function assembleSmtpTransport(
-  config: NonNullable<PlatformConfig["billingContact"]>,
+  config: SmtpConfig,
 ): (message: SmtpMessage) => Promise<unknown> {
   const transport = nodemailer.createTransport({
     host: config.smtpHost,

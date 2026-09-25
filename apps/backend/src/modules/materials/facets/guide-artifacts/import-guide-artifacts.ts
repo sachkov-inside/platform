@@ -208,7 +208,7 @@ async function createFromSource(
     await context.files.discard(stored);
     return dependencyUnavailable();
   }
-  await context.files.release(stored);
+  await context.files.forgetQuarantine(stored);
   return {
     ok: true,
     value: {
@@ -297,7 +297,7 @@ async function updateFromSource(
     }
     return dependencyFailure({ module: "materials", operation: "updateFromSource" }, error, dependencyUnavailable());
   }
-  await context.files.release(stored);
+  await context.files.forgetQuarantine(stored);
   return {
     ok: true,
     value: {

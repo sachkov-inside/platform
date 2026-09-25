@@ -22,6 +22,8 @@ import {
 import type { InitVideoUploadResult, Videos } from "./videos.interface.js";
 import { reconcilePendingWebhooks } from "./reconcile-video.js";
 
+const initUploadScope = { module: "videos", operation: "initUpload" } as const;
+
 type UploadAttempt = NonNullable<Awaited<ReturnType<VideoContext["prisma"]["videoUploadAttempt"]["findFirst"]>>>;
 type Step<Value> = { readonly ok: true; readonly value: Value } | { readonly ok: false; readonly result: InitVideoUploadResult };
 
@@ -71,7 +73,7 @@ async function reserveUploadAttempt(
   try {
     attempts = await Promise.all([sameKey(), unsettled()]);
   } catch (error) {
-    return { ok: false, result: dependencyFailure({ module: "videos", operation: "initUpload" }, error, dependencyUnavailable()) };
+    return { ok: false, result: dependencyFailure(initUploadScope, error, dependencyUnavailable()) };
   }
   const [existing, unresolved] = attempts;
   if (existing !== null) {
@@ -100,16 +102,16 @@ async function reserveUploadAttempt(
   } catch (error) {
     // Попытка с тем же ключом, созданная параллельно, отвечает повтором, а не сбоем.
     const concurrent = await sameKey()
-      .catch((lookupError: unknown) => dependencyFailure({ module: "videos", operation: "initUpload" }, lookupError, null));
+      .catch((lookupError: unknown) => dependencyFailure(initUploadScope, lookupError, null));
     if (concurrent !== null) {
       return { ok: false, result: await replayUploadAttempt(context, concurrent, input, projectId) };
     }
     const concurrentUnresolved = await unsettled()
-      .catch((lookupError: unknown) => dependencyFailure({ module: "videos", operation: "initUpload" }, lookupError, null));
+      .catch((lookupError: unknown) => dependencyFailure(initUploadScope, lookupError, null));
     return {
       ok: false,
       result: concurrentUnresolved === null
-        ? dependencyFailure({ module: "videos", operation: "initUpload" }, error, dependencyUnavailable())
+        ? dependencyFailure(initUploadScope, error, dependencyUnavailable())
         : uploadOutcomeUnknown(),
     };
   }
@@ -135,10 +137,10 @@ async function requestProviderUpload(
         });
         return { ok: false, result: uploadNotAuthorized() };
       } catch (markError) {
-        return { ok: false, result: dependencyFailure({ module: "videos", operation: "initUpload" }, markError, uploadOutcomeUnknown()) };
+        return { ok: false, result: dependencyFailure(initUploadScope, markError, uploadOutcomeUnknown()) };
       }
     }
-    reportDependencyFailure({ module: "videos", operation: "initUpload" }, error);
+    reportDependencyFailure(initUploadScope, error);
     await markUploadOutcomeUnknown(context, attemptId);
     return { ok: false, result: uploadOutcomeUnknown() };
   }
@@ -202,7 +204,7 @@ async function recordUploadedVideo(
     ))) return dependencyUnavailable();
     return { ok: true, value: { providerVideoId, uploadEndpoint, video: toDto(video) } };
   } catch (error) {
-    reportDependencyFailure({ module: "videos", operation: "initUpload" }, error);
+    reportDependencyFailure(initUploadScope, error);
     await markUploadOutcomeUnknown(context, attemptId);
     return uploadOutcomeUnknown();
   }

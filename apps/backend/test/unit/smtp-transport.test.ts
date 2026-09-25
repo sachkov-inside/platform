@@ -52,7 +52,6 @@ describe("SMTP transport", () => {
     const address = server.address();
     if (address === null || typeof address === "string") throw new Error("SMTP responder has no port");
     const send = assembleSmtpTransport({
-      encryptionKey: Buffer.alloc(32).toString("base64"),
       from: "noreply@inside.example",
       localInsecure: true,
       smtpHost: "127.0.0.1",

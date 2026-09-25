@@ -24,9 +24,9 @@ export function contractDigest(value: unknown): string {
 /**
  * The replay fingerprint of an idempotent command envelope. Keys follow `localeCompare` and absent
  * optional fields drop out, so the same payload in any key order matches and a changed one
- * conflicts. Materials and Billing store these digests beside their receipts, so the form never
- * changes in place: a new form needs a new envelope version. Workshop publication digests follow
- * the Inside Content protocol and keep their own form.
+ * conflicts. Materials, Billing and Tribute events store these digests beside their receipts, so
+ * the form never changes in place: a new form needs a new envelope version. Workshop publication
+ * digests follow the Inside Content protocol and keep their own form.
  */
 export function commandDigest(envelope: unknown): string {
   return createHash("sha256").update(JSON.stringify(commandForm(envelope))).digest("hex");

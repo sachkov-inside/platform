@@ -1,6 +1,7 @@
 import {
   Controller,
   Headers,
+  type HttpException,
   Inject,
   Param,
   Post,
@@ -93,17 +94,17 @@ export class UploadMaterialAssetController {
       file = part;
     } catch {
       // Not a dependency failure: the client sent a malformed form.
-      throw problemException(400, "invalid_upload", "Upload form is malformed");
+      throw uploadProblem(400, "invalid_upload", "Upload form is malformed");
     }
     let body: Buffer;
     try {
       body = await file.toBuffer();
     } catch {
       // Not a dependency failure: the upload exceeds its size limit.
-      throw problemException(413, "upload_too_large", "Uploaded file exceeds the size limit");
+      throw uploadProblem(413, "upload_too_large", "Uploaded file exceeds the size limit");
     }
     if (file.file.truncated) {
-      throw problemException(413, "upload_too_large", "Uploaded file exceeds the size limit");
+      throw uploadProblem(413, "upload_too_large", "Uploaded file exceeds the size limit");
     }
     const kind = field(file, "kind");
     const declaredSize = Number(field(file, "declaredSize"));
@@ -118,7 +119,7 @@ export class UploadMaterialAssetController {
       !parsedIdempotencyKey.success ||
       !materialIdSchema.safeParse(materialId).success
     ) {
-      throw problemException(400, "invalid_upload", "Upload metadata is malformed");
+      throw uploadProblem(400, "invalid_upload", "Upload metadata is malformed");
     }
     const result = await this.assetAuthoring.upload({
       actor: account.accountId,
@@ -144,21 +145,27 @@ function field(file: MultipartFile, name: string): string | undefined {
 
 function throwAssetUploadError(error: Extract<UploadMaterialAssetForAuthoringResult, { ok: false }>["error"]): never {
   switch (error.code) {
-    case "dependency_unavailable": throw problemException(503, error.code, "Material asset dependency is unavailable");
-    case "forbidden": throw problemException(403, error.code, "Material asset upload is forbidden");
-    case "material_not_found": throw problemException(404, error.code, "Material was not found");
+    case "dependency_unavailable": throw uploadProblem(503, error.code, "Material asset dependency is unavailable");
+    case "forbidden": throw uploadProblem(403, error.code, "Material asset upload is forbidden");
+    case "material_not_found": throw uploadProblem(404, error.code, "Material was not found");
     case "idempotency_key_reused":
-    case "upload_in_progress": throw problemException(409, error.code, "Material asset upload conflicts with an existing request");
+    case "upload_in_progress": throw uploadProblem(409, error.code, "Material asset upload conflicts with an existing request");
     case "image_too_large":
-    case "size_mismatch": throw problemException(413, error.code, "Uploaded file exceeds or does not match its declared size");
+    case "size_mismatch": throw uploadProblem(413, error.code, "Uploaded file exceeds or does not match its declared size");
     case "checksum_mismatch":
     case "executable_content":
     case "image_decode_failed":
     case "invalid_upload":
     case "mime_mismatch":
     case "unsupported_file_type":
-    case "unsupported_image_type": throw problemException(422, error.code, "Uploaded bytes are not an accepted Material asset");
+    case "unsupported_image_type": throw uploadProblem(422, error.code, "Uploaded bytes are not an accepted Material asset");
   }
+}
+
+// Upload problems keep publishing the raw code as their type, as the web BFF does for its own
+// upload failures; moving both to the kebab-case form is a contract change of its own.
+function uploadProblem(status: number, code: string, title: string): HttpException {
+  return problemException(status, code, title, { type: `urn:inside:problem:${code}` });
 }
 
 function uploadProblemSchema(

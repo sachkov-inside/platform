@@ -95,7 +95,7 @@ export async function createGuideArtifact(
     await context.files.discard(stored);
     return dependencyUnavailable();
   }
-  await context.files.release(stored);
+  await context.files.forgetQuarantine(stored);
   return projectOrFail(prisma, artifactId);
 }
 
@@ -201,7 +201,7 @@ export async function replaceGuideArtifactContent(
     await context.files.discard(stored);
     return dependencyUnavailable();
   }
-  await context.files.release(stored);
+  await context.files.forgetQuarantine(stored);
   return projectOrFail(prisma, parsed.data.artifactId);
 }
 

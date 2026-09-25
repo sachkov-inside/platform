@@ -91,14 +91,14 @@ export async function reconcilePendingWebhooks(
 }
 
 export async function markPendingWebhooksReconciled(
-  context: VideoContext,
   transaction: Pick<VideosPrismaClient, "videoWebhookInbox">,
   providerVideoId: ProviderVideoId,
   cutoff: Date,
+  reconciledAt: Date,
 ): Promise<void> {
   await transaction.videoWebhookInbox.updateMany({
     where: { providerVideoId, reconciledAt: null, receivedAt: { lte: cutoff } },
-    data: { reconciledAt: context.now() },
+    data: { reconciledAt },
   });
 }
 
@@ -113,10 +113,10 @@ async function reconcileVideoById(context: VideoContext, videoId: VideoId): Prom
     const reconciliationCutoff = context.now();
     if (local.state === "deleted") {
       await markPendingWebhooksReconciled(
-        context,
         context.prisma,
         localProviderVideoId,
         reconciliationCutoff,
+        context.now(),
       );
       return { ok: true, value: toDto(local) };
     }
@@ -149,10 +149,10 @@ async function reconcileVideoById(context: VideoContext, videoId: VideoId): Prom
         },
       });
       await markPendingWebhooksReconciled(
-        context,
         transaction,
         localProviderVideoId,
         reconciliationCutoff,
+        context.now(),
       );
       return video;
     });
