@@ -11,7 +11,7 @@ import { z } from "zod";
 export const globalAccessCapabilities = ["materials", "community", "reviews", "support"] as const;
 
 export const accessCapabilitySchema: z.ZodUnion<readonly [
-  z.ZodEnum<{ [Capability in (typeof globalAccessCapabilities)[number]]: Capability }>,
+  z.ZodEnum<z.core.util.ToEnum<(typeof globalAccessCapabilities)[number]>>,
   z.ZodTemplateLiteral<`guide:${string}`>,
 ]> = z.union([
   z.enum(globalAccessCapabilities),
@@ -124,10 +124,12 @@ export function isEmptyContentScope(scope: unknown): boolean {
     (parsed.data.allGuides !== true && parsed.data.guideIds.length === 0 && parsed.data.materialIds.length === 0);
 }
 
+const contentScopeEntryKinds = ["guide", "material"] as const;
+
 export const contentScopeEntrySchema: z.ZodObject<{
-  kind: z.ZodEnum<{ guide: "guide"; material: "material" }>;
+  kind: z.ZodEnum<z.core.util.ToEnum<(typeof contentScopeEntryKinds)[number]>>;
   id: z.ZodUUID;
   title: z.ZodString;
   slug: z.ZodNullable<z.ZodString>;
   available: z.ZodBoolean;
-}, z.core.$strict> = z.strictObject({ kind: z.enum(["guide", "material"]), id: z.uuid(), title: z.string(), slug: z.string().nullable(), available: z.boolean() });
+}, z.core.$strict> = z.strictObject({ kind: z.enum(contentScopeEntryKinds), id: z.uuid(), title: z.string(), slug: z.string().nullable(), available: z.boolean() });

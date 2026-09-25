@@ -111,21 +111,22 @@ describe("supported toolchain contract", () => {
   it("builds every TypeScript project on the shared strict base", () => {
     const listed = spawnSync("git", ["ls-files", "-z", "--", "*tsconfig*.json"], { cwd: repositoryRoot, encoding: "utf8" });
     assert.equal(listed.status, 0, listed.stderr);
-    const projects = listed.stdout.split("\0").filter((path) => path !== "" && !/^tsconfig\.[a-z-]+\.json$/u.test(path));
-    assert.ok(projects.length >= 10);
-    for (const path of projects) {
-      assert.ok(extendsChain(path).includes("tsconfig.base.json"), `${path} must extend tsconfig.base.json`);
-      if (path.startsWith("packages/")) {
-        assert.ok(extendsChain(path).includes("tsconfig.node-lib.json"), `${path} must use the package preset`);
-      }
-    }
+    const configs = listed.stdout.split("\0").filter((path) => path !== "");
+    assert.ok(configs.length >= 14);
+    assert.deepEqual(configs.flatMap((path) => sharedBaseViolations(path)), []);
     for (const [flag, value] of Object.entries(sharedStrictness)) {
       assert.equal(compilerOptionsOf("tsconfig.base.json")[flag], value, flag);
     }
     assert.equal(compilerOptionsOf("tsconfig.node-lib.json").erasableSyntaxOnly, true);
     assert.equal(compilerOptionsOf("tsconfig.node-lib.json").isolatedDeclarations, true);
-    // Negative fixture: a project that names its own flags instead of the base is rejected.
-    assert.ok(!extendsChain("apps/backend/tsconfig.json", { "apps/backend/tsconfig.json": { compilerOptions: { strict: true } } }).includes("tsconfig.base.json"));
+
+    // Negative fixtures: a project with its own flags, and a package on an application preset.
+    assert.deepEqual(sharedBaseViolations("apps/backend/tsconfig.json", {
+      "apps/backend/tsconfig.json": { compilerOptions: { strict: true } },
+    }), ["apps/backend/tsconfig.json must extend tsconfig.base.json"]);
+    assert.deepEqual(sharedBaseViolations("packages/legal/tsconfig.json", {
+      "packages/legal/tsconfig.json": { extends: "../../tsconfig.nest-app.json" },
+    }), ["packages/legal/tsconfig.json must use tsconfig.node-lib.json"]);
 
     // Packages compile with the application rules, so type-aware lint covers them too.
     const typeAwareFiles = JSON.parse(read(".oxlintrc.json")).overrides.flatMap((override) =>
@@ -482,6 +483,10 @@ const sharedStrictness = {
   strict: true,
   exactOptionalPropertyTypes: true,
   noUncheckedIndexedAccess: true,
+  noImplicitOverride: true,
+  noImplicitReturns: true,
+  noFallthroughCasesInSwitch: true,
+  noUncheckedSideEffectImports: true,
   noUnusedLocals: true,
   noUnusedParameters: true,
   allowUnreachableCode: false,
@@ -489,6 +494,17 @@ const sharedStrictness = {
   verbatimModuleSyntax: true,
   isolatedModules: true,
 };
+
+/** Why one tracked tsconfig breaks the shared base contract; `overrides` replaces files for fixtures. */
+function sharedBaseViolations(path, overrides = {}) {
+  if (path === "tsconfig.base.json") return [];
+  const chain = extendsChain(path, overrides);
+  if (!chain.includes("tsconfig.base.json")) return [`${path} must extend tsconfig.base.json`];
+  if (path.startsWith("packages/") && !chain.includes("tsconfig.node-lib.json")) {
+    return [`${path} must use tsconfig.node-lib.json`];
+  }
+  return [];
+}
 
 /** Repository-relative configs a project inherits, nearest first; `overrides` replaces files for fixtures. */
 function extendsChain(path, overrides = {}) {

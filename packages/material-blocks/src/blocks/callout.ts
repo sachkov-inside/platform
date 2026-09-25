@@ -24,7 +24,7 @@ export const calloutTones = [
   "task",
 ] as const;
 
-const calloutToneSchema: z.ZodEnum<{ [Tone in (typeof calloutTones)[number]]: Tone }> = z.enum(calloutTones);
+const calloutToneSchema: z.ZodEnum<z.core.util.ToEnum<(typeof calloutTones)[number]>> = z.enum(calloutTones);
 
 export type CalloutTone = z.infer<typeof calloutToneSchema>;
 

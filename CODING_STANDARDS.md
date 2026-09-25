@@ -26,9 +26,9 @@ nearest `AGENTS.md` owns task routing and verification commands.
 - Every TypeScript project extends `tsconfig.base.json` through its preset:
   `tsconfig.node-lib.json` for `packages/`, `tsconfig.nest-app.json` for the backend and
   `tsconfig.next-app.json` for the web. Change shared strictness in the base, not per project;
-  `scripts/toolchain-contract.test.mjs` fails a project that bypasses it. Packages also compile with
-  `erasableSyntaxOnly` and `isolatedDeclarations`, so every export states its type; annotate a Zod
-  schema with its exact Zod type rather than a hand-written wire type.
+  `scripts/toolchain-contract.test.mjs` fails a project that bypasses it. Where `isolatedDeclarations`
+  in packages asks for an exported Zod schema's type, write its exact Zod type, not a hand-written
+  wire type.
 - Keep checked-in generated contracts deterministic. Change their source and regenerate them; do
   not hand-edit generated output.
 - Name protocol, token, cookie, retry, and polling durations in domain units at the owning boundary.

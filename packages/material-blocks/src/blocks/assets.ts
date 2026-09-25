@@ -1,8 +1,11 @@
 import { z } from "zod";
 
-import { defineMaterialBlock, type MaterialBlockDefinition } from "../block-definition.js";
+import {
+  defineMaterialBlock,
+  type MaterialBlockDefinition,
+  type MaterialBlockNodeDescription,
+} from "../block-definition.js";
 import { expectString, nodeAttributes, optionalText } from "../document-node.js";
-import type { MaterialBlockNodeDescription } from "../block-definition.js";
 import { isJsonObject, stringAttribute } from "../json.js";
 
 /** Field rules, declared once and read both by the document node and by the rendered block. */
