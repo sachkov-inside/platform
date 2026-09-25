@@ -30,7 +30,7 @@ names its seam and the stages run in parallel:
 
 | Job | Repository command or proof |
 |---|---|
-| `static` | `inside-harness health` at the installed harness version, then `pnpm check:static`: documentation contract, workspace packages, OpenAPI drift, lint, typecheck, guardrails |
+| `static` | `inside-harness health` at the installed harness version, then `pnpm check:static`: documentation contract, workspace packages and Prisma client, OpenAPI drift, lint, typecheck, guardrails |
 | `unit` | `pnpm check:unit`: tooling and authoring `node --test`, Workshop contracts and `go test -race`, backend and package Vitest, web module tests |
 | `ui` | `pnpm check:ui`: browser-engine checks (Chromium and WebKit), Storybook tests and the Storybook build |
 | `web-e2e` | `pnpm check:web-e2e`: one production build, prerendered and standalone checks, then Playwright e2e and page transitions on `next start` of that build |
@@ -57,7 +57,13 @@ with `main`. The queue builds each entry on top of the current `main` plus the e
 runs this workflow for the `merge_group` event and merges only after that combined `CI Gate`
 succeeds. Freshness is therefore proved once, by the queue, instead of by rebasing every open branch
 after each merge. Add a ready pull request with `gh pr merge <number> --squash` (or the queue button);
-merge approval under `Owner gates` in `WORKFLOW.md` is unchanged.
+merge approval under `Owner gates` in `WORKFLOW.md` is unchanged. A direct merge through the REST API
+answers `405 Changes must be made through the merge queue` even for a clean pull request. The
+ruleset changes only by owner decision; an agent never edits it to get a merge through.
+
+`compose-production` can time out waiting for a `pg-boss` job to become active on a change that does
+not touch workers, queues or Compose; #728 tracks the wait budget, and a re-run follows the rule for
+known defects in `WORKFLOW.md` while it is open.
 
 ## Integration suites
 

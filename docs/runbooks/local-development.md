@@ -280,7 +280,11 @@ pnpm --filter @inside/backend db:seed
 pnpm dev
 ```
 
-Individual adapters are `pnpm dev:web`, `pnpm dev:api` and `pnpm dev:mcp`. `pnpm local:setup` is a
+Individual adapters are `pnpm dev:web`, `pnpm dev:api` and `pnpm dev:mcp`. On macOS a low
+open-file limit (`launchctl limit maxfiles` of 256) makes `next dev` fail with
+`Watchpack Error ... EMFILE`; raise the limit and poll in the same command, for example
+`ulimit -n 65536; WATCHPACK_POLLING=true pnpm dev:web`. `pnpm editor:local` forwards
+`WATCHPACK_POLLING` to the processes it starts. `pnpm local:setup` is a
 host-pnpm convenience wrapper that starts the disposable smoke project with the published demo and
 runs the smoke; it refuses to start while any Platform stack owns the ports.
 
@@ -358,6 +362,10 @@ delegated Account that the launcher grants exactly `materials:manage`: the owner
 working machine may already carry `communications:manage`, and that step must read authority
 rather than the history of the local database.
 
+The smoke writes the Git-ignored `apps/web/release-identity.json` at start and removes it when it
+ends. A killed run leaves the file behind, and the next run stops with `Refusing to replace`: make
+sure no other smoke is running in this worktree, delete the file, and start again.
+
 `pnpm smoke:enrollments` separately owns the course-recipient, catalog and provider fixtures for
 `playwright.enrollment.config.ts`; the general full-stack configuration does not run that fixture-dependent suite.
 `pnpm check:full` runs both smokes, and CI Integration runs the enrollment smoke after PostgreSQL integration tests.
@@ -400,6 +408,10 @@ This covers lint, strict typecheck, backend architecture guardrails, unit/module
 Playwright, production builds and the Storybook build without claiming a real database. It runs
 the four stages `pnpm check:static`, `check:unit`, `check:ui` and `check:web-e2e` in order; CI runs
 each stage as its own job, so run the one stage that matches a CI failure to reproduce it.
+
+A full run takes about ten minutes. `check:static` rebuilds the `packages/*/dist` that later stages
+import, so leave the tree alone while it runs: an edit or package rebuild in the middle fails an
+unrelated test.
 
 Page transitions are checked on a production build, because development mode has no link prefetch
 and no route cache:
@@ -527,6 +539,11 @@ The same generation runs during install, build, and typecheck:
 ```bash
 pnpm --filter @inside/backend prisma:generate
 ```
+
+After pulling or merging `main`, run `pnpm build:generated` before a standalone `pnpm lint`: it
+rebuilds the workspace packages and the Prisma client. Type-aware lint reads both, so a stale `dist`
+or client reports unsafe `any` errors in files the change never touched. `pnpm check:static` runs it
+before lint.
 
 The Prisma schema maps the product-owned `billing`, `materials`, `assets`, `accounts`, `member_profiles`,
 `membership_entitlements`, `reading_activity`, `notifications` and `telegram_membership` schemas. Checked-in,
