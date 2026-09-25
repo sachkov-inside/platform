@@ -1,11 +1,10 @@
 import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import { lockBillingSubscription, type BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
-import type { NotificationSource } from "../../../notifications/index.js";
 import {
   BILLING_CABINET_PATH, noticeConditions, noticeEventSchema, noticeKindSchema, noticeViewSchema,
   planRenewalReminder, RENEWAL_REMINDER_LEAD_MS, sameNoticeConditions,
-  type NoticeView, type RenewalReminderSubject,
+  type NoticeEvent, type NoticeKind, type NoticeView, type RenewalReminderSubject,
 } from "../../domain/notice.js";
 import { recordBillingNotice } from "../../shared/record-notice.js";
 import { paymentFailure, type PaymentResult } from "../../features/purchase-subscription/purchase-subscription.contract.js";
@@ -26,6 +25,23 @@ function chargeableSubscription(row: SubscriptionRow): RenewalReminderSubject {
   };
 }
 
+/**
+ * Ответ источника уведомления, который читает Notifications. Billing описывает его сам и поэтому
+ * не зависит от Notifications.
+ */
+export type BillingNoticeSource =
+  | { readonly status: "unavailable" | "superseded" }
+  | {
+      readonly status: "current";
+      readonly event: NoticeEvent;
+      readonly content: { readonly category: "subscription"; readonly kind: NoticeKind };
+      readonly accountId: string;
+      readonly title: string;
+      readonly readerPath: string;
+      readonly amountMinor?: number;
+      readonly dueAt?: string;
+    };
+
 interface Dependencies {
   readonly prisma: BillingPrismaClient;
   readonly clock?: () => Date;
@@ -41,7 +57,7 @@ export class BillingNotices {
   constructor(private readonly dependencies: Dependencies) { this.clock = dependencies.clock ?? (() => new Date()); }
 
   /** Проверка перед раскрытием аудитории и перед каждой внешней отправкой. */
-  async resolveNotice(input: unknown): Promise<NotificationSource> {
+  async resolveNotice(input: unknown): Promise<BillingNoticeSource> {
     const parsed = noticeEventSchema.safeParse(input);
     if (!parsed.success) return { status: "superseded" };
     const event = parsed.data;

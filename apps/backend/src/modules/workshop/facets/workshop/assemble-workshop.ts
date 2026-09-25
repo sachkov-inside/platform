@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import type { MembershipEntitlements } from "../../../membership-entitlements/index.js";
+import type { WorkshopMembershipAccess } from "../../ports/membership-access.js";
 import { grantWorkshopEntitlement } from "../../features/grant-entitlement/grant-entitlement.js";
 import { loadCurrentWorkshopCase } from "../../features/load-current-case/load-current-case.js";
 import { publishWorkshopCase } from "../../features/publish-case/publish-case.js";
@@ -16,10 +16,7 @@ import type { Workshop } from "./workshop.interface.js";
 
 export interface WorkshopDependencies {
   readonly prisma: WorkshopPrismaClient;
-  readonly membershipEntitlements: Pick<
-    MembershipEntitlements,
-    "resolveForAccessUnderEntitlementLock"
-  >;
+  readonly membershipEntitlements: WorkshopMembershipAccess;
   readonly ownerPolicy: WorkshopOwnerPolicy;
   readonly materialCatalog: WorkshopMaterialCatalog;
   readonly sourceArchives: SourceArchives;

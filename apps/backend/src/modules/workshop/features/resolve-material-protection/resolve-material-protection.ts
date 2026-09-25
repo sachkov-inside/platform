@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
-import type { MaterialId } from "../../../materials/index.js";
+import type { MaterialId } from "../../../../infrastructure/contracts/material-id.js";
 import type { WorkshopPrisma } from "../../infrastructure/prisma.js";
 
 export type WorkshopMaterialProtectionState =

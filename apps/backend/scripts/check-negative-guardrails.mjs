@@ -129,10 +129,7 @@ expectFailure(
     "Module dependency cycle dyn-left -> dyn-right -> dyn-left",
     "src/modules/example/index.ts: lazyUnused has no consumer outside the example Module; remove the export",
     "Module dependency cycle membership-entitlements -> materials -> membership-entitlements",
-    "content-access -> workshop: no longer imports; remove it from legacyCycleEdges",
     "Module dependency cycle notifications -> bookmarks -> billing -> notifications",
-    "notifications -> billing: keeps only weaker imports than value; lower its legacyCycleEdges kind",
-    "telegram-membership -> billing: no longer lies on a cycle; remove it from legacyCycleEdges",
   ],
 );
 

@@ -1,6 +1,5 @@
 import type { AccountId } from "../../../accounts/index.js";
 import type { MaterialId } from "../../../../infrastructure/contracts/material-id.js";
-import type { WorkshopMaterialAccess } from "../../../workshop/index.js";
 
 export interface MaterialResourceFacts {
   readonly materialId: MaterialId;
@@ -57,6 +56,16 @@ export interface VideoResourceFactsAdapter {
 
 export interface AccountPermissions {
   hasMaterialsManage(accountId: AccountId): Promise<boolean>;
+}
+
+/** Workshop access to one Material; Workshop answers it. */
+export type WorkshopMaterialAccessState =
+  | Readonly<{ availability: "available"; validUntil: string }>
+  | Readonly<{ availability: "locked" | "unavailable" }>;
+
+/** The Workshop decision Content Access needs. Workshop implements this port. */
+export interface WorkshopMaterialAccess {
+  resolve(accountId: AccountId, materialId: MaterialId): Promise<WorkshopMaterialAccessState>;
 }
 
 /** A Membership decision for one resource; Membership Entitlements answers it. */

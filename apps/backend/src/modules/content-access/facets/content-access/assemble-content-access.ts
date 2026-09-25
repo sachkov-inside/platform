@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
-import type { WorkshopMaterialAccessState } from "../../../workshop/index.js";
+import type { WorkshopMaterialAccessState } from "./content-access.dependencies.js";
 
 import type {
   AccessAction,
