@@ -47,13 +47,14 @@ export async function refreshDeliveries(deps: NotificationDependencies) {
 /**
  * Source, access and recipient binding come from other Modules on their own connections, so they
  * are read before the refresh transaction and judged under its Delivery lock, which guards none of
- * them. A failed read surfaces only where the refresh takes its answer, as it did in place.
+ * them. A failed read surfaces only where the refresh takes its answer, as it did in place: a closed
+ * window still clears the Delivery, and a failure after a decision to skip decides nothing.
  */
-async function readRefreshFacts(deps: NotificationDependencies, notification: { readonly eventPayload: string; readonly accountId: string }, delivery: string) {
-  // A value that does not parse fails in the transaction, where it failed before.
+async function readRefreshFacts(deps: NotificationDependencies, notification: { readonly eventPayload: string; readonly accountId: string }, deliveryChannel: string) {
+  // The payload was parsed when the row was admitted; a value the schema refuses fails in the transaction, as before.
   const event = eventSchema.safeParse(JSON.parse(notification.eventPayload));
   if (!event.success) return undefined;
-  const channel = channelSchema.safeParse(delivery);
+  const channel = channelSchema.safeParse(deliveryChannel);
   const source = await settle(() => deps.sources.resolve(event.data));
   const current = source.status === 'fulfilled' && validSource(event.data, source.value) ? source.value : undefined;
   const access = current?.content.category === 'material' ? await settle(() => deps.sources.canRead(notification.accountId, event.data.sourceRef)) : undefined;

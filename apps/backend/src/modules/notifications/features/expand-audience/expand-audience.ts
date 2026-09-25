@@ -27,7 +27,7 @@ export function validSource(event: NotificationEvent, source: NotificationSource
 /** Ответ чужого Module вместе с его отказом: отказ поднимается там, где операция берёт ответ. */
 type Read<Answer> = PromiseSettledResult<Answer>;
 export async function settle<Answer>(read: () => Promise<Answer>): Promise<Read<Answer>> {
-  const [settled] = await Promise.allSettled([read()] as const);
+  const [settled] = await Promise.allSettled([new Promise<Answer>(resolve => { resolve(read()); })] as const);
   return settled;
 }
 export function answer<Answer>(read: Read<Answer> | undefined): Answer {
@@ -36,6 +36,7 @@ export function answer<Answer>(read: Read<Answer> | undefined): Answer {
   if (read.status === 'rejected') throw read.reason;
   return read.value;
 }
+export type AudienceLane = 'billing' | 'materials';
 const checkpointSchema = z.object({ after: z.uuid().nullable().default(null), recipients: z.number().int().nonnegative().default(0),
   attempts: z.number().int().nonnegative().default(0), reason: z.string().optional() });
 // Capacity is bounded independently of audience membership; checkpoints use stable Account IDs.
@@ -45,7 +46,7 @@ const AUDIENCE_BATCH_SIZE = 25;
  * затем карантином с названной причиной. Раньше исключение уходило из задачи и гасило весь worker.
  */
 export async function expandAudience(
-  deps: NotificationDependencies, lane: 'billing' | 'materials', quarantine: QuarantineNotification,
+  deps: NotificationDependencies, lane: AudienceLane, quarantine: QuarantineNotification,
 ): Promise<AudienceExpansion> {
   try {
     return await expandAudienceOnce(deps, lane);
@@ -56,7 +57,7 @@ export async function expandAudience(
   }
 }
 export interface AudienceExpansion { readonly progressed: boolean; readonly observation?: SweepObservation }
-async function expandAudienceOnce(deps: NotificationDependencies, lane: 'billing' | 'materials'): Promise<AudienceExpansion> {
+async function expandAudienceOnce(deps: NotificationDependencies, lane: AudienceLane): Promise<AudienceExpansion> {
   const { prisma, now } = deps;
   const candidate = await nextRow(prisma, lane, now());
   if (!candidate) return { progressed: false };
@@ -83,7 +84,7 @@ async function expandAudienceOnce(deps: NotificationDependencies, lane: 'billing
   });
 }
 /** The lane's earliest due row: read once to prepare its facts, then again under the lane lock. */
-function nextRow(prisma: Pick<NotificationsPrisma, 'notificationInbox'>, lane: 'billing' | 'materials', now: Date) {
+function nextRow(prisma: Pick<NotificationsPrisma, 'notificationInbox'>, lane: AudienceLane, now: Date) {
   return prisma.notificationInbox.findFirst({ where: { lane, completedAt: null, nextAttemptAt: { lte: now } }, orderBy: [{ nextAttemptAt: 'asc' }, { receivedAt: 'asc' }, { messageId: 'asc' }] });
 }
 /**
@@ -100,7 +101,7 @@ interface AudienceFacts {
   readonly bindings: ReadonlyMap<string, Read<Binding | null>>;
 }
 const bindingKey = (accountId: string, channel: Channel) => `${accountId}:${channel}`;
-async function readAudienceFacts(deps: NotificationDependencies, lane: 'billing' | 'materials', row: InboxRow, after: string | null): Promise<AudienceFacts> {
+async function readAudienceFacts(deps: NotificationDependencies, lane: AudienceLane, row: InboxRow, after: string | null): Promise<AudienceFacts> {
   const access = new Map<string, Read<'allowed' | 'denied' | 'unavailable'>>();
   const bindings = new Map<string, Read<Binding | null>>();
   // Без адреса читателя строка ждёт настройки и ничего не спрашивает.
@@ -129,7 +130,7 @@ function parseCheckpoint(value: unknown): z.infer<typeof checkpointSchema> {
   return parsed.success ? parsed.data : { after: null, recipients: 0, attempts: 0 };
 }
 async function expandRow(
-  transaction: NotificationsPrisma, deps: NotificationDependencies, lane: 'billing' | 'materials',
+  transaction: NotificationsPrisma, deps: NotificationDependencies, lane: AudienceLane,
   row: InboxRow, checkpoint: z.infer<typeof checkpointSchema>, facts: AudienceFacts,
 ): Promise<AudienceExpansion> {
   const { now } = deps;

@@ -16,7 +16,7 @@ import { NotificationAccounts, assembleAccounts } from '../../src/modules/accoun
 import { BillingContact } from '../../src/modules/accounts/facets/billing-contact/billing-contact.js';
 import { billingContactProtection } from '../../src/modules/accounts/infrastructure/billing-contact-protection.js';
 import { encodeNotification } from '../../src/infrastructure/notification-transport/wire.js';
-import { expandAudience, type AudienceExpansion } from '../../src/modules/notifications/features/expand-audience/expand-audience.js';
+import { expandAudience, type AudienceExpansion, type AudienceLane } from '../../src/modules/notifications/features/expand-audience/expand-audience.js';
 import type { PlatformPrisma } from '../../src/infrastructure/prisma/index.js';
 import type { QuarantineNotification } from '../../src/modules/notifications/ports/notification-sources.js';
 import { dispatchEmail, acceptEmailCommand } from '../../src/modules/notifications/features/dispatch-email/dispatch-email.js';
@@ -59,13 +59,15 @@ describe('Notifications persistence and delivery (real PostgreSQL; synthetic sou
     const accounts = assembleAccounts({ prisma: database.prisma, emailFingerprintKey: 'notification-test-key-long-enough' });
     const app = new Notifications(deps, accounts);
     const advance = (ms: number) => { instant = new Date(instant.getTime() + ms); };
-    const lane: 'billing' | 'materials' = category === 'material' ? 'materials' : 'billing';
+    const lane: AudienceLane = category === 'material' ? 'materials' : 'billing';
     const receive = async () => { advance(10_000); await app.acceptEvent(encodeNotification(lane, event)); await database.prisma.notificationInbox.update({ where: { scope_messageId: { scope: lane, messageId: event.messageId } }, data: { nextAttemptAt: now() } }); };
     const publish = async () => { await receive(); await expandAudience(deps, lane, quarantined); };
+    // Разбор берёт самую раннюю ожидающую строку дорожки, поэтому сценарий остаётся один на дорожке.
+    const receiveAlone = async () => { await database.prisma.notificationInbox.deleteMany({ where: { lane, completedAt: null } }); await receive(); };
     const commands = async () => database.prisma.notificationCommand.findMany({ where: { delivery: { notification: { occurrenceRef: event.occurrenceRef, accountId: actor } } }, orderBy: { revision: 'asc' } });
     const command = async () => { const row = (await commands()).at(-1); if (!row) throw new Error('Missing command'); return { row, value: deliverySchema.parse(JSON.parse(row.payload)) }; };
     const admit = async () => { const { value } = await command(); await app.acceptEvent(encodeNotification(category === 'material' ? 'emailMaterial' : 'emailSubscription', value)); return value; };
-    return { actor, app, deps, event, fact, contacts, verify, advance, lane, receive, publish, commands, command, admit,
+    return { actor, app, deps, event, fact, contacts, verify, advance, lane, receive, receiveAlone, publish, commands, command, admit,
       source: (value: NotificationSource) => { source = value; }, access: (value: typeof access) => { access = value; } };
   }
   /**
@@ -78,10 +80,10 @@ describe('Notifications persistence and delivery (real PostgreSQL; synthetic sou
     const ownConnection = async <Answer>(answer: Promise<Answer>) => { await prisma.$queryRaw`SELECT 1`; return answer; };
     return { ...s.deps, prisma,
       sources: { resolve: event => ownConnection(s.deps.sources.resolve(event)), canRead: (account, sourceRef) => ownConnection(s.deps.sources.canRead(account, sourceRef)) },
-      recipients: { exists: id => contacts.exists(id), enumerate: query => contacts.enumerate(query), binding: (id, channel) => channel === 'email' ? contacts.binding(id) : Promise.resolve(null), email: binding => contacts.email(binding) } };
+      recipients: { exists: id => contacts.exists(id), enumerate: query => contacts.enumerate(query), binding: (id, channel) => channel === 'email' ? contacts.binding(id) : ownConnection(Promise.resolve(null)), email: binding => contacts.email(binding) } };
   }
   /** Expands the lane until nothing progresses: a material audience spans several batches. */
-  async function drain(deps: NotificationDependencies, lane: 'billing' | 'materials') {
+  async function drain(deps: NotificationDependencies, lane: AudienceLane) {
     const expansions: AudienceExpansion[] = [];
     for (let batch = 0; batch < 20; batch += 1) {
       expansions.push(await expandAudience(deps, lane, quarantined));
@@ -163,9 +165,7 @@ describe('Notifications persistence and delivery (real PostgreSQL; synthetic sou
     for (const category of ['subscription', 'material'] as const) {
       const s = await scenario(category);
       await s.app.changePreferences(s.actor, { operationId: randomUUID(), expectedRevision: 0, email: true, telegram: false });
-      // Разбор берёт самую раннюю ожидающую строку дорожки, поэтому сценарий остаётся один на дорожке.
-      await database.prisma.notificationInbox.deleteMany({ where: { lane: s.lane, completedAt: null } });
-      await s.receive();
+      await s.receiveAlone();
       const expansions = await withExhaustedPool(database, prisma => drain(onPool(s, prisma), s.lane));
       expect(expansions.filter(expansion => expansion.observation)).toEqual([]);
       expect(await s.commands()).toHaveLength(1);
@@ -174,8 +174,7 @@ describe('Notifications persistence and delivery (real PostgreSQL; synthetic sou
   test('a failed read the expansion never uses does not fail the row', async () => {
     const s = await scenario('material');
     await s.app.changePreferences(s.actor, { operationId: randomUUID(), expectedRevision: 0, email: true, telegram: false });
-    await database.prisma.notificationInbox.deleteMany({ where: { lane: s.lane, completedAt: null } });
-    await s.receive();
+    await s.receiveAlone();
     // Telegram fails for every Account, and no Account of this audience chose Telegram.
     const deps: NotificationDependencies = { ...s.deps, recipients: { ...s.deps.recipients,
       binding: (id, channel) => channel === 'telegram' ? Promise.reject(new Error('notification_binding_unavailable')) : s.deps.recipients.binding(id, channel) } };
@@ -184,8 +183,7 @@ describe('Notifications persistence and delivery (real PostgreSQL; synthetic sou
   });
   test('audience facts read before another expansion moved the row are not applied', async () => {
     const s = await scenario();
-    await database.prisma.notificationInbox.deleteMany({ where: { lane: s.lane, completedAt: null } });
-    await s.receive();
+    await s.receiveAlone();
     const key = { scope_messageId: { scope: s.lane, messageId: s.event.messageId } };
     const moved = { after: randomUUID(), recipients: 0, attempts: 0 };
     const moving: NotificationDependencies['prisma'] = { ...s.deps.prisma,
