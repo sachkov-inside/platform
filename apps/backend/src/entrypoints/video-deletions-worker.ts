@@ -69,7 +69,7 @@ async function bootstrap(): Promise<void> {
       });
       await jobs.work(DELETION_QUEUE, observeJob("video-deletions-worker", DELETION_QUEUE, async () => {
         const result = await maintenance.process({
-          async isReferenced(input, transaction) {
+          async isReferenced(transaction, input) {
             const reference = await materials.containsVideoReference(transaction, input);
             if (!reference.ok) throw new Error(reference.error.code);
             return reference.value;

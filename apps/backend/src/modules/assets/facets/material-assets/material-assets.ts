@@ -129,11 +129,11 @@ export interface MaterialAssets {
     readonly graceMs: number;
     /** Reads in the cleanup's transaction, under the Material reference lock it holds. */
     readonly isReferenced: (
+      transaction: AssetsPrisma,
       input: {
         readonly assetId: string;
         readonly materialId: string;
       },
-      transaction: AssetsPrisma,
     ) => Promise<boolean>;
     readonly now?: Date;
   }): Promise<MaterialAssetQueryResult<Readonly<{ cleaned: number; retained: number }>>>;

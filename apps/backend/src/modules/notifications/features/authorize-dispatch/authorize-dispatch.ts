@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { lockNotification } from '../../../../infrastructure/prisma/index.js';
+import { lockNotification, type NotificationsPrisma } from '../../../../infrastructure/prisma/index.js';
 import { authorizeSchema, dispatchResponseSchema, deliverySchema, eventSchema, fingerprint, PERMIT_LIFETIME_MS, type Channel, type DispatchResponse } from '../../domain/notification-wire.js';
 import { renderNotification } from '../../domain/templates.js';
 import { validSource, type NotificationDependencies } from '../expand-audience/expand-audience.js';
@@ -16,8 +16,8 @@ export async function authorizeDispatch(deps: NotificationDependencies, channel:
     if (old) return old.digest === digest ? dispatchResponseSchema.parse(JSON.parse(old.response)) : { ...request, status: 'error', code: 'operation_conflict' };
     await lockNotification(transaction, `delivery:${request.deliveryRef}`);
     const decide = async (): Promise<DispatchResponse> => {
-      const stored = await transaction.notificationCommand.findUnique({ where: { operationId: request.deliveryOperationId }, include: { delivery: { include: { notification: true } } } });
-      if (!stored || stored.deliveryId !== request.deliveryRef || stored.delivery.channel !== channel) return { ...request, status: 'denied', reason: 'not_found' };
+      const stored = await findDeliveryCommand(transaction, channel, request);
+      if (!stored) return { ...request, status: 'denied', reason: 'not_found' };
       if (stored.digest !== request.payloadDigest || stored.revision !== request.commandRevision) return { ...request, status: 'denied', reason: 'payload_conflict' };
       if (stored.delivery.commandRevision !== stored.revision || stored.delivery.recoverySkipped || ['sent', 'failed'].includes(stored.delivery.state)) return { ...request, status: 'denied', reason: 'superseded' };
       const command = deliverySchema.parse(JSON.parse(stored.payload));
@@ -58,9 +58,9 @@ export async function authorizeDispatch(deps: NotificationDependencies, channel:
  * are read before the authorization transaction and judged under its locks; the locks guard none of
  * them. Unused answers cost a read, never a decision: the transaction applies them in its order.
  */
-async function readDispatchFacts(deps: NotificationDependencies, channel: Channel, request: { readonly deliveryOperationId: string; readonly deliveryRef: string }) {
-  const stored = await deps.prisma.notificationCommand.findUnique({ where: { operationId: request.deliveryOperationId }, include: { delivery: { include: { notification: true } } } });
-  if (!stored || stored.deliveryId !== request.deliveryRef || stored.delivery.channel !== channel) return undefined;
+async function readDispatchFacts(deps: NotificationDependencies, channel: Channel, request: DeliveryCommandRef) {
+  const stored = await findDeliveryCommand(deps.prisma, channel, request);
+  if (!stored) return undefined;
   const notification = stored.delivery.notification;
   const event = eventSchema.safeParse(JSON.parse(notification.eventPayload));
   if (!event.success) return undefined;
@@ -70,4 +70,12 @@ async function readDispatchFacts(deps: NotificationDependencies, channel: Channe
     : undefined;
   const binding = await deps.recipients.binding(notification.accountId, channel);
   return { notificationId: notification.id, eventPayload: notification.eventPayload, source, access, binding };
+}
+
+type DeliveryCommandRef = { readonly deliveryOperationId: string; readonly deliveryRef: string };
+
+/** The Delivery command the request names, when it belongs to that Delivery on this channel. */
+async function findDeliveryCommand(prisma: Pick<NotificationsPrisma, 'notificationCommand'>, channel: Channel, request: DeliveryCommandRef) {
+  const stored = await prisma.notificationCommand.findUnique({ where: { operationId: request.deliveryOperationId }, include: { delivery: { include: { notification: true } } } });
+  return stored && stored.deliveryId === request.deliveryRef && stored.delivery.channel === channel ? stored : null;
 }

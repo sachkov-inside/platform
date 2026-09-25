@@ -170,6 +170,51 @@ describe("Reference reads on an exhausted pool", () => {
     await expect(readAsset(assetId)).resolves.toMatchObject({ currentlyReferenced: true });
   });
 
+  test("validation reads Assets in its own transaction", async () => {
+    const actor = randomUUID();
+    const topicId = randomUUID();
+    await database.prisma.topic.create({ data: { id: topicId, name: "Validation", slug: `validation-${topicId}` } });
+    const complete = { ...metadata, formatId: "note", summary: "Complete", title: "Complete", topicId };
+    const authoring = assembleMaterials({
+      authorPolicy: { canManage: (accountId) => accountId === actor },
+      materialAssets: assembleMaterialAssets({ objectStorage: unusedObjectStorage, prisma: database.prisma }),
+      prisma: database.prisma,
+    }).authoring;
+    const created = await authoring.createDraft({
+      actor,
+      body: paragraphBody("Draft"),
+      idempotencyKey: "exhausted-pool-validation-draft",
+      metadata: complete,
+    });
+    if (!created.ok) throw new Error(created.error.code);
+    const materialId = created.value.materialId;
+    const assetId = await insertReadyImage(materialId, actor);
+    const saved = await authoring.saveMaterial({
+      actor,
+      body: imageBody(assetId),
+      expectedContentVersion: created.value.contentVersion,
+      idempotencyKey: "exhausted-pool-validation-save",
+      materialId,
+      metadata: complete,
+      publicationState: "draft",
+    });
+    if (!saved.ok) throw new Error(saved.error.code);
+
+    const validated = await withExhaustedPool(database, (prisma) =>
+      assembleMaterials({
+        authorPolicy: { canManage: (accountId) => accountId === actor },
+        materialAssets: assembleMaterialAssets({ objectStorage: unusedObjectStorage, prisma }),
+        prisma,
+      }).authoring.validateMaterial({
+        actor,
+        expectedContentVersion: saved.value.contentVersion,
+        materialId,
+      }),
+    );
+
+    expect(validated).toMatchObject({ ok: true, value: { materialId } });
+  });
+
   test("orphan Asset cleanup asks Materials in its own transaction", async () => {
     const actor = randomUUID();
     const materialId = await createDraft(actor, "exhausted-pool-cleanup");
@@ -217,7 +262,7 @@ describe("Reference reads on an exhausted pool", () => {
     const processed = await withExhaustedPool(database, (prisma) => {
       const materials = assembleMaterials({ authorPolicy: { canManage: () => false }, prisma });
       return assembleVideoDeletionMaintenance({ prisma, provider: unusedVideoProvider }).process({
-        async isReferenced(input, transaction) {
+        async isReferenced(transaction, input) {
           const reference = await materials.materialContent.containsVideoReference(transaction, input);
           if (!reference.ok) throw new Error(reference.error.code);
           return reference.value;

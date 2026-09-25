@@ -481,10 +481,10 @@ export function assembleMaterialAssets(dependencies: {
             await lockMaterialReferenceChanges(transaction, [asset.materialId]);
             if (
               asset.state === "ready" &&
-              await input.isReferenced({
+              await input.isReferenced(transaction, {
                 assetId: asset.id,
                 materialId: asset.materialId,
-              }, transaction)
+              })
             ) {
               await transaction.materialAsset.update({
                 data: {

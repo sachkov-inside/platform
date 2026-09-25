@@ -452,8 +452,8 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
     const orphanGraceMs = 250;
     const cleanupAt = async (now: Date) => assets.cleanupOrphans({
       graceMs: orphanGraceMs,
-      async isReferenced(input) {
-        const referenced = await materials.materialContent.containsAssetReference(input);
+      async isReferenced(transaction, input) {
+        const referenced = await materials.materialContent.containsAssetReference(input, transaction);
         if (!referenced.ok) throw new Error(referenced.error.code);
         return referenced.value;
       },

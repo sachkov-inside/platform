@@ -14,10 +14,12 @@ export async function resolveMembershipForAccess(prisma: MembershipEntitlementsP
 
 /**
  * Membership of the whole Account, read in the caller's transaction after it took
- * `lockAccountEntitlementChanges`. Every writer of these facts takes that lock, so the reads see one
- * committed state without a snapshot of their own, and the caller needs no second connection.
+ * `lockAccountEntitlementChanges`. Every writer of the facts that open access takes that lock, so
+ * the reads see one committed state without a snapshot of their own, and the caller needs no second
+ * connection. The principal binding is written without it; it only tells an unknown state from a
+ * required one, and neither opens access.
  */
-export function resolveMembershipUnderEntitlementLock(transaction: MembershipAccessPrisma, accountId: AccountId, now: Date): Promise<MembershipAccessState> {
+export function resolveMembershipForAccessUnderEntitlementLock(transaction: MembershipAccessPrisma, accountId: AccountId, now: Date): Promise<MembershipAccessState> {
   return readMembershipForAccess(transaction, accountId, now);
 }
 

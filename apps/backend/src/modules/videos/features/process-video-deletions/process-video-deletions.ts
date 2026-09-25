@@ -31,11 +31,11 @@ export interface VideoDeletionMaintenance {
   process(input: {
     /** Reads in the claim's transaction, under the Material reference lock it holds. */
     readonly isReferenced: (
+      transaction: VideosPrisma,
       input: {
         readonly materialId: string;
         readonly videoId: string;
       },
-      transaction: VideosPrisma,
     ) => Promise<boolean>;
   }): Promise<
     | Readonly<{ ok: true; value: DeletionSummary }>
@@ -175,10 +175,10 @@ export function assembleVideoDeletionMaintenance(dependencies: {
             operation.claimedAt <= claimCutoff)
         )
       ) return null;
-      if (await isReferenced({
+      if (await isReferenced(transaction, {
         materialId: operation.materialId,
         videoId: operation.videoId,
-      }, transaction)) {
+      })) {
         await failWithoutClaim(transaction, operation.id, operation.videoId, "referenced", now());
         return {
           category: "referenced",

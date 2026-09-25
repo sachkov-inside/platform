@@ -66,8 +66,9 @@ export interface MembershipEntitlements {
   resolveForAccess(accountId: AccountId, guideIds?: readonly string[], materialId?: string): Promise<MembershipAccessState>;
   /**
    * Membership of the whole Account in the caller's transaction, which already holds
-   * `lockAccountEntitlementChanges` for it: the caller's transaction type lists
-   * `MembershipAccessPrisma` to hand itself over, and no second pooled connection is taken.
+   * `lockAccountEntitlementChanges` for it, so the facts that open access cannot change under the
+   * reads. The caller's transaction type lists `MembershipAccessPrisma` to hand itself over, and no
+   * second pooled connection is taken.
    */
   resolveForAccessUnderEntitlementLock(transaction: MembershipAccessPrisma, accountId: AccountId): Promise<MembershipAccessState>;
   bindPrincipal(command: {
