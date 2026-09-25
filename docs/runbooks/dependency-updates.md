@@ -86,8 +86,8 @@ out of the baseline until its stable dependency graph installs without an overri
 The one peer allowance is `@nestjs/swagger>typescript: 7` in `pnpm-workspace.yaml`. Swagger 12
 declares an optional TypeScript 5/6 peer only for its CLI compiler plugin, which is the sole part of
 the package that imports the TypeScript API; Platform builds with `tsc` and never loads that plugin.
-`scripts/toolchain-contract.test.mjs` keeps the allowance to that single entry and fails if any
-source imports `@nestjs/swagger/plugin`.
+`scripts/toolchain-contract.test.mjs` keeps `peerDependencyRules` to exactly that entry and fails if
+code imports `@nestjs/swagger/plugin` or a `nest-cli.json` loads the Swagger plugin.
 
 ## Oxlint coverage boundaries
 

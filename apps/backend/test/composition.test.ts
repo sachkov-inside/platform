@@ -216,4 +216,39 @@ describe("backend process composition", () => {
     });
     expect(queryRaw).toHaveBeenCalled();
   });
+
+  it("answers a malformed request body or path as a client error", async () => {
+    // Nest 12 moved parser and URI error mapping into the Fastify adapter; a broken request must
+    // still stay a 4xx answer, never an internal failure.
+    const api: NestFastifyApplication = await createApiApplication(config, {
+      logger: false,
+    });
+    application = api;
+    await api.init();
+    const http = api.getHttpAdapter().getInstance();
+    await http.ready();
+
+    const malformedBody = await http.inject({
+      method: "POST",
+      url: "/accounts",
+      headers: { "content-type": "application/json" },
+      payload: "{",
+    });
+    const malformedPath = await http.inject({
+      method: "GET",
+      url: "/accounts/%E0%A4%A",
+    });
+
+    expect(malformedBody.statusCode).toBe(400);
+    expect(malformedBody.headers["content-type"]).toContain("application/problem+json");
+    expect(malformedBody.json()).toEqual({
+      type: "about:blank",
+      title: "Invalid request",
+      status: 400,
+      code: "http_error",
+    });
+    // Fastify rejects a broken URI before Nest routing, so the answer keeps its own 400 shape.
+    expect(malformedPath.statusCode).toBe(400);
+    expect(malformedPath.json()).toMatchObject({ code: "FST_ERR_BAD_URL", statusCode: 400 });
+  });
 });

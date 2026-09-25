@@ -13,7 +13,7 @@ allowBuilds:
   prisma: true
   protobufjs: false
   ssh2: false
-# @nestjs/swagger 12 declares an optional typescript ^5 || ^6 peer for its CLI compiler plugin, the
+# @nestjs/swagger 12 declares an optional typescript ^5.5.0 || ^6.0.0 peer for its CLI compiler plugin, the
 # only code of it that imports the TypeScript API. Platform never loads that plugin
 # (scripts/toolchain-contract.test.mjs), so its runtime accepts TypeScript 7.
 peerDependencyRules:
