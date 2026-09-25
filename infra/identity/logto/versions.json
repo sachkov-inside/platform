@@ -6,8 +6,8 @@
     "upstreamRevision": "91e55698a42f99438cd41ec2b16a1fc51dbdab8a",
     "forkRevision": "inside.6"
   },
-  "logtoNext": "4.2.10",
-  "jose": "6.2.10",
+  "logtoNext": "4.2.11",
+  "jose": "6.2.12",
   "postgres": {
     "version": "17.6-alpine",
     "image": "postgres:17.6-alpine",

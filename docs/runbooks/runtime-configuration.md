@@ -210,7 +210,7 @@ every other Telegram secret; startup rejects a reused one.
 
 The T-Bank payment API presents a chain that ends at the Ministry of Digital Development root
 "Russian Trusted Root CA". That root is absent from the Node bundle and from the
-`node:24.19.0-alpine3.23` image, so every bank call fails certificate verification without it.
+`node:24.21.0-alpine3.24` image, so every bank call fails certificate verification without it.
 
 That chain belongs to the real contour only; the local double speaks plain HTTP inside the stand and
 needs no root. The repository keeps the root at `infra/tls/russian-trusted-root-ca.pem`.

@@ -27,10 +27,11 @@ function freezeJsonObject(value: JsonObject): JsonObject {
 export function restoreStoredMaterialBodyV1(
   snapshot: MaterialBodySnapshot,
 ): MaterialBody {
-  // The brand records that this value passed the only persisted-body codec.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-  return Object.freeze({
+  const body = Object.freeze({
     schemaVersion: 1,
     doc: freezeJsonObject(snapshot.doc),
-  }) as MaterialBody;
+  });
+  // The brand records that this value passed the only persisted-body codec.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+  return body as MaterialBody;
 }

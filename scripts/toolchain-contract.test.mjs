@@ -112,9 +112,9 @@ describe("supported toolchain contract", () => {
       rootPackage.scripts.lint,
       "oxlint --deny-warnings --report-unused-disable-directives --ignore-pattern 'apps/backend/test/guardrails/fixtures/oxlint/**' .",
     );
-    assert.equal(rootPackage.devDependencies.oxlint, "1.80.0");
-    assert.equal(rootPackage.devDependencies["oxlint-tsgolint"], "7.0.2001");
-    assert.equal(rootPackage.devDependencies["oxc-parser"], "0.147.0");
+    assert.equal(rootPackage.devDependencies.oxlint, "1.85.0");
+    assert.equal(rootPackage.devDependencies["oxlint-tsgolint"], "7.0.2002");
+    assert.equal(rootPackage.devDependencies["oxc-parser"], "0.151.0");
 
     for (const dependency of [
       "eslint",
@@ -132,7 +132,7 @@ describe("supported toolchain contract", () => {
   it("keeps TypeScript-API consumers out of active Web tooling", () => {
     assert.equal(webPackage.devDependencies["@storybook/nextjs-vite"], undefined);
     assert.equal(webPackage.devDependencies["@storybook/addon-mcp"], undefined);
-    assert.equal(webPackage.devDependencies["@storybook/react-vite"], "10.5.10");
+    assert.equal(webPackage.devDependencies["@storybook/react-vite"], "10.6.0");
     assert.equal(
       webPackage.devDependencies["openapi-typescript-codegen"],
       "0.31.0",

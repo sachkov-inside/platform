@@ -166,8 +166,7 @@ function missingFileRequest(): FastifyRequest {
 }
 
 function multipartRequest(options: { readonly truncated?: boolean } = {}): FastifyRequest {
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- The controller reads only this tested MultipartFile subset.
-  const part = {
+  const partFixture = {
     fields: {
       checksumSha256: { type: "field", value: "a".repeat(64) },
       crop: {
@@ -180,7 +179,9 @@ function multipartRequest(options: { readonly truncated?: boolean } = {}): Fasti
     file: { truncated: options.truncated ?? false },
     mimetype: "image/png",
     toBuffer: () => Promise.resolve(Buffer.from("png")),
-  } as unknown as MultipartFile;
+  };
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- The controller reads only this tested MultipartFile subset.
+  const part = partFixture as unknown as MultipartFile;
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- The controller reads only request.file from this transport fixture.
   return { file: vi.fn().mockResolvedValue(part) } as unknown as FastifyRequest;
 }
