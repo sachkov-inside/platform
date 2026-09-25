@@ -1,6 +1,5 @@
 export { BillingModule } from "./billing.module.js";
 export { BillingPricing } from "./facets/billing-pricing/billing-pricing.js";
-export { SaleConfigurationError } from "./features/assert-sale-configured/assert-sale-configured.js";
 export { assembleBillingNotificationOutbox } from "./facets/notification-outbox/notification-outbox.js";
 
 export { BillingNotices } from "./facets/billing-notices/billing-notices.js";

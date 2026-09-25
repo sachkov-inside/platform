@@ -34,6 +34,11 @@ not dependency wiring.
 
 - Export a provider token only for a current production inter-module or process consumer. Use a
   `Symbol` for exported TypeScript interfaces.
+- `index.ts` exports only what code outside the Module imports from `src`, `test` or `scripts`, and
+  a Module imports its own files directly, never through its `index.ts`. The dependency graph
+  between Modules stays acyclic, counting type-only, re-exported and dynamic imports.
+  `scripts/check-backend-architecture.mjs` enforces all three; ADR 0029 lists the edges that still
+  close a cycle and what removes them.
 - Keep locally consumed operations as plain functions or concrete providers. Do not create a DI
   token solely to substitute a test double.
 - Register providers that add behaviour or own lifecycle; remove pass-through providers. Use the

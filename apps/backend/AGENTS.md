@@ -20,7 +20,8 @@ scan and every negative fixture pass.
 
 - When changing slice layout, module interfaces, dependency wiring, or architecture guardrails,
   read
-  [`ADR 0004`](../../docs/adr/0004-feature-first-backend-modules.md).
+  [`ADR 0004`](../../docs/adr/0004-feature-first-backend-modules.md); when adding an import between
+  Modules, read [`ADR 0029`](../../docs/adr/0029-acyclic-module-dependencies.md).
 - When changing Prisma access, raw SQL, schema mapping, or persistence placement, read
   [`ADR 0005`](../../docs/adr/0005-prisma-in-use-cases.md).
 - When changing the Materials interface, model, body codec, composition, or persistence, read

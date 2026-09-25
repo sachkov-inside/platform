@@ -713,6 +713,38 @@ describe("Guide Artifacts", () => {
     });
   });
 
+  test("offers every active artifact for reuse only to a manager and reads its facts by id", async () => {
+    const guideId = randomUUID();
+    await db.prisma.guide.create({
+      data: { id: guideId, name: `Synthetic reuse guide ${guideId}`, slug: guideId },
+    });
+    const active = await createArtifact("membership", "Шаблон для повтора", guideId);
+    const archived = await createArtifact("free", "Снятый шаблон", guideId);
+    await artifacts.setArchived({ actor: owner, archived: true, artifactId: archived });
+
+    const reusable = await artifacts.listReusable({ actor: owner });
+    const offered = reusable.ok ? reusable.value.map(({ artifactId }) => artifactId) : [];
+    expect(offered).toContain(active);
+    expect(offered).not.toContain(archived);
+    expect(await artifacts.listReusable({ actor: member })).toEqual({
+      error: { code: "forbidden" },
+      ok: false,
+    });
+
+    expect(await artifacts.loadAccessFacts([active, "not-a-uuid"])).toEqual([
+      { access: "membership", archived: false, artifactId: active, guideIds: [guideId], version: 1 },
+    ]);
+    expect(await artifacts.loadFileDelivery({ artifactId: active, guideId })).toMatchObject({
+      ok: true,
+      value: { artifactId: active, filename: "Шаблон для повтора.md" },
+    });
+    // A Guide that does not place the artifact never serves its file.
+    expect(await artifacts.loadFileDelivery({ artifactId: active, guideId: guideA })).toEqual({
+      ok: true,
+      value: null,
+    });
+  });
+
   async function createArtifact(
     access: "free" | "membership",
     title: string,

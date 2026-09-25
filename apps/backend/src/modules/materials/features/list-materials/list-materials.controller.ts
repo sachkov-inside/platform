@@ -1,4 +1,4 @@
-import { BadRequestException, Controller, Get, Inject, Query } from "@nestjs/common";
+import { Controller, Get, Inject, Query } from "@nestjs/common";
 import { ApiOkResponse, ApiOperation, ApiQuery } from "@nestjs/swagger";
 import { z } from "zod";
 
@@ -10,6 +10,7 @@ import { ApiMaterialAuthoringErrors, MaterialAuthoringEndpoint } from "../../ada
 import { contentVersionSchema, throwMaterialAuthoringError } from "../../adapters/nest/material-authoring-http.js";
 import { MATERIAL_AUTHORING } from "../../facets/material-authoring/material-authoring.token.js";
 import type { MaterialAuthoring } from "../../facets/material-authoring/material-authoring.js";
+import { problemException } from "../../../../infrastructure/http/problem-details.js";
 
 const PAGE_SIZE = 20;
 const publicationStateSchema = z.enum(["draft", "published", "unpublished"]);
@@ -79,12 +80,7 @@ export class ListMaterialsController {
         search: searchInput?.trim() === "" ? undefined : searchInput,
       });
     if (!parsed.success) {
-      throw new BadRequestException({
-        type: "urn:inside:problem:invalid-request-shape",
-        title: "Material authoring query is malformed",
-        status: 400,
-        code: "invalid_request_shape",
-      });
+      throw problemException(400, "invalid_request_shape", "Material authoring query is malformed");
     }
     const result = await this.authoring.listMaterials({
       actor: account.accountId,

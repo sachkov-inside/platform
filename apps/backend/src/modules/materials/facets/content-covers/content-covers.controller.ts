@@ -3,13 +3,10 @@ import {
   Controller,
   Delete,
   Get,
-  HttpException,
   Inject,
-  NotFoundException,
   Param,
   Put,
   Req,
-  ServiceUnavailableException,
 } from "@nestjs/common";
 import {
   ApiBody,
@@ -46,6 +43,7 @@ import {
   type ChangeContentCoverResult,
   type ContentCovers,
 } from "./content-covers.js";
+import { problemException, problemType } from "../../../../infrastructure/http/problem-details.js";
 
 const uuidSchema = z.uuid();
 const checksumSchema = z.hash("sha256");
@@ -148,7 +146,7 @@ export class AuthoringContentCoverController {
       !uuidSchema.safeParse(ownerId).success ||
       !body.success
     ) {
-      throw coverProblem(400, "invalid_cover", "Cover removal is malformed");
+      throw problemException(400, "invalid_cover", "Cover removal is malformed");
     }
     const result = await this.covers.change({
       actor: account.accountId,
@@ -169,7 +167,7 @@ async function readCoverUpload(
 ): Promise<{ readonly command: Omit<Extract<ChangeContentCoverCommand, { kind: "upload" }>, "actor">; readonly part: MultipartFile }> {
   const ownerKind = contentCoverOwnerKindSchema.safeParse(rawOwnerKind);
   if (!ownerKind.success || !uuidSchema.safeParse(ownerId).success) {
-    throw coverProblem(400, "invalid_cover", "Cover owner is malformed");
+    throw problemException(400, "invalid_cover", "Cover owner is malformed");
   }
   let file: MultipartFile;
   try {
@@ -184,17 +182,17 @@ async function readCoverUpload(
     file = part;
   } catch {
     // Not a dependency failure: the client sent a malformed form.
-    throw coverProblem(422, "invalid_cover", "Cover form is malformed");
+    throw problemException(422, "invalid_cover", "Cover form is malformed");
   }
   let body: Buffer;
   try {
     body = await file.toBuffer();
   } catch {
     // Not a dependency failure: the upload exceeds its size limit.
-    throw coverProblem(413, "invalid_cover", "Cover exceeds the size limit");
+    throw problemException(413, "invalid_cover", "Cover exceeds the size limit");
   }
   if (file.file.truncated) {
-    throw coverProblem(413, "invalid_cover", "Cover exceeds the size limit");
+    throw problemException(413, "invalid_cover", "Cover exceeds the size limit");
   }
   const declaredSize = Number(field(file, "declaredSize"));
   const checksum = checksumSchema.safeParse(field(file, "checksumSha256"));
@@ -205,7 +203,7 @@ async function readCoverUpload(
     !checksum.success ||
     expectedCoverId === undefined
   ) {
-    throw coverProblem(422, "invalid_cover", "Cover metadata is malformed");
+    throw problemException(422, "invalid_cover", "Cover metadata is malformed");
   }
   return {
     command: {
@@ -270,7 +268,7 @@ export class ImportContentCoverController {
   ) {
     const upload = await readCoverUpload(request, "material", ownerId, uploadFieldLimit + 1);
     const sourceId = authoringSourceIdSchema.safeParse(field(upload.part, "sourceId"));
-    if (!sourceId.success) throw coverProblem(422, "invalid_cover", "Cover metadata is malformed");
+    if (!sourceId.success) throw problemException(422, "invalid_cover", "Cover metadata is malformed");
     const result = await this.covers.changeImported({ actor: account.accountId, ...upload.command }, sourceId.data);
     if (!result.ok) throwContentCoverError(result.error);
     return result.value;
@@ -310,19 +308,9 @@ export class ContentCoverDeliveryController {
     });
     if (!result.ok) {
       if (result.error.code === "dependency_unavailable") {
-        throw new ServiceUnavailableException({
-          code: result.error.code,
-          status: 503,
-          title: "Content cover dependency unavailable",
-          type: "urn:inside:problem:dependency-unavailable",
-        });
+        throw problemException(503, result.error.code, "Content cover dependency unavailable");
       }
-      throw new NotFoundException({
-        code: "cover_not_found",
-        status: 404,
-        title: "Content cover not found",
-        type: "urn:inside:problem:cover-not-found",
-      });
+      throw problemException(404, "cover_not_found", "Content cover not found");
     }
     return {
       ...result,
@@ -350,37 +338,19 @@ function throwContentCoverError(
 ): never {
   switch (error.code) {
     case "forbidden":
-      throw coverProblem(403, error.code, "Content cover change is forbidden");
+      throw problemException(403, error.code, "Content cover change is forbidden");
     case "owner_not_found":
-      throw coverProblem(404, error.code, "Content cover owner was not found");
+      throw problemException(404, error.code, "Content cover owner was not found");
     case "conflict":
-      throw new HttpException(
-        {
-          code: error.code,
-          currentCoverId: error.currentCoverId,
-          status: 409,
-          title: "Content cover changed concurrently",
-          type: "urn:inside:problem:content-cover-conflict",
-        },
-        409,
-      );
+      throw problemException(409, error.code, "Content cover changed concurrently", {
+        currentCoverId: error.currentCoverId,
+        type: problemType("content_cover_conflict"),
+      });
     case "invalid_cover":
-      throw coverProblem(422, error.code, "Cover image is not accepted");
+      throw problemException(422, error.code, "Cover image is not accepted");
     case "dependency_unavailable":
-      throw coverProblem(503, error.code, "Content cover dependency is unavailable");
+      throw problemException(503, error.code, "Content cover dependency is unavailable");
   }
-}
-
-function coverProblem(status: number, code: string, title: string): HttpException {
-  return new HttpException(
-    {
-      code,
-      status,
-      title,
-      type: coverProblemType(code),
-    },
-    status,
-  );
 }
 
 function coverConflictProblemSchema() {
@@ -390,7 +360,7 @@ function coverConflictProblemSchema() {
       currentCoverId: z.uuid().nullable(),
       status: z.literal(409),
       title: z.literal("Content cover changed concurrently"),
-      type: z.literal("urn:inside:problem:content-cover-conflict"),
+      type: z.literal(problemType("content_cover_conflict")),
     })
     .strict();
 }
@@ -405,11 +375,7 @@ function coverProblemSchema<const Status extends number, const Code extends stri
       code: z.literal(code),
       status: z.literal(status),
       title: z.enum(titles),
-      type: z.literal(coverProblemType(code)),
+      type: z.literal(problemType(code)),
     })
     .strict();
-}
-
-function coverProblemType(code: string): string {
-  return `urn:inside:problem:${code.replaceAll("_", "-")}`;
 }

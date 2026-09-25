@@ -25,7 +25,7 @@ import {
   accountId,
   type AuthenticatedAccount,
 } from "../../../accounts/index.js";
-import type { TelegramMembership } from "../../index.js";
+import type { TelegramMembership } from "../../facets/telegram-membership/telegram-membership.interface.js";
 import { TELEGRAM_MEMBERSHIP } from "../../telegram-membership.tokens.js";
 import {
   telegramLinkStateSchema,

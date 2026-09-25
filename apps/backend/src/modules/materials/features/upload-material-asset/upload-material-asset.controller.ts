@@ -1,7 +1,7 @@
 import {
   Controller,
   Headers,
-  HttpException,
+  type HttpException,
   Inject,
   Param,
   Post,
@@ -30,6 +30,7 @@ import {
   type MaterialAssetAuthoring,
   type UploadMaterialAssetForAuthoringResult,
 } from "./upload-material-asset.js";
+import { problemException } from "../../../../infrastructure/http/problem-details.js";
 
 const checksumSchema = z.hash("sha256");
 const assetIdempotencyKeySchema = z.string().trim().min(1).max(128);
@@ -161,8 +162,10 @@ function throwAssetUploadError(error: Extract<UploadMaterialAssetForAuthoringRes
   }
 }
 
+// Upload problems keep publishing the raw code as their type, as the web BFF does for its own
+// upload failures; moving both to the kebab-case form is a contract change of its own.
 function uploadProblem(status: number, code: string, title: string): HttpException {
-  return new HttpException({ type: `urn:inside:problem:${code}`, title, status, code }, status);
+  return problemException(status, code, title, { type: `urn:inside:problem:${code}` });
 }
 
 function uploadProblemSchema(

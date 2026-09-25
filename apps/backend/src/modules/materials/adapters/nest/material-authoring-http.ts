@@ -1,9 +1,10 @@
 import { authoringSourceSchema } from "../../domain/authoring-source.js";
 import type { SetHomePinError } from "../../features/set-home-pin/set-home-pin.contract.js";
-import { HttpException } from "@nestjs/common";
 import type { MaterialBodyResourceSummary } from "@inside/material-blocks";
 import { headingLevelSchema, renderedMaterialBodySchema } from "@inside/material-blocks";
 import { z } from "zod";
+
+import { problemException } from "../../../../infrastructure/http/problem-details.js";
 import {
   GUIDE_CHAPTER_NAME_MAX,
   GUIDE_CHAPTER_SUMMARY_MAX,
@@ -15,20 +16,18 @@ import { GUIDE_INTRODUCTION_FIELD_MAX } from "../../facets/material-authoring/co
 import { guidePageSchema } from "../../domain/guide-page.js";
 import { MATERIAL_DETACHED_VIDEOS_MAX } from "../../features/save-material/save-material.contract.js";
 
-import type {
-  CreateDraftError,
-  DeleteDraftError,
-  LoadSeriesOrderError,
-  LoadMaterialError,
-  PreviewMaterialError,
-  SaveMaterialError,
-  ReorderSeriesError,
-  TransitionMaterialPublicationError,
-  ValidateMaterialError,
-  CreateContentCollectionError,
-  SetContentCollectionArchiveError,
-  UpdateContentCollectionError,
-} from "../../index.js";
+import type { CreateDraftError } from "../../features/create-draft/create-draft.contract.js";
+import type { DeleteDraftError } from "../../features/delete-draft/delete-draft.contract.js";
+import type { LoadSeriesOrderError } from "../../features/load-series-order/load-series-order.contract.js";
+import type { LoadMaterialError } from "../../features/load-material/load-material.contract.js";
+import type { PreviewMaterialError } from "../../features/preview-material/preview-material.contract.js";
+import type { SaveMaterialError } from "../../features/save-material/save-material.contract.js";
+import type { ReorderSeriesError } from "../../features/reorder-series/reorder-series.contract.js";
+import type { TransitionMaterialPublicationError } from "../../features/transition-material-publication/transition-material-publication.contract.js";
+import type { ValidateMaterialError } from "../../features/validate-material/validate-material.contract.js";
+import type { CreateContentCollectionError } from "../../features/create-content-collection/create-content-collection.contract.js";
+import type { SetContentCollectionArchiveError } from "../../features/set-content-collection-archive/set-content-collection-archive.contract.js";
+import type { UpdateContentCollectionError } from "../../features/update-content-collection/update-content-collection.contract.js";
 import { videoAuthoringPresentationSchema } from "../../../videos/index.js";
 import { contentCoverProjectionHttpSchema } from "./content-cover-http.js";
 import {
@@ -292,19 +291,12 @@ export function parseMaterialAuthoringBody<Schema extends z.ZodType>(
   if (parsed.success) {
     return parsed.data;
   }
-  throw new HttpException(
-    {
-      type: "urn:inside:problem:invalid-request-shape",
-      title: "Material authoring request is malformed",
-      status: 400,
-      code: "invalid_request_shape",
-      issues: parsed.error.issues.map((issue) => ({
-        code: issue.code,
-        path: `/${issue.path.map(String).join("/")}`,
-      })),
-    },
-    400,
-  );
+  throw problemException(400, "invalid_request_shape", "Material authoring request is malformed", {
+    issues: parsed.error.issues.map((issue) => ({
+      code: issue.code,
+      path: `/${issue.path.map(String).join("/")}`,
+    })),
+  });
 }
 
 type MaterialAuthoringTransportError =
@@ -360,15 +352,7 @@ export function throwMaterialAuthoringError(
   error: MaterialAuthoringTransportError,
 ): never {
   const status = statusForMaterialAuthoringError(error);
-  throw new HttpException(
-    {
-      type: `urn:inside:problem:${error.code.replaceAll("_", "-")}`,
-      title: titleForMaterialAuthoringError(status),
-      status,
-      ...error,
-    },
-    status,
-  );
+  throw problemException(status, error.code, titleForMaterialAuthoringError(status), error);
 }
 
 function titleForMaterialAuthoringError(status: number): string {

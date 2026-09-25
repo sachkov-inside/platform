@@ -2,10 +2,9 @@ import {
   Controller,
   Get,
   Inject,
-  NotFoundException,
+  type HttpException,
   Param,
   Query,
-  ServiceUnavailableException,
 } from "@nestjs/common";
 import {
   ApiFoundResponse,
@@ -33,6 +32,7 @@ import {
   MATERIAL_ASSET_DELIVERY,
   type MaterialAssetDelivery,
 } from "./deliver-material-asset.js";
+import { problemException } from "../../../../infrastructure/http/problem-details.js";
 
 const uuid = z.uuid();
 const assetNotFoundProblemSchema = z.object({
@@ -140,12 +140,7 @@ export class DeliverMaterialAssetController {
     });
     if (!result.ok) {
       if (result.error.code === "dependency_unavailable") {
-        throw new ServiceUnavailableException({
-          type: "urn:inside:problem:dependency-unavailable",
-          title: "Asset dependency unavailable",
-          status: 503,
-          code: result.error.code,
-        });
+        throw problemException(503, result.error.code, "Asset dependency unavailable");
       }
       throw notFound();
     }
@@ -153,11 +148,6 @@ export class DeliverMaterialAssetController {
   }
 }
 
-function notFound(): NotFoundException {
-  return new NotFoundException({
-    type: "urn:inside:problem:asset-not-found",
-    title: "Asset not found",
-    status: 404,
-    code: "asset_not_found",
-  });
+function notFound(): HttpException {
+  return problemException(404, "asset_not_found", "Asset not found");
 }

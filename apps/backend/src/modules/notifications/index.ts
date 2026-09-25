@@ -5,4 +5,4 @@ export { NotificationsModule } from './notifications.module.js';
 export { assembleNotificationEmailSender } from './infrastructure/send-notification-email.js';
 export type { NotificationDependencies } from './features/expand-audience/expand-audience.js';
 export type { SweepObservation } from './infrastructure/row-fate.js';
-export type { NotificationSource, NotificationSources, NotificationRecipients, SendNotificationEmail } from './ports/notification-sources.js';
+export type { NotificationSource, SendNotificationEmail } from './ports/notification-sources.js';

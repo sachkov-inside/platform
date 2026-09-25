@@ -6,15 +6,8 @@ export {
 export { AssetsModule, MATERIAL_ASSETS } from "./assets.module.js";
 export { markUnreferencedMaterialAssets } from "./features/mark-unreferenced-material-assets/mark-unreferenced-material-assets.js";
 export type {
-  MaterialAssetAccessFacts,
   MaterialAssetDelivery,
-  MaterialAssetDto,
-  MaterialAssetKind,
   MaterialAssetPresentation,
-  MaterialAssetQueryResult,
-  MaterialAssetReference,
-  MaterialAssetReferenceIssue,
   MaterialAssets,
-  UploadMaterialAssetError,
   UploadMaterialAssetResult,
 } from "./facets/material-assets/material-assets.js";

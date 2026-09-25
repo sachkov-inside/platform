@@ -1,5 +1,6 @@
-import { createHash } from "node:crypto";
 import { z } from "zod";
+
+import { commandDigest } from "../../../infrastructure/contracts/canonical-digest.js";
 
 // Official Tribute OpenAPI, checked 2026-09-14. Unknown versions/fields require reconciliation.
 const timestamp = z.iso.datetime({ offset: true });
@@ -18,13 +19,8 @@ export const tributeWebhookSchema = z.discriminatedUnion("name", [
     payload: payload.extend({ cancel_reason: z.string() }) }),
 ]);
 export type TributeWebhook = z.infer<typeof tributeWebhookSchema>;
-function canonical(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(canonical);
-  if (value !== null && typeof value === "object") return Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([key, item]) => [key, canonical(item)]));
-  return value;
-}
 export function tributeFingerprint(value: unknown): string {
-  return createHash("sha256").update(JSON.stringify(canonical(value))).digest("hex");
+  return commandDigest(value);
 }
 /** sent_at is transport retry metadata, never the identity of a source event. */
 export function tributeEventIdentity(event: TributeWebhook) {
