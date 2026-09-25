@@ -105,10 +105,10 @@ during the image build. The web process reads server-only values when its contai
 
 When introducing a variable, add it to the owning Zod schema, typed config object, focused parser
 tests, relevant Compose service and tracked example. A variable required in production also goes
-into the `api.env` that `scripts/production-compose-smoke.sh` writes itself instead of reading the
-examples; otherwise only the `Production Compose` job fails, and its log does not show the container
-output. Do not make an unrelated worker require that group. Put the real production value only in the server-owned environment file; deployment consumes
-that file in place and never transports it through GitHub.
+into the environment files that `scripts/production-compose-smoke.sh` writes itself instead of
+reading the examples (`api.env`, `web.env`, `mcp.env` and the worker files); otherwise only the
+`Production Compose` job fails, and its cause shows in the `compose-production-diagnostics-*`
+artifact rather than in the job log. Do not make an unrelated worker require that group.
 
 That rule covers runtime variables, the ones application code reads through a typed config. A
 variable a tool reads while starting itself has no runtime owner and stays out of the typed config:

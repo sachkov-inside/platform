@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -65,19 +65,17 @@ const webReleaseIdentityPath = resolve(
   repositoryRoot,
   "apps/web/release-identity.json",
 );
-const webReleaseIdentity = `${JSON.stringify({
-  release: "v1",
-  sourceSha: "1".repeat(40),
-})}\n`;
-// An interrupted smoke leaves its own file behind: reclaim it, but never replace another one.
-if (
-  existsSync(webReleaseIdentityPath) &&
-  readFileSync(webReleaseIdentityPath, "utf8") !== webReleaseIdentity
-) {
+if (existsSync(webReleaseIdentityPath)) {
   throw new Error(`Refusing to replace ${webReleaseIdentityPath}`);
 }
-rmSync(webReleaseIdentityPath, { force: true });
-writeFileSync(webReleaseIdentityPath, webReleaseIdentity, { mode: 0o444 });
+writeFileSync(
+  webReleaseIdentityPath,
+  `${JSON.stringify({
+    release: "v1",
+    sourceSha: "1".repeat(40),
+  })}\n`,
+  { mode: 0o444 },
+);
 const processes = [];
 const activeProcesses = new Set();
 let cleanupPromise;

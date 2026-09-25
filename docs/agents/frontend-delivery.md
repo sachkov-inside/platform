@@ -107,10 +107,10 @@ token or navigation system.
 Issue evidence follows [Snapshots as issue evidence](../runbooks/local-development.md#snapshots-as-issue-evidence).
 Two recurring traps affect what a snapshot shows:
 
-- From the `lg` breakpoint the application shell fixes the page height and scrolls an inner
-  container (`#content`, or `#authoring-content` on authoring pages), so a Playwright `fullPage`
-  capture on desktop stops at one screen. Use a tall viewport, such as 1440×2600, instead; below
-  `lg` the page scrolls normally and `fullPage` works. Look at the image before attaching it. A
+- From the `lg` breakpoint the application shell fixes the page height and scrolls `#content`; the
+  authoring shell does the same from `md` with `#authoring-content`. A Playwright `fullPage` capture
+  above those widths stops at one screen. Use a tall viewport, such as 1440×2600, instead; below
+  them the page scrolls normally and `fullPage` works. Look at the image before attaching it. A
   shared helper that replaces this workaround is tracked in #729.
 - A single component state needs no live stack: build Storybook with `pnpm build:storybook`, serve
   `apps/web/storybook-static`, and capture
