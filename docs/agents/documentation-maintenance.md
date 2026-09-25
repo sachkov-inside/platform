@@ -26,15 +26,14 @@ Documentation impact section instead of making a no-op documentation edit.
 
 ## Close the change
 
-1. Inspect the diff and list every changed durable fact covered by the trigger above.
-2. Update each fact in exactly one authority from the table. Update pointers to that authority and
-   remove or clearly supersede current claims that now conflict with it.
-3. Update `AGENTS.md` only when the agent's trigger, routing, rule, verification command, or
+`Documentation impact` in `WORKFLOW.md` owns the procedure: list the changed durable facts from the
+diff, update each in exactly one authority from the table above, and name the result in the pull
+request. Platform adds:
+
+1. Update `AGENTS.md` only when the agent's trigger, routing, rule, verification command, or
    completion criterion changed.
-4. Run `pnpm docs:check`, then the focused verification for the changed surface. Run root
+2. Run `pnpm docs:check`, then the focused verification for the changed surface. Run root
    `pnpm check` before handoff when code or executable contracts changed.
-5. In the PR Documentation impact section, name the authorities changed or state why no prose
-   authority was required.
 
 Completion means every changed durable fact has one named authority, every local agent pointer
 resolves, superseded decisions are not presented as current instructions, generated contracts have
