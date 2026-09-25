@@ -1,0 +1,106 @@
+{
+  "delayMs": 0,
+  "samples": 7,
+  "rows": [
+    {
+      "page": "Главная",
+      "reader": "гость",
+      "status": 200,
+      "firstByteMs": 6,
+      "totalMs": 7,
+      "inlineScripts": 5,
+      "inlineScriptKb": 42.2,
+      "inlineWithNonce": 0
+    },
+    {
+      "page": "Главная",
+      "reader": "вошедший",
+      "status": 200,
+      "firstByteMs": 6,
+      "totalMs": 7,
+      "inlineScripts": 5,
+      "inlineScriptKb": 42.2,
+      "inlineWithNonce": 0
+    },
+    {
+      "page": "продукт",
+      "reader": "гость",
+      "status": 200,
+      "firstByteMs": 7,
+      "totalMs": 9,
+      "inlineScripts": 5,
+      "inlineScriptKb": 80.2,
+      "inlineWithNonce": 0
+    },
+    {
+      "page": "продукт",
+      "reader": "вошедший",
+      "status": 200,
+      "firstByteMs": 7,
+      "totalMs": 9,
+      "inlineScripts": 5,
+      "inlineScriptKb": 80.2,
+      "inlineWithNonce": 0
+    },
+    {
+      "page": "программа",
+      "reader": "гость",
+      "status": 200,
+      "firstByteMs": 8,
+      "totalMs": 11,
+      "inlineScripts": 8,
+      "inlineScriptKb": 118.9,
+      "inlineWithNonce": 0
+    },
+    {
+      "page": "программа",
+      "reader": "вошедший",
+      "status": 200,
+      "firstByteMs": 9,
+      "totalMs": 15,
+      "inlineScripts": 8,
+      "inlineScriptKb": 117.7,
+      "inlineWithNonce": 0
+    },
+    {
+      "page": "бесплатный урок",
+      "reader": "гость",
+      "status": 200,
+      "firstByteMs": 7,
+      "totalMs": 8,
+      "inlineScripts": 5,
+      "inlineScriptKb": 85,
+      "inlineWithNonce": 0
+    },
+    {
+      "page": "бесплатный урок",
+      "reader": "вошедший",
+      "status": 200,
+      "firstByteMs": 7,
+      "totalMs": 8,
+      "inlineScripts": 5,
+      "inlineScriptKb": 85,
+      "inlineWithNonce": 0
+    },
+    {
+      "page": "платный урок",
+      "reader": "гость",
+      "status": 200,
+      "firstByteMs": 8,
+      "totalMs": 11,
+      "inlineScripts": 8,
+      "inlineScriptKb": 80,
+      "inlineWithNonce": 0
+    },
+    {
+      "page": "платный урок",
+      "reader": "вошедший",
+      "status": 200,
+      "firstByteMs": 7,
+      "totalMs": 10,
+      "inlineScripts": 8,
+      "inlineScriptKb": 85.7,
+      "inlineWithNonce": 0
+    }
+  ]
+}
