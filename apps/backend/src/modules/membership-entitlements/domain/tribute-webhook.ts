@@ -1,5 +1,6 @@
-import { commandDigest } from "../../../infrastructure/contracts/canonical-digest.js";
 import { z } from "zod";
+
+import { commandDigest } from "../../../infrastructure/contracts/canonical-digest.js";
 
 // Official Tribute OpenAPI, checked 2026-09-14. Unknown versions/fields require reconciliation.
 const timestamp = z.iso.datetime({ offset: true });
