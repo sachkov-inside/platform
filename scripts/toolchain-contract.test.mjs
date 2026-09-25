@@ -34,15 +34,18 @@ describe("supported toolchain contract", () => {
     }
   });
 
-  it("copies Prisma generation inputs before dependency postinstall", () => {
+  it("copies Prisma generation and package build inputs before dependency postinstall", () => {
     for (const path of applicationDockerfiles) {
       const dockerfile = read(path);
       const installPosition = dockerfile.indexOf("pnpm install --frozen-lockfile");
 
       assert.ok(installPosition > 0);
+      // Package postinstall compiles through tsconfig.node-lib.json, which extends the shared base.
       for (const input of [
         "apps/backend/prisma.config.ts",
         "apps/backend/prisma ./apps/backend/prisma",
+        "tsconfig.base.json",
+        "tsconfig.node-lib.json",
       ]) {
         const copyPosition = dockerfile.indexOf(input);
         assert.ok(copyPosition >= 0, `${path} must copy ${input}`);
