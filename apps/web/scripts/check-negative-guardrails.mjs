@@ -52,6 +52,15 @@ const fixtures = [
     ],
   },
   {
+    root: "test/guardrails/fixtures/architecture/proxy-dependencies",
+    diagnostics: [
+      "proxy.ts: proxy decides without a backend request; it cannot reach the backend or the session (via test/guardrails/fixtures/architecture/proxy-dependencies/proxy.ts)",
+      "proxy.ts: proxy decides without a backend request; it cannot reach the backend or the session (via test/guardrails/fixtures/architecture/proxy-dependencies/catalog-address.ts)",
+      "proxy.ts: proxy decides without a backend request; it cannot reach the backend or the session (via test/guardrails/fixtures/architecture/proxy-dependencies/session-cookie.ts)",
+      "proxy.ts: proxy decides without a backend request; it cannot reach the backend or the session (via test/guardrails/fixtures/architecture/proxy-dependencies/direct-fetch.ts)",
+    ],
+  },
+  {
     root: "test/guardrails/fixtures/architecture/prerendered-handler",
     diagnostics: [
       "app/api/swallowed/route.ts: a GET Route Handler starts with await connection(), or the build prerenders its answer",

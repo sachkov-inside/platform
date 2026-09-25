@@ -56,21 +56,3 @@ export function legalDocumentView(
     superseded: supersededLegalEditions(key),
   };
 }
-
-/** Адреса всех редакций: по ним собираются страницы во время сборки. */
-export function legalEditionParams(): {
-  readonly slug: string;
-  readonly version: string;
-}[] {
-  return legalEditions().map((edition) => ({
-    slug: edition.key,
-    version: `v${String(edition.version)}`,
-  }));
-}
-
-function legalEditions(): readonly LegalEdition[] {
-  return legalDocumentKeys.flatMap((key) => [
-    currentLegalEdition(key),
-    ...supersededLegalEditions(key),
-  ]);
-}

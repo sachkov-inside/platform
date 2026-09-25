@@ -50,6 +50,9 @@ function overrunBillingCommand(
     limitEntryRequest(limiter, request(path, address(attempt)), mode));
 }
 
+/** Раздел документов в том же `matcher` проверяет адрес, а не частоту (ADR 0027). */
+const entryMatcher = proxyConfig.matcher.filter((path) => path !== "/legal/:path+");
+
 /** Сравнивает matcher с перечнем ограничителя; пустой список — совпадение. */
 function matcherDrift(matcher: readonly string[]): readonly string[] {
   const expected = new Set<string>(entryRoutePaths);
@@ -141,10 +144,10 @@ describe("entry rate limit", () => {
   });
 
   it("matches exactly the routes the limiter classifies", () => {
-    expect(matcherDrift(proxyConfig.matcher)).toEqual([]);
-    expect(matcherDrift(proxyConfig.matcher.filter((path) => path !== "/callback")))
+    expect(matcherDrift(entryMatcher)).toEqual([]);
+    expect(matcherDrift(entryMatcher.filter((path) => path !== "/callback")))
       .toEqual(["missing /callback"]);
-    expect(matcherDrift([...proxyConfig.matcher, "/api/account"])).toEqual(["unexpected /api/account"]);
+    expect(matcherDrift([...entryMatcher, "/api/account"])).toEqual(["unexpected /api/account"]);
     for (const path of entryRoutePaths) {
       const kinds = ["GET", "HEAD", "POST"].map((method) => classifyEntryRoute(method, path));
       expect(kinds.some((kind) => kind !== undefined), path).toBe(true);
