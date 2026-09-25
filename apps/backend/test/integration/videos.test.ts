@@ -578,6 +578,11 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
       { actor: randomUUID(), materialId, videoId: video.id },
       new Date("2026-09-02T10:01:00.000Z"),
     ));
+    // The author sees the requested deletion of the Material's Video until it settles.
+    expect(await videos.loadLatestDeletion(materialId)).toMatchObject({
+      ok: true,
+      value: { state: "deletion_requested", videoId: video.id },
+    });
     const maintenance = assembleVideoDeletionMaintenance({
       clock: () => new Date("2026-09-02T10:02:00.000Z"),
       prisma: database.prisma,
