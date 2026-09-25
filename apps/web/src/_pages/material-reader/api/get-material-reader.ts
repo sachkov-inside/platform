@@ -68,7 +68,7 @@ const publishedMaterialSchema = z.discriminatedUnion("kind", [
 ]);
 
 const notFoundSchema = z.object({
-  type: z.literal("urn:inside:problem:material-not-found"),
+  type: z.literal("urn:inside:problem:material_not_found"),
   title: z.literal("Material not found"),
   status: z.literal(404),
   code: z.literal("material_not_found"),

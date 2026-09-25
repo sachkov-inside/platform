@@ -14,7 +14,6 @@ export type {
 } from "./facets/workshop-entitlements/workshop-entitlements.interface.js";
 export type {
   WorkshopMaterialAccess,
-  WorkshopMaterialAccessState,
 } from "./facets/workshop-material-access/workshop-material-access.interface.js";
 export { resolveWorkshopMaterialProtection } from "./features/resolve-material-protection/resolve-material-protection.js";
 export {

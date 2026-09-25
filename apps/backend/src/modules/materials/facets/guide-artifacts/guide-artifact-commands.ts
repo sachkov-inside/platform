@@ -10,7 +10,8 @@ const sourceIdSchema = z.string().trim().min(1).max(200);
 const externalUrlSchema = z
   .url({ protocol: /^https?$/u })
   .max(2048);
-const metadataSchema = z
+// The controller reads the same name, purpose and access rule, so both trim alike.
+export const metadataSchema = z
   .object({
     access: guideArtifactAccessSchema,
     purpose: purposeSchema,

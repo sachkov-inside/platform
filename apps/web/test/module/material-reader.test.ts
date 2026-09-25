@@ -200,7 +200,7 @@ describe("Material Reader server adapter", () => {
       vi.fn().mockResolvedValue(
         Response.json(
           {
-            type: "urn:inside:problem:material-not-found",
+            type: "urn:inside:problem:material_not_found",
             title: "Material not found",
             status: 404,
             code: "material_not_found",
@@ -240,7 +240,7 @@ describe("Material Reader server adapter", () => {
       vi.fn().mockResolvedValue(
         Response.json(
           {
-            type: "urn:inside:problem:dependency-unavailable",
+            type: "urn:inside:problem:dependency_unavailable",
             title: "Dependency unavailable",
             status: 503,
             code: "dependency_unavailable",
@@ -275,7 +275,7 @@ describe("Material Reader server adapter", () => {
       vi.fn().mockResolvedValue(
         Response.json(
           {
-            type: "urn:inside:problem:internal-error",
+            type: "urn:inside:problem:internal_error",
             title: "Internal error",
             status: 500,
             code: "internal_error",

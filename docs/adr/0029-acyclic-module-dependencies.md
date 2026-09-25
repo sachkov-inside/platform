@@ -19,43 +19,44 @@ Module B из файла Module A: значения, типа, реэкспор�
 `scripts/check-backend-architecture.mjs` строит граф по `src` и называет каждый цикл вместе с файлом
 на каждом его ребре.
 
-Известный цикл перечислен в `legacyCycleEdges` того же скрипта целиком: все 24 ребра компоненты
-из восьми Module, у каждого самый сильный разрешённый вид импорта (`type`, `dynamic` или `value`).
-Проверка ищет сильно связные компоненты по полному графу. Нарушение — любое ребро, лежащее на цикле,
-которого нет в списке, и импорт сильнее разрешённого. Поэтому новое ребро падает, даже если замыкает
-цикл только через перечисленные. Если ребро исчезло, ослабло или больше не лежит на цикле, guardrail
-требует убрать или понизить запись. Новых записей в список не добавляют: новое ребро, которое
-замыкает цикл, разворачивается через port потребителя или переносом общего значения ниже по графу.
+Нарушение — любое ребро, которое лежит на цикле: проверка ищет сильно связные компоненты по
+полному графу. Ребро, которое замыкает цикл, разворачивается одним из трёх способов:
+
+- port потребителя: нижний Module описывает нужную ему способность, верхний её реализует;
+- ответ реализатора: когда потребитель стоит выше реализатора, как Notifications над Materials и
+  Billing, реализатор сам описывает свой ответ, а потребитель принимает его структурно;
+- перенос общего значения, например бренда идентификатора, ниже всех Module.
 
 Interface Module — только то, что используют снаружи. `index.ts` экспортирует символ, лишь пока
 его импортирует код вне Module: `src`, `test` или `scripts`. Module импортирует собственные файлы
 напрямую, а не через свой `index.ts`. Обе проверки выполняет тот же скрипт.
 
-## Рёбра, которые нужно развернуть
+## Как цикл был развёрнут
 
-Остальные 14 рёбер списка идут от потребителя к поставщику и остаются, когда эти десять развёрнуты.
+При решении цикл из 24 рёбер был перечислен в списке разрешённых рёбер guardrail. Десять из них
+развернули в [platform#732](https://github.com/sachkov-inside/platform/issues/732), после чего
+остальные 14 перестали лежать на цикле, и список вместе с его проверками удалён.
 
-| Ребро | Вид | Почему осталось | Что его убирает |
-|---|---|---|---|
-| membership-entitlements → materials | `dynamic` | `ACCESS_GRANTS` читает `ContentScopeCatalog`, а Materials статически зависит от Membership Entitlements. Провайдер берёт класс через `await import` после загрузки Module, иначе Nest и порядок загрузки ESM упираются в цикл | Port каталога областей контента у Membership Entitlements, который реализует Materials |
-| membership-entitlements → telegram-membership | `dynamic` | `TributeSources`, `MEMBERSHIP_ENTITLEMENTS` и `ACCESS_GRANTS` берут `TelegramAccountLinks` так же, потому что Telegram Membership зависит от Membership Entitlements | Port связей получателя, который реализует Telegram Membership |
-| content-access → materials | `type` | `MaterialId` в interface и зависимостях Content Access | Перенос `MaterialId` в место без зависимостей |
-| workshop → materials | `type` | `MaterialId` в interface Workshop | То же |
-| content-access → workshop | `type` | Факты доступа Workshop в зависимостях Content Access | Port фактов у Content Access |
-| content-access → membership-entitlements | `type` | Типы решений о доступе в зависимостях Content Access | То же |
-| workshop → membership-entitlements | `type` | Зависимость выдачи прав Workshop описана типом Membership Entitlements | Port Workshop |
-| materials → notifications | `type` | Анонсы Materials реализуют `NotificationSource` | Port источника, который описывает сам Materials |
-| billing → notifications | `type` | Уведомления Billing реализуют `NotificationSource` | То же для Billing |
-| billing → telegram-membership | `type` | Активация подписки получает `TelegramAccountLinks` по типу | Port связей в Billing |
-
-Runtime-ребро workshop → materials убрано: адаптер каталога материалов Workshop не использовался
-в production и перенесён в единственный тест, который его собирал.
+- Membership Entitlements описывает port `ContentScopeCatalog` и `RecipientLinks` в `ports/` и
+  получает их по токенам `CONTENT_SCOPE_CATALOG` и `RECIPIENT_LINKS` вместо `await import`.
+  Реализации лежат в Materials (`ContentScopeCatalogModule`) и Telegram Membership
+  (`RecipientLinksModule`). Это глобальные модули Nest: иначе Membership Entitlements пришлось бы
+  импортировать своих реализаторов. Каждый процесс, который загружает Membership Entitlements,
+  подключает оба модуля в entrypoint. Без них процесс не стартует; это проверяют тесты композиции
+  API, MCP и обоих workers.
+- Бренд `MaterialId` и его конструктор лежат в `src/infrastructure/contracts/material-id.ts` ниже
+  всех Module; Materials реэкспортирует их, Content Access и Workshop импортируют оттуда.
+- Content Access сам описывает нужные ему решения о членстве и доступе Workshop; Workshop реализует
+  port доступа и описывает решение о членстве под блокировкой выдачи. Materials и Billing сами
+  описывают ответ источника уведомления, Notifications принимает его структурно.
+- Активация подписки в Billing описывает связи типом `RecipientLinks` из Membership Entitlements, от
+  которого Billing уже зависит.
+- Runtime-ребро workshop → materials убрано ещё в platform#695: адаптер каталога материалов
+  Workshop не использовался в production и перенесён в единственный тест, который его собирал.
 
 ## Последствия
 
 - Новый цикл между Module, в том числе только по типам, ломает `pnpm --filter @inside/backend
   guardrails` с названием цикла.
-- Список `legacyCycleEdges` может только сокращаться. Разворот любого ребра из таблицы — отдельное
-  изменение с собственной задачей; когда цикл распадается, прямые рёбра уходят из списка вместе с ним.
 - Неиспользуемый экспорт `index.ts` ломает ту же проверку, поэтому interface Module не растёт
   «на будущее». Symbol, который нужен только внутри Module, остаётся в его файлах.

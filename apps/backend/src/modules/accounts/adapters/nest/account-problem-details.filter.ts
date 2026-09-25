@@ -6,42 +6,31 @@ import {
 } from "@nestjs/common";
 import type { FastifyReply } from "fastify";
 
+import { problemDetails, problemType } from "../../../../infrastructure/http/problem-details.js";
+
 @Catch(HttpException)
 export class AccountProblemDetailsFilter implements ExceptionFilter {
   catch(exception: HttpException, host: ArgumentsHost): void {
     const status = exception.getStatus();
     const response = exception.getResponse();
     const fields = isRecord(response) ? response : {};
-    if (isProblemDetails(fields, status)) {
-      host
-        .switchToHttp()
-        .getResponse<FastifyReply>()
-        .status(status)
-        .header("Cache-Control", "private, no-store")
-        .type("application/problem+json")
-        .send(fields);
-      return;
-    }
-    const code =
-      typeof fields.code === "string" ? fields.code : "account_request_failed";
+    const code = typeof fields.code === "string" ? fields.code : "account_request_failed";
     const correlationId =
-      typeof fields.correlationId === "string"
-        ? fields.correlationId
-        : undefined;
+      typeof fields.correlationId === "string" ? fields.correlationId : undefined;
     host
       .switchToHttp()
       .getResponse<FastifyReply>()
       .status(status)
       .header("Cache-Control", "private, no-store")
       .type("application/problem+json")
-      .send({
-        type: `https://inside.sachkov.com/problems/accounts/${code.replaceAll("_", "-")}`,
-        title: titleFor(status),
-        status,
-        detail: "Account request could not be completed.",
-        code,
-        ...(correlationId === undefined ? {} : { correlationId }),
-      });
+      .send(
+        isProblemDetails(fields, status)
+          ? { ...fields, type: problemType(code) }
+          : problemDetails(status, code, titleFor(status), {
+              detail: "Account request could not be completed.",
+              ...(correlationId === undefined ? {} : { correlationId }),
+            }),
+      );
   }
 }
 

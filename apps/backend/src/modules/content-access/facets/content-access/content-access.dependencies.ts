@@ -1,10 +1,5 @@
 import type { AccountId } from "../../../accounts/index.js";
-import type {
-  MembershipAccessState,
-  MembershipEntitlements as MembershipEntitlementsModule,
-} from "../../../membership-entitlements/index.js";
-import type { MaterialId } from "../../../materials/index.js";
-import type { WorkshopMaterialAccess } from "../../../workshop/index.js";
+import type { MaterialId } from "../../../../infrastructure/contracts/material-id.js";
 
 export interface MaterialResourceFacts {
   readonly materialId: MaterialId;
@@ -63,11 +58,29 @@ export interface AccountPermissions {
   hasMaterialsManage(accountId: AccountId): Promise<boolean>;
 }
 
-export type { MembershipAccessState };
-export type MembershipEntitlements = Pick<
-  MembershipEntitlementsModule,
-  "resolveForAccess" | "resolveManyForAccess"
->;
+/** Workshop access to one Material; Workshop answers it. */
+export type WorkshopMaterialAccessState =
+  | Readonly<{ availability: "available"; validUntil: string }>
+  | Readonly<{ availability: "locked" | "unavailable" }>;
+
+/** The Workshop decision Content Access needs. Workshop implements this port. */
+export interface WorkshopMaterialAccess {
+  resolve(accountId: AccountId, materialId: MaterialId): Promise<WorkshopMaterialAccessState>;
+}
+
+/** A Membership decision for one resource; Membership Entitlements answers it. */
+export type MembershipAccessState =
+  | Readonly<{ kind: "active"; validUntil: string | null }>
+  | Readonly<{ kind: "required" | "expired" | "stale" | "unavailable" }>;
+
+/** The Membership decisions Content Access needs. Membership Entitlements implements this port. */
+export interface MembershipEntitlements {
+  resolveManyForAccess?(
+    accountId: AccountId,
+    resources: readonly { guideIds: readonly string[]; materialId?: string | undefined }[],
+  ): Promise<readonly MembershipAccessState[]>;
+  resolveForAccess(accountId: AccountId, guideIds?: readonly string[], materialId?: string): Promise<MembershipAccessState>;
+}
 
 export interface ContentAccessDependencies {
   readonly assetResourceFacts?: AssetResourceFactsAdapter;

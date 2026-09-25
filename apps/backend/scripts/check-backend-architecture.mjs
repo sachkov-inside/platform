@@ -418,36 +418,8 @@ function swallowedFailureViolations(sourceFile, sourceText, program, comments) {
 // A Module depends on another through any import of that Module: a value import, a type-only
 // import, a re-export or a dynamic import(). The dependency graph stays acyclic, so a Module
 // loads, composes and changes without the Modules that depend on it.
+// A cycle diagnostic names the strongest import on each edge, the one to remove first.
 const importKindRank = { type: 0, dynamic: 1, value: 2 };
-// Every edge of the one known cycle among eight Modules, each with the strongest import kind it
-// may keep; a stronger import, or any other edge that lies on a cycle, fails. The type-only and
-// dynamic edges are the ones to invert; ADR 0029 records why each remains and what removes it.
-const legacyCycleEdges = new Map([
-  ["billing -> membership-entitlements", "value"],
-  ["billing -> notifications", "type"],
-  ["billing -> telegram-membership", "type"],
-  ["content-access -> materials", "type"],
-  ["content-access -> membership-entitlements", "type"],
-  ["content-access -> workshop", "type"],
-  ["materials -> billing", "value"],
-  ["materials -> content-access", "value"],
-  ["materials -> membership-entitlements", "value"],
-  ["materials -> notifications", "type"],
-  ["materials -> videos", "value"],
-  ["materials -> workshop", "value"],
-  ["membership-entitlements -> materials", "dynamic"],
-  ["membership-entitlements -> telegram-membership", "dynamic"],
-  ["membership-entitlements -> workshop", "value"],
-  ["notifications -> billing", "value"],
-  ["notifications -> content-access", "value"],
-  ["notifications -> materials", "value"],
-  ["notifications -> telegram-membership", "value"],
-  ["telegram-membership -> billing", "value"],
-  ["telegram-membership -> membership-entitlements", "value"],
-  ["videos -> content-access", "value"],
-  ["workshop -> materials", "type"],
-  ["workshop -> membership-entitlements", "type"],
-]);
 
 function exportedName(node) {
   return node.type === "Identifier" ? node.name : String(node.value);
@@ -600,24 +572,19 @@ function shortestPath(graph, start, goal) {
 }
 
 // An edge lies on a cycle when both Modules share a strongly connected component of the complete
-// graph. Only a listed edge at its allowed kind may; a new edge that closes a cycle through listed
-// edges fails, and a listed edge that left every cycle must leave the list.
+// graph. Every such edge fails and names the cycle it closes.
 function moduleCycleViolations(moduleEdges) {
   const graph = new Map();
-  const counted = [];
-  for (const [edge, kinds] of moduleEdges) {
+  for (const edge of moduleEdges.keys()) {
     const [from, to] = edge.split(" -> ");
     graph.set(from, new Set([...(graph.get(from) ?? []), to]));
-    const allowance = legacyCycleEdges.get(edge);
-    if ([...kinds.keys()].some(
-      (kind) => allowance === undefined || importKindRank[kind] > importKindRank[allowance],
-    )) counted.push([from, to]);
   }
   const componentOf = new Map();
   for (const component of stronglyConnectedComponents(graph)) {
     for (const member of component) componentOf.set(member, component);
   }
-  const violations = counted
+  return [...moduleEdges.keys()]
+    .map((edge) => edge.split(" -> "))
     .filter(([from, to]) => componentOf.has(from) && componentOf.get(from) === componentOf.get(to))
     .map(([from, to]) => {
       const cycle = [from, ...shortestPath(graph, to, from)];
@@ -625,27 +592,10 @@ function moduleCycleViolations(moduleEdges) {
         const edge = `${cycle[step]} -> ${next}`;
         const kinds = moduleEdges.get(edge);
         const strongest = [...kinds.keys()].sort((left, right) => importKindRank[right] - importKindRank[left])[0];
-        return `${edge}: ${kinds.get(strongest)}${step > 0 && legacyCycleEdges.has(edge) ? " (listed)" : ""}`;
+        return `${edge}: ${kinds.get(strongest)}`;
       });
       return `Module dependency cycle ${cycle.join(" -> ")}; depend on a lower Module or invert the edge through a port (${evidence.join("; ")})`;
     });
-  for (const [edge, allowance] of legacyCycleEdges) {
-    const kinds = moduleEdges.get(edge);
-    if (kinds === undefined) {
-      violations.push(`${edge}: no longer imports; remove it from legacyCycleEdges`);
-      continue;
-    }
-    const [from, to] = edge.split(" -> ");
-    if (!componentOf.has(from) || componentOf.get(from) !== componentOf.get(to)) {
-      violations.push(`${edge}: no longer lies on a cycle; remove it from legacyCycleEdges`);
-      continue;
-    }
-    const strongest = Math.max(...[...kinds.keys()].map((kind) => importKindRank[kind]));
-    if (strongest < importKindRank[allowance]) {
-      violations.push(`${edge}: keeps only weaker imports than ${allowance}; lower its legacyCycleEdges kind`);
-    }
-  }
-  return violations;
 }
 
 if (!statSync(scanRoot).isDirectory()) {

@@ -1,9 +1,9 @@
 import { tributeStateSchema } from "../../domain/tribute-source.js";
-import type { TelegramAccountLinks } from "../../../telegram-membership/index.js";
+import type { RecipientLinks } from "../../ports/recipient-links.js";
 import { contentScopeSchema, guideCapability } from "@inside/access-capabilities";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import { Prisma } from "../../../../infrastructure/prisma/index.js";
-import type { ContentScopeCatalog } from "../../../materials/index.js";
+import type { ContentScopeCatalog } from "../../ports/content-scope-catalog.js";
 import { enrollmentView, enrollmentBenefitTerms, enrollmentSourceState } from "../../shared/enrollment-view.js";
 import { registerSourceEntitlement } from "../../features/register-source-entitlement/register-source-entitlement.js";
 import { manageActivationRule } from "../../features/manage-activation-rule/manage-activation-rule.js";
@@ -53,8 +53,8 @@ import { readOwnAccess } from "../../features/read-own-access/read-own-access.js
 export interface AccessGrantsDependencies {
   readonly prisma: MembershipEntitlementsPrismaClient;
   readonly accounts: Pick<Accounts, "checkPermission" | "readIdentityForLink">;
-  readonly recipientLinks?: Pick<TelegramAccountLinks, "findCurrentByIdentity" | "readBinding">;
-  readonly contentCatalog?: Pick<ContentScopeCatalog, "resolve" | "list">;
+  readonly recipientLinks?: RecipientLinks;
+  readonly contentCatalog?: ContentScopeCatalog;
   readonly clock?: () => Date;
 }
 // Internal capability for billing fulfillment, owner operations (#409), and community projection (#415).
@@ -129,7 +129,7 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
         if (!command.success) return accessFailure("invalid_input");
         const receipt = await prisma.accessReceipt.findUnique({ where: { scope_operationId: { scope: actorId, operationId: command.data.operationId } } });
         if (receipt === null) return null;
-        return receipt.fingerprint === accessFingerprint({ action: "assignEnrollment", command: command.data })
+        return accessFingerprint({ action: "assignEnrollment", command: command.data }).recognizes(receipt.fingerprint)
           ? enrollmentResultSchema.parse(receipt.result) : accessFailure("operation_conflict");
       }),
     readActivationReceipt: (input: unknown) => readActivationReceipt(prisma, input),

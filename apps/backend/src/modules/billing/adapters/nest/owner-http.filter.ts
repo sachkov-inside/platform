@@ -1,4 +1,4 @@
-import { HttpException } from "@nestjs/common";
+import { problemException } from "../../../../infrastructure/http/problem-details.js";
 import type { OwnerFailureCode } from "../../domain/owner-operations.js";
 
 export function throwOwnerError(code: OwnerFailureCode): never {
@@ -13,5 +13,5 @@ export function throwOwnerError(code: OwnerFailureCode): never {
     case "provider_unavailable": case "dependency_unavailable": status = 503; break;
     default: { const exhaustive: never = code; throw new Error(`Unknown billing owner result ${String(exhaustive)}`); }
   }
-  throw new HttpException({ type: "about:blank", title: "Billing owner operation failed", status, code }, status);
+  throw problemException(status, code, "Billing owner operation failed");
 }

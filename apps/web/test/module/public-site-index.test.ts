@@ -77,7 +77,7 @@ describe("Указатель опубликованных страниц", () =>
             retryable: true,
             status: 503,
             title: "Dependency unavailable",
-            type: "urn:inside:problem:dependency-unavailable",
+            type: "urn:inside:problem:dependency_unavailable",
           },
           {
             headers: { "content-type": "application/problem+json" },

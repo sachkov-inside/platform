@@ -4,9 +4,10 @@ export {
   MEMBERSHIP_ENTITLEMENTS,
 } from "./membership-entitlements.tokens.js";
 export { MembershipEntitlementsModule } from "./membership-entitlements.module.js";
+export { CONTENT_SCOPE_CATALOG, type ContentScopeCatalog } from "./ports/content-scope-catalog.js";
+export { RECIPIENT_LINKS, type RecipientLinks } from "./ports/recipient-links.js";
 export { membershipEvidenceSchema } from "./features/accept-evidence/validate-membership-evidence.js";
 export type {
-  MembershipAccessState,
   MembershipEntitlements,
   MembershipEvidenceAcceptance,
   MembershipEvidenceSource,

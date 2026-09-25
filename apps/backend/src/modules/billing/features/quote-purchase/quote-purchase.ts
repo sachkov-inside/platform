@@ -4,6 +4,7 @@ import { dependencyFailure } from "../../../../infrastructure/observability/inde
 import { lockBillingPricing, type BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { failure, idSchema, revisionSchema, priceSnapshotSchema, type PricingResult } from "../../domain/pricing.js";
 import { selectPrice } from "../../shared/select-price.js";
+import { replayCommandFingerprint } from "../../shared/command-fingerprint.js";
 
 export const quotePurchaseSchema = z.strictObject({ operationId: idSchema, paymentOptionId: idSchema, optionRevision: revisionSchema, promoCode: z.string().trim().min(1).max(100).optional() });
 export const priceQuoteSchema = z.strictObject({ quoteRef: idSchema, snapshot: priceSnapshotSchema, createdAt: z.iso.datetime(), expiresAt: z.iso.datetime() });
@@ -23,9 +24,9 @@ export async function quotePurchase(prisma: BillingPrismaClient, accountId: stri
       await lockBillingPricing(tx);
       const command = parsed.data;
       const key = { accountId: identity.data, operationId: command.operationId };
-      const fingerprint = JSON.stringify(command);
+      const fingerprint = replayCommandFingerprint("quotePurchase", command);
       const existing = await tx.billingPriceQuote.findUnique({ where: { accountId_operationId: key } });
-      if (existing) return existing.fingerprint === fingerprint ? { ok: true, value: {
+      if (existing) return fingerprint.recognizes(existing.fingerprint) ? { ok: true, value: {
         quoteRef: existing.id, snapshot: priceSnapshotSchema.parse(existing.snapshot), createdAt: existing.createdAt.toISOString(), expiresAt: existing.expiresAt.toISOString(),
       } } : failure("operation_conflict");
       const now = clock();
@@ -34,7 +35,7 @@ export async function quotePurchase(prisma: BillingPrismaClient, accountId: stri
       if (price.value.paymentOption.revision !== command.optionRevision) return failure("quote_changed");
       const expiresAt = new Date(now.getTime() + quoteValidityMinutes * 60_000);
       const id = randomUUID();
-      await tx.billingPriceQuote.create({ data: { ...key, id, fingerprint, snapshot: price.value, promoCode: command.promoCode ?? null, createdAt: now, expiresAt } });
+      await tx.billingPriceQuote.create({ data: { ...key, id, fingerprint: fingerprint.digest, snapshot: price.value, promoCode: command.promoCode ?? null, createdAt: now, expiresAt } });
       return { ok: true, value: { quoteRef: id, snapshot: price.value, createdAt: now.toISOString(), expiresAt: expiresAt.toISOString() } };
     });
   } catch (error) { return dependencyFailure({ module: "billing", operation: "quotePurchase" }, error, failure("dependency_unavailable")); }

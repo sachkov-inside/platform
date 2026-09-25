@@ -1,10 +1,10 @@
 import {
   createParamDecorator,
   type ExecutionContext,
-  InternalServerErrorException,
 } from "@nestjs/common";
 import type { FastifyRequest } from "fastify";
 
+import { problemException } from "../../../../infrastructure/http/problem-details.js";
 import type { AuthenticatedAccount } from "../../facets/accounts/accounts.interface.js";
 
 export const currentAccountRequestProperty = Symbol("current-account");
@@ -18,12 +18,7 @@ export const CurrentAccount = createParamDecorator(
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const account = request[currentAccountRequestProperty];
     if (account === undefined) {
-      throw new InternalServerErrorException({
-        type: "urn:inside:problem:missing-authenticated-account",
-        title: "Authenticated Account is missing",
-        status: 500,
-        code: "missing_authenticated_account",
-      });
+      throw problemException(500, "missing_authenticated_account", "Authenticated Account is missing");
     }
     return account;
   },

@@ -89,7 +89,7 @@ describe("declared response contract", () => {
       method: "POST",
       url: "/accounts/current/billing/quote",
       status: 409,
-      body: () => ({ type: "about:blank", title: "Quote changed", status: 409, code }),
+      body: () => ({ type: `urn:inside:problem:${code}`, title: "Quote changed", status: 409, code }),
     });
     expect(() => { assertDeclaredResponse(problem("quote_changed")); }).not.toThrow();
     expect(() => { assertDeclaredResponse(problem("quote_vanished")); }).toThrow(/allowed values/u);
@@ -103,7 +103,7 @@ describe("declared response contract", () => {
         method: "PUT",
         url: "/reading-activity/materials/9f1a",
         status: 400,
-        body: () => ({ type: "about:blank", title: "Bad request", status: 400, code: "invalid_request", detail: "materialId is not a UUID" }),
+        body: () => ({ type: "urn:inside:problem:invalid_request", title: "Bad request", status: 400, code: "invalid_request", detail: "materialId is not a UUID" }),
       });
     }).not.toThrow();
   });

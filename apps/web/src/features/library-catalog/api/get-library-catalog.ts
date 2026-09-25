@@ -46,7 +46,7 @@ const catalogSchema = z
 
 const invalidRequestProblemSchema = z
   .object({
-    type: z.literal("urn:inside:problem:invalid-request-shape"),
+    type: z.literal("urn:inside:problem:invalid_request_shape"),
     title: z.literal("Invalid request shape"),
     status: z.literal(400),
     code: z.literal("invalid_request_shape"),

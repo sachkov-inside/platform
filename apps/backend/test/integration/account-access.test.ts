@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { Prisma } from "../../src/infrastructure/prisma/index.js";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import {
   accountId,
@@ -8,6 +8,7 @@ import {
   bootstrapOwnerAccount,
   type Accounts,
 } from "../../src/modules/accounts/index.js";
+import { paidPeriodCommandSchema } from "../../src/modules/membership-entitlements/features/apply-paid-period/apply-paid-period.js";
 import { verifiedAccountSignIn } from "../../src/modules/accounts/facets/accounts/verified-logto-identity.js";
 import {
   assembleAccessGrants,
@@ -143,6 +144,12 @@ describe("independent Account access", () => {
       prisma: db.prisma,
       accounts,
       clock: () => now,
+    });
+    expect(await restarted.applyPaidPeriod(command)).toEqual(results[0]);
+    // A receipt stored before #732 holds the digest of the parsed command's JSON text.
+    await db.prisma.accessReceipt.update({
+      where: { scope_operationId: { scope: "paid-period", operationId: command.eventRef } },
+      data: { fingerprint: createHash("sha256").update(JSON.stringify(paidPeriodCommandSchema.parse(command))).digest("hex") },
     });
     expect(await restarted.applyPaidPeriod(command)).toEqual(results[0]);
     expect(

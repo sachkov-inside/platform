@@ -43,18 +43,12 @@ import {
   type UploadedArtifactFile,
 } from "./guide-artifacts.js";
 import { problemException } from "../../../../infrastructure/http/problem-details.js";
+import { metadataSchema } from "./guide-artifact-commands.js";
 
 const uuidSchema = z.uuid();
 const checksumSchema = z.hash("sha256");
 const externalUrlSchema = z.url({ protocol: /^https?$/u }).max(2048);
-const metadataBodySchema = z
-  .object({
-    access: guideArtifactAccessSchema,
-    purpose: z.string().max(1000),
-    title: z.string().min(1).max(200),
-  })
-  .strict();
-const createLinkBodySchema = metadataBodySchema
+const createLinkBodySchema = metadataSchema
   .extend({ externalUrl: externalUrlSchema, guideId: uuidSchema })
   .strict();
 const replaceLinkBodySchema = z
@@ -229,7 +223,7 @@ export class GuideArtifactAuthoringController {
     @Req() request: FastifyRequest,
   ) {
     const upload = await readUpload(request, 6);
-    const metadata = metadataBodySchema.safeParse({
+    const metadata = metadataSchema.safeParse({
       access: field(upload.part, "access"),
       purpose: field(upload.part, "purpose") ?? "",
       title: field(upload.part, "title") ?? "",
@@ -284,7 +278,7 @@ export class GuideArtifactAuthoringController {
     summary: "Change the name, purpose or access class of one Guide Artifact",
   })
   @ApiParam({ name: "artifactId", schema: { format: "uuid", type: "string" } })
-  @ApiBody({ schema: toOpenApiSchema(metadataBodySchema) })
+  @ApiBody({ schema: toOpenApiSchema(metadataSchema) })
   @ApiOkResponse({ schema: toOpenApiSchema(guideArtifactHttpSchema) })
   @ApiMaterialAuthoringErrors(401, 500)
   @ApiGuideArtifactErrors(403, 404, 422, 503)
@@ -293,7 +287,7 @@ export class GuideArtifactAuthoringController {
     @Param("artifactId") artifactId: string,
     @Body() input: unknown,
   ) {
-    const body = parseBody(metadataBodySchema, input);
+    const body = parseBody(metadataSchema, input);
     const result = await this.artifacts.update({
       actor: account.accountId,
       artifactId,
@@ -484,7 +478,7 @@ export class GuideArtifactAuthoringController {
       throw problemException(400, "invalid_artifact", "Guide Artifact request is malformed");
     }
     const upload = await readUpload(request, sourceImportFieldLimit);
-    const metadata = metadataBodySchema.safeParse({
+    const metadata = metadataSchema.safeParse({
       access: field(upload.part, "access"),
       purpose: field(upload.part, "purpose") ?? "",
       title: field(upload.part, "title") ?? "",

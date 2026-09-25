@@ -6,6 +6,7 @@ import { Prisma, type BillingPrisma, type BillingPrismaClient, lockBillingPricin
 import { failure, idSchema, type PricingResult } from "../../domain/pricing.js";
 import { offerGrantsWithheld, productOfferUnsellable, productSupportTermMismatch, tierLacksComposition } from "../../shared/tier-composition.js";
 import { catalogOutcomeSchema, manageCatalogSchema, type ManageCatalogCommand } from "./manage-catalog.contract.js";
+import { replayCommandFingerprint } from "../../shared/command-fingerprint.js";
 
 type Outcome = { id: string; revision: number; archived: boolean; published?: boolean | undefined };
 type ManageCatalogResult = PricingResult<Outcome,
@@ -27,12 +28,12 @@ export async function manageCatalog(dependencies: { prisma: BillingPrismaClient;
         ...parsed.data, value: { ...parsed.data.value, startsAt: new Date(parsed.data.value.startsAt).toISOString(), endsAt: new Date(parsed.data.value.endsAt).toISOString() },
       } : parsed.data;
       const key = { actor: identity.data, operationId: command.operationId };
-      const fingerprint = JSON.stringify(command);
+      const fingerprint = replayCommandFingerprint("manageCatalog", command);
       const receipt = await tx.billingPricingCommand.findUnique({ where: { actor_operationId: key } });
-      if (receipt) return receipt.fingerprint === fingerprint
+      if (receipt) return fingerprint.recognizes(receipt.fingerprint)
         ? { ok: true, value: catalogOutcomeSchema.parse(receipt.outcome) } : failure("operation_conflict");
       const result = await changeCatalog(tx, command, dependencies.sale);
-      if (result.ok) await tx.billingPricingCommand.create({ data: { ...key, fingerprint, outcome: result.value } });
+      if (result.ok) await tx.billingPricingCommand.create({ data: { ...key, fingerprint: fingerprint.digest, outcome: result.value } });
       return result;
     });
   } catch (error) { return dependencyFailure({ module: "billing", operation: "manageCatalog" }, error, failure("dependency_unavailable")); }

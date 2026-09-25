@@ -19,7 +19,7 @@ describe("published Material REST result mapping", () => {
       }
       expect(error.getStatus()).toBe(500);
       expect(error.getResponse()).toEqual({
-        type: "urn:inside:problem:internal-error",
+        type: "urn:inside:problem:internal_error",
         title: "Internal error",
         status: 500,
         code: "internal_error",

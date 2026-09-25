@@ -9,7 +9,7 @@ export async function manageActivationRule(prisma: MembershipEntitlementsPrismaC
   const command = parsed.data; const fingerprint = accessFingerprint({ action: "manageActivationRule", command });
   return prisma.$transaction(async tx => {
     const receipt = await readAccessReceipt(tx, actorId, command.operationId);
-    if (receipt !== null) return receipt.fingerprint === fingerprint ? { ok: true as const, value: activationRuleSchema.parse(receipt.result) } : accessFailure("operation_conflict");
+    if (receipt !== null) return fingerprint.recognizes(receipt.fingerprint) ? { ok: true as const, value: activationRuleSchema.parse(receipt.result) } : accessFailure("operation_conflict");
     await lockAccountAccess(tx, `activation-rule:${command.value.id}`);
     const current = await tx.activationRule.findUnique({ where: { id: command.value.id } });
     if (current?.revision !== command.expectedRevision) return accessFailure("revision_conflict");
@@ -23,7 +23,7 @@ export async function manageActivationRule(prisma: MembershipEntitlementsPrismaC
       endsAt: command.value.endsAt === null ? null : new Date(command.value.endsAt), reason: command.reason };
     await tx.activationRule.upsert({ where: { id: command.value.id }, create: data, update: data });
     const value = activationRuleSchema.parse({ ...command.value, revision: data.revision });
-    await tx.accessReceipt.create({ data: { scope: actorId, operationId: command.operationId, fingerprint,
+    await tx.accessReceipt.create({ data: { scope: actorId, operationId: command.operationId, fingerprint: fingerprint.digest,
       payload: command, result: value, createdAt: now } });
     return { ok: true as const, value };
   });

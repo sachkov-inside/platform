@@ -10,6 +10,7 @@ import {
 import { ApiResponse } from "@nestjs/swagger";
 import { z } from "zod";
 
+import { problemDetails, problemType } from "../../../../infrastructure/http/problem-details.js";
 import {
   problemDetailsContent,
   problemDetailsOneOfContent,
@@ -21,7 +22,7 @@ import type { LogtoAccessTokenVerifier } from "../../infrastructure/idp/logto/lo
 import { authenticateRequest, type AuthenticatedRequest } from "./account.guard.js";
 
 const termsAcceptanceProblemSchema = z.object({
-  type: z.literal("urn:inside:problem:terms-acceptance-required"),
+  type: z.literal(problemType("terms_acceptance_required")),
   title: z.string(),
   status: z.literal(403),
   detail: z.string(),
@@ -29,28 +30,20 @@ const termsAcceptanceProblemSchema = z.object({
 });
 
 const termsAcceptanceUnavailableSchema = z.object({
-  type: z.literal("urn:inside:problem:terms-acceptance-unavailable"),
+  type: z.literal(problemType("internal_error")),
   title: z.string(),
   status: z.literal(500),
   detail: z.string(),
   code: z.literal("internal_error"),
 });
 
-const termsAcceptanceUnavailable = {
-  type: "urn:inside:problem:terms-acceptance-unavailable",
-  title: "Terms acceptance could not be checked",
-  status: 500,
+const termsAcceptanceUnavailable = problemDetails(500, "internal_error", "Terms acceptance could not be checked", {
   detail: "Terms acceptance could not be checked.",
-  code: "internal_error",
-} as const satisfies z.infer<typeof termsAcceptanceUnavailableSchema>;
+}) satisfies z.infer<typeof termsAcceptanceUnavailableSchema>;
 
-const termsAcceptanceRequired = {
-  type: "urn:inside:problem:terms-acceptance-required",
-  title: "Terms of use are not accepted",
-  status: 403,
+const termsAcceptanceRequired = problemDetails(403, "terms_acceptance_required", "Terms of use are not accepted", {
   detail: "Accept the terms of use in force on the first sign-in screen first.",
-  code: "terms_acceptance_required",
-} as const satisfies z.infer<typeof termsAcceptanceProblemSchema>;
+}) satisfies z.infer<typeof termsAcceptanceProblemSchema>;
 
 /**
  * Authenticates the Account and lets it through only once the terms of use in force are accepted.

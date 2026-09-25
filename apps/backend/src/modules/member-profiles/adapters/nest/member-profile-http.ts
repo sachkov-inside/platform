@@ -1,5 +1,7 @@
-import { HttpException, HttpStatus } from "@nestjs/common";
+import { HttpStatus } from "@nestjs/common";
 import type { z } from "zod";
+
+import { problemException } from "../../../../infrastructure/http/problem-details.js";
 
 import type { MemberProfileError } from "../../facets/member-profiles/member-profiles.interface.js";
 
@@ -9,39 +11,25 @@ export function parseProfileBody<Schema extends z.ZodType>(
 ): z.infer<Schema> {
   const result = schema.safeParse(input);
   if (!result.success) {
-    throw new HttpException(
-      {
-        type: "urn:inside:problem:member-profile-invalid-input",
-        title: "Profile input is invalid",
-        status: HttpStatus.UNPROCESSABLE_ENTITY,
-        detail: "Profile request body does not match the accepted contract.",
-        code: "invalid_input",
-      },
-      HttpStatus.UNPROCESSABLE_ENTITY,
-    );
+    throw problemException(HttpStatus.UNPROCESSABLE_ENTITY, "invalid_input", "Profile input is invalid", {
+      detail: "Profile request body does not match the accepted contract.",
+    });
   }
   return result.data;
 }
 
 export function throwProfileHttpError(error: MemberProfileError): never {
   const metadata = errorMetadata[error.code];
-  throw new HttpException(
-    {
-      type: `urn:inside:problem:member-profile-${error.code.replaceAll("_", "-")}`,
-      title: metadata.title,
-      status: metadata.status,
-      detail: metadata.detail,
-      code: error.code,
-      ...(error.code === "invalid_input" ? { issues: error.issues } : {}),
-      ...(error.code === "conflict" && error.currentVersion !== undefined
-        ? { currentVersion: error.currentVersion }
-        : {}),
-      ...(error.code === "internal_error"
-        ? { correlationId: error.correlationId }
-        : {}),
-    },
-    metadata.status,
-  );
+  throw problemException(metadata.status, error.code, metadata.title, {
+    detail: metadata.detail,
+    ...(error.code === "invalid_input" ? { issues: error.issues } : {}),
+    ...(error.code === "conflict" && error.currentVersion !== undefined
+      ? { currentVersion: error.currentVersion }
+      : {}),
+    ...(error.code === "internal_error"
+      ? { correlationId: error.correlationId }
+      : {}),
+  });
 }
 
 export function throwMemberProfileNotFound(): never {

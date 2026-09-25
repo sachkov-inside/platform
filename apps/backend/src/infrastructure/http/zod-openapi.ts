@@ -1,5 +1,7 @@
-import { z } from "zod";
 import type { OpenAPIObject, SchemaObject } from "@nestjs/swagger";
+import { z } from "zod";
+
+import { problemType } from "./problem-details.js";
 
 export function toOpenApiSchema(schema: z.ZodType): SchemaObject {
   const jsonSchema = z.toJSONSchema(schema, {
@@ -23,11 +25,13 @@ export function problemDetailsSchema<const Code extends string>(
   status: number,
   codes: readonly [Code, ...Code[]],
 ) {
+  const [first, ...rest] = codes;
   return z.object({
     code: z.enum(codes),
     status: z.literal(status),
     title: z.string(),
-    type: z.string(),
+    // `ProblemDetailsFilter` derives the type from the code, so the contract names it per code.
+    type: z.enum([problemType(first), ...rest.map((code) => problemType(code))]),
   }).loose();
 }
 

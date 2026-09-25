@@ -5,11 +5,12 @@ import { PrismaModule } from "../../infrastructure/prisma/index.js";
 import { RuntimeIdentityModule } from "../../infrastructure/runtime-identity.js";
 import { OperationalReadiness } from "../../infrastructure/operational-readiness.js";
 import { BillingModule } from "../../modules/billing/index.js";
-import { CommunityEntitlementsModule } from "../../modules/telegram-membership/index.js";
+import { ContentScopeCatalogModule } from "../../modules/materials/index.js";
+import { CommunityEntitlementsModule, RecipientLinksModule } from "../../modules/telegram-membership/index.js";
 
 @Module({})
 export class BillingWorkerModule {
   static forRoot(config?: PlatformConfig): DynamicModule {
-    return { module: BillingWorkerModule, imports: [PlatformConfigModule.forRoot(config, "billing-worker"), RuntimeIdentityModule, PrismaModule, BillingModule, CommunityEntitlementsModule], providers: [OperationalReadiness] };
+    return { module: BillingWorkerModule, imports: [PlatformConfigModule.forRoot(config, "billing-worker"), RuntimeIdentityModule, PrismaModule, BillingModule, CommunityEntitlementsModule, ContentScopeCatalogModule, RecipientLinksModule], providers: [OperationalReadiness] };
   }
 }

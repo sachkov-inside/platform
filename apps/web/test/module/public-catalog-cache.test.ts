@@ -65,7 +65,7 @@ describe("guest Material read kept in the shared cache", () => {
   });
 
   it("passes a missing Material on so that the cache can give it a short life", async () => {
-    backendAnswers({ type: "urn:inside:problem:material-not-found", title: "Material not found", status: 404, code: "material_not_found" }, 404);
+    backendAnswers({ type: "urn:inside:problem:material_not_found", title: "Material not found", status: 404, code: "material_not_found" }, 404);
 
     await expect(getGuestMaterial("lesson")).resolves.toEqual({ kind: "not-found" });
   });

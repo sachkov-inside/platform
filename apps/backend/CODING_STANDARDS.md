@@ -37,8 +37,8 @@ not dependency wiring.
 - `index.ts` exports only what code outside the Module imports from `src`, `test` or `scripts`, and
   a Module imports its own files directly, never through its `index.ts`. The dependency graph
   between Modules stays acyclic, counting type-only, re-exported and dynamic imports.
-  `scripts/check-backend-architecture.mjs` enforces all three; ADR 0029 lists the edges that still
-  close a cycle and what removes them.
+  `scripts/check-backend-architecture.mjs` enforces all three; ADR 0029 names the three ways to
+  invert an edge that closes a cycle.
 - Keep locally consumed operations as plain functions or concrete providers. Do not create a DI
   token solely to substitute a test double.
 - Register providers that add behaviour or own lifecycle; remove pass-through providers. Use the
@@ -109,6 +109,10 @@ not dependency wiring.
   permissions, or Membership decisions from a request body.
 - Use shared semantic cache policies. Interceptors and exception filters own wire headers and media
   types; controllers do not duplicate protocol strings.
+- Build a Problem Details body with `problemException` or `problemDetails` from
+  `src/infrastructure/http/problem-details.ts`. Its `type` is `urn:inside:problem:<code>`, the code
+  unchanged; `ProblemDetailsFilter` rewrites any other type to that form, so a handwritten type or
+  prefix never reaches the wire.
 - Keep authentication adapters narrow. Provider-SDK compatibility code must name a demonstrated
   upstream gap and have a focused contract test.
 - Follow the local

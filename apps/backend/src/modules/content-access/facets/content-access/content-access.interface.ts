@@ -1,5 +1,5 @@
 import type { AccountId } from "../../../accounts/index.js";
-import type { MaterialId } from "../../../materials/index.js";
+import type { MaterialId } from "../../../../infrastructure/contracts/material-id.js";
 
 export type Subject =
   | Readonly<{ kind: "anonymous" }>

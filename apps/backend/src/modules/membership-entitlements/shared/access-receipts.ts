@@ -1,9 +1,17 @@
 import { createHash } from "node:crypto";
+import { replayFingerprint, type ReplayFingerprint } from "../../../infrastructure/contracts/canonical-digest.js";
 import { lockAccountAccess } from "../../../infrastructure/prisma/index.js";
 import type { MembershipEntitlementsPrisma } from "../infrastructure/prisma.js";
 
-export function accessFingerprint(value: unknown): string {
-  return createHash("sha256").update(JSON.stringify(value)).digest("hex");
+/**
+ * Receipts, previews and identity snapshots of access operations. Version 1 hashed the bare value
+ * in key order; stored version 1 digests are still recognized.
+ */
+export function accessFingerprint(value: unknown): ReplayFingerprint {
+  return replayFingerprint(
+    { version: 2, value },
+    createHash("sha256").update(JSON.stringify(value)).digest("hex"),
+  );
 }
 export async function readAccessReceipt(
   prisma: MembershipEntitlementsPrisma,

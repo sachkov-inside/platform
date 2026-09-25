@@ -4,12 +4,11 @@ import {
   lockTelegramAccountBinding,
   type BillingPrismaClient,
 } from "../../../../infrastructure/prisma/index.js";
-import { ownSubscriptionAccessQuerySchema, activationEvidenceSchema, type AccessGrants, type ActivationBindings } from "../../../membership-entitlements/index.js";
+import { ownSubscriptionAccessQuerySchema, activationEvidenceSchema, type AccessGrants, type ActivationBindings, type RecipientLinks } from "../../../membership-entitlements/index.js";
 import { tierOpenForAssignment } from "../../shared/tier-composition.js";
 import { bindingLookupQuerySchema, bindingSnapshotSchema } from "../../../membership-entitlements/index.js";
-import type { TelegramAccountLinks } from "../../../telegram-membership/index.js";
 export class SubscriptionActivation {
-  constructor(private readonly dependencies: { prisma: BillingPrismaClient; grants: AccessGrants; bindings: ActivationBindings & Pick<TelegramAccountLinks, "findCurrentByIdentity">; readAdmission: (accountId: string) => Promise<{ admissionRestriction: "none" | "moderation" | "external_unknown" | null; state: "checking" | "no_access" | "moderation_blocked" | "ready" }> }) {}
+  constructor(private readonly dependencies: { prisma: BillingPrismaClient; grants: AccessGrants; bindings: ActivationBindings & Pick<RecipientLinks, "findCurrentByIdentity">; readAdmission: (accountId: string) => Promise<{ admissionRestriction: "none" | "moderation" | "external_unknown" | null; state: "checking" | "no_access" | "moderation_blocked" | "ready" }> }) {}
   /** An observation, not a reservation: evidence and own-access still validate the exact binding. */
   async lookupBinding(input: unknown) {
     const parsed = bindingLookupQuerySchema.safeParse(input);

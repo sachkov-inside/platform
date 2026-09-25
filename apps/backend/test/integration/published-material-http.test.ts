@@ -324,7 +324,7 @@ describe("published Material HTTP contract", () => {
     });
     expect(missing.statusCode).toBe(404);
     expect(missing.json()).toEqual({
-      type: "urn:inside:problem:discovery-not-found",
+      type: "urn:inside:problem:discovery_not_found",
       title: "Discovery not found",
       status: 404,
       code: "discovery_not_found",
@@ -347,7 +347,7 @@ describe("published Material HTTP contract", () => {
     expect(response.statusCode).toBe(404);
     expect(response.headers["content-type"]).toContain("application/problem+json");
     expect(response.json()).toEqual({
-      type: "urn:inside:problem:material-not-found",
+      type: "urn:inside:problem:material_not_found",
       title: "Material not found",
       status: 404,
       code: "material_not_found",
@@ -363,7 +363,7 @@ describe("published Material HTTP contract", () => {
     expect(response.statusCode).toBe(400);
     expect(response.headers["content-type"]).toContain("application/problem+json");
     expect(response.json()).toEqual({
-      type: "urn:inside:problem:invalid-request-shape",
+      type: "urn:inside:problem:invalid_request_shape",
       title: "Invalid request shape",
       status: 400,
       code: "invalid_request_shape",
@@ -379,7 +379,7 @@ describe("published Material HTTP contract", () => {
     expect(response.statusCode).toBe(400);
     expect(response.headers["content-type"]).toContain("application/problem+json");
     expect(response.json()).toEqual({
-      type: "urn:inside:problem:invalid-request-shape",
+      type: "urn:inside:problem:invalid_request_shape",
       title: "Invalid request shape",
       status: 400,
       code: "invalid_request_shape",
@@ -418,7 +418,7 @@ describe("published Material HTTP contract", () => {
     expect(response.statusCode).toBe(400);
     expect(response.headers["content-type"]).toContain("application/problem+json");
     expect(response.json()).toEqual({
-      type: "urn:inside:problem:invalid-request-shape",
+      type: "urn:inside:problem:invalid_request_shape",
       title: "Invalid request shape",
       status: 400,
       code: "invalid_request_shape",
@@ -452,7 +452,7 @@ describe("published Material HTTP contract", () => {
         expect(response.statusCode).toBe(503);
         expect(response.headers["content-type"]).toContain("application/problem+json");
         expect(response.json()).toEqual({
-          type: "urn:inside:problem:dependency-unavailable",
+          type: "urn:inside:problem:dependency_unavailable",
           title: "Dependency unavailable",
           status: 503,
           code: "dependency_unavailable",

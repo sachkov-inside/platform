@@ -1,6 +1,7 @@
-import { Body, Controller, Get, HttpCode, HttpException, Inject, Param, Post, Put, UseFilters, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, type HttpException, Inject, Param, Post, Put, UseFilters, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiBody, ApiOkResponse, ApiOperation, ApiParam, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { z } from "zod";
+import { problemException } from "../../../../infrastructure/http/problem-details.js";
 import { PrivateNoStore } from "../../../../infrastructure/http/http-cache-policy.js";
 import { problemDetailsContent, problemDetailsOneOfContent, problemDetailsSchema, toOpenApiSchema } from "../../../../infrastructure/http/zod-openapi.js";
 import { AccountGuard, AccountProblemDetailsFilter, CurrentAccount, accountProblemSchema, type AuthenticatedAccount } from "../../../accounts/index.js";
@@ -118,8 +119,8 @@ function throwReadingError(error: ReadingError): never {
     case "invalid_request": throw readingException(400, error);
     case "access_denied": throw readingException(403, error);
     case "series_not_found": throw readingException(404, error);
+    case "stale_version": throw readingException(409, error, { current: error.current });
     case "command_conflict":
-    case "stale_version":
     case "access_changed": throw readingException(409, error);
     case "series_too_large": throw readingException(422, error);
     case "dependency_unavailable": throw readingException(503, error);
@@ -127,7 +128,11 @@ function throwReadingError(error: ReadingError): never {
   }
 }
 
-function readingException(status: number, error: ReadingError): HttpException {
-  return new HttpException({ type: "about:blank", title: "Reading activity request failed", status, ...error }, status);
+function readingException(
+  status: number,
+  error: ReadingError,
+  details: Readonly<{ current: unknown }> | Readonly<Record<never, never>> = {},
+): HttpException {
+  return problemException(status, error.code, "Reading activity request failed", details);
 }
 function assertNever(value: never): never { throw new Error(`Unexpected ReadingActivity error: ${JSON.stringify(value)}`); }
