@@ -1,13 +1,21 @@
-// Замер для platform#713: время до первого байта и до полного документа на production-сборке web,
-// число встроенных скриптов и наличие у них nonce. Порядок запуска — README рядом.
+import path from "node:path";
 import { pathToFileURL } from "node:url";
+
+/**
+ * Замер Platform #713: время до первого байта и до полного документа на production-сборке web,
+ * число встроенных скриптов и наличие у них nonce. Запускается из корня репозитория, порядок — в
+ * README рядом.
+ */
 
 const web = process.env.WEB ?? "http://127.0.0.1:3180";
 const backend = process.env.BACKEND ?? "http://127.0.0.1:3190";
 const samples = Number(process.env.SAMPLES ?? "7");
 const delayMs = Number(process.env.DELAY_MS ?? "700");
 
-const { wrapSession } = await import(pathToFileURL(`${process.cwd()}/node_modules/@logto/node/lib/src/index.js`).href);
+// Пакет объявляет только условие `import`, поэтому `createRequire` его не находит: путь к модулю прямой.
+const logtoNode = path.resolve("apps/web/node_modules/@logto/node/lib/src/index.js");
+const { wrapSession } = await import(pathToFileURL(logtoNode).href);
+// Сессия вошедшего подделана так же, как `memberSessionCookie` в `instant-navigation.spec.ts`.
 const session = await wrapSession(
   {
     accessToken: JSON.stringify({ [`@${backend}`]: { expiresAt: Math.floor(Date.now() / 1_000) + 3_600, scope: "", token: "navigation-member-token" } }),

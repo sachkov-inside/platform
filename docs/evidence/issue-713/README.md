@@ -56,14 +56,15 @@ Production-сборка web (`next build` и `next start` через `apps/web/t
 
 ## Как повторить
 
-Из `apps/web` после `pnpm build:packages`; порты свободные:
+После `pnpm build:packages` поднимите подставной backend и сборку из `apps/web`, а замер запустите
+из корня репозитория. Порты должны быть свободны:
 
 ```bash
-FAKE_BACKEND_PORT=3390 node test/navigation/fake-backend.mjs &
-PRODUCTION_WEB_BACKEND_URL=http://127.0.0.1:3390 PRODUCTION_WEB_PORT=3380 \
-  node test/support/production-web.mjs &
+(cd apps/web && FAKE_BACKEND_PORT=3390 node test/navigation/fake-backend.mjs) &
+(cd apps/web && PRODUCTION_WEB_BACKEND_URL=http://127.0.0.1:3390 PRODUCTION_WEB_PORT=3380 \
+  node test/support/production-web.mjs) &
 WEB=http://127.0.0.1:3380 BACKEND=http://127.0.0.1:3390 DELAY_MS=700 \
-  node ../../docs/evidence/issue-713/measure-document-timing.mjs > backend-delay-700.json
+  node docs/evidence/issue-713/measure-document-timing.mjs > backend-delay-700.json
 ```
 
 Сырые результаты лежат в `backend-delay-*.json`.
