@@ -5,7 +5,7 @@ import type { JsonObject } from "../json.js";
 import { isJsonObject } from "../json.js";
 
 /** Rendered shape of a field the author may leave unset. */
-export const titleAttributeSchema = z.string().optional();
+export const titleAttributeSchema: z.ZodOptional<z.ZodString> = z.string().optional();
 
 /** Text a rendered DOM attribute carries; anything else is printed as nothing. */
 export function attributeText(value: unknown): string {

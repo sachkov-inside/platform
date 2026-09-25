@@ -267,7 +267,7 @@ export class BillingOperations {
       }
       case "refunds.decide": return await decideRefund(prisma, actorId, command, this.clock());
       case "refunds.execute":
-        return await executeRefund({ prisma, bank: this.dependencies.bank, clock: this.clock }, actorId, command);
+        return await executeRefund({ prisma, bank: this.dependencies.bank, clock: this.clock }, command);
       case "refunds.read": {
         const purchase = await prisma.billingPurchase.findUnique({ where: { id: command.purchaseRef } });
         if (purchase === null) return ownerFailure("not_found");

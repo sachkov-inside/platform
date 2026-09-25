@@ -1,10 +1,10 @@
 import { z } from "zod";
 
-import { defineMaterialBlock } from "../block-definition.js";
+import { defineMaterialBlock, type MaterialBlockDefinition } from "../block-definition.js";
 import { renderedTextSchema } from "../rendered-block.js";
 
 /** One short thought the reader should leave with; the lesson marks it instead of bolding it. */
-export const keyPointBlock = defineMaterialBlock<"key_point">({
+export const keyPointBlock: MaterialBlockDefinition = defineMaterialBlock<"key_point">({
   kind: "key_point",
   node: {
     attributes: {},

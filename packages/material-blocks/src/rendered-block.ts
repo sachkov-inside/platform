@@ -149,7 +149,9 @@ export const renderedTextSchema: z.ZodType<RenderedText> = z
 
 const headingLevelSchemas = [z.literal(2), z.literal(3), z.literal(4)] as const;
 
-export const headingLevelSchema = z.union(headingLevelSchemas);
+export const headingLevelSchema: z.ZodUnion<
+  readonly [z.ZodLiteral<2>, z.ZodLiteral<3>, z.ZodLiteral<4>]
+> = z.union(headingLevelSchemas);
 
 /** Text a run of inline content carries, without its marks. */
 export function inlineText(content: readonly RenderedText[]): string {
@@ -157,7 +159,7 @@ export function inlineText(content: readonly RenderedText[]): string {
 }
 
 /** Material headings start at the second level: the material title owns the first. */
-export const headingLevels = headingLevelSchemas.map((schema) => schema.value);
+export const headingLevels: HeadingLevel[] = headingLevelSchemas.map((schema) => schema.value);
 
 export function isHeadingLevel(value: unknown): value is HeadingLevel {
   return headingLevelSchema.safeParse(value).success;

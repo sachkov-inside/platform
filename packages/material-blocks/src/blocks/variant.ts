@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { defineMaterialBlock } from "../block-definition.js";
+import { defineMaterialBlock, type MaterialBlockDefinition } from "../block-definition.js";
 import { expectArray, expectObject, nodeAttributes } from "../document-node.js";
 import { defaultGuideMode, guideModeSchema, isGuideMode } from "../guide-mode.js";
 import type { JsonObject } from "../json.js";
@@ -20,7 +20,7 @@ function optionNodes(node: JsonObject): readonly JsonObject[] {
  * One step written for both ways of going through a guide. The reader sees the branch of the
  * active mode; a block that carries a single branch belongs to that mode alone.
  */
-export const variantBlock = defineMaterialBlock<"variant">({
+export const variantBlock: MaterialBlockDefinition = defineMaterialBlock<"variant">({
   children: (block) => block.options.flatMap((option) => option.content),
   issues: (node, report) => {
     // The document schema bounds the branches at two and keeps them inside this block; what it

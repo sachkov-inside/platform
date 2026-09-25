@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { defineMaterialBlock } from "../block-definition.js";
+import { defineMaterialBlock, type MaterialBlockDefinition } from "../block-definition.js";
 import { attributeText } from "./block-fields.js";
 import { nodeAttributes, optionalText } from "../document-node.js";
 import { stringAttribute } from "../json.js";
@@ -24,7 +24,7 @@ export const calloutTones = [
   "task",
 ] as const;
 
-const calloutToneSchema = z.enum(calloutTones);
+const calloutToneSchema: z.ZodEnum<{ [Tone in (typeof calloutTones)[number]]: Tone }> = z.enum(calloutTones);
 
 export type CalloutTone = z.infer<typeof calloutToneSchema>;
 
@@ -49,7 +49,7 @@ function isCalloutTone(value: unknown): value is CalloutTone {
 
 const nested = nestedBlocks<Extract<RenderedBlock, { kind: "callout" }>>();
 
-export const calloutBlock = defineMaterialBlock<"callout">({
+export const calloutBlock: MaterialBlockDefinition = defineMaterialBlock<"callout">({
   ...nested,
   issues: (node, report) => {
     if (!isCalloutTone(stringAttribute(node, "kind"))) {

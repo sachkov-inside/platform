@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { defineMaterialBlock } from "../block-definition.js";
+import { defineMaterialBlock, type MaterialBlockDefinition } from "../block-definition.js";
 import { nodeAttributes, optionalText } from "../document-node.js";
 import { isJsonObject, isUnknownArray, isUnknownRecord } from "../json.js";
 import { attributeText } from "./block-fields.js";
@@ -43,7 +43,7 @@ function renderedRows(value: unknown): readonly unknown[] {
 }
 
 /** Terms of a lesson: a short label, the term it marks and an optional explanation. */
-export const labeledListBlock = defineMaterialBlock<"labeled_list">({
+export const labeledListBlock: MaterialBlockDefinition = defineMaterialBlock<"labeled_list">({
   issues: (node, report) => {
     const rows = isJsonObject(node.attrs) ? node.attrs.rows : undefined;
     if (!storedRowsSchema.safeParse(rows).success) {

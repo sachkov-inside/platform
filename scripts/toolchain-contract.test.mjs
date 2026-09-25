@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 
@@ -83,7 +83,7 @@ describe("supported toolchain contract", () => {
       true,
     );
     assert.equal(
-      backendTypeScript.compilerOptions.experimentalDecorators,
+      compilerOptionsOf("apps/backend/tsconfig.json").experimentalDecorators,
       true,
     );
     assert.ok(backendTypeScript.include.includes("src/**/*.ts"));
@@ -106,6 +106,32 @@ describe("supported toolchain contract", () => {
     // Browser checks of `pnpm test:e2e` run on the production build, which has no indicator.
     assert.match(read("apps/web/playwright.config.ts"), /command: "node test\/support\/production-web\.mjs"/u);
     assert.match(read("config/compose/local/web.env"), /^HIDE_DEV_INDICATOR=true$/mu);
+  });
+
+  it("builds every TypeScript project on the shared strict base", () => {
+    const listed = spawnSync("git", ["ls-files", "-z", "--", "*tsconfig*.json"], { cwd: repositoryRoot, encoding: "utf8" });
+    assert.equal(listed.status, 0, listed.stderr);
+    const projects = listed.stdout.split("\0").filter((path) => path !== "" && !/^tsconfig\.[a-z-]+\.json$/u.test(path));
+    assert.ok(projects.length >= 10);
+    for (const path of projects) {
+      assert.ok(extendsChain(path).includes("tsconfig.base.json"), `${path} must extend tsconfig.base.json`);
+      if (path.startsWith("packages/")) {
+        assert.ok(extendsChain(path).includes("tsconfig.node-lib.json"), `${path} must use the package preset`);
+      }
+    }
+    for (const [flag, value] of Object.entries(sharedStrictness)) {
+      assert.equal(compilerOptionsOf("tsconfig.base.json")[flag], value, flag);
+    }
+    assert.equal(compilerOptionsOf("tsconfig.node-lib.json").erasableSyntaxOnly, true);
+    assert.equal(compilerOptionsOf("tsconfig.node-lib.json").isolatedDeclarations, true);
+    // Negative fixture: a project that names its own flags instead of the base is rejected.
+    assert.ok(!extendsChain("apps/backend/tsconfig.json", { "apps/backend/tsconfig.json": { compilerOptions: { strict: true } } }).includes("tsconfig.base.json"));
+
+    // Packages compile with the application rules, so type-aware lint covers them too.
+    const typeAwareFiles = JSON.parse(read(".oxlintrc.json")).overrides.flatMap((override) =>
+      "typescript/no-floating-promises" in (override.rules ?? {}) ? override.files : [],
+    );
+    assert.ok(typeAwareFiles.includes("packages/**/*.{ts,mts,cts}"), "type-aware lint must cover every package");
   });
 
   it("uses only the Oxc lint and parser toolchain", () => {
@@ -450,6 +476,35 @@ function loadsSwaggerPlugin(path, source) {
 function overrideNames(workspace) {
   const overrides = workspace.match(/^overrides:\n((?:(?: {2}.*)?\n)*)/mu);
   return overrides === null ? [] : [...overrides[1].matchAll(/^ {2}([^#\s:][^:]*):/gmu)].map((match) => match[1]);
+}
+
+const sharedStrictness = {
+  strict: true,
+  exactOptionalPropertyTypes: true,
+  noUncheckedIndexedAccess: true,
+  noUnusedLocals: true,
+  noUnusedParameters: true,
+  allowUnreachableCode: false,
+  allowUnusedLabels: false,
+  verbatimModuleSyntax: true,
+  isolatedModules: true,
+};
+
+/** Repository-relative configs a project inherits, nearest first; `overrides` replaces files for fixtures. */
+function extendsChain(path, overrides = {}) {
+  const chain = [];
+  for (let current = path; current !== undefined;) {
+    chain.push(current);
+    const config = overrides[current] ?? JSON.parse(read(current));
+    current = typeof config.extends === "string"
+      ? relative(repositoryRoot, resolve(repositoryRoot, dirname(current), config.extends))
+      : undefined;
+  }
+  return chain;
+}
+
+function compilerOptionsOf(path) {
+  return Object.assign({}, ...extendsChain(path).reverse().map((config) => JSON.parse(read(config)).compilerOptions ?? {}));
 }
 
 function escapeRegExp(value) {
