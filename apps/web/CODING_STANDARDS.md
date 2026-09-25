@@ -204,10 +204,9 @@ these are the rules a change follows.
   the assertion holding a detached node that can never equal what the document reports now.
 - Treat `clock.runFor` as a trigger: it returns once the page's virtual timers ran, before the
   request they started has been answered. Wait for the response or the applied render.
-- Build site animation as a CSS component next to its page: motion uses only `transform` and
-  `opacity` (a highlight may still animate colour properties), with a `prefers-reduced-motion`
-  guard and platform tokens. The static cover is the same component with its loop stopped. Do not
-  use Remotion, framer-motion or an embedded video as a site asset (owner decision of 2026-09-11).
+- Build site animation as a CSS component next to its page, with a `prefers-reduced-motion` guard
+  and platform tokens. The static cover is the same component with its loop stopped. Do not use
+  Remotion, framer-motion or an embedded video as a site asset (owner decision of 2026-09-11).
 - Keep Web guardrails and negative fixtures aligned with environment ownership, browser bypass,
   slice direction, mutation boundaries, and bundle limits. Use focused mapping/query tests,
   Storybook for meaningful UI states, and Playwright for route behaviour and accessibility.
