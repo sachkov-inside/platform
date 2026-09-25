@@ -1,8 +1,8 @@
+import { lockBillingPricing } from "../../../../infrastructure/prisma/index.js";
 import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { BillingPrisma, BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { failure, idSchema, moneySchema, paymentMode, priceSnapshotSchema, type PriceSnapshot, type PricingResult } from "../../domain/pricing.js";
-import { lockPricing } from "../../infrastructure/postgres/catalog-lock.js";
 import { selectPrice } from "../../shared/select-price.js";
 
 const reserveSchema = z.strictObject({
@@ -31,7 +31,7 @@ export async function reservePurchase(prisma: BillingPrismaClient, input: Reserv
 
 // Same billing-owned transaction as the durable purchase; never nests a transaction.
 export async function reservePurchaseInTransaction(tx: BillingPrisma, command: ReservePurchase, now: Date): Promise<ReservePurchaseResult> {
-      await lockPricing(tx);
+      await lockBillingPricing(tx);
       const existing = await tx.billingPromoReservation.findUnique({ where: { purchaseRef: command.purchaseRef } });
       if (existing) return existing.accountId === command.accountId && existing.quoteRef === command.quoteRef
         ? { ok: true, value: priceSnapshotSchema.parse(existing.snapshot) } : failure("operation_conflict");

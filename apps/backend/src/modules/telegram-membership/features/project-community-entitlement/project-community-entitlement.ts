@@ -8,6 +8,7 @@ import {
   Prisma,
   type TelegramMembershipPrisma,
   type TelegramMembershipPrismaClient,
+  lockTelegramCommunityWork,
 } from "../../../../infrastructure/prisma/index.js";
 import type { AccessGrants } from "../../../membership-entitlements/index.js";
 import {
@@ -21,7 +22,6 @@ import {
   type CommunityBinding,
 } from "../../domain/community-entitlement.js";
 import type { TelegramAccountLinks } from "../../facets/telegram-account-links/telegram-account-links.js";
-import { lockCommunityWork } from "../../infrastructure/community-lock.js";
 
 export interface CommunityProjectionDependencies {
   readonly prisma: TelegramMembershipPrismaClient;
@@ -75,7 +75,7 @@ export async function projectCommunityEntitlement(
 
   try {
     return await dependencies.prisma.$transaction(async (transaction) => {
-      await lockCommunityWork(transaction, accountId);
+      await lockTelegramCommunityWork(transaction, accountId);
       const stored = await transaction.telegramCommunityDesiredState.findUnique(
         { where: { accountId } },
       );

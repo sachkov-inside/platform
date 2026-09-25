@@ -1,4 +1,4 @@
-import { Prisma, type NotificationsPrismaClient } from '../../../../infrastructure/prisma/index.js';
+import { lockNotification, type NotificationsPrismaClient } from '../../../../infrastructure/prisma/index.js';
 import { lanes, type NotificationEnvelope, type NotificationLane, digestNotificationPayload, NOTIFICATION_MESSAGE_MAX_BYTES } from '../../../../infrastructure/notification-transport/wire.js';
 
 const QUARANTINE_RETENTION_MS = 7 * 24 * 60 * 60 * 1_000;
@@ -21,7 +21,7 @@ export async function quarantineTransportMessage(prisma: NotificationsPrismaClie
   const key = `${input.lane}:${input.reason}:${digest}`;
   await prisma.$transaction(async transaction => {
     // Serialize admission and expiry so concurrent poison messages cannot overrun the bound.
-    await transaction.$executeRaw(Prisma.sql`select pg_advisory_xact_lock(hashtextextended('notifications:quarantine', 0::bigint))`);
+    await lockNotification(transaction, 'quarantine');
     await transaction.notificationQuarantine.updateMany({ where: { payloadExpiresAt: { lte: input.now }, payload: { not: null } }, data: { payload: null } });
     if (await transaction.notificationQuarantine.findUnique({ where: { key } })) return;
     const retained = await transaction.notificationQuarantine.count({ where: { payload: { not: null } } });

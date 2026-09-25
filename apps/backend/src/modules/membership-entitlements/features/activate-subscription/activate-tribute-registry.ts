@@ -1,6 +1,6 @@
+import { lockAccountAccess } from "../../../../infrastructure/prisma/index.js";
 import type { z } from "zod";
 import type { MembershipEntitlementsPrisma } from "../../infrastructure/prisma.js";
-import { lockAccess } from "../../infrastructure/access-lock.js";
 import { sourceIdentityRef } from "../../domain/source-identity.js";
 import { tributeStateSchema } from "../../domain/tribute-source.js";
 import { ACTIVATION_CONTRACT_VERSION, type ActivationOutcome, type activationEvidenceSchema } from "../../domain/subscription-activation.js";
@@ -14,8 +14,8 @@ export async function activateTributeRegistry(tx: MembershipEntitlementsPrisma, 
   const pending: ActivationOutcome = { contractVersion: ACTIVATION_CONTRACT_VERSION, attemptId: request.attemptId,
     state: "pending_review", enrollment: null };
   const sourceRef = sourceIdentityRef("tribute", policyRef, request.identityRef);
-  await lockAccess(tx, `enrollment:tribute:${sourceRef}`);
-  await lockAccess(tx, "tribute:policies");
+  await lockAccountAccess(tx, `enrollment:tribute:${sourceRef}`);
+  await lockAccountAccess(tx, "tribute:policies");
   const policy = await tx.tributePolicy.findUnique({ where: { id: policyRef } });
   if (!policy?.enabled) return pending;
   const source = await tx.sourceEntitlement.findUnique({ where: { origin_sourceRef: { origin: "tribute", sourceRef } } });

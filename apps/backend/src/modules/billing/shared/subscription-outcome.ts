@@ -1,7 +1,7 @@
+import { lockBillingSubscription } from "../../../infrastructure/prisma/index.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { BillingPrisma } from "../../../infrastructure/prisma/index.js";
-import { lockSubscription } from "../infrastructure/postgres/catalog-lock.js";
 import { priceSnapshotSchema, type PriceSnapshot } from "../domain/pricing.js";
 import { subscriptionPeriodEnd } from "../domain/subscription-period.js";
 import { attemptKindSchema, type AttemptKind } from "../domain/payment-attempt.js";
@@ -119,7 +119,7 @@ export async function endLapsedSubscriptions(tx: BillingPrisma, accountId: strin
     subscriptionRef: null, periodEndsAt: { lte: now } }, data: { lifecycleActive: false } });
   const candidates = await tx.billingSubscription.findMany({ where: { accountId, state: { not: "ended" }, paidUntil: { lte: now } } });
   for (const candidate of candidates) {
-    await lockSubscription(tx, candidate.id);
+    await lockBillingSubscription(tx, candidate.id);
     const row = await tx.billingSubscription.findUniqueOrThrow({ where: { id: candidate.id } });
     if (row.state === "ended" || row.paidUntil > now) continue;
     if (await tx.billingPurchase.count({ where: { subscriptionRef: row.id, state: { in: inFlightStates } } })) continue;

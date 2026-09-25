@@ -1,3 +1,4 @@
+import { lockNotification } from "../../../../infrastructure/prisma/index.js";
 import { stageDeliveryCommand } from '../../infrastructure/stage-delivery-command.js';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
@@ -7,7 +8,6 @@ import { eventSchema, deliverySchema, parseWire, commandWindow, fingerprint, typ
 import { renderNotification } from '../../domain/templates.js';
 import type { NotificationRecipients, NotificationSources, NotificationSource, QuarantineNotification } from '../../ports/notification-sources.js';
 import { optedIn } from '../change-preferences/change-preferences.js';
-import { lockNotification } from '../../infrastructure/locks.js';
 import { inboxKey, recordRowFailure, UnprocessableRow, type InboxRow, type SweepObservation } from '../../infrastructure/row-fate.js';
 
 export interface NotificationDependencies {

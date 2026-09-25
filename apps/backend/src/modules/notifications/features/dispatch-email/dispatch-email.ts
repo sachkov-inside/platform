@@ -1,9 +1,9 @@
+import { lockNotification } from "../../../../infrastructure/prisma/index.js";
 import { randomUUID } from 'node:crypto';
 import type { NotificationsPrisma, NotificationsPrismaClient } from '../../../../infrastructure/prisma/index.js';
 import { stageNotification } from '../../../../infrastructure/notification-transport/outbox.js';
 import { dependencyFailure } from '../../../../infrastructure/observability/index.js';
 import { deliverySchema, resultSchema, parseWire, COMMAND_LIFETIME_MS, type DeliveryCommand, type DeliveryResult } from '../../domain/notification-wire.js';
-import { lockNotification } from '../../infrastructure/locks.js';
 import type { NotificationDependencies } from '../expand-audience/expand-audience.js';
 import { authorizeDispatch } from '../authorize-dispatch/authorize-dispatch.js';
 import type { SendNotificationEmail } from '../../ports/notification-sources.js';

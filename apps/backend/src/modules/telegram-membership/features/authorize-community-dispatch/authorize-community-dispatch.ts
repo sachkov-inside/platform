@@ -1,3 +1,4 @@
+import { lockTelegramCommunityWork } from "../../../../infrastructure/prisma/index.js";
 import { randomUUID } from "node:crypto";
 
 import { contractDigest } from "../../../../infrastructure/contracts/canonical-digest.js";
@@ -24,7 +25,6 @@ import {
   type DispatchResult,
 } from "../../domain/community-entitlement.js";
 import type { TelegramAccountLinks } from "../../facets/telegram-account-links/telegram-account-links.js";
-import { lockCommunityWork } from "../../infrastructure/community-lock.js";
 import { hasNewerCommand } from "../../shared/newer-community-command.js";
 
 export interface CommunityAuthorizationDependencies {
@@ -84,7 +84,7 @@ export async function authorizeCommunityDispatch(
 
   try {
     return await dependencies.prisma.$transaction(async (transaction) => {
-      await lockCommunityWork(transaction, `authorize:${input.operationId}`);
+      await lockTelegramCommunityWork(transaction, `authorize:${input.operationId}`);
       const replay =
         await transaction.telegramCommunityAuthorization.findUnique({
           where: { operationId: input.operationId },

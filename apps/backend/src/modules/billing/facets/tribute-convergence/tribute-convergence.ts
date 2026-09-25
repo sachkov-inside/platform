@@ -1,6 +1,6 @@
+import { lockBillingPricing } from "../../../../infrastructure/prisma/index.js";
 import { z } from "zod";
 import type { BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
-import { lockPricing } from "../../infrastructure/postgres/catalog-lock.js";
 import { tierOpenForAssignment } from "../../shared/tier-composition.js";
 import { type TributeSources, tierSnapshotSchema, saveTributePolicySchema } from "../../../membership-entitlements/index.js";
 
@@ -17,7 +17,7 @@ export class TributeConvergence {
     const parsed = saveTributePolicySchema.safeParse(input);
     if (!parsed.success) return { ok: false as const, error: { code: "invalid_input" as const } };
     return this.prisma.$transaction(async tx => {
-      await lockPricing(tx);
+      await lockBillingPricing(tx);
       const row = await tx.billingOffer.findUnique({ where: { id: parsed.data.tierId } });
       if (row === null || !tierOpenForAssignment(row)) return { ok: false as const, error: { code: "not_found" as const } };
       if (row.revision !== parsed.data.tierRevision) return { ok: false as const, error: { code: "revision_conflict" as const } };
@@ -27,7 +27,7 @@ export class TributeConvergence {
   }
   async apply(actorId: string, input: unknown) {
     return this.prisma.$transaction(async tx => {
-      await lockPricing(tx);
+      await lockBillingPricing(tx);
       const snapshots = await this.sources.previewTiers(actorId, input);
       if (!snapshots.ok) return snapshots;
       for (const tier of snapshots.value) {
@@ -40,7 +40,7 @@ export class TributeConvergence {
   }
   sweep(limit = 50) {
     return this.prisma.$transaction(async tx => {
-      await lockPricing(tx);
+      await lockBillingPricing(tx);
       const tiers = await tx.billingOffer.findMany({ where: { archived: false, availableForAssignment: true }, select: { id: true, benefits: true, contentScope: true, archived: true, availableForAssignment: true } });
       // Тариф без состава не назначается и сверкой: подтверждённый источник ждёт, пока состав задан.
       return this.sources.sweep(tiers.filter(tierOpenForAssignment).map(tier => z.uuid().parse(tier.id)), limit);

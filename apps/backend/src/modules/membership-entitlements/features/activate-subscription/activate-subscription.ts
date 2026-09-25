@@ -1,9 +1,8 @@
 import { activateTributeRegistry } from "./activate-tribute-registry.js";
 import { courseSourceRef } from "../../domain/source-identity.js";
 import { randomUUID } from "node:crypto";
-import { lockTelegramAccountBinding } from "../../../../infrastructure/prisma/index.js";
+import { lockTelegramAccountBinding, lockAccountAccess } from "../../../../infrastructure/prisma/index.js";
 import type { MembershipEntitlementsPrismaClient } from "../../infrastructure/prisma.js";
-import { lockAccess } from "../../infrastructure/access-lock.js";
 import { accessFailure } from "../../domain/access-grant.js";
 import { tierSnapshotSchema } from "../../domain/subscription-enrollment.js";
 import { ACTIVATION_CONTRACT_VERSION, beginActivationSchema, activationEvidenceSchema, activationOutcomeSchema, type ActivationBindings, type ActivationOutcome } from "../../domain/subscription-activation.js";
@@ -16,7 +15,7 @@ export async function beginActivation(prisma: MembershipEntitlementsPrismaClient
   if (!parsed.success) return accessFailure("invalid_input");
   const command = parsed.data;
   return prisma.$transaction(async tx => {
-    await lockAccess(tx, `activation-attempt:${command.attemptId}`);
+    await lockAccountAccess(tx, `activation-attempt:${command.attemptId}`);
     await tx.activationAttempt.deleteMany({ where: { expiresAt: { lte: now } } });
     const rule = await tx.activationRule.findUnique({ where: { code: command.code } });
     if (rule === null || !rule.published || rule.startsAt > now || (rule.endsAt !== null && rule.endsAt <= now)) return accessFailure("policy_paused");
@@ -53,8 +52,8 @@ export async function activateSubscription(prisma: MembershipEntitlementsPrismaC
     const fingerprint = accessFingerprint(evidence);
     const receipt = await readAccessReceipt(tx, "source-evidence", evidence.evidenceRef);
     if (receipt !== null) return receipt.fingerprint === fingerprint ? { ok: true as const, value: activationOutcomeSchema.parse(receipt.result) } : accessFailure("operation_conflict");
-    await lockAccess(tx, `activation-rule:${evidence.ruleId}`);
-    await lockAccess(tx, `activation-attempt:${evidence.attemptId}`);
+    await lockAccountAccess(tx, `activation-rule:${evidence.ruleId}`);
+    await lockAccountAccess(tx, `activation-attempt:${evidence.attemptId}`);
     const rule = await tx.activationRule.findUnique({ where: { id: evidence.ruleId } });
     if (rule === null || !rule.published || rule.startsAt > now || (rule.endsAt !== null && rule.endsAt <= now)) return accessFailure("policy_paused");
     if (rule.revision !== evidence.ruleRevision || rule.sourceRef !== evidence.sourceRef || rule.tierId !== tier.data.id || rule.tierRevision !== tier.data.revision) return accessFailure("revision_conflict");

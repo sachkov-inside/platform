@@ -1,9 +1,8 @@
-import { lockAccountEntitlementChanges } from "../../../../infrastructure/prisma/index.js";
+import { lockAccountEntitlementChanges, lockAccountAccess } from "../../../../infrastructure/prisma/index.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { Accounts } from "../../../accounts/index.js";
 import type { MembershipEntitlementsPrismaClient } from "../../infrastructure/prisma.js";
-import { lockAccess } from "../../infrastructure/access-lock.js";
 import {
   accessFailure,
   accessFailureSchema,
@@ -90,7 +89,7 @@ export async function applyGrantBatch(
       return receipt.fingerprint === fingerprint
         ? batchResultSchema.parse(receipt.result)
         : accessFailure("operation_conflict");
-    await lockAccess(transaction, `batch:${command.previewRef}`);
+    await lockAccountAccess(transaction, `batch:${command.previewRef}`);
     const preview = await transaction.accessBatchPreview.findUnique({
       where: { id: command.previewRef },
     });
@@ -122,13 +121,13 @@ export async function applyGrantBatch(
     for (const row of [...rows].filter(isGrantRow).sort((a, b) =>
       `${a.source}:${a.sourceRef}`.localeCompare(`${b.source}:${b.sourceRef}`),
     )) {
-      await lockAccess(transaction, `${row.source}:${row.sourceRef}`);
+      await lockAccountAccess(transaction, `${row.source}:${row.sourceRef}`);
     }
     const classified = rows.filter(isClassificationRow);
     for (const row of [...classified].sort((a, b) =>
       a.accountId.localeCompare(b.accountId),
     )) {
-      await lockAccess(transaction, `classification:${row.accountId}`);
+      await lockAccountAccess(transaction, `classification:${row.accountId}`);
     }
     // Набор классифицируется целиком: устаревшая revision любой строки отменяет всю запись.
     for (const row of classified) {

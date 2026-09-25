@@ -1,6 +1,6 @@
+import { lockNotification } from "../../../../infrastructure/prisma/index.js";
 import { z } from 'zod';
 import type { NotificationsPrismaClient, NotificationsPrisma } from '../../../../infrastructure/prisma/index.js';
-import { lockNotification } from '../../infrastructure/locks.js';
 import { fingerprint, type Channel } from '../../domain/notification-wire.js';
 export const changePreferencesSchema = z.strictObject({
   operationId: z.uuid().transform(value => value.toLowerCase()), expectedRevision: z.number().int().nonnegative().max(2_147_483_646),

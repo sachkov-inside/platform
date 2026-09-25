@@ -1,9 +1,9 @@
+import { lockAccountAccess } from "../../../../infrastructure/prisma/index.js";
 import { sourceIdentityRef } from "../../domain/source-identity.js";
 import { randomUUID } from "node:crypto";
 import { registerSourceSchema, sourceEntitlementViewSchema } from "../../domain/subscription-activation.js";
 import { accessFailure } from "../../domain/access-grant.js";
 import type { MembershipEntitlementsPrismaClient } from "../../infrastructure/prisma.js";
-import { lockAccess } from "../../infrastructure/access-lock.js";
 import { accessFingerprint, readAccessReceipt } from "../../shared/access-receipts.js";
 export async function registerSourceEntitlement(prisma: MembershipEntitlementsPrismaClient, actorId: string, input: unknown, now: Date) {
   const parsed = registerSourceSchema.safeParse(input);
@@ -14,7 +14,7 @@ export async function registerSourceEntitlement(prisma: MembershipEntitlementsPr
     const receipt = await readAccessReceipt(tx, actorId, command.operationId);
     if (receipt !== null) return receipt.fingerprint === fingerprint ? { ok: true as const, value: sourceEntitlementViewSchema.parse(receipt.result) } : accessFailure("operation_conflict");
     if (command.origin === "tribute") return accessFailure("invalid_input");
-    await lockAccess(tx, `enrollment:${command.origin}:${sourceRef}`);
+    await lockAccountAccess(tx, `enrollment:${command.origin}:${sourceRef}`);
     const existing = await tx.sourceEntitlement.findUnique({ where: { origin_sourceRef: { origin: command.origin, sourceRef } } });
     const row = existing ?? await tx.sourceEntitlement.create({ data: { id: randomUUID(), origin: command.origin, sourceRef,
       sourcePolicyRef: command.sourcePolicyRef, identityRef: command.identityRef, revision: 1, evidence: command, checkedAt: new Date(command.checkedAt) } });

@@ -1,8 +1,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
-  Prisma,
+  lockTelegramMembershipLink,
   type TelegramMembershipPrismaClient,
 } from "../../../../infrastructure/prisma/index.js";
 import {
@@ -49,11 +48,7 @@ export class TelegramAccountSignIn {
       // the provider may already own it after a lost response. A fresh proof repairs that write.
       // Prefer a confirmed link over old abandoned attempts and never rotate its principal.
       const link = await prisma.$transaction(async (transaction) => {
-        z.array(z.object({ lock: z.string() })).parse(
-          await transaction.$queryRaw(Prisma.sql`
-          select pg_advisory_xact_lock(hashtextextended(${`telegram-membership-link:${account.accountId}`}, 0::bigint))::text as lock
-        `),
-        );
+        await lockTelegramMembershipLink(transaction, account.accountId);
         const current =
           (await transaction.telegramLinkTransaction.findFirst({
             where: { accountId: account.accountId, status: "linked" },

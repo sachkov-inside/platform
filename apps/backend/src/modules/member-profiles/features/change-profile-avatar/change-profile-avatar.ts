@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { Prisma } from "../../../../infrastructure/prisma/index.js";
+import { lockProfileAvatarOwner } from "../../../../infrastructure/prisma/index.js";
 import type { ObjectStorage } from "../../../../infrastructure/object-storage/index.js";
 import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { AccountId } from "../../../accounts/index.js";
@@ -109,9 +109,7 @@ async function uploadAvatar(
   }
 
   return prisma.$transaction(async (transaction) => {
-    await transaction.$executeRaw(Prisma.sql`
-      select pg_advisory_xact_lock(hashtextextended(${accountId}, 0))
-    `);
+    await lockProfileAvatarOwner(transaction, accountId);
     const current = await transaction.memberProfile.findUnique({
       where: { accountId },
     });
@@ -174,9 +172,7 @@ async function removeAvatar(
   expectedVersion: number,
 ): Promise<ChangeProfileAvatarResult> {
   return prisma.$transaction(async (transaction) => {
-    await transaction.$executeRaw(Prisma.sql`
-      select pg_advisory_xact_lock(hashtextextended(${accountId}, 0))
-    `);
+    await lockProfileAvatarOwner(transaction, accountId);
     const current = await transaction.memberProfile.findUnique({ where: { accountId } });
     if (current === null) return { error: { code: "profile_not_found" }, ok: false };
     const changed = await transaction.memberProfile.updateMany({

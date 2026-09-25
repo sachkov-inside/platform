@@ -1,10 +1,10 @@
+import { lockReadingCommand, lockReadingPair } from "../../../../infrastructure/prisma/index.js";
 import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { ReadingActivityPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { accountId } from "../../../accounts/index.js";
 import { materialId, type MaterialContent } from "../../../materials/index.js";
 import type { ContentAccess } from "../../../content-access/index.js";
-import { lockReadingCommand, lockReadingPair } from "../set-reading-state/reading-locks.js";
 export const recordMaterialOpenSchema = z.object({ materialId: z.uuid(), contentVersion: z.number().int().positive(), commandId: z.uuid() }).strict();
 const openReceiptSchema = z.object({ openedAt: z.iso.datetime() }).strict();
 export type RecordMaterialOpenInput = z.infer<typeof recordMaterialOpenSchema> & { readonly accountId: string };

@@ -1,9 +1,9 @@
+import { lockAccountRecords } from "../../../../infrastructure/prisma/index.js";
 import { createHash, randomInt, randomUUID } from "node:crypto";
 import { paymentModes } from "@inside/legal";
 import { z } from "zod";
 import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { AccountsPrismaClient } from "../../../../infrastructure/prisma/index.js";
-import { acquireAccountLocks } from "../../infrastructure/postgres/advisory-locks.js";
 import type { billingContactProtection } from "../../infrastructure/billing-contact-protection.js";
 import { shownRenewalTermsSchema } from "../legal-acceptances/legal-acceptances.contract.js";
 import {
@@ -147,7 +147,7 @@ export class BillingContact {
     const challengeRef = randomUUID();
     try {
       const reserved = await prisma.$transaction(async (transaction) => {
-        await acquireAccountLocks(transaction, [
+        await lockAccountRecords(transaction, [
           `billing-account:${accountId}`,
           `billing-recipient:${recipientFingerprint}`,
         ]);
@@ -287,7 +287,7 @@ export class BillingContact {
     const fingerprint = protection.digest(`confirm:${JSON.stringify(command)}`);
     try {
       return await prisma.$transaction(async (transaction) => {
-        await acquireAccountLocks(transaction, [
+        await lockAccountRecords(transaction, [
           `billing-account:${accountId}`,
         ]);
         if (
@@ -402,7 +402,7 @@ export class BillingContact {
     );
     try {
       return await prisma.$transaction(async (transaction) => {
-        await acquireAccountLocks(transaction, [
+        await lockAccountRecords(transaction, [
           `billing-account:${accountId}`,
         ]);
         if (

@@ -3,9 +3,8 @@ import { createHash, randomUUID } from "node:crypto";
 import { tributeWebhookSchema, tributeEventIdentity, tributeFingerprint } from "../../domain/tribute-webhook.js";
 import { tributeInboxViewSchema, tributeStateSchema } from "../../domain/tribute-source.js";
 import type { MembershipEntitlementsPrismaClient, MembershipEntitlementsPrisma } from "../../infrastructure/prisma.js";
-import { lockAccess } from "../../infrastructure/access-lock.js";
 import { projectTributeSource } from "../../shared/tribute-source.js";
-import { lockAccountEntitlementChanges } from "../../../../infrastructure/prisma/index.js";
+import { lockAccountEntitlementChanges, lockAccountAccess } from "../../../../infrastructure/prisma/index.js";
 
 export function tributeInboxView(row: { id: string; state: string; reason: string; sourceId: string | null; revision: number; receivedAt: Date; updatedAt: Date }) {
   return tributeInboxViewSchema.parse({ id: row.id, state: row.state, reason: row.reason, sourceId: row.sourceId,
@@ -16,7 +15,7 @@ export async function receiveTribute(prisma: MembershipEntitlementsPrismaClient,
   const parsed = tributeWebhookSchema.safeParse(input);
   const identity = parsed.success ? tributeEventIdentity(parsed.data) : { eventKey: tributeFingerprint(input), fingerprint: tributeFingerprint(input) };
   return prisma.$transaction(async tx => {
-    await lockAccess(tx, `tribute:inbox:${identity.eventKey}`);
+    await lockAccountAccess(tx, `tribute:inbox:${identity.eventKey}`);
     const previous = await tx.tributeInbox.findUnique({ where: { fingerprint: identity.fingerprint } });
     if (previous) return { duplicate: true, value: tributeInboxView(previous) };
     const conflict = await tx.tributeInbox.findFirst({ where: { eventKey: identity.eventKey } });
@@ -49,7 +48,7 @@ export async function reconcileTributeEvent(tx: MembershipEntitlementsPrisma, in
   if (candidates.length !== 1) return finish("pending_reconciliation", "verified_identity_or_initial_period_required");
   const candidate = candidates[0];
   if (!candidate) return finish("pending_reconciliation", "verified_identity_required");
-  await lockAccess(tx, `enrollment:tribute:${candidate.sourceRef}`);
+  await lockAccountAccess(tx, `enrollment:tribute:${candidate.sourceRef}`);
   if (candidate.accountId !== null) await lockAccountEntitlementChanges(tx, candidate.accountId);
   const source = await tx.sourceEntitlement.findUniqueOrThrow({ where: { id: candidate.id } });
   const state = tributeStateSchema.parse(source.tributeState);

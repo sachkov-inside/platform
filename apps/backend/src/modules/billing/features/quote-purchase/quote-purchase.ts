@@ -1,9 +1,9 @@
+import { lockBillingPricing } from "../../../../infrastructure/prisma/index.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { failure, idSchema, revisionSchema, priceSnapshotSchema, type PricingResult } from "../../domain/pricing.js";
-import { lockPricing } from "../../infrastructure/postgres/catalog-lock.js";
 import { selectPrice } from "../../shared/select-price.js";
 
 export const quotePurchaseSchema = z.strictObject({ operationId: idSchema, paymentOptionId: idSchema, optionRevision: revisionSchema, promoCode: z.string().trim().min(1).max(100).optional() });
@@ -21,7 +21,7 @@ export async function quotePurchase(prisma: BillingPrismaClient, accountId: stri
   if (!parsed.success || !identity.success) return failure("invalid_request");
   try {
     return await prisma.$transaction(async (tx): Promise<QuotePurchaseResult> => {
-      await lockPricing(tx);
+      await lockBillingPricing(tx);
       const command = parsed.data;
       const key = { accountId: identity.data, operationId: command.operationId };
       const fingerprint = JSON.stringify(command);

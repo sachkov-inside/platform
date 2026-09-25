@@ -1,7 +1,7 @@
+import { lockBillingPricing } from "../../../../infrastructure/prisma/index.js";
 import type { TributeConvergence } from "../tribute-convergence/tribute-convergence.js";
 import { z } from "zod";
 import { benefitPeriodsSchema } from "../../domain/pricing.js";
-import { lockPricing } from "../../infrastructure/postgres/catalog-lock.js";
 import { courseSourceRef, tierSnapshotSchema } from "../../../membership-entitlements/index.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
@@ -158,7 +158,7 @@ export class BillingOperations {
       }
       case "activationRules.save": {
         return prisma.$transaction(async tx => {
-          await lockPricing(tx);
+          await lockBillingPricing(tx);
           const row = await tx.billingOffer.findUnique({ where: { id: command.value.tierId } });
           if (command.value.published && (row === null || row.archived || !row.availableForAssignment)) return ownerFailure("not_found");
           if (command.value.published && row !== null && (tierLacksComposition(row) || offerGrantsWithheld(row))) return ownerFailure("state_conflict");
@@ -170,7 +170,7 @@ export class BillingOperations {
       }
       case "enrollments.previewExpansion": {
         return prisma.$transaction(async tx => {
-          await lockPricing(tx);
+          await lockBillingPricing(tx);
           const row = await tx.billingOffer.findUnique({ where: { id: command.tierId } });
           if (row === null) return ownerFailure("not_found");
           if (row.revision !== command.tierRevision) return ownerFailure("revision_conflict");
@@ -209,7 +209,7 @@ export class BillingOperations {
           ? { ok: true, operationRef, result: { outcome: "enrollment", value: receipt.value } }
           : ownerFailure(receipt.error.code === "identity_conflict" ? "identity_changed" : receipt.error.code === "invalid_input" ? "invalid_request" : receipt.error.code === "unavailable" ? "dependency_unavailable" : receipt.error.code);
         return prisma.$transaction(async tx => {
-          await lockPricing(tx);
+          await lockBillingPricing(tx);
           const row = await tx.billingOffer.findUnique({ where: { id: command.tierId } });
           if (row === null || row.archived || !row.availableForAssignment) return ownerFailure("not_found");
           if (row.revision !== command.tierRevision) return ownerFailure("revision_conflict");

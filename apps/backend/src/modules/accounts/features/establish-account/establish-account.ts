@@ -1,3 +1,4 @@
+import { lockAccountRecords } from "../../../../infrastructure/prisma/index.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { AccountsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { newAccountId, parseAccountId } from "../../domain/account-identifiers.js";
@@ -5,7 +6,6 @@ import type {
   EstablishAccountResult,
   VerifiedAccountSignIn,
 } from "../../facets/accounts/accounts.interface.js";
-import { acquireAccountLocks } from "../../infrastructure/postgres/advisory-locks.js";
 import { appendAccountAuditEvent } from "../../infrastructure/postgres/account-audit.js";
 import { fingerprintEmail, validLogtoIdentity } from "../../shared/account-input.js";
 import { establishTelegramAccount } from "../establish-telegram-account/establish-telegram-account.js";
@@ -29,7 +29,7 @@ export async function establishAccount(
 
   try {
     return await prisma.$transaction(async (transaction) => {
-      await acquireAccountLocks(transaction, [
+      await lockAccountRecords(transaction, [
         `logto:${JSON.stringify([
           command.identity.issuer,
           command.identity.subject,

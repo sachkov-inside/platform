@@ -1,8 +1,7 @@
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
-import { lockTelegramAccountBinding } from "../../../../infrastructure/prisma/index.js";
+import { lockTelegramAccountBinding, lockBillingPricing } from "../../../../infrastructure/prisma/index.js";
 import type { BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { ownSubscriptionAccessQuerySchema, activationEvidenceSchema, type AccessGrants, type ActivationBindings } from "../../../membership-entitlements/index.js";
-import { lockPricing } from "../../infrastructure/postgres/catalog-lock.js";
 import { tierOpenForAssignment } from "../../shared/tier-composition.js";
 import { bindingLookupQuerySchema, bindingSnapshotSchema } from "../../../membership-entitlements/index.js";
 import type { TelegramAccountLinks } from "../../../telegram-membership/index.js";
@@ -58,7 +57,7 @@ export class SubscriptionActivation {
     const rule = await this.dependencies.grants.readActivationRule(parsed.data.ruleId);
     if (rule === null) return { ok: false as const, error: { code: "not_found" as const } };
     return this.dependencies.prisma.$transaction(async tx => {
-      await lockPricing(tx);
+      await lockBillingPricing(tx);
       const row = await tx.billingOffer.findUnique({ where: { id: rule.tierId } });
       if (row === null || !tierOpenForAssignment(row)) return { ok: false as const, error: { code: "not_found" as const } };
       if (row.revision !== rule.tierRevision) return { ok: false as const, error: { code: "revision_conflict" as const } };
