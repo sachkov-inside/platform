@@ -217,6 +217,7 @@ production trade-off подтверждён evidence, а не заранее д�
 - Application operations возвращают discriminated transport-neutral results со stable codes.
   Каждая operation экспортирует только собственный error union.
   REST отображает их в RFC 9457 Problem Details; MCP использует те же codes без HTTP vocabulary.
+  Поле `type` называет code без изменений: `urn:inside:problem:<code>`, так же отвечает web BFF.
 - Materials application operation владеет Prisma transaction. `expectedContentVersion` реализует
   optimistic compare-and-set; stale version возвращает conflict, blind partial retry и
   last-write-wins запрещены.

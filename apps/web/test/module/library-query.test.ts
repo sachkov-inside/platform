@@ -387,7 +387,7 @@ describe("Library TanStack Query interface", () => {
       vi.fn().mockResolvedValue(
         Response.json(
           {
-            type: "urn:inside:problem:invalid-request-shape",
+            type: "urn:inside:problem:invalid_request_shape",
             title: "Invalid request shape",
             status: 400,
             code: "invalid_request_shape",

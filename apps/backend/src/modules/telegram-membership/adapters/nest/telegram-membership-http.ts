@@ -1,5 +1,7 @@
 
-import { HttpException } from "@nestjs/common";
+import type { HttpException } from "@nestjs/common";
+
+import { problemException } from "../../../../infrastructure/http/problem-details.js";
 import { z } from "zod";
 
 import {
@@ -178,15 +180,7 @@ function telegramLinkFailureStatus(
 }
 
 function problem(status: number, code: string, title: string): HttpException {
-  return new HttpException(
-    {
-      code,
-      status,
-      title,
-      type: `urn:inside:problem:telegram-membership:${code.replaceAll("_", "-")}`,
-    },
-    status,
-  );
+  return problemException(status, code, title);
 }
 
 export { bearerCredential, credentialsMatch } from "../../../../infrastructure/http/bearer-credentials.js";

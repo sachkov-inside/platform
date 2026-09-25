@@ -4,7 +4,6 @@ import {
   Delete,
   Get,
   Header,
-  HttpException,
   Inject,
   Param,
   Put,
@@ -25,7 +24,7 @@ import type { FastifyRequest } from "fastify";
 import { z } from "zod";
 
 import { AssetDeliveryCache } from "../../../../infrastructure/http/http-cache-policy.js";
-import { problemType } from "../../../../infrastructure/http/problem-details.js";
+import { problemException } from "../../../../infrastructure/http/problem-details.js";
 import { problemDetailsContent, toOpenApiSchema } from "../../../../infrastructure/http/zod-openapi.js";
 import {
   AcceptedTermsEndpoint,
@@ -100,17 +99,17 @@ export class PrivateProfileAvatarController {
       file = part;
     } catch {
       // Not a dependency failure: the client sent a malformed form.
-      throw avatarProblem(422, "invalid_avatar", "Avatar form is malformed");
+      throw problemException(422, "invalid_avatar", "Avatar form is malformed");
     }
     let body: Buffer;
     try {
       body = await file.toBuffer();
     } catch {
       // Not a dependency failure: the upload exceeds its size limit.
-      throw avatarProblem(413, "image_too_large", "Avatar exceeds the size limit");
+      throw problemException(413, "image_too_large", "Avatar exceeds the size limit");
     }
     if (file.file.truncated) {
-      throw avatarProblem(413, "image_too_large", "Avatar exceeds the size limit");
+      throw problemException(413, "image_too_large", "Avatar exceeds the size limit");
     }
     const expectedVersion = Number(field(file, "expectedVersion"));
     const declaredSize = Number(field(file, "declaredSize"));
@@ -124,7 +123,7 @@ export class PrivateProfileAvatarController {
       !checksum.success ||
       crop === null
     ) {
-      throw avatarProblem(422, "invalid_avatar", "Avatar metadata is malformed");
+      throw problemException(422, "invalid_avatar", "Avatar metadata is malformed");
     }
     const result = await this.profiles.changeAvatar({
       accountId: accountId(account.accountId),
@@ -155,7 +154,7 @@ export class PrivateProfileAvatarController {
   ) {
     const body = removeSchema.safeParse(input);
     if (!body.success) {
-      throw avatarProblem(422, "invalid_avatar", "Avatar removal metadata is malformed");
+      throw problemException(422, "invalid_avatar", "Avatar removal metadata is malformed");
     }
     const result = await this.profiles.changeAvatar({
       accountId: accountId(account.accountId),
@@ -190,7 +189,7 @@ export class PrivateProfileAvatarController {
   ) {
     const size = avatarSizeSchema.safeParse(Number(rawSize));
     if (!uuidSchema.safeParse(avatarId).success || !size.success) {
-      throw avatarProblem(404, "profile_not_found", "Profile avatar is not available");
+      throw problemException(404, "profile_not_found", "Profile avatar is not available");
     }
     const result = await this.profiles.deliverAvatar({
       accountId: accountId(account.accountId),
@@ -199,9 +198,9 @@ export class PrivateProfileAvatarController {
     });
     if (!result.ok) {
       if (result.error.code === "dependency_unavailable") {
-        throw avatarProblem(503, result.error.code, "Profile avatar dependency is unavailable");
+        throw problemException(503, result.error.code, "Profile avatar dependency is unavailable");
       }
-      throw avatarProblem(404, "profile_not_found", "Profile avatar is not available");
+      throw problemException(404, "profile_not_found", "Profile avatar is not available");
     }
     return {
       cacheScope: "private-no-store" as const,
@@ -235,42 +234,22 @@ function throwAvatarError(
 ): never {
   switch (error.code) {
     case "conflict":
-      throw new HttpException(
-        {
-          code: error.code,
-          currentVersion: error.currentVersion,
-          status: 409,
-          title: "Profile changed concurrently",
-          type: "urn:inside:problem:member-profile-conflict",
-        },
-        409,
-      );
+      throw problemException(409, error.code, "Profile changed concurrently", {
+        currentVersion: error.currentVersion,
+      });
     case "profile_not_found":
-      throw avatarProblem(404, error.code, "Profile was not found");
+      throw problemException(404, error.code, "Profile was not found");
     case "dependency_unavailable":
-      throw avatarProblem(503, error.code, "Profile avatar dependency is unavailable");
+      throw problemException(503, error.code, "Profile avatar dependency is unavailable");
     case "invalid_avatar": {
       const status = error.reason === "image_too_large" || error.reason === "size_mismatch" ? 413 : 422;
-      throw new HttpException(
-        {
-          code: error.code,
-          reason: error.reason,
-          status,
-          title: "Avatar image is not accepted",
-          type: "urn:inside:problem:member-profile-invalid-avatar",
-        },
-        status,
-      );
+      throw problemException(status, error.code, "Avatar image is not accepted", {
+        reason: error.reason,
+      });
     }
   }
 }
 
-function avatarProblem(status: number, code: string, title: string): HttpException {
-  return new HttpException(
-    { code, status, title, type: problemType(code) },
-    status,
-  );
-}
 
 function avatarProblemSchema(status: number) {
   const base = z.object({

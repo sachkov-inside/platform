@@ -249,7 +249,7 @@ describe("backend process composition", () => {
     );
     expect(response.headers["cache-control"]).toBe("private, no-store");
     expect(response.json()).toEqual({
-      type: "about:blank",
+      type: "urn:inside:problem:dependency_unavailable",
       title: "Service unavailable",
       status: 503,
       code: "dependency_unavailable",

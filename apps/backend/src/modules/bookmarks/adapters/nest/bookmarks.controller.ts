@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, HttpCode, HttpException, Inject, Param, Post, Put, UseFilters, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, HttpCode, type HttpException, Inject, Param, Post, Put, UseFilters, UseGuards } from "@nestjs/common";
+import { problemException } from "../../../../infrastructure/http/problem-details.js";
 import { ApiBearerAuth, ApiBody, ApiOkResponse, ApiOperation, ApiParam, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { z } from "zod";
 import { PrivateNoStore } from "../../../../infrastructure/http/http-cache-policy.js";
@@ -103,6 +104,7 @@ function throwBookmarkError(error: BookmarkError): never {
 }
 
 function bookmarkException(status: number, error: BookmarkError): HttpException {
-  return new HttpException({ type: "about:blank", title: "Bookmark request failed", status, ...error }, status);
+  const { code, ...fields } = error;
+  return problemException(status, code, "Bookmark request failed", fields);
 }
 function assertNever(value: never): never { throw new Error(`Unexpected Bookmark error: ${JSON.stringify(value)}`); }

@@ -150,7 +150,7 @@ function route(method, url, entitled) {
   if (material !== null) {
     const lesson = lessons.find((candidate) => candidate.slug === material[1]);
     if (lesson === undefined) {
-      return json({ code: "material_not_found", status: 404, title: "Material not found", type: "urn:inside:problem:material-not-found" }, 404);
+      return json({ code: "material_not_found", status: 404, title: "Material not found", type: "urn:inside:problem:material_not_found" }, 404);
     }
     if (lesson.access === "free" || entitled) {
       return json({ body: body(lesson, lesson.access !== "free"), cacheScope: lesson.access === "free" ? "public" : "private-no-store", kind: "available", primaryVideo: null, projection: readerProjection(lesson) });
@@ -161,7 +161,7 @@ function route(method, url, entitled) {
   if (path === "/accounts/current") {
     return entitled
       ? json({ account: { accountId: "55555555-5555-4555-8555-555555555501" } })
-      : json({ code: "invalid_proof", detail: "Account request could not be completed.", status: 401, title: "Account verification failed", type: "https://inside.sachkov.com/problems/accounts/invalid-proof" }, 401);
+      : json({ code: "invalid_proof", detail: "Account request could not be completed.", status: 401, title: "Account verification failed", type: "urn:inside:problem:invalid_proof" }, 401);
   }
   if (/^\/guides\/[^/]+\/artifacts$/u.test(path)) return json({ artifacts: [] });
   // Продукт продаётся, как в production: у программы с закрытыми уроками есть приглашение к оплате.
@@ -183,7 +183,7 @@ function route(method, url, entitled) {
   const delivery = /^\/content-covers\/([^/]+)\/(\d+)$/u.exec(path);
   if (delivery !== null) {
     const rendition = delivery[1] === coverId ? cover.renditions.find(({ width }) => String(width) === delivery[2]) : undefined;
-    return rendition === undefined ? json({ code: "cover_not_found", status: 404, title: "Cover not found", type: "about:blank" }, 404) : image(rendition);
+    return rendition === undefined ? json({ code: "cover_not_found", status: 404, title: "Cover not found", type: "urn:inside:problem:cover_not_found" }, 404) : image(rendition);
   }
   return undefined;
 }
@@ -228,7 +228,7 @@ function json(value, status = 200) {
 }
 
 function discoveryNotFound() {
-  return json({ code: "discovery_not_found", status: 404, title: "Discovery not found", type: "urn:inside:problem:discovery-not-found" }, 404);
+  return json({ code: "discovery_not_found", status: 404, title: "Discovery not found", type: "urn:inside:problem:discovery_not_found" }, 404);
 }
 
 async function readBody(request) {
@@ -261,15 +261,15 @@ const server = createServer(async (request, response) => {
   if (url.pathname === "/authoring/home-pin" && request.method === "PUT") {
     const { expectedVersion, seriesId } = JSON.parse(await readBody(request));
     if (authorized) send(200, { seriesId, version: expectedVersion + 1 });
-    else send(401, { code: "invalid_proof", status: 401, title: "Account verification failed", type: "https://inside.sachkov.com/problems/accounts/invalid-proof" });
+    else send(401, { code: "invalid_proof", status: 401, title: "Account verification failed", type: "urn:inside:problem:invalid_proof" });
     return;
   }
   const result = state.unavailable
-    ? json({ code: "dependency_unavailable", retryable: true, status: 503, title: "Dependency unavailable", type: "urn:inside:problem:dependency-unavailable" }, 503)
+    ? json({ code: "dependency_unavailable", retryable: true, status: 503, title: "Dependency unavailable", type: "urn:inside:problem:dependency_unavailable" }, 503)
     : route(request.method, url, authorized);
   if (state.delayMs > 0) await new Promise((resolve) => setTimeout(resolve, state.delayMs));
   if (result === undefined) {
-    send(404, { code: "not_found", status: 404, title: "Not found", type: "about:blank" });
+    send(404, { code: "not_found", status: 404, title: "Not found", type: "urn:inside:problem:not_found" });
     return;
   }
   if (result.contentType !== undefined) {

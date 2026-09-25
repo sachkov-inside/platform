@@ -344,7 +344,6 @@ function throwContentCoverError(
     case "conflict":
       throw problemException(409, error.code, "Content cover changed concurrently", {
         currentCoverId: error.currentCoverId,
-        type: problemType("content_cover_conflict"),
       });
     case "invalid_cover":
       throw problemException(422, error.code, "Cover image is not accepted");
@@ -360,7 +359,7 @@ function coverConflictProblemSchema() {
       currentCoverId: z.uuid().nullable(),
       status: z.literal(409),
       title: z.literal("Content cover changed concurrently"),
-      type: z.literal(problemType("content_cover_conflict")),
+      type: z.literal(problemType("conflict")),
     })
     .strict();
 }

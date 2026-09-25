@@ -208,7 +208,7 @@ describe("Library server adapter", () => {
       vi.fn().mockResolvedValue(
         Response.json(
           {
-            type: "urn:inside:problem:dependency-unavailable",
+            type: "urn:inside:problem:dependency_unavailable",
             title: "Dependency unavailable",
             status: 503,
             code: "dependency_unavailable",
@@ -234,7 +234,7 @@ describe("Library server adapter", () => {
       vi.fn().mockResolvedValue(
         Response.json(
           {
-            type: "urn:inside:problem:invalid-request-shape",
+            type: "urn:inside:problem:invalid_request_shape",
             title: "Invalid request shape",
             status: 400,
             code: "invalid_request_shape",
@@ -258,7 +258,7 @@ describe("Library server adapter", () => {
       "fetch",
       vi.fn().mockResolvedValue(
         Response.json(
-          { type: "about:blank", title: "Unknown", status: 503, code: "unknown" },
+          { type: "urn:inside:problem:unknown", title: "Unknown", status: 503, code: "unknown" },
           {
             status: 503,
             headers: { "Content-Type": "application/problem+json" },

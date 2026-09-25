@@ -21,6 +21,7 @@ import {
   problemDetailsContent,
   toOpenApiSchema,
 } from "../../infrastructure/http/zod-openapi.js";
+import { problemType } from "../../infrastructure/http/problem-details.js";
 import { reportDependencyFailure } from "../../infrastructure/observability/index.js";
 import {
   type LivenessReport,
@@ -51,7 +52,7 @@ const readinessResponseSchema = z
 
 const healthUnavailableProblemSchema = z
   .object({
-    type: z.literal("about:blank"),
+    type: z.literal(problemType("dependency_unavailable")),
     title: z.literal("Service unavailable"),
     status: z.literal(503),
     code: z.literal("dependency_unavailable"),

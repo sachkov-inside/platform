@@ -307,7 +307,7 @@ describe("OpenAPI contract", () => {
         currentCoverId: { format: "uuid", nullable: true },
         status: { enum: [409] },
         title: { enum: ["Content cover changed concurrently"] },
-        type: { enum: ["urn:inside:problem:content-cover-conflict"] },
+        type: { enum: ["urn:inside:problem:conflict"] },
       },
       required: ["code", "currentCoverId", "status", "title", "type"],
     });
@@ -324,7 +324,7 @@ describe("OpenAPI contract", () => {
         code: { enum: ["cover_not_found"] },
         status: { enum: [404] },
         title: { enum: ["Content cover not found"] },
-        type: { enum: ["urn:inside:problem:cover-not-found"] },
+        type: { enum: ["urn:inside:problem:cover_not_found"] },
       },
       required: ["code", "status", "title", "type"],
     });

@@ -109,6 +109,10 @@ not dependency wiring.
   permissions, or Membership decisions from a request body.
 - Use shared semantic cache policies. Interceptors and exception filters own wire headers and media
   types; controllers do not duplicate protocol strings.
+- Build a Problem Details body with `problemException` or `problemDetails` from
+  `src/infrastructure/http/problem-details.ts`. Its `type` is `urn:inside:problem:<code>`, the code
+  unchanged; `ProblemDetailsFilter` rewrites any other type to that form, so a handwritten type or
+  prefix never reaches the wire.
 - Keep authentication adapters narrow. Provider-SDK compatibility code must name a demonstrated
   upstream gap and have a focused contract test.
 - Follow the local

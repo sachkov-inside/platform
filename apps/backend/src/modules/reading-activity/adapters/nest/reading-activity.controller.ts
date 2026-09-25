@@ -1,4 +1,5 @@
-import { Body, Controller, Get, HttpCode, HttpException, Inject, Param, Post, Put, UseFilters, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, type HttpException, Inject, Param, Post, Put, UseFilters, UseGuards } from "@nestjs/common";
+import { problemException } from "../../../../infrastructure/http/problem-details.js";
 import { ApiBearerAuth, ApiBody, ApiOkResponse, ApiOperation, ApiParam, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { z } from "zod";
 import { PrivateNoStore } from "../../../../infrastructure/http/http-cache-policy.js";
@@ -128,6 +129,7 @@ function throwReadingError(error: ReadingError): never {
 }
 
 function readingException(status: number, error: ReadingError): HttpException {
-  return new HttpException({ type: "about:blank", title: "Reading activity request failed", status, ...error }, status);
+  const { code, ...fields } = error;
+  return problemException(status, code, "Reading activity request failed", fields);
 }
 function assertNever(value: never): never { throw new Error(`Unexpected ReadingActivity error: ${JSON.stringify(value)}`); }

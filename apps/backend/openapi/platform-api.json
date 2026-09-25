@@ -1700,7 +1700,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:terms-acceptance-required"
+                        "urn:inside:problem:terms_acceptance_required"
                       ],
                       "type": "string"
                     }
@@ -2059,7 +2059,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:terms-acceptance-required"
+                        "urn:inside:problem:terms_acceptance_required"
                       ],
                       "type": "string"
                     }
@@ -2593,7 +2593,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:terms-acceptance-required"
+                        "urn:inside:problem:terms_acceptance_required"
                       ],
                       "type": "string"
                     }
@@ -3205,7 +3205,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:terms-acceptance-required"
+                        "urn:inside:problem:terms_acceptance_required"
                       ],
                       "type": "string"
                     }
@@ -3697,7 +3697,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:terms-acceptance-required"
+                        "urn:inside:problem:terms_acceptance_required"
                       ],
                       "type": "string"
                     }
@@ -4145,7 +4145,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:terms-acceptance-required"
+                        "urn:inside:problem:terms_acceptance_required"
                       ],
                       "type": "string"
                     }
@@ -5843,7 +5843,7 @@
                         },
                         "type": {
                           "enum": [
-                            "urn:inside:problem:terms-acceptance-required"
+                            "urn:inside:problem:terms_acceptance_required"
                           ],
                           "type": "string"
                         }
@@ -6074,7 +6074,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:terms-acceptance-unavailable"
+                        "urn:inside:problem:internal_error"
                       ],
                       "type": "string"
                     }
@@ -8544,7 +8544,7 @@
                         },
                         "type": {
                           "enum": [
-                            "urn:inside:problem:terms-acceptance-required"
+                            "urn:inside:problem:terms_acceptance_required"
                           ],
                           "type": "string"
                         }
@@ -8775,7 +8775,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:terms-acceptance-unavailable"
+                        "urn:inside:problem:internal_error"
                       ],
                       "type": "string"
                     }
@@ -9098,7 +9098,7 @@
                         },
                         "type": {
                           "enum": [
-                            "urn:inside:problem:terms-acceptance-required"
+                            "urn:inside:problem:terms_acceptance_required"
                           ],
                           "type": "string"
                         }
@@ -9323,7 +9323,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:terms-acceptance-unavailable"
+                        "urn:inside:problem:internal_error"
                       ],
                       "type": "string"
                     }
@@ -10249,7 +10249,7 @@
                         },
                         "type": {
                           "enum": [
-                            "urn:inside:problem:terms-acceptance-required"
+                            "urn:inside:problem:terms_acceptance_required"
                           ],
                           "type": "string"
                         }
@@ -10474,7 +10474,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:terms-acceptance-unavailable"
+                        "urn:inside:problem:internal_error"
                       ],
                       "type": "string"
                     }
@@ -11105,7 +11105,7 @@
                         },
                         "type": {
                           "enum": [
-                            "urn:inside:problem:terms-acceptance-required"
+                            "urn:inside:problem:terms_acceptance_required"
                           ],
                           "type": "string"
                         }
@@ -11338,7 +11338,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:terms-acceptance-unavailable"
+                        "urn:inside:problem:internal_error"
                       ],
                       "type": "string"
                     }
@@ -11930,7 +11930,7 @@
                         },
                         "type": {
                           "enum": [
-                            "urn:inside:problem:terms-acceptance-required"
+                            "urn:inside:problem:terms_acceptance_required"
                           ],
                           "type": "string"
                         }
@@ -12163,7 +12163,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:terms-acceptance-unavailable"
+                        "urn:inside:problem:internal_error"
                       ],
                       "type": "string"
                     }
@@ -12742,7 +12742,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:terms-acceptance-required"
+                        "urn:inside:problem:terms_acceptance_required"
                       ],
                       "type": "string"
                     }
@@ -12935,7 +12935,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:terms-acceptance-unavailable"
+                        "urn:inside:problem:internal_error"
                       ],
                       "type": "string"
                     }
@@ -13854,7 +13854,7 @@
                         },
                         "type": {
                           "enum": [
-                            "urn:inside:problem:terms-acceptance-required"
+                            "urn:inside:problem:terms_acceptance_required"
                           ],
                           "type": "string"
                         }
@@ -14085,7 +14085,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:terms-acceptance-unavailable"
+                        "urn:inside:problem:internal_error"
                       ],
                       "type": "string"
                     }
@@ -15345,7 +15345,7 @@
                         },
                         "type": {
                           "enum": [
-                            "urn:inside:problem:terms-acceptance-required"
+                            "urn:inside:problem:terms_acceptance_required"
                           ],
                           "type": "string"
                         }
@@ -15576,7 +15576,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:terms-acceptance-unavailable"
+                        "urn:inside:problem:internal_error"
                       ],
                       "type": "string"
                     }
@@ -16496,7 +16496,7 @@
                         },
                         "type": {
                           "enum": [
-                            "urn:inside:problem:terms-acceptance-required"
+                            "urn:inside:problem:terms_acceptance_required"
                           ],
                           "type": "string"
                         }
@@ -16727,7 +16727,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:terms-acceptance-unavailable"
+                        "urn:inside:problem:internal_error"
                       ],
                       "type": "string"
                     }
@@ -17622,7 +17622,7 @@
                         },
                         "type": {
                           "enum": [
-                            "urn:inside:problem:terms-acceptance-required"
+                            "urn:inside:problem:terms_acceptance_required"
                           ],
                           "type": "string"
                         }
@@ -17853,7 +17853,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:terms-acceptance-unavailable"
+                        "urn:inside:problem:internal_error"
                       ],
                       "type": "string"
                     }
@@ -18784,7 +18784,7 @@
                         },
                         "type": {
                           "enum": [
-                            "urn:inside:problem:terms-acceptance-required"
+                            "urn:inside:problem:terms_acceptance_required"
                           ],
                           "type": "string"
                         }
@@ -19015,7 +19015,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:terms-acceptance-unavailable"
+                        "urn:inside:problem:internal_error"
                       ],
                       "type": "string"
                     }
@@ -19226,7 +19226,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:terms-acceptance-required"
+                        "urn:inside:problem:terms_acceptance_required"
                       ],
                       "type": "string"
                     }
@@ -19270,7 +19270,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:terms-acceptance-unavailable"
+                        "urn:inside:problem:internal_error"
                       ],
                       "type": "string"
                     }
@@ -20454,7 +20454,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:terms-acceptance-required"
+                        "urn:inside:problem:terms_acceptance_required"
                       ],
                       "type": "string"
                     }
@@ -20656,7 +20656,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:terms-acceptance-required"
+                        "urn:inside:problem:terms_acceptance_required"
                       ],
                       "type": "string"
                     }
@@ -20968,7 +20968,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:terms-acceptance-required"
+                        "urn:inside:problem:terms_acceptance_required"
                       ],
                       "type": "string"
                     }
@@ -21219,7 +21219,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:terms-acceptance-required"
+                        "urn:inside:problem:terms_acceptance_required"
                       ],
                       "type": "string"
                     }
@@ -21263,7 +21263,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:terms-acceptance-unavailable"
+                        "urn:inside:problem:internal_error"
                       ],
                       "type": "string"
                     }
@@ -21477,7 +21477,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:terms-acceptance-required"
+                        "urn:inside:problem:terms_acceptance_required"
                       ],
                       "type": "string"
                     }
@@ -21554,7 +21554,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:terms-acceptance-unavailable"
+                        "urn:inside:problem:internal_error"
                       ],
                       "type": "string"
                     }
@@ -21971,7 +21971,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:terms-acceptance-required"
+                        "urn:inside:problem:terms_acceptance_required"
                       ],
                       "type": "string"
                     }
@@ -22015,7 +22015,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:terms-acceptance-unavailable"
+                        "urn:inside:problem:internal_error"
                       ],
                       "type": "string"
                     }
@@ -27533,7 +27533,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:invalid-cover"
+                        "urn:inside:problem:invalid_cover"
                       ],
                       "type": "string"
                     }
@@ -27737,7 +27737,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:owner-not-found"
+                        "urn:inside:problem:owner_not_found"
                       ],
                       "type": "string"
                     }
@@ -27786,7 +27786,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:content-cover-conflict"
+                        "urn:inside:problem:conflict"
                       ],
                       "type": "string"
                     }
@@ -27948,7 +27948,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:dependency-unavailable"
+                        "urn:inside:problem:dependency_unavailable"
                       ],
                       "type": "string"
                     }
@@ -28133,7 +28133,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:invalid-cover"
+                        "urn:inside:problem:invalid_cover"
                       ],
                       "type": "string"
                     }
@@ -28337,7 +28337,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:owner-not-found"
+                        "urn:inside:problem:owner_not_found"
                       ],
                       "type": "string"
                     }
@@ -28386,7 +28386,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:content-cover-conflict"
+                        "urn:inside:problem:conflict"
                       ],
                       "type": "string"
                     }
@@ -28430,7 +28430,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:invalid-cover"
+                        "urn:inside:problem:invalid_cover"
                       ],
                       "type": "string"
                     }
@@ -28475,7 +28475,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:invalid-cover"
+                        "urn:inside:problem:invalid_cover"
                       ],
                       "type": "string"
                     }
@@ -28636,7 +28636,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:dependency-unavailable"
+                        "urn:inside:problem:dependency_unavailable"
                       ],
                       "type": "string"
                     }
@@ -39226,7 +39226,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:invalid-cover"
+                        "urn:inside:problem:invalid_cover"
                       ],
                       "type": "string"
                     }
@@ -39430,7 +39430,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:owner-not-found"
+                        "urn:inside:problem:owner_not_found"
                       ],
                       "type": "string"
                     }
@@ -39479,7 +39479,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:content-cover-conflict"
+                        "urn:inside:problem:conflict"
                       ],
                       "type": "string"
                     }
@@ -39523,7 +39523,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:invalid-cover"
+                        "urn:inside:problem:invalid_cover"
                       ],
                       "type": "string"
                     }
@@ -39568,7 +39568,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:invalid-cover"
+                        "urn:inside:problem:invalid_cover"
                       ],
                       "type": "string"
                     }
@@ -39729,7 +39729,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:dependency-unavailable"
+                        "urn:inside:problem:dependency_unavailable"
                       ],
                       "type": "string"
                     }
@@ -98850,7 +98850,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:cover-not-found"
+                        "urn:inside:problem:cover_not_found"
                       ],
                       "type": "string"
                     }
@@ -98893,7 +98893,7 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:dependency-unavailable"
+                        "urn:inside:problem:dependency_unavailable"
                       ],
                       "type": "string"
                     }
@@ -99607,7 +99607,7 @@
                     },
                     "type": {
                       "enum": [
-                        "about:blank"
+                        "urn:inside:problem:dependency_unavailable"
                       ],
                       "type": "string"
                     }
@@ -99888,7 +99888,7 @@
                     },
                     "type": {
                       "enum": [
-                        "about:blank"
+                        "urn:inside:problem:dependency_unavailable"
                       ],
                       "type": "string"
                     }

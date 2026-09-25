@@ -63,7 +63,7 @@ describe("Account backend interface", () => {
   it("maps only validated Account Problem Details to known outcomes", async () => {
     vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
     const problem = (code: "dependency_unavailable" | "invalid_proof") => ({
-      type: `https://inside.sachkov.com/problems/accounts/${code.replaceAll("_", "-")}`,
+      type: `urn:inside:problem:${code}`,
       title:
         code === "dependency_unavailable"
           ? "Identity provider unavailable"
