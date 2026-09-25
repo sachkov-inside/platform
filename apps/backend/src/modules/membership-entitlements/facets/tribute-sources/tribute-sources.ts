@@ -2,7 +2,7 @@ import { tributeImportReviewSchema, dismissTributeImportSchema } from "../../dom
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { Accounts } from "../../../accounts/index.js";
-import type { TelegramAccountLinks } from "../../../telegram-membership/index.js";
+import type { RecipientLinks } from "../../ports/recipient-links.js";
 import { Prisma, lockTelegramAccountBinding, lockAccountEntitlementChanges, lockAccountAccess } from "../../../../infrastructure/prisma/index.js";
 import type { MembershipEntitlementsPrismaClient, MembershipEntitlementsPrisma } from "../../infrastructure/prisma.js";
 import { accessFingerprint, readAccessReceipt } from "../../shared/access-receipts.js";
@@ -23,7 +23,7 @@ const reconciliationIntervalMilliseconds = 60 * 1_000;
 interface Dependencies {
   prisma: MembershipEntitlementsPrismaClient;
   accounts: Pick<Accounts, "checkPermission">;
-  links: Pick<TelegramAccountLinks, "findCurrentByIdentity" | "readBinding">;
+  links: RecipientLinks;
   clock?: () => Date;
 }
 const storedPreviewSchema = z.strictObject({ command: previewTributeImportSchema,

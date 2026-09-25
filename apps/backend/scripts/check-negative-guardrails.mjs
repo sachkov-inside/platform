@@ -132,7 +132,7 @@ expectFailure(
     "content-access -> workshop: no longer imports; remove it from legacyCycleEdges",
     "Module dependency cycle notifications -> bookmarks -> billing -> notifications",
     "notifications -> billing: keeps only weaker imports than value; lower its legacyCycleEdges kind",
-    "membership-entitlements -> telegram-membership: no longer lies on a cycle; remove it from legacyCycleEdges",
+    "telegram-membership -> billing: no longer lies on a cycle; remove it from legacyCycleEdges",
   ],
 );
 

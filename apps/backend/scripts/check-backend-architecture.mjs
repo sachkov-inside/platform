@@ -420,14 +420,11 @@ function swallowedFailureViolations(sourceFile, sourceText, program, comments) {
 // loads, composes and changes without the Modules that depend on it.
 const importKindRank = { type: 0, dynamic: 1, value: 2 };
 // Every edge of the one known cycle among eight Modules, each with the strongest import kind it
-// may keep; a stronger import, or any other edge that lies on a cycle, fails. The type-only and
-// dynamic edges are the ones to invert; ADR 0029 records why each remains and what removes it.
+// may keep; a stronger import, or any other edge that lies on a cycle, fails. The type-only
+// edges are the ones to invert; ADR 0029 records why each remains and what removes it.
 const legacyCycleEdges = new Map([
   ["billing -> membership-entitlements", "value"],
   ["billing -> notifications", "type"],
-  ["billing -> telegram-membership", "type"],
-  ["content-access -> materials", "type"],
-  ["content-access -> membership-entitlements", "type"],
   ["content-access -> workshop", "type"],
   ["materials -> billing", "value"],
   ["materials -> content-access", "value"],
@@ -435,8 +432,6 @@ const legacyCycleEdges = new Map([
   ["materials -> notifications", "type"],
   ["materials -> videos", "value"],
   ["materials -> workshop", "value"],
-  ["membership-entitlements -> materials", "dynamic"],
-  ["membership-entitlements -> telegram-membership", "dynamic"],
   ["membership-entitlements -> workshop", "value"],
   ["notifications -> billing", "value"],
   ["notifications -> content-access", "value"],

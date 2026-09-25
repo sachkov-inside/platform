@@ -11,6 +11,7 @@ import {
 import { createApiApplication } from "../src/entrypoints/api/create-api-application.js";
 import { BillingWorkerModule } from "../src/entrypoints/billing-worker/billing-worker.module.js";
 import { createMcpApplication } from "../src/entrypoints/create-mcp-application.js";
+import { NotificationsWorkerModule } from "../src/entrypoints/notifications-worker/notifications-worker.module.js";
 import { MaterialAssetsWorkerModule } from "../src/entrypoints/material-assets-worker/material-assets-worker.module.js";
 import { ProfileAvatarsWorkerModule } from "../src/entrypoints/profile-avatars-worker/profile-avatars-worker.module.js";
 import { VideoDeletionsWorkerModule } from "../src/entrypoints/video-deletions-worker/video-deletions-worker.module.js";
@@ -178,6 +179,16 @@ describe("backend process composition", () => {
     expect(accessGrantFacets(application)).toHaveLength(1);
     expect(application.get(BillingPayments)).toBeDefined();
     expect(application.get(CommunityEntitlements)).toBeDefined();
+  });
+
+  it("binds the Notifications worker, which loads Membership Entitlements through its consumers", async () => {
+    vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv("DATABASE_URL", "postgresql://inside:inside@127.0.0.1:1/inside");
+
+    application = await NestFactory.createApplicationContext(NotificationsWorkerModule, { abortOnError: false, logger: false });
+
+    expect(application.get(OperationalReadiness)).toBeInstanceOf(OperationalReadiness);
+    expect(accessGrantFacets(application)).toHaveLength(1);
   });
 
   it("loads and validates worker config through Nest composition", async () => {

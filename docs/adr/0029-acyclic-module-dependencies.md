@@ -19,8 +19,10 @@ Module B из файла Module A: значения, типа, реэкспор�
 `scripts/check-backend-architecture.mjs` строит граф по `src` и называет каждый цикл вместе с файлом
 на каждом его ребре.
 
-Известный цикл перечислен в `legacyCycleEdges` того же скрипта целиком: все 24 ребра компоненты
+Известный цикл перечислен в `legacyCycleEdges` того же скрипта целиком: все рёбра компоненты
 из восьми Module, у каждого самый сильный разрешённый вид импорта (`type`, `dynamic` или `value`).
+При решении их было 24; [platform#732](https://github.com/sachkov-inside/platform/issues/732)
+развернул пять, осталось 19.
 Проверка ищет сильно связные компоненты по полному графу. Нарушение — любое ребро, лежащее на цикле,
 которого нет в списке, и импорт сильнее разрешённого. Поэтому новое ребро падает, даже если замыкает
 цикл только через перечисленные. Если ребро исчезло, ослабло или больше не лежит на цикле, guardrail
@@ -33,20 +35,31 @@ Interface Module — только то, что используют снаруж
 
 ## Рёбра, которые нужно развернуть
 
-Остальные 14 рёбер списка идут от потребителя к поставщику и остаются, когда эти десять развёрнуты.
+Остальные 14 рёбер списка идут от потребителя к поставщику и остаются, когда эти пять развёрнуты.
 
 | Ребро | Вид | Почему осталось | Что его убирает |
 |---|---|---|---|
-| membership-entitlements → materials | `dynamic` | `ACCESS_GRANTS` читает `ContentScopeCatalog`, а Materials статически зависит от Membership Entitlements. Провайдер берёт класс через `await import` после загрузки Module, иначе Nest и порядок загрузки ESM упираются в цикл | Port каталога областей контента у Membership Entitlements, который реализует Materials |
-| membership-entitlements → telegram-membership | `dynamic` | `TributeSources`, `MEMBERSHIP_ENTITLEMENTS` и `ACCESS_GRANTS` берут `TelegramAccountLinks` так же, потому что Telegram Membership зависит от Membership Entitlements | Port связей получателя, который реализует Telegram Membership |
-| content-access → materials | `type` | `MaterialId` в interface и зависимостях Content Access | Перенос `MaterialId` в место без зависимостей |
-| workshop → materials | `type` | `MaterialId` в interface Workshop | То же |
+| workshop → materials | `type` | `MaterialId` в interface Workshop | Импорт `MaterialId` из `infrastructure/contracts/material-id.ts`, как в Content Access |
 | content-access → workshop | `type` | Факты доступа Workshop в зависимостях Content Access | Port фактов у Content Access |
-| content-access → membership-entitlements | `type` | Типы решений о доступе в зависимостях Content Access | То же |
 | workshop → membership-entitlements | `type` | Зависимость выдачи прав Workshop описана типом Membership Entitlements | Port Workshop |
 | materials → notifications | `type` | Анонсы Materials реализуют `NotificationSource` | Port источника, который описывает сам Materials |
 | billing → notifications | `type` | Уведомления Billing реализуют `NotificationSource` | То же для Billing |
-| billing → telegram-membership | `type` | Активация подписки получает `TelegramAccountLinks` по типу | Port связей в Billing |
+
+Развёрнуты в platform#732:
+
+- membership-entitlements → materials и membership-entitlements → telegram-membership (`dynamic`).
+  Membership Entitlements описывает port `ContentScopeCatalog` и `RecipientLinks` в `ports/` и
+  получает их по токенам `CONTENT_SCOPE_CATALOG` и `RECIPIENT_LINKS`. Реализации лежат в Materials
+  (`ContentScopeCatalogModule`) и Telegram Membership (`RecipientLinksModule`). Это глобальные
+  модули Nest: иначе Membership Entitlements пришлось бы импортировать своих реализаторов.
+  Каждый процесс, который загружает Membership Entitlements, подключает оба модуля в entrypoint.
+  Без них процесс не стартует, это проверяют тесты композиции API, MCP и обоих workers.
+- content-access → materials (`type`). Бренд `MaterialId` и его конструктор лежат в
+  `src/infrastructure/contracts/material-id.ts` ниже всех Module; Materials реэкспортирует их.
+- content-access → membership-entitlements (`type`). Content Access сам описывает нужный ему срез
+  решений о членстве; Membership Entitlements подходит к нему структурно.
+- billing → telegram-membership (`type`). Активация подписки в Billing описывает связи типом
+  `RecipientLinks` из Membership Entitlements, от которого Billing уже зависит.
 
 Runtime-ребро workshop → materials убрано: адаптер каталога материалов Workshop не использовался
 в production и перенесён в единственный тест, который его собирал.

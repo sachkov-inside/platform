@@ -29,6 +29,7 @@ export type { PublishedMaterialProjectionDto } from "./facets/published-material
 export type { MaterialBodySnapshot } from "./domain/material-body/material-body.js";
 export { MaterialsModule } from "./materials.module.js";
 export { MaterialsHttpModule } from "./materials-http.module.js";
+export { ContentScopeCatalogModule } from "./content-scope-catalog.module.js";
 export { KinescopeVideoAuthorizationController } from "./adapters/nest/kinescope-video-authorization.controller.js";
 export { MaterialAssetMaintenanceModule } from "./material-asset-maintenance.module.js";
 export { assembleMaterialAuthoringMcpServer } from "./adapters/mcp/material-authoring-mcp.js";
@@ -63,5 +64,4 @@ export { PublishedMaterialSelection } from "./features/select-published-material
 export { assembleMaterialsNotificationOutbox } from "./facets/notification-outbox/notification-outbox.js";
 export { MaterialAnnouncements } from "./facets/material-announcements/material-announcements.js";
 
-export { ContentScopeCatalog } from "./facets/content-scope-catalog/content-scope-catalog.js";
 

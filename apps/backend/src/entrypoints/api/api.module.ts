@@ -22,10 +22,11 @@ import { AccountsModule } from "../../modules/accounts/index.js";
 import { MemberProfilesModule } from "../../modules/member-profiles/index.js";
 import {
   CommunityEntitlementsModule,
+  RecipientLinksModule,
   TelegramMembershipModule,
 } from "../../modules/telegram-membership/index.js";
 import { MembershipEntitlementsModule } from "../../modules/membership-entitlements/index.js";
-import { MaterialsHttpModule, MaterialsModule } from "../../modules/materials/index.js";
+import { ContentScopeCatalogModule, MaterialsHttpModule, MaterialsModule } from "../../modules/materials/index.js";
 import {
   KinescopeWebhookController,
   VideoAuthoringController,
@@ -70,6 +71,8 @@ export class ApiModule {
         MaterialsModule,
         MaterialsHttpModule,
         VideosModule,
+        ContentScopeCatalogModule,
+        RecipientLinksModule,
       ],
     };
   }

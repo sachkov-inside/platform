@@ -17,33 +17,29 @@ import {
   ACCESS_GRANTS,
   MEMBERSHIP_ENTITLEMENTS,
 } from "./membership-entitlements.tokens.js";
+import { CONTENT_SCOPE_CATALOG, type ContentScopeCatalog } from "./ports/content-scope-catalog.js";
+import { RECIPIENT_LINKS, type RecipientLinks } from "./ports/recipient-links.js";
+
+// Materials and Telegram Membership implement the two ports in global modules of their own, so this
+// Module depends on neither; a process that loads it also loads both implementations.
 
 @Module({
   imports: [PrismaModule, AccountsModule, WorkshopModule ],
   providers: [
-    { provide: TributeSources, inject: [PrismaClientProvider, ACCOUNTS],
-      useFactory: async (prisma: PrismaClientProvider, accounts: Accounts) => {
-        const { TelegramAccountLinks } = await import("../telegram-membership/index.js");
-        return new TributeSources({ prisma, accounts, links: new TelegramAccountLinks(prisma) });
-      } },
+    { provide: TributeSources, inject: [PrismaClientProvider, ACCOUNTS, RECIPIENT_LINKS],
+      useFactory: (prisma: PrismaClientProvider, accounts: Accounts, links: RecipientLinks) =>
+        new TributeSources({ prisma, accounts, links }) },
     {
       provide: MEMBERSHIP_ENTITLEMENTS,
-      inject: [PrismaClientProvider, WORKSHOP_ENTITLEMENTS],
-      useFactory: async (prisma: PrismaClientProvider, workshopEntitlements: WorkshopEntitlements) => {
-        const { TelegramAccountLinks } = await import("../telegram-membership/index.js");
-        return assembleMembershipEntitlements({ prisma, workshopEntitlements, recipientLinks: new TelegramAccountLinks(prisma) });
-      },
+      inject: [PrismaClientProvider, WORKSHOP_ENTITLEMENTS, RECIPIENT_LINKS],
+      useFactory: (prisma: PrismaClientProvider, workshopEntitlements: WorkshopEntitlements, recipientLinks: RecipientLinks) =>
+        assembleMembershipEntitlements({ prisma, workshopEntitlements, recipientLinks }),
     },
     {
       provide: ACCESS_GRANTS,
-      inject: [PrismaClientProvider, ACCOUNTS],
-      // Materials' public barrel also exports its authoring composition, which consumes Membership.
-      // Resolve this read-only metadata facet after module initialization, without that DI cycle.
-      useFactory: async (prisma: PrismaClientProvider, accounts: Accounts) => {
-        const { ContentScopeCatalog } = await import("../materials/index.js");
-        const { TelegramAccountLinks } = await import("../telegram-membership/index.js");
-        return assembleAccessGrants({ prisma, accounts, contentCatalog: new ContentScopeCatalog(prisma), recipientLinks: new TelegramAccountLinks(prisma) });
-      },
+      inject: [PrismaClientProvider, ACCOUNTS, CONTENT_SCOPE_CATALOG, RECIPIENT_LINKS],
+      useFactory: (prisma: PrismaClientProvider, accounts: Accounts, contentCatalog: ContentScopeCatalog, recipientLinks: RecipientLinks) =>
+        assembleAccessGrants({ prisma, accounts, contentCatalog, recipientLinks }),
     },
   ],
   exports: [MEMBERSHIP_ENTITLEMENTS, ACCESS_GRANTS, TributeSources],
