@@ -832,8 +832,9 @@ It succeeds only when every MinIO object is present in RustFS with the same size
 content, Content-Type and user metadata; each bucket line reports both counts and the manifest
 checksum. An object listed as different was already in RustFS under the same key: keep both
 volumes and investigate it before retrying. A run killed before its own cleanup leaves the
-`inside-platform-object-storage-transfer` container or its snapshot volume of the same name; the
-next run names them, and removing them touches no stand data.
+`inside-platform-object-storage-transfer` container or the
+`inside-platform-object-storage-transfer-snapshot` volume; the next run names them, and removing
+them touches no stand data.
 
 Then start the stand with `pnpm local:stand` and open the product featured on Home: its cover, the
 images on its page and its files load again.

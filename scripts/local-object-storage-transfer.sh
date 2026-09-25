@@ -22,7 +22,8 @@ source_volume="${project}_object-storage-data"
 # Temporary names stay outside the stand's `<project>_` volume namespace.
 snapshot_volume="${project}-object-storage-transfer-snapshot"
 transfer_container="${project}-object-storage-transfer"
-# The temporary MinIO shares the RustFS container's network, where RustFS already listens on 9000.
+# The temporary MinIO shares the RustFS container's network, where RustFS already listens.
+rustfs_port=9000
 minio_port=9100
 minio_console_port=9101
 
@@ -60,29 +61,31 @@ storage_container="$(docker compose ps --status running --quiet object-storage)"
 if [[ -z "$storage_container" ]]; then
   # A stand stopped before platform#699 still has a MinIO container on the former volume; `up`
   # recreates it from the current RustFS definition instead of starting it.
-  docker compose up --detach --wait object-storage
+  # Set before `up`, so a failed start is stopped too; stopping a service that never ran is harmless.
   started_storage=true
+  docker compose up --detach --wait object-storage
   storage_container="$(docker compose ps --status running --quiet object-storage)"
 fi
 storage_image="$(docker inspect --format '{{.Config.Image}}' "$storage_container")"
-if [[ "$storage_image" != "$(docker compose config --images object-storage)" ]]; then
+rustfs_image="$(docker compose config --images object-storage)"
+if [[ "$storage_image" != "$rustfs_image" ]]; then
   echo "object-storage runs $storage_image, not the RustFS image from compose.yaml; restart it from current main" >&2
   exit 1
 fi
 
-docker volume create "$snapshot_volume" >/dev/null
 created_snapshot=true
+docker volume create "$snapshot_volume" >/dev/null
 docker run --rm --pull never --entrypoint cp \
   --volume "$source_volume:/former:ro" --volume "$snapshot_volume:/snapshot" \
   "$minio_image" -a /former/. /snapshot/
 
+created_container=true
 docker run --detach --pull never --name "$transfer_container" \
   --network "container:$storage_container" --volume "$snapshot_volume:/data" \
   --env "MINIO_ROOT_USER=$access_key" --env "MINIO_ROOT_PASSWORD=$secret_key" \
   --env "MC_HOST_former=http://$access_key:$secret_key@127.0.0.1:$minio_port" \
-  --env "MC_HOST_rustfs=http://$access_key:$secret_key@127.0.0.1:9000" \
+  --env "MC_HOST_rustfs=http://$access_key:$secret_key@127.0.0.1:$rustfs_port" \
   "$minio_image" server --address "127.0.0.1:$minio_port" --console-address "127.0.0.1:$minio_console_port" /data >/dev/null
-created_container=true
 
 docker exec --interactive "$transfer_container" bash -s <<'TRANSFER'
 set -euo pipefail
