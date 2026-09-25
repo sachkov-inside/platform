@@ -2,12 +2,19 @@ import "server-only";
 import type { z } from "zod";
 
 import { isSameOriginMutation, readLogtoBffConfig } from "@/shared/auth/index.server";
+import { readWebRuntimeMode } from "@/shared/config/index.server";
 import { writeStructuredLog } from "@/shared/lib/structured-log.server";
 import {
   MAX_CLIENT_TELEMETRY_BYTES,
   renderErrorReportSchema,
   webVitalsReportSchema,
 } from "../model/client-telemetry-contract";
+import {
+  admitClientReport,
+  CLIENT_REPORT_WINDOW_SECONDS,
+  type ClientReportKind,
+  clientReportRecordsPerWindow,
+} from "./client-report-ceiling.server";
 
 /**
  * Core Web Vitals одной загрузки страницы. Каждая метрика — своя строка журнала: так их проще
@@ -16,6 +23,8 @@ import {
 export async function handleWebVitalsReport(request: Request): Promise<Response> {
   const report = await readReport(request, webVitalsReportSchema);
   if (!report.ok) return telemetryResponse(report.status);
+  const refusal = refuseOverCeiling("web-vitals", report.value.metrics.length);
+  if (refusal !== undefined) return refusal;
   for (const metric of report.value.metrics) {
     writeStructuredLog("info", "web-vital", { route: report.value.route, ...metric });
   }
@@ -26,8 +35,31 @@ export async function handleWebVitalsReport(request: Request): Promise<Response>
 export async function handleRenderErrorReport(request: Request): Promise<Response> {
   const report = await readReport(request, renderErrorReportSchema);
   if (!report.ok) return telemetryResponse(report.status);
+  const refusal = refuseOverCeiling("render-errors", 1);
+  if (refusal !== undefined) return refusal;
   writeStructuredLog("error", "client-render-error", report.value);
   return telemetryResponse(204);
+}
+
+/**
+ * Отчёт сверх общего потолка получает `429` и в журнал не попадает. Первый отказ в окне оставляет
+ * одну строку: так в журнале видно, что отчёты этого вида терялись. Стенд и проверки на `next dev`
+ * потолка не видят — как и предела на клиента в `proxy.ts`.
+ */
+function refuseOverCeiling(kind: ClientReportKind, records: number): Response | undefined {
+  if (readWebRuntimeMode() !== "production") return undefined;
+  const admission = admitClientReport(kind, records);
+  if (admission.admitted) return undefined;
+  if (admission.firstRefusal) {
+    writeStructuredLog("error", "client-report-limit-reached", {
+      recordsPerWindow: clientReportRecordsPerWindow[kind],
+      report: kind,
+      windowSeconds: CLIENT_REPORT_WINDOW_SECONDS,
+    });
+  }
+  const response = telemetryResponse(429);
+  response.headers.set("retry-after", String(admission.retryAfterSeconds));
+  return response;
 }
 
 /**

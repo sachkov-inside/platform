@@ -66,8 +66,10 @@ mutations and ADR 0027 owns navigation and caching.
   transport path without a concrete consumer and an explicit architecture decision.
 - `proxy.ts` only limits the request rate of entry routes. A new sign-in, payment command, public
   link or guest browser-report route joins `entryRoutePaths` in `src/_app/entry-rate-limit.ts` and
-  the proxy `matcher` together; `entry-rate-limit.test.ts` compares them. Security headers live in
-  `next.config.ts`, HSTS in Caddy ([ADR 0028](../../docs/adr/0028-web-edge-hardening.md)).
+  the proxy `matcher` together; `entry-rate-limit.test.ts` compares them. A guest browser-report
+  handler also takes its log lines from the shared ceiling in `client-report-ceiling.server.ts`
+  before writing. Security headers live in `next.config.ts`, HSTS in Caddy
+  ([ADR 0028](../../docs/adr/0028-web-edge-hardening.md)).
 
 ## Navigation and caching
 
