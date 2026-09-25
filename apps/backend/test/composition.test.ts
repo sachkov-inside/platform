@@ -9,6 +9,7 @@ import {
   type PlatformConfig,
 } from "../src/config/platform-config.js";
 import { createApiApplication } from "../src/entrypoints/api/create-api-application.js";
+import { problemType } from "../src/infrastructure/http/problem-details.js";
 import { BillingWorkerModule } from "../src/entrypoints/billing-worker/billing-worker.module.js";
 import { createMcpApplication } from "../src/entrypoints/create-mcp-application.js";
 import { NotificationsWorkerModule } from "../src/entrypoints/notifications-worker/notifications-worker.module.js";
@@ -255,5 +256,40 @@ describe("backend process composition", () => {
       code: "dependency_unavailable",
     });
     expect(queryRaw).toHaveBeenCalled();
+  });
+
+  it("answers a malformed request body or path as a client error", async () => {
+    // Nest 12 moved parser and URI error mapping into the Fastify adapter; a broken request must
+    // still stay a 4xx answer, never an internal failure.
+    const api: NestFastifyApplication = await createApiApplication(config, {
+      logger: false,
+    });
+    application = api;
+    await api.init();
+    const http = api.getHttpAdapter().getInstance();
+    await http.ready();
+
+    const malformedBody = await http.inject({
+      method: "POST",
+      url: "/accounts",
+      headers: { "content-type": "application/json" },
+      payload: "{",
+    });
+    const malformedPath = await http.inject({
+      method: "GET",
+      url: "/accounts/%E0%A4%A",
+    });
+
+    expect(malformedBody.statusCode).toBe(400);
+    expect(malformedBody.headers["content-type"]).toContain("application/problem+json");
+    expect(malformedBody.json()).toEqual({
+      type: problemType("http_error"),
+      title: "Invalid request",
+      status: 400,
+      code: "http_error",
+    });
+    // Fastify rejects a broken URI before Nest routing, so the answer keeps its own 400 shape.
+    expect(malformedPath.statusCode).toBe(400);
+    expect(malformedPath.json()).toMatchObject({ code: "FST_ERR_BAD_URL", statusCode: 400 });
   });
 });

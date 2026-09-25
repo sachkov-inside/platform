@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -141,6 +142,35 @@ describe("supported toolchain contract", () => {
     assert.equal(webPackage.dependencies["openapi-fetch"], undefined);
     // Только security overrides из docs/runbooks/dependency-updates.md; новый требует той же записи.
     assert.deepEqual(overrideNames(read("pnpm-workspace.yaml")), documentedSecurityOverrides);
+  });
+
+  it("allows TypeScript 7 only for the unused Swagger compiler plugin", () => {
+    // @nestjs/swagger imports the TypeScript API only from its CLI plugin; Platform never loads it.
+    const workspace = read("pnpm-workspace.yaml");
+    assert.equal(peerDependencyRulesBlock(workspace), swaggerTypeScriptAllowance);
+    for (const widened of [
+      `  allowAny: [typescript]\n`,
+      `  ignoreMissing: [typescript]\n`,
+      `    storybook>typescript: "7"\n`,
+    ]) {
+      const rules = peerDependencyRulesBlock(workspace.replace(swaggerTypeScriptAllowance, `${swaggerTypeScriptAllowance}${widened}`));
+      assert.notEqual(rules, swaggerTypeScriptAllowance, widened);
+    }
+
+    const tracked = spawnSync("git", ["ls-files", "-z", "--", "apps", "packages", "scripts", "*nest-cli.json"], {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+    });
+    assert.equal(tracked.status, 0, tracked.stderr);
+    const loaders = tracked.stdout
+      .split("\0")
+      .filter((path) => path !== "" && path !== "scripts/toolchain-contract.test.mjs")
+      .filter((path) => /\.(?:[cm]?[jt]sx?|json)$/u.test(path))
+      .filter((path) => loadsSwaggerPlugin(path, read(path)));
+    assert.deepEqual(loaders, []);
+    assert.ok(loadsSwaggerPlugin("apps/backend/nest-cli.json", `{"compilerOptions":{"plugins":["@nestjs/swagger"]}}`));
+    assert.ok(loadsSwaggerPlugin("apps/backend/build.mjs", `import { before } from "@nestjs/swagger/plugin";`));
+    assert.ok(!loadsSwaggerPlugin("apps/backend/src/app.ts", `import { SwaggerModule } from "@nestjs/swagger";`));
   });
 
   it("rejects a Node base pinned only by tag and an undocumented override", () => {
@@ -390,7 +420,7 @@ describe("supported toolchain contract", () => {
   });
 });
 
-const documentedSecurityOverrides = ["fastify", "mysql2", "deepmerge-ts"];
+const documentedSecurityOverrides = ["mysql2", "deepmerge-ts"];
 
 /** Тег читает человек, digest фиксирует базу: перевыпущенный тег не меняет следующий выпуск. */
 function assertNodeBasesPinnedByDigest(path, dockerfile) {
@@ -399,6 +429,22 @@ function assertNodeBasesPinnedByDigest(path, dockerfile) {
   for (const base of nodeBases) {
     assert.match(base, /^FROM node:[^\s@]+@sha256:[a-f0-9]{64}$/u, `${path}: ${base}`);
   }
+}
+
+const swaggerTypeScriptAllowance = `peerDependencyRules:
+  allowedVersions:
+    "@nestjs/swagger>typescript": "7"
+`;
+
+/** The whole top-level block, so a widened rule next to the allowance cannot pass unnoticed. */
+function peerDependencyRulesBlock(workspace) {
+  return workspace.match(/^peerDependencyRules:\n(?:(?: {2}.*)?\n)*/mu)?.[0] ?? "";
+}
+
+/** Nest CLI loads the plugin by package name from nest-cli.json; code loads it by its subpath. */
+function loadsSwaggerPlugin(path, source) {
+  return source.includes("@nestjs/swagger/plugin") ||
+    (path.endsWith("nest-cli.json") && source.includes("@nestjs/swagger"));
 }
 
 function overrideNames(workspace) {
