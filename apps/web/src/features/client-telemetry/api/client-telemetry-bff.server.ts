@@ -2,6 +2,7 @@ import "server-only";
 import type { z } from "zod";
 
 import { isSameOriginMutation, readLogtoBffConfig } from "@/shared/auth/index.server";
+import { readWebRuntimeMode } from "@/shared/config/index.server";
 import { writeStructuredLog } from "@/shared/lib/structured-log.server";
 import {
   MAX_CLIENT_TELEMETRY_BYTES,
@@ -45,9 +46,11 @@ export async function handleRenderErrorReport(request: Request): Promise<Respons
 
 /**
  * Отчёт сверх общего потолка получает `429` и в журнал не попадает. Первый отказ в окне оставляет
- * одну строку: так в журнале видно, что отчёты этого вида терялись.
+ * одну строку: так в журнале видно, что отчёты этого вида терялись. Стенд и проверки на `next dev`
+ * потолка не видят — как и предела на клиента в `proxy.ts`.
  */
 function refuseOverBudget(kind: ClientReportKind, records: number): Response | undefined {
+  if (readWebRuntimeMode() !== "production") return undefined;
   const admission = clientReportBudget.admit(kind, records);
   if (admission.admitted) return undefined;
   if (admission.firstRefusal) {

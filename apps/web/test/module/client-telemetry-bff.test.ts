@@ -7,10 +7,9 @@ vi.mock("@/shared/auth/index.server", async () => {
     readLogtoBffConfig: () => ({ baseUrl: "https://inside.example.test" }),
   };
 });
-import {
-  handleRenderErrorReport,
-  handleWebVitalsReport,
-} from "@/features/client-telemetry.server";
+
+let handleRenderErrorReport: (request: Request) => Promise<Response>;
+let handleWebVitalsReport: (request: Request) => Promise<Response>;
 
 const lcp = { id: "v5-1", name: "LCP", navigationType: "navigate", rating: "good", value: 1_234.5 };
 
@@ -37,7 +36,10 @@ function loggedEvents(
   return loggedLines(spy).filter((line) => (line as { readonly event?: unknown }).event === event);
 }
 
-beforeEach(() => {
+beforeEach(async () => {
+  // Потолок журнала живёт на уровне процесса: каждый тест начинает со свежего модуля и пустого окна.
+  vi.resetModules();
+  ({ handleRenderErrorReport, handleWebVitalsReport } = await import("@/features/client-telemetry.server"));
   vi.spyOn(console, "info").mockImplementation(() => undefined);
   vi.spyOn(console, "error").mockImplementation(() => undefined);
 });
@@ -142,24 +144,19 @@ it("отклоняет слишком большой отчёт, даже есл
 describe("общий потолок журнала для отчётов браузера", () => {
   const renderError = { boundary: "public", message: "Сбой", name: "Error", route: "/" };
 
-  /** Свежий модуль — свой счёт окна: состояние обработчиков живёт на уровне процесса. */
-  async function freshHandlers() {
-    vi.resetModules();
-    return import("@/features/client-telemetry.server");
-  }
-
   beforeEach(() => {
+    vi.stubEnv("NODE_ENV", "production");
     vi.useFakeTimers({ now: Date.parse("2026-09-25T09:00:00Z"), toFake: ["Date"] });
   });
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllEnvs();
   });
 
   it("сверх потолка отвечает 429 с Retry-After и не пишет отчёт в журнал", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    const { handleRenderErrorReport: handle } = await freshHandlers();
-    const send = () => handle(report("/api/render-errors", JSON.stringify(renderError)));
+    const send = () => handleRenderErrorReport(report("/api/render-errors", JSON.stringify(renderError)));
 
     const accepted = [];
     for (let index = 0; index < 60; index += 1) accepted.push((await send()).status);
@@ -175,8 +172,7 @@ describe("общий потолок журнала для отчётов бра�
 
   it("отмечает в журнале только первый отказ окна, а в новом окне снова принимает отчёты", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    const { handleRenderErrorReport: handle } = await freshHandlers();
-    const send = () => handle(report("/api/render-errors", JSON.stringify(renderError)));
+    const send = () => handleRenderErrorReport(report("/api/render-errors", JSON.stringify(renderError)));
 
     for (let index = 0; index < 63; index += 1) await send();
     const notices = loggedEvents(error, "client-report-limit-reached");
@@ -191,11 +187,10 @@ describe("общий потолок журнала для отчётов бра�
 
   it("считает метрики строками журнала и не пишет часть отчёта, который не помещается", async () => {
     const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
-    const { handleWebVitalsReport: handle } = await freshHandlers();
     const metrics = (count: number) =>
       Array.from({ length: count }, (_, index) => ({ ...lcp, id: `v5-${String(index)}` }));
     const send = (count: number) =>
-      handle(report("/api/web-vitals", JSON.stringify({ metrics: metrics(count), route: "/" })));
+      handleWebVitalsReport(report("/api/web-vitals", JSON.stringify({ metrics: metrics(count), route: "/" })));
 
     const statuses = [];
     for (let index = 0; index < 14; index += 1) statuses.push((await send(20)).status);
@@ -211,7 +206,6 @@ describe("общий потолок журнала для отчётов бра�
 
   it("поток метрик не вытесняет отчёты об ошибках", async () => {
     vi.spyOn(console, "info").mockImplementation(() => undefined);
-    const { handleRenderErrorReport, handleWebVitalsReport } = await freshHandlers();
     const vitals = JSON.stringify({ metrics: [lcp], route: "/" });
 
     let lastVitals = 0;
@@ -222,5 +216,15 @@ describe("общий потолок журнала для отчётов бра�
 
     expect(lastVitals).toBe(429);
     expect(errorReport.status).toBe(204);
+  });
+
+  it("на стенде и в проверках разработки потолок не действует", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    const send = () => handleRenderErrorReport(report("/api/render-errors", JSON.stringify(renderError)));
+
+    let last = 0;
+    for (let index = 0; index < 61; index += 1) last = (await send()).status;
+
+    expect(last).toBe(204);
   });
 });

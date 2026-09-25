@@ -8,7 +8,6 @@ vi.mock("@/shared/auth/index.server", async () => {
   };
 });
 import { createEntryRateLimiter, limitEntryRequest } from "@/_app/entry-rate-limit";
-import { handleWebVitalsReport } from "@/features/client-telemetry.server";
 
 /** Страница в браузере: вкладку можно скрыть и показать, beacon запоминает отправленное. */
 function stubPage() {
@@ -36,13 +35,32 @@ function stubPage() {
   };
 }
 
+/** Отчёт идёт тем же путём, что в production: сначала предел на клиента в proxy, затем обработчик. */
+async function deliver(
+  limiter: ReturnType<typeof createEntryRateLimiter>,
+  handle: (request: Request) => Promise<Response>,
+  route: string,
+  body: string,
+  address: string,
+): Promise<number> {
+  const request = new Request(`https://inside.example.test${route}`, {
+    body,
+    headers: { origin: "https://inside.example.test", "x-forwarded-for": address },
+    method: "POST",
+  });
+  const limited = limitEntryRequest(limiter, request, "production");
+  return limited === undefined ? (await handle(request)).status : limited.status;
+}
+
 beforeEach(() => {
   vi.resetModules();
+  vi.stubEnv("NODE_ENV", "production");
   vi.spyOn(console, "info").mockImplementation(() => undefined);
 });
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
 });
 
 it("обычная страница шлёт один отчёт на скрытие вкладки и не попадает ни под один предел", async () => {
@@ -58,16 +76,31 @@ it("обычная страница шлёт один отчёт на скрыт
 
   expect(page.beacons.map((beacon) => beacon.route)).toEqual(["/api/web-vitals", "/api/web-vitals"]);
 
+  const { handleWebVitalsReport } = await import("@/features/client-telemetry.server");
   const limiter = createEntryRateLimiter();
   const answers = [];
   for (const beacon of page.beacons) {
-    const request = new Request(`https://inside.example.test${beacon.route}`, {
-      body: await beacon.body.text(),
-      headers: { origin: "https://inside.example.test", "x-forwarded-for": "203.0.113.7" },
-      method: "POST",
-    });
-    answers.push(limitEntryRequest(limiter, request, "production")?.status ?? (await handleWebVitalsReport(request)).status);
+    answers.push(await deliver(limiter, handleWebVitalsReport, beacon.route, await beacon.body.text(), "203.0.113.7"));
   }
 
   expect(answers).toEqual([204, 204]);
+});
+
+it("загруженная минута обычных посещений со всей площадки проходит потолок журнала", async () => {
+  vi.spyOn(console, "error").mockImplementation(() => undefined);
+  const { handleRenderErrorReport, handleWebVitalsReport } = await import("@/features/client-telemetry.server");
+  const limiter = createEntryRateLimiter();
+  const loadMetrics = ["TTFB", "FCP", "LCP", "CLS", "INP"].map((name) => ({ id: `v5-${name}`, name, value: 1 }));
+  const vitals = JSON.stringify({ metrics: loadMetrics, route: "/guides/ai" });
+  const renderError = JSON.stringify({ boundary: "public", message: "Сбой", name: "Error", route: "/" });
+
+  // 60 посетителей за минуту: у каждого одна страница с полным набором метрик и одна пойманная ошибка.
+  const answers = [];
+  for (let visitor = 1; visitor <= 60; visitor += 1) {
+    const address = `198.51.100.${String(visitor)}`;
+    answers.push(await deliver(limiter, handleWebVitalsReport, "/api/web-vitals", vitals, address));
+    answers.push(await deliver(limiter, handleRenderErrorReport, "/api/render-errors", renderError, address));
+  }
+
+  expect(answers).toEqual(Array.from({ length: 120 }, () => 204));
 });

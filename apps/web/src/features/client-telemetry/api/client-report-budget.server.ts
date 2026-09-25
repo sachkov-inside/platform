@@ -4,14 +4,14 @@ import "server-only";
  * Общий потолок строк журнала, которые отчёты браузера пишут за окно, — на все адреса вместе.
  * Предел на один адрес держит `proxy.ts` (ADR 0028), но поток с многих адресов он не
  * останавливает; этот потолок ограничивает сам объём журнала. Счёт живёт в памяти единственного
- * процесса web, как и счётчики proxy.
+ * процесса web и, как счётчики proxy, действует только в production-сборке.
  */
 export const CLIENT_REPORT_WINDOW_SECONDS = 60;
 
 /**
- * Строк журнала за окно для каждого вида отчёта. Загрузка страницы даёт до пяти метрик, поэтому
- * потолок метрик вмещает 60 скрытых вкладок в минуту. Ошибки считаются отдельно: поток метрик не
- * должен вытеснять их.
+ * Строк журнала за окно для каждого вида отчёта. Страница сообщает пять метрик загрузки, поэтому
+ * потолок метрик вмещает около 60 скрытых вкладок в минуту. Ошибки считаются отдельно: поток метрик
+ * не должен вытеснять их.
  */
 export const clientReportRecordsPerWindow = {
   "render-errors": 60,
@@ -20,7 +20,7 @@ export const clientReportRecordsPerWindow = {
 
 export type ClientReportKind = keyof typeof clientReportRecordsPerWindow;
 
-export type ClientReportAdmission =
+type ClientReportAdmission =
   | { readonly admitted: true }
   | {
       readonly admitted: false;
@@ -34,13 +34,13 @@ export interface ClientReportBudget {
   admit(kind: ClientReportKind, records: number): ClientReportAdmission;
 }
 
-export function createClientReportBudget(now: () => number = Date.now): ClientReportBudget {
+export function createClientReportBudget(): ClientReportBudget {
   const windowMilliseconds = CLIENT_REPORT_WINDOW_SECONDS * 1_000;
   const windows = new Map<ClientReportKind, { readonly startedAt: number; used: number; refused: boolean }>();
 
   return {
     admit(kind, records) {
-      const at = now();
+      const at = Date.now();
       let window = windows.get(kind);
       if (window === undefined || at - window.startedAt >= windowMilliseconds) {
         window = { refused: false, startedAt: at, used: 0 };
