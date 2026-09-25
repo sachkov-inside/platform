@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -141,6 +142,18 @@ describe("supported toolchain contract", () => {
     assert.equal(webPackage.dependencies["openapi-fetch"], undefined);
     // Только security overrides из docs/runbooks/dependency-updates.md; новый требует той же записи.
     assert.deepEqual(overrideNames(read("pnpm-workspace.yaml")), documentedSecurityOverrides);
+  });
+
+  it("allows TypeScript 7 only for the unused Swagger compiler plugin", () => {
+    // @nestjs/swagger imports the TypeScript API only from its CLI plugin; Platform never loads it.
+    assert.deepEqual(peerAllowedVersions(read("pnpm-workspace.yaml")), { "@nestjs/swagger>typescript": "7" });
+    const pluginImports = spawnSync(
+      "git",
+      ["grep", "-l", "@nestjs/swagger/plugin", "--", "apps", "packages", "scripts", ":!scripts/toolchain-contract.test.mjs"],
+      { cwd: repositoryRoot, encoding: "utf8" },
+    );
+    // git grep exits 1 when nothing matches.
+    assert.equal(pluginImports.status, 1, pluginImports.stdout);
   });
 
   it("rejects a Node base pinned only by tag and an undocumented override", () => {
@@ -390,7 +403,7 @@ describe("supported toolchain contract", () => {
   });
 });
 
-const documentedSecurityOverrides = ["fastify", "mysql2", "deepmerge-ts"];
+const documentedSecurityOverrides = ["mysql2", "deepmerge-ts"];
 
 /** Тег читает человек, digest фиксирует базу: перевыпущенный тег не меняет следующий выпуск. */
 function assertNodeBasesPinnedByDigest(path, dockerfile) {
@@ -399,6 +412,13 @@ function assertNodeBasesPinnedByDigest(path, dockerfile) {
   for (const base of nodeBases) {
     assert.match(base, /^FROM node:[^\s@]+@sha256:[a-f0-9]{64}$/u, `${path}: ${base}`);
   }
+}
+
+function peerAllowedVersions(workspace) {
+  const rules = workspace.match(/^peerDependencyRules:\n {2}allowedVersions:\n((?: {4}.*\n)*)/mu);
+  return rules === null ? {} : Object.fromEntries(
+    [...rules[1].matchAll(/^ {4}"([^"]+)": "([^"]+)"$/gmu)].map((match) => [match[1], match[2]]),
+  );
 }
 
 function overrideNames(workspace) {

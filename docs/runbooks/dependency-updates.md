@@ -52,7 +52,6 @@ reviewed change of both. Current overrides (#688):
 
 | Package | Pinned by | Remove when |
 |---|---|---|
-| `fastify` | `@nestjs/platform-fastify` 11.x | Platform moves to Nest 12 (ESM) or Nest 11 ships fastify ≥ 5.12.1 |
 | `mysql2` | `prisma` 7.10.0 | a stable Prisma release pins mysql2 ≥ 3.23.1 |
 | `deepmerge-ts` | `@prisma/config` 7.10.0 | a stable Prisma release uses deepmerge-ts ≥ 8 |
 
@@ -83,6 +82,12 @@ Keep strict peer dependencies enabled and do not add peer overrides to force an 
 onto TypeScript 7. A dependency that requires the removed API must be replaced, disabled until it
 publishes a compatible stable release, or rejected. In particular, the Storybook MCP add-on remains
 out of the baseline until its stable dependency graph installs without an override.
+
+The one peer allowance is `@nestjs/swagger>typescript: 7` in `pnpm-workspace.yaml`. Swagger 12
+declares an optional TypeScript 5/6 peer only for its CLI compiler plugin, which is the sole part of
+the package that imports the TypeScript API; Platform builds with `tsc` and never loads that plugin.
+`scripts/toolchain-contract.test.mjs` keeps the allowance to that single entry and fails if any
+source imports `@nestjs/swagger/plugin`.
 
 ## Oxlint coverage boundaries
 
