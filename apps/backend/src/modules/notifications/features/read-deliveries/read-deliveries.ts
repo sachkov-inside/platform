@@ -1,7 +1,6 @@
-import { lockNotification } from "../../../../infrastructure/prisma/index.js";
 import { z } from 'zod';
 import type { Accounts } from '../../../accounts/index.js';
-import type { NotificationsPrismaClient } from '../../../../infrastructure/prisma/index.js';
+import { lockNotification, type NotificationsPrismaClient } from '../../../../infrastructure/prisma/index.js';
 import { channelSchema, fingerprint } from '../../domain/notification-wire.js';
 export const recoverySchema = z.strictObject({ operationId: z.uuid(), deliveryRef: z.uuid(), action: z.literal('skip') });
 export const deliveryViewSchema = z.object({ id: z.uuid(), notificationId: z.uuid(), channel: channelSchema,

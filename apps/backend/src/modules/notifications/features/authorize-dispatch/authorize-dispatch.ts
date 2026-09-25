@@ -1,5 +1,5 @@
-import { lockNotification } from "../../../../infrastructure/prisma/index.js";
 import { randomUUID } from 'node:crypto';
+import { lockNotification } from '../../../../infrastructure/prisma/index.js';
 import { authorizeSchema, dispatchResponseSchema, deliverySchema, eventSchema, fingerprint, PERMIT_LIFETIME_MS, type Channel, type DispatchResponse } from '../../domain/notification-wire.js';
 import { renderNotification } from '../../domain/templates.js';
 import { validSource, type NotificationDependencies } from '../expand-audience/expand-audience.js';

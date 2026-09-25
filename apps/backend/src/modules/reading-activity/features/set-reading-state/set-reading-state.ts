@@ -1,8 +1,7 @@
-import { lockReadingCommand, lockReadingPair } from "../../../../infrastructure/prisma/index.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
-import type { ReadingActivityPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import { lockReadingCommand, lockReadingPair, type ReadingActivityPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { accountId } from "../../../accounts/index.js";
 import type { ContentAccess } from "../../../content-access/index.js";
 import { materialId, type MaterialContent } from "../../../materials/index.js";

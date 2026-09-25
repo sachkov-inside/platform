@@ -1,10 +1,9 @@
-import { lockBillingPricing, lockBillingSubscription } from "../../../../infrastructure/prisma/index.js";
 import { isGuideCapability } from "@inside/access-capabilities";
 import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { z } from "zod";
 import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
-import type { BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import { lockBillingPricing, lockBillingSubscription, type BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { BillingContact } from "../../../accounts/index.js";
 import type { AccessGrants } from "../../../membership-entitlements/index.js";
 import { subscriptionSaleConfirmed } from "../../domain/sale-capability.js";

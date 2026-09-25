@@ -1,7 +1,6 @@
-import { lockAccountRecords } from "../../../../infrastructure/prisma/index.js";
 import { isPlatformPermission } from "../../domain/platform-permission.js";
 import type { PlatformPermission } from "../../facets/accounts/accounts.interface.js";
-import type { AccountsPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import { lockAccountRecords, type AccountsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import {
   newAccountId,
   parseAccountId,

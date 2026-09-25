@@ -1,5 +1,5 @@
-import { lockAccountAccess } from "../../../infrastructure/prisma/index.js";
 import { createHash } from "node:crypto";
+import { lockAccountAccess } from "../../../infrastructure/prisma/index.js";
 import type { MembershipEntitlementsPrisma } from "../infrastructure/prisma.js";
 
 export function accessFingerprint(value: unknown): string {

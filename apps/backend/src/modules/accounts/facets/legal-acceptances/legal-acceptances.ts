@@ -1,10 +1,9 @@
-import { lockAccountRecords } from "../../../../infrastructure/prisma/index.js";
 import { createHash, randomUUID } from "node:crypto";
 
 import { z } from "zod";
 
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
-import type { AccountsPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import { lockAccountRecords, type AccountsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import {
   acceptTermsSchema,
   acceptanceScreenSchema,

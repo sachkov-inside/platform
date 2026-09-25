@@ -1,7 +1,6 @@
-import { lockBillingPricing } from "../../../../infrastructure/prisma/index.js";
 import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
-import type { BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import { lockBillingPricing, type BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { failure, idSchema, type PricingResult } from "../../domain/pricing.js";
 
 export const reservationStateSchema = z.enum(["reserved", "sent", "unknown", "confirmed", "failed"]);

@@ -1,7 +1,6 @@
-import { lockBillingSubscription } from "../../../infrastructure/prisma/index.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import type { BillingPrisma } from "../../../infrastructure/prisma/index.js";
+import { lockBillingSubscription, type BillingPrisma } from "../../../infrastructure/prisma/index.js";
 import { priceSnapshotSchema, type PriceSnapshot } from "../domain/pricing.js";
 import { subscriptionPeriodEnd } from "../domain/subscription-period.js";
 import { attemptKindSchema, type AttemptKind } from "../domain/payment-attempt.js";

@@ -1,6 +1,9 @@
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
-import { lockTelegramAccountBinding, lockBillingPricing } from "../../../../infrastructure/prisma/index.js";
-import type { BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import {
+  lockBillingPricing,
+  lockTelegramAccountBinding,
+  type BillingPrismaClient,
+} from "../../../../infrastructure/prisma/index.js";
 import { ownSubscriptionAccessQuerySchema, activationEvidenceSchema, type AccessGrants, type ActivationBindings } from "../../../membership-entitlements/index.js";
 import { tierOpenForAssignment } from "../../shared/tier-composition.js";
 import { bindingLookupQuerySchema, bindingSnapshotSchema } from "../../../membership-entitlements/index.js";

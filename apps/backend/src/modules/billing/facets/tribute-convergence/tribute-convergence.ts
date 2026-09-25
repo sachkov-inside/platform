@@ -1,6 +1,5 @@
-import { lockBillingPricing } from "../../../../infrastructure/prisma/index.js";
 import { z } from "zod";
-import type { BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import { lockBillingPricing, type BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { tierOpenForAssignment } from "../../shared/tier-composition.js";
 import { type TributeSources, tierSnapshotSchema, saveTributePolicySchema } from "../../../membership-entitlements/index.js";
 

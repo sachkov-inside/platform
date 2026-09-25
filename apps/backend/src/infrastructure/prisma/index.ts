@@ -29,20 +29,20 @@ export {
 export { PrismaClientProvider, PrismaModule } from "./prisma.module.js";
 export { Prisma } from "./generated/client.js";
 export {
-  lockAccountEntitlementChanges,
-  lockContentCoverOwner,
-  lockMaterialReferenceChanges,
-  lockMaterialSlugAllocation,
-  lockTelegramAccountBinding,
   lockAccountAccess,
+  lockAccountEntitlementChanges,
   lockAccountRecords,
   lockBillingPricing,
   lockBillingPurchase,
   lockBillingSubscription,
+  lockContentCoverOwner,
+  lockMaterialReferenceChanges,
+  lockMaterialSlugAllocation,
   lockNotification,
   lockProfileAvatarOwner,
   lockReadingCommand,
   lockReadingPair,
+  lockTelegramAccountBinding,
   lockTelegramCommunityWork,
   lockTelegramMembershipLink,
 } from "./transaction-locks.js";

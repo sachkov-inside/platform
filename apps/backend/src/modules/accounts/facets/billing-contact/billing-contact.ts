@@ -1,9 +1,8 @@
-import { lockAccountRecords } from "../../../../infrastructure/prisma/index.js";
 import { createHash, randomInt, randomUUID } from "node:crypto";
 import { paymentModes } from "@inside/legal";
 import { z } from "zod";
 import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
-import type { AccountsPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import { lockAccountRecords, type AccountsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { billingContactProtection } from "../../infrastructure/billing-contact-protection.js";
 import { shownRenewalTermsSchema } from "../legal-acceptances/legal-acceptances.contract.js";
 import {

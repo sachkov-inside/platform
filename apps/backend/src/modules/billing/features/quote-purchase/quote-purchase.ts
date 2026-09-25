@@ -1,8 +1,7 @@
-import { lockBillingPricing } from "../../../../infrastructure/prisma/index.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
-import type { BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import { lockBillingPricing, type BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { failure, idSchema, revisionSchema, priceSnapshotSchema, type PricingResult } from "../../domain/pricing.js";
 import { selectPrice } from "../../shared/select-price.js";
 

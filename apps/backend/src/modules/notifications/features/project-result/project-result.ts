@@ -1,5 +1,4 @@
-import { lockNotification } from "../../../../infrastructure/prisma/index.js";
-import type { NotificationsPrismaClient } from '../../../../infrastructure/prisma/index.js';
+import { lockNotification, type NotificationsPrismaClient } from '../../../../infrastructure/prisma/index.js';
 import { parseWire, resultSchema, dispatchResponseSchema, type Channel } from '../../domain/notification-wire.js';
 
 export async function acceptDeliveryResult(prisma: NotificationsPrismaClient, channel: Channel, input: unknown) {

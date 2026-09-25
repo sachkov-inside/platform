@@ -486,7 +486,6 @@ describe("TelegramMembership", () => {
             select exists (
               select 1 from pg_stat_activity
               where datname = current_database() and wait_event = 'advisory'
-                and query ilike '%insert into%link_transactions%'
                 and ${bindingPid}::integer = any(pg_blocking_pids(pid))
             ) as waiting
           `,

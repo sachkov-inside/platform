@@ -1,7 +1,6 @@
-import { lockBillingSubscription } from "../../../../infrastructure/prisma/index.js";
 import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
-import type { BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import { lockBillingSubscription, type BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { NotificationSource } from "../../../notifications/index.js";
 import {
   BILLING_CABINET_PATH, noticeConditions, noticeEventSchema, noticeKindSchema, noticeViewSchema,

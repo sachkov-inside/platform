@@ -1,5 +1,4 @@
-import { lockTelegramCommunityWork } from "../../../../infrastructure/prisma/index.js";
-import type { TelegramMembershipPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import { lockTelegramCommunityWork, type TelegramMembershipPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import {
   COMMUNITY_OVERDUE_MS,
   COMMUNITY_RECONCILIATION_INTERVAL_MS,

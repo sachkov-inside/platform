@@ -1,6 +1,5 @@
-import { lockAccountRecords } from "../../../../infrastructure/prisma/index.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
-import type { AccountsPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import { lockAccountRecords, type AccountsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { newAccountId, parseAccountId } from "../../domain/account-identifiers.js";
 import type {
   EstablishAccountResult,

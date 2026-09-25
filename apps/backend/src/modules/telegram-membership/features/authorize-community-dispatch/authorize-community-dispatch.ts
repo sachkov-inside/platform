@@ -1,11 +1,11 @@
-import { lockTelegramCommunityWork } from "../../../../infrastructure/prisma/index.js";
 import { randomUUID } from "node:crypto";
 
 import { contractDigest } from "../../../../infrastructure/contracts/canonical-digest.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
-import type {
-  TelegramMembershipPrisma,
-  TelegramMembershipPrismaClient,
+import {
+  lockTelegramCommunityWork,
+  type TelegramMembershipPrisma,
+  type TelegramMembershipPrismaClient,
 } from "../../../../infrastructure/prisma/index.js";
 import type { AccessGrants } from "../../../membership-entitlements/index.js";
 import {
