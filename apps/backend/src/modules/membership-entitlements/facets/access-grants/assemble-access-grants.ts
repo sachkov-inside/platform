@@ -14,7 +14,7 @@ import { accessFingerprint } from "../../shared/access-receipts.js";
 import { assignEnrollment } from "../../features/assign-enrollment/assign-enrollment.js";
 import { changeEnrollment } from "../../features/change-enrollment/change-enrollment.js";
 import { assignEnrollmentSchema, enrollmentResultSchema } from "../../domain/subscription-enrollment.js";
-import { setAccessSnapshotIsolation } from "../../infrastructure/access-lock.js";
+import { setAccessSnapshotIsolation } from "../../infrastructure/access-isolation.js";
 import { z } from "zod";
 import { accountId, type Accounts, type PlatformPermission } from "../../../accounts/index.js";
 import type { MembershipEntitlementsPrismaClient } from "../../infrastructure/prisma.js";

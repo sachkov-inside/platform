@@ -1,12 +1,16 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
-import type { BillingPrisma, BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import {
+  lockBillingPurchase,
+  lockBillingSubscription,
+  type BillingPrisma,
+  type BillingPrismaClient,
+} from "../../../../infrastructure/prisma/index.js";
 import { paidPeriodCommandSchema } from "../../../membership-entitlements/index.js";
 import { lifecycleWindow, refundSourceRef } from "../../domain/notice.js";
 import { ownerFailure, type OwnerOperation, type OwnerResult } from "../../domain/owner-operations.js";
 import { priceSnapshotSchema } from "../../domain/pricing.js";
-import { lockPurchase, lockSubscription } from "../../infrastructure/postgres/catalog-lock.js";
 import { refundTerminalStatuses, type BankRefund, type Tbank } from "../../infrastructure/tbank/tbank.js";
 import { recordBillingNotice } from "../../shared/record-notice.js";
 import { advanceSubscription } from "../../shared/subscription-outcome.js";
@@ -34,7 +38,7 @@ export async function executeRefund(dependencies: Dependencies, actorId: string,
   if (decision === null) return ownerFailure("not_found");
   const prepared = await prisma.$transaction(async (tx): Promise<Extract<OwnerResult, { ok: false }> | { readonly ok: true; readonly refundRef: string }> => {
     const now = dependencies.clock();
-    await lockPurchase(tx, decision.purchaseRef);
+    await lockBillingPurchase(tx, decision.purchaseRef);
     const current = await tx.billingRefundDecision.findUniqueOrThrow({ where: { id: decision.id } });
     if (current.revision !== command.expectedRevision) return ownerFailure("revision_conflict");
     if (current.state === "executing") return ownerFailure("refund_in_progress");
@@ -109,7 +113,7 @@ async function sendRefund(dependencies: Dependencies, refundRef: string): Promis
     : refundTerminalStatuses.some(status => status === observed.Status) ? "confirmed" : "unknown";
   await prisma.$transaction(async tx => {
     const now = dependencies.clock();
-    await lockPurchase(tx, row.purchaseRef);
+    await lockBillingPurchase(tx, row.purchaseRef);
     const attempt = await tx.billingRefund.findUniqueOrThrow({ where: { id: row.id } });
     if (attempt.state === "confirmed" || attempt.state === "failed") return;
     await tx.billingRefund.update({ where: { id: row.id },
@@ -137,7 +141,7 @@ async function sendRefund(dependencies: Dependencies, refundRef: string): Promis
 async function cancelRenewal(tx: BillingPrisma, purchaseRef: string, now: Date): Promise<void> {
   const purchase = await tx.billingPurchase.findUniqueOrThrow({ where: { id: purchaseRef } });
   if (purchase.subscriptionRef === null) return;
-  await lockSubscription(tx, purchase.subscriptionRef);
+  await lockBillingSubscription(tx, purchase.subscriptionRef);
   const subscription = await tx.billingSubscription.findUniqueOrThrow({ where: { id: purchase.subscriptionRef } });
   if (subscription.state !== "active") return;
   await advanceSubscription(tx, subscription, { state: "canceled", pendingChange: {} }, "renewal_canceled",

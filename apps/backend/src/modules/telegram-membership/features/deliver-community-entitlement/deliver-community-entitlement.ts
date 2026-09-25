@@ -1,4 +1,4 @@
-import type { TelegramMembershipPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import { lockTelegramCommunityWork, type TelegramMembershipPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import {
   COMMUNITY_OVERDUE_MS,
   COMMUNITY_RECONCILIATION_INTERVAL_MS,
@@ -7,7 +7,6 @@ import {
   communitySetSchema,
   type CommunityResult,
 } from "../../domain/community-entitlement.js";
-import { lockCommunityWork } from "../../infrastructure/community-lock.js";
 import { hasNewerCommand } from "../../shared/newer-community-command.js";
 import type {
   CommunityDeliveryOutcome,
@@ -83,7 +82,7 @@ export async function deliverCommunityOperations(
     sent += 1;
     const settled = await dependencies.prisma.$transaction(
       async (transaction) => {
-        await lockCommunityWork(transaction, row.accountId);
+        await lockTelegramCommunityWork(transaction, row.accountId);
         const current = await transaction.telegramCommunityOperation.findUnique(
           { where: { operationId: row.operationId } },
         );

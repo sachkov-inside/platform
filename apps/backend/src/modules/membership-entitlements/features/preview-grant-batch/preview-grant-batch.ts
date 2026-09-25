@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import { lockAccountAccess } from "../../../../infrastructure/prisma/index.js";
 import type { Accounts } from "../../../accounts/index.js";
 import type { MembershipEntitlementsPrismaClient } from "../../infrastructure/prisma.js";
-import { lockAccess } from "../../infrastructure/access-lock.js";
 import {
   accessFailure,
   classificationTermsAgree,
@@ -111,7 +111,7 @@ export async function previewGrantBatch(
   if (!parsed.success) return accessFailure("invalid_input");
   const fingerprint = accessFingerprint(parsed.data);
   return prisma.$transaction(async (transaction) => {
-    await lockAccess(
+    await lockAccountAccess(
       transaction,
       `preview:${actorId}:${parsed.data.operationId}`,
     );

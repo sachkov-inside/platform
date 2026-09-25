@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
+import { lockNotification } from '../../../../infrastructure/prisma/index.js';
 import { authorizeSchema, dispatchResponseSchema, deliverySchema, eventSchema, fingerprint, PERMIT_LIFETIME_MS, type Channel, type DispatchResponse } from '../../domain/notification-wire.js';
 import { renderNotification } from '../../domain/templates.js';
 import { validSource, type NotificationDependencies } from '../expand-audience/expand-audience.js';
 import { optedIn } from '../change-preferences/change-preferences.js';
-import { lockNotification } from '../../infrastructure/locks.js';
 
 export async function authorizeDispatch(deps: NotificationDependencies, channel: Channel, input: unknown): Promise<DispatchResponse> {
   const request = authorizeSchema.parse(input);

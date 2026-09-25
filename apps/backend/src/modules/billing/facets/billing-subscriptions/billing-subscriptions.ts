@@ -1,7 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
-import type { BillingPrisma, BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import {
+  lockBillingPricing,
+  lockBillingSubscription,
+  type BillingPrisma,
+  type BillingPrismaClient,
+} from "../../../../infrastructure/prisma/index.js";
 import type { BillingContact } from "../../../accounts/index.js";
 import type { AccessGrants } from "../../../membership-entitlements/index.js";
 import { offerSchema, optionSchema, priceSnapshotSchema, type PriceSnapshot } from "../../domain/pricing.js";
@@ -16,7 +21,6 @@ import {
 } from "../../features/manage-subscription/manage-subscription.contract.js";
 import { changeMethodSchema, methodFlowSchema, revokeMethodSchema, type MethodFlowResult } from "../../features/change-payment-method/change-payment-method.contract.js";
 import { paymentFailure, type PaymentResult } from "../../features/purchase-subscription/purchase-subscription.contract.js";
-import { lockPricing, lockSubscription } from "../../infrastructure/postgres/catalog-lock.js";
 import type { Tbank } from "../../infrastructure/tbank/tbank.js";
 import { lifecycleWindow, renewalCancelledSourceRef } from "../../domain/notice.js";
 import { recordBillingNotice, supersedeRenewalReminders } from "../../shared/record-notice.js";
@@ -125,7 +129,7 @@ export class BillingSubscriptions {
         const previous = await tx.billingChangeQuote.findUnique({ where: { accountId_operationId: { accountId, operationId: command.operationId } } });
         if (previous) return previous.fingerprint === digest
           ? { ok: true, value: quoteResult(previous.id, previous.baseRevision, previous.plan, previous.expiresAt) } : paymentFailure("operation_conflict");
-        await lockPricing(tx);
+        await lockBillingPricing(tx);
         const row = await tx.billingSubscription.findFirst({ where: { accountId, state: { not: "ended" } } });
         if (!row) return paymentFailure("not_found");
         if (row.revision !== command.expectedRevision) return paymentFailure("revision_conflict");
@@ -160,12 +164,12 @@ export class BillingSubscriptions {
       }
       accepted ??= await prisma.$transaction(async tx => {
         const now = this.clock();
-        await lockPricing(tx);
+        await lockBillingPricing(tx);
         const quote = await tx.billingChangeQuote.findFirst({ where: { id: command.changeQuoteRef, accountId } });
         if (!quote) throw new CommandFailure("not_found");
         if (quote.expiresAt <= now) throw new CommandFailure("quote_expired");
         const plan = changePlanSchema.parse(quote.plan);
-        await lockSubscription(tx, quote.subscriptionRef);
+        await lockBillingSubscription(tx, quote.subscriptionRef);
         const row = await tx.billingSubscription.findUniqueOrThrow({ where: { id: quote.subscriptionRef } });
         if (row.revision !== command.expectedRevision || row.revision !== quote.baseRevision) throw new CommandFailure("revision_conflict");
         if (plan.kind === "scheduled" && row.state !== "active") throw new CommandFailure("revision_conflict");
@@ -251,7 +255,7 @@ export class BillingSubscriptions {
         const row = await tx.billingSubscription.findFirst({ where: { accountId, state: { not: "ended" } } });
         if (!row) return paymentFailure("not_found");
         if (row.revision !== command.expectedRevision) return paymentFailure("revision_conflict");
-        await lockSubscription(tx, row.id);
+        await lockBillingSubscription(tx, row.id);
         if (await tx.billingPaymentMethodFlow.count({ where: { subscriptionRef: row.id, state: "started" } })) return paymentFailure("operation_conflict");
         const id = randomUUID();
         // Сессия привязки существует локально до обращения к банку; её ключ приходит ответом.
@@ -316,7 +320,7 @@ export class BillingSubscriptions {
         if (!observed.rebillId) continue;
         const rebillId = observed.rebillId;
         applied += await prisma.$transaction(async tx => {
-          await lockSubscription(tx, row.subscriptionRef);
+          await lockBillingSubscription(tx, row.subscriptionRef);
           const flow = await tx.billingPaymentMethodFlow.findUniqueOrThrow({ where: { id: row.id } });
           if (flow.state !== "started") return 0;
           const subscription = await tx.billingSubscription.findUniqueOrThrow({ where: { id: row.subscriptionRef } });
@@ -377,7 +381,7 @@ export class BillingSubscriptions {
           ? { ok: true, value: subscriptionViewSchema.parse(existing.result) } : paymentFailure("operation_conflict");
         const found = await tx.billingSubscription.findFirst({ where: { accountId, state: { not: "ended" } } });
         if (!found) return paymentFailure("not_found");
-        await lockSubscription(tx, found.id);
+        await lockBillingSubscription(tx, found.id);
         const row = await tx.billingSubscription.findUniqueOrThrow({ where: { id: found.id } });
         const result = await run(tx, row, now);
         if (!result.ok) return result;

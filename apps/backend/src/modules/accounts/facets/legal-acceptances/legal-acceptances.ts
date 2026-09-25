@@ -3,8 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
-import type { AccountsPrismaClient } from "../../../../infrastructure/prisma/index.js";
-import { acquireAccountLocks } from "../../infrastructure/postgres/advisory-locks.js";
+import { lockAccountRecords, type AccountsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import {
   acceptTermsSchema,
   acceptanceScreenSchema,
@@ -96,7 +95,7 @@ export class LegalAcceptances {
     const { prisma, now } = this.dependencies;
     try {
       return await prisma.$transaction(async (transaction) => {
-        await acquireAccountLocks(transaction, [`legal-acceptance:${accountId}`]);
+        await lockAccountRecords(transaction, [`legal-acceptance:${accountId}`]);
         if (!(await transaction.account.findUnique({ where: { id: accountId } })))
           return legalAcceptanceFailure("forbidden");
         const repeated = await transaction.legalAcceptance.findUnique({

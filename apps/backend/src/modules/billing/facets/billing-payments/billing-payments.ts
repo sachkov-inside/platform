@@ -3,13 +3,12 @@ import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { z } from "zod";
 import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
-import type { BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import { lockBillingPricing, lockBillingSubscription, type BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { BillingContact } from "../../../accounts/index.js";
 import type { AccessGrants } from "../../../membership-entitlements/index.js";
 import { subscriptionSaleConfirmed } from "../../domain/sale-capability.js";
 import { paymentMode, priceSnapshotSchema } from "../../domain/pricing.js";
 import { subscriptionPeriodEnd } from "../../domain/subscription-period.js";
-import { lockPricing, lockSubscription } from "../../infrastructure/postgres/catalog-lock.js";
 import { bankTimeoutMs, type Tbank, validatedPaymentUrl, type BankPayment, type PaymentInitiator } from "../../infrastructure/tbank/tbank.js";
 import { reservePurchaseInTransaction } from "../../features/reserve-purchase/reserve-purchase.js";
 import { paymentFailure, purchaseSubscriptionSchema, purchaseStatusSchema, type PaymentResult, type PurchaseStatus } from "../../features/purchase-subscription/purchase-subscription.contract.js";
@@ -85,7 +84,7 @@ export class BillingPayments {
         (!recurring && evidence.some(value => value.document.kind === "recurring")) ||
         !requiredConsents.every(kind => evidence.some(value => value.document.kind === kind))) return paymentFailure("consent_required");
       const prepared = await this.dependencies.prisma.$transaction(async (tx): Promise<PaymentResult<string>> => {
-        await lockPricing(tx);
+        await lockBillingPricing(tx);
         const key = { accountId, operationId: command.operationId };
         const existingCommand = await tx.billingPurchaseCommand.findUnique({ where: { accountId_operationId: key } });
         if (existingCommand) return existingCommand.fingerprint === fingerprint ? { ok: true, value: existingCommand.purchaseRef } : paymentFailure("operation_conflict");
@@ -249,7 +248,7 @@ export class BillingPayments {
       let closed = 0;
       for (const subscription of lapsed) closed += await prisma.$transaction(async tx => {
         const now = this.clock();
-        await lockSubscription(tx, subscription.id);
+        await lockBillingSubscription(tx, subscription.id);
         await endLapsedSubscriptions(tx, subscription.accountId, now);
         return (await tx.billingSubscription.findUniqueOrThrow({ where: { id: subscription.id } })).state === "ended" ? 1 : 0;
       });
@@ -273,13 +272,13 @@ export class BillingPayments {
     const { prisma, bank } = this.dependencies;
     if (!bank) return;
     const prepared = await prisma.$transaction(async tx => {
-      await lockPricing(tx);
+      await lockBillingPricing(tx);
       const row = await tx.billingPurchase.findUnique({ where: { id: attemptRef } });
       if (!row || row.state !== "prepared" || row.terminalRef !== bank.config.terminalKey || row.environment !== bank.config.environment) return undefined;
       const kind = attemptKindSchema.parse(row.kind);
       const now = this.clock();
       if (row.subscriptionRef) {
-        await lockSubscription(tx, row.subscriptionRef);
+        await lockBillingSubscription(tx, row.subscriptionRef);
         const subscription = await tx.billingSubscription.findUnique({ where: { id: row.subscriptionRef } });
         // Отмена останавливает только продление; принятое повышение оплачивает действующий срок.
         const schedulable = kind === "renewal" ? subscription?.state === "active" : subscription?.state !== "ended";
@@ -306,7 +305,7 @@ export class BillingPayments {
     } catch (error) {
       reportDependencyFailure({ module: "billing", operation: "dispatch" }, error);
       await prisma.$transaction(async tx => {
-        await lockPricing(tx);
+        await lockBillingPricing(tx);
         const changed = await tx.billingPurchase.updateMany({ where: { id: row.id, state: { in: ["sent", "pending"] } }, data: { state: "unknown", updatedAt: this.clock() } });
         if (changed.count && isQuotedPurchase(kind)) await tx.billingPromoReservation.update({ where: { purchaseRef: attemptRef }, data: { state: "unknown" } });
       });
@@ -328,8 +327,8 @@ export class BillingPayments {
     const amountKopecks = snapshot.renewalPriceKopecks;
     const withinLimits = amountKopecks >= bank.config.minimumKopecks && amountKopecks <= bank.config.maximumKopecks;
     return await prisma.$transaction(async (tx): Promise<{ attemptRef?: string; blocked?: boolean }> => {
-      await lockPricing(tx);
-      await lockSubscription(tx, subscriptionRef);
+      await lockBillingPricing(tx);
+      await lockBillingSubscription(tx, subscriptionRef);
       const now = this.clock();
       const row = await tx.billingSubscription.findUnique({ where: { id: subscriptionRef } });
       if (!row || row.state !== "active" || row.paidUntil > now) return {};
@@ -374,13 +373,13 @@ export class BillingPayments {
     if (!bank) return paymentFailure("method_unavailable");
     try {
       return await prisma.$transaction(async tx => {
-        await lockPricing(tx);
+        await lockBillingPricing(tx);
         const row = await tx.billingPurchase.findUnique({ where: { id: payment.OrderId } });
         if (!row || row.environment !== bank.config.environment || row.terminalRef !== payment.TerminalKey || row.terminalRef !== bank.config.terminalKey ||
           Number(row.amountKopecks) !== payment.Amount || (row.paymentId !== null && row.paymentId !== payment.PaymentId) || row.state === "prepared") return paymentFailure("invalid_notification");
         const now = this.clock();
         const kind = attemptKindSchema.parse(row.kind);
-        if (row.subscriptionRef) await lockSubscription(tx, row.subscriptionRef);
+        if (row.subscriptionRef) await lockBillingSubscription(tx, row.subscriptionRef);
         if (payment.Status === "RECEIPT") {
           const fiscalization = payment.Success && payment.ErrorCode === "0" ? "confirmed" : "failed";
           // A receipt is never a payment proof. A late failure cannot overwrite confirmed fiscalization.

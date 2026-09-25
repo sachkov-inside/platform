@@ -3,9 +3,8 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { Accounts } from "../../../accounts/index.js";
 import type { TelegramAccountLinks } from "../../../telegram-membership/index.js";
-import { Prisma, lockTelegramAccountBinding, lockAccountEntitlementChanges } from "../../../../infrastructure/prisma/index.js";
+import { Prisma, lockTelegramAccountBinding, lockAccountEntitlementChanges, lockAccountAccess } from "../../../../infrastructure/prisma/index.js";
 import type { MembershipEntitlementsPrismaClient, MembershipEntitlementsPrisma } from "../../infrastructure/prisma.js";
-import { lockAccess } from "../../infrastructure/access-lock.js";
 import { accessFingerprint, readAccessReceipt } from "../../shared/access-receipts.js";
 import { sourceIdentityRef } from "../../domain/source-identity.js";
 import { tierSnapshotSchema, type TierSnapshot } from "../../domain/subscription-enrollment.js";
@@ -55,7 +54,7 @@ export class TributeSources {
       const fingerprint = accessFingerprint({ action: "tribute.policy", command });
       const previous = await readAccessReceipt(tx, actorId, command.operationId);
       if (previous) return previous.fingerprint === fingerprint ? { ok: true as const, value: tributePolicySchema.parse(previous.result) } : accessFailure("operation_conflict");
-      await lockAccess(tx, "tribute:policies");
+      await lockAccountAccess(tx, "tribute:policies");
       const current = await tx.tributePolicy.findUnique({ where: { id: command.id } });
       if ((current?.revision ?? 0) !== command.expectedRevision) return accessFailure("revision_conflict");
       if (current && current.subscriptionId !== command.subscriptionId) return accessFailure("identity_conflict");
@@ -155,7 +154,7 @@ export class TributeSources {
       const fingerprint = accessFingerprint({ action: "tribute.apply", command });
       const receipt = await readAccessReceipt(tx, actorId, command.operationId);
       if (receipt) return receipt.fingerprint === fingerprint ? { ok: true as const, value: tributeApplyResultSchema.parse(receipt.result) } : accessFailure("operation_conflict");
-      await lockAccess(tx, `tribute:preview:${command.previewRef}`);
+      await lockAccountAccess(tx, `tribute:preview:${command.previewRef}`);
       const review = await tx.tributeImportReview.findUnique({ where: { id: command.previewRef } });
       if (review === null || review.state === "dismissed") return accessFailure("preview_expired");
       const preview = await tx.accessBatchPreview.findUnique({ where: { id: command.previewRef } });
@@ -168,8 +167,8 @@ export class TributeSources {
       const orderedAccounts = [...new Set(foundAccounts)].sort();
       for (const accountId of orderedAccounts) await lockTelegramAccountBinding(tx, accountId);
       const sourceRefs = selected.map(row => sourceIdentityRef("tribute", row.policyRef, row.identityRef ?? ""));
-      for (const ref of [...new Set(sourceRefs)].sort()) await lockAccess(tx, `enrollment:tribute:${ref}`);
-      await lockAccess(tx, "tribute:policies");
+      for (const ref of [...new Set(sourceRefs)].sort()) await lockAccountAccess(tx, `enrollment:tribute:${ref}`);
+      await lockAccountAccess(tx, "tribute:policies");
       // Binding → sorted sources → policy → all sorted accounts → row mutations.
       // Taking accounts lazily after source UPSERT reverses generic owner changes and batch expansion.
       for (const accountId of orderedAccounts) await lockAccountEntitlementChanges(tx, accountId);
@@ -240,7 +239,7 @@ export class TributeSources {
       const fingerprint = accessFingerprint({ action: "tribute.dismissImport", command });
       const receipt = await readAccessReceipt(tx, actorId, command.operationId);
       if (receipt) return receipt.fingerprint === fingerprint ? { ok: true as const, value: tributeImportReviewSchema.parse(receipt.result) } : accessFailure("operation_conflict");
-      await lockAccess(tx, `tribute:preview:${command.previewRef}`);
+      await lockAccountAccess(tx, `tribute:preview:${command.previewRef}`);
       const row = await tx.tributeImportReview.findUnique({ where: { id: command.previewRef } });
       if (row === null || row.actorId !== actorId) return accessFailure("not_found");
       if (row.revision !== command.expectedRevision || row.state !== "pending") return accessFailure("revision_conflict");
@@ -262,7 +261,7 @@ export class TributeSources {
       if (receipt) return receipt.fingerprint === fingerprint ? { ok: true as const, value: tributeInboxViewSchema.parse(receipt.result) } : accessFailure("operation_conflict");
       const event = await tx.tributeInbox.findUnique({ where: { id: command.inboxId } });
       if (!event) return accessFailure("not_found");
-      await lockAccess(tx, `tribute:inbox:${event.eventKey}`);
+      await lockAccountAccess(tx, `tribute:inbox:${event.eventKey}`);
       const current = await tx.tributeInbox.findUniqueOrThrow({ where: { id: event.id } });
       if (current.revision !== command.expectedRevision) return accessFailure("revision_conflict");
       if (command.action === "reject" && current.state === "applied") return accessFailure("revision_conflict");
@@ -285,7 +284,7 @@ export class TributeSources {
       const initial = await tx.sourceEntitlement.findUnique({ where: { id: command.sourceId } });
       if (!initial || initial.origin !== "tribute" || initial.tributeState == null) return accessFailure("not_found");
       if (initial.accountId !== null) await lockTelegramAccountBinding(tx, initial.accountId);
-      await lockAccess(tx, `enrollment:tribute:${initial.sourceRef}`);
+      await lockAccountAccess(tx, `enrollment:tribute:${initial.sourceRef}`);
       const source = await tx.sourceEntitlement.findUniqueOrThrow({ where: { id: initial.id } });
       if (source.revision !== command.expectedRevision) return accessFailure("revision_conflict");
       const state = tributeStateSchema.parse(source.tributeState);
@@ -330,7 +329,7 @@ export class TributeSources {
       const link = await this.dependencies.links.findCurrentByIdentity(candidate.identityRef);
       await prisma.$transaction(async tx => {
         if (link.ok && link.state === "found") await lockTelegramAccountBinding(tx, link.recipient.accountId);
-        await lockAccess(tx, `enrollment:tribute:${candidate.sourceRef}`);
+        await lockAccountAccess(tx, `enrollment:tribute:${candidate.sourceRef}`);
         const row = await tx.sourceEntitlement.findUniqueOrThrow({ where: { id: candidate.id } });
         const accountIds = [row.accountId, link.ok && link.state === "found" ? link.recipient.accountId : null]
           .filter((id): id is string => id !== null);

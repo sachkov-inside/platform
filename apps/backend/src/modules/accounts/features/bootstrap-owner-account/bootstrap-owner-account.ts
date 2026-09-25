@@ -1,11 +1,10 @@
 import { isPlatformPermission } from "../../domain/platform-permission.js";
 import type { PlatformPermission } from "../../facets/accounts/accounts.interface.js";
-import type { AccountsPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import { lockAccountRecords, type AccountsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import {
   newAccountId,
   parseAccountId,
 } from "../../domain/account-identifiers.js";
-import { acquireAccountLocks } from "../../infrastructure/postgres/advisory-locks.js";
 import { appendAccountAuditEvent } from "../../infrastructure/postgres/account-audit.js";
 import { validLogtoIdentity } from "../../shared/account-input.js";
 
@@ -25,7 +24,7 @@ export async function bootstrapOwnerAccount(
   }
 
   return prisma.$transaction(async (transaction) => {
-    await acquireAccountLocks(transaction, [
+    await lockAccountRecords(transaction, [
       `logto:${JSON.stringify([identity.issuer, identity.subject])}`,
     ]);
     const existing = await transaction.account.findUnique({

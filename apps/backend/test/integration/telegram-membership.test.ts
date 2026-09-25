@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
 
-import { Prisma } from "../../src/infrastructure/prisma/index.js";
+import { lockTelegramAccountBinding, Prisma } from "../../src/infrastructure/prisma/index.js";
 import { accountId } from "../../src/modules/accounts/index.js";
 
 import type { MembershipEntitlements } from "../../src/modules/membership-entitlements/index.js";
@@ -20,6 +20,7 @@ import type {
   TelegramLinkProviderConfirmation,
   TelegramLinkProviderRegistration,
 } from "../../src/modules/telegram-membership/ports/telegram-link-provider.js";
+import { eventually } from "./setup/eventually.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -460,6 +461,45 @@ describe("TelegramMembership", () => {
     });
     expect(provider.registerRequests).toHaveLength(1);
   });
+
+  // Frozen migration 0039 writes the binding key into its trigger, where the architecture
+  // guardrail cannot see it. The link row write waiting on the held lock proves both keys are one;
+  // the table name, fixed by that migration, keeps a direct lock call in beginLink from passing.
+  test("holds the link revision trigger behind the Telegram binding lock", async () => {
+    ({ membership } = fixture(database));
+    const locked = deferred<number>();
+    const release = deferred<undefined>();
+    const binding = database.prisma.$transaction(async (transaction) => {
+      await lockTelegramAccountBinding(transaction, firstAccountId);
+      const [backend] = z.array(z.object({ pid: z.int().positive() })).parse(
+        await transaction.$queryRaw`select pg_backend_pid() as pid`,
+      );
+      if (backend === undefined) throw new Error("Missing binding transaction pid");
+      locked.resolve(backend.pid);
+      await release.promise;
+    }, { timeout: 15_000 });
+    const bindingPid = await locked.promise;
+    const begun = membership.beginLink({ accountId: firstAccountId });
+    try {
+      await eventually(async () => {
+        const [row] = z.array(z.object({ waiting: z.boolean() })).parse(
+          await database.prisma.$queryRaw`
+            select exists (
+              select 1 from pg_stat_activity
+              where datname = current_database() and wait_event = 'advisory'
+                and query ilike '%link_transactions%'
+                and ${bindingPid}::integer = any(pg_blocking_pids(pid))
+            ) as waiting
+          `,
+        );
+        expect(row?.waiting).toBe(true);
+      }, 5_000);
+    } finally {
+      release.resolve(undefined);
+    }
+    await binding;
+    await expect(begun).resolves.toMatchObject({ ok: true, state: { status: "pending" } });
+  }, 20_000);
 });
 
 class ControlledTelegramLinkProvider implements TelegramLinkProvider {
@@ -567,4 +607,12 @@ function evidence(
     evidenceRef: `evidence-${String(evidenceVersion)}`,
     evidenceVersion,
   };
+}
+
+function deferred<T>(): { readonly promise: Promise<T>; readonly resolve: (value: T) => void } {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((settle) => {
+    resolve = settle;
+  });
+  return { promise, resolve };
 }

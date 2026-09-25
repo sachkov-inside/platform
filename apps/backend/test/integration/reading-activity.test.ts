@@ -2,7 +2,7 @@ import { assembleLegacyCohortFixture } from "./setup/legacy-cohort.js";
 import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
-import { createPrismaClient, type PlatformPrisma } from "../../src/infrastructure/prisma/index.js";
+import { createPrismaClient, lockReadingPair, type PlatformPrisma } from "../../src/infrastructure/prisma/index.js";
 import { accountId as checkedAccountId } from "../../src/modules/accounts/index.js";
 import { assembleMaterials, assembleMaterialResourceFacts, PublishedSeriesComposition } from "../../src/modules/materials/index.js";
 import { assembleContentAccess } from "../../src/modules/content-access/index.js";
@@ -205,7 +205,9 @@ describe("ReadingActivity on PostgreSQL", () => {
     const admin = new Pool({ connectionString: database.url });
     const session = await admin.connect();
     await session.query("BEGIN");
-    await session.query("select pg_advisory_xact_lock(hashtextextended($1, 0::bigint))", [`reading-pair:${accountId}:${id}`]);
+    await lockReadingPair({
+      async $executeRaw(query) { await session.query(query.text, query.values); return 0; },
+    }, accountId, id);
     const access = assembleContentAccess({
       materialResourceFacts: assembleMaterialResourceFacts(materials.materialContent),
       accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) }, membershipEntitlements: membership,

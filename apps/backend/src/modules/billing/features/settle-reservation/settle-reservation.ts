@@ -1,8 +1,7 @@
 import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
-import type { BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import { lockBillingPricing, type BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { failure, idSchema, type PricingResult } from "../../domain/pricing.js";
-import { lockPricing } from "../../infrastructure/postgres/catalog-lock.js";
 
 export const reservationStateSchema = z.enum(["reserved", "sent", "unknown", "confirmed", "failed"]);
 export type ReservationState = z.infer<typeof reservationStateSchema>;
@@ -23,7 +22,7 @@ export async function settleReservation(prisma: BillingPrismaClient, input: Sett
   if (!parsed.success) return failure("invalid_request");
   try {
     return await prisma.$transaction(async (tx): Promise<SettleReservationResult> => {
-      await lockPricing(tx);
+      await lockBillingPricing(tx);
       const command = parsed.data;
       const row = await tx.billingPromoReservation.findUnique({ where: { purchaseRef: command.purchaseRef } });
       if (!row || row.accountId !== command.accountId) return failure("not_found");

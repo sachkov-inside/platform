@@ -1,13 +1,12 @@
 import { stageDeliveryCommand } from '../../infrastructure/stage-delivery-command.js';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import type { NotificationsPrisma, NotificationsPrismaClient } from '../../../../infrastructure/prisma/index.js';
+import { lockNotification, type NotificationsPrisma, type NotificationsPrismaClient } from '../../../../infrastructure/prisma/index.js';
 import { MATERIAL_EVENT_LIFETIME_MS } from '../../../../infrastructure/notification-transport/wire.js';
 import { eventSchema, deliverySchema, parseWire, commandWindow, fingerprint, type NotificationEvent, type Channel } from '../../domain/notification-wire.js';
 import { renderNotification } from '../../domain/templates.js';
 import type { NotificationRecipients, NotificationSources, NotificationSource, QuarantineNotification } from '../../ports/notification-sources.js';
 import { optedIn } from '../change-preferences/change-preferences.js';
-import { lockNotification } from '../../infrastructure/locks.js';
 import { inboxKey, recordRowFailure, UnprocessableRow, type InboxRow, type SweepObservation } from '../../infrastructure/row-fate.js';
 
 export interface NotificationDependencies {

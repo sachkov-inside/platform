@@ -1,10 +1,9 @@
 import { tierSnapshotSchema } from "../../domain/subscription-enrollment.js";
-import { lockAccountEntitlementChanges } from "../../../../infrastructure/prisma/index.js";
+import { lockAccountEntitlementChanges, lockAccountAccess } from "../../../../infrastructure/prisma/index.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { Accounts } from "../../../accounts/index.js";
 import type { MembershipEntitlementsPrismaClient } from "../../infrastructure/prisma.js";
-import { lockAccess } from "../../infrastructure/access-lock.js";
 import {
   accessFailure,
   accessFailureSchema,
@@ -65,7 +64,7 @@ export async function applyPaidPeriod(
         ? paidResultSchema.parse(receipt.result)
         : accessFailure("operation_conflict");
     await lockAccountEntitlementChanges(transaction, command.accountId);
-    await lockAccess(transaction, `paid:${command.periodRef}`);
+    await lockAccountAccess(transaction, `paid:${command.periodRef}`);
     const existing = await transaction.accessGrant.findUnique({
       where: {
         source_sourceRef: { source: "paid", sourceRef: command.periodRef },

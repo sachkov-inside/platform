@@ -1,8 +1,8 @@
+import { lockNotification } from '../../../../infrastructure/prisma/index.js';
 import { stageDeliveryCommand } from '../../infrastructure/stage-delivery-command.js';
 import { randomUUID } from 'node:crypto';
 import { deliverySchema, eventSchema, fingerprint, commandWindow, channelSchema } from '../../domain/notification-wire.js';
 import { renderNotification } from '../../domain/templates.js';
-import { lockNotification } from '../../infrastructure/locks.js';
 import { optedIn } from '../change-preferences/change-preferences.js';
 import { validSource, type NotificationDependencies } from './expand-audience.js';
 

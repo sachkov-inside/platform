@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
-import type { BillingPrisma, BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import { lockBillingPurchase, type BillingPrisma, type BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { ownerFailure, refundAccessFor, type OwnerOperation, type OwnerResult } from "../../domain/owner-operations.js";
-import { lockPurchase } from "../../infrastructure/postgres/catalog-lock.js";
 import { refundTotals } from "../../shared/refund-amounts.js";
 import { refundDecisionViews } from "../read-payments/read-payments.js";
 
@@ -18,7 +17,7 @@ export async function decideRefund(prisma: BillingPrismaClient, actorId: string,
   now: Date): Promise<OwnerResult> {
   try {
     return await prisma.$transaction(async (tx): Promise<OwnerResult> => {
-      await lockPurchase(tx, command.purchaseRef);
+      await lockBillingPurchase(tx, command.purchaseRef);
       const previous = await tx.billingRefundDecision.findUnique({
         where: { actorId_operationId: { actorId, operationId: command.operationId } } });
       // Решение того же operationId по другому платежу — другая команда, а не повтор этой.

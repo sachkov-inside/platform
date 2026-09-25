@@ -1,7 +1,7 @@
 import { resolveAccessCapabilities, readAccessCapabilityFacts, projectAccessCapabilities } from "../resolve-access-capabilities/resolve-access-capabilities.js";
 import type { AccountId } from "../../../accounts/index.js";
 import type { MembershipEntitlementsPrismaClient } from "../../infrastructure/prisma.js";
-import { setAccessSnapshotIsolation } from "../../infrastructure/access-lock.js";
+import { setAccessSnapshotIsolation } from "../../infrastructure/access-isolation.js";
 import type { MembershipAccessState } from "../../facets/membership-entitlements/membership-entitlements.interface.js";
 import { guideCapability } from "@inside/access-capabilities";
 

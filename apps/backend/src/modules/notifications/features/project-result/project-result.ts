@@ -1,6 +1,5 @@
-import type { NotificationsPrismaClient } from '../../../../infrastructure/prisma/index.js';
+import { lockNotification, type NotificationsPrismaClient } from '../../../../infrastructure/prisma/index.js';
 import { parseWire, resultSchema, dispatchResponseSchema, type Channel } from '../../domain/notification-wire.js';
-import { lockNotification } from '../../infrastructure/locks.js';
 
 export async function acceptDeliveryResult(prisma: NotificationsPrismaClient, channel: Channel, input: unknown) {
   const { value: result, envelope } = parseWire(channel === 'email' ? 'emailResult' : 'telegramResult', input, resultSchema);

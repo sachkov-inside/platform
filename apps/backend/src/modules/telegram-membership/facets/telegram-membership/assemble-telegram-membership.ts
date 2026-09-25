@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
-  Prisma,
+  lockTelegramMembershipLink,
   type TelegramMembershipPrisma,
   type TelegramMembershipPrismaClient,
 } from "../../../../infrastructure/prisma/index.js";
@@ -32,9 +32,6 @@ const principalEnvelopeSchema = z.looseObject({
   principalRef: z.string().min(1).max(256),
 });
 const linkRefSchema = z.uuid();
-const advisoryLockRowsSchema = z
-  .array(z.object({ lock: z.string() }).strict())
-  .length(1);
 
 export interface TelegramMembershipDependencies {
   readonly botStartUrl: string;
@@ -100,15 +97,7 @@ async function beginLink(
   now: Date,
 ): Promise<TelegramLinkResult> {
   const claim = await dependencies.prisma.$transaction(async (prisma) => {
-    const lockKey = `telegram-membership-link:${account}`;
-    advisoryLockRowsSchema.parse(
-      await prisma.$queryRaw(Prisma.sql`
-        select
-          pg_advisory_xact_lock(
-            hashtextextended(${lockKey}, 0::bigint)
-          )::text as lock
-      `),
-    );
+    await lockTelegramMembershipLink(prisma, account);
     const current = await currentLinkForBegin(prisma, account, now);
     if (current !== undefined) return { current } as const;
 

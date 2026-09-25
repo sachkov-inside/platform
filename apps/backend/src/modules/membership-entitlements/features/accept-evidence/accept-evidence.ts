@@ -1,6 +1,5 @@
 import type { ActivationBindings } from "../../domain/subscription-activation.js";
 import { observeTemporaryTribute } from "../manage-tribute/observe-temporary-tribute.js";
-import { lockAccess } from "../../infrastructure/access-lock.js";
 import { createHash, randomUUID } from "node:crypto";
 
 import { z } from "zod";
@@ -9,6 +8,7 @@ import {
   lockAccountEntitlementChanges,
   lockTelegramAccountBinding,
   Prisma,
+  lockAccountAccess,
 } from "../../../../infrastructure/prisma/index.js";
 import type {
   MembershipEntitlementsPrismaClient,
@@ -142,7 +142,7 @@ export async function acceptMembershipEvidence(
   return prisma.$transaction(async (transaction) => {
     await lockTelegramAccountBinding(transaction, command.accountId);
     const tributeCandidates = await transaction.sourceEntitlement.findMany({ where: { origin: "tribute", accountId: command.accountId }, orderBy: { sourceRef: "asc" } });
-    for (const source of tributeCandidates) await lockAccess(transaction, `enrollment:tribute:${source.sourceRef}`);
+    for (const source of tributeCandidates) await lockAccountAccess(transaction, `enrollment:tribute:${source.sourceRef}`);
     await lockAccountEntitlementChanges(transaction, command.accountId);
     const inserted = await transaction.$executeRaw(Prisma.sql`
       insert into membership_entitlements.evidence_receipts (

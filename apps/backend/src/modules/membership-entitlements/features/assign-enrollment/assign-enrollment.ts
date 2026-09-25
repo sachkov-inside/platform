@@ -2,9 +2,8 @@ import type { ActivationBindings } from "../../domain/subscription-activation.js
 import { enrollmentView } from "../../shared/enrollment-view.js";
 import type { z } from "zod";
 import { randomUUID } from "node:crypto";
-import { lockTelegramAccountBinding, lockAccountEntitlementChanges } from "../../../../infrastructure/prisma/index.js";
+import { lockTelegramAccountBinding, lockAccountEntitlementChanges, lockAccountAccess } from "../../../../infrastructure/prisma/index.js";
 import type { MembershipEntitlementsPrismaClient, MembershipEntitlementsPrisma } from "../../infrastructure/prisma.js";
-import { lockAccess } from "../../infrastructure/access-lock.js";
 import { accessFailure } from "../../domain/access-grant.js";
 import { assignEnrollmentSchema, enrollmentResultSchema, tierSnapshotSchema, type EnrollmentResult } from "../../domain/subscription-enrollment.js";
 import { accessFingerprint, readAccessReceipt } from "../../shared/access-receipts.js";
@@ -38,7 +37,7 @@ export async function assignEnrollmentInTransaction(tx: MembershipEntitlementsPr
   const fingerprint = accessFingerprint({ action: "assignEnrollment", command });
     const receipt = await readAccessReceipt(tx, actorId ?? "activation", command.operationId);
     if (receipt !== null) return receipt.fingerprint === fingerprint ? enrollmentResultSchema.parse(receipt.result) : accessFailure("operation_conflict");
-    await lockAccess(tx, `enrollment:${command.origin}:${command.sourceRef}`);
+    await lockAccountAccess(tx, `enrollment:${command.origin}:${command.sourceRef}`);
     await lockAccountEntitlementChanges(tx, command.accountId);
     const existing = await tx.subscriptionEnrollment.findUnique({ where: { origin_sourceRef: { origin: command.origin, sourceRef: command.sourceRef } } });
     if (existing !== null && existing.accountId !== command.accountId) return accessFailure("identity_conflict");

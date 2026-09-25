@@ -1,13 +1,12 @@
 import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
-import type { BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import { lockBillingSubscription, type BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { NotificationSource } from "../../../notifications/index.js";
 import {
   BILLING_CABINET_PATH, noticeConditions, noticeEventSchema, noticeKindSchema, noticeViewSchema,
   planRenewalReminder, RENEWAL_REMINDER_LEAD_MS, sameNoticeConditions,
   type NoticeView, type RenewalReminderSubject,
 } from "../../domain/notice.js";
-import { lockSubscription } from "../../infrastructure/postgres/catalog-lock.js";
 import { recordBillingNotice } from "../../shared/record-notice.js";
 import { paymentFailure, type PaymentResult } from "../../features/purchase-subscription/purchase-subscription.contract.js";
 
@@ -91,7 +90,7 @@ export class BillingNotices {
       let created = 0, refreshed = 0;
       for (const subscription of due) {
         const outcome = await prisma.$transaction(async tx => {
-          await lockSubscription(tx, subscription.id);
+          await lockBillingSubscription(tx, subscription.id);
           const row = await tx.billingSubscription.findUniqueOrThrow({ where: { id: subscription.id } });
           const planned = planRenewalReminder(chargeableSubscription(row), now);
           return planned ? await recordBillingNotice(tx, planned, now) : "unchanged";

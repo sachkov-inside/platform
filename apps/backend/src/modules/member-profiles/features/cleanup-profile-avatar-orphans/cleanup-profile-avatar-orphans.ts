@@ -1,4 +1,4 @@
-import { Prisma } from "../../../../infrastructure/prisma/index.js";
+import { lockProfileAvatarOwner } from "../../../../infrastructure/prisma/index.js";
 import type { ObjectStorage } from "../../../../infrastructure/object-storage/index.js";
 import { reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { MemberProfilePersistenceClient } from "../../infrastructure/prisma.js";
@@ -55,9 +55,7 @@ export async function cleanupProfileAvatarOrphans(
       if (avatar === null || avatar.orphanedAt > cutoff || avatar.updatedAt > cutoff) {
         return null;
       }
-      await transaction.$executeRaw(Prisma.sql`
-        select pg_advisory_xact_lock(hashtextextended(${avatar.accountId}, 0))
-      `);
+      await lockProfileAvatarOwner(transaction, avatar.accountId);
       const current = await transaction.memberProfile.findUnique({
         select: { avatarId: true },
         where: { accountId: avatar.accountId },

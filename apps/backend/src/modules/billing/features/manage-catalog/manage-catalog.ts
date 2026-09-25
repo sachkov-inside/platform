@@ -2,9 +2,8 @@ import { isEmptyContentScope, isGuideCapability } from "@inside/access-capabilit
 import type { SaleCapability } from "../../domain/sale-capability.js";
 import type { Accounts } from "../../../accounts/index.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
-import { Prisma, type BillingPrisma, type BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import { Prisma, type BillingPrisma, type BillingPrismaClient, lockBillingPricing } from "../../../../infrastructure/prisma/index.js";
 import { failure, idSchema, type PricingResult } from "../../domain/pricing.js";
-import { lockPricing } from "../../infrastructure/postgres/catalog-lock.js";
 import { offerGrantsWithheld, productOfferUnsellable, productSupportTermMismatch, tierLacksComposition } from "../../shared/tier-composition.js";
 import { catalogOutcomeSchema, manageCatalogSchema, type ManageCatalogCommand } from "./manage-catalog.contract.js";
 
@@ -23,7 +22,7 @@ export async function manageCatalog(dependencies: { prisma: BillingPrismaClient;
     if (!permission.ok) return failure("dependency_unavailable");
     if (!permission.allowed) return failure("forbidden");
     return await dependencies.prisma.$transaction(async (tx): Promise<ManageCatalogResult> => {
-      await lockPricing(tx);
+      await lockBillingPricing(tx);
       const command = parsed.data.operation === "promotions.save" ? {
         ...parsed.data, value: { ...parsed.data.value, startsAt: new Date(parsed.data.value.startsAt).toISOString(), endsAt: new Date(parsed.data.value.endsAt).toISOString() },
       } : parsed.data;
