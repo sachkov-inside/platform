@@ -64,10 +64,12 @@ mutations and ADR 0027 owns navigation and caching.
   same-origin, capability-owned Next Route Handler and never receives or calls the Nest address.
 - Do not add a universal proxy, generated TanStack hooks/Zod schemas/UI models, or a second
   transport path without a concrete consumer and an explicit architecture decision.
-- `proxy.ts` only limits the request rate of entry routes. A new sign-in, payment command, public
-  link or guest browser-report route joins `entryRoutePaths` in `src/_app/entry-rate-limit.ts` and
-  the proxy `matcher` together; `entry-rate-limit.test.ts` compares them. Security headers live in
-  `next.config.ts`, HSTS in Caddy ([ADR 0028](../../docs/adr/0028-web-edge-hardening.md)).
+- `proxy.ts` limits the request rate of entry routes and answers unknown legal addresses with 404
+  (Navigation and caching). A new sign-in, payment command, public link or guest browser-report
+  route joins `entryRoutePaths` in `src/_app/entry-rate-limit.ts` and the proxy `matcher`
+  together; `entry-rate-limit.test.ts` compares them, leaving out the legal section entry.
+  Security headers live in `next.config.ts`, HSTS in Caddy
+  ([ADR 0028](../../docs/adr/0028-web-edge-hardening.md)).
 
 ## Navigation and caching
 
@@ -133,6 +135,14 @@ these are the rules a change follows.
   `useRenderErrorReport` and recovers with `retry`. An unknown address and `notFound()` render
   `PageNotFound` in the public shell. `test/e2e/routes.spec.ts` checks the Russian 404; the rest
   stays prose, because which boundary a segment reaches is a reading of the route tree.
+- A page with a parameter streams, so its `notFound()` arrives after status 200. Where web itself
+  knows every valid address — today the legal section — `proxy.ts` checks the address before the
+  response and rewrites an unknown one to an unrouted path, which Next.js answers with its own 404.
+  Its `matcher` is a literal, and it reads neither the backend nor the session:
+  `check-web-architecture` follows its imports and rejects the backend transport, the session
+  modules, any `.cookies` access and any `fetch` call on the way, with the negative fixture
+  `proxy-dependencies`; a cookie parsed from a raw header stays a review concern. Catalog addresses
+  live in the backend and keep the soft 404 (ADR 0027).
 - A component that reads the clock, randomness or a request value during render breaks the
   production build under Cache Components. Read it in an event handler or an effect.
 - A page the reader left is hidden, not unmounted, and keeps its client state. State that starts

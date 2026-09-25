@@ -7,9 +7,9 @@ import { parseSync, Visitor } from "oxc-parser";
 
 const webRoot = fileURLToPath(new URL("..", import.meta.url));
 const requestedRoots = process.argv.slice(2);
-const scanRoots = (requestedRoots.length === 0 ? ["src", "app"] : requestedRoots).map(
-  (root) => path.resolve(webRoot, root),
-);
+const scanRoots = (
+  requestedRoots.length === 0 ? ["src", "app", "proxy.ts"] : requestedRoots
+).map((root) => path.resolve(webRoot, root));
 const backendOperationPaths = new Set(
   Object.keys(
     JSON.parse(
@@ -59,9 +59,10 @@ const runtimeConfigurationNames = new Set([
   "WEB_BASE_URL",
 ]);
 
-function sourceFiles(directory) {
-  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    const entryPath = path.join(directory, entry.name);
+function sourceFiles(root) {
+  if (statSync(root).isFile()) return [root];
+  return readdirSync(root, { withFileTypes: true }).flatMap((entry) => {
+    const entryPath = path.join(root, entry.name);
     if (entry.isDirectory()) return sourceFiles(entryPath);
     return /\.(?:cts|mts|ts|tsx)$/.test(entry.name) ? [entryPath] : [];
   });
@@ -188,6 +189,10 @@ function namesIdentifier(program, name) {
   return seen;
 }
 
+function importsTheSession(specifier) {
+  return specifier.includes("shared/auth") || specifier === "next/headers";
+}
+
 /**
  * Модуль с кеш-директивой не должен видеть сессию: ни токена, ни cookie, ни модуля входа. Проверка
  * ловит прямое нарушение; токен под другим именем или сессия через посредника остаются делом
@@ -195,11 +200,60 @@ function namesIdentifier(program, name) {
  */
 function seesTheSession(program) {
   return (
-    namesIdentifier(program, "accessToken") ||
-    moduleSpecifiers(program).some(
-      (specifier) => specifier.includes("shared/auth") || specifier === "next/headers",
-    )
+    namesIdentifier(program, "accessToken") || moduleSpecifiers(program).some(importsTheSession)
   );
+}
+
+/** `proxy` решает только по тому, что web знает сам (ADR 0027, «Настоящий 404 до начала ответа»). */
+function reachesRequestTimeDependency(specifier) {
+  return (
+    importsTheSession(specifier) ||
+    specifier.includes("shared/api/backend") ||
+    specifier.startsWith("@logto/")
+  );
+}
+
+/**
+ * Сессия и сеть без импорта: обращение к `.cookies` и вызов `fetch`. Cookie из сырого заголовка
+ * остаётся делом обзора — по форме это обычное чтение заголовка.
+ */
+function readsCookiesOrFetches(program) {
+  let found = false;
+  new Visitor({
+    MemberExpression(node) {
+      if (memberPropertyName(node) === "cookies") found = true;
+    },
+    CallExpression(node) {
+      const callee = node.callee;
+      if (
+        (callee.type === "Identifier" && callee.name === "fetch") ||
+        (callee.type === "MemberExpression" && memberPropertyName(callee) === "fetch")
+      ) {
+        found = true;
+      }
+    },
+  }).visit(program);
+  return found;
+}
+
+/** Обходит модули, до которых дотягивается `entry`, и отдаёт каждый вместе с его программой. */
+function reachableModules(entry) {
+  const visited = new Set();
+  const pending = [entry];
+  const reached = [];
+  while (pending.length > 0) {
+    const file = pending.pop();
+    if (file === undefined || visited.has(file)) continue;
+    visited.add(file);
+    const program = parsedFiles.get(file);
+    if (program === undefined) continue;
+    reached.push({ file, program });
+    for (const specifier of moduleSpecifiers(program)) {
+      const dependency = resolveLocalModule(file, specifier, parsedFiles);
+      if (dependency !== undefined) pending.push(dependency);
+    }
+  }
+  return reached;
 }
 
 /**
@@ -533,8 +587,8 @@ function resolveLocalModule(importer, specifier, knownFiles) {
 }
 
 for (const scanRoot of scanRoots) {
-  if (!existsSync(scanRoot) || !statSync(scanRoot).isDirectory()) {
-    throw new TypeError(`Architecture scan root is not a directory: ${scanRoot}`);
+  if (!existsSync(scanRoot)) {
+    throw new TypeError(`Architecture scan root does not exist: ${scanRoot}`);
   }
 }
 
@@ -719,14 +773,7 @@ const findings = [...parsedFiles].flatMap(([file, program]) => {
 for (const entry of [...parsedFiles.keys()].filter((file) =>
   editorFreeRouteEntries.some((suffix) => scannedPath(file).endsWith(suffix)),
 )) {
-  const visited = new Set();
-  const pending = [entry];
-  while (pending.length > 0) {
-    const file = pending.pop();
-    if (file === undefined || visited.has(file)) continue;
-    visited.add(file);
-    const program = parsedFiles.get(file);
-    if (program === undefined) continue;
+  for (const { file, program } of reachableModules(entry)) {
     for (const specifier of moduleSpecifiers(program)) {
       if (
         specifier.startsWith("@tiptap/") ||
@@ -736,8 +783,23 @@ for (const entry of [...parsedFiles.keys()].filter((file) =>
           `${scannedPath(entry)}: reading and lightweight authoring routes cannot reach the Tiptap editor bundle (via ${scannedPath(file)})`,
         );
       }
-      const dependency = resolveLocalModule(file, specifier, parsedFiles);
-      if (dependency !== undefined) pending.push(dependency);
+    }
+  }
+}
+
+for (const entry of [...parsedFiles.keys()].filter(
+  (file) =>
+    /^proxy\.[cm]?tsx?$/u.test(path.basename(file)) &&
+    [webRoot, ...scanRoots].map((root) => path.resolve(root)).includes(path.dirname(file)),
+)) {
+  for (const { file, program } of reachableModules(entry)) {
+    if (
+      moduleSpecifiers(program).some(reachesRequestTimeDependency) ||
+      readsCookiesOrFetches(program)
+    ) {
+      findings.push(
+        `${scannedPath(entry)}: proxy decides without a backend request; it cannot reach the backend or the session (via ${scannedPath(file)})`,
+      );
     }
   }
 }
