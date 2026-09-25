@@ -57,10 +57,9 @@ function refuseOverCeiling(kind: ClientReportKind, records: number): Response | 
       windowSeconds: CLIENT_REPORT_WINDOW_SECONDS,
     });
   }
-  return new Response(null, {
-    headers: { "cache-control": "no-store, private", "retry-after": String(admission.retryAfterSeconds) },
-    status: 429,
-  });
+  const response = telemetryResponse(429);
+  response.headers.set("retry-after", String(admission.retryAfterSeconds));
+  return response;
 }
 
 /**

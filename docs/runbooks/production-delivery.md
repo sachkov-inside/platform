@@ -194,16 +194,18 @@ curl --fail --silent http://127.0.0.1:13000/_health/ready
 посещений (метрика, значение, оценка и путь страницы без параметров), `client-render-error` —
 ошибка, пойманная границей ошибок в браузере, `request-error` — серверный сбой отрисовки или
 обработчика. У `client-render-error` и `request-error` общий `digest`: это код обращения, который
-видит человек, и по нему серверная запись находится рядом с браузерной. Прочитать события:
+видит человек, и по нему серверная запись находится рядом с браузерной. `client-report-limit-reached`
+значит, что отчёты браузера этого вида (`report`) упёрлись в общий потолок и до конца минуты
+терялись. Прочитать события:
 
 ```bash
 docker compose -f compose.production.yaml logs web --since 1h | grep '"event":"request-error"'
 ```
 
 Хранилища метрик и трекера ошибок у площадки пока нет: сводные p75 и оповещения — задача
-[#707](https://github.com/sachkov-inside/platform/issues/707). Обработчики отчётов проверяют
-источник, схему и размер тела, но частоту пока не ограничивают — задача
-[#708](https://github.com/sachkov-inside/platform/issues/708).
+[#707](https://github.com/sachkov-inside/platform/issues/707). Частоту отчётов с одного адреса
+ограничивает proxy web, а общий объём их строк в журнале — потолок в обработчиках
+([ADR 0028](../adr/0028-web-edge-hardening.md)).
 
 The system Caddy imports `infra/production/runtime/platform.caddy`. It publishes only:
 
