@@ -463,7 +463,8 @@ describe("TelegramMembership", () => {
   });
 
   // Frozen migration 0039 writes the binding key into its trigger, where the architecture
-  // guardrail cannot see it. The trigger waiting on the held lock proves both keys are one.
+  // guardrail cannot see it. The link row write waiting on the held lock proves both keys are one;
+  // the table name, fixed by that migration, keeps a direct lock call in beginLink from passing.
   test("holds the link revision trigger behind the Telegram binding lock", async () => {
     ({ membership } = fixture(database));
     const locked = deferred<number>();
@@ -486,6 +487,7 @@ describe("TelegramMembership", () => {
             select exists (
               select 1 from pg_stat_activity
               where datname = current_database() and wait_event = 'advisory'
+                and query ilike '%link_transactions%'
                 and ${bindingPid}::integer = any(pg_blocking_pids(pid))
             ) as waiting
           `,
