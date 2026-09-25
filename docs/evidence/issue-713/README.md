@@ -15,7 +15,7 @@
   [vercel/next.js#97570](https://github.com/vercel/next.js/pull/97570),
   [#97573](https://github.com/vercel/next.js/pull/97573) и
   [#97574](https://github.com/vercel/next.js/pull/97574). Это серия `[no-unsafe-inline]` от команды
-  Next.js: инструкции React и данные Flight передаются как данные, а не встроенными скриптами. Флаг
+  Next.js: инструкции и данные React переходят из встроенных скриптов в неисполняемую разметку. Флаг
   включает `react@experimental`. Ещё есть
   [#98332](https://github.com/vercel/next.js/pull/98332) — hash встроенных скриптов для кешируемых
   ответов. Он буферизует такие ответы, а динамическим по-прежнему нужен nonce. Сводная задача —

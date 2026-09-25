@@ -36,9 +36,9 @@ const pages = [
   ["платный урок", "/materials/navigation-lesson-3?from=%2Fguides%2Fnavigation-proof%2Fprogramme"],
 ];
 
-async function once(path, cookie) {
+async function once(address, cookie) {
   const started = performance.now();
-  const response = await fetch(`${web}${path}`, { headers: cookie ? { cookie } : {}, redirect: "manual" });
+  const response = await fetch(`${web}${address}`, { headers: cookie ? { cookie } : {}, redirect: "manual" });
   const reader = response.body.getReader();
   let firstByte;
   const chunks = [];
@@ -68,11 +68,11 @@ const median = (values) => {
 };
 
 const rows = [];
-for (const [label, path] of pages) {
+for (const [label, address] of pages) {
   for (const [reader, cookie] of [["гость", undefined], ["вошедший", memberCookie]]) {
-    await once(path, cookie); // прогрев общего кеша "use cache"
+    await once(address, cookie); // прогрев общего кеша "use cache"
     const runs = [];
-    for (let index = 0; index < samples; index += 1) runs.push(await once(path, cookie));
+    for (let index = 0; index < samples; index += 1) runs.push(await once(address, cookie));
     const last = runs.at(-1);
     rows.push({
       page: label,
