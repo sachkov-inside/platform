@@ -19,7 +19,7 @@ writes or proposing Server Actions. Read
 [`ADR 0027`](../../docs/adr/0027-web-navigation-and-caching.md) when changing a public route, a
 loading state, a `"use cache"` read, link prefetch, a `GET` Route Handler or TanStack freshness.
 Read [`ADR 0028`](../../docs/adr/0028-web-edge-hardening.md) when changing security headers, the
-CSP, `proxy.ts` or a sign-in, payment or public-link entry route.
+CSP, `proxy.ts`, a sign-in, payment or public-link entry route, or a guest browser-report handler.
 
 ## Verification
 

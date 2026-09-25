@@ -29,34 +29,28 @@ type ClientReportAdmission =
       readonly retryAfterSeconds: number;
     };
 
-export interface ClientReportBudget {
-  /** Принимает отчёт целиком, если все его строки помещаются в окно; иначе не пишет ни одной. */
-  admit(kind: ClientReportKind, records: number): ClientReportAdmission;
-}
+const windowMilliseconds = CLIENT_REPORT_WINDOW_SECONDS * 1_000;
 
-export function createClientReportBudget(): ClientReportBudget {
-  const windowMilliseconds = CLIENT_REPORT_WINDOW_SECONDS * 1_000;
-  const windows = new Map<ClientReportKind, { readonly startedAt: number; used: number; refused: boolean }>();
+/** Один счёт на процесс web: production запускает ровно один экземпляр (ADR 0028). */
+const windows = new Map<ClientReportKind, { readonly startedAt: number; used: number; refused: boolean }>();
 
+/** Принимает отчёт целиком, если все его строки помещаются под потолок окна; иначе не пишет ни одной. */
+export function admitClientReport(kind: ClientReportKind, records: number): ClientReportAdmission {
+  const at = Date.now();
+  let window = windows.get(kind);
+  if (window === undefined || at - window.startedAt >= windowMilliseconds) {
+    window = { refused: false, startedAt: at, used: 0 };
+    windows.set(kind, window);
+  }
+  if (window.used + records <= clientReportRecordsPerWindow[kind]) {
+    window.used += records;
+    return { admitted: true };
+  }
+  const firstRefusal = !window.refused;
+  window.refused = true;
   return {
-    admit(kind, records) {
-      const at = Date.now();
-      let window = windows.get(kind);
-      if (window === undefined || at - window.startedAt >= windowMilliseconds) {
-        window = { refused: false, startedAt: at, used: 0 };
-        windows.set(kind, window);
-      }
-      if (window.used + records <= clientReportRecordsPerWindow[kind]) {
-        window.used += records;
-        return { admitted: true };
-      }
-      const firstRefusal = !window.refused;
-      window.refused = true;
-      return {
-        admitted: false,
-        firstRefusal,
-        retryAfterSeconds: Math.max(1, Math.ceil((window.startedAt + windowMilliseconds - at) / 1_000)),
-      };
-    },
+    admitted: false,
+    firstRefusal,
+    retryAfterSeconds: Math.max(1, Math.ceil((window.startedAt + windowMilliseconds - at) / 1_000)),
   };
 }

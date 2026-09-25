@@ -10,14 +10,11 @@ import {
   webVitalsReportSchema,
 } from "../model/client-telemetry-contract";
 import {
+  admitClientReport,
   CLIENT_REPORT_WINDOW_SECONDS,
   type ClientReportKind,
   clientReportRecordsPerWindow,
-  createClientReportBudget,
-} from "./client-report-budget.server";
-
-/** Один потолок на процесс web: production запускает ровно один экземпляр (ADR 0028). */
-const clientReportBudget = createClientReportBudget();
+} from "./client-report-ceiling.server";
 
 /**
  * Core Web Vitals одной загрузки страницы. Каждая метрика — своя строка журнала: так их проще
@@ -26,7 +23,7 @@ const clientReportBudget = createClientReportBudget();
 export async function handleWebVitalsReport(request: Request): Promise<Response> {
   const report = await readReport(request, webVitalsReportSchema);
   if (!report.ok) return telemetryResponse(report.status);
-  const refusal = refuseOverBudget("web-vitals", report.value.metrics.length);
+  const refusal = refuseOverCeiling("web-vitals", report.value.metrics.length);
   if (refusal !== undefined) return refusal;
   for (const metric of report.value.metrics) {
     writeStructuredLog("info", "web-vital", { route: report.value.route, ...metric });
@@ -38,7 +35,7 @@ export async function handleWebVitalsReport(request: Request): Promise<Response>
 export async function handleRenderErrorReport(request: Request): Promise<Response> {
   const report = await readReport(request, renderErrorReportSchema);
   if (!report.ok) return telemetryResponse(report.status);
-  const refusal = refuseOverBudget("render-errors", 1);
+  const refusal = refuseOverCeiling("render-errors", 1);
   if (refusal !== undefined) return refusal;
   writeStructuredLog("error", "client-render-error", report.value);
   return telemetryResponse(204);
@@ -49,9 +46,9 @@ export async function handleRenderErrorReport(request: Request): Promise<Respons
  * одну строку: так в журнале видно, что отчёты этого вида терялись. Стенд и проверки на `next dev`
  * потолка не видят — как и предела на клиента в `proxy.ts`.
  */
-function refuseOverBudget(kind: ClientReportKind, records: number): Response | undefined {
+function refuseOverCeiling(kind: ClientReportKind, records: number): Response | undefined {
   if (readWebRuntimeMode() !== "production") return undefined;
-  const admission = clientReportBudget.admit(kind, records);
+  const admission = admitClientReport(kind, records);
   if (admission.admitted) return undefined;
   if (admission.firstRefusal) {
     writeStructuredLog("error", "client-report-limit-reached", {

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { beforeEach, expect, it, vi } from "vitest";
 
 vi.mock("@/shared/auth/index.server", async () => {
   const origin = await import("@/shared/auth/same-origin-mutation.server");
@@ -56,11 +56,6 @@ beforeEach(() => {
   vi.resetModules();
   vi.stubEnv("NODE_ENV", "production");
   vi.spyOn(console, "info").mockImplementation(() => undefined);
-});
-
-afterEach(() => {
-  vi.unstubAllGlobals();
-  vi.unstubAllEnvs();
 });
 
 it("обычная страница шлёт один отчёт на скрытие вкладки и не попадает ни под один предел", async () => {

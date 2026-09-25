@@ -115,7 +115,7 @@ production smoke проверяет заголовок, который отда�
   `onRequestError` мимо этого потолка. Если потерянные отчёты об ошибках станут мешать разбору
   сбоев, нужен отдельный предел на клиента для ошибок.
 
-Значения живут в `apps/web/src/features/client-telemetry/api/client-report-budget.server.ts`.
+Значения живут в `apps/web/src/features/client-telemetry/api/client-report-ceiling.server.ts`.
 `apps/web/test/module/client-telemetry-bff.test.ts` проверяет потолок, а
 `apps/web/test/module/client-report-limits.test.ts` — что обычная страница и загруженная минута
 обычных посещений не попадают ни под один предел.

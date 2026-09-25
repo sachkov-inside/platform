@@ -151,7 +151,6 @@ describe("общий потолок журнала для отчётов бра�
 
   afterEach(() => {
     vi.useRealTimers();
-    vi.unstubAllEnvs();
   });
 
   it("сверх потолка отвечает 429 с Retry-After и не пишет отчёт в журнал", async () => {
