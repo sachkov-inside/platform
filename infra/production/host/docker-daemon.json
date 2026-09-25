@@ -1,3 +1,8 @@
 {
-  "registry-mirrors": ["https://mirror.gcr.io"]
+  "registry-mirrors": ["https://mirror.gcr.io"],
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "20m",
+    "max-file": "5"
+  }
 }

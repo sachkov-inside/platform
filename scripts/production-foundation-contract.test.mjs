@@ -18,13 +18,49 @@ const foundation = {
   restoreEntrypoint: read("infra/production/database/restore-entrypoint.sh"),
 };
 
+const hostLogs = {
+  daemon: JSON.parse(read("infra/production/host/docker-daemon.json")),
+  composeFiles: {
+    "compose.production.yaml": read("compose.production.yaml"),
+    "infra/production/database/compose.yaml": foundation.databaseCompose,
+    "infra/production/logto/compose.yaml": foundation.logtoCompose,
+  },
+};
+
 describe("production foundation architecture contract", () => {
   it("pulls Docker Hub images through the public mirror configured by provisioning", () => {
-    const daemon = JSON.parse(read("infra/production/host/docker-daemon.json"));
-    assert.deepEqual(daemon, { "registry-mirrors": ["https://mirror.gcr.io"] });
+    assert.deepEqual(hostLogs.daemon["registry-mirrors"], ["https://mirror.gcr.io"]);
     assert.match(
       read("infra/production/host/provision-host.sh"),
       /install -m 644 "\$script_dir\/docker-daemon\.json" \/etc\/docker\/daemon\.json/u,
+    );
+  });
+
+  it("caps the log of every production container through the host Docker default", () => {
+    assertContainerLogRotation(hostLogs);
+  });
+
+  it("rejects a host Docker default that lets container logs grow without a limit", () => {
+    const { "log-opts": _rotation, ...unbounded } = hostLogs.daemon;
+
+    assert.throws(
+      () => assertContainerLogRotation({ ...hostLogs, daemon: unbounded }),
+      /rotate container logs/u,
+    );
+  });
+
+  it("rejects a production service that replaces the host log default", () => {
+    const composeFiles = {
+      ...hostLogs.composeFiles,
+      "compose.production.yaml": hostLogs.composeFiles["compose.production.yaml"].replace(
+        "  api:\n",
+        "  api:\n    logging:\n      driver: json-file\n",
+      ),
+    };
+
+    assert.throws(
+      () => assertContainerLogRotation({ ...hostLogs, composeFiles }),
+      /compose\.production\.yaml must keep the host log default/u,
     );
   });
 
@@ -88,6 +124,20 @@ describe("production foundation architecture contract", () => {
     );
   });
 });
+
+// Docker fixes the log options when it creates a container, so one host default covers Platform,
+// foundation and Telegram containers alike; a service-level `logging` would silently opt out.
+function assertContainerLogRotation({ daemon, composeFiles }) {
+  assert.equal(daemon["log-driver"], "json-file", "rotate container logs with the json-file driver");
+  assert.deepEqual(
+    daemon["log-opts"],
+    { "max-size": "20m", "max-file": "5" },
+    "rotate container logs at 20 MB and keep five files per container",
+  );
+  for (const [path, compose] of Object.entries(composeFiles)) {
+    assert.doesNotMatch(compose, /^\s+logging:/mu, `${path} must keep the host log default`);
+  }
+}
 
 function assertFoundationContract(files) {
   assert.match(
