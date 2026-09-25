@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { URL, fileURLToPath } from "node:url";
@@ -150,6 +150,10 @@ function violationsFor(source, specifier) {
     violations.push(
       `callers must import the ${importedModule} capability index.ts`,
     );
+  }
+
+  if (sourceModule !== undefined && capabilityIndexModule(importedPath) === sourceModule) {
+    violations.push(`the ${sourceModule} Module imports its own files directly, not through its index.ts`);
   }
 
   if (
@@ -372,29 +376,281 @@ function swallowedFailureViolations(sourceFile, sourceText, program, comments) {
   return violations;
 }
 
+// A Module depends on another through any import of that Module: a value import, a type-only
+// import, a re-export or a dynamic import(). The dependency graph stays acyclic, so a Module
+// loads, composes and changes without the Modules that depend on it.
+const importKindRank = { type: 0, dynamic: 1, value: 2 };
+// Edges that still close a cycle, each with the strongest import kind it may keep; a stronger
+// import on that edge counts again. ADR 0029 records why they remain and what removes them.
+const legacyCycleEdges = new Map([
+  ["billing -> notifications", "type"],
+  ["billing -> telegram-membership", "type"],
+  ["content-access -> materials", "type"],
+  ["content-access -> membership-entitlements", "type"],
+  ["content-access -> workshop", "type"],
+  ["materials -> notifications", "type"],
+  ["membership-entitlements -> materials", "dynamic"],
+  ["membership-entitlements -> telegram-membership", "dynamic"],
+  ["workshop -> materials", "type"],
+  ["workshop -> membership-entitlements", "type"],
+]);
+
+function exportedName(node) {
+  return node.type === "Identifier" ? node.name : String(node.value);
+}
+
+function declarationKind(node, kindField) {
+  return node[kindField] === "type" ||
+    (node.specifiers.length > 0 && node.specifiers.every((specifier) => specifier[kindField] === "type"))
+    ? "type"
+    : "value";
+}
+
+// Every import of another file with the names it takes; "*" takes the whole interface.
+function fileImports(program) {
+  const imports = [];
+  const destructured = new Map();
+  new Visitor({
+    ImportDeclaration(node) {
+      imports.push({
+        kind: declarationKind(node, "importKind"),
+        names: node.specifiers.map((specifier) =>
+          specifier.type === "ImportSpecifier"
+            ? exportedName(specifier.imported)
+            : specifier.type === "ImportDefaultSpecifier"
+              ? "default"
+              : "*",
+        ),
+        specifier: node.source.value,
+      });
+    },
+    ExportAllDeclaration(node) {
+      imports.push({ kind: node.exportKind === "type" ? "type" : "value", names: ["*"], specifier: node.source.value });
+    },
+    ExportNamedDeclaration(node) {
+      if (typeof node.source?.value !== "string") return;
+      imports.push({
+        kind: declarationKind(node, "exportKind"),
+        names: node.specifiers.map((specifier) => exportedName(specifier.local)),
+        specifier: node.source.value,
+      });
+    },
+    // const { Name } = await import("…") takes only the names it destructures.
+    VariableDeclarator(node) {
+      const imported = node.init?.type === "AwaitExpression" ? node.init.argument : undefined;
+      if (imported?.type !== "ImportExpression" || node.id.type !== "ObjectPattern") return;
+      if (node.id.properties.some((property) => property.type !== "Property" || property.computed)) return;
+      destructured.set(imported.start, node.id.properties.map((property) => exportedName(property.key)));
+    },
+    ImportExpression(node) {
+      if (node.source.type === "Literal" && typeof node.source.value === "string") {
+        imports.push({ kind: "dynamic", names: destructured.get(node.start) ?? ["*"], specifier: node.source.value });
+      }
+    },
+  }).visit(program);
+  return imports.filter((entry) => typeof entry.specifier === "string");
+}
+
+function capabilityIndexModule(repositoryPath) {
+  return /^src\/modules\/([^/]+)\/index\.[cm]?[jt]s$/u.exec(repositoryPath ?? "")?.[1];
+}
+
+// The names a capability index.ts offers. A wildcard re-export cannot be checked for consumers.
+function indexExports(indexPath, program) {
+  const names = [];
+  const violations = [];
+  for (const node of program.body) {
+    if (node.type === "ExportAllDeclaration") {
+      violations.push(`${indexPath}: a capability index.ts names each export; replace export * from ${node.source.value}`);
+    }
+    if (node.type !== "ExportNamedDeclaration") continue;
+    names.push(...node.specifiers.map((specifier) => exportedName(specifier.exported)));
+    const declaration = node.declaration;
+    if (declaration?.id) names.push(declaration.id.name);
+    for (const declarator of declaration?.declarations ?? []) {
+      if (declarator.id.type === "Identifier") names.push(declarator.id.name);
+    }
+  }
+  return { names, violations };
+}
+
+// Tests and scripts of the backend consume capability interfaces too; they are read, not checked.
+function consumerRoots() {
+  if (path.basename(scanRoot) !== "src") return [];
+  return ["test", "scripts"]
+    .map((directory) => path.resolve(scanRoot, "..", directory))
+    .filter((directory) => existsSync(directory));
+}
+
+function unusedExportViolations(indexes, consumers) {
+  return [...indexes].flatMap(([moduleName, { indexPath, names }]) => {
+    const used = consumers.get(moduleName) ?? new Set();
+    if (used.has("*")) return [];
+    return names
+      .filter((name) => !used.has(name))
+      .map(
+        (name) =>
+          `${indexPath}: ${name} has no consumer outside the ${moduleName} Module; remove the export`,
+      );
+  });
+}
+
+function stronglyConnectedComponents(graph) {
+  const order = new Map();
+  const lowest = new Map();
+  const stack = [];
+  const components = [];
+  const visit = (node) => {
+    order.set(node, order.size);
+    lowest.set(node, order.get(node));
+    stack.push(node);
+    for (const next of graph.get(node) ?? []) {
+      if (!order.has(next)) {
+        visit(next);
+        lowest.set(node, Math.min(lowest.get(node), lowest.get(next)));
+      } else if (stack.includes(next)) {
+        lowest.set(node, Math.min(lowest.get(node), order.get(next)));
+      }
+    }
+    if (lowest.get(node) !== order.get(node)) return;
+    const component = [];
+    let member;
+    do {
+      member = stack.pop();
+      component.push(member);
+    } while (member !== node);
+    components.push(component);
+  };
+  for (const node of [...graph.keys()].sort()) {
+    if (!order.has(node)) visit(node);
+  }
+  return components.filter((component) => component.length > 1);
+}
+
+// The shortest cycle through the first Module of a component, for a readable diagnostic.
+function cycleThrough(graph, component) {
+  const members = new Set(component);
+  const start = [...component].sort()[0];
+  const previous = new Map();
+  const queue = [start];
+  while (queue.length > 0) {
+    const node = queue.shift();
+    for (const next of [...(graph.get(node) ?? [])].sort()) {
+      if (!members.has(next)) continue;
+      if (next === start) {
+        const cycle = [start];
+        for (let step = node; step !== start; step = previous.get(step)) cycle.splice(1, 0, step);
+        return [...cycle, start];
+      }
+      if (!previous.has(next)) {
+        previous.set(next, node);
+        queue.push(next);
+      }
+    }
+  }
+  return [start, start];
+}
+
+function moduleCycleViolations(moduleEdges) {
+  const graph = new Map();
+  for (const [edge, kinds] of moduleEdges) {
+    const allowance = legacyCycleEdges.get(edge);
+    const counts = [...kinds.keys()].some(
+      (kind) => allowance === undefined || importKindRank[kind] > importKindRank[allowance],
+    );
+    if (!counts) continue;
+    const [from, to] = edge.split(" -> ");
+    graph.set(from, new Set([...(graph.get(from) ?? []), to]));
+  }
+  const violations = stronglyConnectedComponents(graph).map((component) => {
+    const cycle = cycleThrough(graph, component);
+    const evidence = cycle.slice(1).map((to, step) => {
+      const edge = `${cycle[step]} -> ${to}`;
+      const kinds = moduleEdges.get(edge);
+      const strongest = [...kinds.keys()].sort((left, right) => importKindRank[right] - importKindRank[left])[0];
+      return `${edge}: ${kinds.get(strongest)}`;
+    });
+    return `Module dependency cycle ${cycle.join(" -> ")}; depend on a lower Module or invert the edge through a port (${evidence.join("; ")})`;
+  });
+  for (const [edge, allowance] of legacyCycleEdges) {
+    const kinds = moduleEdges.get(edge);
+    if (kinds === undefined) {
+      violations.push(`${edge}: no longer imports; remove it from legacyCycleEdges`);
+      continue;
+    }
+    const strongest = Math.max(...[...kinds.keys()].map((kind) => importKindRank[kind]));
+    if (strongest < importKindRank[allowance]) {
+      violations.push(`${edge}: keeps only weaker imports than ${allowance}; lower its legacyCycleEdges kind`);
+    }
+  }
+  return violations;
+}
+
 if (!statSync(scanRoot).isDirectory()) {
   throw new TypeError(`Architecture scan root is not a directory: ${scanRoot}`);
 }
 
+const indexes = new Map();
+const consumers = new Map();
+const moduleEdges = new Map();
 
-const findings = sourceFiles(scanRoot).flatMap((source) => {
+function recordImports(consumerPath, program, { graph }) {
+  const consumerModule = owningModule(consumerPath);
+  for (const { kind, names, specifier } of fileImports(program)) {
+    const importedPath = importedRepositoryPath(consumerPath, specifier);
+    const importedModule = importedPath === undefined ? undefined : owningModule(importedPath);
+    if (importedModule === undefined || importedModule === consumerModule) continue;
+    if (capabilityIndexModule(importedPath) === importedModule) {
+      consumers.set(importedModule, new Set([...(consumers.get(importedModule) ?? []), ...names]));
+    }
+    if (graph && consumerModule !== undefined) {
+      const edge = `${consumerModule} -> ${importedModule}`;
+      const kinds = moduleEdges.get(edge) ?? new Map();
+      if (!kinds.has(kind)) kinds.set(kind, consumerPath);
+      moduleEdges.set(edge, kinds);
+    }
+  }
+}
+
+function parsed(source) {
   const sourceText = readFileSync(source, "utf8");
   const { comments, errors, program } = parseSync(source, sourceText);
   if (errors.length > 0) {
     throw new SyntaxError(`Oxc could not parse ${source}: ${errors[0].message}`);
   }
+  return { comments, program, sourceText };
+}
+
+const findings = sourceFiles(scanRoot).flatMap((source) => {
+  const { comments, program, sourceText } = parsed(source);
+  const sourcePath = scannedPath(source);
+  recordImports(sourcePath, program, { graph: true });
+  const indexModule = capabilityIndexModule(sourcePath);
+  const indexFindings = [];
+  if (indexModule !== undefined) {
+    const { names, violations } = indexExports(sourcePath, program);
+    indexes.set(indexModule, { indexPath: sourcePath, names });
+    indexFindings.push(...violations);
+  }
   return [
     ...moduleSpecifiers(program).flatMap((specifier) =>
       violationsFor(source, specifier).map(
-        (message) => `${scannedPath(source)}: ${message} (${specifier})`,
+        (message) => `${sourcePath}: ${message} (${specifier})`,
       ),
     ),
     ...databaseReferenceViolations(source, program),
     ...advisoryLockViolations(source, program),
     ...handoffDelegateViolations(source, program),
     ...swallowedFailureViolations(source, sourceText, program, comments),
+    ...indexFindings,
   ];
 });
+
+for (const source of consumerRoots().flatMap((root) => sourceFiles(root))) {
+  recordImports(path.relative(backendRoot, source).split(path.sep).join("/"), parsed(source).program, { graph: false });
+}
+
+findings.push(...unusedExportViolations(indexes, consumers), ...moduleCycleViolations(moduleEdges));
 
 if (findings.length > 0) {
   process.stderr.write(`${findings.sort().join("\n")}\n`);

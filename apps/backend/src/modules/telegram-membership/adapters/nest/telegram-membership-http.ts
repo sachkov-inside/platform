@@ -6,7 +6,7 @@ import {
   membershipEvidenceSchema,
   type MembershipEvidenceAcceptance,
 } from "../../../membership-entitlements/index.js";
-import type { TelegramLinkResult } from "../../index.js";
+import type { TelegramLinkResult } from "../../facets/telegram-membership/telegram-membership.interface.js";
 
 export const evidenceDeliveryIdSchema = z.string().trim().min(1).max(256);
 export const evidenceSourceSchema = z.enum([

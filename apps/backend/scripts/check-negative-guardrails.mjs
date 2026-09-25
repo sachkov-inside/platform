@@ -121,6 +121,13 @@ expectFailure(
     "src/modules/example/features/swallow-failure/swallow-failure.ts:29: catch swallows its failure",
     "src/modules/example/features/swallow-failure/swallow-failure.ts:37: .catch swallows its failure",
     "src/modules/example/features/swallow-failure/swallow-failure.ts:43: catch drops error without reporting it",
+    "src/modules/example/index.ts: unusedExample has no consumer outside the example Module; remove the export",
+    "src/modules/example/index.ts: a capability index.ts names each export",
+    "src/modules/example/features/self-import/self-import.ts: the example Module imports its own files directly, not through its index.ts",
+    "Module dependency cycle cycle-left -> cycle-right -> cycle-left",
+    "Module dependency cycle materials -> membership-entitlements -> materials",
+    "billing -> notifications: no longer imports; remove it from legacyCycleEdges",
+    "membership-entitlements -> telegram-membership: keeps only weaker imports than dynamic; lower its legacyCycleEdges kind",
   ],
 );
 

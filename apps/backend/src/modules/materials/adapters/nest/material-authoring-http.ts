@@ -15,20 +15,18 @@ import { GUIDE_INTRODUCTION_FIELD_MAX } from "../../facets/material-authoring/co
 import { guidePageSchema } from "../../domain/guide-page.js";
 import { MATERIAL_DETACHED_VIDEOS_MAX } from "../../features/save-material/save-material.contract.js";
 
-import type {
-  CreateDraftError,
-  DeleteDraftError,
-  LoadSeriesOrderError,
-  LoadMaterialError,
-  PreviewMaterialError,
-  SaveMaterialError,
-  ReorderSeriesError,
-  TransitionMaterialPublicationError,
-  ValidateMaterialError,
-  CreateContentCollectionError,
-  SetContentCollectionArchiveError,
-  UpdateContentCollectionError,
-} from "../../index.js";
+import type { CreateDraftError } from "../../features/create-draft/create-draft.contract.js";
+import type { DeleteDraftError } from "../../features/delete-draft/delete-draft.contract.js";
+import type { LoadSeriesOrderError } from "../../features/load-series-order/load-series-order.contract.js";
+import type { LoadMaterialError } from "../../features/load-material/load-material.contract.js";
+import type { PreviewMaterialError } from "../../features/preview-material/preview-material.contract.js";
+import type { SaveMaterialError } from "../../features/save-material/save-material.contract.js";
+import type { ReorderSeriesError } from "../../features/reorder-series/reorder-series.contract.js";
+import type { TransitionMaterialPublicationError } from "../../features/transition-material-publication/transition-material-publication.contract.js";
+import type { ValidateMaterialError } from "../../features/validate-material/validate-material.contract.js";
+import type { CreateContentCollectionError } from "../../features/create-content-collection/create-content-collection.contract.js";
+import type { SetContentCollectionArchiveError } from "../../features/set-content-collection-archive/set-content-collection-archive.contract.js";
+import type { UpdateContentCollectionError } from "../../features/update-content-collection/update-content-collection.contract.js";
 import { videoAuthoringPresentationSchema } from "../../../videos/index.js";
 import { contentCoverProjectionHttpSchema } from "./content-cover-http.js";
 import {

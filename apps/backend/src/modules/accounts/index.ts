@@ -1,9 +1,6 @@
 export { AccountsModule } from "./accounts.module.js";
 export { ACCOUNTS, LOGTO_ACCESS_TOKEN_VERIFIER } from "./accounts.tokens.js";
-export {
-  AccountGuard,
-  OptionalAccountGuard,
-} from "./adapters/nest/account.guard.js";
+export { AccountGuard } from "./adapters/nest/account.guard.js";
 export {
   CurrentAccount,
   OptionalCurrentAccount,
@@ -17,17 +14,11 @@ export {
   parseAccountId,
   type AccountId,
 } from "./domain/account-identifiers.js";
-export {
-  bootstrapOwnerAccount,
-  type OwnerBootstrapResult,
-} from "./features/bootstrap-owner-account/bootstrap-owner-account.js";
+export { bootstrapOwnerAccount } from "./features/bootstrap-owner-account/bootstrap-owner-account.js";
 export {
   type Accounts,
   type AuthenticatedAccount,
-  type EstablishAccountResult,
-  type PermissionDecision,
   type PlatformPermission,
-  type ResolveAccountResult,
 } from "./facets/accounts/accounts.interface.js";
 export type { LogtoAccessTokenVerifier } from "./infrastructure/idp/logto/logto-access-token-verifier.js";
 export { assembleDelegatedAccountTokenVerifier } from "./adapters/mcp/delegated-account-token-verifier.js";
@@ -40,7 +31,4 @@ export { NotificationAccounts } from "./facets/notification-accounts/notificatio
 
 export { BillingContact } from "./facets/billing-contact/billing-contact.js";
 export { LegalAcceptances } from "./facets/legal-acceptances/legal-acceptances.js";
-export {
-  AcceptedTermsEndpoint,
-  AcceptedTermsGuard,
-} from "./adapters/nest/accepted-terms.guard.js";
+export { AcceptedTermsEndpoint } from "./adapters/nest/accepted-terms.guard.js";

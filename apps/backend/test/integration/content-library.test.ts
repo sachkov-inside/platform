@@ -14,9 +14,9 @@ import { accountId } from "../../src/modules/accounts/index.js";
 import {
   assembleMaterials,
   materialId,
+  type MaterialContent,
 } from "../../src/modules/materials/index.js";
 import { assembleWorkshop } from "../../src/modules/workshop/index.js";
-import { assembleWorkshopMaterialCatalog } from "../../src/modules/workshop/adapters/materials/workshop-material-catalog.js";
 import { selectPublishedMaterialProjectionPage } from "../../src/modules/materials/infrastructure/postgres/published-material-reader/published-material-projection.js";
 import { emptyCatalogVideos } from "../support/catalog-videos.js";
 import {
@@ -998,4 +998,22 @@ async function waitForAdvisoryLockWaiter(
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
   throw new Error("Material change did not wait on the publication lock");
+}
+
+// Workshop reads the protection facts of its Materials through a port. Production composes no
+// Workshop facet yet, so this test owns the one adapter over the real Materials content.
+function assembleWorkshopMaterialCatalog(
+  materialContent: Pick<MaterialContent, "findAccessFactsMany">,
+) {
+  return Object.freeze({
+    async findMany(materialIds: readonly string[]) {
+      const result = await materialContent.findAccessFactsMany(materialIds.map(materialId));
+      if (!result.ok) throw new Error(result.error.code);
+      return result.value.map(({ access, materialId: id, publicationState }) => ({
+        access,
+        materialId: id,
+        publicationState,
+      }));
+    },
+  });
 }
