@@ -51,6 +51,21 @@ describe("Guide Artifact HTTP controllers", () => {
     );
   });
 
+  test("reads a link Guide Artifact name with the facet's own rule", async () => {
+    const create = vi
+      .fn<GuideArtifacts["create"]>()
+      .mockResolvedValue({ ok: true, value: artifact });
+    const controller = authoringController({ create });
+    const body = { access: "free", externalUrl: "https://example.com/checklist", guideId, purpose: " Проверка ", title: "  Чек-лист " };
+
+    await controller.createFromLink(account, body);
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({ metadata: { access: "free", purpose: "Проверка", title: "Чек-лист" } }),
+    );
+    await expectHttpProblem(controller.createFromLink(account, { ...body, title: "   " }), 422, "invalid_artifact");
+    expect(create).toHaveBeenCalledOnce();
+  });
+
   test("maps every facet error to its exact problem status and code", async () => {
     const cases = [
       { code: "forbidden", status: 403 },

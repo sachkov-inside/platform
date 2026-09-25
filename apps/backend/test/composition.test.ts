@@ -57,6 +57,19 @@ function accessGrantFacets(context: INestApplicationContext): unknown[] {
   return [...new Set(instances.filter(isAccessGrants))];
 }
 
+/** Controller names by the Nest module that registers them. */
+function registeredControllers(context: INestApplicationContext): Map<string, string[]> {
+  const modules = context.get(ModulesContainer, { strict: false });
+  return new Map(
+    [...modules.values()]
+      .filter((module) => module.controllers.size > 0)
+      .map((module): [string, string[]] => [
+        module.metatype.name,
+        [...module.controllers.keys()].map((token) => (typeof token === "function" ? token.name : String(token))),
+      ]),
+  );
+}
+
 const config = parsePlatformConfig({
   NODE_ENV: "test",
   DATABASE_URL: "postgresql://inside:inside@127.0.0.1:1/inside",
@@ -109,6 +122,26 @@ describe("backend process composition", () => {
     expect(accessGrantFacets(api)).toHaveLength(1);
     expect(api.get(BillingPayments)).toBeDefined();
     expect(api.get(CommunityEntitlements)).toBeDefined();
+  });
+
+  it("registers Materials controllers with Materials, only in the API", async () => {
+    const api = await createApiApplication(config, { logger: false });
+    const apiControllers = registeredControllers(api);
+    await api.close();
+    const materialsControllers = apiControllers.get("MaterialsHttpModule") ?? [];
+    expect(materialsControllers).toEqual(expect.arrayContaining([
+      "SaveMaterialController",
+      "UploadMaterialAssetController",
+      "VideoPlaybackController",
+      "KinescopeVideoAuthorizationController",
+      "GuideArtifactReadController",
+    ]));
+    expect(apiControllers.get("ApiModule")?.filter((name) => materialsControllers.includes(name))).toEqual([]);
+
+    const mcp = await createMcpApplication(config, { logger: false });
+    application = mcp;
+    const mcpControllers = [...registeredControllers(mcp).values()].flat();
+    expect(mcpControllers.filter((name) => materialsControllers.includes(name))).toEqual([]);
   });
 
   it("uses the same required bindings for the MCP context", async () => {
