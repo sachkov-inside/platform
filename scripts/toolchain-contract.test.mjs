@@ -120,13 +120,17 @@ describe("supported toolchain contract", () => {
     assert.equal(compilerOptionsOf("tsconfig.node-lib.json").erasableSyntaxOnly, true);
     assert.equal(compilerOptionsOf("tsconfig.node-lib.json").isolatedDeclarations, true);
 
-    // Negative fixtures: a project with its own flags, and a package on an application preset.
+    // Negative fixtures: a project with its own flags, a package on an application preset, and a
+    // project that switches off a shared flag.
     assert.deepEqual(sharedBaseViolations("apps/backend/tsconfig.json", {
       "apps/backend/tsconfig.json": { compilerOptions: { strict: true } },
     }), ["apps/backend/tsconfig.json must extend tsconfig.base.json"]);
     assert.deepEqual(sharedBaseViolations("packages/legal/tsconfig.json", {
       "packages/legal/tsconfig.json": { extends: "../../tsconfig.nest-app.json" },
     }), ["packages/legal/tsconfig.json must use tsconfig.node-lib.json"]);
+    assert.deepEqual(sharedBaseViolations("apps/web/tsconfig.json", {
+      "apps/web/tsconfig.json": { extends: "../../tsconfig.next-app.json", compilerOptions: { noUnusedLocals: false } },
+    }), ["apps/web/tsconfig.json must not override noUnusedLocals"]);
 
     // Packages compile with the application rules, so type-aware lint covers them too.
     const typeAwareFiles = JSON.parse(read(".oxlintrc.json")).overrides.flatMap((override) =>
@@ -503,7 +507,10 @@ function sharedBaseViolations(path, overrides = {}) {
   if (path.startsWith("packages/") && !chain.includes("tsconfig.node-lib.json")) {
     return [`${path} must use tsconfig.node-lib.json`];
   }
-  return [];
+  const own = (overrides[path] ?? JSON.parse(read(path))).compilerOptions ?? {};
+  return Object.keys(sharedStrictness)
+    .filter((flag) => flag in own)
+    .map((flag) => `${path} must not override ${flag}`);
 }
 
 /** Repository-relative configs a project inherits, nearest first; `overrides` replaces files for fixtures. */
