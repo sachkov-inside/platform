@@ -8,6 +8,15 @@ import {
   renderErrorReportSchema,
   webVitalsReportSchema,
 } from "../model/client-telemetry-contract";
+import {
+  CLIENT_REPORT_WINDOW_SECONDS,
+  type ClientReportKind,
+  clientReportRecordsPerWindow,
+  createClientReportBudget,
+} from "./client-report-budget.server";
+
+/** Один потолок на процесс web: production запускает ровно один экземпляр (ADR 0028). */
+const clientReportBudget = createClientReportBudget();
 
 /**
  * Core Web Vitals одной загрузки страницы. Каждая метрика — своя строка журнала: так их проще
@@ -16,6 +25,8 @@ import {
 export async function handleWebVitalsReport(request: Request): Promise<Response> {
   const report = await readReport(request, webVitalsReportSchema);
   if (!report.ok) return telemetryResponse(report.status);
+  const refusal = refuseOverBudget("web-vitals", report.value.metrics.length);
+  if (refusal !== undefined) return refusal;
   for (const metric of report.value.metrics) {
     writeStructuredLog("info", "web-vital", { route: report.value.route, ...metric });
   }
@@ -26,8 +37,30 @@ export async function handleWebVitalsReport(request: Request): Promise<Response>
 export async function handleRenderErrorReport(request: Request): Promise<Response> {
   const report = await readReport(request, renderErrorReportSchema);
   if (!report.ok) return telemetryResponse(report.status);
+  const refusal = refuseOverBudget("render-errors", 1);
+  if (refusal !== undefined) return refusal;
   writeStructuredLog("error", "client-render-error", report.value);
   return telemetryResponse(204);
+}
+
+/**
+ * Отчёт сверх общего потолка получает `429` и в журнал не попадает. Первый отказ в окне оставляет
+ * одну строку: так в журнале видно, что отчёты этого вида терялись.
+ */
+function refuseOverBudget(kind: ClientReportKind, records: number): Response | undefined {
+  const admission = clientReportBudget.admit(kind, records);
+  if (admission.admitted) return undefined;
+  if (admission.firstRefusal) {
+    writeStructuredLog("error", "client-report-limit-reached", {
+      recordsPerWindow: clientReportRecordsPerWindow[kind],
+      report: kind,
+      windowSeconds: CLIENT_REPORT_WINDOW_SECONDS,
+    });
+  }
+  return new Response(null, {
+    headers: { "cache-control": "no-store, private", "retry-after": String(admission.retryAfterSeconds) },
+    status: 429,
+  });
 }
 
 /**

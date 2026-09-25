@@ -1,4 +1,4 @@
-import { beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/shared/auth/index.server", async () => {
   const origin = await import("@/shared/auth/same-origin-mutation.server");
@@ -28,6 +28,13 @@ function report(
 
 function loggedLines(spy: { readonly mock: { readonly calls: readonly (readonly unknown[])[] } }): unknown[] {
   return spy.mock.calls.map(([line]) => JSON.parse(String(line)) as unknown);
+}
+
+function loggedEvents(
+  spy: { readonly mock: { readonly calls: readonly (readonly unknown[])[] } },
+  event: string,
+): unknown[] {
+  return loggedLines(spy).filter((line) => (line as { readonly event?: unknown }).event === event);
 }
 
 beforeEach(() => {
@@ -130,4 +137,90 @@ it("отклоняет слишком большой отчёт, даже есл
 
   expect(response.status).toBe(413);
   expect(error).not.toHaveBeenCalled();
+});
+
+describe("общий потолок журнала для отчётов браузера", () => {
+  const renderError = { boundary: "public", message: "Сбой", name: "Error", route: "/" };
+
+  /** Свежий модуль — свой счёт окна: состояние обработчиков живёт на уровне процесса. */
+  async function freshHandlers() {
+    vi.resetModules();
+    return import("@/features/client-telemetry.server");
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers({ now: Date.parse("2026-09-25T09:00:00Z"), toFake: ["Date"] });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("сверх потолка отвечает 429 с Retry-After и не пишет отчёт в журнал", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const { handleRenderErrorReport: handle } = await freshHandlers();
+    const send = () => handle(report("/api/render-errors", JSON.stringify(renderError)));
+
+    const accepted = [];
+    for (let index = 0; index < 60; index += 1) accepted.push((await send()).status);
+    vi.advanceTimersByTime(15_000);
+    const refused = await send();
+
+    expect(accepted).toEqual(Array.from({ length: 60 }, () => 204));
+    expect(refused.status).toBe(429);
+    expect(refused.headers.get("retry-after")).toBe("45");
+    expect(refused.headers.get("cache-control")).toBe("no-store, private");
+    expect(loggedEvents(error, "client-render-error")).toHaveLength(60);
+  });
+
+  it("отмечает в журнале только первый отказ окна, а в новом окне снова принимает отчёты", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const { handleRenderErrorReport: handle } = await freshHandlers();
+    const send = () => handle(report("/api/render-errors", JSON.stringify(renderError)));
+
+    for (let index = 0; index < 63; index += 1) await send();
+    const notices = loggedEvents(error, "client-report-limit-reached");
+    vi.advanceTimersByTime(60_000);
+    const nextWindow = await send();
+
+    expect(notices).toEqual([
+      expect.objectContaining({ level: "error", recordsPerWindow: 60, report: "render-errors", windowSeconds: 60 }),
+    ]);
+    expect(nextWindow.status).toBe(204);
+  });
+
+  it("считает метрики строками журнала и не пишет часть отчёта, который не помещается", async () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    const { handleWebVitalsReport: handle } = await freshHandlers();
+    const metrics = (count: number) =>
+      Array.from({ length: count }, (_, index) => ({ ...lcp, id: `v5-${String(index)}` }));
+    const send = (count: number) =>
+      handle(report("/api/web-vitals", JSON.stringify({ metrics: metrics(count), route: "/" })));
+
+    const statuses = [];
+    for (let index = 0; index < 14; index += 1) statuses.push((await send(20)).status);
+    statuses.push((await send(1)).status);
+    const overflowing = await send(20);
+    const fitting = await send(19);
+
+    expect(statuses).toEqual(Array.from({ length: 15 }, () => 204));
+    expect(overflowing.status).toBe(429);
+    expect(fitting.status).toBe(204);
+    expect(loggedEvents(info, "web-vital")).toHaveLength(300);
+  });
+
+  it("поток метрик не вытесняет отчёты об ошибках", async () => {
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+    const { handleRenderErrorReport, handleWebVitalsReport } = await freshHandlers();
+    const vitals = JSON.stringify({ metrics: [lcp], route: "/" });
+
+    let lastVitals = 0;
+    for (let index = 0; index < 301; index += 1) {
+      lastVitals = (await handleWebVitalsReport(report("/api/web-vitals", vitals))).status;
+    }
+    const errorReport = await handleRenderErrorReport(report("/api/render-errors", JSON.stringify(renderError)));
+
+    expect(lastVitals).toBe(429);
+    expect(errorReport.status).toBe(204);
+  });
 });
