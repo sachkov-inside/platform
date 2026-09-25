@@ -15,7 +15,7 @@ export async function heldGuideRemovals(
 ): Promise<readonly HeldGuideRemoval[]> {
   if (holders === undefined || guideIds.length === 0) return [];
   const unique = [...new Set(guideIds)];
-  const counts = await holders.countGuideHolders(unique, transaction);
+  const counts = await holders.countGuideHolders(transaction, unique);
   const held = unique.filter((guideId) => (counts.get(guideId) ?? 0) > 0);
   if (held.length === 0) return [];
   const guides = await transaction.guide.findMany({

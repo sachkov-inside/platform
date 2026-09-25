@@ -156,7 +156,7 @@ describe("снятие материала из купленного руково
     await grant({ capabilities: [`guide:${lapsed}`], validUntil: "2030-01-02T00:00:00Z" });
     const item = await publish([lapsed]);
     now = new Date("2030-01-03T00:00:00Z");
-    expect(await grants.countGuideHolders([lapsed])).toEqual(new Map([[lapsed, 0]]));
+    expect(await grants.countGuideHolders(db.prisma, [lapsed])).toEqual(new Map([[lapsed, 0]]));
     expect(await save(item, { publicationState: "unpublished" })).toMatchObject({ ok: true });
     expect(await db.prisma.guideMaterialRemoval.count({ where: { guideId: lapsed } })).toBe(0);
   });

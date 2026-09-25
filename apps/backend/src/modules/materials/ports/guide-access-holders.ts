@@ -8,7 +8,7 @@ import type { MaterialsPrisma } from "../../../infrastructure/prisma/index.js";
 export interface GuideAccessHolders {
   /** Читает в транзакции вызывающего: снятие держит блокировки Materials и второго соединения не ждёт. */
   countGuideHolders(
+    transaction: Pick<MaterialsPrisma, "$queryRaw">,
     guideIds: readonly string[],
-    transaction?: Pick<MaterialsPrisma, "$queryRaw">,
   ): Promise<ReadonlyMap<string, number>>;
 }

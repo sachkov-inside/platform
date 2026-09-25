@@ -225,8 +225,8 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
      * входит: он читает замороженный состав миграции и новых руководств не содержит.
      */
     async countGuideHolders(
+      transaction: Pick<MembershipEntitlementsPrisma, "$queryRaw">,
       guideIds: readonly string[],
-      transaction: Pick<MembershipEntitlementsPrisma, "$queryRaw"> = prisma,
     ): Promise<ReadonlyMap<string, number>> {
       const ids = z.array(z.uuid()).max(100).parse([...new Set(guideIds)]);
       if (ids.length === 0) return new Map();

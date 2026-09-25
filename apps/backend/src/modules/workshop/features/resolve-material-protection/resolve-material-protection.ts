@@ -26,6 +26,6 @@ export async function resolveWorkshopMaterialProtection(
     });
     return link === null ? "unprotected" : "protected";
   } catch (error) {
-    return dependencyFailure({ module: "workshop", operation: "resolveMaterialProtection" }, error, "unavailable");
+    return dependencyFailure({ module: "workshop", operation: "resolveWorkshopMaterialProtection" }, error, "unavailable");
   }
 }
