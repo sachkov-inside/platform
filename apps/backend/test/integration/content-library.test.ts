@@ -169,7 +169,7 @@ describe("ListPublishedMaterials", () => {
     const workshop = assembleWorkshop({
       prisma: testDatabase.prisma,
       membershipEntitlements: {
-        resolveForAccess: () =>
+        resolveForAccessUnderEntitlementLock: () =>
           Promise.resolve({
             kind: "active",
             validUntil: "2030-01-01T00:05:00.000Z",
@@ -207,7 +207,6 @@ describe("ListPublishedMaterials", () => {
     const protectedAuthoring = assembleMaterials({
       prisma: testDatabase.prisma,
       authorPolicy: { canManage: (accountId) => accountId === actorId },
-      workshopMaterialProtection: workshop.materialProtection,
     }).authoring;
     const publication = workshop.publishCase({
       actorAccountId: accountId(actorId),
@@ -316,7 +315,6 @@ describe("ListPublishedMaterials", () => {
       prisma: testDatabase.prisma,
       authorPolicy: { canManage: () => false },
       contentAccess: workshopContentAccess,
-      workshopMaterialProtection: workshop.materialProtection,
     });
     await expect(
       protectedMaterials.publishedMaterialReader.read({

@@ -9,6 +9,7 @@ import { once } from 'node:events';
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { distinctClock } from './setup/distinct-clock.js';
+import { withExhaustedPool } from './setup/exhausted-pool.js';
 import { createMigratedTestDatabase, type TestDatabase } from './setup/test-database.js';
 import { Notifications, type NotificationDependencies, type NotificationSource } from '../../src/modules/notifications/index.js';
 import { NotificationAccounts, assembleAccounts } from '../../src/modules/accounts/index.js';
@@ -126,6 +127,17 @@ describe('Notifications persistence and delivery (real PostgreSQL; synthetic sou
     await late.app.changePreferences(late.actor, { operationId: randomUUID(), expectedRevision: 0, email: true, telegram: false });
     await expandAudience(late.deps, 'materials', quarantined);
     expect(await late.commands()).toHaveLength(0);
+  });
+  test('authorization reads source and contact while its transaction holds the whole pool', async () => {
+    const s = await scenario(); await s.publish();
+    const { value: c, row } = await s.command();
+    const decided = await withExhaustedPool(database, prisma => {
+      const contacts = new NotificationAccounts(prisma, protection);
+      const deps: NotificationDependencies = { ...s.deps, prisma,
+        recipients: { exists: id => contacts.exists(id), enumerate: query => contacts.enumerate(query), binding: (id, channel) => channel === 'email' ? contacts.binding(id) : Promise.resolve(null), email: binding => contacts.email(binding) } };
+      return new Notifications(deps, assembleAccounts({ prisma, emailFingerprintKey: 'notification-test-key-long-enough' })).authorizeDispatch('email', request(c, row.digest));
+    });
+    expect(decided).toMatchObject({ status: 'allowed' });
   });
   test('authorization binds channel, digest, attempt, source and contact; replay does not extend permit', async () => {
     const s = await scenario(); await s.publish();

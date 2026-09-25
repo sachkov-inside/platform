@@ -26,6 +26,17 @@ export async function setReadingState(dependencies: {
   };
   const fingerprint = JSON.stringify(["setReadingState", command.materialId, command.isRead, command.expectedVersion]);
   try {
+    // Access is decided by other Modules on their own connections, so it is read before the
+    // transaction; the Material facts are reread under the pair lock, in the transaction.
+    const decision = command.isRead
+      ? await dependencies.contentAccess.authorize({
+        subject: { kind: "account", accountId: accountId(command.accountId) },
+        action: "read",
+        resource: { kind: "material", materialId: materialId(command.materialId) },
+        enforcementPoint: "reading_state_change",
+        correlationId: command.commandId,
+      })
+      : undefined;
     return await dependencies.prisma.$transaction(async (transaction): Promise<SetReadingStateResult> => {
       // Serialize the receipt first: one command ID can target different pairs.
       await lockReadingCommand(transaction, command.accountId, command.commandId);
@@ -42,19 +53,12 @@ export async function setReadingState(dependencies: {
       const row = await transaction.readingMaterialState.findUnique({ where: { accountId_materialId: key } });
       const current = toReadingState(command.materialId, row);
       if (current.version !== command.expectedVersion) return { ok: false, error: { code: "stale_version", current } };
-      if (command.isRead) {
-        const decision = await dependencies.contentAccess.authorize({
-          subject: { kind: "account", accountId: accountId(command.accountId) },
-          action: "read",
-          resource: { kind: "material", materialId: materialId(command.materialId) },
-          enforcementPoint: "reading_state_change",
-          correlationId: command.commandId,
-        });
+      if (decision !== undefined) {
         if (decision.effect === "deny") return {
           ok: false,
           error: { code: decision.reason === "dependency_unavailable" ? "dependency_unavailable" : "access_denied" },
         };
-        const facts = await dependencies.materialContent.findAccessFacts(materialId(command.materialId));
+        const facts = await dependencies.materialContent.findAccessFacts(materialId(command.materialId), transaction);
         if (!facts.ok) return { ok: false, error: { code: "dependency_unavailable" } };
         if (facts.value === null || facts.value.publicationState !== "published" ||
           facts.value.contentVersion !== decision.checkedContentVersion ||

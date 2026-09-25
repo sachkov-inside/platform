@@ -284,9 +284,46 @@ function advisoryLockViolations(sourceFile, program) {
 }
 
 // Delegates a Module's capability type lists only to hand its transaction to their owner. Keep in
-// step with the foreign delegates of that type in src/infrastructure/prisma/prisma-client.ts.
+// step with the foreign delegates of that type in src/infrastructure/prisma/prisma-client.ts or the
+// Module's own infrastructure/prisma.ts.
 const handoffDelegates = new Map([
-  ["materials", ["materialAsset", "video", "videoDeletionOperation"]],
+  ["assets", ["material"]],
+  ["materials", ["materialAsset", "video", "videoDeletionOperation", "workshopCaseMaterial"]],
+  ["reading-activity", ["material", "publishedMaterialGuideMembership"]],
+  ["videos", ["material", "publishedMaterial"]],
+  [
+    "workshop",
+    [
+      "accessChange",
+      "accessGrant",
+      "legacyClassification",
+      "membershipBinding",
+      "membershipEvidenceReceipt",
+      "membershipProjection",
+    ],
+  ],
+]);
+
+// A delegate is used when one of its model operations is named; `candidate.material.materialId`
+// is a field of an ordinary value, not the Materials delegate.
+const prismaModelOperations = new Set([
+  "aggregate",
+  "count",
+  "create",
+  "createMany",
+  "createManyAndReturn",
+  "delete",
+  "deleteMany",
+  "findFirst",
+  "findFirstOrThrow",
+  "findMany",
+  "findUnique",
+  "findUniqueOrThrow",
+  "groupBy",
+  "update",
+  "updateMany",
+  "updateManyAndReturn",
+  "upsert",
 ]);
 
 function handoffDelegateViolations(sourceFile, program) {
@@ -297,7 +334,9 @@ function handoffDelegateViolations(sourceFile, program) {
   new Visitor({
     MemberExpression(node) {
       const delegate = memberPropertyName(node.object);
-      if (delegates.includes(delegate)) used.add(delegate);
+      if (delegates.includes(delegate) && prismaModelOperations.has(memberPropertyName(node))) {
+        used.add(delegate);
+      }
     },
   }).visit(program);
   return [...used].map(

@@ -3,7 +3,7 @@ import type { ActivationBindings } from "../../domain/subscription-activation.js
 import type { MembershipEntitlementsPrismaClient } from "../../infrastructure/prisma.js";
 import { acceptMembershipEvidence } from "../../features/accept-evidence/accept-evidence.js";
 import { bindMembershipPrincipal } from "../../features/bind-principal/bind-membership-principal.js";
-import { resolveMembershipForAccess, resolveMembershipForAccessMany } from "../../features/resolve-membership-for-access/resolve-membership-for-access.js";
+import { resolveMembershipForAccess, resolveMembershipForAccessMany, resolveMembershipUnderEntitlementLock } from "../../features/resolve-membership-for-access/resolve-membership-for-access.js";
 import type {
   AcceptMembershipEvidenceCommand,
   MembershipAccessState,
@@ -56,6 +56,13 @@ export function assembleMembershipEntitlements(
         );
       } catch (error) {
         return dependencyFailure({ module: "membership-entitlements", operation: "resolveForAccess" }, error, { kind: "unavailable" });
+      }
+    },
+    async resolveForAccessUnderEntitlementLock(transaction, accountId): Promise<MembershipAccessState> {
+      try {
+        return await resolveMembershipUnderEntitlementLock(transaction, accountId, clock());
+      } catch (error) {
+        return dependencyFailure({ module: "membership-entitlements", operation: "resolveForAccessUnderEntitlementLock" }, error, { kind: "unavailable" });
       }
     },
     async acceptEvidence(

@@ -7,6 +7,7 @@ import { optedIn } from '../change-preferences/change-preferences.js';
 
 export async function authorizeDispatch(deps: NotificationDependencies, channel: Channel, input: unknown): Promise<DispatchResponse> {
   const request = authorizeSchema.parse(input);
+  const facts = await readDispatchFacts(deps, channel, request);
   return deps.prisma.$transaction(async transaction => {
     // One order for all authorizations: request receipt, then Delivery.
     await lockNotification(transaction, `authorize:${channel}:${request.operationId}`);
@@ -23,7 +24,9 @@ export async function authorizeDispatch(deps: NotificationDependencies, channel:
       if (new Date(command.notAfter) <= deps.now()) return { ...request, status: 'denied', reason: 'expired' };
       const notification = stored.delivery.notification;
       const event = eventSchema.parse(JSON.parse(notification.eventPayload));
-      const source = await deps.sources.resolve(event);
+      // The facts were read before the locks; when they describe another notification, the attempt repeats.
+      if (facts?.notificationId !== notification.id || facts.eventPayload !== notification.eventPayload) return { ...request, status: 'error', code: 'unavailable' };
+      const { source } = facts;
       if (source.status === 'unavailable') return { ...request, status: 'error', code: 'unavailable' };
       if (!validSource(event, source) || command.sourceEventId !== event.messageId || fingerprint(command.content) !== fingerprint(source.content)) return { ...request, status: 'denied', reason: 'superseded' };
       // Без адреса читателя текст команды не с чем сравнить: это временное состояние настройки,
@@ -33,11 +36,11 @@ export async function authorizeDispatch(deps: NotificationDependencies, channel:
       if (template.text !== command.text || template.templateRef !== command.templateRef || template.templateRevision !== command.templateRevision || (channel === 'email' && template.subject !== command.subject)) return { ...request, status: 'denied', reason: 'superseded' };
       if (source.content.category === 'material') {
         if (!await optedIn(transaction, notification.accountId, channel, new Date(event.occurredAt))) return { ...request, status: 'denied', reason: 'preference_disabled' };
-        const access = await deps.sources.canRead(notification.accountId, event.sourceRef);
-        if (access === 'unavailable') return { ...request, status: 'error', code: 'unavailable' };
+        const { access } = facts;
+        if (access === undefined || access === 'unavailable') return { ...request, status: 'error', code: 'unavailable' };
         if (access === 'denied') return { ...request, status: 'denied', reason: 'access_denied' };
       }
-      const binding = await deps.recipients.binding(notification.accountId, channel);
+      const { binding } = facts;
       if (!binding || fingerprint(binding) !== fingerprint(command.binding)) return { ...request, status: 'denied', reason: 'binding_conflict' };
       const deadline = Math.min(deps.now().getTime() + PERMIT_LIFETIME_MS, Date.parse(command.notAfter), Date.parse(event.notAfter));
       if (deadline <= deps.now().getTime()) return { ...request, status: 'denied', reason: 'expired' };
@@ -48,4 +51,23 @@ export async function authorizeDispatch(deps: NotificationDependencies, channel:
       attemptRef: request.attemptRef, response: JSON.stringify(response), createdAt: deps.now() } });
     return response;
   });
+}
+
+/**
+ * Source, access and recipient binding come from other Modules on their own connections, so they
+ * are read before the authorization transaction and judged under its locks; the locks guard none of
+ * them. Unused answers cost a read, never a decision: the transaction applies them in its order.
+ */
+async function readDispatchFacts(deps: NotificationDependencies, channel: Channel, request: { readonly deliveryOperationId: string; readonly deliveryRef: string }) {
+  const stored = await deps.prisma.notificationCommand.findUnique({ where: { operationId: request.deliveryOperationId }, include: { delivery: { include: { notification: true } } } });
+  if (!stored || stored.deliveryId !== request.deliveryRef || stored.delivery.channel !== channel) return undefined;
+  const notification = stored.delivery.notification;
+  const event = eventSchema.safeParse(JSON.parse(notification.eventPayload));
+  if (!event.success) return undefined;
+  const source = await deps.sources.resolve(event.data);
+  const access = source.status === 'current' && source.content.category === 'material'
+    ? await deps.sources.canRead(notification.accountId, event.data.sourceRef)
+    : undefined;
+  const binding = await deps.recipients.binding(notification.accountId, channel);
+  return { notificationId: notification.id, eventPayload: notification.eventPayload, source, access, binding };
 }

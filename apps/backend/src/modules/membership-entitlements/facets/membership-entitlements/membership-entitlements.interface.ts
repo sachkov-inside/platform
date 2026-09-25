@@ -1,4 +1,5 @@
 import type { AccountId } from "../../../accounts/index.js";
+import type { MembershipAccessPrisma } from "../../infrastructure/prisma.js";
 
 export type MembershipAccessState =
   | Readonly<{ kind: "active"; validUntil: string | null }>
@@ -63,6 +64,12 @@ export type MembershipPrincipalBinding =
 export interface MembershipEntitlements {
   resolveManyForAccess?(accountId: AccountId, resources: readonly { guideIds: readonly string[]; materialId?: string | undefined }[]): Promise<readonly MembershipAccessState[]>;
   resolveForAccess(accountId: AccountId, guideIds?: readonly string[], materialId?: string): Promise<MembershipAccessState>;
+  /**
+   * Membership of the whole Account in the caller's transaction, which already holds
+   * `lockAccountEntitlementChanges` for it: the caller's transaction type lists
+   * `MembershipAccessPrisma` to hand itself over, and no second pooled connection is taken.
+   */
+  resolveForAccessUnderEntitlementLock(transaction: MembershipAccessPrisma, accountId: AccountId): Promise<MembershipAccessState>;
   bindPrincipal(command: {
     readonly accountId: AccountId;
     readonly principalRef: string;

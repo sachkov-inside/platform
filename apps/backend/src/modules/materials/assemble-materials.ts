@@ -18,7 +18,6 @@ import type { AuthorPolicy } from "./ports/author-policy.js";
 import type { GuideAccessHolders } from "./ports/guide-access-holders.js";
 import type { Videos } from "../videos/index.js";
 import { materialBodyOperations } from "./infrastructure/tiptap/index.js";
-import type { WorkshopMaterialProtection } from "../workshop/index.js";
 
 export interface Materials {
   readonly authoring: MaterialAuthoring;
@@ -35,7 +34,6 @@ export function assembleMaterials(dependencies: {
     MaterialAssets,
     "inspectReferences" | "loadPresentations"
   >;
-  readonly workshopMaterialProtection?: WorkshopMaterialProtection;
   readonly guideAccessHolders?: GuideAccessHolders;
   readonly videos?: Pick<
     Videos,
@@ -65,9 +63,6 @@ export function assembleMaterials(dependencies: {
     authorPolicy: dependencies.authorPolicy,
     contentAccess,
     materialBodyOperations,
-    ...(dependencies.workshopMaterialProtection === undefined
-      ? {}
-      : { workshopMaterialProtection: dependencies.workshopMaterialProtection }),
     ...(dependencies.materialAssets === undefined
       ? {}
       : { materialAssets: dependencies.materialAssets }),

@@ -44,6 +44,7 @@ import {
   requestVideoDeletion,
 } from "../../../videos/index.js";
 import { markUnreferencedMaterialAssets } from "../../../assets/index.js";
+import { resolveWorkshopMaterialProtection } from "../../../workshop/index.js";
 import { materialReaderPath } from "../../domain/announcement.js";
 import { recordMaterialAnnouncement } from "./record-announcement.js";
 import { lockMaterialForLifecycleChange } from "../../infrastructure/postgres/material-locks.js";
@@ -194,7 +195,7 @@ export function assembleSaveMaterial(
             const videoChapters = command.videoChapters ?? (command.primaryVideoId === locked.primaryVideoId ? locked.videoChapters : []);
             if (videoChapters.length > 0) {
               if (command.primaryVideoId === null || dependencies.videos === undefined) return rollback({ code: "invalid_reference", issues: [{ code: "video_chapters_require_video", path: "/videoChapters" }] });
-              const video = await dependencies.videos.loadAuthoringPresentation({ materialId: command.materialId, videoId: command.primaryVideoId });
+              const video = await dependencies.videos.loadAuthoringPresentation({ materialId: command.materialId, videoId: command.primaryVideoId }, transaction);
               if (!video.ok) return rollback({ code: "dependency_unavailable", retryable: true });
               const duration = video.value?.durationSeconds;
               if (duration === undefined || videoChapters.some((chapter) => chapter.start >= duration)) return rollback({ code: "invalid_reference", issues: [{ code: "video_chapter_outside_duration", path: "/videoChapters" }] });
@@ -213,10 +214,10 @@ export function assembleSaveMaterial(
               locked.access === "workshop" &&
               selectedValues.access !== "workshop"
             ) {
-              const protection =
-                await dependencies.workshopMaterialProtection?.resolve(
-                  command.materialId,
-                ) ?? "unavailable";
+              const protection = await resolveWorkshopMaterialProtection(
+                transaction,
+                command.materialId,
+              );
               if (protection === "unavailable") {
                 return rollback({
                   code: "dependency_unavailable",
@@ -271,6 +272,7 @@ export function assembleSaveMaterial(
             );
             if (dependencies.materialAssets !== undefined) {
               const assetIssues = await dependencies.materialAssets.inspectReferences(
+                transaction,
                 command.materialId,
                 assetReferences,
               );
@@ -289,7 +291,7 @@ export function assembleSaveMaterial(
               if (dependencies.videos === undefined) {
                 return rollback({ code: "dependency_unavailable", retryable: true });
               }
-              const videoReference = await dependencies.videos.inspectPrimaryReference({
+              const videoReference = await dependencies.videos.inspectPrimaryReference(transaction, {
                 access: materializedMetadata.access,
                 materialId: command.materialId,
                 videoId: command.primaryVideoId,

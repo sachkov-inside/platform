@@ -24,12 +24,13 @@ import { videoAccessSchema, type Videos } from "./videos.interface.js";
 
 export async function inspectPrimaryVideoReference(
   context: VideoContext,
-  input: Parameters<Videos["inspectPrimaryReference"]>[0],
+  transaction: Parameters<Videos["inspectPrimaryReference"]>[0],
+  input: Parameters<Videos["inspectPrimaryReference"]>[1],
 ): ReturnType<Videos["inspectPrimaryReference"]> {
   const parsed = primaryReferenceInput.safeParse(input);
   if (!parsed.success) return invalidRequest();
   try {
-    const video = await context.prisma.video.findUnique({ where: { id: parsed.data.videoId } });
+    const video = await transaction.video.findUnique({ where: { id: parsed.data.videoId } });
     if (video === null) return videoNotFound();
     if (videoMaterialIdSchema.parse(video.materialId) !== parsed.data.materialId || video.access !== parsed.data.access || video.projectId !== projectForAccess(context.projects, parsed.data.access)) {
       return providerMismatch();
@@ -72,11 +73,12 @@ export async function loadVideoPresentation(
 export async function loadVideoAuthoringPresentation(
   context: VideoContext,
   input: Parameters<Videos["loadAuthoringPresentation"]>[0],
+  transaction: Parameters<Videos["loadAuthoringPresentation"]>[1] = context.prisma,
 ): ReturnType<Videos["loadAuthoringPresentation"]> {
   const parsed = presentationInput.safeParse(input);
   if (!parsed.success) return invalidRequest();
   try {
-    const video = await context.prisma.video.findFirst({
+    const video = await transaction.video.findFirst({
       where: { id: parsed.data.videoId, materialId: parsed.data.materialId },
     });
     return {

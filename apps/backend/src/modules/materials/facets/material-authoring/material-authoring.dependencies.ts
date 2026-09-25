@@ -5,14 +5,12 @@ import type { AuthorPolicy } from "../../ports/author-policy.js";
 import type { GuideAccessHolders } from "../../ports/guide-access-holders.js";
 import type { MaterialAssets } from "../../../assets/index.js";
 import type { Videos } from "../../../videos/index.js";
-import type { WorkshopMaterialProtection } from "../../../workshop/index.js";
 
 export interface MaterialAuthoringDependencies {
   readonly prisma: MaterialsPrismaClient;
   readonly materialBodyOperations: MaterialBodyOperations;
   readonly authorPolicy: AuthorPolicy;
   readonly contentAccess: ContentAccess;
-  readonly workshopMaterialProtection?: WorkshopMaterialProtection;
   /**
    * Держатели права на руководство. Без него сборка не знает ни одного держателя и снятие не
    * требует подтверждения: так собираются только тесты Materials и seed, приложение передаёт его всегда.

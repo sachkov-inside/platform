@@ -68,6 +68,14 @@ not dependency wiring.
   and Assets delegates; the caller's own code reaches them only through that function, which
   `scripts/check-backend-architecture.mjs` enforces. Opening no transaction in the callee stays a
   review rule: a nested `$transaction` is also the correct shape for a standalone operation.
+- An operation never awaits another pooled connection while its transaction is open: ten such
+  operations at once hold the whole pool and wait for each other. A read of another Module that
+  the caller's locks guard takes the caller's transaction, through a function or a facet method
+  parameter, as Save does with `inspectReferences` and a Workshop grant with
+  `resolveForAccessUnderEntitlementLock`; the delegate handoff above applies. A read those locks
+  do not guard moves before the transaction and is judged inside it, as a reading command does
+  with its access decision. The operation's test runs it on `test/integration/setup/exhausted-pool.ts`,
+  where a second connection fails instead of waiting.
 - Keep feature-specific data access with its slice. Extract a named private persistence operation
   only for multiple consumers or one cohesive query that becomes a deeper interface.
 - Convert rows to domain values before crossing `domain/`, public contracts, or `index.ts`.

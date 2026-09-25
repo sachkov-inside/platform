@@ -29,10 +29,14 @@ type DeletionSummary = Readonly<{
 
 export interface VideoDeletionMaintenance {
   process(input: {
-    readonly isReferenced: (input: {
-      readonly materialId: string;
-      readonly videoId: string;
-    }) => Promise<boolean>;
+    /** Reads in the claim's transaction, under the Material reference lock it holds. */
+    readonly isReferenced: (
+      input: {
+        readonly materialId: string;
+        readonly videoId: string;
+      },
+      transaction: VideosPrisma,
+    ) => Promise<boolean>;
   }): Promise<
     | Readonly<{ ok: true; value: DeletionSummary }>
     | Readonly<{
@@ -174,7 +178,7 @@ export function assembleVideoDeletionMaintenance(dependencies: {
       if (await isReferenced({
         materialId: operation.materialId,
         videoId: operation.videoId,
-      })) {
+      }, transaction)) {
         await failWithoutClaim(transaction, operation.id, operation.videoId, "referenced", now());
         return {
           category: "referenced",

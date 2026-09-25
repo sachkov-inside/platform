@@ -8,7 +8,6 @@ import { revealWorkshopHint } from "../../features/reveal-hint/reveal-hint.js";
 import { revealWorkshopSolution } from "../../features/reveal-solution/reveal-solution.js";
 import { resolveWorkshopAccess } from "../../features/resolve-access/resolve-access.js";
 import { assembleWorkshopMaterialAccess } from "../workshop-material-access/assemble-workshop-material-access.js";
-import { assembleWorkshopMaterialProtection } from "../workshop-material-protection/assemble-workshop-material-protection.js";
 import type { WorkshopPrismaClient } from "../../infrastructure/prisma.js";
 import type { SourceArchives } from "../../ports/source-archives.js";
 import type { WorkshopMaterialCatalog } from "../../ports/workshop-material-catalog.js";
@@ -19,7 +18,7 @@ export interface WorkshopDependencies {
   readonly prisma: WorkshopPrismaClient;
   readonly membershipEntitlements: Pick<
     MembershipEntitlements,
-    "resolveForAccess"
+    "resolveForAccessUnderEntitlementLock"
   >;
   readonly ownerPolicy: WorkshopOwnerPolicy;
   readonly materialCatalog: WorkshopMaterialCatalog;
@@ -37,9 +36,6 @@ export function assembleWorkshop(dependencies: WorkshopDependencies): Workshop {
   });
   const workshop: Workshop = {
     materialAccess,
-    materialProtection: assembleWorkshopMaterialProtection({
-      prisma: dependencies.prisma,
-    }),
     grantEntitlement: (command) =>
       grantWorkshopEntitlement(
         {

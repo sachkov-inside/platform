@@ -40,7 +40,7 @@ export async function grantWorkshopEntitlement(
     readonly prisma: WorkshopPrismaClient;
     readonly membershipEntitlements: Pick<
       MembershipEntitlements,
-      "resolveForAccess"
+      "resolveForAccessUnderEntitlementLock"
     >;
     readonly ownerPolicy: WorkshopOwnerPolicy;
     readonly clock: () => Date;
@@ -72,7 +72,8 @@ export async function grantWorkshopEntitlement(
         );
         if (replay !== undefined) return replay;
 
-        const membership = await dependencies.membershipEntitlements.resolveForAccess(
+        const membership = await dependencies.membershipEntitlements.resolveForAccessUnderEntitlementLock(
+          transaction,
           accountId(parsed.data.targetAccountId),
         );
         if (membership.kind !== "active") return failure("membership_required");

@@ -322,11 +322,11 @@ export function assembleMaterialAssets(dependencies: {
       });
     },
 
-    async inspectReferences(materialId, references) {
+    async inspectReferences(transaction, materialId, references) {
       return materialAssetQuery("inspectReferences", async () => {
         const unique = uniqueReferences(references);
         if (unique.length === 0) return [];
-        const assets = await prisma.materialAsset.findMany({
+        const assets = await transaction.materialAsset.findMany({
           where: { id: { in: unique.map((reference) => reference.assetId) } },
         });
         const byId = new Map(assets.map((asset) => [asset.id, asset]));
@@ -484,7 +484,7 @@ export function assembleMaterialAssets(dependencies: {
               await input.isReferenced({
                 assetId: asset.id,
                 materialId: asset.materialId,
-              })
+              }, transaction)
             ) {
               await transaction.materialAsset.update({
                 data: {

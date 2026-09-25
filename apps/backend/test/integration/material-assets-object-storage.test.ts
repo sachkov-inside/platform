@@ -99,7 +99,7 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
     if (!uploaded.ok) throw new Error(uploaded.error.code);
     await expect(assets.upload(input)).resolves.toEqual(uploaded);
     await expect(
-      assets.inspectReferences(materialId, [{ assetId: uploaded.value.assetId, kind: "file" }]),
+      assets.inspectReferences(database.prisma, materialId, [{ assetId: uploaded.value.assetId, kind: "file" }]),
     ).resolves.toEqual({ ok: true, value: [] });
 
     const deliveryResult = await assets.loadDelivery({

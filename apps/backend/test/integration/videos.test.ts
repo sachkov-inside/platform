@@ -133,7 +133,7 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
       ok: true,
       value: [{ access: "membership", materialId, videoId: initialized.value.video.videoId }],
     });
-    await expect(videos.inspectPrimaryReference({
+    await expect(videos.inspectPrimaryReference(database.prisma, {
       access: "free",
       materialId,
       videoId: initialized.value.video.videoId,
@@ -665,7 +665,7 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
       },
       projects: { free: "public-project", membership: "member-project" },
     });
-    await expect(videos.inspectPrimaryReference({
+    await expect(videos.inspectPrimaryReference(database.prisma, {
       access: "free",
       materialId: target.materialId,
       videoId: target.videoId,

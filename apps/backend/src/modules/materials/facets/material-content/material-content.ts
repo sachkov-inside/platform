@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
-import type { MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import type { MaterialsPrisma, MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { MaterialBodyOperations, MaterialBodySnapshot } from "../../domain/material-body/material-body.js";
 import {
   materialId,
@@ -29,8 +29,10 @@ type MaterialContentError =
   | SystemError;
 
 export interface MaterialContent {
+  /** Reads in the caller's transaction when it holds one, as a reading command does under its lock. */
   findAccessFacts(
     materialId: MaterialId,
+    transaction?: Pick<MaterialsPrisma, "material" | "publishedMaterialGuideMembership">,
   ): Promise<Result<MaterialAccessFacts | null, MaterialContentError>>;
   findAccessFactsMany(
     materialIds: readonly MaterialId[],
@@ -39,15 +41,20 @@ export interface MaterialContent {
     readonly materialId: MaterialId;
     readonly checkedContentVersion: number;
   }): Promise<Result<MaterialBodySnapshot | null, MaterialContentError>>;
+  /** Reads in the caller's transaction when it holds one, as orphan Asset cleanup does. */
   containsAssetReference(input: {
     readonly assetId: string;
     readonly checkedContentVersion?: number;
     readonly materialId: string;
-  }): Promise<Result<boolean, MaterialContentError>>;
-  containsVideoReference(input: {
-    readonly materialId: string;
-    readonly videoId: string;
-  }): Promise<Result<boolean, MaterialContentError>>;
+  }, transaction?: Pick<MaterialsPrisma, "material">): Promise<Result<boolean, MaterialContentError>>;
+  /** Reads in the Video deletion claim's transaction, under the Material reference lock it holds. */
+  containsVideoReference(
+    transaction: Pick<MaterialsPrisma, "material" | "publishedMaterial">,
+    input: {
+      readonly materialId: string;
+      readonly videoId: string;
+    },
+  ): Promise<Result<boolean, MaterialContentError>>;
 }
 
 export const MATERIAL_CONTENT = Symbol("MATERIAL_CONTENT");
@@ -85,13 +92,14 @@ export function assembleMaterialContent(dependencies: {
   return Object.freeze({
     async findAccessFacts(
       materialIdValue: MaterialId,
+      transaction: Pick<MaterialsPrisma, "material" | "publishedMaterialGuideMembership"> = dependencies.prisma,
     ): Promise<Result<MaterialAccessFacts | null, MaterialContentError>> {
       const parsed = normalizedUuidSchema.safeParse(materialIdValue);
       if (!parsed.success) {
         return { ok: false, error: { code: "invalid_request_shape" } };
       }
       try {
-        const row = await dependencies.prisma.material.findUnique({
+        const row = await transaction.material.findUnique({
           where: { id: parsed.data },
           select: {
             id: true,
@@ -111,7 +119,7 @@ export function assembleMaterialContent(dependencies: {
             error: invalidStoredMaterial("findAccessFacts", "invalid Material facts"),
           };
         }
-        const memberships = await dependencies.prisma.publishedMaterialGuideMembership.findMany({
+        const memberships = await transaction.publishedMaterialGuideMembership.findMany({
           where: { materialId: parsed.data }, select: { seriesId: true },
         });
         return { ok: true, value: { ...facts, ...(memberships.length ? { guideIds: memberships.map(value => value.seriesId) } : {}) } };
@@ -189,13 +197,13 @@ export function assembleMaterialContent(dependencies: {
       readonly assetId: string;
       readonly checkedContentVersion?: number;
       readonly materialId: string;
-    }): Promise<Result<boolean, MaterialContentError>> {
+    }, transaction: Pick<MaterialsPrisma, "material"> = dependencies.prisma): Promise<Result<boolean, MaterialContentError>> {
       const parsed = assetReferenceQuerySchema.safeParse(input);
       if (!parsed.success) {
         return { error: { code: "invalid_request_shape" }, ok: false };
       }
       try {
-        const row = await dependencies.prisma.material.findUnique({
+        const row = await transaction.material.findUnique({
           where: { id: parsed.data.materialId },
           select: { body: true, contentVersion: true, schemaVersion: true },
         });
@@ -234,32 +242,31 @@ export function assembleMaterialContent(dependencies: {
       }
     },
 
-    async containsVideoReference(input: {
-      readonly materialId: string;
-      readonly videoId: string;
-    }): Promise<Result<boolean, MaterialContentError>> {
+    async containsVideoReference(
+      transaction: Pick<MaterialsPrisma, "material" | "publishedMaterial">,
+      input: { readonly materialId: string; readonly videoId: string },
+    ): Promise<Result<boolean, MaterialContentError>> {
       const parsed = videoReferenceQuerySchema.safeParse(input);
       if (!parsed.success) {
         return { error: { code: "invalid_request_shape" }, ok: false };
       }
       try {
-        const [current, published] = await Promise.all([
-          dependencies.prisma.material.findFirst({
-            where: {
-              id: parsed.data.materialId,
-              primaryVideoId: parsed.data.videoId,
-            },
-            select: { id: true },
-          }),
-          dependencies.prisma.publishedMaterial.findFirst({
-            where: {
-              materialId: parsed.data.materialId,
-              primaryVideoId: parsed.data.videoId,
-            },
-            select: { materialId: true },
-          }),
-        ]);
-        return { ok: true, value: current !== null || published !== null };
+        const current = await transaction.material.findFirst({
+          where: {
+            id: parsed.data.materialId,
+            primaryVideoId: parsed.data.videoId,
+          },
+          select: { id: true },
+        });
+        if (current !== null) return { ok: true, value: true };
+        const published = await transaction.publishedMaterial.findFirst({
+          where: {
+            materialId: parsed.data.materialId,
+            primaryVideoId: parsed.data.videoId,
+          },
+          select: { materialId: true },
+        });
+        return { ok: true, value: published !== null };
       } catch (error) {
         return { error: dependencyFailure({ module: "materials", operation: "containsVideoReference" }, error, mapPostgresReadError(error)), ok: false };
       }

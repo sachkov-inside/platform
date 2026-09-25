@@ -20,6 +20,9 @@ export async function recordMaterialOpen(dependencies: {
   const command = { ...parsed.data, accountId: parsed.data.accountId.toLowerCase(), materialId: parsed.data.materialId.toLowerCase(), commandId: parsed.data.commandId.toLowerCase() };
   const fingerprint = JSON.stringify(["recordMaterialOpen", command.materialId, command.contentVersion]);
   try {
+    // Access is decided by other Modules on their own connections, so it is read before the
+    // transaction; the Material facts are reread under the pair lock, in the transaction.
+    const decision = await dependencies.contentAccess.authorize({ subject: { kind: "account", accountId: accountId(command.accountId) }, action: "read", resource: { kind: "material", materialId: materialId(command.materialId) }, enforcementPoint: "material_open", correlationId: command.commandId });
     return await dependencies.prisma.$transaction(async (transaction): Promise<RecordMaterialOpenResult> => {
       await lockReadingCommand(transaction, command.accountId, command.commandId);
       const receipt = await transaction.readingCommand.findUnique({ where: { accountId_commandId: { accountId: command.accountId, commandId: command.commandId } } });
@@ -28,9 +31,8 @@ export async function recordMaterialOpen(dependencies: {
         return { ok: true, value: { ...openReceiptSchema.parse(receipt.outcome), replayed: true } };
       }
       await lockReadingPair(transaction, command.accountId, command.materialId);
-      const decision = await dependencies.contentAccess.authorize({ subject: { kind: "account", accountId: accountId(command.accountId) }, action: "read", resource: { kind: "material", materialId: materialId(command.materialId) }, enforcementPoint: "material_open", correlationId: command.commandId });
       if (decision.effect === "deny") return { ok: false, error: { code: decision.reason === "dependency_unavailable" ? "dependency_unavailable" : "access_denied" } };
-      const facts = await dependencies.materialContent.findAccessFacts(materialId(command.materialId));
+      const facts = await dependencies.materialContent.findAccessFacts(materialId(command.materialId), transaction);
       if (!facts.ok) return { ok: false, error: { code: "dependency_unavailable" } };
       if (facts.value === null || facts.value.publicationState !== "published" || facts.value.contentVersion !== command.contentVersion || decision.checkedContentVersion !== command.contentVersion || ("validUntil" in decision && decision.validUntil !== null && Date.parse(decision.validUntil) <= Date.now())) return { ok: false, error: { code: "access_changed" } };
       const now = new Date();

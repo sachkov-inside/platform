@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import type { VideosPrisma } from "../../../../infrastructure/prisma/index.js";
+
 export const videoAccessSchema = z.enum(["free", "membership", "workshop"]);
 export const videoOriginSchema = z.enum(["external_attachment", "platform_upload"]);
 export const videoStateSchema = z.enum([
@@ -149,7 +151,8 @@ export interface Videos {
     readonly providerStatus?: string;
     readonly providerVideoId: string;
   }): Promise<AcceptVideoWebhookResult>;
-  inspectPrimaryReference(input: {
+  /** Reads in the caller's transaction, under the Material reference lock it holds. */
+  inspectPrimaryReference(transaction: Pick<VideosPrisma, "video">, input: {
     readonly access: VideoAccess;
     readonly materialId: string;
     readonly videoId: string;
@@ -161,10 +164,11 @@ export interface Videos {
     readonly materialId: string;
     readonly videoId: string;
   }): Promise<OperationResult<VideoPresentation | null, "dependency_unavailable" | "invalid_request">>;
+  /** Reads in the caller's transaction when it holds one. */
   loadAuthoringPresentation(input: {
     readonly materialId: string;
     readonly videoId: string;
-  }): Promise<OperationResult<VideoAuthoringPresentation | null, "dependency_unavailable" | "invalid_request">>;
+  }, transaction?: Pick<VideosPrisma, "video">): Promise<OperationResult<VideoAuthoringPresentation | null, "dependency_unavailable" | "invalid_request">>;
   loadReadyDurations(videoIds: readonly string[]): Promise<
     OperationResult<
       readonly ReadyVideoDuration[],
