@@ -17,7 +17,7 @@ import { assignEnrollmentSchema, enrollmentResultSchema } from "../../domain/sub
 import { setAccessSnapshotIsolation } from "../../infrastructure/access-isolation.js";
 import { z } from "zod";
 import { accountId, type Accounts, type PlatformPermission } from "../../../accounts/index.js";
-import type { MembershipEntitlementsPrismaClient } from "../../infrastructure/prisma.js";
+import type { MembershipEntitlementsPrisma, MembershipEntitlementsPrismaClient } from "../../infrastructure/prisma.js";
 import {
   accessFailure,
   classificationSchema,
@@ -224,7 +224,10 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
      * этом перед снятием опубликованного материала из руководства. Прежний мост членства сюда не
      * входит: он читает замороженный состав миграции и новых руководств не содержит.
      */
-    async countGuideHolders(guideIds: readonly string[]): Promise<ReadonlyMap<string, number>> {
+    async countGuideHolders(
+      transaction: Pick<MembershipEntitlementsPrisma, "$queryRaw">,
+      guideIds: readonly string[],
+    ): Promise<ReadonlyMap<string, number>> {
       const ids = z.array(z.uuid()).max(100).parse([...new Set(guideIds)]);
       if (ids.length === 0) return new Map();
       const now = clock();
@@ -236,7 +239,7 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
         guide_ids: z.array(z.string()).nullable(),
         all_guides: z.boolean().nullable(),
       })).parse(
-        await prisma.$queryRaw(Prisma.sql`
+        await transaction.$queryRaw(Prisma.sql`
           select grant_row.account_id,
                  grant_row.capabilities,
                  grant_row.content_scope -> 'guideIds' as guide_ids,

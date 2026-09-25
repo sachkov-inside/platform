@@ -5,8 +5,10 @@ import { assembleMaterialAssetMaintenance } from "../../src/modules/materials/fe
 
 describe("Material Asset maintenance", () => {
   test("runs cleanup with the configured grace and current Material references", async () => {
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- Maintenance only passes the cleanup transaction on to Materials.
+    const cleanupTransaction = {} as Parameters<Parameters<MaterialAssets["cleanupOrphans"]>[0]["isReferenced"]>[0];
     const cleanupOrphans = vi.fn<MaterialAssets["cleanupOrphans"]>().mockImplementation(async ({ isReferenced }) => {
-      await expect(isReferenced({ assetId: "asset", materialId: "material" })).resolves.toBe(true);
+      await expect(isReferenced(cleanupTransaction, { assetId: "asset", materialId: "material" })).resolves.toBe(true);
       return { ok: true, value: { cleaned: 2, retained: 1 } };
     });
     const containsAssetReference = vi.fn().mockResolvedValue({ ok: true, value: true });
@@ -23,7 +25,10 @@ describe("Material Asset maintenance", () => {
       retained: 5,
     });
     expect(cleanupOrphans).toHaveBeenCalledWith(expect.objectContaining({ graceMs: 86_400_000 }));
-    expect(containsAssetReference).toHaveBeenCalledWith({ assetId: "asset", materialId: "material" });
+    expect(containsAssetReference).toHaveBeenCalledWith(
+      { assetId: "asset", materialId: "material" },
+      cleanupTransaction,
+    );
   });
 
   test("returns a retryable failure for a durable worker retry", async () => {

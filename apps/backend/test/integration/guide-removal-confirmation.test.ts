@@ -5,6 +5,7 @@ import { assembleAccounts } from "../../src/modules/accounts/index.js";
 import { assembleAccessGrants, type AccessCapability } from "../../src/modules/membership-entitlements/index.js";
 import { assembleMaterials } from "../../src/modules/materials/index.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
+import { withExhaustedPool } from "./setup/exhausted-pool.js";
 import { createMigratedTestDatabase, type TestDatabase } from "./setup/test-database.js";
 
 /**
@@ -67,6 +68,30 @@ describe("снятие материала из купленного руково
   async function publishedGuides(materialId: string) {
     return (await db.prisma.publishedMaterialGuideMembership.findMany({ where: { materialId }, orderBy: { seriesId: "asc" } })).map(({ seriesId }) => seriesId);
   }
+
+  test("держателей считают в транзакции снятия, когда она держит весь пул", async () => {
+    now = new Date("2030-01-01T00:00:00Z");
+    const bought = await guide(); const unsold = await guide();
+    await grant({ capabilities: [`guide:${bought}`], validUntil: null });
+    const item = await publish([bought, unsold]);
+    const order = await materials.authoring.loadSeriesOrder({ actor: owner, seriesId: bought });
+    if (!order.ok) throw new Error(order.error.code);
+
+    const [saved, reordered] = await withExhaustedPool(db, async (prisma) => {
+      const pooled = assembleMaterials({ prisma, authorPolicy: { canManage: (id) => id === owner }, guideAccessHolders: assembleAccessGrants({
+        prisma, accounts: assembleAccounts({ prisma, emailFingerprintKey: "synthetic-removal-fingerprint-key-00000" }), clock: () => now,
+      }) });
+      return [
+        await pooled.authoring.saveMaterial({ actor: owner, idempotencyKey: randomUUID(), materialId: item.materialId, expectedContentVersion: item.contentVersion,
+          publicationState: "published", metadata: { ...item.meta, seriesIds: [unsold] }, body: representativeDocument(item.meta.title) }),
+        await pooled.authoring.reorderSeries({ actor: owner, seriesId: bought, expectedOrderVersion: order.value.orderVersion, orderedMaterialIds: [] }),
+      ] as const;
+    });
+
+    const held = { ok: false, error: { code: "guide_removal_confirmation_required", guides: [{ guideId: bought, holders: 1 }] } };
+    expect(saved).toMatchObject(held);
+    expect(reordered).toMatchObject(held);
+  });
 
   test("сохранение убирает материал из купленного руководства только подтверждением и пишет журнал", async () => {
     now = new Date("2030-01-01T00:00:00Z");
@@ -131,7 +156,7 @@ describe("снятие материала из купленного руково
     await grant({ capabilities: [`guide:${lapsed}`], validUntil: "2030-01-02T00:00:00Z" });
     const item = await publish([lapsed]);
     now = new Date("2030-01-03T00:00:00Z");
-    expect(await grants.countGuideHolders([lapsed])).toEqual(new Map([[lapsed, 0]]));
+    expect(await grants.countGuideHolders(db.prisma, [lapsed])).toEqual(new Map([[lapsed, 0]]));
     expect(await save(item, { publicationState: "unpublished" })).toMatchObject({ ok: true });
     expect(await db.prisma.guideMaterialRemoval.count({ where: { guideId: lapsed } })).toBe(0);
   });

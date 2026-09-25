@@ -1,7 +1,7 @@
 import { contentScopeSchema, scopeOpensResource } from "@inside/access-capabilities";
 import type { MembershipAccessState } from "../../facets/membership-entitlements/membership-entitlements.interface.js";
 import type { AccountId } from "../../../accounts/index.js";
-import type { MembershipEntitlementsPrisma } from "../../infrastructure/prisma.js";
+import type { MembershipAccessPrisma } from "../../infrastructure/prisma.js";
 import {
   accessCapabilitySchema,
   capabilitiesOpenedBy,
@@ -18,7 +18,7 @@ export type AccessCapabilities = Readonly<{
   nextBoundary: string | null;
 }>;
 export async function resolveAccessCapabilities(
-  prisma: MembershipEntitlementsPrisma,
+  prisma: MembershipAccessPrisma,
   accountId: AccountId,
   now: Date,
   resource?: { guideIds: readonly string[]; materialId?: string | undefined },
@@ -27,7 +27,7 @@ export async function resolveAccessCapabilities(
 > {
   return projectAccessCapabilities(await readAccessCapabilityFacts(prisma, accountId, now), now, resource);
 }
-export async function readAccessCapabilityFacts(prisma: MembershipEntitlementsPrisma, accountId: AccountId, now: Date) {
+export async function readAccessCapabilityFacts(prisma: MembershipAccessPrisma, accountId: AccountId, now: Date) {
   const grants = await prisma.accessGrant.findMany({
     where: {
       accountId,

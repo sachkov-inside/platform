@@ -24,6 +24,17 @@ export type MembershipEntitlementsPrisma = Pick<
   | "membershipProjection"
 >;
 
+/** What Membership reads to decide access; a caller's transaction lists these to hand itself over. */
+export type MembershipAccessPrisma = Pick<
+  MembershipEntitlementsPrisma,
+  | "accessChange"
+  | "accessGrant"
+  | "legacyClassification"
+  | "membershipBinding"
+  | "membershipEvidenceReceipt"
+  | "membershipProjection"
+>;
+
 export type MembershipEntitlementsPrismaTransaction =
   MembershipEntitlementsPrisma;
 

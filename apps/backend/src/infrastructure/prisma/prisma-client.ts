@@ -32,6 +32,7 @@ export type MaterialsPrisma = Pick<
   | "topic"
   | "video"
   | "videoDeletionOperation"
+  | "workshopCaseMaterial"
 >;
 export type MaterialsPrismaTransaction = MaterialsPrisma;
 export type MaterialsPrismaClient = MaterialsPrisma &
@@ -41,6 +42,7 @@ export type AssetsPrisma = Pick<
   PlatformPrisma,
   | "$executeRaw"
   | "$queryRaw"
+  | "material"
   | "materialAsset"
   | "materialAssetVariant"
 >;
@@ -52,6 +54,8 @@ export type VideosPrisma = Pick<
   PlatformPrisma,
   | "$executeRaw"
   | "$queryRaw"
+  | "material"
+  | "publishedMaterial"
   | "video"
   | "videoDeletionOperation"
   | "videoPlaybackProgress"
@@ -102,6 +106,8 @@ export type CommunicationsPrisma = Pick<PlatformPrisma, "communicationTrackingHi
 
 export type ReadingActivityPrisma = Pick<PlatformPrisma,
   "$executeRaw" | "$queryRaw" | "readingMaterialState" | "readingEvent" | "readingCommand" | "readingMaterialVisit" | "readerPreferences"
+  // Materials delegates: a reading command rereads Material facts in its own transaction.
+  | "material" | "publishedMaterialGuideMembership"
 >;
 export type ReadingActivityPrismaClient = ReadingActivityPrisma & TransactionClient<ReadingActivityPrisma>;
 

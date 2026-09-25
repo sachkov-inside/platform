@@ -99,7 +99,7 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
     if (!uploaded.ok) throw new Error(uploaded.error.code);
     await expect(assets.upload(input)).resolves.toEqual(uploaded);
     await expect(
-      assets.inspectReferences(materialId, [{ assetId: uploaded.value.assetId, kind: "file" }]),
+      assets.inspectReferences(database.prisma, materialId, [{ assetId: uploaded.value.assetId, kind: "file" }]),
     ).resolves.toEqual({ ok: true, value: [] });
 
     const deliveryResult = await assets.loadDelivery({
@@ -452,8 +452,8 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
     const orphanGraceMs = 250;
     const cleanupAt = async (now: Date) => assets.cleanupOrphans({
       graceMs: orphanGraceMs,
-      async isReferenced(input) {
-        const referenced = await materials.materialContent.containsAssetReference(input);
+      async isReferenced(transaction, input) {
+        const referenced = await materials.materialContent.containsAssetReference(input, transaction);
         if (!referenced.ok) throw new Error(referenced.error.code);
         return referenced.value;
       },
