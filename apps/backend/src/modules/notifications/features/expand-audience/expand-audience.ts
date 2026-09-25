@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { lockNotification, type NotificationsPrisma, type NotificationsPrismaClient } from '../../../../infrastructure/prisma/index.js';
 import { MATERIAL_EVENT_LIFETIME_MS } from '../../../../infrastructure/notification-transport/wire.js';
-import { eventSchema, deliverySchema, parseWire, commandWindow, fingerprint, type NotificationEvent, type Channel } from '../../domain/notification-wire.js';
+import { eventSchema, deliverySchema, parseWire, commandWindow, fingerprint, type Binding, type NotificationEvent, type Channel } from '../../domain/notification-wire.js';
 import { renderNotification } from '../../domain/templates.js';
 import type { NotificationRecipients, NotificationSources, NotificationSource, QuarantineNotification } from '../../ports/notification-sources.js';
 import { optedIn } from '../change-preferences/change-preferences.js';
@@ -23,6 +23,18 @@ export function validSource(event: NotificationEvent, source: NotificationSource
   return fingerprint(fact) === fingerprint(event) &&
     (event.eventType === 'material.published' ? source.content.category === 'material' && source.accountId === null :
       source.content.category === 'subscription' && source.content.kind === event.kind && source.accountId === event.accountRef);
+}
+/** Ответ чужого Module вместе с его отказом: отказ поднимается там, где операция берёт ответ. */
+type Read<Answer> = PromiseSettledResult<Answer>;
+export async function settle<Answer>(read: () => Promise<Answer>): Promise<Read<Answer>> {
+  const [settled] = await Promise.allSettled([read()] as const);
+  return settled;
+}
+export function answer<Answer>(read: Read<Answer> | undefined): Answer {
+  // Заранее читается всё, что операция может спросить; пропуск — ошибка программы, а не состояние.
+  if (!read) throw new Error('notification_fact_unread');
+  if (read.status === 'rejected') throw read.reason;
+  return read.value;
 }
 const checkpointSchema = z.object({ after: z.uuid().nullable().default(null), recipients: z.number().int().nonnegative().default(0),
   attempts: z.number().int().nonnegative().default(0), reason: z.string().optional() });
@@ -46,18 +58,71 @@ export async function expandAudience(
 export interface AudienceExpansion { readonly progressed: boolean; readonly observation?: SweepObservation }
 async function expandAudienceOnce(deps: NotificationDependencies, lane: 'billing' | 'materials'): Promise<AudienceExpansion> {
   const { prisma, now } = deps;
+  const candidate = await nextRow(prisma, lane, now());
+  if (!candidate) return { progressed: false };
+  const prepared = parseCheckpoint(candidate.checkpoint);
+  let facts: AudienceFacts;
+  try {
+    facts = await readAudienceFacts(deps, lane, candidate, prepared.after);
+  } catch (error) {
+    throw new UnprocessableRow(candidate, prepared, error);
+  }
   return prisma.$transaction(async transaction => {
     await lockNotification(transaction, `audience:${lane}`);
-    const row = await transaction.notificationInbox.findFirst({ where: { lane, completedAt: null, nextAttemptAt: { lte: now() } }, orderBy: [{ nextAttemptAt: 'asc' }, { receivedAt: 'asc' }, { messageId: 'asc' }] });
+    const row = await nextRow(transaction, lane, now());
     if (!row) return { progressed: false };
     const checkpoint = parseCheckpoint(row.checkpoint);
+    // Another expansion moved the lane after the facts were read: the next sweep reads them again.
+    if (row.scope !== candidate.scope || row.messageId !== candidate.messageId || checkpoint.after !== facts.after) return { progressed: false };
     try {
-      return await expandRow(transaction, deps, lane, row, checkpoint);
+      return await expandRow(transaction, deps, lane, row, checkpoint, facts);
     } catch (error) {
       // Транзакция откатывается, поэтому судьбу строки записывает вызывающий отдельной записью.
       throw new UnprocessableRow(row, checkpoint, error);
     }
   });
+}
+/** The lane's earliest due row: read once to prepare its facts, then again under the lane lock. */
+function nextRow(prisma: Pick<NotificationsPrisma, 'notificationInbox'>, lane: 'billing' | 'materials', now: Date) {
+  return prisma.notificationInbox.findFirst({ where: { lane, completedAt: null, nextAttemptAt: { lte: now } }, orderBy: [{ nextAttemptAt: 'asc' }, { receivedAt: 'asc' }, { messageId: 'asc' }] });
+}
+/**
+ * Source, audience, access and recipient bindings of one row's batch come from other Modules on their
+ * own connections, so they are read before the expansion transaction and judged under the lane lock,
+ * which guards none of them. Every answer the expansion may ask for is read; an unused one costs a
+ * read, never a decision, and a failed read fails the row only where the expansion takes its answer.
+ */
+interface AudienceFacts {
+  readonly after: string | null;
+  readonly source?: Read<NotificationSource>;
+  readonly accounts?: Read<readonly string[]>;
+  readonly access: ReadonlyMap<string, Read<'allowed' | 'denied' | 'unavailable'>>;
+  readonly bindings: ReadonlyMap<string, Read<Binding | null>>;
+}
+const bindingKey = (accountId: string, channel: Channel) => `${accountId}:${channel}`;
+async function readAudienceFacts(deps: NotificationDependencies, lane: 'billing' | 'materials', row: InboxRow, after: string | null): Promise<AudienceFacts> {
+  const access = new Map<string, Read<'allowed' | 'denied' | 'unavailable'>>();
+  const bindings = new Map<string, Read<Binding | null>>();
+  // Без адреса читателя строка ждёт настройки и ничего не спрашивает.
+  if (deps.origin === undefined) return { after, access, bindings };
+  const { value: event } = parseWire(lane, JSON.parse(row.payload), eventSchema);
+  const source = await settle(() => deps.sources.resolve(event));
+  if (source.status === 'rejected' || !validSource(event, source.value)) return { after, source, access, bindings };
+  const { accountId: recipient, content } = source.value;
+  const accounts = await settle(async () => recipient === null
+    ? deps.recipients.enumerate({ occurredAt: new Date(event.occurredAt), after, limit: AUDIENCE_BATCH_SIZE })
+    : await deps.recipients.exists(recipient) ? [recipient] : []);
+  for (const accountId of accounts.status === 'fulfilled' ? accounts.value : []) {
+    if (content.category === 'material') {
+      const decision = await settle(() => deps.sources.canRead(accountId, event.sourceRef));
+      access.set(accountId, decision);
+      // The expansion stops at this Account, so the Accounts after it are not asked.
+      if (decision.status === 'rejected' || decision.value === 'unavailable') break;
+      if (decision.value === 'denied') continue;
+    }
+    for (const channel of ['email', 'telegram'] as const) bindings.set(bindingKey(accountId, channel), await settle(() => deps.recipients.binding(accountId, channel)));
+  }
+  return { after, source, accounts, access, bindings };
 }
 function parseCheckpoint(value: unknown): z.infer<typeof checkpointSchema> {
   const parsed = checkpointSchema.safeParse(value);
@@ -65,7 +130,7 @@ function parseCheckpoint(value: unknown): z.infer<typeof checkpointSchema> {
 }
 async function expandRow(
   transaction: NotificationsPrisma, deps: NotificationDependencies, lane: 'billing' | 'materials',
-  row: InboxRow, checkpoint: z.infer<typeof checkpointSchema>,
+  row: InboxRow, checkpoint: z.infer<typeof checkpointSchema>, facts: AudienceFacts,
 ): Promise<AudienceExpansion> {
   const { now } = deps;
   const key = inboxKey(row);
@@ -90,7 +155,7 @@ async function expandRow(
     await transaction.notificationInbox.update({ where: key, data: { nextAttemptAt: new Date(now().getTime() + DELIVERY_WAIT_MS) } });
     return { progressed: false, observation: { lane, messageId: row.messageId, reason: 'delivery_not_configured' } };
   }
-  const source = await deps.sources.resolve(event);
+  const source = answer(facts.source);
   if (source.status === 'unavailable') {
     await transaction.notificationInbox.update({ where: key, data: { nextAttemptAt: new Date(now().getTime() + SOURCE_WAIT_MS) } });
     return { progressed: false };
@@ -99,13 +164,11 @@ async function expandRow(
     await transaction.notificationInbox.update({ where: key, data: { completedAt: now(), checkpoint: { reason: 'source_conflict' } } });
     return { progressed: true };
   }
-  const accounts = source.accountId === null
-    ? await deps.recipients.enumerate({ occurredAt, after: checkpoint.after, limit: AUDIENCE_BATCH_SIZE })
-    : await deps.recipients.exists(source.accountId) ? [source.accountId] : [];
+  const accounts = answer(facts.accounts);
   let count = checkpoint.recipients;
   for (const accountId of accounts) {
     if (source.content.category === 'material') {
-      const decision = await deps.sources.canRead(accountId, event.sourceRef);
+      const decision = answer(facts.access.get(accountId));
       // Недоступное решение о доступе — состояние зависимости, а не порча сообщения: строка ждёт
       // так же, как при недоступном источнике, и попытка ей не засчитывается.
       if (decision === 'unavailable') {
@@ -135,7 +198,7 @@ async function expandRow(
       await lockNotification(transaction, `delivery:${delivery.id}`);
       // No new binding or source revision inherits a queued/started send.
       if (delivery.commandRevision > 0 || delivery.recoverySkipped) continue;
-      const binding = await deps.recipients.binding(accountId, channel);
+      const binding = answer(facts.bindings.get(bindingKey(accountId, channel)));
       if (!binding) continue;
       const template = renderNotification(source, origin);
       const command = deliverySchema.parse({
