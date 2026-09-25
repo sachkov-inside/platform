@@ -9,6 +9,7 @@ import {
   type PlatformConfig,
 } from "../src/config/platform-config.js";
 import { createApiApplication } from "../src/entrypoints/api/create-api-application.js";
+import { problemType } from "../src/infrastructure/http/problem-details.js";
 import { BillingWorkerModule } from "../src/entrypoints/billing-worker/billing-worker.module.js";
 import { createMcpApplication } from "../src/entrypoints/create-mcp-application.js";
 import { NotificationsWorkerModule } from "../src/entrypoints/notifications-worker/notifications-worker.module.js";
@@ -282,7 +283,7 @@ describe("backend process composition", () => {
     expect(malformedBody.statusCode).toBe(400);
     expect(malformedBody.headers["content-type"]).toContain("application/problem+json");
     expect(malformedBody.json()).toEqual({
-      type: "about:blank",
+      type: problemType("http_error"),
       title: "Invalid request",
       status: 400,
       code: "http_error",
