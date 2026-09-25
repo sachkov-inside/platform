@@ -119,8 +119,8 @@ function throwReadingError(error: ReadingError): never {
     case "invalid_request": throw readingException(400, error);
     case "access_denied": throw readingException(403, error);
     case "series_not_found": throw readingException(404, error);
+    case "stale_version": throw readingException(409, error, { current: error.current });
     case "command_conflict":
-    case "stale_version":
     case "access_changed": throw readingException(409, error);
     case "series_too_large": throw readingException(422, error);
     case "dependency_unavailable": throw readingException(503, error);
@@ -128,8 +128,11 @@ function throwReadingError(error: ReadingError): never {
   }
 }
 
-function readingException(status: number, error: ReadingError): HttpException {
-  return problemException(status, error.code, "Reading activity request failed",
-    error.code === "stale_version" ? { current: error.current } : {});
+function readingException(
+  status: number,
+  error: ReadingError,
+  details: Readonly<{ current: unknown }> | Readonly<Record<never, never>> = {},
+): HttpException {
+  return problemException(status, error.code, "Reading activity request failed", details);
 }
 function assertNever(value: never): never { throw new Error(`Unexpected ReadingActivity error: ${JSON.stringify(value)}`); }

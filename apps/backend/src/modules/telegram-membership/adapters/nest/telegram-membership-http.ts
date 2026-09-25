@@ -178,5 +178,4 @@ function telegramLinkFailureStatus(
   }
 }
 
-
 export { bearerCredential, credentialsMatch } from "../../../../infrastructure/http/bearer-credentials.js";

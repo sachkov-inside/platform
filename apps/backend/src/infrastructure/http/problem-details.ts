@@ -16,6 +16,13 @@ type ProblemFields = Readonly<Record<string, unknown>> & {
   readonly type?: never;
 };
 
+type ProblemBody<Status extends number, Code extends string, Title extends string, Details> = Details & {
+  readonly code: Code;
+  readonly status: Status;
+  readonly title: Title;
+  readonly type: `urn:inside:problem:${Code}`;
+};
+
 /**
  * The problem details body of one application error. `details` carries the error's own fields,
  * such as the current version of a conflict; the type always follows the code.
@@ -30,21 +37,11 @@ export function problemDetails<
   code: Code,
   title: Title,
   details?: Details,
-): Details & {
-  readonly code: Code;
-  readonly status: Status;
-  readonly title: Title;
-  readonly type: `urn:inside:problem:${Code}`;
-} {
+): ProblemBody<Status, Code, Title, Details> {
   // The spread keeps every detail and the four fields below override nothing: `ProblemFields`
   // forbids them in `details`, which TypeScript cannot see through the generic spread.
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-  return { ...details, code, status, title, type: problemType(code) } as Details & {
-    readonly code: Code;
-    readonly status: Status;
-    readonly title: Title;
-    readonly type: `urn:inside:problem:${Code}`;
-  };
+  return { ...details, code, status, title, type: problemType(code) } as ProblemBody<Status, Code, Title, Details>;
 }
 
 /** The same body as an exception; `ProblemDetailsFilter` sends it as is. */
