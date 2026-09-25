@@ -1,9 +1,10 @@
 import { authoringSourceSchema } from "../../domain/authoring-source.js";
 import type { SetHomePinError } from "../../features/set-home-pin/set-home-pin.contract.js";
-import { HttpException } from "@nestjs/common";
 import type { MaterialBodyResourceSummary } from "@inside/material-blocks";
 import { headingLevelSchema, renderedMaterialBodySchema } from "@inside/material-blocks";
 import { z } from "zod";
+
+import { problemException } from "../../../../infrastructure/http/problem-details.js";
 import {
   GUIDE_CHAPTER_NAME_MAX,
   GUIDE_CHAPTER_SUMMARY_MAX,
@@ -290,19 +291,12 @@ export function parseMaterialAuthoringBody<Schema extends z.ZodType>(
   if (parsed.success) {
     return parsed.data;
   }
-  throw new HttpException(
-    {
-      type: "urn:inside:problem:invalid-request-shape",
-      title: "Material authoring request is malformed",
-      status: 400,
-      code: "invalid_request_shape",
-      issues: parsed.error.issues.map((issue) => ({
-        code: issue.code,
-        path: `/${issue.path.map(String).join("/")}`,
-      })),
-    },
-    400,
-  );
+  throw problemException(400, "invalid_request_shape", "Material authoring request is malformed", {
+    issues: parsed.error.issues.map((issue) => ({
+      code: issue.code,
+      path: `/${issue.path.map(String).join("/")}`,
+    })),
+  });
 }
 
 type MaterialAuthoringTransportError =
@@ -358,15 +352,7 @@ export function throwMaterialAuthoringError(
   error: MaterialAuthoringTransportError,
 ): never {
   const status = statusForMaterialAuthoringError(error);
-  throw new HttpException(
-    {
-      type: `urn:inside:problem:${error.code.replaceAll("_", "-")}`,
-      title: titleForMaterialAuthoringError(status),
-      status,
-      ...error,
-    },
-    status,
-  );
+  throw problemException(status, error.code, titleForMaterialAuthoringError(status), error);
 }
 
 function titleForMaterialAuthoringError(status: number): string {

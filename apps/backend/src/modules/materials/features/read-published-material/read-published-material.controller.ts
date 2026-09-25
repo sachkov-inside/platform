@@ -1,12 +1,8 @@
 import {
-  BadRequestException,
   Controller,
   Get,
   Inject,
-  InternalServerErrorException,
-  NotFoundException,
   Param,
-  ServiceUnavailableException,
 } from "@nestjs/common";
 import {
   ApiBadRequestResponse,
@@ -43,6 +39,7 @@ import {
   type PublishedMaterialReader,
 } from "../../facets/published-material-reader/published-material-reader.js";
 import type { PublishedMaterialReadError } from "./read-published-material.contract.js";
+import { problemException } from "../../../../infrastructure/http/problem-details.js";
 
 @ApiTags("Published materials")
 @PublishedMaterialCache()
@@ -88,34 +85,12 @@ export function throwReadPublishedMaterialError(
 ): never {
   switch (error.code) {
     case "invalid_request_shape":
-      throw new BadRequestException({
-        type: "urn:inside:problem:invalid-request-shape",
-        title: "Invalid request shape",
-        status: 400,
-        code: error.code,
-      });
+      throw problemException(400, error.code, "Invalid request shape");
     case "material_not_found":
-      throw new NotFoundException({
-        type: "urn:inside:problem:material-not-found",
-        title: "Material not found",
-        status: 404,
-        code: error.code,
-      });
+      throw problemException(404, error.code, "Material not found");
     case "dependency_unavailable":
-      throw new ServiceUnavailableException({
-        type: "urn:inside:problem:dependency-unavailable",
-        title: "Dependency unavailable",
-        status: 503,
-        code: error.code,
-        retryable: error.retryable,
-      });
+      throw problemException(503, error.code, "Dependency unavailable", { retryable: error.retryable });
     case "internal_error":
-      throw new InternalServerErrorException({
-        type: "urn:inside:problem:internal-error",
-        title: "Internal error",
-        status: 500,
-        code: error.code,
-        correlationId: error.correlationId,
-      });
+      throw problemException(500, error.code, "Internal error", { correlationId: error.correlationId });
   }
 }

@@ -4,7 +4,6 @@ import {
   Controller,
   Delete,
   Get,
-  HttpException,
   Inject,
   Param,
   Patch,
@@ -43,6 +42,7 @@ import {
   type GuideArtifacts,
   type UploadedArtifactFile,
 } from "./guide-artifacts.js";
+import { problemException } from "../../../../infrastructure/http/problem-details.js";
 
 const uuidSchema = z.uuid();
 const checksumSchema = z.hash("sha256");
@@ -236,7 +236,7 @@ export class GuideArtifactAuthoringController {
     });
     const guideId = uuidSchema.safeParse(field(upload.part, "guideId"));
     if (!metadata.success || !guideId.success) {
-      throw guideArtifactProblem(422, "invalid_artifact", "Guide Artifact form is malformed");
+      throw problemException(422, "invalid_artifact", "Guide Artifact form is malformed");
     }
     const result = await this.artifacts.create({
       actor: account.accountId,
@@ -329,7 +329,7 @@ export class GuideArtifactAuthoringController {
     const upload = await readUpload(request, 3);
     const artifactId = uuidSchema.safeParse(field(upload.part, "artifactId"));
     if (!artifactId.success) {
-      throw guideArtifactProblem(422, "invalid_artifact", "Guide Artifact form is malformed");
+      throw problemException(422, "invalid_artifact", "Guide Artifact form is malformed");
     }
     const result = await this.artifacts.replaceContent({
       actor: account.accountId,
@@ -481,7 +481,7 @@ export class GuideArtifactAuthoringController {
     @Req() request: FastifyRequest,
   ) {
     if (!uuidSchema.safeParse(guideId).success) {
-      throw guideArtifactProblem(400, "invalid_artifact", "Guide Artifact request is malformed");
+      throw problemException(400, "invalid_artifact", "Guide Artifact request is malformed");
     }
     const upload = await readUpload(request, sourceImportFieldLimit);
     const metadata = metadataBodySchema.safeParse({
@@ -492,7 +492,7 @@ export class GuideArtifactAuthoringController {
     const sourceId = authoringSourceIdSchema.safeParse(field(upload.part, "sourceId"));
     const guideSourceId = authoringSourceIdSchema.safeParse(field(upload.part, "guideSourceId"));
     if (!metadata.success || !sourceId.success || !guideSourceId.success) {
-      throw guideArtifactProblem(422, "invalid_artifact", "Guide Artifact form is malformed");
+      throw problemException(422, "invalid_artifact", "Guide Artifact form is malformed");
     }
     const result = await this.artifacts.applyAuthoringImport({
       actor: account.accountId,
@@ -503,7 +503,7 @@ export class GuideArtifactAuthoringController {
     if (!result.ok) throwGuideArtifactError(result.error);
     // One artifact per request: other authoring artifacts are reported as missing by design and ignored here.
     const outcome = result.value.outcomes.find((item) => item.sourceId === sourceId.data);
-    if (outcome === undefined) throw guideArtifactProblem(422, "invalid_artifact", "Guide Artifact import has no outcome");
+    if (outcome === undefined) throw problemException(422, "invalid_artifact", "Guide Artifact import has no outcome");
     return outcome;
   }
 
@@ -542,22 +542,22 @@ async function readUpload(
     part = uploaded;
   } catch {
     // Not a dependency failure: the client sent a malformed form.
-    throw guideArtifactProblem(422, "invalid_artifact", "Guide Artifact form is malformed");
+    throw problemException(422, "invalid_artifact", "Guide Artifact form is malformed");
   }
   let body: Buffer;
   try {
     body = await part.toBuffer();
   } catch {
     // Not a dependency failure: the upload exceeds its size limit.
-    throw guideArtifactProblem(413, "invalid_content", "Guide Artifact exceeds the size limit");
+    throw problemException(413, "invalid_content", "Guide Artifact exceeds the size limit");
   }
   if (part.file.truncated) {
-    throw guideArtifactProblem(413, "invalid_content", "Guide Artifact exceeds the size limit");
+    throw problemException(413, "invalid_content", "Guide Artifact exceeds the size limit");
   }
   const declaredSize = Number(field(part, "declaredSize"));
   const checksum = checksumSchema.safeParse(field(part, "checksumSha256"));
   if (!Number.isInteger(declaredSize) || declaredSize < 1 || !checksum.success) {
-    throw guideArtifactProblem(422, "invalid_artifact", "Guide Artifact form is malformed");
+    throw problemException(422, "invalid_artifact", "Guide Artifact form is malformed");
   }
   return {
     file: {
@@ -584,7 +584,7 @@ function parseBody<Schema extends z.ZodType>(
 ): z.infer<Schema> {
   const parsed = schema.safeParse(input);
   if (!parsed.success) {
-    throw guideArtifactProblem(422, "invalid_artifact", "Guide Artifact request is malformed");
+    throw problemException(422, "invalid_artifact", "Guide Artifact request is malformed");
   }
   return parsed.data;
 }
@@ -592,46 +592,24 @@ function parseBody<Schema extends z.ZodType>(
 function throwGuideArtifactError(error: GuideArtifactError): never {
   switch (error.code) {
     case "forbidden":
-      throw guideArtifactProblem(403, error.code, "Guide Artifact change is forbidden");
+      throw problemException(403, error.code, "Guide Artifact change is forbidden");
     case "artifact_not_found":
-      throw guideArtifactProblem(404, error.code, "Guide Artifact was not found");
+      throw problemException(404, error.code, "Guide Artifact was not found");
     case "guide_not_found":
-      throw guideArtifactProblem(404, error.code, "Guide was not found");
+      throw problemException(404, error.code, "Guide was not found");
     case "material_not_found":
-      throw guideArtifactProblem(404, error.code, "Material was not found");
+      throw problemException(404, error.code, "Material was not found");
     case "artifact_referenced":
-      throw new HttpException(
-        {
-          code: error.code,
-          guideIds: error.guideIds,
-          status: 409,
-          title: "Guide Artifact is still referenced",
-          type: "urn:inside:problem:artifact-referenced",
-        },
-        409,
-      );
+      throw problemException(409, error.code, "Guide Artifact is still referenced", {
+        guideIds: error.guideIds,
+      });
     case "source_conflict":
-      throw guideArtifactProblem(409, error.code, "Authoring source identifiers repeat");
+      throw problemException(409, error.code, "Authoring source identifiers repeat");
     case "invalid_content":
-      throw guideArtifactProblem(422, error.code, "Guide Artifact content is not accepted");
+      throw problemException(422, error.code, "Guide Artifact content is not accepted");
     case "invalid_artifact":
-      throw guideArtifactProblem(422, error.code, "Guide Artifact request is malformed");
+      throw problemException(422, error.code, "Guide Artifact request is malformed");
     case "dependency_unavailable":
-      throw guideArtifactProblem(503, error.code, "Guide Artifact dependency is unavailable");
+      throw problemException(503, error.code, "Guide Artifact dependency is unavailable");
   }
-}
-
-function guideArtifactProblem(
-  status: number,
-  code: string,
-  title: string,
-): HttpException {
-  return new HttpException(
-    { code, status, title, type: guideArtifactProblemType(code) },
-    status,
-  );
-}
-
-function guideArtifactProblemType(code: string): string {
-  return `urn:inside:problem:${code.replaceAll("_", "-")}`;
 }

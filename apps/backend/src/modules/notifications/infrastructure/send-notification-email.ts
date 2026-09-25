@@ -1,17 +1,13 @@
-import nodemailer from 'nodemailer';
 import { z } from 'zod';
 import { dependencyFailure } from '../../../infrastructure/observability/index.js';
+import { assembleSmtpTransport } from '../../../infrastructure/smtp/smtp-transport.js';
 import type { PlatformConfig } from '../../../config/platform-config.js';
 import type { SendNotificationEmail } from '../ports/notification-sources.js';
-const smtpTimeoutMs = 10_000;
 export function assembleNotificationEmailSender(config: NonNullable<PlatformConfig['billingContact']>): SendNotificationEmail {
-  const transport = nodemailer.createTransport({ host: config.smtpHost, port: config.smtpPort, secure: config.smtpPort === 465,
-    requireTLS: !config.localInsecure, ignoreTLS: config.localInsecure, connectionTimeout: smtpTimeoutMs, greetingTimeout: smtpTimeoutMs, socketTimeout: smtpTimeoutMs,
-    ...(config.smtpUser && config.smtpPassword ? { auth: { user: config.smtpUser, pass: config.smtpPassword } } : {}), disableFileAccess: true, disableUrlAccess: true });
+  const send = assembleSmtpTransport(config);
   return async message => {
     try {
-      const response: unknown = await transport.sendMail({ from: config.from, to: message.email, subject: message.subject, text: message.text,
-        messageId: `<${message.operationId}@${config.from.split('@')[1]}>` });
+      const response = await send({ to: message.email, subject: message.subject, text: message.text, messageRef: message.operationId });
       const parsed = z.object({ accepted: z.array(z.string()), rejected: z.array(z.string()) }).safeParse(response);
       return parsed.success && parsed.data.accepted.includes(message.email) ? { state: 'sent' } : { state: 'unknown' };
     } catch (error) {

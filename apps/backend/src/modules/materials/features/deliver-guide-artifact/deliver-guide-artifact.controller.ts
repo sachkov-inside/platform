@@ -2,10 +2,9 @@ import {
   Controller,
   Get,
   Inject,
-  NotFoundException,
+  type HttpException,
   Param,
   Query,
-  ServiceUnavailableException,
 } from "@nestjs/common";
 import {
   ApiFoundResponse,
@@ -40,6 +39,7 @@ import {
   GUIDE_ARTIFACT_DELIVERY,
   type GuideArtifactDelivery,
 } from "./deliver-guide-artifact.js";
+import { problemException } from "../../../../infrastructure/http/problem-details.js";
 
 const uuid = z.uuid();
 const publicContentSchema = z.discriminatedUnion("kind", [
@@ -202,20 +202,10 @@ function subjectOf(account: AuthenticatedAccount | undefined): Subject {
     : { accountId: checkedAccountId(account.accountId), kind: "account" };
 }
 
-function artifactNotFound(): NotFoundException {
-  return new NotFoundException({
-    code: "artifact_not_found",
-    status: 404,
-    title: "Guide Artifact not found",
-    type: "urn:inside:problem:artifact-not-found",
-  });
+function artifactNotFound(): HttpException {
+  return problemException(404, "artifact_not_found", "Guide Artifact not found");
 }
 
-function artifactDependencyUnavailable(): ServiceUnavailableException {
-  return new ServiceUnavailableException({
-    code: "dependency_unavailable",
-    status: 503,
-    title: "Guide Artifact dependency unavailable",
-    type: "urn:inside:problem:dependency-unavailable",
-  });
+function artifactDependencyUnavailable(): HttpException {
+  return problemException(503, "dependency_unavailable", "Guide Artifact dependency unavailable");
 }
