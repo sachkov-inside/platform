@@ -71,7 +71,7 @@ describe("ListPublishedMaterials REST result mapping", () => {
     expect(response.headers["cache-control"]).toBe("private, no-store");
     expect(response.headers["content-type"]).toContain("application/problem+json");
     expect(response.json()).toEqual({
-      type: "urn:inside:problem:internal-error",
+      type: "urn:inside:problem:internal_error",
       title: "Internal error",
       status: 500,
       code: "internal_error",

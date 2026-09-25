@@ -85,6 +85,7 @@ export function assembleValidateMaterial(
         }
         if (dependencies.materialAssets !== undefined) {
           const assetIssues = await dependencies.materialAssets.inspectReferences(
+            transaction,
             parsed.value.materialId,
             extraction.value.resources.map((resource) => ({
               assetId: resource.assetId,

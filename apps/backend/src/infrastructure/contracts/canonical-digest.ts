@@ -32,6 +32,22 @@ export function commandDigest(envelope: unknown): string {
   return createHash("sha256").update(JSON.stringify(commandForm(envelope))).digest("hex");
 }
 
+/**
+ * A replay fingerprint whose receipts may predate `commandDigest`. New receipts store `digest`;
+ * `recognizes` also accepts `legacy`, the value the same command stored in its earlier unsorted
+ * form, so a replay across the change still answers from its receipt instead of conflicting.
+ * The legacy branch may go only once no stored receipt, preview or projection holds that form.
+ */
+export interface ReplayFingerprint {
+  readonly digest: string;
+  recognizes(stored: string): boolean;
+}
+
+export function replayFingerprint(envelope: unknown, legacy: string): ReplayFingerprint {
+  const digest = commandDigest(envelope);
+  return { digest, recognizes: (stored) => stored === digest || stored === legacy };
+}
+
 function commandForm(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(commandForm);
   if (value === null || typeof value !== "object") return value;

@@ -12,7 +12,7 @@ export async function registerSourceEntitlement(prisma: MembershipEntitlementsPr
   const sourceRef = sourceIdentityRef(command.origin, command.sourcePolicyRef, command.identityRef);
   return prisma.$transaction(async tx => {
     const receipt = await readAccessReceipt(tx, actorId, command.operationId);
-    if (receipt !== null) return receipt.fingerprint === fingerprint ? { ok: true as const, value: sourceEntitlementViewSchema.parse(receipt.result) } : accessFailure("operation_conflict");
+    if (receipt !== null) return fingerprint.recognizes(receipt.fingerprint) ? { ok: true as const, value: sourceEntitlementViewSchema.parse(receipt.result) } : accessFailure("operation_conflict");
     if (command.origin === "tribute") return accessFailure("invalid_input");
     await lockAccountAccess(tx, `enrollment:${command.origin}:${sourceRef}`);
     const existing = await tx.sourceEntitlement.findUnique({ where: { origin_sourceRef: { origin: command.origin, sourceRef } } });
@@ -21,7 +21,7 @@ export async function registerSourceEntitlement(prisma: MembershipEntitlementsPr
     const value = sourceEntitlementViewSchema.parse({ id: row.id, origin: row.origin, sourceRef: row.sourceRef,
       sourcePolicyRef: row.sourcePolicyRef, identityRef: row.identityRef, accountId: row.accountId, enrollmentId: row.enrollmentId,
       revision: row.revision, checkedAt: row.checkedAt.toISOString() });
-    await tx.accessReceipt.create({ data: { scope: actorId, operationId: command.operationId, fingerprint, payload: command, result: value, createdAt: now } });
+    await tx.accessReceipt.create({ data: { scope: actorId, operationId: command.operationId, fingerprint: fingerprint.digest, payload: command, result: value, createdAt: now } });
     return { ok: true as const, value };
   });
 }

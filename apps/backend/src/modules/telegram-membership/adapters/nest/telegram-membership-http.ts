@@ -1,6 +1,7 @@
 
-import { HttpException } from "@nestjs/common";
 import { z } from "zod";
+
+import { problemException } from "../../../../infrastructure/http/problem-details.js";
 
 import {
   membershipEvidenceSchema,
@@ -121,11 +122,11 @@ export function throwTelegramLinkError(
   result: Extract<TelegramLinkResult, { readonly ok: false }>,
 ): never {
   const status = telegramLinkFailureStatus(result.error.code);
-  throw problem(status, result.error.code, "Telegram link request failed");
+  throw problemException(status, result.error.code, "Telegram link request failed");
 }
 
 export function throwTelegramAccountPresentationError(): never {
-  throw problem(
+  throw problemException(
     503,
     "unavailable",
     "Account Membership presentation is unavailable",
@@ -136,15 +137,15 @@ export function throwEvidenceError(
   result: Extract<MembershipEvidenceAcceptance, { readonly ok: false }>,
 ): never {
   const status = evidenceFailureStatus(result.error.code);
-  throw problem(status, result.error.code, "Membership evidence was rejected");
+  throw problemException(status, result.error.code, "Membership evidence was rejected");
 }
 
 export function throwInvalidEvidenceRequest(): never {
-  throw problem(400, "invalid_evidence", "Membership evidence request is invalid");
+  throw problemException(400, "invalid_evidence", "Membership evidence request is invalid");
 }
 
 export function throwEvidenceAuthenticationRequired(): never {
-  throw problem(401, "invalid_integration_credential", "Integration authentication failed");
+  throw problemException(401, "invalid_integration_credential", "Integration authentication failed");
 }
 
 function evidenceFailureStatus(
@@ -175,18 +176,6 @@ function telegramLinkFailureStatus(
     case "unavailable":
       return 503;
   }
-}
-
-function problem(status: number, code: string, title: string): HttpException {
-  return new HttpException(
-    {
-      code,
-      status,
-      title,
-      type: `urn:inside:problem:telegram-membership:${code.replaceAll("_", "-")}`,
-    },
-    status,
-  );
 }
 
 export { bearerCredential, credentialsMatch } from "../../../../infrastructure/http/bearer-credentials.js";

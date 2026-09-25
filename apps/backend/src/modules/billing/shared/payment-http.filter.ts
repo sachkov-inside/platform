@@ -1,4 +1,4 @@
-import { HttpException } from "@nestjs/common";
+import { problemException } from "../../../infrastructure/http/problem-details.js";
 import type { PaymentFailureCode } from "../features/purchase-subscription/purchase-subscription.contract.js";
 
 export function throwPaymentError(code: PaymentFailureCode): never {
@@ -13,5 +13,5 @@ export function throwPaymentError(code: PaymentFailureCode): never {
     case "provider_unavailable": case "dependency_unavailable": status = 503; break;
     default: { const exhaustive: never = code; throw new Error(`Unknown billing result ${String(exhaustive)}`); }
   }
-  throw new HttpException({ type: "about:blank", title: "Subscription payment request failed", status, code }, status);
+  throw problemException(status, code, "Subscription payment request failed");
 }

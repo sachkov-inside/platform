@@ -31,7 +31,7 @@ describe("billing owner result mapping", () => {
       expect(thrown).toBeInstanceOf(HttpException);
       const problem = thrown instanceof HttpException ? thrown.getResponse() : undefined;
       expect(thrown instanceof HttpException ? thrown.getStatus() : 0).toBe(expected[code]);
-      expect(problem).toEqual({ type: "about:blank", title: "Billing owner operation failed", status: expected[code], code });
+      expect(problem).toEqual({ type: `urn:inside:problem:${code}`, title: "Billing owner operation failed", status: expected[code], code });
     }
   });
 });

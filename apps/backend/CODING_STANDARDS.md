@@ -37,8 +37,8 @@ not dependency wiring.
 - `index.ts` exports only what code outside the Module imports from `src`, `test` or `scripts`, and
   a Module imports its own files directly, never through its `index.ts`. The dependency graph
   between Modules stays acyclic, counting type-only, re-exported and dynamic imports.
-  `scripts/check-backend-architecture.mjs` enforces all three; ADR 0029 lists the edges that still
-  close a cycle and what removes them.
+  `scripts/check-backend-architecture.mjs` enforces all three; ADR 0029 names the three ways to
+  invert an edge that closes a cycle.
 - Keep locally consumed operations as plain functions or concrete providers. Do not create a DI
   token solely to substitute a test double.
 - Register providers that add behaviour or own lifecycle; remove pass-through providers. Use the
@@ -68,6 +68,16 @@ not dependency wiring.
   and Assets delegates; the caller's own code reaches them only through that function, which
   `scripts/check-backend-architecture.mjs` enforces. Opening no transaction in the callee stays a
   review rule: a nested `$transaction` is also the correct shape for a standalone operation.
+- An operation never awaits another pooled connection while its transaction is open: as many such
+  operations as the pool has connections hold all of it and wait for each other. A read of another
+  Module that the caller's locks guard takes the caller's transaction, as Save does with
+  `inspectReferences` and a Workshop grant with `resolveForAccessUnderEntitlementLock`; the
+  delegate handoff above applies. The transaction comes first when every caller holds one; a read
+  that also serves callers without one takes it as a last optional parameter, and a caller holding
+  a transaction always passes it. A read those locks do not guard moves before the transaction and
+  is judged inside it, as `recordMaterialOpen` does with its access decision and `authorizeDispatch`
+  with the source and recipient binding. The operation's test runs it on
+  `test/integration/setup/exhausted-pool.ts`, where a second connection fails instead of waiting.
 - Keep feature-specific data access with its slice. Extract a named private persistence operation
   only for multiple consumers or one cohesive query that becomes a deeper interface.
 - Convert rows to domain values before crossing `domain/`, public contracts, or `index.ts`.
@@ -99,6 +109,10 @@ not dependency wiring.
   permissions, or Membership decisions from a request body.
 - Use shared semantic cache policies. Interceptors and exception filters own wire headers and media
   types; controllers do not duplicate protocol strings.
+- Build a Problem Details body with `problemException` or `problemDetails` from
+  `src/infrastructure/http/problem-details.ts`. Its `type` is `urn:inside:problem:<code>`, the code
+  unchanged; `ProblemDetailsFilter` rewrites any other type to that form, so a handwritten type or
+  prefix never reaches the wire.
 - Keep authentication adapters narrow. Provider-SDK compatibility code must name a demonstrated
   upstream gap and have a focused contract test.
 - Follow the local

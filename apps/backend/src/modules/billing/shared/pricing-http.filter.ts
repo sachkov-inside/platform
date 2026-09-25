@@ -1,4 +1,4 @@
-import { HttpException } from "@nestjs/common";
+import { problemException } from "../../../infrastructure/http/problem-details.js";
 import type { PricingError } from "../domain/pricing.js";
 
 export function throwPricingError(error: PricingError): never {
@@ -12,6 +12,6 @@ export function throwPricingError(error: PricingError): never {
     case "dependency_unavailable": status = 503; break;
     default: return assertNever(error.code);
   }
-  throw new HttpException({ type: "about:blank", title: "Billing request failed", status, ...error }, status);
+  throw problemException(status, error.code, "Billing request failed");
 }
 function assertNever(value: never): never { throw new Error(`Unexpected pricing error: ${String(value)}`); }

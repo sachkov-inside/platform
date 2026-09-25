@@ -119,7 +119,7 @@ describe("backend server interface", () => {
   it("maps only validated health Problem Details to unavailable", async () => {
     vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
     const unavailableProblem = {
-      type: "about:blank",
+      type: "urn:inside:problem:dependency_unavailable",
       title: "Service unavailable",
       status: 503,
       code: "dependency_unavailable",

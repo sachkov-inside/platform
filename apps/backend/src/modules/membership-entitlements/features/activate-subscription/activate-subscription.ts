@@ -34,7 +34,7 @@ export async function readActivationReceipt(prisma: MembershipEntitlementsPrisma
   if (!parsed.success) return accessFailure("invalid_input");
   const receipt = await prisma.accessReceipt.findUnique({ where: { scope_operationId: { scope: "source-evidence", operationId: parsed.data.evidenceRef } } });
   if (receipt === null) return null;
-  return receipt.fingerprint === accessFingerprint(parsed.data)
+  return accessFingerprint(parsed.data).recognizes(receipt.fingerprint)
     ? { ok: true as const, value: activationOutcomeSchema.parse(receipt.result) } : accessFailure("operation_conflict");
 }
 /** The caller holds the matching catalog revision; proof is accepted only from the separate source authority. */
@@ -51,7 +51,7 @@ export async function activateSubscription(prisma: MembershipEntitlementsPrismaC
   return prisma.$transaction(async tx => {
     const fingerprint = accessFingerprint(evidence);
     const receipt = await readAccessReceipt(tx, "source-evidence", evidence.evidenceRef);
-    if (receipt !== null) return receipt.fingerprint === fingerprint ? { ok: true as const, value: activationOutcomeSchema.parse(receipt.result) } : accessFailure("operation_conflict");
+    if (receipt !== null) return fingerprint.recognizes(receipt.fingerprint) ? { ok: true as const, value: activationOutcomeSchema.parse(receipt.result) } : accessFailure("operation_conflict");
     await lockAccountAccess(tx, `activation-rule:${evidence.ruleId}`);
     await lockAccountAccess(tx, `activation-attempt:${evidence.attemptId}`);
     const rule = await tx.activationRule.findUnique({ where: { id: evidence.ruleId } });
@@ -85,7 +85,7 @@ export async function activateSubscription(prisma: MembershipEntitlementsPrismaC
         update: { accountId, enrollmentId: result.value.id, evidence, checkedAt } });
     }
     await tx.activationAttempt.update({ where: { id: attempt.id }, data: { accountId, result: value } });
-    await tx.accessReceipt.create({ data: { scope: "source-evidence", operationId: evidence.evidenceRef, fingerprint,
+    await tx.accessReceipt.create({ data: { scope: "source-evidence", operationId: evidence.evidenceRef, fingerprint: fingerprint.digest,
       payload: evidence, result: value, createdAt: now } });
     return { ok: true as const, value };
   });

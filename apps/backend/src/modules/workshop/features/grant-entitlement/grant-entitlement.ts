@@ -5,7 +5,7 @@ import { z } from "zod";
 import { accountId } from "../../../accounts/index.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import { lockAccountEntitlementChanges } from "../../../../infrastructure/prisma/index.js";
-import type { MembershipEntitlements } from "../../../membership-entitlements/index.js";
+import type { WorkshopMembershipAccess } from "../../ports/membership-access.js";
 import type { WorkshopPrismaClient } from "../../infrastructure/prisma.js";
 import type { WorkshopOwnerPolicy } from "../../ports/workshop-owner-policy.js";
 import {
@@ -38,10 +38,7 @@ const commandSchema = z
 export async function grantWorkshopEntitlement(
   dependencies: {
     readonly prisma: WorkshopPrismaClient;
-    readonly membershipEntitlements: Pick<
-      MembershipEntitlements,
-      "resolveForAccess"
-    >;
+    readonly membershipAccess: WorkshopMembershipAccess;
     readonly ownerPolicy: WorkshopOwnerPolicy;
     readonly clock: () => Date;
     readonly id: () => string;
@@ -72,7 +69,8 @@ export async function grantWorkshopEntitlement(
         );
         if (replay !== undefined) return replay;
 
-        const membership = await dependencies.membershipEntitlements.resolveForAccess(
+        const membership = await dependencies.membershipAccess.resolveForAccessUnderEntitlementLock(
+          transaction,
           accountId(parsed.data.targetAccountId),
         );
         if (membership.kind !== "active") return failure("membership_required");

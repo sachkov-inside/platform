@@ -1,3 +1,5 @@
+import type { AssetsPrisma } from "../../../../infrastructure/prisma/index.js";
+
 export type MaterialAssetKind = "file" | "image";
 export type MaterialAssetState = "failed" | "pending" | "processing" | "ready";
 
@@ -105,7 +107,9 @@ export interface MaterialAssets {
     readonly kind: MaterialAssetKind;
     readonly materialId: string;
   }): Promise<UploadMaterialAssetResult>;
+  /** Reads in the caller's transaction, under the Material reference lock it holds. */
   inspectReferences(
+    transaction: Pick<AssetsPrisma, "materialAsset">,
     materialId: string,
     references: readonly MaterialAssetReference[],
   ): Promise<MaterialAssetQueryResult<readonly MaterialAssetReferenceIssue[]>>;
@@ -123,10 +127,14 @@ export interface MaterialAssets {
   }): Promise<MaterialAssetQueryResult<MaterialAssetDelivery | null>>;
   cleanupOrphans(input: {
     readonly graceMs: number;
-    readonly isReferenced: (input: {
-      readonly assetId: string;
-      readonly materialId: string;
-    }) => Promise<boolean>;
+    /** Reads in the cleanup's transaction, under the Material reference lock it holds. */
+    readonly isReferenced: (
+      transaction: AssetsPrisma,
+      input: {
+        readonly assetId: string;
+        readonly materialId: string;
+      },
+    ) => Promise<boolean>;
     readonly now?: Date;
   }): Promise<MaterialAssetQueryResult<Readonly<{ cleaned: number; retained: number }>>>;
 }

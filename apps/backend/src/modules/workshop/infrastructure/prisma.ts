@@ -6,6 +6,13 @@ import type {
 export type WorkshopPrisma = Pick<
   PlatformPrisma,
   | "$executeRaw"
+  // Membership delegates: a grant hands its transaction to Membership Entitlements.
+  | "accessChange"
+  | "accessGrant"
+  | "legacyClassification"
+  | "membershipBinding"
+  | "membershipEvidenceReceipt"
+  | "membershipProjection"
   | "workshopCase"
   | "workshopCaseMaterial"
   | "workshopCaseVersion"

@@ -60,7 +60,7 @@ export async function applyPaidPeriod(
       command.eventRef,
     );
     if (receipt !== null)
-      return receipt.fingerprint === fingerprint
+      return fingerprint.recognizes(receipt.fingerprint)
         ? paidResultSchema.parse(receipt.result)
         : accessFailure("operation_conflict");
     await lockAccountEntitlementChanges(transaction, command.accountId);
@@ -158,7 +158,7 @@ export async function applyPaidPeriod(
       data: {
         scope: "paid-period",
         operationId: command.eventRef,
-        fingerprint,
+        fingerprint: fingerprint.digest,
         payload: command,
         result,
         createdAt: now,

@@ -16,7 +16,7 @@ export async function changeEnrollment(prisma: MembershipEntitlementsPrismaClien
 export async function changeEnrollmentInTransaction(tx: MembershipEntitlementsPrisma, actorId: string, command: z.infer<typeof changeEnrollmentSchema>, now: Date): Promise<EnrollmentResult> {
   const fingerprint = accessFingerprint({ action: "changeEnrollment", command });
     const receipt = await readAccessReceipt(tx, actorId, command.operationId);
-    if (receipt !== null) return receipt.fingerprint === fingerprint ? enrollmentResultSchema.parse(receipt.result) : accessFailure("operation_conflict");
+    if (receipt !== null) return fingerprint.recognizes(receipt.fingerprint) ? enrollmentResultSchema.parse(receipt.result) : accessFailure("operation_conflict");
     const target = await tx.subscriptionEnrollment.findUnique({ where: { id: command.enrollmentId } });
     if (target === null) return accessFailure("not_found");
     await lockAccountEntitlementChanges(tx, target.accountId);
@@ -74,7 +74,7 @@ export async function changeEnrollmentInTransaction(tx: MembershipEntitlementsPr
     const result = { ok: true as const, value };
     await tx.accessChange.create({ data: { accountId: row.accountId, grantId: grant.id, actorId, operationId: command.operationId,
       kind: `enrollment_${command.action}`, reason: command.reason, recordedAt: now } });
-    await tx.accessReceipt.create({ data: { scope: actorId, operationId: command.operationId, fingerprint,
+    await tx.accessReceipt.create({ data: { scope: actorId, operationId: command.operationId, fingerprint: fingerprint.digest,
       payload: { command, before, after: result.value }, result, createdAt: now } });
     return result;
 }

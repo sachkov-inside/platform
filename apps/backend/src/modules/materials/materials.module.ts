@@ -71,10 +71,8 @@ import {
 import { MaterialContentModule } from "./material-content.module.js";
 import {
   WORKSHOP_MATERIAL_ACCESS,
-  WORKSHOP_MATERIAL_PROTECTION,
   WorkshopModule,
   type WorkshopMaterialAccess,
-  type WorkshopMaterialProtection,
 } from "../workshop/index.js";
 import {
   assembleContentCovers,
@@ -114,7 +112,6 @@ import {
         CONTENT_ACCESS,
         MATERIAL_ASSETS,
         VIDEOS,
-        WORKSHOP_MATERIAL_PROTECTION,
         ACCESS_GRANTS,
       ],
       useFactory: (
@@ -123,7 +120,6 @@ import {
         contentAccess: ContentAccess,
         materialAssets: MaterialAssets,
         videos: Videos,
-        workshopMaterialProtection: WorkshopMaterialProtection,
         grants: AccessGrants,
       ): MaterialAuthoring => {
         const accountPermissions = assembleCurrentAccountPermissions(accounts);
@@ -137,7 +133,6 @@ import {
           contentAccess,
           materialAssets,
           videos,
-          workshopMaterialProtection,
           materialBodyOperations,
           guideAccessHolders: grants,
         });

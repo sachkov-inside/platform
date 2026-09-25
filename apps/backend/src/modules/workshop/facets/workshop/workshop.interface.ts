@@ -1,6 +1,5 @@
 import type { AccountId } from "../../../accounts/index.js";
 import type { WorkshopMaterialAccess } from "../workshop-material-access/workshop-material-access.interface.js";
-import type { WorkshopMaterialProtection } from "../workshop-material-protection/workshop-material-protection.interface.js";
 
 export interface GrantWorkshopEntitlementCommand {
   readonly actorAccountId: AccountId;
@@ -150,7 +149,6 @@ export type WorkshopRevealResult =
 
 export interface Workshop {
   readonly materialAccess: WorkshopMaterialAccess;
-  readonly materialProtection: WorkshopMaterialProtection;
   grantEntitlement(
     command: GrantWorkshopEntitlementCommand,
   ): Promise<GrantWorkshopEntitlementResult>;

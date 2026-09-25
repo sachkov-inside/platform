@@ -579,7 +579,7 @@ describe("MaterialAuthoring", () => {
     });
 
     let replacementReady = false;
-    const inspectPrimaryReference = vi.fn(({ videoId }: { readonly videoId: string }) =>
+    const inspectPrimaryReference = vi.fn((_transaction: unknown, { videoId }: { readonly videoId: string }) =>
       Promise.resolve(videoId === replacementVideoId && !replacementReady
         ? { error: { code: "video_not_ready" as const }, ok: false as const }
         : { ok: true as const, value: undefined }));

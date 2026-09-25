@@ -62,7 +62,7 @@ describe("Guide artifact section reader adapter", () => {
         code: "artifact_not_found",
         status: 404,
         title: "Guide Artifact not found",
-        type: "urn:inside:problem:artifact-not-found",
+        type: "urn:inside:problem:artifact_not_found",
       },
     ],
     [
@@ -72,7 +72,7 @@ describe("Guide artifact section reader adapter", () => {
         retryable: true,
         status: 503,
         title: "Dependency unavailable",
-        type: "urn:inside:problem:dependency-unavailable",
+        type: "urn:inside:problem:dependency_unavailable",
       },
     ],
   ])(

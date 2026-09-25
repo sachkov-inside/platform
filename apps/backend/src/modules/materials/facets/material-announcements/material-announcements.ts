@@ -1,7 +1,21 @@
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
-import type { NotificationSource } from "../../../notifications/index.js";
-import { announcementEventSchema } from "../../domain/announcement.js";
+import { announcementEventSchema, type AnnouncementEvent } from "../../domain/announcement.js";
+
+/**
+ * The answer Notifications reads from a notification source, described by Materials itself so that
+ * Materials does not depend on Notifications.
+ */
+export type MaterialAnnouncementSource =
+  | { readonly status: "unavailable" | "superseded" }
+  | {
+      readonly status: "current";
+      readonly event: AnnouncementEvent;
+      readonly content: { readonly category: "material"; readonly kind: "material_published" };
+      readonly accountId: null;
+      readonly title: string;
+      readonly readerPath: string;
+    };
 
 interface Dependencies {
   readonly prisma: MaterialsPrismaClient;
@@ -16,7 +30,7 @@ interface Dependencies {
 export class MaterialAnnouncements {
   constructor(private readonly dependencies: Dependencies) {}
 
-  async resolveAnnouncement(input: unknown): Promise<NotificationSource> {
+  async resolveAnnouncement(input: unknown): Promise<MaterialAnnouncementSource> {
     const parsed = announcementEventSchema.safeParse(input);
     if (!parsed.success) return { status: "superseded" };
     const event = parsed.data;

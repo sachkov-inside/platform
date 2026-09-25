@@ -59,7 +59,7 @@ export async function classifyLegacyAccount(
       command.operationId,
     );
     if (receipt !== null)
-      return receipt.fingerprint === fingerprint
+      return fingerprint.recognizes(receipt.fingerprint)
         ? resultSchema.parse(receipt.result)
         : accessFailure("operation_conflict");
     await lockAccountEntitlementChanges(transaction, command.accountId);
@@ -83,7 +83,7 @@ export async function classifyLegacyAccount(
       data: {
         scope: actorId,
         operationId: command.operationId,
-        fingerprint,
+        fingerprint: fingerprint.digest,
         payload: command,
         result,
         createdAt: now,

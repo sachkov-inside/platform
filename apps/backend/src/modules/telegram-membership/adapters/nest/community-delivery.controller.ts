@@ -1,7 +1,7 @@
 import {
   Controller,
   Get,
-  HttpException,
+  type HttpException,
   Inject,
   Param,
   UseFilters,
@@ -16,6 +16,7 @@ import {
 } from "@nestjs/swagger";
 
 import { PrivateNoStore } from "../../../../infrastructure/http/http-cache-policy.js";
+import { problemException } from "../../../../infrastructure/http/problem-details.js";
 import {
   problemDetailsContent,
   problemDetailsOneOfContent,
@@ -112,13 +113,5 @@ export class CommunityDeliveryController {
 
 function deliveryProblem(code: keyof typeof deliveryFailureStatus): HttpException {
   const status = deliveryFailureStatus[code];
-  return new HttpException(
-    {
-      code,
-      status,
-      title: "Community entitlement delivery is unavailable",
-      type: `urn:inside:problem:community-entitlement:${code.replaceAll("_", "-")}`,
-    },
-    status,
-  );
+  return problemException(status, code, "Community entitlement delivery is unavailable");
 }

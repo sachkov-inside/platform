@@ -1,5 +1,6 @@
 import { bindingLookupResponseSchema, activationResponseSchema, ownSubscriptionAccessResponseSchema } from "../../domain/subscription-activation-wire.js";
-import { Body, Controller, Headers, HttpCode, HttpException, Inject, Post } from "@nestjs/common";
+import { Body, Controller, Headers, HttpCode, Inject, Post } from "@nestjs/common";
+import { problemException } from "../../../../infrastructure/http/problem-details.js";
 import { ApiBearerAuth, ApiBody, ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { PLATFORM_CONFIG, type PlatformConfig } from "../../../../config/platform-config.js";
 import { bearerCredential, credentialsMatch } from "../../../../infrastructure/http/bearer-credentials.js";
@@ -18,7 +19,7 @@ export class SubscriptionActivationController {
   private authenticate(authorization: string | undefined) {
     const expected = this.config.telegramMembership.activationIngressSecret;
     if (expected === undefined || !credentialsMatch(bearerCredential(authorization), expected))
-      throw new HttpException({ type: "about:blank", title: "Activation authority required", status: 401, code: "unauthorized" }, 401);
+      throw problemException(401, "unauthorized", "Activation authority required");
   }
   @Post("binding")
   @HttpCode(200)

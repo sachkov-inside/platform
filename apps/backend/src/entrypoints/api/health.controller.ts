@@ -2,7 +2,6 @@ import {
   Controller,
   Get,
   Inject,
-  ServiceUnavailableException,
 } from "@nestjs/common";
 import {
   ApiOkResponse,
@@ -21,6 +20,7 @@ import {
   problemDetailsContent,
   toOpenApiSchema,
 } from "../../infrastructure/http/zod-openapi.js";
+import { problemException, problemType } from "../../infrastructure/http/problem-details.js";
 import { reportDependencyFailure } from "../../infrastructure/observability/index.js";
 import {
   type LivenessReport,
@@ -51,7 +51,7 @@ const readinessResponseSchema = z
 
 const healthUnavailableProblemSchema = z
   .object({
-    type: z.literal("about:blank"),
+    type: z.literal(problemType("dependency_unavailable")),
     title: z.literal("Service unavailable"),
     status: z.literal(503),
     code: z.literal("dependency_unavailable"),
@@ -97,10 +97,7 @@ export class HealthController {
       return await this.readiness.check("api");
     } catch (cause) {
       reportDependencyFailure({ module: "runtime", operation: "readiness" }, cause);
-      throw new ServiceUnavailableException(
-        { code: "dependency_unavailable" },
-        { cause },
-      );
+      throw problemException(503, "dependency_unavailable", "Service unavailable");
     }
   }
 }

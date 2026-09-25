@@ -10,11 +10,13 @@ import {
   type MaterialResourceFacts,
 } from "../../src/modules/content-access/index.js";
 import { materialId } from "../../src/modules/materials/index.js";
+import { assembleMembershipEntitlements } from "../../src/modules/membership-entitlements/index.js";
 
 import {
   assembleWorkshop,
   assembleWorkshopEntitlements,
 } from "../../src/modules/workshop/index.js";
+import { withExhaustedPool } from "./setup/exhausted-pool.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -87,11 +89,14 @@ describe("Workshop foundation", () => {
     });
     const workshop = assembleWorkshop({
       prisma: database.prisma,
-      membershipEntitlements: {
-        async resolveForAccess(account) {
+      membershipAccess: {
+        async resolveForAccessUnderEntitlementLock(transaction, account) {
           signalGrantReachedMembership();
           await membershipResolutionReleased;
-          return membershipEntitlements.resolveForAccess(account);
+          return membershipEntitlements.resolveForAccessUnderEntitlementLock(
+            transaction,
+            account,
+          );
         },
       },
       ownerPolicy: { canManageWorkshop: () => Promise.resolve(true) },
@@ -150,6 +155,72 @@ describe("Workshop foundation", () => {
     await database.dispose();
   });
 
+  test("grants while its transaction holds the whole pool", async () => {
+    const now = new Date("2030-03-01T00:00:00.000Z");
+    const learner = accountId("86000000-0000-4000-8000-000000000004");
+    await database.prisma.account.create({
+      data: {
+        id: learner,
+        logtoIssuer: "https://identity.example.test/oidc",
+        logtoSubject: "workshop-exhausted-pool-learner",
+      },
+    });
+    await expect(
+      assembleLegacyCohortFixture({
+        prisma: database.prisma,
+        workshopEntitlements: assembleWorkshopEntitlements({
+          prisma: database.prisma,
+          clock: () => now,
+        }),
+        clock: () => now,
+      }).acceptEvidence({
+        accountId: learner,
+        deliveryId: "exhausted-pool-member-link",
+        source: "link_time",
+        evidence: membershipEvidence(
+          "member",
+          1,
+          now,
+          "workshop-exhausted-pool-principal",
+        ),
+      }),
+    ).resolves.toMatchObject({ ok: true, outcome: "applied" });
+
+    const grant = await withExhaustedPool(database, (prisma) =>
+      assembleWorkshop({
+        prisma,
+        membershipAccess: assembleMembershipEntitlements({
+          prisma,
+          workshopEntitlements: assembleWorkshopEntitlements({
+            prisma,
+            clock: () => now,
+          }),
+          clock: () => now,
+        }),
+        ownerPolicy: { canManageWorkshop: () => Promise.resolve(true) },
+        materialCatalog: { findMany: () => Promise.resolve([]) },
+        sourceArchives: {
+          store: () => Promise.reject(new Error("not used by this slice")),
+        },
+        clock: () => now,
+        id: () => "86000000-0000-4000-8000-000000000091",
+      }).grantEntitlement({
+        actorAccountId: ownerAccountId,
+        targetAccountId: learner,
+        workshopScope: "exhausted-pool-workshop-v1",
+        startsAt: now.toISOString(),
+        validUntil: "2030-03-02T00:00:00.000Z",
+        grantSource: "owner_beta",
+        idempotencyKey: "exhausted-pool-grant",
+      }),
+    );
+
+    expect(grant).toMatchObject({
+      ok: true,
+      value: { workshopScope: "exhausted-pool-workshop-v1" },
+    });
+  });
+
   test("keeps a bounded grant independent from later Membership changes and requires explicit regrant after expiry", async () => {
     let now = new Date("2030-01-01T00:00:00.000Z");
     const membershipEntitlements = assembleLegacyCohortFixture({
@@ -164,7 +235,7 @@ describe("Workshop foundation", () => {
     let nextEntitlementId = 10;
     const workshop = assembleWorkshop({
       prisma: database.prisma,
-      membershipEntitlements,
+      membershipAccess: membershipEntitlements,
       ownerPolicy: { canManageWorkshop: () => Promise.resolve(ownerAllowed) },
       materialCatalog: { findMany: () => Promise.resolve([]) },
       sourceArchives: {
@@ -295,7 +366,7 @@ describe("Workshop foundation", () => {
     let nextId = 100;
     const workshop = assembleWorkshop({
       prisma: database.prisma,
-      membershipEntitlements: { resolveForAccess: () => Promise.resolve({ kind: "required" }) },
+      membershipAccess: { resolveForAccessUnderEntitlementLock: () => Promise.resolve({ kind: "required" }) },
       ownerPolicy: { canManageWorkshop: () => Promise.resolve(ownerAllowed) },
       materialCatalog: {
         findMany: (materialIds) =>
@@ -500,7 +571,7 @@ describe("Workshop foundation", () => {
     });
     const workshop = assembleWorkshop({
       prisma: database.prisma,
-      membershipEntitlements,
+      membershipAccess: membershipEntitlements,
       ownerPolicy: { canManageWorkshop: () => Promise.resolve(true) },
       materialCatalog: { findMany: () => Promise.resolve([]) },
       sourceArchives: {

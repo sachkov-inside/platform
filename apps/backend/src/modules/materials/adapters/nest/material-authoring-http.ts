@@ -352,7 +352,8 @@ export function throwMaterialAuthoringError(
   error: MaterialAuthoringTransportError,
 ): never {
   const status = statusForMaterialAuthoringError(error);
-  throw problemException(status, error.code, titleForMaterialAuthoringError(status), error);
+  const { code, ...fields } = error;
+  throw problemException(status, code, titleForMaterialAuthoringError(status), fields);
 }
 
 function titleForMaterialAuthoringError(status: number): string {

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import type { MembershipEntitlements } from "../../../membership-entitlements/index.js";
+import type { WorkshopMembershipAccess } from "../../ports/membership-access.js";
 import { grantWorkshopEntitlement } from "../../features/grant-entitlement/grant-entitlement.js";
 import { loadCurrentWorkshopCase } from "../../features/load-current-case/load-current-case.js";
 import { publishWorkshopCase } from "../../features/publish-case/publish-case.js";
@@ -8,7 +8,6 @@ import { revealWorkshopHint } from "../../features/reveal-hint/reveal-hint.js";
 import { revealWorkshopSolution } from "../../features/reveal-solution/reveal-solution.js";
 import { resolveWorkshopAccess } from "../../features/resolve-access/resolve-access.js";
 import { assembleWorkshopMaterialAccess } from "../workshop-material-access/assemble-workshop-material-access.js";
-import { assembleWorkshopMaterialProtection } from "../workshop-material-protection/assemble-workshop-material-protection.js";
 import type { WorkshopPrismaClient } from "../../infrastructure/prisma.js";
 import type { SourceArchives } from "../../ports/source-archives.js";
 import type { WorkshopMaterialCatalog } from "../../ports/workshop-material-catalog.js";
@@ -17,10 +16,7 @@ import type { Workshop } from "./workshop.interface.js";
 
 export interface WorkshopDependencies {
   readonly prisma: WorkshopPrismaClient;
-  readonly membershipEntitlements: Pick<
-    MembershipEntitlements,
-    "resolveForAccess"
-  >;
+  readonly membershipAccess: WorkshopMembershipAccess;
   readonly ownerPolicy: WorkshopOwnerPolicy;
   readonly materialCatalog: WorkshopMaterialCatalog;
   readonly sourceArchives: SourceArchives;
@@ -37,14 +33,11 @@ export function assembleWorkshop(dependencies: WorkshopDependencies): Workshop {
   });
   const workshop: Workshop = {
     materialAccess,
-    materialProtection: assembleWorkshopMaterialProtection({
-      prisma: dependencies.prisma,
-    }),
     grantEntitlement: (command) =>
       grantWorkshopEntitlement(
         {
           prisma: dependencies.prisma,
-          membershipEntitlements: dependencies.membershipEntitlements,
+          membershipAccess: dependencies.membershipAccess,
           ownerPolicy: dependencies.ownerPolicy,
           clock,
           id,

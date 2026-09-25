@@ -14,12 +14,10 @@ export type {
 } from "./facets/workshop-entitlements/workshop-entitlements.interface.js";
 export type {
   WorkshopMaterialAccess,
-  WorkshopMaterialAccessState,
 } from "./facets/workshop-material-access/workshop-material-access.interface.js";
-export type { WorkshopMaterialProtection } from "./facets/workshop-material-protection/workshop-material-protection.interface.js";
+export { resolveWorkshopMaterialProtection } from "./features/resolve-material-protection/resolve-material-protection.js";
 export {
   WORKSHOP_ENTITLEMENTS,
   WORKSHOP_MATERIAL_ACCESS,
-  WORKSHOP_MATERIAL_PROTECTION,
 } from "./workshop.tokens.js";
 export { WorkshopModule } from "./workshop.module.js";

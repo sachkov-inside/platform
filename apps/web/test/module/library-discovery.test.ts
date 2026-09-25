@@ -254,7 +254,7 @@ describe("Library discovery server adapter", () => {
       .mockResolvedValueOnce(
         Response.json(
           {
-            type: "urn:inside:problem:discovery-not-found",
+            type: "urn:inside:problem:discovery_not_found",
             title: "Discovery not found",
             status: 404,
             code: "discovery_not_found",
@@ -265,7 +265,7 @@ describe("Library discovery server adapter", () => {
       .mockResolvedValueOnce(
         Response.json(
           {
-            type: "urn:inside:problem:dependency-unavailable",
+            type: "urn:inside:problem:dependency_unavailable",
             title: "Dependency unavailable",
             status: 503,
             code: "dependency_unavailable",

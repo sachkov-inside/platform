@@ -6,6 +6,7 @@ import {
   LibraryQueryRejectedError,
 } from "./get-library-catalog";
 import { parseLibrarySearchParams } from "@/features/library-catalog";
+import { backendProxyProblem } from "@/shared/api/backend/index.server";
 
 const PUBLIC_CATALOG_HEADERS = {
   "Cache-Control": "public, max-age=30, stale-while-revalidate=60",
@@ -68,14 +69,7 @@ async function handleCatalogRequest(
     throw error;
   }
   if (page.kind === "unavailable") {
-    return Response.json(
-      {
-        type: "urn:inside:web-problem:library-unavailable",
-        title: "Library unavailable",
-        status: 503,
-      },
-      { status: 503, headers: PRIVATE_NO_STORE_HEADERS },
-    );
+    return backendProxyProblem(503, "library_unavailable", "Library unavailable");
   }
 
   return Response.json(page, {
@@ -87,14 +81,7 @@ async function handleCatalogRequest(
 }
 
 function invalidLibraryQueryResponse(): Response {
-  return Response.json(
-    {
-      type: "urn:inside:web-problem:invalid-library-query",
-      title: "Invalid Library query",
-      status: 400,
-    },
-    { status: 400, headers: PRIVATE_NO_STORE_HEADERS },
-  );
+  return backendProxyProblem(400, "invalid_library_query", "Invalid Library query");
 }
 
 export async function handleHomeFeedRequest(request: Request, accessToken?: string): Promise<Response> {

@@ -1,10 +1,4 @@
-import {
-  BadRequestException,
-  InternalServerErrorException,
-  NotFoundException,
-  ServiceUnavailableException,
-} from "@nestjs/common";
-
+import { problemException } from "../../../../infrastructure/http/problem-details.js";
 import type { PublishedMaterialDiscoveryError } from "../../features/discover-published-materials/discover-published-materials.contract.js";
 import type { PublishedMaterialCatalogError } from "../../features/list-published-materials/list-published-materials.contract.js";
 
@@ -13,34 +7,12 @@ export function throwContentLibraryError(
 ): never {
   switch (error.code) {
     case "invalid_request_shape":
-      throw new BadRequestException({
-        type: "urn:inside:problem:invalid-request-shape",
-        title: "Invalid request shape",
-        status: 400,
-        code: error.code,
-      });
+      throw problemException(400, error.code, "Invalid request shape");
     case "discovery_not_found":
-      throw new NotFoundException({
-        type: "urn:inside:problem:discovery-not-found",
-        title: "Discovery not found",
-        status: 404,
-        code: error.code,
-      });
+      throw problemException(404, error.code, "Discovery not found");
     case "dependency_unavailable":
-      throw new ServiceUnavailableException({
-        type: "urn:inside:problem:dependency-unavailable",
-        title: "Dependency unavailable",
-        status: 503,
-        code: error.code,
-        retryable: error.retryable,
-      });
+      throw problemException(503, error.code, "Dependency unavailable", { retryable: error.retryable });
     case "internal_error":
-      throw new InternalServerErrorException({
-        type: "urn:inside:problem:internal-error",
-        title: "Internal error",
-        status: 500,
-        code: error.code,
-        correlationId: error.correlationId,
-      });
+      throw problemException(500, error.code, "Internal error", { correlationId: error.correlationId });
   }
 }

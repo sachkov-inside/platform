@@ -4,12 +4,14 @@ import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import { createPrismaClient, lockReadingPair, type PlatformPrisma } from "../../src/infrastructure/prisma/index.js";
 import { accountId as checkedAccountId } from "../../src/modules/accounts/index.js";
-import { assembleMaterials, assembleMaterialResourceFacts, PublishedSeriesComposition } from "../../src/modules/materials/index.js";
+import { assembleMaterials, assembleMaterialResourceFacts, materialId, PublishedMaterialSelection, PublishedSeriesComposition } from "../../src/modules/materials/index.js";
+import { assembleMembershipEntitlements } from "../../src/modules/membership-entitlements/index.js";
 import { assembleContentAccess } from "../../src/modules/content-access/index.js";
 
 import { assembleWorkshopEntitlements } from "../../src/modules/workshop/index.js";
-import { ReadingActivity } from "../../src/modules/reading-activity/index.js";
+import { PersonalHome, ReadingActivity } from "../../src/modules/reading-activity/index.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
+import { withExhaustedPool } from "./setup/exhausted-pool.js";
 import { createMigratedTestDatabase, type TestDatabase } from "./setup/test-database.js";
 
 const actor = randomUUID();
@@ -200,7 +202,7 @@ describe("ReadingActivity on PostgreSQL", () => {
     } finally { membershipNow = undefined; }
   });
 
-  test("access is checked after pair serialization and rejects changed content or expired decisions without writes", async () => {
+  test("Material facts are rechecked after pair serialization and reject changed content or expired decisions without writes", async () => {
     const id = await material();
     const admin = new Pool({ connectionString: database.url });
     const session = await admin.connect();
@@ -219,12 +221,14 @@ describe("ReadingActivity on PostgreSQL", () => {
       const result = await admin.query<{ waiting: boolean }>("select exists(select 1 from pg_locks where locktype = 'advisory' and not granted and database = (select oid from pg_database where datname = current_database())) as waiting");
       return result.rows[0]?.waiting;
     }).toBe(true);
-    expect(authorize).not.toHaveBeenCalled();
+    // Access is decided before the transaction; the unpublication during the wait reaches the
+    // command through the Material facts it rereads under the pair lock.
+    expect(authorize).toHaveBeenCalledOnce();
     await transition(id, "unpublished");
     await session.query("COMMIT");
     session.release();
     await admin.end();
-    expect(await pending).toEqual({ ok: false, error: { code: "access_denied" } });
+    expect(await pending).toEqual({ ok: false, error: { code: "access_changed" } });
     await transition(id, "published");
     for (const mode of ["version", "expiry"] as const) {
       const raced = new ReadingActivity({
@@ -311,5 +315,49 @@ describe("ReadingActivity on PostgreSQL", () => {
     expect(await reading.getReadingStates({ accountId: randomUUID(), materialIds: [id] })).toMatchObject({ ok: true, value: [{ isRead: false, version: 0 }] });
     expect(await reading.getReadingStates({ accountId, materialIds: Array.from({ length: 101 }, () => id) })).toEqual({ ok: false, error: { code: "invalid_request" } });
     expect(await reading.getReadingStates({ accountId, materialIds: [] })).toEqual({ ok: false, error: { code: "invalid_request" } });
+  });
+
+  test("records an open and a read mark while its transaction holds the whole pool", async () => {
+    const id = await material();
+    const facts = await materials.materialContent.findAccessFacts(materialId(id));
+    if (!facts.ok || facts.value === null) throw new Error("Expected published Material facts");
+    const contentVersion = facts.value.contentVersion;
+
+    const [opened, marked] = await withExhaustedPool(database, async (prisma) => {
+      const pooled = assembleMaterials({ prisma, authorPolicy: { canManage: () => false } });
+      const contentAccess = assembleContentAccess({
+        materialResourceFacts: assembleMaterialResourceFacts(pooled.materialContent),
+        accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) },
+        membershipEntitlements: assembleMembershipEntitlements({
+          prisma,
+          workshopEntitlements: assembleWorkshopEntitlements({ prisma }),
+        }),
+      });
+      const home = new PersonalHome({
+        prisma,
+        contentAccess,
+        materialContent: pooled.materialContent,
+        composition: new PublishedSeriesComposition(prisma),
+        reader: pooled.publishedMaterialReader,
+        selection: new PublishedMaterialSelection(prisma),
+        videos: {
+          loadProgressMany: () => Promise.reject(new Error("not used by this scenario")),
+          loadReadyDurations: () => Promise.reject(new Error("not used by this scenario")),
+        },
+      });
+      const reading = new ReadingActivity({
+        prisma,
+        contentAccess,
+        materialContent: pooled.materialContent,
+        composition: new PublishedSeriesComposition(prisma),
+      });
+      return [
+        await home.recordOpen({ accountId, materialId: id, contentVersion, commandId: randomUUID() }),
+        await reading.setReadingState(command(id)),
+      ] as const;
+    });
+
+    expect(opened).toMatchObject({ ok: true, value: { replayed: false } });
+    expect(marked).toMatchObject({ ok: true, value: { changed: true, state: { isRead: true } } });
   });
 });

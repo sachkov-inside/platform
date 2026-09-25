@@ -77,7 +77,7 @@ const discoveryNotFoundSchema = z
     code: z.literal("discovery_not_found"),
     status: z.literal(404),
     title: z.literal("Discovery not found"),
-    type: z.literal("urn:inside:problem:discovery-not-found"),
+    type: z.literal("urn:inside:problem:discovery_not_found"),
   })
   .strict();
 

@@ -86,7 +86,7 @@ export async function applyGrantBatch(
       command.operationId,
     );
     if (receipt !== null)
-      return receipt.fingerprint === fingerprint
+      return fingerprint.recognizes(receipt.fingerprint)
         ? batchResultSchema.parse(receipt.result)
         : accessFailure("operation_conflict");
     await lockAccountAccess(transaction, `batch:${command.previewRef}`);
@@ -109,7 +109,7 @@ export async function applyGrantBatch(
       const identity = await accounts.readIdentityForLink(row.accountId);
       if (row.identityFingerprint === null || identity === undefined)
         return accessFailure("not_found");
-      if (accessFingerprint(identity) !== row.identityFingerprint)
+      if (!accessFingerprint(identity).recognizes(row.identityFingerprint))
         return accessFailure("identity_changed");
     }
     for (const accountId of [
@@ -206,7 +206,7 @@ export async function applyGrantBatch(
       data: {
         scope: actorId,
         operationId: command.operationId,
-        fingerprint,
+        fingerprint: fingerprint.digest,
         payload: command,
         result,
         createdAt: now,

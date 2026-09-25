@@ -11,7 +11,7 @@ describe("generated backend transport", () => {
   it("serializes generated path parameters and preserves Problem Details", async () => {
     vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test/internal/");
     const problem = {
-      type: "urn:inside:problem:material-not-found",
+      type: "urn:inside:problem:material_not_found",
       title: "Material not found",
       status: 404,
       code: "material_not_found",
@@ -50,7 +50,7 @@ describe("generated backend transport", () => {
       return Promise.resolve(
         Response.json(
           {
-            type: "urn:inside:problem:material-not-found",
+            type: "urn:inside:problem:material_not_found",
             title: "Material not found",
             status: 404,
             code: "material_not_found",

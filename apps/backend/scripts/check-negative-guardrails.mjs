@@ -116,6 +116,7 @@ expectFailure(
     'src/modules/bookmarks/infrastructure/postgres/foreign-schema.ts: database table references must stay inside the owning Module schema (materials.published_materials)',
     "src/modules/videos/features/handwritten-lock/handwritten-lock.ts: advisory lock keys come from src/infrastructure/prisma/transaction-locks.ts",
     "src/modules/materials/features/mark-assets-by-hand/mark-assets-by-hand.ts: materialAsset belongs to another Module; pass the transaction to its owner's function (materialAsset)",
+    "src/modules/reading-activity/features/read-material-by-hand/read-material-by-hand.ts: material belongs to another Module; pass the transaction to its owner's function (material)",
     "src/modules/example/features/swallow-failure/swallow-failure.ts:4: catch swallows its failure",
     "src/modules/example/features/swallow-failure/swallow-failure.ts:12: catch drops error without reporting it",
     "src/modules/example/features/swallow-failure/swallow-failure.ts:29: catch swallows its failure",
@@ -128,10 +129,7 @@ expectFailure(
     "Module dependency cycle dyn-left -> dyn-right -> dyn-left",
     "src/modules/example/index.ts: lazyUnused has no consumer outside the example Module; remove the export",
     "Module dependency cycle membership-entitlements -> materials -> membership-entitlements",
-    "content-access -> workshop: no longer imports; remove it from legacyCycleEdges",
     "Module dependency cycle notifications -> bookmarks -> billing -> notifications",
-    "notifications -> billing: keeps only weaker imports than value; lower its legacyCycleEdges kind",
-    "membership-entitlements -> telegram-membership: no longer lies on a cycle; remove it from legacyCycleEdges",
   ],
 );
 

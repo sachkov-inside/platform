@@ -11,6 +11,7 @@ import {
 import { createApiApplication } from "../src/entrypoints/api/create-api-application.js";
 import { BillingWorkerModule } from "../src/entrypoints/billing-worker/billing-worker.module.js";
 import { createMcpApplication } from "../src/entrypoints/create-mcp-application.js";
+import { NotificationsWorkerModule } from "../src/entrypoints/notifications-worker/notifications-worker.module.js";
 import { MaterialAssetsWorkerModule } from "../src/entrypoints/material-assets-worker/material-assets-worker.module.js";
 import { ProfileAvatarsWorkerModule } from "../src/entrypoints/profile-avatars-worker/profile-avatars-worker.module.js";
 import { VideoDeletionsWorkerModule } from "../src/entrypoints/video-deletions-worker/video-deletions-worker.module.js";
@@ -32,10 +33,7 @@ import { MEMBERSHIP_ENTITLEMENTS } from "../src/modules/membership-entitlements/
 import { PROFILE_AVATAR_MAINTENANCE } from "../src/modules/member-profiles/index.js";
 import { CommunityEntitlements } from "../src/modules/telegram-membership/index.js";
 import { VIDEO_DELETION_MAINTENANCE } from "../src/modules/videos/index.js";
-import {
-  WORKSHOP_MATERIAL_ACCESS,
-  WORKSHOP_MATERIAL_PROTECTION,
-} from "../src/modules/workshop/index.js";
+import { WORKSHOP_MATERIAL_ACCESS } from "../src/modules/workshop/index.js";
 
 function isAccessGrants(instance: unknown): boolean {
   return (
@@ -58,6 +56,19 @@ function accessGrantFacets(context: INestApplicationContext): unknown[] {
     [...module.providers.values()].map((provider) => provider.instance),
   );
   return [...new Set(instances.filter(isAccessGrants))];
+}
+
+/** Controller names by the Nest module that registers them. */
+function registeredControllers(context: INestApplicationContext): Map<string, string[]> {
+  const modules = context.get(ModulesContainer, { strict: false });
+  return new Map(
+    [...modules.values()]
+      .filter((module) => module.controllers.size > 0)
+      .map((module): [string, string[]] => [
+        module.metatype.name,
+        [...module.controllers.keys()].map((token) => (typeof token === "function" ? token.name : String(token))),
+      ]),
+  );
 }
 
 const config = parsePlatformConfig({
@@ -97,7 +108,6 @@ describe("backend process composition", () => {
     expect(api.get(MEMBERSHIP_ENTITLEMENTS)).toBeDefined();
     expect(api.get(PUBLISHED_MATERIAL_READER)).toBeDefined();
     expect(api.get(WORKSHOP_MATERIAL_ACCESS)).toBeDefined();
-    expect(api.get(WORKSHOP_MATERIAL_PROTECTION)).toBeDefined();
 
     const disconnect = vi.spyOn(prisma, "$disconnect");
     await api.close();
@@ -113,6 +123,26 @@ describe("backend process composition", () => {
     expect(accessGrantFacets(api)).toHaveLength(1);
     expect(api.get(BillingPayments)).toBeDefined();
     expect(api.get(CommunityEntitlements)).toBeDefined();
+  });
+
+  it("registers Materials controllers with Materials, only in the API", async () => {
+    const api = await createApiApplication(config, { logger: false });
+    const apiControllers = registeredControllers(api);
+    await api.close();
+    const materialsControllers = apiControllers.get("MaterialsHttpModule") ?? [];
+    expect(materialsControllers).toEqual(expect.arrayContaining([
+      "SaveMaterialController",
+      "UploadMaterialAssetController",
+      "VideoPlaybackController",
+      "KinescopeVideoAuthorizationController",
+      "GuideArtifactReadController",
+    ]));
+    expect(apiControllers.get("ApiModule")?.filter((name) => materialsControllers.includes(name))).toEqual([]);
+
+    const mcp = await createMcpApplication(config, { logger: false });
+    application = mcp;
+    const mcpControllers = [...registeredControllers(mcp).values()].flat();
+    expect(mcpControllers.filter((name) => materialsControllers.includes(name))).toEqual([]);
   });
 
   it("uses the same required bindings for the MCP context", async () => {
@@ -149,6 +179,16 @@ describe("backend process composition", () => {
     expect(accessGrantFacets(application)).toHaveLength(1);
     expect(application.get(BillingPayments)).toBeDefined();
     expect(application.get(CommunityEntitlements)).toBeDefined();
+  });
+
+  it("binds the Notifications worker, which loads Membership Entitlements through its consumers", async () => {
+    vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv("DATABASE_URL", "postgresql://inside:inside@127.0.0.1:1/inside");
+
+    application = await NestFactory.createApplicationContext(NotificationsWorkerModule, { abortOnError: false, logger: false });
+
+    expect(application.get(OperationalReadiness)).toBeInstanceOf(OperationalReadiness);
+    expect(accessGrantFacets(application)).toHaveLength(1);
   });
 
   it("loads and validates worker config through Nest composition", async () => {
@@ -209,7 +249,7 @@ describe("backend process composition", () => {
     );
     expect(response.headers["cache-control"]).toBe("private, no-store");
     expect(response.json()).toEqual({
-      type: "about:blank",
+      type: "urn:inside:problem:dependency_unavailable",
       title: "Service unavailable",
       status: 503,
       code: "dependency_unavailable",

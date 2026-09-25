@@ -66,7 +66,7 @@ const backendHealthUnavailableProblemSchema = z
     code: z.literal("dependency_unavailable"),
     status: z.literal(503),
     title: z.literal("Service unavailable"),
-    type: z.literal("about:blank"),
+    type: z.literal("urn:inside:problem:dependency_unavailable"),
   })
   .strict();
 const accountProblemDetailsSchema = z.discriminatedUnion("code", [
@@ -403,9 +403,7 @@ function accountProblemSchema<
       detail: z.literal("Account request could not be completed."),
       status: z.literal(status),
       title: z.literal(title),
-      type: z.literal(
-        `https://inside.sachkov.com/problems/accounts/${code.replaceAll("_", "-")}`,
-      ),
+      type: z.literal(`urn:inside:problem:${code}`),
     })
     .strict();
 }
