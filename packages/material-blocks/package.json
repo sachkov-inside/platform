@@ -27,7 +27,7 @@
     "@tiptap/extension-unique-id": "3.31.3",
     "@tiptap/pm": "3.31.3",
     "@tiptap/starter-kit": "3.31.3",
-    "zod": "4.4.3",
+    "zod": "4.6.5",
     "@tiptap/extension-code": "3.31.3"
   },
   "devDependencies": {
