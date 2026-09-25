@@ -54,7 +54,8 @@ services:
       timeout: 3s
       retries: 30
     volumes:
-      # The former MinIO volume `object-storage-data` has another on-disk format; see platform#700.
+      # The former MinIO volume `object-storage-data` has another on-disk format; its objects move
+      # with scripts/local-object-storage-transfer.sh.
       - object-storage-rustfs-data:/data
 
   postgres:

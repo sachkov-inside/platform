@@ -110,8 +110,8 @@ and the production env-file boundary.
 The API creates only the three named local buckets in development mode. Objects use random,
 immutable keys and are never written over. The persistent `object-storage-rustfs-data` volume follows
 the same ownership and non-destructive restart rules as PostgreSQL. The stand's former MinIO volume
-`object-storage-data` is no longer mounted and is kept with its objects until
-[platform#700](https://github.com/sachkov-inside/platform/issues/700) moves them.
+`object-storage-data` is no longer mounted; [Former MinIO objects](#former-minio-objects) copies its
+objects into RustFS.
 
 Local development uses `KINESCOPE_PROVIDER_MODE=test`. It creates deterministic provider facts for
 upload-init, attach, processing reconciliation and playback without a real credential or outbound
@@ -810,6 +810,36 @@ shared `inside-platform_*` volumes, so every branch and worktree sees the same c
 - Home lists only originals marked `show_in_feed: true`; an empty feed means no original is marked yet.
 
 Keep the volumes: stop the stand with `docker compose --profile identity down` without `-v`.
+
+### Former MinIO objects
+
+Until platform#699 the stand kept files, covers and attachments in MinIO, in the
+`inside-platform_object-storage-data` volume. RustFS stores objects in another format and a new
+volume, and `pnpm local:product` skips originals its journal already transferred, so a stand that
+ran on MinIO shows its files only after this one-off copy. Only the stand's
+[singleton owner](#parallel-worktrees-and-singleton-ownership) runs it:
+
+```bash
+bash scripts/local-object-storage-transfer.sh
+```
+
+The script needs the last MinIO image in the local Docker cache, because its registry is closed. It
+reads the former volume without changing it, copies every bucket it holds into the stand's
+`object-storage` service and starts that one service only for the run when the stand is stopped. It
+never overwrites or deletes an object, so it is safe to repeat.
+
+It succeeds only when every MinIO object is present in RustFS with the same size, SHA-256 of its
+content, Content-Type and user metadata; each bucket line reports both counts and the manifest
+checksum. An object listed as different was already in RustFS under the same key: keep both
+volumes and investigate it before retrying. A run killed before its own cleanup leaves the
+`inside-platform-object-storage-transfer` container or the
+`inside-platform-object-storage-transfer-snapshot` volume; the next run names them, and removing
+them touches no stand data.
+
+Then start the stand with `pnpm local:stand` and open the product featured on Home: its cover, the
+images on its page and its files load again.
+
+The former volume stays until the owner decides to delete it; the transfer does not change it.
 
 ### Local Obsidian authoring preview (#468)
 
