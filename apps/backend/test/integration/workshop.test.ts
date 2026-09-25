@@ -89,7 +89,7 @@ describe("Workshop foundation", () => {
     });
     const workshop = assembleWorkshop({
       prisma: database.prisma,
-      membershipEntitlements: {
+      membershipAccess: {
         async resolveForAccessUnderEntitlementLock(transaction, account) {
           signalGrantReachedMembership();
           await membershipResolutionReleased;
@@ -189,7 +189,7 @@ describe("Workshop foundation", () => {
     const grant = await withExhaustedPool(database, (prisma) =>
       assembleWorkshop({
         prisma,
-        membershipEntitlements: assembleMembershipEntitlements({
+        membershipAccess: assembleMembershipEntitlements({
           prisma,
           workshopEntitlements: assembleWorkshopEntitlements({
             prisma,
@@ -235,7 +235,7 @@ describe("Workshop foundation", () => {
     let nextEntitlementId = 10;
     const workshop = assembleWorkshop({
       prisma: database.prisma,
-      membershipEntitlements,
+      membershipAccess: membershipEntitlements,
       ownerPolicy: { canManageWorkshop: () => Promise.resolve(ownerAllowed) },
       materialCatalog: { findMany: () => Promise.resolve([]) },
       sourceArchives: {
@@ -366,7 +366,7 @@ describe("Workshop foundation", () => {
     let nextId = 100;
     const workshop = assembleWorkshop({
       prisma: database.prisma,
-      membershipEntitlements: { resolveForAccessUnderEntitlementLock: () => Promise.resolve({ kind: "required" }) },
+      membershipAccess: { resolveForAccessUnderEntitlementLock: () => Promise.resolve({ kind: "required" }) },
       ownerPolicy: { canManageWorkshop: () => Promise.resolve(ownerAllowed) },
       materialCatalog: {
         findMany: (materialIds) =>
@@ -571,7 +571,7 @@ describe("Workshop foundation", () => {
     });
     const workshop = assembleWorkshop({
       prisma: database.prisma,
-      membershipEntitlements,
+      membershipAccess: membershipEntitlements,
       ownerPolicy: { canManageWorkshop: () => Promise.resolve(true) },
       materialCatalog: { findMany: () => Promise.resolve([]) },
       sourceArchives: {

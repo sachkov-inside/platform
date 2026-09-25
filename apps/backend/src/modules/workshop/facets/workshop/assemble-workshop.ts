@@ -16,7 +16,7 @@ import type { Workshop } from "./workshop.interface.js";
 
 export interface WorkshopDependencies {
   readonly prisma: WorkshopPrismaClient;
-  readonly membershipEntitlements: WorkshopMembershipAccess;
+  readonly membershipAccess: WorkshopMembershipAccess;
   readonly ownerPolicy: WorkshopOwnerPolicy;
   readonly materialCatalog: WorkshopMaterialCatalog;
   readonly sourceArchives: SourceArchives;
@@ -37,7 +37,7 @@ export function assembleWorkshop(dependencies: WorkshopDependencies): Workshop {
       grantWorkshopEntitlement(
         {
           prisma: dependencies.prisma,
-          membershipEntitlements: dependencies.membershipEntitlements,
+          membershipAccess: dependencies.membershipAccess,
           ownerPolicy: dependencies.ownerPolicy,
           clock,
           id,

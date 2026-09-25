@@ -168,7 +168,7 @@ describe("ListPublishedMaterials", () => {
     });
     const workshop = assembleWorkshop({
       prisma: testDatabase.prisma,
-      membershipEntitlements: {
+      membershipAccess: {
         resolveForAccessUnderEntitlementLock: () =>
           Promise.resolve({
             kind: "active",

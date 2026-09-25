@@ -38,7 +38,7 @@ const commandSchema = z
 export async function grantWorkshopEntitlement(
   dependencies: {
     readonly prisma: WorkshopPrismaClient;
-    readonly membershipEntitlements: WorkshopMembershipAccess;
+    readonly membershipAccess: WorkshopMembershipAccess;
     readonly ownerPolicy: WorkshopOwnerPolicy;
     readonly clock: () => Date;
     readonly id: () => string;
@@ -69,7 +69,7 @@ export async function grantWorkshopEntitlement(
         );
         if (replay !== undefined) return replay;
 
-        const membership = await dependencies.membershipEntitlements.resolveForAccessUnderEntitlementLock(
+        const membership = await dependencies.membershipAccess.resolveForAccessUnderEntitlementLock(
           transaction,
           accountId(parsed.data.targetAccountId),
         );

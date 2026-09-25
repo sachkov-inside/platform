@@ -418,6 +418,7 @@ function swallowedFailureViolations(sourceFile, sourceText, program, comments) {
 // A Module depends on another through any import of that Module: a value import, a type-only
 // import, a re-export or a dynamic import(). The dependency graph stays acyclic, so a Module
 // loads, composes and changes without the Modules that depend on it.
+// A cycle diagnostic names the strongest import on each edge, the one to remove first.
 const importKindRank = { type: 0, dynamic: 1, value: 2 };
 
 function exportedName(node) {
