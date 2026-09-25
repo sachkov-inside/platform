@@ -95,6 +95,15 @@ describe("Billing catalog, quotes and reservations on PostgreSQL", () => {
     expect(await billing.quote(accountId, cmd)).toEqual({ ok: true, value: result });
     expect(await billing.quote(accountId, { ...cmd, promoCode: "different" })).toMatchObject({ error: { code: "operation_conflict" } });
     expect((await quote(randomUUID(), optionId, "wrong-code")).snapshot.firstPriceKopecks).toBe(90_001);
+    // A quote stored before #732 holds the command's JSON text; the same command in another key
+    // order still replays it, and a changed one still conflicts.
+    await database.prisma.billingPriceQuote.update({
+      where: { accountId_operationId: { accountId, operationId: cmd.operationId } },
+      data: { fingerprint: JSON.stringify(cmd) },
+    });
+    const reordered = { promoCode: code, optionRevision: 1, paymentOptionId: optionId, operationId: cmd.operationId };
+    expect(await billing.quote(accountId, reordered)).toEqual({ ok: true, value: result });
+    expect(await billing.quote(accountId, { ...cmd, promoCode: "different" })).toMatchObject({ error: { code: "operation_conflict" } });
   });
 
   test("concurrent last-use purchases, one consumption on duplicate confirmation and unknown retention", async () => {

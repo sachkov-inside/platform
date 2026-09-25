@@ -120,7 +120,7 @@ export async function previewGrantBatch(
         actorId_operationId: { actorId, operationId: parsed.data.operationId },
       },
     });
-    if (preview !== null && preview.fingerprint !== fingerprint)
+    if (preview !== null && !fingerprint.recognizes(preview.fingerprint))
       return accessFailure("operation_conflict");
     if (preview === null) {
       const rows = await Promise.all(
@@ -129,7 +129,7 @@ export async function previewGrantBatch(
           return {
             ...row,
             identityFingerprint:
-              identity === undefined ? null : accessFingerprint(identity),
+              identity === undefined ? null : accessFingerprint(identity).digest,
           };
         }),
       );
@@ -138,7 +138,7 @@ export async function previewGrantBatch(
           id: randomUUID(),
           actorId,
           operationId: parsed.data.operationId,
-          fingerprint,
+          fingerprint: fingerprint.digest,
           rows,
           expiresAt: new Date(now.getTime() + previewLifetimeMilliseconds),
         },

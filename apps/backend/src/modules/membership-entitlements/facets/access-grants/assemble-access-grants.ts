@@ -129,7 +129,7 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
         if (!command.success) return accessFailure("invalid_input");
         const receipt = await prisma.accessReceipt.findUnique({ where: { scope_operationId: { scope: actorId, operationId: command.data.operationId } } });
         if (receipt === null) return null;
-        return receipt.fingerprint === accessFingerprint({ action: "assignEnrollment", command: command.data })
+        return accessFingerprint({ action: "assignEnrollment", command: command.data }).recognizes(receipt.fingerprint)
           ? enrollmentResultSchema.parse(receipt.result) : accessFailure("operation_conflict");
       }),
     readActivationReceipt: (input: unknown) => readActivationReceipt(prisma, input),

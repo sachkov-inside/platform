@@ -53,7 +53,7 @@ export class TributeSources {
     return this.dependencies.prisma.$transaction(async tx => {
       const fingerprint = accessFingerprint({ action: "tribute.policy", command });
       const previous = await readAccessReceipt(tx, actorId, command.operationId);
-      if (previous) return previous.fingerprint === fingerprint ? { ok: true as const, value: tributePolicySchema.parse(previous.result) } : accessFailure("operation_conflict");
+      if (previous) return fingerprint.recognizes(previous.fingerprint) ? { ok: true as const, value: tributePolicySchema.parse(previous.result) } : accessFailure("operation_conflict");
       await lockAccountAccess(tx, "tribute:policies");
       const current = await tx.tributePolicy.findUnique({ where: { id: command.id } });
       if ((current?.revision ?? 0) !== command.expectedRevision) return accessFailure("revision_conflict");
@@ -65,11 +65,13 @@ export class TributeSources {
       const data = { subscriptionId: value.subscriptionId, revision: value.revision, enabled: value.enabled,
         tierSnapshot: value.tier, temporaryUntil: value.temporaryUntil === null ? null : new Date(value.temporaryUntil), reason: command.reason };
       await tx.tributePolicy.upsert({ where: { id: value.id }, create: { id: value.id, ...data }, update: data });
-      await tx.accessReceipt.create({ data: { scope: actorId, operationId: command.operationId, fingerprint, payload: command, result: value, createdAt: now } });
+      await tx.accessReceipt.create({ data: { scope: actorId, operationId: command.operationId, fingerprint: fingerprint.digest, payload: command, result: value, createdAt: now } });
       return { ok: true as const, value };
     });
   }
-  private async evaluate(tx: MembershipEntitlementsPrisma, row: TributeImportRow, now: Date) {
+  // `previous` is this row as a stored preview evaluated it. A preview stored before #732 holds the version 1
+  // binding digest; the same recipient keeps that value, so the row still compares equal.
+  private async evaluate(tx: MembershipEntitlementsPrisma, row: TributeImportRow, now: Date, previous?: z.infer<typeof tributePreviewRowSchema>) {
     const policy = await tx.tributePolicy.findUnique({ where: { id: row.policyRef } });
     const ref = row.identityRef === null ? null : sourceIdentityRef("tribute", row.policyRef, row.identityRef);
     const source = ref === null ? null : await tx.sourceEntitlement.findUnique({ where: { origin_sourceRef: { origin: "tribute", sourceRef: ref } } });
@@ -79,9 +81,11 @@ export class TributeSources {
     const previousStart = prior?.startsAt ?? enrollment?.startsAt.toISOString();
     const previousEnd = prior?.endsAt ?? enrollment?.endsAt?.toISOString();
     const wasConfirmed = prior?.mode === "confirmed_period" || enrollment?.endPolicy === "confirmed_external";
+    const binding = link?.ok && link.state === "found" ? accessFingerprint(link.recipient) : null;
     const result = { rowRef: row.rowRef, status: "matched" as z.infer<typeof tributePreviewRowSchema>["status"], detail: "Подтверждённое обновление",
       sourceId: source?.id ?? null, accountId: link?.ok && link.state === "found" ? link.recipient.accountId : null,
-      bindingFingerprint: link?.ok && link.state === "found" ? accessFingerprint(link.recipient) : null,
+      bindingFingerprint: binding === null ? null
+        : previous?.bindingFingerprint != null && binding.recognizes(previous.bindingFingerprint) ? previous.bindingFingerprint : binding.digest,
       sourceRevision: source?.revision ?? 0, policyRevision: policy?.revision ?? 0, enrollmentRevision: enrollment?.revision ?? 0,
       shortens: (previousStart !== undefined && row.startsAt !== null && Date.parse(row.startsAt) > Date.parse(previousStart))
         || (previousEnd !== undefined && row.endsAt !== null && Date.parse(row.endsAt) < Date.parse(previousEnd))
@@ -117,7 +121,7 @@ export class TributeSources {
     return this.dependencies.prisma.$transaction(async tx => {
       const fingerprint = accessFingerprint({ action: "tribute.preview", command });
       const receipt = await readAccessReceipt(tx, actorId, command.operationId);
-      if (receipt) return receipt.fingerprint === fingerprint ? { ok: true as const, value: tributePreviewSchema.parse(receipt.result) } : accessFailure("operation_conflict");
+      if (receipt) return fingerprint.recognizes(receipt.fingerprint) ? { ok: true as const, value: tributePreviewSchema.parse(receipt.result) } : accessFailure("operation_conflict");
       const rows = [];
       for (const row of command.rows) rows.push(await this.evaluate(tx, row, now));
       // The same external identity twice in one batch is an operator conflict, not two grants.
@@ -126,10 +130,10 @@ export class TributeSources {
         if (target) { target.status = "conflict"; target.detail = "Повтор внешнего получателя внутри batch"; }
       }
       const value = { previewRef: randomUUID(), batchRef: command.batchRef, expiresAt: new Date(now.getTime() + importPreviewLifetimeMilliseconds).toISOString(), rows };
-      await tx.accessBatchPreview.create({ data: { id: value.previewRef, actorId, operationId: command.operationId, fingerprint,
+      await tx.accessBatchPreview.create({ data: { id: value.previewRef, actorId, operationId: command.operationId, fingerprint: fingerprint.digest,
         rows: { command, rows, tiers: rows.flatMap(row => row.tier === null ? [] : [row.tier]) }, revision: 1, expiresAt: new Date(value.expiresAt) } });
       await tx.tributeImportReview.create({ data: { id: value.previewRef, actorId, batchRef: value.batchRef, pendingRows: rows.map(row => row.rowRef), state: "pending", revision: 1, expiresAt: new Date(value.expiresAt), reason: "Awaiting owner decision" } });
-      await tx.accessReceipt.create({ data: { scope: actorId, operationId: command.operationId, fingerprint, payload: command, result: value, createdAt: now } });
+      await tx.accessReceipt.create({ data: { scope: actorId, operationId: command.operationId, fingerprint: fingerprint.digest, payload: command, result: value, createdAt: now } });
       return { ok: true as const, value };
     });
   }
@@ -153,7 +157,7 @@ export class TributeSources {
     return this.dependencies.prisma.$transaction(async tx => {
       const fingerprint = accessFingerprint({ action: "tribute.apply", command });
       const receipt = await readAccessReceipt(tx, actorId, command.operationId);
-      if (receipt) return receipt.fingerprint === fingerprint ? { ok: true as const, value: tributeApplyResultSchema.parse(receipt.result) } : accessFailure("operation_conflict");
+      if (receipt) return fingerprint.recognizes(receipt.fingerprint) ? { ok: true as const, value: tributeApplyResultSchema.parse(receipt.result) } : accessFailure("operation_conflict");
       await lockAccountAccess(tx, `tribute:preview:${command.previewRef}`);
       const review = await tx.tributeImportReview.findUnique({ where: { id: command.previewRef } });
       if (review === null || review.state === "dismissed") return accessFailure("preview_expired");
@@ -175,7 +179,7 @@ export class TributeSources {
       for (const row of selected) {
         const prior = stored.rows.find(value => value.rowRef === row.rowRef);
         if (!prior || !["new", "matched", "pending_identity"].includes(prior.status)) return accessFailure("invalid_input");
-        const current = await this.evaluate(tx, row, now);
+        const current = await this.evaluate(tx, row, now, prior);
         if (JSON.stringify(prior) !== JSON.stringify(current)) return accessFailure("revision_conflict");
       }
       const sources = [];
@@ -205,7 +209,7 @@ export class TributeSources {
       const pendingRows = z.array(z.string()).parse(review.pendingRows).filter(row => !command.selectedRows.includes(row));
       await tx.tributeImportReview.update({ where: { id: review.id }, data: { pendingRows, state: pendingRows.length === 0 ? "applied" : "pending", revision: { increment: 1 } } });
       const value = { previewRef: command.previewRef, sources };
-      await tx.accessReceipt.create({ data: { scope: actorId, operationId: command.operationId, fingerprint, payload: { command, before: stored.rows, after: sources }, result: value, createdAt: now } });
+      await tx.accessReceipt.create({ data: { scope: actorId, operationId: command.operationId, fingerprint: fingerprint.digest, payload: { command, before: stored.rows, after: sources }, result: value, createdAt: now } });
       return { ok: true as const, value };
     });
   }
@@ -238,14 +242,14 @@ export class TributeSources {
     return this.dependencies.prisma.$transaction(async tx => {
       const fingerprint = accessFingerprint({ action: "tribute.dismissImport", command });
       const receipt = await readAccessReceipt(tx, actorId, command.operationId);
-      if (receipt) return receipt.fingerprint === fingerprint ? { ok: true as const, value: tributeImportReviewSchema.parse(receipt.result) } : accessFailure("operation_conflict");
+      if (receipt) return fingerprint.recognizes(receipt.fingerprint) ? { ok: true as const, value: tributeImportReviewSchema.parse(receipt.result) } : accessFailure("operation_conflict");
       await lockAccountAccess(tx, `tribute:preview:${command.previewRef}`);
       const row = await tx.tributeImportReview.findUnique({ where: { id: command.previewRef } });
       if (row === null || row.actorId !== actorId) return accessFailure("not_found");
       if (row.revision !== command.expectedRevision || row.state !== "pending") return accessFailure("revision_conflict");
       const saved = await tx.tributeImportReview.update({ where: { id: row.id }, data: { state: "dismissed", reason: command.reason, revision: { increment: 1 } } });
       const value = importReviewView(saved);
-      await tx.accessReceipt.create({ data: { scope: actorId, operationId: command.operationId, fingerprint, payload: command, result: value, createdAt: this.clock() } });
+      await tx.accessReceipt.create({ data: { scope: actorId, operationId: command.operationId, fingerprint: fingerprint.digest, payload: command, result: value, createdAt: this.clock() } });
       return { ok: true as const, value };
     });
   }
@@ -258,7 +262,7 @@ export class TributeSources {
     return this.dependencies.prisma.$transaction(async tx => {
       const fingerprint = accessFingerprint({ action: "tribute.retryEvent", command });
       const receipt = await readAccessReceipt(tx, actorId, command.operationId);
-      if (receipt) return receipt.fingerprint === fingerprint ? { ok: true as const, value: tributeInboxViewSchema.parse(receipt.result) } : accessFailure("operation_conflict");
+      if (receipt) return fingerprint.recognizes(receipt.fingerprint) ? { ok: true as const, value: tributeInboxViewSchema.parse(receipt.result) } : accessFailure("operation_conflict");
       const event = await tx.tributeInbox.findUnique({ where: { id: command.inboxId } });
       if (!event) return accessFailure("not_found");
       await lockAccountAccess(tx, `tribute:inbox:${event.eventKey}`);
@@ -268,7 +272,7 @@ export class TributeSources {
       const value = command.action === "reject"
         ? tributeInboxView(await tx.tributeInbox.update({ where: { id: current.id }, data: { state: "rejected", reason: "owner_rejected", updatedAt: now, revision: { increment: 1 } } }))
         : await reconcileTributeEvent(tx, current.id, now);
-      await tx.accessReceipt.create({ data: { scope: actorId, operationId: command.operationId, fingerprint, payload: command, result: value, createdAt: now } });
+      await tx.accessReceipt.create({ data: { scope: actorId, operationId: command.operationId, fingerprint: fingerprint.digest, payload: command, result: value, createdAt: now } });
       return { ok: true as const, value };
     });
   }
@@ -280,7 +284,7 @@ export class TributeSources {
     return this.dependencies.prisma.$transaction(async tx => {
       const fingerprint = accessFingerprint({ action: "tribute.reconcile", command });
       const receipt = await readAccessReceipt(tx, actorId, command.operationId);
-      if (receipt) return receipt.fingerprint === fingerprint ? { ok: true as const, value: tributeSourceViewSchema.parse(receipt.result) } : accessFailure("operation_conflict");
+      if (receipt) return fingerprint.recognizes(receipt.fingerprint) ? { ok: true as const, value: tributeSourceViewSchema.parse(receipt.result) } : accessFailure("operation_conflict");
       const initial = await tx.sourceEntitlement.findUnique({ where: { id: command.sourceId } });
       if (!initial || initial.origin !== "tribute" || initial.tributeState == null) return accessFailure("not_found");
       if (initial.accountId !== null) await lockTelegramAccountBinding(tx, initial.accountId);
@@ -310,7 +314,7 @@ export class TributeSources {
           revision: source.revision + 1, reconcileAt: null, evidence: { method: "owner_source_resolution", actorId, command } } });
       }
       const value = tributeSourceView(await tx.sourceEntitlement.findUniqueOrThrow({ where: { id: source.id } }), now);
-      await tx.accessReceipt.create({ data: { scope: actorId, operationId: command.operationId, fingerprint, payload: command, result: value, createdAt: now } });
+      await tx.accessReceipt.create({ data: { scope: actorId, operationId: command.operationId, fingerprint: fingerprint.digest, payload: command, result: value, createdAt: now } });
       return { ok: true as const, value };
     });
   }

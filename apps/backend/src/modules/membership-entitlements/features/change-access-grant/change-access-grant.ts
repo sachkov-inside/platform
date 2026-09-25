@@ -47,7 +47,7 @@ export async function changeAccessGrant(
       command.operationId,
     );
     if (receipt !== null)
-      return receipt.fingerprint === fingerprint
+      return fingerprint.recognizes(receipt.fingerprint)
         ? grantResultSchema.parse(receipt.result)
         : accessFailure("operation_conflict");
     const target = await transaction.accessGrant.findUnique({
@@ -96,7 +96,7 @@ export async function changeAccessGrant(
       data: {
         scope: actorId,
         operationId: command.operationId,
-        fingerprint,
+        fingerprint: fingerprint.digest,
         payload: command,
         result,
         createdAt: now,

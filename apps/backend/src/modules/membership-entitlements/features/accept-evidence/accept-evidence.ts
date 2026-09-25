@@ -4,6 +4,7 @@ import { createHash, randomUUID } from "node:crypto";
 
 import { z } from "zod";
 
+import { replayFingerprint, type ReplayFingerprint } from "../../../../infrastructure/contracts/canonical-digest.js";
 import {
   lockAccountEntitlementChanges,
   lockTelegramAccountBinding,
@@ -157,7 +158,7 @@ export async function acceptMembershipEvidence(
         ${checkedCommand.deliveryId},
         ${command.accountId}::uuid,
         ${checkedCommand.source},
-        ${requestFingerprint},
+        ${requestFingerprint.digest},
         'processing',
         ${now},
         ${retainUntil}
@@ -308,10 +309,10 @@ async function applyObservedEvidence(
   >,
   command: CheckedEvidenceCommand,
   evidence: ObservedMembershipEvidence,
-  evidenceFingerprint: string,
+  evidenceFingerprint: ReplayFingerprint,
   now: Date,
 ): Promise<ObservedEvidenceApplication> {
-  const projection = projectionData(evidence, evidenceFingerprint, now);
+  const projection = projectionData(evidence, evidenceFingerprint.digest, now);
   const inserted = await transaction.$executeRaw(Prisma.sql`
     insert into membership_entitlements.current_projections (
       account_id,
@@ -342,7 +343,7 @@ async function applyObservedEvidence(
       transaction,
       command,
       evidence,
-      evidenceFingerprint,
+      evidenceFingerprint.digest,
       now,
     );
     const cohort = await transaction.legacyClassification.findUnique({ where: { accountId: command.accountId }, select: { bridgeEnabled: true } });
@@ -363,7 +364,7 @@ async function applyObservedEvidence(
       transaction,
       command,
       evidence,
-      evidenceFingerprint,
+      evidenceFingerprint.digest,
       now,
     );
     const cohort = await transaction.legacyClassification.findUnique({ where: { accountId: command.accountId }, select: { bridgeEnabled: true } });
@@ -378,15 +379,16 @@ async function applyObservedEvidence(
     throw new Error("Membership projection conflict without an Account row");
   }
   if (current.evidenceVersion === BigInt(evidence.evidenceVersion)) {
-    if (current.evidenceFingerprint !== evidenceFingerprint) {
+    if (!evidenceFingerprint.recognizes(current.evidenceFingerprint)) {
       return failure("replayed_evidence");
     }
+    // Workshop holds the fingerprint this version was accepted with, which may be the version 1 form.
     await applyWorkshopEvidence(
       workshopEntitlements,
       transaction,
       command,
       evidence,
-      evidenceFingerprint,
+      current.evidenceFingerprint,
       now,
     );
     return {
@@ -492,9 +494,9 @@ async function awaitAccountBinding(
 
 function existingReceiptResult(
   receipt: LockedReceipt,
-  requestFingerprint: string,
+  requestFingerprint: ReplayFingerprint,
 ): MembershipEvidenceAcceptance | "retry" {
-  if (receipt.requestFingerprint !== requestFingerprint) {
+  if (!requestFingerprint.recognizes(receipt.requestFingerprint)) {
     return failure("invalid_evidence");
   }
   switch (receipt.outcome) {
@@ -553,15 +555,19 @@ function failure<
   return { ok: false, error: { code } };
 }
 
-function fingerprint(value: unknown): string {
-  let serialized: string;
+// Version 1 hashed the value in key order; receipts and projections stored with it still match.
+function fingerprint(value: unknown): ReplayFingerprint {
   try {
-    serialized = JSON.stringify(value) ?? "undefined";
+    return replayFingerprint({ version: 2, value }, sha256(JSON.stringify(value) ?? "undefined"));
   } catch {
     // Not a dependency failure: a value JSON cannot serialize is fingerprinted by its type.
-    serialized = Object.prototype.toString.call(value);
+    const digest = sha256(Object.prototype.toString.call(value));
+    return { digest, recognizes: (stored) => stored === digest };
   }
-  return createHash("sha256").update(serialized).digest("hex");
+}
+
+function sha256(text: string): string {
+  return createHash("sha256").update(text).digest("hex");
 }
 
 function addDays(value: Date, days: number): Date {

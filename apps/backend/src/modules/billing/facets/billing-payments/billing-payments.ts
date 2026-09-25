@@ -20,6 +20,7 @@ import { renewalPriceSnapshot } from "../../domain/subscription-change.js";
 import { verifyRecurringConsent } from "../../shared/recurring-consent.js";
 import { attemptSourceRef, lifecycleWindow } from "../../domain/notice.js";
 import { recordBillingNotice } from "../../shared/record-notice.js";
+import { replayCommandFingerprint } from "../../shared/command-fingerprint.js";
 
 const fulfillmentRetryDelayMilliseconds = 60_000;
 // Кабинет показывает обозримую историю; полный журнал платежей остаётся владельческой операцией.
@@ -50,10 +51,10 @@ export class BillingPayments {
     const bank = this.dependencies.bank;
     if (!bank) return paymentFailure("method_unavailable");
     const command = parsed.data;
-    const fingerprint = JSON.stringify(command);
+    const fingerprint = replayCommandFingerprint("purchase", command);
     try {
       const replay = await this.dependencies.prisma.billingPurchaseCommand.findUnique({ where: { accountId_operationId: { accountId, operationId: command.operationId } } });
-      if (replay) return replay.fingerprint === fingerprint ? await this.status(accountId, replay.purchaseRef) : paymentFailure("operation_conflict");
+      if (replay) return fingerprint.recognizes(replay.fingerprint) ? await this.status(accountId, replay.purchaseRef) : paymentFailure("operation_conflict");
       // Режим приходит из сохранённого расчёта: он решает, нужно ли согласие на списания и
       // появляется ли вообще подписка. Пропавший расчёт отсекается здесь тем же ответом,
       // что и в резерве цены.
@@ -87,7 +88,7 @@ export class BillingPayments {
         await lockBillingPricing(tx);
         const key = { accountId, operationId: command.operationId };
         const existingCommand = await tx.billingPurchaseCommand.findUnique({ where: { accountId_operationId: key } });
-        if (existingCommand) return existingCommand.fingerprint === fingerprint ? { ok: true, value: existingCommand.purchaseRef } : paymentFailure("operation_conflict");
+        if (existingCommand) return fingerprint.recognizes(existingCommand.fingerprint) ? { ok: true, value: existingCommand.purchaseRef } : paymentFailure("operation_conflict");
         const now = this.clock();
         // A completed lifecycle remains in history; only a later new purchase can reserve another slot.
         await endLapsedSubscriptions(tx, accountId, now);
@@ -95,7 +96,7 @@ export class BillingPayments {
           const current = await tx.billingPurchase.findFirst({ where: { accountId, kind: "initial", lifecycleActive: true, state: { not: "failed" } } });
           if (current) {
             if (current.state === "confirmed") return paymentFailure("payment_in_progress");
-            await tx.billingPurchaseCommand.create({ data: { ...key, fingerprint, purchaseRef: current.id } });
+            await tx.billingPurchaseCommand.create({ data: { ...key, fingerprint: fingerprint.digest, purchaseRef: current.id } });
             return { ok: true, value: current.id };
           }
         }
@@ -116,7 +117,7 @@ export class BillingPayments {
           snapshot: reservation.value, acceptance: { command, evidence }, contact: { revision: verifiedContact.revision, verifiedAt: verifiedContact.verifiedAt, emailCiphertext: bank.sealBinding(`${purchaseRef}:contact`, verifiedContact.email) },
           fiscalization: "pending", createdAt: now, updatedAt: now,
         } });
-        await tx.billingPurchaseCommand.create({ data: { ...key, fingerprint, purchaseRef } });
+        await tx.billingPurchaseCommand.create({ data: { ...key, fingerprint: fingerprint.digest, purchaseRef } });
         return { ok: true, value: purchaseRef };
       });
       if (!prepared.ok) return prepared;

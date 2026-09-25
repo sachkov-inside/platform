@@ -19,7 +19,7 @@ export async function assignEnrollment(prisma: MembershipEntitlementsPrismaClien
   if (snapshot.data.id !== command.tierId || snapshot.data.revision !== command.tierRevision) return accessFailure("revision_conflict");
   return prisma.$transaction(async tx => {
     const receipt = await readAccessReceipt(tx, actorId, command.operationId);
-    if (receipt !== null) return receipt.fingerprint === accessFingerprint({ action: "assignEnrollment", command })
+    if (receipt !== null) return accessFingerprint({ action: "assignEnrollment", command }).recognizes(receipt.fingerprint)
       ? enrollmentResultSchema.parse(receipt.result) : accessFailure("operation_conflict");
     if (command.origin === "course" && command.courseSource !== undefined) {
       await lockTelegramAccountBinding(tx, command.accountId);
@@ -36,7 +36,7 @@ export async function assignEnrollmentInTransaction(tx: MembershipEntitlementsPr
   command: z.infer<typeof assignEnrollmentSchema>, tier: z.infer<typeof tierSnapshotSchema>, now: Date): Promise<EnrollmentResult> {
   const fingerprint = accessFingerprint({ action: "assignEnrollment", command });
     const receipt = await readAccessReceipt(tx, actorId ?? "activation", command.operationId);
-    if (receipt !== null) return receipt.fingerprint === fingerprint ? enrollmentResultSchema.parse(receipt.result) : accessFailure("operation_conflict");
+    if (receipt !== null) return fingerprint.recognizes(receipt.fingerprint) ? enrollmentResultSchema.parse(receipt.result) : accessFailure("operation_conflict");
     await lockAccountAccess(tx, `enrollment:${command.origin}:${command.sourceRef}`);
     await lockAccountEntitlementChanges(tx, command.accountId);
     const existing = await tx.subscriptionEnrollment.findUnique({ where: { origin_sourceRef: { origin: command.origin, sourceRef: command.sourceRef } } });
@@ -72,7 +72,7 @@ export async function assignEnrollmentInTransaction(tx: MembershipEntitlementsPr
         update: { accountId: row.accountId, enrollmentId: row.id } });
     }
     const result = { ok: true as const, value: enrollmentView(row, now) };
-    await tx.accessReceipt.create({ data: { scope: actorId ?? "activation", operationId: command.operationId, fingerprint,
+    await tx.accessReceipt.create({ data: { scope: actorId ?? "activation", operationId: command.operationId, fingerprint: fingerprint.digest,
       payload: { command, before: existing === null ? null : enrollmentView(existing, now), after: result.value }, result, createdAt: now } });
     return result;
 }
