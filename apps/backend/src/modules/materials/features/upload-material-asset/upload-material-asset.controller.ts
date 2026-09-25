@@ -161,7 +161,6 @@ function throwAssetUploadError(error: Extract<UploadMaterialAssetForAuthoringRes
   }
 }
 
-
 function uploadProblemSchema(
   status: number,
   codes: readonly [string, ...string[]],

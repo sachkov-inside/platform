@@ -44,7 +44,8 @@ export async function reservePurchaseInTransaction(tx: BillingPrisma, command: R
       const current = await selectPrice(tx, snapshot.paymentOption.id, now, quote.promoCode ?? undefined);
       // Выключенное из продажи или архивное предложение снимает заказ, а не только меняет условия.
       if (!current.ok) return current;
-      if (JSON.stringify(current.value) !== JSON.stringify(snapshot)) return failure("quote_changed");
+      // Both sides pass the same schema, so the comparison follows its key order, not construction order.
+      if (JSON.stringify(priceSnapshotSchema.parse(current.value)) !== JSON.stringify(snapshot)) return failure("quote_changed");
       const limits = command.amountLimits;
       // Разовая покупка не продлевается, поэтому цена продления у неё ничего не значит и не
       // может отказать в платеже, которого не будет.

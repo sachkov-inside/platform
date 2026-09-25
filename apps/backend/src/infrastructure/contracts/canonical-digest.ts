@@ -36,6 +36,7 @@ export function commandDigest(envelope: unknown): string {
  * A replay fingerprint whose receipts may predate `commandDigest`. New receipts store `digest`;
  * `recognizes` also accepts `legacy`, the value the same command stored in its earlier unsorted
  * form, so a replay across the change still answers from its receipt instead of conflicting.
+ * The legacy branch may go only once no stored receipt, preview or projection holds that form.
  */
 export interface ReplayFingerprint {
   readonly digest: string;

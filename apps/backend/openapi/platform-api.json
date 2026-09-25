@@ -5725,6 +5725,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:invalid_request"
+                          ],
                           "type": "string"
                         }
                       },
@@ -5876,6 +5879,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:forbidden"
+                          ],
                           "type": "string"
                         }
                       },
@@ -5915,6 +5921,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:not_found"
+                      ],
                       "type": "string"
                     }
                   },
@@ -5960,6 +5969,15 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:operation_conflict",
+                            "urn:inside:problem:revision_conflict",
+                            "urn:inside:problem:payment_in_progress",
+                            "urn:inside:problem:contact_required",
+                            "urn:inside:problem:consent_required",
+                            "urn:inside:problem:quote_expired",
+                            "urn:inside:problem:quote_changed"
+                          ],
                           "type": "string"
                         }
                       },
@@ -6033,6 +6051,10 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:unsupported_amount",
+                        "urn:inside:problem:method_unavailable"
+                      ],
                       "type": "string"
                     }
                   },
@@ -6117,6 +6139,10 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:provider_unavailable",
+                            "urn:inside:problem:dependency_unavailable"
+                          ],
                           "type": "string"
                         }
                       },
@@ -8426,6 +8452,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:invalid_request"
+                          ],
                           "type": "string"
                         }
                       },
@@ -8577,6 +8606,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:forbidden"
+                          ],
                           "type": "string"
                         }
                       },
@@ -8616,6 +8648,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:not_found"
+                      ],
                       "type": "string"
                     }
                   },
@@ -8661,6 +8696,15 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:operation_conflict",
+                            "urn:inside:problem:revision_conflict",
+                            "urn:inside:problem:payment_in_progress",
+                            "urn:inside:problem:contact_required",
+                            "urn:inside:problem:consent_required",
+                            "urn:inside:problem:quote_expired",
+                            "urn:inside:problem:quote_changed"
+                          ],
                           "type": "string"
                         }
                       },
@@ -8734,6 +8778,10 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:unsupported_amount",
+                        "urn:inside:problem:method_unavailable"
+                      ],
                       "type": "string"
                     }
                   },
@@ -8818,6 +8866,10 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:provider_unavailable",
+                            "urn:inside:problem:dependency_unavailable"
+                          ],
                           "type": "string"
                         }
                       },
@@ -8980,6 +9032,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:invalid_request"
+                          ],
                           "type": "string"
                         }
                       },
@@ -9131,6 +9186,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:forbidden"
+                          ],
                           "type": "string"
                         }
                       },
@@ -9170,6 +9228,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:not_found"
+                      ],
                       "type": "string"
                     }
                   },
@@ -9210,6 +9271,10 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:operation_conflict",
+                            "urn:inside:problem:revision_conflict"
+                          ],
                           "type": "string"
                         }
                       },
@@ -9282,6 +9347,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:method_unavailable"
+                      ],
                       "type": "string"
                     }
                   },
@@ -9366,6 +9434,10 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:provider_unavailable",
+                            "urn:inside:problem:dependency_unavailable"
+                          ],
                           "type": "string"
                         }
                       },
@@ -10131,6 +10203,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:invalid_request"
+                          ],
                           "type": "string"
                         }
                       },
@@ -10282,6 +10357,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:forbidden"
+                          ],
                           "type": "string"
                         }
                       },
@@ -10321,6 +10399,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:not_found"
+                      ],
                       "type": "string"
                     }
                   },
@@ -10361,6 +10442,10 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:operation_conflict",
+                            "urn:inside:problem:revision_conflict"
+                          ],
                           "type": "string"
                         }
                       },
@@ -10433,6 +10518,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:method_unavailable"
+                      ],
                       "type": "string"
                     }
                   },
@@ -10517,6 +10605,10 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:provider_unavailable",
+                            "urn:inside:problem:dependency_unavailable"
+                          ],
                           "type": "string"
                         }
                       },
@@ -10987,6 +11079,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:invalid_request"
+                          ],
                           "type": "string"
                         }
                       },
@@ -11138,6 +11233,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:forbidden"
+                          ],
                           "type": "string"
                         }
                       },
@@ -11177,6 +11275,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:not_found"
+                      ],
                       "type": "string"
                     }
                   },
@@ -11224,6 +11325,17 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:operation_conflict",
+                            "urn:inside:problem:revision_conflict",
+                            "urn:inside:problem:payment_in_progress",
+                            "urn:inside:problem:contact_required",
+                            "urn:inside:problem:consent_required",
+                            "urn:inside:problem:existing_access",
+                            "urn:inside:problem:legacy_review_required",
+                            "urn:inside:problem:quote_expired",
+                            "urn:inside:problem:quote_changed"
+                          ],
                           "type": "string"
                         }
                       },
@@ -11297,6 +11409,10 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:unsupported_amount",
+                        "urn:inside:problem:method_unavailable"
+                      ],
                       "type": "string"
                     }
                   },
@@ -11381,6 +11497,10 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:provider_unavailable",
+                            "urn:inside:problem:dependency_unavailable"
+                          ],
                           "type": "string"
                         }
                       },
@@ -11812,6 +11932,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:invalid_request"
+                          ],
                           "type": "string"
                         }
                       },
@@ -11963,6 +12086,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:forbidden"
+                          ],
                           "type": "string"
                         }
                       },
@@ -12002,6 +12128,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:not_found"
+                      ],
                       "type": "string"
                     }
                   },
@@ -12049,6 +12178,17 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:operation_conflict",
+                            "urn:inside:problem:revision_conflict",
+                            "urn:inside:problem:payment_in_progress",
+                            "urn:inside:problem:contact_required",
+                            "urn:inside:problem:consent_required",
+                            "urn:inside:problem:existing_access",
+                            "urn:inside:problem:legacy_review_required",
+                            "urn:inside:problem:quote_expired",
+                            "urn:inside:problem:quote_changed"
+                          ],
                           "type": "string"
                         }
                       },
@@ -12122,6 +12262,10 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:unsupported_amount",
+                        "urn:inside:problem:method_unavailable"
+                      ],
                       "type": "string"
                     }
                   },
@@ -12206,6 +12350,10 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:provider_unavailable",
+                            "urn:inside:problem:dependency_unavailable"
+                          ],
                           "type": "string"
                         }
                       },
@@ -12626,6 +12774,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:invalid_request"
+                          ],
                           "type": "string"
                         }
                       },
@@ -12782,6 +12933,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:not_found"
+                      ],
                       "type": "string"
                     }
                   },
@@ -12822,6 +12976,10 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:operation_conflict",
+                            "urn:inside:problem:quote_changed"
+                          ],
                           "type": "string"
                         }
                       },
@@ -12894,6 +13052,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:unsupported_amount"
+                      ],
                       "type": "string"
                     }
                   },
@@ -12977,6 +13138,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:dependency_unavailable"
+                          ],
                           "type": "string"
                         }
                       },
@@ -13736,6 +13900,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:invalid_request"
+                          ],
                           "type": "string"
                         }
                       },
@@ -13887,6 +14054,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:forbidden"
+                          ],
                           "type": "string"
                         }
                       },
@@ -13926,6 +14096,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:not_found"
+                      ],
                       "type": "string"
                     }
                   },
@@ -13971,6 +14144,15 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:operation_conflict",
+                            "urn:inside:problem:revision_conflict",
+                            "urn:inside:problem:payment_in_progress",
+                            "urn:inside:problem:contact_required",
+                            "urn:inside:problem:consent_required",
+                            "urn:inside:problem:quote_expired",
+                            "urn:inside:problem:quote_changed"
+                          ],
                           "type": "string"
                         }
                       },
@@ -14044,6 +14226,10 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:unsupported_amount",
+                        "urn:inside:problem:method_unavailable"
+                      ],
                       "type": "string"
                     }
                   },
@@ -14128,6 +14314,10 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:provider_unavailable",
+                            "urn:inside:problem:dependency_unavailable"
+                          ],
                           "type": "string"
                         }
                       },
@@ -15227,6 +15417,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:invalid_request"
+                          ],
                           "type": "string"
                         }
                       },
@@ -15378,6 +15571,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:forbidden"
+                          ],
                           "type": "string"
                         }
                       },
@@ -15417,6 +15613,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:not_found"
+                      ],
                       "type": "string"
                     }
                   },
@@ -15462,6 +15661,15 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:operation_conflict",
+                            "urn:inside:problem:revision_conflict",
+                            "urn:inside:problem:payment_in_progress",
+                            "urn:inside:problem:contact_required",
+                            "urn:inside:problem:consent_required",
+                            "urn:inside:problem:quote_expired",
+                            "urn:inside:problem:quote_changed"
+                          ],
                           "type": "string"
                         }
                       },
@@ -15535,6 +15743,10 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:unsupported_amount",
+                        "urn:inside:problem:method_unavailable"
+                      ],
                       "type": "string"
                     }
                   },
@@ -15619,6 +15831,10 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:provider_unavailable",
+                            "urn:inside:problem:dependency_unavailable"
+                          ],
                           "type": "string"
                         }
                       },
@@ -16378,6 +16594,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:invalid_request"
+                          ],
                           "type": "string"
                         }
                       },
@@ -16529,6 +16748,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:forbidden"
+                          ],
                           "type": "string"
                         }
                       },
@@ -16568,6 +16790,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:not_found"
+                      ],
                       "type": "string"
                     }
                   },
@@ -16613,6 +16838,15 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:operation_conflict",
+                            "urn:inside:problem:revision_conflict",
+                            "urn:inside:problem:payment_in_progress",
+                            "urn:inside:problem:contact_required",
+                            "urn:inside:problem:consent_required",
+                            "urn:inside:problem:quote_expired",
+                            "urn:inside:problem:quote_changed"
+                          ],
                           "type": "string"
                         }
                       },
@@ -16686,6 +16920,10 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:unsupported_amount",
+                        "urn:inside:problem:method_unavailable"
+                      ],
                       "type": "string"
                     }
                   },
@@ -16770,6 +17008,10 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:provider_unavailable",
+                            "urn:inside:problem:dependency_unavailable"
+                          ],
                           "type": "string"
                         }
                       },
@@ -17504,6 +17746,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:invalid_request"
+                          ],
                           "type": "string"
                         }
                       },
@@ -17655,6 +17900,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:forbidden"
+                          ],
                           "type": "string"
                         }
                       },
@@ -17694,6 +17942,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:not_found"
+                      ],
                       "type": "string"
                     }
                   },
@@ -17739,6 +17990,15 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:operation_conflict",
+                            "urn:inside:problem:revision_conflict",
+                            "urn:inside:problem:payment_in_progress",
+                            "urn:inside:problem:contact_required",
+                            "urn:inside:problem:consent_required",
+                            "urn:inside:problem:quote_expired",
+                            "urn:inside:problem:quote_changed"
+                          ],
                           "type": "string"
                         }
                       },
@@ -17812,6 +18072,10 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:unsupported_amount",
+                        "urn:inside:problem:method_unavailable"
+                      ],
                       "type": "string"
                     }
                   },
@@ -17896,6 +18160,10 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:provider_unavailable",
+                            "urn:inside:problem:dependency_unavailable"
+                          ],
                           "type": "string"
                         }
                       },
@@ -18666,6 +18934,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:invalid_request"
+                          ],
                           "type": "string"
                         }
                       },
@@ -18817,6 +19088,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:forbidden"
+                          ],
                           "type": "string"
                         }
                       },
@@ -18856,6 +19130,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:not_found"
+                      ],
                       "type": "string"
                     }
                   },
@@ -18901,6 +19178,15 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:operation_conflict",
+                            "urn:inside:problem:revision_conflict",
+                            "urn:inside:problem:payment_in_progress",
+                            "urn:inside:problem:contact_required",
+                            "urn:inside:problem:consent_required",
+                            "urn:inside:problem:quote_expired",
+                            "urn:inside:problem:quote_changed"
+                          ],
                           "type": "string"
                         }
                       },
@@ -18974,6 +19260,10 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:unsupported_amount",
+                        "urn:inside:problem:method_unavailable"
+                      ],
                       "type": "string"
                     }
                   },
@@ -19058,6 +19348,10 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:provider_unavailable",
+                            "urn:inside:problem:dependency_unavailable"
+                          ],
                           "type": "string"
                         }
                       },
@@ -20375,6 +20669,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:invalid_input"
+                      ],
                       "type": "string"
                     }
                   },
@@ -20413,6 +20710,10 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:invalid_proof",
+                        "urn:inside:problem:account_not_found"
+                      ],
                       "type": "string"
                     }
                   },
@@ -20494,6 +20795,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:internal_error"
+                      ],
                       "type": "string"
                     }
                   },
@@ -20531,6 +20835,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:dependency_unavailable"
+                      ],
                       "type": "string"
                     }
                   },
@@ -20615,6 +20922,10 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:invalid_proof",
+                        "urn:inside:problem:account_not_found"
+                      ],
                       "type": "string"
                     }
                   },
@@ -20696,6 +21007,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:internal_error"
+                      ],
                       "type": "string"
                     }
                   },
@@ -20733,6 +21047,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:dependency_unavailable"
+                      ],
                       "type": "string"
                     }
                   },
@@ -20889,6 +21206,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:invalid_input"
+                      ],
                       "type": "string"
                     }
                   },
@@ -20927,6 +21247,10 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:invalid_proof",
+                        "urn:inside:problem:account_not_found"
+                      ],
                       "type": "string"
                     }
                   },
@@ -21010,6 +21334,11 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:revision_conflict",
+                        "urn:inside:problem:operation_conflict",
+                        "urn:inside:problem:not_unknown"
+                      ],
                       "type": "string"
                     }
                   },
@@ -21047,6 +21376,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:internal_error"
+                      ],
                       "type": "string"
                     }
                   },
@@ -21084,6 +21416,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:dependency_unavailable"
+                      ],
                       "type": "string"
                     }
                   },
@@ -59106,6 +59441,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:invalid_request"
+                          ],
                           "type": "string"
                         }
                       },
@@ -59218,6 +59556,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:forbidden"
+                      ],
                       "type": "string"
                     }
                   },
@@ -59257,6 +59598,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:provider_mismatch"
+                          ],
                           "type": "string"
                         }
                       },
@@ -59371,6 +59715,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:dependency_unavailable"
+                          ],
                           "type": "string"
                         }
                       },
@@ -59616,6 +59963,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:invalid_request"
+                          ],
                           "type": "string"
                         }
                       },
@@ -59728,6 +60078,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:forbidden"
+                      ],
                       "type": "string"
                     }
                   },
@@ -59768,6 +60121,10 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:idempotency_key_reused",
+                            "urn:inside:problem:upload_outcome_unknown"
+                          ],
                           "type": "string"
                         }
                       },
@@ -59883,6 +60240,10 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:dependency_unavailable",
+                            "urn:inside:problem:upload_not_authorized"
+                          ],
                           "type": "string"
                         }
                       },
@@ -62609,6 +62970,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:invalid_request"
+                          ],
                           "type": "string"
                         }
                       },
@@ -62721,6 +63085,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:forbidden"
+                      ],
                       "type": "string"
                     }
                   },
@@ -62758,6 +63125,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:video_not_found"
+                      ],
                       "type": "string"
                     }
                   },
@@ -62797,6 +63167,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:video_deletion_not_retryable"
+                          ],
                           "type": "string"
                         }
                       },
@@ -62911,6 +63284,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:dependency_unavailable"
+                          ],
                           "type": "string"
                         }
                       },
@@ -63084,6 +63460,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:invalid_request"
+                          ],
                           "type": "string"
                         }
                       },
@@ -63196,6 +63575,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:forbidden"
+                      ],
                       "type": "string"
                     }
                   },
@@ -63233,6 +63615,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:video_not_found"
+                      ],
                       "type": "string"
                     }
                   },
@@ -63272,6 +63657,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:provider_mismatch"
+                          ],
                           "type": "string"
                         }
                       },
@@ -63386,6 +63774,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:dependency_unavailable"
+                          ],
                           "type": "string"
                         }
                       },
@@ -71880,6 +72271,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:invalid_request"
+                          ],
                           "type": "string"
                         }
                       },
@@ -71992,6 +72386,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:forbidden"
+                      ],
                       "type": "string"
                     }
                   },
@@ -72029,6 +72426,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:not_found"
+                      ],
                       "type": "string"
                     }
                   },
@@ -72075,6 +72475,16 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:operation_conflict",
+                            "urn:inside:problem:revision_conflict",
+                            "urn:inside:problem:payment_in_progress",
+                            "urn:inside:problem:refund_in_progress",
+                            "urn:inside:problem:state_conflict",
+                            "urn:inside:problem:reservation_conflict",
+                            "urn:inside:problem:preview_expired",
+                            "urn:inside:problem:identity_changed"
+                          ],
                           "type": "string"
                         }
                       },
@@ -72148,6 +72558,10 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:unsupported_amount",
+                        "urn:inside:problem:method_unavailable"
+                      ],
                       "type": "string"
                     }
                   },
@@ -72228,6 +72642,10 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:provider_unavailable",
+                            "urn:inside:problem:dependency_unavailable"
+                          ],
                           "type": "string"
                         }
                       },
@@ -72655,6 +73073,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:invalid_request"
+                      ],
                       "type": "string"
                     }
                   },
@@ -72692,6 +73113,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:dependency_unavailable"
+                      ],
                       "type": "string"
                     }
                   },
@@ -72863,6 +73287,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:invalid_notification"
+                      ],
                       "type": "string"
                     }
                   },
@@ -72900,6 +73327,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:dependency_unavailable"
+                      ],
                       "type": "string"
                     }
                   },
@@ -72995,6 +73425,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:invalid_request"
+                          ],
                           "type": "string"
                         }
                       },
@@ -73149,6 +73582,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:dependency_unavailable"
+                          ],
                           "type": "string"
                         }
                       },
@@ -73281,6 +73717,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:invalid_request"
+                          ],
                           "type": "string"
                         }
                       },
@@ -73393,6 +73832,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:access_denied"
+                      ],
                       "type": "string"
                     }
                   },
@@ -73472,6 +73914,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:dependency_unavailable"
+                          ],
                           "type": "string"
                         }
                       },
@@ -73624,6 +74069,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:invalid_request"
+                          ],
                           "type": "string"
                         }
                       },
@@ -73778,6 +74226,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:dependency_unavailable"
+                          ],
                           "type": "string"
                         }
                       },
@@ -74187,6 +74638,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:invalid_request"
+                          ],
                           "type": "string"
                         }
                       },
@@ -74341,6 +74795,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:dependency_unavailable"
+                          ],
                           "type": "string"
                         }
                       },
@@ -98429,6 +98886,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:invalid_input"
+                          ],
                           "type": "string"
                         }
                       },
@@ -98541,6 +99001,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:forbidden"
+                      ],
                       "type": "string"
                     }
                   },
@@ -98578,6 +99041,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:unavailable"
+                      ],
                       "type": "string"
                     }
                   },
@@ -98725,6 +99191,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:forbidden"
+                      ],
                       "type": "string"
                     }
                   },
@@ -98762,6 +99231,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:unavailable"
+                      ],
                       "type": "string"
                     }
                   },
@@ -99997,6 +100469,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:invalid_request"
+                      ],
                       "type": "string"
                     }
                   },
@@ -100034,6 +100509,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:invalid_basic_credentials"
+                      ],
                       "type": "string"
                     }
                   },
@@ -100071,6 +100549,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:access_denied"
+                      ],
                       "type": "string"
                     }
                   },
@@ -100194,6 +100675,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:invalid_request"
+                      ],
                       "type": "string"
                     }
                   },
@@ -100231,6 +100715,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:invalid_basic_credentials"
+                      ],
                       "type": "string"
                     }
                   },
@@ -100268,6 +100755,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:video_not_found"
+                      ],
                       "type": "string"
                     }
                   },
@@ -100305,6 +100795,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:provider_mismatch"
+                      ],
                       "type": "string"
                     }
                   },
@@ -100342,6 +100835,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:dependency_unavailable"
+                      ],
                       "type": "string"
                     }
                   },
@@ -103116,6 +103612,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:unauthorized"
+                      ],
                       "type": "string"
                     }
                   },
@@ -103340,6 +103839,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:unauthorized"
+                      ],
                       "type": "string"
                     }
                   },
@@ -103895,6 +104397,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:unauthorized"
+                      ],
                       "type": "string"
                     }
                   },
@@ -104435,6 +104940,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:unauthorized"
+                      ],
                       "type": "string"
                     }
                   },
@@ -104914,6 +105422,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:invalid_signature"
+                      ],
                       "type": "string"
                     }
                   },
@@ -104951,6 +105462,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:tribute_unavailable"
+                      ],
                       "type": "string"
                     }
                   },
@@ -115485,6 +115999,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:invalid_request"
+                          ],
                           "type": "string"
                         }
                       },
@@ -115598,6 +116115,10 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:access_denied",
+                        "urn:inside:problem:video_mismatch"
+                      ],
                       "type": "string"
                     }
                   },
@@ -115637,6 +116158,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:video_not_ready"
+                          ],
                           "type": "string"
                         }
                       },
@@ -115751,6 +116275,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:dependency_unavailable"
+                          ],
                           "type": "string"
                         }
                       },
@@ -115895,6 +116422,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:invalid_request"
+                          ],
                           "type": "string"
                         }
                       },
@@ -116008,6 +116538,10 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:access_denied",
+                        "urn:inside:problem:video_mismatch"
+                      ],
                       "type": "string"
                     }
                   },
@@ -116047,6 +116581,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:video_not_ready"
+                          ],
                           "type": "string"
                         }
                       },
@@ -116161,6 +116698,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:dependency_unavailable"
+                          ],
                           "type": "string"
                         }
                       },
@@ -117305,6 +117845,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:invalid_input"
+                      ],
                       "type": "string"
                     }
                   },
@@ -117343,6 +117886,10 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:invalid_proof",
+                        "urn:inside:problem:account_not_found"
+                      ],
                       "type": "string"
                     }
                   },
@@ -117380,6 +117927,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:forbidden"
+                      ],
                       "type": "string"
                     }
                   },
@@ -117417,6 +117967,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:internal_error"
+                      ],
                       "type": "string"
                     }
                   },
@@ -117454,6 +118007,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:dependency_unavailable"
+                      ],
                       "type": "string"
                     }
                   },
@@ -117564,6 +118120,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:invalid_input"
+                      ],
                       "type": "string"
                     }
                   },
@@ -117602,6 +118161,10 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:invalid_proof",
+                        "urn:inside:problem:account_not_found"
+                      ],
                       "type": "string"
                     }
                   },
@@ -117639,6 +118202,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:forbidden"
+                      ],
                       "type": "string"
                     }
                   },
@@ -117678,6 +118244,11 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:revision_conflict",
+                        "urn:inside:problem:operation_conflict",
+                        "urn:inside:problem:not_unknown"
+                      ],
                       "type": "string"
                     }
                   },
@@ -117715,6 +118286,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:internal_error"
+                      ],
                       "type": "string"
                     }
                   },
@@ -117752,6 +118326,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:dependency_unavailable"
+                      ],
                       "type": "string"
                     }
                   },
@@ -118154,6 +118731,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:invalid_request"
+                      ],
                       "type": "string"
                     }
                   },
@@ -118271,6 +118851,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:dependency_unavailable"
+                      ],
                       "type": "string"
                     }
                   },
@@ -118781,6 +119364,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:invalid_request"
+                      ],
                       "type": "string"
                     }
                   },
@@ -118858,6 +119444,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:series_not_found"
+                      ],
                       "type": "string"
                     }
                   },
@@ -118935,6 +119524,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:dependency_unavailable"
+                      ],
                       "type": "string"
                     }
                   },
@@ -119014,6 +119606,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:invalid_request"
+                          ],
                           "type": "string"
                         }
                       },
@@ -119168,6 +119763,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:dependency_unavailable"
+                          ],
                           "type": "string"
                         }
                       },
@@ -119303,6 +119901,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:invalid_request"
+                          ],
                           "type": "string"
                         }
                       },
@@ -119457,6 +120058,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:dependency_unavailable"
+                          ],
                           "type": "string"
                         }
                       },
@@ -119596,6 +120200,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:invalid_request"
+                          ],
                           "type": "string"
                         }
                       },
@@ -119708,6 +120315,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:series_not_found"
+                      ],
                       "type": "string"
                     }
                   },
@@ -119785,6 +120395,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:series_too_large"
+                      ],
                       "type": "string"
                     }
                   },
@@ -119864,6 +120477,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:dependency_unavailable"
+                          ],
                           "type": "string"
                         }
                       },
@@ -120747,6 +121363,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:invalid_request"
+                      ],
                       "type": "string"
                     }
                   },
@@ -120864,6 +121483,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:dependency_unavailable"
+                      ],
                       "type": "string"
                     }
                   },
@@ -121024,6 +121646,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:invalid_request"
+                          ],
                           "type": "string"
                         }
                       },
@@ -121136,6 +121761,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:access_denied"
+                      ],
                       "type": "string"
                     }
                   },
@@ -121176,6 +121804,10 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:command_conflict",
+                            "urn:inside:problem:access_changed"
+                          ],
                           "type": "string"
                         }
                       },
@@ -121244,6 +121876,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:stale_version"
+                          ],
                           "type": "string"
                         }
                       },
@@ -121359,6 +121994,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:dependency_unavailable"
+                          ],
                           "type": "string"
                         }
                       },
@@ -121524,6 +122162,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:invalid_request"
+                          ],
                           "type": "string"
                         }
                       },
@@ -121718,6 +122359,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:dependency_unavailable"
+                          ],
                           "type": "string"
                         }
                       },
@@ -121866,6 +122510,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:invalid_request"
+                      ],
                       "type": "string"
                     }
                   },
@@ -121943,6 +122590,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:access_denied"
+                      ],
                       "type": "string"
                     }
                   },
@@ -121981,6 +122631,10 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:command_conflict",
+                        "urn:inside:problem:access_changed"
+                      ],
                       "type": "string"
                     }
                   },
@@ -122058,6 +122712,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:dependency_unavailable"
+                      ],
                       "type": "string"
                     }
                   },
@@ -122569,6 +123226,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:invalid_request"
+                      ],
                       "type": "string"
                     }
                   },
@@ -122646,6 +123306,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:series_not_found"
+                      ],
                       "type": "string"
                     }
                   },
@@ -122723,6 +123386,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:dependency_unavailable"
+                      ],
                       "type": "string"
                     }
                   },
@@ -122828,6 +123494,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:invalid_request"
+                          ],
                           "type": "string"
                         }
                       },
@@ -122940,6 +123609,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:series_not_found"
+                      ],
                       "type": "string"
                     }
                   },
@@ -123017,6 +123689,9 @@
                       "type": "string"
                     },
                     "type": {
+                      "enum": [
+                        "urn:inside:problem:series_too_large"
+                      ],
                       "type": "string"
                     }
                   },
@@ -123096,6 +123771,9 @@
                           "type": "string"
                         },
                         "type": {
+                          "enum": [
+                            "urn:inside:problem:dependency_unavailable"
+                          ],
                           "type": "string"
                         }
                       },

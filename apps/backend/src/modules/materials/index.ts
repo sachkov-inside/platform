@@ -64,4 +64,3 @@ export { PublishedMaterialSelection } from "./features/select-published-material
 export { assembleMaterialsNotificationOutbox } from "./facets/notification-outbox/notification-outbox.js";
 export { MaterialAnnouncements } from "./facets/material-announcements/material-announcements.js";
 
-

@@ -10,7 +10,7 @@ import {
 import { ApiResponse } from "@nestjs/swagger";
 import { z } from "zod";
 
-import { problemType } from "../../../../infrastructure/http/problem-details.js";
+import { problemDetails, problemType } from "../../../../infrastructure/http/problem-details.js";
 import {
   problemDetailsContent,
   problemDetailsOneOfContent,
@@ -37,21 +37,13 @@ const termsAcceptanceUnavailableSchema = z.object({
   code: z.literal("internal_error"),
 });
 
-const termsAcceptanceUnavailable = {
-  type: problemType("internal_error"),
-  title: "Terms acceptance could not be checked",
-  status: 500,
+const termsAcceptanceUnavailable = problemDetails(500, "internal_error", "Terms acceptance could not be checked", {
   detail: "Terms acceptance could not be checked.",
-  code: "internal_error",
-} as const satisfies z.infer<typeof termsAcceptanceUnavailableSchema>;
+}) satisfies z.infer<typeof termsAcceptanceUnavailableSchema>;
 
-const termsAcceptanceRequired = {
-  type: problemType("terms_acceptance_required"),
-  title: "Terms of use are not accepted",
-  status: 403,
+const termsAcceptanceRequired = problemDetails(403, "terms_acceptance_required", "Terms of use are not accepted", {
   detail: "Accept the terms of use in force on the first sign-in screen first.",
-  code: "terms_acceptance_required",
-} as const satisfies z.infer<typeof termsAcceptanceProblemSchema>;
+}) satisfies z.infer<typeof termsAcceptanceProblemSchema>;
 
 /**
  * Authenticates the Account and lets it through only once the terms of use in force are accepted.

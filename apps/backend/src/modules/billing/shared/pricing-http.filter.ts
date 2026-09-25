@@ -12,7 +12,6 @@ export function throwPricingError(error: PricingError): never {
     case "dependency_unavailable": status = 503; break;
     default: return assertNever(error.code);
   }
-  const { code, ...fields } = error;
-  throw problemException(status, code, "Billing request failed", fields);
+  throw problemException(status, error.code, "Billing request failed");
 }
 function assertNever(value: never): never { throw new Error(`Unexpected pricing error: ${String(value)}`); }

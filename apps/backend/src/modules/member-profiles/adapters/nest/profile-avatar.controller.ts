@@ -210,7 +210,6 @@ export class PrivateProfileAvatarController {
   }
 }
 
-
 function field(file: MultipartFile, name: string): string | undefined {
   const value = file.fields[name];
   return value === undefined || Array.isArray(value) || value.type !== "field"
@@ -249,7 +248,6 @@ function throwAvatarError(
     }
   }
 }
-
 
 function avatarProblemSchema(status: number) {
   const base = z.object({

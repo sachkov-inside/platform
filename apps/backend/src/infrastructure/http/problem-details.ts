@@ -10,6 +10,7 @@ export function problemType<const Code extends string>(code: Code): `urn:inside:
 }
 
 type ProblemFields = Readonly<Record<string, unknown>> & {
+  readonly code?: never;
   readonly status?: never;
   readonly title?: never;
   readonly type?: never;
@@ -19,13 +20,31 @@ type ProblemFields = Readonly<Record<string, unknown>> & {
  * The problem details body of one application error. `details` carries the error's own fields,
  * such as the current version of a conflict; the type always follows the code.
  */
-export function problemDetails(
-  status: number,
-  code: string,
-  title: string,
-  details: ProblemFields = {},
-): Readonly<Record<string, unknown>> {
-  return { ...details, code, status, title, type: problemType(code) };
+export function problemDetails<
+  const Status extends number,
+  const Code extends string,
+  const Title extends string,
+  const Details extends ProblemFields = Readonly<Record<never, never>>,
+>(
+  status: Status,
+  code: Code,
+  title: Title,
+  details?: Details,
+): Details & {
+  readonly code: Code;
+  readonly status: Status;
+  readonly title: Title;
+  readonly type: `urn:inside:problem:${Code}`;
+} {
+  // The spread keeps every detail and the four fields below override nothing: `ProblemFields`
+  // forbids them in `details`, which TypeScript cannot see through the generic spread.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+  return { ...details, code, status, title, type: problemType(code) } as Details & {
+    readonly code: Code;
+    readonly status: Status;
+    readonly title: Title;
+    readonly type: `urn:inside:problem:${Code}`;
+  };
 }
 
 /** The same body as an exception; `ProblemDetailsFilter` sends it as is. */
