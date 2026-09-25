@@ -1,8 +1,7 @@
 # Production Workshop v1 case-first foundation
 
 Статус: **superseded** для product/application delivery документом
-[Workshop Tracks and Laboratories](./workshop-tracks.md) и
-[Platform #274](https://github.com/sachkov-inside/platform/issues/274).
+[Workshop Tracks and Laboratories](./workshop-tracks.md). Successor снят с плана 16.09.2026.
 
 Дата изменения статуса: 2026-09-04.
 
@@ -43,6 +42,4 @@ Cases. Первый Track посвящён Kafka, а evaluation выбирает
 - Shared product contract: Workspace
   [`production-workshop-v1.md`](https://github.com/sachkov-inside/workspace/blob/main/docs/specifications/production-workshop-v1.md).
 - Platform application contract: [`workshop-tracks.md`](./workshop-tracks.md).
-- Delivery graph: [Platform #274](https://github.com/sachkov-inside/platform/issues/274).
-- Evaluation decision: [Platform #278](https://github.com/sachkov-inside/platform/issues/278),
-  blocked by the Kafka CaseSpec.
+- Delivery graph и evaluation decision: задачи удалены 16.09.2026 вместе со снятием Workshop с плана.

@@ -362,7 +362,7 @@ version, either after an Attempt or by explicit early study choice.
 _Avoid_: AttemptResult, penalty, completion
 
 `Assignment`, `Attempt`, `AttemptResult` and `SolutionReveal` describe implemented case-first
-foundations. They are not the current Kafka evaluation contract until #278 accepts their reuse.
+foundations. They are not the current Kafka evaluation contract until CaseSpec-driven evaluation research accepts their reuse.
 
 ## Subscription and access
 
