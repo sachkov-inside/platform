@@ -13,15 +13,28 @@ const isDevelopment = process.env.NODE_ENV === "development";
 const scriptSources = isDevelopment
   ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://player.kinescope.io"
   : "script-src 'self' 'unsafe-inline' https://player.kinescope.io";
-/** Хранилище стенда отдаёт превью по HTTP с локального адреса; production берёт картинки по HTTPS. */
-const localImageSources = isDevelopment ? " http://127.0.0.1:* http://localhost:9000" : "";
+/**
+ * Хранилище стенда отдаёт превью по HTTP с локального адреса; production берёт картинки по HTTPS.
+ * Full-stack smoke собирает production и ходит в локальное хранилище: адрес ему передаётся явно и
+ * только loopback, поэтому сборка образа без переменной получает ту же политику, что production.
+ */
+function localImageSources(): string {
+  if (isDevelopment) return " http://127.0.0.1:* http://localhost:9000";
+  const origin = process.env.CSP_LOCAL_OBJECT_STORAGE_ORIGIN;
+  if (origin === undefined || origin === "") return "";
+  const url = new URL(origin);
+  if (url.protocol !== "http:" || !["127.0.0.1", "localhost"].includes(url.hostname) || url.origin !== origin) {
+    throw new Error(`CSP_LOCAL_OBJECT_STORAGE_ORIGIN must be a loopback HTTP origin, got ${origin}`);
+  }
+  return ` ${origin}`;
+}
 const contentSecurityPolicy = [
   "default-src 'self'",
   "base-uri 'self'",
   "form-action 'self'",
   "frame-ancestors 'none'",
   "object-src 'none'",
-  `img-src 'self' data: blob:${localImageSources} https://storage.yandexcloud.net https://*.storage.yandexcloud.net https://kinescope.io https://*.kinescope.io https://*.kinescopecdn.net`,
+  `img-src 'self' data: blob:${localImageSources()} https://storage.yandexcloud.net https://*.storage.yandexcloud.net https://kinescope.io https://*.kinescope.io https://*.kinescopecdn.net`,
   "media-src 'self' blob: https://kinescope.io https://*.kinescope.io https://*.kinescopecdn.net",
   scriptSources,
   "style-src 'self' 'unsafe-inline'",

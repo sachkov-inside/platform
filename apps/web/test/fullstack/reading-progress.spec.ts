@@ -4,6 +4,14 @@ import { resolve } from "node:path";
 import { signInFullStack } from "../support/full-stack-session";
 import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 
+/** Signs in another identity and waits until the returned tab reads that identity's marks. */
+async function returnAs(page: Page, signIn: () => Promise<unknown>) {
+  await signIn();
+  const reread = page.waitForRequest((request) => request.url().endsWith("/api/reading-progress/states"));
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await reread;
+}
+
 async function openReader(page: Page, slug = "kak-ustroen-inside-platform", label = "Изучено") {
   await page.goto(`/materials/${slug}`);
   const dismiss = page.getByRole("button", { name: "Закрыть подключение Telegram" });
@@ -77,17 +85,33 @@ test("reading progress reconciles stale windows and account changes without relo
     await expect(page.locator("[data-reading-action-state]:visible")).toHaveAttribute("data-reading-action-state", "conflict");
     await expect(button).toHaveAttribute("aria-pressed", "true");
     await page.getByRole("button", { name: "Обновить статус" }).click();
+    await expect(page.locator("[data-reading-action-state]:visible")).toHaveAttribute("data-reading-action-state", "ready");
     // Another authenticated identity, in the SAME page and QueryClient.
-    await signInFullStack(context, "EXPIRED_MEMBER");
-    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await returnAs(page, () => signInFullStack(context, "EXPIRED_MEMBER"));
     await expect(page.locator("[data-reading-action-state]:visible")).toHaveAttribute("data-reading-action-state", "ready");
     if (await button.getAttribute("aria-pressed") === "true") { await button.click(); await expect(button).toHaveAttribute("aria-pressed", "false"); }
-    await signInFullStack(context);
-    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await returnAs(page, () => signInFullStack(context));
     await expect(button).toHaveAttribute("aria-pressed", "true");
+    // Выход, случившийся, пока прежняя проверка входа ещё в пути, не прячется за её ответом:
+    // возврат во вкладку спрашивает сервер заново.
+    let releaseEarlierCheck = (): void => undefined;
+    const earlierCheckReleased = new Promise<void>((resolve) => { releaseEarlierCheck = resolve; });
+    let earlierCheck: "none" | "sent" | "answered" = "none";
+    await page.route("**/auth/status", async (route) => {
+      if (earlierCheck !== "none") { await route.continue(); return; }
+      earlierCheck = "sent";
+      const response = await route.fetch();
+      earlierCheck = "answered";
+      await earlierCheckReleased;
+      await route.fulfill({ response });
+    });
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await expect.poll(() => earlierCheck).toBe("answered");
     await context.clearCookies();
     await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    releaseEarlierCheck();
     await expect(page.locator("[data-reading-action-state]:visible")).toHaveAttribute("data-reading-action-state", "anonymous");
+    await page.unroute("**/auth/status");
   } finally { await other.close(); }
 });
 

@@ -76,10 +76,10 @@ test("profile continuation opens the real series, persists marks and reconciles 
   const nextRow = page.getByRole("main").locator('[data-series-ordinal="3"]');
   const rowBefore = await nextRow.boundingBox();
   await page.route("**/api/reading-progress/guide-continuation", async (route) => { await route.fulfill({ status: 503 }); });
-  await becomeStale(page); await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await returnToStaleTab(page);
   // Недоступное продолжение не выдумывает выделенную строку и не двигает маршрут.
   await expect(current).toHaveCount(0); expect(await nextRow.boundingBox()).toEqual(rowBefore);
-  await page.unroute("**/api/reading-progress/guide-continuation"); await becomeStale(page); await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await page.unroute("**/api/reading-progress/guide-continuation"); await returnToStaleTab(page);
   await expect(current.locator("[data-material-slug]")).toHaveAttribute("data-material-slug", "video-pro-developer-pipeline");
   await current.locator('a[href^="/materials/video-pro-developer-pipeline"]').click();
   await expect(page.getByText("Материал 2 из 3", { exact: true })).toBeVisible();
@@ -95,7 +95,7 @@ test("profile continuation opens the real series, persists marks and reconciles 
   await page.goto("/account"); await expect(resumeSeries).toContainText("Прочитано 2 из 3");
   await context.clearCookies(); await page.goto("/account"); await expect(resumeSeries).toHaveCount(0);
   await signInFullStack(context); await page.reload(); await expect(resumeSeries).toContainText("Прочитано 2 из 3");
-  await signInFullStack(context, "EXPIRED_MEMBER"); await becomeStale(page); await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await signInFullStack(context, "EXPIRED_MEMBER"); await returnToStaleTab(page);
   await expect(resumeSeries).toContainText("Прочитано 1 из 3"); await personal(page);
 });
 
@@ -146,7 +146,7 @@ test("profile continuation preserves the account form through errors and exclude
   await expect(field).toBeVisible();
   const before = await field.boundingBox();
   await page.route("**/api/personal-home", async (route) => { await route.fulfill({ status: 503 }); });
-  await becomeStale(page); await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await returnToStaleTab(page);
   await expect(page.getByText("Не удалось загрузить продолжение обучения.")).toBeVisible();
   expect((await field.boundingBox())?.y).toBe(before?.y);
   await expect(page.getByRole("link", { name: /^Продолжить продукт/u })).toHaveCount(0);
@@ -196,7 +196,15 @@ test("personal Home retries an already visible open with the same command after 
   expect(commandId(commands[0] ?? "")).toBeTruthy(); expect(commandId(commands[1] ?? "")).toBe(commandId(commands[0] ?? ""));
 });
 
-/** Queries stay fresh for 30 seconds and refetch on focus only after that (ADR 0027, #674). */
-async function becomeStale(page: Page): Promise<void> {
+/**
+ * Queries stay fresh for 30 seconds and are re-read on return to the tab only after that (ADR 0027,
+ * #674). A browser announces the return with `visibilitychange`, which TanStack Query listens to,
+ * and `focus`, which re-checks sign-in; a bare `focus` re-reads nothing since #692.
+ */
+async function returnToStaleTab(page: Page): Promise<void> {
   await page.clock.fastForward("00:31");
+  await page.evaluate(() => {
+    document.dispatchEvent(new Event("visibilitychange", { bubbles: true }));
+    window.dispatchEvent(new Event("focus"));
+  });
 }

@@ -61,6 +61,15 @@ const fullStackIdentity = await startFullStackIdentity({
   webBaseUrl,
 });
 Object.assign(childEnvironment, fullStackIdentity.environment);
+// Web собирается как production, а превью и аватары приходят из локального хранилища по HTTP.
+// Production CSP его не пускает (ADR 0028), поэтому сборка smoke называет этот адрес явно.
+const webEnvironment = {
+  ...childEnvironment,
+  NODE_ENV: "production",
+  ...(process.env.OBJECT_STORAGE_ENDPOINT === undefined
+    ? {}
+    : { CSP_LOCAL_OBJECT_STORAGE_ORIGIN: new URL(process.env.OBJECT_STORAGE_ENDPOINT).origin }),
+};
 const webReleaseIdentityPath = resolve(
   repositoryRoot,
   "apps/web/release-identity.json",
@@ -94,10 +103,7 @@ try {
     ["--filter", "@inside/backend", "release:bootstrap-owner"],
     { ...childEnvironment, OWNER_PERMISSION: "platform:admin" },
   );
-  await runPnpm(["--filter", "@inside/web", "build"], {
-    ...childEnvironment,
-    NODE_ENV: "production",
-  });
+  await runPnpm(["--filter", "@inside/web", "build"], webEnvironment);
 
   processes.push(
     startPnpm("API", ["dev:api"], childEnvironment),
@@ -118,11 +124,7 @@ try {
         "--port",
         webPort,
       ],
-      {
-        ...childEnvironment,
-        NODE_ENV: "production",
-        BACKEND_BASE_URL: apiBaseUrl,
-      },
+      { ...webEnvironment, BACKEND_BASE_URL: apiBaseUrl },
     ),
   );
 

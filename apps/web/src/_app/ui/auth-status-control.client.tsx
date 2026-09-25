@@ -25,12 +25,11 @@ const unavailableStatus: AuthStatusSnapshot = {
   state: "unavailable",
 };
 
-let statusFlight: Promise<AuthStatusSnapshot> | undefined;
-
 /**
  * Статус входа для оболочки. Повторная проверка на `focus` и `pageshow` не сбрасывает уже известный
  * ответ: пока она идёт, личные блоки стоят на прежнем статусе, а меняются, только когда вход
- * действительно изменился.
+ * действительно изменился. Каждая проверка спрашивает сервер заново и решает только последняя:
+ * ответ на запрос, ушедший до выхода в другой вкладке, не держит эту вкладку во входе (#742).
  */
 export function useAuthStatus(): AuthStatusSnapshot {
   const [status, setStatus] = useState<AuthStatusSnapshot>(initialStatus);
@@ -47,13 +46,18 @@ export function useAuthStatus(): AuthStatusSnapshot {
         );
       });
     };
+    // Первый `pageshow` приходит вместе с загрузкой, которую уже проверяет монтирование; повторять
+    // проверку нужно, только когда страница вернулась из кеша истории.
+    const refreshRestoredPage = (event: PageTransitionEvent) => {
+      if (event.persisted) refresh();
+    };
     refresh();
     window.addEventListener("focus", refresh);
-    window.addEventListener("pageshow", refresh);
+    window.addEventListener("pageshow", refreshRestoredPage);
     return () => {
       active = false;
       window.removeEventListener("focus", refresh);
-      window.removeEventListener("pageshow", refresh);
+      window.removeEventListener("pageshow", refreshRestoredPage);
     };
   }, []);
 
@@ -66,7 +70,7 @@ function sameAuthStatus(left: AuthStatusSnapshot, right: AuthStatusSnapshot): bo
 }
 
 function loadAuthStatus(): Promise<AuthStatusSnapshot> {
-  statusFlight ??= fetch("/auth/status", {
+  return fetch("/auth/status", {
     cache: "no-store",
     credentials: "same-origin",
   })
@@ -77,11 +81,7 @@ function loadAuthStatus(): Promise<AuthStatusSnapshot> {
       const payload: unknown = await response.json();
       return parseAuthStatus(payload);
     })
-    .catch(() => unavailableStatus)
-    .finally(() => {
-      statusFlight = undefined;
-    });
-  return statusFlight;
+    .catch(() => unavailableStatus);
 }
 
 function parseAuthStatus(value: unknown): AuthStatusSnapshot {
