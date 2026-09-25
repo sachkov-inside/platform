@@ -146,14 +146,15 @@ function multipartRequest(): FastifyRequest {
     purpose: { type: "field", value: "Проверка" },
     title: { type: "field", value: "Чек-лист" },
   };
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- The controller reads only this tested MultipartFile subset.
-  const part = {
+  const partFixture = {
     fields,
     file: { truncated: false },
     filename: "checklist.md",
     mimetype: "text/markdown",
     toBuffer: () => Promise.resolve(Buffer.from("abc")),
-  } as unknown as MultipartFile;
+  };
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- The controller reads only this tested MultipartFile subset.
+  const part = partFixture as unknown as MultipartFile;
   // The fixture enforces the declared multipart limits, so a form that carries
   // more fields than the controller allows fails here instead of in production.
   const file = vi.fn((options?: { limits?: { fields?: number } }) => {

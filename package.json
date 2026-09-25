@@ -2,7 +2,7 @@
   "name": "@inside/platform",
   "version": "0.0.0",
   "private": true,
-  "packageManager": "pnpm@11.22.0",
+  "packageManager": "pnpm@11.27.1",
   "scripts": {
     "dev": "pnpm --parallel --filter @inside/web --filter @inside/backend dev",
     "dev:web": "pnpm --filter @inside/web dev",
@@ -82,15 +82,15 @@
     "authoring:products": "node scripts/authoring-products.mjs"
   },
   "dependencies": {
-    "zod": "4.4.3"
+    "zod": "4.6.5"
   },
   "devDependencies": {
-    "@logto/node": "3.1.10",
-    "jose": "6.2.10",
+    "@logto/node": "3.1.11",
+    "jose": "6.2.12",
     "markdown-it": "15.0.2",
-    "oxc-parser": "0.147.0",
-    "oxlint": "1.80.0",
-    "oxlint-tsgolint": "7.0.2001",
+    "oxc-parser": "0.151.0",
+    "oxlint": "1.85.0",
+    "oxlint-tsgolint": "7.0.2002",
     "proper-lockfile": "4.1.2",
     "typescript": "7.0.2",
     "@inside/material-blocks": "workspace:*"

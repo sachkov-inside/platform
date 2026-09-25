@@ -60,7 +60,7 @@ Overrides never force a peer range onto an incompatible tool; the TypeScript 7 r
 
 ## Current baseline
 
-Node `24.19.0` is the latest production LTS; Node 26 is Current and is not the production baseline.
+Node `24.21.0` is the latest production LTS; Node 26 is Current and is not the production baseline.
 The status and production recommendation come from the
 [official Node.js release table](https://nodejs.org/en/about/previous-releases).
 
@@ -103,5 +103,6 @@ before execution. Do not add an ESLint compatibility runner for that gap. Prefer
 rule when one becomes stable; otherwise add a typed API constraint or a focused executable test for
 a demonstrated regression.
 
-pnpm remains at `11.22.0` until a separately verified stable update passes frozen installation and
-the full repository gate. Do not weaken `strictPeerDependencies` to accept a package-family update.
+pnpm is pinned to `11.27.1`, the latest 11.x; pnpm 12 waits for a separately verified migration
+that passes frozen installation and the full repository gate. Do not weaken
+`strictPeerDependencies` to accept a package-family update.
