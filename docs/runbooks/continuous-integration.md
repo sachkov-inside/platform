@@ -57,7 +57,14 @@ with `main`. The queue builds each entry on top of the current `main` plus the e
 runs this workflow for the `merge_group` event and merges only after that combined `CI Gate`
 succeeds. Freshness is therefore proved once, by the queue, instead of by rebasing every open branch
 after each merge. Add a ready pull request with `gh pr merge <number> --squash` (or the queue button);
-merge approval under `Owner gates` in `WORKFLOW.md` is unchanged.
+merge approval under `Owner gates` in `WORKFLOW.md` is unchanged. A direct merge through the REST API
+answers `405 Changes must be made through the merge queue` even for a clean pull request. The
+ruleset changes only by owner decision; an agent never edits it to get a merge through.
+
+The workflow runs on `pull_request`, so a pull request whose `mergeable` state is `CONFLICTING`
+starts no checks at all. When no check appears after a push, read
+`gh pr view <number> --json mergeable,mergeStateStatus` first, then integrate `origin/main` as
+`WORKFLOW.md` describes and push.
 
 ## Integration suites
 

@@ -30,6 +30,8 @@ const environment = {
   BACKEND_BASE_URL: apiBaseUrl,
   KINESCOPE_PROVIDER_MODE: "test",
   OWNER_PERMISSION: "platform:admin",
+  // A machine with a low open-file limit needs polling for `next dev`; see local-development.md.
+  ...(process.env.WATCHPACK_POLLING ? { WATCHPACK_POLLING: process.env.WATCHPACK_POLLING } : {}),
 };
 const children = [];
 let closing = false;

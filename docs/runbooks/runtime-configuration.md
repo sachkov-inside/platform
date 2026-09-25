@@ -104,8 +104,10 @@ during the image build. The web process reads server-only values when its contai
 | Deployment transport | SSH host, restricted user/key and pinned host keys | protected GitHub Environment `Production` |
 
 When introducing a variable, add it to the owning Zod schema, typed config object, focused parser
-tests, relevant Compose service and tracked example. Do not make an unrelated worker require that
-group. Put the real production value only in the server-owned environment file; deployment consumes
+tests, relevant Compose service and tracked example. A variable required in production also goes
+into the `api.env` that `scripts/production-compose-smoke.sh` writes itself instead of reading the
+examples; otherwise only the `Production Compose` job fails, and its log does not show the container
+output. Do not make an unrelated worker require that group. Put the real production value only in the server-owned environment file; deployment consumes
 that file in place and never transports it through GitHub.
 
 That rule covers runtime variables, the ones application code reads through a typed config. A
