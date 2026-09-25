@@ -88,7 +88,7 @@ process environments. Partial configuration fails startup:
 | Variable                               | Meaning                                                                                                                          |
 | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | `TELEGRAM_COMMUNICATIONS_ENDPOINT`     | Provider URL ending exactly in `/integrations/platform/v1/communications`; HTTPS, or HTTP on loopback for an isolated local test |
-| `TELEGRAM_COMMUNICATIONS_SECRET`       | Existing provider `PLATFORM_INTEGRATION_SECRET`, kept only in private runtime configuration                                      |
+| `TELEGRAM_COMMUNICATIONS_SECRET`       | Dedicated secret matching the provider's `PLATFORM_COMMUNICATIONS_SECRET`; never the linking secret, kept only in private runtime configuration |
 | `TELEGRAM_AUTHOR_AUTHORIZATION_SECRET` | Dedicated callback bearer secret matching the provider's `PLATFORM_AUTHOR_AUTHORIZATION_SECRET`                                  |
 | `TELEGRAM_COMMUNICATIONS_BOT_IDENTITY` | Exact configured provider bot identity; not the author's Telegram username                                                       |
 

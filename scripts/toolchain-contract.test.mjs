@@ -20,8 +20,12 @@ describe("supported toolchain contract", () => {
 
       assert.match(
         dockerfile,
-        new RegExp(`^FROM node:${escapeRegExp(nodeVersion)}-alpine\\d+\\.\\d+ AS toolchain$`, "mu"),
+        new RegExp(
+          `^FROM node:${escapeRegExp(nodeVersion)}-alpine\\d+\\.\\d+@sha256:[a-f0-9]{64} AS toolchain$`,
+          "mu",
+        ),
       );
+      assertNodeBasesPinnedByDigest(path, dockerfile);
       assert.match(
         dockerfile,
         new RegExp(`corepack install --global pnpm@${escapeRegExp(pnpmVersion)}(?:\\s|$)`, "u"),
@@ -103,15 +107,6 @@ describe("supported toolchain contract", () => {
     assert.match(read("config/compose/local/web.env"), /^HIDE_DEV_INDICATOR=true$/mu);
   });
 
-  it("allows local previews and protected image delivery through the Web CSP", () => {
-    const nextConfig = read("apps/web/next.config.ts");
-
-    assert.match(
-      nextConfig,
-      /"img-src 'self' data: blob: http:\/\/127\.0\.0\.1:\* http:\/\/localhost:9000 https:\/\/storage\.yandexcloud\.net/u,
-    );
-  });
-
   it("uses only the Oxc lint and parser toolchain", () => {
     assert.equal(
       rootPackage.scripts.lint,
@@ -144,7 +139,19 @@ describe("supported toolchain contract", () => {
     );
     assert.equal(webPackage.devDependencies["openapi-typescript"], undefined);
     assert.equal(webPackage.dependencies["openapi-fetch"], undefined);
-    assert.doesNotMatch(read("pnpm-workspace.yaml"), /^overrides:/mu);
+    // Только security overrides из docs/runbooks/dependency-updates.md; новый требует той же записи.
+    assert.deepEqual(overrideNames(read("pnpm-workspace.yaml")), documentedSecurityOverrides);
+  });
+
+  it("rejects a Node base pinned only by tag and an undocumented override", () => {
+    const dockerfile = read("apps/web/Dockerfile");
+    assert.throws(
+      () => assertNodeBasesPinnedByDigest("apps/web/Dockerfile", dockerfile.replace(/@sha256:[a-f0-9]{64} AS web-production/u, " AS web-production")),
+      /apps\/web\/Dockerfile: FROM node:/u,
+    );
+    const workspace = read("pnpm-workspace.yaml");
+    assert.notDeepEqual(overrideNames(`${workspace}  left-pad: 1.3.0\n`), documentedSecurityOverrides);
+    assert.deepEqual(overrideNames(workspace.replace(/^overrides:[\s\S]*$/mu, "")), []);
   });
 
   it("uses explicit container version tags", () => {
@@ -382,6 +389,22 @@ describe("supported toolchain contract", () => {
     assert.doesNotMatch(read("package.json"), /compose:dev|--watch/u);
   });
 });
+
+const documentedSecurityOverrides = ["fastify", "mysql2", "deepmerge-ts"];
+
+/** Тег читает человек, digest фиксирует базу: перевыпущенный тег не меняет следующий выпуск. */
+function assertNodeBasesPinnedByDigest(path, dockerfile) {
+  const nodeBases = dockerfile.match(/^FROM node:\S+/gmu) ?? [];
+  assert.ok(nodeBases.length > 1, `${path} must build its production stage from Node`);
+  for (const base of nodeBases) {
+    assert.match(base, /^FROM node:[^\s@]+@sha256:[a-f0-9]{64}$/u, `${path}: ${base}`);
+  }
+}
+
+function overrideNames(workspace) {
+  const overrides = workspace.match(/^overrides:\n((?:(?: {2}.*)?\n)*)/mu);
+  return overrides === null ? [] : [...overrides[1].matchAll(/^ {2}([^#\s:][^:]*):/gmu)].map((match) => match[1]);
+}
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");

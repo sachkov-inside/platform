@@ -28,6 +28,8 @@ const callbackRoutes = [
 const runtime = {
   releaseRunbook: read("docs/runbooks/production-release.md"),
   caddy: read("infra/production/runtime/platform.caddy"),
+  maintenanceCaddy: read("infra/production/deploy/maintenance.caddy"),
+  hostCaddy: read("infra/production/host/Caddyfile"),
   compose: read("compose.production.yaml"),
   composeEnvironment: read("config/compose/production/compose.env.example"),
   productionTemplates,
@@ -159,6 +161,38 @@ describe("production runtime architecture contract", () => {
     );
   });
 
+  it("rejects an application process that keeps kernel capabilities or a writable root", () => {
+    for (const [removed, reason] of [
+      ["\n  cap_drop: [ALL]\n", /backend processes must drop capabilities/u],
+      ["\n  read_only: true\n", /backend processes must drop capabilities/u],
+      ["\n    cap_drop: [ALL]\n    mem_limit: 512m\n", /web must drop capabilities/u],
+    ]) {
+      assert.ok(runtime.compose.includes(removed), removed);
+      assert.throws(
+        () => assertRuntimeContract({ ...runtime, compose: runtime.compose.replace(removed, "\n") }),
+        reason,
+      );
+    }
+  });
+
+  it("rejects an edge that trusts a client-supplied X-Forwarded-For", () => {
+    for (const key of ["caddy", "hostCaddy"]) {
+      assert.throws(
+        () => assertRuntimeContract({ ...runtime, [key]: `${runtime[key]}\n{\n\tservers {\n\t\ttrusted_proxies static private_ranges\n\t}\n}\n` }),
+        /must not trust a client-supplied X-Forwarded-For/u,
+      );
+    }
+  });
+
+  it("keeps HSTS on the application and the maintenance page", () => {
+    for (const key of ["caddy", "maintenanceCaddy"]) {
+      assert.throws(
+        () => assertRuntimeContract({ ...runtime, [key]: runtime[key].replace(/\theader Strict-Transport-Security[^\n]+\n/u, "") }),
+        /must send HSTS/u,
+      );
+    }
+  });
+
   it("rejects a Logto sign-in callback that allows other HTTP methods", () => {
     assert.throws(
       () => assertRuntimeContract({
@@ -220,6 +254,33 @@ function assertRuntimeContract(files) {
   }
   if (!/listeners\.tcp = none\n\s+listeners\.ssl\.default = 5671/u.test(files.compose)) {
     throw new Error("production broker must accept only AMQPS");
+  }
+  // Процессы приложения без привилегий ядра и с пределами памяти и процессов; backend — ещё и без
+  // записи в корень, кроме `/tmp`.
+  const backendRuntime = files.compose.split("\nx-backend-runtime: &backend-runtime\n")[1]?.split("\n\n")[0] ?? "";
+  for (const setting of ["cap_drop: [ALL]", "mem_limit: ", "pids_limit: ", "read_only: true", "tmpfs: [/tmp]", "security_opt: [no-new-privileges:true]"]) {
+    if (!backendRuntime.includes(`\n  ${setting}`)) {
+      throw new Error(`backend processes must drop capabilities and bound resources: ${setting}`);
+    }
+  }
+  assert.equal(files.compose.match(/^ {4}<<: \*backend-runtime$/gmu)?.length, 8);
+  const web = files.compose.split("\n  web:\n")[1]?.split("\n\nnetworks:\n")[0] ?? "";
+  // Брокер переживает выпуски: `deploy-release` пересоздал бы его при любой правке этого блока.
+  for (const setting of ["cap_drop: [ALL]", "mem_limit: ", "pids_limit: ", "security_opt: [no-new-privileges:true]"]) {
+    if (!web.includes(`\n    ${setting}`)) {
+      throw new Error(`web must drop capabilities and bound resources: ${setting}`);
+    }
+  }
+  for (const [name, caddy] of [["platform.caddy", files.caddy], ["maintenance.caddy", files.maintenanceCaddy]]) {
+    if (!/^\theader Strict-Transport-Security "max-age=31536000; includeSubDomains"$/mu.test(caddy)) {
+      throw new Error(`${name} must send HSTS`);
+    }
+  }
+  // Web считает запросы по X-Forwarded-For только потому, что Caddy не доверяет входящему заголовку.
+  for (const [name, caddy] of [["platform.caddy", files.caddy], ["host Caddyfile", files.hostCaddy]]) {
+    if (/^\s*(?:trusted_proxies|client_ip_headers)\b/mu.test(caddy)) {
+      throw new Error(`${name} must not trust a client-supplied X-Forwarded-For`);
+    }
   }
   for (const worker of ["billing-worker", "notifications-worker"]) {
     assert.ok(files.compose.includes(`      - \${PLATFORM_CONFIG_DIR:?PLATFORM_CONFIG_DIR is required}/${worker}.env\n`));

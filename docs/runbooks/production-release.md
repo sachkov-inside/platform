@@ -51,7 +51,8 @@ sudo env \
 | `NOTIFICATIONS_PLATFORM_ORIGIN`, `NOTIFICATIONS_TELEGRAM_SECRET` | `api.env`, `notifications-worker.env` | `NOTIFICATION_AUTHORIZE_SECRET` |
 | `TELEGRAM_COMMUNITY_CONTRACT_VERSION=inside.community-entitlement.v2`, `TELEGRAM_COMMUNITY_ENTITLEMENT_*`, `TELEGRAM_COMMUNITY_DISPATCH_SECRET` | `api.env`, `billing-worker.env` | `PLATFORM_COMMUNITY_INTEGRATION_SECRET`, `PLATFORM_COMMUNITY_DISPATCH_SECRET` |
 | `TELEGRAM_ACTIVATION_INGRESS_SECRET` | `api.env` | `PLATFORM_ACTIVATION_SECRET` |
-| `TELEGRAM_LINKING_SECRET` и `TELEGRAM_COMMUNICATIONS_SECRET` — одно значение | `api.env`; второй также в `mcp.env` | `PLATFORM_INTEGRATION_SECRET` |
+| `TELEGRAM_LINKING_SECRET` | `api.env` | `PLATFORM_INTEGRATION_SECRET` |
+| `TELEGRAM_COMMUNICATIONS_SECRET` — своё значение, не равное `TELEGRAM_LINKING_SECRET` | `api.env`, `mcp.env` | `PLATFORM_COMMUNICATIONS_SECRET` |
 | `TELEGRAM_COMMUNICATIONS_ENDPOINT`, `TELEGRAM_COMMUNICATIONS_BOT_IDENTITY`, `TELEGRAM_AUTHOR_AUTHORIZATION_SECRET`, `TELEGRAM_TRACKING_ORIGIN` | `api.env`, `mcp.env` | `PLATFORM_AUTHOR_AUTHORIZATION_SECRET` |
 | `TRIBUTE_API_KEY`, `TRIBUTE_SIGNATURE_ENCODING` | `api.env` | — |
 | `NOTIFICATIONS_BROKER_URLS` | `notifications-worker.env` | свой `NOTIFICATION_AMQP_URL` |
@@ -333,16 +334,23 @@ RAM; при замере [#355](../verification/production-release-355.md) до 
 
 | Процесс | Память | Предел |
 |---|---:|---|
-| `api` | 256 MiB | нет |
-| `mcp` | 260 MiB | нет |
-| `web` | 78 MiB | нет |
-| `material-assets-worker` | 236 MiB | нет |
-| `profile-avatars-worker` | 161 MiB | нет |
-| `video-deletions-worker` | 234 MiB | нет |
-| `billing-worker` (новый) | 223 MiB | нет |
-| `notifications-worker` (новый) | 247 MiB | нет |
+| `api` | 256 MiB | 512 MiB |
+| `mcp` | 260 MiB | 512 MiB |
+| `web` | 78 MiB | 512 MiB |
+| `material-assets-worker` | 236 MiB | 768 MiB |
+| `profile-avatars-worker` | 161 MiB | 512 MiB |
+| `video-deletions-worker` | 234 MiB | 512 MiB |
+| `billing-worker` (новый) | 223 MiB | 512 MiB |
+| `notifications-worker` (новый) | 247 MiB | 512 MiB |
 | `rabbitmq` (новый) | 150 MiB | `mem_limit` и порог памяти брокера — в `compose.production.yaml` |
 | **Всё приложение и брокер** | **≈1850 MiB** | |
+
+Пределы приложения (#688) — предохранитель: процесс с утечкой памяти или лавиной потоков упирается
+в свой `mem_limit` и `pids_limit` (256) и перезапускается, не забирая память PostgreSQL и Logto.
+Блок брокера #688 не меняет: `deploy-release` пересоздал бы брокер при выкладке, а он переживает
+выпуски. Это не бюджет: сумма пределов больше памяти сервера, одновременный рост всех процессов они не
+остановят. Если процесс упирается в предел при обычной работе, `docker inspect` показывает
+`OOMKilled: true` — предел поднимают по замеру, а не снимают.
 
 Новые процессы добавляют около 620 MiB в покое и до ≈1,2 GiB, если брокер дорастёт до своего
 `mem_limit` (768 MiB). Два варианта, потому что замер #355 не говорит, работала ли тогда Platform:

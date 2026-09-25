@@ -4,16 +4,24 @@ import { fileURLToPath } from "node:url";
 import type { NextConfig } from "next";
 
 const applicationDirectory = dirname(fileURLToPath(import.meta.url));
-const scriptSources = process.env.NODE_ENV === "development"
+const isDevelopment = process.env.NODE_ENV === "development";
+/**
+ * `'unsafe-inline'` для скриптов остаётся и в production: оболочка страницы собирается без запроса
+ * и не может нести nonce, а данные React, встроенные в поток ответа, меняются от запроса к запросу
+ * и не описываются заранее посчитанным hash. Обоснование и условие пересмотра — ADR 0028.
+ */
+const scriptSources = isDevelopment
   ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://player.kinescope.io"
   : "script-src 'self' 'unsafe-inline' https://player.kinescope.io";
+/** Хранилище стенда отдаёт превью по HTTP с локального адреса; production берёт картинки по HTTPS. */
+const localImageSources = isDevelopment ? " http://127.0.0.1:* http://localhost:9000" : "";
 const contentSecurityPolicy = [
   "default-src 'self'",
   "base-uri 'self'",
   "form-action 'self'",
   "frame-ancestors 'none'",
   "object-src 'none'",
-  "img-src 'self' data: blob: http://127.0.0.1:* http://localhost:9000 https://storage.yandexcloud.net https://*.storage.yandexcloud.net https://kinescope.io https://*.kinescope.io https://*.kinescopecdn.net",
+  `img-src 'self' data: blob:${localImageSources} https://storage.yandexcloud.net https://*.storage.yandexcloud.net https://kinescope.io https://*.kinescope.io https://*.kinescopecdn.net`,
   "media-src 'self' blob: https://kinescope.io https://*.kinescope.io https://*.kinescopecdn.net",
   scriptSources,
   "style-src 'self' 'unsafe-inline'",

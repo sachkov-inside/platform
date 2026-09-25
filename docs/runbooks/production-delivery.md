@@ -216,6 +216,14 @@ Unknown `/integrations/*` paths and `/health`, `/health/*`, `/_health/*` return 
 edge. PostgreSQL and direct service ports remain private. A wrong TLS hostname must fail certificate
 validation.
 
+Both the application fragment and `maintenance.caddy` send `Strict-Transport-Security` for a year,
+so HTTPS stays pinned while a release runs. Web answers `429` with `Retry-After` when one client
+address exceeds the per-minute budget of sign-in, payment commands, the newsletter link or browser
+reports; the budget, the trusted `X-Forwarded-For` and the reasons live in
+[ADR 0028](../adr/0028-web-edge-hardening.md). Application containers drop every kernel
+capability, carry memory and process limits, and backend processes run with a read-only root and a
+private `/tmp`; the numbers are in [VPS resources](production-release.md#vps-resources).
+
 ### Telegram sign-in configuration
 
 The production connector uses the existing HTTPS origins: `platformUrl` is

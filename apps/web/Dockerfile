@@ -1,4 +1,4 @@
-FROM node:24.19.0-alpine3.23 AS toolchain
+FROM node:24.19.0-alpine3.23@sha256:244cc2b53f46f9e876304391d17682b0ddae9ac33491f4857e25e35a36ba7995 AS toolchain
 
 ENV COREPACK_HOME=/corepack
 RUN mkdir /corepack \
@@ -52,7 +52,7 @@ FROM development AS production-build
 
 RUN pnpm --filter @inside/web build
 
-FROM node:24.19.0-alpine3.23 AS web-production
+FROM node:24.19.0-alpine3.23@sha256:244cc2b53f46f9e876304391d17682b0ddae9ac33491f4857e25e35a36ba7995 AS web-production
 
 ENV NODE_ENV=production \
     HOSTNAME=0.0.0.0 \

@@ -74,7 +74,7 @@
     "ajv": "8.20.0",
     "ajv-formats": "3.0.1",
     "amqplib": "0.10.9",
-    "fastify": "5.11.3",
+    "fastify": "5.12.5",
     "file-type": "22.0.2",
     "jose": "6.2.10",
     "nodemailer": "10.0.0",

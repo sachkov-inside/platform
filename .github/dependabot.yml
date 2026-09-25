@@ -42,7 +42,10 @@ updates:
         update-types: [version-update:semver-major]
 
   - package-ecosystem: docker
-    directory: /
+    # Application Dockerfiles pin the Node base by tag and digest; Dependabot advances both.
+    directories:
+      - /apps/backend
+      - /apps/web
     schedule:
       interval: weekly
       day: monday

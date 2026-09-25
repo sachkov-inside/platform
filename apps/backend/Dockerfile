@@ -1,4 +1,4 @@
-FROM node:24.19.0-alpine3.23 AS toolchain
+FROM node:24.19.0-alpine3.23@sha256:244cc2b53f46f9e876304391d17682b0ddae9ac33491f4857e25e35a36ba7995 AS toolchain
 
 ENV COREPACK_HOME=/corepack
 RUN mkdir /corepack \
@@ -87,7 +87,7 @@ RUN pnpm --filter @inside/backend build:production \
     && pnpm --config.inject-workspace-packages=true \
       --filter @inside/backend deploy --prod --ignore-scripts /workspace/.production/backend
 
-FROM node:24.19.0-alpine3.23 AS backend-production
+FROM node:24.19.0-alpine3.23@sha256:244cc2b53f46f9e876304391d17682b0ddae9ac33491f4857e25e35a36ba7995 AS backend-production
 
 ENV NODE_ENV=production \
     API_HOST=0.0.0.0 \
