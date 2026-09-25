@@ -110,7 +110,8 @@ chown -R root:root /opt/inside/foundation
 
 install -m 644 "$script_dir/Caddyfile" /etc/caddy/Caddyfile
 # Docker Hub pulls (the broker image) go through the public mirror: the anonymous Docker Hub
-# limit is shared by the host address and stopped a deployment in Workspace #184.
+# limit is shared by the host address and stopped a deployment in Workspace #184. The same file
+# rotates every container log, so no container can fill the disk shared with the database.
 install -d -m 755 /etc/docker
 install -m 644 "$script_dir/docker-daemon.json" /etc/docker/daemon.json
 install -m 755 \

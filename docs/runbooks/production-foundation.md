@@ -70,16 +70,63 @@ sudo infra/production/host/provision-host.sh
    серверного дефекта обновлением Caddy в #399 HTTP/3 включён по решению владельца.
    HTTP/2 и HTTP/1.1 сохраняют доступность для клиентов и сетей без QUIC. Разрешение
    UDP в firewall само по себе не доказывает работоспособность HTTP/3.
-7. Направляет pull образов Docker Hub (образ брокера) через публичное зеркало `mirror.gcr.io`:
-   `/etc/docker/daemon.json` из `docker-daemon.json`. Анонимный лимит Docker Hub считается по
-   адресу сервера и в Workspace #184 остановил выкладку на шаге `pull`. На работающем сервере файл
-   применяется `systemctl reload docker` без перезапуска контейнеров; проверка —
-   `docker info --format '{{json .RegistryConfig.Mirrors}}'`.
+7. Устанавливает `/etc/docker/daemon.json` из `docker-daemon.json`. Он направляет pull образов
+   Docker Hub (образ брокера) через публичное зеркало `mirror.gcr.io`: анонимный лимит Docker Hub
+   считается по адресу сервера и в Workspace #184 остановил выкладку на шаге `pull`. Изменение
+   зеркала на работающем сервере применяется `systemctl reload docker` без перезапуска
+   контейнеров; проверка — `docker info --format '{{json .RegistryConfig.Mirrors}}'`. Тот же файл
+   ограничивает журналы контейнеров, см. [ротацию журналов](#ротация-журналов-контейнеров).
 
 Скрипт не определяет размер VPS, не создаёт SSH key, DNS, buckets или credentials, не запускает
 PostgreSQL/Logto и не включает backup timers. Эти решения и действия выполняются в #244. После
 первого успешного запуска marker `/etc/inside/host-provisioned` позволяет безопасно повторить
 команду для обновления только принадлежащих комплекту файлов.
+
+## Ротация журналов контейнеров
+
+Docker пишет журнал каждого контейнера драйвером `json-file`. `docker-daemon.json` задаёт хосту
+ротацию по умолчанию: новый файл начинается после 20 МБ, хранятся пять файлов, то есть до 100 МБ
+на контейнер. Одно значение хоста покрывает все контейнеры сервера: Platform, брокер, PostgreSQL,
+Logto и контейнеры Telegram. Поэтому production Compose-файлы Platform не задают `logging`, иначе
+сервис обошёл бы ограничение; это проверяет `scripts/production-foundation-contract.test.mjs`.
+Поиск из [журнала backend](backend-logs.md) работает как прежде, но видит только хранимые файлы.
+
+Применение на работающем сервере — отдельный шаг с подтверждением владельца. Docker закрепляет
+параметры журнала за контейнером при его создании, а `log-opts` не перечитываются по
+`systemctl reload docker`. Поэтому нужны перезапуск Docker и пересоздание контейнеров:
+
+1. Сохранить текущий `/etc/docker/daemon.json`, подготовить рядом новый из
+   `infra/production/host/docker-daemon.json` и проверить его:
+   `sudo dockerd --validate --config-file <подготовленный файл>`. Затем атомарно заменить им
+   `/etc/docker/daemon.json` с правами `644`.
+2. В спокойное окно выполнить `sudo systemctl restart docker`. Сайт и вход недоступны, пока
+   контейнеры останавливаются со своим `stop_grace_period` и поднимаются снова по
+   `restart: unless-stopped`. Работающие контейнеры после этого сохраняют прежние параметры.
+3. Пересоздать долгоживущие контейнеры foundation, по одному:
+
+   ```bash
+   for stack in database:postgres logto:logto; do
+     sudo docker compose \
+       --env-file /etc/inside/foundation/compose.env \
+       --file "/opt/inside/foundation/infra/production/${stack%%:*}/compose.yaml" \
+       up --detach --wait --no-deps --force-recreate "${stack##*:}"
+   done
+   ```
+
+   Процессы Platform получат ограничение при следующей выкладке: новый выпуск пересоздаёт их.
+   Брокер выкладку переживает, поэтому его пересоздают командой из
+   [изменения настройки без нового выпуска](production-release.md#изменение-настройки-без-нового-выпуска)
+   со службой `rabbitmq` вместо `api billing-worker`. Контейнеры Telegram пересоздаются по
+   правилам своего репозитория.
+4. Проверить, что у каждого работающего контейнера ротация задана:
+
+   ```bash
+   sudo docker ps --quiet \
+     | xargs sudo docker inspect --format '{{.Name}} {{json .HostConfig.LogConfig}}'
+   ```
+
+   В каждой строке ожидаются `"max-size":"20m"` и `"max-file":"5"`. Контейнер без них ещё не
+   пересоздан.
 
 ## Отдельное обновление Caddy baseline
 
