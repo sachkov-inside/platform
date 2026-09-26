@@ -13,8 +13,5 @@ export async function GET(
 ): Promise<Response> {
   await connection();
   const { assetId, materialId } = await context.params;
-  return proxyMaterialAssetDelivery(
-    request,
-    { assetId, materialId },
-  );
+  return proxyMaterialAssetDelivery(request, { assetId, materialId });
 }

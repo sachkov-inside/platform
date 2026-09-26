@@ -8,37 +8,52 @@ const config = {
   uploaderBaseUrl: "https://uploader.kinescope.io",
 } as const;
 
-afterEach(() => { vi.restoreAllMocks(); });
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("Kinescope VideoProvider adapter", () => {
   test("initializes a resumable upload with the server credential and provider project", async () => {
     const requestTimeout = new AbortController().signal;
-    const timeout = vi.spyOn(AbortSignal, "timeout").mockReturnValue(requestTimeout);
+    const timeout = vi
+      .spyOn(AbortSignal, "timeout")
+      .mockReturnValue(requestTimeout);
     let observedInit: RequestInit | undefined;
     let observedUrl: string | undefined;
     const request = vi.fn<typeof globalThis.fetch>((input, init) => {
-      observedUrl = input instanceof Request
-        ? input.url
-        : input instanceof URL
-          ? input.href
-          : input;
+      observedUrl =
+        input instanceof Request
+          ? input.url
+          : input instanceof URL
+            ? input.href
+            : input;
       observedInit = init;
-      return Promise.resolve(Response.json({
-        data: {
-          endpoint: "https://upload.kinescope.io/tus/provider-video",
-          id: "provider-video",
-        },
-      }, { status: 200 }));
+      return Promise.resolve(
+        Response.json(
+          {
+            data: {
+              endpoint: "https://upload.kinescope.io/tus/provider-video",
+              id: "provider-video",
+            },
+          },
+          { status: 200 },
+        ),
+      );
     });
-    const provider = createKinescopeVideoProvider({ ...config, fetch: request });
+    const provider = createKinescopeVideoProvider({
+      ...config,
+      fetch: request,
+    });
 
-    await expect(provider.initUpload({
-      access: "membership",
-      byteSize: 42,
-      filename: "lesson.mp4",
-      projectId: "member-project",
-      title: "Lesson",
-    })).resolves.toEqual({
+    await expect(
+      provider.initUpload({
+        access: "membership",
+        byteSize: 42,
+        filename: "lesson.mp4",
+        projectId: "member-project",
+        title: "Lesson",
+      }),
+    ).resolves.toEqual({
       id: "provider-video",
       uploadEndpoint: "https://upload.kinescope.io/tus/provider-video",
     });
@@ -50,7 +65,8 @@ describe("Kinescope VideoProvider adapter", () => {
     expect(new Headers(observedInit?.headers).get("authorization")).toBe(
       "Bearer provider-secret-token",
     );
-    if (typeof observedInit?.body !== "string") throw new Error("request body missing");
+    if (typeof observedInit?.body !== "string")
+      throw new Error("request body missing");
     const requestBody = observedInit.body;
     expect(requestBody).toContain('"filename":"lesson.mp4"');
     expect(requestBody).toContain('"parent_id":"member-project"');
@@ -58,47 +74,61 @@ describe("Kinescope VideoProvider adapter", () => {
   });
 
   test("returns authoritative project facts so the application can fail a mismatch explicitly", async () => {
-    const request = vi.fn().mockResolvedValue(Response.json({
-      data: {
-        duration: 66.00001,
-        embed_link: "https://kinescope.io/embed/provider-video",
-        id: "provider-video",
-        project_id: "different-project",
-        status: "done",
-        title: "Lesson",
-      },
-    }));
-    const provider = createKinescopeVideoProvider({ ...config, fetch: request });
+    const request = vi.fn().mockResolvedValue(
+      Response.json({
+        data: {
+          duration: 66.00001,
+          embed_link: "https://kinescope.io/embed/provider-video",
+          id: "provider-video",
+          project_id: "different-project",
+          status: "done",
+          title: "Lesson",
+        },
+      }),
+    );
+    const provider = createKinescopeVideoProvider({
+      ...config,
+      fetch: request,
+    });
 
-    await expect(provider.find({ id: "provider-video", projectId: "member-project" }))
-      .resolves.toMatchObject({
-        durationSeconds: 66,
-        projectId: "different-project",
-      });
+    await expect(
+      provider.find({ id: "provider-video", projectId: "member-project" }),
+    ).resolves.toMatchObject({
+      durationSeconds: 66,
+      projectId: "different-project",
+    });
   });
 
   test("deletes one stored provider identity and retains the provider request ID", async () => {
     let observedInit: RequestInit | undefined;
     let observedUrl: string | undefined;
     const request = vi.fn<typeof globalThis.fetch>((input, init) => {
-      observedUrl = typeof input === "string"
-        ? input
-        : input instanceof URL
-          ? input.href
-          : input.url;
+      observedUrl =
+        typeof input === "string"
+          ? input
+          : input instanceof URL
+            ? input.href
+            : input.url;
       observedInit = init;
-      return Promise.resolve(Response.json(
-        { data: { success: true } },
-        { headers: { "x-request-id": "provider-request-1" } },
-      ));
+      return Promise.resolve(
+        Response.json(
+          { data: { success: true } },
+          { headers: { "x-request-id": "provider-request-1" } },
+        ),
+      );
     });
-    const provider = createKinescopeVideoProvider({ ...config, fetch: request });
+    const provider = createKinescopeVideoProvider({
+      ...config,
+      fetch: request,
+    });
 
     await expect(provider.delete({ id: "provider-video" })).resolves.toEqual({
       kind: "deleted",
       providerRequestId: "provider-request-1",
     });
-    expect(observedUrl).toBe("https://api.kinescope.io/v1/videos/provider-video");
+    expect(observedUrl).toBe(
+      "https://api.kinescope.io/v1/videos/provider-video",
+    );
     expect(observedInit?.method).toBe("DELETE");
     expect(new Headers(observedInit?.headers).get("authorization")).toBe(
       "Bearer provider-secret-token",
@@ -117,10 +147,12 @@ describe("Kinescope VideoProvider adapter", () => {
     async (status, kind, category) => {
       const provider = createKinescopeVideoProvider({
         ...config,
-        fetch: vi.fn().mockResolvedValue(new Response(null, {
-          headers: { "x-request-id": `provider-request-${String(status)}` },
-          status,
-        })),
+        fetch: vi.fn().mockResolvedValue(
+          new Response(null, {
+            headers: { "x-request-id": `provider-request-${String(status)}` },
+            status,
+          }),
+        ),
       });
 
       await expect(provider.delete({ id: "provider-video" })).resolves.toEqual({
@@ -134,7 +166,9 @@ describe("Kinescope VideoProvider adapter", () => {
   test("separates timeout, network and malformed success outcomes", async () => {
     const timeout = createKinescopeVideoProvider({
       ...config,
-      fetch: vi.fn().mockRejectedValue(new DOMException("timed out", "TimeoutError")),
+      fetch: vi
+        .fn()
+        .mockRejectedValue(new DOMException("timed out", "TimeoutError")),
     });
     const network = createKinescopeVideoProvider({
       ...config,
@@ -142,7 +176,9 @@ describe("Kinescope VideoProvider adapter", () => {
     });
     const malformed = createKinescopeVideoProvider({
       ...config,
-      fetch: vi.fn().mockResolvedValue(Response.json({ data: { success: false } })),
+      fetch: vi
+        .fn()
+        .mockResolvedValue(Response.json({ data: { success: false } })),
     });
 
     await expect(timeout.delete({ id: "provider-video" })).resolves.toEqual({
@@ -164,42 +200,70 @@ describe("Kinescope VideoProvider adapter", () => {
       ...config,
       fetch: vi.fn().mockResolvedValue(new Response(null, { status: 503 })),
     });
-    await expect(unavailable.find({ id: "provider-video", projectId: "member-project" }))
-      .rejects.toThrow("lookup failed");
+    await expect(
+      unavailable.find({ id: "provider-video", projectId: "member-project" }),
+    ).rejects.toThrow("lookup failed");
 
     const unsafe = createKinescopeVideoProvider({
       ...config,
-      fetch: vi.fn().mockResolvedValue(Response.json({
-        data: {
-          embed_link: "https://attacker.example/embed/provider-video",
-          id: "provider-video",
-          project_id: "member-project",
-          status: "done",
-          title: "Lesson",
-        },
-      })),
+      fetch: vi.fn().mockResolvedValue(
+        Response.json({
+          data: {
+            embed_link: "https://attacker.example/embed/provider-video",
+            id: "provider-video",
+            project_id: "member-project",
+            status: "done",
+            title: "Lesson",
+          },
+        }),
+      ),
     });
-    await expect(unsafe.find({ id: "provider-video", projectId: "member-project" }))
-      .rejects.toThrow("unsafe embed locator");
+    await expect(
+      unsafe.find({ id: "provider-video", projectId: "member-project" }),
+    ).rejects.toThrow("unsafe embed locator");
 
     const unsafeUpload = createKinescopeVideoProvider({
       ...config,
-      fetch: vi.fn().mockResolvedValue(Response.json({
-        data: { endpoint: "https://attacker.example/upload", id: "provider-video" },
-      })),
+      fetch: vi.fn().mockResolvedValue(
+        Response.json({
+          data: {
+            endpoint: "https://attacker.example/upload",
+            id: "provider-video",
+          },
+        }),
+      ),
     });
-    await expect(unsafeUpload.initUpload({
-      access: "free",
-      byteSize: 42,
-      filename: "lesson.mp4",
-      projectId: "public-project",
-      title: "Lesson",
-    })).rejects.toThrow("unsafe upload endpoint");
+    await expect(
+      unsafeUpload.initUpload({
+        access: "free",
+        byteSize: 42,
+        filename: "lesson.mp4",
+        projectId: "public-project",
+        title: "Lesson",
+      }),
+    ).rejects.toThrow("unsafe upload endpoint");
   });
 });
 
-test.each([401, 403])("upload authorization rejection %s is distinguishable from an unknown provider outcome", async (status) => {
-  const provider = createKinescopeVideoProvider({ ...config, fetch: vi.fn().mockResolvedValue(Response.json({ error: { message: "unauthorized" } }, { status })) });
-  await expect(provider.initUpload({ access: "free", byteSize: 42, filename: "video.mp4", projectId: "public-project", title: "Video" }))
-    .rejects.toMatchObject({ name: "ProviderUploadAuthorizationError" });
-});
+test.each([401, 403])(
+  "upload authorization rejection %s is distinguishable from an unknown provider outcome",
+  async (status) => {
+    const provider = createKinescopeVideoProvider({
+      ...config,
+      fetch: vi
+        .fn()
+        .mockResolvedValue(
+          Response.json({ error: { message: "unauthorized" } }, { status }),
+        ),
+    });
+    await expect(
+      provider.initUpload({
+        access: "free",
+        byteSize: 42,
+        filename: "video.mp4",
+        projectId: "public-project",
+        title: "Video",
+      }),
+    ).rejects.toMatchObject({ name: "ProviderUploadAuthorizationError" });
+  },
+);

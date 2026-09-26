@@ -28,7 +28,9 @@ export interface RuntimeMigrationOutcome {
 
 export async function migrateRuntimeDatabase(
   databaseUrl: string,
-  options: { readonly afterPlatformMigrations?: () => void | Promise<void> } = {},
+  options: {
+    readonly afterPlatformMigrations?: () => void | Promise<void>;
+  } = {},
 ): Promise<RuntimeMigrationOutcome> {
   const outcome = await migrateToLatest(databaseUrl);
   await options.afterPlatformMigrations?.();
@@ -135,7 +137,9 @@ async function main(): Promise<void> {
       : operation === "--verify-schema-compatible"
         ? await verifyRuntimeDatabaseSchemaCompatibility(databaseConfig.url)
         : await migrateRuntimeDatabase(databaseConfig.url);
-  process.stdout.write(`${JSON.stringify({ ...outcome, release: runtimeIdentity })}\n`);
+  process.stdout.write(
+    `${JSON.stringify({ ...outcome, release: runtimeIdentity })}\n`,
+  );
 }
 
 if (

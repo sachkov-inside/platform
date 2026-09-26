@@ -38,5 +38,8 @@ export async function createMaterialDraft(
   const parsed = createMaterialDraftResultSchema.safeParse(response.body);
   return parsed.success
     ? parsed.data
-    : { kind: "unexpected_error", reference: "create-material-draft-bff-contract" };
+    : {
+        kind: "unexpected_error",
+        reference: "create-material-draft-bff-contract",
+      };
 }

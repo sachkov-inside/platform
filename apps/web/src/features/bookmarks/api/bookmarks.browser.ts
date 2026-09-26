@@ -12,9 +12,18 @@ import {
 
 export async function getBookmarkStates(materialIds: readonly string[]) {
   const form = new FormData();
-  materialIds.forEach((id) => { form.append("materialId", id); });
-  const result = await requestSameOriginMutation("/api/bookmarks/states", "POST", form);
-  if (!result.ok) return { kind: result.status === 401 ? "unauthorized" : "unavailable" } as const;
+  materialIds.forEach((id) => {
+    form.append("materialId", id);
+  });
+  const result = await requestSameOriginMutation(
+    "/api/bookmarks/states",
+    "POST",
+    form,
+  );
+  if (!result.ok)
+    return {
+      kind: result.status === 401 ? "unauthorized" : "unavailable",
+    } as const;
   const parsed = bookmarkStatesResultSchema.safeParse(result.body);
   if (!parsed.success) return { kind: "unavailable" } as const;
   return parsed.data.kind === "ready"
@@ -41,10 +50,19 @@ export async function setBookmark(input: BookmarkCommand) {
   const form = new FormData();
   form.set("materialId", input.materialId);
   form.set("bookmarked", String(input.bookmarked));
-  const result = await requestSameOriginMutation("/api/bookmarks/state", "PUT", form);
+  const result = await requestSameOriginMutation(
+    "/api/bookmarks/state",
+    "PUT",
+    form,
+  );
   if (!result.ok) {
     return {
-      kind: result.status === 401 ? "unauthorized" : result.status === 403 ? "denied" : "unavailable",
+      kind:
+        result.status === 401
+          ? "unauthorized"
+          : result.status === 403
+            ? "denied"
+            : "unavailable",
     } as const;
   }
   const parsed = bookmarkStateResultSchema.safeParse(result.body);
@@ -55,11 +73,14 @@ export async function setBookmark(input: BookmarkCommand) {
       ? { kind: "denied" as const }
       : parsed.data.kind === "unauthorized"
         ? { kind: "unauthorized" as const }
-        : { kind: "unavailable" } as const;
+        : ({ kind: "unavailable" } as const);
 }
 
-export async function listBookmarkPage(after?: string): Promise<BookmarkListResult> {
-  const query = after === undefined ? "" : `?after=${encodeURIComponent(after)}`;
+export async function listBookmarkPage(
+  after?: string,
+): Promise<BookmarkListResult> {
+  const query =
+    after === undefined ? "" : `?after=${encodeURIComponent(after)}`;
   let response: Response;
   try {
     response = await fetch(`/api/bookmarks${query}`, {
@@ -78,7 +99,9 @@ export async function listBookmarkPage(after?: string): Promise<BookmarkListResu
     return { kind: "unavailable" };
   }
   const parsed = bookmarkListPageSchema.safeParse(payload);
-  return parsed.success ? { kind: "ready", ...parsed.data } : { kind: "unavailable" };
+  return parsed.success
+    ? { kind: "ready", ...parsed.data }
+    : { kind: "unavailable" };
 }
 
 export type { BookmarkState };

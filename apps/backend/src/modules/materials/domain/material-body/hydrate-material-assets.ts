@@ -26,13 +26,23 @@ function hydrateBlock(
   if (hydrated.kind === "image") {
     const asset = byId.get(hydrated.assetId);
     return asset?.kind === "image"
-      ? { ...hydrated, height: asset.height, variants: asset.variants, width: asset.width }
+      ? {
+          ...hydrated,
+          height: asset.height,
+          variants: asset.variants,
+          width: asset.width,
+        }
       : hydrated;
   }
   if (hydrated.kind === "file") {
     const asset = byId.get(hydrated.assetId);
     return asset?.kind === "file"
-      ? { ...hydrated, contentType: asset.contentType, filename: asset.filename, size: asset.size }
+      ? {
+          ...hydrated,
+          contentType: asset.contentType,
+          filename: asset.filename,
+          size: asset.size,
+        }
       : hydrated;
   }
   return hydrated;

@@ -73,7 +73,9 @@ export function SeriesOrderManager({
   const mutation = useMutation({ mutationFn: reorderSeries });
   const attempted = useRef<Parameters<typeof reorderSeries>[0] | null>(null);
   // Снятие опубликованных материалов из купленного продукта ждёт ответа автора в диалоге.
-  const [removalConfirmation, setRemovalConfirmation] = useState<readonly GuideRemoval[] | null>(null);
+  const [removalConfirmation, setRemovalConfirmation] = useState<
+    readonly GuideRemoval[] | null
+  >(null);
   const confirmedRemovals = useRef<readonly string[]>([]);
   const autosave = useAutosave({
     value: composition(items, chapters),
@@ -96,7 +98,9 @@ export function SeriesOrderManager({
           ),
         ),
         expectedOrderVersion: version.current,
-        orderedMaterialIds: snapshot.entries.map(({ materialId }) => materialId),
+        orderedMaterialIds: snapshot.entries.map(
+          ({ materialId }) => materialId,
+        ),
         stepGroups: Object.fromEntries(
           snapshot.entries.flatMap(({ materialId, stepGroup }) =>
             stepGroup === null ? [] : [[materialId, stepGroup]],
@@ -160,7 +164,8 @@ export function SeriesOrderManager({
     const target = items[targetIndex];
     const source = items.findIndex((entry) => entry.materialId === materialId);
     const entry = items[source];
-    if (target === undefined || entry === undefined || source === targetIndex) return;
+    if (target === undefined || entry === undefined || source === targetIndex)
+      return;
     const chapterId = target.chapterId ?? null;
     const next = [...items];
     next.splice(source, 1);
@@ -174,7 +179,9 @@ export function SeriesOrderManager({
   const assign = (materialId: string, chapterId: string | null) => {
     mutation.reset();
     setItems((current) => {
-      const source = current.findIndex((entry) => entry.materialId === materialId);
+      const source = current.findIndex(
+        (entry) => entry.materialId === materialId,
+      );
       const entry = current[source];
       if (entry === undefined) return current;
       const rest = current.filter((_, index) => index !== source);
@@ -193,7 +200,10 @@ export function SeriesOrderManager({
       { id: crypto.randomUUID(), name: "Новая глава", summary: "" },
     ]);
   };
-  const editChapter = (id: string, values: Partial<GuideChapterPresentation>) => {
+  const editChapter = (
+    id: string,
+    values: Partial<GuideChapterPresentation>,
+  ) => {
     mutation.reset();
     setChapters((current) =>
       current.map((chapter) =>
@@ -204,7 +214,11 @@ export function SeriesOrderManager({
   const moveChapter = (index: number, offset: -1 | 1) => {
     const destination = index + offset;
     const chapter = chapters[index];
-    if (chapter === undefined || destination < 0 || destination >= chapters.length)
+    if (
+      chapter === undefined ||
+      destination < 0 ||
+      destination >= chapters.length
+    )
       return;
     const other = chapters[destination];
     if (other === undefined) return;
@@ -303,7 +317,9 @@ export function SeriesOrderManager({
             <div className="flex min-w-0 items-start gap-3">
               <Button
                 aria-label={
-                  embedded ? "Закрыть состав продукта" : "Вернуться к материалам"
+                  embedded
+                    ? "Закрыть состав продукта"
+                    : "Вернуться к материалам"
                 }
                 className="mt-0.5 size-10"
                 onClick={close}
@@ -408,7 +424,9 @@ export function SeriesOrderManager({
               onRefresh();
             }}
             onConfirm={() => {
-              confirmedRemovals.current = removalConfirmation.map(({ guideId }) => guideId);
+              confirmedRemovals.current = removalConfirmation.map(
+                ({ guideId }) => guideId,
+              );
               setRemovalConfirmation(null);
               void autosave.retry();
             }}
@@ -461,29 +479,31 @@ export function SeriesOrderManager({
             </div>
           ) : (
             <div className="grid gap-8">
-              {guideChapterRuns(items, chapters, ({ chapterId }) => chapterId ?? null).map(
-                (section) => (
-                  <ChapterSection
-                    actions={actions}
-                    archived={presentation.archived}
-                    chapter={section.chapter}
-                    chapters={chapters}
-                    dragState={dragState}
-                    entries={section.items.map((item, index) => ({
-                      item,
-                      position: section.offset + index,
-                    }))}
-                    grouped={chapters.length > 0}
-                    key={section.chapter?.id ?? `open-${String(section.offset)}`}
-                    number={
-                      section.chapter === null
-                        ? null
-                        : chapters.indexOf(section.chapter) + 1
-                    }
-                    total={items.length}
-                  />
-                ),
-              )}
+              {guideChapterRuns(
+                items,
+                chapters,
+                ({ chapterId }) => chapterId ?? null,
+              ).map((section) => (
+                <ChapterSection
+                  actions={actions}
+                  archived={presentation.archived}
+                  chapter={section.chapter}
+                  chapters={chapters}
+                  dragState={dragState}
+                  entries={section.items.map((item, index) => ({
+                    item,
+                    position: section.offset + index,
+                  }))}
+                  grouped={chapters.length > 0}
+                  key={section.chapter?.id ?? `open-${String(section.offset)}`}
+                  number={
+                    section.chapter === null
+                      ? null
+                      : chapters.indexOf(section.chapter) + 1
+                  }
+                  total={items.length}
+                />
+              ))}
             </div>
           )}
 
@@ -790,7 +810,10 @@ interface DragState {
 
 interface CompositionActions {
   readonly assign: (materialId: string, chapterId: string | null) => void;
-  readonly editChapter: (id: string, values: Partial<GuideChapterPresentation>) => void;
+  readonly editChapter: (
+    id: string,
+    values: Partial<GuideChapterPresentation>,
+  ) => void;
   readonly move: (position: number, offset: -1 | 1) => void;
   readonly moveChapter: (index: number, offset: -1 | 1) => void;
   readonly placeBefore: (materialId: string, targetPosition: number) => void;
@@ -844,7 +867,10 @@ function ChapterSection({
   return (
     <section aria-labelledby={headingId} className="min-w-0">
       {chapter === null ? (
-        <h2 className="border-b border-border pb-2 text-sm font-semibold text-muted-foreground" id={headingId}>
+        <h2
+          className="border-b border-border pb-2 text-sm font-semibold text-muted-foreground"
+          id={headingId}
+        >
           Вне глав
         </h2>
       ) : (
@@ -863,7 +889,9 @@ function ChapterSection({
                 maxLength={GUIDE_CHAPTER_NAME_MAX}
                 name={`chapter-name-${chapter.id}`}
                 onChange={(event) => {
-                  actions.editChapter(chapter.id, { name: event.currentTarget.value });
+                  actions.editChapter(chapter.id, {
+                    name: event.currentTarget.value,
+                  });
                 }}
                 placeholder="Название главы"
                 required
@@ -915,17 +943,22 @@ function ChapterSection({
             <summary className="flex min-h-9 w-fit max-w-full cursor-pointer list-none items-center gap-1.5 rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
               <ChevronDown aria-hidden="true" className="size-3.5 shrink-0" />
               <span>
-                {chapter.summary.trim() ? "Описание главы" : "Добавить описание главы"}
+                {chapter.summary.trim()
+                  ? "Описание главы"
+                  : "Добавить описание главы"}
               </span>
             </summary>
             <label className="mt-2 block pb-2 text-xs text-muted-foreground">
-              Зачем эта глава, что читатель в ней сделает и какой получит результат
+              Зачем эта глава, что читатель в ней сделает и какой получит
+              результат
               <textarea
                 className="mt-1 block min-h-28 w-full resize-y rounded-md border border-input bg-background p-3 text-sm leading-6 text-foreground focus-visible:outline-ring"
                 maxLength={GUIDE_CHAPTER_SUMMARY_MAX}
                 name={`chapter-summary-${chapter.id}`}
                 onChange={(event) => {
-                  actions.editChapter(chapter.id, { summary: event.currentTarget.value });
+                  actions.editChapter(chapter.id, {
+                    summary: event.currentTarget.value,
+                  });
                 }}
                 placeholder="Несколько абзацев для читателя"
                 value={chapter.summary}
@@ -945,7 +978,11 @@ function ChapterSection({
           chapters={chapters}
           dragState={dragState}
           entries={entries}
-          label={chapter === null ? "Материалы вне глав" : `Материалы главы «${chapter.name}»`}
+          label={
+            chapter === null
+              ? "Материалы вне глав"
+              : `Материалы главы «${chapter.name}»`
+          }
           total={total}
         />
       )}
@@ -1099,7 +1136,10 @@ function MaterialRow({
                   className="mt-1 block min-h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-ring"
                   maxLength={STEP_GROUP_LIMIT}
                   onChange={(event) => {
-                    actions.setStepGroup(item.materialId, event.currentTarget.value);
+                    actions.setStepGroup(
+                      item.materialId,
+                      event.currentTarget.value,
+                    );
                   }}
                   placeholder="Без последовательности"
                   value={item.stepGroup ?? ""}
@@ -1114,7 +1154,10 @@ function MaterialRow({
                     name={`chapter-of-${item.materialId}`}
                     onChange={(event) => {
                       const value = event.currentTarget.value;
-                      actions.assign(item.materialId, value === UNASSIGNED ? null : value);
+                      actions.assign(
+                        item.materialId,
+                        value === UNASSIGNED ? null : value,
+                      );
                     }}
                     value={item.chapterId ?? UNASSIGNED}
                   >
@@ -1188,12 +1231,21 @@ function chapterRunEnd(
   chapterId: string | null,
 ): number {
   if (chapterId === null) return items.length;
-  const last = items.findLastIndex((entry) => (entry.chapterId ?? null) === chapterId);
+  const last = items.findLastIndex(
+    (entry) => (entry.chapterId ?? null) === chapterId,
+  );
   if (last >= 0) return last + 1;
   const preceding = new Set(
-    chapters.slice(0, chapters.findIndex(({ id }) => id === chapterId)).map(({ id }) => id),
+    chapters
+      .slice(
+        0,
+        chapters.findIndex(({ id }) => id === chapterId),
+      )
+      .map(({ id }) => id),
   );
-  return items.findLastIndex((entry) => preceding.has(entry.chapterId ?? "")) + 1;
+  return (
+    items.findLastIndex((entry) => preceding.has(entry.chapterId ?? "")) + 1
+  );
 }
 
 /** Exchange two chapter runs in place, leaving every other Material where the author put it. */
@@ -1206,12 +1258,17 @@ function exchangeRuns(
     const start = items.findIndex((entry) => entry.chapterId === chapterId);
     return start < 0
       ? null
-      : { start, end: items.findLastIndex((entry) => entry.chapterId === chapterId) + 1 };
+      : {
+          start,
+          end:
+            items.findLastIndex((entry) => entry.chapterId === chapterId) + 1,
+        };
   };
   const left = run(first);
   const right = run(second);
   if (left === null || right === null) return items;
-  const [earlier, later] = left.start < right.start ? [left, right] : [right, left];
+  const [earlier, later] =
+    left.start < right.start ? [left, right] : [right, left];
   return [
     ...items.slice(0, earlier.start),
     ...items.slice(later.start, later.end),

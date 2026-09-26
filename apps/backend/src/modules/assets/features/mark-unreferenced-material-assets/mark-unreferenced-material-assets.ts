@@ -22,7 +22,9 @@ export async function markUnreferencedMaterialAssets(
   const referencedAssetIds = [...new Set(input.referencedAssetIds)];
   if (
     !uuidSchema.safeParse(input.materialId).success ||
-    referencedAssetIds.some((assetId) => !uuidSchema.safeParse(assetId).success) ||
+    referencedAssetIds.some(
+      (assetId) => !uuidSchema.safeParse(assetId).success,
+    ) ||
     Number.isNaN(input.orphanedAt.getTime())
   ) {
     throw new TypeError("Invalid MaterialAsset reference boundary");

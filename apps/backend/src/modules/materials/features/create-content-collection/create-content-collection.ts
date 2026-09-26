@@ -5,7 +5,11 @@ import { dependencyFailure } from "../../../../infrastructure/observability/inde
 import type { MaterialAuthoringDependencies } from "../../facets/material-authoring/material-authoring.dependencies.js";
 import { authorizeManager } from "../../ports/author-policy.js";
 import { failure } from "../../shared/application-result.js";
-import { accountId, collectionSlug, parseCommand } from "../../shared/command-validation.js";
+import {
+  accountId,
+  collectionSlug,
+  parseCommand,
+} from "../../shared/command-validation.js";
 import {
   isPostgresUniqueViolation,
   mapPostgresReadError,
@@ -56,7 +60,11 @@ export function assembleCreateContentCollection(
       return failure(
         isPostgresUniqueViolation(error, constraint)
           ? { code: "content_collection_slug_conflict" }
-          : dependencyFailure({ module: "materials", operation: "createContentCollection" }, error, mapPostgresReadError(error)),
+          : dependencyFailure(
+              { module: "materials", operation: "createContentCollection" },
+              error,
+              mapPostgresReadError(error),
+            ),
       );
     }
   };

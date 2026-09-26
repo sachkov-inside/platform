@@ -32,7 +32,8 @@ export async function retryVideoDeletion(
         video.origin !== "platform_upload" ||
         video.state !== "delete_failed" ||
         video.deletionOperation?.state !== "delete_failed"
-      ) return videoDeletionNotRetryable();
+      )
+        return videoDeletionNotRetryable();
       await transaction.videoDeletionOperation.update({
         data: {
           cycleAttempts: 0,
@@ -56,6 +57,10 @@ export async function retryVideoDeletion(
       return { ok: true as const, value: toDto(updated) };
     });
   } catch (error) {
-    return dependencyFailure({ module: "videos", operation: "retryDeletion" }, error, dependencyUnavailable());
+    return dependencyFailure(
+      { module: "videos", operation: "retryDeletion" },
+      error,
+      dependencyUnavailable(),
+    );
   }
 }

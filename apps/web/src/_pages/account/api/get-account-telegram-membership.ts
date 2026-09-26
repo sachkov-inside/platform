@@ -18,8 +18,7 @@ export type AccountTelegramMembershipResult =
 
 export async function getAccountTelegramMembership(
   accessToken: string,
-  request: typeof requestCurrentAccountTelegramMembership =
-    requestCurrentAccountTelegramMembership,
+  request: typeof requestCurrentAccountTelegramMembership = requestCurrentAccountTelegramMembership,
 ): Promise<AccountTelegramMembershipResult> {
   let result: BackendTransportResult;
   try {

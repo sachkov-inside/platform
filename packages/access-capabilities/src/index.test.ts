@@ -22,7 +22,9 @@ describe("access capabilities", () => {
       expect(accessCapabilitySchema.safeParse(capability).success).toBe(true);
     }
     expect(accessCapabilitySchema.safeParse(guide).success).toBe(true);
-    expect(accessCapabilitySchema.safeParse("guide:not-a-uuid").success).toBe(false);
+    expect(accessCapabilitySchema.safeParse("guide:not-a-uuid").success).toBe(
+      false,
+    );
     expect(accessCapabilitySchema.safeParse("chat").success).toBe(false);
   });
 
@@ -44,19 +46,37 @@ describe("access capabilities", () => {
   // обещанное и выданное совпадают по построению, а не по совпадению двух описаний.
   test("the composition of a set is the same rule applied to every capability", () => {
     expect(accessComposition([guide])).toEqual([guide, "community"]);
-    expect(accessComposition([guide, "community"])).toEqual([guide, "community"]);
-    expect(accessComposition(["community", guide])).toEqual(["community", guide]);
-    expect(accessComposition(["materials", "support"])).toEqual(["materials", "support", "community"]);
+    expect(accessComposition([guide, "community"])).toEqual([
+      guide,
+      "community",
+    ]);
+    expect(accessComposition(["community", guide])).toEqual([
+      "community",
+      guide,
+    ]);
+    expect(accessComposition(["materials", "support"])).toEqual([
+      "materials",
+      "support",
+      "community",
+    ]);
     expect(capabilitiesOpenedBy("support")).toEqual(["support", "community"]);
     expect(accessComposition([])).toEqual([]);
     // Купленное идёт первым, а то, что к нему прилагается, — следом: этот порядок человек читает
     // на витрине, и он не должен зависеть от того, где в наборе стоит право на руководство.
-    expect(accessComposition([guide, "reviews"])).toEqual([guide, "reviews", "community"]);
+    expect(accessComposition([guide, "reviews"])).toEqual([
+      guide,
+      "reviews",
+      "community",
+    ]);
   });
 
   test("the composition never repeats a capability the set already names", () => {
     const second = "guide:5a1c6f10-0b33-4e2f-9a8c-7d4e12b0f002" as const;
-    expect(accessComposition([guide, second])).toEqual([guide, second, "community"]);
+    expect(accessComposition([guide, second])).toEqual([
+      guide,
+      second,
+      "community",
+    ]);
   });
 
   test("a composition without a Guide or a Material opens nothing", () => {
@@ -64,19 +84,53 @@ describe("access capabilities", () => {
     expect(isEmptyContentScope(null)).toBe(true);
     expect(isEmptyContentScope(undefined)).toBe(true);
     expect(isEmptyContentScope({ guideIds: [], materialIds: [] })).toBe(true);
-    expect(isEmptyContentScope({ guideIds: ["not-a-uuid"], materialIds: [] })).toBe(true);
-    expect(isEmptyContentScope({ guideIds: [id], materialIds: [] })).toBe(false);
-    expect(isEmptyContentScope({ guideIds: [], materialIds: [id] })).toBe(false);
-    expect(isEmptyContentScope({ guideIds: [], materialIds: [], allGuides: true })).toBe(false);
+    expect(
+      isEmptyContentScope({ guideIds: ["not-a-uuid"], materialIds: [] }),
+    ).toBe(true);
+    expect(isEmptyContentScope({ guideIds: [id], materialIds: [] })).toBe(
+      false,
+    );
+    expect(isEmptyContentScope({ guideIds: [], materialIds: [id] })).toBe(
+      false,
+    );
+    expect(
+      isEmptyContentScope({ guideIds: [], materialIds: [], allGuides: true }),
+    ).toBe(false);
     // Все продукты платформы включают и тот, что появится позже.
-    expect(scopeIncludesGuide({ guideIds: [], materialIds: [], allGuides: true }, id)).toBe(true);
-    expect(scopeIncludesGuide({ guideIds: [id], materialIds: [] }, id)).toBe(true);
-    expect(scopeIncludesGuide({ guideIds: [], materialIds: [id] }, id)).toBe(false);
-    expect(scopeOpensResource({ guideIds: [], materialIds: [id] }, { guideIds: [], materialId: id })).toBe(true);
-    expect(scopeOpensResource({ guideIds: [], materialIds: [], allGuides: true }, { guideIds: [id] })).toBe(true);
-    expect(scopeOpensResource({ guideIds: [], materialIds: [], allGuides: true }, { guideIds: [] })).toBe(false);
+    expect(
+      scopeIncludesGuide(
+        { guideIds: [], materialIds: [], allGuides: true },
+        id,
+      ),
+    ).toBe(true);
+    expect(scopeIncludesGuide({ guideIds: [id], materialIds: [] }, id)).toBe(
+      true,
+    );
+    expect(scopeIncludesGuide({ guideIds: [], materialIds: [id] }, id)).toBe(
+      false,
+    );
+    expect(
+      scopeOpensResource(
+        { guideIds: [], materialIds: [id] },
+        { guideIds: [], materialId: id },
+      ),
+    ).toBe(true);
+    expect(
+      scopeOpensResource(
+        { guideIds: [], materialIds: [], allGuides: true },
+        { guideIds: [id] },
+      ),
+    ).toBe(true);
+    expect(
+      scopeOpensResource(
+        { guideIds: [], materialIds: [], allGuides: true },
+        { guideIds: [] },
+      ),
+    ).toBe(false);
     // «Все продукты» не перечисляет продукты и материалы.
-    expect(isEmptyContentScope({ guideIds: [id], materialIds: [], allGuides: true })).toBe(true);
+    expect(
+      isEmptyContentScope({ guideIds: [id], materialIds: [], allGuides: true }),
+    ).toBe(true);
     expect(isWithheldCapability("reviews")).toBe(true);
     expect(isWithheldCapability("support")).toBe(false);
   });
@@ -85,9 +139,16 @@ describe("access capabilities", () => {
   // правом на руководство. Спрашивать об этом надо у вывода, иначе правило распадается на копии.
   test("names every capability that opens the one asked about", () => {
     const second = "guide:5a1c6f10-0b33-4e2f-9a8c-7d4e12b0f002" as const;
-    expect(capabilitiesOpening("community", [guide, "materials", second])).toEqual([guide, second]);
-    expect(capabilitiesOpening("community", ["community", guide])).toEqual(["community", guide]);
+    expect(
+      capabilitiesOpening("community", [guide, "materials", second]),
+    ).toEqual([guide, second]);
+    expect(capabilitiesOpening("community", ["community", guide])).toEqual([
+      "community",
+      guide,
+    ]);
     expect(capabilitiesOpening("community", ["materials"])).toEqual([]);
-    expect(capabilitiesOpening("materials", [guide, "materials"])).toEqual(["materials"]);
+    expect(capabilitiesOpening("materials", [guide, "materials"])).toEqual([
+      "materials",
+    ]);
   });
 });

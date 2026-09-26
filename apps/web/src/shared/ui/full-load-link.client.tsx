@@ -4,7 +4,10 @@ import type { Route } from "next";
 import Link from "next/link";
 import type { ComponentProps } from "react";
 
-type FullLoadLinkProps = Omit<ComponentProps<typeof Link>, "href" | "onNavigate" | "prefetch"> & {
+type FullLoadLinkProps = Omit<
+  ComponentProps<typeof Link>,
+  "href" | "onNavigate" | "prefetch"
+> & {
   readonly href: Route;
 };
 

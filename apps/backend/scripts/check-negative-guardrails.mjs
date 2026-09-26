@@ -8,7 +8,10 @@ import { URL, fileURLToPath } from "node:url";
 const backendRoot = fileURLToPath(new URL("..", import.meta.url));
 
 function expectSuccess(command, arguments_) {
-  const result = spawnSync(command, arguments_, { cwd: backendRoot, encoding: "utf8" });
+  const result = spawnSync(command, arguments_, {
+    cwd: backendRoot,
+    encoding: "utf8",
+  });
   if (result.error !== undefined) {
     throw result.error;
   }
@@ -30,7 +33,9 @@ function expectFailure(command, arguments_, expectedDiagnostics) {
     throw result.error;
   }
   if (result.status === 0) {
-    throw new Error(`${command} unexpectedly accepted a negative guardrail fixture`);
+    throw new Error(
+      `${command} unexpectedly accepted a negative guardrail fixture`,
+    );
   }
   for (const diagnostic of expectedDiagnostics) {
     if (!output.includes(diagnostic)) {
@@ -110,10 +115,10 @@ expectFailure(
     "database table references must stay inside the owning Module schema",
     "database table references must use statically declared identifiers",
     "application schema references must stay inside the owning Module",
-    'accounts.accounts',
-    'src/modules/notifications/infrastructure/foreign-schema.ts: database table references must stay inside the owning Module schema (billing.notification_outbox)',
-    'src/modules/reading-activity/infrastructure/postgres/foreign-schema.ts: database table references must stay inside the owning Module schema (materials.published_materials)',
-    'src/modules/bookmarks/infrastructure/postgres/foreign-schema.ts: database table references must stay inside the owning Module schema (materials.published_materials)',
+    "accounts.accounts",
+    "src/modules/notifications/infrastructure/foreign-schema.ts: database table references must stay inside the owning Module schema (billing.notification_outbox)",
+    "src/modules/reading-activity/infrastructure/postgres/foreign-schema.ts: database table references must stay inside the owning Module schema (materials.published_materials)",
+    "src/modules/bookmarks/infrastructure/postgres/foreign-schema.ts: database table references must stay inside the owning Module schema (materials.published_materials)",
     "src/modules/videos/features/handwritten-lock/handwritten-lock.ts: advisory lock keys come from src/infrastructure/prisma/transaction-locks.ts",
     "src/modules/materials/features/mark-assets-by-hand/mark-assets-by-hand.ts: materialAsset belongs to another Module; pass the transaction to its owner's function (materialAsset)",
     "src/modules/reading-activity/features/read-material-by-hand/read-material-by-hand.ts: material belongs to another Module; pass the transaction to its owner's function (material)",
@@ -136,7 +141,9 @@ expectFailure(
 // Инструмент, добавленный без `pnpm mcp:generate`, обязан ронять проверку и называть себя.
 // Устаревший слепок снимается той же командой и правится здесь: перечня имён руками нет,
 // а путь до слепка репозитория знает только сам скрипт.
-const surfaceRoot = mkdtempSync(path.join(tmpdir(), "inside-mcp-tool-surface-"));
+const surfaceRoot = mkdtempSync(
+  path.join(tmpdir(), "inside-mcp-tool-surface-"),
+);
 const staleSurfacePath = path.join(surfaceRoot, "tool-surface.json");
 try {
   expectSuccess("pnpm", [
@@ -149,7 +156,9 @@ try {
   const registered = JSON.parse(readFileSync(staleSurfacePath, "utf8"));
   const appearedTool = registered[0];
   if (appearedTool === undefined) {
-    throw new Error("MCP tool surface fixture needs at least one registered tool");
+    throw new Error(
+      "MCP tool surface fixture needs at least one registered tool",
+    );
   }
   const disappearedTool = "inside_tool_surface_probe";
   writeFileSync(
@@ -159,7 +168,14 @@ try {
 
   expectFailure(
     "pnpm",
-    ["exec", "tsx", "scripts/mcp-tool-surface.ts", "--check", "--surface", staleSurfacePath],
+    [
+      "exec",
+      "tsx",
+      "scripts/mcp-tool-surface.ts",
+      "--check",
+      "--surface",
+      staleSurfacePath,
+    ],
     [
       "MCP tool surface drift detected",
       `Appeared: ${appearedTool}`,
@@ -171,4 +187,6 @@ try {
   rmSync(surfaceRoot, { force: true, recursive: true });
 }
 
-process.stdout.write("Negative TypeScript and architecture guardrails passed.\n");
+process.stdout.write(
+  "Negative TypeScript and architecture guardrails passed.\n",
+);

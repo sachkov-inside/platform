@@ -56,13 +56,25 @@ describe("Guide Artifact HTTP controllers", () => {
       .fn<GuideArtifacts["create"]>()
       .mockResolvedValue({ ok: true, value: artifact });
     const controller = authoringController({ create });
-    const body = { access: "free", externalUrl: "https://example.com/checklist", guideId, purpose: " Проверка ", title: "  Чек-лист " };
+    const body = {
+      access: "free",
+      externalUrl: "https://example.com/checklist",
+      guideId,
+      purpose: " Проверка ",
+      title: "  Чек-лист ",
+    };
 
     await controller.createFromLink(account, body);
     expect(create).toHaveBeenCalledWith(
-      expect.objectContaining({ metadata: { access: "free", purpose: "Проверка", title: "Чек-лист" } }),
+      expect.objectContaining({
+        metadata: { access: "free", purpose: "Проверка", title: "Чек-лист" },
+      }),
     );
-    await expectHttpProblem(controller.createFromLink(account, { ...body, title: "   " }), 422, "invalid_artifact");
+    await expectHttpProblem(
+      controller.createFromLink(account, { ...body, title: "   " }),
+      422,
+      "invalid_artifact",
+    );
     expect(create).toHaveBeenCalledOnce();
   });
 
@@ -78,11 +90,13 @@ describe("Guide Artifact HTTP controllers", () => {
     ] as const;
     for (const { code, status } of cases) {
       const controller = authoringController({
-        listForGuide: vi.fn<GuideArtifacts["listForGuide"]>().mockResolvedValue({
-          // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- The mapping table covers one error code per case.
-          error: { code, retryable: true } as never,
-          ok: false,
-        }),
+        listForGuide: vi
+          .fn<GuideArtifacts["listForGuide"]>()
+          .mockResolvedValue({
+            // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- The mapping table covers one error code per case.
+            error: { code, retryable: true } as never,
+            ok: false,
+          }),
       });
       await expectHttpProblem(controller.list(account, guideId), status, code);
     }

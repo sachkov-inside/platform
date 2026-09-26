@@ -3,8 +3,14 @@ import { legalDocumentKeys } from "@inside/legal/document";
 import { expect, it } from "vitest";
 
 import { LEGAL_GROUP_ORDER, LEGAL_NAVIGATION } from "@/entities/legal-document";
-import { purchaseConsentPolicy, type LegalDocument } from "@/entities/subscription";
-import { legalDocumentPath, legalEditionPath } from "@/shared/routing/public-page-path";
+import {
+  purchaseConsentPolicy,
+  type LegalDocument,
+} from "@/entities/subscription";
+import {
+  legalDocumentPath,
+  legalEditionPath,
+} from "@/shared/routing/public-page-path";
 
 it("раздел показывает каждый действующий документ ровно один раз", () => {
   const listed = LEGAL_NAVIGATION.map((entry) => entry.key);
@@ -59,11 +65,12 @@ it("покупателю показывается оферта его покуп
   const oneTime = purchaseConsentPolicy(documents, "one_time");
   const subscription = purchaseConsentPolicy(documents, "subscription");
 
-  expect(oneTime.applicable.map((document) => document.documentId)).toEqual(["purchase"]);
-  expect(oneTime.required).toEqual(["terms"]);
-  expect(subscription.applicable.map((document) => document.documentId)).toEqual([
-    "subscription",
-    "recurring-consent",
+  expect(oneTime.applicable.map((document) => document.documentId)).toEqual([
+    "purchase",
   ]);
+  expect(oneTime.required).toEqual(["terms"]);
+  expect(
+    subscription.applicable.map((document) => document.documentId),
+  ).toEqual(["subscription", "recurring-consent"]);
   expect(subscription.required).toEqual(["terms", "recurring"]);
 });

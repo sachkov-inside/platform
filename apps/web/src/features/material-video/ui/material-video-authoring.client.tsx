@@ -84,8 +84,12 @@ export function MaterialVideoAuthoring({
   const [initial] = useState(() =>
     resolveInitialVideoAuthoring({ primaryVideo, unselectedUpload }),
   );
-  const [recoveredVideoId, setRecoveredVideoId] = useState(initial.recoveredVideoId);
-  const [video, setVideo] = useState<MaterialAuthoringVideo | null>(initial.video);
+  const [recoveredVideoId, setRecoveredVideoId] = useState(
+    initial.recoveredVideoId,
+  );
+  const [video, setVideo] = useState<MaterialAuthoringVideo | null>(
+    initial.video,
+  );
   const [deletionVideo, setDeletionVideo] =
     useState<MaterialAuthoringVideo | null>(latestVideoDeletion);
   const [observedDeletion, setObservedDeletion] = useState(latestVideoDeletion);
@@ -93,7 +97,9 @@ export function MaterialVideoAuthoring({
     setObservedDeletion(latestVideoDeletion);
     setDeletionVideo(latestVideoDeletion);
   }
-  const [phase, setPhase] = useState<MaterialVideoAuthoringPhase>(initial.phase);
+  const [phase, setPhase] = useState<MaterialVideoAuthoringPhase>(
+    initial.phase,
+  );
   // Only this tab's own transfer can be lost by leaving. An adopted upload is Kinescope's work
   // and must not hold the author on the page.
   usePendingUploadGuard(
@@ -205,15 +211,21 @@ export function MaterialVideoAuthoring({
     replaced: MaterialAuthoringVideo | null,
     startedVideoId: string,
   ) => {
-    const { deleteVideoId: currentDeleteVideoId, primaryVideo: currentPrimary } =
-      latestSelection.current;
+    const {
+      deleteVideoId: currentDeleteVideoId,
+      primaryVideo: currentPrimary,
+    } = latestSelection.current;
     const detachedVideoId = replacedUploadToDetach({
       primaryVideoId: currentPrimary?.videoId ?? null,
       replaced,
       startedVideoId,
     });
     if (detachedVideoId !== null)
-      latestOnChange.current(currentPrimary, currentDeleteVideoId, detachedVideoId);
+      latestOnChange.current(
+        currentPrimary,
+        currentDeleteVideoId,
+        detachedVideoId,
+      );
   };
 
   const upload = async (file: File) => {
@@ -283,7 +295,8 @@ export function MaterialVideoAuthoring({
     setPhase("processing");
     const result = await attachVideo({ access, materialId, providerVideoId });
     if (revision !== operation.current) return;
-    if (result.kind === "ready") detachReplacedUpload(replaced, result.value.videoId);
+    if (result.kind === "ready")
+      detachReplacedUpload(replaced, result.value.videoId);
     applyVideoResult(result);
   };
 
@@ -323,7 +336,9 @@ export function MaterialVideoAuthoring({
         });
       }}
       onProviderVideoIdChange={setProviderVideoId}
-      recovered={activeVideo !== null && activeVideo.videoId === recoveredVideoId}
+      recovered={
+        activeVideo !== null && activeVideo.videoId === recoveredVideoId
+      }
       onReconcile={() => {
         if (activeVideo !== null) void reconcile(activeVideo.videoId);
       }}

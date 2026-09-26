@@ -36,9 +36,8 @@ vi.mock("@/shared/auth/same-origin-mutation.server", () => ({
 }));
 
 vi.mock("@/shared/auth/index.server", async () => {
-  const handler = await import(
-    "@/shared/auth/authenticated-mutation-handler.server"
-  );
+  const handler =
+    await import("@/shared/auth/authenticated-mutation-handler.server");
   return {
     getOptionalPlatformAccessToken: fakes.getOptionalAccessToken,
     handleAuthenticatedMutation: handler.handleAuthenticatedMutation,
@@ -126,19 +125,23 @@ describe("Guide artifacts BFF", () => {
     );
 
     const response = await handleCreateGuideArtifactFile(
-      new Request("https://inside.example.test/api/authoring/guide-artifacts/uploads", {
-        body: "--boundary--",
-        headers: {
-          "content-type": "multipart/form-data; boundary=boundary",
-          origin: "https://inside.example.test",
+      new Request(
+        "https://inside.example.test/api/authoring/guide-artifacts/uploads",
+        {
+          body: "--boundary--",
+          headers: {
+            "content-type": "multipart/form-data; boundary=boundary",
+            origin: "https://inside.example.test",
+          },
+          method: "POST",
         },
-        method: "POST",
-      }),
+      ),
     );
 
     await expect(response.json()).resolves.toEqual({
       kind: "rejected",
-      reason: "Такой файл нельзя приложить: он выглядит как программа или скрипт.",
+      reason:
+        "Такой файл нельзя приложить: он выглядит как программа или скрипт.",
     });
     expect(fakes.requestCreateFile).toHaveBeenCalledWith(
       expect.objectContaining({ accessToken: "access-token" }),
@@ -146,7 +149,9 @@ describe("Guide artifacts BFF", () => {
   });
 
   it("carries the 25 MiB artifact envelope and refuses anything above it", async () => {
-    fakes.requestCreateFile.mockResolvedValue(Response.json({}, { status: 200 }));
+    fakes.requestCreateFile.mockResolvedValue(
+      Response.json({}, { status: 200 }),
+    );
     const upload = (bytes: number) =>
       new Request(
         "https://inside.example.test/api/authoring/guide-artifacts/uploads",
@@ -188,11 +193,14 @@ describe("Guide artifacts BFF", () => {
     body.set("artifactId", artifactId);
 
     const response = await handleRemoveGuideArtifact(
-      new Request("https://inside.example.test/api/authoring/guide-artifacts/removal", {
-        body,
-        headers: { origin: "https://inside.example.test" },
-        method: "DELETE",
-      }),
+      new Request(
+        "https://inside.example.test/api/authoring/guide-artifacts/removal",
+        {
+          body,
+          headers: { origin: "https://inside.example.test" },
+          method: "DELETE",
+        },
+      ),
     );
 
     await expect(response.json()).resolves.toEqual({
@@ -205,11 +213,14 @@ describe("Guide artifacts BFF", () => {
     const body = new FormData();
     body.set("artifactId", artifactId);
     const response = await handleRemoveGuideArtifact(
-      new Request("https://inside.example.test/api/authoring/guide-artifacts/removal", {
-        body,
-        headers: { origin: "https://attacker.example.test" },
-        method: "DELETE",
-      }),
+      new Request(
+        "https://inside.example.test/api/authoring/guide-artifacts/removal",
+        {
+          body,
+          headers: { origin: "https://attacker.example.test" },
+          method: "DELETE",
+        },
+      ),
     );
 
     expect(response.status).toBe(403);

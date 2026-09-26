@@ -69,10 +69,11 @@ export async function grantWorkshopEntitlement(
         );
         if (replay !== undefined) return replay;
 
-        const membership = await dependencies.membershipAccess.resolveForAccessUnderEntitlementLock(
-          transaction,
-          accountId(parsed.data.targetAccountId),
-        );
+        const membership =
+          await dependencies.membershipAccess.resolveForAccessUnderEntitlementLock(
+            transaction,
+            accountId(parsed.data.targetAccountId),
+          );
         if (membership.kind !== "active") return failure("membership_required");
 
         const created = await transaction.workshopEntitlement.create({
@@ -99,10 +100,21 @@ export async function grantWorkshopEntitlement(
         parsed.data.idempotencyKey,
         fingerprint,
       );
-      return replay ?? dependencyFailure({ module: "workshop", operation: "grantWorkshopEntitlement" }, error, failure("dependency_unavailable"));
+      return (
+        replay ??
+        dependencyFailure(
+          { module: "workshop", operation: "grantWorkshopEntitlement" },
+          error,
+          failure("dependency_unavailable"),
+        )
+      );
     }
   } catch (error) {
-    return dependencyFailure({ module: "workshop", operation: "grantWorkshopEntitlement" }, error, failure("dependency_unavailable"));
+    return dependencyFailure(
+      { module: "workshop", operation: "grantWorkshopEntitlement" },
+      error,
+      failure("dependency_unavailable"),
+    );
   }
 }
 
@@ -152,7 +164,10 @@ function toDto(row: {
 }
 
 function failure(
-  code: Extract<GrantWorkshopEntitlementResult, { readonly ok: false }>["error"]["code"],
+  code: Extract<
+    GrantWorkshopEntitlementResult,
+    { readonly ok: false }
+  >["error"]["code"],
 ): Extract<GrantWorkshopEntitlementResult, { readonly ok: false }> {
   return { ok: false, error: { code } };
 }

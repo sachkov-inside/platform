@@ -268,17 +268,26 @@ export const ReplaceAfterReorder: Story = {
   },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
-    await userEvent.click(canvas.getByRole("button", { name: "Заменить часть 2" }));
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Заменить часть 2" }),
+    );
     const up = canvas.getAllByRole("button", { name: "Выше" })[1];
     if (!up) throw new Error("Missing second part");
     await userEvent.click(up);
-    await userEvent.click(canvas.getByRole("button", { name: /Почему очередь/ }));
-    const choose = canvas.getAllByRole("button", { name: "Заменить часть 1" })[0];
+    await userEvent.click(
+      canvas.getByRole("button", { name: /Почему очередь/ }),
+    );
+    const choose = canvas.getAllByRole("button", {
+      name: "Заменить часть 1",
+    })[0];
     if (!choose) throw new Error("Missing replacement action");
     await userEvent.click(choose);
-    await userEvent.click(canvas.getByRole("button", { name: "Сохранить черновик" }));
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Сохранить черновик" }),
+    );
     await expect(mocked(args.onSave).mock.calls[0]?.[0].payload.parts).toEqual([
-      { ...firstPart, partId: mediaFixture.partId }, firstPart,
+      { ...firstPart, partId: mediaFixture.partId },
+      firstPart,
     ]);
   },
 };
@@ -286,14 +295,24 @@ export const DeleteReplacementTarget: Story = {
   args: { ...ReplaceAfterReorder.args },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
-    await userEvent.click(canvas.getByRole("button", { name: "Заменить часть 2" }));
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Заменить часть 2" }),
+    );
     const remove = canvas.getAllByRole("button", { name: "Удалить часть" })[1];
     if (!remove) throw new Error("Missing second part");
     await userEvent.click(remove);
-    await expect(canvas.queryByRole("button", { name: "Отменить замену" })).not.toBeInTheDocument();
-    await userEvent.click(canvas.getByRole("button", { name: /Почему очередь/ }));
-    await userEvent.click(canvas.getByRole("button", { name: "Добавить в рассылку" }));
-    await userEvent.click(canvas.getByRole("button", { name: "Сохранить черновик" }));
+    await expect(
+      canvas.queryByRole("button", { name: "Отменить замену" }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(
+      canvas.getByRole("button", { name: /Почему очередь/ }),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Добавить в рассылку" }),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Сохранить черновик" }),
+    );
     const saved = mocked(args.onSave).mock.calls[0]?.[0].payload.parts;
     await expect(saved).toHaveLength(2);
     await expect(saved?.[0]).toEqual(firstPart);

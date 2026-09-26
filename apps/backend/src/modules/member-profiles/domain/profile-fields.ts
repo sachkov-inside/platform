@@ -68,7 +68,8 @@ function hasForbiddenControlCharacters(
     const codePoint = character.codePointAt(0);
     return (
       codePoint !== undefined &&
-      ((!multiline && (codePoint === 9 || codePoint === 10 || codePoint === 13)) ||
+      ((!multiline &&
+        (codePoint === 9 || codePoint === 10 || codePoint === 13)) ||
         (codePoint >= 0 && codePoint <= 8) ||
         codePoint === 11 ||
         codePoint === 12 ||

@@ -23,7 +23,9 @@ export const notificationPreferencesChanged = factAnnouncement(
  * Забыть прежний ответ о настройках и перечитать его. Начатое перечитывание не отменяется, поэтому
  * повторный сброс присоединяется к нему, а не начинает новый запрос.
  */
-export function resetNotificationPreferences(client: QueryClient): Promise<void> {
+export function resetNotificationPreferences(
+  client: QueryClient,
+): Promise<void> {
   return client.invalidateQueries(
     { queryKey: notificationPreferencesQueryKey },
     { cancelRefetch: false },
@@ -39,7 +41,9 @@ export function notificationPreferencesQueryOptions() {
     refetchInterval: ({
       state,
     }: {
-      readonly state: { readonly data: NotificationPreferencesResult | undefined };
+      readonly state: {
+        readonly data: NotificationPreferencesResult | undefined;
+      };
     }) =>
       state.data !== undefined &&
       !state.data.ok &&

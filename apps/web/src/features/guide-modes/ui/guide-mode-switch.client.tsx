@@ -77,8 +77,7 @@ export function GuideModeSwitch({ signedIn }: { readonly signedIn: boolean }) {
               if (signedIn) {
                 saveBurst.current.inFlight += 1;
                 save.mutate(option);
-              }
-              else {
+              } else {
                 rememberGuestGuideMode(option);
                 router.refresh();
               }
@@ -91,7 +90,8 @@ export function GuideModeSwitch({ signedIn }: { readonly signedIn: boolean }) {
       </div>
       {failed ? (
         <p className="mt-2 text-xs text-muted-foreground" role="status">
-          Режим показан, но запомнить его не удалось. Попробуйте переключить ещё раз.
+          Режим показан, но запомнить его не удалось. Попробуйте переключить ещё
+          раз.
         </p>
       ) : null}
     </div>

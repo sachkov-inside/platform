@@ -1,4 +1,7 @@
-import { Prisma, type MaterialsPrisma } from "../../../../infrastructure/prisma/index.js";
+import {
+  Prisma,
+  type MaterialsPrisma,
+} from "../../../../infrastructure/prisma/index.js";
 import type { GuidePage, GuideSourceFields } from "../../domain/guide-page.js";
 import { readGuidePageState } from "../../shared/guide-page-reader.js";
 import type {
@@ -19,11 +22,12 @@ interface ContentCollectionRecord {
   readonly coverId: string | null;
 }
 
-type GuideRecord = ContentCollectionRecord & GuideIntroductionDto & {
-  readonly page: unknown;
-  readonly presentation: string;
-  readonly sourceId: string | null;
-};
+type GuideRecord = ContentCollectionRecord &
+  GuideIntroductionDto & {
+    readonly page: unknown;
+    readonly presentation: string;
+    readonly sourceId: string | null;
+  };
 
 interface ContentCollectionPersistence {
   readonly create: (data: {
@@ -60,7 +64,9 @@ export function contentCollectionPersistence(
     : guidePersistence(prisma, kind);
 }
 
-function topicPersistence(prisma: MaterialsPrisma): ContentCollectionPersistence {
+function topicPersistence(
+  prisma: MaterialsPrisma,
+): ContentCollectionPersistence {
   const project = async (
     record: ContentCollectionRecord | null,
   ): Promise<ContentCollectionDto | undefined> => {
@@ -77,7 +83,7 @@ function topicPersistence(prisma: MaterialsPrisma): ContentCollectionPersistence
       record,
       null,
       materialCount,
-      record.coverId === null ? null : covers.get(record.coverId) ?? null,
+      record.coverId === null ? null : (covers.get(record.coverId) ?? null),
       null,
     );
   };
@@ -112,7 +118,7 @@ function topicPersistence(prisma: MaterialsPrisma): ContentCollectionPersistence
           record,
           null,
           countById.get(record.id) ?? 0,
-          record.coverId === null ? null : covers.get(record.coverId) ?? null,
+          record.coverId === null ? null : (covers.get(record.coverId) ?? null),
           null,
         ),
       );
@@ -146,7 +152,10 @@ function topicPersistence(prisma: MaterialsPrisma): ContentCollectionPersistence
   };
 }
 
-function guidePersistence(prisma: MaterialsPrisma, kind: "guide" | "series"): ContentCollectionPersistence {
+function guidePersistence(
+  prisma: MaterialsPrisma,
+  kind: "guide" | "series",
+): ContentCollectionPersistence {
   const project = async (
     record: GuideRecord | null,
   ): Promise<ContentCollectionDto | undefined> => {
@@ -163,14 +172,21 @@ function guidePersistence(prisma: MaterialsPrisma, kind: "guide" | "series"): Co
       record,
       introductionOf(record),
       materialCount,
-      record.coverId === null ? null : covers.get(record.coverId) ?? null,
+      record.coverId === null ? null : (covers.get(record.coverId) ?? null),
       sourceOf(record),
     );
   };
   return {
     create: async (data) => {
       const record = await prisma.guide.create({ data });
-      return toDto(kind, record, introductionOf(record), 0, null, sourceOf(record));
+      return toDto(
+        kind,
+        record,
+        introductionOf(record),
+        0,
+        null,
+        sourceOf(record),
+      );
     },
     list: async () => {
       const [records, counts] = await Promise.all([
@@ -195,7 +211,7 @@ function guidePersistence(prisma: MaterialsPrisma, kind: "guide" | "series"): Co
           record,
           introductionOf(record),
           countById.get(record.id) ?? 0,
-          record.coverId === null ? null : covers.get(record.coverId) ?? null,
+          record.coverId === null ? null : (covers.get(record.coverId) ?? null),
           sourceOf(record),
         ),
       );
@@ -214,7 +230,14 @@ function guidePersistence(prisma: MaterialsPrisma, kind: "guide" | "series"): Co
         })
       ).count,
     slugConstraint: "series_slug_unique",
-    updateMetadata: async ({ expectedVersion, id, introduction, name, source, summary }) =>
+    updateMetadata: async ({
+      expectedVersion,
+      id,
+      introduction,
+      name,
+      source,
+      summary,
+    }) =>
       (
         await prisma.guide.updateMany({
           where: { id, version: expectedVersion },

@@ -29,7 +29,10 @@ export function AccountAccessPage({
           accepted.data === undefined
             ? { kind: "loading" }
             : accepted.data.kind === "ready"
-              ? { kind: "ready", items: acceptedDocumentItems(accepted.data.documents) }
+              ? {
+                  kind: "ready",
+                  items: acceptedDocumentItems(accepted.data.documents),
+                }
               : { kind: "unavailable" },
       }}
       link={presentation?.telegramMembership.link ?? null}

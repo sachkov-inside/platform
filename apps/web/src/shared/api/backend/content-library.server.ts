@@ -61,7 +61,8 @@ export function requestPublishedTopic(
   options: PublicRequestOptions = {},
 ): Promise<BackendTransportResult> {
   return executeGeneratedRequest(
-    (request) => new ContentLibraryService(request).readPublishedTopic({ slug }),
+    (request) =>
+      new ContentLibraryService(request).readPublishedTopic({ slug }),
     200,
     options,
   );
@@ -72,7 +73,8 @@ export function requestPublishedSeries(
   options: PublicRequestOptions = {},
 ): Promise<BackendTransportResult> {
   return executeGeneratedRequest(
-    (request) => new ContentLibraryService(request).readPublishedGuide({ slug }),
+    (request) =>
+      new ContentLibraryService(request).readPublishedGuide({ slug }),
     200,
     options,
   );
@@ -84,7 +86,9 @@ export function requestRelatedPublishedMaterials(
 ): Promise<BackendTransportResult> {
   return executeGeneratedRequest(
     (request) =>
-      new ContentLibraryService(request).readRelatedPublishedMaterials({ slug }),
+      new ContentLibraryService(request).readRelatedPublishedMaterials({
+        slug,
+      }),
     200,
     options,
   );

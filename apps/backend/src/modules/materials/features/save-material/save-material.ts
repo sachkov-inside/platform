@@ -160,10 +160,19 @@ export function assembleSaveMaterial(
               command.materialId,
               selection.value.toValues().seriesIds,
             );
-            if (!await canChangeGuideMemberships(transaction, command.materialId, selection.value.toValues().seriesIds, source?.id ?? null)) {
+            if (
+              !(await canChangeGuideMemberships(
+                transaction,
+                command.materialId,
+                selection.value.toValues().seriesIds,
+                source?.id ?? null,
+              ))
+            ) {
               return rollback({ code: "forbidden" });
             }
-            await lockMaterialReferenceChanges(transaction, [command.materialId]);
+            await lockMaterialReferenceChanges(transaction, [
+              command.materialId,
+            ]);
             const locked = await lockMaterialForLifecycleChange(
               transaction,
               command.materialId,
@@ -174,13 +183,20 @@ export function assembleSaveMaterial(
             if (locked.sourceId !== (source?.id ?? null)) {
               return rollback({
                 code: "invalid_reference",
-                issues: [{ code: "authoring_source_required", path: "/materialId" }],
+                issues: [
+                  { code: "authoring_source_required", path: "/materialId" },
+                ],
               });
             }
             if (source !== undefined && command.deleteVideoId !== null) {
               return rollback({
                 code: "invalid_reference",
-                issues: [{ code: "import_video_deletion_forbidden", path: "/deleteVideoId" }],
+                issues: [
+                  {
+                    code: "import_video_deletion_forbidden",
+                    path: "/deleteVideoId",
+                  },
+                ],
               });
             }
             if (
@@ -189,16 +205,59 @@ export function assembleSaveMaterial(
             ) {
               return rollback({
                 code: "invalid_reference",
-                issues: [{ code: "video_deletion_target_mismatch", path: "/deleteVideoId" }],
+                issues: [
+                  {
+                    code: "video_deletion_target_mismatch",
+                    path: "/deleteVideoId",
+                  },
+                ],
               });
             }
-            const videoChapters = command.videoChapters ?? (command.primaryVideoId === locked.primaryVideoId ? locked.videoChapters : []);
+            const videoChapters =
+              command.videoChapters ??
+              (command.primaryVideoId === locked.primaryVideoId
+                ? locked.videoChapters
+                : []);
             if (videoChapters.length > 0) {
-              if (command.primaryVideoId === null || dependencies.videos === undefined) return rollback({ code: "invalid_reference", issues: [{ code: "video_chapters_require_video", path: "/videoChapters" }] });
-              const video = await dependencies.videos.loadAuthoringPresentation({ materialId: command.materialId, videoId: command.primaryVideoId }, transaction);
-              if (!video.ok) return rollback({ code: "dependency_unavailable", retryable: true });
+              if (
+                command.primaryVideoId === null ||
+                dependencies.videos === undefined
+              )
+                return rollback({
+                  code: "invalid_reference",
+                  issues: [
+                    {
+                      code: "video_chapters_require_video",
+                      path: "/videoChapters",
+                    },
+                  ],
+                });
+              const video = await dependencies.videos.loadAuthoringPresentation(
+                {
+                  materialId: command.materialId,
+                  videoId: command.primaryVideoId,
+                },
+                transaction,
+              );
+              if (!video.ok)
+                return rollback({
+                  code: "dependency_unavailable",
+                  retryable: true,
+                });
               const duration = video.value?.durationSeconds;
-              if (duration === undefined || videoChapters.some((chapter) => chapter.start >= duration)) return rollback({ code: "invalid_reference", issues: [{ code: "video_chapter_outside_duration", path: "/videoChapters" }] });
+              if (
+                duration === undefined ||
+                videoChapters.some((chapter) => chapter.start >= duration)
+              )
+                return rollback({
+                  code: "invalid_reference",
+                  issues: [
+                    {
+                      code: "video_chapter_outside_duration",
+                      path: "/videoChapters",
+                    },
+                  ],
+                });
             }
             if (
               command.primaryVideoId !== null &&
@@ -206,7 +265,12 @@ export function assembleSaveMaterial(
             ) {
               return rollback({
                 code: "invalid_reference",
-                issues: [{ code: "video_detachment_target_mismatch", path: "/detachVideoIds" }],
+                issues: [
+                  {
+                    code: "video_detachment_target_mismatch",
+                    path: "/detachVideoIds",
+                  },
+                ],
               });
             }
             const selectedValues = selection.value.toValues();
@@ -238,7 +302,8 @@ export function assembleSaveMaterial(
             }
             const slug =
               locked.lifecycle.slug ??
-              (command.publicationState === "published" && selectedValues.title !== null
+              (command.publicationState === "published" &&
+              selectedValues.title !== null
                 ? await allocateMaterialSlug(transaction, selectedValues.title)
                 : null);
             const savedAt = new Date();
@@ -271,11 +336,12 @@ export function assembleSaveMaterial(
               rollback,
             );
             if (dependencies.materialAssets !== undefined) {
-              const assetIssues = await dependencies.materialAssets.inspectReferences(
-                transaction,
-                command.materialId,
-                assetReferences,
-              );
+              const assetIssues =
+                await dependencies.materialAssets.inspectReferences(
+                  transaction,
+                  command.materialId,
+                  assetReferences,
+                );
               if (!assetIssues.ok) return rollback(assetIssues.error);
               if (assetIssues.value.length > 0) {
                 return rollback({
@@ -289,22 +355,27 @@ export function assembleSaveMaterial(
             }
             if (command.primaryVideoId !== null) {
               if (dependencies.videos === undefined) {
-                return rollback({ code: "dependency_unavailable", retryable: true });
+                return rollback({
+                  code: "dependency_unavailable",
+                  retryable: true,
+                });
               }
-              const videoReference = await dependencies.videos.inspectPrimaryReference(transaction, {
-                access: materializedMetadata.access,
-                materialId: command.materialId,
-                videoId: command.primaryVideoId,
-              });
+              const videoReference =
+                await dependencies.videos.inspectPrimaryReference(transaction, {
+                  access: materializedMetadata.access,
+                  materialId: command.materialId,
+                  videoId: command.primaryVideoId,
+                });
               if (!videoReference.ok) {
                 if (videoReference.error.code === "dependency_unavailable") {
                   return rollback(videoReference.error);
                 }
-                const code = videoReference.error.code === "video_not_found"
-                  ? "video_not_found"
-                  : videoReference.error.code === "video_not_ready"
-                    ? "video_not_ready"
-                    : "video_provider_mismatch";
+                const code =
+                  videoReference.error.code === "video_not_found"
+                    ? "video_not_found"
+                    : videoReference.error.code === "video_not_ready"
+                      ? "video_not_ready"
+                      : "video_provider_mismatch";
                 return rollback({
                   code: "invalid_reference",
                   issues: [{ code, path: "/primaryVideoId" }],
@@ -314,24 +385,40 @@ export function assembleSaveMaterial(
 
             // Опубликованный материал уходит из руководства, где у кого-то есть право, только
             // подтверждённым снятием: иначе купившие молча потеряли бы часть продукта.
-            const previousGuideIds = (await transaction.publishedMaterialGuideMembership.findMany({
-              where: { materialId: command.materialId },
-              select: { seriesId: true },
-            })).map(({ seriesId }) => seriesId);
-            const nextGuideIds = next.value.publicationState === "published" ? selectedValues.seriesIds : [];
+            const previousGuideIds = (
+              await transaction.publishedMaterialGuideMembership.findMany({
+                where: { materialId: command.materialId },
+                select: { seriesId: true },
+              })
+            ).map(({ seriesId }) => seriesId);
+            const nextGuideIds =
+              next.value.publicationState === "published"
+                ? selectedValues.seriesIds
+                : [];
             const heldRemovals = await heldGuideRemovals(
               transaction,
               dependencies.guideAccessHolders,
-              previousGuideIds.filter((guideId) => !nextGuideIds.includes(guideId)),
+              previousGuideIds.filter(
+                (guideId) => !nextGuideIds.includes(guideId),
+              ),
             );
-            const unconfirmed = unconfirmedGuideRemovals(heldRemovals, command.confirmedGuideRemovals);
+            const unconfirmed = unconfirmedGuideRemovals(
+              heldRemovals,
+              command.confirmedGuideRemovals,
+            );
             if (unconfirmed.length > 0) {
-              return rollback({ code: "guide_removal_confirmation_required", guides: unconfirmed });
+              return rollback({
+                code: "guide_removal_confirmation_required",
+                guides: unconfirmed,
+              });
             }
             await recordGuideRemovals(transaction, {
               actor: command.actor,
               operation: "material_save",
-              removals: heldRemovals.map((guide) => ({ guide, materialId: command.materialId })),
+              removals: heldRemovals.map((guide) => ({
+                guide,
+                materialId: command.materialId,
+              })),
               removedAt: savedAt,
             });
 
@@ -344,7 +431,13 @@ export function assembleSaveMaterial(
             await transaction.material.update({
               where: { id: command.materialId },
               data: {
-                ...(source === undefined ? {} : { sourcePath: source.path, sourceRevision: source.revision, showInFeed: source.showInFeed }),
+                ...(source === undefined
+                  ? {}
+                  : {
+                      sourcePath: source.path,
+                      sourceRevision: source.revision,
+                      showInFeed: source.showInFeed,
+                    }),
                 slug: materializedMetadata.slug,
                 title: materializedMetadata.title,
                 summary: materializedMetadata.summary,
@@ -420,11 +513,15 @@ export function assembleSaveMaterial(
               referencedAssetIds: assetReferences.map(({ assetId }) => assetId),
             });
             if (command.deleteVideoId !== null) {
-              const deletion = await requestVideoDeletion(transaction, {
-                actor: command.actor,
-                materialId: command.materialId,
-                videoId: command.deleteVideoId,
-              }, savedAt);
+              const deletion = await requestVideoDeletion(
+                transaction,
+                {
+                  actor: command.actor,
+                  materialId: command.materialId,
+                  videoId: command.deleteVideoId,
+                },
+                savedAt,
+              );
               if (!deletion.ok) {
                 return rollback({
                   code: "invalid_reference",
@@ -432,10 +529,14 @@ export function assembleSaveMaterial(
                 });
               }
             }
-            const detachment = await recordVideoDetachment(transaction, {
-              materialId: command.materialId,
-              videoIds: command.detachVideoIds,
-            }, savedAt);
+            const detachment = await recordVideoDetachment(
+              transaction,
+              {
+                materialId: command.materialId,
+                videoIds: command.detachVideoIds,
+              },
+              savedAt,
+            );
             if (!detachment.ok) {
               return rollback({
                 code: "invalid_reference",

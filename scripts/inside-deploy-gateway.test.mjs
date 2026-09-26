@@ -33,7 +33,10 @@ describe("inside-deploy forced SSH command", () => {
         assert.notEqual(result.status, 0);
         assert.match(result.stderr, diagnostic);
         assert.equal(existsSync(resolve(fixture.root, "invocation")), false);
-        assert.equal(existsSync(resolve(fixture.root, "srv/inside/releases/v1")), false);
+        assert.equal(
+          existsSync(resolve(fixture.root, "srv/inside/releases/v1")),
+          false,
+        );
       } finally {
         fixture.cleanup();
       }
@@ -65,10 +68,7 @@ describe("inside-deploy forced SSH command", () => {
       );
       assert.equal(
         readFileSync(
-          resolve(
-            fixture.root,
-            "srv/inside/releases/v1/release-manifest.json",
-          ),
+          resolve(fixture.root, "srv/inside/releases/v1/release-manifest.json"),
           "utf8",
         ),
         fixture.manifest,
@@ -128,7 +128,9 @@ describe("inside-deploy forced SSH command", () => {
       assert.equal(forgedBundleResult.status, 0, forgedBundleResult.stderr);
       const forgedManifest = JSON.parse(fixture.manifest);
       forgedManifest.source.sha = "9".repeat(40);
-      forgedManifest.runtimeBundle.sha256 = sha256(readFileSync(fixture.bundle));
+      forgedManifest.runtimeBundle.sha256 = sha256(
+        readFileSync(fixture.bundle),
+      );
       fixture.manifest = `${JSON.stringify(forgedManifest, null, 2)}\n`;
       createEnvelope(fixture);
 
@@ -236,9 +238,15 @@ fi
     '#!/usr/bin/env bash\nset -euo pipefail\nprintf "%s %s %s\\n" "$1" "$2" "$3" >"$INSIDE_DEPLOY_TEST_ROOT/invocation"\n',
   );
   chmodSync(resolve(bundleRoot, "bin/deploy-release"), 0o755);
-  writeFileSync(resolve(bundleRoot, "caddy/maintenance.caddy"), "maintenance\n");
+  writeFileSync(
+    resolve(bundleRoot, "caddy/maintenance.caddy"),
+    "maintenance\n",
+  );
   writeFileSync(resolve(bundleRoot, "caddy/platform.caddy"), "platform\n");
-  writeFileSync(resolve(bundleRoot, "compose.production.yaml"), "services: {}\n");
+  writeFileSync(
+    resolve(bundleRoot, "compose.production.yaml"),
+    "services: {}\n",
+  );
   const bundleResult = spawnSync(
     "tar",
     [
@@ -255,25 +263,29 @@ fi
   );
   assert.equal(bundleResult.status, 0, bundleResult.stderr);
 
-  const manifest = `${JSON.stringify({
-    schemaVersion: "inside.platform.release-manifest.v2",
-    version: "v1",
-    source: {
-      repository: "sachkov-inside/platform",
-      sha: "1".repeat(40),
+  const manifest = `${JSON.stringify(
+    {
+      schemaVersion: "inside.platform.release-manifest.v2",
+      version: "v1",
+      source: {
+        repository: "sachkov-inside/platform",
+        sha: "1".repeat(40),
+      },
+      images: {
+        backend: `ghcr.io/sachkov-inside/platform-backend@sha256:${"a".repeat(64)}`,
+        web: `ghcr.io/sachkov-inside/platform-web@sha256:${"b".repeat(64)}`,
+      },
+      schema: { identity: `sha256:${"c".repeat(64)}` },
+      runtimeBundle: {
+        asset: "production-runtime.tar.gz",
+        sha256: sha256(readFileSync(bundle)),
+      },
+      publication: { workflowRunId: 100 },
+      rollback: { previous: null },
     },
-    images: {
-      backend: `ghcr.io/sachkov-inside/platform-backend@sha256:${"a".repeat(64)}`,
-      web: `ghcr.io/sachkov-inside/platform-web@sha256:${"b".repeat(64)}`,
-    },
-    schema: { identity: `sha256:${"c".repeat(64)}` },
-    runtimeBundle: {
-      asset: "production-runtime.tar.gz",
-      sha256: sha256(readFileSync(bundle)),
-    },
-    publication: { workflowRunId: 100 },
-    rollback: { previous: null },
-  }, null, 2)}\n`;
+    null,
+    2,
+  )}\n`;
   writeTrustedReleaseEvidence(root, {
     manifest,
     publicationRunId: 100,
@@ -298,7 +310,10 @@ function createEnvelope(fixture) {
   const envelopeRoot = resolve(fixture.directory, "envelope");
   rmSync(envelopeRoot, { force: true, recursive: true });
   mkdirSync(envelopeRoot);
-  writeFileSync(resolve(envelopeRoot, "release-manifest.json"), fixture.manifest);
+  writeFileSync(
+    resolve(envelopeRoot, "release-manifest.json"),
+    fixture.manifest,
+  );
   writeFileSync(
     resolve(envelopeRoot, "production-runtime.tar.gz"),
     readFileSync(fixture.bundle),

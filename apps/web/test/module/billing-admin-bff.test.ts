@@ -175,7 +175,11 @@ it("применяет только подтверждённые строки т
 });
 
 it("читает и записывает решение о покупателе отдельными маршрутами", async () => {
-  const classification = (value: string, revision: number, recurringAllowed: boolean) =>
+  const classification = (
+    value: string,
+    revision: number,
+    recurringAllowed: boolean,
+  ) =>
     ok({
       operationRef: operationId,
       result: {
@@ -192,7 +196,9 @@ it("читает и записывает решение о покупателе 
   );
   expect(await read.json()).toMatchObject({
     ok: true,
-    value: { result: { value: { classification: "unknown", recurringAllowed: false } } },
+    value: {
+      result: { value: { classification: "unknown", recurringAllowed: false } },
+    },
   });
   expect(fakes.manage).toHaveBeenCalledWith(
     { operation: "grants.readClassification", operationId, accountId },
@@ -280,7 +286,10 @@ it("отправляет выдачу и классификацию одним �
     },
   ];
   const response = await handlePreviewGrantBatch(
-    command("/api/authoring/billing/grants/preview-batch", { operationId, rows }),
+    command("/api/authoring/billing/grants/preview-batch", {
+      operationId,
+      rows,
+    }),
   );
   expect(await response.json()).toMatchObject({ ok: true });
   expect(fakes.manage).toHaveBeenCalledWith(
@@ -308,7 +317,12 @@ it("включает и выключает продажу варианта от�
     }),
   );
   expect(fakes.manage).toHaveBeenCalledWith(
-    { operation: "offers.publish", operationId, id: offerId, expectedRevision: 2 },
+    {
+      operation: "offers.publish",
+      operationId,
+      id: offerId,
+      expectedRevision: 2,
+    },
     "owner-token",
     {},
   );
@@ -320,7 +334,12 @@ it("включает и выключает продажу варианта от�
     }),
   );
   expect(fakes.manage).toHaveBeenCalledWith(
-    { operation: "offers.unpublish", operationId, id: offerId, expectedRevision: 3 },
+    {
+      operation: "offers.unpublish",
+      operationId,
+      id: offerId,
+      expectedRevision: 3,
+    },
     "owner-token",
     {},
   );
@@ -341,33 +360,114 @@ it("читает владельческий каталог, где остают�
 });
 
 it("поиск подтверждённого получателя закрыт без сессии и сохраняет private no-store", async () => {
-  const { handleLookupSubscriptionRecipient } = await import("@/features/billing-admin.server");
-  const { LogtoSessionUnavailableError } = await import("@/shared/auth/platform-access-token.server");
+  const { handleLookupSubscriptionRecipient } =
+    await import("@/features/billing-admin.server");
+  const { LogtoSessionUnavailableError } =
+    await import("@/shared/auth/platform-access-token.server");
   fakes.token.mockRejectedValue(new LogtoSessionUnavailableError());
-  const response = await handleLookupSubscriptionRecipient(command("/api/authoring/billing/recipients/lookup", { operationId, identityRef: "verified-identity" }));
+  const response = await handleLookupSubscriptionRecipient(
+    command("/api/authoring/billing/recipients/lookup", {
+      operationId,
+      identityRef: "verified-identity",
+    }),
+  );
   expect(response.status).toBe(401);
   expect(response.headers.get("cache-control")).toContain("no-store");
   expect(fakes.manage).not.toHaveBeenCalled();
 });
 
 it("поиск получателя передаёт точную identity и не раскрывает результат без owner permission", async () => {
-  const { handleLookupSubscriptionRecipient } = await import("@/features/billing-admin.server");
+  const { handleLookupSubscriptionRecipient } =
+    await import("@/features/billing-admin.server");
   fakes.manage.mockResolvedValue(problem("forbidden", 403));
-  const response = await handleLookupSubscriptionRecipient(command("/api/authoring/billing/recipients/lookup", { operationId, identityRef: "verified-identity" }));
+  const response = await handleLookupSubscriptionRecipient(
+    command("/api/authoring/billing/recipients/lookup", {
+      operationId,
+      identityRef: "verified-identity",
+    }),
+  );
   expect(await response.json()).toMatchObject({ ok: false, code: "forbidden" });
-  expect(fakes.manage).toHaveBeenCalledWith({ operationId, operation: "recipients.lookup", identityRef: "verified-identity" }, "owner-token");
+  expect(fakes.manage).toHaveBeenCalledWith(
+    {
+      operationId,
+      operation: "recipients.lookup",
+      identityRef: "verified-identity",
+    },
+    "owner-token",
+  );
 });
 
 it("owner payments retain local one-time Guide purchases and their filter", async () => {
-  const paid = { purchaseRef, accountId, kind: "one_time", state: "confirmed", subscriptionRef: null, periodIndex: null,
-    amountKopecks: 10000, environment: "local", terminalRef: "synthetic-local", paymentId: "625",
-    snapshot: { offer: { id: offerId, revision: 1, name: "Guide", benefits: ["guide:" + offerId], archived: false },
-      paymentOption: { id: previewRef, revision: 1, offerId, mode: "one_time", months: 1, priceKopecks: 10000, archived: false },
-      promotion: null, currency: "RUB", timezone: "Europe/Moscow", firstPriceKopecks: 10000, renewalPriceKopecks: 10000 },
-    fiscalization: "not_configured", confirmedAt: "2030-01-01T00:00:00.000Z", periodEndsAt: null,
-    createdAt: "2030-01-01T00:00:00.000Z", updatedAt: "2030-01-01T00:00:00.000Z", access: "ready", refundedKopecks: 0, refundableKopecks: 10000 };
-  fakes.manage.mockResolvedValue(ok({ operationRef: operationId, result: { outcome: "payments", items: [paid], nextCursor: null } }));
-  const response = await handleListPayments(command("/api/authoring/billing/payments/list", { operationId, accountId, kind: "one_time", limit: 10 }));
-  expect(await response.json()).toMatchObject({ ok: true, value: { result: { items: [paid] } } });
-  expect(fakes.manage).toHaveBeenCalledWith({ operation: "payments.list", operationId, accountId, kind: "one_time", limit: 10 }, "owner-token", {});
+  const paid = {
+    purchaseRef,
+    accountId,
+    kind: "one_time",
+    state: "confirmed",
+    subscriptionRef: null,
+    periodIndex: null,
+    amountKopecks: 10000,
+    environment: "local",
+    terminalRef: "synthetic-local",
+    paymentId: "625",
+    snapshot: {
+      offer: {
+        id: offerId,
+        revision: 1,
+        name: "Guide",
+        benefits: ["guide:" + offerId],
+        archived: false,
+      },
+      paymentOption: {
+        id: previewRef,
+        revision: 1,
+        offerId,
+        mode: "one_time",
+        months: 1,
+        priceKopecks: 10000,
+        archived: false,
+      },
+      promotion: null,
+      currency: "RUB",
+      timezone: "Europe/Moscow",
+      firstPriceKopecks: 10000,
+      renewalPriceKopecks: 10000,
+    },
+    fiscalization: "not_configured",
+    confirmedAt: "2030-01-01T00:00:00.000Z",
+    periodEndsAt: null,
+    createdAt: "2030-01-01T00:00:00.000Z",
+    updatedAt: "2030-01-01T00:00:00.000Z",
+    access: "ready",
+    refundedKopecks: 0,
+    refundableKopecks: 10000,
+  };
+  fakes.manage.mockResolvedValue(
+    ok({
+      operationRef: operationId,
+      result: { outcome: "payments", items: [paid], nextCursor: null },
+    }),
+  );
+  const response = await handleListPayments(
+    command("/api/authoring/billing/payments/list", {
+      operationId,
+      accountId,
+      kind: "one_time",
+      limit: 10,
+    }),
+  );
+  expect(await response.json()).toMatchObject({
+    ok: true,
+    value: { result: { items: [paid] } },
+  });
+  expect(fakes.manage).toHaveBeenCalledWith(
+    {
+      operation: "payments.list",
+      operationId,
+      accountId,
+      kind: "one_time",
+      limit: 10,
+    },
+    "owner-token",
+    {},
+  );
 });

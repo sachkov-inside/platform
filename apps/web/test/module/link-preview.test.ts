@@ -6,7 +6,10 @@ import {
   topicLinkPreview,
   topicSocialCard,
 } from "@/_pages/library-discovery";
-import { materialLinkPreview, materialSocialCard } from "@/_pages/material-reader";
+import {
+  materialLinkPreview,
+  materialSocialCard,
+} from "@/_pages/material-reader";
 import type { MaterialReaderMetadata } from "@/_pages/material-reader";
 import { coverLinkPreviewImage } from "@/entities/material.model";
 import type { LibraryDiscoveryReference } from "@/features/library-discovery";
@@ -45,10 +48,16 @@ const guide: LibraryDiscoveryReference = {
 
 describe("Карточка публичной ссылки", () => {
   it("отдаёт канонический адрес, карточку и открытую индексацию для материала", () => {
-    const metadata = publicPageMetadata(origin, "article", materialLinkPreview(material));
+    const metadata = publicPageMetadata(
+      origin,
+      "article",
+      materialLinkPreview(material),
+    );
 
     expect(metadata.metadataBase).toEqual(origin);
-    expect(metadata.alternates?.canonical).toBe("/materials/kak-ustroen-inside");
+    expect(metadata.alternates?.canonical).toBe(
+      "/materials/kak-ustroen-inside",
+    );
     expect(metadata.openGraph).toMatchObject({
       description: "Обещание материала одной строкой.",
       locale: "ru_RU",
@@ -79,7 +88,12 @@ describe("Карточка публичной ссылки", () => {
   });
 
   it("называет тему темой и объясняет её содержимое, когда описания нет", () => {
-    const preview = topicLinkPreview({ ...guide, name: "Platform", slug: "platform", summary: " " });
+    const preview = topicLinkPreview({
+      ...guide,
+      name: "Platform",
+      slug: "platform",
+      summary: " ",
+    });
 
     expect(preview.canonicalPath).toBe("/topics/platform");
     expect(preview.title).toBe("Platform — тема");
@@ -115,7 +129,9 @@ describe("Карточка публичной ссылки", () => {
 
 describe("Содержимое сгенерированной карточки", () => {
   it("называет вид страницы одним словом и в заголовке, и на карточке", () => {
-    expect(guideLinkPreview(guide).title).toBe("Создание Platform Inside — продукт");
+    expect(guideLinkPreview(guide).title).toBe(
+      "Создание Platform Inside — продукт",
+    );
     expect(guideSocialCard(guide)).toEqual({
       eyebrow: "Продукт",
       title: "Создание Platform Inside",
@@ -123,7 +139,10 @@ describe("Содержимое сгенерированной карточки",
 
     const topic = { ...guide, name: "Platform", slug: "platform" };
     expect(topicLinkPreview(topic).title).toBe("Platform — тема");
-    expect(topicSocialCard(topic)).toEqual({ eyebrow: "Тема", title: "Platform" });
+    expect(topicSocialCard(topic)).toEqual({
+      eyebrow: "Тема",
+      title: "Platform",
+    });
   });
 
   it("оставляет материалу его собственное название", () => {
@@ -145,7 +164,9 @@ describe("Картинка предпросмотра", () => {
       ],
     };
 
-    expect(coverLinkPreviewImage(cover, "Обложка", "/materials/x/social-card")).toEqual({
+    expect(
+      coverLinkPreviewImage(cover, "Обложка", "/materials/x/social-card"),
+    ).toEqual({
       alt: "Обложка",
       height: 630,
       url: "/api/content-covers/72000000-0000-4000-8000-000000000099/1200",
@@ -162,16 +183,24 @@ describe("Картинка предпросмотра", () => {
       ],
     };
 
-    expect(coverLinkPreviewImage(cover, "Обложка", "/materials/x/social-card")).toMatchObject({
+    expect(
+      coverLinkPreviewImage(cover, "Обложка", "/materials/x/social-card"),
+    ).toMatchObject({
       url: "/api/content-covers/72000000-0000-4000-8000-000000000099/800",
       width: 800,
     });
   });
 
-  it.each([null, undefined, { coverId: "72000000-0000-4000-8000-000000000099", renditions: [] }])(
+  it.each([
+    null,
+    undefined,
+    { coverId: "72000000-0000-4000-8000-000000000099", renditions: [] },
+  ])(
     "подставляет сгенерированную карточку вместо пустого предпросмотра: %s",
     (cover) => {
-      expect(coverLinkPreviewImage(cover, "Название", "/materials/x/social-card")).toEqual({
+      expect(
+        coverLinkPreviewImage(cover, "Название", "/materials/x/social-card"),
+      ).toEqual({
         alt: "Название",
         height: 630,
         url: "/materials/x/social-card",
@@ -183,7 +212,9 @@ describe("Картинка предпросмотра", () => {
 
 describe("Название на сгенерированной карточке", () => {
   it("оставляет короткое название как есть и убирает лишние пробелы", () => {
-    expect(socialCardTitle("  Как  устроен\nInside ")).toBe("Как устроен Inside");
+    expect(socialCardTitle("  Как  устроен\nInside ")).toBe(
+      "Как устроен Inside",
+    );
   });
 
   it("обрезает длинное название по границе слова", () => {

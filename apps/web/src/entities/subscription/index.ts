@@ -105,8 +105,18 @@ export {
   underageNotice,
 } from "./model/acceptance";
 
-export { tierSchema, enrollmentSchema, enrollmentsSchema, enrollmentSourceLabels, enrollmentStateLabels, type Enrollment } from "./model/enrollment";
+export {
+  tierSchema,
+  enrollmentSchema,
+  enrollmentsSchema,
+  enrollmentSourceLabels,
+  enrollmentStateLabels,
+  type Enrollment,
+} from "./model/enrollment";
 
 export { EnrollmentList } from "./ui/enrollment-list";
 
-export { announceEnrollmentChange, subscribeEnrollmentChange } from "./model/enrollment-events";
+export {
+  announceEnrollmentChange,
+  subscribeEnrollmentChange,
+} from "./model/enrollment-events";

@@ -1,9 +1,5 @@
 import { applyDecorators, UseFilters, UseGuards } from "@nestjs/common";
-import {
-  ApiBearerAuth,
-  ApiResponse,
-  ApiSecurity,
-} from "@nestjs/swagger";
+import { ApiBearerAuth, ApiResponse, ApiSecurity } from "@nestjs/swagger";
 
 import { problemDetailsContent } from "../../../../infrastructure/http/zod-openapi.js";
 import { accountProblemSchema } from "./account-http.contract.js";

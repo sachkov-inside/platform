@@ -34,7 +34,9 @@ type ProofFailure = {
 };
 
 export interface LogtoAccessTokenVerifier {
-  verifyAccountSignIn(token: unknown): Promise<
+  verifyAccountSignIn(
+    token: unknown,
+  ): Promise<
     | ({ readonly ok: true } & ReturnType<typeof verifiedAccountSignIn>)
     | ProofFailure
   >;
@@ -66,11 +68,20 @@ export function createLogtoAccessTokenVerifier(
       if (!verified.ok) return verified;
       if (isMachineToken(verified.payload)) return invalidProof();
       if (verified.payload.inside_telegram_sign_in !== undefined) {
-        const telegram = z.object({ subjectRef: z.uuid(), requestRef: z.uuid() }).strict().safeParse(verified.payload.inside_telegram_sign_in);
-        if (!config.telegramSignInEnabled || !telegram.success) return invalidProof();
-        return { ok: true, ...verifiedTelegramAccountSignIn({
-          issuer: verified.payload.iss, subject: verified.payload.sub, telegram: telegram.data,
-        }) };
+        const telegram = z
+          .object({ subjectRef: z.uuid(), requestRef: z.uuid() })
+          .strict()
+          .safeParse(verified.payload.inside_telegram_sign_in);
+        if (!config.telegramSignInEnabled || !telegram.success)
+          return invalidProof();
+        return {
+          ok: true,
+          ...verifiedTelegramAccountSignIn({
+            issuer: verified.payload.iss,
+            subject: verified.payload.sub,
+            telegram: telegram.data,
+          }),
+        };
       }
       const email = verifiedEmailSchema.safeParse(
         verified.payload.inside_verified_email,
@@ -116,8 +127,14 @@ async function verifyToken(
   token: unknown,
   config: LogtoVerifierConfig,
   keyResolver: JWTVerifyGetKey,
-): Promise<{ readonly ok: true; readonly payload: ValidatedPayload } | ProofFailure> {
-  if (typeof token !== "string" || token.length === 0 || token.length > MAX_TOKEN_LENGTH) {
+): Promise<
+  { readonly ok: true; readonly payload: ValidatedPayload } | ProofFailure
+> {
+  if (
+    typeof token !== "string" ||
+    token.length === 0 ||
+    token.length > MAX_TOKEN_LENGTH
+  ) {
     return invalidProof();
   }
   try {
@@ -154,7 +171,11 @@ async function verifyToken(
     };
   } catch (error) {
     return isDependencyFailure(error, config.jwksUrl !== undefined)
-      ? dependencyFailure({ module: "accounts", operation: "verifyToken" }, error, { ok: false, error: { code: "dependency_unavailable" } })
+      ? dependencyFailure(
+          { module: "accounts", operation: "verifyToken" },
+          error,
+          { ok: false, error: { code: "dependency_unavailable" } },
+        )
       : invalidProof();
   }
 }

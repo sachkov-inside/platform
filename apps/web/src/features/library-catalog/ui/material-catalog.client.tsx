@@ -40,7 +40,10 @@ export function InfiniteMaterialCatalog({
   readonly presentation?: "catalog" | "feed";
 }) {
   const loadSentinelRef = useRef<HTMLDivElement>(null);
-  const materialCount = pages.reduce((count, page) => count + page.items.length, 0);
+  const materialCount = pages.reduce(
+    (count, page) => count + page.items.length,
+    0,
+  );
 
   useEffect(() => {
     const sentinel = loadSentinelRef.current;
@@ -79,11 +82,15 @@ export function InfiniteMaterialCatalog({
       <div aria-hidden="true" className="h-px" ref={loadSentinelRef} />
       <div aria-live="polite" className="mt-6 flex min-h-11 justify-center">
         {isFetchingNextPage ? (
-          <p className="text-sm text-muted-foreground">Загружаем ещё материалы…</p>
+          <p className="text-sm text-muted-foreground">
+            Загружаем ещё материалы…
+          </p>
         ) : null}
         {isFetchNextPageError ? (
           <div className="flex flex-wrap items-center justify-center gap-3">
-            <p className="text-sm text-muted-foreground">Не удалось загрузить продолжение каталога.</p>
+            <p className="text-sm text-muted-foreground">
+              Не удалось загрузить продолжение каталога.
+            </p>
             <Button onClick={onLoadNextPage} size="sm" variant="outline">
               <RefreshCw aria-hidden="true" />
               Повторить
@@ -96,7 +103,9 @@ export function InfiniteMaterialCatalog({
           </Button>
         ) : null}
         {!hasNextPage && !isFetchNextPageError ? (
-          <p className="text-sm text-muted-foreground">Все материалы загружены</p>
+          <p className="text-sm text-muted-foreground">
+            Все материалы загружены
+          </p>
         ) : null}
       </div>
     </>
@@ -105,11 +114,16 @@ export function InfiniteMaterialCatalog({
     return <div data-library-state="ready">{catalog}</div>;
   }
   return (
-    <section aria-labelledby="materials-heading" className="mt-11" data-library-state="ready">
+    <section
+      aria-labelledby="materials-heading"
+      className="mt-11"
+      data-library-state="ready"
+    >
       <PublicSectionHeading
         aside={
           <p className="text-sm font-semibold text-muted-foreground">
-            {formatFoundMaterialCount(totalCount)} · {formatLoadedMaterialCount(materialCount)}
+            {formatFoundMaterialCount(totalCount)} ·{" "}
+            {formatLoadedMaterialCount(materialCount)}
           </p>
         }
         id="materials-heading"

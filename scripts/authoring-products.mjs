@@ -6,14 +6,18 @@ import { printProducts } from "../tools/authoring/products.mjs";
 import { resolveLocalTarget } from "../tools/authoring/target.mjs";
 import { standIdentity, withStandGateway } from "./stand-gateway-session.mjs";
 
-const { values } = parseArgs({ options: {
-  target: { type: "string", default: "stand" },
-  "owner-email": { type: "string" },
-  json: { type: "boolean", default: false },
-} });
+const { values } = parseArgs({
+  options: {
+    target: { type: "string", default: "stand" },
+    "owner-email": { type: "string" },
+    json: { type: "boolean", default: false },
+  },
+});
 if (values.target === "stand") {
   const { email } = await standIdentity(values["owner-email"]);
-  await withStandGateway(email, (origin) => printProducts(origin, { json: values.json }));
+  await withStandGateway(email, (origin) =>
+    printProducts(origin, { json: values.json }),
+  );
 } else {
   await printProducts(resolveLocalTarget(values.target), { json: values.json });
 }

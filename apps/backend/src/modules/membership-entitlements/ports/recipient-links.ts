@@ -21,7 +21,10 @@ export interface RecipientLinks {
       }
   >;
   /** The current binding, or the one at `revision`; a null identity is an unlink tombstone. */
-  readBinding(query: { readonly accountId: string; readonly revision?: number }): Promise<
+  readBinding(query: {
+    readonly accountId: string;
+    readonly revision?: number;
+  }): Promise<
     | { readonly ok: false }
     | {
         readonly ok: true;

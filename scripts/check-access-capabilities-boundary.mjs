@@ -15,7 +15,9 @@ import { parseSync, Visitor } from "oxc-parser";
 const repositoryRoot = path.resolve(process.argv[2] ?? ".");
 
 if (!statSync(repositoryRoot).isDirectory()) {
-  throw new TypeError(`Access capabilities boundary root is not a directory: ${repositoryRoot}`);
+  throw new TypeError(
+    `Access capabilities boundary root is not a directory: ${repositoryRoot}`,
+  );
 }
 
 const vocabulary = new Set([
@@ -40,18 +42,24 @@ function violationsIn(program) {
   const violations = [];
   const declared = (name) => {
     if (vocabulary.has(name)) {
-      violations.push(`${name} belongs to @inside/access-capabilities; import it instead of declaring it again`);
+      violations.push(
+        `${name} belongs to @inside/access-capabilities; import it instead of declaring it again`,
+      );
     }
   };
   new Visitor({
     Literal(node) {
       if (typeof node.value === "string" && node.value.startsWith("guide:")) {
-        violations.push("a Guide capability is built by @inside/access-capabilities, not by its own string");
+        violations.push(
+          "a Guide capability is built by @inside/access-capabilities, not by its own string",
+        );
       }
     },
     TemplateLiteral(node) {
       if (node.quasis[0]?.value.cooked?.startsWith("guide:") === true) {
-        violations.push("a Guide capability is built by @inside/access-capabilities, not by its own string");
+        violations.push(
+          "a Guide capability is built by @inside/access-capabilities, not by its own string",
+        );
       }
     },
     VariableDeclarator(node) {
@@ -64,16 +72,23 @@ function violationsIn(program) {
   return [...new Set(violations)];
 }
 
-const applicationSources = readdirSync(path.join(repositoryRoot, "apps"), { withFileTypes: true })
+const applicationSources = readdirSync(path.join(repositoryRoot, "apps"), {
+  withFileTypes: true,
+})
   .filter((entry) => entry.isDirectory())
   .map((entry) => path.join(repositoryRoot, "apps", entry.name, "src"))
-  .filter((directory) => statSync(directory, { throwIfNoEntry: false })?.isDirectory() === true);
+  .filter(
+    (directory) =>
+      statSync(directory, { throwIfNoEntry: false })?.isDirectory() === true,
+  );
 
 const findings = applicationSources.flatMap((directory) =>
   sourceFiles(directory).flatMap((file) => {
     const { errors, program } = parseSync(file, readFileSync(file, "utf8"));
     if (errors.length > 0) {
-      throw new SyntaxError(`Oxc could not parse ${file}: ${errors[0].message}`);
+      throw new SyntaxError(
+        `Oxc could not parse ${file}: ${errors[0].message}`,
+      );
     }
     return violationsIn(program).map(
       (message) => `${path.relative(repositoryRoot, file)}: ${message}`,

@@ -22,8 +22,12 @@ export function assembleMemberProfiles({
     readPrivateProfile: (accountId) => readPrivateProfile(prisma, accountId),
     createProfile: (command) => createProfile(prisma, command),
     updateProfile: (command) => updateProfile(prisma, command),
-    changeAvatar: (command) => changeProfileAvatar({ objectStorage, prisma }, command),
+    changeAvatar: (command) =>
+      changeProfileAvatar({ objectStorage, prisma }, command),
     deliverAvatar: (input) =>
-      deliverProfileAvatar({ objectStorage, prisma, signedGetTtlSeconds }, input),
+      deliverProfileAvatar(
+        { objectStorage, prisma, signedGetTtlSeconds },
+        input,
+      ),
   };
 }

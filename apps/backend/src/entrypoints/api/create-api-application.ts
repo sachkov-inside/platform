@@ -26,7 +26,10 @@ export async function createApiApplication(
 ): Promise<NestFastifyApplication> {
   const app = await NestFactory.create<NestFastifyApplication>(
     ApiModule.forRoot(config),
-    new FastifyAdapter({ bodyLimit: MAX_HTTP_BODY_BYTES, genReqId: generateRequestId }),
+    new FastifyAdapter({
+      bodyLimit: MAX_HTTP_BODY_BYTES,
+      genReqId: generateRequestId,
+    }),
     { logger: new StructuredNestLogger(), ...options, rawBody: true },
   );
   observeHttpRequests(app.getHttpAdapter().getInstance(), "api");
@@ -48,7 +51,16 @@ export function createApiOpenApiDocument(
       "Canonical REST contract for the Inside Platform web and agent adapters.",
     )
     .setVersion("1.0.0")
-    .addApiKey({ type: "apiKey", in: "header", name: "trbt-signature", description: "HMAC-SHA256 of original request body using the Tribute API key; configured encoding must be credentialed-verified." }, "tribute-signature")
+    .addApiKey(
+      {
+        type: "apiKey",
+        in: "header",
+        name: "trbt-signature",
+        description:
+          "HMAC-SHA256 of original request body using the Tribute API key; configured encoding must be credentialed-verified.",
+      },
+      "tribute-signature",
+    )
     .addBearerAuth(
       {
         type: "http",
@@ -66,15 +78,46 @@ export function createApiOpenApiDocument(
       },
       "telegram-membership",
     )
-    .addBearerAuth({ type: "http", scheme: "bearer", description: "Dedicated Telegram notification dispatch credential." }, "telegram-notifications")
-    .addBearerAuth({ type: "http", scheme: "bearer", description: "Dedicated Telegram author-authorization service credential." }, "telegram-communications")
-    .addBearerAuth({ type: "http", scheme: "bearer", description: "Dedicated course-source activation authority; not the community dispatch credential." }, "subscription-activation")
-    .addBearerAuth({ type: "http", scheme: "bearer", description: "Dedicated Telegram community dispatch credential." }, "telegram-community")
+    .addBearerAuth(
+      {
+        type: "http",
+        scheme: "bearer",
+        description: "Dedicated Telegram notification dispatch credential.",
+      },
+      "telegram-notifications",
+    )
+    .addBearerAuth(
+      {
+        type: "http",
+        scheme: "bearer",
+        description:
+          "Dedicated Telegram author-authorization service credential.",
+      },
+      "telegram-communications",
+    )
+    .addBearerAuth(
+      {
+        type: "http",
+        scheme: "bearer",
+        description:
+          "Dedicated course-source activation authority; not the community dispatch credential.",
+      },
+      "subscription-activation",
+    )
+    .addBearerAuth(
+      {
+        type: "http",
+        scheme: "bearer",
+        description: "Dedicated Telegram community dispatch credential.",
+      },
+      "telegram-community",
+    )
     .addBasicAuth(
       {
         type: "http",
         scheme: "basic",
-        description: "Kinescope webhook credentials configured for the Platform endpoint.",
+        description:
+          "Kinescope webhook credentials configured for the Platform endpoint.",
       },
       "kinescope-webhook",
     )

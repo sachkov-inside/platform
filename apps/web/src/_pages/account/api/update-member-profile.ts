@@ -15,7 +15,9 @@ import {
   profileIssueMessage,
 } from "@/entities/member-profile";
 
-const textField = z.string().refine((value) => !hasRejectedControlCharacters(value));
+const textField = z
+  .string()
+  .refine((value) => !hasRejectedControlCharacters(value));
 const formSchema = z
   .object({
     bio: textField.refine((value) => codePointLength(value) <= 500),
@@ -88,7 +90,8 @@ function mapUpdateProfileProblem(
   }
   return {
     kind: "unavailable",
-    reference: problem?.correlationId ?? problem?.code ?? "update-profile-response",
+    reference:
+      problem?.correlationId ?? problem?.code ?? "update-profile-response",
   };
 }
 
@@ -111,7 +114,9 @@ function unavailable(error: unknown): UpdateMemberProfileResult {
   return {
     kind: "unavailable",
     reference:
-      error instanceof BackendConnectionError ? error.code : "update-profile-contract",
+      error instanceof BackendConnectionError
+        ? error.code
+        : "update-profile-contract",
   };
 }
 

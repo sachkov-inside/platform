@@ -90,7 +90,11 @@ export class Communications {
             this.presentation.targets,
           );
         } catch (error) {
-          return dependencyFailure({ module: "communications", operation: "execute" }, error, communicationsFailure("provider_unavailable"));
+          return dependencyFailure(
+            { module: "communications", operation: "execute" },
+            error,
+            communicationsFailure("provider_unavailable"),
+          );
         }
         if (request.operation === "funnels.publish" && targetErrors.length > 0)
           return communicationsFailure("invalid_targets");

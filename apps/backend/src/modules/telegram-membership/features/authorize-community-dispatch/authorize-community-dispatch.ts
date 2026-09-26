@@ -49,7 +49,9 @@ export async function authorizeCommunityDispatch(
   now: Date,
 ): Promise<CommunityAuthorizationOutcome> {
   const requestDigest = contractDigest(input);
-  const decided = (decision: DispatchDecision): CommunityAuthorizationOutcome => ({
+  const decided = (
+    decision: DispatchDecision,
+  ): CommunityAuthorizationOutcome => ({
     ok: true,
     result: dispatchResultSchema.parse({
       attemptId: input.attemptId,
@@ -84,14 +86,18 @@ export async function authorizeCommunityDispatch(
 
   try {
     return await dependencies.prisma.$transaction(async (transaction) => {
-      await lockTelegramCommunityWork(transaction, `authorize:${input.operationId}`);
+      await lockTelegramCommunityWork(
+        transaction,
+        `authorize:${input.operationId}`,
+      );
       const replay =
         await transaction.telegramCommunityAuthorization.findUnique({
           where: { operationId: input.operationId },
         });
       if (replay !== null) {
         // The same authorization returns its original answer, including its deadline.
-        if (replay.digest !== requestDigest) return failed("operation_conflict");
+        if (replay.digest !== requestDigest)
+          return failed("operation_conflict");
         const stored = dispatchResultSchema.safeParse(replay.response);
         return stored.success
           ? { ok: true as const, result: stored.data }
@@ -125,7 +131,14 @@ export async function authorizeCommunityDispatch(
       return decision;
     });
   } catch (error) {
-    return dependencyFailure({ module: "telegram-membership", operation: "authorizeCommunityDispatch" }, error, decided({ status: "unavailable" }));
+    return dependencyFailure(
+      {
+        module: "telegram-membership",
+        operation: "authorizeCommunityDispatch",
+      },
+      error,
+      decided({ status: "unavailable" }),
+    );
   }
 }
 
@@ -142,15 +155,20 @@ async function decide(
   });
   if (operation === null) return denied("not_found");
   const storedCommand = communitySetSchema.safeParse(operation.command);
-  if (!storedCommand.success || storedCommand.data.contractVersion !== input.dispatchContractVersion ||
-    operation.payloadDigest !== input.payloadDigest || contractDigest(storedCommand.data) !== input.payloadDigest) {
+  if (
+    !storedCommand.success ||
+    storedCommand.data.contractVersion !== input.dispatchContractVersion ||
+    operation.payloadDigest !== input.payloadDigest ||
+    contractDigest(storedCommand.data) !== input.payloadDigest
+  ) {
     return denied("payload_conflict");
   }
   const [capabilities, binding] = await Promise.all([
     dependencies.grants.resolveCapabilities(operation.accountId),
     dependencies.links.readBinding({ accountId: operation.accountId }),
   ]);
-  if (!capabilities.ok || !binding.ok) return decided({ status: "unavailable" });
+  if (!capabilities.ok || !binding.ok)
+    return decided({ status: "unavailable" });
   const currentAccess = communityAccessFor(capabilities.capabilities);
   const commandAccess = communityAccessSchema.parse(operation.access);
   const current = binding.binding;
@@ -179,7 +197,8 @@ async function decide(
       return decided(permit(now));
     }
     if (!bindsCurrentIdentity) return denied("binding_conflict");
-    if (await hasNewerCommand(transaction, operation)) return denied("superseded");
+    if (await hasNewerCommand(transaction, operation))
+      return denied("superseded");
     // An expired reason never removes a member who already has another live one.
     if (accessAllows(currentAccess, now)) return denied("superseded");
     return decided(permit(now));
@@ -189,7 +208,8 @@ async function decide(
   // The recipient is checked before the revision: a command whose verified link has
   // moved is a binding conflict, whether or not a newer command was issued yet.
   if (!bindsCurrentIdentity) return denied("binding_conflict");
-  if (await hasNewerCommand(transaction, operation)) return denied("superseded");
+  if (await hasNewerCommand(transaction, operation))
+    return denied("superseded");
   if (!accessAllows(currentAccess, now)) {
     return denied(
       commandAccess.kind === "finite" &&
@@ -213,6 +233,8 @@ function permit(now: Date, deadline?: number): DispatchDecision {
   return {
     permitRef: randomUUID(),
     status: "allowed",
-    validUntil: new Date(deadline ?? now.getTime() + PERMIT_LIFETIME_MS).toISOString(),
+    validUntil: new Date(
+      deadline ?? now.getTime() + PERMIT_LIFETIME_MS,
+    ).toISOString(),
   };
 }

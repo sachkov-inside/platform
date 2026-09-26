@@ -29,85 +29,90 @@ const PAPER = "#ffffff";
 export function socialCardResponse(content: SocialCardContent): ImageResponse {
   const title = socialCardTitle(content.title);
   return new ImageResponse(
-    (
-      <div
-        style={{
-          backgroundColor: INK,
-          color: PAPER,
-          display: "flex",
-          flexDirection: "column",
-          height: "100%",
-          justifyContent: "space-between",
-          padding: "72px",
-          width: "100%",
-        }}
-      >
-        <div style={{ alignItems: "center", display: "flex", gap: "20px" }}>
+    <div
+      style={{
+        backgroundColor: INK,
+        color: PAPER,
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        justifyContent: "space-between",
+        padding: "72px",
+        width: "100%",
+      }}
+    >
+      <div style={{ alignItems: "center", display: "flex", gap: "20px" }}>
+        <div
+          style={{
+            alignItems: "center",
+            backgroundColor: PAPER,
+            borderRadius: "16px",
+            display: "flex",
+            flexDirection: "column",
+            height: "56px",
+            justifyContent: "center",
+            width: "56px",
+          }}
+        >
           <div
             style={{
-              alignItems: "center",
-              backgroundColor: PAPER,
-              borderRadius: "16px",
+              backgroundColor: ACCENT,
+              borderRadius: "3px",
               display: "flex",
-              flexDirection: "column",
-              height: "56px",
-              justifyContent: "center",
-              width: "56px",
+              height: "10px",
+              width: "10px",
             }}
-          >
-            <div
-              style={{
-                backgroundColor: ACCENT,
-                borderRadius: "3px",
-                display: "flex",
-                height: "10px",
-                width: "10px",
-              }}
-            />
-            <div
-              style={{
-                backgroundColor: INK,
-                display: "flex",
-                height: "20px",
-                marginTop: "5px",
-                width: "10px",
-              }}
-            />
-          </div>
-          <div style={{ display: "flex", fontSize: "30px", letterSpacing: "-0.5px" }}>
-            {SITE_NAME}
-          </div>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-          {content.eyebrow === undefined ? null : (
-            <div
-              style={{
-                color: ACCENT,
-                display: "flex",
-                fontSize: "28px",
-                letterSpacing: "4px",
-                textTransform: "uppercase",
-              }}
-            >
-              {content.eyebrow}
-            </div>
-          )}
+          />
           <div
             style={{
+              backgroundColor: INK,
               display: "flex",
-              fontSize: `${String(socialCardTitleFontSize(title))}px`,
-              letterSpacing: "-1px",
-              lineHeight: 1.16,
+              height: "20px",
+              marginTop: "5px",
+              width: "10px",
             }}
-          >
-            {title}
-          </div>
+          />
         </div>
         <div
-          style={{ backgroundColor: ACCENT, display: "flex", height: "6px", width: "120px" }}
-        />
+          style={{ display: "flex", fontSize: "30px", letterSpacing: "-0.5px" }}
+        >
+          {SITE_NAME}
+        </div>
       </div>
-    ),
+      <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+        {content.eyebrow === undefined ? null : (
+          <div
+            style={{
+              color: ACCENT,
+              display: "flex",
+              fontSize: "28px",
+              letterSpacing: "4px",
+              textTransform: "uppercase",
+            }}
+          >
+            {content.eyebrow}
+          </div>
+        )}
+        <div
+          style={{
+            display: "flex",
+            fontSize: `${String(socialCardTitleFontSize(title))}px`,
+            letterSpacing: "-1px",
+            lineHeight: 1.16,
+          }}
+        >
+          {title}
+        </div>
+      </div>
+      <div
+        style={{
+          backgroundColor: ACCENT,
+          display: "flex",
+          height: "6px",
+          width: "120px",
+        }}
+      />
+    </div>,
     {
       ...SOCIAL_CARD_SIZE,
       headers: { "cache-control": SOCIAL_CARD_CACHE_CONTROL },

@@ -46,11 +46,7 @@ export const releaseImageResultSchema = z.strictObject({
 
 const imageReferenceSchema = (imageName) =>
   z.intersection(
-    z.templateLiteral([
-      z.literal(imageName),
-      "@sha256:",
-      z.hash("sha256"),
-    ]),
+    z.templateLiteral([z.literal(imageName), "@sha256:", z.hash("sha256")]),
     z.string().lowercase(),
   );
 

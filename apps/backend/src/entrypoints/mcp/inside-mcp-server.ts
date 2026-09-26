@@ -1,6 +1,9 @@
 import type { McpServer } from "@modelcontextprotocol/server";
 
-import { registerBillingTools, type BillingOwnerTools } from "../../modules/billing/index.js";
+import {
+  registerBillingTools,
+  type BillingOwnerTools,
+} from "../../modules/billing/index.js";
 import {
   registerCommunicationsTools,
   type Communications,
@@ -9,7 +12,10 @@ import {
   assembleMaterialAuthoringMcpServer,
   type MaterialAuthoring,
 } from "../../modules/materials/index.js";
-import { registerVideoTools, type VideoAuthoringTools } from "../../modules/videos/index.js";
+import {
+  registerVideoTools,
+  type VideoAuthoringTools,
+} from "../../modules/videos/index.js";
 
 export interface InsideMcpToolDependencies {
   readonly accountId: string;
@@ -23,11 +29,19 @@ export interface InsideMcpToolDependencies {
  * Один состав инструментов MCP для делегированного Account. HTTP-вход и слепок набора собирают
  * сервер этой функцией, поэтому список зарегистрированных инструментов существует в одном месте.
  */
-export function assembleInsideMcpServer(dependencies: InsideMcpToolDependencies): McpServer {
+export function assembleInsideMcpServer(
+  dependencies: InsideMcpToolDependencies,
+): McpServer {
   const { accountId } = dependencies;
-  const server = assembleMaterialAuthoringMcpServer({ accountId, authoring: dependencies.authoring });
+  const server = assembleMaterialAuthoringMcpServer({
+    accountId,
+    authoring: dependencies.authoring,
+  });
   registerVideoTools(server, { accountId, videos: dependencies.videos });
-  registerCommunicationsTools(server, { accountId, communications: dependencies.communications });
+  registerCommunicationsTools(server, {
+    accountId,
+    communications: dependencies.communications,
+  });
   registerBillingTools(server, { accountId, billing: dependencies.billing });
   return server;
 }

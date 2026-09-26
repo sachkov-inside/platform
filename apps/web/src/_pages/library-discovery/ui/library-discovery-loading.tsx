@@ -7,7 +7,6 @@ import { GuideProductSkeleton, pulse } from "./guide-product-skeletons";
  * Общий скелет подборки остался у темы.
  */
 
-
 /** Программа: возврат к продукту, шапка с обложкой и строки уроков по главам. */
 export function GuideProgrammeLoading() {
   return (
@@ -20,7 +19,10 @@ export function GuideProgrammeLoading() {
       <div className="pt-4" data-programme-part="back">
         <div className={`h-11 w-32 rounded-lg bg-muted ${pulse}`} />
       </div>
-      <div className="mt-2 rounded-2xl bg-muted/60 p-4 sm:p-5" data-programme-part="header">
+      <div
+        className="mt-2 rounded-2xl bg-muted/60 p-4 sm:p-5"
+        data-programme-part="header"
+      >
         <div className={`flex items-center gap-4 ${pulse}`}>
           <div className="aspect-square w-16 shrink-0 rounded-lg bg-muted sm:w-20" />
           <div className="min-w-0 flex-1">
@@ -36,7 +38,10 @@ export function GuideProgrammeLoading() {
             <div className={`h-7 w-1/2 rounded-md bg-muted ${pulse}`} />
             <div className="mt-3 grid gap-2">
               {Array.from({ length: rows }, (_, row) => (
-                <div className={`min-h-24 rounded-xl bg-muted/65 ${pulse}`} key={row} />
+                <div
+                  className={`min-h-24 rounded-xl bg-muted/65 ${pulse}`}
+                  key={row}
+                />
               ))}
             </div>
           </div>

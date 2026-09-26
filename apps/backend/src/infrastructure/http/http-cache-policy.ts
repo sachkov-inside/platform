@@ -30,10 +30,16 @@ const cacheControlByPolicy = {
 } as const;
 
 export const PrivateNoStore = () =>
-  SetMetadata(CACHE_POLICY_METADATA, "private-no-store" satisfies HttpCachePolicy);
+  SetMetadata(
+    CACHE_POLICY_METADATA,
+    "private-no-store" satisfies HttpCachePolicy,
+  );
 
 export const PublicCatalogCache = () =>
-  SetMetadata(CACHE_POLICY_METADATA, "public-catalog" satisfies HttpCachePolicy);
+  SetMetadata(
+    CACHE_POLICY_METADATA,
+    "public-catalog" satisfies HttpCachePolicy,
+  );
 
 export const ViewerAwareCatalogCache = () =>
   SetMetadata(
@@ -68,9 +74,9 @@ export class HttpCachePolicyInterceptor implements NestInterceptor {
 
     const response = context.switchToHttp().getResponse<FastifyReply>();
     if (policy === "asset-delivery") {
-      return next.handle().pipe(
-        map((body: unknown) => sendAssetDelivery(response, body)),
-      );
+      return next
+        .handle()
+        .pipe(map((body: unknown) => sendAssetDelivery(response, body)));
     }
     return next.handle().pipe(
       tap((body: unknown) => {
@@ -88,7 +94,9 @@ function sendAssetDelivery(
   body: unknown,
 ): Buffer | undefined {
   if (!isAssetDelivery(body)) {
-    throw new TypeError("Asset delivery controller returned an invalid response");
+    throw new TypeError(
+      "Asset delivery controller returned an invalid response",
+    );
   }
   response.header(
     "Cache-Control",
@@ -124,16 +132,27 @@ function isAssetDelivery(value: unknown): value is
       kind: "redirect";
       location: string;
     }> {
-  if (typeof value !== "object" || value === null || !("kind" in value)) return false;
+  if (typeof value !== "object" || value === null || !("kind" in value))
+    return false;
   if (value.kind === "redirect") {
-    return "cacheScope" in value && value.cacheScope === "private-no-store" &&
-      "location" in value && typeof value.location === "string";
+    return (
+      "cacheScope" in value &&
+      value.cacheScope === "private-no-store" &&
+      "location" in value &&
+      typeof value.location === "string"
+    );
   }
-  return value.kind === "bytes" && "cacheScope" in value &&
-    value.cacheScope === "public-immutable" && "body" in value &&
-    value.body instanceof Uint8Array && "contentLength" in value &&
-    typeof value.contentLength === "number" && "contentType" in value &&
-    typeof value.contentType === "string";
+  return (
+    value.kind === "bytes" &&
+    "cacheScope" in value &&
+    value.cacheScope === "public-immutable" &&
+    "body" in value &&
+    value.body instanceof Uint8Array &&
+    "contentLength" in value &&
+    typeof value.contentLength === "number" &&
+    "contentType" in value &&
+    typeof value.contentType === "string"
+  );
 }
 
 function resolveCacheControl(

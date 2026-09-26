@@ -56,11 +56,18 @@ function collect(block: RenderedBlock, into: Collected): void {
 export function extractMaterialBody(
   document: RenderedMaterialBody,
 ): MaterialBodyExtraction {
-  const collected: Collected = { headings: [], modeVariants: false, resources: [] };
+  const collected: Collected = {
+    headings: [],
+    modeVariants: false,
+    resources: [],
+  };
   document.blocks.forEach((block) => collect(block, collected));
   return {
     hasModeVariants: collected.modeVariants,
-    plainText: document.blocks.map(materialBlockText).filter(Boolean).join("\n\n"),
+    plainText: document.blocks
+      .map(materialBlockText)
+      .filter(Boolean)
+      .join("\n\n"),
     headings: collected.headings,
     resources: collected.resources,
   };

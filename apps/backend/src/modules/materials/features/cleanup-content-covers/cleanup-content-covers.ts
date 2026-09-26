@@ -1,13 +1,16 @@
 import type { ObjectStorage } from "../../../../infrastructure/object-storage/index.js";
-import { lockContentCoverOwner, type MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import {
+  lockContentCoverOwner,
+  type MaterialsPrismaClient,
+} from "../../../../infrastructure/prisma/index.js";
 
 const CLEANUP_CLAIM = "cleanup_claimed";
 const CLEANUP_BATCH_SIZE = 100;
 
 export interface ContentCoverMaintenance {
-  cleanup(input: Readonly<{ graceMs: number; now?: Date }>): Promise<
-    Readonly<{ cleaned: number; retained: number }>
-  >;
+  cleanup(
+    input: Readonly<{ graceMs: number; now?: Date }>,
+  ): Promise<Readonly<{ cleaned: number; retained: number }>>;
 }
 
 export function assembleContentCoverMaintenance(dependencies: {
@@ -33,15 +36,18 @@ export function assembleContentCoverMaintenance(dependencies: {
       let retained = 0;
       for (const candidate of candidates) {
         const claim = await prisma.$transaction(async (transaction) => {
-          const initial = await transaction.contentCover.findUnique({ where: candidate });
+          const initial = await transaction.contentCover.findUnique({
+            where: candidate,
+          });
           if (initial === null) return null;
-          const owner = initial.materialId !== null
-            ? { kind: "material" as const, id: initial.materialId }
-            : initial.topicId !== null
-              ? { kind: "topic" as const, id: initial.topicId }
-              : initial.seriesId !== null
-                ? { kind: "series" as const, id: initial.seriesId }
-                : null;
+          const owner =
+            initial.materialId !== null
+              ? { kind: "material" as const, id: initial.materialId }
+              : initial.topicId !== null
+                ? { kind: "topic" as const, id: initial.topicId }
+                : initial.seriesId !== null
+                  ? { kind: "series" as const, id: initial.seriesId }
+                  : null;
           // content_covers_exactly_one_owner makes an ownerless cover unreachable.
           if (owner === null) return null;
           await lockContentCoverOwner(transaction, owner);
@@ -50,25 +56,41 @@ export function assembleContentCoverMaintenance(dependencies: {
             include: { renditions: true },
           });
           if (cover === null) return null;
-          if (cover.failureCode !== CLEANUP_CLAIM &&
-            (cover.orphanedAt > cutoff || cover.updatedAt > cutoff)) return null;
+          if (
+            cover.failureCode !== CLEANUP_CLAIM &&
+            (cover.orphanedAt > cutoff || cover.updatedAt > cutoff)
+          )
+            return null;
           const references = await Promise.all([
             transaction.material.count({ where: { coverId: cover.id } }),
             transaction.topic.count({ where: { coverId: cover.id } }),
             transaction.guide.count({ where: { coverId: cover.id } }),
-            transaction.publishedMaterial.count({ where: { coverId: cover.id } }),
+            transaction.publishedMaterial.count({
+              where: { coverId: cover.id },
+            }),
           ]);
-          if (references.some((count) => count > 0) || cover.currentlyReferenced) {
+          if (
+            references.some((count) => count > 0) ||
+            cover.currentlyReferenced
+          ) {
             const referenced = references.some((count) => count > 0);
             await transaction.contentCover.update({
               where: candidate,
-              data: { currentlyReferenced: referenced, orphanedAt: now, updatedAt: now },
+              data: {
+                currentlyReferenced: referenced,
+                orphanedAt: now,
+                updatedAt: now,
+              },
             });
             return { kind: "retained" as const };
           }
           await transaction.contentCover.update({
             where: candidate,
-            data: { state: "failed", failureCode: CLEANUP_CLAIM, updatedAt: now },
+            data: {
+              state: "failed",
+              failureCode: CLEANUP_CLAIM,
+              updatedAt: now,
+            },
           });
           return {
             kind: "claimed" as const,

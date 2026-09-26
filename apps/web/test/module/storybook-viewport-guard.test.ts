@@ -5,8 +5,14 @@ import { assertDeclaredViewport } from "../../.storybook/viewport-guard";
 const declared = {
   viewport: {
     options: {
-      desktop1440: { name: "Desktop 1440 × 900", styles: { height: "900px", width: "1440px" } },
-      mobile390: { name: "Mobile 390 × 844", styles: { height: "844px", width: "390px" } },
+      desktop1440: {
+        name: "Desktop 1440 × 900",
+        styles: { height: "900px", width: "1440px" },
+      },
+      mobile390: {
+        name: "Mobile 390 × 844",
+        styles: { height: "844px", width: "390px" },
+      },
     },
   },
 };
@@ -39,7 +45,10 @@ describe("Storybook viewport guard", () => {
           viewport: {
             options: {
               ...declared.viewport.options,
-              tablet768: { name: "Tablet 768", styles: { height: "1024px", width: "768px" } },
+              tablet768: {
+                name: "Tablet 768",
+                styles: { height: "1024px", width: "768px" },
+              },
             },
           },
         },
@@ -55,19 +64,27 @@ describe("Storybook viewport guard", () => {
         parameters: declared,
       });
     }).toThrow(
-      'История «Pages/Collections › Topic · mobile» просит размер «mobile360», которого нет среди объявленных: desktop1440, mobile390.',
+      "История «Pages/Collections › Topic · mobile» просит размер «mobile360», которого нет среди объявленных: desktop1440, mobile390.",
     );
   });
 
   it("rejects a string global that the runner does not read", () => {
     expect(() => {
-      assertDeclaredViewport({ ...story, globals: { viewport: "mobile390" }, parameters: declared });
+      assertDeclaredViewport({
+        ...story,
+        globals: { viewport: "mobile390" },
+        parameters: declared,
+      });
     }).toThrow("задаёт размер строкой «mobile390»");
   });
 
   it("rejects a built-in Storybook size the project did not declare", () => {
     expect(() => {
-      assertDeclaredViewport({ ...story, globals: { viewport: { value: "mobile1" } }, parameters: declared });
+      assertDeclaredViewport({
+        ...story,
+        globals: { viewport: { value: "mobile1" } },
+        parameters: declared,
+      });
     }).toThrow("«mobile1»");
   });
 
@@ -76,7 +93,9 @@ describe("Storybook viewport guard", () => {
       assertDeclaredViewport({
         ...story,
         globals: {},
-        parameters: { viewport: { ...declared.viewport, defaultViewport: "mobile360" } },
+        parameters: {
+          viewport: { ...declared.viewport, defaultViewport: "mobile360" },
+        },
       });
     }).toThrow("«mobile360»");
   });
@@ -86,7 +105,9 @@ describe("Storybook viewport guard", () => {
       assertDeclaredViewport({
         ...story,
         globals: { viewport: { value: "mobile390" } },
-        parameters: { viewport: { ...declared.viewport, defaultViewport: "mobile360" } },
+        parameters: {
+          viewport: { ...declared.viewport, defaultViewport: "mobile360" },
+        },
       });
     }).not.toThrow();
   });

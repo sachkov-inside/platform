@@ -17,16 +17,32 @@ export interface RefundAmountRow {
 }
 
 /** Остаток к возврату по одному платежу из его попыток. */
-export function refundTotalsOf(rows: readonly RefundAmountRow[], amountKopecks: bigint): RefundTotals {
-  const sum = (states: readonly string[]) => rows.filter(row => states.includes(row.state))
-    .reduce((total, row) => total + row.amountKopecks, 0n);
+export function refundTotalsOf(
+  rows: readonly RefundAmountRow[],
+  amountKopecks: bigint,
+): RefundTotals {
+  const sum = (states: readonly string[]) =>
+    rows
+      .filter((row) => states.includes(row.state))
+      .reduce((total, row) => total + row.amountKopecks, 0n);
   const refunded = sum(["confirmed"]);
   const held = sum(unsettledRefundStates);
-  return { refundedKopecks: Number(refunded), heldKopecks: Number(held), refundableKopecks: Number(amountKopecks - refunded - held) };
+  return {
+    refundedKopecks: Number(refunded),
+    heldKopecks: Number(held),
+    refundableKopecks: Number(amountKopecks - refunded - held),
+  };
 }
 
 /** Тот же остаток, прочитанный под замком платежа перед решением и отправкой. */
-export async function refundTotals(tx: BillingPrisma, purchaseRef: string, amountKopecks: bigint): Promise<RefundTotals> {
-  const rows = await tx.billingRefund.findMany({ where: { purchaseRef }, select: { state: true, amountKopecks: true } });
+export async function refundTotals(
+  tx: BillingPrisma,
+  purchaseRef: string,
+  amountKopecks: bigint,
+): Promise<RefundTotals> {
+  const rows = await tx.billingRefund.findMany({
+    where: { purchaseRef },
+    select: { state: true, amountKopecks: true },
+  });
   return refundTotalsOf(rows, amountKopecks);
 }

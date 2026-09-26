@@ -27,7 +27,8 @@ export function assertDeclaredViewport(story: ViewportStory): void {
   if (requested === undefined) return;
   const declared = Object.keys(asRecord(viewport.options));
   if (typeof requested === "string" && declared.includes(requested)) return;
-  const requestedLabel = typeof requested === "string" ? requested : JSON.stringify(requested);
+  const requestedLabel =
+    typeof requested === "string" ? requested : JSON.stringify(requested);
   const declaredLabel = declared.length > 0 ? declared.join(", ") : "нет";
   throw new Error(
     `${label} просит размер «${requestedLabel}», которого нет среди объявленных: ${declaredLabel}. Возьмите объявленное имя или объявите размер один раз в parameters.viewport.options.`,
@@ -35,5 +36,7 @@ export function assertDeclaredViewport(story: ViewportStory): void {
 }
 
 function asRecord(value: unknown): Readonly<Record<string, unknown>> {
-  return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
+  return typeof value === "object" && value !== null
+    ? (value as Record<string, unknown>)
+    : {};
 }

@@ -10,34 +10,50 @@ async function expectNotFound(page: Page, path: string): Promise<void> {
   const response = await page.goto(path);
 
   expect(response?.status()).toBe(404);
-  await expect(page.getByRole("heading", { level: 1, name: "Страница не найдена" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Страница не найдена" }),
+  ).toBeVisible();
   await expect(page.getByRole("link", { name: "На главную" })).toBeVisible();
   // Важно, что поиск закрыт и ни один тег его не открывает, сколько бы тегов ни было.
-  await expect(page.locator('meta[name="robots"][content="noindex"]').first()).toBeAttached();
-  await expect(page.locator('meta[name="robots"]:not([content="noindex"])')).toHaveCount(0);
+  await expect(
+    page.locator('meta[name="robots"][content="noindex"]').first(),
+  ).toBeAttached();
+  await expect(
+    page.locator('meta[name="robots"]:not([content="noindex"])'),
+  ).toHaveCount(0);
 }
 
 /** Раздел открыт без входа и без оплаты: посетитель читает условия до любой формы. */
-test("юридический раздел перечисляет действующие документы", async ({ page }) => {
+test("юридический раздел перечисляет действующие документы", async ({
+  page,
+}) => {
   const response = await page.goto("/legal");
 
   expect(response?.status()).toBe(200);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Документы Inside");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "Документы Inside",
+  );
   await expect(
     page.getByRole("link", { name: /Условия использования Inside/u }),
   ).toBeVisible();
-  await expect(page.getByRole("link", { name: /Оферта разовой покупки/u }).first()).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: /Оферта разовой покупки/u }).first(),
+  ).toBeVisible();
   await expect(page.getByText(/ИНН 771004514845/u).first()).toBeVisible();
 });
 
-test("документ открывается по своему адресу и называет редакцию", async ({ page }) => {
+test("документ открывается по своему адресу и называет редакцию", async ({
+  page,
+}) => {
   const response = await page.goto("/legal/terms");
 
   expect(response?.status()).toBe(200);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     "Условия использования Inside",
   );
-  await expect(page.getByText("Действует с 12 сентября 2026 года").first()).toBeVisible();
+  await expect(
+    page.getByText("Действует с 12 сентября 2026 года").first(),
+  ).toBeVisible();
   await expect(page.getByText(/^[0-9a-f]{64}$/u)).toBeVisible();
 });
 
@@ -50,7 +66,9 @@ test("адрес редакции остаётся рабочим и не спо
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     "Условия использования Inside",
   );
-  await expect(page.getByRole("link", { name: "/legal/terms/v1" })).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "/legal/terms/v1" }),
+  ).toBeVisible();
 });
 
 test("оферта разовой покупки действует в редакции 4, а прежние остаются по своим адресам", async ({
@@ -62,10 +80,15 @@ test("оферта разовой покупки действует в реда�
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     "Оферта разовой покупки продукта Inside",
   );
-  await expect(page.getByText(/^Версия 4\. Действует с /u).first()).toBeVisible();
+  await expect(
+    page.getByText(/^Версия 4\. Действует с /u).first(),
+  ).toBeVisible();
   // Списки и подразделы оферты отрисованы как разметка, а не как текст с маркерами.
   await expect(
-    page.getByRole("heading", { level: 3, name: "Что не входит в сопровождение" }),
+    page.getByRole("heading", {
+      level: 3,
+      name: "Что не входит в сопровождение",
+    }),
   ).toBeVisible();
   await expect(
     page.getByRole("listitem").filter({ hasText: "Личные встречи и созвоны." }),
@@ -73,7 +96,9 @@ test("оферта разовой покупки действует в реда�
 
   const third = await page.goto("/legal/purchase/v3");
   expect(third?.status()).toBe(200);
-  await expect(page.getByText(/^Версия 3\. Действует с /u).first()).toBeVisible();
+  await expect(
+    page.getByText(/^Версия 3\. Действует с /u).first(),
+  ).toBeVisible();
 
   const earlier = await page.goto("/legal/purchase/v1");
   expect(earlier?.status()).toBe(200);
@@ -93,7 +118,9 @@ test("реквизиты называют орган регистрации пр
   ).toBeVisible();
 });
 
-test("неизвестный документ показывает «не найдено», а не пустую страницу", async ({ page }) => {
+test("неизвестный документ показывает «не найдено», а не пустую страницу", async ({
+  page,
+}) => {
   await expectNotFound(page, "/legal/facts-and-applicability");
 });
 
@@ -137,13 +164,19 @@ for (const path of ["/legal/terms", "/legal/terms/v1", "/legal/purchase/v4"]) {
   });
 }
 
-test("футер ведёт к документам с любой публичной страницы", async ({ page }) => {
+test("футер ведёт к документам с любой публичной страницы", async ({
+  page,
+}) => {
   // Страница «Карта» не зависит от каталога, поэтому проверяет именно футер оболочки.
   await page.goto("/map");
 
   const footer = page.getByRole("navigation", { name: "Документы Inside" });
-  await expect(footer.getByRole("link", { name: "Политика данных" })).toBeVisible();
-  await expect(footer.getByRole("link", { name: "Реквизиты и обращения" })).toBeVisible();
+  await expect(
+    footer.getByRole("link", { name: "Политика данных" }),
+  ).toBeVisible();
+  await expect(
+    footer.getByRole("link", { name: "Реквизиты и обращения" }),
+  ).toBeVisible();
   await footer.getByRole("link", { name: "Cookies и хранение" }).click();
   await expect(page).toHaveURL(/\/legal\/cookies$/u);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(

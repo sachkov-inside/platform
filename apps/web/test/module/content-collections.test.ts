@@ -26,7 +26,8 @@ const collection = {
 describe("Content collection web adapters", () => {
   it("keeps mutation result contracts operation-specific", () => {
     expect(
-      createContentCollectionResultSchema.safeParse({ kind: "conflict" }).success,
+      createContentCollectionResultSchema.safeParse({ kind: "conflict" })
+        .success,
     ).toBe(false);
     expect(
       updateContentCollectionResultSchema.safeParse({ kind: "slug_conflict" })
@@ -41,11 +42,21 @@ describe("Content collection web adapters", () => {
 
   it("loads active and archived collections through the protected backend", async () => {
     const request = vi.fn().mockResolvedValue({
-      body: [collection, { ...collection, archived: true, id: "96500000-0000-4000-8000-000000000002", slug: "archive" }],
+      body: [
+        collection,
+        {
+          ...collection,
+          archived: true,
+          id: "96500000-0000-4000-8000-000000000002",
+          slug: "archive",
+        },
+      ],
       ok: true,
       response: Response.json({}),
     });
-    await expect(getContentCollections("topic", "token", request)).resolves.toEqual({
+    await expect(
+      getContentCollections("topic", "token", request),
+    ).resolves.toEqual({
       collections: [collection, expect.objectContaining({ archived: true })],
       kind: "ready",
     });
@@ -62,8 +73,14 @@ describe("Content collection web adapters", () => {
       presentation: "default",
       sourceId: "guides/platform",
     } as const;
-    const list = vi.fn().mockResolvedValue({ body: [guide], ok: true, response: Response.json({}) });
-    await expect(getContentCollections("series", "token", list)).resolves.toMatchObject({
+    const list = vi.fn().mockResolvedValue({
+      body: [guide],
+      ok: true,
+      response: Response.json({}),
+    });
+    await expect(
+      getContentCollections("series", "token", list),
+    ).resolves.toMatchObject({
       collections: [{ id: collectionId, presentation: "default" }],
       kind: "ready",
     });
@@ -72,8 +89,14 @@ describe("Content collection web adapters", () => {
     formData.set("name", "Platform");
     formData.set("slug", "platform");
     formData.set("summary", "Architecture and delivery.");
-    const create = vi.fn().mockResolvedValue({ body: guide, ok: true, response: Response.json({}) });
-    await expect(executeCreateContentCollection(formData, "token", create)).resolves.toMatchObject({
+    const create = vi.fn().mockResolvedValue({
+      body: guide,
+      ok: true,
+      response: Response.json({}),
+    });
+    await expect(
+      executeCreateContentCollection(formData, "token", create),
+    ).resolves.toMatchObject({
       kind: "saved",
       collection: { id: collectionId },
     });
@@ -151,7 +174,11 @@ describe("Content collection web adapters", () => {
     // A rename that carries no introduction field must not clear the stored text.
     const withoutIntroduction = successfulRequest();
     await expect(
-      executeUpdateContentCollection(metadataForm(), "token", withoutIntroduction),
+      executeUpdateContentCollection(
+        metadataForm(),
+        "token",
+        withoutIntroduction,
+      ),
     ).resolves.toEqual({ kind: "saved", collection });
     expect(withoutIntroduction.mock.calls[0]?.[0]).not.toHaveProperty(
       "introduction",

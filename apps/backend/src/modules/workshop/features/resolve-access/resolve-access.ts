@@ -58,6 +58,10 @@ export async function resolveWorkshopAccess(
     });
     return expired === null ? { kind: "required" } : { kind: "expired" };
   } catch (error) {
-    return dependencyFailure({ module: "workshop", operation: "resolveWorkshopAccess" }, error, { kind: "unavailable" });
+    return dependencyFailure(
+      { module: "workshop", operation: "resolveWorkshopAccess" },
+      error,
+      { kind: "unavailable" },
+    );
   }
 }

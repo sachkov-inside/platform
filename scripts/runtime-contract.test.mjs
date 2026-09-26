@@ -41,8 +41,7 @@ describe("production runtime manifest contract", () => {
         PLATFORM_RELEASE_VERSION: "v3",
         PLATFORM_SOURCE_SHA: "3".repeat(40),
         PLATFORM_WEB_IMAGE_DIGEST: "b".repeat(64),
-        PLATFORM_WEB_IMAGE_REPOSITORY:
-          "ghcr.io/sachkov-inside/platform-web",
+        PLATFORM_WEB_IMAGE_REPOSITORY: "ghcr.io/sachkov-inside/platform-web",
       },
     });
   });
@@ -50,7 +49,10 @@ describe("production runtime manifest contract", () => {
   it("rejects a moving image tag", () => {
     const result = run({
       ...manifest,
-      images: { ...manifest.images, backend: "ghcr.io/sachkov-inside/platform-backend:latest" },
+      images: {
+        ...manifest.images,
+        backend: "ghcr.io/sachkov-inside/platform-backend:latest",
+      },
     });
 
     assert.equal(result.status, 1);

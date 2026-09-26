@@ -8,7 +8,9 @@ const certificate = resolve(outputDirectory, "certificate.pem");
 const privateKey = resolve(outputDirectory, "private-key.pem");
 
 if (existsSync(certificate) && existsSync(privateKey)) {
-  process.stdout.write(`Identity proof certificate already exists: ${certificate}\n`);
+  process.stdout.write(
+    `Identity proof certificate already exists: ${certificate}\n`,
+  );
   process.exit(0);
 }
 
@@ -37,8 +39,12 @@ const result = spawnSync(
 );
 
 if (result.status !== 0) {
-  process.stderr.write(result.stderr || "Unable to generate the proof certificate\n");
+  process.stderr.write(
+    result.stderr || "Unable to generate the proof certificate\n",
+  );
   process.exit(result.status ?? 1);
 }
 
-process.stdout.write(`Generated disposable identity proof certificate: ${certificate}\n`);
+process.stdout.write(
+  `Generated disposable identity proof certificate: ${certificate}\n`,
+);

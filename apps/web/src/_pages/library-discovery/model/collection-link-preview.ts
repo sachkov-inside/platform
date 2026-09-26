@@ -1,7 +1,14 @@
 import { coverLinkPreviewImage } from "@/entities/material.model";
 import type { LibraryDiscoveryReference } from "@/features/library-discovery";
-import type { PublicPagePreview, SocialCardContent } from "@/shared/link-preview";
-import { guidePath, socialCardPath, topicPath } from "@/shared/routing/public-page-path";
+import type {
+  PublicPagePreview,
+  SocialCardContent,
+} from "@/shared/link-preview";
+import {
+  guidePath,
+  socialCardPath,
+  topicPath,
+} from "@/shared/routing/public-page-path";
 
 /**
  * Как коллекция называет себя читателю. Одно слово отвечает и за заголовок страницы, и за

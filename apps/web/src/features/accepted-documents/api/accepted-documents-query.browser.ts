@@ -1,16 +1,24 @@
 import { queryOptions } from "@tanstack/react-query";
 import { z } from "zod";
 
-import { acceptedDocumentSchema, type AcceptedDocument } from "../model/accepted-documents";
+import {
+  acceptedDocumentSchema,
+  type AcceptedDocument,
+} from "../model/accepted-documents";
 
-export const acceptedDocumentsQueryKey = ["account", "legal-acceptances"] as const;
+export const acceptedDocumentsQueryKey = [
+  "account",
+  "legal-acceptances",
+] as const;
 
 export type AcceptedDocumentsResult =
   | Readonly<{ kind: "ready"; documents: readonly AcceptedDocument[] }>
   | Readonly<{ kind: "unauthorized" }>
   | Readonly<{ kind: "unavailable" }>;
 
-async function requestAcceptedDocuments(signal: AbortSignal): Promise<AcceptedDocumentsResult> {
+async function requestAcceptedDocuments(
+  signal: AbortSignal,
+): Promise<AcceptedDocumentsResult> {
   try {
     const response = await fetch("/api/account/legal-acceptances", {
       cache: "no-store",

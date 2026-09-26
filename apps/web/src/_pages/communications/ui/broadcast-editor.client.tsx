@@ -157,7 +157,12 @@ export function BroadcastEditor(props: BroadcastEditorProps) {
             />
           ) : null}
           {replacePartId !== null ? (
-            <Button variant="outline" onClick={() => { setReplacePartId(null); }}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setReplacePartId(null);
+              }}
+            >
               Отменить замену
             </Button>
           ) : null}

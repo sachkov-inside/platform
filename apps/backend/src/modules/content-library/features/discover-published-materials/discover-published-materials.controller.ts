@@ -46,7 +46,10 @@ import { discoverPublishedMaterials } from "./discover-published-materials.js";
 const TOPIC_METADATA_SIZE = 0;
 const RELATED_SIZE = 6;
 const discoverySlugSchema = toOpenApiSchema(
-  z.string().max(120).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u),
+  z
+    .string()
+    .max(120)
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u),
 );
 
 @ApiTags("Content library")

@@ -1,4 +1,7 @@
-import type { PrivateMemberProfile, ProfileField } from "@/entities/member-profile";
+import type {
+  PrivateMemberProfile,
+  ProfileField,
+} from "@/entities/member-profile";
 
 export interface CreateMemberProfileInput {
   readonly bio: string;

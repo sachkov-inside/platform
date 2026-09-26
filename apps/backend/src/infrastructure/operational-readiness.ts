@@ -6,10 +6,7 @@ import {
   expectedPgBossSchemaVersion,
   runtimeDatabaseSchemaIdentity,
 } from "../migrations/runtime-schema.js";
-import {
-  RUNTIME_IDENTITY,
-  type RuntimeIdentity,
-} from "./runtime-identity.js";
+import { RUNTIME_IDENTITY, type RuntimeIdentity } from "./runtime-identity.js";
 import {
   Prisma,
   PrismaClientProvider,
@@ -91,7 +88,9 @@ export class OperationalReadiness {
     );
     assertAppliedMigrations(applied, platformMigrations);
     const jobSchemaVersion = parsePgBossSchemaVersionRows(
-      await this.prisma.$queryRaw(Prisma.sql`select version from pgboss.version`),
+      await this.prisma.$queryRaw(
+        Prisma.sql`select version from pgboss.version`,
+      ),
     );
     const schema = runtimeSchemaReadiness({
       appliedMigrations: applied.map(({ name }) => name),

@@ -69,9 +69,10 @@ export function SubscriptionPanel({
       // Кнопка «Возобновить автопродление» принимает только согласие на списания: оферта подписки
       // уже принята при оформлении. Документы сужаются областью подписки, потому что вид не
       // различает оферты разовой покупки и подписки.
-      const selected = purchaseConsentPolicy(resumeDocuments, "subscription").applicable.filter(
-        (document) => document.kind === "recurring",
-      );
+      const selected = purchaseConsentPolicy(
+        resumeDocuments,
+        "subscription",
+      ).applicable.filter((document) => document.kind === "recurring");
       const consents = await acceptBillingConsents({
         operationId: operationId("resume-consents", { commandId }),
         contextRef: commandId,
@@ -138,76 +139,79 @@ export function SubscriptionPanel({
   });
 
   return (
-    <div className="grid gap-6"><EnrollmentsPanel /><SubscriptionSectionView
-      changeQuote={changeQuote}
-      error={cabinet.error}
-      loading={cabinet.loading}
-      onCancelPendingChange={() => {
-        if (subscription === null) return;
-        cabinet.setError(undefined);
-        dropChange.mutate({
-          operationId: operationId("change-cancel", {
-            revision: subscription.revision,
-          }),
-          expectedRevision: subscription.revision,
-        });
-      }}
-      onCancelRenewal={() => {
-        if (subscription === null) return;
-        cabinet.setError(undefined);
-        cancelRenewal.mutate({
-          operationId: operationId("cancel", {
-            revision: subscription.revision,
-          }),
-          expectedRevision: subscription.revision,
-        });
-      }}
-      onConfirmChange={() => {
-        if (subscription === null || changeQuote === null) return;
-        cabinet.setError(undefined);
-        confirmChange.mutate({
-          operationId: operationId("change", {
+    <div className="grid gap-6">
+      <EnrollmentsPanel />
+      <SubscriptionSectionView
+        changeQuote={changeQuote}
+        error={cabinet.error}
+        loading={cabinet.loading}
+        onCancelPendingChange={() => {
+          if (subscription === null) return;
+          cabinet.setError(undefined);
+          dropChange.mutate({
+            operationId: operationId("change-cancel", {
+              revision: subscription.revision,
+            }),
+            expectedRevision: subscription.revision,
+          });
+        }}
+        onCancelRenewal={() => {
+          if (subscription === null) return;
+          cabinet.setError(undefined);
+          cancelRenewal.mutate({
+            operationId: operationId("cancel", {
+              revision: subscription.revision,
+            }),
+            expectedRevision: subscription.revision,
+          });
+        }}
+        onConfirmChange={() => {
+          if (subscription === null || changeQuote === null) return;
+          cabinet.setError(undefined);
+          confirmChange.mutate({
+            operationId: operationId("change", {
+              changeQuoteRef: changeQuote.changeQuoteRef,
+            }),
+            expectedRevision: subscription.revision,
             changeQuoteRef: changeQuote.changeQuoteRef,
-          }),
-          expectedRevision: subscription.revision,
-          changeQuoteRef: changeQuote.changeQuoteRef,
-        });
-      }}
-      onQuoteChange={() => {
-        if (subscription === null || selectedOptionId === null) return;
-        cabinet.setError(undefined);
-        setChangeQuote(null);
-        quoteChange.mutate({
-          operationId: operationId("change-quote", {
-            revision: subscription.revision,
+          });
+        }}
+        onQuoteChange={() => {
+          if (subscription === null || selectedOptionId === null) return;
+          cabinet.setError(undefined);
+          setChangeQuote(null);
+          quoteChange.mutate({
+            operationId: operationId("change-quote", {
+              revision: subscription.revision,
+              paymentOptionId: selectedOptionId,
+            }),
+            expectedRevision: subscription.revision,
             paymentOptionId: selectedOptionId,
-          }),
-          expectedRevision: subscription.revision,
-          paymentOptionId: selectedOptionId,
-        });
-      }}
-      onResumeRenewal={() => {
-        if (subscription === null) return;
-        cabinet.setError(undefined);
-        resumeRenewal.mutate({ subscription });
-      }}
-      onSelectOption={(paymentOptionId) => {
-        setSelectedOptionId(paymentOptionId);
-        setChangeQuote(null);
-      }}
-      options={options}
-      pending={
-        cancelRenewal.isPending ||
-        resumeRenewal.isPending ||
-        quoteChange.isPending ||
-        confirmChange.isPending ||
-        dropChange.isPending
-      }
-      resumeDocuments={resumeDocuments}
-      selectedOptionId={selectedOptionId}
-      sessionExpired={cabinet.sessionExpired}
-      storefrontHref={storefrontHref}
-      subscription={subscription}
-    /></div>
+          });
+        }}
+        onResumeRenewal={() => {
+          if (subscription === null) return;
+          cabinet.setError(undefined);
+          resumeRenewal.mutate({ subscription });
+        }}
+        onSelectOption={(paymentOptionId) => {
+          setSelectedOptionId(paymentOptionId);
+          setChangeQuote(null);
+        }}
+        options={options}
+        pending={
+          cancelRenewal.isPending ||
+          resumeRenewal.isPending ||
+          quoteChange.isPending ||
+          confirmChange.isPending ||
+          dropChange.isPending
+        }
+        resumeDocuments={resumeDocuments}
+        selectedOptionId={selectedOptionId}
+        sessionExpired={cabinet.sessionExpired}
+        storefrontHref={storefrontHref}
+        subscription={subscription}
+      />
+    </div>
   );
 }

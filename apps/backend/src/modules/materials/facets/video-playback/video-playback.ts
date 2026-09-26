@@ -36,8 +36,7 @@ export type PlaybackSessionResult =
   | VideoPlaybackFailure;
 
 export type SaveVideoProgressResult =
-  | Readonly<{ ok: true; value: undefined }>
-  | VideoPlaybackFailure;
+  Readonly<{ ok: true; value: undefined }> | VideoPlaybackFailure;
 
 export interface VideoPlayback {
   createSession(input: {
@@ -63,7 +62,10 @@ export function assembleVideoPlayback(dependencies: {
   readonly contentAccess: Pick<ContentAccess, "authorize">;
   readonly jwtSecret: string;
   readonly jwtTtlSeconds: number;
-  readonly videos: Pick<Videos, "loadPlayback" | "loadProgress" | "saveProgress">;
+  readonly videos: Pick<
+    Videos,
+    "loadPlayback" | "loadProgress" | "saveProgress"
+  >;
   readonly clock?: () => Date;
 }): VideoPlayback {
   const secret = new TextEncoder().encode(dependencies.jwtSecret);
@@ -88,43 +90,66 @@ export function assembleVideoPlayback(dependencies: {
       const loaded = await dependencies.videos.loadPlayback(input.videoId);
       if (!loaded.ok) {
         switch (loaded.error.code) {
-          case "dependency_unavailable": return failure("dependency_unavailable");
-          case "invalid_request": return failure("invalid_request");
-          case "video_not_ready": return failure("video_not_ready");
-          default: return assertNever(loaded.error);
+          case "dependency_unavailable":
+            return failure("dependency_unavailable");
+          case "invalid_request":
+            return failure("invalid_request");
+          case "video_not_ready":
+            return failure("video_not_ready");
+          default:
+            return assertNever(loaded.error);
         }
       }
-      if (loaded.value === null || loaded.value.materialId !== input.materialId) {
+      if (
+        loaded.value === null ||
+        loaded.value.materialId !== input.materialId
+      ) {
         return { ok: false, error: { code: "video_mismatch" } };
       }
-      const progress = input.subject.kind === "account"
-        ? await dependencies.videos.loadProgress({ accountId: input.subject.accountId, videoId: input.videoId })
-        : { ok: true as const, value: null };
+      const progress =
+        input.subject.kind === "account"
+          ? await dependencies.videos.loadProgress({
+              accountId: input.subject.accountId,
+              videoId: input.videoId,
+            })
+          : { ok: true as const, value: null };
       if (!progress.ok) {
         switch (progress.error.code) {
-          case "dependency_unavailable": return failure("dependency_unavailable");
-          case "invalid_request": return failure("invalid_request");
-          default: return assertNever(progress.error);
+          case "dependency_unavailable":
+            return failure("dependency_unavailable");
+          case "invalid_request":
+            return failure("invalid_request");
+          default:
+            return assertNever(progress.error);
         }
       }
       const issuedAt = Math.floor(clock().getTime() / 1000);
-      const expiresAt = (decision.reason === "active_membership" || decision.reason === "active_workshop") && decision.validUntil !== null
-        ? Math.min(
-            issuedAt + dependencies.jwtTtlSeconds,
-            Math.floor(Date.parse(decision.validUntil) / 1_000),
-          )
-        : issuedAt + dependencies.jwtTtlSeconds;
-      const drmAuthToken = loaded.value.access !== "free"
-        ? await new SignJWT({ pid: loaded.value.providerVideoId, vid: loaded.value.videoId })
-            .setProtectedHeader({ alg: "HS256", typ: "JWT" })
-            .setIssuer(issuer)
-            .setAudience(audience)
-            .setSubject(input.subject.kind === "account" ? input.subject.accountId : "")
-            .setJti(randomUUID())
-            .setIssuedAt(issuedAt)
-            .setExpirationTime(expiresAt)
-            .sign(secret)
-        : null;
+      const expiresAt =
+        (decision.reason === "active_membership" ||
+          decision.reason === "active_workshop") &&
+        decision.validUntil !== null
+          ? Math.min(
+              issuedAt + dependencies.jwtTtlSeconds,
+              Math.floor(Date.parse(decision.validUntil) / 1_000),
+            )
+          : issuedAt + dependencies.jwtTtlSeconds;
+      const drmAuthToken =
+        loaded.value.access !== "free"
+          ? await new SignJWT({
+              pid: loaded.value.providerVideoId,
+              vid: loaded.value.videoId,
+            })
+              .setProtectedHeader({ alg: "HS256", typ: "JWT" })
+              .setIssuer(issuer)
+              .setAudience(audience)
+              .setSubject(
+                input.subject.kind === "account" ? input.subject.accountId : "",
+              )
+              .setJti(randomUUID())
+              .setIssuedAt(issuedAt)
+              .setExpirationTime(expiresAt)
+              .sign(secret)
+          : null;
       return {
         ok: true,
         value: {
@@ -147,11 +172,20 @@ export function assembleVideoPlayback(dependencies: {
           currentDate: clock(),
         });
         const localVideoId = verified.payload.vid;
-        if (typeof localVideoId !== "string" || verified.payload.pid !== input.providerVideoId || typeof verified.payload.sub !== "string") {
+        if (
+          typeof localVideoId !== "string" ||
+          verified.payload.pid !== input.providerVideoId ||
+          typeof verified.payload.sub !== "string"
+        ) {
           return false;
         }
         const playback = await dependencies.videos.loadPlayback(localVideoId);
-        if (!playback.ok || playback.value === null || playback.value.providerVideoId !== input.providerVideoId || playback.value.access === "free") {
+        if (
+          !playback.ok ||
+          playback.value === null ||
+          playback.value.providerVideoId !== input.providerVideoId ||
+          playback.value.access === "free"
+        ) {
           return false;
         }
         const decision = await dependencies.contentAccess.authorize({
@@ -159,7 +193,10 @@ export function assembleVideoPlayback(dependencies: {
           correlationId: randomUUID(),
           enforcementPoint: "video_authorization_callback",
           resource: { kind: "video", videoId: localVideoId },
-          subject: { kind: "account", accountId: checkedAccountId(verified.payload.sub) },
+          subject: {
+            kind: "account",
+            accountId: checkedAccountId(verified.payload.sub),
+          },
         });
         return decision.effect === "allow";
       } catch {
@@ -172,18 +209,28 @@ export function assembleVideoPlayback(dependencies: {
       const playback = await dependencies.videos.loadPlayback(input.videoId);
       if (!playback.ok) {
         switch (playback.error.code) {
-          case "dependency_unavailable": return failure("dependency_unavailable");
-          case "invalid_request": return failure("invalid_request");
-          case "video_not_ready": return failure("video_not_ready");
-          default: return assertNever(playback.error);
+          case "dependency_unavailable":
+            return failure("dependency_unavailable");
+          case "invalid_request":
+            return failure("invalid_request");
+          case "video_not_ready":
+            return failure("video_not_ready");
+          default:
+            return assertNever(playback.error);
         }
       }
-      if (playback.value === null || playback.value.materialId !== input.materialId) {
+      if (
+        playback.value === null ||
+        playback.value.materialId !== input.materialId
+      ) {
         return failure("video_mismatch");
       }
       let subject: Subject;
       try {
-        subject = { kind: "account", accountId: checkedAccountId(input.accountId) };
+        subject = {
+          kind: "account",
+          accountId: checkedAccountId(input.accountId),
+        };
       } catch {
         // Not a dependency failure: the account identifier in the request is malformed.
         return failure("invalid_request");
@@ -208,19 +255,28 @@ export function assembleVideoPlayback(dependencies: {
       });
       if (saved.ok) return { ok: true, value: undefined };
       switch (saved.error.code) {
-        case "dependency_unavailable": return failure("dependency_unavailable");
-        case "invalid_request": return failure("invalid_request");
-        case "video_not_ready": return failure("video_not_ready");
-        default: return assertNever(saved.error);
+        case "dependency_unavailable":
+          return failure("dependency_unavailable");
+        case "invalid_request":
+          return failure("invalid_request");
+        case "video_not_ready":
+          return failure("video_not_ready");
+        default:
+          return assertNever(saved.error);
       }
     },
   };
   return Object.freeze(playback);
 }
 
-type PlaybackErrorCode = Extract<PlaybackSessionResult, { readonly ok: false }>["error"]["code"];
+type PlaybackErrorCode = Extract<
+  PlaybackSessionResult,
+  { readonly ok: false }
+>["error"]["code"];
 
-function failure<Code extends PlaybackErrorCode>(code: Code): Readonly<{
+function failure<Code extends PlaybackErrorCode>(
+  code: Code,
+): Readonly<{
   ok: false;
   error: { readonly code: Code };
 }> {

@@ -4,7 +4,10 @@ import { Button } from "@/shared/ui/button";
 
 export function BookmarksPage({ children }: { readonly children: ReactNode }) {
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6" data-bookmarks-page>
+    <main
+      className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6"
+      data-bookmarks-page
+    >
       <header>
         <h1 className="text-3xl font-bold tracking-[-0.03em]">Закладки</h1>
         <p className="mt-3 text-muted-foreground">
@@ -19,7 +22,9 @@ export function BookmarksPage({ children }: { readonly children: ReactNode }) {
 export function BookmarksLoading() {
   return (
     <section aria-busy="true" className="grid gap-3">
-      <p className="sr-only" role="status">Загружаем закладки…</p>
+      <p className="sr-only" role="status">
+        Загружаем закладки…
+      </p>
       <div className="h-24 animate-pulse rounded-2xl border border-border bg-muted/50 motion-reduce:animate-none" />
       <div className="h-24 animate-pulse rounded-2xl border border-border bg-muted/50 motion-reduce:animate-none" />
     </section>
@@ -48,7 +53,10 @@ export function BookmarksSignInRequired() {
         Закладки хранятся в аккаунте и доступны только вам.
       </p>
       <form action="/auth/sign-in" className="mt-6" method="post">
-        <button className="min-h-11 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground" type="submit">
+        <button
+          className="min-h-11 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground"
+          type="submit"
+        >
           Войти
         </button>
       </form>

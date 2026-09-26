@@ -12,16 +12,17 @@ const buildRoot = fileURLToPath(new URL("../.next/", import.meta.url));
 // `/social-card` — статичная карточка ссылки площадки, тот же перечень держит guardrail формы кода.
 // `/icon.svg` — файл метаданных `app/icon.svg`: Next.js сам заводит ему маршрут, кода у него нет.
 const allowed = new Set(["/social-card", "/icon.svg"]);
-const readManifest = (name) => JSON.parse(readFileSync(`${buildRoot}${name}`, "utf8"));
+const readManifest = (name) =>
+  JSON.parse(readFileSync(`${buildRoot}${name}`, "utf8"));
 
 const handlerPaths = new Set(
   Object.entries(readManifest("app-path-routes-manifest.json"))
     .filter(([source]) => source.endsWith("/route"))
     .map(([, path]) => path),
 );
-const prerendered = Object.keys(readManifest("prerender-manifest.json").routes).filter(
-  (path) => handlerPaths.has(path) && !allowed.has(path),
-);
+const prerendered = Object.keys(
+  readManifest("prerender-manifest.json").routes,
+).filter((path) => handlerPaths.has(path) && !allowed.has(path));
 
 if (prerendered.length > 0) {
   process.stderr.write(

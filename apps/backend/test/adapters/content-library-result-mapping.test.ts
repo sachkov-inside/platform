@@ -1,6 +1,9 @@
 import { Module } from "@nestjs/common";
 import { APP_FILTER, APP_INTERCEPTOR } from "@nestjs/core";
-import { FastifyAdapter, type NestFastifyApplication } from "@nestjs/platform-fastify";
+import {
+  FastifyAdapter,
+  type NestFastifyApplication,
+} from "@nestjs/platform-fastify";
 import { NestFactory } from "@nestjs/core";
 import { afterEach, describe, expect, test } from "vitest";
 
@@ -15,13 +18,14 @@ import { VIDEOS } from "../../src/modules/videos/index.js";
 import { emptyCatalogVideos } from "../support/catalog-videos.js";
 
 const publishedMaterialReader = {
-  listProjections: () => Promise.resolve({
-    ok: false,
-    error: {
-      code: "internal_error",
-      correlationId: "72000000-0000-4000-8000-000000000090",
-    },
-  }),
+  listProjections: () =>
+    Promise.resolve({
+      ok: false,
+      error: {
+        code: "internal_error",
+        correlationId: "72000000-0000-4000-8000-000000000090",
+      },
+    }),
 };
 
 @Module({
@@ -32,8 +36,7 @@ const publishedMaterialReader = {
     {
       provide: CONTENT_ACCESS,
       useValue: {
-        checkAvailabilityMany: () =>
-          Promise.resolve({ ok: true, items: [] }),
+        checkAvailabilityMany: () => Promise.resolve({ ok: true, items: [] }),
       },
     },
     { provide: ACCOUNTS, useValue: {} },
@@ -69,7 +72,9 @@ describe("ListPublishedMaterials REST result mapping", () => {
 
     expect(response.statusCode).toBe(500);
     expect(response.headers["cache-control"]).toBe("private, no-store");
-    expect(response.headers["content-type"]).toContain("application/problem+json");
+    expect(response.headers["content-type"]).toContain(
+      "application/problem+json",
+    );
     expect(response.json()).toEqual({
       type: "urn:inside:problem:internal_error",
       title: "Internal error",

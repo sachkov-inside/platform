@@ -1,4 +1,9 @@
-import { Catch, HttpException, type ArgumentsHost, type ExceptionFilter } from "@nestjs/common";
+import {
+  Catch,
+  HttpException,
+  type ArgumentsHost,
+  type ExceptionFilter,
+} from "@nestjs/common";
 import type { FastifyReply } from "fastify";
 
 import { PRIVATE_NO_STORE_HEADERS } from "../../../../infrastructure/http/http-cache-policy.js";

@@ -17,7 +17,9 @@ import {
 
 const ownerId = "72000000-0000-4000-8000-000000000001";
 const topicId = "72000000-0000-4000-8000-000000000002";
-const authorPolicy = { canManage: (accountId: string) => accountId === ownerId };
+const authorPolicy = {
+  canManage: (accountId: string) => accountId === ownerId,
+};
 
 function metadata(title: string) {
   return {
@@ -110,7 +112,9 @@ describe("анонс первой публикации материала", () =
 
   test("первая публикация сохраняет повод, его revision и строку outbox одной транзакцией", async () => {
     const materialId = await draft("Как мы собираем платформу");
-    const published = value(await publish(materialId, 1, "Как мы собираем платформу"));
+    const published = value(
+      await publish(materialId, 1, "Как мы собираем платформу"),
+    );
     expect(published.publicationState).toBe("published");
 
     const announcement = await announcedOccurrence(materialId);
@@ -120,13 +124,14 @@ describe("анонс первой публикации материала", () =
       title: "Как мы собираем платформу",
       readerPath: "/materials/kak-my-sobiraem-platformu",
     });
-    expect(announcement.notAfter.getTime() - announcement.occurredAt.getTime()).toBe(
-      MATERIAL_EVENT_LIFETIME_MS,
-    );
+    expect(
+      announcement.notAfter.getTime() - announcement.occurredAt.getTime(),
+    ).toBe(MATERIAL_EVENT_LIFETIME_MS);
 
-    const revisions = await database.prisma.materialAnnouncementRevision.findMany({
-      where: { announcementRef: announcement.id },
-    });
+    const revisions =
+      await database.prisma.materialAnnouncementRevision.findMany({
+        where: { announcementRef: announcement.id },
+      });
     expect(revisions).toHaveLength(1);
     const staged = await stagedEvents(revisions.map((row) => row.messageId));
     expect(staged).toHaveLength(1);
@@ -170,13 +175,18 @@ describe("анонс первой публикации материала", () =
       materialId,
       expectedContentVersion: 1,
       publicationState: "published",
-      metadata: { ...metadata("Материал с чужой темой"), topicId: randomUUID() },
+      metadata: {
+        ...metadata("Материал с чужой темой"),
+        topicId: randomUUID(),
+      },
       body: representativeDocument("Тело материала."),
     });
     expect(rejected.ok).toBe(false);
     expect(await announcementsOf(materialId)).toBeNull();
     expect(
-      await database.prisma.material.findUniqueOrThrow({ where: { id: materialId } }),
+      await database.prisma.material.findUniqueOrThrow({
+        where: { id: materialId },
+      }),
     ).toMatchObject({ publicationState: "draft", firstPublishedAt: null });
   });
 
@@ -207,19 +217,24 @@ describe("анонс первой публикации материала", () =
       occurredAt: before.occurredAt,
       notAfter: before.notAfter,
     });
-    const revisions = await database.prisma.materialAnnouncementRevision.findMany({
-      where: { announcementRef: before.id },
-      orderBy: { revision: "asc" },
-    });
+    const revisions =
+      await database.prisma.materialAnnouncementRevision.findMany({
+        where: { announcementRef: before.id },
+        orderBy: { revision: "asc" },
+      });
     expect(revisions).toHaveLength(2);
-    expect(await stagedEvents(revisions.map((row) => row.messageId))).toHaveLength(2);
+    expect(
+      await stagedEvents(revisions.map((row) => row.messageId)),
+    ).toHaveLength(2);
 
     const facet = new MaterialAnnouncements({ prisma: database.prisma });
     // Устаревшая revision перестаёт быть основанием: отправку разрешает только действующая.
     expect(await facet.resolveAnnouncement(revisions[0]?.payload)).toEqual({
       status: "superseded",
     });
-    expect(await facet.resolveAnnouncement(revisions[1]?.payload)).toMatchObject({
+    expect(
+      await facet.resolveAnnouncement(revisions[1]?.payload),
+    ).toMatchObject({
       status: "current",
       title: "Заголовок после правки",
     });
@@ -229,10 +244,14 @@ describe("анонс первой публикации материала", () =
     const materialId = await draft("Материал, который снимут");
     value(await publish(materialId, 1, "Материал, который снимут"));
     const announcement = await announcedOccurrence(materialId);
-    const current = await database.prisma.materialAnnouncementRevision.findFirstOrThrow(
-      { where: { announcementRef: announcement.id }, orderBy: { revision: "desc" } },
+    const current =
+      await database.prisma.materialAnnouncementRevision.findFirstOrThrow({
+        where: { announcementRef: announcement.id },
+        orderBy: { revision: "desc" },
+      });
+    value(
+      await publish(materialId, 2, "Материал, который снимут", "unpublished"),
     );
-    value(await publish(materialId, 2, "Материал, который снимут", "unpublished"));
     const facet = new MaterialAnnouncements({ prisma: database.prisma });
     expect(await facet.resolveAnnouncement(current.payload)).toEqual({
       status: "superseded",
@@ -255,7 +274,9 @@ describe("анонс первой публикации материала", () =
     });
 
     value(await publish(materialId, 1, "Материал прежней поставки снова"));
-    value(await publish(materialId, 2, "Материал прежней поставки", "unpublished"));
+    value(
+      await publish(materialId, 2, "Материал прежней поставки", "unpublished"),
+    );
     value(await publish(materialId, 3, "Материал прежней поставки"));
     expect(await announcementsOf(materialId)).toBeNull();
     // Собственные строки этого материала: чужие поводы соседних проверок сюда не попадают.
@@ -284,13 +305,17 @@ describe("анонс первой публикации материала", () =
           updatedAt: occurredAt,
         },
       }),
-    ).rejects.toThrow(/publication announcement requires a published Material/u);
+    ).rejects.toThrow(
+      /publication announcement requires a published Material/u,
+    );
   });
 
   test("чужой и неизвестный повод не открывают отправку", async () => {
     const facet = new MaterialAnnouncements({ prisma: database.prisma });
     const unknownOccurredAt = new Date();
-    expect(await facet.resolveAnnouncement({ contractVersion: "other" })).toEqual({
+    expect(
+      await facet.resolveAnnouncement({ contractVersion: "other" }),
+    ).toEqual({
       status: "superseded",
     });
     expect(

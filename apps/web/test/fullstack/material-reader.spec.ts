@@ -5,27 +5,44 @@ import { resolve } from "node:path";
 import { signInFullStack } from "../support/full-stack-session";
 import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 
-test("Home exposes one client-owned feed and preserves the reader return", async ({ page, request }, testInfo) => {
+test("Home exposes one client-owned feed and preserves the reader return", async ({
+  page,
+  request,
+}, testInfo) => {
   const document = await request.get("/");
   expect(document.status()).toBe(200);
   expect(await document.text()).toContain("Материалы");
   await page.goto("/?format=guide");
   const feed = page.getByRole("region", { name: "Материалы", exact: true });
   await expect(feed.getByRole("article").first()).toBeVisible();
-  await expect(feed.getByRole("group", { name: "Тема материала" })).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "Что даёт подписка" })).toHaveCount(0);
+  await expect(feed.getByRole("group", { name: "Тема материала" })).toHaveCount(
+    0,
+  );
+  await expect(
+    page.getByRole("heading", { name: "Что даёт подписка" }),
+  ).toHaveCount(0);
   const material = feed.getByRole("heading").first().getByRole("link");
-  await expect(material).toHaveAttribute("href", /\?from=%2F%3Fformat%3Dguide$/u);
+  await expect(material).toHaveAttribute(
+    "href",
+    /\?from=%2F%3Fformat%3Dguide$/u,
+  );
   await material.click();
-  await page.getByRole("link", { name: "Назад на Главную", exact: true }).click();
+  await page
+    .getByRole("link", { name: "Назад на Главную", exact: true })
+    .click();
   await expect(page).toHaveURL(/\/\?format=guide$/u);
-  await expect(page.getByRole("button", { name: "Гайды", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(
+    page.getByRole("button", { name: "Гайды", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
   await expectNoSeriousAccessibilityFindings(page);
   await expectNoHorizontalOverflow(page);
   await captureIssue271Evidence(page, testInfo, "home");
 });
 
-test("loads successive PostgreSQL feed pages without exposing protected text", async ({ page, request }) => {
+test("loads successive PostgreSQL feed pages without exposing protected text", async ({
+  page,
+  request,
+}) => {
   const initialHtml = await (await request.get("/")).text();
   expect(initialHtml).not.toContain("Закрытое содержимое для участников");
   await page.goto("/");
@@ -36,10 +53,16 @@ test("loads successive PostgreSQL feed pages without exposing protected text", a
   const firstCount = await articles.count();
   await articles.last().scrollIntoViewIfNeeded();
   await expect.poll(() => articles.count()).toBeGreaterThan(firstCount);
-  expect(await articles.first().getAttribute("data-material-slug")).toBe(firstSlug);
-  await page.getByRole("searchbox").fill("Developer Pipeline без потери контекста");
+  expect(await articles.first().getAttribute("data-material-slug")).toBe(
+    firstSlug,
+  );
+  await page
+    .getByRole("searchbox")
+    .fill("Developer Pipeline без потери контекста");
   await expect(articles).toHaveCount(1);
-  await expect(articles.first().locator("[data-access-cover=locked]")).toBeVisible();
+  await expect(
+    articles.first().locator("[data-access-cover=locked]"),
+  ).toBeVisible();
   await expect(feed).not.toContainText("Закрытое содержимое для участников");
   await expectNoSeriousAccessibilityFindings(page);
 });
@@ -67,9 +90,14 @@ test("preserves canonical RU/EN search across reload, history and sharing", asyn
     "developer pipeline",
   );
   await expect(
-    page.getByRole("link", { exact: true, name: "Developer Pipeline без потери контекста" }),
+    page.getByRole("link", {
+      exact: true,
+      name: "Developer Pipeline без потери контекста",
+    }),
   ).toBeVisible();
-  await expect(page.getByRole("status").filter({ hasText: "Материалов: 2" })).toHaveText("Материалов: 2");
+  await expect(
+    page.getByRole("status").filter({ hasText: "Материалов: 2" }),
+  ).toHaveText("Материалов: 2");
   const documentsBeforeFilter = documentRequestCount;
   const filteredResponse = page.waitForResponse(
     (response) =>
@@ -89,7 +117,10 @@ test("preserves canonical RU/EN search across reload, history and sharing", asyn
   await page.reload();
   expect(page.url()).toBe(sharedUrl);
   await expect(
-    page.getByRole("link", { exact: true, name: "Developer Pipeline без потери контекста" }),
+    page.getByRole("link", {
+      exact: true,
+      name: "Developer Pipeline без потери контекста",
+    }),
   ).toBeVisible();
 
   await page.goto(
@@ -100,7 +131,10 @@ test("preserves canonical RU/EN search across reload, history and sharing", asyn
   ).toBeVisible();
   await page.goBack();
   await expect(
-    page.getByRole("link", { exact: true, name: "Developer Pipeline без потери контекста" }),
+    page.getByRole("link", {
+      exact: true,
+      name: "Developer Pipeline без потери контекста",
+    }),
   ).toBeVisible();
   await page.goForward();
   await expect(
@@ -108,7 +142,9 @@ test("preserves canonical RU/EN search across reload, history and sharing", asyn
   ).toBeVisible();
 
   await page.getByLabel("Поиск по материалам").fill("nothing can match 404404");
-  await expect(page.getByText("Ничего не найдено. Измените запрос, тему или формат.")).toBeVisible();
+  await expect(
+    page.getByText("Ничего не найдено. Измените запрос, тему или формат."),
+  ).toBeVisible();
   expect(new URL(page.url()).searchParams.get("q")).toBe(
     "nothing can match 404404",
   );
@@ -135,9 +171,14 @@ test("server-renders the representative PostgreSQL Material through Nest", async
       cls: 0,
       inp: 0,
       lcp: 0,
-      shifts: [] as { readonly sources: readonly string[]; readonly value: number }[],
+      shifts: [] as {
+        readonly sources: readonly string[];
+        readonly value: number;
+      }[],
     };
-    Object.defineProperty(window, "__readerPerformance", { value: measurements });
+    Object.defineProperty(window, "__readerPerformance", {
+      value: measurements,
+    });
     if (PerformanceObserver.supportedEntryTypes.includes("layout-shift")) {
       new PerformanceObserver((list) => {
         for (const entry of list.getEntries()) {
@@ -166,7 +207,11 @@ test("server-renders the representative PostgreSQL Material through Nest", async
         }
       }).observe({ type: "layout-shift", buffered: true });
     }
-    if (PerformanceObserver.supportedEntryTypes.includes("largest-contentful-paint")) {
+    if (
+      PerformanceObserver.supportedEntryTypes.includes(
+        "largest-contentful-paint",
+      )
+    ) {
       new PerformanceObserver((list) => {
         const last = list.getEntries().at(-1);
         measurements.lcp = last?.startTime ?? measurements.lcp;
@@ -184,28 +229,43 @@ test("server-renders the representative PostgreSQL Material through Nest", async
       } as PerformanceObserverInit);
     }
   });
-  const documentResponse = await request.get("/materials/kak-ustroen-inside-platform");
+  const documentResponse = await request.get(
+    "/materials/kak-ustroen-inside-platform",
+  );
   const initialHtml = await documentResponse.text();
 
   expect(documentResponse.status()).toBe(200);
   expect(initialHtml).toContain("Как устроен Inside Platform");
   expect(initialHtml).toContain("Первый вертикальный срез");
 
-  const browserResponse = await page.goto("/materials/kak-ustroen-inside-platform");
+  const browserResponse = await page.goto(
+    "/materials/kak-ustroen-inside-platform",
+  );
   expect(browserResponse?.status()).toBe(200);
   await expect(
-    page.getByRole("heading", { name: "Как устроен Inside Platform", level: 1 }),
+    page.getByRole("heading", {
+      name: "Как устроен Inside Platform",
+      level: 1,
+    }),
   ).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Первый вертикальный срез", level: 2 }),
   ).toBeVisible();
-  await expect(page).toHaveTitle("Как устроен Inside Platform · Sachkov Inside");
-  await expect(page.getByRole("link", { name: "Назад на Главную" }).first()).toBeVisible();
-  await expect(page.getByRole("main")).toContainText("PostgreSQL хранит current Material");
+  await expect(page).toHaveTitle(
+    "Как устроен Inside Platform · Sachkov Inside",
+  );
+  await expect(
+    page.getByRole("link", { name: "Назад на Главную" }).first(),
+  ).toBeVisible();
+  await expect(page.getByRole("main")).toContainText(
+    "PostgreSQL хранит current Material",
+  );
   await expect(page.locator("[data-reader-body]")).toHaveCount(1);
 
   await page.keyboard.press("Tab");
-  await expect(page.getByRole("link", { name: "Перейти к содержанию" })).toBeFocused();
+  await expect(
+    page.getByRole("link", { name: "Перейти к содержанию" }),
+  ).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(page.getByRole("main")).toBeFocused();
 
@@ -234,8 +294,7 @@ test("server-renders the representative PostgreSQL Material through Nest", async
 
   const metrics = await page.evaluate(() => {
     const navigation = window.performance.getEntriesByType("navigation")[0] as
-      | PerformanceNavigationTiming
-      | undefined;
+      PerformanceNavigationTiming | undefined;
     const measured = (
       window as unknown as Window & {
         __readerPerformance: {
@@ -251,7 +310,10 @@ test("server-renders the representative PostgreSQL Material through Nest", async
     ).__readerPerformance;
     return {
       ...measured,
-      ttfb: navigation === undefined ? Number.POSITIVE_INFINITY : navigation.responseStart,
+      ttfb:
+        navigation === undefined
+          ? Number.POSITIVE_INFINITY
+          : navigation.responseStart,
     };
   });
   expect(metrics.ttfb).toBeLessThanOrEqual(800);
@@ -261,26 +323,42 @@ test("server-renders the representative PostgreSQL Material through Nest", async
   expect(browserErrors).toEqual([]);
 });
 
-test("requires sign-in to save a video reading mark and does not create anonymous progress", async ({ page }) => {
+test("requires sign-in to save a video reading mark and does not create anonymous progress", async ({
+  page,
+}) => {
   const readingWrites: string[] = [];
   page.on("request", (request) => {
-    if (request.method() === "PUT" && new URL(request.url()).pathname === "/api/reading-progress/state") {
+    if (
+      request.method() === "PUT" &&
+      new URL(request.url()).pathname === "/api/reading-progress/state"
+    ) {
       readingWrites.push(request.url());
     }
   });
   await page.goto("/materials/produkt-i-inzhenernyy-kontekst");
   const action = page.getByRole("main").locator("[data-reading-action-state]");
-  await expect(action).toHaveAttribute("data-reading-action-state", "anonymous");
+  await expect(action).toHaveAttribute(
+    "data-reading-action-state",
+    "anonymous",
+  );
   const signIn = action.getByRole("link", { name: "Просмотрено", exact: true });
   await expect(signIn).toHaveAttribute("href", "/account");
-  await expect(action.getByRole("button", { name: "Просмотрено", exact: true })).toHaveCount(0);
+  await expect(
+    action.getByRole("button", { name: "Просмотрено", exact: true }),
+  ).toHaveCount(0);
   await signIn.click();
   await expect(page).toHaveURL(/\/account$/u);
-  await expect(page.getByRole("main").getByRole("button", { name: "Войти", exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("main").getByRole("button", { name: "Войти", exact: true }),
+  ).toBeVisible();
   expect(readingWrites).toEqual([]);
-  expect(await page.evaluate(() => (
-    Object.keys(localStorage).some((key) => key.startsWith("inside.video-progress.v1:"))
-  ))).toBe(false);
+  expect(
+    await page.evaluate(() =>
+      Object.keys(localStorage).some((key) =>
+        key.startsWith("inside.video-progress.v1:"),
+      ),
+    ),
+  ).toBe(false);
 });
 
 test("renders a locked teaser whose purchase starts inside the platform and fails closed on invalid proof", async ({
@@ -309,9 +387,11 @@ test("renders a locked teaser whose purchase starts inside the platform and fail
   const purchase = teaser.getByRole("link", {
     name: /^(Получить доступ|Купить продукт)$/u,
   });
-  if (await purchase.count() === 0) {
+  if ((await purchase.count()) === 0) {
     await expect(
-      teaser.getByText("Купить доступ сейчас нельзя, но материал останется здесь."),
+      teaser.getByText(
+        "Купить доступ сейчас нельзя, но материал останется здесь.",
+      ),
     ).toBeVisible();
   } else {
     await expect(purchase).toHaveAttribute(
@@ -320,8 +400,12 @@ test("renders a locked teaser whose purchase starts inside the platform and fail
     );
     expect(await purchase.getAttribute("target")).toBeNull();
   }
-  await expect(teaser.locator('a[href^="http"], a[target="_blank"]')).toHaveCount(0);
-  await expect(page.getByText("Закрытое содержимое для участников")).toHaveCount(0);
+  await expect(
+    teaser.locator('a[href^="http"], a[target="_blank"]'),
+  ).toHaveCount(0);
+  await expect(
+    page.getByText("Закрытое содержимое для участников"),
+  ).toHaveCount(0);
 
   const invalidProof = await request.get(
     `${process.env.FULLSTACK_API_BASE_URL ?? "http://127.0.0.1:3001"}/materials/developer-pipeline-bez-poteri-konteksta`,
@@ -346,27 +430,30 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
   });
   await expect(onboardingDismiss).toBeVisible({ timeout: 10_000 });
   await onboardingDismiss.click();
-  const markWatched = page.getByRole("button", { name: "Просмотрено", exact: true });
+  const markWatched = page.getByRole("button", {
+    name: "Просмотрено",
+    exact: true,
+  });
   await expect(markWatched).toBeEnabled();
-  if (await markWatched.getAttribute("aria-pressed") === "true") {
+  if ((await markWatched.getAttribute("aria-pressed")) === "true") {
     await markWatched.click();
   }
   await expect(markWatched).toHaveAttribute("aria-pressed", "false");
   await markWatched.click();
-  await expect(page.getByRole("button", { name: "Просмотрено" })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
+  await expect(
+    page.getByRole("button", { name: "Просмотрено" }),
+  ).toHaveAttribute("aria-pressed", "true");
   await page.reload();
   const watched = page.getByRole("button", { name: "Просмотрено" });
   await expect(watched).toBeEnabled();
   await watched.click();
-  await expect(page.getByRole("button", { name: "Просмотрено", exact: true })).toHaveAttribute(
-    "aria-pressed",
-    "false",
-  );
+  await expect(
+    page.getByRole("button", { name: "Просмотрено", exact: true }),
+  ).toHaveAttribute("aria-pressed", "false");
 
-  const reader = await page.goto("/materials/developer-pipeline-bez-poteri-konteksta");
+  const reader = await page.goto(
+    "/materials/developer-pipeline-bez-poteri-konteksta",
+  );
   expect(reader?.status()).toBe(200);
   await expect(
     page.getByRole("heading", {
@@ -374,8 +461,12 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
       level: 1,
     }),
   ).toBeVisible();
-  await expect(page.getByRole("main").getByText("Закрытое содержимое для участников.")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Получить доступ" })).toHaveCount(0);
+  await expect(
+    page.getByRole("main").getByText("Закрытое содержимое для участников."),
+  ).toBeVisible();
+  await expect(page.getByRole("link", { name: "Получить доступ" })).toHaveCount(
+    0,
+  );
 
   await page.goto("/?q=developer+pipeline");
   const membershipCard = page
@@ -387,7 +478,11 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
   // The renewed session cookie is Secure: on 127.0.0.1 only the browser itself sends it.
   const bffResponse = await page.evaluate(async () => {
     const response = await fetch("/api/library/materials?q=developer+pipeline");
-    return { status: response.status, cacheControl: response.headers.get("cache-control"), body: (await response.json()) as unknown };
+    return {
+      status: response.status,
+      cacheControl: response.headers.get("cache-control"),
+      body: (await response.json()) as unknown,
+    };
   });
   expect(bffResponse.status).toBe(200);
   expect(bffResponse.cacheControl).toBe("private, no-store");
@@ -417,7 +512,9 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
   }
   await expect(page).toHaveURL(/\/authoring\/materials$/u);
   await page.getByRole("link", { name: "Темы", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Темы", level: 1 })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Темы", level: 1 }),
+  ).toBeVisible();
   // Тема раскрывается кнопкой: её название, адрес и число материалов складываются в доступное имя.
   await expect(
     page.getByRole("button", { name: /^Platform \/platform · \d+ материал/u }),
@@ -425,29 +522,35 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
   await captureIssue195Evidence(page, testInfo, "admin-topics");
 
   await page.getByRole("link", { name: "Продукты", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Продукты", level: 1 })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Продукты", level: 1 }),
+  ).toBeVisible();
   const platformGuide = page.getByRole("link", {
     name: /^Создание Platform Inside \d+ материал/u,
   });
   await expect(platformGuide).toBeVisible();
-  await expect(platformGuide).toHaveAttribute("href", /^\/authoring\/guides\//u);
+  await expect(platformGuide).toHaveAttribute(
+    "href",
+    /^\/authoring\/guides\//u,
+  );
   await captureIssue195Evidence(page, testInfo, "admin-playlists");
 });
 
-test("returns the production not-found state for an unpublished slug", async ({ page }) => {
-  await page.goto(
-    "/materials/not-published?from=%2Fseries%2Fplatform-inside",
-  );
+test("returns the production not-found state for an unpublished slug", async ({
+  page,
+}) => {
+  await page.goto("/materials/not-published?from=%2Fseries%2Fplatform-inside");
 
   await expect(page.locator('head meta[name="robots"]')).toHaveAttribute(
     "content",
     /noindex/,
   );
-  await expect(page.getByRole("heading", { name: "Материал не найден" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Назад к продукту" })).toHaveAttribute(
-    "href",
-    "/series/platform-inside",
-  );
+  await expect(
+    page.getByRole("heading", { name: "Материал не найден" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Назад к продукту" }),
+  ).toHaveAttribute("href", "/series/platform-inside");
 });
 
 test("navigates Library → Topic → ordered Series and exposes canonical Reader context", async ({
@@ -462,15 +565,20 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   expect(topicHtml).not.toContain("Закрытое содержимое для участников");
 
   await page.goto("/topics/platform?from=%2F");
-  const membershipCard = page.getByRole("article").filter({ hasText: "Developer Pipeline без потери контекста" });
-  await expect(page.getByRole("link", { name: "Назад на Главную" })).toHaveAttribute(
-    "href",
-    "/",
-  );
-  await expect(page.getByRole("heading", { level: 1, name: "Platform" })).toBeVisible();
+  const membershipCard = page
+    .getByRole("article")
+    .filter({ hasText: "Developer Pipeline без потери контекста" });
+  await expect(
+    page.getByRole("link", { name: "Назад на Главную" }),
+  ).toHaveAttribute("href", "/");
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Platform" }),
+  ).toBeVisible();
   await expect(page).toHaveTitle("Platform — тема · Sachkov Inside");
   await expectLibraryNavigationActive(page, testInfo);
-  await expect(membershipCard.locator('[data-access-cover="locked"]')).toBeVisible();
+  await expect(
+    membershipCard.locator('[data-access-cover="locked"]'),
+  ).toBeVisible();
   const topicMaterialHref = await page
     .locator("[data-material-grid]")
     .getByRole("link", {
@@ -489,7 +597,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   await captureIssue195Evidence(page, testInfo, "topic");
   await captureIssue271Evidence(page, testInfo, "topic");
 
-  const seriesLink = page.locator('[data-playlist-card]').filter({
+  const seriesLink = page.locator("[data-playlist-card]").filter({
     hasText: "Создание Platform Inside",
   });
   await expect(seriesLink).toHaveAttribute(
@@ -502,29 +610,47 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   await expect(page).toHaveURL(
     /\/guides\/platform-inside\?from=%2Ftopics%2Fplatform%3Ffrom%3D%252F$/u,
   );
-  await expect(page.getByRole("link", { name: "Назад к теме" })).toHaveAttribute(
-    "href",
-    "/topics/platform?from=%2F",
-  );
+  await expect(
+    page.getByRole("link", { name: "Назад к теме" }),
+  ).toHaveAttribute("href", "/topics/platform?from=%2F");
   await expect(
     page.getByRole("heading", { level: 1, name: "Создание Platform Inside" }),
   ).toBeVisible();
-  await expect(page).toHaveTitle("Создание Platform Inside — продукт · Sachkov Inside");
+  await expect(page).toHaveTitle(
+    "Создание Platform Inside — продукт · Sachkov Inside",
+  );
   await expectLibraryNavigationActive(page, testInfo);
   // Материалы, состояния доступа и порядок живут в программе; страница продукта рассказывает.
-  await page.getByRole("link", { name: "Открыть программу", exact: true }).click();
+  await page
+    .getByRole("link", { name: "Открыть программу", exact: true })
+    .click();
   await expect(page).toHaveURL(/\/guides\/platform-inside\/programme/u);
   await expect(page.locator("[data-guide-programme]:visible")).toBeVisible();
   // Authoring scenarios add their members-only lessons to this seeded product (#648), so it only grows.
-  await expect(page.locator("[data-series-order] [data-series-ordinal]").nth(1)).toBeVisible();
   await expect(
-    page.locator("[data-series-order] [data-series-ordinal]").evaluateAll((items) =>
-      items.slice(0, 2).map((item) => item.getAttribute("data-series-ordinal")),
-    ),
+    page.locator("[data-series-order] [data-series-ordinal]").nth(1),
+  ).toBeVisible();
+  await expect(
+    page
+      .locator("[data-series-order] [data-series-ordinal]")
+      .evaluateAll((items) =>
+        items
+          .slice(0, 2)
+          .map((item) => item.getAttribute("data-series-ordinal")),
+      ),
   ).resolves.toEqual(["1", "2"]);
   // У руководства с главами каждый список назван своей главой, поэтому материал ищется в маршруте.
-  await expect(page.locator("[data-series-order]").getByText("Как устроен Inside Platform").first()).toBeVisible();
-  await expect(page.getByText("Developer Pipeline без потери контекста").filter({ visible: true })).toBeVisible();
+  await expect(
+    page
+      .locator("[data-series-order]")
+      .getByText("Как устроен Inside Platform")
+      .first(),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByText("Developer Pipeline без потери контекста")
+      .filter({ visible: true }),
+  ).toBeVisible();
   const representativeSeriesItem = page
     .locator("[data-series-order] [data-series-ordinal]")
     .filter({ hasText: "Как устроен Inside Platform" });
@@ -556,15 +682,18 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   await expect(
     page.getByRole("link", { name: "Platform", exact: true }),
   ).toHaveAttribute("href", "/topics/platform");
-  await expect(page.getByRole("link", { name: "Назад к программе" })).toHaveCount(1);
+  await expect(
+    page.getByRole("link", { name: "Назад к программе" }),
+  ).toHaveCount(1);
   await expect(page.locator("[data-reader-footer]")).not.toContainText("· №");
 
-  await expect(page).toHaveTitle("Как устроен Inside Platform · Sachkov Inside");
+  await expect(page).toHaveTitle(
+    "Как устроен Inside Platform · Sachkov Inside",
+  );
   await expectLibraryNavigationActive(page, testInfo);
   await expectNoSeriousAccessibilityFindings(page);
   await expectNoHorizontalOverflow(page);
   await captureIssue271Evidence(page, testInfo, "reader");
-
 });
 
 test("uses the selected Series order for a shared Material and leaves standalone reading independent", async ({
@@ -572,25 +701,33 @@ test("uses the selected Series order for a shared Material and leaves standalone
 }) => {
   // Порядок материала берёт та программа, из которой читатель пришёл: маршрут живёт там.
   await page.goto("/guides/demo-series-harness/programme");
-  await page.getByRole("link", { exact: true, name: "Demo #295 · Общий гайд" }).click();
-  await expect(page.locator("[data-series-reader-navigation]")).toContainText("1 из 2");
+  await page
+    .getByRole("link", { exact: true, name: "Demo #295 · Общий гайд" })
+    .click();
+  await expect(page.locator("[data-series-reader-navigation]")).toContainText(
+    "1 из 2",
+  );
   const harnessNext = page.getByRole("link", { name: "Дальше" });
   expect(
     new URL(
       (await harnessNext.getAttribute("href")) ?? "",
       page.url(),
     ).searchParams.get("from"),
-  ).toBe("/guides/demo-series-harness/programme?page=1&at=demo-295-obshchiy-gayd");
+  ).toBe(
+    "/guides/demo-series-harness/programme?page=1&at=demo-295-obshchiy-gayd",
+  );
   await page.goBack();
   await expect(page).toHaveURL(/\/guides\/demo-series-harness\/programme/u);
   await page.goForward();
-  await expect(
-    page.getByRole("link", { name: "Дальше" }),
-  ).toBeVisible();
+  await expect(page.getByRole("link", { name: "Дальше" })).toBeVisible();
 
   await page.goto("/guides/demo-series-review/programme");
-  await page.getByRole("link", { exact: true, name: "Demo #295 · Общий гайд" }).click();
-  await expect(page.locator("[data-series-reader-navigation]")).toContainText("1 из 3");
+  await page
+    .getByRole("link", { exact: true, name: "Demo #295 · Общий гайд" })
+    .click();
+  await expect(page.locator("[data-series-reader-navigation]")).toContainText(
+    "1 из 3",
+  );
   const mixedNext = page.getByRole("link", {
     name: "Дальше",
   });
@@ -599,16 +736,20 @@ test("uses the selected Series order for a shared Material and leaves standalone
       (await mixedNext.getAttribute("href")) ?? "",
       page.url(),
     ).searchParams.get("from"),
-  ).toBe("/guides/demo-series-review/programme?page=1&at=demo-295-obshchiy-gayd");
+  ).toBe(
+    "/guides/demo-series-review/programme?page=1&at=demo-295-obshchiy-gayd",
+  );
   await mixedNext.click();
-  await expect(
-    page.getByRole("link", { name: "Дальше" }),
-  ).toBeVisible();
+  await expect(page.getByRole("link", { name: "Дальше" })).toBeVisible();
 
   await page.goto("/materials/demo-295-samostoyatelnaya-zametka");
-  await expect(page.getByRole("heading", { name: "Demo #295 · Самостоятельная заметка" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Demo #295 · Самостоятельная заметка" }),
+  ).toBeVisible();
   await expect(page.locator("[data-series-reader-navigation]")).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Назад на Главную" }).first()).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Назад на Главную" }).first(),
+  ).toBeVisible();
 });
 
 async function expectLibraryNavigationActive(page: Page, testInfo: TestInfo) {
@@ -702,19 +843,28 @@ async function captureIssue271Evidence(
   });
 }
 
-test("renders missing Topic and Series as controlled noindex states", async ({ page }) => {
-  for (const path of ["/topics/not-published", "/series/not-published"] as const) {
+test("renders missing Topic and Series as controlled noindex states", async ({
+  page,
+}) => {
+  for (const path of [
+    "/topics/not-published",
+    "/series/not-published",
+  ] as const) {
     await page.goto(path);
     await expect(page.locator('head meta[name="robots"]')).toHaveAttribute(
       "content",
       /noindex/u,
     );
-    await expect(page.getByRole("heading", { name: "Подборка не найдена" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Подборка не найдена" }),
+    ).toBeVisible();
     await expect(page.getByRole("link", { name: "На главную" })).toBeVisible();
   }
 });
 
-test("keeps desktop shell fixed while main content owns scrolling", async ({ page }, testInfo) => {
+test("keeps desktop shell fixed while main content owns scrolling", async ({
+  page,
+}, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chromium");
 
   await page.addInitScript(() => {
@@ -773,11 +923,15 @@ test("keeps desktop shell fixed while main content owns scrolling", async ({ pag
   await page.mouse.wheel(0, 600);
   await page.waitForTimeout(100);
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
-  await expect.poll(() => main.evaluate((element) => element.scrollTop)).toBe(0);
+  await expect
+    .poll(() => main.evaluate((element) => element.scrollTop))
+    .toBe(0);
 
   await main.hover({ position: { x: 600, y: 400 } });
   await page.mouse.wheel(0, 600);
   await page.waitForTimeout(100);
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
-  await expect.poll(() => main.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+  await expect
+    .poll(() => main.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(0);
 });

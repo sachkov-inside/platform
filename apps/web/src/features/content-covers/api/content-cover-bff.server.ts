@@ -68,7 +68,11 @@ export async function proxyContentCoverUpload(
         body === null ||
         contentType?.toLowerCase().startsWith("multipart/form-data;") !== true
       ) {
-        return backendProxyProblem(400, "invalid_cover", "Cover form is malformed");
+        return backendProxyProblem(
+          400,
+          "invalid_cover",
+          "Cover form is malformed",
+        );
       }
       return copyBackendResponse(
         await requestContentCoverUpload({
@@ -97,19 +101,34 @@ export async function proxyContentCoverRemoval(
     async (body, accessToken) => {
       if (
         body === null ||
-        request.headers.get("content-type")?.toLowerCase().startsWith("application/json") !== true
+        request.headers
+          .get("content-type")
+          ?.toLowerCase()
+          .startsWith("application/json") !== true
       ) {
-        return backendProxyProblem(400, "invalid_cover", "Cover removal is malformed");
+        return backendProxyProblem(
+          400,
+          "invalid_cover",
+          "Cover removal is malformed",
+        );
       }
       let input: unknown;
       try {
         input = await new Response(body).json();
       } catch {
-        return backendProxyProblem(400, "invalid_cover", "Cover removal is malformed");
+        return backendProxyProblem(
+          400,
+          "invalid_cover",
+          "Cover removal is malformed",
+        );
       }
       const parsed = removalBodySchema.safeParse(input);
       if (!parsed.success) {
-        return backendProxyProblem(400, "invalid_cover", "Current cover is invalid");
+        return backendProxyProblem(
+          400,
+          "invalid_cover",
+          "Current cover is invalid",
+        );
       }
       return copyBackendResponse(
         await requestContentCoverRemoval({
@@ -134,11 +153,17 @@ const streamingMutationOptions = {
 function parseOwner(ownerKind: string, ownerId: string) {
   const kind = contentCoverOwnerKindSchema.safeParse(ownerKind);
   const id = coverIdSchema.safeParse(ownerId);
-  return kind.success && id.success ? { id: id.data, kind: kind.data } : undefined;
+  return kind.success && id.success
+    ? { id: id.data, kind: kind.data }
+    : undefined;
 }
 
 function invalidOwner(): Response {
-  return backendProxyProblem(404, "cover_owner_not_found", "Cover owner not found");
+  return backendProxyProblem(
+    404,
+    "cover_owner_not_found",
+    "Cover owner not found",
+  );
 }
 
 function coverMutationFailure(failure: AuthenticatedMutationFailure): Response {
@@ -146,12 +171,24 @@ function coverMutationFailure(failure: AuthenticatedMutationFailure): Response {
     case "authentication_required":
       return backendProxyProblem(401, failure, "Authentication required");
     case "body_too_large":
-      return backendProxyProblem(413, "invalid_cover", "Cover exceeds the size limit");
+      return backendProxyProblem(
+        413,
+        "invalid_cover",
+        "Cover exceeds the size limit",
+      );
     case "cross_origin_request":
-      return backendProxyProblem(403, failure, "Cross-origin cover mutation is forbidden");
+      return backendProxyProblem(
+        403,
+        failure,
+        "Cross-origin cover mutation is forbidden",
+      );
     case "dependency_unavailable":
       return backendProxyProblem(503, failure, "Cover mutation is unavailable");
     case "identity_unavailable":
-      return backendProxyProblem(503, failure, "Identity session is unavailable");
+      return backendProxyProblem(
+        503,
+        failure,
+        "Identity session is unavailable",
+      );
   }
 }

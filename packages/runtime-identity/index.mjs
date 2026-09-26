@@ -15,14 +15,18 @@ export const sha256IdentitySchema = z.intersection(
   z.templateLiteral(["sha256:", z.hash("sha256")]),
   z.string().lowercase(),
 );
-export const productionRuntimeIdentitySchema = z.strictObject({
-  release: ordinalReleaseSchema,
-  sourceSha: sourceShaSchema,
-}).readonly();
-const localRuntimeIdentitySchema = z.strictObject({
-  release: z.enum(["development", "test"]),
-  sourceSha: z.literal("0".repeat(40)),
-}).readonly();
+export const productionRuntimeIdentitySchema = z
+  .strictObject({
+    release: ordinalReleaseSchema,
+    sourceSha: sourceShaSchema,
+  })
+  .readonly();
+const localRuntimeIdentitySchema = z
+  .strictObject({
+    release: z.enum(["development", "test"]),
+    sourceSha: z.literal("0".repeat(40)),
+  })
+  .readonly();
 export const runtimeIdentitySchema = z.union([
   productionRuntimeIdentitySchema,
   localRuntimeIdentitySchema,
@@ -36,10 +40,13 @@ export function resolveRuntimeIdentity(input) {
     });
   }
 
-  const runtime = parseProductionIdentity({
-    release: required(input.environment, "PLATFORM_RELEASE_VERSION"),
-    sourceSha: required(input.environment, "PLATFORM_SOURCE_SHA"),
-  }, "Runtime");
+  const runtime = parseProductionIdentity(
+    {
+      release: required(input.environment, "PLATFORM_RELEASE_VERSION"),
+      sourceSha: required(input.environment, "PLATFORM_SOURCE_SHA"),
+    },
+    "Runtime",
+  );
   const embedded = parseProductionIdentity(
     input.embeddedIdentity ?? readEmbeddedIdentity(),
     "Immutable image",

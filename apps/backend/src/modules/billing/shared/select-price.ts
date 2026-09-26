@@ -1,35 +1,123 @@
 import type { BillingPrisma } from "../../../infrastructure/prisma/index.js";
-import { applicablePromotion, discountedPrice, failure, offerSchema, optionSchema, promotionSchema, type PriceSnapshot, type PricingResult } from "../domain/pricing.js";
-import { offerGrantsWithheld, productOfferUnsellable, tierLacksComposition } from "./tier-composition.js";
+import {
+  applicablePromotion,
+  discountedPrice,
+  failure,
+  offerSchema,
+  optionSchema,
+  promotionSchema,
+  type PriceSnapshot,
+  type PricingResult,
+} from "../domain/pricing.js";
+import {
+  offerGrantsWithheld,
+  productOfferUnsellable,
+  tierLacksComposition,
+} from "./tier-composition.js";
 
 export interface SelectPriceOptions {
   /** Владельческий каталог читает и выключенные из продажи предложения; покупка их не видит. */
   readonly allowUnpublished?: boolean;
 }
 
-export async function selectPrice(tx: BillingPrisma, optionId: string, now: Date, promoCode?: string, options: SelectPriceOptions = {}): Promise<PricingResult<PriceSnapshot, "not_found" | "unsupported_amount">> {
-  const row = await tx.billingPaymentOption.findUnique({ where: { id: optionId }, include: { offer: true } });
-  if (!row || row.archived || row.offer.archived || (options.allowUnpublished !== true && !row.offer.published)) return failure("not_found");
-  // Строка, записанная в обход каталога, не продаёт пустой тариф, запрещённый состав и продукт без сопровождения на срок оферты.
-  if (options.allowUnpublished !== true && (tierLacksComposition(row.offer) || productOfferUnsellable(row.offer) || offerGrantsWithheld(row.offer))) return failure("not_found");
-  const offer = offerSchema.parse({ id: row.offer.id, name: row.offer.name, revision: row.offer.revision, benefits: row.offer.benefits,
-    archived: row.offer.archived, published: row.offer.published, availableForAssignment: row.offer.availableForAssignment, contentScope: row.offer.contentScope, ...(Array.isArray(row.offer.benefitPeriods) && row.offer.benefitPeriods.length > 0 ? { benefitPeriods: row.offer.benefitPeriods } : {}),
+export async function selectPrice(
+  tx: BillingPrisma,
+  optionId: string,
+  now: Date,
+  promoCode?: string,
+  options: SelectPriceOptions = {},
+): Promise<PricingResult<PriceSnapshot, "not_found" | "unsupported_amount">> {
+  const row = await tx.billingPaymentOption.findUnique({
+    where: { id: optionId },
+    include: { offer: true },
   });
-  const option = optionSchema.parse({ id: row.id, offerId: row.offerId, revision: row.revision, months: row.months, mode: row.mode, priceKopecks: Number(row.priceKopecks), archived: row.archived });
-  const rows = await tx.billingPromotion.findMany({ where: { archived: false, startsAt: { lte: now }, endsAt: { gt: now }, OR: [{ code: null }, ...(promoCode ? [{ code: promoCode }] : [])] } });
+  if (
+    !row ||
+    row.archived ||
+    row.offer.archived ||
+    (options.allowUnpublished !== true && !row.offer.published)
+  )
+    return failure("not_found");
+  // Строка, записанная в обход каталога, не продаёт пустой тариф, запрещённый состав и продукт без сопровождения на срок оферты.
+  if (
+    options.allowUnpublished !== true &&
+    (tierLacksComposition(row.offer) ||
+      productOfferUnsellable(row.offer) ||
+      offerGrantsWithheld(row.offer))
+  )
+    return failure("not_found");
+  const offer = offerSchema.parse({
+    id: row.offer.id,
+    name: row.offer.name,
+    revision: row.offer.revision,
+    benefits: row.offer.benefits,
+    archived: row.offer.archived,
+    published: row.offer.published,
+    availableForAssignment: row.offer.availableForAssignment,
+    contentScope: row.offer.contentScope,
+    ...(Array.isArray(row.offer.benefitPeriods) &&
+    row.offer.benefitPeriods.length > 0
+      ? { benefitPeriods: row.offer.benefitPeriods }
+      : {}),
+  });
+  const option = optionSchema.parse({
+    id: row.id,
+    offerId: row.offerId,
+    revision: row.revision,
+    months: row.months,
+    mode: row.mode,
+    priceKopecks: Number(row.priceKopecks),
+    archived: row.archived,
+  });
+  const rows = await tx.billingPromotion.findMany({
+    where: {
+      archived: false,
+      startsAt: { lte: now },
+      endsAt: { gt: now },
+      OR: [{ code: null }, ...(promoCode ? [{ code: promoCode }] : [])],
+    },
+  });
   const available = [];
   for (const row of rows) {
-    const promotion = promotionSchema.parse({ ...row, startsAt: row.startsAt.toISOString(), endsAt: row.endsAt.toISOString() });
+    const promotion = promotionSchema.parse({
+      ...row,
+      startsAt: row.startsAt.toISOString(),
+      endsAt: row.endsAt.toISOString(),
+    });
     if (!applicablePromotion(promotion, option, now, promoCode)) continue;
-    const used = promotion.usageLimit === null ? 0 : await tx.billingPromoReservation.count({ where: { promotionId: promotion.id, state: { not: "failed" } } });
-    if (promotion.usageLimit === null || used < promotion.usageLimit) available.push(promotion);
+    const used =
+      promotion.usageLimit === null
+        ? 0
+        : await tx.billingPromoReservation.count({
+            where: { promotionId: promotion.id, state: { not: "failed" } },
+          });
+    if (promotion.usageLimit === null || used < promotion.usageLimit)
+      available.push(promotion);
   }
   available.sort((a, b) => b.percent - a.percent || a.id.localeCompare(b.id));
   const best = available[0];
-  const firstPriceKopecks = discountedPrice(option.priceKopecks, best?.percent ?? 0);
+  const firstPriceKopecks = discountedPrice(
+    option.priceKopecks,
+    best?.percent ?? 0,
+  );
   if (firstPriceKopecks <= 0) return failure("unsupported_amount");
-  return { ok: true, value: {
-    offer, paymentOption: option, promotion: best ? { id: best.id, revision: best.revision, name: best.name, percent: best.percent } : null,
-    currency: "RUB", timezone: "Europe/Moscow", firstPriceKopecks, renewalPriceKopecks: option.priceKopecks,
-  } };
+  return {
+    ok: true,
+    value: {
+      offer,
+      paymentOption: option,
+      promotion: best
+        ? {
+            id: best.id,
+            revision: best.revision,
+            name: best.name,
+            percent: best.percent,
+          }
+        : null,
+      currency: "RUB",
+      timezone: "Europe/Moscow",
+      firstPriceKopecks,
+      renewalPriceKopecks: option.priceKopecks,
+    },
+  };
 }

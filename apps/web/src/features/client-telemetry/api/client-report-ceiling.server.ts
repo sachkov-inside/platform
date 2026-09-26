@@ -32,10 +32,16 @@ type ClientReportAdmission =
 const windowMilliseconds = CLIENT_REPORT_WINDOW_SECONDS * 1_000;
 
 /** Один счёт на процесс web: production запускает ровно один экземпляр (ADR 0028). */
-const windows = new Map<ClientReportKind, { readonly startedAt: number; used: number; refused: boolean }>();
+const windows = new Map<
+  ClientReportKind,
+  { readonly startedAt: number; used: number; refused: boolean }
+>();
 
 /** Принимает отчёт целиком, если все его строки помещаются под потолок окна; иначе не пишет ни одной. */
-export function admitClientReport(kind: ClientReportKind, records: number): ClientReportAdmission {
+export function admitClientReport(
+  kind: ClientReportKind,
+  records: number,
+): ClientReportAdmission {
   const at = Date.now();
   let window = windows.get(kind);
   if (window === undefined || at - window.startedAt >= windowMilliseconds) {
@@ -51,6 +57,9 @@ export function admitClientReport(kind: ClientReportKind, records: number): Clie
   return {
     admitted: false,
     firstRefusal,
-    retryAfterSeconds: Math.max(1, Math.ceil((window.startedAt + windowMilliseconds - at) / 1_000)),
+    retryAfterSeconds: Math.max(
+      1,
+      Math.ceil((window.startedAt + windowMilliseconds - at) / 1_000),
+    ),
   };
 }

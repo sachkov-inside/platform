@@ -59,10 +59,14 @@ export function TopicCard({
           sizes="(min-width: 1024px) 16rem, 50vw"
         />
       </span>
-      <strong className={cn(
-        "block tracking-[-0.02em]",
-        compact ? "mt-2 text-sm leading-5" : "mt-3 text-[0.9375rem] leading-5 md:text-base md:leading-6",
-      )}>
+      <strong
+        className={cn(
+          "block tracking-[-0.02em]",
+          compact
+            ? "mt-2 text-sm leading-5"
+            : "mt-3 text-[0.9375rem] leading-5 md:text-base md:leading-6",
+        )}
+      >
         {topic.name}
       </strong>
       {compact ? null : (
@@ -90,12 +94,29 @@ export function PlaylistCard({
       data-playlist-card
       // Начатое руководство продолжается в программе: там материалы и подсвеченное место чтения.
       // Непрочитанное открывается со страницы продукта, где руководство сначала рассказывает о себе.
-      href={playlist.continuation === undefined ? collectionDiscoveryHref("series", playlist.slug, returnHref) : guideProgrammeHref(playlist.slug)}
+      href={
+        playlist.continuation === undefined
+          ? collectionDiscoveryHref("series", playlist.slug, returnHref)
+          : guideProgrammeHref(playlist.slug)
+      }
     >
       <span className="flex items-start justify-between gap-3">
-        <span className={cn("inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold", playlist.continuation === undefined ? "bg-white/10 text-white/75" : "bg-accent text-accent-foreground")}>
-          {playlist.continuation === undefined ? null : <Play aria-hidden="true" className="size-3 shrink-0 fill-current" />}
-          <span>{playlist.continuation === undefined ? `Продукт · ${playlist.countLabel}` : `Продолжить · изучено ${String(playlist.continuation.read)} из ${String(playlist.continuation.total)}`}</span>
+        <span
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold",
+            playlist.continuation === undefined
+              ? "bg-white/10 text-white/75"
+              : "bg-accent text-accent-foreground",
+          )}
+        >
+          {playlist.continuation === undefined ? null : (
+            <Play aria-hidden="true" className="size-3 shrink-0 fill-current" />
+          )}
+          <span>
+            {playlist.continuation === undefined
+              ? `Продукт · ${playlist.countLabel}`
+              : `Продолжить · изучено ${String(playlist.continuation.read)} из ${String(playlist.continuation.total)}`}
+          </span>
         </span>
         <span
           aria-hidden="true"
@@ -113,16 +134,19 @@ export function PlaylistCard({
       <span className="mt-auto grid grid-cols-3 gap-2 pt-6" aria-hidden="true">
         {Array.from({ length: Math.max(previews.length, 1) }, (_, index) => {
           const material = previews[index];
-          const collectionCover = index === 0
-            ? playlist.cover ?? null
-            : null;
+          const collectionCover = index === 0 ? (playlist.cover ?? null) : null;
           const locked =
             collectionCover === null &&
             material?.availability !== undefined &&
             material.availability !== "available";
           return (
-            <span className="relative block overflow-hidden rounded-2xl" key={material?.slug ?? `${playlist.slug}-${String(index)}`}>
-              <span className={locked ? "block scale-[1.04] blur-[4px]" : "block"}>
+            <span
+              className="relative block overflow-hidden rounded-2xl"
+              key={material?.slug ?? `${playlist.slug}-${String(index)}`}
+            >
+              <span
+                className={locked ? "block scale-[1.04] blur-[4px]" : "block"}
+              >
                 <ContentCoverImage
                   alt=""
                   className="aspect-[4/3] min-h-0 rounded-2xl"
@@ -131,14 +155,14 @@ export function PlaylistCard({
                     collectionCover !== null
                       ? "playlist"
                       : material === undefined
-                      ? "playlist"
-                      : materialPreviewHasVideo(material)
-                        ? "video"
-                        : "material"
+                        ? "playlist"
+                        : materialPreviewHasVideo(material)
+                          ? "video"
+                          : "material"
                   }
                   fallbackSeed={
                     collectionCover === null
-                      ? material?.slug ?? `${playlist.slug}-${String(index)}`
+                      ? (material?.slug ?? `${playlist.slug}-${String(index)}`)
                       : playlist.slug
                   }
                   sizes="10rem"

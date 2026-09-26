@@ -8,7 +8,11 @@ export interface PublishedMaterialCatalogItemDto {
   readonly slug: string;
   readonly title: string;
   readonly summary: string;
-  readonly noteExcerpt?: { readonly text: string; readonly truncated: boolean; readonly linkUrl?: string };
+  readonly noteExcerpt?: {
+    readonly text: string;
+    readonly truncated: boolean;
+    readonly linkUrl?: string;
+  };
   /** Сложность урока и что он обещает: их печатает программа руководства рядом с шагом. */
   readonly difficulty: MaterialDifficulty | null;
   readonly outcomes: readonly string[];

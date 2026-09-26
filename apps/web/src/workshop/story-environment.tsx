@@ -40,7 +40,10 @@ function frameDecorator(Frame: PageFrame): Decorator {
   );
 }
 
-function routeEnvironment(currentPath: string, decorators: Decorator[]): StoryEnvironment {
+function routeEnvironment(
+  currentPath: string,
+  decorators: Decorator[],
+): StoryEnvironment {
   return {
     beforeEach: () => {
       mocked(usePathname).mockReturnValue(currentPath);
@@ -111,7 +114,9 @@ export function publicHeaderEnvironment(currentPath = "/"): StoryEnvironment {
 /** Рамка личного кабинета: разделы слева, один раздел справа — как в `account/layout.tsx`. */
 function AccountSectionFrame({ children }: { readonly children: ReactNode }) {
   return (
-    <AccountCabinet options={publicSubscriptionOffers(billingOffers)}>{children}</AccountCabinet>
+    <AccountCabinet options={publicSubscriptionOffers(billingOffers)}>
+      {children}
+    </AccountCabinet>
   );
 }
 
@@ -119,7 +124,9 @@ function AccountSectionFrame({ children }: { readonly children: ReactNode }) {
  * Раздел личного кабинета: публичная оболочка снаружи, рамка разделов внутри — ровно тот порядок,
  * который даёт `app/(public)/layout.tsx` вместе с `app/(public)/account/layout.tsx`.
  */
-export function accountSectionEnvironment(currentPath: string): StoryEnvironment {
+export function accountSectionEnvironment(
+  currentPath: string,
+): StoryEnvironment {
   return publicPageEnvironment(currentPath, {
     account: "authenticated",
     frame: AccountSectionFrame,

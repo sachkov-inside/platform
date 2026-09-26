@@ -12,7 +12,11 @@ import { readPublicSiteOrigin } from "@/shared/link-preview/index.server";
 export const unstable_dynamicStaleTime = 60;
 
 export async function generateMetadata(): Promise<Metadata> {
-  return publicPageMetadata(await readPublicSiteOrigin(), "website", siteLinkPreview());
+  return publicPageMetadata(
+    await readPublicSiteOrigin(),
+    "website",
+    siteLinkPreview(),
+  );
 }
 
 /**

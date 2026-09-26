@@ -1,4 +1,7 @@
-import { videoChaptersSchema, type VideoChapter } from "../../domain/video-chapters.js";
+import {
+  videoChaptersSchema,
+  type VideoChapter,
+} from "../../domain/video-chapters.js";
 import { z } from "zod";
 
 import {
@@ -6,7 +9,10 @@ import {
   type MaterialsPrismaTransaction,
 } from "../../../../infrastructure/prisma/index.js";
 import { Material } from "../../domain/material.js";
-import { materialId, type MaterialId } from "../../domain/material-identifiers.js";
+import {
+  materialId,
+  type MaterialId,
+} from "../../domain/material-identifiers.js";
 
 const lockedMaterialRowsSchema = z.array(
   z.object({

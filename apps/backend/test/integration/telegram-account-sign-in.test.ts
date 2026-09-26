@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 /** The first sign-in screen is already passed in these scenarios. */
-const acceptedTerms = { checkTerms: () => Promise.resolve({ ok: true as const, accepted: true }) };
+const acceptedTerms = {
+  checkTerms: () => Promise.resolve({ ok: true as const, accepted: true }),
+};
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { assembleAccounts } from "../../src/modules/accounts/index.js";
 import { verifiedTelegramAccountSignIn } from "../../src/modules/accounts/facets/accounts/verified-logto-identity.js";
@@ -115,7 +117,13 @@ test("a lost provider response retains one Account and principal, and a fresh pr
   await expect(
     signIn.resolveLink(principalRef, telegramIdentityRef, randomUUID()),
   ).resolves.toBeUndefined();
-  await database.prisma.telegramLinkTransaction.update({ where: { principalRef }, data: { createdAt: new Date(Date.now() - 301000), expiresAt: new Date(Date.now() - 1000) } });
+  await database.prisma.telegramLinkTransaction.update({
+    where: { principalRef },
+    data: {
+      createdAt: new Date(Date.now() - 301000),
+      expiresAt: new Date(Date.now() - 1000),
+    },
+  });
   unavailable = false;
   const retry = await signIn.complete(
     proof("telegram-timeout", first.identity.telegram.subjectRef).identity,
@@ -154,7 +162,9 @@ test("a Telegram sign-in completes the bot link only after the terms of use are 
   };
   let accepted = false;
   const signIn = new TelegramAccountSignIn({
-    terms: { checkTerms: () => Promise.resolve({ ok: true as const, accepted }) },
+    terms: {
+      checkTerms: () => Promise.resolve({ ok: true as const, accepted }),
+    },
     accounts,
     prisma: database.prisma,
     provider,
@@ -168,9 +178,10 @@ test("a Telegram sign-in completes the bot link only after the terms of use are 
   const signedIn = proof("telegram-before-terms");
   const first = await signIn.complete(signedIn.identity);
   if (!first.ok) throw new Error(first.error.code);
-  const pending = await database.prisma.telegramLinkTransaction.findFirstOrThrow({
-    where: { accountId: first.account.accountId },
-  });
+  const pending =
+    await database.prisma.telegramLinkTransaction.findFirstOrThrow({
+      where: { accountId: first.account.accountId },
+    });
   expect(pending.status).not.toBe("linked");
   expect(pending.providerIdentityRef).toBe(telegramIdentityRef);
   expect(
@@ -190,10 +201,11 @@ test("a Telegram sign-in completes the bot link only after the terms of use are 
   accepted = true;
   const completed = await signIn.complete(signedIn.identity);
   expect(completed).toEqual(first);
-  const linked = await database.prisma.telegramLinkTransaction.findFirstOrThrow({
-    where: { accountId: first.account.accountId },
-  });
+  const linked = await database.prisma.telegramLinkTransaction.findFirstOrThrow(
+    {
+      where: { accountId: first.account.accountId },
+    },
+  );
   expect(linked).toMatchObject({ linkRef: pending.linkRef, status: "linked" });
   expect(new Set(bound)).toEqual(new Set([pending.principalRef]));
 });
-

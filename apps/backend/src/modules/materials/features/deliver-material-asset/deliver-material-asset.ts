@@ -59,9 +59,16 @@ export function assembleMaterialAssetDelivery(dependencies: {
   const delivery: MaterialAssetDelivery = {
     async deliver(input) {
       const access = await dependencies.contentAccess.authorize({
-        action: input.preview ? "preview" : input.variantWidth === undefined ? "download" : "read",
+        action: input.preview
+          ? "preview"
+          : input.variantWidth === undefined
+            ? "download"
+            : "read",
         correlationId: randomUUID(),
-        enforcementPoint: input.variantWidth === undefined ? "download_delivery" : "asset_delivery",
+        enforcementPoint:
+          input.variantWidth === undefined
+            ? "download_delivery"
+            : "asset_delivery",
         resource: { assetId: input.assetId, kind: "asset" },
         subject: input.subject,
       });
@@ -73,27 +80,37 @@ export function assembleMaterialAssetDelivery(dependencies: {
       if (access.checkedContentVersion !== input.contentVersion) {
         return notFound();
       }
-      const reference = await dependencies.materialContent.containsAssetReference({
-        assetId: input.assetId,
-        checkedContentVersion: access.checkedContentVersion,
-        materialId: input.materialId,
-      });
+      const reference =
+        await dependencies.materialContent.containsAssetReference({
+          assetId: input.assetId,
+          checkedContentVersion: access.checkedContentVersion,
+          materialId: input.materialId,
+        });
       if (!reference.ok) return dependencyUnavailable();
       if (!reference.value) return notFound();
       let loaded: Awaited<ReturnType<MaterialAssets["loadDelivery"]>>;
       try {
         loaded = await dependencies.assets.loadDelivery(input);
       } catch (error) {
-        return dependencyFailure({ module: "materials", operation: "deliver" }, error, dependencyUnavailable());
+        return dependencyFailure(
+          { module: "materials", operation: "deliver" },
+          error,
+          dependencyUnavailable(),
+        );
       }
       if (!loaded.ok) return dependencyUnavailable();
       const asset = loaded.value;
-      if (asset === null || checkedMaterialId(asset.materialId) !== checkedMaterialId(input.materialId)) {
+      if (
+        asset === null ||
+        checkedMaterialId(asset.materialId) !==
+          checkedMaterialId(input.materialId)
+      ) {
         return notFound();
       }
-      const contentDisposition = asset.kind === "file"
-        ? attachmentDisposition(asset.filename)
-        : undefined;
+      const contentDisposition =
+        asset.kind === "file"
+          ? attachmentDisposition(asset.filename)
+          : undefined;
       if (access.reason === "public_resource") {
         const stored = await readPublicObject(dependencies.objectStorage, {
           contentType: asset.contentType,
@@ -116,7 +133,8 @@ export function assembleMaterialAssetDelivery(dependencies: {
       }
       const ttlSeconds = signedDeliveryTtlSeconds(
         dependencies.signedGetTtlSeconds,
-        access.reason === "active_membership" || access.reason === "active_workshop"
+        access.reason === "active_membership" ||
+          access.reason === "active_workshop"
           ? access.validUntil
           : undefined,
       );
@@ -131,7 +149,11 @@ export function assembleMaterialAssetDelivery(dependencies: {
           ttlSeconds,
         });
       } catch (error) {
-        return dependencyFailure({ module: "materials", operation: "deliver" }, error, dependencyUnavailable());
+        return dependencyFailure(
+          { module: "materials", operation: "deliver" },
+          error,
+          dependencyUnavailable(),
+        );
       }
       return {
         ok: true,

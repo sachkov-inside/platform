@@ -7,7 +7,11 @@ import {
 } from "./document-node.js";
 import type { JsonObject, JsonValue } from "./json.js";
 import { materialBlockByType } from "./registry.js";
-import type { RenderedBlock, RenderedMark, RenderedText } from "./rendered-block.js";
+import type {
+  RenderedBlock,
+  RenderedMark,
+  RenderedText,
+} from "./rendered-block.js";
 
 function renderMark(value: JsonValue): RenderedMark {
   const mark = expectObject(value, "mark");

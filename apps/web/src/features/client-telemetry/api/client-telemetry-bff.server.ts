@@ -1,7 +1,10 @@
 import "server-only";
 import type { z } from "zod";
 
-import { isSameOriginMutation, readLogtoBffConfig } from "@/shared/auth/index.server";
+import {
+  isSameOriginMutation,
+  readLogtoBffConfig,
+} from "@/shared/auth/index.server";
 import { readWebRuntimeMode } from "@/shared/config/index.server";
 import { writeStructuredLog } from "@/shared/lib/structured-log.server";
 import {
@@ -20,19 +23,26 @@ import {
  * Core Web Vitals одной загрузки страницы. Каждая метрика — своя строка журнала: так их проще
  * отбирать по имени и сравнивать по адресу.
  */
-export async function handleWebVitalsReport(request: Request): Promise<Response> {
+export async function handleWebVitalsReport(
+  request: Request,
+): Promise<Response> {
   const report = await readReport(request, webVitalsReportSchema);
   if (!report.ok) return telemetryResponse(report.status);
   const refusal = refuseOverCeiling("web-vitals", report.value.metrics.length);
   if (refusal !== undefined) return refusal;
   for (const metric of report.value.metrics) {
-    writeStructuredLog("info", "web-vital", { route: report.value.route, ...metric });
+    writeStructuredLog("info", "web-vital", {
+      route: report.value.route,
+      ...metric,
+    });
   }
   return telemetryResponse(204);
 }
 
 /** Ошибка отрисовки, которую поймала граница ошибок в браузере. */
-export async function handleRenderErrorReport(request: Request): Promise<Response> {
+export async function handleRenderErrorReport(
+  request: Request,
+): Promise<Response> {
   const report = await readReport(request, renderErrorReportSchema);
   if (!report.ok) return telemetryResponse(report.status);
   const refusal = refuseOverCeiling("render-errors", 1);
@@ -46,7 +56,10 @@ export async function handleRenderErrorReport(request: Request): Promise<Respons
  * одну строку: так в журнале видно, что отчёты этого вида терялись. Стенд и проверки на `next dev`
  * потолка не видят — как и предела на клиента в `proxy.ts`.
  */
-function refuseOverCeiling(kind: ClientReportKind, records: number): Response | undefined {
+function refuseOverCeiling(
+  kind: ClientReportKind,
+  records: number,
+): Response | undefined {
   if (readWebRuntimeMode() !== "production") return undefined;
   const admission = admitClientReport(kind, records);
   if (admission.admitted) return undefined;
@@ -70,10 +83,17 @@ function refuseOverCeiling(kind: ClientReportKind, records: number): Response | 
 async function readReport<Schema extends z.ZodType>(
   request: Request,
   schema: Schema,
-): Promise<{ readonly ok: true; readonly value: z.infer<Schema> } | { readonly ok: false; readonly status: number }> {
-  if (!isSameOriginMutation(request, readLogtoBffConfig().baseUrl)) return { ok: false, status: 403 };
+): Promise<
+  | { readonly ok: true; readonly value: z.infer<Schema> }
+  | { readonly ok: false; readonly status: number }
+> {
+  if (!isSameOriginMutation(request, readLogtoBffConfig().baseUrl))
+    return { ok: false, status: 403 };
   const declaredLength = Number(request.headers.get("content-length"));
-  if (Number.isFinite(declaredLength) && declaredLength > MAX_CLIENT_TELEMETRY_BYTES) {
+  if (
+    Number.isFinite(declaredLength) &&
+    declaredLength > MAX_CLIENT_TELEMETRY_BYTES
+  ) {
     return { ok: false, status: 413 };
   }
   const text = await readBoundedText(request, MAX_CLIENT_TELEMETRY_BYTES);
@@ -85,11 +105,16 @@ async function readReport<Schema extends z.ZodType>(
     return { ok: false, status: 400 };
   }
   const parsed = schema.safeParse(body);
-  return parsed.success ? { ok: true, value: parsed.data } : { ok: false, status: 400 };
+  return parsed.success
+    ? { ok: true, value: parsed.data }
+    : { ok: false, status: 400 };
 }
 
 /** Читает тело до предела: заявленная длина может отсутствовать, а поток — оказаться длиннее. */
-async function readBoundedText(request: Request, maxBytes: number): Promise<string | undefined> {
+async function readBoundedText(
+  request: Request,
+  maxBytes: number,
+): Promise<string | undefined> {
   if (request.body === null) return "";
   const reader = request.body.getReader();
   const decoder = new TextDecoder();
@@ -108,5 +133,8 @@ async function readBoundedText(request: Request, maxBytes: number): Promise<stri
 }
 
 function telemetryResponse(status: number): Response {
-  return new Response(null, { headers: { "cache-control": "no-store, private" }, status });
+  return new Response(null, {
+    headers: { "cache-control": "no-store, private" },
+    status,
+  });
 }

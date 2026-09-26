@@ -3,10 +3,7 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import {
-  Ajv2020,
-  type ValidateFunction,
-} from "ajv/dist/2020.js";
+import { Ajv2020, type ValidateFunction } from "ajv/dist/2020.js";
 import addFormatsModule from "ajv-formats";
 import { z } from "zod";
 
@@ -35,9 +32,7 @@ type CorpusCase = {
   trailingWhitespaceBytes?: number;
 };
 
-type ValidationResult =
-  | { valid: true }
-  | { valid: false; code: string };
+type ValidationResult = { valid: true } | { valid: false; code: string };
 
 type ContractValidator = {
   validate: ValidateFunction;
@@ -77,7 +72,9 @@ export async function runWorkshopContractCorpus(
   }
 
   if (failures.length > 0) {
-    throw new Error(`Workshop contract conformance failed:\n${failures.join("\n")}`);
+    throw new Error(
+      `Workshop contract conformance failed:\n${failures.join("\n")}`,
+    );
   }
 }
 
@@ -95,7 +92,9 @@ async function compileSchemas(
     await readJson(path.join(root, primitivesSchemaFile)),
   );
   if (primitivesSchema === undefined) {
-    throw new TypeError(`${primitivesSchemaFile} must contain a JSON object schema`);
+    throw new TypeError(
+      `${primitivesSchemaFile} must contain a JSON object schema`,
+    );
   }
   ajv.addSchema(primitivesSchema);
   const loaded = {
@@ -108,7 +107,10 @@ async function compileSchemas(
     ajv.addSchema(contract.schema);
   }
   return {
-    "assignment-manifest": compiledValidator(ajv, loaded["assignment-manifest"]),
+    "assignment-manifest": compiledValidator(
+      ajv,
+      loaded["assignment-manifest"],
+    ),
     "case-spec": compiledValidator(ajv, loaded["case-spec"]),
     "evaluation-report": compiledValidator(ajv, loaded["evaluation-report"]),
     "source-snapshot": compiledValidator(ajv, loaded["source-snapshot"]),
@@ -228,8 +230,10 @@ function validateManifestBindings(
 
   if (
     stringField(manifest, "caseId") !== stringField(caseSpec, "caseId") ||
-    stringField(manifest, "caseVersion") !== stringField(caseSpec, "caseVersion") ||
-    stringField(manifest, "evaluatorVersion") !== stringField(caseSpec, "evaluatorVersion")
+    stringField(manifest, "caseVersion") !==
+      stringField(caseSpec, "caseVersion") ||
+    stringField(manifest, "evaluatorVersion") !==
+      stringField(caseSpec, "evaluatorVersion")
   ) {
     return { valid: false, code: "incompatible_version" };
   }
@@ -237,7 +241,10 @@ function validateManifestBindings(
   const variantId = stringField(manifest, "variantId");
   const variant = arrayField(caseSpec, "variants")
     .map(asRecord)
-    .find((candidate) => candidate !== undefined && stringField(candidate, "id") === variantId);
+    .find(
+      (candidate) =>
+        candidate !== undefined && stringField(candidate, "id") === variantId,
+    );
   if (variant === undefined) return { valid: false, code: "binding_mismatch" };
 
   const evaluatorBundle = asRecord(manifest.evaluatorBundle);
@@ -274,7 +281,11 @@ function validateReportBindings(
   const caseSpec = asRecord(caseSpecValue);
   const manifest = asRecord(manifestValue);
   const report = asRecord(reportValue);
-  if (caseSpec === undefined || manifest === undefined || report === undefined) {
+  if (
+    caseSpec === undefined ||
+    manifest === undefined ||
+    report === undefined
+  ) {
     return { valid: false, code: "context_invalid" };
   }
 
@@ -340,7 +351,11 @@ function validateReportBindings(
 
   const startedAt = Date.parse(stringField(report, "startedAt"));
   const finishedAt = Date.parse(stringField(report, "finishedAt"));
-  if (!Number.isFinite(startedAt) || !Number.isFinite(finishedAt) || startedAt > finishedAt) {
+  if (
+    !Number.isFinite(startedAt) ||
+    !Number.isFinite(finishedAt) ||
+    startedAt > finishedAt
+  ) {
     return { valid: false, code: "invalid_time_range" };
   }
   return { valid: true };
@@ -355,7 +370,9 @@ function validateSchema(
     : { valid: false, code: "schema_invalid" };
 }
 
-function scenarioRequirements(value: Record<string, unknown>): Map<string, boolean> {
+function scenarioRequirements(
+  value: Record<string, unknown>,
+): Map<string, boolean> {
   const requirements = new Map<string, boolean>();
   for (const scenarioValue of arrayField(value, "scenarios")) {
     const scenario = asRecord(scenarioValue);
@@ -412,7 +429,8 @@ function supportedHosts(caseSpec: Record<string, unknown>): Set<string> {
 function corpusCases(value: unknown): CorpusCase[] {
   const root = asRecord(value);
   const cases = root === undefined ? undefined : root.cases;
-  if (!Array.isArray(cases)) throw new TypeError("conformance index must contain cases");
+  if (!Array.isArray(cases))
+    throw new TypeError("conformance index must contain cases");
   return cases.map((candidate) => {
     const record = asRecord(candidate);
     if (
@@ -440,7 +458,9 @@ function corpusCases(value: unknown): CorpusCase[] {
       target: record.target,
       document: record.document,
       valid: record.valid,
-      ...(typeof record.caseSpec === "string" ? { caseSpec: record.caseSpec } : {}),
+      ...(typeof record.caseSpec === "string"
+        ? { caseSpec: record.caseSpec }
+        : {}),
       ...(typeof record.assignmentManifest === "string"
         ? { assignmentManifest: record.assignmentManifest }
         : {}),
@@ -465,7 +485,8 @@ async function requiredContextDocument(
   relativePath: string | undefined,
   field: string,
 ): Promise<unknown> {
-  if (relativePath === undefined) throw new TypeError(`missing ${field} context`);
+  if (relativePath === undefined)
+    throw new TypeError(`missing ${field} context`);
   return (await readCorpusDocument(root, relativePath)).value;
 }
 
@@ -517,7 +538,11 @@ function byteLimits(
   if (limits === undefined) return {};
   const result: Record<string, number> = {};
   for (const [name, value] of Object.entries(limits)) {
-    if (typeof value !== "number" || !Number.isSafeInteger(value) || value <= 0) {
+    if (
+      typeof value !== "number" ||
+      !Number.isSafeInteger(value) ||
+      value <= 0
+    ) {
       throw new TypeError(`${filename}: invalid byte limit ${name}`);
     }
     result[name] = value;
@@ -560,7 +585,10 @@ function actualResult(result: ValidationResult): string {
 }
 
 const invokedPath = process.argv[1];
-if (invokedPath !== undefined && import.meta.url === pathToFileURL(invokedPath).href) {
+if (
+  invokedPath !== undefined &&
+  import.meta.url === pathToFileURL(invokedPath).href
+) {
   await runWorkshopContractCorpus();
   process.stdout.write("TypeScript Workshop contract conformance passed.\n");
 }

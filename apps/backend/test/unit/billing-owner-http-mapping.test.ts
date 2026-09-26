@@ -1,6 +1,9 @@
 import { HttpException } from "@nestjs/common";
 import { describe, expect, test } from "vitest";
-import { ownerFailureCodes, type OwnerFailureCode } from "../../src/modules/billing/domain/owner-operations.js";
+import {
+  ownerFailureCodes,
+  type OwnerFailureCode,
+} from "../../src/modules/billing/domain/owner-operations.js";
 import { throwOwnerError } from "../../src/modules/billing/adapters/nest/owner-http.filter.js";
 
 const expected: Record<OwnerFailureCode, number> = {
@@ -27,11 +30,23 @@ describe("billing owner result mapping", () => {
     expect(Object.keys(expected).sort()).toEqual([...ownerFailureCodes].sort());
     for (const code of ownerFailureCodes) {
       let thrown: unknown;
-      try { throwOwnerError(code); } catch (error) { thrown = error; }
+      try {
+        throwOwnerError(code);
+      } catch (error) {
+        thrown = error;
+      }
       expect(thrown).toBeInstanceOf(HttpException);
-      const problem = thrown instanceof HttpException ? thrown.getResponse() : undefined;
-      expect(thrown instanceof HttpException ? thrown.getStatus() : 0).toBe(expected[code]);
-      expect(problem).toEqual({ type: `urn:inside:problem:${code}`, title: "Billing owner operation failed", status: expected[code], code });
+      const problem =
+        thrown instanceof HttpException ? thrown.getResponse() : undefined;
+      expect(thrown instanceof HttpException ? thrown.getStatus() : 0).toBe(
+        expected[code],
+      );
+      expect(problem).toEqual({
+        type: `urn:inside:problem:${code}`,
+        title: "Billing owner operation failed",
+        status: expected[code],
+        code,
+      });
     }
   });
 });

@@ -2,7 +2,6 @@ import "server-only";
 
 import { materialFormatSchema } from "@/shared/api/material-format";
 
-
 import { z } from "zod";
 
 import {
@@ -11,7 +10,9 @@ import {
   type BackendTransportResult,
 } from "@/shared/api/backend/index.server";
 
-const referenceSchema = z.object({ archived: z.boolean(), id: z.uuid(), name: z.string().min(1) }).strict();
+const referenceSchema = z
+  .object({ archived: z.boolean(), id: z.uuid(), name: z.string().min(1) })
+  .strict();
 const referencesSchema = z
   .object({
     formats: z.array(referenceSchema.extend({ id: materialFormatSchema })),
@@ -47,7 +48,10 @@ export async function getMaterialAuthoringReferences(
   try {
     result = await request(accessToken);
   } catch (error) {
-    if (error instanceof BackendConnectionError && error.code === "unavailable") {
+    if (
+      error instanceof BackendConnectionError &&
+      error.code === "unavailable"
+    ) {
       return { kind: "unexpected_error", reference: error.code };
     }
     throw error;
@@ -57,7 +61,10 @@ export async function getMaterialAuthoringReferences(
       return { kind: "unauthorized" };
     }
     if (result.response.status === 503) {
-      return { kind: "unexpected_error", reference: "authoring-references-response" };
+      return {
+        kind: "unexpected_error",
+        reference: "authoring-references-response",
+      };
     }
     throw new TypeError("Unexpected Material authoring references response");
   }
@@ -76,6 +83,14 @@ export async function getMaterialAuthoringReferences(
   };
 }
 
-function toOption(reference: { readonly archived: boolean; readonly id: string; readonly name: string }) {
-  return { archived: reference.archived, label: reference.name, value: reference.id };
+function toOption(reference: {
+  readonly archived: boolean;
+  readonly id: string;
+  readonly name: string;
+}) {
+  return {
+    archived: reference.archived,
+    label: reference.name,
+    value: reference.id,
+  };
 }

@@ -61,7 +61,11 @@ export function NotificationChannelsForm({
         >
           <p className="font-semibold">Сессия завершилась.</p>
           <form action="/auth/sign-in" className="mt-3" method="post">
-            <input name="returnTo" type="hidden" value="/account/notifications" />
+            <input
+              name="returnTo"
+              type="hidden"
+              value="/account/notifications"
+            />
             <Button className="min-h-11 px-4" type="submit">
               Войти снова
             </Button>
@@ -74,7 +78,8 @@ export function NotificationChannelsForm({
       ) : unavailable ? (
         <div className="mt-5 text-sm leading-6" role="alert">
           <p>
-            {error ?? "Настройки уведомлений сейчас недоступны."} Мы перечитаем их сами.
+            {error ?? "Настройки уведомлений сейчас недоступны."} Мы перечитаем
+            их сами.
           </p>
         </div>
       ) : (
@@ -112,7 +117,11 @@ export function NotificationChannelsForm({
           </fieldset>
 
           <div className="mt-5 flex flex-wrap items-center gap-3">
-            <Button className="min-h-11 px-4" disabled={pending || !dirty} type="submit">
+            <Button
+              className="min-h-11 px-4"
+              disabled={pending || !dirty}
+              type="submit"
+            >
               {pending ? "Сохраняем…" : "Сохранить"}
             </Button>
             {saved && !dirty ? (

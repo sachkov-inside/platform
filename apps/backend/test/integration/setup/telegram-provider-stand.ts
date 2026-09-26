@@ -28,7 +28,11 @@ import {
 /** Что провайдер сделает со следующей командой; по умолчанию отправка удаётся. */
 export type ProviderOutcome =
   | { readonly state: "sent" }
-  | { readonly state: "retrying"; readonly reason: "rate_limited"; readonly retryAfterMs: number };
+  | {
+      readonly state: "retrying";
+      readonly reason: "rate_limited";
+      readonly retryAfterMs: number;
+    };
 
 const commandSchema = z.object({
   operationId: z.uuid(),
@@ -47,7 +51,11 @@ const commandSchema = z.object({
 export type ProviderCommand = z.infer<typeof commandSchema>;
 
 const allowed = z.object({ status: z.literal("allowed") });
-const refused = z.object({ status: z.enum(["denied", "error"]), reason: z.string().optional(), code: z.string().optional() });
+const refused = z.object({
+  status: z.enum(["denied", "error"]),
+  reason: z.string().optional(),
+  code: z.string().optional(),
+});
 
 export interface ProviderRefusal {
   readonly deliveryRef: string;
@@ -59,7 +67,9 @@ const MAX_PROVIDER_ATTEMPTS = 3;
 
 export interface ProviderStand {
   /** Политика следующих попыток: провайдер спрашивает её после каждого разрешения Platform. */
-  policy(decide: (command: ProviderCommand, attempt: number) => ProviderOutcome): void;
+  policy(
+    decide: (command: ProviderCommand, attempt: number) => ProviderOutcome,
+  ): void;
   /** Отказы Platform на preflight: провайдер не отправляет и не возвращает результат. */
   readonly refusals: readonly ProviderRefusal[];
   /** Сбои самого провайдера: молчащий стенд не должен выглядеть исправным. */
@@ -68,7 +78,9 @@ export interface ProviderStand {
   pause(): void;
   resume(): void;
   /** Собственный журнал попыток одной доставки, из собственной базы провайдера. */
-  attempts(deliveryRef: string): Promise<{ attemptRef: string; state: string; category: string }[]>;
+  attempts(
+    deliveryRef: string,
+  ): Promise<{ attemptRef: string; state: string; category: string }[]>;
   stop(): Promise<void>;
 }
 
@@ -77,12 +89,18 @@ export async function providerStand(input: {
   readonly pool: Pool;
   readonly authorize: (request: unknown) => Promise<unknown>;
 }): Promise<ProviderStand> {
-  const connection: ChannelModel = await connectNotificationBroker({ url: input.url });
+  const connection: ChannelModel = await connectNotificationBroker({
+    url: input.url,
+  });
   const refusals: ProviderRefusal[] = [];
   const failures: string[] = [];
   const revisions = new Map<string, number>();
-  let gate: { readonly wait: Promise<void>; readonly open: () => void } | undefined;
-  let decide: (command: ProviderCommand, attempt: number) => ProviderOutcome = () => ({ state: "sent" });
+  let gate:
+    { readonly wait: Promise<void>; readonly open: () => void } | undefined;
+  let decide: (
+    command: ProviderCommand,
+    attempt: number,
+  ) => ProviderOutcome = () => ({ state: "sent" });
 
   async function handle(envelope: NotificationEnvelope): Promise<void> {
     if (gate) await gate.wait;
@@ -114,7 +132,10 @@ export async function providerStand(input: {
     if (!allowed.safeParse(response).success) {
       const refusal = refused.parse(response);
       // Отказ Platform закрывает попытку целиком: ни отправки, ни результата.
-      refusals.push({ deliveryRef: command.deliveryRef, outcome: refusal.reason ?? refusal.code ?? refusal.status });
+      refusals.push({
+        deliveryRef: command.deliveryRef,
+        outcome: refusal.reason ?? refusal.code ?? refusal.status,
+      });
       return undefined;
     }
     const outcome = decide(command, attempt);
@@ -124,7 +145,14 @@ export async function providerStand(input: {
     await input.pool.query(
       `insert into provider_effects (delivery_ref, attempt_ref, attempt, command_revision, category, state, recorded_at)
        values ($1, $2, $3, $4, $5, $6, now())`,
-      [command.deliveryRef, attemptRef, attempt, command.commandRevision, command.content.category, outcome.state],
+      [
+        command.deliveryRef,
+        attemptRef,
+        attempt,
+        command.commandRevision,
+        command.content.category,
+        outcome.state,
+      ],
     );
     const revision = (revisions.get(command.deliveryRef) ?? 0) + 1;
     revisions.set(command.deliveryRef, revision);
@@ -142,24 +170,44 @@ export async function providerStand(input: {
       attemptRef,
       ...(outcome.state === "sent"
         ? { state: "sent" as const, receiptRef: randomUUID() }
-        : { state: "retrying" as const, reason: outcome.reason,
-            nextAttemptAt: new Date(Date.parse(recordedAt) + outcome.retryAfterMs).toISOString() }),
+        : {
+            state: "retrying" as const,
+            reason: outcome.reason,
+            nextAttemptAt: new Date(
+              Date.parse(recordedAt) + outcome.retryAfterMs,
+            ).toISOString(),
+          }),
     };
-    await publishNotification(connection, encodeNotification("telegramResult", result));
+    await publishNotification(
+      connection,
+      encodeNotification("telegramResult", result),
+    );
     return outcome;
   }
 
   const consumers = await Promise.all(
     (["telegramSubscription", "telegramMaterial"] as const).map((lane) =>
-      consumeNotificationLane(connection, lane, {
-        accept: async (envelope) => {
-          try { await handle(envelope); } catch (error) {
-            failures.push(`${lane}: ${error instanceof Error ? error.message : String(error)}`);
-          }
-          return "accepted" as const;
+      consumeNotificationLane(
+        connection,
+        lane,
+        {
+          accept: async (envelope) => {
+            try {
+              await handle(envelope);
+            } catch (error) {
+              failures.push(
+                `${lane}: ${error instanceof Error ? error.message : String(error)}`,
+              );
+            }
+            return "accepted" as const;
+          },
+          quarantine: (rejected, _bytes, reason) => {
+            failures.push(`${rejected}: ${reason}`);
+            return Promise.resolve();
+          },
         },
-        quarantine: (rejected, _bytes, reason) => { failures.push(`${rejected}: ${reason}`); return Promise.resolve(); },
-      }, 4),
+        4,
+      ),
     ),
   );
 
@@ -170,22 +218,35 @@ export async function providerStand(input: {
   }
 
   return {
-    policy(next) { decide = next; },
+    policy(next) {
+      decide = next;
+    },
     refusals,
     failures,
     pause() {
       let open!: () => void;
-      const wait = new Promise<void>((resolve) => { open = resolve; });
+      const wait = new Promise<void>((resolve) => {
+        open = resolve;
+      });
       gate = { wait, open };
     },
-    resume() { gate?.open(); gate = undefined; },
+    resume() {
+      gate?.open();
+      gate = undefined;
+    },
     async attempts(deliveryRef) {
-      const rows = await input.pool.query<{ attempt_ref: string; state: string; category: string }>(
+      const rows = await input.pool.query<{
+        attempt_ref: string;
+        state: string;
+        category: string;
+      }>(
         `select attempt_ref, state, category from provider_effects where delivery_ref = $1 order by attempt`,
         [deliveryRef],
       );
       return rows.rows.map((row) => ({
-        attemptRef: row.attempt_ref, state: row.state, category: row.category,
+        attemptRef: row.attempt_ref,
+        state: row.state,
+        category: row.category,
       }));
     },
     async stop() {

@@ -1,5 +1,12 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, readlinkSync, rmSync, writeFileSync, existsSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readlinkSync,
+  rmSync,
+  writeFileSync,
+  existsSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -19,16 +26,34 @@ function layout(t) {
 test("a linked worktree points at the primary checkout's stand identity", (t) => {
   const { primary, worktree } = layout(t);
   const git = () => join(primary, ".git");
-  assert.equal(ensureSharedIdentityDirectory(worktree, { git }), join(primary, ".identity-proof"));
-  assert.equal(readlinkSync(join(worktree, ".identity-proof")), join(primary, ".identity-proof"));
-  assert.equal(ensureSharedIdentityDirectory(worktree, { git }), join(primary, ".identity-proof"));
+  assert.equal(
+    ensureSharedIdentityDirectory(worktree, { git }),
+    join(primary, ".identity-proof"),
+  );
+  assert.equal(
+    readlinkSync(join(worktree, ".identity-proof")),
+    join(primary, ".identity-proof"),
+  );
+  assert.equal(
+    ensureSharedIdentityDirectory(worktree, { git }),
+    join(primary, ".identity-proof"),
+  );
   writeFileSync(join(worktree, ".identity-proof", "stand.env"), "KEY=value\n");
   assert.ok(existsSync(join(primary, ".identity-proof", "stand.env")));
 });
 
 test("the primary checkout keeps its own directory and a divergent worktree copy is refused", (t) => {
   const { primary, worktree } = layout(t);
-  assert.equal(ensureSharedIdentityDirectory(primary, { git: () => ".git" }), join(primary, ".identity-proof"));
+  assert.equal(
+    ensureSharedIdentityDirectory(primary, { git: () => ".git" }),
+    join(primary, ".identity-proof"),
+  );
   mkdirSync(join(worktree, ".identity-proof"));
-  assert.throws(() => ensureSharedIdentityDirectory(worktree, { git: () => join(primary, ".git") }), /shared stand identity directory/u);
+  assert.throws(
+    () =>
+      ensureSharedIdentityDirectory(worktree, {
+        git: () => join(primary, ".git"),
+      }),
+    /shared stand identity directory/u,
+  );
 });

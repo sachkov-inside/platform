@@ -13,17 +13,41 @@ export interface HomePinnedSeries {
   readonly card: GuidePageCard | null;
 }
 
-export type ReadHomePinnedSeriesOperation = () => Promise<Result<HomePinnedSeries | null, SystemError>>;
+export type ReadHomePinnedSeriesOperation = () => Promise<
+  Result<HomePinnedSeries | null, SystemError>
+>;
 
-export async function readHomePinnedSeries(prisma: MaterialsPrisma): ReturnType<ReadHomePinnedSeriesOperation> {
+export async function readHomePinnedSeries(
+  prisma: MaterialsPrisma,
+): ReturnType<ReadHomePinnedSeriesOperation> {
   try {
-    const pin = await prisma.homeSeriesPin.findUniqueOrThrow({ where: { id: 1 }, select: { seriesId: true } });
+    const pin = await prisma.homeSeriesPin.findUniqueOrThrow({
+      where: { id: 1 },
+      select: { seriesId: true },
+    });
     if (pin.seriesId === null) return { ok: true, value: null };
-    const guide = await prisma.guide.findUnique({ where: { id: pin.seriesId }, select: { page: true, presentation: true, slug: true } });
+    const guide = await prisma.guide.findUnique({
+      where: { id: pin.seriesId },
+      select: { page: true, presentation: true, slug: true },
+    });
     if (guide === null) return { ok: true, value: null };
     const page = readGuidePage(guide.page, `Home pinned Guide ${guide.slug}`);
-    return { ok: true, value: { id: pin.seriesId, presentation: guide.presentation, card: page?.card ?? null } };
+    return {
+      ok: true,
+      value: {
+        id: pin.seriesId,
+        presentation: guide.presentation,
+        card: page?.card ?? null,
+      },
+    };
   } catch (error) {
-    return { ok: false, error: dependencyFailure({ module: "materials", operation: "readHomePinnedSeries" }, error, mapPostgresReadError(error)) };
+    return {
+      ok: false,
+      error: dependencyFailure(
+        { module: "materials", operation: "readHomePinnedSeries" },
+        error,
+        mapPostgresReadError(error),
+      ),
+    };
   }
 }

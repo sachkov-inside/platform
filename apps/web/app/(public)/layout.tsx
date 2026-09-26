@@ -10,8 +10,15 @@ import type { Viewport } from "next";
  */
 export const instant = false;
 
-export const viewport: Viewport = { themeColor: "#ffffff", colorScheme: "light" };
+export const viewport: Viewport = {
+  themeColor: "#ffffff",
+  colorScheme: "light",
+};
 
-export default function PublicLayout({ children }: { readonly children: ReactNode }) {
+export default function PublicLayout({
+  children,
+}: {
+  readonly children: ReactNode;
+}) {
   return <PublicShell>{children}</PublicShell>;
 }

@@ -29,8 +29,10 @@ export interface MaterialMetadataSelectionInput {
   readonly seriesIds: readonly string[];
 }
 
-export interface MaterialMetadataDto
-  extends Omit<MaterialMetadataSelectionInput, "seriesIds"> {
+export interface MaterialMetadataDto extends Omit<
+  MaterialMetadataSelectionInput,
+  "seriesIds"
+> {
   readonly slug: string | null;
   readonly seriesMemberships: readonly GuideMembershipInput[];
 }

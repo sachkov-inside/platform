@@ -12,7 +12,9 @@ const unreachableDatabase = parsePlatformConfig({
 
 const logRecord = z.record(z.string(), z.unknown());
 
-function loggedRecords(spy: { mock: { calls: unknown[][] } }): Record<string, unknown>[] {
+function loggedRecords(spy: {
+  mock: { calls: unknown[][] };
+}): Record<string, unknown>[] {
   return spy.mock.calls.flatMap(([line]) => {
     if (typeof line !== "string" || !line.startsWith("{")) return [];
     const record = logRecord.safeParse(JSON.parse(line));
@@ -30,7 +32,9 @@ describe("dependency failure log", () => {
   });
 
   it("names the failed dependency, its cause and the request that met it", async () => {
-    const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const errors = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
     const infos = vi.spyOn(console, "info").mockImplementation(() => undefined);
     api = await createApiApplication(unreachableDatabase, { logger: false });
     await api.init();
@@ -42,7 +46,9 @@ describe("dependency failure log", () => {
     });
 
     expect(response.statusCode).toBe(503);
-    const failure = loggedRecords(errors).find((record) => record.event === "dependency_failure");
+    const failure = loggedRecords(errors).find(
+      (record) => record.event === "dependency_failure",
+    );
     expect(failure).toMatchObject({
       level: "error",
       process: "api",
@@ -54,16 +60,23 @@ describe("dependency failure log", () => {
       error: {
         type: "PrismaClientKnownRequestError",
         code: "P1001",
-        cause: { type: "DriverAdapterError", cause: { code: "DatabaseNotReachable" } },
+        cause: {
+          type: "DriverAdapterError",
+          cause: { code: "DatabaseNotReachable" },
+        },
       },
     });
     expect(failure?.requestId).toEqual(expect.any(String));
-    const completed = loggedRecords(infos).find((record) => record.event === "request_completed");
+    const completed = loggedRecords(infos).find(
+      (record) => record.event === "request_completed",
+    );
     expect(completed).toMatchObject({
       requestId: failure?.requestId,
       route: "/billing/offers",
       statusCode: 503,
     });
-    expect(JSON.stringify([...errors.mock.calls, ...infos.mock.calls])).not.toContain("inside-password");
+    expect(
+      JSON.stringify([...errors.mock.calls, ...infos.mock.calls]),
+    ).not.toContain("inside-password");
   });
 });

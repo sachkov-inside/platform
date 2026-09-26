@@ -27,7 +27,9 @@ export async function generateMetadata({
 }
 
 /** Действующая редакция документа. */
-export default async function LegalDocumentRoute({ params }: LegalDocumentRouteProps) {
+export default async function LegalDocumentRoute({
+  params,
+}: LegalDocumentRouteProps) {
   const { slug } = await params;
   const view = legalDocumentView(slug);
   if (view === null) notFound();

@@ -32,8 +32,12 @@ describe("Указатель опубликованных страниц", () =>
     vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(catalogPage({ nextCursor: "cursor-2", slugs: ["first", "second"] }))
-      .mockResolvedValueOnce(catalogPage({ nextCursor: null, slugs: ["third"] }));
+      .mockResolvedValueOnce(
+        catalogPage({ nextCursor: "cursor-2", slugs: ["first", "second"] }),
+      )
+      .mockResolvedValueOnce(
+        catalogPage({ nextCursor: null, slugs: ["third"] }),
+      );
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(getPublicSiteIndex()).resolves.toEqual({
@@ -87,6 +91,8 @@ describe("Указатель опубликованных страниц", () =>
       ),
     );
 
-    await expect(getPublicSiteIndex()).resolves.toEqual({ kind: "unavailable" });
+    await expect(getPublicSiteIndex()).resolves.toEqual({
+      kind: "unavailable",
+    });
   });
 });

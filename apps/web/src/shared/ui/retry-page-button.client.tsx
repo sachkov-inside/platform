@@ -13,7 +13,12 @@ import { Button } from "@/shared/ui/button";
 export function RetryPageButton() {
   const router = useRouter();
   return (
-    <Button onClick={() => { router.refresh(); }} size="lg">
+    <Button
+      onClick={() => {
+        router.refresh();
+      }}
+      size="lg"
+    >
       <RefreshCw aria-hidden="true" />
       Повторить
     </Button>

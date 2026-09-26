@@ -24,7 +24,9 @@ if (existsSync(environmentPath)) {
 }
 if (explicitDatabaseUrl === undefined) {
   resetCheckDatabase({ cwd: repositoryRoot });
-  process.env.DATABASE_URL = checkDatabaseUrl(process.env.POSTGRES_HOST_PORT ?? 5432);
+  process.env.DATABASE_URL = checkDatabaseUrl(
+    process.env.POSTGRES_HOST_PORT ?? 5432,
+  );
 }
 const apiPort = process.env.API_PORT ?? "3001";
 const apiBaseUrl =
@@ -40,7 +42,8 @@ childEnvironment.NODE_ENV ??= "development";
 // двойник банка по недостижимому адресу и перехват писем. Явные значения окружения важнее.
 childEnvironment.TBANK_PROVIDER_MODE ??= "test";
 childEnvironment.TBANK_TEST_API_BASE_URL ??= "http://127.0.0.1:9/v2";
-childEnvironment.BILLING_CONTACT_ENCRYPTION_KEY ??= "aW5zaWRlLWxvY2FsLWJpbGxpbmctY29udGFjdC1rZXk=";
+childEnvironment.BILLING_CONTACT_ENCRYPTION_KEY ??=
+  "aW5zaWRlLWxvY2FsLWJpbGxpbmctY29udGFjdC1rZXk=";
 childEnvironment.BILLING_CONTACT_SMTP_HOST ??= "127.0.0.1";
 childEnvironment.BILLING_CONTACT_SMTP_PORT ??= "9";
 childEnvironment.BILLING_CONTACT_FROM ??= "no-reply@inside.localhost";
@@ -90,10 +93,10 @@ for (const signal of ["SIGINT", "SIGTERM"]) {
 try {
   await runPnpm(["--filter", "@inside/backend", "db:migrate"]);
   await runPnpm(["--filter", "@inside/backend", "db:seed"]);
-  await runPnpm(
-    ["--filter", "@inside/backend", "release:bootstrap-owner"],
-    { ...childEnvironment, OWNER_PERMISSION: "platform:admin" },
-  );
+  await runPnpm(["--filter", "@inside/backend", "release:bootstrap-owner"], {
+    ...childEnvironment,
+    OWNER_PERMISSION: "platform:admin",
+  });
   await runPnpm(["--filter", "@inside/web", "build"], {
     ...childEnvironment,
     NODE_ENV: "production",

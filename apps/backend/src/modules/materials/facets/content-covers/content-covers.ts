@@ -5,7 +5,10 @@ import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 
 import type { ObjectStorage } from "../../../../infrastructure/object-storage/index.js";
-import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
+import {
+  dependencyFailure,
+  reportDependencyFailure,
+} from "../../../../infrastructure/observability/index.js";
 import {
   lockContentCoverOwner,
   type MaterialsPrismaClient,
@@ -21,9 +24,7 @@ export const contentCoverOwnerKindSchema = z.enum([
   "topic",
 ]);
 
-export type ContentCoverOwnerKind = z.infer<
-  typeof contentCoverOwnerKindSchema
->;
+export type ContentCoverOwnerKind = z.infer<typeof contentCoverOwnerKindSchema>;
 
 export type ContentCoverOwner = Readonly<{
   id: string;
@@ -104,9 +105,7 @@ export const CONTENT_COVERS = Symbol("CONTENT_COVERS");
 const commonCommandSchema = z.object({
   actor: z.uuid(),
   expectedCoverId: z.uuid().nullable(),
-  owner: z
-    .object({ id: z.uuid(), kind: contentCoverOwnerKindSchema })
-    .strict(),
+  owner: z.object({ id: z.uuid(), kind: contentCoverOwnerKindSchema }).strict(),
 });
 const commandSchema = z.discriminatedUnion("kind", [
   commonCommandSchema
@@ -130,95 +129,115 @@ export function assembleContentCovers(dependencies: {
   readonly objectStorage: ObjectStorage;
   readonly prisma: MaterialsPrismaClient;
 }): ContentCovers {
-  async function change(input: ChangeContentCoverCommand, sourceId: string | null): Promise<ChangeContentCoverResult> {
-      const parsed = commandSchema.safeParse(input);
-      if (!parsed.success) return failure("invalid_cover");
-      const authorization = await authorizeManager(
-        dependencies.authorPolicy,
-        parsed.data.actor,
-      );
-      if (!authorization.ok) return { ok: false, error: authorization.error };
-      try {
-        if (parsed.data.kind === "remove") {
-          return await changeCurrentCover(dependencies.prisma, parsed.data, null, sourceId);
-        }
-        const processed = await processMaterialAssetBytes({
-          body: parsed.data.body,
-          declaredContentType: parsed.data.declaredContentType,
-          declaredSize: parsed.data.declaredSize,
-          expectedChecksumSha256: parsed.data.expectedChecksumSha256,
-          filename: parsed.data.filename,
-          kind: "image",
-        });
-        if (!processed.ok || processed.value.kind !== "image") {
-          return failure("invalid_cover");
-        }
-        const coverId = randomUUID();
-        const prefix = `content-covers/${parsed.data.owner.kind}/${parsed.data.owner.id}/${coverId}`;
-        const renditions = processed.value.variants.map((variant) => ({
-          body: variant.body,
-          byteSize: variant.body.byteLength,
-          checksumSha256: createHash("sha256").update(variant.body).digest("hex"),
-          contentType: variant.contentType,
-          height: variant.height,
-          publicObjectKey: `${prefix}/${variant.width}.webp`,
-          width: variant.width,
-        }));
-        await dependencies.prisma.contentCover.create({
-          data: {
-            id: coverId,
-            ...ownerColumns(parsed.data.owner),
-            state: "processing",
-            renditions: {
-              createMany: {
-                data: renditions.map(({ body: _body, ...row }) => row),
-              },
+  async function change(
+    input: ChangeContentCoverCommand,
+    sourceId: string | null,
+  ): Promise<ChangeContentCoverResult> {
+    const parsed = commandSchema.safeParse(input);
+    if (!parsed.success) return failure("invalid_cover");
+    const authorization = await authorizeManager(
+      dependencies.authorPolicy,
+      parsed.data.actor,
+    );
+    if (!authorization.ok) return { ok: false, error: authorization.error };
+    try {
+      if (parsed.data.kind === "remove") {
+        return await changeCurrentCover(
+          dependencies.prisma,
+          parsed.data,
+          null,
+          sourceId,
+        );
+      }
+      const processed = await processMaterialAssetBytes({
+        body: parsed.data.body,
+        declaredContentType: parsed.data.declaredContentType,
+        declaredSize: parsed.data.declaredSize,
+        expectedChecksumSha256: parsed.data.expectedChecksumSha256,
+        filename: parsed.data.filename,
+        kind: "image",
+      });
+      if (!processed.ok || processed.value.kind !== "image") {
+        return failure("invalid_cover");
+      }
+      const coverId = randomUUID();
+      const prefix = `content-covers/${parsed.data.owner.kind}/${parsed.data.owner.id}/${coverId}`;
+      const renditions = processed.value.variants.map((variant) => ({
+        body: variant.body,
+        byteSize: variant.body.byteLength,
+        checksumSha256: createHash("sha256").update(variant.body).digest("hex"),
+        contentType: variant.contentType,
+        height: variant.height,
+        publicObjectKey: `${prefix}/${variant.width}.webp`,
+        width: variant.width,
+      }));
+      await dependencies.prisma.contentCover.create({
+        data: {
+          id: coverId,
+          ...ownerColumns(parsed.data.owner),
+          state: "processing",
+          renditions: {
+            createMany: {
+              data: renditions.map(({ body: _body, ...row }) => row),
             },
           },
-        });
-        try {
-          const outcomes = await Promise.allSettled(
-            renditions.map(({ body, ...rendition }) =>
-              dependencies.objectStorage.putImmutable({
-                body,
-                checksumSha256: rendition.checksumSha256,
-                contentType: rendition.contentType,
-                key: rendition.publicObjectKey,
-                namespace: "public",
-              }),
-            ),
-          );
-          if (
-            outcomes.some(
-              (outcome) =>
-                outcome.status === "rejected" ||
-                (outcome.status === "fulfilled" && !outcome.value.ok),
-            )
-          ) {
-            throw new Error("Content cover storage failed");
-          }
-          // A rejected/unknown PUT can still complete remotely. Confirm only
-          // successful writes, even when cleanup has already claimed this row.
-          await dependencies.prisma.contentCover.update({
-            where: { id: coverId },
-            data: { uploadConfirmed: true },
-          });
-        } catch (error) {
-          reportDependencyFailure({ module: "materials", operation: "change" }, error);
-          await dependencies.prisma.contentCover.updateMany({
-            data: {
-              failureCode: "storage_failure",
-              state: "failed",
-              updatedAt: new Date(),
-            },
-            where: { id: coverId, state: "processing" },
-          });
-          return dependencyUnavailable();
+        },
+      });
+      try {
+        const outcomes = await Promise.allSettled(
+          renditions.map(({ body, ...rendition }) =>
+            dependencies.objectStorage.putImmutable({
+              body,
+              checksumSha256: rendition.checksumSha256,
+              contentType: rendition.contentType,
+              key: rendition.publicObjectKey,
+              namespace: "public",
+            }),
+          ),
+        );
+        if (
+          outcomes.some(
+            (outcome) =>
+              outcome.status === "rejected" ||
+              (outcome.status === "fulfilled" && !outcome.value.ok),
+          )
+        ) {
+          throw new Error("Content cover storage failed");
         }
-        return await changeCurrentCover(dependencies.prisma, parsed.data, coverId, sourceId);
+        // A rejected/unknown PUT can still complete remotely. Confirm only
+        // successful writes, even when cleanup has already claimed this row.
+        await dependencies.prisma.contentCover.update({
+          where: { id: coverId },
+          data: { uploadConfirmed: true },
+        });
       } catch (error) {
-        return dependencyFailure({ module: "materials", operation: "change" }, error, dependencyUnavailable());
+        reportDependencyFailure(
+          { module: "materials", operation: "change" },
+          error,
+        );
+        await dependencies.prisma.contentCover.updateMany({
+          data: {
+            failureCode: "storage_failure",
+            state: "failed",
+            updatedAt: new Date(),
+          },
+          where: { id: coverId, state: "processing" },
+        });
+        return dependencyUnavailable();
       }
+      return await changeCurrentCover(
+        dependencies.prisma,
+        parsed.data,
+        coverId,
+        sourceId,
+      );
+    } catch (error) {
+      return dependencyFailure(
+        { module: "materials", operation: "change" },
+        error,
+        dependencyUnavailable(),
+      );
+    }
   }
   return {
     change: (input) => change(input, null),
@@ -227,19 +246,20 @@ export function assembleContentCovers(dependencies: {
       const parsed = deliverySchema.safeParse(input);
       if (!parsed.success) return notFound();
       try {
-        const rendition = await dependencies.prisma.contentCoverRendition.findUnique({
-          where: {
-            coverId_width: {
-              coverId: parsed.data.coverId,
-              width: parsed.data.width,
+        const rendition =
+          await dependencies.prisma.contentCoverRendition.findUnique({
+            where: {
+              coverId_width: {
+                coverId: parsed.data.coverId,
+                width: parsed.data.width,
+              },
             },
-          },
-          include: {
-            cover: {
-              select: { currentlyReferenced: true, state: true },
+            include: {
+              cover: {
+                select: { currentlyReferenced: true, state: true },
+              },
             },
-          },
-        });
+          });
         if (
           rendition === null ||
           rendition.cover.state !== "ready" ||
@@ -260,7 +280,11 @@ export function assembleContentCovers(dependencies: {
               ok: true,
             };
       } catch (error) {
-        return dependencyFailure({ module: "materials", operation: "deliver" }, error, { ok: false, error: { code: "dependency_unavailable" } });
+        return dependencyFailure(
+          { module: "materials", operation: "deliver" },
+          error,
+          { ok: false, error: { code: "dependency_unavailable" } },
+        );
       }
     },
   };
@@ -276,24 +300,33 @@ async function changeCurrentCover(
     await lockContentCoverOwner(transaction, command.owner);
     // Imported owners change only through their own source; an import never touches other owners.
     const ownerSourceId = await readOwnerSourceId(transaction, command.owner);
-    if (ownerSourceId !== undefined && ownerSourceId !== sourceId && (command.owner.kind === "material" || sourceId !== null)) {
-      if (nextCoverId !== null) await abandonCover(transaction, nextCoverId, "forbidden");
+    if (
+      ownerSourceId !== undefined &&
+      ownerSourceId !== sourceId &&
+      (command.owner.kind === "material" || sourceId !== null)
+    ) {
+      if (nextCoverId !== null)
+        await abandonCover(transaction, nextCoverId, "forbidden");
       return failure("forbidden");
     }
     const currentCoverId = await readCurrentCoverId(transaction, command.owner);
     if (currentCoverId === undefined) {
-      if (nextCoverId !== null) await abandonCover(transaction, nextCoverId, "owner_not_found");
+      if (nextCoverId !== null)
+        await abandonCover(transaction, nextCoverId, "owner_not_found");
       return failure("owner_not_found");
     }
     if (currentCoverId !== command.expectedCoverId) {
-      if (nextCoverId !== null) await abandonCover(transaction, nextCoverId, "conflict");
+      if (nextCoverId !== null)
+        await abandonCover(transaction, nextCoverId, "conflict");
       return {
         ok: false,
         error: { code: "conflict", currentCoverId },
       };
     }
     if (nextCoverId !== null) {
-      const pending = await transaction.contentCover.findUnique({ where: { id: nextCoverId } });
+      const pending = await transaction.contentCover.findUnique({
+        where: { id: nextCoverId },
+      });
       // An expired upload may already have been claimed by storage cleanup.
       // Never attach or revive its immutable keys after that claim commits.
       if (pending?.state !== "processing" || pending.failureCode !== null) {
@@ -371,11 +404,23 @@ async function readOwnerSourceId(
 ): Promise<string | null | undefined> {
   switch (owner.kind) {
     case "material":
-      return (await lockMaterialForLifecycleChange(transaction, materialId(owner.id)))?.sourceId;
+      return (
+        await lockMaterialForLifecycleChange(transaction, materialId(owner.id))
+      )?.sourceId;
     case "series":
-      return (await transaction.guide.findUnique({ where: { id: owner.id }, select: { sourceId: true } }))?.sourceId;
+      return (
+        await transaction.guide.findUnique({
+          where: { id: owner.id },
+          select: { sourceId: true },
+        })
+      )?.sourceId;
     case "topic":
-      return (await transaction.topic.findUnique({ where: { id: owner.id }, select: { id: true } })) === null ? undefined : null;
+      return (await transaction.topic.findUnique({
+        where: { id: owner.id },
+        select: { id: true },
+      })) === null
+        ? undefined
+        : null;
   }
 }
 
@@ -419,7 +464,10 @@ async function projectCover(
   });
   return {
     coverId,
-    renditions: cover.renditions.map(({ height, width }) => ({ height, width })),
+    renditions: cover.renditions.map(({ height, width }) => ({
+      height,
+      width,
+    })),
   };
 }
 

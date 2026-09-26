@@ -38,7 +38,10 @@ export function AccountTelegramLinkPanel({
   const presentation = telegramLinkPresentation(link);
 
   return (
-    <section aria-labelledby="telegram-onboarding-heading" className="p-6 sm:p-7">
+    <section
+      aria-labelledby="telegram-onboarding-heading"
+      className="p-6 sm:p-7"
+    >
       <div className="flex items-start justify-between gap-5">
         <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-accent/15 text-foreground ring-1 ring-inset ring-accent/20 [&_svg]:size-5">
           {presentation.onboarding.tone === "active" ? (
@@ -73,7 +76,11 @@ export function AccountTelegramLinkPanel({
 
       {presentation.action.kind === "none" ? null : (
         <div className="mt-6 grid gap-3 sm:grid-cols-2 [&>*:only-child]:sm:col-span-2">
-          <TelegramAction action={presentation.action} flow={flow} onClose={onClose} />
+          <TelegramAction
+            action={presentation.action}
+            flow={flow}
+            onClose={onClose}
+          />
         </div>
       )}
       <MutationNotice result={flow.mutationResult} />
@@ -227,7 +234,10 @@ function MutationNotice({
 }) {
   if (result === null || result.kind === "received") return null;
   return (
-    <p className="mt-4 rounded-xl bg-destructive/6 px-4 py-3 text-sm" role="alert">
+    <p
+      className="mt-4 rounded-xl bg-destructive/6 px-4 py-3 text-sm"
+      role="alert"
+    >
       {result.kind === "unauthorized"
         ? "Сессия завершилась. Войдите снова, чтобы продолжить."
         : `Не удалось выполнить действие. Текущее состояние не изменилось. Код: ${result.reference}`}

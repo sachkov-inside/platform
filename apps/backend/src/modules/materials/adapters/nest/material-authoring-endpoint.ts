@@ -3,7 +3,10 @@ import { ApiBearerAuth, ApiResponse, ApiTags } from "@nestjs/swagger";
 
 import { PrivateNoStore } from "../../../../infrastructure/http/http-cache-policy.js";
 import { problemDetailsContent } from "../../../../infrastructure/http/zod-openapi.js";
-import { AccountGuard, AccountProblemDetailsFilter } from "../../../accounts/index.js";
+import {
+  AccountGuard,
+  AccountProblemDetailsFilter,
+} from "../../../accounts/index.js";
 import { materialAuthoringProblemSchema } from "./material-authoring-http.js";
 
 export function MaterialAuthoringEndpoint(): ClassDecorator {

@@ -1,6 +1,9 @@
 import { describe, expect, test } from "vitest";
 
-import { createTestVideoProvider, TEST_VIDEO_DURATION_SECONDS } from "../../src/modules/videos/adapters/kinescope/test-video-provider.js";
+import {
+  createTestVideoProvider,
+  TEST_VIDEO_DURATION_SECONDS,
+} from "../../src/modules/videos/adapters/kinescope/test-video-provider.js";
 
 describe("Kinescope test Video provider", () => {
   test("models one processing observation before an upload becomes ready", async () => {
@@ -13,19 +16,24 @@ describe("Kinescope test Video provider", () => {
       title: "Lesson",
     });
 
-    await expect(provider.find({ id: initialized.id, projectId: "public-project" }))
-      .resolves.toMatchObject({ embedLocator: null, status: "processing" });
-    await expect(provider.find({ id: initialized.id, projectId: "public-project" }))
-      .resolves.toMatchObject({
-        durationSeconds: TEST_VIDEO_DURATION_SECONDS,
-        embedLocator: `https://kinescope.io/embed/${initialized.id}`,
-        status: "done",
-      });
+    await expect(
+      provider.find({ id: initialized.id, projectId: "public-project" }),
+    ).resolves.toMatchObject({ embedLocator: null, status: "processing" });
+    await expect(
+      provider.find({ id: initialized.id, projectId: "public-project" }),
+    ).resolves.toMatchObject({
+      durationSeconds: TEST_VIDEO_DURATION_SECONDS,
+      embedLocator: `https://kinescope.io/embed/${initialized.id}`,
+      status: "done",
+    });
   });
 
   test("reports a duration that fits chapters of long authored recordings", async () => {
     const provider = createTestVideoProvider();
-    const attached = await provider.find({ id: "existing-recording", projectId: "member-project" });
+    const attached = await provider.find({
+      id: "existing-recording",
+      projectId: "member-project",
+    });
     expect(attached?.durationSeconds).toBeGreaterThan(2 * 60 * 60);
   });
 

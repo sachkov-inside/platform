@@ -3,7 +3,6 @@ import "server-only";
 import { materialDifficultySchema } from "@/shared/api/material-lesson-facts";
 import { materialFormatSchema } from "@/shared/api/material-format";
 
-
 import { z } from "zod";
 
 import { renderedMaterialBodySchema } from "@/entities/material.model";
@@ -76,7 +75,11 @@ export function mapCurrentMaterialPreview(
       publicationState: current.publicationState,
       preview: {
         accessLabel:
-          current.metadata.access === "membership" ? "Для участников" : current.metadata.access === "workshop" ? "Практикум" : "Бесплатный",
+          current.metadata.access === "membership"
+            ? "Для участников"
+            : current.metadata.access === "workshop"
+              ? "Практикум"
+              : "Бесплатный",
         blocks: current.body.blocks,
         contentVersion: current.contentVersion,
         format: referenceLabel(
@@ -88,7 +91,8 @@ export function mapCurrentMaterialPreview(
         summary: current.metadata.summary ?? "Без описания",
         tags: current.metadata.tagIds.map(
           (tagId) =>
-            references?.tags.find(({ value }) => value === tagId)?.label ?? "Тег назначен",
+            references?.tags.find(({ value }) => value === tagId)?.label ??
+            "Тег назначен",
         ),
         title: current.metadata.title ?? "Без названия",
         topic: referenceLabel(
@@ -110,10 +114,12 @@ export function mapCurrentMaterialPreview(
 
 function referenceLabel(
   id: string | null,
-  options: readonly { readonly label: string; readonly value: string }[] | undefined,
+  options:
+    readonly { readonly label: string; readonly value: string }[] | undefined,
   unassigned: string,
 ): string {
   return id === null
     ? unassigned
-    : options?.find(({ value }) => value === id)?.label ?? "Значение назначено";
+    : (options?.find(({ value }) => value === id)?.label ??
+        "Значение назначено");
 }

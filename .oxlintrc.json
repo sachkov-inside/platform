@@ -1,8 +1,6 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": [
-    "typescript"
-  ],
+  "plugins": ["typescript"],
   "categories": {
     "correctness": "off"
   },
@@ -117,12 +115,7 @@
   },
   "overrides": [
     {
-      "files": [
-        "**/*.ts",
-        "**/*.tsx",
-        "**/*.mts",
-        "**/*.cts"
-      ],
+      "files": ["**/*.ts", "**/*.tsx", "**/*.mts", "**/*.cts"],
       "rules": {
         "constructor-super": "off",
         "getter-return": "off",
@@ -147,10 +140,7 @@
       }
     },
     {
-      "files": [
-        "apps/backend/**/*.{ts,mts,cts}",
-        "packages/**/*.{ts,mts,cts}"
-      ],
+      "files": ["apps/backend/**/*.{ts,mts,cts}", "packages/**/*.{ts,mts,cts}"],
       "rules": {
         "constructor-super": "off",
         "getter-return": "off",
@@ -239,10 +229,7 @@
             "allowNumber": true
           }
         ],
-        "typescript/return-await": [
-          "error",
-          "error-handling-correctness-only"
-        ],
+        "typescript/return-await": ["error", "error-handling-correctness-only"],
         "typescript/unbound-method": "error",
         "typescript/unified-signatures": "error",
         "typescript/use-unknown-in-catch-callback-variable": "error",
@@ -272,9 +259,7 @@
       }
     },
     {
-      "files": [
-        "apps/backend/src/**/*.module.ts"
-      ],
+      "files": ["apps/backend/src/**/*.module.ts"],
       "rules": {
         "typescript/no-extraneous-class": "off"
       }
@@ -311,9 +296,7 @@
       }
     },
     {
-      "files": [
-        "apps/backend/src/modules/*/domain/**/*.ts"
-      ],
+      "files": ["apps/backend/src/modules/*/domain/**/*.ts"],
       "rules": {
         "no-restricted-imports": [
           "error",
@@ -339,18 +322,14 @@
       }
     },
     {
-      "files": [
-        "apps/backend/src/modules/*/infrastructure/**/*.ts"
-      ],
+      "files": ["apps/backend/src/modules/*/infrastructure/**/*.ts"],
       "rules": {
         "no-restricted-imports": [
           "error",
           {
             "patterns": [
               {
-                "group": [
-                  "**/modules/*/internal/**"
-                ],
+                "group": ["**/modules/*/internal/**"],
                 "message": "Capability infrastructure cannot import another module's internals."
               }
             ]
@@ -359,9 +338,7 @@
       }
     },
     {
-      "files": [
-        "apps/backend/src/modules/**/*.module.ts"
-      ],
+      "files": ["apps/backend/src/modules/**/*.module.ts"],
       "rules": {
         "no-restricted-imports": [
           "error",
@@ -416,9 +393,7 @@
       }
     },
     {
-      "files": [
-        "apps/backend/src/migrations/**/*.ts"
-      ],
+      "files": ["apps/backend/src/migrations/**/*.ts"],
       "rules": {
         "no-restricted-imports": [
           "error",
@@ -429,9 +404,7 @@
                 "message": "Migration code may import only frozen capability migrations."
               },
               {
-                "group": [
-                  "**/modules/*/internal/**"
-                ],
+                "group": ["**/modules/*/internal/**"],
                 "message": "Migration code cannot import capability internals."
               }
             ]
@@ -456,9 +429,7 @@
       }
     },
     {
-      "files": [
-        "apps/web/**/*.{ts,tsx,mts,cts}"
-      ],
+      "files": ["apps/web/**/*.{ts,tsx,mts,cts}"],
       "rules": {
         "constructor-super": "off",
         "getter-return": "off",
@@ -553,10 +524,7 @@
             "allowRegExp": false
           }
         ],
-        "typescript/return-await": [
-          "error",
-          "error-handling-correctness-only"
-        ],
+        "typescript/return-await": ["error", "error-handling-correctness-only"],
         "typescript/unbound-method": "error",
         "typescript/unified-signatures": "error",
         "typescript/use-unknown-in-catch-callback-variable": "error",
@@ -636,25 +604,17 @@
         "react/set-state-in-render": "error",
         "react/unsupported-syntax": "warn"
       },
-      "plugins": [
-        "nextjs",
-        "react"
-      ]
+      "plugins": ["nextjs", "react"]
     },
     {
-      "files": [
-        "apps/web/**/*.client.{ts,tsx}"
-      ],
+      "files": ["apps/web/**/*.client.{ts,tsx}"],
       "rules": {
         "no-restricted-imports": [
           "error",
           {
             "patterns": [
               {
-                "group": [
-                  "**/*.server",
-                  "**/index.server"
-                ],
+                "group": ["**/*.server", "**/index.server"],
                 "message": "Client modules cannot import server-only interfaces."
               }
             ]
@@ -663,9 +623,7 @@
       }
     },
     {
-      "files": [
-        "apps/web/src/shared/**/*.{ts,tsx}"
-      ],
+      "files": ["apps/web/src/shared/**/*.{ts,tsx}"],
       "rules": {
         "no-restricted-imports": [
           "error",
@@ -682,32 +640,23 @@
       }
     },
     {
-      "files": [
-        "apps/web/src/widgets/**/*.{ts,tsx}"
-      ],
+      "files": ["apps/web/src/widgets/**/*.{ts,tsx}"],
       "rules": {
         "no-restricted-imports": [
           "error",
           {
-            "patterns": [
-              "@/_app/**",
-              "@/_pages/**"
-            ]
+            "patterns": ["@/_app/**", "@/_pages/**"]
           }
         ]
       }
     },
     {
-      "files": [
-        "apps/web/src/_pages/**/*.{ts,tsx}"
-      ],
+      "files": ["apps/web/src/_pages/**/*.{ts,tsx}"],
       "rules": {
         "no-restricted-imports": [
           "error",
           {
-            "patterns": [
-              "@/_app/**"
-            ]
+            "patterns": ["@/_app/**"]
           }
         ]
       }
@@ -721,10 +670,7 @@
         "import/no-anonymous-default-export": "off",
         "react/rules-of-hooks": "off"
       },
-      "plugins": [
-        "react",
-        "import"
-      ]
+      "plugins": ["react", "import"]
     }
   ]
 }

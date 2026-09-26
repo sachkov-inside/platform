@@ -9,5 +9,9 @@ export interface WorkshopMembershipAccess {
   resolveForAccessUnderEntitlementLock(
     transaction: WorkshopPrismaTransaction,
     accountId: AccountId,
-  ): Promise<Readonly<{ kind: "active" | "required" | "expired" | "stale" | "unavailable" }>>;
+  ): Promise<
+    Readonly<{
+      kind: "active" | "required" | "expired" | "stale" | "unavailable";
+    }>
+  >;
 }

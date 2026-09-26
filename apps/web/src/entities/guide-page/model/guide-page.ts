@@ -10,11 +10,23 @@ export const guidePresentations = ["default", "ai-first-process"] as const;
 export type GuidePresentation = (typeof guidePresentations)[number];
 
 const cardItemSchema = z
-  .object({ title: z.string(), text: z.string(), detailLabel: z.string(), detail: z.string() })
+  .object({
+    title: z.string(),
+    text: z.string(),
+    detailLabel: z.string(),
+    detail: z.string(),
+  })
   .strict();
 const stepSchema = z.object({ title: z.string(), text: z.string() }).strict();
 const blockSchema = z.discriminatedUnion("kind", [
-  z.object({ id: z.string(), kind: z.literal("hero"), lead: z.string(), highlights: z.array(z.string()) }).strict(),
+  z
+    .object({
+      id: z.string(),
+      kind: z.literal("hero"),
+      lead: z.string(),
+      highlights: z.array(z.string()),
+    })
+    .strict(),
   z
     .object({
       id: z.string(),
@@ -26,20 +38,57 @@ const blockSchema = z.discriminatedUnion("kind", [
       note: z.string(),
     })
     .strict(),
-  z.object({ id: z.string(), kind: z.literal("text"), title: z.string(), paragraphs: z.array(z.string()) }).strict(),
   z
-    .object({ id: z.string(), kind: z.literal("steps"), title: z.string(), lead: z.string(), items: z.array(stepSchema), link: z.string() })
+    .object({
+      id: z.string(),
+      kind: z.literal("text"),
+      title: z.string(),
+      paragraphs: z.array(z.string()),
+    })
     .strict(),
-  z.object({ id: z.string(), kind: z.literal("list"), title: z.string(), text: z.string(), items: z.array(z.string()) }).strict(),
-  z.object({ id: z.string(), kind: z.literal("trial"), title: z.string(), text: z.string(), link: z.string() }).strict(),
+  z
+    .object({
+      id: z.string(),
+      kind: z.literal("steps"),
+      title: z.string(),
+      lead: z.string(),
+      items: z.array(stepSchema),
+      link: z.string(),
+    })
+    .strict(),
+  z
+    .object({
+      id: z.string(),
+      kind: z.literal("list"),
+      title: z.string(),
+      text: z.string(),
+      items: z.array(z.string()),
+    })
+    .strict(),
+  z
+    .object({
+      id: z.string(),
+      kind: z.literal("trial"),
+      title: z.string(),
+      text: z.string(),
+      link: z.string(),
+    })
+    .strict(),
 ]);
-const cardSchema = z.object({ eyebrow: z.string(), subtitle: z.string(), action: z.string() }).strict();
-export const guidePageSchema = z.object({ card: cardSchema.nullable(), blocks: z.array(blockSchema) }).strict();
+const cardSchema = z
+  .object({ eyebrow: z.string(), subtitle: z.string(), action: z.string() })
+  .strict();
+export const guidePageSchema = z
+  .object({ card: cardSchema.nullable(), blocks: z.array(blockSchema) })
+  .strict();
 
 export type GuidePage = z.infer<typeof guidePageSchema>;
 export type GuidePageBlock = GuidePage["blocks"][number];
 export type GuidePageCard = z.infer<typeof cardSchema>;
-export type GuidePageBlockOf<K extends GuidePageBlock["kind"]> = Extract<GuidePageBlock, { kind: K }>;
+export type GuidePageBlockOf<K extends GuidePageBlock["kind"]> = Extract<
+  GuidePageBlock,
+  { kind: K }
+>;
 
 /** Как нарисовать продукт: известное оформление и описание, прошедшее схему. */
 export interface GuideProductPage {
@@ -61,9 +110,13 @@ export function resolveGuidePresentation(
   context: string,
   warn: PresentationWarning = reportToServerLog,
 ): GuidePresentation {
-  const known = guidePresentations.find((presentation) => presentation === value);
+  const known = guidePresentations.find(
+    (presentation) => presentation === value,
+  );
   if (known !== undefined) return known;
-  warn(`[guide-presentation] ${context}: unknown presentation "${value}"; the default template is shown`);
+  warn(
+    `[guide-presentation] ${context}: unknown presentation "${value}"; the default template is shown`,
+  );
   return "default";
 }
 
@@ -76,11 +129,19 @@ export function readGuideProductPage(
   context: string,
   warn: PresentationWarning = reportToServerLog,
 ): GuideProductPage {
-  const presentation = resolveGuidePresentation(value.presentation, context, warn);
+  const presentation = resolveGuidePresentation(
+    value.presentation,
+    context,
+    warn,
+  );
   // Продукт без описания — обычное дело: его страницу рисует общий шаблон по полям редактора.
-  if (value.page === null || value.page === undefined) return { presentation, page: null };
+  if (value.page === null || value.page === undefined)
+    return { presentation, page: null };
   const parsed = guidePageSchema.safeParse(value.page);
-  if (!parsed.success) warn(`[guide-presentation] ${context}: the stored page description does not match this site; it is not shown`);
+  if (!parsed.success)
+    warn(
+      `[guide-presentation] ${context}: the stored page description does not match this site; it is not shown`,
+    );
   return { presentation, page: parsed.success ? parsed.data : null };
 }
 
@@ -93,7 +154,9 @@ export function readGuidePageCard(
   if (value === null || value === undefined) return null;
   const parsed = cardSchema.safeParse(value);
   if (parsed.success) return parsed.data;
-  warn(`[guide-presentation] ${context}: the stored Home card caption does not match this site; it is not shown`);
+  warn(
+    `[guide-presentation] ${context}: the stored Home card caption does not match this site; it is not shown`,
+  );
   return null;
 }
 
@@ -104,5 +167,7 @@ export interface OfferTerms {
 }
 
 export function fillOfferTerms(text: string, terms: OfferTerms): string {
-  return text.replaceAll("{access_term}", terms.access).replaceAll("{support_term}", terms.support);
+  return text
+    .replaceAll("{access_term}", terms.access)
+    .replaceAll("{support_term}", terms.support);
 }

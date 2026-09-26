@@ -10,10 +10,16 @@ const renderContext = {
 
 it("пишет серверный сбой одной строкой с кодом обращения и маршрутом, без параметров адреса", () => {
   const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
-  const failure = Object.assign(new Error("Каталог не ответил"), { digest: "3418893140" });
+  const failure = Object.assign(new Error("Каталог не ответил"), {
+    digest: "3418893140",
+  });
 
   // Next.js передаёт запрос вместе с заголовками; в журнал из них не должно попасть ничего.
-  const request = { headers: { cookie: "session=secret" }, method: "GET", path: "/guides/ai?from=%2Faccount" };
+  const request = {
+    headers: { cookie: "session=secret" },
+    method: "GET",
+    path: "/guides/ai?from=%2Faccount",
+  };
   logRequestError(failure, request, renderContext);
 
   expect(error).toHaveBeenCalledTimes(1);
@@ -39,12 +45,20 @@ it("пишет серверный сбой одной строкой с кодо
 it("пишет и значение, которое не является ошибкой", () => {
   const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
-  logRequestError("отказ", { method: "POST", path: "/api/web-vitals" }, {
-    routePath: "/api/web-vitals",
-    routeType: "route",
-  });
+  logRequestError(
+    "отказ",
+    { method: "POST", path: "/api/web-vitals" },
+    {
+      routePath: "/api/web-vitals",
+      routeType: "route",
+    },
+  );
 
   expect(JSON.parse(String(error.mock.calls[0]?.[0]))).toEqual(
-    expect.objectContaining({ event: "request-error", message: "отказ", path: "/api/web-vitals" }),
+    expect.objectContaining({
+      event: "request-error",
+      message: "отказ",
+      path: "/api/web-vitals",
+    }),
   );
 });

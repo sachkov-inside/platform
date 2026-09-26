@@ -92,7 +92,10 @@ function topicQuery(): LibrarySearchQuery {
 
 function CatalogStatus({ message }: { readonly message: string }) {
   return (
-    <p aria-live="polite" className="mt-8 rounded-2xl bg-muted px-5 py-8 text-sm text-muted-foreground">
+    <p
+      aria-live="polite"
+      className="mt-8 rounded-2xl bg-muted px-5 py-8 text-sm text-muted-foreground"
+    >
       {message}
     </p>
   );
@@ -126,12 +129,20 @@ function CatalogError({ onRetry }: { readonly onRetry: () => void }) {
 
 function CatalogNoResults({ onReset }: { readonly onReset: () => void }) {
   return (
-    <section className="mt-8 rounded-2xl bg-muted px-5 py-8 text-center" data-library-state="no-results">
+    <section
+      className="mt-8 rounded-2xl bg-muted px-5 py-8 text-center"
+      data-library-state="no-results"
+    >
       <h2 className="text-lg font-semibold">Ничего не найдено</h2>
       <p className="mt-2 text-sm text-muted-foreground">
         Измените запрос или сбросьте фильтры.
       </p>
-      <Button className="mt-4" onClick={onReset} type="button" variant="outline">
+      <Button
+        className="mt-4"
+        onClick={onReset}
+        type="button"
+        variant="outline"
+      >
         Показать все материалы темы
       </Button>
     </section>

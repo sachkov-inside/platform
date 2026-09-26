@@ -12,7 +12,9 @@ import { readPublicSiteOrigin } from "@/shared/link-preview/index.server";
 
 interface SeriesPageProps {
   readonly params: Promise<{ readonly slug: string }>;
-  readonly searchParams: Promise<{ readonly from?: string | readonly string[] }>;
+  readonly searchParams: Promise<{
+    readonly from?: string | readonly string[];
+  }>;
 }
 
 /**

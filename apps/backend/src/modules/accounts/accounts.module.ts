@@ -33,22 +33,40 @@ import {
 
 @Module({
   imports: [PrismaModule],
-  controllers: [EstablishAccountController, ResolveAccountController, BillingContactController, LegalAcceptancesController],
+  controllers: [
+    EstablishAccountController,
+    ResolveAccountController,
+    BillingContactController,
+    LegalAcceptancesController,
+  ],
   providers: [
-    { provide: NotificationAccounts, inject: [PrismaClientProvider, PLATFORM_CONFIG],
-      useFactory: (prisma: PrismaClientProvider, config: PlatformConfig) => new NotificationAccounts(prisma,
-        config.billingContact ? billingContactProtection(config.billingContact.encryptionKey) : undefined) },
+    {
+      provide: NotificationAccounts,
+      inject: [PrismaClientProvider, PLATFORM_CONFIG],
+      useFactory: (prisma: PrismaClientProvider, config: PlatformConfig) =>
+        new NotificationAccounts(
+          prisma,
+          config.billingContact
+            ? billingContactProtection(config.billingContact.encryptionKey)
+            : undefined,
+        ),
+    },
     {
       provide: BillingContact,
       inject: [PrismaClientProvider, PLATFORM_CONFIG],
-      useFactory: (prisma: PrismaClientProvider, config: PlatformConfig) => new BillingContact({
-        prisma,
-        protection: config.billingContact ? billingContactProtection(config.billingContact.encryptionKey) : undefined,
-        sendCode: config.billingContact ? assembleBillingContactSender(config.billingContact) : undefined,
-        // The published editions themselves; a buyer accepts the text this catalogue carries.
-        documents: consentDocuments(config.publicSite.origin),
-        now: () => new Date(),
-      }),
+      useFactory: (prisma: PrismaClientProvider, config: PlatformConfig) =>
+        new BillingContact({
+          prisma,
+          protection: config.billingContact
+            ? billingContactProtection(config.billingContact.encryptionKey)
+            : undefined,
+          sendCode: config.billingContact
+            ? assembleBillingContactSender(config.billingContact)
+            : undefined,
+          // The published editions themselves; a buyer accepts the text this catalogue carries.
+          documents: consentDocuments(config.publicSite.origin),
+          now: () => new Date(),
+        }),
     },
     {
       provide: ACCOUNTS,
@@ -76,12 +94,13 @@ import {
     {
       provide: LegalAcceptances,
       inject: [PrismaClientProvider, PLATFORM_CONFIG],
-      useFactory: (prisma: PrismaClientProvider, config: PlatformConfig) => new LegalAcceptances({
-        prisma,
-        // The first sign-in accepts the exact terms of use edition in force.
-        terms: termsOfUseDocument(config.publicSite.origin),
-        now: () => new Date(),
-      }),
+      useFactory: (prisma: PrismaClientProvider, config: PlatformConfig) =>
+        new LegalAcceptances({
+          prisma,
+          // The first sign-in accepts the exact terms of use edition in force.
+          terms: termsOfUseDocument(config.publicSite.origin),
+          now: () => new Date(),
+        }),
     },
     AccountGuard,
     AcceptedTermsGuard,

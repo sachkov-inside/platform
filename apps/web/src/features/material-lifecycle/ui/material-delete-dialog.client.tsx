@@ -80,8 +80,8 @@ export function MaterialDeleteDialog({
             className="mt-3 text-sm leading-6 text-muted-foreground"
             id={descriptionId}
           >
-            Черновик никогда не публиковался. Он будет удалён безвозвратно вместе
-            с текущим содержимым.
+            Черновик никогда не публиковался. Он будет удалён безвозвратно
+            вместе с текущим содержимым.
           </p>
           {title === null ? (
             <p className="mt-3 truncate font-mono text-xs text-muted-foreground">
@@ -94,16 +94,20 @@ export function MaterialDeleteDialog({
                 checked={deleteOwnedVideo}
                 className="mt-1 size-4"
                 disabled={pending}
-                onChange={(event) => { setDeleteOwnedVideo(event.currentTarget.checked); }}
+                onChange={(event) => {
+                  setDeleteOwnedVideo(event.currentTarget.checked);
+                }}
                 type="checkbox"
               />
               <span>
-                Также удалить «{primaryVideo.title}» из Kinescope. Восстановление не гарантируется.
+                Также удалить «{primaryVideo.title}» из Kinescope.
+                Восстановление не гарантируется.
               </span>
             </label>
           ) : primaryVideo?.origin === "external_attachment" ? (
             <p className="mt-5 rounded-xl border border-border p-4 text-sm leading-6 text-muted-foreground">
-              «{primaryVideo.title}» останется в Kinescope: Platform не удаляет привязанные извне видео.
+              «{primaryVideo.title}» останется в Kinescope: Platform не удаляет
+              привязанные извне видео.
             </p>
           ) : null}
           <DeletionNotice result={result} />
@@ -124,7 +128,9 @@ export function MaterialDeleteDialog({
               disabled={pending}
               onClick={() => {
                 onDelete({
-                  deleteVideoId: deleteOwnedVideo ? primaryVideo?.videoId ?? null : null,
+                  deleteVideoId: deleteOwnedVideo
+                    ? (primaryVideo?.videoId ?? null)
+                    : null,
                   expectedContentVersion: contentVersion,
                   materialId,
                   submissionId,

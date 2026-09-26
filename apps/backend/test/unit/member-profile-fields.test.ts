@@ -25,9 +25,7 @@ describe("Member Profile fields", () => {
   });
 
   test("rejects missing, oversized and control-character fields", () => {
-    expect(
-      acceptMemberProfileFields({ displayName: " ", bio: null }),
-    ).toEqual({
+    expect(acceptMemberProfileFields({ displayName: " ", bio: null })).toEqual({
       ok: false,
       issues: [{ field: "displayName", code: "required" }],
     });

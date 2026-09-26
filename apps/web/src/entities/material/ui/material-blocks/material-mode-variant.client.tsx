@@ -3,7 +3,11 @@
 import { ChevronDown } from "lucide-react";
 import { useId, useState, type ReactNode } from "react";
 
-import { guideModeLabels, useGuideMode, type GuideMode } from "@/shared/guide-mode";
+import {
+  guideModeLabels,
+  useGuideMode,
+  type GuideMode,
+} from "@/shared/guide-mode";
 
 export interface MaterialModeBranch {
   readonly content: ReactNode;
@@ -31,7 +35,11 @@ export function MaterialModeVariant({
   }
 
   return (
-    <div className="mt-8" data-material-block="variant" data-variant-mode={mode}>
+    <div
+      className="mt-8"
+      data-material-block="variant"
+      data-variant-mode={mode}
+    >
       {/* Тот же служебный заголовок, каким в маршруте подписана глава: это подпись, не врезка. */}
       <p className="font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-muted-foreground">
         {guideModeLabels[active.mode]}

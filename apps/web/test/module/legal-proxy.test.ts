@@ -20,7 +20,11 @@ function rewrittenTo(response: Response): string | null {
 }
 
 const publishedPaths = [
-  ...legalDocumentKeys.map((key) => ({ path: `/legal/${key}`, slug: key, version: undefined })),
+  ...legalDocumentKeys.map((key) => ({
+    path: `/legal/${key}`,
+    slug: key,
+    version: undefined,
+  })),
   ...legalEditions.map((edition) => ({
     path: `/legal/${edition.key}/v${String(edition.version)}`,
     slug: edition.key,
@@ -57,9 +61,27 @@ it("неизвестный документ и неизвестная редак
 it("раздел документов в matcher не захватывает список /legal и чужие адреса", () => {
   const nextConfig = {};
 
-  expect(unstable_doesMiddlewareMatch({ config, nextConfig, url: "/legal/terms" })).toBe(true);
-  expect(unstable_doesMiddlewareMatch({ config, nextConfig, url: "/legal/purchase/v2" })).toBe(true);
-  expect(unstable_doesMiddlewareMatch({ config, nextConfig, url: "/legal" })).toBe(false);
-  expect(unstable_doesMiddlewareMatch({ config, nextConfig, url: "/materials/unknown" })).toBe(false);
-  expect(unstable_doesMiddlewareMatch({ config, nextConfig, url: "/" })).toBe(false);
+  expect(
+    unstable_doesMiddlewareMatch({ config, nextConfig, url: "/legal/terms" }),
+  ).toBe(true);
+  expect(
+    unstable_doesMiddlewareMatch({
+      config,
+      nextConfig,
+      url: "/legal/purchase/v2",
+    }),
+  ).toBe(true);
+  expect(
+    unstable_doesMiddlewareMatch({ config, nextConfig, url: "/legal" }),
+  ).toBe(false);
+  expect(
+    unstable_doesMiddlewareMatch({
+      config,
+      nextConfig,
+      url: "/materials/unknown",
+    }),
+  ).toBe(false);
+  expect(unstable_doesMiddlewareMatch({ config, nextConfig, url: "/" })).toBe(
+    false,
+  );
 });

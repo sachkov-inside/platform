@@ -59,7 +59,10 @@ it("отдаёт собственные настройки каналов и з�
 it("сохраняет ожидаемую revision и ссылку на операцию", async () => {
   fakes.change.mockResolvedValue({
     ok: true,
-    body: { ok: true, preferences: { revision: 4, email: true, telegram: true } },
+    body: {
+      ok: true,
+      preferences: { revision: 4, email: true, telegram: true },
+    },
     response: new Response(),
   });
 

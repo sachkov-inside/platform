@@ -8,8 +8,7 @@ export const privacyV2: LegalEdition = {
   title: "Политика обработки персональных данных Inside",
   summary:
     "Какие данные Inside обрабатывает, на каком основании, кому передаёт и как их удалить.",
-  digest:
-    "06688b8eebf137c4d97a68ad4e1c36266e613bbaf681dad37595cda1519caebe",
+  digest: "06688b8eebf137c4d97a68ad4e1c36266e613bbaf681dad37595cda1519caebe",
   text: `# Политика обработки персональных данных Inside
 
 Версия 2. Действует с 12 сентября 2026 года.

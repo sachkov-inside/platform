@@ -21,18 +21,28 @@ describe("production deployment state machine", () => {
   it("repairs forward again when the first repair release also fails", () => {
     const fixture = createHostFixture();
     try {
-      for (const [version, runId] of [["v1", 510], ["v2", 511]]) {
+      for (const [version, runId] of [
+        ["v1", 510],
+        ["v2", 511],
+      ]) {
         const failed = runGateway(fixture, "deploy", version, runId, {
           INSIDE_DEPLOY_FAIL_PHASE: "readiness",
         });
         assert.notEqual(failed.status, 0);
-        assert.match(failed.stderr, /Injected deployment failure at readiness/u);
+        assert.match(
+          failed.stderr,
+          /Injected deployment failure at readiness/u,
+        );
       }
-      assert.notEqual(runGateway(fixture, "deploy", "v3", 512, {
-        INSIDE_DEPLOY_TEST_INTERRUPT_AFTER_STATE: "true",
-      }).status, 0);
+      assert.notEqual(
+        runGateway(fixture, "deploy", "v3", 512, {
+          INSIDE_DEPLOY_TEST_INTERRUPT_AFTER_STATE: "true",
+        }).status,
+        0,
+      );
       const parentHistory = resolve(
-        fixture.root, "var/lib/inside/deployments/operation-history/deploy-v1-run-510.json",
+        fixture.root,
+        "var/lib/inside/deployments/operation-history/deploy-v1-run-510.json",
       );
       const parentJournal = readFileSync(parentHistory, "utf8");
       rmSync(parentHistory);
@@ -45,11 +55,19 @@ describe("production deployment state machine", () => {
       assert.equal(state.current.version, "v3");
       assert.equal(state.previous, null);
       assert.equal(state.rollback, null);
-      for (const [version, runId] of [["v1", 510], ["v2", 511]]) {
-        const archived = JSON.parse(readFileSync(resolve(
-          fixture.root,
-          `var/lib/inside/deployments/operation-history/deploy-${version}-run-${runId}.json`,
-        ), "utf8"));
+      for (const [version, runId] of [
+        ["v1", 510],
+        ["v2", 511],
+      ]) {
+        const archived = JSON.parse(
+          readFileSync(
+            resolve(
+              fixture.root,
+              `var/lib/inside/deployments/operation-history/deploy-${version}-run-${runId}.json`,
+            ),
+            "utf8",
+          ),
+        );
         assert.equal(archived.version, version);
         assert.equal(archived.status, "failed");
       }
@@ -67,37 +85,68 @@ describe("production deployment state machine", () => {
       const deployed = runGateway(fixture, "deploy", "v2", 602, legacy);
       assert.equal(deployed.status, 0, deployed.stderr);
       const log = readExternalLog(fixture).slice(logStart);
-      const workers = "material-assets-worker profile-avatars-worker video-deletions-worker";
+      const workers =
+        "material-assets-worker profile-avatars-worker video-deletions-worker";
       // The previous release predates billing and notification workers: stopping them there would fail.
-      assert.match(log, new RegExp(`/releases/v1/runtime/compose\\.production\\.yaml stop --timeout 20 ${workers}\\n`, "u"));
-      const pullBroker = log.indexOf("/releases/v2/runtime/compose.production.yaml pull rabbitmq");
-      const startBroker = log.indexOf("/releases/v2/runtime/compose.production.yaml up --detach --wait --no-deps rabbitmq\n");
+      assert.match(
+        log,
+        new RegExp(
+          `/releases/v1/runtime/compose\\.production\\.yaml stop --timeout 20 ${workers}\\n`,
+          "u",
+        ),
+      );
+      const pullBroker = log.indexOf(
+        "/releases/v2/runtime/compose.production.yaml pull rabbitmq",
+      );
+      const startBroker = log.indexOf(
+        "/releases/v2/runtime/compose.production.yaml up --detach --wait --no-deps rabbitmq\n",
+      );
       const startProcesses = log.indexOf(
         `/releases/v2/runtime/compose.production.yaml up --detach --wait --no-deps api mcp ${workers} billing-worker notifications-worker web\n`,
       );
-      assert.ok(pullBroker > log.indexOf("docker pull"), "the broker image is pulled with the release images");
-      assert.ok(startBroker > pullBroker && startProcesses > startBroker, "the broker is healthy before its consumers start");
+      assert.ok(
+        pullBroker > log.indexOf("docker pull"),
+        "the broker image is pulled with the release images",
+      );
+      assert.ok(
+        startBroker > pullBroker && startProcesses > startBroker,
+        "the broker is healthy before its consumers start",
+      );
 
       const nextStart = readExternalLog(fixture).length;
       assertGatewaySuccess(fixture, "deploy", "v3", 603);
       assert.match(
         readExternalLog(fixture).slice(nextStart),
-        new RegExp(`/releases/v2/runtime/compose\\.production\\.yaml stop --timeout 20 ${workers} billing-worker notifications-worker\\n`, "u"),
+        new RegExp(
+          `/releases/v2/runtime/compose\\.production\\.yaml stop --timeout 20 ${workers} billing-worker notifications-worker\\n`,
+          "u",
+        ),
       );
     } finally {
       fixture.cleanup();
     }
   });
 
-  for (const missing of ["billing-worker.env", "notifications-worker.env", "rabbitmq/definitions.json", "rabbitmq/tls/server-key.pem"]) {
+  for (const missing of [
+    "billing-worker.env",
+    "notifications-worker.env",
+    "rabbitmq/definitions.json",
+    "rabbitmq/tls/server-key.pem",
+  ]) {
     it(`rejects a deployment without server-owned ${missing} before maintenance`, () => {
       const fixture = createHostFixture();
       try {
         rmSync(resolve(fixture.root, "etc/inside/runtime", missing));
         const rejected = runGateway(fixture, "deploy", "v1", 610);
         assert.notEqual(rejected.status, 0);
-        assert.match(rejected.stderr, /Missing server-owned (?:runtime|broker) configuration/u);
-        assert.doesNotMatch(readExternalLog(fixture), /caddy reload|docker pull/u);
+        assert.match(
+          rejected.stderr,
+          /Missing server-owned (?:runtime|broker) configuration/u,
+        );
+        assert.doesNotMatch(
+          readExternalLog(fixture),
+          /caddy reload|docker pull/u,
+        );
       } finally {
         fixture.cleanup();
       }
@@ -134,18 +183,27 @@ describe("production deployment state machine", () => {
           assertGatewaySuccess(fixture, "deploy", "v2", 521);
           assertGatewaySuccess(fixture, "rollback", "v1", 522);
         } else {
-          assert.notEqual(runGateway(fixture, "deploy", "v2", 523, {
-            INSIDE_DEPLOY_FAIL_PHASE: "readiness",
-          }).status, 0);
+          assert.notEqual(
+            runGateway(fixture, "deploy", "v2", 523, {
+              INSIDE_DEPLOY_FAIL_PHASE: "readiness",
+            }).status,
+            0,
+          );
         }
         const failed = runGateway(fixture, "deploy", "v3", 524, {
           INSIDE_DEPLOY_FAIL_PHASE: "readiness",
         });
         assert.notEqual(failed.status, 0);
-        assert.match(failed.stderr, /Injected deployment failure at readiness/u);
-        assert.notEqual(runGateway(fixture, "deploy", "v4", 525, {
-          INSIDE_DEPLOY_FAIL_PHASE: "maintenance",
-        }).status, 0);
+        assert.match(
+          failed.stderr,
+          /Injected deployment failure at readiness/u,
+        );
+        assert.notEqual(
+          runGateway(fixture, "deploy", "v4", 525, {
+            INSIDE_DEPLOY_FAIL_PHASE: "maintenance",
+          }).status,
+          0,
+        );
         assertGatewaySuccess(fixture, "deploy", "v4", 526);
         const state = readState(fixture);
         assert.equal(state.current.version, "v4");
@@ -160,20 +218,37 @@ describe("production deployment state machine", () => {
   it("rejects a broken repair history before changing the active journal or routes", () => {
     const fixture = createHostFixture();
     try {
-      for (const [version, runId] of [["v1", 530], ["v2", 531]]) {
-        assert.notEqual(runGateway(fixture, "deploy", version, runId, {
-          INSIDE_DEPLOY_FAIL_PHASE: "readiness",
-        }).status, 0);
+      for (const [version, runId] of [
+        ["v1", 530],
+        ["v2", 531],
+      ]) {
+        assert.notEqual(
+          runGateway(fixture, "deploy", version, runId, {
+            INSIDE_DEPLOY_FAIL_PHASE: "readiness",
+          }).status,
+          0,
+        );
       }
-      const journal = resolve(fixture.root, "var/lib/inside/deployments/operation.json");
+      const journal = resolve(
+        fixture.root,
+        "var/lib/inside/deployments/operation.json",
+      );
       const before = readFileSync(journal, "utf8");
       const logStart = readExternalLog(fixture).length;
-      rmSync(resolve(fixture.root, "var/lib/inside/deployments/operation-history/deploy-v1-run-530.json"));
+      rmSync(
+        resolve(
+          fixture.root,
+          "var/lib/inside/deployments/operation-history/deploy-v1-run-530.json",
+        ),
+      );
       const rejected = runGateway(fixture, "deploy", "v3", 532);
       assert.notEqual(rejected.status, 0);
       assert.match(rejected.stderr, /lineage is missing or invalid/u);
       assert.equal(readFileSync(journal, "utf8"), before);
-      assert.doesNotMatch(readExternalLog(fixture).slice(logStart), /caddy reload|docker pull/u);
+      assert.doesNotMatch(
+        readExternalLog(fixture).slice(logStart),
+        /caddy reload|docker pull/u,
+      );
     } finally {
       fixture.cleanup();
     }
@@ -201,7 +276,10 @@ describe("production deployment state machine", () => {
       assertGatewaySuccess(fixture, "deploy", "v1", 102);
       const noOpLog = readExternalLog(fixture).slice(firstExternalLog.length);
       assert.match(noOpLog, /--verify-schema-identity/u);
-      assert.doesNotMatch(noOpLog, /docker pull|caddy reload| up --detach| run --rm migrations/u);
+      assert.doesNotMatch(
+        noOpLog,
+        /docker pull|caddy reload| up --detach| run --rm migrations/u,
+      );
 
       assertGatewaySuccess(fixture, "deploy", "v2", 103);
       state = readState(fixture);
@@ -209,7 +287,10 @@ describe("production deployment state machine", () => {
       assert.equal(state.previous.version, "v1");
       assert.equal(state.rollback.targetVersion, "v1");
       assert.equal(state.rollback.compatible, true);
-      assert.ok(state.rollback.expiresAtEpochSeconds > state.current.deployedAtEpochSeconds);
+      assert.ok(
+        state.rollback.expiresAtEpochSeconds >
+          state.current.deployedAtEpochSeconds,
+      );
 
       const beforeRollback = readExternalLog(fixture);
       assertGatewaySuccess(fixture, "rollback", "v1", 104);
@@ -261,10 +342,7 @@ describe("production deployment state machine", () => {
         assert.notEqual(failed.status, 0);
         const operation = JSON.parse(
           readFileSync(
-            resolve(
-              fixture.root,
-              "var/lib/inside/deployments/operation.json",
-            ),
+            resolve(fixture.root, "var/lib/inside/deployments/operation.json"),
             "utf8",
           ),
         );
@@ -277,7 +355,10 @@ describe("production deployment state machine", () => {
         ) {
           assert.equal(readFileSync(activeCaddy, "utf8"), previousRoute);
         } else {
-          assert.match(readFileSync(activeCaddy, "utf8"), /Deployment in progress/u);
+          assert.match(
+            readFileSync(activeCaddy, "utf8"),
+            /Deployment in progress/u,
+          );
         }
 
         assertGatewaySuccess(fixture, "deploy", "v2", 202);
@@ -305,19 +386,13 @@ describe("production deployment state machine", () => {
       assert.equal(
         JSON.parse(
           readFileSync(
-            resolve(
-              fixture.root,
-              "var/lib/inside/deployments/operation.json",
-            ),
+            resolve(fixture.root, "var/lib/inside/deployments/operation.json"),
             "utf8",
           ),
         ).phase,
         "preflight",
       );
-      assert.equal(
-        readFileSync(activeCaddy, "utf8"),
-        previousRoute,
-      );
+      assert.equal(readFileSync(activeCaddy, "utf8"), previousRoute);
     } finally {
       fixture.cleanup();
     }
@@ -498,17 +573,21 @@ describe("production deployment state machine", () => {
         fixture.root,
         "var/lib/inside/deployments/operation.json",
       );
-      const impossibleJournal = `${JSON.stringify({
-        schemaVersion: "inside.platform.deployment-operation.v1",
-        status: "failed",
-        operation: "deploy",
-        version: "v1",
-        phase: "readiness",
-        recoveryPhase: "preflight",
-        repairForward: null,
-        githubRunId: 220,
-        recordedAt: "2026-09-04T20:00:00Z",
-      }, null, 2)}\n`;
+      const impossibleJournal = `${JSON.stringify(
+        {
+          schemaVersion: "inside.platform.deployment-operation.v1",
+          status: "failed",
+          operation: "deploy",
+          version: "v1",
+          phase: "readiness",
+          recoveryPhase: "preflight",
+          repairForward: null,
+          githubRunId: 220,
+          recordedAt: "2026-09-04T20:00:00Z",
+        },
+        null,
+        2,
+      )}\n`;
       mkdirSync(resolve(operationPath, ".."), { recursive: true });
       writeFileSync(operationPath, impossibleJournal);
 
@@ -534,10 +613,7 @@ describe("production deployment state machine", () => {
         );
         const operation = JSON.parse(
           readFileSync(
-            resolve(
-              fixture.root,
-              "var/lib/inside/deployments/operation.json",
-            ),
+            resolve(fixture.root, "var/lib/inside/deployments/operation.json"),
             "utf8",
           ),
         );
@@ -559,17 +635,21 @@ describe("production deployment state machine", () => {
         fixture.root,
         "var/lib/inside/deployments/operation.json",
       );
-      const impossibleJournal = `${JSON.stringify({
-        schemaVersion: "inside.platform.deployment-operation.v1",
-        status: "failed",
-        operation: "rollback",
-        version: "v1",
-        phase: "migrations",
-        recoveryPhase: "migrations",
-        repairForward: null,
-        githubRunId: 236,
-        recordedAt: "2026-09-04T20:00:00Z",
-      }, null, 2)}\n`;
+      const impossibleJournal = `${JSON.stringify(
+        {
+          schemaVersion: "inside.platform.deployment-operation.v1",
+          status: "failed",
+          operation: "rollback",
+          version: "v1",
+          phase: "migrations",
+          recoveryPhase: "migrations",
+          repairForward: null,
+          githubRunId: 236,
+          recordedAt: "2026-09-04T20:00:00Z",
+        },
+        null,
+        2,
+      )}\n`;
       mkdirSync(resolve(operationPath, ".."), { recursive: true });
       writeFileSync(operationPath, impossibleJournal);
 
@@ -632,8 +712,14 @@ describe("production deployment state machine", () => {
         failedJournal,
       );
       const repairLog = readExternalLog(fixture).slice(repairLogStart);
-      assert.match(repairLog, /releases\/v1\/runtime\/compose\.production\.yaml.*--verify-schema-identity/u);
-      assert.match(repairLog, /releases\/v2\/runtime\/compose\.production\.yaml.*--verify-schema-compatible/u);
+      assert.match(
+        repairLog,
+        /releases\/v1\/runtime\/compose\.production\.yaml.*--verify-schema-identity/u,
+      );
+      assert.match(
+        repairLog,
+        /releases\/v2\/runtime\/compose\.production\.yaml.*--verify-schema-compatible/u,
+      );
       const failedSchemaProof = repairLog.indexOf(
         "/releases/v1/runtime/compose.production.yaml run --pull never --rm --no-deps migrations node dist/migrations/migrate.js --verify-schema-identity",
       );
@@ -755,10 +841,7 @@ describe("production deployment state machine", () => {
       );
       const repairOperation = JSON.parse(
         readFileSync(
-          resolve(
-            fixture.root,
-            "var/lib/inside/deployments/operation.json",
-          ),
+          resolve(fixture.root, "var/lib/inside/deployments/operation.json"),
           "utf8",
         ),
       );
@@ -870,7 +953,10 @@ describe("production deployment state machine", () => {
         INSIDE_DEPLOY_FAIL_PHASE: "preflight",
       });
       assert.notEqual(failedRetry.status, 0);
-      assert.match(failedRetry.stderr, /Injected deployment failure at preflight/u);
+      assert.match(
+        failedRetry.stderr,
+        /Injected deployment failure at preflight/u,
+      );
       assert.equal(readFileSync(operationPath, "utf8"), interruptedJournal);
 
       const retryLogStart = readExternalLog(fixture).length;
@@ -1046,9 +1132,19 @@ function createHostFixture({ compatible = true } = {}) {
       "",
     ].join("\n"),
   );
-  mkdirSync(resolve(root, "etc/inside/runtime/rabbitmq/tls"), { recursive: true });
-  for (const name of ["definitions.json", "tls/ca.pem", "tls/server.pem", "tls/server-key.pem"]) {
-    writeFileSync(resolve(root, "etc/inside/runtime/rabbitmq", name), "CONFIGURED=true\n");
+  mkdirSync(resolve(root, "etc/inside/runtime/rabbitmq/tls"), {
+    recursive: true,
+  });
+  for (const name of [
+    "definitions.json",
+    "tls/ca.pem",
+    "tls/server.pem",
+    "tls/server-key.pem",
+  ]) {
+    writeFileSync(
+      resolve(root, "etc/inside/runtime/rabbitmq", name),
+      "CONFIGURED=true\n",
+    );
   }
   for (const name of [
     "api.env",
@@ -1071,7 +1167,7 @@ function createHostFixture({ compatible = true } = {}) {
 
   writeExecutable(
     resolve(bin, "flock"),
-    '#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n',
+    "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n",
   );
   writeExecutable(
     resolve(bin, "docker"),
@@ -1248,28 +1344,35 @@ function releaseManifest({
     v4: ["4", "5"],
   }[version];
   assert.ok(imageDigests, `missing image fixture for ${version}`);
-  return `${JSON.stringify({
-    schemaVersion: "inside.platform.release-manifest.v2",
-    version,
-    source: { repository: "sachkov-inside/platform", sha: sourceSha },
-    images: {
-      backend: `ghcr.io/sachkov-inside/platform-backend@sha256:${imageDigests[0].repeat(64)}`,
-      web: `ghcr.io/sachkov-inside/platform-web@sha256:${imageDigests[1].repeat(64)}`,
+  return `${JSON.stringify(
+    {
+      schemaVersion: "inside.platform.release-manifest.v2",
+      version,
+      source: { repository: "sachkov-inside/platform", sha: sourceSha },
+      images: {
+        backend: `ghcr.io/sachkov-inside/platform-backend@sha256:${imageDigests[0].repeat(64)}`,
+        web: `ghcr.io/sachkov-inside/platform-web@sha256:${imageDigests[1].repeat(64)}`,
+      },
+      schema: { identity: schemaIdentity },
+      runtimeBundle: {
+        asset: "production-runtime.tar.gz",
+        sha256: bundleDigest,
+      },
+      publication: { workflowRunId: runId },
+      rollback: { previous },
     },
-    schema: { identity: schemaIdentity },
-    runtimeBundle: {
-      asset: "production-runtime.tar.gz",
-      sha256: bundleDigest,
-    },
-    publication: { workflowRunId: runId },
-    rollback: { previous },
-  }, null, 2)}\n`;
+    null,
+    2,
+  )}\n`;
 }
 
 function createEnvelope(fixture, version) {
   const root = resolve(fixture.directory, `envelope-${version}`);
   mkdirSync(root);
-  writeFileSync(resolve(root, "release-manifest.json"), fixture.manifests[version]);
+  writeFileSync(
+    resolve(root, "release-manifest.json"),
+    fixture.manifests[version],
+  );
   copyFileSync(fixture.bundle, resolve(root, "production-runtime.tar.gz"));
   const result = spawnSync(
     "tar",

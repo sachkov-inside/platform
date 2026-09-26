@@ -40,7 +40,10 @@ export const readerGuideArtifactListSchema = z
  * down the page keeps the programme and says the section could not be read.
  */
 export type ReaderGuideArtifactsResult =
-  | { readonly artifacts: readonly ReaderGuideArtifact[]; readonly kind: "ready" }
+  | {
+      readonly artifacts: readonly ReaderGuideArtifact[];
+      readonly kind: "ready";
+    }
   | { readonly kind: "unavailable" };
 
 export function readerGuideArtifactFileHref(

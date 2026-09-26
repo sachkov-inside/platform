@@ -1,6 +1,4 @@
-import type {
-  AssetResourceFactsAdapter,
-} from "../../../content-access/index.js";
+import type { AssetResourceFactsAdapter } from "../../../content-access/index.js";
 import type { MaterialAssets } from "../../../assets/index.js";
 import { materialId as checkedMaterialId } from "../../domain/material-identifiers.js";
 

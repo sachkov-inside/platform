@@ -12,7 +12,9 @@ const repositoryRoot = fileURLToPath(new URL("..", import.meta.url));
  * из рабочего дерева, где пакет есть. Красными становятся только задания Compose, и причина у них
  * выглядит как отказ pnpm пересобрать каталог модулей, а не как забытая строка.
  */
-const packages = readdirSync(path.join(repositoryRoot, "packages"), { withFileTypes: true })
+const packages = readdirSync(path.join(repositoryRoot, "packages"), {
+  withFileTypes: true,
+})
   .filter((entry) => entry.isDirectory())
   .map((entry) => entry.name)
   .sort();

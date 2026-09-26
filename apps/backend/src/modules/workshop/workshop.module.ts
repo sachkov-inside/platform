@@ -29,9 +29,6 @@ import {
         assembleWorkshopEntitlements({ prisma }),
     },
   ],
-  exports: [
-    WORKSHOP_ENTITLEMENTS,
-    WORKSHOP_MATERIAL_ACCESS,
-  ],
+  exports: [WORKSHOP_ENTITLEMENTS, WORKSHOP_MATERIAL_ACCESS],
 })
 export class WorkshopModule {}

@@ -14,7 +14,9 @@
   inset: 0;
   z-index: 60;
   height: fit-content;
-  box-shadow: 0 0 0 100vmax oklch(0.205 0.014 129 / 0.32), var(--shadow-card, 0 1px 2px oklch(0 0 0 / 0.08));
+  box-shadow:
+    0 0 0 100vmax oklch(0.205 0.014 129 / 0.32),
+    var(--shadow-card, 0 1px 2px oklch(0 0 0 / 0.08));
 }
 
 @media (prefers-reduced-motion: no-preference) {

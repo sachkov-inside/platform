@@ -35,18 +35,22 @@ import {
 import { problemException } from "../../../../infrastructure/http/problem-details.js";
 
 const uuid = z.uuid();
-const assetNotFoundProblemSchema = z.object({
-  code: z.literal("asset_not_found"),
-  status: z.literal(404),
-  title: z.string(),
-  type: z.string(),
-}).strict();
-const assetDependencyProblemSchema = z.object({
-  code: z.literal("dependency_unavailable"),
-  status: z.literal(503),
-  title: z.string(),
-  type: z.string(),
-}).strict();
+const assetNotFoundProblemSchema = z
+  .object({
+    code: z.literal("asset_not_found"),
+    status: z.literal(404),
+    title: z.string(),
+    type: z.string(),
+  })
+  .strict();
+const assetDependencyProblemSchema = z
+  .object({
+    code: z.literal("dependency_unavailable"),
+    status: z.literal(503),
+    title: z.string(),
+    type: z.string(),
+  })
+  .strict();
 
 @ApiTags("Material assets")
 @OptionalAccountEndpoint()
@@ -58,16 +62,35 @@ export class DeliverMaterialAssetController {
   ) {}
 
   @Get(":materialId/assets/:assetId")
-  @ApiOperation({ operationId: "downloadMaterialAsset", summary: "Download a file through current Material access" })
+  @ApiOperation({
+    operationId: "downloadMaterialAsset",
+    summary: "Download a file through current Material access",
+  })
   @ApiParam({ name: "materialId", schema: { type: "string", format: "uuid" } })
   @ApiParam({ name: "assetId", schema: { type: "string", format: "uuid" } })
-  @ApiQuery({ name: "contentVersion", required: true, schema: { type: "integer", minimum: 1 } })
+  @ApiQuery({
+    name: "contentVersion",
+    required: true,
+    schema: { type: "integer", minimum: 1 },
+  })
   @ApiQuery({ name: "preview", required: false, schema: { type: "boolean" } })
   @ApiProduces("application/octet-stream")
-  @ApiOkResponse({ description: "Public immutable file bytes", schema: { type: "string", format: "binary" } })
-  @ApiFoundResponse({ description: "Short-lived protected redirect", headers: { Location: { schema: { type: "string", format: "uri" } } } })
-  @ApiNotFoundResponse({ description: "Asset is absent or not currently accessible", content: problemDetailsContent(assetNotFoundProblemSchema) })
-  @ApiServiceUnavailableResponse({ description: "Access or storage dependency is unavailable", content: problemDetailsContent(assetDependencyProblemSchema) })
+  @ApiOkResponse({
+    description: "Public immutable file bytes",
+    schema: { type: "string", format: "binary" },
+  })
+  @ApiFoundResponse({
+    description: "Short-lived protected redirect",
+    headers: { Location: { schema: { type: "string", format: "uri" } } },
+  })
+  @ApiNotFoundResponse({
+    description: "Asset is absent or not currently accessible",
+    content: problemDetailsContent(assetNotFoundProblemSchema),
+  })
+  @ApiServiceUnavailableResponse({
+    description: "Access or storage dependency is unavailable",
+    content: problemDetailsContent(assetDependencyProblemSchema),
+  })
   @AssetDeliveryCache()
   download(
     @OptionalCurrentAccount() account: AuthenticatedAccount | undefined,
@@ -80,17 +103,36 @@ export class DeliverMaterialAssetController {
   }
 
   @Get(":materialId/assets/:assetId/images/:width")
-  @ApiOperation({ operationId: "readMaterialAssetImage", summary: "Read a responsive image through current Material access" })
+  @ApiOperation({
+    operationId: "readMaterialAssetImage",
+    summary: "Read a responsive image through current Material access",
+  })
   @ApiParam({ name: "materialId", schema: { type: "string", format: "uuid" } })
   @ApiParam({ name: "assetId", schema: { type: "string", format: "uuid" } })
   @ApiParam({ name: "width", schema: { type: "integer", minimum: 1 } })
-  @ApiQuery({ name: "contentVersion", required: true, schema: { type: "integer", minimum: 1 } })
+  @ApiQuery({
+    name: "contentVersion",
+    required: true,
+    schema: { type: "integer", minimum: 1 },
+  })
   @ApiQuery({ name: "preview", required: false, schema: { type: "boolean" } })
   @ApiProduces("image/webp")
-  @ApiOkResponse({ description: "Public immutable image bytes", schema: { type: "string", format: "binary" } })
-  @ApiFoundResponse({ description: "Short-lived protected redirect", headers: { Location: { schema: { type: "string", format: "uri" } } } })
-  @ApiNotFoundResponse({ description: "Asset is absent or not currently accessible", content: problemDetailsContent(assetNotFoundProblemSchema) })
-  @ApiServiceUnavailableResponse({ description: "Access or storage dependency is unavailable", content: problemDetailsContent(assetDependencyProblemSchema) })
+  @ApiOkResponse({
+    description: "Public immutable image bytes",
+    schema: { type: "string", format: "binary" },
+  })
+  @ApiFoundResponse({
+    description: "Short-lived protected redirect",
+    headers: { Location: { schema: { type: "string", format: "uri" } } },
+  })
+  @ApiNotFoundResponse({
+    description: "Asset is absent or not currently accessible",
+    content: problemDetailsContent(assetNotFoundProblemSchema),
+  })
+  @ApiServiceUnavailableResponse({
+    description: "Access or storage dependency is unavailable",
+    content: problemDetailsContent(assetDependencyProblemSchema),
+  })
   @AssetDeliveryCache()
   image(
     @OptionalCurrentAccount() account: AuthenticatedAccount | undefined,
@@ -125,22 +167,36 @@ export class DeliverMaterialAssetController {
       !uuid.safeParse(input.assetId).success ||
       !Number.isInteger(contentVersion) ||
       contentVersion < 1 ||
-      (input.preview !== undefined && input.preview !== "false" && input.preview !== "true") ||
-      (input.variantWidth !== undefined && (!Number.isInteger(input.variantWidth) || input.variantWidth < 1))
-    ) throw notFound();
+      (input.preview !== undefined &&
+        input.preview !== "false" &&
+        input.preview !== "true") ||
+      (input.variantWidth !== undefined &&
+        (!Number.isInteger(input.variantWidth) || input.variantWidth < 1))
+    )
+      throw notFound();
     const result = await this.delivery.deliver({
       assetId: input.assetId,
       contentVersion,
       materialId: input.materialId,
       preview: input.preview === "true",
-      subject: input.account === undefined
-        ? anonymousSubject
-        : { kind: "account", accountId: checkedAccountId(input.account.accountId) },
-      ...(input.variantWidth === undefined ? {} : { variantWidth: input.variantWidth }),
+      subject:
+        input.account === undefined
+          ? anonymousSubject
+          : {
+              kind: "account",
+              accountId: checkedAccountId(input.account.accountId),
+            },
+      ...(input.variantWidth === undefined
+        ? {}
+        : { variantWidth: input.variantWidth }),
     });
     if (!result.ok) {
       if (result.error.code === "dependency_unavailable") {
-        throw problemException(503, result.error.code, "Asset dependency unavailable");
+        throw problemException(
+          503,
+          result.error.code,
+          "Asset dependency unavailable",
+        );
       }
       throw notFound();
     }

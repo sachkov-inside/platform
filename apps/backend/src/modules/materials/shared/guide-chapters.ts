@@ -25,7 +25,8 @@ export const guideChapterDraftsSchema = z
   .array(guideChapterDraftSchema)
   .max(200)
   .refine(
-    (chapters) => new Set(chapters.map(({ id }) => id)).size === chapters.length,
+    (chapters) =>
+      new Set(chapters.map(({ id }) => id)).size === chapters.length,
     { message: "Chapter IDs must be unique" },
   );
 export const guideChapterAssignmentsSchema = z.record(z.uuid(), z.uuid());

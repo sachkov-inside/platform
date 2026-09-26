@@ -1,4 +1,7 @@
-import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
+import {
+  dependencyFailure,
+  reportDependencyFailure,
+} from "../../../../infrastructure/observability/index.js";
 import {
   newVideoId,
   newVideoUploadAttemptId,
@@ -7,7 +10,10 @@ import {
   type ProviderVideoId,
   type VideoUploadAttemptId,
 } from "../../domain/video-identifiers.js";
-import { ProviderUploadAuthorizationError, type VideoProvider } from "../../ports/video-provider.js";
+import {
+  ProviderUploadAuthorizationError,
+  type VideoProvider,
+} from "../../ports/video-provider.js";
 import { initInput, type InitUploadInput } from "./video-inputs.js";
 import {
   dependencyUnavailable,
@@ -24,8 +30,12 @@ import { reconcilePendingWebhooks } from "./reconcile-video.js";
 
 const initUploadScope = { module: "videos", operation: "initUpload" } as const;
 
-type UploadAttempt = NonNullable<Awaited<ReturnType<VideoContext["prisma"]["videoUploadAttempt"]["findFirst"]>>>;
-type Step<Value> = { readonly ok: true; readonly value: Value } | { readonly ok: false; readonly result: InitVideoUploadResult };
+type UploadAttempt = NonNullable<
+  Awaited<ReturnType<VideoContext["prisma"]["videoUploadAttempt"]["findFirst"]>>
+>;
+type Step<Value> =
+  | { readonly ok: true; readonly value: Value }
+  | { readonly ok: false; readonly result: InitVideoUploadResult };
 
 /**
  * Starts one upload of a Material's Video. The attempt is recorded before the provider is asked,
@@ -43,9 +53,20 @@ export async function initVideoUpload(
   const reserved = await reserveUploadAttempt(context, parsed.data, projectId);
   if (!reserved.ok) return reserved.result;
   const { attemptId, createdAt } = reserved.value;
-  const initialized = await requestProviderUpload(context, attemptId, parsed.data, projectId);
+  const initialized = await requestProviderUpload(
+    context,
+    attemptId,
+    parsed.data,
+    projectId,
+  );
   if (!initialized.ok) return initialized.result;
-  return recordUploadedVideo(context, { attemptId, createdAt, input: parsed.data, projectId, ...initialized.value });
+  return recordUploadedVideo(context, {
+    attemptId,
+    createdAt,
+    input: parsed.data,
+    projectId,
+    ...initialized.value,
+  });
 }
 
 /** A new attempt row, or the answer for a key or an author whose attempt already exists. */
@@ -53,31 +74,45 @@ async function reserveUploadAttempt(
   context: VideoContext,
   input: InitUploadInput,
   projectId: string,
-): Promise<Step<{ readonly attemptId: VideoUploadAttemptId; readonly createdAt: Date }>> {
+): Promise<
+  Step<{ readonly attemptId: VideoUploadAttemptId; readonly createdAt: Date }>
+> {
   const { prisma } = context;
-  const sameKey = () => prisma.videoUploadAttempt.findFirst({
-    where: {
-      createdBy: input.actor,
-      idempotencyKey: input.idempotencyKey,
-      materialId: input.materialId,
-    },
-  });
-  const unsettled = () => prisma.videoUploadAttempt.findFirst({
-    where: {
-      createdBy: input.actor,
-      materialId: input.materialId,
-      status: { in: ["initializing", "unknown"] },
-    },
-  });
+  const sameKey = () =>
+    prisma.videoUploadAttempt.findFirst({
+      where: {
+        createdBy: input.actor,
+        idempotencyKey: input.idempotencyKey,
+        materialId: input.materialId,
+      },
+    });
+  const unsettled = () =>
+    prisma.videoUploadAttempt.findFirst({
+      where: {
+        createdBy: input.actor,
+        materialId: input.materialId,
+        status: { in: ["initializing", "unknown"] },
+      },
+    });
   let attempts;
   try {
     attempts = await Promise.all([sameKey(), unsettled()]);
   } catch (error) {
-    return { ok: false, result: dependencyFailure(initUploadScope, error, dependencyUnavailable()) };
+    return {
+      ok: false,
+      result: dependencyFailure(
+        initUploadScope,
+        error,
+        dependencyUnavailable(),
+      ),
+    };
   }
   const [existing, unresolved] = attempts;
   if (existing !== null) {
-    return { ok: false, result: await replayUploadAttempt(context, existing, input, projectId) };
+    return {
+      ok: false,
+      result: await replayUploadAttempt(context, existing, input, projectId),
+    };
   }
   if (unresolved !== null) return { ok: false, result: uploadOutcomeUnknown() };
   const attemptId = newVideoUploadAttemptId();
@@ -101,18 +136,30 @@ async function reserveUploadAttempt(
     });
   } catch (error) {
     // Попытка с тем же ключом, созданная параллельно, отвечает повтором, а не сбоем.
-    const concurrent = await sameKey()
-      .catch((lookupError: unknown) => dependencyFailure(initUploadScope, lookupError, null));
+    const concurrent = await sameKey().catch((lookupError: unknown) =>
+      dependencyFailure(initUploadScope, lookupError, null),
+    );
     if (concurrent !== null) {
-      return { ok: false, result: await replayUploadAttempt(context, concurrent, input, projectId) };
+      return {
+        ok: false,
+        result: await replayUploadAttempt(
+          context,
+          concurrent,
+          input,
+          projectId,
+        ),
+      };
     }
-    const concurrentUnresolved = await unsettled()
-      .catch((lookupError: unknown) => dependencyFailure(initUploadScope, lookupError, null));
+    const concurrentUnresolved = await unsettled().catch(
+      (lookupError: unknown) =>
+        dependencyFailure(initUploadScope, lookupError, null),
+    );
     return {
       ok: false,
-      result: concurrentUnresolved === null
-        ? dependencyFailure(initUploadScope, error, dependencyUnavailable())
-        : uploadOutcomeUnknown(),
+      result:
+        concurrentUnresolved === null
+          ? dependencyFailure(initUploadScope, error, dependencyUnavailable())
+          : uploadOutcomeUnknown(),
     };
   }
   return { ok: true, value: { attemptId, createdAt } };
@@ -124,7 +171,12 @@ async function requestProviderUpload(
   attemptId: VideoUploadAttemptId,
   input: InitUploadInput,
   projectId: string,
-): Promise<Step<{ readonly providerVideoId: ProviderVideoId; readonly uploadEndpoint: string }>> {
+): Promise<
+  Step<{
+    readonly providerVideoId: ProviderVideoId;
+    readonly uploadEndpoint: string;
+  }>
+> {
   let initialized: Awaited<ReturnType<VideoProvider["initUpload"]>>;
   try {
     initialized = await context.provider.initUpload({ ...input, projectId });
@@ -133,11 +185,22 @@ async function requestProviderUpload(
       try {
         await context.prisma.videoUploadAttempt.update({
           where: { id: attemptId },
-          data: { status: "rejected", failureCode: "upload_not_authorized", updatedAt: context.now() },
+          data: {
+            status: "rejected",
+            failureCode: "upload_not_authorized",
+            updatedAt: context.now(),
+          },
         });
         return { ok: false, result: uploadNotAuthorized() };
       } catch (markError) {
-        return { ok: false, result: dependencyFailure(initUploadScope, markError, uploadOutcomeUnknown()) };
+        return {
+          ok: false,
+          result: dependencyFailure(
+            initUploadScope,
+            markError,
+            uploadOutcomeUnknown(),
+          ),
+        };
       }
     }
     reportDependencyFailure(initUploadScope, error);
@@ -149,7 +212,13 @@ async function requestProviderUpload(
     await markUploadOutcomeUnknown(context, attemptId);
     return { ok: false, result: uploadOutcomeUnknown() };
   }
-  return { ok: true, value: { providerVideoId: providerVideoId.data, uploadEndpoint: initialized.uploadEndpoint } };
+  return {
+    ok: true,
+    value: {
+      providerVideoId: providerVideoId.data,
+      uploadEndpoint: initialized.uploadEndpoint,
+    },
+  };
 }
 
 /** Records the Video the provider created and settles the attempt in one transaction. */
@@ -164,7 +233,14 @@ async function recordUploadedVideo(
     readonly uploadEndpoint: string;
   },
 ): Promise<InitVideoUploadResult> {
-  const { attemptId, createdAt, input, projectId, providerVideoId, uploadEndpoint } = upload;
+  const {
+    attemptId,
+    createdAt,
+    input,
+    projectId,
+    providerVideoId,
+    uploadEndpoint,
+  } = upload;
   try {
     const videoId = newVideoId();
     const video = await context.prisma.$transaction(async (transaction) => {
@@ -197,12 +273,18 @@ async function recordUploadedVideo(
       });
       return saved;
     });
-    if (!(await reconcilePendingWebhooks(
-      context,
-      providerVideoId,
-      videoIdSchema.parse(video.id),
-    ))) return dependencyUnavailable();
-    return { ok: true, value: { providerVideoId, uploadEndpoint, video: toDto(video) } };
+    if (
+      !(await reconcilePendingWebhooks(
+        context,
+        providerVideoId,
+        videoIdSchema.parse(video.id),
+      ))
+    )
+      return dependencyUnavailable();
+    return {
+      ok: true,
+      value: { providerVideoId, uploadEndpoint, video: toDto(video) },
+    };
   } catch (error) {
     reportDependencyFailure(initUploadScope, error);
     await markUploadOutcomeUnknown(context, attemptId);
@@ -222,9 +304,14 @@ async function replayUploadAttempt(
     attempt.projectId !== projectId ||
     attempt.title !== input.title ||
     Number(attempt.byteSize) !== input.byteSize
-  ) return { ok: false, error: { code: "idempotency_key_reused" } };
+  )
+    return { ok: false, error: { code: "idempotency_key_reused" } };
   if (attempt.status === "rejected") return uploadNotAuthorized();
-  if (attempt.status !== "ready" || attempt.videoId === null || attempt.uploadEndpoint === null) {
+  if (
+    attempt.status !== "ready" ||
+    attempt.videoId === null ||
+    attempt.uploadEndpoint === null
+  ) {
     return uploadOutcomeUnknown();
   }
   try {
@@ -232,26 +319,48 @@ async function replayUploadAttempt(
       where: { id: videoIdSchema.parse(attempt.videoId) },
     });
     if (video === null) return uploadOutcomeUnknown();
-    if (!(await reconcilePendingWebhooks(
-      context,
-      providerVideoIdSchema.parse(video.providerVideoId),
-      videoIdSchema.parse(video.id),
-    ))) return dependencyUnavailable();
-    return { ok: true, value: { providerVideoId: video.providerVideoId, uploadEndpoint: attempt.uploadEndpoint, video: toDto(video) } };
+    if (
+      !(await reconcilePendingWebhooks(
+        context,
+        providerVideoIdSchema.parse(video.providerVideoId),
+        videoIdSchema.parse(video.id),
+      ))
+    )
+      return dependencyUnavailable();
+    return {
+      ok: true,
+      value: {
+        providerVideoId: video.providerVideoId,
+        uploadEndpoint: attempt.uploadEndpoint,
+        video: toDto(video),
+      },
+    };
   } catch (error) {
-    return dependencyFailure({ module: "videos", operation: "replayUploadAttempt" }, error, dependencyUnavailable());
+    return dependencyFailure(
+      { module: "videos", operation: "replayUploadAttempt" },
+      error,
+      dependencyUnavailable(),
+    );
   }
 }
 
-async function markUploadOutcomeUnknown(context: VideoContext, attemptId: VideoUploadAttemptId): Promise<void> {
-  await context.prisma.videoUploadAttempt.update({
-    where: { id: attemptId },
-    data: {
-      failureCode: "provider_outcome_unknown",
-      status: "unknown",
-      updatedAt: context.now(),
-    },
-  }).catch((error: unknown) => {
-    reportDependencyFailure({ module: "videos", operation: "markUploadOutcomeUnknown" }, error);
-  });
+async function markUploadOutcomeUnknown(
+  context: VideoContext,
+  attemptId: VideoUploadAttemptId,
+): Promise<void> {
+  await context.prisma.videoUploadAttempt
+    .update({
+      where: { id: attemptId },
+      data: {
+        failureCode: "provider_outcome_unknown",
+        status: "unknown",
+        updatedAt: context.now(),
+      },
+    })
+    .catch((error: unknown) => {
+      reportDependencyFailure(
+        { module: "videos", operation: "markUploadOutcomeUnknown" },
+        error,
+      );
+    });
 }

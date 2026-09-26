@@ -1,4 +1,7 @@
-import { contentScopeSchema, scopeOpensResource } from "@inside/access-capabilities";
+import {
+  contentScopeSchema,
+  scopeOpensResource,
+} from "@inside/access-capabilities";
 import type { MembershipAccessState } from "../../facets/membership-entitlements/membership-entitlements.interface.js";
 import type { AccountId } from "../../../accounts/index.js";
 import type { MembershipAccessPrisma } from "../../infrastructure/prisma.js";
@@ -25,9 +28,17 @@ export async function resolveAccessCapabilities(
 ): Promise<
   AccessCapabilities & { readonly membership: MembershipAccessState }
 > {
-  return projectAccessCapabilities(await readAccessCapabilityFacts(prisma, accountId, now), now, resource);
+  return projectAccessCapabilities(
+    await readAccessCapabilityFacts(prisma, accountId, now),
+    now,
+    resource,
+  );
 }
-export async function readAccessCapabilityFacts(prisma: MembershipAccessPrisma, accountId: AccountId, now: Date) {
+export async function readAccessCapabilityFacts(
+  prisma: MembershipAccessPrisma,
+  accountId: AccountId,
+  now: Date,
+) {
   const grants = await prisma.accessGrant.findMany({
     where: {
       accountId,
@@ -47,26 +58,46 @@ export async function readAccessCapabilityFacts(prisma: MembershipAccessPrisma, 
     orderBy: { revision: "desc" },
     select: { revision: true },
   });
-    const historicalMaterials = await prisma.accessGrant.findMany({
-      where: {
-        accountId,
-        capabilities: { has: "materials" },
-        startsAt: { lte: now },
-      },
-      select: { contentScope: true },
-    });
-    const binding = await prisma.membershipBinding.findUnique({
-      where: { accountId },
-      select: { accountId: true },
-    });
-    const last = await prisma.membershipEvidenceReceipt.findFirst({
-      where: { accountId, outcome: "accepted_without_entitlement" },
-      orderBy: [{ receivedAt: "desc" }, { deliveryId: "desc" }],
-      select: { decision: true },
-    });
-  return { grants, classification, projection, revision, historicalMaterials, binding, last };
+  const historicalMaterials = await prisma.accessGrant.findMany({
+    where: {
+      accountId,
+      capabilities: { has: "materials" },
+      startsAt: { lte: now },
+    },
+    select: { contentScope: true },
+  });
+  const binding = await prisma.membershipBinding.findUnique({
+    where: { accountId },
+    select: { accountId: true },
+  });
+  const last = await prisma.membershipEvidenceReceipt.findFirst({
+    where: { accountId, outcome: "accepted_without_entitlement" },
+    orderBy: [{ receivedAt: "desc" }, { deliveryId: "desc" }],
+    select: { decision: true },
+  });
+  return {
+    grants,
+    classification,
+    projection,
+    revision,
+    historicalMaterials,
+    binding,
+    last,
+  };
 }
-export function projectAccessCapabilities({ grants, classification, projection, revision, historicalMaterials, binding, last }: Awaited<ReturnType<typeof readAccessCapabilityFacts>>, now: Date, resource?: { guideIds: readonly string[]; materialId?: string | undefined }): AccessCapabilities & { readonly membership: MembershipAccessState } {
+export function projectAccessCapabilities(
+  {
+    grants,
+    classification,
+    projection,
+    revision,
+    historicalMaterials,
+    binding,
+    last,
+  }: Awaited<ReturnType<typeof readAccessCapabilityFacts>>,
+  now: Date,
+  resource?: { guideIds: readonly string[]; materialId?: string | undefined },
+): AccessCapabilities & { readonly membership: MembershipAccessState } {
   const bounds = new Map<AccessCapability, string | null>();
   const futureBoundaries: number[] = [];
   function include(capability: AccessCapability, until: string | null) {
@@ -91,7 +122,9 @@ export function projectAccessCapabilities({ grants, classification, projection, 
       // Прежняя запись может называть право, которое не выдаёт ни одно основание (#648).
       if (withheldAccessCapabilities.includes(granted)) continue;
       if (granted === "materials" && resource !== undefined) {
-        const scope = contentScopeSchema.parse(grant.contentScope ?? { guideIds: [], materialIds: [] });
+        const scope = contentScopeSchema.parse(
+          grant.contentScope ?? { guideIds: [], materialIds: [] },
+        );
         if (!scopeOpensResource(scope, resource)) continue;
       }
       for (const capability of capabilitiesOpenedBy(granted))
@@ -99,10 +132,17 @@ export function projectAccessCapabilities({ grants, classification, projection, 
     }
   }
   if (projection?.decision === "member" && projection.validUntil > now) {
-    for (const capability of (classification?.bridgeBenefits ?? ["materials", "community"]).map(value => accessCapabilitySchema.parse(value))) {
+    for (const capability of (
+      classification?.bridgeBenefits ?? ["materials", "community"]
+    ).map((value) => accessCapabilitySchema.parse(value))) {
       if (withheldAccessCapabilities.includes(capability)) continue;
       if (capability === "materials" && resource !== undefined) {
-        const scope = contentScopeSchema.parse(classification?.bridgeContentScope ?? { guideIds: [], materialIds: [] });
+        const scope = contentScopeSchema.parse(
+          classification?.bridgeContentScope ?? {
+            guideIds: [],
+            materialIds: [],
+          },
+        );
         if (!scopeOpensResource(scope, resource)) continue;
       }
       // Мост открывает то же, что и выданное право: сопровождение приводит в общую группу.
@@ -118,9 +158,11 @@ export function projectAccessCapabilities({ grants, classification, projection, 
       validUntil: bounds.get("materials") ?? null,
     };
   } else if (classification?.bridgeEnabled !== true) {
-    const expired = historicalMaterials.some(grant => {
+    const expired = historicalMaterials.some((grant) => {
       if (resource === undefined) return true;
-      const scope = contentScopeSchema.parse(grant.contentScope ?? { guideIds: [], materialIds: [] });
+      const scope = contentScopeSchema.parse(
+        grant.contentScope ?? { guideIds: [], materialIds: [] },
+      );
       return scopeOpensResource(scope, resource);
     });
     membership = { kind: expired ? "expired" : "required" };

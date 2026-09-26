@@ -70,27 +70,60 @@ const MEMBERS_WITHOUT_RIGHT_SCAN_LIMIT = 1000;
 export class CommunityEntitlements {
   private readonly clock: () => Date;
 
-  constructor(private readonly dependencies: CommunityEntitlementsDependencies) {
+  constructor(
+    private readonly dependencies: CommunityEntitlementsDependencies,
+  ) {
     this.clock = dependencies.clock ?? (() => new Date());
   }
 
   async readOwnAdmission(accountId: string) {
-    if (!z.uuid().safeParse(accountId).success) return { admissionRestriction: null, state: "checking" as const };
+    if (!z.uuid().safeParse(accountId).success)
+      return { admissionRestriction: null, state: "checking" as const };
     const [access, binding, desired] = await Promise.all([
-      this.dependencies.grants.resolveCapabilities(accountId), this.dependencies.links.readBinding({ accountId }),
-      this.dependencies.prisma.telegramCommunityDesiredState.findUnique({ where: { accountId } }),
+      this.dependencies.grants.resolveCapabilities(accountId),
+      this.dependencies.links.readBinding({ accountId }),
+      this.dependencies.prisma.telegramCommunityDesiredState.findUnique({
+        where: { accountId },
+      }),
     ]);
-    if (!access.ok || !binding.ok) return { admissionRestriction: null, state: "checking" as const };
-    if (!accessAllows(communityAccessFor(access.capabilities), this.clock())) return { admissionRestriction: null, state: "no_access" as const };
-    const operation = desired?.latestOperationId === null || desired?.latestOperationId === undefined ? null
-      : await this.dependencies.prisma.telegramCommunityOperation.findUnique({ where: { operationId: desired.latestOperationId } });
+    if (!access.ok || !binding.ok)
+      return { admissionRestriction: null, state: "checking" as const };
+    if (!accessAllows(communityAccessFor(access.capabilities), this.clock()))
+      return { admissionRestriction: null, state: "no_access" as const };
+    const operation =
+      desired?.latestOperationId === null ||
+      desired?.latestOperationId === undefined
+        ? null
+        : await this.dependencies.prisma.telegramCommunityOperation.findUnique({
+            where: { operationId: desired.latestOperationId },
+          });
     const result = communityResultSchema.safeParse(operation?.result);
-    if (!result.success || !sameAccess(result.data.access, communityAccessFor(access.capabilities)) || result.data.admissionRestriction === undefined || binding.binding === null ||
-      result.data.binding.linkRevision !== binding.binding.linkRevision || result.data.binding.linkRef !== binding.binding.linkRef ||
-      result.data.binding.telegramIdentityRef !== binding.binding.telegramIdentityRef) return { admissionRestriction: null, state: "checking" as const };
+    if (
+      !result.success ||
+      !sameAccess(
+        result.data.access,
+        communityAccessFor(access.capabilities),
+      ) ||
+      result.data.admissionRestriction === undefined ||
+      binding.binding === null ||
+      result.data.binding.linkRevision !== binding.binding.linkRevision ||
+      result.data.binding.linkRef !== binding.binding.linkRef ||
+      result.data.binding.telegramIdentityRef !==
+        binding.binding.telegramIdentityRef
+    )
+      return { admissionRestriction: null, state: "checking" as const };
     const restriction = result.data.admissionRestriction;
-    return { admissionRestriction: restriction, state: restriction === "moderation" ? "moderation_blocked" as const
-      : restriction === "none" && (result.data.status === "applied" || result.data.status === "waiting_for_join") ? "ready" as const : "checking" as const };
+    return {
+      admissionRestriction: restriction,
+      state:
+        restriction === "moderation"
+          ? ("moderation_blocked" as const)
+          : restriction === "none" &&
+              (result.data.status === "applied" ||
+                result.data.status === "waiting_for_join")
+            ? ("ready" as const)
+            : ("checking" as const),
+    };
   }
 
   /** Recomputes one Account's desired community state and queues what must be sent. */
@@ -242,7 +275,11 @@ export class CommunityEntitlements {
         }),
       };
     } catch (error) {
-      return dependencyFailure({ module: "telegram-membership", operation: "readDelivery" }, error, { ok: false, error: { code: "unavailable" } });
+      return dependencyFailure(
+        { module: "telegram-membership", operation: "readDelivery" },
+        error,
+        { ok: false, error: { code: "unavailable" } },
+      );
     }
   }
 
@@ -276,25 +313,32 @@ export class CommunityEntitlements {
       const now = this.clock();
       // Последнее известное наблюдение каждого Account: более новая операция без результата
       // ещё ничего не сообщила о присутствии в чате.
-      const observations = await this.dependencies.prisma.telegramCommunityOperation.findMany({
-        where: { observedMembership: { not: null } },
-        orderBy: [{ accountId: "asc" }, { entitlementRevision: "desc" }],
-        distinct: ["accountId"],
-        take: MEMBERS_WITHOUT_RIGHT_SCAN_LIMIT + 1,
-        select: {
-          accountId: true,
-          identityRef: true,
-          observedMembership: true,
-          resultAt: true,
-          updatedAt: true,
-        },
-      });
+      const observations =
+        await this.dependencies.prisma.telegramCommunityOperation.findMany({
+          where: { observedMembership: { not: null } },
+          orderBy: [{ accountId: "asc" }, { entitlementRevision: "desc" }],
+          distinct: ["accountId"],
+          take: MEMBERS_WITHOUT_RIGHT_SCAN_LIMIT + 1,
+          select: {
+            accountId: true,
+            identityRef: true,
+            observedMembership: true,
+            resultAt: true,
+            updatedAt: true,
+          },
+        });
       const items = [];
-      for (const row of observations.slice(0, MEMBERS_WITHOUT_RIGHT_SCAN_LIMIT)) {
+      for (const row of observations.slice(
+        0,
+        MEMBERS_WITHOUT_RIGHT_SCAN_LIMIT,
+      )) {
         if (row.observedMembership !== "member") continue;
-        const access = await this.dependencies.grants.resolveCapabilities(row.accountId);
+        const access = await this.dependencies.grants.resolveCapabilities(
+          row.accountId,
+        );
         if (!access.ok) return { ok: false, error: { code: "unavailable" } };
-        if (accessAllows(communityAccessFor(access.capabilities), now)) continue;
+        if (accessAllows(communityAccessFor(access.capabilities), now))
+          continue;
         items.push({
           accountId: row.accountId,
           telegramIdentityRef: row.identityRef,
@@ -310,7 +354,11 @@ export class CommunityEntitlements {
         }),
       };
     } catch (error) {
-      return dependencyFailure({ module: "telegram-membership", operation: "listMembersWithoutRight" }, error, { ok: false, error: { code: "unavailable" } });
+      return dependencyFailure(
+        { module: "telegram-membership", operation: "listMembersWithoutRight" },
+        error,
+        { ok: false, error: { code: "unavailable" } },
+      );
     }
   }
 }

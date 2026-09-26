@@ -12,7 +12,10 @@ import { platformMigrations } from "../migrations/index.js";
 import { describeError, writeLog } from "./observability/index.js";
 import { runtimeSchemaReadiness } from "./operational-readiness.js";
 import { verifyMigrationState } from "./postgres/migrate-to-latest.js";
-import { parseRuntimeIdentity, type RuntimeIdentity } from "./runtime-identity.js";
+import {
+  parseRuntimeIdentity,
+  type RuntimeIdentity,
+} from "./runtime-identity.js";
 import { WORKER_READINESS_PATH } from "./worker-runtime.js";
 
 const workerProcessSchema = z.enum([
@@ -22,16 +25,20 @@ const workerProcessSchema = z.enum([
   "notifications-worker",
   "billing-worker",
 ]);
-const readinessMarkerSchema = z.object({
-  database: z.literal("reachable"),
-  process: workerProcessSchema,
-  release: runtimeIdentitySchema,
-  schema: z.object({
-    identity: sha256IdentitySchema,
-    migrationCount: z.number().int().nonnegative(),
-  }).strict(),
-  status: z.literal("ready"),
-}).strict();
+const readinessMarkerSchema = z
+  .object({
+    database: z.literal("reachable"),
+    process: workerProcessSchema,
+    release: runtimeIdentitySchema,
+    schema: z
+      .object({
+        identity: sha256IdentitySchema,
+        migrationCount: z.number().int().nonnegative(),
+      })
+      .strict(),
+    status: z.literal("ready"),
+  })
+  .strict();
 
 export async function assertCurrentWorkerReadiness(input: {
   readonly databaseUrl: string;
@@ -44,7 +51,9 @@ export async function assertCurrentWorkerReadiness(input: {
     marker.release.release !== input.expectedRelease.release ||
     marker.release.sourceSha !== input.expectedRelease.sourceSha
   ) {
-    throw new Error("Worker readiness marker does not match this process release");
+    throw new Error(
+      "Worker readiness marker does not match this process release",
+    );
   }
 
   const schema = runtimeSchemaReadiness(

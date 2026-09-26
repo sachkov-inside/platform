@@ -3,11 +3,7 @@ import type { Route } from "next";
 import { internalRoute } from "./internal-route";
 import { readCanonicalLibraryRouteHref } from "./library-route";
 
-export type MaterialReaderReturnKind =
-  | "home"
-  | "profile"
-  | "series"
-  | "topic";
+export type MaterialReaderReturnKind = "home" | "profile" | "series" | "topic";
 
 export interface MaterialReaderReturnTarget {
   readonly href: Route;
@@ -77,11 +73,7 @@ function readReturnTarget(
   value: unknown,
   depth = 0,
 ): MaterialReaderReturnTarget | undefined {
-  if (
-    typeof value !== "string" ||
-    value.length === 0 ||
-    value.length > 512
-  ) {
+  if (typeof value !== "string" || value.length === 0 || value.length > 512) {
     return undefined;
   }
 
@@ -110,24 +102,35 @@ function readReturnTarget(
   // Программа руководства — такой же возврат, как и само руководство: читатель уходит в материал
   // именно оттуда и возвращается на ту же страницу и страницу списка.
   // Программа есть только у руководства, поэтому шаблон её темой и не допускает.
-  const match = /^\/(?:(guides|series)\/([^/]+)(\/programme)?|(topics)\/([^/]+))$/u.exec(
-    url.pathname,
-  );
+  const match =
+    /^\/(?:(guides|series)\/([^/]+)(\/programme)?|(topics)\/([^/]+))$/u.exec(
+      url.pathname,
+    );
   if (match === null) return undefined;
   const slug = match[2] ?? match[5];
   if (slug === undefined || !slugPattern.test(slug)) return undefined;
-  const routeKind = match[3] === undefined ? match[1] ?? match[4] : "guides";
+  const routeKind = match[3] === undefined ? (match[1] ?? match[4]) : "guides";
   if (url.search.length > 0) {
     const from = singleSearchValue(url.searchParams, "from");
     const page = singleSearchValue(url.searchParams, "page");
     const at = singleSearchValue(url.searchParams, "at");
-    const allowed = (routeKind === "series" || routeKind === "guides") ? ["from", "page", "at"] : ["from"];
+    const allowed =
+      routeKind === "series" || routeKind === "guides"
+        ? ["from", "page", "at"]
+        : ["from"];
     if (
       depth >= 3 ||
-      [...url.searchParams.keys()].some((key) => !allowed.includes(key) || url.searchParams.getAll(key).length !== 1) ||
-      (url.searchParams.has("from") && (from === undefined || readReturnTarget(from, depth + 1) === undefined)) ||
-      (url.searchParams.has("page") && (page === undefined || String(readSeriesPage(page)) !== page)) ||
-      (url.searchParams.has("at") && (at === undefined || !slugPattern.test(at)))
+      [...url.searchParams.keys()].some(
+        (key) =>
+          !allowed.includes(key) || url.searchParams.getAll(key).length !== 1,
+      ) ||
+      (url.searchParams.has("from") &&
+        (from === undefined ||
+          readReturnTarget(from, depth + 1) === undefined)) ||
+      (url.searchParams.has("page") &&
+        (page === undefined || String(readSeriesPage(page)) !== page)) ||
+      (url.searchParams.has("at") &&
+        (at === undefined || !slugPattern.test(at)))
     ) {
       return undefined;
     }
@@ -172,11 +175,18 @@ export function readSeriesPage(value: string | null): number {
   return Number.isSafeInteger(page) && page > 0 && page <= 10_000 ? page : 1;
 }
 
-export function seriesReaderReturnHref(href: Route, page: number, materialSlug?: string): Route {
+export function seriesReaderReturnHref(
+  href: Route,
+  page: number,
+  materialSlug?: string,
+): Route {
   const url = new URL(href, applicationOrigin);
   url.searchParams.delete("page");
   url.searchParams.delete("at");
   url.searchParams.set("page", String(page));
-  if (materialSlug !== undefined) { assertSlug(materialSlug); url.searchParams.set("at", materialSlug); }
+  if (materialSlug !== undefined) {
+    assertSlug(materialSlug);
+    url.searchParams.set("at", materialSlug);
+  }
   return internalRoute(`${url.pathname}${url.search}`);
 }

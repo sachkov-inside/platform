@@ -98,7 +98,11 @@ export function ClassificationSection({
           });
         })}
       >
-        <AdminField label="Определить Account" name="classifyAccount" required />
+        <AdminField
+          label="Определить Account"
+          name="classifyAccount"
+          required
+        />
         <AdminField
           hint="Для аккаунта без решения — 0."
           inputMode="numeric"

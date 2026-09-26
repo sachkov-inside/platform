@@ -89,7 +89,9 @@ export function mapLibraryDiscoveryResult<
 ): LibraryDiscoveryResult<DiscoveryKind> {
   if (!result.ok && result.response.status === 404) {
     if (!discoveryNotFoundSchema.safeParse(result.problem).success) {
-      throw invalidContract("Discovery 404 response does not match the contract");
+      throw invalidContract(
+        "Discovery 404 response does not match the contract",
+      );
     }
     return { kind: "not-found" };
   }
@@ -166,6 +168,9 @@ export function mapLibraryDiscoveryResult<
   };
 }
 
-function invalidContract(message: string, cause?: unknown): BackendConnectionError {
+function invalidContract(
+  message: string,
+  cause?: unknown,
+): BackendConnectionError {
   return new BackendConnectionError("invalid-response", message, { cause });
 }

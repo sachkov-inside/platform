@@ -24,7 +24,9 @@ import {
 
 function mapResult(result: BackendTransportResult): unknown {
   if (result.ok) return result.body;
-  const problem = z.object({ code: contactFailureCodeSchema }).safeParse(result.problem);
+  const problem = z
+    .object({ code: contactFailureCodeSchema })
+    .safeParse(result.problem);
   return {
     ok: false,
     code:

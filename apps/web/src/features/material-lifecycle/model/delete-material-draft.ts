@@ -40,5 +40,7 @@ export const deleteMaterialDraftResultSchema = z.discriminatedUnion("kind", [
       reference: z.string(),
     })
     .strict(),
-  z.object({ kind: z.literal("unexpected_error"), reference: z.string() }).strict(),
+  z
+    .object({ kind: z.literal("unexpected_error"), reference: z.string() })
+    .strict(),
 ]);

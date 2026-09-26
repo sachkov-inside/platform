@@ -36,9 +36,12 @@ describe("Billing pricing HTTP", () => {
       response.setHeader("content-type", "application/json");
       response.end(JSON.stringify({ keys: [publicJwk] }));
     });
-    await new Promise<void>((resolve) => jwksServer.listen(0, "127.0.0.1", resolve));
+    await new Promise<void>((resolve) =>
+      jwksServer.listen(0, "127.0.0.1", resolve),
+    );
     const address = jwksServer.address();
-    if (address === null || typeof address === "string") throw new Error("missing JWKS port");
+    if (address === null || typeof address === "string")
+      throw new Error("missing JWKS port");
 
     database = await createMigratedTestDatabase();
     app = await createApiApplication(
@@ -48,7 +51,8 @@ describe("Billing pricing HTTP", () => {
         LOGTO_ISSUER: issuer,
         LOGTO_AUDIENCE: audience,
         LOGTO_JWKS_URL: `http://127.0.0.1:${String(address.port)}/jwks`,
-        IDENTITY_EMAIL_FINGERPRINT_KEY: "accounts-api-test-email-fingerprint-key",
+        IDENTITY_EMAIL_FINGERPRINT_KEY:
+          "accounts-api-test-email-fingerprint-key",
         // Каталог включает продажу только в процессе с терминалом и адресом для чека.
         TBANK_PROVIDER_MODE: "test",
         BILLING_CONTACT_ENCRYPTION_KEY: Buffer.alloc(32, 9).toString("base64"),
@@ -65,7 +69,9 @@ describe("Billing pricing HTTP", () => {
     await app.close();
     await database.dispose();
     await new Promise<void>((resolve, reject) =>
-      jwksServer.close((error) => (error === undefined ? resolve() : reject(error))),
+      jwksServer.close((error) =>
+        error === undefined ? resolve() : reject(error),
+      ),
     );
   });
 
@@ -73,120 +79,525 @@ describe("Billing pricing HTTP", () => {
     const server = declaredServer(app.getHttpAdapter().getInstance());
     const token = await signToken();
     const headers = { authorization: `Bearer ${token}` };
-    const offerId = randomUUID(); const optionId = randomUUID();
-    const command = { operation: "offers.save", operationId: randomUUID(), value: { id: offerId, name: "Inside", benefits: ["materials"], contentScope: { guideIds: [randomUUID()], materialIds: [] } } };
-    expect((await server.inject({ method: "GET", url: "/billing/offers" })).json()).toEqual({ items: [], nextCursor: null });
-    expect((await server.inject({ method: "POST", url: "/billing/admin", payload: command })).statusCode).toBe(401);
-    expect((await server.inject({ method: "POST", url: "/accounts/current/billing/quote", payload: {} })).statusCode).toBe(401);
-    expect((await server.inject({ method: "POST", url: "/accounts", headers })).statusCode).toBe(201);
+    const offerId = randomUUID();
+    const optionId = randomUUID();
+    const command = {
+      operation: "offers.save",
+      operationId: randomUUID(),
+      value: {
+        id: offerId,
+        name: "Inside",
+        benefits: ["materials"],
+        contentScope: { guideIds: [randomUUID()], materialIds: [] },
+      },
+    };
+    expect(
+      (await server.inject({ method: "GET", url: "/billing/offers" })).json(),
+    ).toEqual({ items: [], nextCursor: null });
+    expect(
+      (
+        await server.inject({
+          method: "POST",
+          url: "/billing/admin",
+          payload: command,
+        })
+      ).statusCode,
+    ).toBe(401);
+    expect(
+      (
+        await server.inject({
+          method: "POST",
+          url: "/accounts/current/billing/quote",
+          payload: {},
+        })
+      ).statusCode,
+    ).toBe(401);
+    expect(
+      (await server.inject({ method: "POST", url: "/accounts", headers }))
+        .statusCode,
+    ).toBe(201);
     await acceptCurrentTerms(server, headers);
-    expect((await server.inject({ method: "POST", url: "/billing/admin", headers, payload: command })).statusCode).toBe(403);
-    const account = await database.prisma.account.findUniqueOrThrow({ where: { logtoIssuer_logtoSubject: { logtoIssuer: issuer, logtoSubject: "human-api-001" } } });
-    await database.prisma.accountPermission.create({ data: { accountId: account.id, permission: "platform:admin" } });
-    const saved = await server.inject({ method: "POST", url: "/billing/admin", headers, payload: command });
-    expect(saved.statusCode).toBe(200); expect(saved.headers["cache-control"]).toBe("private, no-store");
-    expect(saved.json()).toEqual({ operationRef: command.operationId, result: { outcome: "catalog", value: { id: offerId, revision: 1, archived: false, published: false } } });
-    expect((await server.inject({ method: "POST", url: "/billing/admin", headers, payload: { ...command, actor: account.id } })).statusCode).toBe(400);
-    expect((await server.inject({ method: "POST", url: "/billing/admin", headers, payload: { operation: "paymentOptions.save", operationId: randomUUID(), value: { id: optionId, offerId, months: 5, priceKopecks: 500_000 } } })).statusCode).toBe(200);
+    expect(
+      (
+        await server.inject({
+          method: "POST",
+          url: "/billing/admin",
+          headers,
+          payload: command,
+        })
+      ).statusCode,
+    ).toBe(403);
+    const account = await database.prisma.account.findUniqueOrThrow({
+      where: {
+        logtoIssuer_logtoSubject: {
+          logtoIssuer: issuer,
+          logtoSubject: "human-api-001",
+        },
+      },
+    });
+    await database.prisma.accountPermission.create({
+      data: { accountId: account.id, permission: "platform:admin" },
+    });
+    const saved = await server.inject({
+      method: "POST",
+      url: "/billing/admin",
+      headers,
+      payload: command,
+    });
+    expect(saved.statusCode).toBe(200);
+    expect(saved.headers["cache-control"]).toBe("private, no-store");
+    expect(saved.json()).toEqual({
+      operationRef: command.operationId,
+      result: {
+        outcome: "catalog",
+        value: { id: offerId, revision: 1, archived: false, published: false },
+      },
+    });
+    expect(
+      (
+        await server.inject({
+          method: "POST",
+          url: "/billing/admin",
+          headers,
+          payload: { ...command, actor: account.id },
+        })
+      ).statusCode,
+    ).toBe(400);
+    expect(
+      (
+        await server.inject({
+          method: "POST",
+          url: "/billing/admin",
+          headers,
+          payload: {
+            operation: "paymentOptions.save",
+            operationId: randomUUID(),
+            value: { id: optionId, offerId, months: 5, priceKopecks: 500_000 },
+          },
+        })
+      ).statusCode,
+    ).toBe(200);
     // По умолчанию предложение не продаётся: пока владелец не включит его, витрина пуста.
     const publishOperationId = randomUUID();
-    const published = await server.inject({ method: "POST", url: "/billing/admin", headers, payload: { operation: "offers.publish", operationId: publishOperationId, expectedRevision: 1, id: offerId } });
+    const published = await server.inject({
+      method: "POST",
+      url: "/billing/admin",
+      headers,
+      payload: {
+        operation: "offers.publish",
+        operationId: publishOperationId,
+        expectedRevision: 1,
+        id: offerId,
+      },
+    });
     expect(published.statusCode).toBe(200);
-    expect(published.json()).toEqual({ operationRef: publishOperationId, result: { outcome: "catalog", value: { id: offerId, revision: 2, archived: false, published: true } } });
-    const list = await server.inject({ method: "GET", url: "/billing/offers?limit=1" });
-    expect(list.statusCode).toBe(200); expect(list.json()).toMatchObject({ items: [{ firstPriceKopecks: 500_000, renewalPriceKopecks: 500_000 }] });
-    const quote = { operationId: randomUUID(), paymentOptionId: optionId, optionRevision: 1 };
-    const response = await server.inject({ method: "POST", url: "/accounts/current/billing/quote", headers, payload: quote });
-    expect(response.statusCode).toBe(200); expect(response.headers["cache-control"]).toBe("private, no-store");
-    expect(response.json()).toMatchObject({ snapshot: { firstPriceKopecks: 500_000, paymentOption: { months: 5 } } });
-    const stored = await database.prisma.billingPriceQuote.findUniqueOrThrow({ where: { accountId_operationId: { accountId: account.id, operationId: quote.operationId } } });
+    expect(published.json()).toEqual({
+      operationRef: publishOperationId,
+      result: {
+        outcome: "catalog",
+        value: { id: offerId, revision: 2, archived: false, published: true },
+      },
+    });
+    const list = await server.inject({
+      method: "GET",
+      url: "/billing/offers?limit=1",
+    });
+    expect(list.statusCode).toBe(200);
+    expect(list.json()).toMatchObject({
+      items: [{ firstPriceKopecks: 500_000, renewalPriceKopecks: 500_000 }],
+    });
+    const quote = {
+      operationId: randomUUID(),
+      paymentOptionId: optionId,
+      optionRevision: 1,
+    };
+    const response = await server.inject({
+      method: "POST",
+      url: "/accounts/current/billing/quote",
+      headers,
+      payload: quote,
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.headers["cache-control"]).toBe("private, no-store");
+    expect(response.json()).toMatchObject({
+      snapshot: { firstPriceKopecks: 500_000, paymentOption: { months: 5 } },
+    });
+    const stored = await database.prisma.billingPriceQuote.findUniqueOrThrow({
+      where: {
+        accountId_operationId: {
+          accountId: account.id,
+          operationId: quote.operationId,
+        },
+      },
+    });
     expect(stored.accountId).toBe(account.id);
-    expect((await server.inject({ method: "POST", url: "/accounts/current/billing/quote", headers, payload: { ...quote, accountId: randomUUID() } })).statusCode).toBe(400);
-    const stale = await server.inject({ method: "POST", url: "/accounts/current/billing/quote", headers, payload: { ...quote, operationId: randomUUID(), optionRevision: 99 } });
-    expect(stale.statusCode).toBe(409); expect(stale.headers["content-type"]).toContain("application/problem+json"); expect(stale.json()).toMatchObject({ code: "quote_changed" });
-    expect((await server.inject({ method: "POST", url: "/billing/reservations", headers, payload: {} })).statusCode).toBe(404);
+    expect(
+      (
+        await server.inject({
+          method: "POST",
+          url: "/accounts/current/billing/quote",
+          headers,
+          payload: { ...quote, accountId: randomUUID() },
+        })
+      ).statusCode,
+    ).toBe(400);
+    const stale = await server.inject({
+      method: "POST",
+      url: "/accounts/current/billing/quote",
+      headers,
+      payload: { ...quote, operationId: randomUUID(), optionRevision: 99 },
+    });
+    expect(stale.statusCode).toBe(409);
+    expect(stale.headers["content-type"]).toContain("application/problem+json");
+    expect(stale.json()).toMatchObject({ code: "quote_changed" });
+    expect(
+      (
+        await server.inject({
+          method: "POST",
+          url: "/billing/reservations",
+          headers,
+          payload: {},
+        })
+      ).statusCode,
+    ).toBe(404);
 
     // Второй вариант включается отдельно: сначала продан только первый, затем оба.
-    const secondOfferId = randomUUID(); const secondOptionId = randomUUID();
-    await server.inject({ method: "POST", url: "/billing/admin", headers, payload: { operation: "offers.save", operationId: randomUUID(), value: { id: secondOfferId, name: "Сопровождение", benefits: ["support"], contentScope: { guideIds: [randomUUID()], materialIds: [] } } } });
-    await server.inject({ method: "POST", url: "/billing/admin", headers, payload: { operation: "paymentOptions.save", operationId: randomUUID(), value: { id: secondOptionId, offerId: secondOfferId, months: 1, priceKopecks: 350_000 } } });
-    const one = await server.inject({ method: "GET", url: "/billing/offers?limit=100" });
+    const secondOfferId = randomUUID();
+    const secondOptionId = randomUUID();
+    await server.inject({
+      method: "POST",
+      url: "/billing/admin",
+      headers,
+      payload: {
+        operation: "offers.save",
+        operationId: randomUUID(),
+        value: {
+          id: secondOfferId,
+          name: "Сопровождение",
+          benefits: ["support"],
+          contentScope: { guideIds: [randomUUID()], materialIds: [] },
+        },
+      },
+    });
+    await server.inject({
+      method: "POST",
+      url: "/billing/admin",
+      headers,
+      payload: {
+        operation: "paymentOptions.save",
+        operationId: randomUUID(),
+        value: {
+          id: secondOptionId,
+          offerId: secondOfferId,
+          months: 1,
+          priceKopecks: 350_000,
+        },
+      },
+    });
+    const one = await server.inject({
+      method: "GET",
+      url: "/billing/offers?limit=100",
+    });
     expect(one.json<{ items: readonly unknown[] }>().items).toHaveLength(1);
-    await server.inject({ method: "POST", url: "/billing/admin", headers, payload: { operation: "offers.publish", operationId: randomUUID(), expectedRevision: 1, id: secondOfferId } });
-    const both = await server.inject({ method: "GET", url: "/billing/offers?limit=100" });
+    await server.inject({
+      method: "POST",
+      url: "/billing/admin",
+      headers,
+      payload: {
+        operation: "offers.publish",
+        operationId: randomUUID(),
+        expectedRevision: 1,
+        id: secondOfferId,
+      },
+    });
+    const both = await server.inject({
+      method: "GET",
+      url: "/billing/offers?limit=100",
+    });
     expect(both.json<{ items: readonly unknown[] }>().items).toHaveLength(2);
     // Выключение первого варианта убирает только его; выключенный не покупается даже напрямую.
-    expect((await server.inject({ method: "POST", url: "/billing/admin", headers, payload: { operation: "offers.unpublish", operationId: randomUUID(), expectedRevision: 2, id: offerId } })).statusCode).toBe(200);
-    const onlySecond = await server.inject({ method: "GET", url: "/billing/offers?limit=100" });
-    expect(onlySecond.json<{ items: readonly { readonly offer: { readonly id: string } }[] }>().items.map((item) => item.offer.id)).toEqual([secondOfferId]);
-    expect((await server.inject({ method: "POST", url: "/accounts/current/billing/quote", headers, payload: { operationId: randomUUID(), paymentOptionId: optionId, optionRevision: 1 } })).statusCode).toBe(404);
+    expect(
+      (
+        await server.inject({
+          method: "POST",
+          url: "/billing/admin",
+          headers,
+          payload: {
+            operation: "offers.unpublish",
+            operationId: randomUUID(),
+            expectedRevision: 2,
+            id: offerId,
+          },
+        })
+      ).statusCode,
+    ).toBe(200);
+    const onlySecond = await server.inject({
+      method: "GET",
+      url: "/billing/offers?limit=100",
+    });
+    expect(
+      onlySecond
+        .json<{
+          items: readonly { readonly offer: { readonly id: string } }[];
+        }>()
+        .items.map((item) => item.offer.id),
+    ).toEqual([secondOfferId]);
+    expect(
+      (
+        await server.inject({
+          method: "POST",
+          url: "/accounts/current/billing/quote",
+          headers,
+          payload: {
+            operationId: randomUUID(),
+            paymentOptionId: optionId,
+            optionRevision: 1,
+          },
+        })
+      ).statusCode,
+    ).toBe(404);
   });
 
   test("scoped billing permission opens the owner surface and maps its result codes", async () => {
     const server = declaredServer(app.getHttpAdapter().getInstance());
-    const headers = { authorization: `Bearer ${await signToken({ subject: "billing-manager-001", email: "manager@example.test" })}` };
-    expect((await server.inject({ method: "POST", url: "/accounts", headers })).statusCode).toBe(201);
+    const headers = {
+      authorization: `Bearer ${await signToken({ subject: "billing-manager-001", email: "manager@example.test" })}`,
+    };
+    expect(
+      (await server.inject({ method: "POST", url: "/accounts", headers }))
+        .statusCode,
+    ).toBe(201);
     await acceptCurrentTerms(server, headers);
-    const manager = await database.prisma.account.findUniqueOrThrow({ where: { logtoIssuer_logtoSubject: { logtoIssuer: issuer, logtoSubject: "billing-manager-001" } } });
+    const manager = await database.prisma.account.findUniqueOrThrow({
+      where: {
+        logtoIssuer_logtoSubject: {
+          logtoIssuer: issuer,
+          logtoSubject: "billing-manager-001",
+        },
+      },
+    });
     const payments = { operation: "payments.list", operationId: randomUUID() };
-    expect((await server.inject({ method: "POST", url: "/billing/admin", headers, payload: payments })).statusCode).toBe(403);
+    expect(
+      (
+        await server.inject({
+          method: "POST",
+          url: "/billing/admin",
+          headers,
+          payload: payments,
+        })
+      ).statusCode,
+    ).toBe(403);
     // Владельческая поверхность открывается отдельным правом billing:manage, без platform:admin.
-    await database.prisma.accountPermission.create({ data: { accountId: manager.id, permission: "billing:manage" } });
-    const list = await server.inject({ method: "POST", url: "/billing/admin", headers, payload: payments });
+    await database.prisma.accountPermission.create({
+      data: { accountId: manager.id, permission: "billing:manage" },
+    });
+    const list = await server.inject({
+      method: "POST",
+      url: "/billing/admin",
+      headers,
+      payload: payments,
+    });
     expect(list.statusCode).toBe(200);
-    expect(list.json()).toEqual({ operationRef: payments.operationId, result: { outcome: "payments", items: [], nextCursor: null } });
-    const missing = await server.inject({ method: "POST", url: "/billing/admin", headers, payload: { operation: "refunds.read", operationId: randomUUID(), purchaseRef: randomUUID() } });
+    expect(list.json()).toEqual({
+      operationRef: payments.operationId,
+      result: { outcome: "payments", items: [], nextCursor: null },
+    });
+    const missing = await server.inject({
+      method: "POST",
+      url: "/billing/admin",
+      headers,
+      payload: {
+        operation: "refunds.read",
+        operationId: randomUUID(),
+        purchaseRef: randomUUID(),
+      },
+    });
     expect(missing.statusCode).toBe(404);
-    expect(missing.headers["content-type"]).toContain("application/problem+json");
+    expect(missing.headers["content-type"]).toContain(
+      "application/problem+json",
+    );
     expect(missing.json()).toMatchObject({ code: "not_found" });
-    const decision = { operation: "refunds.decide", operationId: randomUUID(), purchaseRef: randomUUID(), amountKopecks: 0, basis: "compensation", recurring: "keep", reason: "Недопустимая сумма" };
-    expect((await server.inject({ method: "POST", url: "/billing/admin", headers, payload: decision })).statusCode).toBe(400);
-    const grant = { operation: "grants.revoke", operationId: randomUUID(), grantRef: randomUUID(), expectedRevision: 1, reason: "Неизвестное основание" };
-    expect((await server.inject({ method: "POST", url: "/billing/admin", headers, payload: grant })).statusCode).toBe(404);
+    const decision = {
+      operation: "refunds.decide",
+      operationId: randomUUID(),
+      purchaseRef: randomUUID(),
+      amountKopecks: 0,
+      basis: "compensation",
+      recurring: "keep",
+      reason: "Недопустимая сумма",
+    };
+    expect(
+      (
+        await server.inject({
+          method: "POST",
+          url: "/billing/admin",
+          headers,
+          payload: decision,
+        })
+      ).statusCode,
+    ).toBe(400);
+    const grant = {
+      operation: "grants.revoke",
+      operationId: randomUUID(),
+      grantRef: randomUUID(),
+      expectedRevision: 1,
+      reason: "Неизвестное основание",
+    };
+    expect(
+      (
+        await server.inject({
+          method: "POST",
+          url: "/billing/admin",
+          headers,
+          payload: grant,
+        })
+      ).statusCode,
+    ).toBe(404);
     // Чтение не занимает operationId, поэтому повторяется свободно и с другой нагрузкой.
-    const repeated = await server.inject({ method: "POST", url: "/billing/admin", headers, payload: { ...payments, limit: 5 } });
+    const repeated = await server.inject({
+      method: "POST",
+      url: "/billing/admin",
+      headers,
+      payload: { ...payments, limit: 5 },
+    });
     expect(repeated.statusCode).toBe(200);
-    expect(repeated.json()).toEqual({ operationRef: payments.operationId, result: { outcome: "payments", items: [], nextCursor: null } });
+    expect(repeated.json()).toEqual({
+      operationRef: payments.operationId,
+      result: { outcome: "payments", items: [], nextCursor: null },
+    });
   });
 
   test("owner reads, records and re-reads one buyer state in the same shape", async () => {
     // Служебное поле однажды уже уехало в этот ответ разворотом переменной, поэтому форма
     // читается описанием: сверку выполняет сам `declaredServer` на каждом ответе ниже.
     const server = declaredServer(app.getHttpAdapter().getInstance());
-    const headers = { authorization: `Bearer ${await signToken({ subject: "billing-classifier-001", email: "classifier@example.test" })}` };
-    expect((await server.inject({ method: "POST", url: "/accounts", headers })).statusCode).toBe(201);
+    const headers = {
+      authorization: `Bearer ${await signToken({ subject: "billing-classifier-001", email: "classifier@example.test" })}`,
+    };
+    expect(
+      (await server.inject({ method: "POST", url: "/accounts", headers }))
+        .statusCode,
+    ).toBe(201);
     await acceptCurrentTerms(server, headers);
-    const owner = await database.prisma.account.findUniqueOrThrow({ where: { logtoIssuer_logtoSubject: { logtoIssuer: issuer, logtoSubject: "billing-classifier-001" } } });
-    await database.prisma.accountPermission.create({ data: { accountId: owner.id, permission: "billing:manage" } });
-    const buyerHeaders = { authorization: `Bearer ${await signToken({ subject: "billing-buyer-001", email: "buyer@example.test" })}` };
-    expect((await server.inject({ method: "POST", url: "/accounts", headers: buyerHeaders })).statusCode).toBe(201);
+    const owner = await database.prisma.account.findUniqueOrThrow({
+      where: {
+        logtoIssuer_logtoSubject: {
+          logtoIssuer: issuer,
+          logtoSubject: "billing-classifier-001",
+        },
+      },
+    });
+    await database.prisma.accountPermission.create({
+      data: { accountId: owner.id, permission: "billing:manage" },
+    });
+    const buyerHeaders = {
+      authorization: `Bearer ${await signToken({ subject: "billing-buyer-001", email: "buyer@example.test" })}`,
+    };
+    expect(
+      (
+        await server.inject({
+          method: "POST",
+          url: "/accounts",
+          headers: buyerHeaders,
+        })
+      ).statusCode,
+    ).toBe(201);
     await acceptCurrentTerms(server, buyerHeaders);
-    const buyer = await database.prisma.account.findUniqueOrThrow({ where: { logtoIssuer_logtoSubject: { logtoIssuer: issuer, logtoSubject: "billing-buyer-001" } } });
+    const buyer = await database.prisma.account.findUniqueOrThrow({
+      where: {
+        logtoIssuer_logtoSubject: {
+          logtoIssuer: issuer,
+          logtoSubject: "billing-buyer-001",
+        },
+      },
+    });
 
-    const unknownRead = { operation: "grants.readClassification", operationId: randomUUID(), accountId: buyer.id };
-    const unknown = await server.inject({ method: "POST", url: "/billing/admin", headers, payload: unknownRead });
+    const unknownRead = {
+      operation: "grants.readClassification",
+      operationId: randomUUID(),
+      accountId: buyer.id,
+    };
+    const unknown = await server.inject({
+      method: "POST",
+      url: "/billing/admin",
+      headers,
+      payload: unknownRead,
+    });
     expect(unknown.statusCode).toBe(200);
-    expect(unknown.json()).toEqual({ operationRef: unknownRead.operationId, result: { outcome: "classification",
-      value: { accountId: buyer.id, classification: "unknown", revision: 0, recurringAllowed: false } } });
+    expect(unknown.json()).toEqual({
+      operationRef: unknownRead.operationId,
+      result: {
+        outcome: "classification",
+        value: {
+          accountId: buyer.id,
+          classification: "unknown",
+          revision: 0,
+          recurringAllowed: false,
+        },
+      },
+    });
 
-    const decision = { operation: "grants.classify", operationId: randomUUID(), accountId: buyer.id, expectedRevision: 0,
-      classification: "confirmed_new", sourceRef: "tribute-import-2026-09", reason: "Подтверждён как новый покупатель",
-      bridgeEnabled: false, tributeStopped: false };
-    const recorded = await server.inject({ method: "POST", url: "/billing/admin", headers, payload: decision });
+    const decision = {
+      operation: "grants.classify",
+      operationId: randomUUID(),
+      accountId: buyer.id,
+      expectedRevision: 0,
+      classification: "confirmed_new",
+      sourceRef: "tribute-import-2026-09",
+      reason: "Подтверждён как новый покупатель",
+      bridgeEnabled: false,
+      tributeStopped: false,
+    };
+    const recorded = await server.inject({
+      method: "POST",
+      url: "/billing/admin",
+      headers,
+      payload: decision,
+    });
     expect(recorded.statusCode).toBe(200);
-    expect(recorded.json()).toEqual({ operationRef: decision.operationId, result: { outcome: "classification",
-      value: { accountId: buyer.id, classification: "confirmed_new", revision: 1, recurringAllowed: true } } });
+    expect(recorded.json()).toEqual({
+      operationRef: decision.operationId,
+      result: {
+        outcome: "classification",
+        value: {
+          accountId: buyer.id,
+          classification: "confirmed_new",
+          revision: 1,
+          recurringAllowed: true,
+        },
+      },
+    });
 
     // Записанное решение и следующее чтение отвечают одной формой: иначе админка и кабинет
     // рассказывали бы о покупателе разное.
     const confirmedRead = { ...unknownRead, operationId: randomUUID() };
-    const confirmed = await server.inject({ method: "POST", url: "/billing/admin", headers, payload: confirmedRead });
+    const confirmed = await server.inject({
+      method: "POST",
+      url: "/billing/admin",
+      headers,
+      payload: confirmedRead,
+    });
     expect(confirmed.statusCode).toBe(200);
-    expect(confirmed.json()).toEqual({ operationRef: confirmedRead.operationId, result: { outcome: "classification",
-      value: { accountId: buyer.id, classification: "confirmed_new", revision: 1, recurringAllowed: true } } });
+    expect(confirmed.json()).toEqual({
+      operationRef: confirmedRead.operationId,
+      result: {
+        outcome: "classification",
+        value: {
+          accountId: buyer.id,
+          classification: "confirmed_new",
+          revision: 1,
+          recurringAllowed: true,
+        },
+      },
+    });
 
     // Решение принимается от того состояния, которое владелец видел, а не от любого.
-    const stale = await server.inject({ method: "POST", url: "/billing/admin", headers, payload: { ...decision, operationId: randomUUID() } });
+    const stale = await server.inject({
+      method: "POST",
+      url: "/billing/admin",
+      headers,
+      payload: { ...decision, operationId: randomUUID() },
+    });
     expect(stale.statusCode).toBe(409);
     expect(stale.headers["content-type"]).toContain("application/problem+json");
     expect(stale.json()).toMatchObject({ code: "revision_conflict" });
@@ -202,7 +613,9 @@ describe("Billing pricing HTTP", () => {
     const now = Math.floor(Date.now() / 1_000);
     return new SignJWT({
       inside_verified_email: overrides.email ?? "member@example.test",
-      ...(overrides.clientId === undefined ? {} : { client_id: overrides.clientId }),
+      ...(overrides.clientId === undefined
+        ? {}
+        : { client_id: overrides.clientId }),
     })
       .setProtectedHeader({ alg: "ES384", kid: "api-key-1" })
       .setIssuer(issuer)

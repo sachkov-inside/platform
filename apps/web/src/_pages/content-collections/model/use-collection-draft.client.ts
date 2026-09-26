@@ -1,7 +1,10 @@
 "use client";
 import { useMutation } from "@tanstack/react-query";
 import { useRef, useState } from "react";
-import { flushPendingEdits, useAutosave } from "@/shared/lib/autosave/use-autosave";
+import {
+  flushPendingEdits,
+  useAutosave,
+} from "@/shared/lib/autosave/use-autosave";
 import {
   setContentCollectionArchive,
   updateContentCollection,
@@ -43,9 +46,10 @@ export function useCollectionDraft(
     },
   });
   const autosave = useAutosave({
-    value: options.editsIntroduction === true
-      ? { introduction, name, summary }
-      : { name, summary },
+    value:
+      options.editsIntroduction === true
+        ? { introduction, name, summary }
+        : { name, summary },
     enabled: name.trim().length > 0,
     save: async (value) => {
       const input = attempted.current ?? {
@@ -85,12 +89,13 @@ export function useCollectionDraft(
     autosave,
     setArchived: (archived: boolean) => {
       void flushPendingEdits().then((ok) => {
-        if (ok) archive.mutate({
-          archived,
-          collectionId: collection.id,
-          expectedVersion: version.current,
-          kind: collection.kind,
-        });
+        if (ok)
+          archive.mutate({
+            archived,
+            collectionId: collection.id,
+            expectedVersion: version.current,
+            kind: collection.kind,
+          });
       });
     },
   };

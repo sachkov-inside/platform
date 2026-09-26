@@ -44,7 +44,9 @@ export class CreateDraftController {
     schema: toOpenApiSchema(idempotencyKeySchema),
   })
   @ApiBody({ schema: toOpenApiSchema(createDraftBodySchema) })
-  @ApiCreatedResponse({ schema: toOpenApiSchema(materialMutationReceiptSchema) })
+  @ApiCreatedResponse({
+    schema: toOpenApiSchema(materialMutationReceiptSchema),
+  })
   @ApiMaterialAuthoringErrors(400, 401, 403, 409, 422, 500, 503)
   async create(
     @CurrentAccount() account: AuthenticatedAccount,

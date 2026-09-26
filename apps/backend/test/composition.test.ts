@@ -60,14 +60,18 @@ function accessGrantFacets(context: INestApplicationContext): unknown[] {
 }
 
 /** Controller names by the Nest module that registers them. */
-function registeredControllers(context: INestApplicationContext): Map<string, string[]> {
+function registeredControllers(
+  context: INestApplicationContext,
+): Map<string, string[]> {
   const modules = context.get(ModulesContainer, { strict: false });
   return new Map(
     [...modules.values()]
       .filter((module) => module.controllers.size > 0)
       .map((module): [string, string[]] => [
         module.metatype.name,
-        [...module.controllers.keys()].map((token) => (typeof token === "function" ? token.name : String(token))),
+        [...module.controllers.keys()].map((token) =>
+          typeof token === "function" ? token.name : String(token),
+        ),
       ]),
   );
 }
@@ -87,10 +91,7 @@ describe("backend process composition", () => {
 
   it("loads and validates the process environment through Nest composition", async () => {
     vi.stubEnv("NODE_ENV", "test");
-    vi.stubEnv(
-      "DATABASE_URL",
-      "postgresql://inside:inside@127.0.0.1:1/inside",
-    );
+    vi.stubEnv("DATABASE_URL", "postgresql://inside:inside@127.0.0.1:1/inside");
 
     const api = await createApiApplication(undefined, { logger: false });
     application = api;
@@ -130,20 +131,29 @@ describe("backend process composition", () => {
     const api = await createApiApplication(config, { logger: false });
     const apiControllers = registeredControllers(api);
     await api.close();
-    const materialsControllers = apiControllers.get("MaterialsHttpModule") ?? [];
-    expect(materialsControllers).toEqual(expect.arrayContaining([
-      "SaveMaterialController",
-      "UploadMaterialAssetController",
-      "VideoPlaybackController",
-      "KinescopeVideoAuthorizationController",
-      "GuideArtifactReadController",
-    ]));
-    expect(apiControllers.get("ApiModule")?.filter((name) => materialsControllers.includes(name))).toEqual([]);
+    const materialsControllers =
+      apiControllers.get("MaterialsHttpModule") ?? [];
+    expect(materialsControllers).toEqual(
+      expect.arrayContaining([
+        "SaveMaterialController",
+        "UploadMaterialAssetController",
+        "VideoPlaybackController",
+        "KinescopeVideoAuthorizationController",
+        "GuideArtifactReadController",
+      ]),
+    );
+    expect(
+      apiControllers
+        .get("ApiModule")
+        ?.filter((name) => materialsControllers.includes(name)),
+    ).toEqual([]);
 
     const mcp = await createMcpApplication(config, { logger: false });
     application = mcp;
     const mcpControllers = [...registeredControllers(mcp).values()].flat();
-    expect(mcpControllers.filter((name) => materialsControllers.includes(name))).toEqual([]);
+    expect(
+      mcpControllers.filter((name) => materialsControllers.includes(name)),
+    ).toEqual([]);
   });
 
   it("uses the same required bindings for the MCP context", async () => {
@@ -153,9 +163,7 @@ describe("backend process composition", () => {
     expect(mcp.get(PLATFORM_CONFIG)).toBe(config);
     const prisma = mcp.get<PlatformPrisma>(PrismaClientProvider);
     expect(mcp.get<PlatformPrisma>(PrismaClientProvider)).toBe(prisma);
-    expect(mcp.get(OperationalReadiness)).toBeInstanceOf(
-      OperationalReadiness,
-    );
+    expect(mcp.get(OperationalReadiness)).toBeInstanceOf(OperationalReadiness);
     expect(mcp.get(ACCOUNTS)).toBeDefined();
     expect(mcp.get(LOGTO_ACCESS_TOKEN_VERIFIER)).toBeDefined();
     expect(mcp.get(MATERIAL_AUTHORING)).toBeDefined();
@@ -186,18 +194,20 @@ describe("backend process composition", () => {
     vi.stubEnv("NODE_ENV", "test");
     vi.stubEnv("DATABASE_URL", "postgresql://inside:inside@127.0.0.1:1/inside");
 
-    application = await NestFactory.createApplicationContext(NotificationsWorkerModule, { abortOnError: false, logger: false });
+    application = await NestFactory.createApplicationContext(
+      NotificationsWorkerModule,
+      { abortOnError: false, logger: false },
+    );
 
-    expect(application.get(OperationalReadiness)).toBeInstanceOf(OperationalReadiness);
+    expect(application.get(OperationalReadiness)).toBeInstanceOf(
+      OperationalReadiness,
+    );
     expect(accessGrantFacets(application)).toHaveLength(1);
   });
 
   it("loads and validates worker config through Nest composition", async () => {
     vi.stubEnv("NODE_ENV", "test");
-    vi.stubEnv(
-      "DATABASE_URL",
-      "postgresql://inside:inside@127.0.0.1:1/inside",
-    );
+    vi.stubEnv("DATABASE_URL", "postgresql://inside:inside@127.0.0.1:1/inside");
 
     application = await NestFactory.createApplicationContext(
       MaterialAssetsWorkerModule.forRoot(),
@@ -281,7 +291,9 @@ describe("backend process composition", () => {
     });
 
     expect(malformedBody.statusCode).toBe(400);
-    expect(malformedBody.headers["content-type"]).toContain("application/problem+json");
+    expect(malformedBody.headers["content-type"]).toContain(
+      "application/problem+json",
+    );
     expect(malformedBody.json()).toEqual({
       type: problemType("http_error"),
       title: "Invalid request",
@@ -290,6 +302,9 @@ describe("backend process composition", () => {
     });
     // Fastify rejects a broken URI before Nest routing, so the answer keeps its own 400 shape.
     expect(malformedPath.statusCode).toBe(400);
-    expect(malformedPath.json()).toMatchObject({ code: "FST_ERR_BAD_URL", statusCode: 400 });
+    expect(malformedPath.json()).toMatchObject({
+      code: "FST_ERR_BAD_URL",
+      statusCode: 400,
+    });
   });
 });

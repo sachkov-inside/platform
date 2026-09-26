@@ -35,10 +35,9 @@ export async function getPrivateMemberProfile(
   };
 }
 
-function unavailable(error: unknown): Extract<
-  PrivateMemberProfileResult,
-  { readonly kind: "unavailable" }
-> {
+function unavailable(
+  error: unknown,
+): Extract<PrivateMemberProfileResult, { readonly kind: "unavailable" }> {
   return {
     kind: "unavailable",
     reference:

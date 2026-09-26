@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
-
 import { contractDigest } from "../../../../infrastructure/contracts/canonical-digest.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
@@ -172,10 +171,18 @@ export async function projectCommunityEntitlement(
         stored !== null &&
         stored.accountRef !== null &&
         stored.accountRef === currentAccountRef;
-      const latest = stored?.latestOperationId ? await transaction.telegramCommunityOperation.findUnique({ where: { operationId: stored.latestOperationId } }) : null;
-      const latestCommand = latest === null ? null : communitySetSchema.safeParse(latest.command);
-      const currentVersion = latestCommand?.success === true && latestCommand.data.contractVersion === COMMUNITY_V2_CONTRACT_VERSION;
-      const unchanged = currentVersion &&
+      const latest = stored?.latestOperationId
+        ? await transaction.telegramCommunityOperation.findUnique({
+            where: { operationId: stored.latestOperationId },
+          })
+        : null;
+      const latestCommand =
+        latest === null ? null : communitySetSchema.safeParse(latest.command);
+      const currentVersion =
+        latestCommand?.success === true &&
+        latestCommand.data.contractVersion === COMMUNITY_V2_CONTRACT_VERSION;
+      const unchanged =
+        currentVersion &&
         sameRecipient &&
         stored.identityRef === currentIdentity &&
         stored.linkRevision === currentLinkRevision &&
@@ -184,7 +191,9 @@ export async function projectCommunityEntitlement(
       // A denial only goes to a recipient we previously told to admit.
       const announces =
         accessAllows(access, now) ||
-        (sameRecipient && storedAccess !== null && storedAccess.kind !== "denied");
+        (sameRecipient &&
+          storedAccess !== null &&
+          storedAccess.kind !== "denied");
       if (
         currentIdentity !== null &&
         currentAccountRef !== null &&
@@ -227,7 +236,14 @@ export async function projectCommunityEntitlement(
       return { ok: true as const, entitlementRevision, issued };
     });
   } catch (error) {
-    return dependencyFailure({ module: "telegram-membership", operation: "projectCommunityEntitlement" }, error, { ok: false, error: { code: "unavailable" } });
+    return dependencyFailure(
+      {
+        module: "telegram-membership",
+        operation: "projectCommunityEntitlement",
+      },
+      error,
+      { ok: false, error: { code: "unavailable" } },
+    );
   }
 }
 

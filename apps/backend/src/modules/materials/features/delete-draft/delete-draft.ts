@@ -5,9 +5,7 @@ import type {
   DeleteDraftOperation,
 } from "./delete-draft.contract.js";
 import type { MaterialAuthoringDependencies } from "../../facets/material-authoring/material-authoring.dependencies.js";
-import {
-  lockMaterialForLifecycleChange,
-} from "../../infrastructure/postgres/material-locks.js";
+import { lockMaterialForLifecycleChange } from "../../infrastructure/postgres/material-locks.js";
 import { lockMaterialReferenceChanges } from "../../../../infrastructure/prisma/index.js";
 import { lockMaterialSeries } from "../../infrastructure/postgres/series-order.js";
 import { canChangeGuideMemberships } from "../../infrastructure/postgres/source-guide-memberships.js";
@@ -82,10 +80,19 @@ export function assembleDeleteDraft(
           rollback,
           async () => {
             await lockMaterialSeries(transaction, command.materialId);
-            if (!await canChangeGuideMemberships(transaction, command.materialId, [], null)) {
+            if (
+              !(await canChangeGuideMemberships(
+                transaction,
+                command.materialId,
+                [],
+                null,
+              ))
+            ) {
               return rollback({ code: "draft_deletion_forbidden" });
             }
-            await lockMaterialReferenceChanges(transaction, [command.materialId]);
+            await lockMaterialReferenceChanges(transaction, [
+              command.materialId,
+            ]);
             const material = await lockMaterialForLifecycleChange(
               transaction,
               command.materialId,
@@ -111,15 +118,24 @@ export function assembleDeleteDraft(
             ) {
               return rollback({
                 code: "invalid_reference",
-                issues: [{ code: "video_deletion_target_mismatch", path: "/deleteVideoId" }],
+                issues: [
+                  {
+                    code: "video_deletion_target_mismatch",
+                    path: "/deleteVideoId",
+                  },
+                ],
               });
             }
             if (command.deleteVideoId !== null) {
-              const deletion = await requestVideoDeletion(transaction, {
-                actor: command.actor,
-                materialId: command.materialId,
-                videoId: command.deleteVideoId,
-              }, new Date());
+              const deletion = await requestVideoDeletion(
+                transaction,
+                {
+                  actor: command.actor,
+                  materialId: command.materialId,
+                  videoId: command.deleteVideoId,
+                },
+                new Date(),
+              );
               if (!deletion.ok) {
                 return rollback({
                   code: "invalid_reference",

@@ -22,8 +22,14 @@ const grantRowSchema = z
     sourceRef: sourceRefSchema,
     // Прямое право не открывает материалы: они открываются только тарифом или продуктом. Поэтому ручная
     // и перенесённая выдача не выдаёт `materials`, отдельный материал и право, которого нет ни у одного основания.
-    terms: grantTermsSchema.refine(terms => !terms.capabilities.some(capability => capability === "materials" || withheldAccessCapabilities.includes(capability)) &&
-      (terms.contentScope?.materialIds.length ?? 0) === 0),
+    terms: grantTermsSchema.refine(
+      (terms) =>
+        !terms.capabilities.some(
+          (capability) =>
+            capability === "materials" ||
+            withheldAccessCapabilities.includes(capability),
+        ) && (terms.contentScope?.materialIds.length ?? 0) === 0,
+    ),
   })
   .strict();
 /**
@@ -67,9 +73,7 @@ export const previewCommandSchema = z
   )
   // Один Account классифицируется в наборе один раз: иначе порядок строк решал бы исход.
   .refine((value) =>
-    unique(
-      value.rows.filter(isClassificationRow).map((row) => row.accountId),
-    ),
+    unique(value.rows.filter(isClassificationRow).map((row) => row.accountId)),
   )
   .refine((value) =>
     value.rows.every((row) => isGrantRow(row) || classificationTermsAgree(row)),
@@ -129,7 +133,9 @@ export async function previewGrantBatch(
           return {
             ...row,
             identityFingerprint:
-              identity === undefined ? null : accessFingerprint(identity).digest,
+              identity === undefined
+                ? null
+                : accessFingerprint(identity).digest,
           };
         }),
       );

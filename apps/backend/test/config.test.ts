@@ -22,8 +22,7 @@ describe("process configuration", () => {
       IDENTITY_EMAIL_FINGERPRINT_KEY: "test-email-fingerprint-key-32chars",
       MEMBERSHIP_SUPPORT_URL: "https://t.me/inside_support",
       TELEGRAM_BOT_START_URL: "https://t.me/inside_test_bot",
-      TELEGRAM_EVIDENCE_INGRESS_SECRET:
-        "test-telegram-evidence-ingress-secret",
+      TELEGRAM_EVIDENCE_INGRESS_SECRET: "test-telegram-evidence-ingress-secret",
       TELEGRAM_LINKING_ENDPOINT:
         "https://telegram.example.test/integrations/platform/v1/identity-links",
       TELEGRAM_LINKING_SECRET: "test-telegram-linking-secret",
@@ -163,8 +162,10 @@ describe("process configuration", () => {
 
   it("keeps the public site origin bare, because consent addresses append a path", () => {
     expect(
-      parsePlatformConfig({ NODE_ENV: "test", PUBLIC_SITE_ORIGIN: "https://Inside.Example.test" })
-        .publicSite,
+      parsePlatformConfig({
+        NODE_ENV: "test",
+        PUBLIC_SITE_ORIGIN: "https://Inside.Example.test",
+      }).publicSite,
     ).toEqual({ origin: "https://inside.example.test" });
 
     for (const origin of [
@@ -197,21 +198,24 @@ describe("process configuration", () => {
       parsePlatformProcessConfig(database, "material-assets-worker"),
     ).toThrow("OBJECT_STORAGE_ACCESS_KEY_ID is required in production mode");
     expect(() =>
-      parsePlatformProcessConfig({
-        ...database,
-        KINESCOPE_API_BASE_URL: "https://api.kinescope.io",
-        KINESCOPE_CALLBACK_PASSWORD: "worker-callback-password",
-        KINESCOPE_CALLBACK_USERNAME: "worker-callback-user",
-        KINESCOPE_MEMBERSHIP_PROJECT_ID: "worker-membership-project",
-        KINESCOPE_PLAYBACK_JWT_SECRET:
-          "worker-playback-secret-at-least-32-characters",
-        KINESCOPE_PLAYBACK_JWT_TTL_SECONDS: "60",
-        KINESCOPE_PROVIDER_MODE: "real",
-        KINESCOPE_PUBLIC_PROJECT_ID: "worker-public-project",
-        KINESCOPE_UPLOADER_BASE_URL: "https://uploader.kinescope.io",
-        KINESCOPE_WEBHOOK_PASSWORD: "worker-webhook-password",
-        KINESCOPE_WEBHOOK_USERNAME: "worker-webhook-user",
-      }, "video-deletions-worker"),
+      parsePlatformProcessConfig(
+        {
+          ...database,
+          KINESCOPE_API_BASE_URL: "https://api.kinescope.io",
+          KINESCOPE_CALLBACK_PASSWORD: "worker-callback-password",
+          KINESCOPE_CALLBACK_USERNAME: "worker-callback-user",
+          KINESCOPE_MEMBERSHIP_PROJECT_ID: "worker-membership-project",
+          KINESCOPE_PLAYBACK_JWT_SECRET:
+            "worker-playback-secret-at-least-32-characters",
+          KINESCOPE_PLAYBACK_JWT_TTL_SECONDS: "60",
+          KINESCOPE_PROVIDER_MODE: "real",
+          KINESCOPE_PUBLIC_PROJECT_ID: "worker-public-project",
+          KINESCOPE_UPLOADER_BASE_URL: "https://uploader.kinescope.io",
+          KINESCOPE_WEBHOOK_PASSWORD: "worker-webhook-password",
+          KINESCOPE_WEBHOOK_USERNAME: "worker-webhook-user",
+        },
+        "video-deletions-worker",
+      ),
     ).toThrow("KINESCOPE_API_TOKEN is required in production mode");
     expect(
       parsePlatformProcessConfig(
@@ -243,9 +247,7 @@ describe("process configuration", () => {
 
     expect(() =>
       parsePlatformConfig({ NODE_ENV: "test", API_PORT: "invalid" }),
-    ).toThrow(
-      "API_PORT must be an integer between 1 and 65535",
-    );
+    ).toThrow("API_PORT must be an integer between 1 and 65535");
     expect(() =>
       parsePlatformConfig({
         NODE_ENV: "test",
@@ -358,15 +360,17 @@ describe("MCP process configuration", () => {
   });
 
   it("rejects invalid listen and public endpoint values", () => {
-    expect(() =>
-      parseMcpConfig({ MCP_PORT: "0" }, "test"),
-    ).toThrow("MCP_PORT must be an integer between 1 and 65535");
+    expect(() => parseMcpConfig({ MCP_PORT: "0" }, "test")).toThrow(
+      "MCP_PORT must be an integer between 1 and 65535",
+    );
     expect(() =>
       parseMcpConfig(
         { MCP_SERVER_URL: "http://127.0.0.1:3002/mcp?token=secret" },
         "test",
       ),
-    ).toThrow("MCP_SERVER_URL must not contain credentials, query, or fragment");
+    ).toThrow(
+      "MCP_SERVER_URL must not contain credentials, query, or fragment",
+    );
   });
 });
 
@@ -378,19 +382,52 @@ describe("billing contact configuration", () => {
     BILLING_CONTACT_FROM: "inside@example.test",
   };
   it("is disabled unless explicitly configured and accepts only a complete configuration", () => {
-    expect(parsePlatformConfig({ NODE_ENV: "test" }).billingContact).toBeUndefined();
-    expect(() => parsePlatformConfig({ NODE_ENV: "test", BILLING_CONTACT_SMTP_HOST: "127.0.0.1" })).toThrow();
-    expect(() => parsePlatformConfig({ ...config, BILLING_CONTACT_ENCRYPTION_KEY: "short" })).toThrow();
-    expect(() => parsePlatformConfig({ ...config, BILLING_CONTACT_SMTP_USER: "user" })).toThrow();
+    expect(
+      parsePlatformConfig({ NODE_ENV: "test" }).billingContact,
+    ).toBeUndefined();
+    expect(() =>
+      parsePlatformConfig({
+        NODE_ENV: "test",
+        BILLING_CONTACT_SMTP_HOST: "127.0.0.1",
+      }),
+    ).toThrow();
+    expect(() =>
+      parsePlatformConfig({
+        ...config,
+        BILLING_CONTACT_ENCRYPTION_KEY: "short",
+      }),
+    ).toThrow();
+    expect(() =>
+      parsePlatformConfig({ ...config, BILLING_CONTACT_SMTP_USER: "user" }),
+    ).toThrow();
   });
   it("allows plaintext only for a local synthetic SMTP capture", () => {
-    expect(parsePlatformConfig(config).billingContact).toMatchObject({ localInsecure: true, smtpPort: 587 });
-    expect(parsePlatformConfig({ ...config, BILLING_CONTACT_SMTP_HOST: "smtp.example.test" }).billingContact).toMatchObject({ localInsecure: false });
+    expect(parsePlatformConfig(config).billingContact).toMatchObject({
+      localInsecure: true,
+      smtpPort: 587,
+    });
+    expect(
+      parsePlatformConfig({
+        ...config,
+        BILLING_CONTACT_SMTP_HOST: "smtp.example.test",
+      }).billingContact,
+    ).toMatchObject({ localInsecure: false });
     // Перехватчик писем стенда живёт под своим именем в сети Compose и объявляется явно.
-    expect(parsePlatformConfig({ ...config, BILLING_CONTACT_SMTP_HOST: "mailpit", BILLING_CONTACT_SMTP_LOCAL_CAPTURE: "true" })
-      .billingContact).toMatchObject({ localInsecure: true });
-    expect(() => parsePlatformProcessConfig({ ...productionWorker, BILLING_CONTACT_SMTP_LOCAL_CAPTURE: "true" }, "billing-worker"))
-      .toThrow("BILLING_CONTACT_SMTP_LOCAL_CAPTURE is not a production mail transport");
+    expect(
+      parsePlatformConfig({
+        ...config,
+        BILLING_CONTACT_SMTP_HOST: "mailpit",
+        BILLING_CONTACT_SMTP_LOCAL_CAPTURE: "true",
+      }).billingContact,
+    ).toMatchObject({ localInsecure: true });
+    expect(() =>
+      parsePlatformProcessConfig(
+        { ...productionWorker, BILLING_CONTACT_SMTP_LOCAL_CAPTURE: "true" },
+        "billing-worker",
+      ),
+    ).toThrow(
+      "BILLING_CONTACT_SMTP_LOCAL_CAPTURE is not a production mail transport",
+    );
   });
 });
 
@@ -399,10 +436,14 @@ const productionWorker = {
   DATABASE_URL: "postgresql://platform:secret@postgres:5432/inside",
 };
 const demoTerminal = {
-  environment: "demo", terminalKey: "SYNTHETICDEMO", password: "synthetic-password",
+  environment: "demo",
+  terminalKey: "SYNTHETICDEMO",
+  password: "synthetic-password",
   bindingEncryptionKey: Buffer.alloc(32, 42).toString("base64"),
-  recurringCardConfirmed: true, cardOnlyHostedConfirmed: true,
-  minimumKopecks: 100, maximumKopecks: 1_000_000,
+  recurringCardConfirmed: true,
+  cardOnlyHostedConfirmed: true,
+  minimumKopecks: 100,
+  maximumKopecks: 1_000_000,
   returnUrl: "https://inside.example.test/subscription/return",
   notificationUrl: "https://inside.example.test/billing/tbank/notification",
   receipt: { taxation: "usn_income", tax: "none" },
@@ -412,28 +453,57 @@ describe("bank payment contour", () => {
   const stand = { NODE_ENV: "development" };
   it("keeps the real bank by default and refuses an unknown provider mode", () => {
     expect(parsePlatformConfig(stand).tbank).toBeUndefined();
-    expect(parsePlatformConfig({ ...stand, TBANK_CONFIG_JSON: JSON.stringify(demoTerminal) }).tbank).toMatchObject({
+    expect(
+      parsePlatformConfig({
+        ...stand,
+        TBANK_CONFIG_JSON: JSON.stringify(demoTerminal),
+      }).tbank,
+    ).toMatchObject({
       environment: "demo",
-      endpoints: { apiBaseUrl: "https://securepay.tinkoff.ru/v2", formOrigins: ["https://securepay.tinkoff.ru", "https://pay.tbank.ru"] },
+      endpoints: {
+        apiBaseUrl: "https://securepay.tinkoff.ru/v2",
+        formOrigins: ["https://securepay.tinkoff.ru", "https://pay.tbank.ru"],
+      },
     });
-    expect(() => parsePlatformConfig({ ...stand, TBANK_PROVIDER_MODE: "double" }))
-      .toThrow("TBANK_PROVIDER_MODE must be real or test");
+    expect(() =>
+      parsePlatformConfig({ ...stand, TBANK_PROVIDER_MODE: "double" }),
+    ).toThrow("TBANK_PROVIDER_MODE must be real or test");
     // Контур настоящего терминала остаётся закрытым: адрес без HTTPS не принимается.
-    expect(() => parsePlatformConfig({ ...stand,
-      TBANK_CONFIG_JSON: JSON.stringify({ ...demoTerminal, returnUrl: "http://inside.example.test/subscription/return" }) }))
-      .toThrow("Invalid TBANK_CONFIG_JSON; check the terminal capability and receipt configuration");
+    expect(() =>
+      parsePlatformConfig({
+        ...stand,
+        TBANK_CONFIG_JSON: JSON.stringify({
+          ...demoTerminal,
+          returnUrl: "http://inside.example.test/subscription/return",
+        }),
+      }),
+    ).toThrow(
+      "Invalid TBANK_CONFIG_JSON; check the terminal capability and receipt configuration",
+    );
   });
 
   it("builds the local double contour from the stand addresses", () => {
-    expect(parsePlatformConfig({ ...stand, TBANK_PROVIDER_MODE: "test" }).tbank).toMatchObject({
-      environment: "local", cardBinding: { confirmed: true, checkType: "3DS" },
+    expect(
+      parsePlatformConfig({ ...stand, TBANK_PROVIDER_MODE: "test" }).tbank,
+    ).toMatchObject({
+      environment: "local",
+      cardBinding: { confirmed: true, checkType: "3DS" },
       notificationUrl: "http://127.0.0.1:3001/billing/tbank/notification",
       returnUrl: "http://127.0.0.1:3000/subscription/return",
-      endpoints: { apiBaseUrl: "http://127.0.0.1:8090/v2", formOrigins: ["http://127.0.0.1:8090"] },
+      endpoints: {
+        apiBaseUrl: "http://127.0.0.1:8090/v2",
+        formOrigins: ["http://127.0.0.1:8090"],
+      },
     });
-    expect(parsePlatformConfig({ ...stand, TBANK_PROVIDER_MODE: "test",
-      TBANK_TEST_API_BASE_URL: "http://bank-double:8090/v2",
-      TBANK_TEST_NOTIFICATION_URL: "http://api:3001/billing/tbank/notification" }).tbank).toMatchObject({
+    expect(
+      parsePlatformConfig({
+        ...stand,
+        TBANK_PROVIDER_MODE: "test",
+        TBANK_TEST_API_BASE_URL: "http://bank-double:8090/v2",
+        TBANK_TEST_NOTIFICATION_URL:
+          "http://api:3001/billing/tbank/notification",
+      }).tbank,
+    ).toMatchObject({
       notificationUrl: "http://api:3001/billing/tbank/notification",
       endpoints: { apiBaseUrl: "http://bank-double:8090/v2" },
     });
@@ -441,66 +511,182 @@ describe("bank payment contour", () => {
 
   it("accepts a terminal without card-only confirmations, because only subscription sale depends on them", () => {
     // Форма банка показывает все способы оплаты: разовой покупке это не мешает; подписку отклоняет billing.
-    const allMethods = { ...demoTerminal, recurringCardConfirmed: false, cardOnlyHostedConfirmed: false };
-    expect(parsePlatformConfig({ ...stand, TBANK_CONFIG_JSON: JSON.stringify(allMethods) }).tbank)
-      .toMatchObject({ recurringCardConfirmed: false, cardOnlyHostedConfirmed: false });
-    expect(parsePlatformConfig({ ...stand, TBANK_CONFIG_JSON: JSON.stringify({ ...allMethods, recurringCardConfirmed: true }) }).tbank)
-      .toMatchObject({ recurringCardConfirmed: true, cardOnlyHostedConfirmed: false });
-    expect(() => parsePlatformConfig({ ...stand, TBANK_CONFIG_JSON: JSON.stringify({ ...allMethods, cardOnlyHostedConfirmed: "yes" }) }))
-      .toThrow("Invalid TBANK_CONFIG_JSON; check the terminal capability and receipt configuration");
+    const allMethods = {
+      ...demoTerminal,
+      recurringCardConfirmed: false,
+      cardOnlyHostedConfirmed: false,
+    };
+    expect(
+      parsePlatformConfig({
+        ...stand,
+        TBANK_CONFIG_JSON: JSON.stringify(allMethods),
+      }).tbank,
+    ).toMatchObject({
+      recurringCardConfirmed: false,
+      cardOnlyHostedConfirmed: false,
+    });
+    expect(
+      parsePlatformConfig({
+        ...stand,
+        TBANK_CONFIG_JSON: JSON.stringify({
+          ...allMethods,
+          recurringCardConfirmed: true,
+        }),
+      }).tbank,
+    ).toMatchObject({
+      recurringCardConfirmed: true,
+      cardOnlyHostedConfirmed: false,
+    });
+    expect(() =>
+      parsePlatformConfig({
+        ...stand,
+        TBANK_CONFIG_JSON: JSON.stringify({
+          ...allMethods,
+          cardOnlyHostedConfirmed: "yes",
+        }),
+      }),
+    ).toThrow(
+      "Invalid TBANK_CONFIG_JSON; check the terminal capability and receipt configuration",
+    );
     // Подтверждение — явное утверждение владельца терминала: пропущенное поле не читается как «нет».
-    const { cardOnlyHostedConfirmed: _omitted, ...withoutConfirmation } = demoTerminal;
-    expect(() => parsePlatformConfig({ ...stand, TBANK_CONFIG_JSON: JSON.stringify(withoutConfirmation) }))
-      .toThrow("Invalid TBANK_CONFIG_JSON; check the terminal capability and receipt configuration");
+    const { cardOnlyHostedConfirmed: _omitted, ...withoutConfirmation } =
+      demoTerminal;
+    expect(() =>
+      parsePlatformConfig({
+        ...stand,
+        TBANK_CONFIG_JSON: JSON.stringify(withoutConfirmation),
+      }),
+    ).toThrow(
+      "Invalid TBANK_CONFIG_JSON; check the terminal capability and receipt configuration",
+    );
   });
 
   it("refuses the double in production and refuses a terminal beside it", () => {
-    expect(() => parsePlatformProcessConfig({ ...productionWorker, TBANK_PROVIDER_MODE: "test" }, "billing-worker"))
-      .toThrow("TBANK_PROVIDER_MODE must be real in production mode");
-    expect(parsePlatformProcessConfig(productionWorker, "billing-worker").tbank).toBeUndefined();
-    expect(() => parsePlatformConfig({ ...stand, TBANK_PROVIDER_MODE: "test", TBANK_CONFIG_JSON: JSON.stringify(demoTerminal) }))
-      .toThrow("TBANK_PROVIDER_MODE=test replaces TBANK_CONFIG_JSON; remove one of them");
+    expect(() =>
+      parsePlatformProcessConfig(
+        { ...productionWorker, TBANK_PROVIDER_MODE: "test" },
+        "billing-worker",
+      ),
+    ).toThrow("TBANK_PROVIDER_MODE must be real in production mode");
+    expect(
+      parsePlatformProcessConfig(productionWorker, "billing-worker").tbank,
+    ).toBeUndefined();
+    expect(() =>
+      parsePlatformConfig({
+        ...stand,
+        TBANK_PROVIDER_MODE: "test",
+        TBANK_CONFIG_JSON: JSON.stringify(demoTerminal),
+      }),
+    ).toThrow(
+      "TBANK_PROVIDER_MODE=test replaces TBANK_CONFIG_JSON; remove one of them",
+    );
   });
 });
 
 describe("notification delivery contour", () => {
   const stand = { NODE_ENV: "development" };
   it("accepts the stand loopback reader origin and requires HTTPS in production", () => {
-    const delivery = { NOTIFICATIONS_PLATFORM_ORIGIN: "http://127.0.0.1:3000", NOTIFICATIONS_TELEGRAM_SECRET: "inside-local-notification-dispatch-secret" };
-    expect(parsePlatformConfig({ ...stand, ...delivery }).notificationDelivery).toMatchObject({ origin: "http://127.0.0.1:3000" });
+    const delivery = {
+      NOTIFICATIONS_PLATFORM_ORIGIN: "http://127.0.0.1:3000",
+      NOTIFICATIONS_TELEGRAM_SECRET:
+        "inside-local-notification-dispatch-secret",
+    };
+    expect(
+      parsePlatformConfig({ ...stand, ...delivery }).notificationDelivery,
+    ).toMatchObject({ origin: "http://127.0.0.1:3000" });
     // Настроенной доставки может не быть вовсе: повод тогда ждёт, а не падает.
     expect(parsePlatformConfig(stand).notificationDelivery).toBeUndefined();
-    expect(() => parsePlatformProcessConfig({ ...productionWorker, ...delivery }, "notifications-worker"))
-      .toThrow("NOTIFICATIONS_PLATFORM_ORIGIN must use HTTPS in production mode");
-    expect(parsePlatformProcessConfig({ ...productionWorker, ...delivery,
-      NOTIFICATIONS_PLATFORM_ORIGIN: "https://inside.example.test" }, "notifications-worker").notificationDelivery)
-      .toMatchObject({ origin: "https://inside.example.test" });
+    expect(() =>
+      parsePlatformProcessConfig(
+        { ...productionWorker, ...delivery },
+        "notifications-worker",
+      ),
+    ).toThrow(
+      "NOTIFICATIONS_PLATFORM_ORIGIN must use HTTPS in production mode",
+    );
+    expect(
+      parsePlatformProcessConfig(
+        {
+          ...productionWorker,
+          ...delivery,
+          NOTIFICATIONS_PLATFORM_ORIGIN: "https://inside.example.test",
+        },
+        "notifications-worker",
+      ).notificationDelivery,
+    ).toMatchObject({ origin: "https://inside.example.test" });
   });
 
   it("keeps the notification dispatch credential apart from every other Telegram direction", () => {
     // Публичный адрес разрешения отправки защищён только этим credential: чужой не должен к нему подходить.
     const delivery = { NOTIFICATIONS_PLATFORM_ORIGIN: "http://127.0.0.1:3000" };
-    const communications = { TELEGRAM_COMMUNICATIONS_ENDPOINT: "http://127.0.0.1:3606/integrations/platform/v1/communications",
-      TELEGRAM_COMMUNICATIONS_SECRET: "communications-provider-secret-00000", TELEGRAM_AUTHOR_AUTHORIZATION_SECRET: "author-authorization-secret-0000000",
-      TELEGRAM_COMMUNICATIONS_BOT_IDENTITY: "inside_bot" };
+    const communications = {
+      TELEGRAM_COMMUNICATIONS_ENDPOINT:
+        "http://127.0.0.1:3606/integrations/platform/v1/communications",
+      TELEGRAM_COMMUNICATIONS_SECRET: "communications-provider-secret-00000",
+      TELEGRAM_AUTHOR_AUTHORIZATION_SECRET:
+        "author-authorization-secret-0000000",
+      TELEGRAM_COMMUNICATIONS_BOT_IDENTITY: "inside_bot",
+    };
     const reused = [
-      { TELEGRAM_EVIDENCE_INGRESS_SECRET: "shared-telegram-direction-secret-000000" },
+      {
+        TELEGRAM_EVIDENCE_INGRESS_SECRET:
+          "shared-telegram-direction-secret-000000",
+      },
       { TELEGRAM_LINKING_SECRET: "shared-telegram-direction-secret-000000" },
-      { TELEGRAM_ACTIVATION_INGRESS_SECRET: "shared-telegram-direction-secret-000000" },
-      { TELEGRAM_COMMUNITY_ENTITLEMENT_ENDPOINT: "https://telegram.example.test/integrations/platform/v1/community-entitlements",
-        TELEGRAM_COMMUNITY_ENTITLEMENT_SECRET: "community-provider-secret-0000000000", TELEGRAM_COMMUNITY_DISPATCH_SECRET: "shared-telegram-direction-secret-000000" },
-      { TELEGRAM_COMMUNITY_ENTITLEMENT_ENDPOINT: "https://telegram.example.test/integrations/platform/v1/community-entitlements",
-        TELEGRAM_COMMUNITY_ENTITLEMENT_SECRET: "shared-telegram-direction-secret-000000", TELEGRAM_COMMUNITY_DISPATCH_SECRET: "community-dispatch-secret-0000000000" },
-      { TELEGRAM_SIGN_IN_INTEGRATION_SECRET: "shared-telegram-direction-secret-000000" },
-      { ...communications, TELEGRAM_COMMUNICATIONS_SECRET: "shared-telegram-direction-secret-000000" },
-      { ...communications, TELEGRAM_AUTHOR_AUTHORIZATION_SECRET: "shared-telegram-direction-secret-000000" },
+      {
+        TELEGRAM_ACTIVATION_INGRESS_SECRET:
+          "shared-telegram-direction-secret-000000",
+      },
+      {
+        TELEGRAM_COMMUNITY_ENTITLEMENT_ENDPOINT:
+          "https://telegram.example.test/integrations/platform/v1/community-entitlements",
+        TELEGRAM_COMMUNITY_ENTITLEMENT_SECRET:
+          "community-provider-secret-0000000000",
+        TELEGRAM_COMMUNITY_DISPATCH_SECRET:
+          "shared-telegram-direction-secret-000000",
+      },
+      {
+        TELEGRAM_COMMUNITY_ENTITLEMENT_ENDPOINT:
+          "https://telegram.example.test/integrations/platform/v1/community-entitlements",
+        TELEGRAM_COMMUNITY_ENTITLEMENT_SECRET:
+          "shared-telegram-direction-secret-000000",
+        TELEGRAM_COMMUNITY_DISPATCH_SECRET:
+          "community-dispatch-secret-0000000000",
+      },
+      {
+        TELEGRAM_SIGN_IN_INTEGRATION_SECRET:
+          "shared-telegram-direction-secret-000000",
+      },
+      {
+        ...communications,
+        TELEGRAM_COMMUNICATIONS_SECRET:
+          "shared-telegram-direction-secret-000000",
+      },
+      {
+        ...communications,
+        TELEGRAM_AUTHOR_AUTHORIZATION_SECRET:
+          "shared-telegram-direction-secret-000000",
+      },
     ];
     for (const other of reused) {
-      expect(() => parsePlatformConfig({ ...stand, ...delivery, ...other, NOTIFICATIONS_TELEGRAM_SECRET: "shared-telegram-direction-secret-000000" }))
-        .toThrow("Notification dispatch requires a separate Telegram secret");
+      expect(() =>
+        parsePlatformConfig({
+          ...stand,
+          ...delivery,
+          ...other,
+          NOTIFICATIONS_TELEGRAM_SECRET:
+            "shared-telegram-direction-secret-000000",
+        }),
+      ).toThrow("Notification dispatch requires a separate Telegram secret");
     }
-    expect(parsePlatformConfig({ ...stand, ...delivery, TELEGRAM_EVIDENCE_INGRESS_SECRET: "evidence-direction-secret-00000000000",
-      NOTIFICATIONS_TELEGRAM_SECRET: "notification-direction-secret-000000" }).notificationDelivery).toBeDefined();
+    expect(
+      parsePlatformConfig({
+        ...stand,
+        ...delivery,
+        TELEGRAM_EVIDENCE_INGRESS_SECRET:
+          "evidence-direction-secret-00000000000",
+        NOTIFICATIONS_TELEGRAM_SECRET: "notification-direction-secret-000000",
+      }).notificationDelivery,
+    ).toBeDefined();
   });
-
 });

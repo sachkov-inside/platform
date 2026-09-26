@@ -66,7 +66,9 @@ async function stubAccount(
   } = {},
 ) {
   await page.route("**/auth/status", (route) =>
-    route.fulfill({ json: { canManageMaterials: false, state: "authenticated" } }),
+    route.fulfill({
+      json: { canManageMaterials: false, state: "authenticated" },
+    }),
   );
   await page.route("**/api/account", (route) =>
     route.fulfill({
@@ -81,16 +83,24 @@ async function stubAccount(
   );
   await page.route("**/api/account/billing", (route) =>
     route.fulfill({
-      json: { ok: true, value: { subscription, notices: [], grounds, payments: [] } },
+      json: {
+        ok: true,
+        value: { subscription, notices: [], grounds, payments: [] },
+      },
     }),
   );
-  await page.route("**/api/account/billing/enrollments", route => route.fulfill({ json: { ok: true, value: { items: [] } } }));
+  await page.route("**/api/account/billing/enrollments", (route) =>
+    route.fulfill({ json: { ok: true, value: { items: [] } } }),
+  );
   await page.route("**/api/account/billing/contact", (route) =>
     route.fulfill({ json: { ok: true, contact: contact(), documents: [] } }),
   );
   await page.route("**/api/account/notifications/preferences", (route) =>
     route.fulfill({
-      json: { ok: true, preferences: { revision: 2, email: false, telegram: false } },
+      json: {
+        ok: true,
+        preferences: { revision: 2, email: false, telegram: false },
+      },
     }),
   );
 }
@@ -105,7 +115,9 @@ function navigationMode(projectName: string): "desktop" | "mobile" {
   throw new Error(`No navigation mode configured for ${projectName}`);
 }
 
-test("прежний адрес формы email открывает раздел «Покупки»", async ({ page }) => {
+test("прежний адрес формы email открывает раздел «Покупки»", async ({
+  page,
+}) => {
   await stubAccount(page);
 
   const response = await page.goto("/account/email");
@@ -138,7 +150,10 @@ test("отказ по расхождению редакции показывае
 });
 
 test("каждый раздел решает одну задачу", async ({ page }) => {
-  await stubAccount(page, { grounds: [paidGround], subscription: activeSubscription });
+  await stubAccount(page, {
+    grounds: [paidGround],
+    subscription: activeSubscription,
+  });
 
   await page.goto("/account");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Профиль");
@@ -154,19 +169,27 @@ test("каждый раздел решает одну задачу", async ({ pa
     page.getByRole("button", { name: "Выйти из аккаунта" }),
   ).toBeVisible();
   // Продающий блок ушёл из кабинета вместе с внешней ссылкой на Tribute.
-  await expect(page.getByRole("link", { name: "Получить доступ" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Получить доступ" })).toHaveCount(
+    0,
+  );
 
   await page.goto("/account/purchases");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Покупки");
   await expect(page.getByText("Оплаченный доступ")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Способ оплаты" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Способ оплаты" }),
+  ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Отменить продление" }),
   ).toHaveCount(0);
 
   await page.goto("/account/notifications");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Уведомления");
-  await expect(page.getByRole("checkbox", { name: /Email/u })).not.toBeChecked();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "Уведомления",
+  );
+  await expect(
+    page.getByRole("checkbox", { name: /Email/u }),
+  ).not.toBeChecked();
   await expect(page.getByRole("button", { name: "Сохранить" })).toBeDisabled();
 });
 
@@ -181,8 +204,12 @@ test("кабинет полезен без подписки и не предла
   const navigation = cabinetNavigation(page, mode);
   if (mode === "mobile")
     await page.getByRole("button", { name: /Личный кабинет/u }).click();
-  await expect(navigation.getByRole("link", { name: /Покупки/u })).toBeVisible();
-  await expect(navigation.getByRole("link", { name: /Подписка/u })).toHaveCount(0);
+  await expect(
+    navigation.getByRole("link", { name: /Покупки/u }),
+  ).toBeVisible();
+  await expect(navigation.getByRole("link", { name: /Подписка/u })).toHaveCount(
+    0,
+  );
   await expect(
     page.getByText("Действующих оснований доступа нет."),
   ).toBeVisible();
@@ -192,7 +219,10 @@ test("раздел «Подписка» появляется, когда под�
   page,
 }, testInfo) => {
   const mode = navigationMode(testInfo.project.name);
-  await stubAccount(page, { grounds: [paidGround], subscription: activeSubscription });
+  await stubAccount(page, {
+    grounds: [paidGround],
+    subscription: activeSubscription,
+  });
 
   await page.goto("/account/purchases");
 
@@ -222,11 +252,17 @@ test("завершённая подписка не возвращает разд
   const navigation = cabinetNavigation(page, mode);
   if (mode === "mobile")
     await page.getByRole("button", { name: /Личный кабинет/u }).click();
-  await expect(navigation.getByRole("link", { name: /Покупки/u })).toBeVisible();
-  await expect(navigation.getByRole("link", { name: /Подписка/u })).toHaveCount(0);
+  await expect(
+    navigation.getByRole("link", { name: /Покупки/u }),
+  ).toBeVisible();
+  await expect(navigation.getByRole("link", { name: /Подписка/u })).toHaveCount(
+    0,
+  );
 });
 
-test("оболочка напоминает о неподключённом Telegram", async ({ page }, testInfo) => {
+test("оболочка напоминает о неподключённом Telegram", async ({
+  page,
+}, testInfo) => {
   const mode = navigationMode(testInfo.project.name);
   await stubAccount(page, { telegram: "unlinked" });
 
@@ -239,7 +275,9 @@ test("оболочка напоминает о неподключённом Tele
     await expect(reminder).toBeVisible();
 
     // Окно открывается поверх текущей страницы: маршрут не меняется.
-    await page.getByRole("button", { name: "Закрыть подключение Telegram" }).click();
+    await page
+      .getByRole("button", { name: "Закрыть подключение Telegram" })
+      .click();
     await reminder.click();
 
     await expect(
@@ -256,7 +294,9 @@ test("оболочка напоминает о неподключённом Tele
   }
 });
 
-test("подключённый Telegram не оставляет напоминания", async ({ page }, testInfo) => {
+test("подключённый Telegram не оставляет напоминания", async ({
+  page,
+}, testInfo) => {
   test.skip(navigationMode(testInfo.project.name) !== "desktop");
   await stubAccount(page);
 
@@ -315,7 +355,9 @@ test("возврат во вкладку не прячет продолжени�
   );
 
   await page.goto("/account");
-  const continuation = page.getByRole("heading", { name: "Продолжить обучение" });
+  const continuation = page.getByRole("heading", {
+    name: "Продолжить обучение",
+  });
   await expect(continuation).toBeVisible();
   await page.evaluate(() => {
     const record = window as Window & { learningContinuationLost?: boolean };
@@ -336,7 +378,9 @@ test("возврат во вкладку не прячет продолжени�
   await expect(continuation).toBeVisible();
   expect(
     await page.evaluate(
-      () => (window as Window & { learningContinuationLost?: boolean }).learningContinuationLost,
+      () =>
+        (window as Window & { learningContinuationLost?: boolean })
+          .learningContinuationLost,
     ),
     "блок не пропадал, пока вход перепроверялся",
   ).toBe(false);
@@ -365,7 +409,10 @@ test("список разделов на телефоне открывается
 });
 
 test("кабинет не имеет серьёзных нарушений доступности", async ({ page }) => {
-  await stubAccount(page, { grounds: [paidGround], subscription: activeSubscription });
+  await stubAccount(page, {
+    grounds: [paidGround],
+    subscription: activeSubscription,
+  });
   await page.goto("/account/purchases");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Покупки");
 
@@ -423,7 +470,9 @@ async function confirmContactOn(
   );
   await page.route("**/api/account/billing/contact/confirm", (route) => {
     state.confirm();
-    void route.fulfill({ json: { ok: true, revision: verifiedContact.revision } });
+    void route.fulfill({
+      json: { ok: true, revision: verifiedContact.revision },
+    });
   });
   await page.goto("/account/purchases");
   await page.getByLabel("Email", { exact: true }).fill(verifiedContact.email);
@@ -432,7 +481,9 @@ async function confirmContactOn(
   await page
     .getByRole("button", { name: "Подтвердить email", exact: true })
     .click();
-  await expect(page.getByText("Email подтверждён.", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Email подтверждён.", { exact: true }),
+  ).toBeVisible();
 }
 
 test("подтверждение обновляет кабинет, открытый второй поверхностью", async ({
@@ -451,7 +502,9 @@ test("подтверждение обновляет кабинет, открыт
   await confirmContactOn(other, state);
 
   // Первый экран после письма не должен спорить с только что подтверждённым адресом.
-  await expect(page.getByText(verifiedContact.email, { exact: true })).toBeVisible();
+  await expect(
+    page.getByText(verifiedContact.email, { exact: true }),
+  ).toBeVisible();
   await expect(page.getByText("Email пока не подтверждён.")).toHaveCount(0);
 });
 
@@ -505,10 +558,14 @@ test("объявление уходит раньше собственного п
   await stubAccount(other, { contact: state.read });
   await confirmContactOn(other, state, { stallOwnReread: true });
 
-  await expect(page.getByText(verifiedContact.email, { exact: true })).toBeVisible();
+  await expect(
+    page.getByText(verifiedContact.email, { exact: true }),
+  ).toBeVisible();
 });
 
-test("без объявлений подтвердившая поверхность обновляется сама", async ({ page }) => {
+test("без объявлений подтвердившая поверхность обновляется сама", async ({
+  page,
+}) => {
   const state = contactState();
   await stubAccount(page, { contact: state.read });
   // Браузер без BroadcastChannel: соседние поверхности такое подтверждение не услышат, но та,
@@ -519,7 +576,9 @@ test("без объявлений подтвердившая поверхнос�
 
   await confirmContactOn(page, state);
 
-  await expect(page.getByText(verifiedContact.email, { exact: true })).toBeVisible();
+  await expect(
+    page.getByText(verifiedContact.email, { exact: true }),
+  ).toBeVisible();
   await expect(page.getByText("Email пока не подтверждён.")).toHaveCount(0);
 });
 
@@ -544,7 +603,10 @@ function renewalState() {
     },
   });
   return async (page: Page) => {
-    await stubAccount(page, { grounds: [paidGround], subscription: activeSubscription });
+    await stubAccount(page, {
+      grounds: [paidGround],
+      subscription: activeSubscription,
+    });
     await page.route("**/api/account/billing", (route) =>
       route.fulfill({ json: billing() }),
     );
@@ -560,18 +622,25 @@ function channelsState() {
   const state = { revision: 2, email: false };
   const read = () => ({
     ok: true,
-    preferences: { revision: state.revision, email: state.email, telegram: false },
+    preferences: {
+      revision: state.revision,
+      email: state.email,
+      telegram: false,
+    },
   });
   return async (page: Page) => {
     await stubAccount(page);
     await page.route("**/api/account/notifications/preferences", (route) =>
       route.fulfill({ json: read() }),
     );
-    await page.route("**/api/account/notifications/preferences/change", (route) => {
-      state.revision += 1;
-      state.email = true;
-      void route.fulfill({ json: read() });
-    });
+    await page.route(
+      "**/api/account/notifications/preferences/change",
+      (route) => {
+        state.revision += 1;
+        state.email = true;
+        void route.fulfill({ json: read() });
+      },
+    );
   };
 }
 
@@ -584,17 +653,25 @@ test("отмена продления меняет раздел «Подписк
 
   // Раздел открыт заранее и остаётся открытым: отмена произойдёт не в нём.
   await page.goto("/account/subscription");
-  await expect(page.getByRole("button", { name: "Отменить продление" })).toBeEnabled();
+  await expect(
+    page.getByRole("button", { name: "Отменить продление" }),
+  ).toBeEnabled();
 
   const other = await context.newPage();
   await stubRenewal(other);
   await other.goto("/account/subscription");
   await other.getByRole("button", { name: "Отменить продление" }).click();
-  await expect(other.getByRole("button", { name: "Возобновить автопродление" })).toBeVisible();
+  await expect(
+    other.getByRole("button", { name: "Возобновить автопродление" }),
+  ).toBeVisible();
 
   // Первый раздел не должен предлагать отменить уже отменённое продление.
-  await expect(page.getByRole("button", { name: "Возобновить автопродление" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Отменить продление" })).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Возобновить автопродление" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Отменить продление" }),
+  ).toHaveCount(0);
 });
 
 test("сохранённый выбор каналов виден во второй открытой поверхности", async ({
@@ -613,7 +690,9 @@ test("сохранённый выбор каналов виден во втор�
   await other.goto("/account/notifications");
   await other.getByRole("checkbox", { name: /Email/u }).check();
   await other.getByRole("button", { name: "Сохранить" }).click();
-  await expect(other.getByText("Выбор сохранён.", { exact: true })).toBeVisible();
+  await expect(
+    other.getByText("Выбор сохранён.", { exact: true }),
+  ).toBeVisible();
 
   await expect(email).toBeChecked();
 });
@@ -633,7 +712,9 @@ test("отказ по расхождению редакции настроек �
 
   // Ожидание берётся у того же источника, что и экран: копия строки здесь пережила бы смену текста.
   await expect(
-    page.getByText(notificationErrorMessage("revision_conflict"), { exact: true }),
+    page.getByText(notificationErrorMessage("revision_conflict"), {
+      exact: true,
+    }),
   ).toBeVisible();
 });
 
@@ -646,7 +727,10 @@ test("начатая привязка карты видна в разделе «
   const state = { started: false };
   const flowRef = "00000000-0000-4000-8000-000000000701";
   const stubMethod = async (target: Page) => {
-    await stubAccount(target, { grounds: [paidGround], subscription: activeSubscription });
+    await stubAccount(target, {
+      grounds: [paidGround],
+      subscription: activeSubscription,
+    });
     await target.route("**/api/account/billing", (route) =>
       route.fulfill({
         json: {
@@ -654,7 +738,9 @@ test("начатая привязка карты видна в разделе «
           value: {
             subscription: {
               ...activeSubscription,
-              pendingMethodChange: state.started ? { flowRef, formUrl: null } : null,
+              pendingMethodChange: state.started
+                ? { flowRef, formUrl: null }
+                : null,
             },
             notices: [],
             grounds: [paidGround],
@@ -663,18 +749,31 @@ test("начатая привязка карты видна в разделе «
         },
       }),
     );
-    await target.route("**/api/account/billing/payment-method/change", (route) => {
-      state.started = true;
-      void route.fulfill({
-        json: { ok: true, value: { flowRef, formUrl: null, methodRef: null, state: "started" } },
-      });
-    });
+    await target.route(
+      "**/api/account/billing/payment-method/change",
+      (route) => {
+        state.started = true;
+        void route.fulfill({
+          json: {
+            ok: true,
+            value: {
+              flowRef,
+              formUrl: null,
+              methodRef: null,
+              state: "started",
+            },
+          },
+        });
+      },
+    );
   };
   const started = /Начата привязка нового способа оплаты/u;
 
   await stubMethod(page);
   await page.goto("/account/purchases");
-  await expect(page.getByRole("button", { name: "Привязать другую карту" })).toBeEnabled();
+  await expect(
+    page.getByRole("button", { name: "Привязать другую карту" }),
+  ).toBeEnabled();
   await expect(page.getByText(started)).toHaveCount(0);
 
   const other = await context.newPage();
@@ -686,7 +785,9 @@ test("начатая привязка карты видна в разделе «
   await expect(page.getByText(started)).toBeVisible();
 });
 
-test("без объявлений записавшая поверхность обновляется сама", async ({ context }) => {
+test("без объявлений записавшая поверхность обновляется сама", async ({
+  context,
+}) => {
   // Браузер без BroadcastChannel: соседние поверхности запись не услышат, но та, где её
   // совершили, обязана показать новый ответ.
   await context.addInitScript(() => {
@@ -696,7 +797,9 @@ test("без объявлений записавшая поверхность о
   const subscription = await context.newPage();
   await renewalState()(subscription);
   await subscription.goto("/account/subscription");
-  await subscription.getByRole("button", { name: "Отменить продление" }).click();
+  await subscription
+    .getByRole("button", { name: "Отменить продление" })
+    .click();
   await expect(
     subscription.getByRole("button", { name: "Возобновить автопродление" }),
   ).toBeVisible();
@@ -709,22 +812,62 @@ test("без объявлений записавшая поверхность о
   await expect(
     notifications.getByText("Выбор сохранён.", { exact: true }),
   ).toBeVisible();
-  await expect(notifications.getByRole("checkbox", { name: /Email/u })).toBeChecked();
+  await expect(
+    notifications.getByRole("checkbox", { name: /Email/u }),
+  ).toBeChecked();
 });
 
-for (const [state, label] of [["scheduled", "Начнётся позже"], ["expired", "Срок завершён"], ["revoked", "Отозвано"]] as const) {
-  test(`назначение ${state} доступно из профиля без платёжной подписки`, async ({ page }, info) => {
+for (const [state, label] of [
+  ["scheduled", "Начнётся позже"],
+  ["expired", "Срок завершён"],
+  ["revoked", "Отозвано"],
+] as const) {
+  test(`назначение ${state} доступно из профиля без платёжной подписки`, async ({
+    page,
+  }, info) => {
     await stubAccount(page);
-    await page.route("**/api/account/billing/enrollments", route => route.fulfill({ json: { ok: true, value: { items: [{
-      id: "00000000-0000-4000-8000-000000000624", accountId: "00000000-0000-4000-8000-000000000625",
-      tier: { id: "00000000-0000-4000-8000-000000000626", revision: 1, name: "История тарифа", benefits: ["community"], contentScope: { guideIds: [], materialIds: [] } },
-      origin: "manual", startsAt: "2030-01-01T00:00:00.000Z", endsAt: "2030-02-01T00:00:00.000Z", endPolicy: "fixed", revision: 1, state, renewal: "not_applicable", nextChargeAt: null,
-    }] } } }));
+    await page.route("**/api/account/billing/enrollments", (route) =>
+      route.fulfill({
+        json: {
+          ok: true,
+          value: {
+            items: [
+              {
+                id: "00000000-0000-4000-8000-000000000624",
+                accountId: "00000000-0000-4000-8000-000000000625",
+                tier: {
+                  id: "00000000-0000-4000-8000-000000000626",
+                  revision: 1,
+                  name: "История тарифа",
+                  benefits: ["community"],
+                  contentScope: { guideIds: [], materialIds: [] },
+                },
+                origin: "manual",
+                startsAt: "2030-01-01T00:00:00.000Z",
+                endsAt: "2030-02-01T00:00:00.000Z",
+                endPolicy: "fixed",
+                revision: 1,
+                state,
+                renewal: "not_applicable",
+                nextChargeAt: null,
+              },
+            ],
+          },
+        },
+      }),
+    );
     await page.goto("/account");
     const mode = navigationMode(info.project.name);
-    if (mode === "mobile") await page.getByRole("button", { name: /Личный кабинет/u }).click();
-    await cabinetNavigation(page, mode).getByRole("link", { name: /Подписка/u }).click();
-    await expect(page.getByRole("heading", { name: "История тарифа", exact: true })).toBeVisible();
-    await expect(page.getByRole("article").getByText(label, { exact: true })).toBeVisible();
+    if (mode === "mobile")
+      await page.getByRole("button", { name: /Личный кабинет/u }).click();
+    await cabinetNavigation(page, mode)
+      .getByRole("link", { name: /Подписка/u })
+      .click();
+    await expect(
+      page.getByRole("heading", { name: "История тарифа", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("article").getByText(label, { exact: true }),
+    ).toBeVisible();
   });
 }

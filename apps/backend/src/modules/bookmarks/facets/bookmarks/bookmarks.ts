@@ -11,17 +11,31 @@ import { removeBookmark } from "../../features/remove-bookmark/remove-bookmark.j
 import type { RemoveBookmarkCommand } from "../../features/remove-bookmark/remove-bookmark.contract.js";
 
 export class Bookmarks {
-  constructor(private readonly dependencies: {
-    readonly prisma: BookmarksPrismaClient;
-    readonly contentAccess: Pick<ContentAccess, "authorize" | "checkAvailabilityMany">;
-    readonly selection: Pick<PublishedMaterialSelection, "read">;
-    readonly videos: Pick<Videos, "loadReadyDurations">;
-  }) {}
+  constructor(
+    private readonly dependencies: {
+      readonly prisma: BookmarksPrismaClient;
+      readonly contentAccess: Pick<
+        ContentAccess,
+        "authorize" | "checkAvailabilityMany"
+      >;
+      readonly selection: Pick<PublishedMaterialSelection, "read">;
+      readonly videos: Pick<Videos, "loadReadyDurations">;
+    },
+  ) {}
 
-  addBookmark(command: AddBookmarkCommand) { return addBookmark(this.dependencies, command); }
-  removeBookmark(command: RemoveBookmarkCommand) { return removeBookmark(this.dependencies.prisma, command); }
-  getBookmarkStates(query: { readonly accountId: string; readonly materialIds: readonly string[] }) {
+  addBookmark(command: AddBookmarkCommand) {
+    return addBookmark(this.dependencies, command);
+  }
+  removeBookmark(command: RemoveBookmarkCommand) {
+    return removeBookmark(this.dependencies.prisma, command);
+  }
+  getBookmarkStates(query: {
+    readonly accountId: string;
+    readonly materialIds: readonly string[];
+  }) {
     return getBookmarkStates(this.dependencies.prisma, query);
   }
-  listBookmarks(query: ListBookmarksQuery) { return listBookmarks(this.dependencies, query); }
+  listBookmarks(query: ListBookmarksQuery) {
+    return listBookmarks(this.dependencies, query);
+  }
 }

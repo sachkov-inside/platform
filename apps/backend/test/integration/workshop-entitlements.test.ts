@@ -76,9 +76,11 @@ describe("WorkshopEntitlements Membership projection", () => {
       { ok: true, outcome: "applied", state: "active", evidenceVersion: 2 },
     ]);
     await expect(
-      database.prisma.workshopMembershipEntitlementProjection.findUniqueOrThrow({
-        where: { accountId: learnerAccountId },
-      }),
+      database.prisma.workshopMembershipEntitlementProjection.findUniqueOrThrow(
+        {
+          where: { accountId: learnerAccountId },
+        },
+      ),
     ).resolves.toMatchObject({
       decision: "member",
       evidenceVersion: 2n,
@@ -117,18 +119,15 @@ describe("WorkshopEntitlements Membership projection", () => {
         accountId: learnerAccountId,
         deliveryId: "workshop-access-delayed-replay",
         source: "reconciliation",
-        evidence: evidence(
-          "member",
-          2,
-          now,
-          "2030-04-01T00:14:00.000Z",
-        ),
+        evidence: evidence("member", 2, now, "2030-04-01T00:14:00.000Z"),
       }),
     ).resolves.toEqual({ ok: false, error: { code: "replayed_evidence" } });
     await expect(
-      database.prisma.workshopMembershipEntitlementProjection.findUniqueOrThrow({
-        where: { accountId: learnerAccountId },
-      }),
+      database.prisma.workshopMembershipEntitlementProjection.findUniqueOrThrow(
+        {
+          where: { accountId: learnerAccountId },
+        },
+      ),
     ).resolves.toMatchObject({ decision: "not_member", evidenceVersion: 3n });
   });
 

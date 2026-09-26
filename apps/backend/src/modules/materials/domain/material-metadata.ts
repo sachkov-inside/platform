@@ -1,6 +1,9 @@
 import { z } from "zod";
 
-import { materialFormatSchema, type MaterialFormat } from "./material-format.js";
+import {
+  materialFormatSchema,
+  type MaterialFormat,
+} from "./material-format.js";
 
 import type { Result } from "../result.js";
 import type { ValidationIssue } from "./material-body/material-body.js";
@@ -9,7 +12,11 @@ import { normalizedUuidSchema } from "./uuid.js";
 export type MaterialAccess = "free" | "membership" | "workshop";
 
 /** How hard a lesson is for the reader who opens it. */
-export const materialDifficulties = ["basic", "intermediate", "advanced"] as const;
+export const materialDifficulties = [
+  "basic",
+  "intermediate",
+  "advanced",
+] as const;
 
 export const materialDifficultySchema = z.enum(materialDifficulties);
 
@@ -44,16 +51,17 @@ export interface MaterialMetadataValues {
   readonly seriesMemberships: readonly GuideMembership[];
 }
 
-export interface MaterialMetadataSelectionValues
-  extends Omit<MaterialMetadataValues, "seriesMemberships" | "slug"> {
+export interface MaterialMetadataSelectionValues extends Omit<
+  MaterialMetadataValues,
+  "seriesMemberships" | "slug"
+> {
   readonly seriesIds: readonly string[];
 }
 
-export interface PublishableMaterialMetadata
-  extends Omit<
-    MaterialMetadataValues,
-    "formatId" | "slug" | "summary" | "title" | "topicId"
-  > {
+export interface PublishableMaterialMetadata extends Omit<
+  MaterialMetadataValues,
+  "formatId" | "slug" | "summary" | "title" | "topicId"
+> {
   readonly formatId: MaterialFormat;
   readonly slug: string;
   readonly summary: string;
@@ -129,7 +137,10 @@ export class MaterialMetadataSelection {
     }
     const duplicateTag = findDuplicate(parsed.data.tagIds);
     if (duplicateTag !== undefined) {
-      return { ok: false, error: { code: "duplicate_tag", tagId: duplicateTag } };
+      return {
+        ok: false,
+        error: { code: "duplicate_tag", tagId: duplicateTag },
+      };
     }
     if (findDuplicate(parsed.data.seriesIds) !== undefined) {
       return {
@@ -168,7 +179,9 @@ export class MaterialMetadataSelection {
       seriesMemberships,
     });
     if (!metadata.ok) {
-      throw new TypeError("Validated metadata selection could not be materialized");
+      throw new TypeError(
+        "Validated metadata selection could not be materialized",
+      );
     }
     return metadata.value;
   }
@@ -198,7 +211,9 @@ export class MaterialMetadata {
     Object.freeze(this);
   }
 
-  static create(input: unknown): Result<MaterialMetadata, MaterialMetadataValidationError> {
+  static create(
+    input: unknown,
+  ): Result<MaterialMetadata, MaterialMetadataValidationError> {
     const parsed = metadataSchema.safeParse(input);
     if (!parsed.success) {
       return invalidMetadata(parsed.error.issues);
@@ -206,7 +221,10 @@ export class MaterialMetadata {
 
     const duplicateTag = findDuplicate(parsed.data.tagIds);
     if (duplicateTag !== undefined) {
-      return { ok: false, error: { code: "duplicate_tag", tagId: duplicateTag } };
+      return {
+        ok: false,
+        error: { code: "duplicate_tag", tagId: duplicateTag },
+      };
     }
     if (
       findDuplicate(
@@ -245,7 +263,10 @@ export class MaterialMetadata {
 
   validateAuthoringCompleteness(): Result<
     undefined,
-    Extract<MaterialMetadataValidationError, { readonly code: "invalid_content" }>
+    Extract<
+      MaterialMetadataValidationError,
+      { readonly code: "invalid_content" }
+    >
   > {
     const issues = requiredPublicationIssues(this, false);
     return issues.length === 0
@@ -255,7 +276,10 @@ export class MaterialMetadata {
 
   validateForPublication(): Result<
     PublishableMaterialMetadata,
-    Extract<MaterialMetadataValidationError, { readonly code: "invalid_content" }>
+    Extract<
+      MaterialMetadataValidationError,
+      { readonly code: "invalid_content" }
+    >
   > {
     const issues = requiredPublicationIssues(this, true);
     if (issues.length > 0) {
@@ -319,7 +343,8 @@ function requiredPublicationIssues(
       : []),
     // Закрытое живёт внутри продуктов: закрытый материал без руководства купить негде, и открыть
     // его было бы нечем, кроме ручного состава тарифа.
-    ...(metadata.access === "membership" && metadata.seriesMemberships.length === 0
+    ...(metadata.access === "membership" &&
+    metadata.seriesMemberships.length === 0
       ? [{ code: "membership_outside_product", path: "/metadata/seriesIds" }]
       : []),
   ];

@@ -263,9 +263,9 @@ describe("MembershipEntitlements", () => {
     await expect(
       membershipEntitlements.acceptEvidence(misroutedEvent),
     ).resolves.toEqual({ ok: false, error: { code: "unavailable" } });
-    await expect(
-      testDatabase.prisma.membershipBinding.count(),
-    ).resolves.toBe(0);
+    await expect(testDatabase.prisma.membershipBinding.count()).resolves.toBe(
+      0,
+    );
     await expect(
       testDatabase.prisma.membershipEvidenceReceipt.findUniqueOrThrow({
         where: { deliveryId: misroutedEvent.deliveryId },
@@ -343,9 +343,9 @@ describe("MembershipEntitlements", () => {
       evidence: observedEvidence("retry-principal", "not_member", 2),
     };
 
-    await expect(
-      membershipEntitlements.acceptEvidence(event),
-    ).resolves.toEqual({ ok: false, error: { code: "unavailable" } });
+    await expect(membershipEntitlements.acceptEvidence(event)).resolves.toEqual(
+      { ok: false, error: { code: "unavailable" } },
+    );
     await expect(
       accept(
         membershipEntitlements,
@@ -400,7 +400,8 @@ describe("MembershipEntitlements", () => {
       "link_time",
       observedEvidence("local-read-principal", "member", 1),
     );
-    const receiptCount = await testDatabase.prisma.membershipEvidenceReceipt.count();
+    const receiptCount =
+      await testDatabase.prisma.membershipEvidenceReceipt.count();
 
     await expect(
       Promise.all(
@@ -418,9 +419,10 @@ describe("MembershipEntitlements", () => {
       testDatabase.prisma.membershipEvidenceReceipt.count(),
     ).resolves.toBe(receiptCount);
 
-    const receipt = await testDatabase.prisma.membershipEvidenceReceipt.findUniqueOrThrow({
-      where: { deliveryId: "local-read-link" },
-    });
+    const receipt =
+      await testDatabase.prisma.membershipEvidenceReceipt.findUniqueOrThrow({
+        where: { deliveryId: "local-read-link" },
+      });
     expect(receipt.retainUntil.toISOString()).toBe("2030-01-31T00:04:00.000Z");
     const columns = columnRowsSchema.parse(
       await testDatabase.prisma.$queryRaw`
@@ -434,7 +436,9 @@ describe("MembershipEntitlements", () => {
     expect(columns.map(({ column_name }) => column_name)).not.toContain(
       "telegram_identity_ref",
     );
-    expect(columns.map(({ column_name }) => column_name)).not.toContain("payload");
+    expect(columns.map(({ column_name }) => column_name)).not.toContain(
+      "payload",
+    );
   });
 });
 
@@ -452,7 +456,12 @@ async function exerciseFixture(
         "link_time",
         observedEvidence("principal-ref-a", "member", 4),
       );
-      await acceptFixture(membershipEntitlements, targetAccountId, fixture, "member_status_event");
+      await acceptFixture(
+        membershipEntitlements,
+        targetAccountId,
+        fixture,
+        "member_status_event",
+      );
       await expect(
         membershipEntitlements.resolveForAccess(targetAccountId),
       ).resolves.toEqual({ kind: "expired" });
@@ -465,7 +474,12 @@ async function exerciseFixture(
         "link_time",
         observedEvidence("principal-ref-a", "not_member", 5),
       );
-      await acceptFixture(membershipEntitlements, targetAccountId, fixture, "reconciliation");
+      await acceptFixture(
+        membershipEntitlements,
+        targetAccountId,
+        fixture,
+        "reconciliation",
+      );
       await expect(
         membershipEntitlements.resolveForAccess(targetAccountId),
       ).resolves.toMatchObject({ kind: "active" });
@@ -476,7 +490,11 @@ async function exerciseFixture(
         targetAccountId,
         `${fixture.name}-seed`,
         "link_time",
-        observedEvidence(fixture.requestPrincipalRef ?? "principal-ref-b", "member", 1),
+        observedEvidence(
+          fixture.requestPrincipalRef ?? "principal-ref-b",
+          "member",
+          1,
+        ),
       );
       return resultCode(
         await acceptFixture(
@@ -512,7 +530,9 @@ async function exerciseFixture(
       await expect(
         membershipEntitlements.resolveForAccess(targetAccountId),
       ).resolves.toMatchObject({ kind: "active" });
-      return result.ok && result.outcome === "applied" && result.state === "active"
+      return result.ok &&
+        result.outcome === "applied" &&
+        result.state === "active"
         ? "accept_member"
         : resultCode(result);
     }
@@ -523,7 +543,9 @@ async function exerciseFixture(
         fixture,
         "link_time",
       );
-      return result.ok && result.outcome === "applied" && result.state === "non_member"
+      return result.ok &&
+        result.outcome === "applied" &&
+        result.state === "non_member"
         ? "accept_not_member"
         : resultCode(result);
     }

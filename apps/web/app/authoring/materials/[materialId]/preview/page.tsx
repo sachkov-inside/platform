@@ -15,7 +15,9 @@ export default async function Page({
   searchParams,
 }: {
   readonly params: Promise<{ readonly materialId: string }>;
-  readonly searchParams: Promise<{ readonly from?: string | readonly string[] }>;
+  readonly searchParams: Promise<{
+    readonly from?: string | readonly string[];
+  }>;
 }) {
   const [{ materialId }, query] = await Promise.all([params, searchParams]);
   return (

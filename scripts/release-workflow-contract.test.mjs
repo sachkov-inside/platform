@@ -29,17 +29,24 @@ describe("ordinal release workflow contract", () => {
     assert.match(planScript, /git\/ref\/heads\/main/u);
     assert.match(planScript, /immutable-releases/u);
     assert.ok(
-      plan.indexOf("unset RELEASE_SETTINGS_READ_TOKEN") > plan.indexOf("bash scripts/plan-release.sh") &&
-        plan.indexOf("unset RELEASE_SETTINGS_READ_TOKEN") < plan.indexOf('echo "image_matrix='),
+      plan.indexOf("unset RELEASE_SETTINGS_READ_TOKEN") >
+        plan.indexOf("bash scripts/plan-release.sh") &&
+        plan.indexOf("unset RELEASE_SETTINGS_READ_TOKEN") <
+          plan.indexOf('echo "image_matrix='),
       "the calling shell must remove settings access before its output-processing commands",
     );
     assert.match(ci, /^ {4}uses: \.\/\.github\/workflows\/ci\.yml$/mu);
-    assert.match(ci, /source_sha: \$\{\{ needs\.plan\.outputs\.source_sha \}\}/u);
+    assert.match(
+      ci,
+      /source_sha: \$\{\{ needs\.plan\.outputs\.source_sha \}\}/u,
+    );
     // Every checkout of the reusable path verifies the captured SHA, however many jobs there are.
-    const checkouts = ciWorkflow.match(/uses: actions\/checkout@/gu)?.length ?? 0;
+    const checkouts =
+      ciWorkflow.match(/uses: actions\/checkout@/gu)?.length ?? 0;
     assert.ok(checkouts > 0);
     assert.equal(
-      ciWorkflow.match(/ref: \$\{\{ inputs\.source_sha \|\| github\.sha \}\}/gu)?.length,
+      ciWorkflow.match(/ref: \$\{\{ inputs\.source_sha \|\| github\.sha \}\}/gu)
+        ?.length,
       checkouts,
     );
     assert.match(
@@ -69,7 +76,10 @@ describe("ordinal release workflow contract", () => {
   it("binds the runtime bundle and exact previous image proof before publication", () => {
     const finalize = jobBlock(releaseWorkflow, "finalize");
 
-    assert.equal(releaseWorkflow.match(/bash scripts\/plan-release\.sh/gu)?.length, 2);
+    assert.equal(
+      releaseWorkflow.match(/bash scripts\/plan-release\.sh/gu)?.length,
+      2,
+    );
     assert.match(finalize, /build-production-runtime-bundle\.sh/u);
     assert.match(finalize, /release-contract\.mjs image-reference/u);
     assert.match(finalize, /release-schema-identity\.sh/u);
@@ -87,7 +97,9 @@ describe("ordinal release workflow contract", () => {
     assert.match(finalize, /release-assets\/production-runtime\.tar\.gz/u);
     assert.doesNotMatch(releaseWorkflow, /:latest|--clobber/u);
     assert.deepEqual(
-      [...releaseWorkflow.matchAll(/secrets\.([A-Z_]+)/gu)].map((match) => match[1]),
+      [...releaseWorkflow.matchAll(/secrets\.([A-Z_]+)/gu)].map(
+        (match) => match[1],
+      ),
       ["RELEASE_SETTINGS_READ_TOKEN", "RELEASE_SETTINGS_READ_TOKEN"],
     );
     assert.doesNotMatch(
@@ -129,8 +141,11 @@ function jobPermissions(workflow, job) {
   const start = block.indexOf(marker);
   assert.notEqual(start, -1, `${job} must declare permissions`);
   return Object.fromEntries(
-    [...block.slice(start + marker.length).matchAll(/^ {6}([a-z-]+): (read|write)$/gmu)]
-      .map((match) => [match[1], match[2]]),
+    [
+      ...block
+        .slice(start + marker.length)
+        .matchAll(/^ {6}([a-z-]+): (read|write)$/gmu),
+    ].map((match) => [match[1], match[2]]),
   );
 }
 

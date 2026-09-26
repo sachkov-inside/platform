@@ -1,6 +1,9 @@
 import { z } from "zod";
 
-import { materialPreviewSchema, type MaterialPreview } from "@/entities/material";
+import {
+  materialPreviewSchema,
+  type MaterialPreview,
+} from "@/entities/material";
 
 export const bookmarkStateSchema = z
   .object({
@@ -12,7 +15,12 @@ export const bookmarkStateSchema = z
 export type BookmarkState = z.infer<typeof bookmarkStateSchema>;
 
 export const bookmarkStatesResultSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("ready"), states: z.array(bookmarkStateSchema).max(100) }).strict(),
+  z
+    .object({
+      kind: z.literal("ready"),
+      states: z.array(bookmarkStateSchema).max(100),
+    })
+    .strict(),
   z.object({ kind: z.literal("unauthorized") }).strict(),
   z.object({ kind: z.literal("unavailable") }).strict(),
   z.object({ kind: z.literal("invalid_input") }).strict(),

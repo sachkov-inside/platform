@@ -21,7 +21,14 @@ export const publishedMaterialProjectionHttpSchema = z
     slug: z.string(),
     title: z.string(),
     summary: z.string(),
-    noteExcerpt: z.object({ text: z.string().max(2400), truncated: z.boolean(), linkUrl: z.url().max(2048).optional() }).strict().optional(),
+    noteExcerpt: z
+      .object({
+        text: z.string().max(2400),
+        truncated: z.boolean(),
+        linkUrl: z.url().max(2048).optional(),
+      })
+      .strict()
+      .optional(),
     difficulty: materialDifficultySchema.nullable(),
     outcomes: z.array(z.string()),
     access: z.enum(["free", "membership", "workshop"]),
@@ -29,11 +36,18 @@ export const publishedMaterialProjectionHttpSchema = z
     primaryVideoId: z.uuid().nullable(),
     cover: contentCoverProjectionHttpSchema.nullable(),
     topic: referenceSchema,
-    format: referenceSchema.extend({ id: materialFormatSchema, slug: materialFormatSchema }),
+    format: referenceSchema.extend({
+      id: materialFormatSchema,
+      slug: materialFormatSchema,
+    }),
     tags: z.array(z.object({ id: z.string(), name: z.string() }).strict()),
     seriesMemberships: z.array(
       z
-        .object({ ordinal: z.number().int().positive(), series: referenceSchema, stepGroup: z.string().nullable().optional() })
+        .object({
+          ordinal: z.number().int().positive(),
+          series: referenceSchema,
+          stepGroup: z.string().nullable().optional(),
+        })
         .strict(),
     ),
   })
@@ -46,12 +60,15 @@ export const publishedMaterialReadHttpSchema = z.discriminatedUnion("kind", [
       cacheScope: z.enum(["public", "private-no-store"]),
       projection: publishedMaterialProjectionHttpSchema,
       videoChapters: videoChaptersSchema.optional(),
-      primaryVideo: z.object({
-        failureCode: z.string().optional(),
-        state: z.enum(["uploading", "processing", "ready", "failed"]),
-        title: z.string(),
-        videoId: z.uuid(),
-      }).strict().nullable(),
+      primaryVideo: z
+        .object({
+          failureCode: z.string().optional(),
+          state: z.enum(["uploading", "processing", "ready", "failed"]),
+          title: z.string(),
+          videoId: z.uuid(),
+        })
+        .strict()
+        .nullable(),
       body: renderedMaterialBodySchema,
     })
     .strict(),

@@ -75,7 +75,9 @@ export const Linking: Story = {
 };
 
 export const LinkConflict: Story = {
-  args: { link: { kind: "conflict", supportUrl: "https://t.me/inside_support" } },
+  args: {
+    link: { kind: "conflict", supportUrl: "https://t.me/inside_support" },
+  },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByText("Обнаружен конфликт")).toBeInTheDocument();

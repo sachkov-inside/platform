@@ -39,10 +39,12 @@ vi.mock("@/shared/auth/same-origin-mutation.server", () => ({
 }));
 
 vi.mock("@/shared/auth/index.server", async () => {
-  const handler = await import("@/shared/auth/authenticated-mutation-handler.server");
+  const handler =
+    await import("@/shared/auth/authenticated-mutation-handler.server");
   return {
     handleAuthenticatedMutation: handler.handleAuthenticatedMutation,
-    handleOptionalAuthenticatedMutation: handler.handleOptionalAuthenticatedMutation,
+    handleOptionalAuthenticatedMutation:
+      handler.handleOptionalAuthenticatedMutation,
   };
 });
 
@@ -111,7 +113,10 @@ describe("Material Video playback BFF", () => {
 
   it("rejects an oversized optional-auth body before identity or backend work", async () => {
     const request = playbackRequest("https://inside.example.test");
-    request.headers.set("content-length", String(MAX_BROWSER_MUTATION_BYTES + 1));
+    request.headers.set(
+      "content-length",
+      String(MAX_BROWSER_MUTATION_BYTES + 1),
+    );
 
     const response = await handleVideoPlaybackSessionRequest(request);
 
@@ -132,7 +137,9 @@ describe("Material Video playback BFF", () => {
     );
 
     expect(response.status).toBe(403);
-    await expect(response.json()).resolves.toEqual({ code: "playback_unavailable" });
+    await expect(response.json()).resolves.toEqual({
+      code: "playback_unavailable",
+    });
   });
 });
 
@@ -142,66 +149,112 @@ describe("Material Video named authoring BFF mutations", () => {
     fakes.getAccessToken.mockResolvedValue("access-token");
   });
 
-  it.each(["upload_not_authorized", "upload_outcome_unknown"])("preserves the known upload failure %s without provider details", async (code) => {
-    fakes.requestUpload.mockResolvedValue({ ok: false, problem: { code, secret: "provider-detail" }, response: Response.json({}, { status: 503 }) });
-    const response = await handleVideoUploadRequest(mutationRequest("/api/authoring/material-video-uploads", { access: "free", byteSize: "42", filename: "video.mp4", materialId, submissionId: videoId, title: "Video" }, "POST"));
-    expect(await response.json()).toEqual({ kind: code });
-  });
+  it.each(["upload_not_authorized", "upload_outcome_unknown"])(
+    "preserves the known upload failure %s without provider details",
+    async (code) => {
+      fakes.requestUpload.mockResolvedValue({
+        ok: false,
+        problem: { code, secret: "provider-detail" },
+        response: Response.json({}, { status: 503 }),
+      });
+      const response = await handleVideoUploadRequest(
+        mutationRequest(
+          "/api/authoring/material-video-uploads",
+          {
+            access: "free",
+            byteSize: "42",
+            filename: "video.mp4",
+            materialId,
+            submissionId: videoId,
+            title: "Video",
+          },
+          "POST",
+        ),
+      );
+      expect(await response.json()).toEqual({ kind: code });
+    },
+  );
 
   it("maps upload init through its exact capability request", async () => {
     fakes.requestUpload.mockResolvedValue({
-      body: { uploadEndpoint: "https://uploads.invalid/video", video: { videoId } },
+      body: {
+        uploadEndpoint: "https://uploads.invalid/video",
+        video: { videoId },
+      },
       ok: true,
       response: Response.json({}),
     });
-    const response = await handleVideoUploadRequest(mutationRequest(
-      "/api/authoring/material-video-uploads",
-      {
-        access: "free",
-        byteSize: "1024",
-        filename: "lesson.mp4",
-        materialId,
-        submissionId: "30000000-0000-4000-8000-000000000001",
-        title: "Lesson",
-      },
-      "POST",
-    ));
+    const response = await handleVideoUploadRequest(
+      mutationRequest(
+        "/api/authoring/material-video-uploads",
+        {
+          access: "free",
+          byteSize: "1024",
+          filename: "lesson.mp4",
+          materialId,
+          submissionId: "30000000-0000-4000-8000-000000000001",
+          title: "Lesson",
+        },
+        "POST",
+      ),
+    );
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({ kind: "ready" });
-    expect(fakes.requestUpload).toHaveBeenCalledWith({
-      access: "free",
-      byteSize: 1024,
-      filename: "lesson.mp4",
-      idempotencyKey: "web-video-30000000-0000-4000-8000-000000000001",
-      materialId,
-      title: "Lesson",
-    }, "access-token");
+    expect(fakes.requestUpload).toHaveBeenCalledWith(
+      {
+        access: "free",
+        byteSize: 1024,
+        filename: "lesson.mp4",
+        idempotencyKey: "web-video-30000000-0000-4000-8000-000000000001",
+        materialId,
+        title: "Lesson",
+      },
+      "access-token",
+    );
   });
 
   it("keeps attach and reconcile as separate literal mutations", async () => {
-    fakes.requestAttach.mockResolvedValue({ body: { videoId }, ok: true, response: Response.json({}) });
-    fakes.requestReconcile.mockResolvedValue({ body: { state: "ready", videoId }, ok: true, response: Response.json({}) });
+    fakes.requestAttach.mockResolvedValue({
+      body: { videoId },
+      ok: true,
+      response: Response.json({}),
+    });
+    fakes.requestReconcile.mockResolvedValue({
+      body: { state: "ready", videoId },
+      ok: true,
+      response: Response.json({}),
+    });
 
-    const attached = await handleVideoAttachmentRequest(mutationRequest(
-      "/api/authoring/material-video-attachments",
-      { access: "membership", materialId, providerVideoId: "provider-video" },
-      "POST",
-    ));
-    const reconciled = await handleVideoReconciliationRequest(mutationRequest(
-      "/api/authoring/material-video-reconciliations",
-      { videoId },
-      "POST",
-    ));
+    const attached = await handleVideoAttachmentRequest(
+      mutationRequest(
+        "/api/authoring/material-video-attachments",
+        { access: "membership", materialId, providerVideoId: "provider-video" },
+        "POST",
+      ),
+    );
+    const reconciled = await handleVideoReconciliationRequest(
+      mutationRequest(
+        "/api/authoring/material-video-reconciliations",
+        { videoId },
+        "POST",
+      ),
+    );
 
     await expect(attached.json()).resolves.toMatchObject({ kind: "ready" });
     await expect(reconciled.json()).resolves.toMatchObject({ kind: "ready" });
-    expect(fakes.requestAttach).toHaveBeenCalledWith({
-      access: "membership",
-      materialId,
-      providerVideoId: "provider-video",
-    }, "access-token");
-    expect(fakes.requestReconcile).toHaveBeenCalledWith(videoId, "access-token");
+    expect(fakes.requestAttach).toHaveBeenCalledWith(
+      {
+        access: "membership",
+        materialId,
+        providerVideoId: "provider-video",
+      },
+      "access-token",
+    );
+    expect(fakes.requestReconcile).toHaveBeenCalledWith(
+      videoId,
+      "access-token",
+    );
   });
 
   it("retries a failed deletion through its named mutation", async () => {
@@ -211,32 +264,45 @@ describe("Material Video named authoring BFF mutations", () => {
       response: Response.json({}),
     });
 
-    const response = await handleVideoDeletionRetryRequest(mutationRequest(
-      "/api/authoring/material-video-deletion-retries",
-      { videoId },
-      "POST",
-    ));
+    const response = await handleVideoDeletionRetryRequest(
+      mutationRequest(
+        "/api/authoring/material-video-deletion-retries",
+        { videoId },
+        "POST",
+      ),
+    );
 
     await expect(response.json()).resolves.toMatchObject({ kind: "ready" });
-    expect(fakes.requestRetryDeletion).toHaveBeenCalledWith(videoId, "access-token");
+    expect(fakes.requestRetryDeletion).toHaveBeenCalledWith(
+      videoId,
+      "access-token",
+    );
   });
 
   it("saves progress through the authenticated PUT capability", async () => {
-    fakes.requestProgress.mockResolvedValue({ ok: true, response: new Response(null, { status: 204 }) });
-    const response = await handleVideoProgressSaveRequest(mutationRequest(
-      "/api/material-video-progress",
-      { durationSeconds: "120", materialId, positionSeconds: "37", videoId },
-      "PUT",
-    ));
+    fakes.requestProgress.mockResolvedValue({
+      ok: true,
+      response: new Response(null, { status: 204 }),
+    });
+    const response = await handleVideoProgressSaveRequest(
+      mutationRequest(
+        "/api/material-video-progress",
+        { durationSeconds: "120", materialId, positionSeconds: "37", videoId },
+        "PUT",
+      ),
+    );
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ kind: "saved" });
-    expect(fakes.requestProgress).toHaveBeenCalledWith({
-      durationSeconds: 120,
-      materialId,
-      positionSeconds: 37,
-      videoId,
-    }, "access-token");
+    expect(fakes.requestProgress).toHaveBeenCalledWith(
+      {
+        durationSeconds: 120,
+        materialId,
+        positionSeconds: 37,
+        videoId,
+      },
+      "access-token",
+    );
   });
 });
 

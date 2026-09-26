@@ -40,7 +40,10 @@ import {
 } from "@/features/billing-checkout.server";
 import { loadBillingOffers } from "@/entities/subscription.server";
 import { handleBillingConsents } from "@/entities/subscription.server";
-import { handleCancelRenewal, handleCurrentBilling } from "@/features/billing-subscription.server";
+import {
+  handleCancelRenewal,
+  handleCurrentBilling,
+} from "@/features/billing-subscription.server";
 import {
   accessGrounds,
   activeSubscription,
@@ -175,7 +178,10 @@ it("передаёт браузеру смену редакции оферты, 
     }),
   );
   expect(response.status).toBe(200);
-  expect(await response.json()).toEqual({ ok: false, code: "document_changed" });
+  expect(await response.json()).toEqual({
+    ok: false,
+    code: "document_changed",
+  });
 });
 
 it("переносит ожидаемый исход покупки без потери смысла", async () => {
@@ -258,9 +264,8 @@ it("читает состояние покупки только по собст�
 });
 
 it("отвечает 401 на собственный read без действующей сессии", async () => {
-  const { LogtoSessionUnavailableError } = await import(
-    "@/shared/auth/platform-access-token.server"
-  );
+  const { LogtoSessionUnavailableError } =
+    await import("@/shared/auth/platform-access-token.server");
   fakes.token.mockRejectedValue(new LogtoSessionUnavailableError());
   const response = await handleCurrentBilling();
   expect(response.status).toBe(401);

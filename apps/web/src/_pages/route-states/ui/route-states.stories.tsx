@@ -1,7 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn } from "storybook/test";
 
-import { publicPageEnvironment, routeContent } from "@/workshop/story-environment";
+import {
+  publicPageEnvironment,
+  routeContent,
+} from "@/workshop/story-environment";
 
 import { PageNotFound, PageUnexpectedError } from "./route-states";
 
@@ -17,13 +20,20 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-const desktop = { viewport: { isRotated: false, value: "desktop1440" } } as const;
+const desktop = {
+  viewport: { isRotated: false, value: "desktop1440" },
+} as const;
 const mobile = { viewport: { isRotated: false, value: "mobile390" } } as const;
 
 async function expectNotFound(canvasElement: HTMLElement) {
   const page = routeContent(canvasElement);
-  await expect(page.getByRole("heading", { level: 1, name: "Страница не найдена" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "На главную" })).toHaveAttribute("href", "/");
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Страница не найдена" }),
+  ).toBeVisible();
+  await expect(page.getByRole("link", { name: "На главную" })).toHaveAttribute(
+    "href",
+    "/",
+  );
 }
 
 export const NotFoundDesktop: Story = {
@@ -50,7 +60,10 @@ export const UnexpectedErrorDesktop: Story = {
   play: async ({ args, canvasElement }) => {
     const page = routeContent(canvasElement);
     await expect(
-      page.getByRole("heading", { level: 1, name: "Страница сейчас недоступна" }),
+      page.getByRole("heading", {
+        level: 1,
+        name: "Страница сейчас недоступна",
+      }),
     ).toBeVisible();
     page.getByRole("button", { name: "Повторить" }).click();
     await expect(args.onRetry).toHaveBeenCalledOnce();

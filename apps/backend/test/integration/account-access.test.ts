@@ -114,8 +114,14 @@ describe("independent Account access", () => {
   }
   /** Материалы открываются тарифом или покупкой: оплаченный период с материалами и общей группой. */
   async function paidMaterials(target: string, validUntil: string | null) {
-    const applied = await grants.applyPaidPeriod({ eventRef: randomUUID(), periodRef: randomUUID(), accountId: target, revision: 1, revoked: false,
-      terms: { ...terms, capabilities: [...terms.capabilities], validUntil } });
+    const applied = await grants.applyPaidPeriod({
+      eventRef: randomUUID(),
+      periodRef: randomUUID(),
+      accountId: target,
+      revision: 1,
+      revoked: false,
+      terms: { ...terms, capabilities: [...terms.capabilities], validUntil },
+    });
     if (!applied.ok) throw new Error(JSON.stringify(applied));
   }
   test("paid inbox replays after projector crash, conflicts on changed payload and serializes concurrent delivery", async () => {
@@ -148,8 +154,17 @@ describe("independent Account access", () => {
     expect(await restarted.applyPaidPeriod(command)).toEqual(results[0]);
     // A receipt stored before #732 holds the digest of the parsed command's JSON text.
     await db.prisma.accessReceipt.update({
-      where: { scope_operationId: { scope: "paid-period", operationId: command.eventRef } },
-      data: { fingerprint: createHash("sha256").update(JSON.stringify(paidPeriodCommandSchema.parse(command))).digest("hex") },
+      where: {
+        scope_operationId: {
+          scope: "paid-period",
+          operationId: command.eventRef,
+        },
+      },
+      data: {
+        fingerprint: createHash("sha256")
+          .update(JSON.stringify(paidPeriodCommandSchema.parse(command)))
+          .digest("hex"),
+      },
     });
     expect(await restarted.applyPaidPeriod(command)).toEqual(results[0]);
     expect(
@@ -235,9 +250,14 @@ describe("independent Account access", () => {
       ],
     });
     // Прежняя запись с правом `reviews` его не открывает: ревью не выдаёт ни одно основание (#648).
-    await db.prisma.accessGrant.updateMany({ where: { accountId: target, source: "paid", revokedAt: null }, data: { capabilities: ["community", "materials", "reviews"] } });
+    await db.prisma.accessGrant.updateMany({
+      where: { accountId: target, source: "paid", revokedAt: null },
+      data: { capabilities: ["community", "materials", "reviews"] },
+    });
     const legacy = await grants.resolveCapabilities(target);
-    expect(legacy.ok && legacy.capabilities.map(entry => entry.capability)).toEqual(["community", "materials"]);
+    expect(
+      legacy.ok && legacy.capabilities.map((entry) => entry.capability),
+    ).toEqual(["community", "materials"]);
   });
   test("half-open intervals, future starts and finite bounds are exact", async () => {
     now = new Date(start);
@@ -273,14 +293,20 @@ describe("independent Account access", () => {
           accountId: target,
           source: "manual",
           sourceRef: randomUUID(),
-          terms: { ...terms, capabilities: ["community" as const, "support" as const] },
+          terms: {
+            ...terms,
+            capabilities: ["community" as const, "support" as const],
+          },
         },
         {
           rowKey: "unresolved",
           accountId: randomUUID(),
           source: "manual",
           sourceRef: randomUUID(),
-          terms: { ...terms, capabilities: ["community" as const, "support" as const] },
+          terms: {
+            ...terms,
+            capabilities: ["community" as const, "support" as const],
+          },
         },
       ],
     });
@@ -327,7 +353,10 @@ describe("independent Account access", () => {
           accountId: target,
           source: "manual" as const,
           sourceRef: randomUUID(),
-          terms: { ...terms, capabilities: ["community" as const, "support" as const] },
+          terms: {
+            ...terms,
+            capabilities: ["community" as const, "support" as const],
+          },
         },
       ],
     };
@@ -344,10 +373,21 @@ describe("independent Account access", () => {
     // Прямая выдача не открывает материалы, не называет отдельный материал и не выдаёт ревью.
     const [row] = command.rows;
     if (row === undefined) throw new Error("Expected one grant row");
-    for (const forbidden of [{ capabilities: ["reviews" as const] }, { capabilities: ["materials" as const] },
-      { capabilities: ["support" as const], contentScope: { guideIds: [], materialIds: [randomUUID()] } }])
-      expect(await grants.previewBatch(owner, { ...command, operationId: randomUUID(),
-        rows: [{ ...row, terms: { ...row.terms, ...forbidden } }] })).toEqual({ ok: false, error: { code: "invalid_input" } });
+    for (const forbidden of [
+      { capabilities: ["reviews" as const] },
+      { capabilities: ["materials" as const] },
+      {
+        capabilities: ["support" as const],
+        contentScope: { guideIds: [], materialIds: [randomUUID()] },
+      },
+    ])
+      expect(
+        await grants.previewBatch(owner, {
+          ...command,
+          operationId: randomUUID(),
+          rows: [{ ...row, terms: { ...row.terms, ...forbidden } }],
+        }),
+      ).toEqual({ ok: false, error: { code: "invalid_input" } });
     const preview = await grants.previewBatch(owner, command);
     if (!preview.ok) throw new Error(JSON.stringify(preview));
     const apply = {

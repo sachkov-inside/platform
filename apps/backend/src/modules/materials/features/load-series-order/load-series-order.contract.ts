@@ -37,10 +37,11 @@ export interface LoadSeriesOrderQuery {
 
 export type SeriesNotFoundError = { readonly code: "series_not_found" };
 export type LoadSeriesOrderError =
-  | ForbiddenError
-  | SeriesNotFoundError
-  | SystemError;
-export type LoadSeriesOrderResult = Result<SeriesOrderDto, LoadSeriesOrderError>;
+  ForbiddenError | SeriesNotFoundError | SystemError;
+export type LoadSeriesOrderResult = Result<
+  SeriesOrderDto,
+  LoadSeriesOrderError
+>;
 export type LoadSeriesOrderOperation = (
   query: LoadSeriesOrderQuery,
 ) => Promise<LoadSeriesOrderResult>;

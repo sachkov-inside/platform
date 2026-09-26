@@ -25,23 +25,32 @@ export function requestMemberProfileCreation(
   accessToken: string,
 ): Promise<BackendTransportResult> {
   return executeGeneratedRequest(
-    (request) => new MemberProfilesService(request).createMemberProfile({ requestBody: input }),
+    (request) =>
+      new MemberProfilesService(request).createMemberProfile({
+        requestBody: input,
+      }),
     201,
     { accessToken },
   );
 }
 
 export function requestMemberProfileUpdate(
-  input: { readonly bio: string | null; readonly displayName: string; readonly expectedVersion: number },
+  input: {
+    readonly bio: string | null;
+    readonly displayName: string;
+    readonly expectedVersion: number;
+  },
   accessToken: string,
 ): Promise<BackendTransportResult> {
   return executeGeneratedRequest(
-    (request) => new MemberProfilesService(request).updateMemberProfile({ requestBody: input }),
+    (request) =>
+      new MemberProfilesService(request).updateMemberProfile({
+        requestBody: input,
+      }),
     200,
     { accessToken },
   );
 }
-
 
 export function requestProfileAvatarMutation(input: {
   readonly accessToken: string;

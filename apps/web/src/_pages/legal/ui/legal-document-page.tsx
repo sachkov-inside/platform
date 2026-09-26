@@ -29,7 +29,10 @@ export function LegalDocumentPage({
   return (
     <article className="max-w-3xl">
       <nav aria-label="Раздел" className="text-sm">
-        <Link className="text-muted-foreground underline underline-offset-2" href={LEGAL_PATH}>
+        <Link
+          className="text-muted-foreground underline underline-offset-2"
+          href={LEGAL_PATH}
+        >
           Документы Inside
         </Link>
       </nav>
@@ -54,7 +57,8 @@ export function LegalDocumentPage({
           <div className="flex flex-wrap gap-x-2">
             <dt className="font-medium">Номер:</dt>
             <dd>
-              {edition.version} · действует с {legalEffectiveDate(edition.effectiveFrom)}
+              {edition.version} · действует с{" "}
+              {legalEffectiveDate(edition.effectiveFrom)}
             </dd>
           </div>
           <div className="flex flex-wrap gap-x-2">
@@ -75,7 +79,9 @@ export function LegalDocumentPage({
         </dl>
         {superseded.length > 0 ? (
           <>
-            <h2 className="mt-6 font-semibold text-foreground">Прежние редакции</h2>
+            <h2 className="mt-6 font-semibold text-foreground">
+              Прежние редакции
+            </h2>
             <ul className="mt-3 flex flex-col gap-2">
               {superseded.map((item) => (
                 <li key={item.version}>
@@ -83,7 +89,8 @@ export function LegalDocumentPage({
                     className="underline underline-offset-2"
                     href={legalEditionPath(item.key, item.version)}
                   >
-                    Редакция {item.version} · действует с {legalEffectiveDate(item.effectiveFrom)}
+                    Редакция {item.version} · действует с{" "}
+                    {legalEffectiveDate(item.effectiveFrom)}
                   </Link>
                 </li>
               ))}

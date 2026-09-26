@@ -19,7 +19,9 @@ declare module "vitest" {
 const MIGRATED_TEMPLATE = "inside_migrated_template";
 
 export default async function setup(project: TestProject) {
-  const container = await new PostgreSqlContainer("postgres:18.4-alpine").start();
+  const container = await new PostgreSqlContainer(
+    "postgres:18.4-alpine",
+  ).start();
   const adminUrl = container.getConnectionUri();
   const admin = new Pool({ connectionString: adminUrl, max: 1 });
   try {
@@ -29,7 +31,9 @@ export default async function setup(project: TestProject) {
     await migrateToLatest(templateUrl.toString());
     // Копия из шаблона требует, чтобы к нему никто не был подключён; отмечаем его шаблоном и
     // закрываем подключения, чтобы тест не мог случайно писать в общий источник.
-    await admin.query(`ALTER DATABASE ${MIGRATED_TEMPLATE} WITH IS_TEMPLATE true ALLOW_CONNECTIONS false`);
+    await admin.query(
+      `ALTER DATABASE ${MIGRATED_TEMPLATE} WITH IS_TEMPLATE true ALLOW_CONNECTIONS false`,
+    );
   } finally {
     await admin.end();
   }

@@ -76,13 +76,16 @@ function moduleSpecifiers(program) {
   const specifiers = [];
   new Visitor({
     ImportDeclaration(node) {
-      if (typeof node.source.value === "string") specifiers.push(node.source.value);
+      if (typeof node.source.value === "string")
+        specifiers.push(node.source.value);
     },
     ExportAllDeclaration(node) {
-      if (typeof node.source.value === "string") specifiers.push(node.source.value);
+      if (typeof node.source.value === "string")
+        specifiers.push(node.source.value);
     },
     ExportNamedDeclaration(node) {
-      if (typeof node.source?.value === "string") specifiers.push(node.source.value);
+      if (typeof node.source?.value === "string")
+        specifiers.push(node.source.value);
     },
   }).visit(program);
   return specifiers;
@@ -96,7 +99,9 @@ function stringLiterals(program) {
     },
     TemplateLiteral(node) {
       if (node.expressions.length === 0) {
-        values.push(node.quasis[0]?.value.cooked ?? node.quasis[0]?.value.raw ?? "");
+        values.push(
+          node.quasis[0]?.value.cooked ?? node.quasis[0]?.value.raw ?? "",
+        );
       }
     },
   }).visit(program);
@@ -105,7 +110,10 @@ function stringLiterals(program) {
 
 function hasUseClientDirective(program) {
   for (const statement of program.body) {
-    if (statement.type === "ExpressionStatement" && statement.directive !== null) {
+    if (
+      statement.type === "ExpressionStatement" &&
+      statement.directive !== null
+    ) {
       if (statement.directive === "use client") return true;
       continue;
     }
@@ -152,7 +160,11 @@ function cacheDirectives(program) {
 function hasCachedReadWithoutPolicy(program) {
   let found = false;
   const check = (node) => {
-    if (node.body?.type !== "BlockStatement" || !node.body.body.some(isCacheDirective)) return;
+    if (
+      node.body?.type !== "BlockStatement" ||
+      !node.body.body.some(isCacheDirective)
+    )
+      return;
     if (!namesIdentifier(node.body, "applyCatalogCachePolicy")) found = true;
   };
   new Visitor({
@@ -200,7 +212,8 @@ function importsTheSession(specifier) {
  */
 function seesTheSession(program) {
   return (
-    namesIdentifier(program, "accessToken") || moduleSpecifiers(program).some(importsTheSession)
+    namesIdentifier(program, "accessToken") ||
+    moduleSpecifiers(program).some(importsTheSession)
   );
 }
 
@@ -227,7 +240,8 @@ function readsCookiesOrFetches(program) {
       const callee = node.callee;
       if (
         (callee.type === "Identifier" && callee.name === "fetch") ||
-        (callee.type === "MemberExpression" && memberPropertyName(callee) === "fetch")
+        (callee.type === "MemberExpression" &&
+          memberPropertyName(callee) === "fetch")
       ) {
         found = true;
       }
@@ -275,7 +289,10 @@ function getHandlerFinding(program) {
     if (statement.type === "ExportAllDeclaration") return "declare";
     if (statement.type !== "ExportNamedDeclaration") continue;
     const declaration = statement.declaration;
-    if (declaration?.type === "FunctionDeclaration" && declaration.id?.name === "GET") {
+    if (
+      declaration?.type === "FunctionDeclaration" &&
+      declaration.id?.name === "GET"
+    ) {
       const first = declaration.body?.body[0];
       const startsWithConnection =
         first?.type === "ExpressionStatement" &&
@@ -284,20 +301,29 @@ function getHandlerFinding(program) {
         first.expression.argument.callee.type === "Identifier" &&
         first.expression.argument.callee.name === "connection";
       // Одноимённая функция из другого модуля правило не выполняет: нужна `connection` из Next.js.
-      return startsWithConnection && importsNamed(program, "next/server", "connection") ? undefined : "start";
+      return startsWithConnection &&
+        importsNamed(program, "next/server", "connection")
+        ? undefined
+        : "start";
     }
     if (
       declaration?.type === "VariableDeclaration" &&
-      declaration.declarations.some((entry) => entry.id.type === "Identifier" && entry.id.name === "GET")
+      declaration.declarations.some(
+        (entry) => entry.id.type === "Identifier" && entry.id.name === "GET",
+      )
     ) {
       return "declare";
     }
     const exportsGet = statement.specifiers.some(
-      (specifier) => specifier.exported.type === "Identifier" && specifier.exported.name === "GET",
+      (specifier) =>
+        specifier.exported.type === "Identifier" &&
+        specifier.exported.name === "GET",
     );
     if (exportsGet) {
       const source = statement.source?.value;
-      return typeof source === "string" && /(?:^|\/)route$/u.test(source) ? undefined : "declare";
+      return typeof source === "string" && /(?:^|\/)route$/u.test(source)
+        ? undefined
+        : "declare";
     }
   }
   return undefined;
@@ -493,7 +519,8 @@ function callsSameOriginMutationDynamically(program) {
   new Visitor({
     CallExpression(node) {
       const callsDirectBinding =
-        node.callee.type === "Identifier" && directBindings.has(node.callee.name);
+        node.callee.type === "Identifier" &&
+        directBindings.has(node.callee.name);
       const callsNamespaceBinding =
         node.callee.type === "MemberExpression" &&
         node.callee.object.type === "Identifier" &&
@@ -527,7 +554,8 @@ function resolveAbsoluteFetchArgument(argument, absoluteStringBindings) {
   }
   if (argument.type !== "TemplateLiteral") return undefined;
 
-  let value = argument.quasis[0]?.value.cooked ?? argument.quasis[0]?.value.raw ?? "";
+  let value =
+    argument.quasis[0]?.value.cooked ?? argument.quasis[0]?.value.raw ?? "";
   for (const [index, expression] of argument.expressions.entries()) {
     if (expression.type !== "Identifier") return undefined;
     const binding = absoluteStringBindings.get(expression.name);
@@ -558,7 +586,9 @@ function isNestOperationUrl(value) {
   if (value === undefined) return false;
   try {
     const pathname = new URL(value).pathname;
-    return backendOperationPathPatterns.some((pattern) => pattern.test(pathname));
+    return backendOperationPathPatterns.some((pattern) =>
+      pattern.test(pathname),
+    );
   } catch {
     return false;
   }
@@ -576,7 +606,9 @@ function resolveLocalModule(importer, specifier, knownFiles) {
 
   for (const candidate of [
     base,
-    ...[".ts", ".tsx", ".mts", ".cts"].map((extension) => `${base}${extension}`),
+    ...[".ts", ".tsx", ".mts", ".cts"].map(
+      (extension) => `${base}${extension}`,
+    ),
     ...[".ts", ".tsx", ".mts", ".cts"].map((extension) =>
       path.join(base, `index${extension}`),
     ),
@@ -596,7 +628,9 @@ const parsedFiles = new Map(
   [...new Set(scanRoots.flatMap(sourceFiles))].map((file) => {
     const { errors, program } = parseSync(file, readFileSync(file, "utf8"));
     if (errors.length > 0) {
-      throw new SyntaxError(`Oxc could not parse ${file}: ${errors[0].message}`);
+      throw new SyntaxError(
+        `Oxc could not parse ${file}: ${errors[0].message}`,
+      );
     }
     return [file, program];
   }),
@@ -622,10 +656,11 @@ while (pendingBrowserFiles.length > 0) {
   }
 }
 
-
 const findings = [...parsedFiles].flatMap(([file, program]) => {
   const sourcePath = scannedPath(file);
-  const insideBackendTransport = sourcePath.startsWith("src/shared/api/backend/");
+  const insideBackendTransport = sourcePath.startsWith(
+    "src/shared/api/backend/",
+  );
   const insideRuntimeConfiguration =
     sourcePath === "src/shared/config/runtime-config.server.ts";
   const insideApplicationRouting =
@@ -647,10 +682,17 @@ const findings = [...parsedFiles].flatMap(([file, program]) => {
       ];
     }
     if (!insideBackendTransport && specifier === "openapi-typescript-codegen") {
-      return [`${sourcePath}: codegen runtime belongs to the backend transport module`];
+      return [
+        `${sourcePath}: codegen runtime belongs to the backend transport module`,
+      ];
     }
-    if (!insideBackendTransport && specifier.includes("shared/api/backend/generated")) {
-      return [`${sourcePath}: generated API types belong to the backend transport module`];
+    if (
+      !insideBackendTransport &&
+      specifier.includes("shared/api/backend/generated")
+    ) {
+      return [
+        `${sourcePath}: generated API types belong to the backend transport module`,
+      ];
     }
     if (
       isBrowserCode &&
@@ -714,7 +756,10 @@ const findings = [...parsedFiles].flatMap(([file, program]) => {
     }
   }
 
-  if (moduleSpecifiers(program).includes("next/cache") && namesIdentifier(program, "unstable_cache")) {
+  if (
+    moduleSpecifiers(program).includes("next/cache") &&
+    namesIdentifier(program, "unstable_cache")
+  ) {
     findingsForFile.push(
       `${sourcePath}: unstable_cache is a second shared cache outside the guest-read rule; use a *.public-cache.server.ts module`,
     );
@@ -790,7 +835,9 @@ for (const entry of [...parsedFiles.keys()].filter((file) =>
 for (const entry of [...parsedFiles.keys()].filter(
   (file) =>
     /^proxy\.[cm]?tsx?$/u.test(path.basename(file)) &&
-    [webRoot, ...scanRoots].map((root) => path.resolve(root)).includes(path.dirname(file)),
+    [webRoot, ...scanRoots]
+      .map((root) => path.resolve(root))
+      .includes(path.dirname(file)),
 )) {
   for (const { file, program } of reachableModules(entry)) {
     if (

@@ -153,9 +153,9 @@ describe("Content Library discovery", () => {
     );
     if (!result.ok) throw new Error(result.error.code);
     expect(result.value.hasNext).toBe(true);
-    expect(result.value.items.map(({ materialId }) => materialId)).not.toContain(
-      target.materialId,
-    );
+    expect(
+      result.value.items.map(({ materialId }) => materialId),
+    ).not.toContain(target.materialId);
     expect(result.value.relatedSeries).toContainEqual(
       expect.objectContaining({
         matchingMaterialCount: 1,
@@ -190,7 +190,8 @@ describe("Content Library discovery", () => {
         reference: {
           introduction: {
             audience: "Engineers who own a product surface end to end.",
-            outcome: "Ship a working slice of the platform in a deliberate order.",
+            outcome:
+              "Ship a working slice of the platform in a deliberate order.",
             prerequisites: "Comfort with Git and a running local stack.",
             scope: "One product surface; operations stay outside this Guide.",
           },
@@ -198,21 +199,19 @@ describe("Content Library discovery", () => {
           slug: "platform-inside",
           summary: "Build the platform in a deliberate order.",
         },
-        topics: [expect.objectContaining({ name: "Platform", slug: "platform" })],
+        topics: [
+          expect.objectContaining({ name: "Platform", slug: "platform" }),
+        ],
         items: [
           expect.objectContaining({
             slug: "kak-ustroen-inside-platform",
             availability: "available",
-            seriesMemberships: [
-              expect.objectContaining({ ordinal: 1 }),
-            ],
+            seriesMemberships: [expect.objectContaining({ ordinal: 1 })],
           }),
           expect.objectContaining({
             slug: "developer-pipeline-bez-poteri-konteksta",
             availability: "locked",
-            seriesMemberships: [
-              expect.objectContaining({ ordinal: 2 }),
-            ],
+            seriesMemberships: [expect.objectContaining({ ordinal: 2 })],
           }),
         ],
       },
@@ -302,34 +301,49 @@ describe("Content Library discovery", () => {
     });
 
     await expect(
-      discoverPublishedMaterials(publishedMaterialReader, contentAccess, emptyCatalogVideos, {
-        kind: "topic",
-        slug: "empty-topic",
-        first: 24,
-        subject: anonymousSubject,
-      }),
+      discoverPublishedMaterials(
+        publishedMaterialReader,
+        contentAccess,
+        emptyCatalogVideos,
+        {
+          kind: "topic",
+          slug: "empty-topic",
+          first: 24,
+          subject: anonymousSubject,
+        },
+      ),
     ).resolves.toMatchObject({
       ok: true,
       value: { kind: "topic", items: [], hasNext: false },
     });
     await expect(
-      discoverPublishedMaterials(publishedMaterialReader, contentAccess, emptyCatalogVideos, {
-        kind: "series",
-        slug: "missing-series",
-        first: 24,
-        subject: anonymousSubject,
-      }),
+      discoverPublishedMaterials(
+        publishedMaterialReader,
+        contentAccess,
+        emptyCatalogVideos,
+        {
+          kind: "series",
+          slug: "missing-series",
+          first: 24,
+          subject: anonymousSubject,
+        },
+      ),
     ).resolves.toEqual({
       ok: false,
       error: { code: "discovery_not_found" },
     });
     await expect(
-      discoverPublishedMaterials(publishedMaterialReader, contentAccess, emptyCatalogVideos, {
-        kind: "topic",
-        slug: "INVALID",
-        first: 24,
-        subject: anonymousSubject,
-      }),
+      discoverPublishedMaterials(
+        publishedMaterialReader,
+        contentAccess,
+        emptyCatalogVideos,
+        {
+          kind: "topic",
+          slug: "INVALID",
+          first: 24,
+          subject: anonymousSubject,
+        },
+      ),
     ).resolves.toEqual({
       ok: false,
       error: { code: "invalid_request_shape" },
@@ -352,7 +366,9 @@ describe("Content Library discovery", () => {
       }),
     ]);
     try {
-      const catalog = await publishedMaterialReader.listProjections({ first: 24 });
+      const catalog = await publishedMaterialReader.listProjections({
+        first: 24,
+      });
       if (!catalog.ok) throw new Error(catalog.error.code);
       expect(catalog.value.facets.topics.map(({ slug }) => slug)).not.toContain(
         "platform",
@@ -425,7 +441,9 @@ describe("Content Library discovery", () => {
       if (!canonicalTopic.ok) throw new Error(canonicalTopic.error.code);
       expect(canonicalTopic.value.items.length).toBeGreaterThan(0);
       expect(
-        canonicalTopic.value.items.every(({ topic }) => topic.slug === "platform"),
+        canonicalTopic.value.items.every(
+          ({ topic }) => topic.slug === "platform",
+        ),
       ).toBe(true);
       expect(
         canonicalTopic.value.facets.formats.reduce(

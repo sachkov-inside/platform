@@ -2,7 +2,10 @@ import { NotificationsModule } from "../../modules/notifications/index.js";
 import { BillingModule } from "../../modules/billing/index.js";
 import { ReadingActivityModule } from "../../modules/reading-activity/index.js";
 import { BookmarksModule } from "../../modules/bookmarks/index.js";
-import { CommunicationsModule, CommunicationsTrackingDeliveryModule } from "../../modules/communications/index.js";
+import {
+  CommunicationsModule,
+  CommunicationsTrackingDeliveryModule,
+} from "../../modules/communications/index.js";
 import { type DynamicModule, Module } from "@nestjs/common";
 import { APP_FILTER, APP_INTERCEPTOR } from "@nestjs/core";
 
@@ -26,7 +29,11 @@ import {
   TelegramMembershipModule,
 } from "../../modules/telegram-membership/index.js";
 import { MembershipEntitlementsModule } from "../../modules/membership-entitlements/index.js";
-import { ContentScopeCatalogModule, MaterialsHttpModule, MaterialsModule } from "../../modules/materials/index.js";
+import {
+  ContentScopeCatalogModule,
+  MaterialsHttpModule,
+  MaterialsModule,
+} from "../../modules/materials/index.js";
 import {
   KinescopeWebhookController,
   VideoAuthoringController,

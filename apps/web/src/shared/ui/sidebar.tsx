@@ -3,12 +3,7 @@
 import { Pin, PinOff } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
-import {
-  createContext,
-  useContext,
-  useState,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useState, type ReactNode } from "react";
 
 import { cn } from "@/shared/lib/utils";
 
@@ -113,7 +108,11 @@ export function SidebarToggle({ className }: { readonly className?: string }) {
       }}
       type="button"
     >
-      {pinned ? <PinOff aria-hidden="true" className="size-4" /> : <Pin aria-hidden="true" className="size-4" />}
+      {pinned ? (
+        <PinOff aria-hidden="true" className="size-4" />
+      ) : (
+        <Pin aria-hidden="true" className="size-4" />
+      )}
     </button>
   );
 }
@@ -125,7 +124,12 @@ interface SidebarLinkProps {
   readonly label: string;
 }
 
-export function SidebarLink({ current = false, href, icon, label }: SidebarLinkProps) {
+export function SidebarLink({
+  current = false,
+  href,
+  icon,
+  label,
+}: SidebarLinkProps) {
   const { open } = useSidebar();
 
   return (

@@ -130,7 +130,11 @@ export class HttpTelegramLinkProvider implements TelegramLinkProvider {
       }
       return await response.json();
     } catch (error) {
-      return dependencyFailure({ module: "telegram-membership", operation: "post" }, error, undefined);
+      return dependencyFailure(
+        { module: "telegram-membership", operation: "post" },
+        error,
+        undefined,
+      );
     }
   }
 }

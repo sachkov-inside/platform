@@ -36,7 +36,10 @@ export function billingCommandResult<Schema extends z.ZodType>(
 ): BillingCommandResult<z.infer<Schema>> {
   return response.ok
     ? decode(response.body, valueSchema)
-    : { ok: false, code: response.status === 401 ? "unauthorized" : "unavailable" };
+    : {
+        ok: false,
+        code: response.status === 401 ? "unauthorized" : "unavailable",
+      };
 }
 
 /** Тот же разбор для собственного read: у него нет FormData, но исход такой же закрытый. */

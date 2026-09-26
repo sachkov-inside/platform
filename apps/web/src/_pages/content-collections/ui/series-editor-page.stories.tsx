@@ -138,7 +138,9 @@ export const KeyboardReorder: Story = {
     handle.focus();
     await userEvent.keyboard("{ArrowDown}");
     await expect(
-      canvas.getByRole("list", { name: "Материалы продукта" }).querySelector("li"),
+      canvas
+        .getByRole("list", { name: "Материалы продукта" })
+        .querySelector("li"),
     ).toHaveTextContent("Сборка контейнера");
     await expect(await canvas.findByText("Порядок сохранён.")).toBeVisible();
   },

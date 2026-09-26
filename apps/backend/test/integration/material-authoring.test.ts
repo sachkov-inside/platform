@@ -231,8 +231,16 @@ describe("MaterialAuthoring", () => {
     await Promise.all([
       testDatabase.prisma.topic.createMany({
         data: [
-          { id: "94000000-0000-4000-8000-000000000031", name: "Platform", slug: "platform" },
-          { id: "94000000-0000-4000-8000-000000000032", name: "AI", slug: "ai" },
+          {
+            id: "94000000-0000-4000-8000-000000000031",
+            name: "Platform",
+            slug: "platform",
+          },
+          {
+            id: "94000000-0000-4000-8000-000000000032",
+            name: "AI",
+            slug: "ai",
+          },
         ],
       }),
 
@@ -264,16 +272,20 @@ describe("MaterialAuthoring", () => {
           { archived: false, id: "guide", name: "Гайд" },
           { archived: false, id: "note", name: "Заметка" },
         ],
-        series: [{
-          archived: false,
-          id: "94000000-0000-4000-8000-000000000035",
-          name: "Build",
-        }],
-        tags: [{
-          archived: false,
-          id: "94000000-0000-4000-8000-000000000034",
-          name: "delivery",
-        }],
+        series: [
+          {
+            archived: false,
+            id: "94000000-0000-4000-8000-000000000035",
+            name: "Build",
+          },
+        ],
+        tags: [
+          {
+            archived: false,
+            id: "94000000-0000-4000-8000-000000000034",
+            name: "delivery",
+          },
+        ],
         topics: [
           {
             archived: false,
@@ -293,7 +305,9 @@ describe("MaterialAuthoring", () => {
       prisma: testDatabase.prisma,
       authorPolicy: { canManage: () => false },
     });
-    await expect(unauthorized.authoring.listReferences({ actor })).resolves.toEqual({
+    await expect(
+      unauthorized.authoring.listReferences({ actor }),
+    ).resolves.toEqual({
       error: { code: "forbidden" },
       ok: false,
     });
@@ -306,7 +320,6 @@ describe("MaterialAuthoring", () => {
       testDatabase.prisma.topic.create({
         data: { id: topicId, name: "Admin topic", slug: "admin-topic" },
       }),
-
     ]);
     const { authoring } = assembleMaterials({
       prisma: testDatabase.prisma,
@@ -413,7 +426,9 @@ describe("MaterialAuthoring", () => {
     await Promise.all(
       materialIds.map((materialId, index) =>
         testDatabase.prisma.material.update({
-          data: { updatedAt: new Date(`2026-08-0${String(index + 1)}T10:00:00.000Z`) },
+          data: {
+            updatedAt: new Date(`2026-08-0${String(index + 1)}T10:00:00.000Z`),
+          },
           where: { id: materialId },
         }),
       ),
@@ -539,7 +554,6 @@ describe("MaterialAuthoring", () => {
       testDatabase.prisma.topic.create({
         data: { id: topicId, name: "Video topic", slug: "video-topic" },
       }),
-
     ]);
     const metadata = {
       access: "free" as const,
@@ -564,52 +578,71 @@ describe("MaterialAuthoring", () => {
     });
     if (!created.ok) throw new Error(created.error.code);
 
-    await expect(withoutVideos.authoring.saveMaterial({
-      actor,
-      body: representativeDocument("Published body remains independent."),
-      expectedContentVersion: 1,
-      idempotencyKey: "publish-with-missing-video-dependency",
-      materialId: created.value.materialId,
-      metadata,
-      primaryVideoId: firstVideoId,
-      publicationState: "published",
-    })).resolves.toEqual({
+    await expect(
+      withoutVideos.authoring.saveMaterial({
+        actor,
+        body: representativeDocument("Published body remains independent."),
+        expectedContentVersion: 1,
+        idempotencyKey: "publish-with-missing-video-dependency",
+        materialId: created.value.materialId,
+        metadata,
+        primaryVideoId: firstVideoId,
+        publicationState: "published",
+      }),
+    ).resolves.toEqual({
       error: { code: "dependency_unavailable", retryable: true },
       ok: false,
     });
 
     let replacementReady = false;
-    const inspectPrimaryReference = vi.fn((_transaction: unknown, { videoId }: { readonly videoId: string }) =>
-      Promise.resolve(videoId === replacementVideoId && !replacementReady
-        ? { error: { code: "video_not_ready" as const }, ok: false as const }
-        : { ok: true as const, value: undefined }));
-    const loadPresentation = vi.fn(({ videoId }: { readonly videoId: string }) => Promise.resolve({
-      ok: true as const,
-      value: {
-        state: "ready" as const,
-        title: videoId === firstVideoId ? "First Video" : "Replacement Video",
-        videoId,
-      },
-    }));
+    const inspectPrimaryReference = vi.fn(
+      (_transaction: unknown, { videoId }: { readonly videoId: string }) =>
+        Promise.resolve(
+          videoId === replacementVideoId && !replacementReady
+            ? {
+                error: { code: "video_not_ready" as const },
+                ok: false as const,
+              }
+            : { ok: true as const, value: undefined },
+        ),
+    );
+    const loadPresentation = vi.fn(
+      ({ videoId }: { readonly videoId: string }) =>
+        Promise.resolve({
+          ok: true as const,
+          value: {
+            state: "ready" as const,
+            title:
+              videoId === firstVideoId ? "First Video" : "Replacement Video",
+            videoId,
+          },
+        }),
+    );
     const loadAuthoringPresentation = vi.fn(
-      ({ videoId }: { readonly videoId: string }) => Promise.resolve({
+      ({ videoId }: { readonly videoId: string }) =>
+        Promise.resolve({
+          ok: true as const,
+          value: {
+            origin: "platform_upload" as const,
+            state: "ready" as const,
+            title:
+              videoId === firstVideoId ? "First Video" : "Replacement Video",
+            videoId,
+          },
+        }),
+    );
+    const loadLatestDeletion = vi.fn(() =>
+      Promise.resolve({
         ok: true as const,
-        value: {
-          origin: "platform_upload" as const,
-          state: "ready" as const,
-          title: videoId === firstVideoId ? "First Video" : "Replacement Video",
-          videoId,
-        },
+        value: null,
       }),
     );
-    const loadLatestDeletion = vi.fn(() => Promise.resolve({
-      ok: true as const,
-      value: null,
-    }));
-    const loadUnselectedUpload = vi.fn(() => Promise.resolve({
-      ok: true as const,
-      value: null,
-    }));
+    const loadUnselectedUpload = vi.fn(() =>
+      Promise.resolve({
+        ok: true as const,
+        value: null,
+      }),
+    );
     const videos = {
       inspectPrimaryReference,
       loadAuthoringPresentation,
@@ -641,26 +674,30 @@ describe("MaterialAuthoring", () => {
     });
     expect(published).toMatchObject({ ok: true, value: { contentVersion: 2 } });
 
-    await expect(withVideos.authoring.saveMaterial({
-      actor,
-      body: representativeDocument("Published body remains independent."),
-      expectedContentVersion: 2,
-      idempotencyKey: "reject-processing-video-replacement",
-      materialId: created.value.materialId,
-      metadata,
-      primaryVideoId: replacementVideoId,
-      publicationState: "published",
-    })).resolves.toEqual({
+    await expect(
+      withVideos.authoring.saveMaterial({
+        actor,
+        body: representativeDocument("Published body remains independent."),
+        expectedContentVersion: 2,
+        idempotencyKey: "reject-processing-video-replacement",
+        materialId: created.value.materialId,
+        metadata,
+        primaryVideoId: replacementVideoId,
+        publicationState: "published",
+      }),
+    ).resolves.toEqual({
       error: {
         code: "invalid_reference",
         issues: [{ code: "video_not_ready", path: "/primaryVideoId" }],
       },
       ok: false,
     });
-    await expect(withVideos.publishedMaterialReader.read({
-      slug: "primary-video-lifecycle",
-      subject: { kind: "anonymous" },
-    })).resolves.toMatchObject({
+    await expect(
+      withVideos.publishedMaterialReader.read({
+        slug: "primary-video-lifecycle",
+        subject: { kind: "anonymous" },
+      }),
+    ).resolves.toMatchObject({
       ok: true,
       value: {
         kind: "available",
@@ -670,30 +707,39 @@ describe("MaterialAuthoring", () => {
     });
 
     replacementReady = true;
-    await expect(withVideos.authoring.saveMaterial({
-      actor,
-      body: representativeDocument("Published body remains independent."),
-      expectedContentVersion: 2,
-      idempotencyKey: "save-ready-video-replacement",
-      materialId: created.value.materialId,
-      metadata,
-      primaryVideoId: replacementVideoId,
-      publicationState: "published",
-    })).resolves.toMatchObject({ ok: true, value: { contentVersion: 3 } });
-    await expect(withVideos.authoring.loadMaterial({
-      actor,
-      materialId: created.value.materialId,
-    })).resolves.toMatchObject({
+    await expect(
+      withVideos.authoring.saveMaterial({
+        actor,
+        body: representativeDocument("Published body remains independent."),
+        expectedContentVersion: 2,
+        idempotencyKey: "save-ready-video-replacement",
+        materialId: created.value.materialId,
+        metadata,
+        primaryVideoId: replacementVideoId,
+        publicationState: "published",
+      }),
+    ).resolves.toMatchObject({ ok: true, value: { contentVersion: 3 } });
+    await expect(
+      withVideos.authoring.loadMaterial({
+        actor,
+        materialId: created.value.materialId,
+      }),
+    ).resolves.toMatchObject({
       ok: true,
       value: { primaryVideoId: replacementVideoId },
     });
-    await expect(withVideos.publishedMaterialReader.read({
-      slug: "primary-video-lifecycle",
-      subject: { kind: "anonymous" },
-    })).resolves.toMatchObject({
+    await expect(
+      withVideos.publishedMaterialReader.read({
+        slug: "primary-video-lifecycle",
+        subject: { kind: "anonymous" },
+      }),
+    ).resolves.toMatchObject({
       ok: true,
       value: {
-        primaryVideo: { title: "Replacement Video", videoId: replacementVideoId },
+        primaryVideo: {
+          title: "Replacement Video",
+          videoId: replacementVideoId,
+        },
         projection: { primaryVideoId: replacementVideoId },
       },
     });
@@ -769,84 +815,102 @@ describe("MaterialAuthoring", () => {
       ok: true,
       value: { state: "ready" },
     });
-    await expect(materials.authoring.saveMaterial({
-      actor,
-      body: representativeDocument("Delete only after Save."),
-      expectedContentVersion: 1,
-      idempotencyKey: "attach-owned-video",
-      materialId: created.value.materialId,
-      metadata,
-      primaryVideoId: videoId,
-      publicationState: "draft",
-    })).resolves.toMatchObject({ ok: true, value: { contentVersion: 2 } });
+    await expect(
+      materials.authoring.saveMaterial({
+        actor,
+        body: representativeDocument("Delete only after Save."),
+        expectedContentVersion: 1,
+        idempotencyKey: "attach-owned-video",
+        materialId: created.value.materialId,
+        metadata,
+        primaryVideoId: videoId,
+        publicationState: "draft",
+      }),
+    ).resolves.toMatchObject({ ok: true, value: { contentVersion: 2 } });
 
-    await expect(materials.authoring.saveMaterial({
-      actor,
-      body: representativeDocument("Delete only after Save."),
-      expectedContentVersion: 2,
-      idempotencyKey: "detach-owned-video-without-deletion",
-      materialId: created.value.materialId,
-      metadata,
-      primaryVideoId: null,
-      publicationState: "draft",
-    })).resolves.toMatchObject({ ok: true, value: { contentVersion: 3 } });
-    await expect(testDatabase.prisma.videoDeletionOperation.count({
-      where: { videoId },
-    })).resolves.toBe(0);
+    await expect(
+      materials.authoring.saveMaterial({
+        actor,
+        body: representativeDocument("Delete only after Save."),
+        expectedContentVersion: 2,
+        idempotencyKey: "detach-owned-video-without-deletion",
+        materialId: created.value.materialId,
+        metadata,
+        primaryVideoId: null,
+        publicationState: "draft",
+      }),
+    ).resolves.toMatchObject({ ok: true, value: { contentVersion: 3 } });
+    await expect(
+      testDatabase.prisma.videoDeletionOperation.count({
+        where: { videoId },
+      }),
+    ).resolves.toBe(0);
     expect(providerDeleteCalls).toBe(0);
 
-    await expect(materials.authoring.saveMaterial({
-      actor,
-      body: representativeDocument("Delete only after Save."),
-      expectedContentVersion: 3,
-      idempotencyKey: "reattach-owned-video-before-deletion",
-      materialId: created.value.materialId,
-      metadata,
-      primaryVideoId: videoId,
-      publicationState: "draft",
-    })).resolves.toMatchObject({ ok: true, value: { contentVersion: 4 } });
+    await expect(
+      materials.authoring.saveMaterial({
+        actor,
+        body: representativeDocument("Delete only after Save."),
+        expectedContentVersion: 3,
+        idempotencyKey: "reattach-owned-video-before-deletion",
+        materialId: created.value.materialId,
+        metadata,
+        primaryVideoId: videoId,
+        publicationState: "draft",
+      }),
+    ).resolves.toMatchObject({ ok: true, value: { contentVersion: 4 } });
 
-    await expect(materials.authoring.saveMaterial({
-      actor,
-      body: representativeDocument("Delete only after Save."),
-      deleteVideoId: videoId,
-      expectedContentVersion: 3,
-      idempotencyKey: "stale-owned-video-deletion",
-      materialId: created.value.materialId,
-      metadata,
-      primaryVideoId: null,
-      publicationState: "draft",
-    })).resolves.toMatchObject({
+    await expect(
+      materials.authoring.saveMaterial({
+        actor,
+        body: representativeDocument("Delete only after Save."),
+        deleteVideoId: videoId,
+        expectedContentVersion: 3,
+        idempotencyKey: "stale-owned-video-deletion",
+        materialId: created.value.materialId,
+        metadata,
+        primaryVideoId: null,
+        publicationState: "draft",
+      }),
+    ).resolves.toMatchObject({
       error: { code: "stale_content_version" },
       ok: false,
     });
-    await expect(testDatabase.prisma.videoDeletionOperation.count({
-      where: { videoId },
-    })).resolves.toBe(0);
+    await expect(
+      testDatabase.prisma.videoDeletionOperation.count({
+        where: { videoId },
+      }),
+    ).resolves.toBe(0);
 
-    await expect(materials.authoring.saveMaterial({
-      actor,
-      body: representativeDocument("Delete only after Save."),
-      deleteVideoId: videoId,
-      expectedContentVersion: 4,
-      idempotencyKey: "detach-and-delete-owned-video",
-      materialId: created.value.materialId,
-      metadata,
-      primaryVideoId: null,
-      publicationState: "draft",
-    })).resolves.toMatchObject({ ok: true, value: { contentVersion: 5 } });
-    await expect(testDatabase.prisma.videoDeletionOperation.findUniqueOrThrow({
-      where: { videoId },
-    })).resolves.toMatchObject({
+    await expect(
+      materials.authoring.saveMaterial({
+        actor,
+        body: representativeDocument("Delete only after Save."),
+        deleteVideoId: videoId,
+        expectedContentVersion: 4,
+        idempotencyKey: "detach-and-delete-owned-video",
+        materialId: created.value.materialId,
+        metadata,
+        primaryVideoId: null,
+        publicationState: "draft",
+      }),
+    ).resolves.toMatchObject({ ok: true, value: { contentVersion: 5 } });
+    await expect(
+      testDatabase.prisma.videoDeletionOperation.findUniqueOrThrow({
+        where: { videoId },
+      }),
+    ).resolves.toMatchObject({
       attempts: 0,
       completedAt: null,
       requestedBy: actor,
       state: "deletion_requested",
     });
-    await expect(materials.authoring.loadMaterial({
-      actor,
-      materialId: created.value.materialId,
-    })).resolves.toMatchObject({
+    await expect(
+      materials.authoring.loadMaterial({
+        actor,
+        materialId: created.value.materialId,
+      }),
+    ).resolves.toMatchObject({
       ok: true,
       value: {
         latestVideoDeletion: {
@@ -880,7 +944,10 @@ describe("MaterialAuthoring", () => {
       },
       initUpload(_input) {
         const id = `active-${crypto.randomUUID()}`;
-        return Promise.resolve({ id, uploadEndpoint: `https://uploads.example.test/${id}` });
+        return Promise.resolve({
+          id,
+          uploadEndpoint: `https://uploads.example.test/${id}`,
+        });
       },
     };
     const videos = assembleVideos({
@@ -923,20 +990,24 @@ describe("MaterialAuthoring", () => {
     });
     if (!initialized.ok) throw new Error(initialized.error.code);
 
-    await expect(materials.authoring.saveMaterial({
-      actor,
-      body: representativeDocument("Cancel transfer before deletion."),
-      deleteVideoId: initialized.value.video.videoId,
-      expectedContentVersion: 1,
-      idempotencyKey: "request-active-video-deletion",
-      materialId: created.value.materialId,
-      metadata,
-      primaryVideoId: null,
-      publicationState: "draft",
-    })).resolves.toMatchObject({ ok: true, value: { contentVersion: 2 } });
-    await expect(testDatabase.prisma.video.findUniqueOrThrow({
-      where: { id: initialized.value.video.videoId },
-    })).resolves.toMatchObject({
+    await expect(
+      materials.authoring.saveMaterial({
+        actor,
+        body: representativeDocument("Cancel transfer before deletion."),
+        deleteVideoId: initialized.value.video.videoId,
+        expectedContentVersion: 1,
+        idempotencyKey: "request-active-video-deletion",
+        materialId: created.value.materialId,
+        metadata,
+        primaryVideoId: null,
+        publicationState: "draft",
+      }),
+    ).resolves.toMatchObject({ ok: true, value: { contentVersion: 2 } });
+    await expect(
+      testDatabase.prisma.video.findUniqueOrThrow({
+        where: { id: initialized.value.video.videoId },
+      }),
+    ).resolves.toMatchObject({
       providerStatus: "uploading",
       state: "deletion_requested",
     });
@@ -957,7 +1028,10 @@ describe("MaterialAuthoring", () => {
       },
       initUpload(_input) {
         const id = `draft-${crypto.randomUUID()}`;
-        return Promise.resolve({ id, uploadEndpoint: `https://uploads.example.test/${id}` });
+        return Promise.resolve({
+          id,
+          uploadEndpoint: `https://uploads.example.test/${id}`,
+        });
       },
     };
     const videos = assembleVideos({
@@ -1011,19 +1085,28 @@ describe("MaterialAuthoring", () => {
       publicationState: "draft",
     });
 
-    await expect(materials.authoring.deleteDraft({
-      actor,
-      deleteVideoId: initialized.value.video.videoId,
-      expectedContentVersion: 2,
-      idempotencyKey: "delete-draft-with-owned-video",
-      materialId: created.value.materialId,
-    })).resolves.toEqual({ ok: true, value: { materialId: created.value.materialId } });
-    await expect(testDatabase.prisma.material.findUnique({
-      where: { id: created.value.materialId },
-    })).resolves.toBeNull();
-    await expect(testDatabase.prisma.videoDeletionOperation.findUniqueOrThrow({
-      where: { videoId: initialized.value.video.videoId },
-    })).resolves.toMatchObject({ state: "deletion_requested" });
+    await expect(
+      materials.authoring.deleteDraft({
+        actor,
+        deleteVideoId: initialized.value.video.videoId,
+        expectedContentVersion: 2,
+        idempotencyKey: "delete-draft-with-owned-video",
+        materialId: created.value.materialId,
+      }),
+    ).resolves.toEqual({
+      ok: true,
+      value: { materialId: created.value.materialId },
+    });
+    await expect(
+      testDatabase.prisma.material.findUnique({
+        where: { id: created.value.materialId },
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      testDatabase.prisma.videoDeletionOperation.findUniqueOrThrow({
+        where: { videoId: initialized.value.video.videoId },
+      }),
+    ).resolves.toMatchObject({ state: "deletion_requested" });
   });
 
   test("reports an upload the Material never saved and stops once it becomes the primary Video", async () => {
@@ -1069,7 +1152,9 @@ describe("MaterialAuthoring", () => {
       title: "Interrupted upload recovery",
       topicId: null,
     };
-    const body = representativeDocument("The author closed the tab mid upload.");
+    const body = representativeDocument(
+      "The author closed the tab mid upload.",
+    );
     const created = await materials.authoring.createDraft({
       actor,
       body,
@@ -1089,10 +1174,12 @@ describe("MaterialAuthoring", () => {
     });
     if (!started.ok) throw new Error(started.error.code);
 
-    await expect(materials.authoring.loadMaterial({
-      actor,
-      materialId: created.value.materialId,
-    })).resolves.toMatchObject({
+    await expect(
+      materials.authoring.loadMaterial({
+        actor,
+        materialId: created.value.materialId,
+      }),
+    ).resolves.toMatchObject({
       ok: true,
       value: {
         primaryVideo: null,
@@ -1113,26 +1200,32 @@ describe("MaterialAuthoring", () => {
       status: "done",
       title: "Recovered lesson",
     });
-    await expect(videos.reconcile({
-      actor,
-      videoId: started.value.video.videoId,
-    })).resolves.toMatchObject({ ok: true, value: { state: "ready" } });
+    await expect(
+      videos.reconcile({
+        actor,
+        videoId: started.value.video.videoId,
+      }),
+    ).resolves.toMatchObject({ ok: true, value: { state: "ready" } });
 
-    await expect(materials.authoring.saveMaterial({
-      actor,
-      body,
-      expectedContentVersion: 1,
-      idempotencyKey: "save-recovered-upload",
-      materialId: created.value.materialId,
-      metadata,
-      primaryVideoId: started.value.video.videoId,
-      publicationState: "draft",
-    })).resolves.toMatchObject({ ok: true, value: { contentVersion: 2 } });
+    await expect(
+      materials.authoring.saveMaterial({
+        actor,
+        body,
+        expectedContentVersion: 1,
+        idempotencyKey: "save-recovered-upload",
+        materialId: created.value.materialId,
+        metadata,
+        primaryVideoId: started.value.video.videoId,
+        publicationState: "draft",
+      }),
+    ).resolves.toMatchObject({ ok: true, value: { contentVersion: 2 } });
 
-    await expect(materials.authoring.loadMaterial({
-      actor,
-      materialId: created.value.materialId,
-    })).resolves.toMatchObject({
+    await expect(
+      materials.authoring.loadMaterial({
+        actor,
+        materialId: created.value.materialId,
+      }),
+    ).resolves.toMatchObject({
       ok: true,
       value: {
         primaryVideoId: started.value.video.videoId,
@@ -1141,23 +1234,27 @@ describe("MaterialAuthoring", () => {
       },
     });
 
-    await expect(materials.authoring.saveMaterial({
-      actor,
-      body,
-      expectedContentVersion: 2,
-      idempotencyKey: "detach-recovered-upload",
-      materialId: created.value.materialId,
-      metadata,
-      primaryVideoId: null,
-      publicationState: "draft",
-    })).resolves.toMatchObject({ ok: true, value: { contentVersion: 3 } });
+    await expect(
+      materials.authoring.saveMaterial({
+        actor,
+        body,
+        expectedContentVersion: 2,
+        idempotencyKey: "detach-recovered-upload",
+        materialId: created.value.materialId,
+        metadata,
+        primaryVideoId: null,
+        publicationState: "draft",
+      }),
+    ).resolves.toMatchObject({ ok: true, value: { contentVersion: 3 } });
 
     // «Убрать» keeps the Kinescope object but is still the author's decision: recovery must not
     // hand the Video back and let autosave re-attach it on the next visit.
-    await expect(materials.authoring.loadMaterial({
-      actor,
-      materialId: created.value.materialId,
-    })).resolves.toMatchObject({
+    await expect(
+      materials.authoring.loadMaterial({
+        actor,
+        materialId: created.value.materialId,
+      }),
+    ).resolves.toMatchObject({
       ok: true,
       value: {
         primaryVideo: null,
@@ -1181,7 +1278,10 @@ describe("MaterialAuthoring", () => {
           status: "processing",
           title: input.title,
         });
-        return Promise.resolve({ id, uploadEndpoint: `https://uploads.example.test/${id}` });
+        return Promise.resolve({
+          id,
+          uploadEndpoint: `https://uploads.example.test/${id}`,
+        });
       },
     };
     const videos = assembleVideos({
@@ -1208,7 +1308,9 @@ describe("MaterialAuthoring", () => {
       title: "Removed during processing",
       topicId: null,
     };
-    const body = representativeDocument("The author changed their mind mid processing.");
+    const body = representativeDocument(
+      "The author changed their mind mid processing.",
+    );
     const created = await materials.authoring.createDraft({
       actor,
       body,
@@ -1236,42 +1338,54 @@ describe("MaterialAuthoring", () => {
       readonly expectedContentVersion: number;
       readonly key: string;
       readonly primaryVideoId: string | null;
-    }) => materials.authoring.saveMaterial({
-      actor,
-      body,
-      ...(input.detachVideoIds === undefined ? {} : { detachVideoIds: input.detachVideoIds }),
-      expectedContentVersion: input.expectedContentVersion,
-      idempotencyKey: input.key,
-      materialId,
-      metadata,
-      primaryVideoId: input.primaryVideoId,
-      publicationState: "draft",
-    });
+    }) =>
+      materials.authoring.saveMaterial({
+        actor,
+        body,
+        ...(input.detachVideoIds === undefined
+          ? {}
+          : { detachVideoIds: input.detachVideoIds }),
+        expectedContentVersion: input.expectedContentVersion,
+        idempotencyKey: input.key,
+        materialId,
+        metadata,
+        primaryVideoId: input.primaryVideoId,
+        publicationState: "draft",
+      });
 
     const removed = await upload("removed");
     // Negative control: an ordinary autosave during processing is not a removal.
-    await expect(save({
-      expectedContentVersion: 1,
-      key: "autosave-during-processing",
-      primaryVideoId: null,
-    })).resolves.toMatchObject({ ok: true, value: { contentVersion: 2 } });
+    await expect(
+      save({
+        expectedContentVersion: 1,
+        key: "autosave-during-processing",
+        primaryVideoId: null,
+      }),
+    ).resolves.toMatchObject({ ok: true, value: { contentVersion: 2 } });
     await expect(load()).resolves.toMatchObject({
       ok: true,
       value: { unselectedVideoUpload: { videoId: removed } },
     });
 
-    await expect(save({
-      detachVideoIds: [removed],
-      expectedContentVersion: 2,
-      key: "remove-during-processing",
-      primaryVideoId: null,
-    })).resolves.toMatchObject({ ok: true, value: { contentVersion: 3 } });
+    await expect(
+      save({
+        detachVideoIds: [removed],
+        expectedContentVersion: 2,
+        key: "remove-during-processing",
+        primaryVideoId: null,
+      }),
+    ).resolves.toMatchObject({ ok: true, value: { contentVersion: 3 } });
     // The late reconciliation still reports processing; the removal is the last word.
-    await expect(videos.reconcile({ actor, videoId: removed }))
-      .resolves.toMatchObject({ ok: true, value: { state: "processing" } });
+    await expect(
+      videos.reconcile({ actor, videoId: removed }),
+    ).resolves.toMatchObject({ ok: true, value: { state: "processing" } });
     await expect(load()).resolves.toMatchObject({
       ok: true,
-      value: { primaryVideo: null, primaryVideoId: null, unselectedVideoUpload: null },
+      value: {
+        primaryVideo: null,
+        primaryVideoId: null,
+        unselectedVideoUpload: null,
+      },
     });
 
     // Replacement: the new upload is offered and saved; the removed one never takes its place.
@@ -1280,7 +1394,9 @@ describe("MaterialAuthoring", () => {
       ok: true,
       value: { unselectedVideoUpload: { videoId: replacement } },
     });
-    const replacementProviderId = [...remote.values()].find(({ title }) => title === "replacement")?.id ?? "";
+    const replacementProviderId =
+      [...remote.values()].find(({ title }) => title === "replacement")?.id ??
+      "";
     remote.set(replacementProviderId, {
       embedLocator: "https://kinescope.io/embed/replacement",
       id: replacementProviderId,
@@ -1288,19 +1404,24 @@ describe("MaterialAuthoring", () => {
       status: "done",
       title: "replacement",
     });
-    await expect(videos.reconcile({ actor, videoId: replacement }))
-      .resolves.toMatchObject({ ok: true, value: { state: "ready" } });
-    await expect(save({
-      expectedContentVersion: 3,
-      key: "select-replacement",
-      primaryVideoId: replacement,
-    })).resolves.toMatchObject({ ok: true, value: { contentVersion: 4 } });
-    await expect(save({
-      detachVideoIds: [replacement],
-      expectedContentVersion: 4,
-      key: "remove-replacement",
-      primaryVideoId: null,
-    })).resolves.toMatchObject({ ok: true, value: { contentVersion: 5 } });
+    await expect(
+      videos.reconcile({ actor, videoId: replacement }),
+    ).resolves.toMatchObject({ ok: true, value: { state: "ready" } });
+    await expect(
+      save({
+        expectedContentVersion: 3,
+        key: "select-replacement",
+        primaryVideoId: replacement,
+      }),
+    ).resolves.toMatchObject({ ok: true, value: { contentVersion: 4 } });
+    await expect(
+      save({
+        detachVideoIds: [replacement],
+        expectedContentVersion: 4,
+        key: "remove-replacement",
+        primaryVideoId: null,
+      }),
+    ).resolves.toMatchObject({ ok: true, value: { contentVersion: 5 } });
     await expect(load()).resolves.toMatchObject({
       ok: true,
       value: { primaryVideoId: null, unselectedVideoUpload: null },
@@ -1310,13 +1431,14 @@ describe("MaterialAuthoring", () => {
   test("refuses a removal that names another Material's Video or the Video it selects", async () => {
     const provider: VideoProvider = {
       delete: () => Promise.reject(new Error("unused")),
-      find: (input) => Promise.resolve({
-        embedLocator: `https://kinescope.io/embed/${input.id}`,
-        id: input.id,
-        projectId: input.projectId,
-        status: "done",
-        title: "Attached lesson",
-      }),
+      find: (input) =>
+        Promise.resolve({
+          embedLocator: `https://kinescope.io/embed/${input.id}`,
+          id: input.id,
+          projectId: input.projectId,
+          status: "done",
+          title: "Attached lesson",
+        }),
       initUpload: () => Promise.reject(new Error("unused")),
     };
     const videos = assembleVideos({
@@ -1341,9 +1463,16 @@ describe("MaterialAuthoring", () => {
       title: "Forged removal",
       topicId: null,
     };
-    const body = representativeDocument("Removal names only this Material's Videos.");
+    const body = representativeDocument(
+      "Removal names only this Material's Videos.",
+    );
     const create = async (key: string) => {
-      const created = await materials.authoring.createDraft({ actor, body, idempotencyKey: key, metadata });
+      const created = await materials.authoring.createDraft({
+        actor,
+        body,
+        idempotencyKey: key,
+        metadata,
+      });
       if (!created.ok) throw new Error(created.error.code);
       const attached = await videos.attachExisting({
         access: "free",
@@ -1352,11 +1481,18 @@ describe("MaterialAuthoring", () => {
         providerVideoId: `external-${crypto.randomUUID()}`,
       });
       if (!attached.ok) throw new Error(attached.error.code);
-      return { materialId: created.value.materialId, videoId: attached.value.videoId };
+      return {
+        materialId: created.value.materialId,
+        videoId: attached.value.videoId,
+      };
     };
     const own = await create("create-forged-removal");
     const foreign = await create("create-foreign-removal");
-    const save = (detachVideoIds: readonly string[], primaryVideoId: string | null, key: string) =>
+    const save = (
+      detachVideoIds: readonly string[],
+      primaryVideoId: string | null,
+      key: string,
+    ) =>
       materials.authoring.saveMaterial({
         actor,
         body,
@@ -1369,22 +1505,29 @@ describe("MaterialAuthoring", () => {
         publicationState: "draft",
       });
 
-    await expect(save([foreign.videoId], null, "detach-foreign-video")).resolves.toEqual({
+    await expect(
+      save([foreign.videoId], null, "detach-foreign-video"),
+    ).resolves.toEqual({
       error: {
         code: "invalid_reference",
         issues: [{ code: "video_not_found", path: "/detachVideoIds" }],
       },
       ok: false,
     });
-    await expect(save([own.videoId], own.videoId, "detach-selected-video")).resolves.toEqual({
+    await expect(
+      save([own.videoId], own.videoId, "detach-selected-video"),
+    ).resolves.toEqual({
       error: {
         code: "invalid_reference",
-        issues: [{ code: "video_detachment_target_mismatch", path: "/detachVideoIds" }],
+        issues: [
+          { code: "video_detachment_target_mismatch", path: "/detachVideoIds" },
+        ],
       },
       ok: false,
     });
-    await expect(materials.authoring.loadMaterial({ actor, materialId: own.materialId }))
-      .resolves.toMatchObject({ ok: true, value: { contentVersion: 1 } });
+    await expect(
+      materials.authoring.loadMaterial({ actor, materialId: own.materialId }),
+    ).resolves.toMatchObject({ ok: true, value: { contentVersion: 1 } });
   });
 
   test("rejects deletion of an externally attached Video without detaching it", async () => {
@@ -1441,44 +1584,52 @@ describe("MaterialAuthoring", () => {
       providerVideoId: `external-${crypto.randomUUID()}`,
     });
     if (!attached.ok) throw new Error(attached.error.code);
-    await expect(materials.authoring.saveMaterial({
-      actor,
-      body: representativeDocument("External Video stays in Kinescope."),
-      expectedContentVersion: 1,
-      idempotencyKey: "attach-external-video",
-      materialId: created.value.materialId,
-      metadata,
-      primaryVideoId: attached.value.videoId,
-      publicationState: "draft",
-    })).resolves.toMatchObject({ ok: true, value: { contentVersion: 2 } });
+    await expect(
+      materials.authoring.saveMaterial({
+        actor,
+        body: representativeDocument("External Video stays in Kinescope."),
+        expectedContentVersion: 1,
+        idempotencyKey: "attach-external-video",
+        materialId: created.value.materialId,
+        metadata,
+        primaryVideoId: attached.value.videoId,
+        publicationState: "draft",
+      }),
+    ).resolves.toMatchObject({ ok: true, value: { contentVersion: 2 } });
 
-    await expect(materials.authoring.saveMaterial({
-      actor,
-      body: representativeDocument("External Video stays in Kinescope."),
-      deleteVideoId: attached.value.videoId,
-      expectedContentVersion: 2,
-      idempotencyKey: "forged-external-video-deletion",
-      materialId: created.value.materialId,
-      metadata,
-      primaryVideoId: null,
-      publicationState: "draft",
-    })).resolves.toEqual({
+    await expect(
+      materials.authoring.saveMaterial({
+        actor,
+        body: representativeDocument("External Video stays in Kinescope."),
+        deleteVideoId: attached.value.videoId,
+        expectedContentVersion: 2,
+        idempotencyKey: "forged-external-video-deletion",
+        materialId: created.value.materialId,
+        metadata,
+        primaryVideoId: null,
+        publicationState: "draft",
+      }),
+    ).resolves.toEqual({
       error: {
         code: "invalid_reference",
         issues: [{ code: "video_deletion_forbidden", path: "/deleteVideoId" }],
       },
       ok: false,
     });
-    await expect(materials.authoring.loadMaterial({
-      actor,
-      materialId: created.value.materialId,
-    })).resolves.toMatchObject({
+    await expect(
+      materials.authoring.loadMaterial({
+        actor,
+        materialId: created.value.materialId,
+      }),
+    ).resolves.toMatchObject({
       ok: true,
       value: { contentVersion: 2, primaryVideoId: attached.value.videoId },
     });
-    await expect(testDatabase.prisma.videoDeletionOperation.count({
-      where: { videoId: attached.value.videoId },
-    })).resolves.toBe(0);
+    await expect(
+      testDatabase.prisma.videoDeletionOperation.count({
+        where: { videoId: attached.value.videoId },
+      }),
+    ).resolves.toBe(0);
     expect(providerDeleteCalls).toBe(0);
   });
 });

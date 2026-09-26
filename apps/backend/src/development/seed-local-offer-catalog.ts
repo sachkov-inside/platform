@@ -32,7 +32,10 @@ interface CatalogOffer {
   readonly name: string;
   readonly benefits: readonly string[];
   /** Явный состав подписки: без него тариф не продаётся. У разовой покупки продукта его нет. */
-  readonly contentScope?: { readonly guideIds: readonly string[]; readonly materialIds: readonly string[] };
+  readonly contentScope?: {
+    readonly guideIds: readonly string[];
+    readonly materialIds: readonly string[];
+  };
   /** Право с собственным сроком: `null` — бессрочно, иначе столько календарных месяцев. */
   readonly benefitPeriods: readonly {
     readonly capability: string;
@@ -81,7 +84,10 @@ function localCatalog(guideId: string): readonly CatalogOffer[] {
       benefits: [guideCapability(guideId), "support"],
       // Право разовой покупки выдаётся без даты окончания; договорные сроки называет оферта.
       // Сопровождение по оферте разовой покупки — шесть месяцев с оплаты (#648).
-      benefitPeriods: [{ capability: guideCapability(guideId), months: null }, { capability: "support", months: 6 }],
+      benefitPeriods: [
+        { capability: guideCapability(guideId), months: null },
+        { capability: "support", months: 6 },
+      ],
       option: {
         id: "72000000-0000-4000-8000-000000000513",
         mode: "one_time",
@@ -94,7 +100,10 @@ function localCatalog(guideId: string): readonly CatalogOffer[] {
 
 type OwnerCatalogResult = Awaited<ReturnType<BillingPricing["ownerCatalog"]>>;
 /** Снимок цены одного варианта оплаты — то, чем каталог отвечает своему владельцу. */
-type CatalogSnapshot = Extract<OwnerCatalogResult, { ok: true }>["value"]["items"][number];
+type CatalogSnapshot = Extract<
+  OwnerCatalogResult,
+  { ok: true }
+>["value"]["items"][number];
 
 /**
  * Приводит каталог стенда к описанию выше. Повторный запуск на совпадающем каталоге не отправляет
@@ -104,7 +113,11 @@ type CatalogSnapshot = Extract<OwnerCatalogResult, { ok: true }>["value"]["items
  */
 export async function seedLocalOfferCatalog(
   prisma: PlatformPrisma,
-  target: { readonly actor: string; readonly guideId: string; readonly onSale?: boolean },
+  target: {
+    readonly actor: string;
+    readonly guideId: string;
+    readonly onSale?: boolean;
+  },
 ): Promise<void> {
   const onSale = target.onSale ?? true;
   const pricing = new BillingPricing({
@@ -139,9 +152,14 @@ export async function seedLocalOfferCatalog(
         id: offer.offerId,
         name: offer.name,
         benefits: [...offer.benefits],
-        ...(offer.contentScope === undefined ? {} : {
-          contentScope: { guideIds: [...offer.contentScope.guideIds], materialIds: [...offer.contentScope.materialIds] },
-        }),
+        ...(offer.contentScope === undefined
+          ? {}
+          : {
+              contentScope: {
+                guideIds: [...offer.contentScope.guideIds],
+                materialIds: [...offer.contentScope.materialIds],
+              },
+            }),
         benefitPeriods: [...offer.benefitPeriods],
       },
     });
@@ -153,7 +171,13 @@ export async function seedLocalOfferCatalog(
       continue;
     }
     const option = await saveOption(live?.paymentOption.revision);
-    if (!onSale || option === undefined || live !== undefined || offer.option.mode === "subscription") continue;
+    if (
+      !onSale ||
+      option === undefined ||
+      live !== undefined ||
+      offer.option.mode === "subscription"
+    )
+      continue;
     // По умолчанию не продаётся ничего: сохранённое предложение выключено из продажи. Новое
     // предложение стенда включает в продажу отдельная владельческая команда — строкой ниже.
     // Уже заведённому продажу не возвращаем: её состоянием распоряжается владелец.
@@ -179,7 +203,12 @@ async function withdrawDemoOffers(
 ): Promise<void> {
   const offerIds = new Set(localCatalog(guideId).map(({ offerId }) => offerId));
   // The catalogue lists payment options; an offer with several of them is withdrawn once.
-  const offers = new Map([...(await readOwnerCatalog(pricing)).values()].map(({ offer }) => [offer.id, offer]));
+  const offers = new Map(
+    [...(await readOwnerCatalog(pricing)).values()].map(({ offer }) => [
+      offer.id,
+      offer,
+    ]),
+  );
   for (const offer of offers.values()) {
     if (!offerIds.has(offer.id) || !offer.published) continue;
     await sendCatalogCommand(pricing, actor, {
@@ -222,13 +251,20 @@ function matchesDefinition(
     snapshot.offer.id === offer.offerId &&
     snapshot.offer.name === offer.name &&
     sameMembers(snapshot.offer.benefits, offer.benefits) &&
-    sameMembers(snapshot.offer.contentScope?.guideIds ?? [], offer.contentScope?.guideIds ?? []) &&
-    sameMembers(snapshot.offer.contentScope?.materialIds ?? [], offer.contentScope?.materialIds ?? []) &&
+    sameMembers(
+      snapshot.offer.contentScope?.guideIds ?? [],
+      offer.contentScope?.guideIds ?? [],
+    ) &&
+    sameMembers(
+      snapshot.offer.contentScope?.materialIds ?? [],
+      offer.contentScope?.materialIds ?? [],
+    ) &&
     periods.length === offer.benefitPeriods.length &&
     offer.benefitPeriods.every((period) =>
       periods.some(
         (live) =>
-          live.capability === period.capability && live.months === period.months,
+          live.capability === period.capability &&
+          live.months === period.months,
       ),
     ) &&
     (snapshot.paymentOption.mode ?? "subscription") === offer.option.mode &&
@@ -242,7 +278,8 @@ function sameMembers(
   wanted: readonly string[],
 ): boolean {
   return (
-    live.length === wanted.length && wanted.every((value) => live.includes(value))
+    live.length === wanted.length &&
+    wanted.every((value) => live.includes(value))
   );
 }
 

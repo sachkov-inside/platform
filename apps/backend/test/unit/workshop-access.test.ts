@@ -16,7 +16,10 @@ const decidedAt = "2030-03-01T10:00:00.000Z";
 const validUntil = "2030-03-01T10:05:00.000Z";
 
 const anonymous: WorkshopSubject = { kind: "anonymous" };
-const account: WorkshopSubject = { kind: "account", accountId: learnerAccountId };
+const account: WorkshopSubject = {
+  kind: "account",
+  accountId: learnerAccountId,
+};
 
 const track = resource("track_outline", "kafka");
 const publicLaboratory = resource("laboratory", "kafka-local-v1");
@@ -43,8 +46,18 @@ const facts: readonly WorkshopResourceFacts[] = [
 const protectedRequests = [
   request(anonymous, protectedLaboratory, "read", "laboratory_read"),
   request(anonymous, protectedCase, "read", "production_case_read"),
-  request(anonymous, protectedLaboratoryAsset, "read", "workshop_artifact_delivery"),
-  request(anonymous, protectedCaseAsset, "download", "workshop_artifact_delivery"),
+  request(
+    anonymous,
+    protectedLaboratoryAsset,
+    "read",
+    "workshop_artifact_delivery",
+  ),
+  request(
+    anonymous,
+    protectedCaseAsset,
+    "download",
+    "workshop_artifact_delivery",
+  ),
 ] as const;
 
 const actors: readonly Readonly<{
@@ -103,13 +116,16 @@ describe("WorkshopAccess", () => {
         name: `${actor.name} / ${baseRequest.resource.kind} ${baseRequest.action}`,
       })),
     ),
-  )("uses stable protected-resource reasons for $name", async ({ actor, baseRequest }) => {
-    const workshopAccess = assembleAccess(actor.entitlement);
+  )(
+    "uses stable protected-resource reasons for $name",
+    async ({ actor, baseRequest }) => {
+      const workshopAccess = assembleAccess(actor.entitlement);
 
-    await expect(
-      workshopAccess.authorize({ ...baseRequest, subject: actor.subject }),
-    ).resolves.toMatchObject(actor.expected);
-  });
+      await expect(
+        workshopAccess.authorize({ ...baseRequest, subject: actor.subject }),
+      ).resolves.toMatchObject(actor.expected);
+    },
+  );
 
   test("opens published Track outline and public Laboratory without entitlement lookup", async () => {
     let entitlementReads = 0;
@@ -196,17 +212,14 @@ describe("WorkshopAccess", () => {
       kind: "production_case" as const,
       resourceId: "withdrawn-case-v1",
     };
-    const workshopAccess = assembleAccess(
-      { kind: "required" },
-      [
-        ...facts,
-        {
-          resource: withdrawnCase,
-          publicationState: "withdrawn",
-          access: "public",
-        },
-      ],
-    );
+    const workshopAccess = assembleAccess({ kind: "required" }, [
+      ...facts,
+      {
+        resource: withdrawnCase,
+        publicationState: "withdrawn",
+        access: "public",
+      },
+    ]);
     const forgedTrackItem = {
       itemId: "case",
       resource: protectedCase,
@@ -285,11 +298,17 @@ describe("WorkshopAccess", () => {
 
   test("validates availability batch shape before loading resources", async () => {
     let reads = 0;
-    const dependencies = dependenciesFor({ kind: "required" }, facts, () => {
-      throw new Error("entitlements must not be read by availability");
-    }, undefined, () => {
-      reads += 1;
-    });
+    const dependencies = dependenciesFor(
+      { kind: "required" },
+      facts,
+      () => {
+        throw new Error("entitlements must not be read by availability");
+      },
+      undefined,
+      () => {
+        reads += 1;
+      },
+    );
     const workshopAccess = assembleWorkshopAccess(dependencies);
     const base = {
       enforcementPoint: "track_outline_read" as const,
@@ -356,16 +375,18 @@ function dependenciesFor(
         onResourceRead?.();
         return Promise.resolve(availableFacts);
       },
-      findOne: findOne ?? ((requested) => {
-        onResourceRead?.();
-        return Promise.resolve(
-          availableFacts.find(
-            ({ resource: candidate }) =>
-              candidate.kind === requested.kind &&
-              candidate.resourceId === requested.resourceId,
-          ) ?? null,
-        );
-      }),
+      findOne:
+        findOne ??
+        ((requested) => {
+          onResourceRead?.();
+          return Promise.resolve(
+            availableFacts.find(
+              ({ resource: candidate }) =>
+                candidate.kind === requested.kind &&
+                candidate.resourceId === requested.resourceId,
+            ) ?? null,
+          );
+        }),
     },
     workshopEntitlements: {
       resolveForAccess: () => {
@@ -405,7 +426,11 @@ function published(
   access: "public" | "workshop",
 ): WorkshopResourceFacts {
   if (target.kind === "track_outline") {
-    return { resource: { ...target, kind: target.kind }, publicationState: "published", access: "public" };
+    return {
+      resource: { ...target, kind: target.kind },
+      publicationState: "published",
+      access: "public",
+    };
   }
   return {
     resource: {

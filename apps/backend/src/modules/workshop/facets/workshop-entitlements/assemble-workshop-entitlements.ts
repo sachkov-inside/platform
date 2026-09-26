@@ -37,7 +37,11 @@ export function assembleWorkshopEntitlements(
           clock(),
         );
       } catch (error) {
-        return dependencyFailure({ module: "workshop", operation: "resolveForAccess" }, error, { kind: "unavailable" });
+        return dependencyFailure(
+          { module: "workshop", operation: "resolveForAccess" },
+          error,
+          { kind: "unavailable" },
+        );
       }
     },
   });

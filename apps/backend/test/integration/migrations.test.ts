@@ -3,7 +3,10 @@ import { z } from "zod";
 
 import { Prisma } from "../../src/infrastructure/prisma/index.js";
 import { runMigrationsToLatest } from "../../src/infrastructure/postgres/migrate-to-latest.js";
-import { migrateToLatest, platformMigrations } from "../../src/migrations/index.js";
+import {
+  migrateToLatest,
+  platformMigrations,
+} from "../../src/migrations/index.js";
 import {
   name as materialsMigrationName,
   statement as materialsMigrationStatement,
@@ -139,18 +142,12 @@ const migratedMaterialRowsSchema = z.array(
     })
     .strict(),
 );
-const migratedTagRowsSchema = z.array(
-  z.object({ tag_id: z.uuid() }).strict(),
-);
+const migratedTagRowsSchema = z.array(z.object({ tag_id: z.uuid() }).strict());
 const migratedSearchRowsSchema = z.array(
-  z
-    .object({ content_version: z.bigint(), plain_text: z.string() })
-    .strict(),
+  z.object({ content_version: z.bigint(), plain_text: z.string() }).strict(),
 );
 const migratedSeriesRowsSchema = z.array(
-  z
-    .object({ material_id: z.uuid(), ordinal: z.number().int() })
-    .strict(),
+  z.object({ material_id: z.uuid(), ordinal: z.number().int() }).strict(),
 );
 
 describe("Platform migrations", () => {
@@ -198,39 +195,39 @@ describe("Platform migrations", () => {
         "0026_video_duration",
         "0027_current_collection_search",
         "0028_series_step_groups",
-          "0029_telegram_sign_in",
-          "0030_communications_permission",
-          "0031_communication_tracking_hits",
-          "0032_reading_activity",
-          "0033_material_visits",
-          "0034_content_cover_cleanup",
-          "0035_domain_material_formats",
-          "0036_video_upload_rejections",
-          "0037_platform_admin",
-          "0038_account_access",
-          "0039_telegram_link_revisions",
-          "0040_billing_pricing",
-          "0041_billing_contact",
-          "0042_billing_notification_transport",
-          "0043_materials_notification_transport",
-          "0044_notifications_notification_transport",
-          "0045_notifications",
-          "0038_home_material_pin",
-      "0039_home_series_pin",
-      "0046_scoped_access",
-      "0047_subscription_payments",
-      "0048_subscription_lifecycle",
-          "0050_guide_artifacts",
-          "0051_guide_chapters",
-          "0052_bookmarks",
-          "0053_community_entitlements",
-          "0054_billing_manage_permission",
-          "0055_billing_operations",
-          "0056_billing_notices",
-          "0057_guide_introduction",
-          "0058_offer_for_sale",
-          "0059_one_time_purchase",
-          "0060_material_announcements",
+        "0029_telegram_sign_in",
+        "0030_communications_permission",
+        "0031_communication_tracking_hits",
+        "0032_reading_activity",
+        "0033_material_visits",
+        "0034_content_cover_cleanup",
+        "0035_domain_material_formats",
+        "0036_video_upload_rejections",
+        "0037_platform_admin",
+        "0038_account_access",
+        "0039_telegram_link_revisions",
+        "0040_billing_pricing",
+        "0041_billing_contact",
+        "0042_billing_notification_transport",
+        "0043_materials_notification_transport",
+        "0044_notifications_notification_transport",
+        "0045_notifications",
+        "0038_home_material_pin",
+        "0039_home_series_pin",
+        "0046_scoped_access",
+        "0047_subscription_payments",
+        "0048_subscription_lifecycle",
+        "0050_guide_artifacts",
+        "0051_guide_chapters",
+        "0052_bookmarks",
+        "0053_community_entitlements",
+        "0054_billing_manage_permission",
+        "0055_billing_operations",
+        "0056_billing_notices",
+        "0057_guide_introduction",
+        "0058_offer_for_sale",
+        "0059_one_time_purchase",
+        "0060_material_announcements",
         "0061_lesson_difficulty_and_outcomes",
         "0062_reader_guide_mode",
         "0063_subscription_enrollments",
@@ -259,7 +256,13 @@ describe("Platform migrations", () => {
       "telegram_membership",
       telegramMembershipTables,
     );
-    await expectTables(testDatabase, "reading_activity", ["commands", "events", "material_states", "material_visits", "reader_preferences"]);
+    await expectTables(testDatabase, "reading_activity", [
+      "commands",
+      "events",
+      "material_states",
+      "material_visits",
+      "reader_preferences",
+    ]);
     await expectTables(testDatabase, "bookmarks", ["bookmarked_materials"]);
     await expectTables(testDatabase, "assets", assetTables);
     await expectTables(testDatabase, "videos", videoTables);
@@ -311,7 +314,11 @@ describe("Platform migrations", () => {
     );
 
     const addedColumns = await testDatabase.prisma.$queryRaw<
-      readonly { readonly column_name: string; readonly table_schema: string; readonly table_name: string }[]
+      readonly {
+        readonly column_name: string;
+        readonly table_schema: string;
+        readonly table_name: string;
+      }[]
     >(Prisma.sql`
       select table_schema, table_name, column_name
       from information_schema.columns
@@ -320,12 +327,36 @@ describe("Platform migrations", () => {
       order by table_schema, table_name
     `);
     expect(addedColumns).toEqual([
-      { column_name: "cover_id", table_name: "content_cover_renditions", table_schema: "materials" },
-      { column_name: "cover_id", table_name: "materials", table_schema: "materials" },
-      { column_name: "cover_id", table_name: "published_materials", table_schema: "materials" },
-      { column_name: "cover_id", table_name: "series", table_schema: "materials" },
-      { column_name: "cover_id", table_name: "topics", table_schema: "materials" },
-      { column_name: "duration_seconds", table_name: "videos", table_schema: "videos" },
+      {
+        column_name: "cover_id",
+        table_name: "content_cover_renditions",
+        table_schema: "materials",
+      },
+      {
+        column_name: "cover_id",
+        table_name: "materials",
+        table_schema: "materials",
+      },
+      {
+        column_name: "cover_id",
+        table_name: "published_materials",
+        table_schema: "materials",
+      },
+      {
+        column_name: "cover_id",
+        table_name: "series",
+        table_schema: "materials",
+      },
+      {
+        column_name: "cover_id",
+        table_name: "topics",
+        table_schema: "materials",
+      },
+      {
+        column_name: "duration_seconds",
+        table_name: "videos",
+        table_schema: "videos",
+      },
     ]);
   });
 
@@ -336,7 +367,10 @@ describe("Platform migrations", () => {
         ({ name }) => name === "0034_content_cover_cleanup",
       );
       expect(migrationIndex).toBeGreaterThan(0);
-      await runMigrationsToLatest(database.url, platformMigrations.slice(0, migrationIndex));
+      await runMigrationsToLatest(
+        database.url,
+        platformMigrations.slice(0, migrationIndex),
+      );
       const topic = await database.prisma.topic.create({
         data: {
           id: "8a000000-0000-4000-8000-000000000034",
@@ -353,19 +387,31 @@ describe("Platform migrations", () => {
         ) as uploads(state, failure_code)
       `);
       await migrateToLatest(database.url);
-      await expect(database.prisma.contentCover.findMany({
-        orderBy: [{ state: "asc" }, { failureCode: "asc" }],
-        select: { state: true, failureCode: true, uploadConfirmed: true },
-      })).resolves.toEqual([
+      await expect(
+        database.prisma.contentCover.findMany({
+          orderBy: [{ state: "asc" }, { failureCode: "asc" }],
+          select: { state: true, failureCode: true, uploadConfirmed: true },
+        }),
+      ).resolves.toEqual([
         { state: "failed", failureCode: "conflict", uploadConfirmed: true },
-        { state: "failed", failureCode: "owner_not_found", uploadConfirmed: true },
-        { state: "failed", failureCode: "storage_failure", uploadConfirmed: false },
+        {
+          state: "failed",
+          failureCode: "owner_not_found",
+          uploadConfirmed: true,
+        },
+        {
+          state: "failed",
+          failureCode: "storage_failure",
+          uploadConfirmed: false,
+        },
         { state: "processing", failureCode: null, uploadConfirmed: false },
         { state: "ready", failureCode: null, uploadConfirmed: true },
       ]);
       await database.prisma.topic.delete({ where: { id: topic.id } });
       await expect(database.prisma.contentCover.count()).resolves.toBe(5);
-      await expect(migrateToLatest(database.url)).resolves.toEqual({ appliedMigrations: [] });
+      await expect(migrateToLatest(database.url)).resolves.toEqual({
+        appliedMigrations: [],
+      });
     } finally {
       await database.dispose();
     }
@@ -375,7 +421,8 @@ describe("Platform migrations", () => {
     const database = await createTestDatabase();
     try {
       const migrationIndex = platformMigrations.findIndex(
-        ({ name }) => name === "0024_workshop_membership_entitlement_projection",
+        ({ name }) =>
+          name === "0024_workshop_membership_entitlement_projection",
       );
       expect(migrationIndex).toBeGreaterThan(0);
       await runMigrationsToLatest(
@@ -425,9 +472,11 @@ describe("Platform migrations", () => {
         appliedMigrations: ["0024_workshop_membership_entitlement_projection"],
       });
       await expect(
-        database.prisma.workshopMembershipEntitlementProjection.findUniqueOrThrow({
-          where: { accountId: "8a000000-0000-4000-8000-000000000001" },
-        }),
+        database.prisma.workshopMembershipEntitlementProjection.findUniqueOrThrow(
+          {
+            where: { accountId: "8a000000-0000-4000-8000-000000000001" },
+          },
+        ),
       ).resolves.toMatchObject({
         principalRef: "workshop-migration-principal",
         decision: "member",
@@ -491,10 +540,12 @@ describe("Platform migrations", () => {
 
       await migrateToLatest(database.url);
 
-      await expect(database.prisma.video.findMany({
-        orderBy: { id: "asc" },
-        select: { origin: true, providerVisibleAt: true },
-      })).resolves.toEqual([
+      await expect(
+        database.prisma.video.findMany({
+          orderBy: { id: "asc" },
+          select: { origin: true, providerVisibleAt: true },
+        }),
+      ).resolves.toEqual([
         {
           origin: "platform_upload",
           providerVisibleAt: new Date("2026-09-01T10:00:00Z"),
@@ -504,10 +555,12 @@ describe("Platform migrations", () => {
           providerVisibleAt: new Date("2026-09-01T11:05:00Z"),
         },
       ]);
-      await expect(database.prisma.video.update({
-        data: { origin: "external_attachment" },
-        where: { id: "81000000-0000-4000-8000-000000000001" },
-      })).rejects.toThrow("Video origin is immutable");
+      await expect(
+        database.prisma.video.update({
+          data: { origin: "external_attachment" },
+          where: { id: "81000000-0000-4000-8000-000000000001" },
+        }),
+      ).rejects.toThrow("Video origin is immutable");
     } finally {
       await database.dispose();
     }
@@ -797,7 +850,7 @@ describe("Platform migrations", () => {
           "0025_content_covers",
           "0026_video_duration",
           "0027_current_collection_search",
-        "0028_series_step_groups",
+          "0028_series_step_groups",
           "0029_telegram_sign_in",
           "0030_communications_permission",
           "0031_communication_tracking_hits",
@@ -816,10 +869,10 @@ describe("Platform migrations", () => {
           "0044_notifications_notification_transport",
           "0045_notifications",
           "0038_home_material_pin",
-      "0039_home_series_pin",
-      "0046_scoped_access",
-      "0047_subscription_payments",
-      "0048_subscription_lifecycle",
+          "0039_home_series_pin",
+          "0046_scoped_access",
+          "0047_subscription_payments",
+          "0048_subscription_lifecycle",
           "0050_guide_artifacts",
           "0051_guide_chapters",
           "0052_bookmarks",
@@ -831,17 +884,17 @@ describe("Platform migrations", () => {
           "0058_offer_for_sale",
           "0059_one_time_purchase",
           "0060_material_announcements",
-        "0061_lesson_difficulty_and_outcomes",
-        "0062_reader_guide_mode",
-        "0063_subscription_enrollments",
-        "0064_tribute_sources",
-        "0067_legal_acceptances",
-        "0065_video_detachment",
-        "0069_guide_material_removals",
-        "0066_refund_basis",
-        "0068_starter_tier_access",
-        "0065_authoring_source",
-        "0070_guide_page",
+          "0061_lesson_difficulty_and_outcomes",
+          "0062_reader_guide_mode",
+          "0063_subscription_enrollments",
+          "0064_tribute_sources",
+          "0067_legal_acceptances",
+          "0065_video_detachment",
+          "0069_guide_material_removals",
+          "0066_refund_basis",
+          "0068_starter_tier_access",
+          "0065_authoring_source",
+          "0070_guide_page",
         ],
       });
 
@@ -896,9 +949,7 @@ describe("Platform migrations", () => {
             content: [
               {
                 type: "paragraph",
-                content: [
-                  { type: "text", text: "current unpublished body" },
-                ],
+                content: [{ type: "text", text: "current unpublished body" }],
               },
             ],
           },
@@ -997,7 +1048,6 @@ describe("Platform migrations", () => {
 
       await expect(migrateToLatest(database.url)).rejects.toThrow(
         `Migration ledger is not an exact registry prefix at position ${String(platformMigrations.length + 1)}`,
-
       );
     } finally {
       await database.dispose();

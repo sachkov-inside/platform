@@ -108,21 +108,35 @@ export const Populated: Story = {
   play: async ({ canvasElement }) => {
     await expectSharedListFrame(canvasElement, "desktop");
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("heading", { name: "Материалы", level: 1 })).toBeVisible();
+    await expect(
+      canvas.getByRole("heading", { name: "Материалы", level: 1 }),
+    ).toBeVisible();
     await expect(canvas.getByText("35 материалов")).toBeVisible();
     await expect(canvas.getAllByText("Платформа").length).toBeGreaterThan(0);
     await expect(canvas.getAllByText("Гайд").length).toBeGreaterThan(0);
     await expect(canvas.queryByText(/^v\d+$/u)).not.toBeInTheDocument();
-    await expect(canvas.queryByText("Topic", { exact: true })).not.toBeInTheDocument();
-    await expect(canvas.queryByText("Format", { exact: true })).not.toBeInTheDocument();
-    await expect(canvas.getByRole("button", { name: "Снять с публикации" })).toBeVisible();
-    await expect(canvas.getAllByRole("button", { name: "Опубликовать" })).toHaveLength(2);
-    await userEvent.click(canvas.getByRole("button", { name: "Удалить черновик" }));
+    await expect(
+      canvas.queryByText("Topic", { exact: true }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByText("Format", { exact: true }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.getByRole("button", { name: "Снять с публикации" }),
+    ).toBeVisible();
+    await expect(
+      canvas.getAllByRole("button", { name: "Опубликовать" }),
+    ).toHaveLength(2);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Удалить черновик" }),
+    );
     const dialog = canvas.getByRole("dialog", {
       name: "Удалить «Работа с материалами»?",
     });
     await expect(dialog).toBeVisible();
-    await userEvent.click(within(dialog).getByRole("button", { name: "Оставить черновик" }));
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Оставить черновик" }),
+    );
     await expect(dialog).not.toBeVisible();
   },
 };
@@ -143,8 +157,12 @@ export const PublicationUsesLatestReceipt: Story = {
     const canvas = within(canvasElement);
 
     await userEvent.click(canvas.getByRole("button", { name: "Опубликовать" }));
-    await expect(await canvas.findByText("Материал опубликован.")).toBeInTheDocument();
-    await userEvent.click(canvas.getByRole("button", { name: "Снять с публикации" }));
+    await expect(
+      await canvas.findByText("Материал опубликован."),
+    ).toBeInTheDocument();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Снять с публикации" }),
+    );
     await expect(
       await canvas.findByText("Материал снят с публикации."),
     ).toBeInTheDocument();
@@ -153,7 +171,8 @@ export const PublicationUsesLatestReceipt: Story = {
     const secondBody = lifecycleMutationSpy.mock.calls[1]?.[1]?.body;
     await expect(firstBody).toBeInstanceOf(FormData);
     await expect(secondBody).toBeInstanceOf(FormData);
-    if (!(firstBody instanceof FormData) || !(secondBody instanceof FormData)) return;
+    if (!(firstBody instanceof FormData) || !(secondBody instanceof FormData))
+      return;
     await expect(firstBody.get("publicationState")).toBe("published");
     await expect(firstBody.get("expectedContentVersion")).toBe("4");
     await expect(secondBody.get("publicationState")).toBe("unpublished");
@@ -170,8 +189,12 @@ export const Mobile: Story = {
   play: async ({ canvasElement }) => {
     await expectSharedListFrame(canvasElement, "mobile");
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("heading", { name: "Материалы", level: 1 })).toBeVisible();
-    await expect(canvas.getByRole("link", { name: "Новый материал" })).toBeVisible();
+    await expect(
+      canvas.getByRole("heading", { name: "Материалы", level: 1 }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("link", { name: "Новый материал" }),
+    ).toBeVisible();
     await expectNoHorizontalOverflow(canvasElement);
   },
 };
@@ -183,7 +206,9 @@ export const Keyboard: Story = {
     // В приложении в содержимое попадают по ссылке «Перейти к содержанию»; отсюда и порядок.
     within(canvasElement).getByRole("main").focus();
     await userEvent.tab();
-    await expect(canvas.getByRole("link", { name: "Новый материал" })).toHaveFocus();
+    await expect(
+      canvas.getByRole("link", { name: "Новый материал" }),
+    ).toHaveFocus();
     await userEvent.tab();
     await expect(
       canvas.getByRole("searchbox", {
@@ -202,7 +227,9 @@ export const TextZoom: Story = {
     root.style.fontSize = "200%";
     try {
       await expectNoHorizontalOverflow(canvasElement);
-      await expect(within(canvasElement).getByRole("link", { name: "Новый материал" })).toBeVisible();
+      await expect(
+        within(canvasElement).getByRole("link", { name: "Новый материал" }),
+      ).toBeVisible();
     } finally {
       root.style.fontSize = previousFontSize;
     }
@@ -216,8 +243,12 @@ export const Empty: Story = {
   name: "Пустой список",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("heading", { name: "Первый материал ещё не создан" })).toBeVisible();
-    await expect(canvas.getByRole("link", { name: "Создать материал" })).toBeVisible();
+    await expect(
+      canvas.getByRole("heading", { name: "Первый материал ещё не создан" }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("link", { name: "Создать материал" }),
+    ).toBeVisible();
   },
 };
 
@@ -248,7 +279,9 @@ export const Loading: Story = {
   render: () => <AuthoringMaterialsLoading />,
   name: "Загрузка",
   play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).getByLabelText("Загрузка списка материалов")).toHaveAttribute("aria-busy", "true");
+    await expect(
+      within(canvasElement).getByLabelText("Загрузка списка материалов"),
+    ).toHaveAttribute("aria-busy", "true");
     await expectSharedListFrame(canvasElement, "desktop");
   },
 };
@@ -312,39 +345,52 @@ async function expectSharedListFrame(
   placement: "flow" | "centered" = "flow",
 ) {
   const frame = canvasElement.querySelector("[data-authoring-materials-frame]");
-  if (!(frame instanceof HTMLElement)) throw new Error("Каркас списка материалов не отрисован");
+  if (!(frame instanceof HTMLElement))
+    throw new Error("Каркас списка материалов не отрисован");
   const content = frame.firstElementChild;
-  if (content === null) throw new Error("Содержимое каркаса списка материалов не отрисовано");
-  const expected = viewport === "desktop" ? { left: 40, top: 48 } : { left: 16, top: 28 };
+  if (content === null)
+    throw new Error("Содержимое каркаса списка материалов не отрисовано");
+  const expected =
+    viewport === "desktop" ? { left: 40, top: 48 } : { left: 16, top: 28 };
   const frameStyle = getComputedStyle(frame);
   await expect(frame.tagName).toBe("MAIN");
   await expect(frameStyle.overflowY).toBe("auto");
-  await expect(getComputedStyle(content).paddingTop).toBe(`${String(expected.top)}px`);
-  await expect(getComputedStyle(content).paddingLeft).toBe(`${String(expected.left)}px`);
+  await expect(getComputedStyle(content).paddingTop).toBe(
+    `${String(expected.top)}px`,
+  );
+  await expect(getComputedStyle(content).paddingLeft).toBe(
+    `${String(expected.left)}px`,
+  );
   const frameBox = frame.getBoundingClientRect();
   if (viewport === "desktop") {
     const column = frame.parentElement;
     if (column === null) throw new Error("Колонка оболочки не отрисована");
     await expect(frameStyle.overscrollBehaviorY).toBe("contain");
-    await expect(Math.round(frameBox.height)).toBe(Math.round(column.getBoundingClientRect().height));
+    await expect(Math.round(frameBox.height)).toBe(
+      Math.round(column.getBoundingClientRect().height),
+    );
   }
   if (placement === "centered") return;
   const first = content.firstElementChild;
-  if (first === null) throw new Error("Первый блок списка материалов не отрисован");
+  if (first === null)
+    throw new Error("Первый блок списка материалов не отрисован");
   const firstBox = first.getBoundingClientRect();
   await expect(Math.round(firstBox.top - frameBox.top)).toBe(expected.top);
   await expect(Math.round(firstBox.left - frameBox.left)).toBe(expected.left);
   // Отступы содержимого принадлежат каркасу: первый блок не добавляет к ним своих.
   const firstStyle = getComputedStyle(first);
-  await expect(
-    [firstStyle.marginTop, firstStyle.marginLeft, firstStyle.paddingTop, firstStyle.paddingLeft],
-  ).toEqual(["0px", "0px", "0px", "0px"]);
+  await expect([
+    firstStyle.marginTop,
+    firstStyle.marginLeft,
+    firstStyle.paddingTop,
+    firstStyle.paddingLeft,
+  ]).toEqual(["0px", "0px", "0px", "0px"]);
 }
 
 async function expectNoHorizontalOverflow(canvasElement: HTMLElement) {
   const storyWindow = canvasElement.ownerDocument.defaultView;
   if (storyWindow === null) throw new Error("Story window is unavailable");
-  await expect(canvasElement.ownerDocument.documentElement.scrollWidth).toBeLessThanOrEqual(
-    storyWindow.innerWidth + 1,
-  );
+  await expect(
+    canvasElement.ownerDocument.documentElement.scrollWidth,
+  ).toBeLessThanOrEqual(storyWindow.innerWidth + 1);
 }

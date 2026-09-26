@@ -1,4 +1,9 @@
-import type { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import type {
+  DeleteObjectCommand,
+  GetObjectCommand,
+  PutObjectCommand,
+  S3Client,
+} from "@aws-sdk/client-s3";
 import { describe, expect, test, vi } from "vitest";
 
 import { createS3ObjectStorage } from "../../src/infrastructure/object-storage/s3-object-storage.js";
@@ -6,9 +11,16 @@ import { createS3ObjectStorage } from "../../src/infrastructure/object-storage/s
 describe("S3 object storage adapter", () => {
   test("maps namespaces and enforces immutable writes without leaking SDK types", async () => {
     const send = vi
-      .fn<(command: DeleteObjectCommand | GetObjectCommand | PutObjectCommand) => Promise<unknown>>()
+      .fn<
+        (
+          command: DeleteObjectCommand | GetObjectCommand | PutObjectCommand,
+        ) => Promise<unknown>
+      >()
       .mockResolvedValueOnce({})
-      .mockRejectedValueOnce({ $metadata: { httpStatusCode: 412 }, name: "PreconditionFailed" });
+      .mockRejectedValueOnce({
+        $metadata: { httpStatusCode: 412 },
+        name: "PreconditionFailed",
+      });
     const storage = createS3ObjectStorage(
       {
         buckets: {
@@ -26,7 +38,8 @@ describe("S3 object storage adapter", () => {
 
     const input = {
       body: new Uint8Array([1, 2, 3]),
-      checksumSha256: "039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81",
+      checksumSha256:
+        "039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81",
       contentType: "application/octet-stream",
       key: "assets/opaque-id/original",
       namespace: "quarantine" as const,
@@ -52,7 +65,13 @@ describe("S3 object storage adapter", () => {
 
   test("creates a bounded signed GET with response headers", async () => {
     const sign = vi
-      .fn<(client: S3Client, command: GetObjectCommand, options: { readonly expiresIn: number }) => Promise<string>>()
+      .fn<
+        (
+          client: S3Client,
+          command: GetObjectCommand,
+          options: { readonly expiresIn: number },
+        ) => Promise<string>
+      >()
       .mockResolvedValue("https://signed.example/object");
     const storage = createS3ObjectStorage(
       {
@@ -93,15 +112,27 @@ describe("S3 object storage adapter", () => {
   test("signs browser links for the configured public origin while storage stays internal", async () => {
     const hosts: string[] = [];
     const sign = vi
-      .fn<(client: S3Client, command: GetObjectCommand, options: { readonly expiresIn: number }) => Promise<string>>()
+      .fn<
+        (
+          client: S3Client,
+          command: GetObjectCommand,
+          options: { readonly expiresIn: number },
+        ) => Promise<string>
+      >()
       .mockImplementation(async (client) => {
         const endpoint = await client.config.endpoint?.();
-        hosts.push(`${endpoint?.hostname ?? ""}:${String(endpoint?.port ?? "")}`);
+        hosts.push(
+          `${endpoint?.hostname ?? ""}:${String(endpoint?.port ?? "")}`,
+        );
         return "https://signed.example/object";
       });
     const storage = createS3ObjectStorage(
       {
-        buckets: { protected: "inside-local-protected", public: "inside-local-public", quarantine: "inside-local-quarantine" },
+        buckets: {
+          protected: "inside-local-protected",
+          public: "inside-local-public",
+          quarantine: "inside-local-quarantine",
+        },
         credentials: { accessKeyId: "access", secretAccessKey: "secret" },
         endpoint: "http://object-storage:9000",
         forcePathStyle: true,
@@ -110,7 +141,11 @@ describe("S3 object storage adapter", () => {
       },
       { send: vi.fn(), sign },
     );
-    await storage.signGet({ key: "assets/opaque-id/image", namespace: "protected", ttlSeconds: 60 });
+    await storage.signGet({
+      key: "assets/opaque-id/image",
+      namespace: "protected",
+      ttlSeconds: 60,
+    });
     expect(hosts).toEqual(["127.0.0.1:9000"]);
   });
 });

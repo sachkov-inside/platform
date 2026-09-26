@@ -2,7 +2,6 @@ import "server-only";
 
 import { materialFormatSchema } from "@/shared/api/material-format";
 
-
 import { randomUUID } from "node:crypto";
 
 import { z } from "zod";
@@ -19,7 +18,9 @@ import type {
 } from "../model/authoring-materials-presentation";
 
 const publicationStateSchema = z.enum(["draft", "published", "unpublished"]);
-const referenceSchema = z.object({ id: z.uuid(), name: z.string().min(1) }).strict();
+const referenceSchema = z
+  .object({ id: z.uuid(), name: z.string().min(1) })
+  .strict();
 const responseSchema = z
   .object({
     items: z.array(
@@ -27,7 +28,9 @@ const responseSchema = z
         .object({
           canDelete: z.boolean(),
           contentVersion: z.number().int().positive(),
-          format: referenceSchema.extend({ id: materialFormatSchema }).nullable(),
+          format: referenceSchema
+            .extend({ id: materialFormatSchema })
+            .nullable(),
           materialId: z.uuid(),
           publicationState: publicationStateSchema,
           title: z.string().nullable(),

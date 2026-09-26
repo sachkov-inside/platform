@@ -108,7 +108,9 @@ describe("Legal acceptance journal (real PostgreSQL)", () => {
     expect(Object.keys(row)).not.toEqual(
       expect.arrayContaining(["ip", "userAgent"]),
     );
-    expect(await database.prisma.billingContact.count({ where: { accountId } })).toBe(0);
+    expect(
+      await database.prisma.billingContact.count({ where: { accountId } }),
+    ).toBe(0);
     await expect(firstEdition.checkTerms(accountId)).resolves.toEqual({
       ok: true,
       accepted: true,
@@ -118,8 +120,18 @@ describe("Legal acceptance journal (real PostgreSQL)", () => {
   test("answers a repeated operation from its row and refuses another payload under it", async () => {
     const accountId = await account();
     const operationId = randomUUID();
-    const first = await accept(firstEdition, accountId, termsEdition("1"), operationId);
-    const repeated = await accept(firstEdition, accountId, termsEdition("1"), operationId);
+    const first = await accept(
+      firstEdition,
+      accountId,
+      termsEdition("1"),
+      operationId,
+    );
+    const repeated = await accept(
+      firstEdition,
+      accountId,
+      termsEdition("1"),
+      operationId,
+    );
     expect(repeated).toEqual(first);
     await expect(
       firstEdition.acceptTerms(accountId, {
@@ -140,7 +152,9 @@ describe("Legal acceptance journal (real PostgreSQL)", () => {
   test("asks again when a new edition takes effect and refuses the superseded one", async () => {
     const accountId = await account();
     await accept(firstEdition, accountId, termsEdition("1"));
-    await expect(secondEdition.readTermsStatus(accountId)).resolves.toMatchObject({
+    await expect(
+      secondEdition.readTermsStatus(accountId),
+    ).resolves.toMatchObject({
       ok: true,
       accepted: false,
       previouslyAccepted: true,
@@ -187,7 +201,9 @@ describe("Legal acceptance journal (real PostgreSQL)", () => {
       }),
     ).rejects.toThrow();
     await expect(
-      database.prisma.legalAcceptance.delete({ where: { id: result.acceptanceRef } }),
+      database.prisma.legalAcceptance.delete({
+        where: { id: result.acceptanceRef },
+      }),
     ).rejects.toThrow();
     const edition = termsEdition("1");
     await expect(
@@ -268,11 +284,9 @@ describe("Legal acceptance journal (real PostgreSQL)", () => {
     const listed = await firstEdition.listAccepted(accountId);
     if (!listed.ok) throw new Error(listed.error.code);
     expect(listed.documents).toHaveLength(3);
-    expect(listed.documents.map((document) => document.documentId).toSorted()).toEqual([
-      "recurring-consent",
-      "subscription",
-      "terms",
-    ]);
+    expect(
+      listed.documents.map((document) => document.documentId).toSorted(),
+    ).toEqual(["recurring-consent", "subscription", "terms"]);
     expect(listed.documents[2]).toEqual({
       acceptanceRef: terms.acceptanceRef,
       documentId: "terms",

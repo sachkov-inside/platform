@@ -8,134 +8,347 @@
         "role": "neutral",
         "displayName": "Warm Workshop Canvas",
         "canonical": "oklch(0.965 0.008 112)",
-        "tonalRamp": ["oklch(0.15 0.008 112)", "oklch(0.26 0.008 112)", "oklch(0.38 0.008 112)", "oklch(0.5 0.008 112)", "oklch(0.62 0.008 112)", "oklch(0.74 0.008 112)", "oklch(0.86 0.008 112)", "oklch(0.95 0.008 112)"]
+        "tonalRamp": [
+          "oklch(0.15 0.008 112)",
+          "oklch(0.26 0.008 112)",
+          "oklch(0.38 0.008 112)",
+          "oklch(0.5 0.008 112)",
+          "oklch(0.62 0.008 112)",
+          "oklch(0.74 0.008 112)",
+          "oklch(0.86 0.008 112)",
+          "oklch(0.95 0.008 112)"
+        ]
       },
       "foreground": {
         "role": "neutral",
         "displayName": "Charcoal Ink",
         "canonical": "oklch(0.205 0.014 129)",
-        "tonalRamp": ["oklch(0.15 0.014 129)", "oklch(0.26 0.014 129)", "oklch(0.38 0.014 129)", "oklch(0.5 0.014 129)", "oklch(0.62 0.014 129)", "oklch(0.74 0.014 129)", "oklch(0.86 0.014 129)", "oklch(0.95 0.014 129)"]
+        "tonalRamp": [
+          "oklch(0.15 0.014 129)",
+          "oklch(0.26 0.014 129)",
+          "oklch(0.38 0.014 129)",
+          "oklch(0.5 0.014 129)",
+          "oklch(0.62 0.014 129)",
+          "oklch(0.74 0.014 129)",
+          "oklch(0.86 0.014 129)",
+          "oklch(0.95 0.014 129)"
+        ]
       },
       "card": {
         "role": "neutral",
         "displayName": "Chalk Card",
         "canonical": "oklch(0.99 0.004 112)",
-        "tonalRamp": ["oklch(0.15 0.004 112)", "oklch(0.26 0.004 112)", "oklch(0.38 0.004 112)", "oklch(0.5 0.004 112)", "oklch(0.62 0.004 112)", "oklch(0.74 0.004 112)", "oklch(0.86 0.004 112)", "oklch(0.95 0.004 112)"]
+        "tonalRamp": [
+          "oklch(0.15 0.004 112)",
+          "oklch(0.26 0.004 112)",
+          "oklch(0.38 0.004 112)",
+          "oklch(0.5 0.004 112)",
+          "oklch(0.62 0.004 112)",
+          "oklch(0.74 0.004 112)",
+          "oklch(0.86 0.004 112)",
+          "oklch(0.95 0.004 112)"
+        ]
       },
       "popover": {
         "role": "neutral",
         "displayName": "Popover Paper",
         "canonical": "oklch(0.995 0.003 112)",
-        "tonalRamp": ["oklch(0.15 0.003 112)", "oklch(0.26 0.003 112)", "oklch(0.38 0.003 112)", "oklch(0.5 0.003 112)", "oklch(0.62 0.003 112)", "oklch(0.74 0.003 112)", "oklch(0.86 0.003 112)", "oklch(0.95 0.003 112)"]
+        "tonalRamp": [
+          "oklch(0.15 0.003 112)",
+          "oklch(0.26 0.003 112)",
+          "oklch(0.38 0.003 112)",
+          "oklch(0.5 0.003 112)",
+          "oklch(0.62 0.003 112)",
+          "oklch(0.74 0.003 112)",
+          "oklch(0.86 0.003 112)",
+          "oklch(0.95 0.003 112)"
+        ]
       },
       "primary": {
         "role": "primary",
         "displayName": "Workshop Charcoal",
         "canonical": "oklch(0.29 0.018 132)",
-        "tonalRamp": ["oklch(0.15 0.018 132)", "oklch(0.26 0.018 132)", "oklch(0.38 0.018 132)", "oklch(0.5 0.018 132)", "oklch(0.62 0.018 132)", "oklch(0.74 0.018 132)", "oklch(0.86 0.018 132)", "oklch(0.95 0.018 132)"]
+        "tonalRamp": [
+          "oklch(0.15 0.018 132)",
+          "oklch(0.26 0.018 132)",
+          "oklch(0.38 0.018 132)",
+          "oklch(0.5 0.018 132)",
+          "oklch(0.62 0.018 132)",
+          "oklch(0.74 0.018 132)",
+          "oklch(0.86 0.018 132)",
+          "oklch(0.95 0.018 132)"
+        ]
       },
       "primary-foreground": {
         "role": "neutral",
         "displayName": "Primary Chalk",
         "canonical": "oklch(0.985 0.004 112)",
-        "tonalRamp": ["oklch(0.15 0.004 112)", "oklch(0.26 0.004 112)", "oklch(0.38 0.004 112)", "oklch(0.5 0.004 112)", "oklch(0.62 0.004 112)", "oklch(0.74 0.004 112)", "oklch(0.86 0.004 112)", "oklch(0.95 0.004 112)"]
+        "tonalRamp": [
+          "oklch(0.15 0.004 112)",
+          "oklch(0.26 0.004 112)",
+          "oklch(0.38 0.004 112)",
+          "oklch(0.5 0.004 112)",
+          "oklch(0.62 0.004 112)",
+          "oklch(0.74 0.004 112)",
+          "oklch(0.86 0.004 112)",
+          "oklch(0.95 0.004 112)"
+        ]
       },
       "secondary": {
         "role": "secondary",
         "displayName": "Warm Utility Wash",
         "canonical": "oklch(0.93 0.012 117)",
-        "tonalRamp": ["oklch(0.15 0.012 117)", "oklch(0.26 0.012 117)", "oklch(0.38 0.012 117)", "oklch(0.5 0.012 117)", "oklch(0.62 0.012 117)", "oklch(0.74 0.012 117)", "oklch(0.86 0.012 117)", "oklch(0.95 0.012 117)"]
+        "tonalRamp": [
+          "oklch(0.15 0.012 117)",
+          "oklch(0.26 0.012 117)",
+          "oklch(0.38 0.012 117)",
+          "oklch(0.5 0.012 117)",
+          "oklch(0.62 0.012 117)",
+          "oklch(0.74 0.012 117)",
+          "oklch(0.86 0.012 117)",
+          "oklch(0.95 0.012 117)"
+        ]
       },
       "muted": {
         "role": "neutral",
         "displayName": "Quiet Surface Wash",
         "canonical": "oklch(0.925 0.01 115)",
-        "tonalRamp": ["oklch(0.15 0.01 115)", "oklch(0.26 0.01 115)", "oklch(0.38 0.01 115)", "oklch(0.5 0.01 115)", "oklch(0.62 0.01 115)", "oklch(0.74 0.01 115)", "oklch(0.86 0.01 115)", "oklch(0.95 0.01 115)"]
+        "tonalRamp": [
+          "oklch(0.15 0.01 115)",
+          "oklch(0.26 0.01 115)",
+          "oklch(0.38 0.01 115)",
+          "oklch(0.5 0.01 115)",
+          "oklch(0.62 0.01 115)",
+          "oklch(0.74 0.01 115)",
+          "oklch(0.86 0.01 115)",
+          "oklch(0.95 0.01 115)"
+        ]
       },
       "muted-foreground": {
         "role": "neutral",
         "displayName": "Quiet Technical Ink",
         "canonical": "oklch(0.49 0.018 128)",
-        "tonalRamp": ["oklch(0.15 0.018 128)", "oklch(0.26 0.018 128)", "oklch(0.38 0.018 128)", "oklch(0.5 0.018 128)", "oklch(0.62 0.018 128)", "oklch(0.74 0.018 128)", "oklch(0.86 0.018 128)", "oklch(0.95 0.018 128)"]
+        "tonalRamp": [
+          "oklch(0.15 0.018 128)",
+          "oklch(0.26 0.018 128)",
+          "oklch(0.38 0.018 128)",
+          "oklch(0.5 0.018 128)",
+          "oklch(0.62 0.018 128)",
+          "oklch(0.74 0.018 128)",
+          "oklch(0.86 0.018 128)",
+          "oklch(0.95 0.018 128)"
+        ]
       },
       "accent": {
         "role": "tertiary",
         "displayName": "Proof Orange",
         "canonical": "oklch(0.66 0.19 39)",
-        "tonalRamp": ["oklch(0.15 0.19 39)", "oklch(0.26 0.19 39)", "oklch(0.38 0.19 39)", "oklch(0.5 0.19 39)", "oklch(0.62 0.19 39)", "oklch(0.74 0.19 39)", "oklch(0.86 0.19 39)", "oklch(0.95 0.19 39)"]
+        "tonalRamp": [
+          "oklch(0.15 0.19 39)",
+          "oklch(0.26 0.19 39)",
+          "oklch(0.38 0.19 39)",
+          "oklch(0.5 0.19 39)",
+          "oklch(0.62 0.19 39)",
+          "oklch(0.74 0.19 39)",
+          "oklch(0.86 0.19 39)",
+          "oklch(0.95 0.19 39)"
+        ]
       },
       "accent-foreground": {
         "role": "neutral",
         "displayName": "Accent Chalk",
         "canonical": "oklch(0.995 0.003 112)",
-        "tonalRamp": ["oklch(0.15 0.003 112)", "oklch(0.26 0.003 112)", "oklch(0.38 0.003 112)", "oklch(0.5 0.003 112)", "oklch(0.62 0.003 112)", "oklch(0.74 0.003 112)", "oklch(0.86 0.003 112)", "oklch(0.95 0.003 112)"]
+        "tonalRamp": [
+          "oklch(0.15 0.003 112)",
+          "oklch(0.26 0.003 112)",
+          "oklch(0.38 0.003 112)",
+          "oklch(0.5 0.003 112)",
+          "oklch(0.62 0.003 112)",
+          "oklch(0.74 0.003 112)",
+          "oklch(0.86 0.003 112)",
+          "oklch(0.95 0.003 112)"
+        ]
       },
       "destructive": {
         "role": "tertiary",
         "displayName": "Destructive Red",
         "canonical": "oklch(0.5 0.2 27)",
-        "tonalRamp": ["oklch(0.15 0.2 27)", "oklch(0.26 0.2 27)", "oklch(0.38 0.2 27)", "oklch(0.5 0.2 27)", "oklch(0.62 0.2 27)", "oklch(0.74 0.2 27)", "oklch(0.86 0.2 27)", "oklch(0.95 0.2 27)"]
+        "tonalRamp": [
+          "oklch(0.15 0.2 27)",
+          "oklch(0.26 0.2 27)",
+          "oklch(0.38 0.2 27)",
+          "oklch(0.5 0.2 27)",
+          "oklch(0.62 0.2 27)",
+          "oklch(0.74 0.2 27)",
+          "oklch(0.86 0.2 27)",
+          "oklch(0.95 0.2 27)"
+        ]
       },
       "border": {
         "role": "neutral",
         "displayName": "Soft Workbench Divider",
         "canonical": "oklch(0.86 0.015 118)",
-        "tonalRamp": ["oklch(0.15 0.015 118)", "oklch(0.26 0.015 118)", "oklch(0.38 0.015 118)", "oklch(0.5 0.015 118)", "oklch(0.62 0.015 118)", "oklch(0.74 0.015 118)", "oklch(0.86 0.015 118)", "oklch(0.95 0.015 118)"]
+        "tonalRamp": [
+          "oklch(0.15 0.015 118)",
+          "oklch(0.26 0.015 118)",
+          "oklch(0.38 0.015 118)",
+          "oklch(0.5 0.015 118)",
+          "oklch(0.62 0.015 118)",
+          "oklch(0.74 0.015 118)",
+          "oklch(0.86 0.015 118)",
+          "oklch(0.95 0.015 118)"
+        ]
       },
       "input": {
         "role": "neutral",
         "displayName": "Input Divider",
         "canonical": "oklch(0.86 0.015 118)",
-        "tonalRamp": ["oklch(0.15 0.015 118)", "oklch(0.26 0.015 118)", "oklch(0.38 0.015 118)", "oklch(0.5 0.015 118)", "oklch(0.62 0.015 118)", "oklch(0.74 0.015 118)", "oklch(0.86 0.015 118)", "oklch(0.95 0.015 118)"]
+        "tonalRamp": [
+          "oklch(0.15 0.015 118)",
+          "oklch(0.26 0.015 118)",
+          "oklch(0.38 0.015 118)",
+          "oklch(0.5 0.015 118)",
+          "oklch(0.62 0.015 118)",
+          "oklch(0.74 0.015 118)",
+          "oklch(0.86 0.015 118)",
+          "oklch(0.95 0.015 118)"
+        ]
       },
       "ring": {
         "role": "tertiary",
         "displayName": "Focus Orange",
         "canonical": "oklch(0.62 0.17 39)",
-        "tonalRamp": ["oklch(0.15 0.17 39)", "oklch(0.26 0.17 39)", "oklch(0.38 0.17 39)", "oklch(0.5 0.17 39)", "oklch(0.62 0.17 39)", "oklch(0.74 0.17 39)", "oklch(0.86 0.17 39)", "oklch(0.95 0.17 39)"]
+        "tonalRamp": [
+          "oklch(0.15 0.17 39)",
+          "oklch(0.26 0.17 39)",
+          "oklch(0.38 0.17 39)",
+          "oklch(0.5 0.17 39)",
+          "oklch(0.62 0.17 39)",
+          "oklch(0.74 0.17 39)",
+          "oklch(0.86 0.17 39)",
+          "oklch(0.95 0.17 39)"
+        ]
       },
       "sidebar": {
         "role": "neutral",
         "displayName": "Bounded Workbench",
         "canonical": "oklch(0.27 0.014 128)",
-        "tonalRamp": ["oklch(0.15 0.014 128)", "oklch(0.26 0.014 128)", "oklch(0.38 0.014 128)", "oklch(0.5 0.014 128)", "oklch(0.62 0.014 128)", "oklch(0.74 0.014 128)", "oklch(0.86 0.014 128)", "oklch(0.95 0.014 128)"]
+        "tonalRamp": [
+          "oklch(0.15 0.014 128)",
+          "oklch(0.26 0.014 128)",
+          "oklch(0.38 0.014 128)",
+          "oklch(0.5 0.014 128)",
+          "oklch(0.62 0.014 128)",
+          "oklch(0.74 0.014 128)",
+          "oklch(0.86 0.014 128)",
+          "oklch(0.95 0.014 128)"
+        ]
       },
       "sidebar-foreground": {
         "role": "neutral",
         "displayName": "Workbench Chalk",
         "canonical": "oklch(0.94 0.008 112)",
-        "tonalRamp": ["oklch(0.15 0.008 112)", "oklch(0.26 0.008 112)", "oklch(0.38 0.008 112)", "oklch(0.5 0.008 112)", "oklch(0.62 0.008 112)", "oklch(0.74 0.008 112)", "oklch(0.86 0.008 112)", "oklch(0.95 0.008 112)"]
+        "tonalRamp": [
+          "oklch(0.15 0.008 112)",
+          "oklch(0.26 0.008 112)",
+          "oklch(0.38 0.008 112)",
+          "oklch(0.5 0.008 112)",
+          "oklch(0.62 0.008 112)",
+          "oklch(0.74 0.008 112)",
+          "oklch(0.86 0.008 112)",
+          "oklch(0.95 0.008 112)"
+        ]
       },
       "sidebar-accent": {
         "role": "neutral",
         "displayName": "Workbench Active Surface",
         "canonical": "oklch(0.34 0.015 128)",
-        "tonalRamp": ["oklch(0.15 0.015 128)", "oklch(0.26 0.015 128)", "oklch(0.38 0.015 128)", "oklch(0.5 0.015 128)", "oklch(0.62 0.015 128)", "oklch(0.74 0.015 128)", "oklch(0.86 0.015 128)", "oklch(0.95 0.015 128)"]
+        "tonalRamp": [
+          "oklch(0.15 0.015 128)",
+          "oklch(0.26 0.015 128)",
+          "oklch(0.38 0.015 128)",
+          "oklch(0.5 0.015 128)",
+          "oklch(0.62 0.015 128)",
+          "oklch(0.74 0.015 128)",
+          "oklch(0.86 0.015 128)",
+          "oklch(0.95 0.015 128)"
+        ]
       },
       "sidebar-primary": {
         "role": "tertiary",
         "displayName": "Workbench Proof Orange",
         "canonical": "oklch(0.68 0.19 40)",
-        "tonalRamp": ["oklch(0.15 0.19 40)", "oklch(0.26 0.19 40)", "oklch(0.38 0.19 40)", "oklch(0.5 0.19 40)", "oklch(0.62 0.19 40)", "oklch(0.74 0.19 40)", "oklch(0.86 0.19 40)", "oklch(0.95 0.19 40)"]
+        "tonalRamp": [
+          "oklch(0.15 0.19 40)",
+          "oklch(0.26 0.19 40)",
+          "oklch(0.38 0.19 40)",
+          "oklch(0.5 0.19 40)",
+          "oklch(0.62 0.19 40)",
+          "oklch(0.74 0.19 40)",
+          "oklch(0.86 0.19 40)",
+          "oklch(0.95 0.19 40)"
+        ]
       }
     },
     "typographyMeta": {
-      "display": { "displayName": "Display", "purpose": "Restrained page and exact-preview titles." },
-      "headline": { "displayName": "Headline", "purpose": "Reading and section hierarchy." },
-      "title": { "displayName": "Title", "purpose": "Compact card, panel and authoring titles." },
-      "body": { "displayName": "Body", "purpose": "Product copy and long-form reading." },
-      "label": { "displayName": "Label", "purpose": "Controls and form labels." },
-      "technical": { "displayName": "Technical Fact", "purpose": "Revision IDs, state, timestamps, duration and code-adjacent notation." }
+      "display": {
+        "displayName": "Display",
+        "purpose": "Restrained page and exact-preview titles."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Reading and section hierarchy."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Compact card, panel and authoring titles."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Product copy and long-form reading."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Controls and form labels."
+      },
+      "technical": {
+        "displayName": "Technical Fact",
+        "purpose": "Revision IDs, state, timestamps, duration and code-adjacent notation."
+      }
     },
     "shadows": [
-      { "name": "card", "value": "0 0.75rem 2rem -1rem oklch(0.21 0.018 128 / 0.28)", "purpose": "Resting separation for interactive bounded cards and popovers." },
-      { "name": "card-hover", "value": "0 1rem 2.5rem -1rem oklch(0.21 0.018 128 / 0.34)", "purpose": "Pointer-intent elevation paired with a slight card lift." }
+      {
+        "name": "card",
+        "value": "0 0.75rem 2rem -1rem oklch(0.21 0.018 128 / 0.28)",
+        "purpose": "Resting separation for interactive bounded cards and popovers."
+      },
+      {
+        "name": "card-hover",
+        "value": "0 1rem 2.5rem -1rem oklch(0.21 0.018 128 / 0.34)",
+        "purpose": "Pointer-intent elevation paired with a slight card lift."
+      }
     ],
     "motion": [
-      { "name": "duration-fast", "value": "160ms", "purpose": "Control and navigation state transitions; Storybook exercises their reduced-motion contract in a real browser context." },
-      { "name": "duration-shell", "value": "240ms", "purpose": "Expandable desktop sidebar width transition." },
-      { "name": "ease-out", "value": "cubic-bezier(0.22, 1, 0.36, 1)", "purpose": "Default purposeful deceleration for shell and control transitions." },
-      { "name": "card-hover", "value": "200ms", "purpose": "Material card lift and shadow response." }
+      {
+        "name": "duration-fast",
+        "value": "160ms",
+        "purpose": "Control and navigation state transitions; Storybook exercises their reduced-motion contract in a real browser context."
+      },
+      {
+        "name": "duration-shell",
+        "value": "240ms",
+        "purpose": "Expandable desktop sidebar width transition."
+      },
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "purpose": "Default purposeful deceleration for shell and control transitions."
+      },
+      {
+        "name": "card-hover",
+        "value": "200ms",
+        "purpose": "Material card lift and shadow response."
+      }
     ],
     "breakpoints": [
       { "name": "application-navigation", "value": "48rem" },
@@ -230,11 +443,31 @@
       "Exact revision, save and publication facts stay visible and literal."
     ],
     "rules": [
-      { "name": "The Orange Proof Signal Rule", "body": "Orange marks current state, focus or a meaningful product accent; if it does not help the user verify or act, do not use it.", "section": "colors" },
-      { "name": "The Mono Is Evidence Rule", "body": "Use JetBrains Mono only for revision/state facts, code, duration, technical notation and compact metadata; never use it as decorative body copy.", "section": "typography" },
-      { "name": "The Mobile Semantic Order Rule", "body": "Responsive changes may add columns, rails or contextual controls, but they must preserve the narrow-screen information order and primary actions.", "section": "layout" },
-      { "name": "The Flat-by-Default Rule", "body": "Keep reading and authoring surfaces flat at rest; use elevation only when it communicates an interactive bounded object or overlay.", "section": "elevation" },
-      { "name": "The Owner Gate Candidate Rule", "body": "Treat the issue #38 authoring layout and revision rail as reusable evidence to review, not as an approved global mandate, until owner visual/interaction GO is recorded.", "section": "components" }
+      {
+        "name": "The Orange Proof Signal Rule",
+        "body": "Orange marks current state, focus or a meaningful product accent; if it does not help the user verify or act, do not use it.",
+        "section": "colors"
+      },
+      {
+        "name": "The Mono Is Evidence Rule",
+        "body": "Use JetBrains Mono only for revision/state facts, code, duration, technical notation and compact metadata; never use it as decorative body copy.",
+        "section": "typography"
+      },
+      {
+        "name": "The Mobile Semantic Order Rule",
+        "body": "Responsive changes may add columns, rails or contextual controls, but they must preserve the narrow-screen information order and primary actions.",
+        "section": "layout"
+      },
+      {
+        "name": "The Flat-by-Default Rule",
+        "body": "Keep reading and authoring surfaces flat at rest; use elevation only when it communicates an interactive bounded object or overlay.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Owner Gate Candidate Rule",
+        "body": "Treat the issue #38 authoring layout and revision rail as reusable evidence to review, not as an approved global mandate, until owner visual/interaction GO is recorded.",
+        "section": "components"
+      }
     ],
     "dos": [
       "Do keep the warm light canvas dominant and bound charcoal to navigation, code, media or focused work regions.",

@@ -29,7 +29,9 @@ export function AccountPageClient({
   onProfileChange,
 }: AccountPageClientProps) {
   const [profile, setProfile] = useState(initialProfile);
-  const [displayName, setDisplayName] = useState(initialProfile?.displayName ?? "");
+  const [displayName, setDisplayName] = useState(
+    initialProfile?.displayName ?? "",
+  );
   const [bio, setBio] = useState(initialProfile?.bio ?? "");
   const [nameTouched, setNameTouched] = useState(false);
   const [bioTouched, setBioTouched] = useState(false);
@@ -72,7 +74,9 @@ export function AccountPageClient({
       ? saveResult.fieldErrors.displayName
       : undefined;
   const serverBioError =
-    saveResult?.kind === "invalid_input" ? saveResult.fieldErrors.bio : undefined;
+    saveResult?.kind === "invalid_input"
+      ? saveResult.fieldErrors.bio
+      : undefined;
   const nameInvalid =
     serverNameError !== undefined ||
     (nameTouched && !displayNameLengthIsValid(displayName));
@@ -121,8 +125,8 @@ export function AccountPageClient({
           </h2>
 
           <p className="text-sm leading-6 text-muted-foreground">
-            Профиль заполняется по желанию и виден только вам. Другим участникам он не
-            показывается; без него материалы и покупки работают так же.
+            Профиль заполняется по желанию и виден только вам. Другим участникам
+            он не показывается; без него материалы и покупки работают так же.
           </p>
 
           {profile === null ? (
@@ -144,7 +148,10 @@ export function AccountPageClient({
 
           <div className="mt-7 grid gap-7">
             <div>
-              <label className="text-sm font-semibold" htmlFor="profile-display-name">
+              <label
+                className="text-sm font-semibold"
+                htmlFor="profile-display-name"
+              >
                 Имя
               </label>
               <input
@@ -164,13 +171,21 @@ export function AccountPageClient({
                 value={displayName}
               />
               <div className="mt-2 flex justify-between gap-4 text-xs text-muted-foreground">
-                <p id={nameHelpId}>От 2 до 80 символов, уникальность не требуется.</p>
-                <span aria-label={`${String(nameLength)} из 80 символов`} className="font-mono">
+                <p id={nameHelpId}>
+                  От 2 до 80 символов, уникальность не требуется.
+                </p>
+                <span
+                  aria-label={`${String(nameLength)} из 80 символов`}
+                  className="font-mono"
+                >
                   {nameLength}/80
                 </span>
               </div>
               {nameInvalid ? (
-                <p className="mt-2 text-sm font-medium text-destructive" id={nameErrorId}>
+                <p
+                  className="mt-2 text-sm font-medium text-destructive"
+                  id={nameErrorId}
+                >
                   {serverNameError ?? "Укажите имя длиной от 2 до 80 символов."}
                 </p>
               ) : null}
@@ -178,7 +193,10 @@ export function AccountPageClient({
 
             <div>
               <label className="text-sm font-semibold" htmlFor="profile-bio">
-                О себе <span className="font-normal text-muted-foreground">· необязательно</span>
+                О себе{" "}
+                <span className="font-normal text-muted-foreground">
+                  · необязательно
+                </span>
               </label>
               <textarea
                 aria-describedby={`${bioHelpId}${bioInvalid ? ` ${bioErrorId}` : ""}`}
@@ -197,13 +215,20 @@ export function AccountPageClient({
               />
               <div className="mt-2 flex justify-between gap-4 text-xs text-muted-foreground">
                 <p id={bioHelpId}>Короткий текст о себе, виден только вам.</p>
-                <span aria-label={`${String(bioLength)} из 500 символов`} className="font-mono">
+                <span
+                  aria-label={`${String(bioLength)} из 500 символов`}
+                  className="font-mono"
+                >
                   {bioLength}/500
                 </span>
               </div>
               {bioInvalid ? (
-                <p className="mt-2 text-sm font-medium text-destructive" id={bioErrorId}>
-                  {serverBioError ?? "Описание должно быть не длиннее 500 символов."}
+                <p
+                  className="mt-2 text-sm font-medium text-destructive"
+                  id={bioErrorId}
+                >
+                  {serverBioError ??
+                    "Описание должно быть не длиннее 500 символов."}
                 </p>
               ) : null}
             </div>
@@ -212,10 +237,20 @@ export function AccountPageClient({
           <div className="mt-7 flex flex-wrap items-center gap-4">
             <Button
               className="min-h-11 px-4"
-              disabled={savePending || nameInvalid || bioInvalid || !fieldsAreValid || !fieldsAreDirty}
+              disabled={
+                savePending ||
+                nameInvalid ||
+                bioInvalid ||
+                !fieldsAreValid ||
+                !fieldsAreDirty
+              }
               type="submit"
             >
-              {savePending ? "Сохраняем…" : profile === null ? "Создать профиль" : "Сохранить"}
+              {savePending
+                ? "Сохраняем…"
+                : profile === null
+                  ? "Создать профиль"
+                  : "Сохранить"}
             </Button>
             <MutationNotice result={saveResult} />
           </div>
@@ -232,7 +267,11 @@ export function AccountPageClient({
 }
 
 /** До создания профиля аватара ещё нет: место под него занимает та же круглая заглушка. */
-function ProfileAvatarPlaceholder({ displayName }: { readonly displayName: string }) {
+function ProfileAvatarPlaceholder({
+  displayName,
+}: {
+  readonly displayName: string;
+}) {
   const initials = displayName
     .trim()
     .split(/\s+/u)
@@ -257,7 +296,10 @@ function MutationNotice({
   if (result === null) return null;
   if (result.kind === "saved") {
     return (
-      <p className="mt-5 flex items-center gap-2 text-sm font-semibold text-foreground" role="status">
+      <p
+        className="mt-5 flex items-center gap-2 text-sm font-semibold text-foreground"
+        role="status"
+      >
         <Check aria-hidden="true" className="size-4 text-accent" />
         Профиль сохранён.
       </p>
@@ -265,11 +307,18 @@ function MutationNotice({
   }
   if (result.kind === "conflict") {
     return (
-      <div className="mt-5 rounded-xl border border-accent/35 bg-accent/6 p-4 text-sm" role="alert">
+      <div
+        className="mt-5 rounded-xl border border-accent/35 bg-accent/6 p-4 text-sm"
+        role="alert"
+      >
         <p className="font-semibold">Профиль уже изменился в другой вкладке.</p>
-        <button className="mt-2 inline-flex items-center gap-2 font-semibold underline underline-offset-4" onClick={() => {
-          window.location.reload();
-        }} type="button">
+        <button
+          className="mt-2 inline-flex items-center gap-2 font-semibold underline underline-offset-4"
+          onClick={() => {
+            window.location.reload();
+          }}
+          type="button"
+        >
           <RotateCcw aria-hidden="true" className="size-4" />
           Загрузить актуальную версию
         </button>
@@ -278,7 +327,10 @@ function MutationNotice({
   }
   if (result.kind === "invalid_input") return null;
   return (
-    <p className="mt-5 rounded-xl border border-destructive/30 bg-destructive/6 p-4 text-sm" role="alert">
+    <p
+      className="mt-5 rounded-xl border border-destructive/30 bg-destructive/6 p-4 text-sm"
+      role="alert"
+    >
       {result.kind === "unauthorized"
         ? "Сессия завершилась. Войдите снова, чтобы продолжить."
         : `Не удалось выполнить действие. Повторите попытку. Код: ${result.reference}`}

@@ -53,7 +53,10 @@ export type MaterialBodyValidationError = {
   readonly issues: readonly ValidationIssue[];
 };
 
-export type MaterialBodyResult<Value> = Result<Value, MaterialBodyValidationError>;
+export type MaterialBodyResult<Value> = Result<
+  Value,
+  MaterialBodyValidationError
+>;
 
 export type MaterialBodyChange =
   | { readonly kind: "replace_document"; readonly document: unknown }

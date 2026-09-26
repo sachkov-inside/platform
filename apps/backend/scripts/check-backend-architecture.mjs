@@ -22,16 +22,22 @@ function moduleSpecifiers(program) {
   const specifiers = [];
   new Visitor({
     ImportDeclaration(node) {
-      if (typeof node.source.value === "string") specifiers.push(node.source.value);
+      if (typeof node.source.value === "string")
+        specifiers.push(node.source.value);
     },
     ExportAllDeclaration(node) {
-      if (typeof node.source.value === "string") specifiers.push(node.source.value);
+      if (typeof node.source.value === "string")
+        specifiers.push(node.source.value);
     },
     ExportNamedDeclaration(node) {
-      if (typeof node.source?.value === "string") specifiers.push(node.source.value);
+      if (typeof node.source?.value === "string")
+        specifiers.push(node.source.value);
     },
     ImportExpression(node) {
-      if (node.source.type === "Literal" && typeof node.source.value === "string") {
+      if (
+        node.source.type === "Literal" &&
+        typeof node.source.value === "string"
+      ) {
         specifiers.push(node.source.value);
       }
     },
@@ -72,14 +78,12 @@ function databaseTableReferences(program) {
         const sqlText = node.quasi.quasis
           .map((quasi) => quasi.value.raw)
           .join("${}");
-      references.push(...referencesFromSql(sqlText));
-      if (
-        /(?:\bfrom|\bjoin|(?<!\bfor\s)\bupdate|\binto)\s+\$\{/iu.test(
-          sqlText,
-        )
-      ) {
-        unresolved.push("sql template table identifier");
-      }
+        references.push(...referencesFromSql(sqlText));
+        if (
+          /(?:\bfrom|\bjoin|(?<!\bfor\s)\bupdate|\binto)\s+\$\{/iu.test(sqlText)
+        ) {
+          unresolved.push("sql template table identifier");
+        }
       }
     },
   }).visit(program);
@@ -135,7 +139,8 @@ function violationsFor(source, specifier) {
   const importedPath = importedRepositoryPath(sourcePath, specifier);
   const violations = [];
   const sourceModule = owningModule(sourcePath);
-  const importedModule = importedPath === undefined ? undefined : owningModule(importedPath);
+  const importedModule =
+    importedPath === undefined ? undefined : owningModule(importedPath);
 
   const importsCapabilityImplementation =
     importedModule !== undefined &&
@@ -152,8 +157,13 @@ function violationsFor(source, specifier) {
     );
   }
 
-  if (sourceModule !== undefined && capabilityIndexModule(importedPath) === sourceModule) {
-    violations.push(`the ${sourceModule} Module imports its own files directly, not through its index.ts`);
+  if (
+    sourceModule !== undefined &&
+    capabilityIndexModule(importedPath) === sourceModule
+  ) {
+    violations.push(
+      `the ${sourceModule} Module imports its own files directly, not through its index.ts`,
+    );
   }
 
   if (
@@ -161,7 +171,9 @@ function violationsFor(source, specifier) {
     /^src\/modules\/[^/]+\/internal\//.test(importedPath) &&
     sourceModule !== importedModule
   ) {
-    violations.push("a capability internal module was imported from outside its owner");
+    violations.push(
+      "a capability internal module was imported from outside its owner",
+    );
   }
 
   if (specifier.startsWith("@tiptap/")) {
@@ -170,7 +182,8 @@ function violationsFor(source, specifier) {
     );
   }
 
-  const importsKysely = specifier === "kysely" || specifier.startsWith("kysely/");
+  const importsKysely =
+    specifier === "kysely" || specifier.startsWith("kysely/");
   if (importsKysely) {
     violations.push("Kysely is forbidden; Prisma is the only application ORM");
   }
@@ -187,11 +200,14 @@ function violationsFor(source, specifier) {
   const importsDeletedGeneratedPersistence =
     importedPath?.includes("/infrastructure/postgres/generated/") === true;
   if (
-    (importsPrismaPackage && !sourcePath.startsWith("src/infrastructure/prisma/")) ||
+    (importsPrismaPackage &&
+      !sourcePath.startsWith("src/infrastructure/prisma/")) ||
     (importsPg && !ownsPostgresLifecycle) ||
     importsDeletedGeneratedPersistence
   ) {
-    violations.push("raw persistence imports require an approved postgres owner path");
+    violations.push(
+      "raw persistence imports require an approved postgres owner path",
+    );
   }
 
   if (
@@ -212,40 +228,44 @@ function databaseReferenceViolations(sourceFile, program) {
     return [];
   }
   const { references, unresolved } = databaseTableReferences(program);
-  const expectedSchema = sourceModule === undefined
-    ? sourcePath === "src/development/seed-local-development.ts"
-      ? "materials"
-      : undefined
-    : owningSchema(sourceModule);
+  const expectedSchema =
+    sourceModule === undefined
+      ? sourcePath === "src/development/seed-local-development.ts"
+        ? "materials"
+        : undefined
+      : owningSchema(sourceModule);
   const violations = unresolved.map(
     (operation) =>
       `${sourcePath}: database table references must use statically declared identifiers (${operation})`,
   );
-  return [...violations, ...references.flatMap((reference) => {
-    if (
-      sourcePath === "src/infrastructure/operational-readiness.ts" &&
-      ["public.platform_migrations", "pgboss.version"].includes(reference)
-    ) {
-      return [];
-    }
-    if (expectedSchema === undefined) {
-      return [
-        `${sourcePath}: application schema references must stay inside the owning Module (${reference})`,
-      ];
-    }
-    const separator = reference.indexOf(".");
-    if (separator === -1) {
-      return [
-        `${sourcePath}: database table references must be schema-qualified (${reference})`,
-      ];
-    }
-    const schema = reference.slice(0, separator);
-    return schema === expectedSchema
-      ? []
-      : [
-          `${sourcePath}: database table references must stay inside the owning Module schema (${reference})`,
+  return [
+    ...violations,
+    ...references.flatMap((reference) => {
+      if (
+        sourcePath === "src/infrastructure/operational-readiness.ts" &&
+        ["public.platform_migrations", "pgboss.version"].includes(reference)
+      ) {
+        return [];
+      }
+      if (expectedSchema === undefined) {
+        return [
+          `${sourcePath}: application schema references must stay inside the owning Module (${reference})`,
         ];
-  })];
+      }
+      const separator = reference.indexOf(".");
+      if (separator === -1) {
+        return [
+          `${sourcePath}: database table references must be schema-qualified (${reference})`,
+        ];
+      }
+      const schema = reference.slice(0, separator);
+      return schema === expectedSchema
+        ? []
+        : [
+            `${sourcePath}: database table references must stay inside the owning Module schema (${reference})`,
+          ];
+    }),
+  ];
 }
 
 const advisoryLockCall = /pg_(?:try_)?advisory_/iu;
@@ -261,10 +281,12 @@ function writesAdvisoryLock(program) {
   let found = false;
   new Visitor({
     Literal(node) {
-      if (typeof node.value === "string" && advisoryLockCall.test(node.value)) found = true;
+      if (typeof node.value === "string" && advisoryLockCall.test(node.value))
+        found = true;
     },
     TemplateLiteral(node) {
-      if (node.quasis.some((quasi) => advisoryLockCall.test(quasi.value.raw))) found = true;
+      if (node.quasis.some((quasi) => advisoryLockCall.test(quasi.value.raw)))
+        found = true;
     },
   }).visit(program);
   return found;
@@ -279,7 +301,9 @@ function advisoryLockViolations(sourceFile, program) {
     return [];
   }
   return writesAdvisoryLock(program)
-    ? [`${sourcePath}: advisory lock keys come from src/infrastructure/prisma/transaction-locks.ts`]
+    ? [
+        `${sourcePath}: advisory lock keys come from src/infrastructure/prisma/transaction-locks.ts`,
+      ]
     : [];
 }
 
@@ -288,7 +312,15 @@ function advisoryLockViolations(sourceFile, program) {
 // Module's own infrastructure/prisma.ts.
 const handoffDelegates = new Map([
   ["assets", ["material"]],
-  ["materials", ["materialAsset", "video", "videoDeletionOperation", "workshopCaseMaterial"]],
+  [
+    "materials",
+    [
+      "materialAsset",
+      "video",
+      "videoDeletionOperation",
+      "workshopCaseMaterial",
+    ],
+  ],
   ["reading-activity", ["material", "publishedMaterialGuideMembership"]],
   ["videos", ["material", "publishedMaterial"]],
   [
@@ -334,7 +366,10 @@ function handoffDelegateViolations(sourceFile, program) {
   new Visitor({
     MemberExpression(node) {
       const delegate = memberPropertyName(node.object);
-      if (delegates.includes(delegate) && prismaModelOperations.has(memberPropertyName(node))) {
+      if (
+        delegates.includes(delegate) &&
+        prismaModelOperations.has(memberPropertyName(node))
+      ) {
         used.add(delegate);
       }
     },
@@ -351,7 +386,8 @@ function handoffDelegateViolations(sourceFile, program) {
 // или бросает дальше. Отказ разбора чужого ввода — не сбой зависимости; такой catch объясняет
 // себя первой строкой тела.
 const inputRejectionMarker = "Not a dependency failure:";
-const reporters = "dependencyFailure|reportDependencyFailure|describeError|loggableFailure";
+const reporters =
+  "dependencyFailure|reportDependencyFailure|describeError|loggableFailure";
 
 function swallowedFailureViolations(sourceFile, sourceText, program, comments) {
   const sourcePath = scannedPath(sourceFile);
@@ -360,7 +396,10 @@ function swallowedFailureViolations(sourceFile, sourceText, program, comments) {
   const lineOf = (offset) => sourceText.slice(0, offset).split("\n").length;
   // Метка засчитывается только первой строкой: между началом обработчика и его первым оператором.
   const explains = (from, body) => {
-    const firstCode = body.type === "BlockStatement" ? (body.body[0]?.start ?? body.end) : body.start;
+    const firstCode =
+      body.type === "BlockStatement"
+        ? (body.body[0]?.start ?? body.end)
+        : body.start;
     return comments.some(
       (comment) =>
         comment.start > from &&
@@ -371,10 +410,14 @@ function swallowedFailureViolations(sourceFile, sourceText, program, comments) {
   // Текст обработчика без комментариев: упоминание reporter в комментарии ничего не записывает.
   const codeOf = (body) =>
     comments
-      .filter((comment) => comment.start >= body.start && comment.end <= body.end)
+      .filter(
+        (comment) => comment.start >= body.start && comment.end <= body.end,
+      )
       .reduceRight(
         (text, comment) =>
-          text.slice(0, comment.start - body.start) + " ".repeat(comment.end - comment.start) + text.slice(comment.end - body.start),
+          text.slice(0, comment.start - body.start) +
+          " ".repeat(comment.end - comment.start) +
+          text.slice(comment.end - body.start),
         sourceText.slice(body.start, body.end),
       );
   // Пойманное значение уходит reporter, становится причиной новой ошибки или бросается дальше.
@@ -391,10 +434,14 @@ function swallowedFailureViolations(sourceFile, sourceText, program, comments) {
     if (explains(start, body)) return;
     const advice = `report it with dependencyFailure or explain it with "// ${inputRejectionMarker}"`;
     if (param === null || param === undefined) {
-      violations.push(`${sourcePath}:${lineOf(start)}: ${kind} swallows its failure; ${advice}`);
+      violations.push(
+        `${sourcePath}:${lineOf(start)}: ${kind} swallows its failure; ${advice}`,
+      );
     } else if (param.type !== "Identifier" || !passesOn(body, param.name)) {
       const name = param.type === "Identifier" ? param.name : "its failure";
-      violations.push(`${sourcePath}:${lineOf(start)}: ${kind} drops ${name} without reporting it; ${advice}`);
+      violations.push(
+        `${sourcePath}:${lineOf(start)}: ${kind} drops ${name} without reporting it; ${advice}`,
+      );
     }
   };
   new Visitor({
@@ -403,7 +450,8 @@ function swallowedFailureViolations(sourceFile, sourceText, program, comments) {
       const handler = node.arguments[0];
       if (
         memberPropertyName(node.callee) === "catch" &&
-        (handler?.type === "ArrowFunctionExpression" || handler?.type === "FunctionExpression")
+        (handler?.type === "ArrowFunctionExpression" ||
+          handler?.type === "FunctionExpression")
       ) {
         check(".catch", node.start, handler.params[0], handler.body);
       }
@@ -427,7 +475,8 @@ function exportedName(node) {
 
 function declarationKind(node, kindField) {
   return node[kindField] === "type" ||
-    (node.specifiers.length > 0 && node.specifiers.every((specifier) => specifier[kindField] === "type"))
+    (node.specifiers.length > 0 &&
+      node.specifiers.every((specifier) => specifier[kindField] === "type"))
     ? "type"
     : "value";
 }
@@ -451,26 +500,52 @@ function fileImports(program) {
       });
     },
     ExportAllDeclaration(node) {
-      imports.push({ kind: node.exportKind === "type" ? "type" : "value", names: ["*"], specifier: node.source.value });
+      imports.push({
+        kind: node.exportKind === "type" ? "type" : "value",
+        names: ["*"],
+        specifier: node.source.value,
+      });
     },
     ExportNamedDeclaration(node) {
       if (typeof node.source?.value !== "string") return;
       imports.push({
         kind: declarationKind(node, "exportKind"),
-        names: node.specifiers.map((specifier) => exportedName(specifier.local)),
+        names: node.specifiers.map((specifier) =>
+          exportedName(specifier.local),
+        ),
         specifier: node.source.value,
       });
     },
     // const { Name } = await import("…") takes only the names it destructures.
     VariableDeclarator(node) {
-      const imported = node.init?.type === "AwaitExpression" ? node.init.argument : undefined;
-      if (imported?.type !== "ImportExpression" || node.id.type !== "ObjectPattern") return;
-      if (node.id.properties.some((property) => property.type !== "Property" || property.computed)) return;
-      destructured.set(imported.start, node.id.properties.map((property) => exportedName(property.key)));
+      const imported =
+        node.init?.type === "AwaitExpression" ? node.init.argument : undefined;
+      if (
+        imported?.type !== "ImportExpression" ||
+        node.id.type !== "ObjectPattern"
+      )
+        return;
+      if (
+        node.id.properties.some(
+          (property) => property.type !== "Property" || property.computed,
+        )
+      )
+        return;
+      destructured.set(
+        imported.start,
+        node.id.properties.map((property) => exportedName(property.key)),
+      );
     },
     ImportExpression(node) {
-      if (node.source.type === "Literal" && typeof node.source.value === "string") {
-        imports.push({ kind: "dynamic", names: destructured.get(node.start) ?? ["*"], specifier: node.source.value });
+      if (
+        node.source.type === "Literal" &&
+        typeof node.source.value === "string"
+      ) {
+        imports.push({
+          kind: "dynamic",
+          names: destructured.get(node.start) ?? ["*"],
+          specifier: node.source.value,
+        });
       }
     },
   }).visit(program);
@@ -478,7 +553,9 @@ function fileImports(program) {
 }
 
 function capabilityIndexModule(repositoryPath) {
-  return /^src\/modules\/([^/]+)\/index\.[cm]?[jt]s$/u.exec(repositoryPath ?? "")?.[1];
+  return /^src\/modules\/([^/]+)\/index\.[cm]?[jt]s$/u.exec(
+    repositoryPath ?? "",
+  )?.[1];
 }
 
 // The names a capability index.ts offers. A wildcard re-export cannot be checked for consumers.
@@ -487,10 +564,14 @@ function indexExports(indexPath, program) {
   const violations = [];
   for (const node of program.body) {
     if (node.type === "ExportAllDeclaration") {
-      violations.push(`${indexPath}: a capability index.ts names each export; replace export * from ${node.source.value}`);
+      violations.push(
+        `${indexPath}: a capability index.ts names each export; replace export * from ${node.source.value}`,
+      );
     }
     if (node.type !== "ExportNamedDeclaration") continue;
-    names.push(...node.specifiers.map((specifier) => exportedName(specifier.exported)));
+    names.push(
+      ...node.specifiers.map((specifier) => exportedName(specifier.exported)),
+    );
     const declaration = node.declaration;
     if (declaration?.id) names.push(declaration.id.name);
     for (const declarator of declaration?.declarations ?? []) {
@@ -585,13 +666,18 @@ function moduleCycleViolations(moduleEdges) {
   }
   return [...moduleEdges.keys()]
     .map((edge) => edge.split(" -> "))
-    .filter(([from, to]) => componentOf.has(from) && componentOf.get(from) === componentOf.get(to))
+    .filter(
+      ([from, to]) =>
+        componentOf.has(from) && componentOf.get(from) === componentOf.get(to),
+    )
     .map(([from, to]) => {
       const cycle = [from, ...shortestPath(graph, to, from)];
       const evidence = cycle.slice(1).map((next, step) => {
         const edge = `${cycle[step]} -> ${next}`;
         const kinds = moduleEdges.get(edge);
-        const strongest = [...kinds.keys()].sort((left, right) => importKindRank[right] - importKindRank[left])[0];
+        const strongest = [...kinds.keys()].sort(
+          (left, right) => importKindRank[right] - importKindRank[left],
+        )[0];
         return `${edge}: ${kinds.get(strongest)}`;
       });
       return `Module dependency cycle ${cycle.join(" -> ")}; depend on a lower Module or invert the edge through a port (${evidence.join("; ")})`;
@@ -610,10 +696,15 @@ function recordImports(consumerPath, program, { graph }) {
   const consumerModule = owningModule(consumerPath);
   for (const { kind, names, specifier } of fileImports(program)) {
     const importedPath = importedRepositoryPath(consumerPath, specifier);
-    const importedModule = importedPath === undefined ? undefined : owningModule(importedPath);
-    if (importedModule === undefined || importedModule === consumerModule) continue;
+    const importedModule =
+      importedPath === undefined ? undefined : owningModule(importedPath);
+    if (importedModule === undefined || importedModule === consumerModule)
+      continue;
     if (capabilityIndexModule(importedPath) === importedModule) {
-      consumers.set(importedModule, new Set([...(consumers.get(importedModule) ?? []), ...names]));
+      consumers.set(
+        importedModule,
+        new Set([...(consumers.get(importedModule) ?? []), ...names]),
+      );
     }
     if (graph && consumerModule !== undefined) {
       const edge = `${consumerModule} -> ${importedModule}`;
@@ -628,7 +719,9 @@ function parsed(source) {
   const sourceText = readFileSync(source, "utf8");
   const { comments, errors, program } = parseSync(source, sourceText);
   if (errors.length > 0) {
-    throw new SyntaxError(`Oxc could not parse ${source}: ${errors[0].message}`);
+    throw new SyntaxError(
+      `Oxc could not parse ${source}: ${errors[0].message}`,
+    );
   }
   return { comments, program, sourceText };
 }
@@ -659,10 +752,17 @@ const findings = sourceFiles(scanRoot).flatMap((source) => {
 });
 
 for (const source of consumerRoots().flatMap((root) => sourceFiles(root))) {
-  recordImports(path.relative(backendRoot, source).split(path.sep).join("/"), parsed(source).program, { graph: false });
+  recordImports(
+    path.relative(backendRoot, source).split(path.sep).join("/"),
+    parsed(source).program,
+    { graph: false },
+  );
 }
 
-findings.push(...unusedExportViolations(indexes, consumers), ...moduleCycleViolations(moduleEdges));
+findings.push(
+  ...unusedExportViolations(indexes, consumers),
+  ...moduleCycleViolations(moduleEdges),
+);
 
 if (findings.length > 0) {
   process.stderr.write(`${findings.sort().join("\n")}\n`);

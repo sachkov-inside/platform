@@ -106,7 +106,9 @@ describe("Library server adapter", () => {
       ),
     );
 
-    await expect(getLibraryCatalogPage(defaultQuery, undefined)).resolves.toEqual({
+    await expect(
+      getLibraryCatalogPage(defaultQuery, undefined),
+    ).resolves.toEqual({
       facets,
       kind: "ready",
       items: [
@@ -123,7 +125,7 @@ describe("Library server adapter", () => {
           topicSlug: "platform",
           format: "Гайд",
           formatSlug: "guide",
-            publishedAt: "2026-08-25T05:00:00.000Z",
+          publishedAt: "2026-08-25T05:00:00.000Z",
           materialId: "72000000-0000-4000-8000-000000000020",
           tags: ["Architecture"],
           seriesMemberships: [
@@ -184,9 +186,11 @@ describe("Library server adapter", () => {
     vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(
-        Response.json({ facets, items: [], nextCursor: null, totalCount: 1 }),
-      ),
+      vi
+        .fn()
+        .mockResolvedValue(
+          Response.json({ facets, items: [], nextCursor: null, totalCount: 1 }),
+        ),
     );
 
     await expect(
@@ -222,7 +226,9 @@ describe("Library server adapter", () => {
       ),
     );
 
-    await expect(getLibraryCatalogPage(defaultQuery, undefined)).resolves.toEqual({
+    await expect(
+      getLibraryCatalogPage(defaultQuery, undefined),
+    ).resolves.toEqual({
       kind: "unavailable",
     });
   });
@@ -258,7 +264,12 @@ describe("Library server adapter", () => {
       "fetch",
       vi.fn().mockResolvedValue(
         Response.json(
-          { type: "urn:inside:problem:unknown", title: "Unknown", status: 503, code: "unknown" },
+          {
+            type: "urn:inside:problem:unknown",
+            title: "Unknown",
+            status: 503,
+            code: "unknown",
+          },
           {
             status: 503,
             headers: { "Content-Type": "application/problem+json" },

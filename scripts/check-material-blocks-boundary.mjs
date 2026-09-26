@@ -5,7 +5,9 @@ import process from "node:process";
 const repositoryRoot = path.resolve(process.argv[2] ?? ".");
 
 if (!statSync(repositoryRoot).isDirectory()) {
-  throw new TypeError(`Material blocks boundary root is not a directory: ${repositoryRoot}`);
+  throw new TypeError(
+    `Material blocks boundary root is not a directory: ${repositoryRoot}`,
+  );
 }
 
 const packageRoot = path.join(repositoryRoot, "packages/material-blocks");
@@ -13,10 +15,13 @@ const registryEntry = path.join(packageRoot, "src/index.ts");
 const findings = [];
 
 if (!existsSync(registryEntry)) {
-  findings.push("packages/material-blocks/src/index.ts: the block registry entry point is missing");
+  findings.push(
+    "packages/material-blocks/src/index.ts: the block registry entry point is missing",
+  );
 }
 
-const importSpecifier = /(?:^|[\s;])(?:import|export)\b[^'"]*?from\s*["']([^"']+)["']/gmu;
+const importSpecifier =
+  /(?:^|[\s;])(?:import|export)\b[^'"]*?from\s*["']([^"']+)["']/gmu;
 const sideEffectImport = /(?:^|[\s;])import\s*["']([^"']+)["']/gmu;
 
 const visited = new Set();

@@ -43,7 +43,10 @@ export async function recordGuideRemovals(
   values: {
     readonly actor: string;
     readonly operation: "material_save" | "guide_composition";
-    readonly removals: readonly { readonly guide: HeldGuideRemoval; readonly materialId: string }[];
+    readonly removals: readonly {
+      readonly guide: HeldGuideRemoval;
+      readonly materialId: string;
+    }[];
     readonly removedAt: Date;
   },
 ): Promise<void> {

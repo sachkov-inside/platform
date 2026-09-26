@@ -52,7 +52,10 @@ export const Catalog: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.getByRole("heading", { level: 1, name: "Подписка Sachkov Inside" }),
+      canvas.getByRole("heading", {
+        level: 1,
+        name: "Подписка Sachkov Inside",
+      }),
     ).toBeVisible();
     await expect(canvas.getByText("Выберите тариф")).toBeVisible();
   },
@@ -108,7 +111,10 @@ export const Unavailable: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.getByRole("heading", { level: 1, name: "Подписка Sachkov Inside" }),
+      canvas.getByRole("heading", {
+        level: 1,
+        name: "Подписка Sachkov Inside",
+      }),
     ).toBeVisible();
     await expect(canvas.getByText(/Тарифы сейчас недоступны/u)).toBeVisible();
   },

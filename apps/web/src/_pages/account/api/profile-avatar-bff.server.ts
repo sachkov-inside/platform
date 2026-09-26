@@ -11,7 +11,9 @@ import {
   type AuthenticatedMutationFailure,
 } from "@/shared/auth/index.server";
 
-export async function proxyProfileAvatarMutation(request: Request): Promise<Response> {
+export async function proxyProfileAvatarMutation(
+  request: Request,
+): Promise<Response> {
   return handleAuthenticatedMutation(
     request,
     async (body, accessToken) => {
@@ -24,7 +26,8 @@ export async function proxyProfileAvatarMutation(request: Request): Promise<Resp
             : null;
       const acceptedContentType =
         method === "PUT"
-          ? contentType?.toLowerCase().startsWith("multipart/form-data;") === true
+          ? contentType?.toLowerCase().startsWith("multipart/form-data;") ===
+            true
           : method === "DELETE" &&
             contentType?.toLowerCase().startsWith("application/json") === true;
       if (

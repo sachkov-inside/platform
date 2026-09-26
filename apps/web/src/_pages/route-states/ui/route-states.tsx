@@ -34,7 +34,11 @@ export function PageNotFound() {
  * Непредвиденный сбой страницы. Повтор перечитывает её с сервера: повторная отрисовка без запроса
  * показала бы тот же сбой.
  */
-export function PageUnexpectedError({ onRetry }: { readonly onRetry: () => void }) {
+export function PageUnexpectedError({
+  onRetry,
+}: {
+  readonly onRetry: () => void;
+}) {
   return (
     <StatusPanel
       action={
@@ -60,7 +64,11 @@ export function PageUnexpectedError({ onRetry }: { readonly onRetry: () => void 
  * Сбой, когда оболочки уже нет: упала раскладка раздела или корневая. Состояние стоит посреди
  * пустого экрана.
  */
-export function StandalonePageError({ onRetry }: { readonly onRetry: () => void }) {
+export function StandalonePageError({
+  onRetry,
+}: {
+  readonly onRetry: () => void;
+}) {
   return (
     <main className="grid min-h-svh place-items-center bg-background px-5 py-12 text-foreground">
       <PageUnexpectedError onRetry={onRetry} />

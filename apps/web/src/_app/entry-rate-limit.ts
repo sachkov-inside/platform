@@ -11,7 +11,8 @@ import type { WebRuntimeMode } from "@/shared/config/index.server";
  */
 export const ENTRY_RATE_WINDOW_SECONDS = 60;
 
-export type EntryRouteKind = "sign-in" | "billing-command" | "public-link" | "client-report";
+export type EntryRouteKind =
+  "sign-in" | "billing-command" | "public-link" | "client-report";
 
 /**
  * Сколько запросов одного вида принимается с одного адреса за окно. Вход — это пара запросов
@@ -52,12 +53,19 @@ export const entryRoutePaths = [
 const billingCommands = new Set<string>(billingCommandPaths);
 const clientReports = new Set<string>(clientReportPaths);
 
-export function classifyEntryRoute(method: string, pathname: string): EntryRouteKind | undefined {
+export function classifyEntryRoute(
+  method: string,
+  pathname: string,
+): EntryRouteKind | undefined {
   if (method === "POST" && pathname === "/auth/sign-in") return "sign-in";
   if (method === "GET" && pathname === "/callback") return "sign-in";
-  if (method === "POST" && billingCommands.has(pathname)) return "billing-command";
+  if (method === "POST" && billingCommands.has(pathname))
+    return "billing-command";
   if (method === "POST" && clientReports.has(pathname)) return "client-report";
-  if ((method === "GET" || method === "HEAD") && pathname === "/communications/visit") {
+  if (
+    (method === "GET" || method === "HEAD") &&
+    pathname === "/communications/visit"
+  ) {
     return "public-link";
   }
   return undefined;
@@ -76,9 +84,13 @@ export interface EntryClient {
  * от проверок production-сборки и служебных вызовов на хосте.
  */
 export function entryClient(headers: Headers): EntryClient {
-  const address = headers.get("x-forwarded-for")?.split(",")[0]?.trim().toLowerCase() ?? "";
-  const ipv4 = address.startsWith("::ffff:") ? address.slice("::ffff:".length) : address;
-  if (z.ipv4().safeParse(ipv4).success) return { key: ipv4, loopback: ipv4.startsWith("127.") };
+  const address =
+    headers.get("x-forwarded-for")?.split(",")[0]?.trim().toLowerCase() ?? "";
+  const ipv4 = address.startsWith("::ffff:")
+    ? address.slice("::ffff:".length)
+    : address;
+  if (z.ipv4().safeParse(ipv4).success)
+    return { key: ipv4, loopback: ipv4.startsWith("127.") };
   if (z.ipv6().safeParse(address).success) {
     return { key: ipv6Network(address), loopback: address === "::1" };
   }
@@ -91,8 +103,13 @@ function ipv6Network(address: string): string {
   const [head = "", tail] = address.split("::");
   const left = head === "" ? [] : head.split(":");
   const right = tail === undefined || tail === "" ? [] : tail.split(":");
-  const zeros = tail === undefined ? [] : Array.from({ length: 8 - left.length - right.length }, () => "0");
-  const groups = [...left, ...zeros, ...right].map((group) => group.replace(/^0+(?=.)/u, ""));
+  const zeros =
+    tail === undefined
+      ? []
+      : Array.from({ length: 8 - left.length - right.length }, () => "0");
+  const groups = [...left, ...zeros, ...right].map((group) =>
+    group.replace(/^0+(?=.)/u, ""),
+  );
   return `${groups.slice(0, 4).join(":")}::/64`;
 }
 
@@ -107,9 +124,14 @@ export interface EntryRateLimiter {
   take(kind: EntryRouteKind, clientKey: string): EntryRateDecision;
 }
 
-export function createEntryRateLimiter(now: () => number = Date.now): EntryRateLimiter {
+export function createEntryRateLimiter(
+  now: () => number = Date.now,
+): EntryRateLimiter {
   const windowMilliseconds = ENTRY_RATE_WINDOW_SECONDS * 1_000;
-  const windows = new Map<string, { readonly startedAt: number; count: number }>();
+  const windows = new Map<
+    string,
+    { readonly startedAt: number; count: number }
+  >();
 
   function makeRoom(at: number): void {
     if (windows.size < MAX_TRACKED_WINDOWS) return;
@@ -136,24 +158,31 @@ export function createEntryRateLimiter(now: () => number = Date.now): EntryRateL
         windows.set(key, window);
       }
       window.count += 1;
-      if (window.count <= entryRequestsPerWindow[kind]) return { allowed: true };
+      if (window.count <= entryRequestsPerWindow[kind])
+        return { allowed: true };
       return {
         allowed: false,
-        retryAfterSeconds: Math.max(1, Math.ceil((window.startedAt + windowMilliseconds - at) / 1_000)),
+        retryAfterSeconds: Math.max(
+          1,
+          Math.ceil((window.startedAt + windowMilliseconds - at) / 1_000),
+        ),
       };
     },
   };
 }
 
 export function entryRateLimitedResponse(retryAfterSeconds: number): Response {
-  return new Response("Слишком много запросов. Повторите попытку через минуту.\n", {
-    status: 429,
-    headers: {
-      "cache-control": "no-store, private",
-      "content-type": "text/plain; charset=utf-8",
-      "retry-after": String(retryAfterSeconds),
+  return new Response(
+    "Слишком много запросов. Повторите попытку через минуту.\n",
+    {
+      status: 429,
+      headers: {
+        "cache-control": "no-store, private",
+        "content-type": "text/plain; charset=utf-8",
+        "retry-after": String(retryAfterSeconds),
+      },
     },
-  });
+  );
 }
 
 /**
@@ -166,10 +195,15 @@ export function limitEntryRequest(
   mode: WebRuntimeMode,
 ): Response | undefined {
   if (mode !== "production") return undefined;
-  const kind = classifyEntryRoute(request.method, new URL(request.url).pathname);
+  const kind = classifyEntryRoute(
+    request.method,
+    new URL(request.url).pathname,
+  );
   if (kind === undefined) return undefined;
   const client = entryClient(request.headers);
   if (client.loopback) return undefined;
   const decision = limiter.take(kind, client.key);
-  return decision.allowed ? undefined : entryRateLimitedResponse(decision.retryAfterSeconds);
+  return decision.allowed
+    ? undefined
+    : entryRateLimitedResponse(decision.retryAfterSeconds);
 }

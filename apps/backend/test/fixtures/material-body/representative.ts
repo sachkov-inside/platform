@@ -1,6 +1,8 @@
 import type { MaterialBodySnapshot } from "../../../src/modules/materials/index.js";
 
-export function representativeDocument(text = "Issue хранит intent."): MaterialBodySnapshot {
+export function representativeDocument(
+  text = "Issue хранит intent.",
+): MaterialBodySnapshot {
   return {
     schemaVersion: 1,
     doc: {
@@ -46,7 +48,12 @@ export function fullRepresentativeDocument(): MaterialBodySnapshot {
             {
               type: "text",
               text: "evidence",
-              marks: [{ type: "link", attrs: { href: "https://example.com/evidence" } }],
+              marks: [
+                {
+                  type: "link",
+                  attrs: { href: "https://example.com/evidence" },
+                },
+              ],
             },
             { type: "text", text: "." },
           ],
@@ -254,7 +261,12 @@ export function fullRepresentativeDocument(): MaterialBodySnapshot {
                 {
                   type: "paragraph",
                   attrs: { nodeId: "01000000-0000-4000-8000-000000000031" },
-                  content: [{ type: "text", text: "Учебный проект: повторите шаг на образце." }],
+                  content: [
+                    {
+                      type: "text",
+                      text: "Учебный проект: повторите шаг на образце.",
+                    },
+                  ],
                 },
               ],
             },
@@ -265,7 +277,12 @@ export function fullRepresentativeDocument(): MaterialBodySnapshot {
                 {
                   type: "paragraph",
                   attrs: { nodeId: "01000000-0000-4000-8000-000000000032" },
-                  content: [{ type: "text", text: "Свой проект: примените шаг к своему репозиторию." }],
+                  content: [
+                    {
+                      type: "text",
+                      text: "Свой проект: примените шаг к своему репозиторию.",
+                    },
+                  ],
                 },
               ],
             },
@@ -275,7 +292,10 @@ export function fullRepresentativeDocument(): MaterialBodySnapshot {
           type: "keyPoint",
           attrs: { nodeId: "01000000-0000-4000-8000-000000000029" },
           content: [
-            { type: "text", text: "Вид блока задаёт платформа, а не вёрстка урока." },
+            {
+              type: "text",
+              text: "Вид блока задаёт платформа, а не вёрстка урока.",
+            },
           ],
         },
         {

@@ -18,10 +18,7 @@ export interface WorkshopResource {
 }
 
 export type WorkshopAction =
-  | "read"
-  | "download"
-  | "read_progress"
-  | "write_progress";
+  "read" | "download" | "read_progress" | "write_progress";
 
 export type WorkshopEnforcementPoint =
   | "track_outline_read"
@@ -64,10 +61,7 @@ export type WorkshopAvailabilityResult =
   | Readonly<{
       ok: false;
       error: {
-        readonly code:
-          | "empty_batch"
-          | "duplicate_item_id"
-          | "batch_too_large";
+        readonly code: "empty_batch" | "duplicate_item_id" | "batch_too_large";
       };
     }>;
 

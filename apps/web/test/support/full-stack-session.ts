@@ -1,4 +1,9 @@
-import { request as playwrightRequest, type APIRequestContext, type BrowserContext, type Page } from "@playwright/test";
+import {
+  request as playwrightRequest,
+  type APIRequestContext,
+  type BrowserContext,
+  type Page,
+} from "@playwright/test";
 
 /**
  * Роли сквозного набора. Имя роли — это то, чем она является для продукта; в какой переменной
@@ -66,9 +71,9 @@ export async function signInFullStack(
   throw new Error(
     state === "guest"
       ? `Full-stack session ${role} is signed out: the identity fixture could not renew its ` +
-        "access token. This is an expired session, not a defect in the page under test."
+          "access token. This is an expired session, not a defect in the page under test."
       : `Full-stack session ${role} could not be checked: /auth/status reported ${state}. ` +
-        "The application or its API is unavailable; the session itself may be fine.",
+          "The application or its API is unavailable; the session itself may be fine.",
   );
 }
 
@@ -81,12 +86,16 @@ async function passFirstSignInScreen(context: BrowserContext): Promise<void> {
   try {
     await page.goto(`${fullStackBaseUrl()}/welcome?returnTo=%2F`);
     // The dialog is interactive only once it is modal; the server-rendered copy is not yet hydrated.
-    const accept = page.locator("dialog:modal").getByRole("button", { name: "Принять условия и продолжить" });
+    const accept = page
+      .locator("dialog:modal")
+      .getByRole("button", { name: "Принять условия и продолжить" });
     // An account that already accepted is redirected away; one still here must be able to accept.
     // The page streams, so the redirect may arrive after `goto` resolves: wait for whichever comes first.
     const outcome = await Promise.race([
       accept.waitFor({ timeout: 15_000 }).then(() => "accept" as const),
-      page.waitForURL((url) => url.pathname !== "/welcome", { timeout: 15_000 }).then(() => "left" as const),
+      page
+        .waitForURL((url) => url.pathname !== "/welcome", { timeout: 15_000 })
+        .then(() => "left" as const),
     ]);
     if (outcome === "accept") {
       await accept.click({ timeout: 15_000 });
@@ -111,14 +120,36 @@ export async function fullStackSessionState(
 }
 
 /** Use the browser cookie rules for real user mutations, including refreshed Secure cookies on loopback. */
-export async function fullStackBrowserRequest(page: Page, path: string, method = "GET", fields?: Record<string, string>) {
-  const result = await page.evaluate(async ({ path, method, fields }) => {
-    const body = fields === undefined ? undefined : new FormData();
-    if (body !== undefined && fields !== undefined) for (const [key, value] of Object.entries(fields)) body.set(key, value);
-    const response = await fetch(path, { method, ...(body === undefined ? {} : { body }), credentials: "same-origin" });
-    return { ok: response.ok, status: response.status, body: await response.text() };
-  }, { path, method, fields });
-  return { ok: () => result.ok, status: () => result.status, json: (): Promise<unknown> => Promise.resolve(JSON.parse(result.body) as unknown) };
+export async function fullStackBrowserRequest(
+  page: Page,
+  path: string,
+  method = "GET",
+  fields?: Record<string, string>,
+) {
+  const result = await page.evaluate(
+    async ({ path, method, fields }) => {
+      const body = fields === undefined ? undefined : new FormData();
+      if (body !== undefined && fields !== undefined)
+        for (const [key, value] of Object.entries(fields)) body.set(key, value);
+      const response = await fetch(path, {
+        method,
+        ...(body === undefined ? {} : { body }),
+        credentials: "same-origin",
+      });
+      return {
+        ok: response.ok,
+        status: response.status,
+        body: await response.text(),
+      };
+    },
+    { path, method, fields },
+  );
+  return {
+    ok: () => result.ok,
+    status: () => result.status,
+    json: (): Promise<unknown> =>
+      Promise.resolve(JSON.parse(result.body) as unknown),
+  };
 }
 
 /**
@@ -126,7 +157,9 @@ export async function fullStackBrowserRequest(page: Page, path: string, method =
  * на 127.0.0.1, а собственный клиент Playwright — нет, и запрос уходит гостем. Здесь cookie браузера
  * передаются явно.
  */
-export async function fullStackPageRequest(page: Page): Promise<APIRequestContext> {
+export async function fullStackPageRequest(
+  page: Page,
+): Promise<APIRequestContext> {
   // `cookies(url)` for an http URL drops Secure cookies the same way, so the domain is filtered here.
   const host = new URL(fullStackBaseUrl()).hostname;
   const cookie = (await page.context().cookies())

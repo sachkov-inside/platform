@@ -16,7 +16,9 @@ export const metadata: Metadata = {
 export default async function SubscriptionRoute({
   searchParams,
 }: {
-  readonly searchParams: Promise<{ readonly from?: string | readonly string[] }>;
+  readonly searchParams: Promise<{
+    readonly from?: string | readonly string[];
+  }>;
 }) {
   // Витрина читает цены без токена, поэтому до первого чтения сессии её работа попала бы в
   // предзагрузку. `connection()` оставляет её запросу, как у остальных разделов, зависящих от сессии.

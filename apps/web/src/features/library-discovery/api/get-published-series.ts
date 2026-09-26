@@ -18,7 +18,10 @@ export async function getPublishedSeries(
     });
     return mapLibraryDiscoveryResult(result, "series");
   } catch (error) {
-    if (error instanceof BackendConnectionError && error.code === "unavailable") {
+    if (
+      error instanceof BackendConnectionError &&
+      error.code === "unavailable"
+    ) {
       return { kind: "unavailable" };
     }
     throw error;

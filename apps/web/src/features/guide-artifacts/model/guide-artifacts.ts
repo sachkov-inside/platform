@@ -37,7 +37,12 @@ export const guideArtifactListSchema = z
   .strict();
 
 export const guideArtifactListStateSchema = z.discriminatedUnion("kind", [
-  z.object({ artifacts: z.array(guideArtifactSchema), kind: z.literal("ready") }).strict(),
+  z
+    .object({
+      artifacts: z.array(guideArtifactSchema),
+      kind: z.literal("ready"),
+    })
+    .strict(),
   z
     .object({
       kind: z.enum(["error", "not_found", "unauthorized"]),
@@ -46,7 +51,9 @@ export const guideArtifactListStateSchema = z.discriminatedUnion("kind", [
     .strict(),
 ]);
 
-export type GuideArtifactListState = z.infer<typeof guideArtifactListStateSchema>;
+export type GuideArtifactListState = z.infer<
+  typeof guideArtifactListStateSchema
+>;
 
 /** One wording per refusal, shared by the BFF and the browser adapter. */
 export const ARTIFACT_TOO_LARGE = "Файл больше допустимого размера.";
@@ -54,7 +61,9 @@ export const ARTIFACT_NOT_ACCEPTED =
   "Такой файл нельзя приложить: он выглядит как программа или скрипт.";
 
 export const guideArtifactMutationResultSchema = z.discriminatedUnion("kind", [
-  z.object({ artifact: guideArtifactSchema, kind: z.literal("saved") }).strict(),
+  z
+    .object({ artifact: guideArtifactSchema, kind: z.literal("saved") })
+    .strict(),
   z.object({ artifactId: z.uuid(), kind: z.literal("removed") }).strict(),
   z
     .object({ guideIds: z.array(z.uuid()), kind: z.literal("referenced") })
@@ -72,7 +81,8 @@ export type GuideArtifactMutationResult = z.infer<
 export function formatArtifactSize(bytes: number): string {
   if (bytes < 1024) return `${String(bytes)} Б`;
   const kilobytes = bytes / 1024;
-  if (kilobytes < 1024) return `${kilobytes.toFixed(kilobytes < 10 ? 1 : 0)} КБ`;
+  if (kilobytes < 1024)
+    return `${kilobytes.toFixed(kilobytes < 10 ? 1 : 0)} КБ`;
   return `${(kilobytes / 1024).toFixed(1)} МБ`;
 }
 

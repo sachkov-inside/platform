@@ -8,7 +8,10 @@ import {
   type PriceSnapshot,
 } from "@/entities/subscription";
 import { useBillingContact } from "@/features/billing-contact";
-import { CheckoutFlow, oneTimePurchaseInclusions } from "@/features/billing-checkout";
+import {
+  CheckoutFlow,
+  oneTimePurchaseInclusions,
+} from "@/features/billing-checkout";
 import { useCurrentBilling } from "@/features/billing-subscription";
 import { internalRoute } from "@/shared/routing/internal-route";
 import { cn } from "@/shared/lib/utils";
@@ -46,7 +49,9 @@ export function GuidePurchase({
   const failure =
     billing.data?.ok === false && !signedOut ? billing.data.code : undefined;
   const selected =
-    offers.find((offer) => offer.paymentOption.id === selectedId) ?? offers[0] ?? null;
+    offers.find((offer) => offer.paymentOption.id === selectedId) ??
+    offers[0] ??
+    null;
 
   return (
     <GuidePurchaseView
@@ -78,7 +83,9 @@ export function GuidePurchase({
                       )}
                     >
                       <input
-                        checked={offer.paymentOption.id === selected.paymentOption.id}
+                        checked={
+                          offer.paymentOption.id === selected.paymentOption.id
+                        }
                         className="size-5 shrink-0 accent-primary"
                         name="guide-offer"
                         onChange={() => {

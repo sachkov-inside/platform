@@ -5,13 +5,19 @@ import { dependencyFailure } from "../../src/infrastructure/observability/index.
 
 const scope = { module: "billing", operation: "purchase" };
 
-function reported(error: unknown, variant: unknown = { ok: false, error: { code: "dependency_unavailable" } }) {
+function reported(
+  error: unknown,
+  variant: unknown = { ok: false, error: { code: "dependency_unavailable" } },
+) {
   const lines = vi.spyOn(console, "error").mockImplementation(() => undefined);
   lines.mockClear();
   expect(dependencyFailure(scope, error, variant)).toBe(variant);
   expect(lines).toHaveBeenCalledOnce();
   const line = String(lines.mock.calls[0]?.[0]);
-  return { line, record: z.record(z.string(), z.unknown()).parse(JSON.parse(line)) };
+  return {
+    line,
+    record: z.record(z.string(), z.unknown()).parse(JSON.parse(line)),
+  };
 }
 
 describe("dependency failure redaction", () => {
@@ -28,7 +34,11 @@ describe("dependency failure redaction", () => {
 
     const { line, record } = reported(failure);
 
-    expect(record).toMatchObject({ event: "dependency_failure", module: "billing", operation: "purchase" });
+    expect(record).toMatchObject({
+      event: "dependency_failure",
+      module: "billing",
+      operation: "purchase",
+    });
     for (const secret of [
       "db-secret",
       "member@example.com",
@@ -46,31 +56,51 @@ describe("dependency failure redaction", () => {
   });
 
   it("records only the name and code of errors whose text restates the query or its input", () => {
-    const prismaFailure = Object.assign(new Error("Invalid `prisma.billingContact.create()` invocation: { email: \"member@example.com\" }"), {
-      name: "PrismaClientKnownRequestError",
-      code: "P2002",
-    });
-    const parseFailure = new SyntaxError("Unexpected token in JSON at position 3: {\"phone\":\"secret\"}");
-    const postgresFailure = Object.assign(new Error("duplicate key value violates unique constraint"), {
-      code: "23505",
-      detail: "Key (email)=(member@example.com) already exists.",
-    });
+    const prismaFailure = Object.assign(
+      new Error(
+        'Invalid `prisma.billingContact.create()` invocation: { email: "member@example.com" }',
+      ),
+      {
+        name: "PrismaClientKnownRequestError",
+        code: "P2002",
+      },
+    );
+    const parseFailure = new SyntaxError(
+      'Unexpected token in JSON at position 3: {"phone":"secret"}',
+    );
+    const postgresFailure = Object.assign(
+      new Error("duplicate key value violates unique constraint"),
+      {
+        code: "23505",
+        detail: "Key (email)=(member@example.com) already exists.",
+      },
+    );
 
     const prisma = reported(prismaFailure).record.error;
-    expect(prisma).toMatchObject({ type: "PrismaClientKnownRequestError", code: "P2002" });
+    expect(prisma).toMatchObject({
+      type: "PrismaClientKnownRequestError",
+      code: "P2002",
+    });
     expect(prisma).not.toHaveProperty("message");
     const parse = reported(parseFailure).record.error;
     expect(parse).toMatchObject({ type: "SyntaxError" });
     expect(parse).not.toHaveProperty("message");
     const postgres = reported(postgresFailure);
-    expect(postgres.record.error).toMatchObject({ type: "Error", code: "23505", message: "duplicate key value violates unique constraint" });
+    expect(postgres.record.error).toMatchObject({
+      type: "Error",
+      code: "23505",
+      message: "duplicate key value violates unique constraint",
+    });
     expect(postgres.line).not.toContain("member@example.com");
   });
 
   it("links the answer the caller got to the record", () => {
     const { record } = reported(new Error("socket closed"), {
       ok: false,
-      error: { code: "internal_error", correlationId: "7b1e0c1e-4a57-4a57-9a57-0a57a57a57a5" },
+      error: {
+        code: "internal_error",
+        correlationId: "7b1e0c1e-4a57-4a57-9a57-0a57a57a57a5",
+      },
     });
 
     expect(record).toMatchObject({
