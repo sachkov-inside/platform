@@ -43,8 +43,12 @@ Next.js передаёт браузеру данные React (RSC payload) вс�
 'self'`, `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, `frame-ancestors 'none'`,
 `connect-src` только на свой origin и Kinescope. `'unsafe-eval'` разрешён только в разработке.
 Локальные адреса хранилища (`http://127.0.0.1:*`, `http://localhost:9000`) входят в `img-src`
-только в разработке. Тест `apps/web/test/module/security-headers.test.ts` держит эту разницу, а
-production smoke проверяет заголовок, который отдаёт настоящий Caddy.
+только в разработке. Единственное исключение — production-сборка `pnpm smoke:fullstack`: она ходит
+в локальное хранилище и получает его адрес явно через `CSP_LOCAL_OBJECT_STORAGE_ORIGIN`; сборка
+принимает там только loopback-адрес по HTTP, а образ production эту переменную не получает
+([Platform #742](https://github.com/sachkov-inside/platform/issues/742)). Тест
+`apps/web/test/module/security-headers.test.ts` держит эту разницу, а production smoke проверяет
+заголовок, который отдаёт настоящий Caddy.
 
 Пересмотреть решение, когда выполнится одно из условий: Next.js научится ставить nonce или hash во
 встроенные скрипты предсобранной оболочки, или появится фрагмент, который сознательно рендерится

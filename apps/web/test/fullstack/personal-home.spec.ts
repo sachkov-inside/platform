@@ -154,14 +154,12 @@ test("profile continuation opens the real series, persists marks and reconciles 
       await route.fulfill({ status: 503 });
     },
   );
-  await becomeStale(page);
-  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await returnToStaleTab(page);
   // Недоступное продолжение не выдумывает выделенную строку и не двигает маршрут.
   await expect(current).toHaveCount(0);
   expect(await nextRow.boundingBox()).toEqual(rowBefore);
   await page.unroute("**/api/reading-progress/guide-continuation");
-  await becomeStale(page);
-  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await returnToStaleTab(page);
   await expect(current.locator("[data-material-slug]")).toHaveAttribute(
     "data-material-slug",
     "video-pro-developer-pipeline",
@@ -205,8 +203,7 @@ test("profile continuation opens the real series, persists marks and reconciles 
   await page.reload();
   await expect(resumeSeries).toContainText("Прочитано 2 из 3");
   await signInFullStack(context, "EXPIRED_MEMBER");
-  await becomeStale(page);
-  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await returnToStaleTab(page);
   await expect(resumeSeries).toContainText("Прочитано 1 из 3");
   await personal(page);
 });
@@ -347,8 +344,7 @@ test("profile continuation preserves the account form through errors and exclude
   await page.route("**/api/personal-home", async (route) => {
     await route.fulfill({ status: 503 });
   });
-  await becomeStale(page);
-  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await returnToStaleTab(page);
   await expect(
     page.getByText("Не удалось загрузить продолжение обучения."),
   ).toBeVisible();
@@ -446,7 +442,15 @@ test("personal Home retries an already visible open with the same command after 
   expect(commandId(commands[1] ?? "")).toBe(commandId(commands[0] ?? ""));
 });
 
-/** Queries stay fresh for 30 seconds and refetch on focus only after that (ADR 0027, #674). */
-async function becomeStale(page: Page): Promise<void> {
+/**
+ * Queries stay fresh for 30 seconds and are re-read on return to the tab only after that (ADR 0027,
+ * #674). A browser announces the return with `visibilitychange`, which TanStack Query listens to,
+ * and `focus`, which re-checks sign-in; a bare `focus` re-reads nothing since #692.
+ */
+async function returnToStaleTab(page: Page): Promise<void> {
   await page.clock.fastForward("00:31");
+  await page.evaluate(() => {
+    document.dispatchEvent(new Event("visibilitychange", { bubbles: true }));
+    window.dispatchEvent(new Event("focus"));
+  });
 }

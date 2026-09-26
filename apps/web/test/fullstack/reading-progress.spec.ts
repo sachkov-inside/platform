@@ -1,8 +1,26 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page, type Response } from "@playwright/test";
 import { resolve } from "node:path";
 import { signInFullStack } from "../support/full-stack-session";
 import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
+
+/**
+ * Signs in another identity and re-checks sign-in with a bare `focus` until the server has answered
+ * that identity's marks. `focus` re-reads no query, so only the provider remounted for the new Account
+ * reads them, and it starts from `loading`: a later `ready` belongs to the new identity.
+ */
+async function signInAndRecheckOnFocus(
+  page: Page,
+  signIn: () => Promise<unknown>,
+) {
+  await signIn();
+  const marksAnswered = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/reading-progress/states") && response.ok(),
+  );
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await marksAnswered;
+}
 
 async function openReader(
   page: Page,
@@ -116,6 +134,7 @@ test("reading progress reconciles stale windows and account changes without relo
     await expect(button).toHaveAttribute("aria-pressed", "false");
   }
   const other = await browser.newContext();
+  let releaseEarlierCheck = (): void => undefined;
   try {
     await signInFullStack(other);
     const second = await other.newPage();
@@ -128,9 +147,13 @@ test("reading progress reconciles stale windows and account changes without relo
     ).toHaveAttribute("data-reading-action-state", "conflict");
     await expect(button).toHaveAttribute("aria-pressed", "true");
     await page.getByRole("button", { name: "Обновить статус" }).click();
+    await expect(
+      page.locator("[data-reading-action-state]:visible"),
+    ).toHaveAttribute("data-reading-action-state", "ready");
     // Another authenticated identity, in the SAME page and QueryClient.
-    await signInFullStack(context, "EXPIRED_MEMBER");
-    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await signInAndRecheckOnFocus(page, () =>
+      signInFullStack(context, "EXPIRED_MEMBER"),
+    );
     await expect(
       page.locator("[data-reading-action-state]:visible"),
     ).toHaveAttribute("data-reading-action-state", "ready");
@@ -138,15 +161,60 @@ test("reading progress reconciles stale windows and account changes without relo
       await button.click();
       await expect(button).toHaveAttribute("aria-pressed", "false");
     }
-    await signInFullStack(context);
-    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await signInAndRecheckOnFocus(page, () => signInFullStack(context));
     await expect(button).toHaveAttribute("aria-pressed", "true");
-    await context.clearCookies();
+    // Выход, случившийся, пока прежняя проверка входа ещё в пути, не прячется за её ответом:
+    // focus спрашивает сервер заново, а ранний ответ, пришедший последним, ничего не решает.
+    const earlierCheckReleased = new Promise<void>((resolve) => {
+      releaseEarlierCheck = resolve;
+    });
+    let statusChecks = 0;
+    let earlierCheckAnswered = false;
+    await page.route("**/auth/status", async (route) => {
+      statusChecks += 1;
+      if (statusChecks > 1) {
+        await route.continue();
+        return;
+      }
+      const response = await route.fetch();
+      earlierCheckAnswered = true;
+      await earlierCheckReleased;
+      await route.fulfill({ response });
+    });
     await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-    await expect(
-      page.locator("[data-reading-action-state]:visible"),
-    ).toHaveAttribute("data-reading-action-state", "anonymous");
+    await expect.poll(() => earlierCheckAnswered).toBe(true);
+    await context.clearCookies();
+    const isStatusCheck = (response: Response) =>
+      response.url().endsWith("/auth/status");
+    // Задержанный запрос ещё не получил ответа, поэтому первый ответ здесь — новой проверки.
+    const recheckAnswered = page.waitForResponse(isStatusCheck);
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    // Focus, присоединённый к задержанной проверке, второго запроса не отправил бы.
+    await expect.poll(() => statusChecks).toBeGreaterThanOrEqual(2);
+    await recheckAnswered;
+    const readingState = page.locator("[data-reading-action-state]:visible");
+    await expect(readingState).toHaveAttribute(
+      "data-reading-action-state",
+      "anonymous",
+    );
+    const earlierDelivered = page.waitForResponse(isStatusCheck);
+    releaseEarlierCheck();
+    await (await earlierDelivered).finished();
+    // Доказательство отсутствия: ответ целиком в странице, кадр после его разбора отрисован.
+    await page.evaluate(
+      () =>
+        new Promise((resolve) => {
+          requestAnimationFrame(resolve);
+        }),
+    );
+    await expect(readingState).toHaveAttribute(
+      "data-reading-action-state",
+      "anonymous",
+    );
   } finally {
+    // Задержанный ответ, отпущенный после сбоя шага, приходит уже без маршрута: его ошибка не причина.
+    await page.unrouteAll({ behavior: "ignoreErrors" });
+    releaseEarlierCheck();
     await other.close();
   }
 });

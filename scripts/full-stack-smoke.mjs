@@ -48,6 +48,10 @@ childEnvironment.BILLING_CONTACT_SMTP_HOST ??= "127.0.0.1";
 childEnvironment.BILLING_CONTACT_SMTP_PORT ??= "9";
 childEnvironment.BILLING_CONTACT_FROM ??= "no-reply@inside.localhost";
 childEnvironment.BILLING_CONTACT_SMTP_LOCAL_CAPTURE ??= "true";
+// Хранилище прогона — локальное хранилище Compose; адрес закреплён здесь, а не взят молча из
+// значения backend по умолчанию, потому что по нему же строится CSP сборки web ниже.
+childEnvironment.OBJECT_STORAGE_ENDPOINT =
+  childEnvironment.OBJECT_STORAGE_ENDPOINT?.trim() || "http://127.0.0.1:9000";
 // OWNER получает platform:admin для реальных операций каталога/назначения; отдельный MCP автор — только materials:manage.
 // Разрешение делегированных Account стенда принадлежит прогону, а не личному `.env`: иначе
 // `release:bootstrap-owner` возьмёт оттуда чужое значение и прогон начнёт зависеть от машины.
@@ -64,6 +68,17 @@ const fullStackIdentity = await startFullStackIdentity({
   webBaseUrl,
 });
 Object.assign(childEnvironment, fullStackIdentity.environment);
+// Web собирается как production, а превью и аватары браузер берёт по подписанным адресам локального
+// хранилища. Production CSP его не пускает (ADR 0028), поэтому сборка smoke называет адрес явно: тот,
+// который подписывает backend.
+const webEnvironment = {
+  ...childEnvironment,
+  NODE_ENV: "production",
+  CSP_LOCAL_OBJECT_STORAGE_ORIGIN: new URL(
+    childEnvironment.OBJECT_STORAGE_SIGNED_GET_ENDPOINT?.trim() ||
+      childEnvironment.OBJECT_STORAGE_ENDPOINT,
+  ).origin,
+};
 const webReleaseIdentityPath = resolve(
   repositoryRoot,
   "apps/web/release-identity.json",
@@ -97,10 +112,7 @@ try {
     ...childEnvironment,
     OWNER_PERMISSION: "platform:admin",
   });
-  await runPnpm(["--filter", "@inside/web", "build"], {
-    ...childEnvironment,
-    NODE_ENV: "production",
-  });
+  await runPnpm(["--filter", "@inside/web", "build"], webEnvironment);
 
   processes.push(
     startPnpm("API", ["dev:api"], childEnvironment),
@@ -121,11 +133,7 @@ try {
         "--port",
         webPort,
       ],
-      {
-        ...childEnvironment,
-        NODE_ENV: "production",
-        BACKEND_BASE_URL: apiBaseUrl,
-      },
+      { ...webEnvironment, BACKEND_BASE_URL: apiBaseUrl },
     ),
   );
 

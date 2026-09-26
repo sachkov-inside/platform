@@ -2,8 +2,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 async function contentSecurityPolicy(
   environment: "development" | "production",
+  localObjectStorageOrigin?: string,
 ): Promise<string> {
   vi.stubEnv("NODE_ENV", environment);
+  if (localObjectStorageOrigin !== undefined) {
+    vi.stubEnv("CSP_LOCAL_OBJECT_STORAGE_ORIGIN", localObjectStorageOrigin);
+  }
   vi.resetModules();
   const { default: nextConfig } = await import("../../next.config");
   const rules = (await nextConfig.headers?.()) ?? [];
@@ -44,6 +48,21 @@ describe("Web security headers", () => {
     ]) {
       expect(policy.split("; ")).toContain(fixed);
     }
+  });
+
+  it("lets only a full-stack smoke build name its loopback storage origin", async () => {
+    const policy = await contentSecurityPolicy(
+      "production",
+      "http://127.0.0.1:9000",
+    );
+
+    expect(directive(policy, "img-src")).toContain(" http://127.0.0.1:9000 ");
+    expect(policy).not.toContain("http://127.0.0.1:*");
+    expect(policy).not.toContain("localhost");
+    expect(policy.match(/http:\/\//gu)).toHaveLength(1);
+    await expect(
+      contentSecurityPolicy("production", "https://storage.example"),
+    ).rejects.toThrow("CSP_LOCAL_OBJECT_STORAGE_ORIGIN");
   });
 
   it("lets the local stand show previews from its own storage", async () => {

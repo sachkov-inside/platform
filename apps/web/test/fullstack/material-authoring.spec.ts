@@ -185,11 +185,17 @@ for (const access of ["public", "membership"] as const) {
       .getAttribute("data-video-id");
     if (href === null || materialId === null || videoId === null)
       throw new Error("Media references are missing");
-    const memberFile = await (await fullStackPageRequest(page)).get(href);
+    // Ответ Platform сам ставит nosniff: публичный файл отдаётся им, закрытый — редиректом на
+    // подписанный адрес хранилища, чьи заголовки, кроме запрошенного в подписи attachment,
+    // Platform не задаёт.
+    const memberRequest = await fullStackPageRequest(page);
+    const platformFile = await memberRequest.get(href, { maxRedirects: 0 });
+    expect(platformFile.status()).toBe(access === "membership" ? 302 : 200);
+    expect(platformFile.headers()["x-content-type-options"]).toBe("nosniff");
+    const memberFile = await memberRequest.get(href);
     expect(memberFile.status()).toBe(200);
     expect(await memberFile.text()).toBe("Media convergence attachment\n");
     expect(memberFile.headers()["content-disposition"]).toContain("attachment");
-    expect(memberFile.headers()["x-content-type-options"]).toBe("nosniff");
     const wrongMaterial = await (
       await fullStackPageRequest(page)
     ).post("/api/material-video-playback-sessions", {
